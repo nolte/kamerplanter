@@ -6,6 +6,7 @@ import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type { TaskItem } from '@/api/types';
+import { MACHINE_TASK_ORIGINS } from '@/api/types';
 
 vi.mock('react-router-dom', async (orig) => {
   const actual = await orig<typeof import('react-router-dom')>();
@@ -77,9 +78,22 @@ const machineTask = makeTask({
   source: 'goose/leaf-analysis',
 });
 
+/** Every `origin` list the page sent to `GET /tasks/queue`, in order. */
+let requestedOrigins: string[][] = [];
+
 function seed() {
+  requestedOrigins = [];
   server.use(
-    http.get(`${TASKS}/queue`, () => HttpResponse.json([userTask, machineTask])),
+    // The handler *is* the server branch: `origin` is a repeatable parameter and
+    // the endpoint narrows before it answers (#1503). Answering the full list
+    // regardless of the parameter would let a page that filters its own answer
+    // pass here and still be blind past the endpoint's 200-row cap.
+    http.get(`${TASKS}/queue`, ({ request }) => {
+      const origins = new URL(request.url).searchParams.getAll('origin');
+      requestedOrigins.push(origins);
+      const rows = [userTask, machineTask];
+      return HttpResponse.json(origins.length ? rows.filter((t) => origins.includes(t.origin)) : rows);
+    }),
     http.get(`${TASKS}/overdue`, () => HttpResponse.json([])),
     http.get(`${CARE}/dashboard`, () => HttpResponse.json([])),
     http.get(TASKS, () => HttpResponse.json([])),
@@ -112,6 +126,9 @@ describe('TaskQueuePage — FreeStyle origin badge & filter (#1082)', () => {
 
     await waitFor(() => expect(screen.queryByText('Manuelle Aufgabe')).not.toBeInTheDocument());
     expect(screen.getByText('Pipeline-Befund')).toBeInTheDocument();
+    // …and it is the *query* that says so: the machine partition is every
+    // non-user origin, asked for in one request (#1503).
+    expect(requestedOrigins).toContainEqual([...MACHINE_TASK_ORIGINS]);
   });
 
   it('filters to manual tasks only', async () => {
@@ -123,5 +140,20 @@ describe('TaskQueuePage — FreeStyle origin badge & filter (#1082)', () => {
 
     await waitFor(() => expect(screen.queryByText('Pipeline-Befund')).not.toBeInTheDocument());
     expect(screen.getByText('Manuelle Aufgabe')).toBeInTheDocument();
+    expect(requestedOrigins).toContainEqual(['user']);
+  });
+
+  it('drops the origin parameter again when the filter goes back to "all"', async () => {
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+    await screen.findByText('Manuelle Aufgabe');
+
+    await userEvent.click(screen.getByTestId('filter-origin-user'));
+    await waitFor(() => expect(screen.queryByText('Pipeline-Befund')).not.toBeInTheDocument());
+    await userEvent.click(screen.getByTestId('filter-origin-all'));
+
+    // "Every origin" is the absent parameter, not a list of all of them: an
+    // empty list would mean "nothing matches" on the server.
+    expect(await screen.findByText('Pipeline-Befund')).toBeInTheDocument();
+    expect(requestedOrigins[requestedOrigins.length - 1]).toEqual([]);
   });
 });

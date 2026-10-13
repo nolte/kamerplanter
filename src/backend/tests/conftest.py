@@ -10,13 +10,23 @@ live values and turns a message into a session failure.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
 
-import app
-from app.common.exceptions import NotFoundError
+# #2045: the IP limiter counts in ``redis_url`` unless told otherwise. One test
+# process *is* the whole deployment here, and the unit/api tiers refuse a real
+# Valkey connection (tests/support/db_guard.py), so the suite counts in memory —
+# which also keeps ``limiter.reset()`` (MemoryStorage.reset) usable between tests.
+# Set before the first ``app`` import: the limiter is built when the auth router
+# module is imported, from the settings loaded at that moment. ``setdefault`` so
+# a run that deliberately points the limiter elsewhere still can.
+os.environ.setdefault("RATE_LIMIT_STORAGE_URL", "memory://")
+
+import app  # noqa: E402 — must follow the environment default above
+from app.common.exceptions import NotFoundError  # noqa: E402
 from tests.support.execution_guards import (
     find_project_root,
     interpreter_violation,
@@ -43,6 +53,41 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "reason so a new skip is identifiable."
         ),
     )
+    parser.addoption(
+        "--lane-inputs-drift",
+        action="store_true",
+        default=False,
+        help=(
+            "Run the tests marked `lane_inputs_drift` — the rules that hold the committed "
+            ".github/lane-inputs/ manifests against the live workflows. Only lane-inputs.yml "
+            "passes it (#1794); without it they are deselected, not skipped."
+        ),
+    )
+
+
+#: #1794: the marker of the manifest-against-live-workflow rules. They need a CI
+#: recording to turn green after a job changes, so a pull request cannot satisfy them
+#: without one; they run in lane-inputs.yml on `develop`, which passes the option above.
+LANE_INPUTS_DRIFT_MARKER = "lane_inputs_drift"
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Deselect the ``lane_inputs_drift`` tests unless ``--lane-inputs-drift`` asks for them (#1794).
+
+    Deselected, not skipped: a skip would count against every tier's
+    ``--max-skipped`` floor, and a deselection is reported as such. A hook rather
+    than ``-m``: the required guards lane already passes ``-m 'not advisory'``, and a
+    second ``-m`` in ``addopts`` would be overridden by it, silently.
+    """
+    if config.getoption("--lane-inputs-drift"):
+        return
+    kept: list[pytest.Item] = []
+    deselected: list[pytest.Item] = []
+    for item in items:
+        (deselected if item.get_closest_marker(LANE_INPUTS_DRIFT_MARKER) else kept).append(item)
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = kept
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -186,3 +231,66 @@ def sample_substrate_data():
         "reusable": True,
         "max_reuse_cycles": 3,
     }
+
+
+@pytest.fixture(autouse=True)
+def _fresh_step_up_throttle():
+    """Start every test with empty process-wide step-up throttle and code tiers (#1816, #1815).
+
+    Services built without an explicit verifier count into the module-level
+    in-memory store — the point of that default is that a counter survives across
+    per-request service instances. Across *tests* it would carry one test's wrong
+    passwords into the next test's lockout, so each test starts clean.
+    """
+    from app.data_access.external.step_up_code_store import DEFAULT_STEP_UP_CODE_STORE, DEFAULT_STEP_UP_REAUTH_STORE
+    from app.data_access.external.step_up_throttle import (
+        DEFAULT_PASSWORD_RESET_STORE,
+        DEFAULT_STEP_UP_THROTTLE_STORE,
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE,
+        DEFAULT_VERIFICATION_RESEND_STORE,
+    )
+
+    def clear() -> None:
+        DEFAULT_STEP_UP_THROTTLE_STORE._entries.clear()
+        # #1815 / review SEC-002 — the code tier carries codes, the replacement wait
+        # and the hourly issuance budget; one test's issued codes must not spend the
+        # next test's budget.
+        DEFAULT_STEP_UP_CODE_STORE._entries.clear()
+        DEFAULT_STEP_UP_CODE_STORE._cooldowns.clear()
+        DEFAULT_STEP_UP_CODE_STORE._issues.clear()
+        DEFAULT_STEP_UP_REAUTH_STORE._entries.clear()
+        # #2043 — the reset request's per-address budget. A service built without
+        # an explicit store counts here, so three reset requests for one address in
+        # earlier tests would silently stop the next test's mail.
+        DEFAULT_PASSWORD_RESET_STORE._entries.clear()
+        # #2037 / #2046 — the resend budgets, anonymous (per address) and
+        # password-proven (per account): same reason as the reset budget.
+        DEFAULT_VERIFICATION_RESEND_STORE._entries.clear()
+        DEFAULT_VERIFICATION_RESEND_PROVEN_STORE._entries.clear()
+
+    clear()
+    yield
+    clear()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_apprise_resolution_cache():
+    """Start every test with an empty Apprise host cache (#1995).
+
+    The cache is process-wide by design: an answer outlives the request that got
+    it. Across *tests* it would hand one test's resolver double's answer to the
+    next test's lookup of the same name, which then never reaches its own double.
+    """
+    import time
+
+    from app.common.url_safety import _resolution_cache, _save_lane, _send_lane
+
+    _resolution_cache.clear()
+    yield
+    # A lookup still running would write its answer after the clear and hand it to
+    # the next test: wait (bounded) until both lanes are idle. A lane reads idle
+    # only after its lookups' cache writes ran (``on_end`` precedes the release).
+    end = time.monotonic() + 5
+    while (_save_lane.outstanding() or _send_lane.outstanding()) and time.monotonic() < end:
+        time.sleep(0.01)
+    _resolution_cache.clear()

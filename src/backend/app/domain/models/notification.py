@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class NotificationUrgency(StrEnum):
@@ -26,6 +26,8 @@ class NotificationAction(BaseModel):
 class Notification(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
+    #: The recipient. Required on every write (the repository refuses ``""``): every
+    #: reader is per user, so an empty one was a row nobody's inbox shows (MT-045.8).
     user_key: str = ""
     notification_type: str
     title: str
@@ -54,19 +56,37 @@ class ChannelResult(BaseModel):
     success: bool
     error: str | None = None
     external_id: str | None = None
+    #: Push endpoints the push service reported as gone (HTTP 404/410, #1827).
+    #: Structured, so the sender can prune them — until #1827 they were encoded
+    #: into ``error`` as ``expired:<endpoint>,…`` and nothing parsed them. Never
+    #: serialised or printed: an endpoint's path is the device's push token.
+    expired_endpoints: list[str] = Field(default_factory=list, exclude=True, repr=False)
 
 
 # ── Notification Preferences sub-models ─────────────────────────────
+
+
+#: Keys under which a preference once carried a mail recipient. The e-mail
+#: channel mails the account's confirmed address only (#1885); none of these is
+#: stored, read or sent to any more.
+EMAIL_RECIPIENT_KEYS: tuple[str, ...] = ("email", "address")
+
+#: The only keys ``channels.email.config`` may hold (#1885): a positive list, so
+#: a spelling of the recipient this module has not thought of (``Email``, ``to``,
+#: ``recipient``) is not stored either.
+EMAIL_CONFIG_KEYS: frozenset[str] = frozenset({"digest"})
 
 
 class ChannelPreference(BaseModel):
     """Per-channel delivery preference.
 
     ``config`` carries channel-specific settings by convention (no schema).
-    For the ``email`` channel: ``config["email"]`` is the target address and
-    ``config["digest"]`` (bool) opts the user into the daily email digest
-    (REQ-030). For the ``pwa`` channel: ``config["subscriptions"]`` holds the
-    Web Push subscriptions.
+    For the ``email`` channel: ``config["digest"]`` (bool) opts the user into the
+    daily email digest (REQ-030). The recipient is not configurable (#1885): the
+    channel mails the account's confirmed address, and a ``config["email"]``
+    sent by a client is dropped by :class:`NotificationPreferences`.
+    For the ``pwa`` channel: ``config["subscriptions"]`` holds the Web Push
+    subscriptions.
     """
 
     enabled: bool = False
@@ -116,3 +136,16 @@ class NotificationPreferences(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def _drop_free_text_email_recipient(self) -> NotificationPreferences:
+        """Never hold a typed-in mail recipient (#1885).
+
+        Runs on every construction (the preferences route, a row loaded from the
+        database), so a recipient neither gets stored nor survives a read.
+        """
+        email_pref = self.channels.get("email")
+        if email_pref is not None:
+            for key in [k for k in email_pref.config if k not in EMAIL_CONFIG_KEYS]:
+                del email_pref.config[key]
+        return self

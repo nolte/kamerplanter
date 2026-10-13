@@ -65,10 +65,9 @@ def test_up_is_idempotent_when_already_applied() -> None:
 
 def test_audit_cleanup_task_delegates_to_repo() -> None:
     with (
-        patch("app.tasks.mcp_tasks.ArangoConnection") as conn,
+        patch("app.tasks.mcp_tasks.get_db"),
         patch("app.tasks.mcp_tasks.ArangoMcpAuditRepository") as repo_cls,
     ):
-        conn.return_value.db = MagicMock()
         repo_cls.return_value.delete_expired.return_value = 5
         from app.tasks.mcp_tasks import cleanup_expired_audit_log
 
@@ -77,10 +76,9 @@ def test_audit_cleanup_task_delegates_to_repo() -> None:
 
 def test_idempotency_cleanup_task_delegates_to_repo() -> None:
     with (
-        patch("app.tasks.mcp_tasks.ArangoConnection") as conn,
+        patch("app.tasks.mcp_tasks.get_db"),
         patch("app.tasks.mcp_tasks.ArangoMcpIdempotencyRepository") as repo_cls,
     ):
-        conn.return_value.db = MagicMock()
         repo_cls.return_value.delete_expired.return_value = 3
         from app.tasks.mcp_tasks import cleanup_expired_idempotency
 

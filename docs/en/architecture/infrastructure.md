@@ -294,7 +294,7 @@ All configuration is done via environment variables. The most important ones:
 | `JWT_SECRET_KEY` | (no default!) | JWT signing key — set in production! |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins (JSON array) |
 | `DEBUG` | `false` | Debug mode (no HSTS, colored logs) |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | Enforce email verification |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Enforce email verification (without outbound mail: `false`) |
 | `PERENUAL_API_KEY` | `""` | API key for Perenual master data enrichment |
 
 !!! danger "Set JWT_SECRET_KEY in production"
@@ -308,6 +308,8 @@ All configuration is done via environment variables. The most important ones:
 ## Renovate (Dependency Updates)
 
 Dependency updates are automatically created as pull requests via [Renovate](https://github.com/renovatebot/renovate). The configuration lives in `renovate.json5`.
+
+Renovate merges these pull requests into `develop` itself as soon as **every** check on the pull request is green — not only the required ones. This applies to every group and every update type, major updates included. A red or cancelled check holds the pull request until it is re-run or fixed.
 
 ## See Also
 

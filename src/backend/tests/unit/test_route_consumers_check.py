@@ -12,7 +12,7 @@ returns bare ``(method, path)`` pairs. Two walks of FastAPI's ``_IncludedRouter`
 nesting is exactly how a second, quietly different route table gets into a
 repository, so :class:`TestTheRouteOperand` asserts the two walks agree on the
 real app, set for set. ``include_router`` does not flatten: read ``app.routes``
-directly and you get six routes instead of 797, and every number here becomes
+directly and you get six routes instead of 800, and every number here becomes
 fiction — so both operands are size-checked too, an empty side being a broken
 scan and never a pass.
 
@@ -30,7 +30,10 @@ consumer is reported as stale rather than left standing.
 
 **The controls are constructed, not pinned to today's tree**, except where the
 measurement itself is the point: :func:`test_the_measured_candidate_count` records
-797 mounted operations because that is the figure #1478 was filed on, and a change
+800 mounted operations — 797 when #1478 was filed, plus the two write routes
+#1461/#1460 added when generation moved off the read path, minus the global
+dashboard summary #1853 removed, plus ``POST /users/me/step-up-code`` and
+``POST /users/me/step-up/oidc`` (#1815) — and a change
 to it should be *noticed*. Everything else runs against miniature inputs, so a
 triage decision that legitimately gives a route a consumer does not turn this file
 red for the wrong reason.
@@ -135,14 +138,103 @@ class TestTheRouteOperand:
         assert mine == theirs
 
     def test_the_measured_candidate_count(self) -> None:
-        """797 mounted ``/api/v1`` operations — the figure #1478 was filed on.
+        """830 mounted ``/api/v1`` operations (full mode).
 
         Pinned deliberately. The candidate *count* moves with every triage
         decision and is not pinned anywhere; the denominator moving is a route
-        added or removed, which is worth seeing.
+        added or removed, which is worth seeing — and it is exactly what this
+        assertion made visible here.
+
+        797 was the figure #1478 was filed on. #1461/#1460 added the two routes
+        that took generation off the read path, and nothing else:
+
+        * ``POST /t/{tenant_slug}/ai/daily-tip/refresh``
+        * ``POST /t/{tenant_slug}/glossary/term/{slug}/generate``
+
+        #1853 removed ``GET /dashboard/summary``, which read any tenant's
+        dashboard from a ``?tenant_key=`` the caller chose.
+
+        +1: ``POST /users/me/step-up-code`` (#1815) — the e-mailed step-up code
+        of an account without a local password; consumed by ``requestStepUpCode``
+        in ``src/frontend/src/api/endpoints/auth.ts``.
+
+        +1: ``POST /users/me/step-up/oidc`` (#1815) — the fresh OIDC
+        re-authentication of a federated account's step-up.
+
+        +1: ``POST /privacy/email-change/revert`` (#1848) — the revert link the
+        notice to the previous address carries; consumed by ``revertEmailChange``
+        in ``src/frontend/src/api/endpoints/privacy.ts``.
+
+        +1: ``GET /privacy/erasure-preview`` (#1824, AK-FK-06) — the tenants an
+        account erasure takes along, shown before the person confirms; consumed
+        by ``getErasurePreview`` in the same file.
+
+        +1: ``GET /admin/platform/users/{key}/erasure-preview`` (#1961) — the same
+        preview for the target of a platform admin's deletion; consumed by
+        ``getAdminUserErasurePreview`` in ``src/frontend/src/api/endpoints/adminPlatform.ts``.
+
+        +1: ``GET /admin/platform/erasures/{erasure_key}`` (#1949) — the status of the account
+        erasure the admin deletion now only accepts (202); consumed by ``getAdminErasureStatus``
+        in the same file.
+
+        +1: ``POST /auth/resend-verification`` (#2037) — a fresh verification mail for an
+        unverified account; consumed by ``resendVerification`` in
+        ``src/frontend/src/api/endpoints/auth.ts``.
+
+        +1: ``GET /admin/platform/security-audit`` (#2111) — the platform admin's read of the persistent
+        security audit; no page consumes it yet (a reported candidate of ``check_route_consumers.py``, read
+        through the API directly).
+
+        +4: ``/admin/ha-entity-grants/tenants/{tenant_key}`` GET/POST, ``…/inventory`` GET and
+        ``…/{entity_id}`` DELETE (#2112) — the platform admin's per-tenant Home Assistant entity
+        allowlist; inventory, grant and revoke are consumed by
+        ``src/frontend/src/api/endpoints/adminHaEntityGrants.ts``, the plain grant list is read
+        through the API directly (a reported candidate).
+
+        +2: ``POST /tenants/{tenant_slug}/erasure/cancel`` and
+        ``POST /admin/platform/tenants/{key}/erasure/cancel`` (#2123) — cancelling a
+        scheduled tenant deletion; the admin one is consumed by ``cancelAdminTenantErasure``
+        in ``src/frontend/src/api/endpoints/adminPlatform.ts``, the tenant one is API-only.
+
+        +4: ``/t/{tenant_slug}/service-accounts`` GET/POST, ``…/{service_account_key}/rotate-key`` POST
+        and ``…/{service_account_key}`` DELETE (#2137) — a tenant's service accounts; API-only today
+        (REQ-023 §5b.0, the frontend §5b.10 is open), so all four are reported candidates.
+
+        +1: ``POST /t/{tenant_slug}/ai/knowledge/ask`` (#2175) — the knowledge question behind the KI
+        admission. Its predecessor ``POST /knowledge/ask`` is gone, but it was never in this count: the
+        knowledge router mounts only with ``KNOWLEDGE_SERVICE_ENABLED``, which the test defaults leave off.
+        No consumer in the tree, like the route it replaces (a reported candidate).
+
+        −2: ``POST /public/ai/ask`` and ``GET /public/ai/health`` are mounted in
+        light mode only since PR #2208 (REQ-031 §5.3); the full-mode app this
+        inventory imports no longer carries them.
+
+        +1: ``GET /calendar/feeds/{key}/feed.ics`` (#2226) — the public iCal fetch, mounted
+        again after it had been deleted in March 2026 while ``ical_url`` kept pointing at it.
+        Its consumers are calendar apps holding the subscription URL, not the frontend
+        (a reported candidate).
+
+        +6: ``/admin/platform/plans`` GET/POST, ``…/{plan_key}`` PATCH/DELETE,
+        ``GET /admin/platform/tenants/{key}`` and ``GET /tenants/{tenant_slug}/entitlements``
+        (#2142, REQ-056 §7.6/§7.7) — the plan catalogue and a tenant's quotas; consumed since
+        REQ-056 AK-45 by ``src/frontend/src/api/endpoints/adminPlans.ts``, ``fetchAdminTenantDetail``
+        in ``adminPlatform.ts`` and ``getTenantEntitlements`` in ``tenants.ts`` (no longer candidates).
+
+        +2: ``GET /system/takeover-status`` and ``POST /system/takeover`` (#1855, REQ-027 §7a) — the
+        take-over of a former light-mode installation's data; consumed by ``getTakeoverStatus`` and
+        ``decideTakeover`` in ``src/frontend/src/api/endpoints/system.ts``.
+
+        +8: the tenant export and import (#2138, REQ-056 §8), measured 2026-10-12 as the exact set
+        difference against ``origin/develop`` (822 → 830, before #1855's +2 above):
+        ``/tenants/{tenant_slug}/exports`` POST/GET,
+        ``…/exports/{export_key}/download`` GET, ``/admin/platform/tenants/{key}/exports`` POST/GET,
+        ``…/exports/{export_key}/download`` GET, ``POST /admin/platform/tenant-imports`` and
+        ``GET /admin/platform/tenant-imports/{import_key}``. No consumer in the tree yet — the UI is
+        REQ-056 §15, open — so all eight are reported candidates, used through the API directly
+        (runbook ``docs/*/deployment/tenant-export-import.md``).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 797
+        assert len(checker.collect_operations(app)) == 832
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

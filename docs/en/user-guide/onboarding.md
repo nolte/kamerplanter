@@ -99,6 +99,11 @@ Favourites are personal shortcuts: filtered catalogues, recommendations, and lat
 
 If you set favourites in Part 4a, the system shows you matching nutrient plans for your selected plants. You can mark one or more plans as favourites too.
 
+Matching means: the plan is explicitly assigned to one of your favourite plant species. Each card lists under **Suitable for** the species it is suggested for; plans that fit several of your species come first. A plan with no plant species assigned is never offered here — not even when its name sounds like your plant.
+
+!!! info "No matching plan?"
+    The bundled templates cover around 30 species, from tomato and basil to cannabis and Monstera. If the wizard finds no plan, it tells you so — after setup you can create your own plans and assign your species to them on the **Edit** tab under **Suitable for plant species**.
+
 !!! tip "The Fertilizer Cascade"
     When you mark a nutrient plan as a favourite, all fertilizer products it contains are automatically saved as favourites too. This means your personal fertilizer overview is immediately filtered to the products you actually need — no manual clicking required.
 

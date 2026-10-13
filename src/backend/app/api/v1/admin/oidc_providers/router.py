@@ -1,22 +1,33 @@
+from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.oidc_providers.schemas import (
+    CLEARABLE_FIELDS,
     OidcProviderCreateRequest,
+    OidcProviderDeleteRequest,
     OidcProviderResponse,
     OidcProviderTestResponse,
     OidcProviderUpdateRequest,
 )
-from app.common.auth import require_platform_admin
-from app.common.dependencies import get_encryption_engine, get_oauth_engine, get_oidc_config_repo
-from app.common.exceptions import DuplicateError, NotFoundError
-from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.api.v1.auth.schemas import CREDENTIAL_STEP_UP_FIELDS
+from app.common.auth import get_authenticated_with_api_key, require_platform_admin
+from app.common.dependencies import get_oauth_engine, get_oidc_config_repo, get_oidc_provider_admin_service
+from app.common.exceptions import NotFoundError
+from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
+    CRUD_RESPONSES,
+    FORBIDDEN_RESPONSE,
+    STEP_UP_RESPONSES,
+    UNAUTHORIZED_RESPONSE,
+)
+from app.common.request_ip import resolve_client_ip
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
-from app.domain.engines.encryption_engine import EncryptionEngine
-from app.domain.engines.oauth_engine import OAuthEngine
+from app.domain.engines.oauth_engine import DiscoveryIssuerMismatchError, OAuthEngine
 from app.domain.models.oidc_config import OidcProviderConfig
 from app.domain.models.user import User
+from app.domain.services.oidc_provider_admin_service import OidcProviderAdminService
 
 # Every operation here configures installation-wide identity federation and is
 # platform-admin only (#1399). Until then all six resolved their caller through
@@ -29,6 +40,11 @@ from app.domain.models.user import User
 # The two reads are gated too: ``client_id`` and ``issuer_url`` are the
 # installation's federation topology, and #1385 made the same call for the HA URL.
 #
+# The writes pass the admin's own step-up in ``OidcProviderAdminService`` (#1883): the
+# platform-admin gate alone is passed by a hijacked admin session and by an admin's
+# leaked ``kp_`` key, and a provider under an attacker's control signs in as anyone
+# whose address it asserts.
+#
 # A new endpoint here inherits nothing automatically. ``tests/unit/api/test_write_route_gates.py``
 # sweeps the write surface; add read endpoints to that judgement by hand.
 router = APIRouter(
@@ -36,6 +52,49 @@ router = APIRouter(
     tags=["admin-oidc"],
     responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES},
 )
+
+
+def _plain[T](value: T) -> T:
+    """Strip an enum member down to the value the domain model is annotated for.
+
+    ONE conversion rule for both write routes (#1497). The request schemas carry
+    `OidcProviderType`; `OidcProviderConfig.provider_type` is a `str`, and the
+    update (``OidcProviderAdminService.update_provider``, #1883) merges the body into
+    the stored model — so whatever is handed over is what gets stored. A `StrEnum` member would compare
+    equal to its value and still be a different object in the document.
+
+    Deliberately narrow. `model_dump(mode="json")` would do the same job and
+    rather more: it would also turn a future `datetime` field into a string and
+    set THAT on the domain model, silently, through the same unvalidated
+    `setattr`.
+
+    **Measured (2026-09-18), because only one of the two call sites needs it.**
+    `OidcProviderConfig(provider_type=OidcProviderType.GITHUB)` stores a plain
+    `str` — the constructor validates and coerces. `config.provider_type = member`
+    stores the MEMBER. So the create route is already safe through its own
+    construction, and the update route is not; applying the same rule at both
+    keeps them from answering the question differently, and keeps the create route
+    safe if it ever stops constructing the model itself.
+    """
+    return value.value if isinstance(value, Enum) else value
+
+
+def _write_fields(body: OidcProviderCreateRequest | OidcProviderUpdateRequest) -> dict:
+    """The configuration fields of a write body: sent ones only, plain values, never the step-up.
+
+    ``exclude_none`` keeps a partial update partial; the step-up fields are the
+    admin's confirmation and never reach the configuration (#1883).
+
+    **Except a clearable field sent empty (#2182 SEC-002).** ``default_tenant_key`` sent as
+    ``null`` or ``""`` (the schema reads both as ``None``) means "no default tenant": it is
+    carried as ``None`` - ``model_fields_set`` tells it from a field that was not sent - so an
+    admin can remove the setting again. On create it is the same as leaving it out.
+    """
+    data = body.model_dump(exclude_none=True, exclude=CREDENTIAL_STEP_UP_FIELDS)
+    for field in CLEARABLE_FIELDS:
+        if field in body.model_fields_set and getattr(body, field) is None:
+            data[field] = None
+    return {field: _plain(value) for field, value in data.items()}
 
 
 def _response(c: OidcProviderConfig) -> OidcProviderResponse:
@@ -50,6 +109,7 @@ def _response(c: OidcProviderConfig) -> OidcProviderResponse:
         enabled=c.enabled,
         icon_url=c.icon_url,
         auto_discover=c.auto_discover,
+        default_tenant_key=c.default_tenant_key,
         discovery_refreshed_at=c.discovery_refreshed_at,
         created_at=c.created_at,
         updated_at=c.updated_at,
@@ -65,42 +125,36 @@ def list_providers(
     return [_response(c) for c in repo.list_all()]
 
 
-@router.post("", response_model=OidcProviderResponse, status_code=201)
+@router.post(
+    "",
+    response_model=OidcProviderResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **STEP_UP_RESPONSES},
+)
 def create_provider(
     body: OidcProviderCreateRequest,
-    _current_user: User = Depends(require_platform_admin),
-    repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
-    encryption: EncryptionEngine = Depends(get_encryption_engine),
-    oauth_engine: OAuthEngine = Depends(get_oauth_engine),
+    current_user: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
+    service: OidcProviderAdminService = Depends(get_oidc_provider_admin_service),
 ):
     """Create a new OIDC/OAuth provider configuration.
 
-    A GitHub provider whose scopes cannot read the address list is refused with
-    422 (#1477) rather than stored and discovered later from one log line per
-    sign-in.
+    **Step-up (#1883):** the requesting admin's own — ``current_password``, or
+    ``step_up_token`` / ``step_up_code`` obtained for ``oidc_provider_change`` with the
+    target ``new:<slug>``; 401 without it, 403 from an API-key request, 429
+    ``STEP_UP_LOCKED``. A GitHub provider whose scopes cannot read the address list
+    is refused with 422 (#1477), a taken slug with 409 — both before the step-up.
     """
-    existing = repo.get_by_slug(body.slug)
-    if existing:
-        raise DuplicateError("OidcProviderConfig", "slug", body.slug)
-
-    config = OidcProviderConfig(
-        slug=body.slug,
-        display_name=body.display_name,
-        provider_type=body.provider_type,
-        issuer_url=body.issuer_url,
-        client_id=body.client_id,
-        client_secret_encrypted=encryption.encrypt(body.client_secret),
-        scopes=body.scopes,
-        authorization_url=body.authorization_url,
-        token_url=body.token_url,
-        userinfo_url=body.userinfo_url,
-        auto_discover=body.auto_discover,
-        enabled=body.enabled,
-        icon_url=body.icon_url,
-        default_tenant_key=body.default_tenant_key,
+    created = service.create_provider(
+        _write_fields(body),
+        requester=current_user,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
     )
-    oauth_engine.require_supported_scopes(config)
-    created = repo.create(config)
     return _response(created)
 
 
@@ -117,49 +171,69 @@ def get_provider(
     return _response(config)
 
 
-@router.put("/{key}", response_model=OidcProviderResponse)
+@router.put(
+    "/{key}",
+    response_model=OidcProviderResponse,
+    responses={**FORBIDDEN_RESPONSE, **STEP_UP_RESPONSES},
+)
 def update_provider(
     key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
     body: OidcProviderUpdateRequest,
-    _current_user: User = Depends(require_platform_admin),
-    repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
-    encryption: EncryptionEngine = Depends(get_encryption_engine),
-    oauth_engine: OAuthEngine = Depends(get_oauth_engine),
+    current_user: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
+    service: OidcProviderAdminService = Depends(get_oidc_provider_admin_service),
 ):
     """Update an existing OIDC/OAuth provider configuration.
+
+    **Step-up (#1883):** needed unless the update changes only ``display_name``,
+    ``icon_url`` (switching it on *or off* needs it too) — the requesting admin's own
+    confirmation for ``oidc_provider_change`` with the configuration's key as the
+    target; 401 without it, 403 from an API-key request, 429 ``STEP_UP_LOCKED``.
 
     The scope check (#1477) runs on the MERGED result, not on the request body:
     a request may switch `provider_type` to `github` without touching `scopes`,
     or add `user:email` while leaving the type alone, and only the state that
     would be stored answers whether sign-in can read the address list.
     """
-    config = repo.get_by_key(key)
-    if config is None:
-        raise NotFoundError("OidcProviderConfig", key)
-
-    data = body.model_dump(exclude_none=True)
-    for field, value in data.items():
-        if field == "client_secret":
-            config.client_secret_encrypted = encryption.encrypt(value)
-        else:
-            setattr(config, field, value)
-
-    oauth_engine.require_supported_scopes(config)
-    updated = repo.update(key, config)
+    updated = service.update_provider(
+        key,
+        _write_fields(body),
+        requester=current_user,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
     return _response(updated)
 
 
-@router.delete("/{key}", status_code=204)
+@router.delete("/{key}", status_code=204, responses={**FORBIDDEN_RESPONSE, **STEP_UP_RESPONSES})
 def delete_provider(
     key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
-    _current_user: User = Depends(require_platform_admin),
-    repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
+    body: OidcProviderDeleteRequest | None = None,
+    current_user: User = Depends(require_platform_admin),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
+    service: OidcProviderAdminService = Depends(get_oidc_provider_admin_service),
 ):
-    """Delete an OIDC/OAuth provider configuration."""
-    config = repo.get_by_key(key)
-    if config is None:
-        raise NotFoundError("OidcProviderConfig", key)
-    repo.delete(key)
+    """Delete an OIDC/OAuth provider configuration.
+
+    **Step-up (#1883):** the requesting admin's own confirmation for
+    ``oidc_provider_change`` with the configuration's key as the target, in the
+    body; 401 without it, 403 from an API-key request, 429 ``STEP_UP_LOCKED``.
+    """
+    step_up = body or OidcProviderDeleteRequest()
+    service.delete_provider(
+        key,
+        requester=current_user,
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+    )
 
 
 @router.post("/{key}/test", response_model=OidcProviderTestResponse)
@@ -169,11 +243,19 @@ def test_provider(
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     oauth_engine: OAuthEngine = Depends(get_oauth_engine),
 ):
-    """Fetch and validate the OIDC discovery document, and judge the scope list.
+    """Fetch and validate the OIDC discovery document, and judge type, scopes, signing keys and issuer.
 
-    The scope verdict (#1477) is reported on EVERY path, before the discovery
-    fetch. A provider stored before the write gate existed can only learn of the
-    missing `user:email` scope here — and GitHub publishes no
+    **Login checks (#1987).** ``jwks_check`` fetches the provider's key set the way a sign-in does
+    (the key URL resolved and checked, the response size-capped, an unusable key skipped and
+    counted) and says whether it worked; ``issuer_check`` says whether the ``iss`` the provider
+    announces is one the sign-in accepts. Both are verdicts, never errors: a failing one is what
+    would otherwise reach the operator as ``oauth_login_refused`` after the first users were
+    turned away. Neither fills the login's key cache.
+
+    Both verdicts — the scope one (#1477) and the provider-type one (#1497) — are
+    reported on EVERY path, before the discovery fetch. A provider stored before
+    the write gate existed can only learn of the missing `user:email` scope — or
+    of its own unusable provider type — here, and GitHub publishes no
     `.well-known/openid-configuration` at all, so the discovery step always fails
     for exactly the provider type the check is about. Computing the verdict after
     an early return would have left it unreachable for GitHub.
@@ -183,11 +265,35 @@ def test_provider(
         raise NotFoundError("OidcProviderConfig", key)
 
     scope_check = oauth_engine.check_provider_scopes(config)
+    provider_type_check = oauth_engine.check_provider_type(config)
 
+    discovery: dict | None = None
+    announced: str | None = None
+    discovery_error: str | None = None
     try:
         discovery = oauth_engine.fetch_discovery_document(config.issuer_url)
+        announced = discovery.get("issuer")
+    except DiscoveryIssuerMismatchError as e:
+        announced = e.announced
+        discovery_error = str(e)
     except Exception as e:
-        return OidcProviderTestResponse(message=f"Discovery fetch failed: {e}", scope_check=scope_check)
+        discovery_error = str(e)
+
+    # The two verdicts about the login's own checks (#1987), reported whether or not the
+    # discovery document could be fetched: a provider whose discovery fails may still have
+    # an explicit key endpoint, and "the issuer it announces is not the one configured" is the
+    # most useful thing to say about a document refused for exactly that.
+    jwks_check = oauth_engine.check_jwks(config, discovery=discovery, discovery_error=discovery_error)
+    issuer_check = oauth_engine.check_issuer(config, announced=announced, discovery_error=discovery_error)
+
+    if discovery is None:
+        return OidcProviderTestResponse(
+            message=f"Discovery fetch failed: {discovery_error}",
+            scope_check=scope_check,
+            provider_type_check=provider_type_check,
+            jwks_check=jwks_check,
+            issuer_check=issuer_check,
+        )
 
     # Validate required fields
     required = ["authorization_endpoint", "token_endpoint", "issuer"]
@@ -196,18 +302,38 @@ def test_provider(
         return OidcProviderTestResponse(
             message=f"Discovery document missing fields: {', '.join(missing)}",
             scope_check=scope_check,
+            provider_type_check=provider_type_check,
+            jwks_check=jwks_check,
+            issuer_check=issuer_check,
         )
 
-    # Save discovery document
-    config.discovery_document = discovery
+    # Save the discovery document — and only it (#1883 security review SEC-002).
+    # The fetch above may take its full timeout, paced by the issuer; a write of
+    # the whole snapshot read before it would revert any change made meanwhile,
+    # including a step-up'd one (issuer, secret, switching the provider off).
+    # And only while the issuer is still the one fetched from (/code-review of
+    # #1910): a repoint that landed during the fetch must not get the old
+    # issuer's endpoints, which sign-in prefers over the configured ones.
     from datetime import UTC, datetime
 
-    config.discovery_refreshed_at = datetime.now(UTC)
-    repo.update(key, config)
+    stored = repo.update_discovery(
+        key, issuer_url=config.issuer_url, discovery_document=discovery, refreshed_at=datetime.now(UTC)
+    )
+    if not stored:
+        return OidcProviderTestResponse(
+            message="The provider's issuer changed during the discovery fetch; nothing was stored. Run the test again.",
+            scope_check=scope_check,
+            provider_type_check=provider_type_check,
+            jwks_check=jwks_check,
+            issuer_check=issuer_check,
+        )
 
     return OidcProviderTestResponse(
         message=f"OIDC discovery for '{config.slug}' validated successfully. "
         f"Endpoints: authorization={discovery.get('authorization_endpoint', 'N/A')}, "
         f"token={discovery.get('token_endpoint', 'N/A')}",
         scope_check=scope_check,
+        provider_type_check=provider_type_check,
+        jwks_check=jwks_check,
+        issuer_check=issuer_check,
     )

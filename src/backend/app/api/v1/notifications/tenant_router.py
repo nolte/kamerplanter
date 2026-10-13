@@ -23,13 +23,14 @@ from app.api.v1.notifications.schemas import (
     UnreadCountResponse,
     VapidPublicKeyResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_account_principal
 from app.common.dependencies import get_care_reminder_service, get_notification_service
 from app.common.enums import ReminderType
 from app.common.exceptions import ForbiddenError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
+from app.domain.engines.apprise_url_secrets import masked_channels
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.models.notification import NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
@@ -50,6 +51,9 @@ _CARE_CONFIRM_ACTIONS: frozenset[str] = frozenset({"confirm", "confirm_watering"
 #: only answer 403, or a grower refused one (SEC-006 of the #1443 review).
 _CARE_TYPE_PREFIX = "care."
 
+# Writes of the caller's ACCOUNT-WIDE settings below depend on
+# ``require_account_principal``: the tenant in the path admits a tenant-scoped API
+# key, but these settings span every tenant of its owner (#1851).
 router = APIRouter(prefix="/notifications", tags=["notifications"], responses=NOT_FOUND_RESPONSE)
 
 
@@ -231,12 +235,12 @@ def get_preferences(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
 ) -> NotificationPreferencesResponse:
-    """Get notification preferences for the current user."""
+    """Get notification preferences for the current user (Apprise URLs masked, #2113)."""
     prefs = service.get_preferences(ctx.user_key)
     return NotificationPreferencesResponse(
         key=prefs.key,
         user_key=prefs.user_key or ctx.user_key,
-        channels=prefs.channels,
+        channels=masked_channels(prefs.channels),
         quiet_hours=prefs.quiet_hours,
         batching=prefs.batching,
         escalation=prefs.escalation,
@@ -247,13 +251,19 @@ def get_preferences(
     )
 
 
-@router.put("/preferences", response_model=NotificationPreferencesResponse)
+@router.put(
+    "/preferences", response_model=NotificationPreferencesResponse, dependencies=[Depends(require_account_principal)]
+)
 def update_preferences(
     body: NotificationPreferencesRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
 ) -> NotificationPreferencesResponse:
-    """Update notification preferences for the current user."""
+    """Update notification preferences for the current user.
+
+    A masked Apprise placeholder (``tgram://****#1``) sent back keeps the stored URL
+    it stands for; the answer is masked like the GET (#2113).
+    """
     prefs = NotificationPreferences(
         user_key=ctx.user_key,
         channels=body.channels,
@@ -263,11 +273,11 @@ def update_preferences(
         type_overrides=body.type_overrides,
         daily_summary=body.daily_summary,
     )
-    updated = service.update_preferences(ctx.user_key, prefs)
+    updated = service.update_preferences(ctx.user_key, prefs, tenant_key=ctx.tenant_key)
     return NotificationPreferencesResponse(
         key=updated.key,
         user_key=updated.user_key,
-        channels=updated.channels,
+        channels=masked_channels(updated.channels),
         quiet_hours=updated.quiet_hours,
         batching=updated.batching,
         escalation=updated.escalation,
@@ -352,7 +362,7 @@ def get_vapid_public_key(
     return VapidPublicKeyResponse(vapid_public_key=settings.vapid_public_key)
 
 
-@router.post("/pwa/subscribe", response_model=PwaSubscribeResponse)
+@router.post("/pwa/subscribe", response_model=PwaSubscribeResponse, dependencies=[Depends(require_account_principal)])
 def subscribe_pwa(
     body: PwaSubscribeRequest,
     ctx: TenantContext = Depends(get_current_tenant),
@@ -369,7 +379,9 @@ def subscribe_pwa(
     return PwaSubscribeResponse(endpoint=endpoint)
 
 
-@router.post("/pwa/unsubscribe", response_model=PwaUnsubscribeResponse)
+@router.post(
+    "/pwa/unsubscribe", response_model=PwaUnsubscribeResponse, dependencies=[Depends(require_account_principal)]
+)
 def unsubscribe_pwa(
     body: PwaUnsubscribeRequest,
     ctx: TenantContext = Depends(get_current_tenant),

@@ -37,10 +37,15 @@ tasks:
       Verify the Helm chart and the Skaffold deploy configuration wire together
       — the skaffold-verify CI job's check sequence: chart dependency build,
       helm lint, template render, skaffold diagnose, and an offline skaffold
-      render that must produce the full chart (>= 10 resources; an empty render
-      passing silently is the vacuous green that job exists to prevent). Needs
-      helm and skaffold, no cluster and no registry (--offline,
-      --digest-source=none).
+      render that must produce the full chart (>= 10 resources, every container
+      carrying a real image reference; an empty render — or one whose containers
+      have no image at all — passing silently is the vacuous green that job
+      exists to prevent). Needs helm and skaffold, no cluster and no registry
+      (--offline, --digest-source=none).
+
+      The render step calls the SAME script the CI job calls, so the two cannot
+      drift; see scripts/ci/skaffold_render_verify.sh for why the image
+      references must be supplied explicitly.
     cmds:
       - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
       - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
@@ -52,13 +57,35 @@ tasks:
         set -euo pipefail
         out=$(mktemp)
         trap 'rm -f "$out"' EXIT
-        skaffold render --offline=true --digest-source=none --output "$out"
-        kinds=$(grep -c '^kind:' "$out" || true)
-        if [ "$kinds" -lt 10 ]; then
-          echo "verify:skaffold: render produced only $kinds resources — expected the full chart." >&2
-          exit 1
-        fi
-        echo "verify:skaffold: render produced $kinds resources."
+        ./scripts/ci/skaffold_render_verify.sh "$out"
+      - ./scripts/ci/assert_chart_contracts.sh helm/kamerplanter
+
+  verify:chart:
+    desc: |
+      Render-time contracts of the Helm chart (attachment storage switch and
+      the multi-replica refusal, backup CronJob, backend startup budget,
+      least-privilege ArangoDB credentials) — the same script the
+      skaffold-verify CI job runs after its render. Needs helm and mikefarah
+      yq v4; builds the chart dependencies first.
+    cmds:
+      - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
+      - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
+      - helm dependency build helm/kamerplanter
+      - ./scripts/ci/assert_chart_contracts.sh helm/kamerplanter
+
+  verify:proxy-body-limit:
+    desc: |
+      #2144 (G-10) — run the image's and the chart's nginx configuration in the
+      production nginx image and probe the edge body limit (the largest upload
+      is forwarded, 30 MiB answers 413). The same script the skaffold-verify CI
+      job runs. Needs docker, helm and mikefarah yq v4; builds the chart
+      dependencies first. NGINX_IMAGE overrides the pinned image (e.g. a cached
+      tag when the digest cannot be pulled).
+    cmds:
+      - helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/ --force-update
+      - helm repo add ollama https://otwld.github.io/ollama-helm/ --force-update
+      - helm dependency build helm/kamerplanter
+      - ./scripts/ci/probe_proxy_body_limit.sh helm/kamerplanter
 
   security:nuclei:validate:
     desc: |

@@ -27,12 +27,25 @@
  */
 import { waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import FertilizerListPage from '@/pages/duengung/FertilizerListPage';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+// One budget for every asynchronous step, shared with the sibling
+// catalogue-reach files and checked against the configured `testTimeout` in
+// `waitBudget.test.ts`.
+//
+// This file is why it exists (#1531): 2–4 of its cases failed per loaded
+// full-suite run, a different subset each time, never in isolation. Reproduced
+// against 16 busy loops on 8 cores — three cases failed after 8575–9953 ms with
+// `Unable to find an element with the text: pH Perfect Sensi Grow A`, i.e. with
+// the message this file exists to report when a product really is missing. The
+// budget that expired was 5 s (the explicit `{ timeout: 5000 }` these waits
+// used to carry, and the suite-wide `asyncUtilTimeout` for those that carried
+// none), not the case timeout, which the durations never came near.
+import { WAIT_BUDGET } from '../waitBudget';
 
 /**
  * A catalogue of 53 products whose last three by name are the ones #956 reported
@@ -46,8 +59,48 @@ const MISSING_IN_956 = [
   'pH Perfect Sensi Grow B',
 ];
 
+/**
+ * The page size the single-page reader applies when a caller passes none:
+ * `fetchFertilizers(offset = 0, limit = 50)` in `@/api/endpoints/fertilizers`.
+ * That default — on the *client*, not only on the server — is what the defect
+ * was made of, so it is also what bounds this fixture from below: a catalogue of
+ * `API_DEFAULT_PAGE_SIZE` rows or fewer is returned whole by the bounded reader
+ * too, and the case would pass against the defect.
+ */
+const API_DEFAULT_PAGE_SIZE = 50;
+
+/**
+ * The table's own client-side page size (`useTableUrlState`'s `defaultPageSize`,
+ * which `FertilizerListPage` does not override). It is why the search box is the
+ * *only* route to the three products below: they sort last, so they are not on
+ * the first rendered page, and `expectNotRenderedBeforeSearch` pins that.
+ */
+const TABLE_PAGE_SIZE = 25;
+
+/**
+ * Why this fixture is not modelled small, unlike the queue cap in
+ * `TaskQueuePlantScope.test.tsx` (#1526) — measured on this file, isolated, by
+ * varying the filler length (`load` = mount to first row, `settle` = paste to
+ * the searched row appearing):
+ *
+ * |  rows | load        | settle          |
+ * |-------|-------------|-----------------|
+ * |     5 | 359–373 ms  | 7–10 ms         |
+ * |    53 | 410–609 ms  | 653–998 ms      |
+ * |   403 | 423–651 ms  | 651–1034 ms     |
+ *
+ * Flat, not linear: the table renders `TABLE_PAGE_SIZE` rows per page whatever
+ * the catalogue holds, so 403 rows cost the same as 53 and the fixture is not
+ * the cost here. And the 5-row row of that table is not a cheaper test, it is a
+ * vacuous one — 7 ms means the row was already on screen and the assertion never
+ * needed the search box at all. So #1526's repair shape does not transfer; see
+ * `WAIT_BUDGET` for what actually bound under load.
+ */
 const CATALOGUE = [
-  ...Array.from({ length: 50 }, (_v, index) => `Base Nutrient ${String(index).padStart(2, '0')}`),
+  ...Array.from(
+    { length: API_DEFAULT_PAGE_SIZE },
+    (_v, index) => `Base Nutrient ${String(index).padStart(2, '0')}`,
+  ),
   ...MISSING_IN_956,
 ];
 
@@ -78,10 +131,12 @@ function serveCatalogue(): { requests: { offset: number; limit: number }[] } {
 
   const handler = ({ request }: { request: Request }) => {
     const url = new URL(request.url);
-    // The backend applies its own default of 50 when the caller sends none —
-    // the behaviour that turned "no paging argument" into a silent truncation.
+    // The backend applies its own default when the caller sends none — the
+    // behaviour that turned "no paging argument" into a silent truncation. It is
+    // the same number as the client-side default, which is why one constant
+    // stands for both.
     const offset = Number(url.searchParams.get('offset') ?? '0');
-    const limit = Number(url.searchParams.get('limit') ?? '50');
+    const limit = Number(url.searchParams.get('limit') ?? String(API_DEFAULT_PAGE_SIZE));
     requests.push({ offset, limit });
     return HttpResponse.json(sorted.slice(offset, offset + limit));
   };
@@ -136,7 +191,53 @@ async function search(
   await user.paste(query);
 }
 
+/**
+ * Waits until the first page of the catalogue is on screen.
+ *
+ * `Base Nutrient 00` sorts first, so its arrival means the fetch resolved and
+ * the table rendered — the precondition every case below shares.
+ */
+async function waitForCatalogueLoaded(page: ScopedQueries): Promise<void> {
+  await waitFor(
+    () => {
+      expect(page.getByText('Base Nutrient 00')).toBeTruthy();
+    },
+    { timeout: WAIT_BUDGET },
+  );
+}
+
+/**
+ * Asserts the product is *not* on screen yet, before anything is searched.
+ *
+ * Half of the guard that keeps this file from certifying nothing: every
+ * positive case below asserts that a product becomes findable after a search,
+ * and that assertion is vacuous if the product was rendered all along —
+ * measured at 7 ms to "find" the row with a 5-row catalogue, versus ~1 s at 53.
+ * The other half is the size check in `beforeAll`, which states the same
+ * requirement about the fixture instead of about one render, and therefore also
+ * covers the case that never calls this function.
+ */
+function expectNotRenderedBeforeSearch(page: ScopedQueries, productName: string): void {
+  expect(page.queryByText(productName)).toBeNull();
+}
+
 describe('FertilizerListPage — the whole catalogue is reachable by search (#995)', () => {
+  beforeAll(() => {
+    // The fixture is bound from below by *two* different page sizes, and both
+    // bounds are asserted here rather than described in prose, because
+    // shrinking the filler is precisely the change the comment on `CATALOGUE`
+    // invites and neither bound announces itself when it is crossed.
+    //
+    // Falsifiability: at or below the reader's own default the capped reader
+    // returns the catalogue whole, so every positive case would pass against
+    // the defect. (A filler of 30 clears `TABLE_PAGE_SIZE` and fails here —
+    // which is the point: the smaller bound alone would have let it through.)
+    expect(CATALOGUE.length).toBeGreaterThan(API_DEFAULT_PAGE_SIZE);
+    // Non-vacuity: at or below the table's page size the searched product is
+    // rendered before anything is typed, and the search box is never exercised.
+    expect(CATALOGUE.length).toBeGreaterThan(TABLE_PAGE_SIZE);
+  });
+
   beforeEach(() => {
     i18n.changeLanguage('de');
   });
@@ -145,9 +246,7 @@ describe('FertilizerListPage — the whole catalogue is reachable by search (#99
     const { requests } = serveCatalogue();
     const page = renderPage();
 
-    await waitFor(() => {
-      expect(page.getByText('Base Nutrient 00')).toBeTruthy();
-    });
+    await waitForCatalogueLoaded(page);
 
     // The load must not have stopped at a page boundary. Asking for a page of 50
     // and rendering the answer is precisely the defect; the page asks for the
@@ -163,9 +262,8 @@ describe('FertilizerListPage — the whole catalogue is reachable by search (#99
       const user = userEvent.setup({ delay: null });
       const page = renderPage();
 
-      await waitFor(() => {
-        expect(page.getByText('Base Nutrient 00')).toBeTruthy();
-      });
+      await waitForCatalogueLoaded(page);
+      expectNotRenderedBeforeSearch(page, productName);
 
       await search(page, user, productName);
 
@@ -176,11 +274,10 @@ describe('FertilizerListPage — the whole catalogue is reachable by search (#99
         () => {
           expect(page.getByText(productName)).toBeTruthy();
         },
-        { timeout: 5000 },
+        { timeout: WAIT_BUDGET },
       );
       expect(page.queryByTestId('no-search-results')).toBeNull();
     },
-    20000,
   );
 
   it('still reports no results for a product that really is not there', async () => {
@@ -190,9 +287,7 @@ describe('FertilizerListPage — the whole catalogue is reachable by search (#99
     const user = userEvent.setup({ delay: null });
     const page = renderPage();
 
-    await waitFor(() => {
-      expect(page.getByText('Base Nutrient 00')).toBeTruthy();
-    });
+    await waitForCatalogueLoaded(page);
 
     await search(page, user, 'Definitely Not A Seeded Product');
 
@@ -200,7 +295,7 @@ describe('FertilizerListPage — the whole catalogue is reachable by search (#99
       () => {
         expect(page.getByTestId('no-search-results')).toBeTruthy();
       },
-      { timeout: 5000 },
+      { timeout: WAIT_BUDGET },
     );
-  }, 20000);
+  });
 });

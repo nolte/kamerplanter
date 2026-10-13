@@ -1,13 +1,15 @@
 """NFR-013 §2.2 — ArangoDB repository for the ``attachments`` collection."""
 
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
 from app.domain.models.attachment import Attachment, QualityAssessment
 
@@ -185,6 +187,9 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
     """ArangoDB-backed repository for ``attachments``."""
 
     _model_cls = Attachment
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.ATTACHMENTS)
@@ -283,6 +288,22 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             return None
         return Attachment(**self._from_doc(doc))
 
+    def mark_renditions_failed(self, tenant_key: str, storage_key: str) -> int:
+        """#2108 — set ``renditions_failed`` on every record of the tenant holding the object (AQL)."""
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.storage_key == @storage_key
+          UPDATE att WITH { renditions_failed: true, updated_at: @now } IN @@collection
+          RETURN 1
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "storage_key": storage_key,
+            "now": datetime.now(UTC).isoformat(),
+        }
+        return len(list(cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))))
+
     def find_by_user(
         self,
         tenant_key: str,
@@ -294,7 +315,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key AND att.created_by == @user_key
           FILTER @categories == null OR att.category IN @categories
-          SORT att.created_at DESC
+          SORT DATE_TIMESTAMP(att.created_at) DESC
           RETURN att
         """
         bind_vars = {
@@ -337,22 +358,6 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return int(next(cursor, 0) or 0)
 
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        """REQ-024/-025 — delete every attachment metadata document of a tenant."""
-        query = """
-        FOR att IN @@collection
-          FILTER att.tenant_key == @tenant_key
-          REMOVE att IN @@collection
-          COLLECT WITH COUNT INTO removed
-          RETURN removed
-        """
-        bind_vars = {
-            "@collection": self._collection_name,
-            "tenant_key": tenant_key,
-        }
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return int(next(cursor, 0) or 0)
-
     def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
         query = """
         FOR att IN @@collection
@@ -370,6 +375,66 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if doc is None:
             return None
         return Attachment(**self._from_doc(doc))
+
+    def find_own_by_sha256(
+        self, *, tenant_key: str, sha256: str, created_by: str, category: AttachmentCategory
+    ) -> Attachment | None:
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.sha256 == @sha256
+          FILTER att.created_by == @created_by AND att.category == @category
+          SORT DATE_TIMESTAMP(att.created_at) ASC
+          LIMIT 1
+          RETURN att
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "sha256": sha256,
+            "created_by": created_by,
+            "category": category.value,
+        }
+        doc = next(self._db.aql.execute(query, bind_vars=bind_vars), None)
+        if doc is None:
+            return None
+        return Attachment(**self._from_doc(doc))
+
+    def storage_keys_held_elsewhere(
+        self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
+    ) -> set[str]:
+        if not storage_keys:
+            return set()
+        # Tenant-filtered on purpose, and the safe direction all the same: a
+        # storage key embeds its tenant (``t/{tenant}/…``), so a record of another
+        # tenant cannot hold it, and a legacy record without ``tenant_key`` is not
+        # one this tenant's deletion may count on.
+        query = """
+        FOR att IN @@collection
+          FILTER att.storage_key IN @storage_keys
+          FILTER att.tenant_key == @tenant_key
+          FILTER att._key NOT IN @excluding
+          COLLECT storage_key = att.storage_key
+          RETURN storage_key
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "storage_keys": list(storage_keys),
+            "tenant_key": tenant_key,
+            "excluding": list(excluding),
+        }
+        return set(self._db.aql.execute(query, bind_vars=bind_vars))
+
+    def held_storage_keys(self, storage_keys: list[str]) -> set[str]:
+        if not storage_keys:
+            return set()
+        query = """
+        FOR att IN @@collection
+          FILTER att.storage_key IN @storage_keys
+          COLLECT storage_key = att.storage_key
+          RETURN storage_key
+        """
+        bind_vars = {"@collection": self._collection_name, "storage_keys": list(storage_keys)}
+        return set(self._db.aql.execute(query, bind_vars=bind_vars))
 
     def count_by_tenant(self, tenant_key: str) -> int:
         query = """
@@ -391,7 +456,10 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         RETURN SUM(
           FOR att IN @@collection
             FILTER att.tenant_key == @tenant_key
-            RETURN att.byte_size
+            // One object, one charge: records that share deduplicated bytes
+            // (#1770) point at the same storage key.
+            COLLECT storage_key = att.storage_key AGGREGATE size = MAX(att.byte_size)
+            RETURN size
         )
         """
         bind_vars = {
@@ -413,7 +481,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key
           FILTER @category == null OR att.category == @category
-          SORT att.created_at DESC
+          SORT DATE_TIMESTAMP(att.created_at) DESC
           LIMIT @offset, @limit
           RETURN att
         """
@@ -502,7 +570,8 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # comes from the module-level tuple above, never from a caller.
         parts += [
             f"          (FOR d IN @@extra_col_{index}{tenant(collection)} "
-            f"RETURN IS_ARRAY(d.{field}) ? d.{field} : (d.{field} == null ? [] : [d.{field}]))"
+            f"RETURN IS_ARRAY(d.{aql_field(field)}) ? d.{aql_field(field)} "
+            f": (d.{aql_field(field)} == null ? [] : [d.{aql_field(field)}]))"
             for index, (collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
         ]
         collected = ",\n".join(parts)
@@ -665,10 +734,10 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
 {self._aql_referenced_prelude()}
         FOR att IN @@collection
           FILTER att.category == @category
-            AND att.created_at != null
-            AND att.created_at < @cutoff
+            AND DATE_TIMESTAMP(att.created_at) != null
+            AND DATE_TIMESTAMP(att.created_at) < DATE_TIMESTAMP(@cutoff)
             AND {self._aql_unreferenced("referenced", "att")}
-          SORT att.created_at ASC
+          SORT DATE_TIMESTAMP(att.created_at) ASC
           LIMIT @limit
           RETURN att
         """
@@ -682,3 +751,26 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
 
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Attachment(**self._from_doc(doc)) for doc in cursor]
+
+    def count_undated_orphaned_task_photos(self) -> int:
+        """Unreferenced task photos :meth:`find_orphaned_task_photos` can never select (#1806 GDPR-003).
+
+        The sweep needs ``created_at`` to apply its age floor, so a task photo
+        without a readable one is held for ever, silently. Same reference test as
+        the sweep (nothing mentions the key), with the date test inverted.
+        """
+        query = f"""
+{self._aql_referenced_prelude()}
+        FOR att IN @@collection
+          FILTER att.category == @category
+            AND DATE_TIMESTAMP(att.created_at) == null
+            AND {self._aql_unreferenced("referenced", "att")}
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "category": AttachmentCategory.TASK.value,
+        }
+        bind_vars.update(self._reference_bind_vars())
+        return int(next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), 0))

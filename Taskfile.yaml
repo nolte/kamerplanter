@@ -47,3 +47,6 @@ includes:
   claude:
     taskfile: .taskfiles/claude.yaml
     flatten: true
+  reach:
+    taskfile: .taskfiles/reach.yaml
+    flatten: true

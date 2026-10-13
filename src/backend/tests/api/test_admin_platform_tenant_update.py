@@ -17,7 +17,6 @@ real, valid tenant documents on every path, so the only thing that can reject a
 payload is a real validator.
 """
 
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -29,19 +28,33 @@ from fastapi.testclient import TestClient
 from app.api.v1.admin.platform import router as mod
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_tenant_service
-from app.common.enums import AdminScope, TenantRole
+from app.common.enums import AdminScope, TenantRole, TenantStatus
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.models.membership import MemberInfo
+from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 
 TENANT_KEY = "t-1"
 ORIGINAL_NAME = "Community Garden"
 ORIGINAL_SLUG = "community-garden"
+
+# #2009 — a change of ``is_active`` passes the admin's own step-up; this is the admin's password.
+# Assembled at runtime: a literal shaped like a credential trips the secret scanner (#1838).
+ADMIN_PASSWORD = " ".join(["correct", "horse", "battery", "staple"])
+ADMIN = User.model_validate(
+    {
+        "_key": "admin-1",
+        "email": "admin-1@example.com",
+        "display_name": "Admin",
+        "password_hash": PasswordEngine().hash_password(ADMIN_PASSWORD),
+    }
+)
 
 PLATFORM_KEY = "platform"
 PLATFORM_NAME = "Platform"
@@ -58,7 +71,7 @@ def _tenant_doc() -> dict[str, Any]:
         "tenant_type": "organization",
         "description": "The old description",
         "owner_user_key": "u-owner",
-        "is_active": True,
+        "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
         "is_platform": False,
         "max_members": 50,
         "settings": {},
@@ -77,7 +90,7 @@ def _platform_tenant_doc() -> dict[str, Any]:
         "tenant_type": "organization",
         "description": "System platform tenant",
         "owner_user_key": "u-owner",
-        "is_active": True,
+        "status": "active",  # v0085 (#2123): the lifecycle state replaced the bool
         "is_platform": True,
         "max_members": 50,
         "settings": {},
@@ -104,13 +117,15 @@ class _FakeCollection:
         document: dict[str, Any],
         return_new: bool = False,
         keep_none: bool = True,
+        merge: bool = True,
     ) -> dict[str, Any]:
         key = document["_key"]
         stored = self._store[key]
         patch = {field: value for field, value in document.items() if field != "_key"}
-        if not keep_none:
-            patch = {field: value for field, value in patch.items() if value is not None}
         stored.update(patch)
+        if not keep_none:  # ArangoDB ``keepNull: false``: an attribute set to null is removed
+            for field in [field for field, value in patch.items() if value is None]:
+                stored.pop(field, None)
         return {"new": dict(stored)} if return_new else {"_key": key}
 
 
@@ -123,6 +138,25 @@ class _FakeAql:
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None):
         bind_vars = bind_vars or {}
+        if "FILTER current IN @expected" in query:
+            # ``ArangoTenantRepository.transition_status`` — the compare-and-set, over the store (REQ-056).
+            from app.domain.models.tenant import Tenant
+            from tests.support.tenant_transitions import apply_transition
+
+            doc = self._store.get(bind_vars["key"])
+            moved = apply_transition(
+                Tenant.model_validate(doc) if doc is not None else None,
+                expected={TenantStatus(value) for value in bind_vars["expected"]},
+                status=TenantStatus(bind_vars["status"]) if bind_vars["status"] else None,
+                deletion_scheduled_at=bind_vars["at"] if bind_vars["set_at"] else "keep",
+                previous=bind_vars["previous"],
+                restore_fallback=TenantStatus(bind_vars["fallback"]) if bind_vars["fallback"] else None,
+            )
+            if moved is None:
+                return iter([])
+            assert doc is not None
+            doc.update(moved.model_dump(mode="json", by_alias=True, exclude_none=True))
+            return iter([dict(doc)])
         if "RETURN doc" in query:
             # AQLBuilder list query — the repository's get_by_slug lookup.
             wanted = bind_vars.get("v0")
@@ -169,7 +203,10 @@ def client(
     db = _FakeDb(store, member_count)
 
     membership_repo = MagicMock()
-    membership_repo.list_by_tenant.return_value = _members(member_count)
+    # The admin views count in the database (#2131): reading the member list for a
+    # number is the defect, so the list read fails the test instead of answering it.
+    membership_repo.count_active_members.return_value = member_count
+    membership_repo.list_by_tenant.side_effect = AssertionError("member_count must not read the member list")
 
     service = TenantService(
         tenant_repo=ArangoTenantRepository(db),  # type: ignore[arg-type]
@@ -185,7 +222,7 @@ def client(
     app.include_router(mod.router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
-    app.dependency_overrides[require_platform_admin] = lambda: SimpleNamespace(key="admin-1")
+    app.dependency_overrides[require_platform_admin] = lambda: ADMIN
     app.dependency_overrides[get_tenant_service] = lambda: service
     return TestClient(app)
 
@@ -279,13 +316,14 @@ class TestExistingBehaviourIsPreserved:
         """``is_active`` is the one field ``TenantUpdateRequest`` does not carry.
 
         It has to keep working, or the fix would be a refusal that passes by
-        blocking the very thing this endpoint exists for.
+        blocking the very thing this endpoint exists for. Since #2009 it carries
+        the admin's step-up.
         """
-        response = _patch(client, {"is_active": False})
+        response = _patch(client, {"is_active": False, "current_password": ADMIN_PASSWORD})
 
         assert response.status_code == 200
         assert response.json()["is_active"] is False
-        assert store[TENANT_KEY]["is_active"] is False
+        assert store[TENANT_KEY]["status"] == "suspended"
 
     def test_response_carries_the_live_member_count(self, client):
         response = _patch(client, {"description": "A new description"})
@@ -339,15 +377,15 @@ class TestPlatformTenantCannotBeDeactivated:
         )
 
         assert response.status_code == 403
-        assert store[PLATFORM_KEY]["is_active"] is True
+        assert store[PLATFORM_KEY]["status"] == "active"
 
     def test_an_ordinary_tenant_stays_deactivable(self, client, store):
-        """The half that catches a guard refusing everyone."""
-        response = _patch(client, {"is_active": False})
+        """The half that catches a guard refusing everyone (with the #2009 step-up)."""
+        response = _patch(client, {"is_active": False, "current_password": ADMIN_PASSWORD})
 
         assert response.status_code == 200
         assert response.json()["is_active"] is False
-        assert store[TENANT_KEY]["is_active"] is False
+        assert store[TENANT_KEY]["status"] == "suspended"
 
     def test_platform_tenant_non_deactivation_updates_still_pass(self, client, store):
         """The guard is scoped to deactivation — a rename must still work."""
@@ -360,4 +398,4 @@ class TestPlatformTenantCannotBeDeactivated:
 
         assert response.status_code == 200
         assert store[PLATFORM_KEY]["description"] == "Renamed platform description"
-        assert store[PLATFORM_KEY]["is_active"] is True
+        assert store[PLATFORM_KEY]["status"] == "active"

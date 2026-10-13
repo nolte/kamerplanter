@@ -14,6 +14,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.domain.models.glossary_term import GlossaryTerm, GlossaryTermCacheEntry
 
 
@@ -21,7 +22,6 @@ class ArangoGlossaryTermRepository(BaseArangoRepository[GlossaryTerm]):
     """``glossary_terms`` — the curated term skeleton (§2.1)."""
 
     _model_cls = GlossaryTerm
-    _entity_name = "GlossaryTerm"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.GLOSSARY_TERMS)
@@ -149,7 +149,6 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
     """``glossary_term_cache`` — cached RAG answers per term/language/level (§2.2)."""
 
     _model_cls = GlossaryTermCacheEntry
-    _entity_name = "GlossaryTermCacheEntry"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.GLOSSARY_TERM_CACHE)
@@ -169,8 +168,8 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
           FILTER doc.term_slug == @term_slug
           FILTER doc.language == @language
           FILTER doc.expertise_level == @expertise_level
-          FILTER doc.valid_until == null OR doc.valid_until > @now
-          SORT doc.generated_at DESC
+          FILTER doc.valid_until == null OR DATE_TIMESTAMP(doc.valid_until) > DATE_TIMESTAMP(@now)
+          SORT DATE_TIMESTAMP(doc.generated_at) DESC
           LIMIT 1
           RETURN doc
         """
@@ -245,18 +244,35 @@ class ArangoGlossaryTermCacheRepository(BaseArangoRepository[GlossaryTermCacheEn
         cursor = self._db.aql.execute(query, bind_vars={"@collection": self._collection_name})
         return next(cursor, 0)
 
+    def count_undated(self) -> int:
+        """Rows :meth:`delete_expired` can never select: no readable ``valid_until`` (#1946, #1806 GDPR-003)."""
+        query = """
+        FOR doc IN @@collection
+          FILTER DATE_TIMESTAMP(doc.valid_until) == null
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": self._collection_name})
+        return int(next(iter(cursor), 0))
+
     def delete_expired(self, *, now: datetime | None = None) -> int:
         """Remove cache rows whose ``valid_until`` has passed (§4.3 cleanup)."""
         cutoff = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER doc.valid_until != null AND doc.valid_until < @cutoff
+          FILTER doc.valid_until < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.valid_until) != null
+            AND DATE_TIMESTAMP(doc.valid_until) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "cutoff": cutoff},
+            bind_vars={
+                "@collection": self._collection_name,
+                "cutoff": cutoff,
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         return next(cursor, 0)

@@ -156,7 +156,7 @@ class _Cultivar:
 
 
 class _SpeciesService:
-    def get_species(self, key: str) -> _Species:
+    def get_species(self, key: str, *, tenant_key: str | None = None) -> _Species:
         if key != "solanum_lycopersicum":
             raise NotFoundError("Species", key)
         return _Species()
@@ -192,6 +192,8 @@ class _Attachment:
     def __init__(self, key: str, mime_type: str = "image/jpeg") -> None:
         self.key = key
         self.mime_type = mime_type
+        self.tenant_key = TENANT
+        self.renditions_failed = False
         self.storage_key = f"t/{TENANT}/diary/2026/08/{key}.jpg"
 
 
@@ -215,6 +217,9 @@ class _Attachments:
         #: a response that fails with ``payload.too_large`` says nothing about
         #: how many objects were read to produce it.
         self.thumbnail_reads: list[tuple[str, int]] = []
+        from app.data_access.external.rendition_dispatch_claims import MemoryRenditionDispatchClaims
+
+        self.claims = MemoryRenditionDispatchClaims()
 
     def add(self, key: str, *, mime_type: str = "image/jpeg", **sizes: bytes) -> None:
         self.records[key] = _Attachment(key, mime_type)
@@ -231,9 +236,16 @@ class _Attachments:
     async def open_thumbnail_stream(self, attachment: _Attachment, size: int):
         raw = self.renditions.get((attachment.key, size))
         if raw is None:
-            raise NotFoundError("object", f"{attachment.storage_key}_t{size}.webp")
+            raise NotFoundError("storage object", f"{attachment.storage_key}_t{size}.webp")
         self.thumbnail_reads.append((attachment.key, size))
         return _stream(raw)
+
+    def request_thumbnails(self, attachment: _Attachment) -> bool:
+        # The production gate itself (#2108), with a per-world in-process claim
+        # instead of Valkey — so the tests below reach the real task object.
+        from app.tasks.storage_tasks import request_thumbnails
+
+        return request_thumbnails(attachment, self.claims)  # type: ignore[arg-type]
 
     async def open_stream(self, attachment: _Attachment):
         self.original_reads.append(attachment.key)
@@ -1883,3 +1895,21 @@ def test_list_entries_is_a_tenant_bound_read_tool() -> None:
     # No free-text search: it would match against a body this tool refuses to return.
     assert "q" not in spec.input_schema["properties"]
     assert "search" not in spec.input_schema["properties"]
+
+
+class _TenantAwareSpecies:
+    """Mirrors the real ``SpeciesService.get_species``: a foreign private species is a 404 once a tenant is given."""
+
+    def get_species(self, key: str, *, tenant_key: str | None = None) -> _Species:
+        if key == "foreign_private" and tenant_key is not None:
+            raise NotFoundError("Species", key)
+        return _Species()
+
+
+def test_species_name_is_resolved_under_the_callers_tenant() -> None:
+    from app.mcp_server.tools.diary import _species_name
+
+    ctx = type("Ctx", (), {"tenant_key": "tenant-a", "species_service": _TenantAwareSpecies()})()
+
+    assert _species_name(ctx, "foreign_private", {}) is None
+    assert _species_name(ctx, "solanum_lycopersicum", {}) == "Solanum lycopersicum"

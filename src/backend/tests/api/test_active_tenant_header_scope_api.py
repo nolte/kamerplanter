@@ -90,9 +90,9 @@ _USER = "user_1"
 #: the "anonymous / no context" class that must resolve to ``""`` (global-only).
 _USER_WITHOUT_TENANT = "user_without_tenant"
 
-_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden")
-_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club")
+_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden", is_active=True)
+_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club", is_active=True)
 
 _ORG_HEADER = {ACTIVE_TENANT_HEADER: _ORG.slug}
 
@@ -176,7 +176,7 @@ class _FakeTenantService:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
         tenant = self._by_slug.get(slug)
         if tenant is None:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
@@ -258,7 +258,7 @@ class _FakeSpeciesRepo(NoGrantsMixin):
             None,
         )
 
-    def find_synonym_match_candidates(self, species: Species) -> list[Species]:
+    def find_synonym_match_candidates(self, species: Species, *, tenant_key: str) -> list[Species]:
         return []
 
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species:
@@ -313,10 +313,10 @@ class _FakeGraphRepo:
 
     _EDGE_SPECIES = {"_key": "sp_global", "scientific_name": _GLOBAL_ROSE, "common_names": ["Hundsrose"]}
 
-    def get_compatible_species(self, species_key: str) -> list[dict[str, Any]]:
+    def get_compatible_species(self, species_key: str, *, tenant_key: str | None = None) -> list[dict[str, Any]]:
         return [{"species": self._EDGE_SPECIES, "score": 0.8}]
 
-    def get_incompatible_species(self, species_key: str) -> list[dict[str, Any]]:
+    def get_incompatible_species(self, species_key: str, *, tenant_key: str | None = None) -> list[dict[str, Any]]:
         return [{"species": self._EDGE_SPECIES, "reason": "allelopathy"}]
 
 
@@ -348,7 +348,7 @@ def _harness(*, org_role: TenantRole = TenantRole.GROWER, user_key: str = _USER)
     service = SpeciesService(species_repo, graph_repo=_FakeGraphRepo())  # type: ignore[arg-type]
     tenant_service = _FakeTenantService(org_role=org_role)
 
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=user_key, account_type="user")
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key=user_key, account_type="human")
     app.dependency_overrides[get_tenant_service] = lambda: tenant_service
     app.dependency_overrides[get_species_service] = lambda: service
     app.dependency_overrides[get_family_repo] = lambda: family_repo

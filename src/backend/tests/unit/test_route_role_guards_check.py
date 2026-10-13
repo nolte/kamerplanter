@@ -541,6 +541,8 @@ class TestEntryBodiesAreScannedNotSliced:
             original = "gate: 'GET /api/v1/admin/platform/x — require_platform_admin'"
             emptied = "gate: ''"
         source = table.read_text(encoding="utf-8")
+        # prose-permeable: tamper helper: the literal it replaces must be present verbatim before it writes the file
+        # back
         assert original in source
         table.write_text(source.replace(original, emptied), encoding="utf-8")
 

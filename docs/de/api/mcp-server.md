@@ -42,6 +42,8 @@ Deinen persönlichen Key erstellst du dir selbst über `POST /api/v1/auth/api-ke
 !!! warning "Ein API-Key ist ein Dauerschlüssel"
     Anders als ein Login-Token läuft ein API-Key nicht nach Minuten ab — genau deshalb eignet er sich für einen dauerhaft laufenden MCP-Client. Behandle ihn wie ein Passwort: Wer ihn hat, kann alles, was du in deinen Gärten kannst. Lege für jeden Client einen eigenen Key an, dann kannst du einzelne gezielt widerrufen.
 
+Eine auf dem Key hinterlegte IP-Allowlist oder ein Anfragen-Limit pro Minute gilt für MCP-Aufrufe genauso wie für die REST-API — beide Schnittstellen teilen sich dasselbe Budget je Key (siehe [Authentifizierung — IP-Allowlist und Rate Limit je Key](authentication.md#ip-allowlist-und-rate-limit-je-key)).
+
 ### Du siehst ausschließlich deine eigenen Daten
 
 Ein Key gewährt genau die Gärten (Mandanten), in denen sein Konto **aktives Mitglied** ist — aufgelöst über dieselbe Quelle, auf die auch die normale API zugreift. Über MCP ist dadurch nichts erreichbar, was du nicht auch in der Weboberfläche siehst. Ein Garten, in dem du nicht Mitglied bist, verhält sich exakt so, als gäbe es ihn nicht (`not_found`) — die Schnittstelle verrät also nicht einmal seine Existenz.
@@ -101,16 +103,9 @@ Dieser Endpunkt ist bewusst auf Service Accounts beschränkt. Ein ungültiger, w
 !!! info "Auch im Light-Modus verfügbar"
     Eine Light-Instanz kennt keine Benutzerkonten — Anmeldung, Sitzungen und Sicherheitseinstellungen fehlen dort bewusst. Die **API-Schlüssel-Verwaltung gibt es trotzdem**, denn sie ist die einzige Anmeldeform, die der MCP-Server akzeptiert. Der Schlüssel gehört dort dem System-Benutzer, der Mitglied des Standard-Gartens ist. Zusätzliche Rechte entstehen dadurch nicht: Wer eine Light-Instanz erreicht, hat ohnehin vollen Zugriff — der Schlüssel macht diesen Zugriff nur von außen nutzbar. Genau deshalb gehört eine Light-Instanz nicht ins offene Internet.
 
-**Als Service Account — Betreiber-Schritt:**
+**Als Service Account:**
 
-!!! warning "Noch nicht implementiert"
-    Die vollständige, selbstständige Service-Account-Verwaltung (Erstellen, Rotieren, Deaktivieren über die API — siehe [Service Accounts & API-Keys](service-accounts.md)) ist spezifiziert, aber noch nicht umgesetzt. Aktuell ist das Anlegen eines Nutzerkontos mit `account_type: "service"` ein **Betreiber-Schritt** außerhalb der öffentlichen API, kein Selbstbedienungsfluss (interne Referenz: REQ-023).
-
-Damit ein maschineller MCP-Client heute einen funktionierenden Key bekommt, sind folgende Zutaten nötig:
-
-1. Ein Nutzerkonto mit `account_type: "service"` (kein Passwort, kein interaktiver Login) — vom Betreiber der Instanz angelegt.
-2. Eine Mandanten-Mitgliedschaft dieses Kontos mit genau der Rolle (`viewer`/`grower`/`admin`), die dem gewünschten [Berechtigungsniveau](#berechtigungsmodell-mcpread-mcpwrite-mcpsetup) entspricht.
-3. Ein API-Key für dieses Konto, technisch derselbe Mechanismus wie unter [Service Accounts & API-Keys — API-Key verwenden](service-accounts.md#api-key-verwenden) beschrieben — da ein Service Account jedoch nie interaktiv angemeldet ist, kann er den Key nicht selbst über den `/auth/api-keys`-Endpunkt anfordern; auch dieser Schritt läuft heute über den Betreiber.
+Ein maschineller MCP-Client bekommt seinen Key über einen Service Account, den die Leitung eines Gartens selbst anlegt — siehe [Service Accounts & API-Keys](service-accounts.md#service-account-anlegen). Die Antwort enthält den ersten Key; er ist an diesen einen Garten gebunden, und der Service Account hat dort die Rolle `viewer` oder `grower`, die dem gewünschten [Berechtigungsniveau](#berechtigungsmodell-mcpread-mcpwrite-mcpsetup) entspricht. Eine Leitungsrolle bekommt ein Service Account nicht. Den Key verwendest du wie unter [Den Key verwenden](service-accounts.md#den-key-verwenden) beschrieben. <!-- REQ-023 §5b, Issue #2137 -->
 
 ## Client einrichten (Claude Code)
 
@@ -275,7 +270,7 @@ Weil die Rolle je Garten gilt, kann derselbe Key in deinem eigenen Garten schrei
 | Werkzeug | Zweck |
 |----------|-------|
 | `create_site` | Standort-Wurzel anlegen (Wohnung, Garten, Balkon, Gewächshaus, Fensterbank, Growzelt) |
-| `assign_species_phase_sequence` | Eine Art an eine **vorhandene** Phasen-Abfolge binden. Verlangt `mcp.setup` und nicht nur `mcp.write`, weil Arten und Abfolgen zum gemeinsamen Katalog gehören: eine einzige Bindung ändert den Zeitplan aller Pflanzen dieser Art in *jedem* Garten. Abfolgen zu *definieren* bleibt bewusst Aufgabe der Oberfläche |
+| `assign_species_phase_sequence` | Eine Art an eine **vorhandene** Phasen-Abfolge binden. Verlangt `mcp.setup` und nicht nur `mcp.write` **und die Plattform-Admin-Rolle** (das Werkzeug hat keinen Mandanten; für Nicht-Admins ist es nicht gelistet und wird mit `permission.denied` abgelehnt), weil Arten und Abfolgen zum gemeinsamen Katalog gehören: eine einzige Bindung ändert den Zeitplan aller Pflanzen dieser Art in *jedem* Garten. Abfolgen zu *definieren* bleibt bewusst Aufgabe der Oberfläche |
 
 Jedes Werkzeug prüft die referenzierten Schlüssel (Pflanze, Standort, Bereich, Slot) grundsätzlich gegen den für diesen Aufruf aufgelösten Mandanten. Ein Fremdschlüssel aus einem anderen Mandanten liefert konsequent `not_found` — niemals `permission.denied` — damit kein Werkzeug die Existenz fremder Ressourcen verrät.
 

@@ -136,10 +136,53 @@ class FakeRepo:
         self.rows = [r for r in self.rows if r.get("species_key") != species_key]
         return before - len(self.rows)
 
+    def delete_user_contributions(self, contributed_by: str, tenant_key: str | None = None) -> int:
+        """Mirror of the real delete: same refusals, same ``source`` bound."""
+        from app.vectordb.repository import USER_CONTRIBUTED_SOURCE, require_erasure_key
+
+        require_erasure_key("contributed_by", contributed_by)
+        if tenant_key is not None:
+            require_erasure_key("tenant_key", tenant_key)
+
+        def _hit(r: dict) -> bool:
+            return (
+                r.get("source") == USER_CONTRIBUTED_SOURCE
+                and r.get("contributed_by") == contributed_by
+                and (tenant_key is None or r.get("tenant_key") == tenant_key)
+            )
+
+        before = len(self.rows)
+        self.rows = [r for r in self.rows if not _hit(r)]
+        return before - len(self.rows)
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        """Mirror of the real delete: same refusal, same ``source`` bound."""
+        from app.vectordb.repository import USER_CONTRIBUTED_SOURCE, require_erasure_key
+
+        require_erasure_key("tenant_key", tenant_key)
+        before = len(self.rows)
+
+        def _hit(r: dict) -> bool:
+            return r.get("source") == USER_CONTRIBUTED_SOURCE and r.get("tenant_key") == tenant_key
+
+        self.rows = [r for r in self.rows if not _hit(r)]
+        return before - len(self.rows)
+
     def count(self, species_key=None) -> int:
         if species_key:
             return sum(1 for r in self.rows if r.get("species_key") == species_key)
         return len(self.rows)
+
+
+#: Postgres ``~ '[^[:space:]]'`` under the store's en_US.UTF-8 locale (glibc
+#: ``iswspace``) treats the non-breaking spaces as text, unlike Python's
+#: ``str.isspace`` — measured against pgvector/pgvector:pg16 (#1771).
+_NON_BREAKING_SPACES = "\xa0\u2007\u202f"
+
+
+def _index_blank(value: object) -> bool:
+    """Whether the index's listing leaves *value* out as blank."""
+    return not isinstance(value, str) or all(c.isspace() and c not in _NON_BREAKING_SPACES for c in value)
 
 
 class FakePestRepo:
@@ -197,6 +240,43 @@ class FakePestRepo:
         before = len(self.rows)
         self.rows = [r for r in self.rows if r.get("label") != label]
         return before - len(self.rows)
+
+    def delete_contributions(self, contribution_keys: list[str]) -> int:
+        # Same refusals as the real repository (shared helpers), same row filter.
+        from app.vectordb.pest_repository import require_contribution_keys
+
+        keys = set(require_contribution_keys(contribution_keys))
+        before = len(self.rows)
+        self.rows = [
+            r for r in self.rows if not (r.get("source") == "user_contributed" and r.get("source_record_id") in keys)
+        ]
+        return before - len(self.rows)
+
+    def delete_tenant_contributions(self, tenant_key: str) -> int:
+        from app.vectordb.pest_repository import tenant_contribution_prefix
+
+        prefix = tenant_contribution_prefix(tenant_key)
+        before = len(self.rows)
+        self.rows = [
+            r
+            for r in self.rows
+            if not (r.get("source") == "user_contributed" and (r.get("source_url") or "").startswith(prefix))
+        ]
+        return before - len(self.rows)
+
+    def list_contribution_keys(self, *, after=None, limit=None) -> list[str]:
+        # Same refusal and row filter as the real repository (#1771).
+        from app.vectordb.pest_repository import require_page_limit
+
+        page_size = require_page_limit(limit)
+        keys = sorted(
+            {
+                r["source_record_id"]
+                for r in self.rows
+                if r.get("source") == "user_contributed" and not _index_blank(r.get("source_record_id"))
+            }
+        )
+        return [k for k in keys if after is None or k > after][:page_size]
 
     def count(self, label=None) -> int:
         if label:

@@ -92,6 +92,12 @@ class NutrientPlanCreate(BaseModel):
     is_template: bool = False
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)
+    species_keys: list[str] = Field(
+        default_factory=list,
+        max_length=200,
+        description="Species this plan is written for (#1618). The onboarding plan match filters on it; "
+        "a plan linked to no species matches none. Every key must be a species the tenant can see.",
+    )
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
     cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
@@ -128,6 +134,8 @@ class NutrientPlanUpdate(BaseModel):
     is_template: bool | None = None
     version: str | None = None
     tags: list[str] | None = None
+    # ``None`` leaves the relation unchanged; ``[]`` clears it (#1618).
+    species_keys: list[str] | None = Field(default=None, max_length=200)
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
     cycle_restart_from_sequence: int | None = Field(default=None, ge=1)
@@ -155,6 +163,7 @@ class NutrientPlanResponse(BaseModel):
     is_template: bool
     version: str
     tags: list[str]
+    species_keys: list[str] = Field(default_factory=list)
     cloned_from_key: str | None
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = None

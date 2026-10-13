@@ -4,6 +4,7 @@ import {
   subscribePwa,
   unsubscribePwa,
 } from '@/api/endpoints/notifications';
+import { isPushSupported } from '@/lib/pushSubscription';
 
 export type PwaPushState =
   | 'unsupported'
@@ -42,16 +43,6 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array {
     outputArray[i] = rawData.charCodeAt(i);
   }
   return outputArray;
-}
-
-function isPushSupported(): boolean {
-  return (
-    typeof navigator !== 'undefined' &&
-    'serviceWorker' in navigator &&
-    typeof window !== 'undefined' &&
-    'PushManager' in window &&
-    'Notification' in window
-  );
 }
 
 /**

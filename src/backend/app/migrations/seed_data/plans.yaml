@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./schemas/plans.schema.yaml
+# REQ-056 §7.1 / §13.2 (#2142) — the plan catalogue's seed.
+#
+# ``standard`` is the default plan of every tenant (operator decision, REQ-056 E-01).
+# Every limit is ``null`` = the instance setting (TENANT_MAX_MEMBERS_CEILING,
+# TENANT_MAX_SERVICE_ACCOUNTS, STORAGE_TENANT_QUOTA_MB, STORAGE_MAX_PHOTOS_PER_INSTANCE,
+# AI_BUDGET_*), so an installation behaves exactly as before plans existed — including
+# every limit an operator set through an environment variable.
+#
+# Create-if-absent: a plan the platform admin renamed or changed is never overwritten,
+# and further plans are created by the platform admin, not here.
+plans:
+  - key: standard
+    name: Standard
+    description: Default plan. Every limit follows the instance settings.
+    is_default: true
+    limits:
+      members: null
+      service_accounts: null
+      storage_mb: null
+      photos_per_instance: null
+      ai_calls_per_user_day: null
+      ai_calls_per_tenant_day: null
+      ai_tokens_per_tenant_day: null

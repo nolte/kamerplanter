@@ -6,7 +6,7 @@ Kategorie: Betrieb / Datenlebenszyklus Unterkategorie: Schema- & Daten-Migration
 Technologie: Python, ArangoDB, AQL, FastAPI, Kubernetes
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.0
+Version: 1.1 (Seed-Registry unter dem Migrations-Lock, S-5 / AK 7, #2028, 2026-10-04)
 Autor: nolte
 Datum: 2026-07-04
 Tags: [migration, seed, schema-migration, versioning, idempotency, startup-resilience, arangodb]
@@ -77,7 +77,8 @@ Fehler-Isolation sind solche Ausfälle systemisch, nicht zufällig.
   wird nicht mehr geändert; Drift wird beim Start als Warnung geloggt. Korrekturen
   erfolgen als **neue** Migration.
 - **M-8 Concurrency:** Bei mehreren Backend-Replicas MUSS ein Lock verhindern, dass
-  Migrationen konkurrierend/doppelt laufen.
+  Migrationen konkurrierend/doppelt laufen. Derselbe Lock serialisiert seit v1.1 auch
+  die Seed-Registry (S-5) — es gibt keinen zweiten Lock-Mechanismus.
 - **M-9 Pflicht bei Enum-/Schema-Rückbau:** Wird ein persistierter Enum-Wert oder
   ein Feld entfernt/umbenannt, MUSS in derselben Änderung eine Daten-Migration die
   Bestandsdokumente überführen. (Direkte Lehre aus Issue #306.)
@@ -94,6 +95,28 @@ Fehler-Isolation sind solche Ausfälle systemisch, nicht zufällig.
   Warnung, statt die gesamte Datei zu verwerfen.
 - **S-4 Registry:** Seeds werden über eine deklarative, geordnete Registry
   ausgeführt — nicht durch verstreute Inline-Aufrufe in `main.py`.
+- **S-5 Ein seedendes Replica (v1.1, #2028):** S-1 gilt nur sequenziell — die meisten
+  Loader prüfen per Name und legen bei Abwesenheit an, ohne Unique-Index auf dieser
+  Identität. Zwei gleichzeitig startende Replicas lasen beide „fehlt" und legten
+  beide an (gemessen: 40 statt 21 Phasensequenzen, 66 statt 38 Nährstoffpläne, 56
+  statt 28 Substrate); das Replica, das den `location_types`-Insert verlor, brach
+  mit `ERR 1210` ab. Deshalb MUSS die Registry unter dem Migrations-Lock (M-8)
+  laufen: Ein Replica seedet, die anderen warten.
+  - Der Halter erneuert den Lock nach jedem Seed-Job; findet er ihn übernommen,
+    bricht er ab, statt neben dem neuen Halter weiterzuschreiben.
+  - Nach dem Lauf hält `schema_migrations/__seed_run__` Lauf-ID, Fingerprint der
+    Seed-Eingaben (Loader-Code, Seed-Daten, Job-Liste) und die fehlgeschlagenen
+    Jobs fest. Ein wartendes Replica, das den Lock bekommt, seedet **nicht**
+    erneut, wenn während seines Wartens ein Lauf mit gleichem Fingerprint und ohne
+    fehlgeschlagenen Job abgeschlossen wurde — sonst seedet es selbst (idempotent,
+    jetzt allein).
+  - Das Warten ist begrenzt (wie die Migrations-Barriere, 2 × Lock-TTL). Läuft es
+    ab, bricht der Startup ab (Readiness schlägt fehl, der Pod startet neu) —
+    Seeds werden nie still übersprungen, denn auf einem frischen Volume fehlten
+    sonst die Referenzdaten.
+  - Ein abgestürzter Halter hinterlässt einen Lock, der nach der TTL (5 min) als
+    verwaist übernommen wird (revisionsgeprüft wie bei Migrationen); der Übernehmer
+    seedet, weil der abgebrochene Lauf nichts festgehalten hat.
 
 ### 3.3 Ausführung & Ops
 
@@ -118,6 +141,10 @@ Fehler-Isolation sind solche Ausfälle systemisch, nicht zufällig.
    (Lock greift).
 6. Der Entfernungs-Fall aus Issue #306 ist durch `v0006_retire_harvest_phase`
    abgedeckt: Alt-`harvest`-Dokumente werden vor dem ersten Plan-Seed überführt.
+7. Zwei parallel startende Backend-Pods auf einer frischen Datenbank hinterlassen in
+   jeder Seed-Collection dieselbe Anzahl Dokumente wie ein einzelner Start, und
+   keiner der beiden bricht ab (S-5; Integrationstest
+   `tests/integration/test_seed_registry_lock.py`).
 
 ## 5. Realisierung
 

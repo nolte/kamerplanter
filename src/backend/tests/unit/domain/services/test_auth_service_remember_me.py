@@ -133,7 +133,7 @@ class TestRefreshPreservesPersistence:
     def test_refresh_preserves_persistent_flag(self, service, refresh_token_repo):
         token_engine = TokenEngine("test-secret-key-for-unit-tests-32chars!", "HS256")
         raw, stored = self._make_stored_token(True, token_engine)
-        refresh_token_repo.get_by_hash.return_value = stored
+        refresh_token_repo.find_by_hash.return_value = stored
 
         _, _, is_persistent = service.refresh_tokens(raw)
         assert is_persistent is True
@@ -144,7 +144,7 @@ class TestRefreshPreservesPersistence:
     def test_refresh_preserves_session_flag(self, service, refresh_token_repo):
         token_engine = TokenEngine("test-secret-key-for-unit-tests-32chars!", "HS256")
         raw, stored = self._make_stored_token(False, token_engine)
-        refresh_token_repo.get_by_hash.return_value = stored
+        refresh_token_repo.find_by_hash.return_value = stored
 
         _, _, is_persistent = service.refresh_tokens(raw)
         assert is_persistent is False

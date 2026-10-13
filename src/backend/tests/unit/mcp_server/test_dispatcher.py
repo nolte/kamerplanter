@@ -47,6 +47,10 @@ class _FakeIdempotencyRepo:
         return self.records.get((sa_key, tenant_key, tool_name, idem_key))
 
     def store(self, record, *, ttl_hours=24):
+        # The production repository stamps ``expires_at`` on store; the double does the same.
+        from datetime import UTC, datetime, timedelta
+
+        record.expires_at = record.expires_at or datetime.now(UTC) + timedelta(hours=ttl_hours)
         self.records[(record.service_account_key, record.tenant_key, record.tool_name, record.idempotency_key)] = record
         return record
 
@@ -364,3 +368,42 @@ def test_no_global_tool_uses_a_tenant_bound_link():
             offenders.append(name)
 
     assert not offenders, f"Global tools using a tenant-bound link helper (use ctx.global_link): {offenders}"
+
+
+@pytest.mark.asyncio
+async def test_a_reused_idempotency_key_with_other_arguments_is_a_conflict_not_a_replay():
+    """MT-045.5 (#2144): the stored ``input_hash`` is compared on lookup.
+
+    Before, a key re-sent with *different* arguments silently replayed the first
+    call's result — the caller believed its second write happened.
+    """
+    dispatcher, audit_repo, _, registry = _dispatcher()
+    await dispatcher.dispatch(_principal(), "counter_write", {"label": "first", "idempotency_key": "k-r"})
+    writes_after_first = registry.get("counter_write").writes  # type: ignore[attr-defined]
+
+    with pytest.raises(McpToolError) as raised:
+        await dispatcher.dispatch(_principal(), "counter_write", {"label": "second", "idempotency_key": "k-r"})
+
+    assert raised.value.error_code == "conflict.idempotency_key_reused"
+    assert raised.value.status_code == 409
+    assert registry.get("counter_write").writes == writes_after_first  # type: ignore[attr-defined]
+    assert audit_repo.entries[-1].error_class == "conflict.idempotency_key_reused"
+
+
+@pytest.mark.asyncio
+async def test_an_expired_idempotency_record_is_not_replayed():
+    """MT-045.5 (#2144, found in #2150): the lookup honoured no ``expires_at`` — a record the
+    hourly sweep had not removed yet still replayed past its TTL."""
+    from datetime import UTC, datetime, timedelta
+
+    dispatcher, _, idem_repo, registry = _dispatcher()
+    args = {"label": "late", "idempotency_key": "k-exp"}
+    first = await dispatcher.dispatch(_principal(), "counter_write", args)
+    for record in idem_repo.records.values():
+        record.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+
+    second = await dispatcher.dispatch(_principal(), "counter_write", args)
+
+    assert second.idempotent_replay is False
+    assert second.data["id"] != first.data["id"]
+    assert registry.get("counter_write").writes == first.data["id"] + 1  # type: ignore[attr-defined]

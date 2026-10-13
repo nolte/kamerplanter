@@ -1,9 +1,12 @@
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 
-from app.common.enums import AttachmentCategory, TaskOrigin
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.enums import AttachmentCategory, TaskOrigin, WorkflowTargetType
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
@@ -23,6 +26,14 @@ from app.domain.models.task import (
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 logger = structlog.get_logger(__name__)
+
+#: Rows the unscoped task queue answers with at most.
+#:
+#: Named rather than inline because it is the number the whole #1484/#1503 class
+#: turns on: anything past this cut is invisible to a caller that narrows the
+#: answer, so every filter has to be asked of the *server* — and a reader of
+#: either layer has to be able to find the cap that makes that true.
+QUEUE_LIMIT = 200
 
 # ── Update allow-lists (mass assignment, #965) ──
 #
@@ -162,8 +173,21 @@ def _allowed(data: dict, allowed_fields: frozenset[str]) -> dict:
     return {field: value for field, value in data.items() if field in allowed_fields}
 
 
+#: Refusal for a write into a *shared* workflow: one with ``tenant_key == ""`` that is
+#: not a seeded system template — the generated activity plans ``ActivityPlanService``
+#: persists for every tenant of a species (#2101). Every tenant reads that one row, so
+#: an in-place write is a write on every tenant's plan. A 403 rather than the 422 of a
+#: system template because the cure differs: the caller is not asked to duplicate a
+#: seed, they are told the row is not theirs. The activity-plan editor never reaches
+#: this: it forks the plan on a write (#1003), and so does ``PUT`` on the workflow.
+SHARED_WORKFLOW_REFUSAL = (
+    "This workflow template is shared by every tenant and cannot be modified in place. "
+    "Duplicate it to get an editable copy of your own."
+)
+
+
 def _refuse_system_workflow(workflow: WorkflowTemplate) -> None:
-    """Stop a child write whose parent is a globally seeded system workflow.
+    """Stop a child write whose parent is a globally seeded system workflow or a shared plan.
 
     The one place the "system templates are read-only" rule is applied to a
     *resolved* parent, so the three child-write paths (task-template create,
@@ -174,6 +198,8 @@ def _refuse_system_workflow(workflow: WorkflowTemplate) -> None:
     """
     if workflow.is_system:
         raise ValidationError(SYSTEM_WORKFLOW_CHILD_REFUSAL)
+    if not workflow.tenant_key:
+        raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
 
 
 def _as_aware_utc(value: datetime | None) -> datetime | None:
@@ -200,8 +226,12 @@ class TaskService:
         recurrence: RecurrenceEngine | None = None,
         notification_propagation: NotificationPropagationService | None = None,
         attachment_repo: IAttachmentRepository | None = None,
+        membership_lookup: Callable[[str, str], Any] | None = None,
     ) -> None:
         self._repo = repo
+        # ``(user_key, tenant_key) -> membership | None`` — decides who a task may
+        # be assigned to (#1871 B9). Without it an assignment is refused.
+        self._membership_lookup = membership_lookup
         # Resolves the `photo_refs` a completion carries (#1339 review). Optional
         # only so the many existing constructions of this service keep working;
         # the DI factory always supplies it, and `_verify_photo_refs` fails
@@ -234,9 +264,27 @@ class TaskService:
             target_entity_type=target_entity_type,
         )
 
-    def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]:
-        """Return species_name and assigned plant count per workflow key."""
-        return self._repo.get_workflow_usage_stats(wf_keys)
+    def list_workflow_templates_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
+        target_entity_type: str | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[WorkflowTemplate]:
+        """One page of :meth:`list_workflow_templates` without the count query (MT-035, #2131)."""
+        return self._repo.list_workflow_templates_window(
+            offset,
+            limit,
+            species_key=species_key,
+            target_entity_type=target_entity_type,
+            tenant_key=tenant_key,
+        )
+
+    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
+        """Return species_name and ``tenant_key``'s assigned entity count per workflow key (#1708)."""
+        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key)
 
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_or_raise(key)
@@ -251,7 +299,7 @@ class TaskService:
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate:
         return self._repo.create_workflow_template(template)
 
-    def update_workflow_template(self, key: str, data: dict) -> WorkflowTemplate:
+    def update_workflow_template(self, key: str, data: dict, *, tenant_key: str) -> WorkflowTemplate:
         """Apply an allow-listed partial edit to a workflow template (#965).
 
         ``data`` is filtered through :data:`WORKFLOW_TEMPLATE_UPDATABLE_FIELDS`
@@ -260,22 +308,43 @@ class TaskService:
         into the global catalog) or ``is_system`` (clearing the very flag the
         guard below reads).
         """
-        wt = self.get_workflow_template(key)
+        wt = self.get_workflow_template(key, tenant_key=tenant_key)
         if wt.is_system:
             # Read access is hybrid-catalog-wide, so the router guard now admits
             # system templates; writes must stay blocked (mirrors delete below).
             raise ValidationError("Cannot modify system workflow templates.")
+        if not wt.tenant_key:
+            # A shared (generated) plan: every tenant reads this one row, so the
+            # edit lands on the caller's own copy, as the activity-plan editor's
+            # does (#1003, #2101). The shared row is never written.
+            # A generated plan already forked by this tenant is reused (the same lookup the
+            # read path and the activity-plan editor use), so a client that still holds the
+            # shared key does not mint a new copy per save.
+            existing_fork = (
+                self._repo.get_auto_generated_workflow_for_species(wt.species_key, tenant_key=tenant_key)
+                if wt.auto_generated and wt.species_key
+                else None
+            )
+            if existing_fork is not None and existing_fork.tenant_key == tenant_key:
+                wt = existing_fork
+            else:
+                wt, _ = self._copy_workflow_template(
+                    wt, name=wt.name, tenant_key=tenant_key, auto_generated=wt.auto_generated
+                )
+            key = wt.key or key
         for field, value in _allowed(data, WORKFLOW_TEMPLATE_UPDATABLE_FIELDS).items():
             setattr(wt, field, value)
         return self._repo.update_workflow_template(key, wt)
 
-    def delete_workflow_template(self, key: str) -> bool:
-        wt = self.get_workflow_template(key)
+    def delete_workflow_template(self, key: str, *, tenant_key: str) -> bool:
+        wt = self.get_workflow_template(key, tenant_key=tenant_key)
         if wt.is_system:
             raise ValidationError("Cannot delete system workflow templates.")
+        if not wt.tenant_key:
+            raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
         return self._repo.delete_workflow_template(key)
 
-    def duplicate_workflow_template(self, key: str, new_name: str, tenant_key: str = "") -> WorkflowTemplate:
+    def duplicate_workflow_template(self, key: str, new_name: str, *, tenant_key: str) -> WorkflowTemplate:
         """Duplicate a workflow template including all its task templates.
 
         The clone is owned by ``tenant_key`` (the duplicating tenant), never by
@@ -289,6 +358,10 @@ class TaskService:
         decisions that differ there: the user-chosen name, and ``auto_generated``
         cleared — an explicit duplicate is an authored workflow from that point
         on, and must not answer the generated-plan lookup.
+
+        ``tenant_key`` is keyword-only without a default (#2107): with the old
+        ``""`` default the read admission below was skipped and the copy was
+        stamped with no owner — a globally visible template.
         """
         source = self.get_workflow_template(key, tenant_key=tenant_key)
         clone, _ = self._copy_workflow_template(
@@ -385,27 +458,49 @@ class TaskService:
     def get_workflow_phase(self, key: str) -> WorkflowPhase:
         return self._repo.get_phase_or_raise(key)
 
-    def create_workflow_phase(self, phase: WorkflowPhase) -> WorkflowPhase:
-        _refuse_system_workflow(self.get_workflow_template(phase.workflow_template_key))
+    def _require_writable_parent_workflow(self, workflow_template_key: str, tenant_key: str) -> WorkflowTemplate:
+        """Resolve a phase's parent workflow for a write by ``tenant_key`` (#2107).
+
+        A phase carries no tenant of its own; its parent ``WorkflowTemplate`` is the
+        only anchor. The parent is resolved through :meth:`get_workflow_template`
+        under the caller's tenant — a foreign or unknown parent, and a phase with no
+        parent at all, answer ``NotFoundError`` (404, no cross-tenant oracle) — and a
+        system or shared parent then refuses the write (:func:`_refuse_system_workflow`).
+
+        Until #2107 the tenant half of this lived in the router: ``get_workflow_phase``
+        and ``get_workflow_template(..., tenant_key=...)`` ran there, and the service
+        method that wrote resolved the parent again without a tenant.
+        """
+        if not workflow_template_key:
+            raise NotFoundError("WorkflowTemplate", workflow_template_key)
+        workflow = self.get_workflow_template(workflow_template_key, tenant_key=tenant_key)
+        _refuse_system_workflow(workflow)
+        return workflow
+
+    def create_workflow_phase(self, phase: WorkflowPhase, *, tenant_key: str) -> WorkflowPhase:
+        """Add ``phase`` to its workflow, which ``tenant_key`` must own (#2107)."""
+        self._require_writable_parent_workflow(phase.workflow_template_key, tenant_key)
         return self._repo.create_phase(phase)
 
-    def update_workflow_phase(self, key: str, data: dict) -> WorkflowPhase:
+    def update_workflow_phase(self, key: str, data: dict, *, tenant_key: str) -> WorkflowPhase:
         """Apply an allow-listed partial edit to a workflow phase (#965).
 
         Same shape as :meth:`update_task_template`: the phase carries no tenant
         of its own and is anchored on ``workflow_template_key``, which the
         allow-list keeps out of reach — re-pointing it is how a phase would move
-        into another tenant's workflow.
+        into another tenant's workflow. The parent is verified against
+        ``tenant_key`` here, not in the calling route (#2107).
         """
         phase = self.get_workflow_phase(key)
-        self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
+        self._require_writable_parent_workflow(phase.workflow_template_key, tenant_key)
         for field, value in _allowed(data, WORKFLOW_PHASE_UPDATABLE_FIELDS).items():
             setattr(phase, field, value)
         return self._repo.update_phase(key, phase)
 
-    def delete_workflow_phase(self, key: str) -> bool:
+    def delete_workflow_phase(self, key: str, *, tenant_key: str) -> bool:
+        """Delete a phase of a workflow ``tenant_key`` owns (#2107)."""
         phase = self.get_workflow_phase(key)
-        self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
+        self._require_writable_parent_workflow(phase.workflow_template_key, tenant_key)
         return self._repo.delete_phase(key)
 
     def _refuse_writing_into_a_system_workflow(self, workflow_template_key: str | None) -> None:
@@ -455,8 +550,8 @@ class TaskService:
             self._refuse_writing_into_a_system_workflow(phase.workflow_template_key)
         return self._repo.reorder_phases(phase_orders)
 
-    def get_phase_suggestions(self) -> list[dict]:
-        return self._repo.get_phase_suggestions()
+    def get_phase_suggestions(self, *, tenant_key: str) -> list[dict]:
+        return self._repo.get_phase_suggestions(tenant_key=tenant_key)
 
     # ── Task Templates ──
 
@@ -488,6 +583,18 @@ class TaskService:
         tt = self.get_task_template(key)
         verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         return tt
+
+    @staticmethod
+    def _refuse_a_shared_task_template(template: TaskTemplate) -> None:
+        """A task template with no owner (``tenant_key == ""``) is shared, not editable (#2101).
+
+        ``verify_tenant_read_access`` admits it on purpose — the read side of the
+        hybrid catalogue — and until now the write side followed it, which is what
+        let any tenant rewrite the standalone templates migration ``v0035`` could
+        not attribute. Newly created templates are stamped with their owner.
+        """
+        if not template.tenant_key:
+            raise ForbiddenError(SHARED_WORKFLOW_REFUSAL)
 
     def _verify_workflow_template_reference(self, workflow_template_key: str | None, tenant_key: str) -> None:
         """Resolve a caller-supplied ``workflow_template_key`` before it is written (#965).
@@ -592,6 +699,7 @@ class TaskService:
         tt = self.get_task_template(key)
         verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
+        self._refuse_a_shared_task_template(tt)
         fields = _allowed(data, TASK_TEMPLATE_UPDATABLE_FIELDS)
         if "workflow_template_key" in fields:
             self._verify_workflow_template_reference(fields["workflow_template_key"], tenant_key)
@@ -622,6 +730,7 @@ class TaskService:
         tt = self.get_task_template(key)
         verify_tenant_read_access(tt, tenant_key, "TaskTemplate")
         self._refuse_writing_into_a_system_workflow(tt.workflow_template_key)
+        self._refuse_a_shared_task_template(tt)
         return self._repo.delete_task_template(key)
 
     # ── Task Templates of an activity plan (tenant-anchored, #992) ──
@@ -676,7 +785,7 @@ class TaskService:
             logger.warning(
                 "task_template_without_parent_workflow",
                 task_template_key=key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
             raise NotFoundError("TaskTemplate", key)
         parent = self.get_workflow_template(parent_key, tenant_key=tenant_key)
@@ -732,7 +841,7 @@ class TaskService:
                 "shared_workflow_is_not_a_generated_plan",
                 workflow_template_key=shared_plan.key,
                 task_template_key=template.key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
             raise NotFoundError("TaskTemplate", template.key or "")
 
@@ -751,7 +860,7 @@ class TaskService:
                 "activity_plan_forked_on_write",
                 source_workflow_key=shared_plan.key,
                 workflow_template_key=copy.key,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
             )
             copied_key = template_key_map.get(template.key or "")
             if copied_key:
@@ -770,7 +879,7 @@ class TaskService:
             "activity_plan_template_absent_from_private_copy",
             source_template_key=template.key,
             workflow_template_key=copy.key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
         )
         raise NotFoundError("TaskTemplate", template.key or "")
 
@@ -815,14 +924,40 @@ class TaskService:
         template_key: str,
         entity_key: str,
         entity_type: str,
+        *,
+        tenant_key: str,
     ) -> WorkflowExecution:
         """Generate tasks from a workflow template for a specific entity.
 
         Tasks whose trigger_phase does not match the current phase are created
         with status 'dormant' for plant_instance entities and 'pending' for
         all other entity types (which have no phase concept).
+
+        ``tenant_key`` is required and keyword-only (#1708): every generated task
+        is stamped with it. Before, the tasks kept the model default ``""`` — and
+        since every task list filters strictly on the caller's tenant, a workflow
+        instantiated through the route produced tasks that appeared in *no*
+        tenant's list and counted for no tenant's usage statistics. An empty value
+        is refused rather than stamped, because it is that same silence spelled
+        differently. The template read is anchored on the same tenant, so a
+        foreign private template is a 404 here as it is at the route.
+
+        ``entity_type`` must be a :class:`WorkflowTargetType`: an execution on any
+        other type has no owner the execution list could resolve, so it would
+        exist and appear nowhere. Whether ``entity_key`` belongs to the tenant is
+        the caller's check (:class:`TaskEntityGuard`, as on ``POST /tasks``).
+
+        The :class:`WorkflowExecution` record itself carries no tenant; it belongs
+        to the entity it runs on, and every read resolves the owner there.
         """
-        wt = self.get_workflow_template(template_key)
+        if not tenant_key:
+            raise ValueError("instantiate_workflow requires a tenant_key")
+        try:
+            target_type = WorkflowTargetType(entity_type)
+        except ValueError as exc:
+            raise ValidationError(f"Unsupported workflow entity type '{entity_type}'.") from exc
+        entity_type = target_type.value
+        wt = self.get_workflow_template(template_key, tenant_key=tenant_key)
         templates = self._repo.get_task_templates_for_workflow(template_key)
 
         if not templates:
@@ -877,6 +1012,7 @@ class TaskService:
                 template_key=tt.key,
                 workflow_execution_key=execution.key,
                 activity_key=tt.activity_key,
+                tenant_key=tenant_key,
             )
             created_task = self._repo.create_task(task)
 
@@ -912,9 +1048,40 @@ class TaskService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]:
-        return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key)
+        """The tenant's tasks, paged and narrowed.
+
+        ``tenant_key`` is keyword-only and required, mirroring the repository
+        signature it delegates to (#1533). It carried ``= ""`` — the sentinel the
+        repository reads as "no tenant predicate" — so the listing could be widened
+        to the whole installation by leaving one argument out.
+
+        ``origins`` is separate from ``filters`` for the reason spelled out on
+        :meth:`ITaskRepository.get_all_tasks`: the provenance filter is a
+        partition over several values, not one equality (#1503).
+        """
+        self._require_tenant_key(tenant_key, "list_tasks")
+        return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
+
+    def list_tasks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """One page of the tenant's tasks without the count query (MT-035, #2131).
+
+        The list route answers a bare array; the ``total`` :meth:`list_tasks` pays a
+        second scan of every matching task for was never read there.
+        """
+        self._require_tenant_key(tenant_key, "list_tasks_window")
+        return self._repo.get_tasks_window(offset, limit, filters, tenant_key=tenant_key, origins=origins)
 
     @staticmethod
     def _require_tenant_key(tenant_key: str, method: str) -> None:
@@ -937,7 +1104,36 @@ class TaskService:
         verify_tenant_ownership(task, tenant_key, "Task")
         return task
 
+    def _require_member_assignee(self, user_key: str | None, tenant_key: str) -> None:
+        """Refuse an assignee who is not an active member of the task's tenant (#1871 B9).
+
+        ``assigned_to_user_key`` came from request bodies and was stored as given,
+        and the assignment notified that user — any user of the installation. An
+        unknown user, a non-member and an inactive member answer the same 404.
+        Clearing an assignee (``None``) needs no check.
+        """
+        if not user_key:
+            return
+        membership = self._membership_lookup(user_key, tenant_key) if self._membership_lookup and tenant_key else None
+        if membership is None or not getattr(membership, "is_active", False):
+            raise NotFoundError("User", user_key)
+
+    def _still_a_member(self, user_key: str | None, tenant_key: str) -> str | None:
+        """*user_key* when it is an active member of *tenant_key*, else ``None`` — no error.
+
+        A task without a tenant (system context) keeps its assignee: there is no
+        membership to consult.
+        """
+        if not tenant_key:
+            return user_key
+        try:
+            self._require_member_assignee(user_key, tenant_key)
+        except NotFoundError:
+            return None
+        return user_key
+
     def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
+        self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         created = self._repo.create_task(task)
         self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
         if created.assigned_to_user_key:
@@ -988,6 +1184,22 @@ class TaskService:
         ``created_at`` and its ``(source, external_ref)`` identity. That way a
         re-post never resurrects a task the user already completed or silently
         re-homes it onto another entity.
+
+        **A re-post can set the three nullable fields, never clear them** (#1525
+        SCR-004). ``due_date``, ``scheduled_time`` and ``source_run_ref`` were copied
+        unconditionally, and a producer that omits them gets ``None`` from the model
+        default — so a re-post without a due date meant "clear the due date". That
+        never *did* anything, because ``tasks`` merged every ``None`` away and the
+        stored value survived; making the repository honest (#1516) would have turned
+        a dormant line into data loss on the documented idempotent-upsert path
+        (#1082 AC-3). Preserving the observed contract is the conservative reading,
+        and a producer that genuinely wants to unset a due date has ``PUT``.
+
+        ``model_fields_set`` is **not** the discriminator here, measured rather than
+        assumed: the POST handler builds the model from
+        ``body.model_dump(exclude=...)``, a *full* dump, so every field counts as set
+        whether the client sent it or not. Reading it would have been a rule that
+        looks precise and answers the same for every request.
         """
         existing.name = incoming.name
         existing.name_de = incoming.name_de
@@ -995,10 +1207,11 @@ class TaskService:
         existing.instruction_de = incoming.instruction_de
         existing.category = incoming.category
         existing.priority = incoming.priority
-        existing.due_date = incoming.due_date
-        existing.scheduled_time = incoming.scheduled_time
         existing.tags = incoming.tags
-        existing.source_run_ref = incoming.source_run_ref
+        for field in ("due_date", "scheduled_time", "source_run_ref"):
+            value = getattr(incoming, field)
+            if value is not None:
+                setattr(existing, field, value)
         return existing
 
     def update_task(self, key: str, task: Task, *, previous: Task | None = None, actor_user_key: str = "") -> Task:
@@ -1010,9 +1223,11 @@ class TaskService:
         notification to the new member. The ``previous`` snapshot (pre-edit task)
         lets the coupling detect a reassignment.
         """
+        prev_assignee = previous.assigned_to_user_key if previous is not None else None
+        if task.assigned_to_user_key != prev_assignee:
+            self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         updated = self._repo.update_task(key, task)
         self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
-        prev_assignee = previous.assigned_to_user_key if previous is not None else None
         if prev_assignee != updated.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
         return updated
@@ -1271,7 +1486,9 @@ class TaskService:
             checklist=[
                 ChecklistItem(text=item.text, done=False, order=item.order) for item in completed_task.checklist
             ],
-            assigned_to_user_key=completed_task.assigned_to_user_key,
+            # Only while the assignee is still an active member (#1876 review, Info):
+            # a member who left stayed the assignee of every later occurrence.
+            assigned_to_user_key=self._still_a_member(completed_task.assigned_to_user_key, completed_task.tenant_key),
             recurrence_rule=completed_task.recurrence_rule,
             recurrence_end_date=completed_task.recurrence_end_date,
             parent_recurring_task_key=completed_task.key,
@@ -1443,6 +1660,7 @@ class TaskService:
         for tk in task_keys:
             try:
                 task = self.get_task(tk, tenant_key=tenant_key)
+                self._require_member_assignee(assigned_to_user_key, tenant_key)
                 previous_assignee = task.assigned_to_user_key
                 task.assigned_to_user_key = assigned_to_user_key
                 updated = self._repo.update_task(tk, task)
@@ -1479,19 +1697,27 @@ class TaskService:
 
     def update_comment(self, task_key: str, comment_key: str, text: str, *, tenant_key: str) -> TaskComment:
         self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
-        comment = self._repo.get_comment_or_raise(comment_key)
-        if comment.task_key != task_key:
-            raise ValidationError("Comment does not belong to this task.")
+        comment = self._task_comment(task_key, comment_key)
         comment.comment_text = text
         comment.updated_at = datetime.now(UTC)
         return self._repo.update_comment(comment_key, comment)
 
     def delete_comment(self, task_key: str, comment_key: str, *, tenant_key: str) -> bool:
         self.get_task(task_key, tenant_key=tenant_key)  # ensure task exists and belongs to the tenant
+        self._task_comment(task_key, comment_key)
+        return self._repo.delete_comment(comment_key)
+
+    def _task_comment(self, task_key: str, comment_key: str) -> TaskComment:
+        """The comment ``comment_key`` of ``task_key`` — 404 for an absent one *and* another task's (MT-045.7).
+
+        The task is already scoped to the caller's tenant; the comment is loaded by key
+        alone. Answering another task's comment with a 422 ("does not belong") told it
+        apart from a missing key — an existence oracle over every tenant's comments.
+        """
         comment = self._repo.get_comment_or_raise(comment_key)
         if comment.task_key != task_key:
-            raise ValidationError("Comment does not belong to this task.")
-        return self._repo.delete_comment(comment_key)
+            raise NotFoundError("TaskComment", comment_key)
+        return comment
 
     # ── Audit / History ──
 
@@ -1555,8 +1781,15 @@ class TaskService:
 
     # ── Add Task to Workflow Execution ──
 
-    def add_task_to_workflow_execution(self, execution_key: str, task: Task) -> Task:
-        execution = self.get_workflow_execution(execution_key)
+    def add_task_to_workflow_execution(self, execution_key: str, task: Task, *, tenant_key: str) -> Task:
+        """Attach an ad-hoc task to ``tenant_key``'s execution ``execution_key``.
+
+        The execution is resolved under the caller's tenant first (#1714): a
+        foreign or orphaned execution is a 404, exactly like an unknown key, and
+        nothing is written. Without it a member of one tenant could append tasks
+        to — and so move the progress of — another tenant's execution.
+        """
+        execution = self.get_workflow_execution(execution_key, tenant_key=tenant_key)
         task.workflow_execution_key = execution_key
         task.entity_key = task.entity_key or execution.entity_key
         task.entity_type = task.entity_type or execution.entity_type
@@ -1564,18 +1797,37 @@ class TaskService:
 
     # ── Task Queue ──
 
-    def get_task_queue(self, plant_key: str | None = None, *, tenant_key: str) -> list[Task]:
-        """The prioritised task queue of one tenant (#927).
+    def get_task_queue(
+        self,
+        plant_key: str | None = None,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """The prioritised task queue of one tenant (#927, #1503).
 
         Both branches are tenant-scoped: the per-plant one because ``plant_key``
         comes from a query parameter and used to select across tenants, the
         unfiltered one because it used to return the whole installation's pending
         tasks.
+
+        ``category`` and ``origins`` are narrowings of the **query**, not of its
+        answer. The unscoped branch is capped at :data:`QUEUE_LIMIT` rows, so a
+        caller that fetched the page and filtered it afterwards could only ever
+        see what the cap had already let through — a task matching the filter but
+        sorting past the cut simply was not in the payload (#1503, the shape
+        #1484 closed for ``plant_key``). Both are threaded into the query the
+        same way ``plant_key`` is, and both apply to either branch.
         """
         if plant_key:
-            tasks = self._repo.get_tasks_for_plant(plant_key, "pending", tenant_key=tenant_key)
+            tasks = self._repo.get_tasks_for_plant(
+                plant_key, "pending", tenant_key=tenant_key, category=category, origins=origins
+            )
         else:
-            tasks, _ = self._repo.get_pending_tasks(0, 200, tenant_key=tenant_key)
+            tasks, _ = self._repo.get_pending_tasks(
+                0, QUEUE_LIMIT, tenant_key=tenant_key, category=category, origins=origins
+            )
 
         # Deduplicate care_reminder tasks: keep only the newest per entity_key + name suffix
         tasks = self._deduplicate_care_tasks(tasks)
@@ -1658,14 +1910,23 @@ class TaskService:
         tasks = self._repo.get_overdue_tasks(tenant_key=tenant_key)
         return self._deduplicate_care_tasks(tasks)
 
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
+    def get_tasks_for_plant(
+        self,
+        plant_key: str,
+        status: str | None = None,
+        *,
+        tenant_key: str,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[Task]:
         """A plant's tasks, scoped to ``tenant_key`` (#927).
 
         ``plant_key`` is not resolved against the caller's tenant here — the
         repository's tenant predicate is what turns a foreign key into an empty
-        list instead of the other tenant's task list.
+        list instead of the other tenant's task list. ``offset``/``limit`` read
+        one window (MT-035, #2131).
         """
-        return self._repo.get_tasks_for_plant(plant_key, status, tenant_key=tenant_key)
+        return self._repo.get_tasks_for_plant(plant_key, status, tenant_key=tenant_key, offset=offset, limit=limit)
 
     def get_tasks_for_entity(
         self,
@@ -1694,8 +1955,12 @@ class TaskService:
 
     # ── Workflow Execution ──
 
-    def get_workflow_execution(self, key: str) -> WorkflowExecution:
-        return self._repo.get_workflow_execution_or_raise(key)
+    def get_workflow_execution(self, key: str, *, tenant_key: str) -> WorkflowExecution:
+        """``tenant_key``'s execution ``key``; foreign, orphaned and unknown are one 404 (#1714)."""
+        return self._repo.get_workflow_execution_or_raise(key, tenant_key=tenant_key)
 
-    def get_executions_for_template(self, template_key: str) -> list[dict]:
-        return self._repo.get_executions_for_template(template_key)
+    def get_executions_for_template(
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[dict]:
+        """A template's executions in ``tenant_key``, newest first; ``offset``/``limit`` read one window (MT-035)."""
+        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key, offset=offset, limit=limit)

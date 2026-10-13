@@ -93,9 +93,9 @@ def test_returns_entries_for_active_plants_with_due_reminders(
     mock_care_repo.get_profile_by_plant_key.return_value = _profile("plant-1")
 
     service = _build_service(mock_care_repo, engine, mock_plant_repo)
-    entries = service.get_care_dashboard_for_tenant("tenant-1")
+    entries = service.get_care_dashboard_for_tenant(tenant_key="tenant-1")
 
-    mock_plant_repo.get_all.assert_called_once_with(offset=0, limit=500, tenant_key="tenant-1")
+    mock_plant_repo.get_all.assert_called_once_with(offset=0, limit=1000, tenant_key="tenant-1")
     assert entries, "expected at least one due reminder entry for the active plant"
     assert all(e.plant_key == "plant-1" for e in entries)
     assert entries[0].plant_name == "Plant plant-1"
@@ -112,7 +112,7 @@ def test_excludes_removed_plants(
     mock_care_repo.get_profile_by_plant_key.side_effect = lambda pk: _profile(pk)
 
     service = _build_service(mock_care_repo, engine, mock_plant_repo)
-    entries = service.get_care_dashboard_for_tenant("tenant-1")
+    entries = service.get_care_dashboard_for_tenant(tenant_key="tenant-1")
 
     plant_keys = {e.plant_key for e in entries}
     assert "plant-active" in plant_keys
@@ -130,7 +130,7 @@ def test_returns_empty_when_no_plants(
     mock_plant_repo.get_all.return_value = ([], 0)
 
     service = _build_service(mock_care_repo, engine, mock_plant_repo)
-    entries = service.get_care_dashboard_for_tenant("tenant-1")
+    entries = service.get_care_dashboard_for_tenant(tenant_key="tenant-1")
 
     assert entries == []
     mock_care_repo.get_profile_by_plant_key.assert_not_called()
@@ -178,7 +178,7 @@ def test_generates_winter_reminders_from_overwintering_profile(
         nutrient_plan_repo=MagicMock(get_plant_plan=MagicMock(return_value=None)),
         overwintering_repo=overwintering_repo,
     )
-    entries = service.get_care_dashboard_for_tenant("tenant-1")
+    entries = service.get_care_dashboard_for_tenant(tenant_key="tenant-1")
 
     reminder_types = {e.reminder_type for e in entries}
     assert ReminderType.WINTER_PROTECTION in reminder_types
@@ -199,7 +199,7 @@ def test_no_winter_reminders_without_overwintering_repo(
     mock_care_repo.get_profile_by_plant_key.return_value = _profile("plant-1")
 
     service = _build_service(mock_care_repo, engine, mock_plant_repo)
-    entries = service.get_care_dashboard_for_tenant("tenant-1")
+    entries = service.get_care_dashboard_for_tenant(tenant_key="tenant-1")
 
     winter_types = {
         ReminderType.WINTER_PROTECTION,
@@ -208,3 +208,42 @@ def test_no_winter_reminders_without_overwintering_repo(
         ReminderType.STORAGE_CHECK,
     }
     assert not ({e.reminder_type for e in entries} & winter_types)
+
+
+def test_an_empty_tenant_lists_no_plant(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+    mock_plant_repo: MagicMock,
+) -> None:
+    """#2107 — ``""`` is "no tenant": no plant listing is issued at all."""
+    mock_plant_repo.get_all.return_value = ([_plant("plant-1")], 1)
+    service = _build_service(mock_care_repo, engine, mock_plant_repo)
+
+    assert service.get_care_dashboard_for_tenant(tenant_key="") == []
+    mock_plant_repo.get_all.assert_not_called()
+
+
+def test_a_caller_supplied_row_naming_a_foreign_plant_is_dropped(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+    mock_plant_repo: MagicMock,
+) -> None:
+    """#2107 — ``get_care_dashboard`` takes caller-built rows, so it verifies each plant.
+
+    Red without the predicate: the foreign plant's profile was read (and its presets
+    generated) and its reminders listed for the asking tenant.
+    """
+    own, foreign = _plant("plant-1"), _plant("plant-x")
+    foreign.tenant_key = "tenant-2"
+    mock_plant_repo.get_by_key.side_effect = {"plant-1": own, "plant-x": foreign}.get
+    mock_care_repo.get_profile_by_plant_key.side_effect = _profile
+    service = _build_service(mock_care_repo, engine, mock_plant_repo)
+
+    entries = service.get_care_dashboard(
+        [{"plant_key": "plant-1", "plant_name": "own"}, {"plant_key": "plant-x", "plant_name": "foreign"}],
+        tenant_key="tenant-1",
+    )
+
+    assert entries, "the owning tenant's plant still yields its reminders"
+    assert {e.plant_key for e in entries} == {"plant-1"}
+    assert [c.args[0] for c in mock_care_repo.get_profile_by_plant_key.call_args_list] == ["plant-1"]

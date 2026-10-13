@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
-from app.common.enums import InvitationStatus
+from app.common.enums import InvitationStatus, InvitationType
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
@@ -11,12 +13,53 @@ from app.domain.models.invitation import Invitation
 
 class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRepository):
     _model_cls = Invitation
+    #: Every invitation belongs to the tenant it invites into. The token and
+    #: pending-email probes read by other keys on purpose and are hand-written;
+    #: only the base list reads are gated (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.INVITATIONS)
 
     def get_by_token_hash(self, token_hash: str) -> Invitation | None:
         return self.find_one_by_field("token_hash", token_hash)
+
+    def list_pending_email_invitations(self, email: str) -> list[Invitation]:
+        """The pending ``email`` invitations issued for *email*, case-insensitively (REQ-023 §3.2d, #2132)."""
+        cursor = self._db.aql.execute(
+            """
+            FOR inv IN @@collection
+              FILTER inv.invitation_type == @type AND inv.status == @status
+                AND LOWER(inv.email) == LOWER(@email)
+              RETURN inv
+            """,
+            bind_vars={
+                "@collection": col.INVITATIONS,
+                "type": InvitationType.EMAIL.value,
+                "status": InvitationStatus.PENDING.value,
+                "email": email.strip(),
+            },
+        )
+        return [Invitation(**self._from_doc(doc)) for doc in cast(Cursor, cursor)]
+
+    def count_email_invitations_issued_since(self, invited_by_user_key: str, since_iso: str) -> int:
+        """The issuer's ``email`` invitations created at or after *since_iso*, any status (#2162 review W-1)."""
+        cursor = self._db.aql.execute(
+            """
+            FOR inv IN @@collection
+              FILTER inv.invited_by_user_key == @issuer AND inv.invitation_type == @type
+                AND DATE_TIMESTAMP(inv.created_at) >= DATE_TIMESTAMP(@since)
+              COLLECT WITH COUNT INTO n
+              RETURN n
+            """,
+            bind_vars={
+                "@collection": col.INVITATIONS,
+                "issuer": invited_by_user_key,
+                "type": InvitationType.EMAIL.value,
+                "since": since_iso,
+            },
+        )
+        return int(next(iter(cast(Cursor, cursor)), 0))
 
     def create(self, invitation: Invitation) -> Invitation:
         created = super().create(invitation)
@@ -67,14 +110,123 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
         self.delete_edges(col.HAS_INVITATION, invitation_id, direction="inbound")
         return super().delete(key)
 
-    def list_by_tenant(self, tenant_key: str) -> list[Invitation]:
-        return self.find_by_field("tenant_key", tenant_key, sort="created_at", sort_direction="DESC")
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]:
+        """A tenant's invitations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self.find_by_field(
+            "tenant_key",
+            tenant_key,
+            sort="created_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
-    def cleanup_expired(self) -> int:
-        now = datetime.now(UTC).isoformat()
+    def consume_use_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
+        """Consume one use of *key* while pending with a use left: one AQL ``UPDATE`` (AK-IE-06, AK-07)."""
         query = f"""
         FOR doc IN {col.INVITATIONS}
-          FILTER doc.status == @pending AND doc.expires_at < @now
+          FILTER doc._key == @key AND doc.status == @pending
+          LET max_uses = doc.max_uses == null ? 1 : doc.max_uses
+          LET used = doc.use_count == null ? (doc.accepted_by_user_key == null ? 0 : 1) : doc.use_count
+          FILTER used < max_uses
+          UPDATE doc WITH MERGE(@fields, {{
+            use_count: used + 1,
+            max_uses: max_uses,
+            status: used + 1 >= max_uses ? @accepted : @pending,
+            updated_at: @now
+          }}) IN {col.INVITATIONS}
+          RETURN NEW
+        """
+        docs = list(
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query,
+                    bind_vars={
+                        "key": key,
+                        "fields": fields,
+                        "pending": InvitationStatus.PENDING.value,
+                        "accepted": InvitationStatus.ACCEPTED.value,
+                        "now": datetime.now(UTC).isoformat(),
+                    },
+                ),
+            )
+        )
+        return Invitation(**self._from_doc(docs[0])) if docs else None
+
+    def release_use(self, key: str, user_key: str) -> Invitation | None:
+        """Hand back one consumed use of *key* after a failed join: one AQL ``UPDATE`` (#2182)."""
+        query = f"""
+        FOR doc IN {col.INVITATIONS}
+          FILTER doc._key == @key
+          LET used = doc.use_count == null ? (doc.accepted_by_user_key == null ? 0 : 1) : doc.use_count
+          LET mine = doc.accepted_by_user_key == @user_key
+          UPDATE doc WITH {{
+            use_count: MAX([used - 1, 0]),
+            status: doc.status == @accepted ? @pending : doc.status,
+            accepted_by_user_key: mine ? null : doc.accepted_by_user_key,
+            accepted_at: mine ? null : doc.accepted_at,
+            updated_at: @now
+          }} IN {col.INVITATIONS} OPTIONS {{ keepNull: true }}
+          RETURN NEW
+        """
+        docs = list(
+            cast(
+                Cursor,
+                self._db.aql.execute(
+                    query,
+                    bind_vars={
+                        "key": key,
+                        "user_key": user_key,
+                        "pending": InvitationStatus.PENDING.value,
+                        "accepted": InvitationStatus.ACCEPTED.value,
+                        "now": datetime.now(UTC).isoformat(),
+                    },
+                ),
+            )
+        )
+        return Invitation(**self._from_doc(docs[0])) if docs else None
+
+    def revoke_pending_for_tenant(self, tenant_key: str) -> int:
+        """Revoke every pending invitation into *tenant_key* in one statement (REQ-025 AK-IE-06)."""
+        query = f"""
+        FOR doc IN {col.INVITATIONS}
+          FILTER doc.tenant_key == @tenant_key AND doc.status == @pending
+          UPDATE doc WITH {{ status: @revoked, updated_at: @now }} IN {col.INVITATIONS}
+          COLLECT WITH COUNT INTO affected
+          RETURN affected
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "tenant_key": tenant_key,
+                "pending": InvitationStatus.PENDING.value,
+                "revoked": InvitationStatus.REVOKED.value,
+                "now": datetime.now(UTC).isoformat(),
+            },
+        )
+        return int(next(cursor, 0))
+
+    def cleanup_expired(self, *, now: datetime | None = None) -> int:
+        """Flip every pending invitation past its ``expires_at`` to ``expired``.
+
+        ``now`` defaults to the wall clock; the parameter exists so the cutoff can
+        be pinned in a test. Compared as instants (see
+        :mod:`app.data_access.arango.query_builder`); ``expires_at`` is required
+        on :class:`Invitation`, so one that is missing or unreadable is treated
+        as expired rather than left acceptable for good.
+        """
+        stamp = (now or datetime.now(UTC)).isoformat()
+        query = f"""
+        FOR doc IN {col.INVITATIONS}
+          FILTER doc.status == @pending
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@now)
+            )
           UPDATE doc WITH {{ status: @expired, updated_at: @now }} IN {col.INVITATIONS}
           RETURN 1
         """
@@ -83,21 +235,47 @@ class ArangoInvitationRepository(BaseArangoRepository[Invitation], IInvitationRe
             bind_vars={
                 "pending": InvitationStatus.PENDING.value,
                 "expired": InvitationStatus.EXPIRED.value,
-                "now": now,
+                "now": stamp,
             },
         )
         return sum(1 for _ in cursor)
 
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        query = f"""
-        FOR doc IN {col.INVITATIONS}
-          FILTER doc.tenant_key == @tenant_key
-          LET inv_id = CONCAT("{col.INVITATIONS}/", doc._key)
-          LET del_edge = (
-            FOR e IN {col.HAS_INVITATION} FILTER e._to == inv_id REMOVE e IN {col.HAS_INVITATION}
-          )
-          REMOVE doc IN {col.INVITATIONS}
+    def delete_expired_before(self, cutoff_iso: str) -> int:
+        """Hard-delete every ``expired`` invitation past the cutoff, edges first (NFR-011 R-12, #1800).
+
+        Two statements, like ``ArangoErasureRepository.delete_completed_before``
+        (R-06): AQL forbids reading a collection after modifying it in the same
+        query, so the ``has_invitation`` edges into the selected invitations are
+        removed first, then the invitations. ``expires_at`` is required on
+        :class:`Invitation`, so — like :meth:`cleanup_expired` — a missing or
+        unreadable value is treated as already past the cutoff rather than
+        excluded (the documented exception for an ``expires_at`` selector, #1784).
+        """
+        due = """
+          FILTER doc.status == @expired
+            AND (
+              DATE_TIMESTAMP(doc.expires_at) == null
+              OR DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff)
+            )
+        """
+        bind_vars = {
+            "@collection": col.INVITATIONS,
+            "expired": InvitationStatus.EXPIRED.value,
+            "cutoff": cutoff_iso,
+        }
+        edges_query = f"""
+        FOR doc IN @@collection
+          {due}
+          FOR edge IN @@edges
+            FILTER edge._to == doc._id
+            REMOVE edge IN @@edges
+        """
+        self._db.aql.execute(edges_query, bind_vars={**bind_vars, "@edges": col.HAS_INVITATION})
+        docs_query = f"""
+        FOR doc IN @@collection
+          {due}
+          REMOVE doc IN @@collection
           RETURN 1
         """
-        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
-        return sum(1 for _ in cursor)
+        cursor = self._db.aql.execute(docs_query, bind_vars=bind_vars)
+        return len(list(cursor))

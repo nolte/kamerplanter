@@ -22,6 +22,7 @@ from app.common.exceptions import (
     KamerplanterError,
     NotFoundError,
 )
+from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 
 TENANT_SLUG = "anna"
@@ -152,6 +153,37 @@ def test_diagnose_rejects_oversize_via_content_length():
         f"/api/v1/t/{TENANT_SLUG}/cv-diagnosis/diagnose",
         files={"image": ("leaf.jpg", b"\xff\xd8\xff\xe0padding", "image/jpeg")},
         headers={"content-length": str(6 * 1024 * 1024)},
+    )
+    assert resp.status_code == 413
+    service.diagnose.assert_not_called()
+
+
+def _jpeg_of_exactly(size: int) -> bytes:
+    jpeg = _real_jpeg()
+    return jpeg + b"\x00" * (size - len(jpeg))
+
+
+def test_diagnose_accepts_an_image_of_exactly_the_limit():
+    # #2144 — the Content-Length pre-check compared the whole multipart body with
+    # the IMAGE limit, so an image of exactly the allowed size was refused (413).
+    service = MagicMock()
+    service.diagnose.return_value = _diagnosis_payload()
+    client = TestClient(_build_app(service))
+    limit = settings.cv_diagnosis_max_image_size_mb * 1024 * 1024
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/cv-diagnosis/diagnose",
+        files={"image": ("leaf.jpg", _jpeg_of_exactly(limit), "image/jpeg")},
+    )
+    assert resp.status_code == 200, resp.json()
+
+
+def test_diagnose_refuses_an_image_one_byte_over_the_limit():
+    service = MagicMock()
+    client = TestClient(_build_app(service))
+    limit = settings.cv_diagnosis_max_image_size_mb * 1024 * 1024
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/cv-diagnosis/diagnose",
+        files={"image": ("leaf.jpg", _jpeg_of_exactly(limit + 1), "image/jpeg")},
     )
     assert resp.status_code == 413
     service.diagnose.assert_not_called()

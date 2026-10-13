@@ -35,9 +35,9 @@ def list_equipment(
 ):
     """List the tenant's equipment, optionally filtered by type, status or location."""
     if location_key:
-        items = service.find_equipment_by_location(ctx.tenant_key, location_key)
+        items = service.find_equipment_by_location(location_key, tenant_key=ctx.tenant_key)
     else:
-        items = service.list_equipment(ctx.tenant_key, equipment_type=equipment_type, status=status)
+        items = service.list_equipment(tenant_key=ctx.tenant_key, equipment_type=equipment_type, status=status)
     return [to_response(item, EquipmentResponse) for item in items]
 
 
@@ -49,7 +49,7 @@ def create_equipment(
 ):
     """Create a new equipment item for the tenant."""
     equipment = Equipment(**body.model_dump())
-    created = service.create_equipment(ctx.tenant_key, equipment)
+    created = service.create_equipment(equipment, tenant_key=ctx.tenant_key)
     return to_response(created, EquipmentResponse)
 
 
@@ -60,7 +60,7 @@ def equipment_by_location(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """List the equipment attached to a location."""
-    items = service.find_equipment_by_location(ctx.tenant_key, location_key)
+    items = service.find_equipment_by_location(location_key, tenant_key=ctx.tenant_key)
     return [to_response(item, EquipmentResponse) for item in items]
 
 
@@ -71,7 +71,7 @@ def get_equipment(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Return a single equipment item by key."""
-    return to_response(service.get_equipment(equipment_key, ctx.tenant_key), EquipmentResponse)
+    return to_response(service.get_equipment(equipment_key, tenant_key=ctx.tenant_key), EquipmentResponse)
 
 
 @router.put("/{equipment_key}", response_model=EquipmentResponse)
@@ -82,7 +82,7 @@ def update_equipment(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Update an equipment item's configuration."""
-    updated = service.update_equipment(equipment_key, ctx.tenant_key, body.model_dump(exclude_unset=True))
+    updated = service.update_equipment(equipment_key, body.model_dump(exclude_unset=True), tenant_key=ctx.tenant_key)
     return to_response(updated, EquipmentResponse)
 
 
@@ -93,4 +93,4 @@ def delete_equipment(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Delete an equipment item."""
-    service.delete_equipment(equipment_key, ctx.tenant_key)
+    service.delete_equipment(equipment_key, tenant_key=ctx.tenant_key)

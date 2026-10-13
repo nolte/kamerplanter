@@ -7,7 +7,7 @@ Kategorie: Benutzerführung
 Fokus: Beides (Frontend-Schwerpunkt, additive Backend-Erweiterung)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.1 (Modul `diary` registriert)
+Version: 1.2 (Modul `social` registriert)
 Abhängigkeit: REQ-020 (UserPreference-API), REQ-021 (Erfahrungsstufen), REQ-009 (Dashboard-Widgets), REQ-027 (Light-Modus), REQ-024 (Abgrenzung RBAC), REQ-030 (Benachrichtigungen, optional), REQ-050 (Tagebuch-Übersicht — Modul `diary`), UI-NFR-001 (Mobile-First)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-020 (UserPreference-API), REQ-021 (Erfahrungsstufen), REQ-009
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-10-04 | Modul `social` („Pflanzen-Posts: Mastodon & Co.") im Katalog § 1.3 registriert — Kategorie „Pflege & Planung", Default-Level `intermediate`, `core: false`, Navigationspfad `/social`. Quelle: REQ-055 v1.3 PS-UX-001. Das Modul steuert **nur** den Veröffentlichungsteil (Tab „Veröffentlicht", `/social`, Mastodon-Spalte in „Was soll {Name} erzählen?", Verknüpfen); die Tabs „Profil" und „Verlauf" an der Pflanzeninstanz folgen dem Kern-Modul `plants` und sind für alle Erfahrungsstufen sichtbar (Betreiberentscheidung zur Casual-User-Review, REQ-055 §25.2). Ist das Feature instanzweit aus (`SOCIAL_ENABLED=false`), blendet die UI den Eintrag unabhängig von der Präferenz aus. `ModuleKey` um `'diary'` (seit v1.1 fehlend, Spec-Gap) und `'social'` ergänzt. |
 | 1.1 | 2026-08-05 | Modul `diary` (Tagebuch) im Katalog § 1.3 registriert — Kategorie „Pflege & Planung", Default-Level `beginner`, `core: false`, Navigationspfad `/tagebuch`. Entscheidung O-07 aus REQ-050 v1.1 § 9; ohne diesen Eintrag wäre die Tagebuch-Übersicht die einzige Seite ohne Sichtbarkeitssteuerung (REQ-050 AK-31). Keine Änderung am Datenmodell, an der API oder an der Tri-State-Logik. |
 | 1.0 | 2026-06-20 | Erstversion. Basierend auf Feature-Request [FR-001 Modulare Feature-Sichtbarkeit](../feature-requests/FR-001_Modulare-Feature-Sichtbarkeit.md) / [Issue #243](https://github.com/nolte/kamerplanter/issues/243). |
 
@@ -110,6 +111,7 @@ Die folgende Taxonomie leitet sich aus der Navigationsstruktur (REQ-021 § 3.3 `
 | `automation` | Umgebungssteuerung & Aktorik | Automation | expert | | `/umgebung` |
 | `smart_home` | Smart-Home / Home Assistant | Automation | expert | | `/smart-home` |
 | `ai` | KI-Funktionen (Erkennung/Assistent) | KI | intermediate | | `/ki/*` |
+| `social` | Pflanzen-Posts (Mastodon & Co.) | Pflege & Planung | intermediate | | `/social` |
 
 > Der Katalog ist erweiterbar. Neue REQs registrieren ihr Modul durch einen Eintrag; das Sichtbarkeitssystem greift automatisch. Die kanonische Quelle der Wahrheit ist `moduleCatalog.ts` (§ 4.1).
 
@@ -181,7 +183,8 @@ export type ModuleKey =
   | 'ipm' | 'harvest' | 'post_harvest'
   | 'runs' | 'propagation'
   | 'master_data' | 'companion'
-  | 'sensors' | 'automation' | 'smart_home' | 'ai';
+  | 'sensors' | 'automation' | 'smart_home' | 'ai'
+  | 'diary' | 'social';
 
 export interface ModuleDefinition {
   key: ModuleKey;

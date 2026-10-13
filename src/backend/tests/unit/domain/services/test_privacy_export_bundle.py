@@ -1,0 +1,371 @@
+"""#1645 Art. 15 — the acceptance is content reaching the user, not a status.
+
+Every assertion below reads the bytes a data subject would receive. A test that
+checked ``status == "completed"`` while the bundle was empty is precisely the
+defect this repairs, so the status is only ever asserted *next to* the payload.
+"""
+
+import json
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+
+from app.common.exceptions import ValidationError
+from app.domain.engines.consent_engine import ConsentEngine
+from app.domain.engines.data_export_engine import DataExportEngine
+from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.interfaces.personal_data_repository import IPersonalDataRepository
+from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
+from app.domain.services.privacy_service import PrivacyService
+from tests.support.privacy_doubles import FakeDataExportRepo
+
+USER = "u-42"
+
+#: Synthetic throughout — no real personal data in a fixture. The values are
+#: chosen to be recognisable in a haystack of JSON.
+FIXTURE_ROWS: dict[str, list[dict[str, Any]]] = {
+    "users": [{"email": "subject@example.invalid", "display_name": "Test Subject", "locale": "de"}],
+    "auth_providers": [{"provider": "github", "provider_email": "subject@example.invalid"}],
+    # Distinctive values on purpose: this row must be asserted *absent*, and a
+    # one-letter grade like "A" is a substring of any JSON document.
+    # Disclosed by ``harvested_by_key`` since #1669 — asserted *present*.
+    "harvest_batches": [
+        {"batch_id": "HB-fixture-0001", "quality_grade": "grade-fixture", "notes": "fixture harvest note"}
+    ],
+    "plant_diary_entries": [{"title": "fixture diary", "text": "the plant looked fine"}],
+    # A source declared with a ``disclosure_gap`` (constructed — no production
+    # source carries one since #1669). Distinctive values on purpose: this row
+    # must be asserted *absent*, and a one-letter value is a substring of any
+    # JSON document.
+    "gapped_fixture": [{"notes": "gapped-fixture-note-must-not-appear"}],
+}
+
+GAPPED_SOURCE = DataSourceDefinition(
+    collection="gapped_fixture",
+    tenant_scoped=True,
+    filter_field="whoever",
+    label="Cannot be attributed",
+    fields=["notes"],
+    disclosure_gap="cannot be attributed in this fixture",
+)
+
+
+class _FakePersonalDataRepo(IPersonalDataRepository):
+    """Answers from :data:`FIXTURE_ROWS`; every other declared source is empty.
+
+    It resolves by the *source the caller passes in*, so a run that stopped
+    reading the manifest would ask for nothing and the assertions below would
+    find no records.
+    """
+
+    def __init__(self) -> None:
+        self.asked_for: list[str] = []
+
+    def collect_for_user(
+        self, source: DataSourceDefinition, user_key: str, tenant_keys, *, tombstone=None
+    ) -> list[dict[str, Any]]:
+        assert user_key == USER
+        self.asked_for.append(source.collection)
+        return [dict(row) for row in FIXTURE_ROWS.get(source.collection, [])]
+
+
+class _InMemoryStorage:
+    """The narrow slice of ``IObjectStorageAdapter`` an export bundle uses."""
+
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+
+    async def put_object(self, key, stream, mime_type, metadata=None):
+        chunks = [chunk async for chunk in stream]
+        self.objects[key] = b"".join(chunks)
+        return MagicMock(key=key)
+
+    async def get_object(self, key: str) -> AsyncIterator[bytes]:
+        payload = self.objects[key]
+
+        async def _iter() -> AsyncIterator[bytes]:
+            yield payload
+
+        return _iter()
+
+    async def delete_object(self, key: str) -> None:
+        self.objects.pop(key, None)
+
+
+class _FailingDeleteStorage(_InMemoryStorage):
+    """Storage whose delete fails until ``fail`` is cleared — a transient outage."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail = True
+
+    async def delete_object(self, key: str) -> None:
+        if self.fail:
+            raise ConnectionError("object store unavailable")
+        await super().delete_object(key)
+
+
+def _make_service(export: DataExportRequest, storage, personal_data_repo, **overrides) -> PrivacyService:
+    # A faithful double, not a MagicMock: this repository *merges*, so `update`
+    # drops a `None` and `update_fields` keeps it. A MagicMock has neither
+    # behaviour and would green-light a write that cannot land (#1506).
+    export_repo = FakeDataExportRepo(export)
+    deps = {
+        "export_repo": export_repo,
+        "consent_repo": MagicMock(),
+        "restriction_repo": MagicMock(),
+        "erasure_repo": MagicMock(),
+        "email_change_repo": MagicMock(),
+        "user_repo": MagicMock(),
+        "refresh_token_repo": MagicMock(),
+        "data_export_engine": DataExportEngine(),
+        "erasure_engine": ErasureEngine(),
+        "consent_engine": ConsentEngine(),
+        "password_engine": MagicMock(),
+        "token_engine": MagicMock(),
+        "email_service": MagicMock(),
+        "frontend_url": "https://app.test",
+        "storage_adapter": storage,
+        "personal_data_repo": personal_data_repo,
+    }
+    deps.update(overrides)
+    return PrivacyService(**deps)
+
+
+def _pending(key: str = "exp-1") -> DataExportRequest:
+    return DataExportRequest(key=key, user_key=USER, status="pending", requested_at=datetime.now(UTC))
+
+
+async def _download_text(svc: PrivacyService) -> str:
+    _export, stream = await svc.open_export_bundle(USER, "exp-1")
+    return b"".join([chunk async for chunk in stream]).decode("utf-8")
+
+
+@pytest.mark.asyncio
+class TestTheBundleReachesTheUser:
+    async def test_the_downloaded_bytes_carry_the_users_records(self, monkeypatch):
+        monkeypatch.setattr(
+            DataExportEngine, "USER_DATA_MANIFEST", [*DataExportEngine.USER_DATA_MANIFEST, GAPPED_SOURCE]
+        )
+        storage = _InMemoryStorage()
+        svc = _make_service(_pending(), storage, _FakePersonalDataRepo())
+
+        await svc.process_data_export("exp-1")
+        text = await _download_text(svc)
+
+        # The subject's own values, read back out of the delivered file — for
+        # every source that *can* be disclosed. ``harvest_batches`` is in the
+        # fixture on purpose: since #1669 it is keyed on the server-set
+        # ``harvested_by_key`` and its row MUST appear (before, the category
+        # carried a gap and the same assertion ran the other way). The
+        # constructed ``gapped_fixture`` keeps the negative: the walk never asks
+        # for a source with a declared gap (#1662 SCR-001).
+        gaps = {s.collection for s in DataExportEngine.USER_DATA_MANIFEST if s.disclosure_gap}
+        # ``location_assignments`` (#1700) is the one production gap: it carries
+        # the membership key, not the account key. Any further gap must be named.
+        assert gaps == {"gapped_fixture", "location_assignments"}, "a new production gap must be named here"
+        assert "harvest_batches" not in gaps
+        for collection, rows in FIXTURE_ROWS.items():
+            for value in rows[0].values():
+                if collection in gaps:
+                    assert value not in text, f"{collection} was disclosed although it cannot be attributed"
+                else:
+                    assert value in text
+
+    async def test_every_declared_manifest_source_is_a_section_of_the_bundle(self):
+        """Art. 15(1) is a right to know which categories are processed.
+
+        Compared against the engine rather than a written-down list, so a
+        manifest entry added later is covered without editing this test — and a
+        run that stopped walking the manifest goes red.
+        """
+        storage = _InMemoryStorage()
+        svc = _make_service(_pending(), storage, _FakePersonalDataRepo())
+
+        await svc.process_data_export("exp-1")
+        bundle = json.loads(await _download_text(svc))
+
+        declared = [source.collection for source in DataExportEngine.USER_DATA_MANIFEST]
+        assert declared, "guard against a vacuous comparison if the manifest ever empties"
+        assert [section["collection"] for section in bundle["sections"]] == declared
+
+    async def test_the_record_matches_the_file_that_was_stored(self):
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "completed"
+        assert result.file_path in storage.objects
+        assert result.file_size_bytes == len(storage.objects[result.file_path])
+        assert result.expires_at is not None
+
+    async def test_a_walk_that_reaches_nothing_fails_instead_of_delivering_an_empty_bundle(self):
+        """The anti-vacuity guard lives in production, not only in this file."""
+
+        class _EmptyRepo(IPersonalDataRepository):
+            def collect_for_user(self, source, user_key, tenant_keys, *, tombstone=None):
+                return []
+
+        storage = _InMemoryStorage()
+        svc = _make_service(_pending(), storage, _EmptyRepo())
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "failed"
+        assert not storage.objects
+        assert "no profile record" in (result.error_message or "")
+
+    async def test_an_expired_export_no_longer_has_a_file_in_storage(self):
+        """NFR-011 R-05 is 'delete the file' *and* 'set the status'."""
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        assert storage.objects
+
+        await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert storage.objects == {}
+        assert export.file_path is None
+        assert export.status == "expired"
+
+    async def test_a_bundle_finished_after_an_erasure_closed_the_export_is_removed(self):
+        """#1767 review SEC-A — the erasure's export cleanup ran while this bundle was built.
+
+        Before the fix the completion write was unconditional: it landed on the
+        record the erasure had already passed over, the ArangoDB plan then
+        removed the record, and the bundle sat in storage with nothing pointing
+        at it.
+        """
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        put = storage.put_object
+
+        async def _put_while_erasing(key, stream, mime_type, metadata=None):
+            result = await put(key, stream, mime_type, metadata)
+            svc._export_repo.fail_open_for_user(USER, "The account is being erased.")
+            return result
+
+        storage.put_object = _put_while_erasing
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "failed"
+        assert result.file_path is None
+        assert storage.objects == {}
+
+    async def test_an_export_an_erasure_closed_before_the_build_started_is_not_reopened(self):
+        """#1767 code review — the ``pending → processing`` flip was unconditional.
+
+        An erasure that closed the request between the worker's read and its
+        flip was overwritten back to ``processing``; the build then completed
+        behind the erasure and left a bundle nothing pointed at.
+        """
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        read = svc._export_repo.get_by_key
+        calls = {"n": 0}
+
+        def _read_then_erasure_closes_it(key):
+            calls["n"] += 1
+            found = read(key)
+            if calls["n"] == 1:
+                snapshot = found.model_copy()
+                svc._export_repo.fail_open_for_user(USER, "The account is being erased.")
+                return snapshot
+            return found
+
+        svc._export_repo.get_by_key = _read_then_erasure_closes_it
+
+        result = await svc.process_data_export("exp-1")
+
+        assert result.status == "failed"
+        assert storage.objects == {}
+
+    async def test_a_failed_bundle_delete_does_not_expire_the_record(self):
+        """#1767 GDPR-005 — ``expired`` is written only after the bundle is gone.
+
+        Before #1767 the status was flipped first; the failed delete left an
+        ``expired`` record with the bundle still in storage, and the next run's
+        filter (``completed``) never picked it up again.
+        """
+        storage = _FailingDeleteStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        bundle = export.file_path
+
+        expired = await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert expired == 0
+        assert bundle in storage.objects
+        assert export.status == "completed", "the status must not claim a removal that did not happen"
+        assert export.file_path == bundle
+
+    async def test_the_next_run_deletes_a_bundle_an_earlier_failure_left(self):
+        storage = _FailingDeleteStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        later = datetime.now(UTC) + timedelta(hours=73)
+        await svc.expire_data_exports(later)
+
+        storage.fail = False
+        expired = await svc.expire_data_exports(later + timedelta(hours=1))
+
+        assert expired == 1
+        assert storage.objects == {}
+        assert (export.status, export.file_path) == ("expired", None)
+
+    async def test_a_legacy_expired_record_still_pointing_at_its_bundle_is_repaired(self):
+        """Records the pre-#1767 order already flipped keep being selected until the file is gone."""
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        export.status = "expired"
+
+        await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert storage.objects == {}
+        assert export.file_path is None
+
+    async def test_without_a_storage_adapter_the_record_is_held_not_expired(self):
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        svc._storage_adapter = None
+
+        expired = await svc.expire_data_exports(datetime.now(UTC) + timedelta(hours=73))
+
+        assert expired == 0
+        assert export.status == "completed"
+        assert export.file_path in storage.objects
+
+    async def test_an_expired_export_cannot_be_downloaded(self):
+        storage = _InMemoryStorage()
+        export = _pending()
+        svc = _make_service(export, storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+        export.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+
+        with pytest.raises(ValidationError):
+            await svc.open_export_bundle(USER, "exp-1")
+
+    async def test_another_user_cannot_download_the_bundle(self):
+        storage = _InMemoryStorage()
+        svc = _make_service(_pending(), storage, _FakePersonalDataRepo())
+        await svc.process_data_export("exp-1")
+
+        from app.common.exceptions import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            await svc.open_export_bundle("someone-else", "exp-1")

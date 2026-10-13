@@ -52,6 +52,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import DiaryAnalysisState, DiaryEntryType, McpPermission
 from app.common.exceptions import DiaryAnalysisValidationError, KamerplanterError, NotFoundError
+from app.common.log_privacy import log_tenant
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_MIME_TYPE, can_render, metadata_keys
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
@@ -154,26 +155,32 @@ def _max_image_payload_bytes() -> int:
     return int(settings.mcp_max_image_payload_mb) * 1024 * 1024
 
 
-def _dispatch_thumbnail_generation(attachment_id: str, tenant_key: str) -> None:
+def _dispatch_thumbnail_generation(attachments: Any, attachment: Any, tenant_key: str) -> str:
     """Kick off the missing rendition and never fail the read for it (AK-09).
 
-    Mirrors the lazy regeneration of ``GET /attachments/{id}/thumbnails/{size}``.
+    Mirrors the lazy regeneration of ``GET /attachments/{id}/thumbnails/{size}``,
+    through the same claim (``AttachmentService.request_thumbnails``, #2108): one
+    queued task per attachment and window, none for renditions that failed for
+    good. Returns the photo's status — ``thumbnail_pending`` while a rendition
+    can still come, ``unavailable`` when none ever will (promising ``pending``
+    there would send the agent into an endless retry loop).
+
     A broker outage must not turn a successful photo read into an error: the
-    photo is already reported as ``thumbnail_pending``, and the worst case of a
-    lost trigger is that the agent's retry re-issues it.
+    photo is reported as ``thumbnail_pending``, and the worst case of a lost
+    trigger is that the agent's retry re-issues it.
     """
 
     try:
-        from app.tasks.storage_tasks import generate_thumbnails
-
-        generate_thumbnails.delay(attachment_id, tenant_key)
+        if not attachments.request_thumbnails(attachment):
+            return PHOTO_STATUS_UNAVAILABLE
     except Exception as exc:  # noqa: BLE001 — a dispatch failure is not a read failure
         logger.warning(
             "diary_photo_thumbnail_dispatch_failed",
-            attachment_id=attachment_id,
-            tenant_key=tenant_key,
+            attachment_id=attachment.key,
+            tenant=log_tenant(tenant_key),
             reason=type(exc).__name__,
         )
+    return PHOTO_STATUS_THUMBNAIL_PENDING
 
 
 async def _collect(stream: AsyncIterator[bytes]) -> bytes:
@@ -208,7 +215,9 @@ def _species_name(ctx: ToolContext, species_key: str | None, cache: dict[str, st
         return None
     if species_key not in cache:
         try:
-            cache[species_key] = getattr(ctx.species_service.get_species(species_key), "scientific_name", None)
+            cache[species_key] = getattr(
+                ctx.species_service.get_species(species_key, tenant_key=ctx.tenant_key), "scientific_name", None
+            )
         except KamerplanterError:
             cache[species_key] = None
     return cache[species_key]
@@ -227,7 +236,7 @@ def _location_name(ctx: ToolContext, location_key: str | None) -> str | None:
     if not location_key:
         return None
     try:
-        return getattr(ctx.site_service.get_location(location_key, ctx.tenant_key), "name", None)
+        return getattr(ctx.site_service.get_location(location_key, tenant_key=ctx.tenant_key), "name", None)
     except KamerplanterError:
         return None
 
@@ -692,13 +701,13 @@ async def _load_renditions(
         except NotFoundError:
             # AK-09: not an error. Kick off generation and keep going — the other
             # photos of this entry are still perfectly analysable.
-            pending.append({"photo_id": photo_id, "status": PHOTO_STATUS_THUMBNAIL_PENDING})
-            _dispatch_thumbnail_generation(photo_id, ctx.tenant_key)
+            status = _dispatch_thumbnail_generation(attachments, attachment, ctx.tenant_key)
+            pending.append({"photo_id": photo_id, "status": status})
             continue
 
         if not _is_metadata_free(photo_id, raw):
-            pending.append({"photo_id": photo_id, "status": PHOTO_STATUS_THUMBNAIL_PENDING})
-            _dispatch_thumbnail_generation(photo_id, ctx.tenant_key)
+            status = _dispatch_thumbnail_generation(attachments, attachment, ctx.tenant_key)
+            pending.append({"photo_id": photo_id, "status": status})
             continue
 
         delivered.append((photo_id, raw))

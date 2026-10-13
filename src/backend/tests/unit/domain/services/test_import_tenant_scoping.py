@@ -27,7 +27,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import DataOrigin, DuplicateStrategy, EntityType, ImportJobStatus, TenantRole
-from app.common.exceptions import ForbiddenError, ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.config.settings import settings
 from app.domain.models.import_job import ImportJob
 from app.domain.models.species import Cultivar, Species
@@ -46,13 +46,26 @@ def _service() -> tuple[ImportService, MagicMock, MagicMock]:
     return ImportService(MagicMock(), species_repo=species_repo, family_repo=family_repo), species_repo, family_repo
 
 
-def _staged_job(entity_type: EntityType, strategy: DuplicateStrategy = DuplicateStrategy.SKIP) -> ImportJob:
-    """A job in the one status `confirm` accepts, so the gate is what rejects — not the status."""
+def _staged_job(
+    entity_type: EntityType,
+    strategy: DuplicateStrategy = DuplicateStrategy.SKIP,
+    *,
+    tenant_key: str = _TENANT,
+) -> ImportJob:
+    """A job in the one status `confirm` accepts, so the gate is what rejects — not the status.
+
+    Owned by ``_TENANT`` by default since #1501: ``confirm`` now loads the job
+    *scoped*, so a job stamped ``""`` would be refused before any role gate ran and
+    every refusal below would pass for the wrong reason. Stamping it keeps the #1110
+    assertions measuring what they were written to measure — which gate refuses —
+    and :class:`TestConfirmRefusesAForeignJob` covers the ownership arm separately.
+    """
     return ImportJob(
         entity_type=entity_type,
         status=ImportJobStatus.PREVIEW_READY,
         filename="rows.csv",
         duplicate_strategy=strategy,
+        tenant_key=tenant_key,
     )
 
 
@@ -111,7 +124,7 @@ def test_imported_rows_are_editable_by_the_tenant_that_imported_them():
 def test_update_strategy_fallback_create_is_stamped_too():
     """The update path mints rows as well — via its vanished-duplicate fallback."""
     svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = None
+    species_repo.find_visible_by_normalized_scientific_name.return_value = None
 
     svc._get_update_fn(EntityType.SPECIES, tenant_key=_TENANT, caller_role=TenantRole.GROWER)(_SPECIES_ROW)
 
@@ -190,7 +203,7 @@ def test_update_strategy_refuses_overwriting_a_global_row():
     depends on.
     """
     svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = Species(
+    species_repo.find_visible_by_normalized_scientific_name.return_value = Species(
         key="sp_seeded", scientific_name="Rosa canina", tenant_key=""
     )
 
@@ -201,25 +214,9 @@ def test_update_strategy_refuses_overwriting_a_global_row():
     species_repo.update.assert_not_called()
 
 
-def test_update_strategy_hides_a_foreign_tenants_row_behind_404():
-    """Ownership hiding, identical to `PUT /species/{key}`: never confirm it exists."""
-    from app.common.exceptions import NotFoundError
-
-    svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = Species(
-        key="sp_other", scientific_name="Rosa canina", tenant_key="tenant_other"
-    )
-
-    update_fn = svc._get_update_fn(EntityType.SPECIES, tenant_key=_TENANT, caller_role=TenantRole.LEAD)
-
-    with pytest.raises(NotFoundError):
-        update_fn(_SPECIES_ROW)
-    species_repo.update.assert_not_called()
-
-
 def test_update_strategy_allows_the_caller_to_rewrite_its_own_row():
     svc, species_repo, _ = _service()
-    species_repo.get_by_scientific_name.return_value = Species(
+    species_repo.find_visible_by_normalized_scientific_name.return_value = Species(
         key="sp_own", scientific_name="Rosa canina", tenant_key=_TENANT
     )
 
@@ -240,7 +237,10 @@ def test_full_mode_import_without_an_active_tenant_is_refused(monkeypatch):
     """
     monkeypatch.setattr(settings, "kamerplanter_mode", "full")
     svc, _, _ = _service()
-    _confirming(svc, _staged_job(EntityType.SPECIES))
+    # The job is stamped "" too: this caller has no active tenant, so the job they
+    # staged could not have been stamped with one either. Pairing them keeps the
+    # ValidationError below the thing that refuses, rather than the #1501 scope.
+    _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key=""))
 
     with pytest.raises(ValidationError):
         svc.confirm("job1", tenant_key="", caller_role=TenantRole.LEAD)
@@ -262,9 +262,138 @@ def test_system_context_import_stays_global_and_ungated():
     svc, species_repo, _ = _service()
     _confirming(svc, _staged_job(EntityType.SPECIES))
 
-    svc.confirm("job1")  # no tenant, no role — must not raise
+    svc.confirm("job1", tenant_key=None)  # system context, no role — must not raise
 
     svc._get_create_fn(EntityType.SPECIES)(_SPECIES_ROW)
     species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
     assert species.tenant_key == ""
     assert species.origin == DataOrigin.SYSTEM
+
+
+# ── #1501 review SCR-002: the job's own ownership, not just the caller's role ─
+
+
+class TestConfirmRefusesAForeignJob:
+    """``confirm`` asks "is this *their* job", not only "may they import at all".
+
+    The #1110 gate above answers the second question and could not answer the
+    first: it reads ``entity_type`` and the caller's role, never the job's owner.
+    So until #1501 a member of tenant B could confirm a job tenant A had staged and
+    pull A's CSV rows — the parsed contents of A's uploaded file — into B's
+    catalogue, with every role check passing legitimately on the way.
+
+    The class the file's docstring pointed at did not exist when the review ran;
+    this is it, and the assertions are on the *absence* of work rather than only on
+    the exception, because an exception raised after the engine has already applied
+    rows would be a refusal that refuses nothing.
+    """
+
+    def test_a_foreign_job_is_not_found_and_nothing_is_applied(self):
+        svc, _species_repo, _family_repo = _service()
+        repo = _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key="tenant_rival"))
+        svc._engine = MagicMock()
+
+        with pytest.raises(NotFoundError):
+            svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD)
+
+        svc._engine.confirm_import.assert_not_called()
+        repo.update.assert_not_called()
+
+    def test_not_even_a_platform_admin_confirms_a_foreign_job(self):
+        """Ownership hiding has no privileged exception.
+
+        A platform admin bypasses the *rank*; the 404 is not about rank. An admin
+        arm that also skipped the scope would turn the refusal into the
+        cross-tenant read it exists to prevent.
+        """
+        svc, _species_repo, _family_repo = _service()
+        repo = _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key="tenant_rival"))
+        svc._engine = MagicMock()
+
+        with pytest.raises(NotFoundError):
+            svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD, is_platform_admin=True)
+
+        svc._engine.confirm_import.assert_not_called()
+        repo.update.assert_not_called()
+
+    def test_the_caller_s_own_job_still_confirms(self):
+        """The control. A scope that refused everything would pass the two above."""
+        svc, _species_repo, _family_repo = _service()
+        _confirming(svc, _staged_job(EntityType.SPECIES, tenant_key=_TENANT))
+
+        svc.confirm("job1", tenant_key=_TENANT, caller_role=TenantRole.LEAD)
+
+
+# ── MT-045.7 (#2144): the import sees what the caller sees, nothing more ──────
+
+
+def test_update_strategy_does_not_reveal_a_foreign_tenants_row():
+    """A foreign tenant's private species is invisible to the import, as to every read.
+
+    The update strategy resolved the row by name **unscoped**, found the other
+    tenant's species and answered 404 for it — while a name nobody holds created a
+    row. The difference between the two outcomes was an existence oracle for
+    another tenant's private catalogue. The lookup is now the visibility union
+    (own ∪ global): a foreign row is not there, so the row is created as the
+    caller's own, exactly as for an unknown name.
+    """
+    svc, species_repo, _ = _service()
+    species_repo.get_by_scientific_name.return_value = Species(
+        key="sp_other", scientific_name="Rosa canina", tenant_key="tenant_other"
+    )
+    species_repo.find_visible_by_normalized_scientific_name.return_value = None
+
+    svc._get_update_fn(EntityType.SPECIES, tenant_key=_TENANT, caller_role=TenantRole.LEAD)(_SPECIES_ROW)
+
+    species_repo.find_visible_by_normalized_scientific_name.assert_called_once_with("Rosa canina", _TENANT)
+    species_repo.update.assert_not_called()
+    created: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
+    assert created.tenant_key == _TENANT
+
+
+def test_the_duplicate_preview_counts_only_rows_the_caller_can_see():
+    """The staging preview flagged a name as "duplicate" when *any* tenant held it."""
+    svc, species_repo, _ = _service()
+    species_repo.get_all.return_value = ([], 0)
+    svc._repo.save.side_effect = lambda job: job
+
+    svc.upload(
+        b"scientific_name\nRosa canina\n",
+        EntityType.SPECIES,
+        "rows.csv",
+        tenant_key=_TENANT,
+        caller_role=TenantRole.GROWER,
+    )
+
+    assert species_repo.get_all.call_args.kwargs.get("tenant_key") == _TENANT
+
+
+class TestTheJobWindowReadsOneTenant:
+    """``list_jobs_window`` has no system-context arm (review SEC-001 of #2272, MT-035 #2131).
+
+    The window is a request read. A ``tenant_key=None`` default would hand the
+    repository ``None``, which :meth:`ImportService.list_jobs` treats as the
+    every-tenant system read — every tenant's uploaded CSV rows on one page.
+    """
+
+    def test_the_tenant_is_a_required_argument(self):
+        svc, _, _ = _service()
+
+        with pytest.raises(TypeError, match="tenant_key"):
+            svc.list_jobs_window(0, 50)  # type: ignore[call-arg]
+
+        svc._repo.list_all_window.assert_not_called()
+
+    def test_a_none_tenant_answers_an_empty_page_and_never_reaches_the_repository(self):
+        svc, _, _ = _service()
+
+        assert svc.list_jobs_window(0, 50, tenant_key=None) == []  # type: ignore[arg-type]
+        svc._repo.list_all_window.assert_not_called()
+
+    def test_the_caller_s_tenant_reaches_the_repository(self):
+        svc, _, _ = _service()
+        svc._repo.list_all_window.return_value = []
+
+        svc.list_jobs_window(4, 3, tenant_key=_TENANT)
+
+        svc._repo.list_all_window.assert_called_once_with(4, 3, tenant_key=_TENANT)

@@ -67,10 +67,9 @@ def test_up_is_idempotent_when_already_applied() -> None:
 
 def test_cleanup_task_delegates_to_repo() -> None:
     with (
-        patch("app.tasks.glossary_tasks.ArangoConnection") as conn,
+        patch("app.tasks.glossary_tasks.get_db"),
         patch("app.tasks.glossary_tasks.ArangoGlossaryTermCacheRepository") as repo_cls,
     ):
-        conn.return_value.db = MagicMock()
         repo_cls.return_value.delete_expired.return_value = 9
         from app.tasks.glossary_tasks import cleanup_expired_cache
 
@@ -78,12 +77,20 @@ def test_cleanup_task_delegates_to_repo() -> None:
 
 
 def test_reingest_invalidation_task_delegates_to_repo() -> None:
+    from app.tasks.glossary_tasks import invalidate_after_reingest, warm_glossary_cache
+
     with (
-        patch("app.tasks.glossary_tasks.ArangoConnection") as conn,
+        patch("app.tasks.glossary_tasks.get_db"),
         patch("app.tasks.glossary_tasks.ArangoGlossaryTermCacheRepository") as repo_cls,
+        patch.object(warm_glossary_cache, "delay") as warm,
+        # The Redis hot tier is cleared too (#2169); covered in
+        # tests/unit/tasks/test_reingest_chains_glossary_invalidation.py.
+        patch("app.tasks.glossary_tasks._redis_client_or_none", return_value=None),
     ):
-        conn.return_value.db = MagicMock()
         repo_cls.return_value.invalidate_all.return_value = 30
-        from app.tasks.glossary_tasks import invalidate_after_reingest
 
         assert invalidate_after_reingest() == 30
+        # #1460 — the read path no longer refills the cache, so the invalidation
+        # has to queue the refill itself. Without this, a reingest would leave
+        # every term on its editorial fallback until a grower pressed "generate".
+        warm.assert_called_once_with()

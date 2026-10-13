@@ -29,11 +29,17 @@ import PhaseTimelineTab from './nutrient-plan-detail/PhaseTimelineTab';
 import PlanValidationTab from './nutrient-plan-detail/PlanValidationTab';
 import PlanEditTab from './nutrient-plan-detail/PlanEditTab';
 import { useNutrientPlanDetail } from './nutrient-plan-detail/useNutrientPlanDetail';
+import { useCatalogue } from '@/hooks/useCatalogue';
+
+/** Index of the edit tab — the only consumer of the species catalogue here. */
+const EDIT_TAB_INDEX = 3;
 
 export default function NutrientPlanDetailPage() {
   const { t } = useTranslation();
   const c = useNutrientPlanDetail();
   const { key, plan } = c;
+  // Loaded only once the edit tab is opened: the other tabs never show species.
+  const speciesCatalogue = useCatalogue('species', { enabled: c.tab === EDIT_TAB_INDEX });
 
   if (c.loading) return <LoadingSkeleton variant="form" />;
   if (c.error) return <ErrorDisplay error={c.error} />;
@@ -196,6 +202,7 @@ export default function NutrientPlanDetailPage() {
           scheduleEnabled={c.editScheduleEnabled}
           weekdaySchedule={c.editWeekdaySchedule}
           onWeekdayToggle={c.handleEditWeekdayToggle}
+          speciesCatalogue={speciesCatalogue}
         />
       </TabPanel>
 

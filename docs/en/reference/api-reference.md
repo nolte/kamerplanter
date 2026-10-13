@@ -900,15 +900,17 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 | HTTP Status | Meaning |
 |-------------|---------|
 | `403` | Active tenant role below **grower** (e.g. **viewer**) |
+| `403` | The `reference_contribution` consent is missing or was revoked (`CONSENT_REQUIRED`) |
 | `404` | `species_key` does not reference a known species |
 | `409` | Self-hosted recognition is not enabled (`INFERENCE_SERVICE_ENABLED=false`) |
+| `409` | Contributions are disabled in Light mode (REQ-034 §4.1) |
 | `413` | Image exceeds `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
 | `415` | `Content-Type` is neither `image/jpeg` nor `image/png` |
 | `422` | Image cannot be decoded (corrupt or not a valid image format) |
 | `429` | Daily contribution quota (`REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY`) exhausted |
 
 !!! note "Security model (quarantine, provenance, dedup)"
-    Every contribution is stored with `source="user_contributed"`, `is_active=false`, and the contributing user and tenant as provenance — it therefore does not affect other tenants' recognition until a platform admin has reviewed it. Re-submitting the same photo (SHA-256 hash of the normalized image) updates the existing row instead of creating another one. The original image itself is never persisted — only the embedding.
+    Every contribution is stored with `source="user_contributed"`, `is_active=false`, and the contributing user and tenant as provenance — it therefore does not affect other tenants' recognition until a platform admin has reviewed it. The dedup key (`source_record_id`) is derived from the tenant, the contributing user, and the SHA-256 hash of the normalized image: re-submitting the same photo updates your own row instead of creating another one. If a different person contributes the same image — even across tenants — they get their own row as of issue #1770; before that, a plain image hash as the key made such a contribution land on the first contributor's row, so that person's erasure also removed the other person's contribution, and the second person's own erasure never reached it. The original image itself is never persisted — only the embedding.
 
 ### See Also
 
@@ -926,9 +928,12 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 
 Every endpoint responds with `404 Not Found` when the platform operator has disabled AI features instance-wide (`AI_FEATURES_ENABLED=false`) — the AI API then effectively doesn't exist. Details on the three-stage toggle: [AI Assistant — User Guide](../user-guide/ai-assistant.md#how-the-ai-assistant-is-structured-three-stage-toggle).
 
-### Public knowledge question (Light Mode capable)
+### Knowledge question in Light Mode
 
-No login required, IP rate-limited (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, default 10/minute). **No** tenant or user context is passed to the knowledge base.
+!!! warning "Light Mode only"
+    `/api/v1/public/ai/ask` and `/api/v1/public/ai/health` exist only with `KAMERPLANTER_MODE=light`. In full mode both paths answer `404`; the knowledge question there is `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` (see [Tenant-scoped endpoints](#tenant-scoped-endpoints)).
+
+The routes require a signed-in principal (`get_current_user`); in Light Mode that is always the system user without a login, so the Light Mode UI needs no sign-in. IP rate-limited (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, default 10/minute). **No** tenant or plant context is passed to the knowledge base.
 
 ```
 POST /api/v1/public/ai/ask
@@ -973,7 +978,7 @@ GET /api/v1/public/ai/health
 
 ### Tenant-scoped endpoints
 
-The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a valid JWT token plus an active tenant membership. Role-based restrictions (viewer/grower/admin) are **not yet** implemented in this version — every active member may call every endpoint.
+The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a valid JWT token plus an active tenant membership. Reads (`GET`) and creating or deleting one's own conversations are open to every member; refreshing, dismissing or marking tips as acted on, `/explain` and sending a message require at least the grower role (`grower`).
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -989,6 +994,7 @@ The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a v
 | `POST` | `/ai/conversations/{conversation_key}/messages` | Send a message — answer streams back as SSE |
 | `DELETE` | `/ai/conversations/{conversation_key}` | Delete a conversation immediately (GDPR Art. 17) |
 | `GET` | `/ai/providers` | List available providers (read-only) |
+| `POST` | `/ai/knowledge/ask` | Free-form knowledge question (grower and up); consent `ai_knowledge_question`, with plant values in `context` also `ai_tenant_data_access`. Response `{ answer, question_type, model, usage, sources[], provider_type, uses_cloud_provider }` — the cloud label comes from the platform's system default provider, because the Knowledge Service answers with its own model. When that model is a cloud model, the route additionally requires `ai_cloud_processing` and the garden's `ai_allow_cloud_providers` (otherwise `403 AI_DISABLED_FOR_TENANT`); the garden's own provider does not count here |
 
 !!! info "API only / operator configuration: enabling for a tenant"
     Every one of these endpoints additionally requires `tenant.settings.ai_features_enabled=true` — there is currently neither a UI nor a dedicated `GET`/`PUT` endpoint for this; the field can only be set directly on the tenant document. Without this, every tenant-scoped endpoint responds with `403` and `{ "detail": "ai.disabled_for_tenant" }` (error code `AI_DISABLED_FOR_TENANT`).
@@ -1010,7 +1016,7 @@ The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a v
 |-------------|-----------|---------|
 | `404` | — | AI features disabled instance-wide (stage 1) |
 | `403` | `AI_DISABLED_FOR_TENANT` | AI features disabled for this tenant (stage 2) |
-| `403` | `CONSENT_REQUIRED` | Required consent missing (stage 3, `consent_purpose` in the body: `ai_tenant_data_access` or `ai_cloud_processing`) |
+| `403` | `CONSENT_REQUIRED` | Required consent missing (stage 3; the missing purpose is named machine-readably in `details[0].purpose`: `ai_knowledge_question`, `ai_tenant_data_access` or `ai_cloud_processing`) |
 
 ### Global endpoints (platform admin)
 
@@ -1449,3 +1455,74 @@ Requires a valid JWT token and an active tenant membership; any role may read.
 - [Growth Phases — User Guide: Phase Definition Detail View](../user-guide/growth-phases.md#phasendefinition-detailansicht)
 - [Master Data: Plant Species — User Guide](../user-guide/plant-management.md)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## Plans and quotas of a tenant <!-- REQ-056 §7 / Issue #2142 --> {#plaene-und-kontingente}
+
+Every tenant points at exactly one plan with `plan_key`. A plan sets a limit per quota or leaves it empty (`null` = the server setting). The seeded plan `standard` leaves everything empty and is the plan of every tenant nothing else is assigned to. The responses of `GET /api/v1/tenants/{slug}` and `GET /api/v1/admin/platform/tenants` additionally carry `plan_key`.
+
+| Quota (`dimension`) | Server setting when `null` | `0` means | Refusal |
+|---|---|---|---|
+| `members` | `TENANT_MAX_MEMBERS_CEILING` (never above it) | — (at least `1`) | `422 MEMBER_LIMIT_REACHED` |
+| `service_accounts` | `TENANT_MAX_SERVICE_ACCOUNTS` | — (at least `1`) | `422 SERVICE_ACCOUNT_LIMIT_REACHED` |
+| `storage_mb` | `STORAGE_TENANT_QUOTA_MB` | unlimited | `409 STORAGE_QUOTA_EXCEEDED` |
+| `photos_per_instance` | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | unlimited | `409 PHOTO_QUOTA_EXCEEDED` |
+| `ai_calls_per_user_day` | `AI_BUDGET_USER_CALLS_PER_DAY` | budget off | `429 AI_BUDGET_EXCEEDED` |
+| `ai_calls_per_tenant_day` | `AI_BUDGET_TENANT_CALLS_PER_DAY` | budget off | `429 AI_BUDGET_EXCEEDED` |
+| `ai_tokens_per_tenant_day` | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | budget off | `429 AI_BUDGET_EXCEEDED` |
+
+!!! warning "`0` means unlimited, not \"nothing allowed\""
+    For `storage_mb` and `photos_per_instance`, `0` lifts the limit entirely; for the three AI budgets, `0` switches the budget off — again no limit. A plan therefore cannot set these dimensions to "none at all". The plan response lists such dimensions in the field `unlimited`, and the security audit marks a change to `0` as `to_unlimited`.
+
+Every quota has an upper bound (e.g. `storage_mb` at most 10,000,000, `ai_tokens_per_tenant_day` at most 10¹²); above it the API answers `422`. The effective member limit is `min(max_members, plan.members ?? ceiling, TENANT_MAX_MEMBERS_CEILING)`. The platform tenant always follows the server settings and takes no plan (`422`). A tenant whose plan document is missing or corrupt falls back to the default plan, then to the server setting, never to "unlimited"; a corrupt plan is also left out of the plan listing.
+
+### Read a tenant's plan and usage
+
+`GET /api/v1/tenants/{slug}/entitlements` — every member. `ai_calls_per_user_day.used` is your own usage; `service_accounts` and `ai_tokens_per_tenant_day` are listed for a lead only. `limit: null` = unlimited, `used: null` = counted per plant or not readable right now.
+
+```json
+{
+  "plan": {"key": "standard", "name": "Standard"},
+  "limits": [
+    {"dimension": "members", "limit": 50, "used": 12},
+    {"dimension": "storage_mb", "limit": 2048, "used": 731},
+    {"dimension": "photos_per_instance", "limit": 50, "used": null},
+    {"dimension": "ai_calls_per_user_day", "limit": 50, "used": 3},
+    {"dimension": "ai_calls_per_tenant_day", "limit": 500, "used": 41}
+  ]
+}
+```
+
+### Manage plans (platform admin)
+
+| Method | Path | Effect |
+|---|---|---|
+| `GET` | `/api/v1/admin/platform/plans` | every plan with `tenant_count` |
+| `POST` | `/api/v1/admin/platform/plans` | create a plan (`201`; `409` for a taken `key`; `422` out of range or `members` above the ceiling) |
+| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | change name, description, single quotas (`name: null` is `422`); `is_default: true` makes it the default of new tenants |
+| `DELETE` | `/api/v1/admin/platform/plans/{plan_key}` | delete (`204`); `409 RESOURCE_IN_USE` while a tenant uses it or it is the default |
+| `PATCH` | `/api/v1/admin/platform/tenants/{key}` with `plan_key` | assign a plan (`422` for an unknown plan, a tenant being erased or the platform tenant; `409 WRITE_CONFLICT` when the plan is deleted at the same moment) |
+| `GET` | `/api/v1/admin/platform/tenants/{key}` | the tenant with `entitlements` over every quota |
+
+`key` matches `^[a-z][a-z0-9_-]{1,39}$` and is immutable. None of these actions asks for a password confirmation; each writes a security-audit entry (`plan_created`, `plan_changed` with `changed_fields` and — for quotas — `limit_changes` with old and new value, `plan_deleted`, `tenant_plan_changed` with `old_plan_key` and `plan_key`). Light mode has none of these routes.
+
+### Exporting and importing a tenant <!-- REQ-056 §8 / Issue #2138 --> {#mandanten-export-import}
+
+Steps, archive content and refusals are described in the runbook [Exporting and importing a tenant](../deployment/tenant-export-import.md). All routes exist in full mode only; none accepts an API key or a service account (`403`).
+
+| Method | Path | Who | Effect |
+|---|---|---|---|
+| `POST` | `/api/v1/tenants/{slug}/exports` | lead ∧ management + confirmation (`tenant_export`) | request an export (`202`); in `active` and `pending_deletion`. `409 EXPORT_ALREADY_RUNNING` while one runs; `429` from the `TENANT_EXPORTS_PER_DAY`+1st in 24 h; an unknown slug and a missing permission are the same `403` |
+| `GET` | `/api/v1/tenants/{slug}/exports` | lead ∧ management | own exports, newest first (paginated) |
+| `GET` | `/api/v1/tenants/{slug}/exports/{export_key}/download` | whoever requested it | the archive as ZIP; `404` after expiry (`RETENTION_EXPORT_FILE_RETENTION_HOURS`) |
+| `POST` | `/api/v1/admin/platform/tenants/{key}/exports` | platform admin + confirmation | export in every state but `deleted` |
+| `GET` | `/api/v1/admin/platform/tenants/{key}/exports` (`…/{export_key}/download`) | platform admin | own exports or the archive |
+| `POST` | `/api/v1/admin/platform/tenant-imports` | platform admin + confirmation (`tenant_import`, target `archive:<the first 32 hex digits of the file's SHA-256>`, checked before the file is read) | the archive as `multipart/form-data` (`archive`, optional `member_mapping` as JSON `{"<old user_key>": {"email": "…", "role": "lead\|grower\|viewer", "admin_scopes": […]}}`, `plan_key`, confirmation fields); `202`, `verified` says whether this installation signed the archive. Refused before any write with `422` and the codes `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_CHECKSUM_MISMATCH`, `IMPORT_UNDECLARED_REFERENCE`, `IMPORT_MISSING_CATALOG_ENTRIES` (listed in `details`), `IMPORT_MEMBER_NOT_FOUND`; `413` above `TENANT_IMPORT_MAX_UPLOAD_MB` |
+| `GET` | `/api/v1/admin/platform/tenant-imports/{import_key}` | platform admin | state and report (`report`: count per collection), `target_tenant_key`, `verified` |
+
+The body carries the confirmation as for a deletion (`current_password`, `step_up_code` or `step_up_token`). An export request (`status`: `pending` → `running` → `completed` / `failed` with `failure_reason` `too_large`, `internal_error`, `storage_unavailable`, `tenant_not_exportable` → `expired`) names its size (`size_bytes`), rows per archive part (`counts`) and `expires_at`. Security log: `tenant_export_requested`, `tenant_export_downloaded` (every download), `tenant_import_requested`, `tenant_imported`. An imported tenant is in the state `importing` until its last row is written and reachable for nobody.
+
+### Organizations per account
+
+`POST /api/v1/tenants` refuses once the account owns `TENANT_MAX_ORGANIZATIONS_PER_USER` organizations (counted in every state but `deleted`): `422 ORGANIZATION_LIMIT_REACHED` (until now `422 VALIDATION_ERROR`). This is a limit of the account, not a plan quota.

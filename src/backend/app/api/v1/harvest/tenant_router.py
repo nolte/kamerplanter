@@ -63,7 +63,7 @@ def list_indicators(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """List harvest-readiness indicators (paginated)."""
-    indicators, _ = service.list_indicators(pagination.offset, pagination.limit)
+    indicators = service.list_indicators_window(pagination.offset, pagination.limit)
     return [_indicator_response(i) for i in indicators]
 
 
@@ -107,7 +107,7 @@ def list_observations(
     A ``plant_key`` belonging to another tenant yields an empty list — the
     tenant scope is enforced in the repository query (#927).
     """
-    observations, _ = service.get_observations(
+    observations = service.get_observations_window(
         plant_key,
         pagination.offset,
         pagination.limit,
@@ -136,10 +136,13 @@ def list_batches(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """List the tenant's harvest batches (paginated)."""
-    batches, _ = service.list_batches(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    batches = service.list_batches_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_batch_response(b) for b in batches]
 
 
+# tenant-scope-ok: HarvestService.create_harvest_batch runs the Karenz gate
+# through IpmService.check_harvest_safety(..., tenant_key=batch.tenant_key),
+# which refuses a foreign plant with 404 before anything is persisted (#1619).
 @router.post("/plants/{plant_key}/batches", response_model=HarvestBatchResponse, status_code=201)
 def create_batch(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
@@ -147,9 +150,15 @@ def create_batch(
     ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """Create a harvest batch for a plant."""
-    batch = HarvestBatch(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_harvest_batch(plant_key, batch)
+    """Create a harvest batch for a plant.
+
+    ``harvested_by_key`` is the caller's account, taken from the resolved
+    context and never from the body (#1669): ``HarvestBatchCreate`` does not
+    declare the field, so a body carrying it is ignored by the schema and the
+    stored value is always this one.
+    """
+    batch = HarvestBatch(**body.model_dump(), tenant_key=ctx.tenant_key, harvested_by_key=ctx.user_key)
+    created = service.create_harvest_batch(plant_key, batch, tenant_key=ctx.tenant_key)
     return _batch_response(created)
 
 
@@ -201,9 +210,8 @@ def update_batch(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Update a harvest batch."""
-    service.get_batch(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_batch(key, data)
+    updated = service.update_batch(key, data, tenant_key=ctx.tenant_key)
     return _batch_response(updated)
 
 
@@ -214,10 +222,15 @@ def create_quality_assessment(
     ctx: TenantContext = Depends(require_permission(ResourceType.HARVEST, Action.CREATE)),
     service: HarvestService = Depends(get_harvest_service),
 ):
-    """Record a quality assessment for a harvest batch."""
-    service.get_batch(batch_key, tenant_key=ctx.tenant_key)
-    assessment = QualityAssessment(**body.model_dump())
-    created = service.create_quality_assessment(batch_key, assessment)
+    """Record a quality assessment for a harvest batch.
+
+    ``assessed_by_key`` is the caller's account, taken from the resolved context
+    and never from the body (#1663): ``QualityAssessmentCreate`` does not
+    declare the field, so a body carrying it is ignored by the schema and the
+    stored value is always this one.
+    """
+    assessment = QualityAssessment(**body.model_dump(), assessed_by_key=ctx.user_key)
+    created = service.create_quality_assessment(batch_key, assessment, tenant_key=ctx.tenant_key)
     return _quality_response(created)
 
 
@@ -241,9 +254,8 @@ def create_yield_metric(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Record a yield metric for a harvest batch."""
-    service.get_batch(batch_key, tenant_key=ctx.tenant_key)
     metric = YieldMetric(**body.model_dump())
-    created = service.create_yield_metric(batch_key, metric)
+    created = service.create_yield_metric(batch_key, metric, tenant_key=ctx.tenant_key)
     return _yield_response(created)
 
 
@@ -267,4 +279,4 @@ def get_yield_stats(
     service: HarvestService = Depends(get_harvest_service),
 ):
     """Return aggregated yield statistics for a species."""
-    return service.get_yield_stats(species_key, days_back)
+    return service.get_yield_stats(species_key, days_back, tenant_key=ctx.tenant_key)

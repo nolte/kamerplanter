@@ -165,14 +165,12 @@ class TestEverySetupUvStepReadsThePin:
                 elif not str(pin).startswith("=="):
                     problems.append(
                         f"{where}: {version_file} pins [tool.uv].required-version to {pin!r}, which is not an "
-                        "exact `==` specifier. THREE readers degrade silently on anything else, and none of "
-                        "them goes red: (1) the `uv toolchain` customManager in renovate.json5 matches "
+                        "exact `==` specifier. TWO readers degrade silently on anything else, and neither "
+                        "goes red: (1) the `uv toolchain` customManager in renovate.json5 matches "
                         '`required-version = "==(?<currentValue>...)"` and simply stops tracking the pin; '
-                        "(2) the coverage lane's install-command in backend.yml appends the specifier to the "
-                        "package name, so a floor installs whatever release is newest that day; (3) "
-                        "tests/unit/guards/test_lock_hash_verification.py's _required_uv_version() returns "
+                        "(2) tests/unit/guards/test_lock_hash_verification.py's _required_uv_version() returns "
                         "None and the hash falsifier stops checking that the uv on PATH is the pinned one. "
-                        "Loosen this only together with all three."
+                        "Loosen this only together with both."
                     )
 
         assert not problems, "setup-uv steps that do not resolve the pin (#1383):\n  " + "\n  ".join(problems)

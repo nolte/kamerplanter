@@ -1,4 +1,5 @@
 import client from '../client';
+import { invalidateCatalogue } from '../catalogueRevision';
 import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Species,
@@ -47,16 +48,19 @@ export async function getSpecies(key: string): Promise<Species> {
 
 export async function createSpecies(payload: SpeciesCreate): Promise<Species> {
   const { data } = await client.post<Species>(BASE, payload);
+  invalidateCatalogue('species');
   return data;
 }
 
 export async function updateSpecies(key: string, payload: SpeciesCreate): Promise<Species> {
   const { data } = await client.put<Species>(`${BASE}/${key}`, payload);
+  invalidateCatalogue('species');
   return data;
 }
 
 export async function deleteSpecies(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+  invalidateCatalogue('species');
 }
 
 export async function getSpeciesReferenceImages(key: string): Promise<SpeciesReferenceImages> {

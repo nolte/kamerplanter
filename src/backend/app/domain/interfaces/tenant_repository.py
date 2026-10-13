@@ -1,5 +1,11 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Collection
+from datetime import datetime
+from typing import Literal
 
+from app.common.enums import TenantStatus
+from app.domain.models.membership import Membership
+from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.tenant import Tenant
 
 
@@ -12,6 +18,28 @@ class ITenantRepository(ABC):
 
     @abstractmethod
     def create(self, tenant: Tenant) -> Tenant: ...
+
+    @abstractmethod
+    def create_with_lead_membership(
+        self,
+        tenant: Tenant,
+        membership: Membership,
+        *,
+        audit: Callable[[Tenant, Membership], SecurityAuditEntry] | None = None,
+        tenant_key: str | None = None,
+    ) -> tuple[Tenant, Membership]:
+        """Found a tenant: tenant, founder membership, both edges and the audit row, atomically (#2118).
+
+        The tenant document, the membership (its ``tenant_key`` is set to the new tenant's key), the
+        ``has_membership`` and ``membership_in`` edges and, when ``audit`` is given, the security-audit row
+        it builds from the stored tenant and membership are written in **one** transaction: either all of
+        them exist or none does. Written one by one, a failure between two of them left a tenant nobody could
+        reach or delete (its slug taken, no member), or a membership without edges.
+
+        Raises the same domain conflicts :meth:`create` does (``DuplicateError`` for a taken slug).
+        *tenant_key*, when given, is the new tenant's ``_key`` (a tenant import records it first, #2138);
+        otherwise the database generates one.
+        """
 
     @abstractmethod
     def update_fields(self, key: str, fields: dict) -> Tenant | None:
@@ -30,14 +58,40 @@ class ITenantRepository(ABC):
         """
 
     @abstractmethod
+    def transition_status(
+        self,
+        key: str,
+        *,
+        expected: Collection[TenantStatus],
+        status: TenantStatus | None,
+        deletion_scheduled_at: datetime | None | Literal["keep"],
+        previous: Literal["remember", "clear", "keep"],
+        restore_fallback: TenantStatus | None = None,
+    ) -> Tenant | None:
+        """Move one tenant's lifecycle state **only if** it is still in *expected* (compare-and-set, REQ-056 §4.3).
+
+        One conditional write: the state, ``deletion_scheduled_at`` and ``status_before_deletion``
+        change together, or nothing changes. Returns the stored tenant after the write, or ``None``
+        when no document matched — no such tenant, or its state is no longer in *expected* (the
+        caller's snapshot is stale; services answer 409).
+
+        * ``status`` — the new state; ``None`` restores ``status_before_deletion`` when it is
+          ``active`` or ``suspended``, else ``restore_fallback``; with neither nothing matches.
+        * ``deletion_scheduled_at`` — the new date, ``None`` removes it, ``"keep"`` leaves it.
+        * ``previous`` — ``"remember"`` stores the state the document had *before* this write
+          (when it is ``active`` or ``suspended``; read inside the write, never from a snapshot),
+          ``"clear"`` removes the field, ``"keep"`` leaves it.
+        """
+
+    @abstractmethod
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
     def list_by_owner(self, owner_user_key: str) -> list[Tenant]: ...
 
     @abstractmethod
-    def list_all(self) -> list[Tenant]:
-        """Every tenant, newest first (platform-admin listing, #1019).
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
+        """Tenants, newest first (platform-admin listing, #1019); a window when ``limit`` is set (MT-035).
 
         Not tenant-scoped by design: this is the platform-admin cross-tenant
         catalogue, the same system-context read the router hand-wrote as raw AQL.
@@ -45,7 +99,26 @@ class ITenantRepository(ABC):
 
     @abstractmethod
     def count(self, *, active_only: bool = False) -> int:
-        """Number of tenant documents; ``active_only`` counts ``is_active`` ones (#1019)."""
+        """Number of tenant documents; ``active_only`` counts those in state ``active`` (#1019, #2123)."""
+
+    @abstractmethod
+    def keys_in_status(self, statuses: Collection[TenantStatus]) -> dict[str, TenantStatus]:
+        """``{tenant_key: status}`` of every tenant whose state is one of *statuses*, filtered in the query.
+
+        The state is read exactly as :class:`~app.domain.models.tenant.Tenant` reads it: a
+        stored ``status`` wins; a document from before v0085 that carries only the retired
+        ``is_active == false`` is ``suspended``; neither is ``active``. Keys and states only,
+        so a beat walking the tenants never loads a tenant document (MT-032, #2128).
+        """
 
     @abstractmethod
     def count_organizations_by_owner(self, owner_user_key: str) -> int: ...
+
+    @abstractmethod
+    def personal_tenant_keys_by_owner(self, owner_user_key: str) -> list[str]:
+        """The keys of every ``personal`` tenant *owner_user_key* owns, oldest first (#1788).
+
+        Keys only, filtered in the query: the account erasure must reach a
+        personal tenant even when a document of it would not pass model
+        validation, and never loads the owner's organisations to find it.
+        """

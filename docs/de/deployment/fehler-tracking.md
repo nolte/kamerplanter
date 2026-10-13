@@ -66,8 +66,11 @@ Fehlerereignisse können personenbezogene Daten enthalten, deshalb wird an der S
 
 - **Anfrage-Inhalte und Cookies** werden vollständig verworfen. Ein Request-Body ist die dichteste Quelle personenbezogener Daten, die diese Anwendung hat — Pflanzennotizen, Erntedaten, Einladungen.
 - **Header** folgen einer Positivliste (`Content-Type`, `User-Agent` und wenige weitere). Ein Header, den ein künftiger Proxy hinzufügt, wird also zurückgehalten, statt so lange zu lecken, bis jemand daran denkt, ihn zu sperren.
-- **Query-Parameter, lokale Variablen im Stacktrace und Kontextfelder** werden anhand ihres *Namens* geschwärzt (`token`, `password`, `email`, `secret`, …). Der Schlüssel bleibt sichtbar, der Wert nicht — so ist beim Auswerten erkennbar, dass an dieser Stelle ein Geheimnis lag.
-- **Vom Nutzer** bleiben nur `id` und Mandant übrig. Sie machen einen Vorgang bearbeitbar; Name, E-Mail und IP-Adresse tun das nicht.
+- **Die Anfrage-Adresse** ist das Routenmuster, nie der aufgerufene Pfad: Ereignis-URL und Transaktionsname lauten `/api/v1/t/{tenant_slug}/attachments/{key}/…`, nicht der Pfad mit Mandanten-Kürzel und Download-Token (das Token *ist* die Berechtigung). Hat das Framework kein Muster geliefert (404, Fehler vor dem Routing), reduziert das Backend den Pfad wie in seinen Zugriffsprotokollen auf feste Routen-Segmente. Methode, Host und Statuscode bleiben.
+- **Query-Parameter** behalten nur ihren Namen, jeder Wert wird geschwärzt — auch die Roh-Query ausgehender Anfragen in Breadcrumbs (`http.query`). **Kontextfelder** werden anhand ihres *Namens* geschwärzt (`token`, `password`, `email`, `secret`, …), auch in verschachtelten Strukturen. Der Schlüssel bleibt sichtbar, der Wert nicht — so ist beim Auswerten erkennbar, dass an dieser Stelle ein Geheimnis lag.
+- **Lokale Variablen im Stacktrace** werden nicht übertragen. Der Name einer Variablen verrät nicht, was sie enthält — `url` oder `html` in einem Mail-Adapter enthalten den Passwort-Reset-Link. Ein Ereignis zeigt deshalb Dateien, Funktionen und Zeilen, aber keine Laufzeitwerte.
+- **Fehlertexte und Protokollmeldungen** durchlaufen in Backend und Celery-Worker dieselbe Bereinigung wie die Protokollzeilen: Eine Fehlermeldung aus der Anwendungslogik erscheint nur als Fehlercode, E-Mail-Adressen werden zu Digests, Query-Strings und Zugangsdaten in URLs (auch im Pfad, etwa ein Telegram-Bot-Token) zu `<redacted>`. Das gilt auch für Breadcrumbs. Die beiden Nebendienste (inference-service, knowledge-service) wenden eine einfachere Bereinigung an, die nur Formen erkennt: Zugangsdaten und Query-Strings in URLs, ein Token im Pfad nach Art von Telegram, E-Mail-Adressen (als `<email>`). Freitext wie eine Suchfrage hat keine Form und bleibt dort nicht verborgen. Unbehandelte Tracebacks, die diese Dienste nach stderr schreiben, durchlaufen dieselbe Bereinigung; Schlüssel von Wörterbüchern, Tags und Kontexte eines Ereignisses werden wie Werte bereinigt.
+- **Vom Nutzer** sendet das Backend nur Pseudonyme und nur mit dessen Einwilligung `error_tracking` (Datenschutz-Einstellungen): `user.id` ist die Konto-Referenz `sub_…`, `user.tenant` die Mandanten-Referenz `ten_…` der Anfrage — dieselben Werte wie in den Logzeilen, nie die Schlüssel. Ohne Einwilligung, oder wenn sie nicht gelesen werden kann, geht das Ereignis ohne Nutzer-Block. Sie machen einen Vorgang bearbeitbar und einem Mandanten zuordenbar; Name, E-Mail und IP-Adresse tun das nicht. Was das SDK oder eine Integration selbst in den Nutzer-Block schreibt, wird verworfen. Ereignisse des Celery-Workers und der Nebendienste tragen keinen Nutzer-Block.
 - **Eingabe-Breadcrumbs** (`ui.input`) werden im Browser komplett verworfen.
 
 Die Regeln laufen in **jeder** Umgebung, auch lokal. Ein Filter, der erst zur Produktivsetzung eingeschaltet wird, ist ein ungetesteter Filter.
@@ -85,9 +88,20 @@ Kein Log-Ziel. Dort landen ausschließlich Fehler und bewusst gemeldete Ereignis
 | Backend (FastAPI) | Nicht abgefangene Ausnahmen in jeder Anfrage, plus Fehler beim Start |
 | Celery Worker und Beat | Fehlgeschlagene Hintergrundaufgaben — die unsichtbarste Fehlerart überhaupt, weil niemand auf eine Antwort wartet |
 | Inference- und Knowledge-Service | Dasselbe, jeweils mit eigenem `component`-Tag |
-| Frontend | Nicht abgefangene Fehler, abgewiesene Promises, und jeder Render-Fehler, den eine Fehlergrenze auffängt |
+| Frontend | Nicht abgefangene Fehler, abgewiesene Promises, und jeder Render-Fehler, den eine Fehlergrenze auffängt — erst, wenn die Person im Browser der Fehleranalyse zugestimmt hat (siehe unten) |
 
 Die Fehlergrenzen des Frontends melden ausdrücklich mit: Eine Grenze, die eine Ersatzdarstellung zeigt, hat den Fehler aus Sicht aller globalen Handler zum Verschwinden gebracht — der Nutzer sieht eine aufgeräumte Karte, und niemand erfährt, dass das Widget kaputt ist.
+
+## Einwilligung im Frontend
+
+Im Browser reicht die DSN allein nicht: Das Frontend lädt und startet sein SDK erst, wenn die Person der **Fehleranalyse** (`error_tracking`) zugestimmt hat. Solange sie nicht entschieden oder abgelehnt hat, lädt der Browser das SDK-Bündel nicht herunter, und kein Fehlerbericht verlässt ihn.
+
+- **Wo gefragt wird:** Ist eine DSN gesetzt, erscheint beim ersten Besuch unten ein Einwilligungs-Banner mit „Alle akzeptieren", „Nur Notwendige" und „Einstellungen" — auch schon auf der Anmeldeseite. Ohne DSN erscheint kein Banner, denn dann gibt es im Browser nichts, dem man zustimmen könnte.
+- **Light-Modus:** Hier erscheint kein Banner (Haushaltsausnahme der DSGVO), und das Frontend meldet im Light-Modus keine Fehler — auch dann nicht, wenn im Browser noch eine Zustimmung aus der Zeit vor einem Wechsel auf den Light-Modus liegt. Das Backend meldet weiter.
+- **Widerruf:** Unter **Datenschutz → Einwilligungen** steht der Schalter „Fehleranalyse erlauben". Ausschalten beendet das Melden sofort und ohne Neuladen, auch in anderen offenen Tabs desselben Browsers. Einschalten startet es ebenso.
+- **Pro Browser:** Die Entscheidung liegt im `localStorage` des Browsers (`kamerplanter:consent:v1`) und gilt nur dort. Sie wird noch nicht mit der serverseitigen Einwilligung abgeglichen, die das Backend für den Nutzer-Block liest; das ist ein offener Folgeschritt.
+
+Für dich als Betreiber heißt das: Nach dem Setzen der DSN kommen Frontend-Fehler nur von Personen an, die zugestimmt haben. Ein ruhiger Frontend-Bereich im Tracker kann also auch „niemand hat zugestimmt" bedeuten.
 
 ## Nachprüfen, dass es funktioniert
 
@@ -95,5 +109,5 @@ Es gibt keinen Testknopf. Der belastbare Weg:
 
 1. Setze `SENTRY_DSN` und starte die Container neu.
 2. Backend: In den Logs steht `error_tracking: enabled for backend (environment=…, release=…)`.
-3. Frontend: Im Netzwerk-Tab des Browsers erscheint ein zusätzliches JavaScript-Bündel — das ist das nachgeladene SDK. Erscheint es nicht, war die DSN nicht in `runtime-config.js`.
+3. Frontend: Öffne die Anwendung in einem privaten Fenster. Es erscheint das Einwilligungs-Banner — fehlt es, war die DSN nicht in `runtime-config.js`. Klicke „Alle akzeptieren": Erst jetzt erscheint im Netzwerk-Tab des Browsers ein zusätzliches JavaScript-Bündel, das nachgeladene SDK.
 4. Provoziere einen Fehler und sieh nach, ob er im Tracker ankommt. Kommt er nicht an, prüfe zuerst die NetworkPolicy (Backend) beziehungsweise die Content-Security-Policy (Frontend, sichtbar als CSP-Verstoß in der Browser-Konsole).

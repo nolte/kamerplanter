@@ -15,11 +15,14 @@ from app.api.v1.favorites.schemas import (
     FavoriteResponse,
     NutrientPlanMatchResponse,
 )
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_account_principal
 from app.common.dependencies import get_favorites_service
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.favorites_service import FavoritesService
 
+# Writes of the caller's ACCOUNT-WIDE settings below depend on
+# ``require_account_principal``: the tenant in the path admits a tenant-scoped API
+# key, but these settings span every tenant of its owner (#1851).
 router = APIRouter(prefix="/favorites", tags=["favorites"])
 
 
@@ -36,7 +39,7 @@ def _edge_to_response(edge: dict) -> FavoriteResponse:
     )
 
 
-@router.get("", response_model=list[FavoriteResponse])
+@router.get("", response_model=list[FavoriteResponse], dependencies=[Depends(require_account_principal)])
 def list_favorites(
     type: str | None = Query(default=None, description="Filter by entity type: species, nutrient_plans, fertilizers"),
     ctx: TenantContext = Depends(get_current_tenant),
@@ -63,7 +66,9 @@ def add_favorite(
     return _edge_to_response(edge)
 
 
-@router.delete("/{target_key}", response_model=FavoriteRemovedResponse)
+@router.delete(
+    "/{target_key}", response_model=FavoriteRemovedResponse, dependencies=[Depends(require_account_principal)]
+)
 def remove_favorite(
     target_key: Annotated[str, Path(description="Document key of the favorited entity.")],
     cascade_cleanup: bool = Query(default=True, description="Also remove cascaded favorites (e.g. plan fertilizers)."),
@@ -81,6 +86,14 @@ def get_matching_nutrient_plans(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
-    """List favorited nutrient plans matching the supplied species keys."""
-    keys = [k.strip() for k in species_keys.split(",") if k.strip()]
-    return service.get_matching_nutrient_plans(keys)
+    """List the template nutrient plans linked to any of the given species.
+
+    Returns the template plans visible to the active tenant (own ∪ global, #1561)
+    whose species relation contains at least one of ``species_keys`` (#1618),
+    most-matching first. A plan linked to no species is never returned, so an
+    empty list means "no plan is written for these species yet", not an error.
+    """
+    # REQ-020's example spells the keys as document ids (``species/<key>``); the
+    # wizard sends bare keys. Both name the same species, so both are accepted.
+    keys = [k.strip().removeprefix("species/") for k in species_keys.split(",") if k.strip()]
+    return service.get_matching_nutrient_plans(keys, tenant_key=ctx.tenant_key)

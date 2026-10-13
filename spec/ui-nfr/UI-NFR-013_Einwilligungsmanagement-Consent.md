@@ -3,10 +3,10 @@
 ID: UI-NFR-013
 Titel: Einwilligungsmanagement (Consent)
 Kategorie: UI-Verhalten Unterkategorie: Datenschutz, Einwilligung, TTDSG
-Technologie: React, TypeScript, MUI 7
+Technologie: React, TypeScript, MUI 9
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.2 (#2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion — §5.3; 1.1 #2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [consent, cookie-banner, ttdsg, dsgvo, privacy, sentry, tracking, einwilligung]
@@ -216,6 +216,20 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 }
 ```
 
+### 5.3 Umsetzungsstand (#2159, 2026-10-09)
+
+- **CI-001/CI-002/CW-003 umgesetzt:** `src/frontend/src/observability/errorTracking.ts` lädt `@sentry/react` (ein einziger dynamischer Import je Seite) und ruft `Sentry.init()` nur, wenn `error_tracking === true` ist und nicht der Light-Modus läuft; `null` (unentschieden) und `false` gelten als nein. Das Modul abonniert den Consent-Speicher einmal: eine spätere Zustimmung startet das SDK ohne Neuladen. Ein Widerruf (auch aus einem anderen Tab, `storage`-Ereignis) setzt den Client **synchron** auf `enabled = false`, leert die Breadcrumbs von Isolation- und Current-Scope (`Scope#clear()` gibt es in SDK 11 nicht mehr) und ruft danach `Sentry.close(2000)`; `beforeSend` und `beforeBreadcrumb` prüfen die Einwilligung zuerst und verwerfen sonst (`null`). Grund (gemessen in `@sentry/core` 11.4.0, `client.js`): `close(timeout)` wartet erst `flush(timeout)` ab und setzt `enabled = false` danach, und `_isClientDoneProcessing` behandelt `0` als unbegrenzt (`while (!timeout || ticked < timeout)`); `addBreadcrumb` prüft nur, ob ein Client existiert (`breadcrumbs.js`). Ohne DSN abonniert das Modul nichts und lädt nichts.
+- **CI-003 abweichend, CI-004 umgesetzt:** Statt eines React-Context hält ein React-freies Modul (`src/frontend/src/observability/consent.ts`, Schlüssel `kamerplanter:consent:v1`) den Zustand, weil das Sentry-Gate vor dem ersten Render entscheiden muss. `useConsent()` (`src/frontend/src/hooks/useConsent.ts`, `useSyncExternalStore`) liefert `{ consent, setConsent }`; `consent.error_tracking` ersetzt die Form `useConsent('error_tracking')` aus §3.5.
+- **CB-001 mit DSN-Bedingung:** Das Banner ist im App-Shell eingebunden (`AppConsentBanner`, außerhalb des Routers, also auch auf Anmelde- und Registrierungsseite) und erscheint nur, wenn **eine `SENTRY_DSN` konfiguriert ist** und nicht der Light-Modus läuft. Begründung: Browser-Fehler-Tracking ist die einzige Verarbeitung, die diese Entscheidung schaltet — `external_services` liest seit REQ-025 v1.31 (#2136) kein Code mehr, und der Abgleich mit der ConsentEngine (CP-001/CP-003/CW-005) fehlt noch. Ohne DSN würde das Banner eine wirkungslose Einwilligung einholen. Kommt eine weitere Kategorie oder der Server-Abgleich, wird die Bedingung zu „eine Kategorie, die die Entscheidung schaltet, ist aktiv".
+- **Light-Modus:** kein Banner (CB-001), und der Tracker startet dort auch mit einer gespeicherten Zustimmung nicht (etwa nach einem Wechsel von `full` auf `light`) — durchgesetzt in `trackingPermitted()`, nicht nur über das fehlende Banner. Der Widerrufsschalter ist im Light-Modus folgerichtig ausgeblendet.
+- **CB-003/CB-004:** „Nur Notwendige" und „Alle akzeptieren" haben dieselbe Button-Variante; „Einstellungen" klappt die Kategorie-Auswahl im Banner auf (nur `error_tracking`, siehe oben).
+- **Banner-Darstellung:** `zIndex` = `modal - 1` (über Seiteninhalt, unter Dialogen, Drawern und Snackbars), Abstand unten inkl. `env(safe-area-inset-bottom)`, Höhe max. `100dvh - 32px`, Touch-Ziele mind. 44 px. „Einstellungen“ bleibt beim Aufklappen fokussiert und trägt `aria-expanded`/`aria-controls`.
+- **CW-001/CW-002 im Browser:** Datenschutz → Einwilligungen trägt den Schalter „Fehleranalyse erlauben", der denselben Speicher schreibt.
+- **CW-001/CW-002/CW-005 für serverseitige Zwecke (#2174, #2175):** Datenschutz → Einwilligungen rendert die Zwecke aus `GET /api/v1/privacy/consents` und trägt bei jedem erteilten, nicht verpflichtenden Zweck die Schaltfläche „Widerrufen“ (`DELETE /api/v1/privacy/consents/{purpose}`, `data-testid="consent-revoke-<purpose>"`); ein neuer Zweck des Backends erscheint dort ohne Frontend-Änderung. Erteilt wird nicht im Tab, sondern am Ort der Funktion, mit dem Text, was übertragen wird: Pflanzenerkennung (`plant_identification`, Gate vor der Aufnahme), KI-Seite (`ai_knowledge_question`, Gate nach `403 CONSENT_REQUIRED`, danach wird die Frage erneut gesendet), Schalter „Als Referenzbild für die Erkennung nutzen“ (`reference_contribution`: der Schalter **ist** die Einwilligung; beim Speichern wird sie vor dem Beitrag erteilt, ein Fehlschlag bricht das Speichern sichtbar ab). Im Light-Modus gibt es keine serverseitigen Einwilligungen: Die KI-Seite fragt dort nicht, der Referenzschalter ist ausgeblendet. **Offen:** `pest_reference_contribution` (Schädlings-Erkennungsindex, REQ-044 v1.4) erscheint im Tab und ist dort widerrufbar, hat aber noch keinen Erteilungsort in der Oberfläche (naheliegend: der Bild-Beitrag auf der Schädlings-Detailseite); bis dahin nur über `POST /api/v1/privacy/consents`.
+- **Speicher verweigert das Schreiben** (Quota, gesperrter Storage): Die Entscheidung dieser Seite gilt im Speicher und gewinnt über einen noch lesbaren älteren Wert, bis ein Schreiben gelingt oder ein anderer Tab eine neuere Entscheidung speichert. Ein Widerruf bleibt so ein Widerruf; eine aktiv erteilte Zustimmung gilt bis zum Neuladen, danach fragt das Banner erneut. Gewählt statt „vor dem Schreiben löschen“, weil das bei einem Fehlschlag eine nie getroffene Ablehnung erzeugt und selbst vom Gelingen von `removeItem` abhängt.
+- **Offen:** CP-001/CP-003/CW-005 (Server-Abgleich über `POST/DELETE /api/v1/privacy/consents`); die Browser-Entscheidung gilt bis dahin nur in diesem Browser und ist unabhängig von der serverseitigen Einwilligung `error_tracking`, die den `user`-Block der Backend-Ereignisse steuert (NFR-001 SE-006). Session Replay (SE-003) ist nicht aktiviert.
+- **Regressionszäune (kein Beleg des Gates — der Beleg sind die Verhaltenstests in `errorTracking.test.ts` und `errorTrackingChunkLoad.test.ts`):** `src/frontend/src/test/guards/trackerSdkBehindConsent.test.ts` lässt Tracker-Pakete und -Hosts (inkl. GlitchTip) in App-Quellen (`ts/tsx/js/jsx/mjs`), `index.html` und `public/` nur in `errorTracking.ts` zu; kein statischer Value-Import (auch mehrzeilig) in irgendeiner App-Quelle; genau ein `import('@sentry/…')` im Loader; `startErrorTracking(` nur hinter `if (trackingPermitted())`; Tracker-Abhängigkeiten in `dependencies`, `devDependencies`, `peerDependencies` und `optionalDependencies` nur mit Eintrag in der Liste des Zauns.
+
 ---
 
 ## 6. Abhängigkeiten
@@ -224,7 +238,7 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 |-------------|-----|-----------|
 | REQ-025 (DSGVO Betroffenenrechte) | Fachlich | ConsentEngine Backend: `POST/DELETE /api/v1/privacy/consents` |
 | NFR-001 §8.3 (Sentry) | Technisch | Sentry-Initialisierung ist consent-gesteuert |
-| UI-NFR-006 (Design System) | Design | MUI 7 Komponenten für Banner und Dialog |
+| UI-NFR-006 (Design System) | Design | MUI 9 Komponenten für Banner und Dialog |
 | UI-NFR-007 (i18n) | Übersetzung | Consent-Texte in DE/EN |
 | UI-NFR-002 (Barrierefreiheit) | Barrierefreiheit | Fokus-Management, ARIA-Attribute |
 
@@ -270,8 +284,8 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-27
+**Letzte Aktualisierung**: 2026-10-09
 **Review**: Pending
 **Genehmigung**: Pending

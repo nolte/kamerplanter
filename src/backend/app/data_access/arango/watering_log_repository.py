@@ -4,6 +4,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.fertilizer_repository import visible_fertilizer_labels
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.watering_log import WateringLog
 
@@ -89,24 +90,20 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         )
         return {r["key"]: r["name"] for r in cursor}
 
-    def resolve_fertilizer_names(self, fert_keys: list[str]) -> dict[str, str]:
-        """Batch-resolve fertilizer keys to display names."""
-        if not fert_keys:
-            return {}
-        query = """
-        FOR fk IN @fert_keys
-          LET f = DOCUMENT(CONCAT(@col, "/", fk))
-          FILTER f != null
-          RETURN { key: fk, name: CONCAT(f.product_name, " (", f.brand, ")") }
+    def resolve_fertilizer_names(self, fert_keys: list[str], *, tenant_key: str) -> dict[str, str]:
+        """Batch-resolve fertilizer keys to ``"<product> (<brand>)"`` **visible to one tenant** (#1708).
+
+        The #952 shape again, for fertilizers: ``fertilizers_used[].fertilizer_key``
+        arrives in the request body and nothing verifies it on write, so a log
+        naming another tenant's *private* product read its name and brand back
+        out of every watering-log response. The lookup is
+        :func:`~app.data_access.arango.fertilizer_repository.visible_fertilizer_labels`
+        (the catalogue's own ∪ global union); a key it rejects drops out of the
+        map and the response falls back to the raw key, which discloses nothing
+        the caller did not already supply.
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "fert_keys": fert_keys,
-                "col": col.FERTILIZERS,
-            },
-        )
-        return {r["key"]: r["name"] for r in cursor}
+        labels = visible_fertilizer_labels(self._db, fert_keys, tenant_key=tenant_key)
+        return {key: f"{name or ''} ({brand or ''})" for key, (name, brand) in labels.items()}
 
     # ── Update ──────────────────────────────────────────────────────────
 
@@ -153,7 +150,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
           FILTER e._to == @slot_id
           LET doc = DOCUMENT(e._from)
           FILTER doc != null AND doc.tenant_key == @tenant_key
-          SORT doc.logged_at DESC
+          SORT DATE_TIMESTAMP(doc.logged_at) DESC
           LIMIT @offset, @limit
           RETURN doc
         """
@@ -192,7 +189,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             FILTER log_edge._to == slot_edge._to
             LET doc = DOCUMENT(log_edge._from)
             FILTER doc != null AND doc.tenant_key == @tenant_key
-            SORT doc.logged_at DESC
+            SORT DATE_TIMESTAMP(doc.logged_at) DESC
             LIMIT @offset, @limit
             RETURN DISTINCT doc
         """
@@ -272,7 +269,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         FOR wl IN @@watering_logs
           FILTER wl.tenant_key == @tenant_key
           FILTER LENGTH(INTERSECTION(wl.slot_keys, slot_keys)) > 0
-          SORT wl.logged_at DESC
+          SORT DATE_TIMESTAMP(wl.logged_at) DESC
           LIMIT 1
           RETURN wl.logged_at
         """
@@ -302,7 +299,7 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
     _BY_PLANT_QUERY = """
     FOR doc IN @@collection
       FILTER @plant_key IN doc.plant_keys
-      SORT doc.logged_at DESC
+      SORT DATE_TIMESTAMP(doc.logged_at) DESC
       LIMIT @offset, @limit
       RETURN doc
     """
@@ -311,27 +308,8 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
     FOR doc IN @@collection
       FILTER @plant_key IN doc.plant_keys
         AND doc.tenant_key == @tenant_key
-      SORT doc.logged_at DESC
+      SORT DATE_TIMESTAMP(doc.logged_at) DESC
       LIMIT @offset, @limit
-      RETURN doc
-    """
-
-    _RECENT_RUNOFF_QUERY = """
-    FOR doc IN @@collection
-      FILTER @plant_key IN doc.plant_keys
-        AND doc.runoff_ec != null
-      SORT doc.logged_at DESC
-      LIMIT @limit
-      RETURN doc
-    """
-
-    _RECENT_RUNOFF_TENANT_QUERY = """
-    FOR doc IN @@collection
-      FILTER @plant_key IN doc.plant_keys
-        AND doc.tenant_key == @tenant_key
-        AND doc.runoff_ec != null
-      SORT doc.logged_at DESC
-      LIMIT @limit
       RETURN doc
     """
 
@@ -364,37 +342,5 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             query = self._BY_PLANT_TENANT_QUERY
         else:
             query = self._BY_PLANT_QUERY
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return [self._to_model(doc) for doc in cursor]
-
-    def get_latest_by_plant(
-        self,
-        plant_key: str,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> WateringLog | None:
-        results = self.get_by_plant(plant_key, offset=0, limit=1, tenant_key=tenant_key, all_tenants=all_tenants)
-        return results[0] if results else None
-
-    def get_recent_runoff_logs(
-        self,
-        plant_key: str,
-        limit: int = 5,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> list[WateringLog]:
-        self._enforce_tenant_scope(tenant_key, all_tenants)
-        bind_vars: dict[str, object] = {
-            "@collection": col.WATERING_LOGS,
-            "plant_key": plant_key,
-            "limit": limit,
-        }
-        if tenant_key:
-            bind_vars["tenant_key"] = tenant_key
-            query = self._RECENT_RUNOFF_TENANT_QUERY
-        else:
-            query = self._RECENT_RUNOFF_QUERY
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._to_model(doc) for doc in cursor]

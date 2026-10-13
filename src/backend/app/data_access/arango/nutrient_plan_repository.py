@@ -7,6 +7,7 @@ from app.common.exceptions import NotFoundError
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
@@ -24,6 +25,26 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
 
     # ── Plan CRUD ────────────────────────────────────────────────────
 
+    def get_global_plans(self) -> list[NutrientPlan]:
+        """Every global (system) plan, the whole catalogue, no row limit (#1957).
+
+        Seed loaders match a seed to its row through this and nothing wider: a plan
+        is global when its ``tenant_key`` is empty or absent, so a tenant's own plan
+        that happens to carry a seed's name is never returned and can never be
+        rewritten as the seed. Deliberately not :meth:`get_all` — that is paged, and a
+        fixed ``limit`` truncated the catalogue once enough plans existed. Ordered by
+        ``_key`` so that two global rows of one name resolve the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.NUTRIENT_PLANS}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [NutrientPlan(**self._from_doc(doc)) for doc in cursor]
+
     def get_all(
         self,
         offset: int = 0,
@@ -39,6 +60,40 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         # rows; a missing tenant_key must therefore be an explicit system-context
         # opt-in (all_tenants=True) rather than a silent all-tenant read (SEC-B4).
         self._enforce_tenant_scope(tenant_key, all_tenants)
+        items, total = self._read(offset, limit, filters, tenant_key, count=True)
+        return items, total or 0
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[NutrientPlan]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131).
+
+        Request reads only: ``tenant_key`` is required (no ``all_tenants`` escape),
+        the union with the global rows is the same as in :meth:`get_all`.
+        """
+        self._enforce_tenant_scope(tenant_key, False)
+        return self._read(offset, limit, filters, tenant_key, count=False)[0]
+
+    def _read(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        tenant_key: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[NutrientPlan], int | None]:
+        """One page and, with ``count``, the total of :meth:`get_all` — callers enforce the scope.
+
+        One body for the counted and the count-free read, so the window issues exactly
+        the page query the counted method pays a count for (MT-035, #2131); the query
+        text stays in the function that executes it, where the catalogue guard reads it.
+        """
         query = f"FOR doc IN {col.NUTRIENT_PLANS}"
         bind_vars: dict[str, Any] = {}
         filter_clauses = []
@@ -51,19 +106,23 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         if filters:
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
+                filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
         if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        query += " SORT doc.name LIMIT @offset, @limit RETURN doc"
+        # ``name`` is not unique (a tenant's copy of a global plan), so ``_key``
+        # breaks the tie: offset paging over a partial order may show a row on two
+        # pages or none (BACKEND.md §6.4, MT-035 #2131).
+        query += " SORT doc.name, doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [NutrientPlan(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return items, next(count_cursor, 0)
 
     def get_readable_or_raise(self, key: NutrientPlanKey, *, tenant_key: str) -> NutrientPlan:
         """The one hybrid-catalog read-access predicate for a single plan (#950).
@@ -196,10 +255,133 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             return None
         return NutrientPlan(**self._from_doc(docs[0]))
 
-    def remove_plant_plan(self, plant_key: str) -> bool:
+    def remove_plant_plan(self, plant_key: str, *, tenant_key: str) -> bool:
+        """Detach a plant of ``tenant_key`` from its plan; a foreign or unknown plant is 404 (#2107).
+
+        The plant is the anchor: the edge belongs to it. The route verified the plant
+        before calling this unscoped delete — check-then-act — so the check is here now.
+        """
+        self.verify_entity_ownership(col.PLANT_INSTANCES, plant_key, tenant_key, entity_name="PlantInstance")
         plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
         self.delete_edges(col.FOLLOWS_PLAN, plant_id)
         return True
+
+    # ── Onboarding / favourites reads (#1638) ───────────────────────
+
+    def list_template_plan_summaries(self, *, tenant_key: str, species_keys: list[str]) -> list[dict]:
+        """Template plans visible to ``tenant_key`` that are linked to any of ``species_keys`` (#1561, #1618).
+
+        **Visibility** is the hybrid-catalogue union
+        :func:`~app.data_access.arango.tenant_scope.tenant_union_predicate`
+        builds — own ∪ global — the **same** one :meth:`get_all` applies, so the
+        two reads of ``nutrient_plans`` answer one visibility question. A strict
+        ``tenant_key == @tenant_key`` filter would hide the seeded catalogue and
+        empty the onboarding step (#324). Deliberately not the ``…_with_grants``
+        variant: ``tenant_has_access`` is declared only ``tenants -> species |
+        cultivars``, so a plan cannot carry a grant.
+
+        **The species match** (#1618) reads the plan's own ``species_keys``
+        relation: a plan is returned when that list shares at least one key with
+        the request. The ``IS_ARRAY`` guard makes an absent attribute (a plan
+        written before the field existed and not yet stamped by v0058) and a
+        stored ``null`` read as the empty relation — and the empty relation
+        matches **nothing**. That is the operator decision of 2026-09-23 stated as a
+        predicate: a plan nobody linked to a species must not silently match every
+        species, which is exactly what this read did before the relation existed.
+
+        ``matched_species`` is the intersection, in the request's order, and the
+        rows are sorted by how many of the requested species a plan fits (REQ-020
+        §3 "Relevanz"), then by name so the order is stable.
+
+        ``substrate_type`` projects ``recommended_substrate_type``. It used to read
+        ``plan.substrate_type``, an attribute :class:`NutrientPlan` does not have,
+        so the wizard's substrate badge was ``null`` for every real plan — the
+        integration fixture had invented the field and hid it.
+        """
+        if not species_keys:
+            return []
+
+        predicate, bind_vars = tenant_union_predicate(tenant_key, doc_var="plan")
+        # The fertilizer names are a second catalogue read: an entry's key is verified
+        # on write only since #1713, so a legacy entry can still name another tenant's
+        # product. Own ∪ global again, the union ``visible_fertilizer_labels`` applies
+        # (#2120) — a key it rejects simply drops out of the list.
+        # Merged by unpacking, not ``.update``: the write-route detector reads an
+        # untyped ``.update`` as a repository write (#1443), and this is a read.
+        fertilizer_predicate, fertilizer_vars = tenant_union_predicate(tenant_key, doc_var="f")
+        query_vars: dict[str, Any] = {**bind_vars, **fertilizer_vars, "species_keys": list(species_keys)}
+
+        # The body below is a plain string spliced once through `.replace`, not an
+        # f-string: it holds AQL object literals (`{ plan_key: ... }`) whose braces
+        # an f-string would read as fields. Only the *predicate* is spliced; the
+        # tenant and the species keys travel as bind vars and never enter the
+        # query text.
+        #
+        # Collect fertilizer keys from both graph edges AND embedded
+        # delivery_channels[].fertilizer_dosages[] to handle plans where
+        # edges may not be fully materialised (e.g. seed data).
+        cursor = self._db.aql.execute(
+            """
+            FOR plan IN nutrient_plans
+                FILTER (plan.is_template == true OR plan.origin == "system")
+                    AND __TENANT_PREDICATE__
+                LET plan_species = IS_ARRAY(plan.species_keys) ? plan.species_keys : []
+                LET matched_species = (FOR sk IN @species_keys FILTER sk IN plan_species RETURN sk)
+                FILTER LENGTH(matched_species) > 0
+                LET phase_entries = (
+                    FOR pe IN nutrient_plan_phase_entries
+                        FILTER pe.plan_key == plan._key
+                        RETURN pe
+                )
+                LET edge_fert_keys = (
+                    FOR pe IN phase_entries
+                        FOR edge IN plan_uses_fertilizer
+                            FILTER edge._from == CONCAT("nutrient_plan_phase_entries/", pe._key)
+                            RETURN PARSE_IDENTIFIER(edge._to).key
+                )
+                LET embedded_fert_keys = (
+                    FOR pe IN phase_entries
+                        FOR ch IN (pe.delivery_channels || [])
+                            FOR fd IN (ch.fertilizer_dosages || [])
+                                RETURN fd.fertilizer_key
+                )
+                LET fertilizer_keys = UNIQUE(APPEND(edge_fert_keys, embedded_fert_keys))
+                LET fertilizers = (
+                    FOR fk IN fertilizer_keys
+                        FOR f IN fertilizers
+                            FILTER f._key == fk AND __FERTILIZER_PREDICATE__
+                            RETURN { key: f._key, product_name: f.product_name, brand: f.brand }
+                )
+                SORT LENGTH(matched_species) DESC, plan.name ASC
+                RETURN {
+                    plan_key: plan._key,
+                    name: plan.name,
+                    description: plan.description,
+                    substrate_type: plan.recommended_substrate_type,
+                    species_keys: plan_species,
+                    matched_species: matched_species,
+                    fertilizer_count: LENGTH(fertilizer_keys),
+                    fertilizers: fertilizers
+                }
+            """.replace("__TENANT_PREDICATE__", predicate).replace("__FERTILIZER_PREDICATE__", fertilizer_predicate),
+            bind_vars=query_vars,
+        )
+        return list(cursor)
+
+    def list_edge_fertilizer_keys(self, plan_key: NutrientPlanKey) -> list[str]:
+        """Plan → phase entries → ``plan_uses_fertilizer`` → distinct fertilizer keys."""
+        cursor = self._db.aql.execute(
+            """
+            FOR pe IN nutrient_plan_phase_entries
+                FILTER pe.plan_key == @plan_key
+                FOR edge IN plan_uses_fertilizer
+                    FILTER edge._from == CONCAT("nutrient_plan_phase_entries/", pe._key)
+                    LET fert_key = PARSE_IDENTIFIER(edge._to).key
+                    RETURN DISTINCT fert_key
+            """,
+            bind_vars={"plan_key": plan_key},
+        )
+        return list(cursor)
 
     # ── Channel fertilizer edges ────────────────────────────────────
 
@@ -323,6 +505,8 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
             is_template=False,
             version="1.0",
             tags=list(source.tags),
+            # #1618: a clone is written for the same species as its source.
+            species_keys=list(source.species_keys),
             cloned_from_key=source_key,
         )
         created_plan = self.create(new_plan)

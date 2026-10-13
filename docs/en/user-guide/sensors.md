@@ -69,14 +69,17 @@ Fill in the form:
 
 ### HA Entity Autocomplete
 
-If Home Assistant is configured, the dialog automatically loads the available Home Assistant entities when opened. Selecting an entity from the list makes Kamerplanter automatically fill in:
+If Home Assistant is configured and you hold the **Technical** scope in the garden, the dialog loads the Home Assistant entities released for this garden when opened. Selecting an entity from the list makes Kamerplanter automatically fill in:
 
 - the suggested sensor name,
 - the matching unit of measurement,
 - a suggested metric type (if Home Assistant provides a `device_class` from which the metric type can be derived),
 - the entity ID itself.
 
-If no Home Assistant entities are found (e.g. because no HA integration is set up or Home Assistant is currently unreachable), the dialog instead shows a free-text **HA Entity ID** field where you enter the entity name manually.
+If no Home Assistant entities are found (e.g. because no HA integration is set up, Home Assistant is currently unreachable or nothing has been released for the garden yet), the dialog instead shows a free-text **HA Entity ID** field where you enter the entity name manually. Without the **Technical** scope you do not see the list but a hint — the free-text field stays.
+
+!!! info "Released Home Assistant entities only"
+    Kamerplanter is connected to exactly one Home Assistant instance, the operator's, and uses it for all gardens. Which entities of that instance your garden may use is decided by the platform admin (see [Platform admin area](admin.md#release-home-assistant-entities)). If you enter an entity that is not released for your garden, Kamerplanter refuses to save and asks you to request the release from the platform admin. If the platform admin withdraws a release, the sensor stays but delivers no values until the entity is released again. The same applies to actuators, Home Assistant weather sources and Home Assistant notification targets. In [light mode](light-mode.md) you are the operator yourself: there Kamerplanter releases every entity as soon as you enter it. <!-- Issue #2112 -->
 
 ### Metric Types in the Form
 

@@ -45,11 +45,14 @@ from app.config.settings import settings
 def _user(key: str | None = "user_1") -> SimpleNamespace:
     # ``account_type`` decides the header-less fallback since #1122; the
     # service-account variant has its own file.
-    return SimpleNamespace(key=key, account_type="user")
+    return SimpleNamespace(key=key, account_type="human")
 
 
-def _tenant(key: str, slug: str) -> SimpleNamespace:
-    return SimpleNamespace(key=key, slug=slug)
+def _tenant(key: str, slug: str, *, is_active: bool = True) -> SimpleNamespace:
+    # ``is_active`` is a field every stored tenant carries (``Tenant.is_active``);
+    # the resolvers read it since #2105, so a double without it would be a shape
+    # production never produces.
+    return SimpleNamespace(key=key, slug=slug, is_active=is_active)
 
 
 def _membership(
@@ -91,7 +94,7 @@ class _FakeTenantService:
         self.slug_lookups.append(slug)
         tenant = self._by_slug.get(slug)
         if tenant is None:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
@@ -160,6 +163,37 @@ def test_without_a_tenant_at_all_the_global_fallback_survives():
     assert ctx.tenant_key == ""
     assert ctx.tenant_slug == ""
     assert ctx.role is TenantRole.VIEWER
+
+
+def test_a_deactivated_personal_tenant_is_no_fallback():
+    # #2105: a platform admin switched the personal tenant off. The header-less
+    # request narrows to global scope at the lowest role — the answer a user
+    # without a personal tenant gets — instead of an error or the old full lead
+    # standing in the switched-off tenant.
+    dormant = _tenant("tenant_personal_1", "user-1-garden", is_active=False)
+    service = _service(personal=dormant, by_slug={"user-1-garden": dormant})
+
+    assert auth_mod.get_active_tenant_key(user=_user(), tenant_service=service) == ""
+    ctx = auth_mod.get_active_tenant_context(user=_user(), tenant_service=service)
+    assert ctx.tenant_key == ""
+    assert ctx.tenant_slug == ""
+    assert ctx.role is TenantRole.VIEWER
+    assert ctx.admin_scopes == []
+
+
+@pytest.mark.parametrize("resolver", ["get_active_tenant_key", "get_active_tenant_context"])
+def test_a_deactivated_tenant_named_in_the_header_is_refused_like_an_unknown_slug(resolver: str):
+    # #2105: active membership, real slug — only the tenant is switched off.
+    service = _service(by_slug={"green-club": _tenant("tenant_org_1", "green-club", is_active=False)})
+
+    def call(slug: str) -> Any:
+        return getattr(auth_mod, resolver)(user=_user(), tenant_service=service, active_tenant_slug=slug)
+
+    deactivated = _error(lambda: call("green-club"))
+    unknown = _error(lambda: call("no-such-org"))
+
+    assert isinstance(deactivated, ForbiddenError)
+    assert _body(deactivated) == _body(unknown)
 
 
 @pytest.mark.parametrize("value", ["", " ", "\t", "   \n  "])

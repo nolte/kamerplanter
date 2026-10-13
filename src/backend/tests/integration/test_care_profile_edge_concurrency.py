@@ -69,14 +69,14 @@ import threading
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
     pytest.mark.usefixtures("arango_db"),
     pytest.mark.allow_db_connection("#1292 is a race whose resolution only exists against a real ArangoDB"),
 ]
 
-_DB_NAME = "kamerplanter_care_profile_edge_test"
+_DB_NAME = run_database_name("care_profile_edge")
 _TENANT_KEY = "tenant-alpha"
 _PLANT_KEY = "plant-basil-1"
 _SPECIES_KEY = "ocimum-basilicum"
@@ -212,7 +212,7 @@ def _race_get_or_create(plant_key: str) -> tuple[list[BaseException], list[str]]
         try:
             service = _make_service(db)
             barrier.wait(timeout=30)
-            profile = service.get_or_create_profile(plant_key, may_create=True)
+            profile = service.get_or_create_profile(plant_key, may_create=True, tenant_key=_TENANT_KEY)
             with lock:
                 keys.append(profile.key or "")
         except BaseException as exc:  # noqa: BLE001 — recorded and asserted on by the caller
@@ -397,7 +397,9 @@ def test_a_second_connection_never_sees_a_profile_before_its_edge(db, plant, mon
     def write() -> None:
         conn, writer_db = _connect()
         try:
-            writer_result.append(_make_service(writer_db).get_or_create_profile(plant, may_create=True))
+            writer_result.append(
+                _make_service(writer_db).get_or_create_profile(plant, may_create=True, tenant_key=_TENANT_KEY)
+            )
         except BaseException as exc:  # noqa: BLE001 — asserted on by the caller
             writer_result.append(exc)
         finally:

@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Nuclei (ProjectDiscovery), GitHub Actions, SARIF, OpenAPI
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1
+Version: 1.3
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, nuclei, vulnerability-scanning, cve, misconfiguration, exposures, ci-gate, sarif]
@@ -19,6 +19,8 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-12 | §4.2: Hinweis auf die angehobenen Rate-Limits im gemeinsamen Scan-Stack (#2248, NFR-015 §4.2). `RATE_LIMIT_DEVICE_PAIRING_REDEEM` bleibt bewusst auf Produktionswert, weil das Template `kamerplanter-device-pairing-bruteforce` dessen 429 auf diesem Stack prüft. |
+| 1.2 | 2026-09-19 | §3.3 auf den Ist-Zustand gebracht (#1543): Der operative Pin ist der Commit-Digest `nuclei_templates_commit` in `.github/renovate-pins.yaml`, das Tag `nuclei_templates_version` ist nur noch sein Label; der Renovate-Custom-Manager fängt beide in einem Match. Die Tag-Auflösungs-Zusicherung entfällt in allen drei Scan-Lanes (unter einem Digest-Pin nur noch Fehlalarm) und wird auf der Pull-Request-Lane durch die Existenzprüfung des Digests ersetzt. Die frühere Beschreibung über eine Repository-Variable `vars.NUCLEI_TEMPLATES_SHA` entsprach der Implementierung nie. |
 | 1.1 | 2026-04-28 | Spec-Followup nach PR-#115-Review: Pinning-Logik in §3.3 auf `git clone` + `git checkout SHA` korrigiert (vorher bestand das `.git`-Verzeichnis bei `-update-templates` nicht zuverlässig). Nightly-Cron in §4.2 von `0 1 * * *` auf `0 0 * * *` vorgezogen, damit das schnellere Tool zuerst gegen Staging läuft (ZAP folgt 60 Min später). Frontend-Storage-Check in `kamerplanter-jwt-leak.yaml` (§3.2) ergänzt. |
 | 1.0 | 2026-04-28 | Erstversion — Template-basiertes Security-Scanning für Frontend, Backend und exponierte Infrastruktur. Pflicht-Template-Sets, CI-Gate, SARIF-Reporting, Triage-Workflow und Akzeptanzkriterien definiert. |
 
@@ -215,24 +217,58 @@ http:
 
 ### 3.3 Template-Versionierung & Reproduzierbarkeit
 
-**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest`. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync durchführt und kein `.git`-Verzeichnis erzeugt:
+**MUSS**: Der Lauf in CI pinnt die Template-Sammlung auf einen konkreten Commit-SHA — nicht auf `latest` und nicht auf ein Tag. Der Pfad MUSS ein Git-Klon sein, da `nuclei -update-templates` einen Tarball-Sync durchführt und kein `.git`-Verzeichnis erzeugt:
 
 ```yaml
-- name: Pin Nuclei Templates
-  env:
-    NUCLEI_TEMPLATES_SHA: ${{ vars.NUCLEI_TEMPLATES_SHA }}
+- name: Read the pinned community-template commit
+  id: pin
   run: |
-    git clone --filter=blob:none \
+    commit=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
+    echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+- name: Clone & checkout pinned community templates
+  env:
+    COMMIT: ${{ steps.pin.outputs.commit }}
+  run: |
+    git clone --filter=blob:none --no-checkout \
       https://github.com/projectdiscovery/nuclei-templates.git \
       ./nuclei-templates
-    git -C ./nuclei-templates checkout "$NUCLEI_TEMPLATES_SHA"
+    git -C ./nuclei-templates fetch --depth=1 origin "$COMMIT"
+    git -C ./nuclei-templates checkout FETCH_HEAD
 
 - name: Run Nuclei against pinned templates
   run: |
     nuclei -t ./nuclei-templates -tags "${TAGS}" -severity "${SEVERITY}" ...
 ```
 
-**MUSS**: `NUCLEI_TEMPLATES_SHA` ist als Repository-Variable hinterlegt und wird wöchentlich automatisch via Renovate aktualisiert (vgl. NFR-009). Renovate-Custom-Manager pinnt den SHA in einer dedizierten Config-Datei (`.github/renovate-pins.yaml`), damit der Update-PR nur diese Variable berührt.
+**MUSS**: Der SHA steht als `nuclei_templates_commit` in `.github/renovate-pins.yaml` und wird von einem Renovate-Custom-Manager aktualisiert (vgl. NFR-009), damit der Update-PR nur diese Datei berührt. Der Manager fängt den Digest **und** das unmittelbar darunter stehende Tag-Label `nuclei_templates_version` in *einem* Match, sodass Renovate beide Zeilen in demselben Pull Request bewegt.
+
+**MUSS**: Das Tag ist ausschließlich Beschriftung — es dient dem Log und dem menschlichen Leser. Keine Lane löst zur Scan-Zeit ein Tag auf.
+
+> **Warum kein Tag-Pin mit Zusicherung (#1543).** Bis zum 2026-09-19 pinnte die
+> Implementierung das Tag und sicherte im Scan zu, dass es noch auf einen von
+> Hand eingetragenen Commit zeigt. Renovate konnte nur die Tag-Hälfte bewegen —
+> der Commit stand über dreißig Zeilen Prosa unterhalb des Datasource-Kommentars
+> und war damit konstruktionsbedingt unverwaltet. Jede Anhebung lieferte also ein
+> Paar, dessen Hälften auseinanderlagen: #1280 (gemergt; der Nightly-Scan startete
+> daraufhin zwei Nächte lang nicht, repariert erst durch #1312) und #1454 (vor dem
+> Merge gefangen). Unter einem Digest-Pin ist das Risiko, das die Zusicherung
+> abdeckte — ein verschobenes Upstream-Tag — strukturell abwesend und nicht bloß
+> unzugesichert: Der Scan liest kein Tag. Die Zusicherung entfällt deshalb in
+> allen drei Lanes; sie könnte dort nur noch Fehlalarm erzeugen.
+
+**MUSS**: Ein Pull Request, der `.github/renovate-pins.yaml` ändert, prüft vor dem Merge, ob der gepinnte Digest upstream überhaupt existiert (`security-nuclei-templates.yml`, ein API-Roundtrip auf `…/git/commits/<sha>`, kein Arbeitsbaum). Ein Tippfehler im Pin bricht sonst jede Scan-Lane erst nach dem Merge — die Form, die #1312 bereits einmal gekostet hat.
+
+> **Was diese Prüfung NICHT leistet.** GitHub teilt eine Objektdatenbank über das
+> Fork-Netzwerk, also antwortet `…/git/commits/<sha>` auch für ein Commit, das nur
+> in einem Fork existiert und nie ein Upstream-Tag trug — dieselbe Eigenschaft,
+> die `git fetch origin "$COMMIT"` in den Scan-Lanes überhaupt funktionieren
+> lässt. Die zurückgezogene `ls-remote`-Zusicherung band den Pin an ein
+> Upstream-Tag; diese Prüfung bindet ihn an die Holbarkeit eines Objekts. Das ist
+> ein bewusster Tausch und keine strikt bessere Frage: sie beantwortet, was die
+> Lanes brauchen (ist das holbar?), und lässt fallen, was sie nicht mehr
+> konsumieren (zeigt ein Tag dorthin?). Ein falscher, aber holbarer Digest wird im
+> Review des Renovate-PRs gefangen — dort entsteht der Wert.
 
 **SOLL**: Alle eigenen Templates werden vor dem Merge mit `nuclei -validate -t tests/security/nuclei-templates/` syntaktisch geprüft (Pre-Commit-Hook + CI-Schritt).
 
@@ -246,10 +282,29 @@ http:
 löst einen Nuclei-Scan mit dem schnellen Profil aus
 (`.github/workflows/security-nuclei-postmerge.yml`, Trigger `push`).
 
-**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem er das Label
-`security-scan` erhält. Das ist der vorgesehene Weg für Änderungen an genau der
-Oberfläche, die die eigenen Templates aus §3.2 beobachten: Security-Header,
-CORS, Fehlerkörper, Debug-Endpunkte, Frontend-Bundle.
+**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem der Workflow per
+`workflow_dispatch` mit der Pull-Request-Nummer gestartet wird — der
+Checkout-Schritt löst daraus `refs/pull/<n>/merge` auf:
+
+```bash
+gh workflow run security-nuclei-postmerge.yml --ref develop -f pull_request=<nummer>
+```
+
+Das ist der vorgesehene Weg für Änderungen an genau der Oberfläche, die die
+eigenen Templates aus §3.2 beobachten: Security-Header, CORS, Fehlerkörper,
+Debug-Endpunkte, Frontend-Bundle.
+
+> **Warum kein Label-Trigger mehr (2026-09-20, Issue #1607).** Bis dahin stand
+> hier „Label `security-scan`". Das Label existierte in diesem Repository
+> **nicht** — die dokumentierte Aufrufform rief nichts auf, die Lane war nie
+> vor einem Merge gelaufen. Und weil GitHub `pull_request: types: [labeled]`
+> nicht nach Label-*Namen* filtern kann, lag die Auswahl im `if:` des Jobs,
+> also *nach* dem Einreihen des Laufs: jedes beliebige Label an jedem
+> beliebigen Pull Request reihte hier einen Lauf ein, der sofort übersprang.
+> Gemessen über 2026-09-13T05:54Z .. 2026-09-20T16:39Z: **300 `pull_request`-Läufe,
+> 277 übersprungen + 23 abgebrochen, 0 ausgeführt.** Das Label
+> `security-scan` existiert seit #1607 und ist in `.github/settings.yml`
+> deklariert, ist aber ein reiner **Triage-Marker** und löst nichts aus.
 
 > **Warum kein Scan bei jedem Push auf jedem Pull Request.** Bis zum 2026-08-07
 > forderte dieser Abschnitt genau das, und der Workflow tat es auch — er kam nur
@@ -292,9 +347,12 @@ name: Security — Nuclei Post-Merge Scan
 on:
   push:
     branches: [develop]
-  pull_request:
-    types: [labeled]        # on demand, via the `security-scan` label
+  # on demand, pre-merge: the dispatch IS the selection (#1607)
   workflow_dispatch:
+    inputs:
+      pull_request:
+        required: false
+        type: string
 
 jobs:
   nuclei-scan:
@@ -365,6 +423,8 @@ stiller Dauerverstoß.
 > **Warum nicht Staging.** Die ursprüngliche Fassung dieses Abschnitts verlangte einen Scan gegen eine Staging-Umgebung und las das Ziel aus `vars.STAGING_BASE_URL`. Diese Variable wurde nie konfiguriert und es existiert keine Staging-Umgebung, gegen die sie zeigen könnte. Folge: von der Einführung des Workflows bis zum 2026-08-01 scheiterte **jeder** geplante Lauf am ersten Step, und es wurde nie ein einziger Scan ausgeführt. Der Meldeweg für Findings — der Issue-Step — meldet in genau diesem Fehlermodus Erfolg, weil er ohne `results.jsonl` nur eine Notice absetzt. Eine Anforderung, deren Erfüllung von einer Umgebung abhängt, die es nicht gibt, ist keine Abdeckung, sondern deren Anschein.
 >
 > Der ephemere Stack wird aus dem gescannten Commit gebaut und danach abgeräumt. Er ist damit reproduzierbar und an den Commit gebunden, hat aber eine bewusste Grenze: er prüft **nicht** die Reverse-Proxy-/Ingress-Schicht aus der Tabelle in §2.4, weil die im Compose-Stack nicht existiert. Diese Zeile bleibt offen, bis eine deployte Umgebung existiert.
+
+> **Rate-Limits im Stack (#2248).** `docker-compose.security.override.yml` hebt die Budgets der anonym erreichbaren Routen an (Login, Registrierung, Passwort-Reset, Refresh, E-Mail-Wechsel-Bestätigung/-Rücknahme, Kalender-Feed, `/api/health`), damit ZAPs differenzielle Regeln keinen 401/429-Wechsel als Befund lesen (NFR-015 §4.2). Nuclei sieht auf diesen Routen deshalb kein 429. `RATE_LIMIT_DEVICE_PAIRING_REDEEM` bleibt ausdrücklich auf dem Produktionswert: das Template `kamerplanter-device-pairing-bruteforce` prüft genau dieses 429. Ein neues Template, das ein anderes Rate-Limit auf diesem Stack prüfen soll, muss dessen Eintrag in `src/backend/tests/unit/guards/test_scan_stack_rate_limits.py` nach `_LEFT_AT_PRODUCTION` verschieben.
 
 **KANN**: Der `workflow_dispatch`-Input `target` überschreibt das Ziel mit einer externen URL. Er ist bewusst **nicht** an eine Repository-Variable gebunden: eine Variable, die im Hintergrund umlenkt, was gescannt wird, ist derselbe Fehlermodus wie der oben beschriebene.
 
@@ -594,7 +654,7 @@ suppressions:
 - [ ] **Template-Setup**
     - [ ] `tests/security/nuclei-templates/` enthält die in §3.2 gelisteten Pflicht-Templates
     - [ ] Alle eigenen Templates validieren mit `nuclei -validate`
-    - [ ] `NUCLEI_TEMPLATES_SHA` ist in CI auf einen Commit-SHA gepinnt
+    - [ ] `nuclei_templates_commit` in `.github/renovate-pins.yaml` ist auf einen Commit-SHA gepinnt und wird von jeder Scan-Lane direkt geholt (kein Tag wird zur Scan-Zeit aufgelöst)
 - [ ] **CI-Integration**
     - [ ] `.github/workflows/security-nuclei-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1)
     - [ ] Die Lane erreicht ihr Urteil: über die letzten 20 Läufe ist **kein** Lauf mit `cancelled` beendet (`gh run list --workflow security-nuclei-postmerge.yml --limit 20 --json conclusion`)

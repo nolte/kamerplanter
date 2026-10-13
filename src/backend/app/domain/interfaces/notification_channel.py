@@ -37,6 +37,7 @@ class INotificationChannel(ABC):
             channel_key=self.channel_key,
             success=success,
             error="; ".join(errors) if errors else None,
+            expired_endpoints=list(dict.fromkeys(e for r in results for e in r.expired_endpoints)),
         )
 
     async def health_check(self) -> bool:

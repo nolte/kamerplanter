@@ -31,6 +31,7 @@ import httpx
 import structlog
 from pydantic import BaseModel, Field
 
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings as env_settings
 from app.domain.models.system_settings import SystemSettings, WeatherProviderSettings
 from app.domain.models.weather import WeatherForecast
@@ -164,7 +165,7 @@ class WeatherSettingsService:
             try:
                 global_key = self._encryption.decrypt(wp.openweathermap_global_api_key_encrypted)
             except Exception as exc:  # noqa: BLE001 — a bad ciphertext must not abort a fetch
-                logger.warning("weather_global_key_decrypt_failed", error=str(exc))
+                logger.warning("weather_global_key_decrypt_failed", error=loggable_error(exc))
                 global_key = None
 
         return EffectiveWeatherSettings(
@@ -272,7 +273,7 @@ class WeatherSettingsService:
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
             return WeatherProviderTestResult(reachable=False, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — the test endpoint must never surface a 500
-            logger.warning("weather_provider_test_failed", source=source_name, error=str(exc))
+            logger.warning("weather_provider_test_failed", source=source_name, error=loggable_error(exc))
             return WeatherProviderTestResult(reachable=False, error=str(exc))
 
         if not reachable:
@@ -284,7 +285,7 @@ class WeatherSettingsService:
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
             return WeatherProviderTestResult(reachable=False, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — preview failure must never surface a 500
-            logger.warning("weather_provider_preview_failed", source=source_name, error=str(exc))
+            logger.warning("weather_provider_preview_failed", source=source_name, error=loggable_error(exc))
             return WeatherProviderTestResult(reachable=False, error=str(exc))
 
         return WeatherProviderTestResult(reachable=True, preview=preview)

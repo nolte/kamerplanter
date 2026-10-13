@@ -20,6 +20,7 @@ here too, since it is the same defect in the same family.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -78,10 +79,13 @@ def _service() -> tuple[WateringService, FakeWateringRepo, FakeFeedingRepo]:
     run_repo.get_run_plants.return_value = [{"_key": PLANT_KEY, "slot_key": "slot-1"}]
 
     plan_repo = MagicMock()
-    plan_repo.get_by_key.return_value = NutrientPlan(_key="plan-1", tenant_key=TENANT, name="Plan")
+    plan_repo.get_readable_or_raise.return_value = NutrientPlan(_key="plan-1", tenant_key=TENANT, name="Plan")
 
+    # The confirmed run and task are the confirming tenant's: #1864 (L8)
+    # resolves both before anything is written.
+    run_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
     task_repo = MagicMock()
-    task_repo.get_by_key.return_value = None
+    task_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
 
     service = WateringService(
         repo=watering_repo,
@@ -91,6 +95,7 @@ def _service() -> tuple[WateringService, FakeWateringRepo, FakeFeedingRepo]:
         task_repo=task_repo,
         feeding_repo=feeding_repo,
         nutrient_plan_repo=plan_repo,
+        plant_repo=MagicMock(get_by_key=MagicMock(return_value=SimpleNamespace(tenant_key=TENANT))),
     )
     return service, watering_repo, feeding_repo
 
@@ -166,19 +171,23 @@ class TestBatchCreatedPlantsCarryTheirRunsTenant:
 
         site_repo = MagicMock()
         site_repo.get_slots_by_location.return_value = []
+        # The run's stored location is re-resolved under its tenant (#2107 review, W2).
+        site_repo.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_a")
+        site_repo.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=TENANT)
 
         service = PlantingRunService(
             run_repo=run_repo,
             plant_repo=plant_repo,
             engine=engine,
             site_repo=site_repo,
+            species_resolver=lambda key, *, tenant_key: None,  # readable (#1963)
         )
         return service, plant_repo
 
     def test_every_created_instance_carries_the_runs_tenant(self):
         service, plant_repo = self._run_service()
 
-        service.create_plants(RUN_KEY)
+        service.create_plants(RUN_KEY, tenant_key=TENANT)
 
         created = [call.args[0] for call in plant_repo.create.call_args_list]
         assert created

@@ -27,6 +27,7 @@ Traces to issue #991 (no TC-ID: process labelling is not a user-facing case).
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -39,6 +40,7 @@ import pytest
 from celery.signals import beat_init, celeryd_init, worker_process_init
 
 import app.tasks  # noqa: F401  importing the package is what connects the receivers
+from app.config.settings import settings
 
 _DSN = "https://key@tracker.example/1"
 
@@ -73,6 +75,13 @@ def fake_sentry(monkeypatch: pytest.MonkeyPatch) -> _FakeSentry:
     # A deployment sets this from the image tag and it would then shadow the
     # component-derived fallback the release assertions read.
     monkeypatch.delenv("SENTRY_RELEASE", raising=False)
+    # A worker that reaches the labelling has passed the salt gate (#1781,
+    # test_worker_salt_fail_fast): configure what a real worker starts with.
+    monkeypatch.setattr(settings, "erasure_tombstone_salt", "x" * 32)
+    # ... the log-salt gate (#1812, test_worker_log_salt_fail_fast) ...
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "l" * 32)
+    # ... and the Fernet-key gate (#1859, test_worker_fernet_fail_fast).
+    monkeypatch.setattr(settings, "fernet_key", base64.urlsafe_b64encode(bytes(range(32))).decode())
     return module
 
 
@@ -106,7 +115,7 @@ _IMPORT_PROBE = textwrap.dedent(
     after_import = dict(fake.tags)
 
     from app.observability.error_tracking import init_error_tracking
-    init_error_tracking(component="control", release="control@0")
+    init_error_tracking(component="control", release="control@0", redact_text=None)
 
     print("RESULT " + json.dumps({"after_import": after_import, "after_control": dict(fake.tags)}))
     """

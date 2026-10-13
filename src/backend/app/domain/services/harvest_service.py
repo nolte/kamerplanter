@@ -5,6 +5,7 @@ from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import TerminationType
 from app.common.exceptions import KarenzViolationError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
@@ -50,6 +51,10 @@ class HarvestService:
     def list_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]:
         return self._repo.get_all_indicators(offset, limit)
 
+    def list_indicators_window(self, offset: int = 0, limit: int = 50) -> list[HarvestIndicator]:
+        """One ``_key``-ordered page of the indicator catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_indicators_window(offset, limit)
+
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator:
         return self._repo.create_indicator(indicator)
 
@@ -86,6 +91,21 @@ class HarvestService:
         """A plant's harvest observations, scoped to ``tenant_key`` (#927)."""
         return self._repo.get_observations_for_plant(plant_key, offset, limit, tenant_key=tenant_key)
 
+    def get_observations_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[HarvestObservation]:
+        """One page of a plant's observations without the count query (MT-035, #2131).
+
+        The list route answers a bare array; the ``total`` :meth:`get_observations`
+        pays a second scan for was never read there.
+        """
+        return self._repo.get_observations_for_plant_window(plant_key, offset, limit, tenant_key=tenant_key)
+
     # ── Readiness Assessment ──
 
     def assess_readiness(self, plant_key: str, *, tenant_key: str) -> dict:
@@ -111,10 +131,12 @@ class HarvestService:
             if obs.indicator_key:
                 reliabilities[obs.indicator_key] = 0.5  # Default
 
-        # Try to get actual reliability scores from indicators
-        for _key in indicator_keys:
-            indicators = self._repo.get_all_indicators(0, 1000)
-            for ind in indicators[0]:
+        # Actual reliability scores from the indicators: read every indicator once.
+        # The read used to sit inside a loop over ``indicator_keys`` and fetch one
+        # fixed page of 1000 per key; an observed indicator past that page kept the
+        # 0.5 default (#2025).
+        if indicator_keys:
+            for ind in read_all_pages(self._repo.get_all_indicators):
                 if ind.key in indicator_keys:
                     reliabilities[ind.key or ""] = ind.reliability_score
 
@@ -133,24 +155,49 @@ class HarvestService:
     def list_batches(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[HarvestBatch], int]:
         return self._repo.get_all_batches(offset, limit, tenant_key=tenant_key)
 
+    def list_batches_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[HarvestBatch]:
+        """One ``_key``-ordered page of the tenant's harvest batches without the count query (MT-035, #2131)."""
+        return self._repo.list_batches_window(offset, limit, tenant_key=tenant_key)
+
     def get_batch(self, key: str, tenant_key: str = "") -> HarvestBatch:
         batch = self._repo.get_batch_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(batch, tenant_key, "HarvestBatch")
         return batch
 
-    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
-        """Create a harvest batch -- enforces Karenz-Gate.
+    def _owned_batch(self, key: str, *, tenant_key: str) -> HarvestBatch:
+        """The harvest batch ``key`` of ``tenant_key``, or 404 — the load every write starts with (#2107).
+
+        :meth:`get_batch` skips the check for an empty tenant; the writes used to
+        call it without one and rely on the router's pre-check (check-then-act).
+        """
+        batch = self._repo.get_batch_or_raise(key)
+        verify_tenant_ownership(batch, tenant_key, "HarvestBatch")
+        return batch
+
+    def create_harvest_batch(self, plant_key: str, batch: HarvestBatch, *, tenant_key: str) -> HarvestBatch:
+        """Create a harvest batch of ``tenant_key`` -- enforces Karenz-Gate.
+
+        The tenant is stamped here and an empty one refused (#2107 review SEC-003):
+        the Karenz gate, the batch-id lookup and the repository's ``plant_key``
+        ownership check all read ``batch.tenant_key``.
 
         When the caller leaves ``batch_id`` blank a deterministic, collision-free
         identifier is generated so a second batch for the same plant on the same
         day no longer trips the unique ``batch_id`` index (issue #744).
         """
+        if not tenant_key:
+            raise ValueError("create_harvest_batch is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        batch.tenant_key = tenant_key
         batch.plant_key = plant_key
         harvest_date = ensure_aware_utc(batch.harvest_date) or now_utc()
+        # The date the Karenz gate checked is the harvest date the row keeps: NFR-011
+        # R-16 counts its five years from it, and a batch stored without one could
+        # never be purged (/code-review of #1789).
+        batch.harvest_date = harvest_date
 
         # KARENZ-GATE: check safety intervals
-        can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, harvest_date)
+        can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, harvest_date, tenant_key=batch.tenant_key)
         if not can_harvest:
             first_blocker = blocking[0]
             raise KarenzViolationError(
@@ -161,31 +208,31 @@ class HarvestService:
         # batch_id is nullable since the ""->None model normalization; treat
         # None and blank alike and always persist a generated identifier.
         if not (batch.batch_id or "").strip():
-            batch.batch_id = self._generate_batch_id(plant_key, harvest_date)
+            batch.batch_id = self._generate_batch_id(plant_key, harvest_date, tenant_key=batch.tenant_key)
 
         return self._repo.create_batch(batch)
 
-    def _generate_batch_id(self, plant_key: str, harvest_date: datetime) -> str:
+    def _generate_batch_id(self, plant_key: str, harvest_date: datetime, *, tenant_key: str) -> str:
         """Build a deterministic, collision-free ``batch_id`` for a blank input.
 
         Base form is ``HARVEST-<YYYYMMDD>-<plant_key>``. If a batch for the same
         plant already exists on that day, a numeric suffix (``-2``, ``-3`` …) is
         appended until a free identifier is found; an exhausted range falls back
-        to a short random suffix. The unique ``batch_id`` index stays the
-        authoritative backstop against concurrent races.
+        to a short random suffix. The unique ``(tenant_key, batch_id)`` index stays
+        the authoritative backstop against concurrent races (#2065).
         """
         day = harvest_date.strftime("%Y%m%d")
         base = f"HARVEST-{day}-{plant_key or 'unassigned'}"
-        if not self._repo.batch_id_exists(base):
+        if not self._repo.batch_id_exists(base, tenant_key=tenant_key):
             return base
         for suffix in range(2, 1000):
             candidate = f"{base}-{suffix}"
-            if not self._repo.batch_id_exists(candidate):
+            if not self._repo.batch_id_exists(candidate, tenant_key=tenant_key):
                 return candidate
         return f"{base}-{uuid4().hex[:8]}"
 
-    def update_batch(self, key: str, data: dict) -> HarvestBatch:
-        existing = self.get_batch(key)
+    def update_batch(self, key: str, data: dict, *, tenant_key: str) -> HarvestBatch:
+        existing = self._owned_batch(key, tenant_key=tenant_key)
         allowed = {
             "harvest_type",
             "wet_weight_g",
@@ -205,7 +252,8 @@ class HarvestService:
     def complete_harvest(
         self,
         plant_key: str,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
         on_date: date | None = None,
     ) -> PlantInstance:
         """Explicitly finish a plant's harvest and end its lifecycle.
@@ -226,8 +274,7 @@ class HarvestService:
         plant = self._plant_repo.get_by_key(plant_key)
         if plant is None:
             raise NotFoundError("PlantInstance", plant_key)
-        if tenant_key:
-            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
 
         if plant.termination_type is not None or plant.removed_on is not None:
             return plant
@@ -237,7 +284,8 @@ class HarvestService:
     def complete_harvest_for_run(
         self,
         run_key: str,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
         on_date: date | None = None,
     ) -> dict:
         """Explicitly finish a whole run's harvest.
@@ -247,13 +295,16 @@ class HarvestService:
         ``removed_on`` nor ``termination_type`` is set; already-terminated or
         removed instances are skipped (no double-/backward transition). Detached
         (standalone) plants are excluded — they are managed on their own path.
+
+        The run's plants come from graph edges, not from the caller: a legacy edge
+        to another tenant's plant is skipped, never terminated (#2107). Only the
+        run was checked before, so such an edge ended a foreign plant's lifecycle.
         """
         if self._run_repo is None or self._plant_repo is None or self._phase_engine is None:
             raise RuntimeError("complete_harvest_for_run requires run_repo, plant_repo and phase_engine to be wired")
 
         run = self._run_repo.get_or_raise(run_key)
-        if tenant_key:
-            verify_tenant_ownership(run, tenant_key, "PlantingRun")
+        verify_tenant_ownership(run, tenant_key, "PlantingRun")
 
         completed: list[str] = []
         for row in self._run_repo.get_run_plants(run_key, include_detached=False):
@@ -261,7 +312,7 @@ class HarvestService:
             if not plant_key:
                 continue
             plant = self._plant_repo.get_by_key(plant_key)
-            if plant is None:
+            if plant is None or plant.tenant_key != tenant_key:
                 continue
             if plant.termination_type is not None or plant.removed_on is not None:
                 continue
@@ -276,8 +327,10 @@ class HarvestService:
 
     # ── Quality Assessment ──
 
-    def create_quality_assessment(self, batch_key: str, assessment: QualityAssessment) -> QualityAssessment:
-        self.get_batch(batch_key)
+    def create_quality_assessment(
+        self, batch_key: str, assessment: QualityAssessment, *, tenant_key: str
+    ) -> QualityAssessment:
+        self._owned_batch(batch_key, tenant_key=tenant_key)
         assessment.batch_key = batch_key
 
         score, grade = self._quality.calculate_overall_score(
@@ -295,13 +348,13 @@ class HarvestService:
 
     # ── Yield Metrics ──
 
-    def create_yield_metric(self, batch_key: str, metric: YieldMetric) -> YieldMetric:
-        self.get_batch(batch_key)
+    def create_yield_metric(self, batch_key: str, metric: YieldMetric, *, tenant_key: str) -> YieldMetric:
+        self._owned_batch(batch_key, tenant_key=tenant_key)
         metric.batch_key = batch_key
         return self._repo.create_yield_metric(metric)
 
     def get_yield(self, batch_key: str) -> YieldMetric | None:
         return self._repo.get_yield_for_batch(batch_key)
 
-    def get_yield_stats(self, species_key: str, days_back: int = 365) -> dict:
-        return self._repo.get_yield_statistics_for_species(species_key, days_back)
+    def get_yield_stats(self, species_key: str, days_back: int = 365, *, tenant_key: str) -> dict:
+        return self._repo.get_yield_statistics_for_species(species_key, days_back, tenant_key=tenant_key)

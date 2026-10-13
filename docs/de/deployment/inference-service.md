@@ -57,13 +57,13 @@ curl http://localhost:8090/modelinfo
 
 ### Schritt 2: Referenz-Index befüllen
 
-Der Referenz-Index enthält Embedding-Vektoren für alle Pflanzenarten aus den Stammdaten. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF (Global Biodiversity Information Facility) und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
+Der Referenz-Index enthält Embedding-Vektoren für alle globalen Pflanzenarten aus den Stammdaten. Arten, die ein Garten selbst angelegt hat, werden nicht indiziert: Der Index ist für alle Gärten derselbe, und ein Treffer nennt nur Arten, die der anfragende Garten sehen darf. Er wird durch einen Celery-Task befüllt, der Referenzbilder von GBIF (Global Biodiversity Information Facility) und Wikimedia Commons abruft (nur CC0/CC-BY-Lizenzen), einbettet und die Vektoren in pgvector speichert. **Originalbilder werden dabei nicht persistiert.**
 
 !!! info "Dieser Schritt befüllt auch die UI-Bilder in der Artenansicht"
     Nach Abschluss dieses Tasks erscheinen in der **Artenliste** Thumbnails und auf der **Artdetailseite** eine vollständige Referenzbild-Galerie. Beide Ansichten zeigen vor dem ersten Beschaffungslauf einen Platzhalter-Hinweis. Lizenz-Attribution (CC-BY) wird automatisch in den Metadaten mitgeführt und im UI angezeigt. Weitere Informationen: [Referenzbilder in der Artenansicht](../user-guide/plant-management.md#referenzbilder-in-der-artenansicht).
 
 ```bash
-# Celery-Task für alle Arten starten (einmalig, dauert je nach Artenzahl mehrere Stunden):
+# Celery-Task für alle globalen Arten starten (einmalig, dauert je nach Artenzahl mehrere Stunden):
 kubectl exec -it deploy/kamerplanter-backend -n default -- \
   celery -A app.tasks call \
   app.tasks.reference_image_tasks.acquire_all_reference_images_task
@@ -107,23 +107,29 @@ Die Antwort zeigt pro Art, wie viele Referenzbilder akzeptiert wurden und ob die
 
 | Methode | Endpunkt | Beschreibung |
 |---------|----------|-------------|
-| `POST` | `/api/v1/admin/reference-images/acquire` | Beschaffungslauf für alle Arten starten |
-| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Beschaffungslauf für eine einzelne Art starten oder wiederholen |
+| `POST` | `/api/v1/admin/reference-images/acquire` | Beschaffungslauf für alle globalen Arten starten |
+| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Beschaffungslauf für eine einzelne globale Art starten oder wiederholen (Art eines Gartens: `404`) |
 | `GET` | `/api/v1/admin/reference-images/coverage` | Abdeckungs-Report: erkennbare Arten, Arten unter Schwellenwert |
 
 Alle drei Endpunkte erfordern einen gültigen Admin-Token (`Authorization: Bearer <admin-token>`). Die Endpunkte sind über den regulären Backend-Ingress erreichbar — es ist kein separater Port-Forward nötig.
 
 ### Schritt 3: Lokalen Pfad aktivieren
 
-Setze die Umgebungsvariable im Backend:
+Setze die Umgebungsvariable **auf dem Backend UND auf dem Celery-Worker**:
 
 ```bash
-# Backend-Env (values-dev.yaml) oder Umgebungsvariable:
+# Backend-Env UND Celery-Worker-Env (values-dev.yaml) oder Umgebungsvariable:
 INFERENCE_SERVICE_ENABLED=true
+INFERENCE_SERVICE_URL=http://kamerplanter-recognition:8000
 ```
 
 !!! danger "Nur aktivieren wenn Index befüllt ist"
     Wenn `INFERENCE_SERVICE_ENABLED=true` gesetzt ist und der Referenz-Index leer ist, fällt das System auf Pl@ntNet zurück — aber **nur, wenn ein Pl@ntNet-Key konfiguriert und die Einwilligung erteilt ist**. Ist beides nicht der Fall, liefert die Erkennung keine Ergebnisse.
+
+!!! warning "Beide Prozesse brauchen dieselbe Konfiguration (DSGVO-Löschung, interne Referenz: Issue #1753)"
+    Nutzer können eigene Fotos als Referenzbild zur Erkennungsbasis beitragen (siehe [Foto der neuen Pflanze zuordnen](../user-guide/plant-identification.md#foto-der-neuen-pflanze-zuordnen)). Die planmäßige Art.-17-Löschung dieser beigetragenen Referenzvektoren läuft **im Celery-Worker**, nicht im Backend. Ist `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` nur auf dem Backend gesetzt, hält der Worker fällige Löschungen als Konfigurationsfehler zurück (`partially_completed`, kein Löschversuch wird verbraucht), und eine Mandantenlöschung antwortet mit HTTP 503. Ein einmal geschriebener Beitrag wird dauerhaft vermerkt — das Deaktivieren der Variable nach dem ersten Beitrag hält also alle künftigen Löschungen an, bis sie auf beiden Prozessen wieder gesetzt ist.
+
+    Dasselbe gilt für beigetragene Schädlingsbild-Vektoren (Issue #1759): Sobald ein Platform-Admin ein Nutzer-Schädlingsfoto zur Erkennungsbasis freigegeben hat, benötigt der Celery-Worker `PEST_DETECTION_ENABLED` **oder** `INFERENCE_SERVICE_ENABLED` zusammen mit `INFERENCE_SERVICE_URL`, um die planmäßige Löschung auszuführen — unabhängig davon, ob die Freigabe noch aktiv ist. Fehlt beides auf dem Worker, gilt dieselbe Zurückhaltung; das Löschen eines einzelnen eigenen Schädlingsfotos schlägt zusätzlich mit HTTP 502 fehl und das Foto bleibt bestehen, solange der Inferenz-Service nicht erreichbar ist.
 
 ---
 
@@ -174,6 +180,12 @@ controllers:
         env:
           INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
+  celery-worker:
+    containers:
+      main:
+        env:
+          INFERENCE_SERVICE_ENABLED: "true"
+          INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
 service:
   vectordb:
     enabled: true
@@ -188,6 +200,9 @@ networkpolicies:
   inference-service:
     enabled: true
 ```
+
+!!! warning "`INFERENCE_SERVICE_ENABLED`/`-URL` gehört auf BEIDE Controller"
+    Das Backend schreibt Nutzerbeiträge in den Referenz-Index, der Celery-Worker führt die planmäßige Art.-17-Löschung dieser Beiträge aus (Issue #1753) — beide Controller brauchen deshalb denselben Wert. Fehlt die Konfiguration auf dem `celery-worker`, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503, solange bereits Beiträge auf dem Index liegen. Dasselbe gilt für beigetragene, freigegebene Schädlingsbild-Vektoren (Issue #1759) — hier genügt alternativ `PEST_DETECTION_ENABLED` auf beiden Controllern.
 
 Ressourcen und Sicherheitskontext (Chart-Defaults, nicht überschreiben sofern nicht nötig):
 
@@ -208,7 +223,7 @@ Service-Hostnamen im Cluster (Release-Name `kamerplanter`):
 
 1. ArgoCD-Application mit den oben gezeigten `valuesObject`-Feldern (ohne `INFERENCE_SERVICE_ENABLED: "true"`) deployen. Warten, bis `kamerplanter-vectordb` und `kamerplanter-inference-service` `Ready` sind.
 2. Referenz-Index befüllen (identisch mit Schritt 2 im Entwicklungs-Pfad oben — das `kubectl exec`-Ziel ist `deploy/kamerplanter-backend`).
-3. `INFERENCE_SERVICE_ENABLED: "true"` in das `valuesObject` eintragen und die Application synchronisieren.
+3. `INFERENCE_SERVICE_ENABLED: "true"` (und `INFERENCE_SERVICE_URL`) **sowohl unter `controllers.backend` als auch unter `controllers.celery-worker`** in das `valuesObject` eintragen und die Application synchronisieren.
 
 ### Ressourcenbedarf
 
@@ -235,11 +250,11 @@ Service-Hostnamen im Cluster (Release-Name `kamerplanter`):
 | `CONFIDENCE_AUTO_ACCEPT` | Nein | `0.85` | Konfidenz-Schwelle für direkte Übernahme |
 | `CONFIDENCE_SHOW_RESULTS` | Nein | `0.10` | Minimale Konfidenz für Anzeige in der Liste |
 
-| Variable (Backend) | Pflicht | Standard | Beschreibung |
+| Variable (Backend UND Celery-Worker) | Pflicht | Standard | Beschreibung |
 |--------------------|:-------:|----------|-------------|
-| `INFERENCE_SERVICE_ENABLED` | Nein | `false` | Lokalen Inferenz-Pfad aktivieren |
-| `INFERENCE_SERVICE_URL` | Nein | `http://kamerplanter-recognition:8000` | Interne URL des Inferenz-Service |
-| `PLANTNET_API_KEY` | Nein | — | Pl@ntNet API-Key für Fallback (optional) |
+| `INFERENCE_SERVICE_ENABLED` | Nein | `false` | Lokalen Inferenz-Pfad aktivieren. **Muss auf Backend und Celery-Worker identisch gesetzt sein** — der Worker führt die planmäßige DSGVO-Löschung beigetragener Referenzvektoren (Issue #1753) und beigetragener Schädlingsbild-Vektoren (Issue #1759, alternativ über `PEST_DETECTION_ENABLED`) aus und braucht denselben Zugang wie das Backend, das sie schreibt. |
+| `INFERENCE_SERVICE_URL` | Nein | `http://kamerplanter-recognition:8000` | Interne URL des Inferenz-Service. Ebenfalls auf beiden Prozessen identisch setzen. |
+| `PLANTNET_API_KEY` | Nein | — | Pl@ntNet API-Key für Fallback (optional, nur Backend) |
 
 ---
 
@@ -255,9 +270,16 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 | `POST` | `/reference` | Embedding + Provenienz in pgvector speichern |
 | `GET` | `/reference/{species_key}` | Indexierte Referenzen einer Art abrufen |
 | `DELETE` | `/reference/{species_key}` | Referenzen einer Art löschen (Re-Index) |
+| `POST` | `/reference/contributions/erase-by-contributor` | DSGVO-Löschung (Art. 17): entfernt alle vom angegebenen Nutzer beigetragenen Referenzvektoren (`source = user_contributed`), optional auf einen Mandanten eingeschränkt. Kuratierte Referenzen bleiben unberührt. Vom Celery-Worker aufgerufen. |
+| `POST` | `/reference/contributions/erase-by-tenant` | Mandantenlöschung: entfernt alle von einem Mandanten beigetragenen Referenzvektoren (`source = user_contributed`). Vom Backend bei der Mandantenlöschung aufgerufen. |
+| `POST` | `/pest/reference/contributions/erase` | DSGVO-Löschung (Art. 17, Issue #1759): entfernt die angegebenen beigetragenen Schädlingsbild-Vektoren (`source = user_contributed`) anhand ihrer Beitrags-Schlüssel — unabhängig davon, ob der Beitrag freigegeben oder zurückgenommen war. Vom Celery-Worker sowie beim Löschen eines einzelnen eigenen Schädlingsfotos aufgerufen. |
+| `POST` | `/pest/reference/contributions/erase-by-tenant` | Mandantenlöschung (Issue #1759): entfernt alle von einem Mandanten beigetragenen Schädlingsbild-Vektoren (`source = user_contributed`). Vom Backend bei der Mandantenlöschung aufgerufen. |
+| `POST` | `/pest/reference/contributions/keys` | Aufräumlauf für verwaiste Prototypen (Issue #1771): liefert eine Seite der Beitrags-Schlüssel im Index (`source = user_contributed`), aufsteigend sortiert, Cursor im Body (`after`, `limit` 1–1000, Standard 1000) statt in der URL. Vom Celery-Worker aufgerufen, um Schlüssel ohne zugehöriges `pest_image_contributions`-Dokument zu finden — siehe [Aufräumlauf: verwaiste Schädlingsbild-Prototypen](../guides/data-retention.md). |
 | `GET` | `/health` | Liveness-Probe |
 | `GET` | `/ready` | Readiness-Probe (Modell geladen?) |
 | `GET` | `/modelinfo` | Modellname, Dimension, Eingabegröße, Lizenz, Prüfsumme |
+
+Wie alle nicht-Probe-Endpunkte erfordern auch die vier Lösch-Endpunkte den gemeinsamen `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — ohne gültiges Token antworten sie mit `401`. Ein leerer bzw. blanker Schlüssel im Request-Body wird mit `422` abgelehnt (die Antwort nennt nur das betroffene Feld, nie den Wert).
 
 ---
 
@@ -289,6 +311,12 @@ Die Endpunkte sind nur clusterintern erreichbar und nicht über den Ingress expo
 
 ??? question "Wie aktualisiere ich den Referenz-Index für eine einzelne Art?"
     Nutze den Admin-Endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}` — er löst intern den Celery-Task `acquire_reference_images_task` für die Art aus.
+
+??? question "Eine Konto- oder Mandantenlöschung bleibt hängen, obwohl `INFERENCE_SERVICE_ENABLED` gesetzt ist"
+    Prüfe, ob die Variable auf **beiden** Prozessen identisch gesetzt ist: Backend UND Celery-Worker. Eine Löschung, die von beigetragenen Referenzvektoren betroffen ist, bleibt als Konfigurationsfehler (`partially_completed`) offen bzw. eine Mandantenlöschung antwortet mit HTTP 503, solange der Celery-Worker die Variable nicht hat (Issue #1753). Dasselbe gilt für beigetragene Schädlingsbild-Vektoren, wenn dem Celery-Worker sowohl `PEST_DETECTION_ENABLED` als auch `INFERENCE_SERVICE_ENABLED` fehlen (Issue #1759). Nach dem Nachtragen läuft die Löschung beim nächsten täglichen Lauf automatisch nach.
+
+??? question "Ein vor Issue #1766 gelöschter Schädlingsfoto-Beitrag hat noch einen Prototyp im Index — wie wird der entfernt?"
+    Ein täglicher Aufräumlauf (`pest_image.sweep_orphaned_prototypes`, 04:30 UTC) findet und löscht solche verwaisten Prototypen automatisch. Details, Log-Ereignisse und der manuelle Trigger-Befehl: [Aufräumlauf: verwaiste Schädlingsbild-Prototypen](../guides/data-retention.md).
 
 ---
 

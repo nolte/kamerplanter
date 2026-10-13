@@ -36,7 +36,7 @@ def _service(entries: dict[str, str], plans: dict[str, str]) -> tuple[NutrientPl
 
     def _entry(key: str) -> NutrientPlanPhaseEntry:
         if key not in entries:
-            raise NotFoundError("nutrient plan phase entry", key)
+            raise NotFoundError("NutrientPlanPhaseEntry", key)
         # The real required shape: `phase_name` is a PhaseName enum and the week
         # bounds are mandatory. An invented shorthand ('veg', no weeks) is
         # rejected by the model — which is why the double uses the real one.

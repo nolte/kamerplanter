@@ -34,13 +34,16 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `details[].field` | String | Feldname oder Pfad zum fehlerhaften Wert |
 | `details[].reason` | String | Erläuterung des konkreten Problems |
 | `details[].code` | String | Maschinenlesbarer Detailcode |
-| `details[].entity` | String | **Optional.** Name der fehlenden Ressource in `snake_case` (`task`, `attachment`, `plant_instance`) — nur bei 404-Fehlern gesetzt |
+| `details[].entity` | String | **Optional.** Name der fehlenden Ressource in `snake_case` aus einem geschlossenen Vokabular (`task`, `attachment`, `plant_instance`) — nur bei 404-Fehlern gesetzt |
 | `timestamp` | String | Zeitpunkt des Fehlers (ISO 8601, UTC) |
 | `path` | String | URL-Pfad der fehlgeschlagenen Anfrage |
 | `method` | String | HTTP-Methode der fehlgeschlagenen Anfrage |
 
 !!! tip "Zwei 404 auf derselben Route unterscheiden"
     Eine Route, die erst eine Eltern- und dann eine Kindressource auflöst, antwortet in beiden Fällen mit `ENTITY_NOT_FOUND` und HTTP 404. Unterschieden werden sie über `details[0].entity` — nicht über `message`, die auf Englisch formuliert und jederzeit umformulierbar ist. Ein Client, der das Feld nicht kennt, verhält sich wie bisher: `error_code` und Status sind unverändert.
+
+!!! info "`entity` ist ein geschlossenes Vokabular"
+    Der Wert ist immer der `snake_case`-Name **einer** Ressourcenart: ein Name je Modell, immer Singular (`tenant`, nie `tenants`; `plant_instance`, nie `plant_instances`). Er ist nie ein Speicher-/Collection-Name und nie ein Freitext. Neben den Modellnamen gibt es benannte Ausnahmen für Dinge, die kein Modell sind — darunter `storage_object` (Datei im Objektspeicher), `session` (Anmeldesitzung), `mcp_tool` und `resource` (Rückfall, wenn der Server die Art nicht benennen darf). Vergleichen Sie den Wert exakt; ein unbekannter Wert sollte wie „keine Angabe" behandelt werden.
 
 !!! tip "error_id für Support nutzen"
     Die `error_id` wird im Server-Log protokolliert. Geben Sie diese ID bei der Fehlersuche oder in Support-Anfragen an — damit kann der Fehler serverseitig exakt nachvollzogen werden.
@@ -63,6 +66,7 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `423 Locked` | Konto gesperrt | Zu viele fehlgeschlagene Loginversuche |
 | `429 Too Many Requests` | Rate Limit überschritten | Zu viele Anfragen pro Minute |
 | `502 Bad Gateway` | Externe Quelle nicht erreichbar | GBIF/Perenual-Timeout |
+| `503 Service Unavailable` | Feature nicht konfiguriert | Instanz fehlt eine für die Aktion nötige Konfiguration |
 | `500 Internal Server Error` | Interner Fehler | Unerwarteter Serverfehler |
 
 ---
@@ -87,6 +91,13 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `FORBIDDEN` | 403 | Authentifiziert, aber ohne ausreichende Rolle |
 | `EMAIL_NOT_VERIFIED` | 403 | E-Mail-Adresse noch nicht bestätigt |
 | `ACCOUNT_LOCKED` | 423 | Konto nach zu vielen Fehlversuchen gesperrt |
+| `STEP_UP_LOCKED` | 429 | Zu viele fehlgeschlagene Bestätigungen bei einer unumkehrbaren Kontoaktion oder Anmeldemittel-Änderung (Konto- oder Mandantenlöschung, E-Mail- oder Passwortänderung, API-Key ausstellen, Gerät koppeln, Anmeldeweg entfernen, Admin-Vertrauensanhebung) — `details[0].retry_after_minutes` nennt die Wartezeit; betrifft nicht die Anmeldung |
+| `STEP_UP_REAUTH_REQUIRED` | 401 (422 beim Anfordern des Codes) | Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) muss sich für diese Aktion erneut bei diesem Anbieter anmelden — `POST /users/me/step-up/oidc` startet die Anmeldung; der per E-Mail zugeschickte Code wird diesem Konto verweigert |
+| `STEP_UP_REAUTH_FAILED` | 401 | Die erneute Anmeldung beim Anbieter hat diese Aktion nicht bestätigt (abgelaufen, abgebrochen oder ungültig) — nur als Weiterleitungs-Fehlercode auf `/auth/step-up/callback`, nie als JSON |
+| `STEP_UP_PASSWORD_REQUIRED` | 422 | Das Konto hat ein lokales Passwort und bestätigt damit — weder erneute Anmeldung noch E-Mail-Code sind nötig. |
+| `STEP_UP_REAUTH_UNAVAILABLE` | 422 | Keiner der verknüpften Anbieter des Kontos (bzw. der gewählte) kann eine frische Anmeldung nachweisen — das Konto bestätigt mit dem E-Mail-Code. |
+| `STEP_UP_CODE_REQUIRED` | 401 | Ein Konto ohne lokales Passwort und ohne OIDC-fähigen Anbieter (nur GitHub/Apple) hat für eine dieser Aktionen keinen Bestätigungscode mitgeschickt — zuerst per `POST /users/me/step-up-code` anfordern |
+| `STEP_UP_CODE_UNDELIVERABLE` | 503 | Der Bestätigungscode konnte nicht per E-Mail zugestellt werden (kein E-Mail-Versand konfiguriert oder Mailserver-Fehler); es wurde nichts ausgegeben — die Wartezeit und das Stundenkontingent bleiben unberührt, ein erneuter Versuch ist sofort möglich, sobald der Betreiber den Versand behoben hat |
 
 ### Phasen- und Statusfehler
 
@@ -119,6 +130,15 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth�
 | `EXTERNAL_SOURCE_ERROR` | 502 | Externer Datendienst (GBIF, Perenual) nicht erreichbar |
 | `ADAPTER_NOT_FOUND` | 404 | Kein Adapter für die angegebene Quelle registriert |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate Limit des Servers oder eines externen Dienstes überschritten |
+
+### DSGVO- und Löschfehler
+
+| Fehlercode | HTTP | Beschreibung |
+|-----------|------|-------------|
+| `ERASURE_INCOMPLETE` | 500 | Der Aufräumlauf für nie bestätigte Konten (oder ein synchroner Betreiberlauf) hat einen Schritt nicht erreicht; der Löschantrag ist gespeichert und wird automatisch wiederholt. `DELETE /admin/platform/users/{key}` antwortet damit seit #1949 nicht mehr (`202`): derselbe Zustand ist der Antragsstatus `partially_completed` unter `GET /admin/platform/erasures/{erasure_key}` |
+| `TENANT_ERASURE_INCOMPLETE` | 500 | Eine Mandantenlöschung hat etwas nicht erreicht, das den Mandanten noch hält (nur Sammlungsnamen in der Meldung, keine Mandanten- oder Kontokennung); der Vorgang ist gespeichert und wird automatisch wiederholt. Seit Issue #1792 liefern die Mandanten-Lösch-Endpunkte (`202 Accepted`) diesen Fehler nicht mehr an den Aufrufer — er tritt im Worker auf und steht am Löschungs-Datensatz |
+| `WRITE_CONFLICT` | 409 | Für dieses Konto oder diesen Mandanten läuft bereits eine Löschung |
+| `FEATURE_NOT_CONFIGURED` | 503 | Die Instanz ist für Konto- oder Mandanten-Löschungen nicht korrekt konfiguriert; es wurde nichts geändert |
 
 ---
 

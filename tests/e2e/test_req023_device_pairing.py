@@ -81,7 +81,7 @@ class TestDevicePairingDialogOpen:
             "Sessions tab with the Connect-mobile-device button",
         )
 
-        pairing_page.open_dialog()
+        pairing_page.open_dialog(DEMO_PASSWORD)
         screenshot(
             "TC-023-073_dialog-opened",
             "QR device-pairing dialog opened",
@@ -118,7 +118,7 @@ class TestDevicePairingQrRendered:
         """
         _ensure_logged_in(login_page)
         pairing_page.open_sessions_tab()
-        pairing_page.open_dialog()
+        pairing_page.open_dialog(DEMO_PASSWORD)
 
         width, height = pairing_page.qr_svg_size()
         screenshot(
@@ -168,7 +168,7 @@ class TestDevicePairingCountdown:
         """
         _ensure_logged_in(login_page)
         pairing_page.open_sessions_tab()
-        pairing_page.open_dialog()
+        pairing_page.open_dialog(DEMO_PASSWORD)
         pairing_page.wait_for_qr()
 
         initial_text = pairing_page.countdown_text()
@@ -222,7 +222,7 @@ class TestDevicePairingRefresh:
         _ensure_logged_in(login_page)
         pairing_page.open_sessions_tab()
 
-        pairing_page.open_dialog()
+        pairing_page.open_dialog(DEMO_PASSWORD)
         first_signature = pairing_page.qr_data_signature()
         screenshot(
             "TC-023-076_first-qr",
@@ -234,7 +234,7 @@ class TestDevicePairingRefresh:
 
         pairing_page.close_dialog()
 
-        pairing_page.open_dialog()
+        pairing_page.open_dialog(DEMO_PASSWORD)
         second_signature = pairing_page.qr_data_signature()
         screenshot(
             "TC-023-076_second-qr",

@@ -76,9 +76,16 @@ class RecordingSensorService:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    def update_sensor(self, key: str, changes: dict, *, parent_field: str, parent_key: str) -> Sensor:
+    def update_sensor(self, key: str, changes: dict, *, parent_field: str, parent_key: str, tenant_key: str) -> Sensor:
         self.calls.append(
-            {"op": "update", "key": key, "changes": changes, "parent_field": parent_field, "parent_key": parent_key}
+            {
+                "op": "update",
+                "key": key,
+                "changes": changes,
+                "parent_field": parent_field,
+                "parent_key": parent_key,
+                "tenant_key": tenant_key,
+            }
         )
         return Sensor(_key=key, name="EC", metric_type="ec_ms", **{parent_field: parent_key})
 
@@ -109,9 +116,12 @@ class ParentService:
         self.verified.append((key, tenant_key))
         return object()
 
-    def get_location(self, key: str) -> Any:
-        # `_verify_location_tenant` resolves the site from the location; a
-        # location has no tenant of its own either.
+    def get_location(self, key: str, tenant_key: str = "") -> Any:
+        # `_verify_location_tenant` resolves the location under the tenant in one
+        # step (#1871 B13); `SiteService.get_location` anchors that on the site,
+        # so the site is what is recorded as verified.
+        if tenant_key:
+            self.verified.append(("site-of-loc", tenant_key))
         return type("Loc", (), {"site_key": "site-of-loc", "key": key})()
 
 
@@ -197,6 +207,9 @@ class TestTheParentReachesTheService:
                 "changes": {"name": "EC"},
                 "parent_field": "tank_key",
                 "parent_key": "tank-1",
+                # MT-015 (#2112): the allowlist a changed ha_entity_id is checked against
+                # is the verified parent's tenant's.
+                "tenant_key": "tenant-a",
             }
         ]
 
@@ -233,7 +246,7 @@ class TestTheParentReachesTheService:
         assert sites.verified == [("site-1", "tenant-a"), ("site-1", "tenant-a")]
         assert [c["parent_field"] for c in sensors.calls] == ["site_key", "site_key"]
         assert {c["parent_key"] for c in sensors.calls} == {"site-1"}
-        assert sensors.calls[1]["tenant_key"] == "tenant-a"
+        assert [c["tenant_key"] for c in sensors.calls] == ["tenant-a", "tenant-a"]
 
     def test_location_routes_name_the_location_and_verify_its_site(self) -> None:
         sensors, sites = RecordingSensorService(), ParentService()
@@ -255,7 +268,7 @@ class TestTheParentReachesTheService:
         assert sites.verified == [("site-of-loc", "tenant-a"), ("site-of-loc", "tenant-a")]
         assert [c["parent_field"] for c in sensors.calls] == ["location_key", "location_key"]
         assert {c["parent_key"] for c in sensors.calls} == {"loc-1"}
-        assert sensors.calls[1]["tenant_key"] == "tenant-a"
+        assert [c["tenant_key"] for c in sensors.calls] == ["tenant-a", "tenant-a"]
 
     def test_an_explicit_null_reaches_the_service(self) -> None:
         """The route must forward a *clear*, not drop it.

@@ -98,5 +98,5 @@ def test_service_watering_path_returns_none_when_it_loses_the_race():
     )
     profile = CareProfile(plant_key="plant-1", watering_interval_days=3)
 
-    assert service.ensure_next_watering_task(profile) is None
+    assert service.ensure_next_watering_task(profile, tenant_key="tenant-a") is None
     task_repo.create_task.assert_called_once()

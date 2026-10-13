@@ -1,5 +1,7 @@
 import structlog
 
+from app.common.enums import TenantStatus
+from app.common.log_privacy import loggable_error
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -7,8 +9,14 @@ logger = structlog.get_logger()
 
 @celery_app.task(name="update_vernalization_progress")
 def update_vernalization_progress(avg_temp_c: float) -> dict:
-    """Update vernalization tracking for biennial plants."""
-    from app.common.dependencies import get_lifecycle_repo, get_plant_repo
+    """Update vernalization tracking for biennial plants.
+
+    **Not scheduled (MT-051, #2144).** Nothing starts this task — no beat entry, no
+    dispatch; the decision and its prerequisite are recorded in
+    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``
+    (``_NOT_STARTED_BY_THE_APP``), which fails the day something does start it.
+    """
+    from app.common.dependencies import get_lifecycle_repo, get_plant_repo, get_tenant_repo
     from app.domain.engines.vernalization_tracker import VernalizationTracker
 
     plant_repo = get_plant_repo()
@@ -17,12 +25,10 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
 
     updated = 0
     is_cold = tracker.is_cold_day(avg_temp_c)
-    plants, _ = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
-
-    for plant in plants:
-        if plant.removed_on is not None:
-            continue
-
+    # REQ-056 §5.2 / MT-032 (#2128): only the plants of active tenants that are not removed, selected in
+    # AQL and read one page at a time.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
+    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
         try:
             lifecycle = phase_repo.get_lifecycle_by_species(plant.species_key)
             if lifecycle is None or not lifecycle.vernalization_required:
@@ -31,16 +37,19 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
             if is_cold:
                 # Accumulate + persist the chill day (REQ-003 E2). The
                 # vernalization_based trigger reads chill_days_accumulated.
-                plant.chill_days_accumulated += 1
-                plant_repo.update(plant.key or "", plant)
+                # One server-side increment (#1970): writing the snapshot back would
+                # revert a phase change or removal made since the read.
+                chill_days = plant_repo.increment_chill_days(plant.key or "")
+                if chill_days is None:  # removed since the read
+                    continue
                 updated += 1
                 logger.info(
                     "vernalization_cold_day",
                     plant_key=plant.key,
                     avg_temp=avg_temp_c,
-                    chill_days=plant.chill_days_accumulated,
+                    chill_days=chill_days,
                 )
         except Exception as e:
-            logger.error("vernalization_error", plant_key=plant.key, error=str(e))
+            logger.error("vernalization_error", plant_key=plant.key, error=loggable_error(e))
 
     return {"cold_day": is_cold, "plants_tracked": updated}

@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import structlog
 
 from app.common.exceptions import ValidationError
 from app.domain.engines.notification_engine import NotificationEngine
@@ -22,6 +23,7 @@ from app.domain.services.notification_service import (
 @pytest.fixture
 def mock_engine():
     engine = MagicMock(spec=NotificationEngine)
+    engine.resolve_email_recipient.return_value = "a@x"
     engine.notify = AsyncMock(
         return_value={
             "status": "delivered",
@@ -256,7 +258,7 @@ class TestPreferences:
             },
         )
 
-        service.update_preferences("user_1", new_prefs)
+        service.update_preferences("user_1", new_prefs, tenant_key="t1")
 
         mock_preference_repo.upsert.assert_called_once()
         call_args = mock_preference_repo.upsert.call_args[0][0]
@@ -365,6 +367,23 @@ class TestPwaSubscriptions:
         assert len(subs) == 1
         assert subs[0]["endpoint"] == "https://push/a"
         assert subs[0]["user_agent"] == "Firefox"
+
+    def test_subscribe_and_unsubscribe_log_the_push_service_host_only(self, echo_service):
+        """#1891: an endpoint's path is the device's push token — the log names the host."""
+        device_token = "dXVpZC0xODkx" + "k9Zq" * 10
+        endpoint = f"https://fcm.googleapis.com/fcm/send/{device_token}"
+
+        with structlog.testing.capture_logs() as logs:
+            echo_service.subscribe_pwa(user_key="user_1", endpoint=endpoint, p256dh="pub", auth="auth")
+            repo = echo_service._preference_repo
+            repo.get_by_user.return_value = repo.upsert.call_args.args[0]
+            echo_service.unsubscribe_pwa("user_1", endpoint)
+
+        events = {entry["event"]: entry for entry in logs}
+        assert set(events) >= {"pwa_subscription_added", "pwa_subscription_removed"}
+        for name in ("pwa_subscription_added", "pwa_subscription_removed"):
+            assert events[name]["endpoint_host"] == "fcm.googleapis.com"
+            assert device_token not in repr(events[name])
 
     def test_subscribe_dedupes_by_endpoint(self, mock_engine, mock_notification_repo):
         existing = NotificationPreferences(
@@ -520,18 +539,51 @@ class TestSendEmailDigest:
         mock_engine._channel_registry.get.return_value = fake_channel
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result == {"status": "sent", "count": 3}
         mock_notification_repo.list_for_user_since.assert_called_once_with("user_1", since)
         fake_channel.send_batch.assert_awaited_once_with(notifs, {"email": "a@x"})
 
     @pytest.mark.asyncio
+    async def test_notifications_about_a_tenant_that_is_not_active_are_not_delivered(
+        self, service, mock_engine, mock_notification_repo
+    ):
+        """REQ-056 §5.2 — what was notified about a suspended tenant before its suspension is not mailed."""
+        from app.domain.models.notification import ChannelResult
+
+        open_one = self._notification("n-open")
+        closed_one = self._notification("n-closed").model_copy(update={"tenant_key": "t-closed"})
+        account_level = self._notification("n-account").model_copy(update={"tenant_key": ""})
+        mock_notification_repo.list_for_user_since.return_value = [open_one, closed_one, account_level]
+        fake_channel = MagicMock()
+        fake_channel.send_batch = AsyncMock(return_value=ChannelResult(channel_key="email", success=True))
+        mock_engine._channel_registry.get.return_value = fake_channel
+
+        result = await service.send_email_digest(
+            "user_1", datetime.now(UTC) - timedelta(hours=24), tenant_is_active=lambda key: key != "t-closed"
+        )
+
+        assert result == {"status": "sent", "count": 2}
+        fake_channel.send_batch.assert_awaited_once_with([open_one, account_level], {"email": "a@x"})
+
+    @pytest.mark.asyncio
+    async def test_a_window_only_about_closed_tenants_sends_no_mail(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.list_for_user_since.return_value = [self._notification("n1")]
+
+        result = await service.send_email_digest(
+            "user_1", datetime.now(UTC) - timedelta(hours=24), tenant_is_active=lambda _key: False
+        )
+
+        assert result == {"status": "empty", "count": 0}
+        mock_engine._channel_registry.get.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_empty_window(self, service, mock_engine, mock_notification_repo):
         mock_notification_repo.list_for_user_since.return_value = []
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result == {"status": "empty", "count": 0}
         mock_engine._channel_registry.get.assert_not_called()
@@ -542,7 +594,7 @@ class TestSendEmailDigest:
         mock_engine._channel_registry.get.return_value = None
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result["status"] == "failed"
         assert result["count"] == 0
@@ -561,7 +613,7 @@ class TestSendEmailDigest:
         mock_engine._channel_registry.get.return_value = fake_channel
 
         since = datetime.now(UTC) - timedelta(hours=24)
-        result = await service.send_email_digest("user_1", "a@x", since)
+        result = await service.send_email_digest("user_1", since)
 
         assert result == {"status": "failed", "count": 2}
 
@@ -595,7 +647,7 @@ class TestSendFrostForecastNotifications:
         assert result == {"status": "complete", "users_notified": 2}
         assert mock_engine.notify.await_count == 2
         group_key = f"frost-forecast:site1:{self._DATE.isoformat()}"
-        mock_notification_repo.find_notified_user_keys.assert_called_once_with(group_key, "t1")
+        mock_notification_repo.find_notified_user_keys.assert_called_once_with(group_key, tenant_key="t1")
 
     @pytest.mark.asyncio
     async def test_counts_only_delivered_sends(self, service, mock_engine, mock_notification_repo):

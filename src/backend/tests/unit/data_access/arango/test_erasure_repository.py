@@ -79,7 +79,9 @@ class TestFindActiveForUser:
         result = repo.find_active_for_user("u1")
 
         assert isinstance(result, ErasureRequest)
-        assert "doc.status IN ['scheduled', 'in_progress']" in mock_db.aql.execute.call_args.args[0]
+        # #1645 — ``partially_completed`` is an open duty and blocks a new request.
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "doc.status IN ['scheduled', 'in_progress', 'partially_completed']" in query
 
     def test_none_when_empty(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
@@ -108,6 +110,6 @@ class TestListDueForHardDelete:
         query = mock_db.aql.execute.call_args.args[0]
         assert "'partially_completed'" in query
         assert "'in_progress'" in query
-        assert "doc.updated_at <= @stale_before" in query
+        assert "DATE_TIMESTAMP(doc.updated_at) <= DATE_TIMESTAMP(@stale_before)" in query
         bind_vars = mock_db.aql.execute.call_args.kwargs["bind_vars"]
         assert bind_vars["stale_before"] == "2026-06-13T18:00:00Z"

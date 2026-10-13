@@ -1,11 +1,17 @@
+from collections.abc import Callable
+from typing import Any
+
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.enums import NutrientDemandLevel, TenantRole
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.engines.area_dosing_engine import AreaDosingCalculator, AreaDosingResult
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
+from app.domain.services.catalogue_authorization import authorize_hybrid_catalogue_write
 from app.domain.services.location_ownership import resolve_owned_location
 
 
@@ -26,6 +32,17 @@ class FertilizerService:
     ) -> tuple[list[Fertilizer], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
+    def list_fertilizers_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Fertilizer]:
+        """One page of :meth:`list_fertilizers` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
+
     def get_fertilizer(self, key: FertilizerKey, tenant_key: str = "") -> Fertilizer:
         fert = self._repo.get_or_raise(key)
         if tenant_key and fert.tenant_key not in ("", tenant_key):
@@ -35,8 +52,46 @@ class FertilizerService:
     def create_fertilizer(self, fertilizer: Fertilizer) -> Fertilizer:
         return self._repo.create(fertilizer)
 
-    def update_fertilizer(self, key: FertilizerKey, data: dict) -> Fertilizer:
-        existing = self.get_fertilizer(key)
+    @staticmethod
+    def _authorize_write(
+        existing: Fertilizer,
+        key: FertilizerKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
+        can_role_write: Callable[[TenantRole], bool],
+    ) -> None:
+        """Foreign -> 404, global -> platform admin, own -> a writing role (#2100)."""
+        authorize_hybrid_catalogue_write(
+            existing.tenant_key,
+            entity="Fertilizer",
+            plural_noun="fertilizers",
+            key=key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=can_role_write,
+        )
+
+    def update_fertilizer(
+        self,
+        key: FertilizerKey,
+        data: dict,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
+    ) -> Fertilizer:
+        existing = self._repo.get_or_raise(key)
+        self._authorize_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_edit_resource,
+        )
         allowed_fields = {
             "product_name",
             "brand",
@@ -72,10 +127,27 @@ class FertilizerService:
                     for e in exc.errors()
                 ],
             ) from exc
+        # Ownership is frozen: the stored owner wins over anything the merge carried.
+        validated.tenant_key = existing.tenant_key
         return self._repo.update(key, validated)
 
-    def delete_fertilizer(self, key: FertilizerKey) -> bool:
-        self.get_fertilizer(key)  # ensure exists
+    def delete_fertilizer(
+        self,
+        key: FertilizerKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
+    ) -> bool:
+        existing = self._repo.get_or_raise(key)
+        self._authorize_write(
+            existing,
+            key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=MembershipEngine.can_delete_resource,
+        )
         return self._repo.delete(key)
 
     # ── Stock CRUD ───────────────────────────────────────────────────
@@ -189,23 +261,58 @@ class FertilizerService:
         key_b: FertilizerKey,
         reason: str,
         severity: str,
+        *,
+        tenant_key: str,
+        is_platform_admin: bool,
     ) -> dict:
-        self.get_fertilizer(key_a)
-        self.get_fertilizer(key_b)
+        """Declare ``key_a`` and ``key_b`` incompatible, both visible to ``tenant_key``.
+
+        ``key_b`` is a request value. It used to be resolved without a tenant, so
+        an edge could be written into another tenant's private product — and an
+        unknown key answered 404 while a foreign one answered 201, an existence
+        oracle. Both are now the catalogue's 404 (#1713).
+        """
+        a = self.get_fertilizer(key_a, tenant_key)
+        b = self.get_fertilizer(key_b, tenant_key)
+        # The same rule as removal (bundle A review, W2): an edge between two
+        # global products is shared catalogue data every tenant reads.
+        self._require_edge_touches_own_product(a, b, tenant_key=tenant_key, is_platform_admin=is_platform_admin)
         return self._repo.add_incompatibility(key_a, key_b, reason, severity)
 
-    def get_incompatibilities(self, key: FertilizerKey) -> list[dict]:
-        self.get_fertilizer(key)
-        return self._repo.get_incompatibilities(key)
+    def get_incompatibilities(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        self.get_fertilizer(key, tenant_key)
+        return self._repo.get_incompatibilities(key, tenant_key=tenant_key)
 
-    def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool:
+    def remove_incompatibility(
+        self, key_a: FertilizerKey, key_b: FertilizerKey, *, tenant_key: str, is_platform_admin: bool
+    ) -> bool:
+        """Remove the incompatibility between ``key_a`` and ``key_b`` (#1867).
+
+        Both products are resolved in the caller's scope, as :meth:`add_incompatibility`
+        does since #1713 — ``key_b`` used to be taken as given. And the edge must
+        touch one of the caller's **own** products: with a global ``key_a`` and
+        another tenant's private ``key_b``, tenant A deleted the incompatibility
+        tenant B had declared. An edge between two global products is shared
+        catalogue data, so only a platform admin may remove it.
+        """
+        a = self.get_fertilizer(key_a, tenant_key)
+        b = self.get_fertilizer(key_b, tenant_key)
+        self._require_edge_touches_own_product(a, b, tenant_key=tenant_key, is_platform_admin=is_platform_admin)
         return self._repo.remove_incompatibility(key_a, key_b)
+
+    @staticmethod
+    def _require_edge_touches_own_product(
+        a: Fertilizer, b: Fertilizer, *, tenant_key: str, is_platform_admin: bool
+    ) -> None:
+        """One of the two products is the tenant's own, or the caller is a platform admin."""
+        if not is_platform_admin and tenant_key not in (a.tenant_key, b.tenant_key):
+            raise ForbiddenError("Only a platform admin may change an incompatibility between two shared products.")
 
     # ── Reverse lookup ─────────────────────────────────────────────────
 
-    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
-        self.get_fertilizer(key)  # ensure exists
-        return self._repo.get_nutrient_plan_usage(key)
+    def get_nutrient_plan_usage(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        self.get_fertilizer(key, tenant_key)  # exists and is visible to the caller
+        return self._repo.get_nutrient_plan_usage(key, tenant_key=tenant_key)
 
     # ── Area-based dosing (REQ-004 W-013, AP-11) ────────────────────────
 
@@ -214,7 +321,7 @@ class FertilizerService:
         fertilizer_keys: list[FertilizerKey],
         area_m2: float | None = None,
         location_key: str | None = None,
-        demand_level: str | None = None,
+        demand_level: NutrientDemandLevel | None = None,
         tenant_key: str = "",
     ) -> AreaDosingResult:
         """Compute per-area amounts for a set of fertilizers over a bed area.

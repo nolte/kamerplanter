@@ -11,12 +11,38 @@ from app.domain.models.substrate import Substrate, SubstrateBatch
 
 class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepository):
     _model_cls = Substrate
+    tenant_scope_exempt_reason = (
+        "hybrid catalogue (global base media with tenant_key '' plus tenant mixes): get_all_substrates "
+        "reads the own-or-global union for a tenant and tenant_key=None is the system-context read of the "
+        "seed loaders and the mix resolver (#1195); strict mode would make that read raise and the base "
+        "strict filter would hide the global media (#324)"
+    )
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SUBSTRATES)
         self._batches = BaseArangoRepository[SubstrateBatch](db, col.SUBSTRATE_BATCHES, SubstrateBatch)
 
     # ── Substrate CRUD ────────────────────────────────────────────────
+
+    def get_global_substrates(self) -> list[Substrate]:
+        """Every global substrate, the whole catalogue, no row limit (#2027).
+
+        The substrate seed decides whether a seed medium already exists through this
+        and nothing wider — the twin of ``ArangoNutrientPlanRepository.get_global_plans``
+        (#1957). A row is global when its ``tenant_key`` is empty or absent, so a
+        tenant's own mix that carries a seed's identity can no longer stand in for the
+        global row and keep it from being created for every tenant. Ordered by
+        ``_key`` so the result is the same on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.SUBSTRATES}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [Substrate(**self._from_doc(doc)) for doc in cursor]
 
     def get_all_substrates(
         self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
@@ -110,9 +136,7 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
     def get_batch_or_raise(self, key: BatchKey) -> SubstrateBatch:
         return self._batches.get_or_raise(key)
 
-    def get_batches_by_substrate(
-        self, substrate_key: SubstrateKey, *, tenant_key: str | None = None
-    ) -> list[SubstrateBatch]:
+    def get_batches_by_substrate(self, substrate_key: SubstrateKey, *, tenant_key: str | None) -> list[SubstrateBatch]:
         """List a substrate's batches, scoped to one tenant (#1195).
 
         **Strict equality, not the hybrid union.** A batch belongs to exactly one

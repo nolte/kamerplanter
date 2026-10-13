@@ -390,6 +390,9 @@ def _phase_entry_client(entry_plan_key: str) -> tuple[TestClient, _EdgeCollectio
     repo.remove_fertilizer_from_channel = lambda *a, **k: True  # type: ignore[method-assign]
 
     fert_repo = MagicMock()
+    # The catalogue as the caller's tenant sees it (#1713): only ``fert-1``. A bare
+    # MagicMock answered every visibility question with "not visible".
+    fert_repo.list_visible_keys.side_effect = lambda keys, *, tenant_key: {k for k in keys if k == "fert-1"}
     plan_service = NutrientPlanService(repo, fert_repo, MagicMock())
 
     app = FastAPI()

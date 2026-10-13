@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
@@ -13,7 +14,21 @@ class INutrientPlanRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[NutrientPlan], int]: ...
+
+    @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[NutrientPlan]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_by_key(self, key: NutrientPlanKey) -> NutrientPlan | None: ...
@@ -70,7 +85,36 @@ class INutrientPlanRepository(ABC):
         ...
 
     @abstractmethod
-    def remove_plant_plan(self, plant_key: str) -> bool: ...
+    def remove_plant_plan(self, plant_key: str, *, tenant_key: str) -> bool: ...
+
+    # ── Onboarding / favourites reads (#1638) ───────────────────────
+
+    @abstractmethod
+    def list_template_plan_summaries(self, *, tenant_key: str, species_keys: list[str]) -> list[dict]:
+        """Template plans visible to ``tenant_key`` (own ∪ global) linked to any of ``species_keys``.
+
+        Every row is ``{plan_key, name, description, substrate_type,
+        species_keys, matched_species, fertilizer_count, fertilizers: [{key,
+        product_name, brand}]}``, sorted by the number of matched species
+        (descending), then by name. The fertilizer set is the union of the
+        ``plan_uses_fertilizer`` edges and the dosages embedded in the phase
+        entries' delivery channels.
+
+        A plan matches when its ``species_keys`` relation shares at least one key
+        with ``species_keys`` (#1618). A plan with an empty or absent relation
+        matches **no** species, and an empty ``species_keys`` argument returns
+        nothing.
+
+        Both arguments are keyword-only with no default (#948): an omitted
+        predicate must not be spellable. An empty ``tenant_key`` is the anonymous
+        / light-mode context and collapses the union to global-only.
+        """
+        ...
+
+    @abstractmethod
+    def list_edge_fertilizer_keys(self, plan_key: NutrientPlanKey) -> list[str]:
+        """Distinct fertilizer keys a plan reaches through its ``plan_uses_fertilizer`` edges."""
+        ...
 
     # ── Channel fertilizer edges ────────────────────────────────────
 

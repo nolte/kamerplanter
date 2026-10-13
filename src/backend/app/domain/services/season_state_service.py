@@ -11,13 +11,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import TYPE_CHECKING
 
 import structlog
 
 from app.common.enums import SeasonPhase
 from app.common.exceptions import NotFoundError, SeasonStateUnavailableError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.season_state_engine import SeasonStateEngine, SeasonStateTransition
 from app.domain.models.season_state import SeasonState
@@ -92,13 +95,65 @@ class SeasonStateService:
         # stances share :meth:`_site_has_frost_exposure` (no second hardcoded site-type
         # set). The per-plant ``Location.frost_exposed`` overrides then narrow the
         # side-effects to the actually-exposed plants (see :meth:`_active_plants`).
-        if not self._site_has_frost_exposure(site) or not site.key:
+        stored = self._repo.get_by_site(site.key, site.tenant_key) if site.key else None
+        computed = self._compute_from(site, stored, on_date)
+        if computed is None:
             return None, False
+        state, transition = computed
+
+        if transition.changed:
+            self._apply_side_effects(site, transition)
+
+        return self._repo.upsert(state), transition.changed
+
+    def compute_site_state(
+        self, site: Site, on_date: date | None = None
+    ) -> tuple[SeasonState, SeasonStateTransition] | None:
+        """:meth:`_compute_from`, reading the stored state itself.
+
+        The public entry point for a caller that holds only the site. A caller
+        that has **already** read the state — :meth:`get_state_for_site`, and
+        :meth:`get_overview` which reads the whole tenant's states in one query —
+        calls :meth:`_compute_from` directly instead, so the split does not cost a
+        second read per site (review SCR-009).
+        """
+        if not site.key:
+            return None
+        return self._compute_from(site, self._repo.get_by_site(site.key, site.tenant_key), on_date)
+
+    def _compute_from(
+        self,
+        site: Site,
+        stored: SeasonState | None,
+        on_date: date | None = None,
+    ) -> tuple[SeasonState, SeasonStateTransition] | None:
+        """Resolve the site's season state **transiently** — no write, no side effect.
+
+        Split out of :meth:`evaluate_site_detailed` for #1461: the read path
+        (:meth:`get_state_for_site`, behind ``GET …/sites/{key}/season-state``)
+        used to fall through to the full evaluation when no state was stored yet,
+        which upserted the computed state *and* ran the transition side effects —
+        materialising overwintering profiles and creating winter/spring care tasks
+        on a plain ``GET``. Entry 10 of the #1443 detector inventory.
+
+        Nothing about the answer needed the write: the state is derived from the
+        site, the signal cascade and the stored state, so recomputing it is cheap
+        and the persisted copy is only a cache with an ``evaluated_at`` stamp. The
+        daily Celery task (``season_tasks.evaluate_all_sites`` → this method's
+        persisting caller) already writes it, on a schedule, where the side
+        effects belong.
+
+        Returns ``None`` for a site with no frost exposure (no season), otherwise
+        the state — **unsaved, and without a ``key`` when nothing is stored yet** —
+        together with the transition the engine computed for it.
+        """
+        if not self._site_has_frost_exposure(site) or not site.key:
+            return None
         if on_date is None:
             on_date = datetime.now(UTC).date()
 
         signal = self._resolver.resolve(site, on_date)
-        state = self._repo.get_by_site(site.key, site.tenant_key) or SeasonState(
+        state = stored or SeasonState(
             season_state_id=f"season-{uuid.uuid4().hex[:12]}",
             site_key=site.key,
             tenant_key=site.tenant_key,
@@ -121,9 +176,8 @@ class SeasonStateService:
         if transition.changed:
             state.phase = transition.to_phase
             state.entered_phase_at = now
-            self._apply_side_effects(site, transition)
 
-        return self._repo.upsert(state), transition.changed
+        return state, transition
 
     def _apply_side_effects(self, site: Site, transition: SeasonStateTransition) -> None:
         """Run the per-transition side effects for every active plant of the site.
@@ -135,14 +189,15 @@ class SeasonStateService:
         task. Both go through the idempotent care-reminder task path.
         """
         to_phase = transition.to_phase
+        # The site's own tenant: `_active_plants` lists only that tenant's plants, and
+        # the care service verifies each one against it again (#2107).
+        seasonal_tasks = partial(self._care_service.ensure_seasonal_winter_tasks, tenant_key=site.tenant_key)
         if to_phase == SeasonPhase.PRE_WINTER:
             for plant in self._active_plants(site):
                 # Materialise first so the freshly derived profile is available to
                 # the winter-reminder gate that follows.
                 self._safe(self._materializer.materialize, plant, site, plant_key=plant.key)
-                self._safe(
-                    self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
-                )
+                self._safe(seasonal_tasks, plant.key or "", to_phase, plant_key=plant.key)
         elif to_phase == SeasonPhase.WINTER_DORMANCY:
             for plant in self._active_plants(site):
                 self._safe(self._enter_dormancy, plant.key, plant_key=plant.key)
@@ -157,9 +212,7 @@ class SeasonStateService:
                 # with the season's spring reactivation (not two decoupled cycles).
                 if self._phase_coupler is not None:
                     self._safe(self._phase_coupler.restart_cycle, plant, plant_key=plant.key)
-                self._safe(
-                    self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
-                )
+                self._safe(seasonal_tasks, plant.key or "", to_phase, plant_key=plant.key)
         elif to_phase == SeasonPhase.GROWING:
             for plant in self._active_plants(site):
                 self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)
@@ -248,7 +301,7 @@ class SeasonStateService:
         try:
             fn(*args)
         except Exception as exc:  # noqa: BLE001 — resilient per-plant processing
-            logger.warning("season_side_effect_failed", plant_key=plant_key, error=str(exc))
+            logger.warning("season_side_effect_failed", plant_key=plant_key, error=loggable_error(exc))
 
     # ── Reads (API) ─────────────────────────────────────────────────────
 
@@ -267,17 +320,60 @@ class SeasonStateService:
             raise SeasonStateUnavailableError(site_key)
 
         state = self._repo.get_by_site(site_key, tenant_key)
-        if state is None:
-            evaluated = self.evaluate_site(site)
-            if evaluated is None:
-                raise SeasonStateUnavailableError(site_key)
-            return evaluated
-        return state
+        if state is not None:
+            return state
+        # No state stored yet. This used to fall through to ``evaluate_site``,
+        # which upserts the computed state and fires the transition side effects —
+        # a write, plus overwintering profiles and care tasks, on a plain ``GET``
+        # (#1461). The state is derived data, so it is computed transiently here
+        # and answered unsaved; the daily Celery task is what persists it.
+        computed = self._compute_from(site, None, None)
+        if computed is None:
+            raise SeasonStateUnavailableError(site_key)
+        return computed[0]
 
     def get_overview(self, tenant_key: str) -> list[SeasonState]:
-        """Aggregated season states over all outdoor/greenhouse sites of a tenant."""
-        states, _total = self._repo.list_for_tenant(tenant_key)
-        return states
+        """Aggregated season states over all frost-exposed sites of a tenant.
+
+        Stored states are returned as stored. A frost-exposed site that has **no**
+        stored state yet is computed transiently, exactly as
+        :meth:`get_state_for_site` answers for the same site — without that, the
+        two reads disagree: the detail page shows a phase for a freshly created
+        outdoor site and the dashboard widget shows nothing until the nightly task
+        has run (review SCR-003).
+
+        The extra work is bounded to the sites that are actually missing a state,
+        which is a small number by construction and drops to zero after the first
+        nightly run. It is all database reads — :class:`SeasonSignalResolver` reads
+        the stored forecast rows, it does not call a weather API — so this stays a
+        read-shaped request. Nothing is written here; the daily Celery task remains
+        the only writer (#1461).
+        """
+        # Every stored state: ``list_for_tenant`` defaults to one page of 200 (#2025).
+        stored_states = read_all_pages(
+            lambda offset, limit: self._repo.list_for_tenant(tenant_key, offset=offset, limit=limit)
+        )
+        by_site = {state.site_key: state for state in stored_states}
+
+        # Every site of the tenant: a frost-exposed site past a first page of 200 with no
+        # stored state yet was missing from the overview (#2025).
+        sites = read_all_pages(
+            lambda offset, limit: self._site_repo.get_all_sites(offset, limit, tenant_key=tenant_key)
+        )
+        overview: list[SeasonState] = []
+        seen: set[str] = set()
+        for site in sites:
+            computed = self._compute_from(site, by_site.get(site.key or ""), None)
+            if computed is None:  # not frost-exposed → no season, as before
+                continue
+            overview.append(computed[0])
+            seen.add(site.key or "")
+
+        # A stored state whose site is beyond the page (or gone) still belongs in
+        # the answer: dropping it would make the overview silently shorter than it
+        # was, which is a regression dressed as a refinement.
+        overview.extend(state for site_key, state in by_site.items() if site_key not in seen)
+        return overview
 
     @staticmethod
     def hemisphere_for(site: Site) -> str:

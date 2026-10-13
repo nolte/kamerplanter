@@ -1,8 +1,10 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
 import type { Species } from '@/api/types';
+import { http, HttpResponse } from 'msw';
+import { server } from '../mocks/server';
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -230,6 +232,32 @@ describe('SpeciesDetailPage — edit form & actions', () => {
     expect(payload).toMatchObject({ scientific_name: 'Solanum lycopersicum' });
     // months were de-duplicated and sorted in the propagation mapping.
     expect(payload.propagation_configs[0].months).toEqual([3, 4]);
+  });
+
+  it('shows both failed edit-form catalogues instead of empty pickers (#1628)', async () => {
+    server.use(
+      http.get('*/botanical-families', () => new HttpResponse(null, { status: 500 })),
+      http.get('*/nutrient-plans', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderWithProviders(<SpeciesDetailPage />, {
+      store: makeStore('expert', makeFullSpecies()),
+      route: '/#edit',
+    });
+
+    // SpeciesDetailPage.tsx:112 — the family picker.
+    expect(await screen.findByTestId('catalogue-load-error-botanicalFamilies')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('form-field-family_key'))
+        .getByRole('combobox')
+        .getAttribute('aria-disabled'),
+    ).toBe('true');
+    // SpeciesDetailPage.tsx:113 — the default nutrient plan picker.
+    expect(await screen.findByTestId('catalogue-load-error-nutrientPlans')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('form-field-default_nutrient_plan_key'))
+        .getByRole('combobox')
+        .getAttribute('aria-disabled'),
+    ).toBe('true');
   });
 
   it('submits the edit form of an all-null species (falsy mapping arms)', async () => {

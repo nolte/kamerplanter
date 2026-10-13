@@ -94,6 +94,27 @@ export default function WorkflowInstantiateDialog({
   const [selectedTarget, setSelectedTarget] = useState<SelectionTarget | null>(
     null,
   );
+  // #1564 — `targetEntityTypes` arrives as a *fresh array* on most renders: the
+  // parameter default above allocates one per call, and the only production
+  // caller's `?? ['plant_instance']` fallback does the same. The load effect
+  // below listed that array among its dependencies, so every render tore the
+  // in-flight load down — the cleanup sets `cancelled = true`, which also skips
+  // the `finally` that clears `loadingTemplates` — and started a fresh one.
+  // Measured on a single mount: 22 template requests in two seconds, with the
+  // empty-state text appearing and disappearing once per lap. That is what made
+  // `shows the empty-template message …` resolve or not depending on where the
+  // polling `findByText` happened to land, i.e. pass alone and fail under
+  // full-suite contention.
+  //
+  // Keying on the *content* makes the identity change when the selection does
+  // and not before. Every consumer below reads `targetTypes`, so a future
+  // consumer cannot pick the unstable array up by accident.
+  const targetTypesKey = targetEntityTypes.join('|');
+  const targetTypes = useMemo<WorkflowTargetType[]>(
+    () => (targetTypesKey ? (targetTypesKey.split('|') as WorkflowTargetType[]) : []),
+    [targetTypesKey],
+  );
+
   // Counted rather than a single boolean (#821): up to three independent
   // loaders (plants, locations, tanks) run concurrently, and with one shared
   // flag the first of them to finish flipped `loading` to false while the
@@ -215,9 +236,9 @@ export default function WorkflowInstantiateDialog({
     };
 
     // Load entities based on target types
-    const needsPlantData = targetEntityTypes.includes('plant_instance') || targetEntityTypes.includes('planting_run');
-    const needsLocationData = targetEntityTypes.includes('location');
-    const needsTankData = targetEntityTypes.includes('tank');
+    const needsPlantData = targetTypes.includes('plant_instance') || targetTypes.includes('planting_run');
+    const needsLocationData = targetTypes.includes('location');
+    const needsTankData = targetTypes.includes('tank');
 
     const started = [
       needsPlantData ? loadPlantData : null,
@@ -244,17 +265,17 @@ export default function WorkflowInstantiateDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, workflowKey, targetEntityTypes, handleError]);
+  }, [open, workflowKey, targetTypes, handleError]);
 
   // ── Build unified options ────────────────────────────────────────
 
   const options = useMemo<SelectionTarget[]>(() => {
     const result: SelectionTarget[] = [];
 
-    const hasPlantInstance = targetEntityTypes.includes('plant_instance');
-    const hasPlantingRun = targetEntityTypes.includes('planting_run');
-    const hasLocation = targetEntityTypes.includes('location');
-    const hasTank = targetEntityTypes.includes('tank');
+    const hasPlantInstance = targetTypes.includes('plant_instance');
+    const hasPlantingRun = targetTypes.includes('planting_run');
+    const hasLocation = targetTypes.includes('location');
+    const hasTank = targetTypes.includes('tank');
 
     if (hasPlantInstance || hasPlantingRun) {
       const runPlantKeys = new Set<string>();
@@ -295,7 +316,7 @@ export default function WorkflowInstantiateDialog({
     }
 
     return result;
-  }, [plants, runs, runPlantsMap, locations, tanks, targetEntityTypes]);
+  }, [plants, runs, runPlantsMap, locations, tanks, targetTypes]);
 
   // ── Option label ─────────────────────────────────────────────────
 
@@ -429,14 +450,14 @@ export default function WorkflowInstantiateDialog({
   const locale = i18n.language === 'de' ? 'de-DE' : 'en-US';
 
   const inputLabel = useMemo(() => {
-    if (targetEntityTypes.length === 1) {
-      const et = targetEntityTypes[0];
+    if (targetTypes.length === 1) {
+      const et = targetTypes[0];
       if (et === 'location' || et === 'tank') {
         return t('pages.tasks.selectEntity');
       }
     }
     return t('pages.tasks.instantiateTarget');
-  }, [targetEntityTypes, t]);
+  }, [targetTypes, t]);
 
   return (
     <Dialog

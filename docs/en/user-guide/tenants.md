@@ -15,10 +15,16 @@ A tenant is the central isolation container for all resources: plants, locations
 
 ### Personal Tenant
 
-When you register, the system automatically creates your **personal tenant**. You are automatically the admin there. All resources you create in Kamerplanter land in your personal tenant by default.
+When you register, the system automatically creates your **personal tenant**. You automatically hold the **Lead** role there plus both scopes (**Management** and **Technical**). All resources you create in Kamerplanter land in your personal tenant by default.
 
 !!! info "Personal data stays private"
     Your personal tenant is completely isolated from all other tenants. No member of another tenant can see your private houseplants or balcony garden — even if you belong to the same community garden.
+
+!!! warning "Your personal tenant ends with your account"
+    If you invite someone into your personal tenant, it is deleted with your account — including everything the other members created in it. They receive an email as soon as you request the deletion. For a garden you want to run together for the long term, create a separate community garden instead. Details: [Data Retention](../guides/data-retention.md#what-happens-to-your-personal-garden).
+
+!!! info "Member limit"
+    Every tenant has a member limit. Your personal tenant starts at **1** — yourself. If you want to invite someone into your personal tenant, raise the limit first; otherwise the invited person is told on accepting that the tenant is full. A community garden starts at the maximum the platform operator sets (default: 50); it cannot go higher. <!-- Issue #2133 -->
 
 ---
 
@@ -48,6 +54,18 @@ Creating a new species or cultivar requires at least the Grower role in the acti
 
 ---
 
+## What Stays the Same Across Your Gardens
+
+Some settings belong to you, not to a garden. They apply in every tenant you are a member of and do **not** change with the tenant selector:
+
+- your **dashboard layout** — which widgets sit where;
+- your **notification settings** — channels, quiet hours, batching and escalation;
+- which **modules** you show, your onboarding progress and your **favorites**.
+
+What a widget shows, by contrast, always comes from the currently active garden: the same dashboard shows the community garden's plants and tasks there, and your own in your personal garden. A notification through Home Assistant only goes to destinations that are granted for the notification's garden.
+
+---
+
 ## Creating a Community Garden
 
 ### Create a New Tenant
@@ -65,57 +83,76 @@ Creating a new species or cultivar requires at least the Grower role in the acti
 
 4. Click **Create**
 
-You are automatically the admin of the new tenant.
+You are automatically **Lead** of the new tenant and hold both scopes (**Management** and **Technical**).
 
 ---
 
 ## Inviting Members
 
-As an admin you can invite members in three ways:
+With the **Management** scope you can invite members in three ways:
+
+!!! note "When the tenant is full, the invitation stays open"
+    Once your tenant has reached its member limit, nobody else can join — neither through an email invitation nor through an invitation link. The invitation does not expire because of it: as soon as a seat is free (somebody leaves the tenant) or you raise the limit, it can be accepted. Members who are already in always stay — even if you lower the limit below the current number of members. <!-- Issue #2133 -->
 
 ### Method 1: Email Invitation
 
 1. Navigate to **Settings** > **Members** > **Invite**
 2. Enter the member's email address
-3. Choose the role (Admin, Grower, Viewer)
+3. The invitation grants the **Viewer** role — you give the member another role after they join, under [Changing Roles](#changing-roles)
 4. Click **Send Invitation**
 
-The system sends an invitation email. After clicking the link in the email, the user is added to your tenant with the pre-selected role — whether they register fresh or already have an account.
+Kamerplanter sends the address an email with a link to the acceptance page; it is valid for 7 days. Whoever opens it signs in — or registers with exactly this address —, confirms with **Accept invitation** on the acceptance page and is added to your tenant with the pre-selected role. If they are not signed in yet when they open it, they land on the acceptance page again after signing in (also through a sign-in provider). The email names neither you nor the tenant — the invited person only sees what it is about after signing in.
+
+!!! note "When the email does not go out"
+    After you send it, the page tells you whether the email went out. If the installation has no email delivery set up, or sending fails, the invitation still exists: the page then shows you the invitation link with a button to copy it — pass it on yourself, for example by messenger. Even then, only someone signing in with the invited address can accept it. Whether an installation sends email is up to your operator (`EMAIL_ADAPTER`). <!-- Issue #2162, REQ-024 AK-06 -->
+
+!!! warning "The invitation is valid for the invited address only"
+    An email invitation can only be accepted by the account whose email address is the invited one **and** has been confirmed. Forwarding the link does not hand the membership to anyone: another account — or the same account with a still unconfirmed address — gets `403`, the invitation stays open and nothing is created. When you are invited, confirm your account's address first and sign in with the account that carries it. An **invitation link** (method 2), by contrast, is meant to be shared and stays valid for any signed-in account. <!-- Issue #2115, REQ-024 AK-61 -->
 
 ### Method 2: Invitation Link
 
-1. Navigate to **Settings** > **Members** > **Generate Invitation Link**
-2. Optionally set:
-    - Maximum number of uses (e.g. 20)
-    - Expiry date (e.g. in 30 days)
-    - Role new members will receive
-3. Copy the link and share it (WhatsApp, notice board, email list)
+1. Navigate to **Settings** > **Invitations** tab
+2. Under **People per link**, enter how many people can join with the link (1 to 100, default 1)
+3. Click **Invitation Link** — the link is copied to your clipboard and shown for copying again
+4. Share it (WhatsApp, notice board, email list)
+
+The link grants the role **Viewer** and is valid for 7 days. Every signed-in account that opens it and confirms **Accept invitation** becomes a member until the uses are spent; the invitation list shows under **Used** how many there were so far (e.g. “3 of 20”). The same account can use a link only once. While your tenant is suspended, orphaned or scheduled for deletion, nobody can accept an invitation; once it is active again, the invitation keeps working until it expires. <!-- Issue #2182, REQ-024 AK-07 -->
 
 !!! tip "Ideal for large groups"
-    The invitation link is especially practical for community gardens: pin it at the garden gate or include it in the association newsletter. Anyone with the link can join until the limit is reached.
+    The invitation link is especially practical for community gardens: pin it at the garden gate or include it in the association newsletter. Set the number of people to as many as you expect — anyone who still has the link afterwards can no longer join. Every use also counts against your tenant's member limit: once it is full, nobody else is admitted, even if the link has uses left.
+
+!!! warning "Not yet implemented"
+    You cannot choose your own expiry date or the role new members receive for an invitation link in the interface: it is always valid for 7 days and grants **Viewer**. You give the member another role after they joined under [Changing roles](#changing-roles). <!-- REQ-024 §1 invitation system -->
 
 ### Method 3: OIDC (OpenID Connect) Auto-Join
 
-For associations and organisations with their own identity provider (Keycloak, etc.), the OIDC integration can be configured so that new users automatically join the tenant. This is set up by the platform administrator.
+For associations and organisations with their own identity provider (Keycloak etc.), the platform administration can store a **default tenant** on the sign-in provider (see [Platform Admin](admin.md)). Anyone who then signs in through that provider for the **first time** and gets a new account joins your tenant automatically as **Viewer** — in addition to their personal garden. You give the member another role or an additional permission yourself afterwards. <!-- Issue #2182, REQ-024 AK-09 -->
+
+Someone who already has an account and only links the provider does not join automatically — invite these people as usual. If your tenant is full, suspended or being deleted, or the provider did not verify the person's email address, the join is skipped quietly; the sign-in itself still works. A default tenant exists only for your own OIDC provider, not for Google, GitHub or Apple — anyone can create an account there.
 
 ---
 
 ## Roles and Permissions
 
-Each member has exactly one role per tenant. The role determines what they are allowed to do:
+Each member has exactly one role per tenant: **Lead**, **Grower** or **Viewer**. The role determines what they may do with the garden's data. Independently of it, a member can hold scopes: **Management** (members, invitations, settings) and **Technical** (Home Assistant, sensors, import). There is no "Admin" role in a tenant any more.
 
 ### Role Comparison
 
-| Task | Admin | Grower | Viewer |
-|------|:-----:|:------:|:------:|
+| Task | Lead | Grower | Viewer |
+|------|:----:|:------:|:------:|
 | Read everything | Yes | Yes | Yes |
 | Create/edit plants | Yes | Yes | No |
 | Create/edit locations | Yes | Yes | No |
 | Create tasks | Yes | Yes | No |
 | Document harvests | Yes | Yes | No |
-| Invite members | Yes | No | No |
-| Change roles | Yes | No | No |
-| Change tenant settings | Yes | No | No |
+| Delete data | Yes | No | No |
+| Choose a location's weather sources | Yes | No | No |
+
+| Task | Who may do it? |
+|------|----------------|
+| Invite members | **Management** scope, regardless of role |
+| Change roles | **Management** scope, regardless of role |
+| Change tenant settings | **Management** scope, regardless of role |
 
 The full permission overview — including platform roles, service accounts, and the question of who sees which data — is available under [Roles, Tenants & Visibility](../reference/roles-and-permissions.md).
 
@@ -127,7 +164,13 @@ The full permission overview — including platform roles, service accounts, and
 1. Navigate to **Settings** > **Members**
 2. Click the edit icon next to the desired member
 3. Choose the new role
-4. Confirm — the change takes effect immediately
+4. Confirm with **your own** credentials — the change takes effect immediately
+
+!!! note "Changing a role and removing a member ask for your own confirmation"
+    Whoever changes a member's role or removes a member enters **their own** current password for it — with no local password, they sign in again at their identity provider instead, or, only when they sign in exclusively through GitHub or Apple, have a code e-mailed. Reason: the role decides what someone may change and delete in the tenant, and removing a member locks that person out — the last lead too. Re-sending a role unchanged needs no confirmation. Deleting a plot attribution does not: it locks nobody out of the tenant.
+
+!!! warning "You cannot raise your own role"
+    Even with the management scope you cannot raise the role of your **own** membership — lowering it stays possible. In the technical `platform` tenant the lead role is the platform role; there, only someone who holds it hands it out, by role change as by invitation. This is checked again on acceptance: a lead invitation into `platform` whose sender is no longer lead there cannot be accepted. In every other tenant the management scope may still appoint a lead. <!-- Issue #2078, #2180, REQ-024 AK-58 -->
 
 ---
 
@@ -139,7 +182,7 @@ A garden is a shared working set: all growers tend all plants and tasks. A plot 
 - **Communal areas** such as compost or greenhouse need no attribution at all.
 - **Viewers** read everything and change nothing — regardless of attributions.
 
-The practical benefit: when someone drops out at short notice, another member steps in without an admin having to change anything first.
+The practical benefit: when someone drops out at short notice, another member steps in without someone with the Management scope having to change anything first.
 
 !!! tip "Keeping something truly private"
     Separation always runs along the garden boundary, never inside a garden. Whatever concerns only you belongs in your personal garden — or in another garden, which you can create at any time.
@@ -156,7 +199,7 @@ The practical benefit: when someone drops out at short notice, another member st
 
 ### Bulletin Board
 
-The bulletin board will be a shared message area for all tenant members: members will be able to publish posts, and admins will be able to pin and delete posts.
+The bulletin board will be a shared message area for all tenant members: members will be able to publish posts, and the lead will be able to pin and delete posts.
 
 !!! example "Typical bulletin board posts (concept)"
     - "Slug alert! Please set out beer traps."
@@ -165,17 +208,17 @@ The bulletin board will be a shared message area for all tenant members: members
 
 ### Watering Rotation
 
-A rotation feature is planned for distributing watering duties among members: an interval (e.g. weekly) and the participating members will be configurable, and the system will remind the responsible member each week. Members will be able to swap duties among themselves without involving the admin.
+A rotation feature is planned for distributing watering duties among members: an interval (e.g. weekly) and the participating members will be configurable, and the system will remind the responsible member each week. Members will be able to swap duties among themselves without involving the lead.
 
 ### Shared Shopping List
 
-A shared shopping list is planned: all growers will be able to add entries and tick them off, and admins will be able to archive lists.
+A shared shopping list is planned: all growers will be able to add entries and tick them off, and the lead will be able to archive lists.
 
 ---
 
 ## Tenant Settings
 
-As an admin, you can access all settings under **Settings** (gear icon).
+With the **Management** scope, you can access all settings under **Settings** (gear icon).
 
 ### Key Settings
 
@@ -183,8 +226,18 @@ As an admin, you can access all settings under **Settings** (gear icon).
 |---------|-------------|
 | **Name & Slug** | Display name and URL short name |
 | **Master data assignment** | Which global plant species are visible |
-| **Invitation settings** | Default role for new members |
-| **OIDC configuration** | Auto-join via external identity provider |
+| **Invitations** | Email invitations and invitation links (**Invitations** tab, see [Inviting members](#inviting-members)) |
+
+### Quotas
+
+In the **Quotas** tab of the garden settings you see — as every member, not only with **Management** — your garden's plan and, per quota, how much of it is taken: members, storage, photos per plant and the day's AI calls. A bar shows the usage; from 80 % it turns orange, at the limit red. Where it says "unlimited", that quota has no limit. <!-- REQ-056 AK-45 -->
+
+- For AI calls per account you always see your **own** usage only, never another member's.
+- Service accounts and the garden's AI tokens are shown to members with the role **Lead** only.
+- Kamerplanter counts photos per plant, not for the whole garden — so the card names only the limit.
+- The plan is set by the operator of your installation; you cannot switch it yourself. If you need more, ask them.
+
+When a quota is used up, Kamerplanter tells you on the next attempt which quota was reached — for example when uploading a photo or inviting a member.
 
 !!! warning "Changing the slug breaks URLs"
     If you change the slug, all URLs within the tenant change. Bookmarks and shared links become invalid. Only change the slug if necessary.
@@ -193,13 +246,16 @@ As an admin, you can access all settings under **Settings** (gear icon).
 
 ## Leaving a Tenant
 
-You can leave a tenant as long as you are not the only admin:
+You can leave a tenant as long as you are not the only member with the **Management** scope:
 
 1. Navigate to **Settings** > **Membership** > **Leave Tenant**
 2. Confirm
 
-!!! warning "If you are the only admin"
-    If you are the only admin, you must either promote another member to admin first, or delete the tenant.
+!!! note "Tasks and reminders"
+    When you leave a tenant — or someone with the Management scope removes you — you are no longer assigned to any task there: the tasks stay in the tenant, but without an assignee. The daily care reminders and the daily summary go to active members only; a summary holds the tasks of **one** tenant only (with several tenants you get one per tenant). <!-- Issue #2114, REQ-024 AK-62 -->
+
+!!! warning "If you are the only member with Management"
+    If you are the only member with the Management scope, you must either hand it to another member first, or delete the tenant — the latter additionally requires that you hold both the Lead role and the Management scope there. See [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details. <!-- Issue #1791 -->
 
 ---
 
@@ -212,10 +268,19 @@ You can leave a tenant as long as you are not the only admin:
     There is no technical limit. You can create and join as many tenants as you like.
 
 ??? question "What happens to my data when I delete a tenant?"
-    All resources of the tenant are deleted. Your personal tenant and your memberships in other tenants are not affected.
+    Only a member who holds both the Lead role and the Management scope in the affected tenant may delete it — Management alone is not enough (see [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) for details) — and only from a signed-in session; a personal API key is not enough for this. As a safeguard, the system also asks you to re-enter the tenant's slug and, if the account has a local password, that password (in addition to the slug); an account without a local password that signs in through Google or a generic OIDC provider confirms instead with a fresh sign-in at that provider, an account signed in exclusively through GitHub and/or Apple with a one-time code mailed to it. After five wrong confirmations the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours, and the error message states the remaining time; signing in itself is not affected. <!-- Issue #1791, #1813, #1814, #1816, #1815 -->
 
-??? question "Can tenant admins see my personal houseplants?"
-    No. Your personal tenant is completely isolated from all other tenants. Even if an admin has more rights in the community garden, they can never see data in your personal tenant.
+    The deletion is only **scheduled** at first: the tenant is closed for every member at once, and every member receives an email with the deletion date — until then they can save their own data through the data export. Until that date (90 days by default) a member with the Lead role and Management can cancel the deletion, and so can a platform admin in the admin area; the tenant is then back in the state it had before the deletion, with every membership unchanged. If the operator had suspended the tenant before, it stays suspended after the cancellation — cancelling prevents the data loss, but only the operator lifts the suspension. <!-- Issue #2123, REQ-056 §4.3 --> Because a scheduled tenant is missing from the tenant selector, you find it through the tenant selector > **Garden settings** in the section **Gardens scheduled for deletion**, with its state and deletion date; Lead with Management gets **Cancel deletion** there (confirmed with your own password, an e-mailed code or a fresh sign-in). An orphaned tenant is shown there too but cannot be brought back. <!-- Issue #2166 --> Only once the grace period has ended are all memberships deactivated. Then its contributed recognition vectors, its object storage (photos, attachments) and every domain record it holds are then deleted: sites, plants, planting runs, diary entries, tasks, tanks, sensors, feeding and watering logs, and every other location-bound record, then the tenant record itself. <!-- Issue #1769 -->
+
+    One exception applies: harvest and treatment documentation (harvest batches, quality assessments, treatments, inspections) must be kept for several years under statutory law (CanG, German Plant Protection Act). These records are therefore retained but pseudonymized — members' names are removed from them and their account references replaced by a pseudonym.
+
+    If not everything could be removed immediately, the deletion stays recorded and is retried automatically every day until it is complete. Your personal tenant and your memberships in other tenants are not affected by such a deletion.
+
+??? question "Can we back up or move our whole garden?"
+    Yes. A member with lead and management can export the whole garden as an archive — even while it is scheduled for deletion. Every member with management gets an e-mail when that happens. The archive holds no e-mail addresses and no credentials. Only a platform admin can bring it back, and always as a new garden; the admin decides by e-mail address who becomes a member again. There is no button for it in the garden settings yet; [Exporting and importing a tenant](../deployment/tenant-export-import.md) describes the way through the API. <!-- REQ-056 §8 / Issue #2138 -->
+
+??? question "Can the lead of a community garden see my personal houseplants?"
+    No. Your personal tenant is completely isolated from all other tenants. Even if someone is lead or holds scopes in the community garden, they can never see data in your personal tenant.
 
 ---
 

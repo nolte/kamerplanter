@@ -7,9 +7,26 @@ Kategorie: Pflege & Kommunikation
 Fokus: Beides
 Technologie: Python, FastAPI, Celery, Redis, ArangoDB, React, TypeScript, MUI, Home Assistant
 Status: Entwurf
-Version: 1.0
+Version: 1.12 (#2249: Web-Push folgt keiner Weiterleitung, 10-s-Zeitlimit, Rebinding bleibt Restrisiko); 1.11 (#2117: ein Push-Endpunkt je Konto, Abmelden entfernt die Registrierung); 1.10 (#2112 / MT-015: HA-Benachrichtigungsziele nur mit Freigabe des Mandanten); 1.9 (#2113 umgesetzt: Apprise-URLs Fernet-verschlüsselt gespeichert, API maskiert); 1.8 (REQ-055: Typen `social.*`); 1.7 (#1948 umgesetzt: E-Mail-Kanal liest den Bestätigungsnachweis `email_confirmed_at`); 1.6 (#1996 umgesetzt: private Apprise-Ziele nur mit Betreiber-Schalter)
 Abhaengigkeit: REQ-022 v2.4 (Pflegeerinnerungen), REQ-006 v2.7 (Aufgabenplanung), REQ-018 v1.0 (Umgebungssteuerung), REQ-024 v1.3 (Mandantenverwaltung), REQ-023 v1.7 (Service Accounts)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.12 | 2026-10-11 | **#2249 §3.5 Web-Push:** Die Zustellung folgt **keiner** Weiterleitung mehr (`requests` folgte 3xx zu jedem ungeprüften Ziel); ein 3xx gilt als fehlgeschlagene Zustellung. Jeder Push-Aufruf hat ein Zeitlimit von 10 s (vorher keins). Der Fehlertext einer unerwarteten Ausnahme nennt nur noch Host und `delivery failed`, nicht den Ausnahmetyp (der Typ verriet, ob eine interne Adresse:Port offen ist); der Typ steht nur im Betreiber-Log. **Verbleibendes Risiko, nicht behoben:** Der Endpunkt wird beim Speichern und vor jedem Senden aufgelöst und geprüft, `requests` löst beim Verbinden aber erneut auf (DNS-Rebinding). Weil nur `https` mit gültigem Zertifikat für den Namen angenommen wird, endet ein umgebogener Name im TLS-Handshake: Kamerplanter öffnet eine TCP-Verbindung und sendet ein ClientHello an die interne Adresse, aber keinen HTTP-Request. Das Anheften der Verbindung an die geprüfte Adresse (wie bei Home Assistant und InvenTree) ist für Web-Push außerhalb des Umfangs von #2249. |
+| 1.11 | 2026-10-05 | **#2117 (MT-020) §3.5:** Ein Web-Push-Endpunkt gehört genau einem Konto. `subscribe_pwa` entfernt ihn aus den Einstellungen jedes anderen Kontos (eine AQL-Aktualisierung je betroffenem Dokument, nur `channels.pwa.config.subscriptions`); gemessen vorher: auf einem gemeinsam genutzten Gerät behielt Konto A den Endpunkt, nachdem B ihn abonniert hatte, und das Gerät erhielt die Pushes beider Konten. Das Frontend entfernt beim Abmelden die Registrierung des Geräts — zuerst serverseitig (`POST …/pwa/unsubscribe`, solange das Access Token gilt), dann im Browser; bei einem erzwungenen Abmelden (Sitzung anderswo beendet) nur im Browser, der Server-Eintrag fällt beim nächsten Versand mit „gone" weg. |
+| 1.10 | 2026-10-05 | **#2112 / MT-015 umgesetzt — die offene Frage aus v1.4 entschieden.** §3.2 *Welchen* `notify.*`-Dienst und welche `tts`/`media_player`-Entität der einen Betreiber-Instanz eine Benachrichtigung ansprechen darf, entscheidet die Freigabeliste des Plattform-Admins je Mandant (`tenant_ha_entity_grants`, REQ-005 §4c; ein Dienst als `notify.<dienst>`). **Speichern:** ein *geänderter* `notify_service` oder `tts_entity_id` muss im Mandanten freigegeben sein, unter dessen Pfad die Präferenzen gespeichert werden → sonst `422 HA_ENTITY_NOT_GRANTED`; ein unveränderter Bestandswert blockiert das Speichern anderer Felder nicht. **Senden:** geprüft gegen den **Mandanten der Benachrichtigung** (Präferenzen sind nutzerweit, MT-055) — auch der Standarddienst `notify.notify` (Push an alle Geräte) braucht eine Freigabe; ohne Freigabe kein Aufruf, der Versand meldet einen Fehler, das Log zählt nur. Eine Benachrichtigung ohne Mandant erreicht kein HA-Ziel. HA-Events und persistente Benachrichtigungen sind nicht betroffen. Bestandsziele aktivierter Kanäle gibt Migration v0084 allen Mandanten frei, in denen der Nutzer aktives Mitglied ist. |
+| 1.9 | 2026-10-05 | **#2113 umgesetzt.** §3.6 Eine Apprise-URL trägt das Geheimnis des Diensts in sich (Bot-Token, Webhook-Pfad). Sie wird **Fernet-verschlüsselt** gespeichert (`channels.apprise.config.urls_encrypted`, ein Token je URL, `FERNET_KEY` wie die übrigen Integrations-Geheimnisse); `urls` existiert nur im Speicher, entschlüsselt für den sendenden Kanal. Bestandswerte verschlüsselt Migration v0083 einmal beim Start (idempotent); ein Lesezugriff schreibt nie (GET-Routen persistieren nicht), ein danach noch klarer Wert wird beim nächsten Speichern versiegelt. Ohne `FERNET_KEY` (nur `DEBUG=true`) bleiben sie Klartext mit Log-Warnung. **API:** `GET`/`PUT …/notifications/preferences` antworten je URL mit einem Platzhalter `<schema>://****#<position>`; ein unverändert zurückgeschickter Platzhalter behält die gespeicherte URL, ein Platzhalter ohne passende URL → `422 APPRISE_URL_MASK_UNKNOWN`; ein vom Client gesendetes `urls_encrypted` wird verworfen. **Export (REQ-025 Art. 15):** nur die Anzahl (`urls_configured`), nie Klar- oder Chiffretext. |
+| 1.8 | 2026-10-04 | **REQ-055 Plant Identity / Plant Social:** Neue Benachrichtigungstypen `social.review_pending` (gebündelt, höchstens eine je Tag, nennt Entwürfe, die in ≤ 2 Tagen ablaufen — REQ-055 PS-UX-032), `social.post_published` (optional, Default aus), `social.post_failed` (nach Erschöpfung der Wiederholungen, mit handlungsleitendem Text PS-UX-007), `social.identity_paused` (Burst-Pause, an die Leitung), `social.connection_created` (an Leitung und verknüpfende Person, mit Mastodon-Name und Server — PS-SOC-081), `social.connection_owner_left` (Mitglied ausgetreten, Verknüpfung pausiert — PS-SEC-036), `social.connection_revoked` (Token von Mastodon widerrufen oder Konto gesperrt). HA-Event-Typ `kamerplanter_social`. Keine Änderung an Kanälen, Registry oder Präferenzmodell. |
+| 1.7 | 2026-10-04 | **#1948 umgesetzt.** §3.4 `resolve_email_recipient` verlangt zusätzlich `email_confirmed_at` (REQ-023 v1.38): die Adresse gilt erst als bestätigt, wenn ihr Inhaber einen Link bestätigt hat (oder ein OIDC-Provider sie behauptet). `email_verified` allein genügt nicht mehr, weil die Registrierung mit `REQUIRE_EMAIL_VERIFICATION=false` es ohne Bestätigung setzt. Test über den Dispatch-Pfad: ein ohne Bestätigung registriertes Konto bekommt keine Mail, bis es den Link bestätigt hat. Bestehende verifizierte Konten behalten ihre Mail (Migration v0080). |
+| 1.6 | 2026-10-03 | **#1996 umgesetzt (Betreiberentscheidung, Variante A).** §3.6 Apprise-Hostziele (`gotify(s)`, `matrix(s)`, `ntfy(s)` mit Topic-Pfad oder `?to=`/`?mode=`) in **privaten Netzen** — `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`, auch eingebettet in IPv6 (IPv4-mapped, NAT64, 6to4) — sind nur erlaubt, wenn der eine Schalter `APPRISE_ALLOW_PRIVATE_TARGETS` es zulässt. **Standard:** ungesetzt entscheidet der Betriebsmodus — **aus im `full`-Modus, an im `light`-Modus**; `true`/`false` überschreibt den Modus in beide Richtungen. Keine CIDR- und keine Port-Positivliste. **Begründung:** im `full`-Modus läuft Kamerplanter mehrbenutzerfähig im Cluster; eine private Adresse ist dort nicht das Heimnetz eines Nutzers, sondern der API-Server (`10.96.0.1:443`), ArangoDB (`:8529`) und Valkey (`:6379`) auf Pod-IPs — ein blinder POST mit festem Pfad-Suffix und JSON-Körper aus Backend- und Worker-Pods. Die Egress-NetworkPolicy des Charts verhindert das nur, wo sie durchgesetzt wird; Docker Compose hat keine. Im `light`-Modus (ein Nutzer, kein Login) bleibt der dokumentierte LAN-Gotify/-ntfy ohne Einstellung nutzbar. **`100.64.0.0/10`** (Shared Address Space, RFC 6598) gehört dazu: Die Python-Stdlib zählt es weder zu `is_private` noch zu `is_global`; manche Cluster legen Pod-Adressen dorthin (z. B. EKS Custom Networking, CGNAT-Overlays); die Egress-Ausnahmeliste des Charts enthält es nicht, also ist die Prüfung im Backend dort die einzige Schranke; und die OIDC-Prüfung im selben Modul behandelt es schon als intern. Die Regel gilt beim Speichern (422, wertfreie Meldung „private network address“) und beim Senden (die URL wird verworfen). Literale nur bei hostadressierten URLs: `tgram://167772161:TOKEN/…` (die Zahl ergibt `10.0.0.1`) ist kein Host. IPv6-Literale scheitern schon an der Klammer-Regel; private IPv6-Ziele kommen nur über AAAA-Antworten an und werden dort geprüft. Loopback, Link-Local, reservierter Raum und Metadaten-Adressen bleiben in jedem Modus gesperrt; `DEBUG` lockert nichts. Der Zwischenspeicher hält rohe Adresslisten und urteilt beim Lesen, eine geänderte Einstellung wirkt daher sofort. **Mitbehoben:** `ntfy://name?to=…` und `?mode=…` gelten nun als Server-Adresse (`name` wird angewählt), nicht mehr als ntfy.sh-Topic: ein nicht auflösbarer Name wird dort abgelehnt, ein Literal wie bei `ntfy://host/topic` beurteilt. |
+| 1.5 | 2026-10-03 | **#1995 umgesetzt.** §3.6 Die Auflösung der Apprise-Hostnamen ist **je Nutzer begrenzt**, damit ein Nutzer mit nie antwortenden Namen Speichern und Senden anderer nicht mehr blockiert. Speichern und Senden lösen in **getrennten Pools** zu je 8 Threads auf. Je Pool hat ein Nutzer (beim Speichern der speichernde Nutzer, beim Senden der Empfänger, ersatzweise der Mandant) höchstens **3 laufende Auflösungen**; eine Auflösung belegt ihren Platz, bis ihr Thread zurückkehrt, also auch über die Frist von 3 s hinaus. Ist der Anteil eines Nutzers belegt, wird jeder weitere Host **sofort** abgelehnt, nicht eingereiht; die Ablehnung lautet wie eine Zeitüberschreitung (fail closed, keine neue Unterscheidung nach außen). Mehr verschiedene Hostnamen als 3 in einer Liste werden nacheinander auf den frei werdenden Plätzen desselben Aufrufs aufgelöst, innerhalb derselben Frist. Ein Pool reiht nie ein: sind alle 8 Threads belegt, wird ebenfalls sofort abgelehnt. Antworten des Auflösers **beim Speichern** werden je Hostname zwischengespeichert und vom nächsten Speichern wiederverwendet: eine Adressliste 60 s, ein Fehlschlag (NXDOMAIN, Auflöserfehler) 10 s, höchstens 1024 Namen. Eine **Zeitüberschreitung wird nie zwischengespeichert**, sie sagt nichts über den Namen; was eine hängende Auflösung nach der Frist doch noch liefert, wird mit diesen Fristen gespeichert. **Beim Senden** übernimmt die Prüfung aus dem Zwischenspeicher nur ein Ergebnis „gesperrt“ (das kann nur ablehnen); eine erlaubte Adresse und jeden Fehlschlag löst sie **frisch** auf und schreibt nichts zurück. Sonst läge zwischen Prüfung und Verbindungsaufbau bis zu 60 s: ein nach dem Speichern auf `127.0.0.1` umgebogener Name käme durch, und eine abgelaufene Auflösung, die später mit einem Fehler endet, gälte bei `ntfy://topic` als tolerierter Fehlschlag. Der Nutzerschlüssel erscheint in keiner Logzeile. **Verbleibende Grenze:** die Obergrenze gilt je Nutzer; mehrere Konten zusammen können einen Pool weiterhin füllen, dann wird fail closed abgelehnt. Die Grenzen sind feste Werte, keine Einstellung. |
+| 1.4 | 2026-10-02 | **#1985 und #1986 umgesetzt.** §3.2 Die Home-Assistant-Verbindung ist plattformweit (`HA_URL`/`HA_TOKEN` des Betreibers, ein Client für alle Mandanten); die einzigen nutzergesteuerten Ziele sind `notify_service`, `tts_entity_id` und `tts_service` aus den Präferenzen. Entscheidung: `notify_service` muss `notify.<slug>` (oder nur `<slug>`) sein, `tts_entity_id` eine `tts.*`- oder `media_player.*`-Entität, `tts_service` ein Slug der Domäne `tts`; Slug = `[a-z0-9_]{1,64}`, nur ASCII. Geprüft **beim Speichern** (422, wertfreie Meldung, nichts gespeichert; leerer String = nicht gesetzt) und **erneut beim Senden** (ein abgelehntes Ziel wird nicht aufgerufen, der Versand meldet einen Fehler, das Log zählt nur). Das schließt Pfad-Injektion in `/api/services/{domain}/{service}` und Aufrufe anderer Domänen. **Nicht entschieden und offen:** *welchen* `notify.*`-Dienst der Betreiber-Instanz ein Nutzer ansprechen darf (etwa nur `mobile_app_*` des eigenen Geräts oder eine Betreiber-Positivliste); die Prüfung ist reine Formprüfung. Gespeicherte Werte außerhalb der Form werden nicht gesendet und nicht stillschweigend behalten: sie blockieren das nächste Speichern mit 422, bis der Nutzer sie korrigiert. §3.6 Bei den hostadressierten Apprise-Schemata (`gotify(s)`, `matrix(s)`, `ntfy(s)` mit Topic-Pfad) wird der **Hostname aufgelöst**; löst **irgendeine** Adresse in Loopback, Link-Local, reservierten, nicht spezifizierten oder Multicast-Raum auf (auch als IPv4-mapped IPv6, NAT64 und 6to4, dazu die Metadaten-Adressen `100.100.100.200` und `fd00:ec2::/32`), wird die URL abgelehnt; RFC1918 bleibt erlaubt. Ein nicht auflösbarer Host oder eine Antwort nach 3 s gilt als Ablehnung (fail closed). Geprüft beim Speichern und erneut beim Senden. **Verbleibende Lücke:** zwischen dieser Prüfung und dem Verbindungsaufbau, den Apprise selbst ausführt, kann sich die DNS-Antwort ändern (TOCTOU / DNS-Rebinding). **Im Prozess nicht erreichbar:** das Folgen von HTTP-Redirects und die Matrix-`.well-known`-Erkennung geschehen innerhalb von Apprise; das Paket ist keine Abhängigkeit und wird hier nicht gewrappt. Das ist Sache einer Egress-Policy des Betreibers (siehe Deployment-Dokumentation: das Helm-Chart beschränkt den Egress von Backend und Worker bereits auf Ports 80/443/465/587 und schließt `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` und `169.254.0.0/16` aus; ein LAN-Gotify braucht daher eine eigene Egress-Regel). Abgelehnt werden außerdem Schreibweisen, die `urlsplit` und Apprises eigener Parser unterschiedlich lesen (mehr als ein `@` in der Userinfo, Backslash, `#` bei `gotify`/`ntfy`, `?` hinter `#`), sowie `gotify`/`matrix` ohne Host; `ntfy://name` ohne Pfad gilt als ntfy.sh-Topic, dort ist ein nicht auflösbarer Name erlaubt, ein in gesperrten Raum auflösender nicht. Die Query-Parameter von Apprise werden weiterhin nur teilweise eingeschränkt (`cto`, `rto`, `verify`). Der Auflöser läuft in einem gemeinsamen Pool mit 8 Threads; ein Nutzer, der dort viele nie antwortende Namen speichert, kann Speichern und Senden anderer verzögern (fail closed) — Folge-Issue. |
+| 1.3 | 2026-10-02 | **#1947 umgesetzt.** §3.6 Der Apprise-Kanal liefert nur an **Chat-/Push-Dienste auf einer Positivliste**: `tgram`/`telegram`, `slack`, `discord`, `ntfy`/`ntfys`, `gotify`/`gotifys`, `pover`/`pushover`, `matrix`/`matrixs`. Alles andere (`mailto://`, `json://`, `xml://`, `form://`, `http(s)://` und jedes weitere Apprise-Schema) wird abgelehnt, ebenso Einträge mit Nicht-ASCII-Zeichen, Whitespace jeder Art, Komma oder Klammern (Apprise teilt einen String unicode-bewusst in mehrere URLs), die Query-Parameter `cto`, `rto` und `verify`, mehr als 10 URLs sowie Loopback-, Link-Local- und reservierte Literal-Hosts. Private LAN-Adressen (RFC1918) bleiben erlaubt, weil ein selbst gehostetes Gotify/ntfy der dokumentierte Anwendungsfall ist; ein Hostname, der intern auflöst, wird nicht geprüft (offen, siehe Folge-Issue). Geprüft **beim Speichern** (`PUT /preferences` → 422, wertfreie Meldung, nichts gespeichert) und **erneut beim Senden** (abgelehnte URLs werden verworfen und gezählt, nie geloggt; bleibt keine übrig, schlägt der Versand fehl). Bereits gespeicherte URLs außerhalb der Liste werden nicht gesendet und nicht stillschweigend behalten: sie bleiben bis zum nächsten Speichern liegen, das mit 422 abgelehnt wird, bis der Nutzer sie entfernt. Web-Push-An-/Abmeldung schreibt die Präferenzen ohne diese Prüfung, damit ein Altbestand sie nicht blockiert. |
+| 1.2 | 2026-10-02 | **#1885 umgesetzt (enge Lesart von Q-O4).** §3.4 Der E-Mail-Kanal sendet ausschließlich an die **verifizierte Konto-Adresse** (`users.email` mit `email_verified`, aktives Konto, `account_type = human`); der Empfänger wird von der `NotificationEngine` aus dem Konto aufgelöst (`resolve_email_recipient`), nie aus den Präferenzen. `channels.email.config.email` / `.address` werden nicht mehr akzeptiert: das Modell `NotificationPreferences` verwirft sie bei jedem Schreiben und Lesen, Migration v0065 löscht gespeicherte Werte. Ohne bestätigte Adresse wird nichts gesendet (kein Rückfall; Einzel-Mail, Test-Mail und Digest, Digest-Status `no_confirmed_address`). Die in 1.1 ebenfalls erlaubte **abweichende, per Mail-Link bestätigte Benachrichtigungs-Adresse** ist **nicht** umgesetzt (Folgeentscheidung, falls gewünscht). Frontend: Der Kanal zeigt die Konto-Adresse schreibgeschützt; `CHANNEL_CONFIG_KEYS.email` ist nur noch `digest`. |
+| 1.1 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O4 (Betreiberentscheidung, #1885, #1856/#1848):** §3.4 Der E-Mail-Kanal darf nur an eine **bestätigte** Adresse senden — die verifizierte Konto-Adresse, oder eine davon abweichende Benachrichtigungs-Adresse erst nach einer eigenen Bestätigung per Mail-Link. Bisher sendete `EmailNotificationChannel` an jede in `channel_config.get("address")` eingetragene Adresse ungeprüft. **Noch nicht umgesetzt.** |
 
 ## 1. Business Case
 
@@ -91,6 +108,13 @@ REQ-005 Sensor Alerts ───────┘                                �
 | Ernte bereit | `harvest.ready` | REQ-007 | normal | `kamerplanter_harvest` | "Tomaten: Erntebereitschaft erkannt" |
 | Task faellig | `task.due` | REQ-006 | normal | `kamerplanter_task_due` | "Aufgabe faellig: Obstbaumschnitt" |
 | Frostwarnung | `weather.frost` | REQ-005 | critical | `kamerplanter_weather_alert` | "Frostwarnung morgen Nacht: -3°C erwartet" |
+| Beitrag wartet auf OK | `social.review_pending` | REQ-055 | low | `kamerplanter_social` | "2 Beiträge von Mona warten auf dein OK (einer läuft in 2 Tagen ab)" |
+| Beitrag veröffentlicht | `social.post_published` | REQ-055 | low | `kamerplanter_social` | "Mona hat auf Mastodon erzählt: Neues Blatt" |
+| Beitrag nicht gesendet | `social.post_failed` | REQ-055 | normal | `kamerplanter_social` | "Monas Beitrag kam nicht an — Mastodon war nicht erreichbar" |
+| Pflanzen-Profil pausiert | `social.identity_paused` | REQ-055 | high | `kamerplanter_social` | "Mona pausiert: zu viele Ereignisse in kurzer Zeit" |
+| Mastodon-Konto verknüpft | `social.connection_created` | REQ-055 | normal | `kamerplanter_social` | "@monstera_mona@plants.example wurde mit Mona verknüpft" |
+| Verknüpfung pausiert (Austritt) | `social.connection_owner_left` | REQ-055 | high | `kamerplanter_social` | "Lenas Mastodon-Konto für Mona ist pausiert — sie hat den Garten verlassen" |
+| Verknüpfung aufgehoben | `social.connection_revoked` | REQ-055 | high | `kamerplanter_social` | "Mastodon hat die Verknüpfung für Mona aufgehoben" |
 
 ### 1.2 Eskalationsstufen
 
@@ -155,9 +179,7 @@ Eskalation ist **nur fuer Giess-Erinnerungen** aktiv — eine nicht gegossene Pf
       "enabled": true,
       "priority": 2,
       "config": {
-        "address": "anna@example.com",
-        "digest_mode": "daily",
-        "digest_time": "07:00"
+        "digest": true
       }
     },
     "pwa": {
@@ -201,6 +223,8 @@ Eskalation ist **nur fuer Giess-Erinnerungen** aktiv — eine nicht gegossene Pf
   }
 }
 ```
+
+Gespeichert wird `channels.apprise.config.urls` als Fernet-Chiffretext `urls_encrypted` (eine Liste, ein Token je URL; #2113); die Darstellung oben ist die im Speicher. Die API antwortet je URL mit einem Platzhalter `<schema>://****#<position>`.
 
 ### Neue Edges:
 
@@ -337,6 +361,10 @@ class HomeAssistantNotificationChannel(INotificationChannel):
     Nutzt drei HA-Mechanismen:
     1. HA Events — fuer Automationen (kamerplanter_care_due, kamerplanter_sensor_alert, ...)
     2. Persistent Notifications — sichtbar im HA-Frontend
+    Ziele aus den Praeferenzen (#1985): notify_service (notify.<slug>),
+    tts_entity_id (tts.* / media_player.*), tts_service (Slug) werden beim
+    Speichern und erneut beim Senden auf ihre Form geprueft — und notify_service
+    und tts_entity_id gegen die Freigaben des Mandanten (#2112, REQ-005 §4c).
     3. Mobile Push (via Companion App Service) — Actionable Notifications auf dem Handy
 
     Die HA Custom Integration (kamerplanter-ha) empfaengt die Events
@@ -575,6 +603,35 @@ class HomeAssistantClient:
 
 ### 3.4 Email Notification Channel
 
+<!-- Quelle: Datenschutzplan Q-O4, #1885. Betreiberentscheidung 2026-09-26. Umgesetzt in 1.2 (enge Lesart). -->
+**Nur an eine bestätigte Adresse (Q-O4, #1885, umgesetzt in 1.2 — enge Lesart).**
+Bis 1.1 verwendete die Benachrichtigungs-Engine die in den Präferenzen eingetragene Adresse
+(`channel_config`) ungeprüft — ein Mitglied konnte eine beliebige, frei eingetippte Adresse
+eintragen, und der Kanal verschickte Titel und Text (frei gewählte Aufgaben-/Pflanzennamen)
+dorthin, unter dem Absender-Ruf der Instanz. Beschlossen:
+
+- Der E-Mail-Kanal sendet **nur** an eine bestätigte Adresse: entweder die verifizierte
+  Konto-Adresse (REQ-023) — die funktioniert immer, ohne weiteren Schritt — oder eine davon
+  **abweichende** Benachrichtigungs-Adresse, die zuvor über einen eigenen, per Mail
+  zugestellten Bestätigungs-Link freigeschaltet wurde.
+- Bis zur Bestätigung sendet der Kanal an eine solche abweichende Adresse **nichts** — kein
+  automatischer Rückfall auf einen unbestätigten Wert in `channel_config`.
+- Die Bestätigungs-Mail trägt keinen vom Anfragenden gewählten Text (analog #1856).
+
+**Umsetzungsstand (1.2).** Umgesetzt ist die Konto-Adresse; eine separat bestätigte, abweichende
+Benachrichtigungs-Adresse gibt es nicht. Konkret:
+
+- Der Empfänger kommt aus `NotificationEngine.resolve_email_recipient(user_key)`: die Adresse des
+  Kontos, nur wenn `email_verified`, `email_confirmed_at`, `is_active` und `account_type == "human"`. Sonst `None` —
+  der Kanal meldet „No email address configured" und sendet nichts.
+- `channels.email.config` kennt nur noch `digest`. `email` und `address` werden von
+  `NotificationPreferences` bei jeder Konstruktion verworfen (Schreib- wie Lesepfad), Migration
+  v0065 entfernt gespeicherte Werte. Wer die Adresse ändern will, nutzt den E-Mail-Wechsel
+  (REQ-023, #1848), der die neue Adresse per Link bestätigt.
+- „Bestätigt“ heißt `email_verified` **und** `email_confirmed_at` des Kontos (REQ-023 v1.38). Mit `REQUIRE_EMAIL_VERIFICATION=false` setzt die Registrierung `email_verified` ohne Bestätigung und lässt `email_confirmed_at` leer — dort ist die Adresse nicht belegt, und sie bleibt es auch nach dem Umstellen auf `true`, bis der Inhaber den Link bestätigt (`POST /auth/resend-verification`). Der Default ist seit Betreiberentscheidung #1948 `true` (REQ-023 v1.28); `false` setzt nur, wer ohne Mailversand betreibt. Beim Start warnt `email_channel_without_verification`, wenn ein Versender konfiguriert und die Bestätigung aus ist.
+- Dieselbe Auflösung gilt für Einzel-Mail, Test-Mail (`send_test`) und Digest
+  (`send_email_digest(user_key, since)` — ohne Adressparameter).
+
 ```python
 class EmailNotificationChannel(INotificationChannel):
     """Benachrichtigungen per E-Mail.
@@ -595,7 +652,8 @@ class EmailNotificationChannel(INotificationChannel):
         notification: Notification,
         channel_config: dict,
     ) -> ChannelResult:
-        address = channel_config.get("address")
+        # Vom Engine aus dem Konto aufgelöst (1.2), nie aus den Präferenzen.
+        address = channel_config.get("email")
         if not address:
             return ChannelResult(
                 channel_key=self.channel_key,
@@ -625,7 +683,8 @@ class EmailNotificationChannel(INotificationChannel):
         channel_config: dict,
     ) -> ChannelResult:
         """Sendet Batch als eine zusammengefasste E-Mail."""
-        address = channel_config.get("address")
+        # Vom Engine aus dem Konto aufgelöst (1.2), nie aus den Präferenzen.
+        address = channel_config.get("email")
         if not address:
             return ChannelResult(
                 channel_key=self.channel_key,
@@ -646,6 +705,8 @@ class EmailNotificationChannel(INotificationChannel):
 ```
 
 ### 3.5 PWA Push Channel
+
+**Ein Endpunkt, ein Konto (#2117):** Der Endpunkt benennt ein Browserprofil auf einem Gerät, nicht eine Person. Wer ihn abonniert, nimmt ihn jedem anderen Konto weg (`INotificationPreferenceRepository.remove_endpoint_from_other_users`); beim Abmelden entfernt das Frontend die Registrierung des Geräts (serverseitig, solange das Access Token gilt, dann im Browser).
 
 ```python
 class PwaNotificationChannel(INotificationChannel):
@@ -695,6 +756,24 @@ class AppriseNotificationChannel(INotificationChannel):
     - pover://user@token (Pushover)
 
     Abhaengigkeit: `pip install apprise` (optional dependency)
+
+    Erlaubte Schemata (Positivliste, #1947): tgram/telegram, slack, discord,
+    ntfy(s), gotify(s), pover/pushover, matrix(s). Die URLs stammen aus einem
+    nutzereditierbaren Feld; jedes andere Apprise-Schema (mailto, json, http(s) ...)
+    liesse den Backend-Server an beliebige Dritte senden. Pruefung beim Speichern
+    und erneut beim Senden. Hostadressierte Schemata (gotify, matrix, ntfy mit
+    Topic-Pfad): der Hostname wird aufgeloest und abgelehnt, wenn eine Adresse in
+    Loopback/Link-Local/reserviertem Raum liegt (#1986); Redirects und
+    Matrix-Discovery bleiben ausserhalb der Kontrolle (Egress-Policy).
+    Die Aufloesung ist begrenzt (#1995): getrennte Pools fuer Speichern und
+    Senden, je Pool hoechstens 3 laufende Aufloesungen pro Nutzer (darueber
+    sofortige Ablehnung, wie eine Zeitueberschreitung), Frist 3 s,
+    Zwischenspeicher je Hostname nur fuer das Speichern, 60 s (Adressen) bzw.
+    10 s (Fehlschlag); beim Senden wird frisch aufgeloest, nur ein gesperrtes
+    Ergebnis aus dem Zwischenspeicher gilt.
+    Private Netze (10/8, 172.16/12, 192.168/16, 100.64/10, fc00::/7) nur mit
+    APPRISE_ALLOW_PRIVATE_TARGETS (#1996): Standard aus im full-, an im
+    light-Modus; beim Speichern und beim Senden geprueft.
     """
 
     channel_key = "apprise"
@@ -1416,7 +1495,7 @@ class KamerplanterCareCard extends HTMLElement {
 
 | Sektion | Inhalt |
 |---------|--------|
-| **Kanaele** | Toggle pro Kanal (HA, E-Mail, PWA, Apprise). HA-Kanal zeigt Verbindungsstatus. E-Mail-Feld fuer Adresse. Apprise-URLs als Textarea. |
+| **Kanaele** | Toggle pro Kanal (HA, E-Mail, PWA, Apprise). HA-Kanal zeigt Verbindungsstatus. E-Mail: Konto-Adresse schreibgeschuetzt mit Hinweis, wenn unbestaetigt (kein frei editierbarer Empfaenger, 1.2). Apprise-URLs als Textarea. |
 | **Zeitplan** | Quiet Hours (Start/Ende), Daily Summary (Zeit + Kanal) |
 | **Batching** | Toggle + Zeitfenster (Default 30 Min) |
 | **Eskalation** | Toggle fuer Giess-Eskalation + Tage-Konfiguration |
@@ -1571,6 +1650,7 @@ Die HA-Integration nutzt den bestehenden **Service Account** (REQ-023 v1.7) oder
 - [ ] **INotificationChannel Interface** implementiert
 - [ ] **HomeAssistantChannel:** Events, Persistent Notifications, Mobile Push, TTS
 - [ ] **EmailChannel:** Einzel-Mail und Daily Digest
+- [x] **EmailChannel (Q-O4, #1885, 1.2):** sendet nur an die verifizierte Konto-Adresse; eine per Link bestätigte abweichende Benachrichtigungs-Adresse ist nicht implementiert
 - [ ] **PwaChannel:** Web Push via Service Worker + VAPID
 - [ ] **AppriseChannel:** 100+ Dienste via Apprise-URLs
 - [ ] **InAppChannel:** Fallback wenn kein externer Kanal aktiv

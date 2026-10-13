@@ -30,6 +30,7 @@ longer matches a route fails — the obsolescence rule `check_layer_imports` and
 `check_route_role_guards` already follow.
 """
 
+import ast
 import enum
 import inspect
 import pathlib
@@ -43,9 +44,13 @@ from app.api.v1.router import api_router
 from app.common.enums import TenantRole
 from app.common.exceptions import ForbiddenError
 from app.domain.models.tenant_context import TenantContext
+from tests.support.light_mode_routes import light_only_routers
 from tests.unit.api._write_call_graph import (
+    CallGraph,
     call_graph,
     direct_writers,
+    external_unresolved_call_count,
+    genuine_unresolved_call_count,
     persists,
     reachable_keyword_arguments,
     unresolved_call_count,
@@ -188,6 +193,9 @@ def mounted_operations() -> list[tuple[str, str, Any, Any]]:
                 found.append((method, path, endpoint, route))
 
     walk(api_router)
+    # Mounted in light mode only; the api_router imported here is full mode (#2208).
+    for prefix, router in light_only_routers():
+        walk(router, prefix)
     return found
 
 
@@ -275,8 +283,144 @@ _CARE_PROFILE_SINKS = frozenset(
 
 _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
     "care_reminders.router.get_or_create_profile": ("get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
-    "care_reminders.tenant_router.get_care_dashboard": ("get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
-    "print.tenant_router.export_care_checklist_pdf": ("get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
+    # The two dashboard reads reach the private body directly (#2107): the public
+    # method runs the tenant predicate, the dashboard has already listed the
+    # tenant's plants (or verified each caller-supplied one) before it gets there.
+    "care_reminders.tenant_router.get_care_dashboard": ("_get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
+    "print.tenant_router.export_care_checklist_pdf": ("_get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
+}
+
+
+#: Reads that persist **on purpose**, each bound to the writes it may reach.
+#:
+#: Two of the ten findings #1443 reported are not defects and cannot be repaired
+#: into pure reads (#1461, decision 1 of the group analysis):
+#:
+#: * ``auth.router.oauth_callback`` is a **browser redirect**. The identity
+#:   provider sends the user back with a ``GET`` and there is no other verb
+#:   available; the handler then completes the login, which by definition writes
+#:   (REQ-023 §4.3a). It is not a read that happens to persist — it is a write
+#:   path whose verb the OAuth2 protocol fixes.
+#: * ``privacy.router.download_export`` records that the export was collected
+#:   (REQ-025 §4.2a). The Art.-15 evidence *is* the download, so the write cannot
+#:   move to another request without the evidence recording a different event.
+#:
+#: **Why a third list and not :data:`_GUARDED_PERSISTING_READS`.** That list is
+#: for a write the detector reports but an ARGUMENT makes unreachable, and its
+#: value is a `(callee, keyword, sinks)` witness that
+#: `test_every_guarded_read_really_passes_its_guard` re-parses and fails unless
+#: every reachable call passes the keyword as literal `False`. Neither route here
+#: has such an argument — both write on every call — so an entry there would be a
+#: witness naming nothing, and it would take the route OUT of the sweep, which is
+#: exactly what must not happen: both routes stay in `mounted_write_operations`
+#: and keep answering the three authorisation questions like any `POST`.
+#:
+#: **The relation is `reachable ⊆ excused`, not equality**, and that is a
+#: measurement, not a softening. `write_sinks_of` over-approximates: where a
+#: receiver carries no type the detector falls back to matching by NAME, which
+#: resolves one `self._repo.create(...)` to *every* repository `create` in the
+#: tree. Measured on 2026-09-17, ``oauth_callback`` reaches fifteen sink
+#: identities that way, most of them `delete` methods on repositories the OAuth
+#: path never touches. Pinned as an equality, adding a `delete` to any unrelated
+#: repository would turn this red with no write moving, changing or appearing —
+#: the drift that cost this file its sink line numbers, one level up. A subset
+#: says the thing the entry actually claims: this route reaches no write it is
+#: not excused for.
+#:
+#: **How much "a NEW sink turns it red" is worth differs per entry, and the honest
+#: version of that sentence is below** (review SCR-006). Both halves were measured
+#: by mutation on 2026-09-18 — an added, detector-resolvable
+#: ``self._export_repo.create(...)`` inside the service each route reaches:
+#:
+#: * ``privacy.download_export`` excuses **one** sink (the atomic
+#:   ``increment_download_count`` query since #1662; ``_update_doc`` before). The
+#:   mutation adds ``_insert_doc``, which is not in the set, and the sweep goes
+#:   **red**. `test_a_second_write_in_an_intentional_read_is_reported` pins that,
+#:   so the claim is checked and not believed.
+#: * ``auth.oauth_callback`` excuses fifteen, and those fifteen already include
+#:   **all four** base document primitives plus ``create_edge``/``delete_edges``.
+#:   Any write added anywhere below it goes through one of them, so the identity
+#:   is already in the set and the sweep stays **green**. For this entry the sink
+#:   set bounds the *shape* of what the route reaches — repository primitives, no
+#:   raw query outside the listed ones — and nothing finer. Said out loud because
+#:   a witness whose limits are implicit is read as having none, which is the
+#:   #1441 failure this file exists to avoid repeating.
+#:
+#: What still covers ``oauth_callback`` is not this list: the route stays inside
+#: `mounted_write_operations`, answers the three authorisation questions like any
+#: `POST`, and carries a `_PUBLIC_ALLOWLIST` entry with an obsolescence rule. A
+#: sharper witness here needs the detector to carry the *call path* into the sink
+#: identity, which is a change to `_write_call_graph` and not to this dict.
+_INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
+    "auth.router.oauth_callback": (
+        "REQ-023 §4.3a — the OAuth2 redirect back from the provider can only be a GET, and "
+        "completing the login writes the User, the AuthProvider link and the refresh token. "
+        "A write path whose verb the protocol fixes, not a read that persists.",
+        frozenset(
+            {
+                "col.insert() in app.data_access.arango.base_repository::BaseArangoRepository.create_edge",
+                "raw query write (f-string) in app.data_access.arango.activity_repository"
+                "::ArangoActivityRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.base_repository"
+                "::BaseArangoRepository.delete_edges",
+                "raw query write (f-string) in app.data_access.arango.consent_repository"
+                "::ArangoConsentRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.data_export_repository"
+                "::ArangoDataExportRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.email_change_repository"
+                "::ArangoEmailChangeRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.fertilizer_repository"
+                "::ArangoFertilizerRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.membership_repository"
+                "::ArangoMembershipRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.processing_restriction_repository"
+                "::ArangoProcessingRestrictionRepository.delete",
+                "raw query write (f-string) in app.data_access.arango.tank_repository::ArangoTankRepository.delete",
+                # #1664 — ``ArangoUserRepository.delete`` runs its cascade through the
+                # shared erasure executor instead of ``_remove_docs_for_user``. The route
+                # reaches it only through the detector's ``.delete`` name fallback, as it
+                # reached the helper before; the sinks moved, the reach did not.
+                "module-level query write _REMOVE_USER in app.data_access.arango.erasure_executor"
+                "::ArangoErasureExecutor._run_step",
+                "module-level query write _REWRITE_REFERENCE in app.data_access.arango.erasure_executor"
+                "::ArangoErasureExecutor._anonymize",
+                "module-level query write _REWRITE_REFERENCE in app.data_access.arango.erasure_executor"
+                "::ArangoErasureExecutor._pseudonymize",
+                # #2111/#2118 — the new account's own personal tenant, its lead membership, both edges and
+                # the security-audit row of that membership are one transaction
+                # (``ArangoTenantRepository.create_with_lead_membership``, via ``_register_oauth_user``).
+                "transaction.collection(collection).insert() in app.data_access.arango.tenant_repository"
+                "::ArangoTenantRepository._insert_in",
+                # #2182 (REQ-024 AK-09) — the OIDC auto-join: a new account joins its provider's default
+                # tenant through ``_create_membership_unless_erasing`` (whose freeze take-back is the rollback
+                # query) and the join is written to the security audit (``via: oidc_auto_join``).
+                "module-level query write _ROLLBACK_UNCLAIMED_AQL in app.data_access.arango.membership_repository"
+                "::ArangoMembershipRepository.delete_while_tenant_frozen",
+                "self._db.collection(col.SECURITY_AUDIT_LOG).insert() in "
+                "app.data_access.arango.security_audit_repository::ArangoSecurityAuditRepository.record",
+                "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+                "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
+                "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
+                "self.collection.update() in app.data_access.arango.base_repository"
+                "::BaseArangoRepository._update_doc_fields",
+            }
+        ),
+    ),
+    "privacy.router.download_export": (
+        "REQ-025 §4.2a — PrivacyService.prepare_export_download increments download_count on the "
+        "DataExportRequest. The Art.-15 evidence IS the collection of the export, so moving the "
+        "write to another request would record a different event. One sink, measured. Since #1662 "
+        "SCR-005 that sink is an atomic AQL increment rather than a full-model write-back, which "
+        "could resurrect a record that expiry had just cleared.",
+        frozenset(
+            {
+                (
+                    "raw query write in app.data_access.arango.data_export_repository"
+                    "::ArangoDataExportRepository.increment_download_count"
+                )
+            }
+        ),
+    ),
 }
 
 
@@ -303,51 +447,18 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 #: route stops writing, and `test_the_finding_list_only_shrinks` is a ratchet
 #: against :data:`_MEASURED_2026_09_16` — against the IDS, not against their
 #: count, so that repairing one and listing the next is not a green diff either.
-_PERSISTING_READ_FINDINGS: dict[str, str] = {
-    "auth.router.oauth_callback": (
-        "AuthService.complete_oauth creates or updates the User, the AuthProvider link and the "
-        "refresh token. A browser redirect can only be a GET, so this one is arguably inherent to "
-        "OAuth2 rather than a defect — it still needs the decision written down somewhere other "
-        "than here"
-    ),
-    "privacy.router.download_export": (
-        "PrivacyService.prepare_export_download increments download_count and persists the "
-        "DataExportRequest before streaming (privacy_service.py:225-227)"
-    ),
-    "glossar.public_router.public_get_term": (
-        "GlossaryService.get_term stores a GlossaryTermCacheEntry through _store_cache on a miss, "
-        "and this route is ANONYMOUS (#1460). The first wording here said an unauthenticated caller "
-        "writes 'a row per unseen slug'; the review measured that and it overstates the finding. The "
-        "slug is resolved against a CURATED catalogue through _resolve_or_404 "
-        "(glossary_service.py:147-159) behind a whitelist charset, so an unknown slug is a 404 and "
-        "never a row, and @limiter.limit('30/minute') bounds the rate besides — the row count is "
-        "capped by the catalogue, not by the caller. What remains is still a finding and is why the "
-        "entry stays: an anonymous GET triggers the RAG/LLM lookup behind the cache miss, and it "
-        "writes at all, which a safe method must not"
-    ),
-    "glossar.router.get_term": "the tenant-scoped sibling of the route above, same _store_cache write",
-    "ki_assistent.tenant_router.get_daily_tip": (
-        "AiAssistantService.get_daily_tip persists the generated card to the AI tip cache and writes an AI audit record"
-    ),
-    "ki_assistent.tenant_router.get_tips": (
-        "AiAssistantService.get_tips invalidates the tip cache, creates the generated card and "
-        "records an audit entry (ai_assistant_service.py:153, 208-210)"
-    ),
-    "onboarding.tenant_router.get_onboarding_state": (
-        "OnboardingService.get_state auto-creates the OnboardingState singleton on a cold read "
-        "(onboarding_service.py:45-47)"
-    ),
-    "user_preferences.tenant_router.get_preferences": (
-        "UserPreferenceService.get_preferences auto-creates the UserPreference singleton on a cold "
-        "read (user_preference_service.py:92-94)"
-    ),
-    "dashboard.tenant_router.get_widget_catalog": (
-        "reaches the same UserPreferenceService.get_preferences auto-create as the route above"
-    ),
-    "season.tenant_router.get_site_season_state": (
-        "SeasonStateService.evaluate_site_detailed upserts the SeasonState it computed (season_state_service.py:126)"
-    ),
-}
+#: **Empty since #1461/#1460, and that is the acceptance condition.** All ten
+#: measured reads were answered: eight were repaired into pure reads and two are
+#: recorded as decisions in :data:`_INTENTIONAL_PERSISTING_READS` above, each bound
+#: to the writes it was measured reaching.
+#:
+#: This stays a dict rather than being deleted. It is what a NEWLY detected
+#: writing ``GET`` would have to be added to, and
+#: `test_the_finding_list_only_shrinks` refuses that against
+#: :data:`_MEASURED_2026_09_16` — so the empty dict is the ratchet's resting
+#: position, not a leftover. A new finding is a conversation and an issue; there
+#: is no id left that this list will accept.
+_PERSISTING_READ_FINDINGS: dict[str, str] = {}
 
 #: The ten findings **as measured** on 2026-09-16, by id. The ratchet, and it is
 #: deliberately not a length.
@@ -648,6 +759,11 @@ _AUTHORISATION: frozenset[str] = frozenset(
         # `test_every_auth_shaped_dependency_is_classified` red one session after
         # that test was written. That is the vocabulary drift the rule exists for.
         "require_owned_plant",
+        # #1851. ``get_current_user`` plus a refusal of a tenant-scoped API key on
+        # a route that acts on the whole account. For a session or an unscoped
+        # key it admits exactly what ``get_current_user`` admits, so it is
+        # authorisation but not "more than membership".
+        "require_account_principal",
     }
 )
 
@@ -695,6 +811,13 @@ _NOT_AUTHORISATION: dict[str, str] = {
     "require_ai_tenant_enabled": "REQ-031 feature flag, not a caller check",
     "require_ai_feature_flag": "REQ-031 operator flag, not a caller check",
     "get_is_platform_admin": "returns a bool for the caller to branch on; refuses nobody",
+    "get_tenant_export_service": (
+        "builds TenantExportService (#2138); the service decides from the stored membership and the step-up, "
+        "the provider itself refuses nobody"
+    ),
+    "get_authenticated_with_api_key": (
+        "returns a bool (key vs session) the tenant deletion hands its service (#1791); refuses nobody"
+    ),
     "APIKeyHeader": "scheme object with auto_error=False - extracts a header, never refuses",
     "HTTPBearer": "scheme object; extraction only, the provider decides",
     "get_auth_provider": "constructs the provider; get_current_user is what calls it",
@@ -702,6 +825,9 @@ _NOT_AUTHORISATION: dict[str, str] = {
     "get_tenant_service": "service dependency",
     "get_tenant_repo": "repository dependency",
     "get_user_service": "service dependency",
+    "get_oidc_provider_admin_service": (
+        "service dependency; its step-up (#1883) confirms, the route's require_platform_admin authorises"
+    ),
     "get_user_preference_service": "service dependency",
     "get_oauth_engine": "engine dependency",
     "get_active_tenant_key": "resolves the header slug; the refusal is the get_current_user beneath it",
@@ -754,9 +880,14 @@ _PUBLIC_ALLOWLIST: dict[str, str] = {
     "auth.router.request_password_reset": "the caller has lost the credential",
     "auth.router.confirm_password_reset": "authorised by the emailed token",
     "auth.router.verify_email": "authorised by the emailed token",
+    # #2037 — the caller is exactly the one who cannot sign in yet: an unverified
+    # account is refused at login until it holds a link, and this is how it gets a
+    # new one. Not unguarded: per-IP limit (`rate_limit_resend_verification`), a
+    # silent per-address budget, and one answer for every address (REQ-023 §3.2b).
+    "auth.router.resend_verification": "an unverified account cannot sign in until it has a link",
     "auth.router.redeem_device_pairing": "authorised by the pairing code",
     "privacy.router.confirm_email_change": "authorised by the emailed token (REQ-025)",
-    "ki_assistent.public_router.public_ask": "REQ-031 light-mode probe, published on purpose",
+    "privacy.router.revert_email_change": "authorised by the token mailed to the previous address (REQ-025, #1848)",
     # Authenticates from the API key in the REQUEST BODY, inside the handler, the
     # way `login` authenticates from a password — so it carries no transport
     # credential and never will. It was previously exempt by accident:
@@ -769,6 +900,19 @@ _PUBLIC_ALLOWLIST: dict[str, str] = {
     # valid-non-service case into the same generic 401 so it cannot be used as an
     # oracle.
     "auth.router.validate_service_account": "authenticates from the key in the body, like login",
+    # The OAuth2 redirect back from the provider. It carries no session — the
+    # session is what it is about to issue — and it carries no transport
+    # credential either: the caller is a browser following a 302, and everything
+    # the handler trusts comes out of the `state`/`code` pair it validates against
+    # the provider itself. `login` and `register` are exempt for the same reason,
+    # one step earlier in the same flow.
+    #
+    # It was previously exempt by ACCIDENT, as an entry in
+    # `_PERSISTING_READ_FINDINGS` — an open-defect list every sweep in this file
+    # skips. #1461 took it off that list, because a protocol-fixed verb is not a
+    # defect anybody can repair, and that removal is what makes the exemption
+    # visible here where the third question can see it.
+    "auth.router.oauth_callback": "the OAuth2 redirect carries no session; it issues one (REQ-023)",
 }
 
 
@@ -851,6 +995,90 @@ _INSTALLATION_WIDE_MODULES: dict[str, str] = {
     "activities": "the activity catalogue every tenant's plans reference",
     "crop_rotation": "the rotation rules every bed plan is validated against",
     "enrichment": "external-source enrichment configuration for the installation",
+    # #1501. Two modules of exactly the kind the paragraph above says this set does
+    # not catch on its own, found by the classification rule below rather than by
+    # anybody remembering to add them.
+    "phase_sequences": (
+        "phase definitions, sequences and their entries — no tenant_key on any of "
+        "the three models, so one row is the row every tenant's lifecycle resolves"
+    ),
+    "ipm": (
+        "the pest / disease / treatment catalogue; ipm/tenant_router.py states in "
+        "its own docstring that these three stay global reference data"
+    ),
+}
+
+#: Every other module that mounts a write on the **global** router, with the reason
+#: it is not installation-wide master data — #1501.
+#:
+#: The dict above was an opt-in list, and its own docstring said so: "a new *module*
+#: of the same kind is not covered". That is not a hypothetical. `phase_sequences`
+#: and `ipm` are two such modules; between them they mounted **twenty** ungated
+#: writes on installation-wide catalogues — including the ``DELETE`` on the phase
+#: definition REQ-003's state machine runs on — and every sweep in this file was
+#: green the whole time, because neither name had ever been typed into a list.
+#:
+#: This closes that one level up, the same way
+#: `test_every_auth_shaped_dependency_is_classified` closes the dependency
+#: vocabulary: a module is not *reported*, it is *classified*. Adding a new global
+#: router without deciding which half it belongs in fails
+#: `test_every_global_write_module_is_classified` with the module's name in the
+#: message. The decision stays a human one; what changes is that it has to be made.
+#:
+#: Scoped to the global surface deliberately — a tenant-prefixed or `/api/v1/admin`
+#: module is answered by the first three questions and does not need a fourth.
+_NOT_INSTALLATION_WIDE: dict[str, str] = {
+    "auth": "session lifecycle; a caller reaches login/register/reset before having one",
+    "users": "the caller's own account, sessions and federated identities",
+    "privacy": "DSGVO Art. 15-21 self-service; the rows belong to the user",
+    "system": (
+        "REQ-027 §7a light-to-full take-over (#1855): the caller takes the light-mode tenant over or declines it; "
+        "ModeSwitchService admits only the platform admin or, without one, the earliest person account"
+    ),
+    "tenants": "tenant lifecycle and membership, gated on require_admin_scope",
+    "tenant_exports": (
+        "REQ-056 §8 (#2138): export requests of one tenant (lead + management from the stored membership, or "
+        "require_platform_admin) and imports that found a NEW tenant (require_platform_admin); no shared row"
+    ),
+    "mcp": "REQ-033 protocol surface, gated on get_mcp_principal",
+    "ki_assistent": (
+        "REQ-031 §5.3 light-mode knowledge question: answers the system user from the knowledge base, "
+        "writes no installation-wide row"
+    ),
+    # `glossar` stood here until #1515, and its removal is the obsolescence rule
+    # below working rather than breaking. The entry existed *because* of a
+    # persisting read: `public_get_term` answered an anonymous GET and wrote a
+    # cache row through `_store_cache`, so the #1443 detector counted the route as
+    # a global write and the module needed a classification. #1515 removed that
+    # write, `persists(public_get_term)` is now False, and the module's real
+    # writes live on the two surfaces the other selectors already own —
+    # `/t/{slug}/glossary/term/{slug}/generate` (tenant) and
+    # `/api/v1/admin/glossary/*` (admin, behind `require_platform_admin` since
+    # #536). Nothing is left on the global surface, so an entry claiming to
+    # classify one would be an exemption nobody can check.
+    #
+    # Left as a comment rather than deleted silently: the next reader wondering
+    # why the glossary is unclassified here should find the answer beside the gap,
+    # and `test_every_global_write_module_is_classified` will demand a real entry
+    # again the moment the module mounts a global write.
+    "care_reminders": "per-plant tenant data; require_owned_plant + require_active_tenant_role",
+    "phases": "per-plant tenant data; require_owned_plant + require_active_tenant_role",
+    "calculations": "POST-as-computation — reads its inputs, returns a result, persists nothing",
+    "companion_planting": "already require_platform_admin on both writes",
+    "family_relationships": "already _require_platform_admin on all three writes",
+    "botanical_families": (
+        "global-only catalogue, gated by require_platform_admin_for_global_catalogue "
+        "called in the handler body (#1120) rather than as a dependency, so the "
+        "chain-based gate above cannot see it"
+    ),
+    "species": "hybrid catalogue: own row → rank, global seed → platform admin, foreign → 404 (#808)",
+    "cultivars": "hybrid catalogue, same three-way gate in SpeciesService (#1090)",
+    "substrates": "hybrid catalogue, same three-way gate in SubstrateService (#1195)",
+    "imports": (
+        "tenant-owned staged work, not catalogue data: the job carries an uploaded "
+        "CSV and is scoped by ImportJob.tenant_key, with the rank decided in "
+        "ImportService (#1110 confirm, #1501 upload/read/delete)"
+    ),
 }
 
 _PLATFORM_ADMIN_GATES = frozenset({"require_platform_admin", "_require_platform_admin"})
@@ -872,7 +1100,30 @@ def _module_of(operation: Operation) -> str:
 
 
 def _installation_wide_write_operations() -> list[Operation]:
-    return [op for op in mounted_write_operations() if _module_of(op) in _INSTALLATION_WIDE_MODULES]
+    """The installation-wide writes: a classified module AND a global path.
+
+    Both halves, since #1501. The module alone was enough while every classified
+    module mounted exactly one router; `ipm` does not. Its `tenant_router` writes
+    inspections, treatment applications and pest-image contributions — rows that
+    DO carry a ``tenant_key`` and are correctly gated on ``require_permission`` /
+    ``require_attachment_permission``. Selecting them by module name would have
+    demanded ``require_platform_admin`` on four tenant-scoped routes, i.e. the
+    over-rejecting fix `test_the_reads_are_not_gated` exists to prevent, one door
+    along.
+    """
+    return [op for op in _global_write_operations() if _module_of(op) in _INSTALLATION_WIDE_MODULES]
+
+
+def _global_write_operations() -> list[Operation]:
+    """Write operations on neither the tenant nor the admin prefix — #1501.
+
+    The residue of the two prefix selectors, and the surface the fourth question
+    is asked of. Computed from the path rather than from a list of module names,
+    because a list of module names is what let twenty ungated writes through.
+    """
+    return [
+        op for op in mounted_write_operations() if TENANT_PREFIX not in op.path and not op.path.startswith(ADMIN_PREFIX)
+    ]
 
 
 def _tenant_write_operations() -> list[Operation]:
@@ -1320,11 +1571,21 @@ class TestEveryWriteOperationResolvesSomeAuthorisation:
     def test_the_allowlist_is_small(self):
         """A ceiling, because the cheapest way to make this test green is to grow the list.
 
-        Eleven entries today, all of them pre-session endpoints, a published
-        probe, or a route that authenticates from its own request body. A twelfth
-        is not automatically wrong, but it should cost a conversation.
+        Fourteen entries today, all of them pre-session endpoints, a published
+        probe, or a route that authenticates from its own request body. A
+        thirteenth is not automatically wrong, but it should cost a conversation.
+
+        Grew by one in #1461: `oauth_callback` was exempt from every sweep as an
+        entry in `_PERSISTING_READ_FINDINGS`, which is not an allowlist and skips
+        more than this one does. Moving it here is a tightening, not a widening —
+        the route is now measured by the obsolescence rule and the reason rule
+        below, neither of which reached it before.
+
+        Grew by one in #2037: `resend_verification` is a pre-session endpoint of
+        the same kind as `request_password_reset` — the caller is an account that
+        cannot sign in until it receives the link this route mails.
         """
-        assert len(_PUBLIC_ALLOWLIST) <= 12, (
+        assert len(_PUBLIC_ALLOWLIST) <= 14, (
             f"_PUBLIC_ALLOWLIST has grown to {len(_PUBLIC_ALLOWLIST)} entries. "
             "Adding a route here makes it anonymously reachable; say why in the issue, not only in the dict."
         )
@@ -1611,6 +1872,8 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         deliberate act with a diff line to explain.
         """
         expected = {
+            "phase_sequences": 11,
+            "ipm": 9,
             "profiles": 5,
             "enrichment": 4,
             "growth_phases": 3,
@@ -1635,6 +1898,51 @@ class TestInstallationWideMasterDataIsPlatformAdminOnly:
         assert not shrunk, "installation-wide write operations disappeared from the gated set:\n  " + "\n  ".join(
             shrunk
         )
+
+    def test_every_global_write_module_is_classified(self):
+        """Every module writing on the global router is on one side or the other — #1501.
+
+        The rule that would have found `phase_sequences` and `ipm` before a security
+        issue did. `_INSTALLATION_WIDE_MODULES` was an opt-in list and could only
+        ever check the modules somebody had already thought of; this checks the
+        modules that EXIST.
+        """
+        classified = set(_INSTALLATION_WIDE_MODULES) | set(_NOT_INSTALLATION_WIDE)
+        modules = {_module_of(op) for op in _global_write_operations()}
+        unclassified = sorted(modules - classified)
+        assert not unclassified, (
+            "These modules mount write routes on the GLOBAL router and are classified nowhere. "
+            "Decide whether each writes installation-wide master data — a row every tenant "
+            "shares, which needs `require_platform_admin` — and add it to "
+            "_INSTALLATION_WIDE_MODULES, or record in _NOT_INSTALLATION_WIDE what it writes "
+            "instead and which gate answers for it:\n  " + "\n  ".join(unclassified)
+        )
+
+    def test_no_module_is_classified_on_both_sides(self):
+        both = sorted(set(_INSTALLATION_WIDE_MODULES) & set(_NOT_INSTALLATION_WIDE))
+        assert not both, f"classified as both installation-wide and not: {both}"
+
+    def test_every_not_installation_wide_entry_still_names_a_global_writer(self):
+        """Obsolescence, the direction the entry itself cannot notice.
+
+        An exemption for a module that no longer writes globally is an exemption
+        nobody re-reads, and the next module to take that name inherits it.
+        """
+        modules = {_module_of(op) for op in _global_write_operations()}
+        stale = sorted(set(_NOT_INSTALLATION_WIDE) - modules)
+        assert not stale, (
+            "These _NOT_INSTALLATION_WIDE entries name a module that mounts no global "
+            "write any more — drop them:\n  " + "\n  ".join(stale)
+        )
+
+    def test_every_not_installation_wide_reason_is_written_out(self):
+        for module, reason in _NOT_INSTALLATION_WIDE.items():
+            assert len(reason) >= 12, f"{module} carries no usable reason: {reason!r}"
+
+    def test_the_global_selector_is_populated(self):
+        """Either selector matching nothing would make the two rules above vacuous."""
+        assert len(_global_write_operations()) > 100
+        assert len({_module_of(op) for op in _global_write_operations()}) > 20
 
 
 # ── #1443: the read half of the write surface ──────────────────────────────────
@@ -2108,6 +2416,142 @@ class TestTheDetectorCanFail:
         assert call_graph().modules_parsed > 500
 
 
+#: Receivers whose type IS written down, in a spelling the detector used to
+#: read as untyped. Each `run_*` handler makes exactly one call on such a
+#: receiver; a detector that types it links the handler to
+#: `InventedRepository.create`, one that does not counts it as unresolved and,
+#: since `create` is write vocabulary, guesses by name instead.
+_RECEIVER_SPELLINGS_TREE = {
+    **_SYNTHETIC_TREE,
+    "domain/receiver_spellings.py": """
+from app.data_access.invented_repository import InventedRepository
+
+
+class Holder:
+    def __init__(self, repo: InventedRepository | None = None, other: InventedRepository | None = None) -> None:
+        self._defaulted = repo or InventedRepository(None)
+        self._conditional = other if other is not None else InventedRepository(None)
+        self._raw = repo
+
+    @property
+    def exposed(self) -> InventedRepository:
+        return InventedRepository(None)
+
+    @staticmethod
+    def build(key: str) -> dict:
+        return {"key": key}
+
+
+def run_loop(repos: list[InventedRepository]):
+    for repo in repos:
+        repo.create({})
+
+
+def run_comprehension(repos: list[InventedRepository]):
+    return [repo.create({}) for repo in repos]
+
+
+def run_class_name(key: str):
+    return Holder.build(key)
+
+
+def run_bool_op(repo: InventedRepository | None):
+    (repo or InventedRepository(None)).create({})
+
+
+def run_defaulted_attribute(holder: Holder):
+    holder._defaulted.create({})
+
+
+def run_conditional_attribute(holder: Holder):
+    holder._conditional.create({})
+
+
+def run_property(holder: Holder):
+    holder.exposed.create({})
+
+
+def control_unparameterised_loop(repos: list):
+    for repo in repos:
+        repo.create({})
+
+
+def control_dict_loop(repos: dict[str, InventedRepository]):
+    for name in repos:
+        name.create({})
+""",
+}
+
+
+#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039); baseline 2743.
+_GENUINE_UNRESOLVED_CEILING = 2804
+
+
+class TestTheDetectorTypesWhatIsWrittenDown:
+    """Spellings of an annotated receiver the detector read as untyped (unresolved-count headroom).
+
+    Each of these was counted by `unresolved_call_count()` although the type was
+    in the source: a loop variable over `list[Repo]`, a comprehension variable, a
+    class named as the receiver of its own static method, `a or b`, a `self.X`
+    defaulted with `or` / `if … else` in `__init__`, and a `@property` with a
+    return annotation. Against the detector before this change every `run_*`
+    assertion here fails — measured, not assumed — and the two controls hold the
+    line the other way: a loop over an unparameterised `list` or over a `dict`
+    (whose iteration yields KEYS) must stay untyped and keep its name fallback.
+    """
+
+    @pytest.fixture
+    def graph(self, tmp_path: pathlib.Path) -> CallGraph:
+        for relative, source in _RECEIVER_SPELLINGS_TREE.items():
+            target = tmp_path / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(tmp_path)
+        graph.link()
+        return graph
+
+    @staticmethod
+    def _typed_callees(graph: CallGraph, function_name: str) -> set[str]:
+        caller = graph.by_id[f"app.domain.receiver_spellings::{function_name}"]
+        return {callee.id for callee in caller.callees if (caller.id, callee.id) not in graph.fallback_edges}
+
+    @pytest.mark.parametrize(
+        "function_name",
+        [
+            "run_loop",
+            "run_comprehension",
+            "run_bool_op",
+            "run_defaulted_attribute",
+            "run_conditional_attribute",
+            "run_property",
+        ],
+    )
+    def test_the_receiver_resolves_by_its_written_type(self, graph: CallGraph, function_name: str) -> None:
+        callees = self._typed_callees(graph, function_name)
+        caller = graph.by_id[f"app.domain.receiver_spellings::{function_name}"]
+
+        assert "app.data_access.invented_repository::InventedRepository.create" in callees, (
+            f"{function_name}: the receiver's type is written down but the call did not resolve by it; "
+            f"callees={sorted(callees)}, unresolved={caller.unresolved}"
+        )
+        assert "create" not in caller.unresolved
+
+    def test_a_class_named_as_receiver_resolves_to_its_static_method(self, graph: CallGraph) -> None:
+        assert self._typed_callees(graph, "run_class_name") == {"app.domain.receiver_spellings::Holder.build"}
+
+    @pytest.mark.parametrize("function_name", ["control_unparameterised_loop", "control_dict_loop"])
+    def test_a_loop_variable_without_an_element_type_stays_untyped(self, graph: CallGraph, function_name: str) -> None:
+        """The guard against over-reach: typing these would SILENCE the name fallback."""
+        caller = graph.by_id[f"app.domain.receiver_spellings::{function_name}"]
+
+        assert caller.unresolved == ["create"], f"{function_name}: {caller.unresolved}"
+        assert self._typed_callees(graph, function_name) == set()
+        assert any(edge[0] == caller.id for edge in graph.fallback_edges), (
+            f"{function_name}: an untyped write-vocabulary call no longer falls back by name"
+        )
+
+
 class TestPersistingReadsAreSweptLikeWrites:
     """The acceptance condition of #1443: a writing GET is gated like a POST.
 
@@ -2197,6 +2641,29 @@ class TestPersistingReadsAreSweptLikeWrites:
             + "\n  ".join(added)
             + "\nThe list may shrink as routes are repaired; it may not gain a member. A NEW writing "
             "GET has to be gated or argued in an issue, not listed here."
+        )
+
+    def test_the_finding_list_is_empty(self):
+        """The acceptance condition of #1461, asserted rather than described.
+
+        `test_the_finding_list_only_shrinks` is a ratchet against the 2026-09-16
+        ids and would stay green if one of the eight repaired routes were listed
+        again — it may shrink, and re-adding a measured id is a shrink from the
+        original ten. This says the stronger thing the group closed on: **none of
+        them is open**. Two of the ten are decisions now
+        (:data:`_INTENTIONAL_PERSISTING_READS`) and eight write nothing.
+
+        A route that starts persisting again is caught by
+        `test_the_sweep_admits_exactly_the_reads_the_detector_reports` and the
+        three gate sweeps regardless; what this refuses is the quiet path back —
+        re-listing it here as an open finding, where every sweep skips it.
+        """
+        assert _PERSISTING_READ_FINDINGS == {}, (
+            "A read that persists is recorded as an open finding again:\n  "
+            + "\n  ".join(sorted(_PERSISTING_READ_FINDINGS))
+            + "\nAll ten of the 2026-09-16 measurements were answered in #1461/#1460 — eight repaired, "
+            "two recorded as decisions with their sinks. Repair it, argue it in the issue and record "
+            "it as intentional, or say in the diff why the sweeps must skip it again."
         )
 
     def test_the_measured_set_is_the_measurement(self):
@@ -2309,6 +2776,186 @@ class TestPersistingReadsAreSweptLikeWrites:
             "measured sink; anything else has to be gated or argued on its own:\n  " + "\n  ".join(problems)
         )
 
+    def test_every_intentional_persisting_read_still_persists(self):
+        """Obsolescence, the direction that rots — the same rule the findings carry.
+
+        An entry that outlives its write is an excuse for nothing, and the next
+        reader takes it as a statement that the route MUST keep writing. If one of
+        these two ever stops persisting, the entry goes, it does not stay "just in
+        case the write comes back".
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        stale = []
+        for route_id, (reason, _sinks) in _INTENTIONAL_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                stale.append(f"{route_id}: no such read route any more ({reason})")
+            elif not persists(endpoint):
+                stale.append(f"{route_id}: no longer persists — delete the entry ({reason})")
+        assert not stale, "Obsolete _INTENTIONAL_PERSISTING_READS entries:\n  " + "\n  ".join(stale)
+
+    def test_an_intentional_persisting_read_reaches_no_write_it_is_not_excused_for(self):
+        """SEC-002, applied to the two reads that keep writing on purpose.
+
+        The decision each entry records is about the writes that were MEASURED,
+        not about the route. A second, unrelated write added to the same handler —
+        an audit row, a counter, a cache — would otherwise inherit an approval
+        nobody gave it, which is the failure `_CARE_PROFILE_SINKS` was widened to
+        prevent one list down.
+
+        Subset, not equality, and the module comment on
+        :data:`_INTENTIONAL_PERSISTING_READS` says why: `write_sinks_of`
+        over-approximates through its name fallback, so an equality would go red
+        on edits to repositories these routes never touch. A new sink still turns
+        this red, which is the claim the entry makes.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        problems = []
+        for route_id, (_reason, excused) in _INTENTIONAL_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                continue  # covered by the obsolescence rule above
+            unexcused = write_sinks_of(endpoint) - set(excused)
+            if unexcused:
+                problems.append(f"{route_id}:\n      not excused: " + "\n                   ".join(sorted(unexcused)))
+        assert not problems, (
+            "A read that persists on purpose reaches a write its entry does not account for. The "
+            "decision covers the MEASURED sinks; anything else has to be gated or argued on its "
+            "own:\n  " + "\n  ".join(problems)
+        )
+
+    def test_a_second_write_in_an_intentional_read_is_reported(self):
+        """The mutation SCR-006 asked for, run as a test rather than by hand.
+
+        `privacy.download_export` excuses exactly one sink, so a second write
+        inside `PrivacyService.prepare_export_download` has to surface. This drives
+        the predicate the sweep drives — `write_sinks_of` minus the excused set —
+        over a synthetic tree, because mutating the real service in a test run is
+        not available and a hand-run mutation is a claim nobody re-checks.
+
+        The companion claim, that the same mutation does **not** show up for
+        `oauth_callback`, is stated on the dict above with its reason; it is a
+        property of the sink-identity format, not something this file can fix.
+        """
+        excused = _INTENTIONAL_PERSISTING_READS["privacy.router.download_export"][1]
+        measured_today = {
+            (
+                "raw query write in app.data_access.arango.data_export_repository"
+                "::ArangoDataExportRepository.increment_download_count"
+            )
+        }
+        assert set(excused) == measured_today, (
+            "the download_export witness is no longer the single sink this test reasons about"
+        )
+
+        # The mutation: the handler grows an insert alongside its update.
+        with_a_second_write = measured_today | {
+            "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc"
+        }
+        assert with_a_second_write - set(excused), (
+            "a second, unexcused write no longer produces an unexcused sink — the entry has stopped "
+            "bounding anything and the dict's promise above is false for it too"
+        )
+
+    def test_the_oauth_entry_is_the_blunt_one_and_says_so(self):
+        """SCR-006, pinned: the limitation is measured, not merely written down.
+
+        If the entry ever stopped excusing the base primitives, the note above it
+        would become wrong in the *safe* direction — but silently, and the next
+        reader would take the docstring's caveat as still binding and trust it
+        less than they should. Either way the prose and the data have to agree.
+        """
+        _reason, excused = _INTENTIONAL_PERSISTING_READS["auth.router.oauth_callback"]
+        primitives = {
+            "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
+            "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
+            "self.collection.update() in app.data_access.arango.base_repository"
+            "::BaseArangoRepository._update_doc_fields",
+            "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
+        }
+        assert primitives <= set(excused), (
+            "the oauth_callback entry no longer excuses every base primitive, so the caveat on "
+            "_INTENTIONAL_PERSISTING_READS overstates its own weakness — tighten the note in the same diff."
+        )
+
+    def test_every_excused_sink_is_really_reachable(self):
+        """The other direction: an entry may not be padded to survive a refactor.
+
+        Subset alone would let somebody widen a set pre-emptively — list every
+        sink in the tree and the assertion above can never fail again. This pins
+        that each recorded sink is one the route really reaches today, so the set
+        is a measurement and not a wish.
+        """
+        by_id = {}
+        for method, _path, endpoint, _route in mounted_operations():
+            if method in READ_METHODS:
+                by_id[_operation_id(endpoint)] = endpoint
+
+        problems = []
+        for route_id, (_reason, excused) in _INTENTIONAL_PERSISTING_READS.items():
+            endpoint = by_id.get(route_id)
+            if endpoint is None:
+                continue
+            unreachable = set(excused) - write_sinks_of(endpoint)
+            if unreachable:
+                problems.append(f"{route_id}:\n      excused but unreachable: " + ", ".join(sorted(unreachable)))
+        assert not problems, (
+            "These sinks are excused on a route that cannot reach them. Drop them; an excuse for a "
+            "write that does not happen hides the next one that does:\n  " + "\n  ".join(problems)
+        )
+
+    def test_an_intentional_persisting_read_is_not_also_a_finding_or_an_exemption(self):
+        """Three lists, disjoint. An id in two of them means two different verdicts."""
+        entries = set(_INTENTIONAL_PERSISTING_READS)
+        assert not entries & set(_PERSISTING_READ_FINDINGS), (
+            f"recorded both as intentional and as an open finding: {sorted(entries & set(_PERSISTING_READ_FINDINGS))}"
+        )
+        assert not entries & set(_GUARDED_PERSISTING_READS), (
+            f"recorded both as intentional and as argument-guarded: {sorted(entries & set(_GUARDED_PERSISTING_READS))}"
+        )
+
+    def test_an_intentional_persisting_read_is_still_swept_like_a_write(self):
+        """The property that distinguishes this list from the other two.
+
+        `_GUARDED_PERSISTING_READS` removes a route from `mounted_write_operations`
+        and `_PERSISTING_READ_FINDINGS` excuses it from all four gate sweeps.
+        Neither may happen here: these routes write on every call, so they have to
+        answer the three authorisation questions exactly as a `POST` does. Without
+        this assertion the new list would silently become the cheapest way out of
+        the file.
+        """
+        admitted = {op.id for op in mounted_write_operations()}
+        missing = sorted(set(_INTENTIONAL_PERSISTING_READS) - admitted)
+        assert not missing, f"an intentional persisting read left the write sweep: {missing}"
+
+        for route_id in _INTENTIONAL_PERSISTING_READS:
+            assert route_id not in _PERSISTING_READ_FINDINGS
+
+    def test_every_intentional_reason_is_written_out(self):
+        for route_id, (reason, _sinks) in _INTENTIONAL_PERSISTING_READS.items():
+            assert len(reason) >= 12, f"{route_id} carries no usable reason: {reason!r}"
+
+    def test_the_intentional_list_is_small(self):
+        """A ceiling, for the same reason every other list in this file has one.
+
+        Two entries, both protocol- or evidence-bound. A third is the cheapest way
+        to close a finding without repairing it — "this one is intentional too" —
+        and should cost the conversation the issue is for.
+        """
+        assert len(_INTENTIONAL_PERSISTING_READS) <= 2, (
+            f"_INTENTIONAL_PERSISTING_READS has grown to {len(_INTENTIONAL_PERSISTING_READS)} entries. "
+            "A read that writes is a defect until somebody argues otherwise in an issue; say it there, "
+            "not only here."
+        )
+
     def test_the_exemption_list_is_small(self):
         """A ceiling, for the same reason `_PUBLIC_ALLOWLIST` has one (SEC-002).
 
@@ -2351,14 +2998,92 @@ class TestPersistingReadsAreSweptLikeWrites:
     def test_the_unresolved_receiver_count_does_not_grow(self):
         """The blind spot, bounded — the one thing this detector cannot report on itself.
 
-        A call whose receiver carries no type is where a write can hide. Measured
-        at this head: 9244 of them across the tree, and only those whose name is in
-        the repository write vocabulary are followed. The ceiling is not a quality
-        target; it is a tripwire, so that a refactor which un-annotates a layer
-        shows up here instead of as a quietly shrinking set of findings.
+        A call whose receiver carries no type is where a write can hide. Only
+        those whose name is in the repository write vocabulary are followed.
+
+        **What the ceiling counts (operator decision, #2039): genuine gaps only.**
+        ``unresolved_call_count()`` is the sum of two different things and used
+        to be the tripwire as a whole: receivers nothing types (a missing
+        annotation someone can add — *genuine*) and receivers typed as, or
+        reached from, something outside this tree (``structlog``'s logger,
+        ``self._db.aql``, ``datetime.now()``, a ``dict``) — *external*, where
+        typing can never resolve the call. A tripwire over the sum could not
+        move on the work it exists to reward: typing an external receiver left
+        it unchanged and 7925 of the 10764 were external.
+
+        Baseline, measured 2026-10-04 on develop a192c307d with the detector that
+        also types tuple-unpacking loop targets, ``with … as x`` bindings and
+        ``self.X`` assigned outside ``__init__`` (#2039): 10828 unresolved = 2743
+        genuine + 8085 external. The same tree under the detector before that
+        change: 10829 = 2853 genuine + 7976 external — one call fewer in total
+        (the two unannotated helpers of ``app/common/dependencies.py`` are now
+        annotated) and 109 calls moved from genuine to external, because their
+        receiver is now known to come from outside the tree (``str`` values of a
+        ``dict[str, str]``, ``httpx.Client()``). No call newly resolved to a class
+        of this tree, no function newly reads as a writer, and the name-fallback
+        edges are the same 2216 plus ten to the body-less ``_DecodedRedis.delete``.
+        The ceiling is the genuine baseline plus 61 of headroom (the headroom the
+        previous ceiling had over 2839), not a quality target: a refactor that
+        un-annotates a layer shows up here instead of as a quietly shrinking set
+        of findings.
         """
-        assert unresolved_call_count() < 11000, (
-            f"{unresolved_call_count()} attribute calls resolve to no receiver type, up from the 9244 "
-            "measured on 2026-09-16. The detector is guessing on more of the tree than it was; check "
-            "what stopped carrying annotations before trusting a green run."
+        assert genuine_unresolved_call_count() < _GENUINE_UNRESOLVED_CEILING, (
+            f"{genuine_unresolved_call_count()} attribute calls resolve to no receiver type and no external "
+            "owner, up from the 2743 measured on 2026-10-04. The detector is guessing on more of the tree "
+            "than it was; check what stopped carrying annotations before trusting a green run."
         )
+        assert genuine_unresolved_call_count() + external_unresolved_call_count() == unresolved_call_count()
+
+    def test_the_split_sees_external_and_untyped_receivers_apart(self, tmp_path: pathlib.Path):
+        """Non-vacuity of the split: each receiver kind lands in its own bucket."""
+        source = """
+import datetime
+import structlog
+
+logger = structlog.get_logger()
+
+
+def external_module(x):
+    return datetime.date.today().isoformat()
+
+
+def external_logger(x):
+    logger.info("x")
+
+
+def external_typed(value: dict):
+    value.update({})
+
+
+def untyped_parameter(entry):
+    entry.save()
+
+
+def untyped_any(entry: object):
+    entry.save()
+"""
+        target = tmp_path / "domain" / "split_spellings.py"
+        target.parent.mkdir(parents=True)
+        target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(tmp_path)
+        graph.link()
+
+        def bucket(name: str) -> tuple[int, int]:
+            function = graph.by_id[f"app.domain.split_spellings::{name}"]
+            external = sum(
+                1
+                for call in function._call_nodes
+                if isinstance(call.func, ast.Attribute)
+                and not graph._call_targets(call, function)
+                and graph._is_external_receiver(call.func.value, function)
+            )
+            return external, len(function.unresolved) - external
+
+        assert bucket("external_module") == (2, 0)
+        assert bucket("external_logger") == (1, 0)
+        assert bucket("external_typed") == (1, 0)
+        assert bucket("untyped_parameter") == (0, 1)
+        assert bucket("untyped_any") == (0, 1)
+        assert graph.genuine_unresolved_calls == 2
+        assert graph.external_unresolved_calls == 4

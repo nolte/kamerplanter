@@ -904,3 +904,39 @@ class TestLeaseSigningSecret:
             claimed_at=claimed_at,
             lease_expires_at=expires_at,
         )
+
+
+# ── #2107: deleting an entry checks the tenant in the service ────────────────
+
+
+class TestDeleteEntry:
+    """``delete_entry`` loaded the entry without a tenant; only the calling route checked it."""
+
+    @staticmethod
+    def _deleting(repo: FakeDiaryRepository) -> list[str]:
+        deleted: list[str] = []
+
+        def _delete(key: str) -> bool:
+            deleted.append(key)
+            repo.docs.pop(key, None)
+            return True
+
+        repo.delete = _delete  # type: ignore[attr-defined]
+        return deleted
+
+    def test_a_foreign_tenants_entry_is_not_found_and_stays(self, service, repo):
+        repo.seed("d1", tenant_key="tenant-b")
+        deleted = self._deleting(repo)
+
+        with pytest.raises(NotFoundError):
+            service.delete_entry("d1", tenant_key=TENANT)
+
+        assert deleted == []
+        assert "d1" in repo.docs
+
+    def test_the_callers_own_entry_is_deleted(self, service, repo):
+        repo.seed("d1")
+        deleted = self._deleting(repo)
+
+        assert service.delete_entry("d1", tenant_key=TENANT) is True
+        assert deleted == ["d1"]

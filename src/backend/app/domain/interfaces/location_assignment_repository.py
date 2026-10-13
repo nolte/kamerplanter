@@ -30,13 +30,13 @@ class ILocationAssignmentRepository(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
-    def list_by_tenant(self, tenant_key: str) -> list[LocationAssignment]: ...
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[LocationAssignment]:
+        """A tenant's location assignments, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
 
     @abstractmethod
     def list_by_membership(self, membership_key: str) -> list[LocationAssignment]: ...
 
     @abstractmethod
     def get_by_membership_and_location(self, membership_key: str, location_key: str) -> LocationAssignment | None: ...
-
-    @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...

@@ -63,12 +63,13 @@ class _Service:
         self.cloned: list[tuple] = []
         self.updated: list[tuple] = []
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         if key not in self._plans:
             raise KeyError(key)
         return self._plans[key]
 
-    def get_phase_entries(self, plan_key):
+    def get_phase_entries(self, plan_key, *, tenant_key):
+        # Mirrors the real signature: required and keyword-only since #2104.
         return self._entries.get(plan_key, [])
 
     def clone_plan(self, source_key, new_name, author="", tenant_key=""):
@@ -123,9 +124,9 @@ class TestClone:
         calls: list[dict] = []
         original = svc.get_plan
 
-        def _spy(key, tenant_key="", *, for_write=False):
+        def _spy(key, *, tenant_key, for_write=False):
             calls.append({"for_write": for_write})
-            return original(key, tenant_key, for_write=for_write)
+            return original(key, tenant_key=tenant_key, for_write=for_write)
 
         svc.get_plan = _spy  # type: ignore[method-assign]
         ctx = _ctx(nutrient_plan_service=svc)

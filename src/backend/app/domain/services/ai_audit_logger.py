@@ -9,12 +9,14 @@ The question is only ever stored as a sha256 hash and the answer only as a lengt
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from datetime import UTC, datetime
 
 import structlog
 
 from app.data_access.arango.ai_repository import ArangoAiAuditRepository
 from app.domain.models.ai_assistant import AiAuditLogEntry, AuditStatus
+from app.domain.services.ai_call_budget import token_counts
 
 logger = structlog.get_logger(__name__)
 
@@ -49,12 +51,14 @@ class AiAuditLogger:
         latency_ms: int = 0,
         status: AuditStatus = "ok",
         error_class: str | None = None,
+        usage: Mapping[str, int] | None = None,
     ) -> AiAuditLogEntry:
         """Write an audit entry, storing only the question hash and answer length.
 
         Failures to persist the audit entry must never break the user-facing KI
         call, so the write is best-effort (logged, then swallowed).
         """
+        prompt_tokens, completion_tokens = token_counts(usage)
         entry = AiAuditLogEntry(
             tenant_key=tenant_key,
             user_key=user_key,
@@ -70,6 +74,8 @@ class AiAuditLogger:
             uses_tenant_data=uses_tenant_data,
             uses_cloud_provider=uses_cloud_provider,
             latency_ms=latency_ms,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
             status=status,
             error_class=error_class,
             created_at=datetime.now(UTC),

@@ -67,4 +67,4 @@ def test_delete_phenotype_admin_allowed() -> None:
     resp = client.delete(f"/api/v1/t/{TENANT_SLUG}/plant-instances/plant-1/phenotypes/note-1")
 
     assert resp.status_code == 204
-    service.delete_phenotype.assert_called_once_with("plant-1", "note-1", "tenant_anna")
+    service.delete_phenotype.assert_called_once_with("plant-1", "note-1", tenant_key="tenant_anna")

@@ -14,8 +14,10 @@ from app.common.enums import (
     TransitionTrigger,
 )
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import log_tenant, loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
@@ -42,6 +44,7 @@ from app.domain.models.survival_stats import (
 )
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.species_visibility import readable_species
 
 if TYPE_CHECKING:
     from app.domain.services.overwintering_materializer import OverwinteringMaterializer
@@ -108,8 +111,6 @@ class PlantInstanceService:
         # carries. Optional, like every other collaborator here, so the service stays
         # constructible in pure-domain contexts; the production wiring supplies both
         # and an absence check pins that, so the escape cannot become the default.
-        self._substrate_service = substrate_service
-        self._species_service = species_service
         # One resolver per catalogue reference, bound once. A mapping rather than the
         # ``if/elif`` chain this started as: that chain had no ``else``, so a field
         # it did not name fell through unchecked and looked exactly like a field that
@@ -119,10 +120,44 @@ class PlantInstanceService:
     def list_plants(self, offset: int = 0, limit: int = 50, tenant_key: str = "") -> tuple[list[PlantInstance], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_plants_window(
+        self,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[PlantInstance]:
+        """One ``_key``-ordered page of the tenant's plants without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`list_plants` pays a
+        second scan for is never read; ``after`` pages by keyset instead of offset.
+        """
+        return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
+
+    def list_all_plants(self, tenant_key: str) -> list[PlantInstance]:
+        """Every plant of ``tenant_key``, page by page — for aggregates (#2025).
+
+        :meth:`list_plants` returns one page; a per-location count built from a single
+        fixed window of 10000 silently undercounted past it.
+        """
+        return get_all_pages(self._repo, tenant_key=tenant_key)
+
     def get_plant(self, key: PlantID, tenant_key: str = "") -> PlantInstance:
         plant = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        return plant
+
+    def _get_owned_plant(self, key: PlantID, tenant_key: str) -> PlantInstance:
+        """Load a plant ``tenant_key`` owns, for a write (#2107).
+
+        Unconditional, unlike :meth:`get_plant`'s ``if tenant_key``: an empty tenant
+        is refused by :func:`verify_tenant_ownership` like a foreign one, so a write
+        path can never skip the check by passing nothing.
+        """
+        plant = self._repo.get_or_raise(key)
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant
 
     def _verify_site_ownership(self, plant: PlantInstance) -> None:
@@ -136,11 +171,11 @@ class PlantInstanceService:
         ownership is anchored directly on the resolved site here and the guard is not
         inert. Raises :class:`NotFoundError` (via ``get_site_or_raise`` for an unknown
         site, via ``verify_tenant_ownership`` for a foreign one) so the write path is
-        never reached. Skipped when the plant carries no ``tenant_key`` (internal
-        callers / tests) or no ``site_key`` — matching the ``if tenant_key`` gate used
-        by ``get_plant``/``remove_plant``.
+        never reached. Skipped only when the plant has no ``site_key``: both write
+        paths stamp the caller's tenant onto the plant first (#2107), so a plant
+        without a tenant reaching this point is refused like a foreign one.
         """
-        if not plant.tenant_key or not plant.site_key:
+        if not plant.site_key:
             return
         site = self._site_repo.get_site_by_key(plant.site_key)
         if site is None:
@@ -284,11 +319,9 @@ class PlantInstanceService:
 
         It is *not*, however, a claim that a stale reference stays hidden. A plant
         that already carries a foreign ``species_key`` — written before this guard
-        existed — is disclosed on **every** ``GET``: ``_to_response`` calls
-        ``resolve_species``, which reads the species repository **unscoped**
-        (``get_by_key``) to denormalise the label. Rows predating the guard are
-        exempt by the changed-only rule and no repair migration ships with #1349;
-        the exposure is pre-existing and unchanged by it, not absent.
+        existed — keeps it (exempt by the changed-only rule, no repair migration).
+        Its label no longer discloses the foreign species: ``resolve_species``
+        resolves the key under the reader's tenant (#2082) and answers ``None``.
 
         Only ``None`` skips a field. An empty string does **not**: ``""`` is a value
         the caller chose, it resolves to nothing, and reading it as "no reference
@@ -296,9 +329,10 @@ class PlantInstanceService:
         schemas reject it at the boundary with 422 (``min_length=1``); this half
         catches the same value arriving from any other caller.
 
-        Skipped entirely for a plant with no ``tenant_key`` (seeds, migrations, light
-        mode): there is nothing to anchor against, matching the ``if tenant_key`` gate
-        on :meth:`get_plant` and :meth:`_verify_site_ownership`.
+        Skipped for a plant with no ``tenant_key``: there is nothing to anchor
+        against. Neither write path reaches that state any more — :meth:`create_plant`
+        refuses an empty tenant and :meth:`update_plant` verifies the stored plant
+        against the caller's (#2107) — so the skip is a fail-safe, not an escape.
         """
         if not plant.tenant_key:
             return
@@ -323,7 +357,7 @@ class PlantInstanceService:
                 "reference_resolver_unwired",
                 fields=unchecked,
                 plant_key=plant.key,
-                tenant_key=plant.tenant_key,
+                tenant=log_tenant(plant.tenant_key),
             )
         if previous is None or any(
             getattr(plant, field) != getattr(previous, field) for field in self._PLACEMENT_FIELDS
@@ -462,7 +496,17 @@ class PlantInstanceService:
         except Exception:  # noqa: BLE001 — never fail plant creation for this
             logger.error("care_profile_bootstrap_failed", plant_key=created.key, exc_info=True)
 
-    def create_plant(self, plant: PlantInstance, skip_validation: bool = False) -> PlantInstance:
+    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
+        """Create ``plant`` in ``tenant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
+        plant before anything is resolved, so every reference check below — site,
+        species, substrate, slot — runs against the caller's tenant rather than
+        against whatever the model happened to carry.
+        """
+        if not tenant_key:
+            raise ValueError("create_plant is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        plant.tenant_key = tenant_key
         # SEC (#719): reject a foreign/unknown site_key before any write, mirroring the
         # location create path — a client must not create a plant on another tenant's site.
         self._verify_site_ownership(plant)
@@ -644,7 +688,7 @@ class PlantInstanceService:
             logger.error(
                 "clonal_pup_spawn_failed",
                 mother_key=mother.key,
-                tenant_key=mother.tenant_key,
+                tenant=log_tenant(mother.tenant_key),
                 species_key=mother.species_key,
                 phase_name=phase_name,
                 exc_info=True,
@@ -687,7 +731,7 @@ class PlantInstanceService:
             logger.warning(
                 "clonal_pup_spawn_skipped_existing_descendant",
                 mother_key=mother.key,
-                tenant_key=mother.tenant_key,
+                tenant=log_tenant(mother.tenant_key),
             )
             return None
 
@@ -738,7 +782,7 @@ class PlantInstanceService:
             "clonal_pup_spawned",
             mother_key=mother.key,
             pup_key=created.key,
-            tenant_key=mother.tenant_key,
+            tenant=log_tenant(mother.tenant_key),
             species_key=mother.species_key,
             pup_phase_key=created.current_phase_key,
         )
@@ -756,7 +800,9 @@ class PlantInstanceService:
         """
         assert mother.key is not None
         if pup.key is None:
-            logger.warning("clonal_pup_backfill_skipped_no_key", mother_key=mother.key, tenant_key=mother.tenant_key)
+            logger.warning(
+                "clonal_pup_backfill_skipped_no_key", mother_key=mother.key, tenant=log_tenant(mother.tenant_key)
+            )
             return
         if self._repo.has_descendants(mother.key):
             # Doc + edge both present — fully consistent, nothing to do.
@@ -769,7 +815,7 @@ class PlantInstanceService:
             "clonal_pup_lineage_backfilled",
             mother_key=mother.key,
             pup_key=pup.key,
-            tenant_key=mother.tenant_key,
+            tenant=log_tenant(mother.tenant_key),
         )
 
     def _record_clone_event(self, mother: PlantInstance, pup: PlantInstance, when: datetime) -> None:
@@ -819,11 +865,20 @@ class PlantInstanceService:
 
         return False
 
-    def update_plant(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
+    def update_plant(self, key: PlantID, plant: PlantInstance, *, tenant_key: str) -> PlantInstance:
+        """Write ``plant`` over ``tenant_key``'s stored plant ``key``.
+
+        The stored plant is verified against ``tenant_key`` here (#2107), not only by
+        the route that loaded it for the merge: until then this method re-read it
+        without a tenant, and a caller that skipped the route's pre-read wrote any
+        tenant's plant. The tenant is stamped onto ``plant`` too, so the body cannot
+        hand the plant to another tenant.
+        """
         # Read the persisted state *before* the write so a genuine site change can be
         # detected (REQ-047 §3.4): the caller has already mutated ``plant`` in memory,
         # so the DB copy still carries the old site_key.
-        existing = self.get_plant(key)
+        existing = self._get_owned_plant(key, tenant_key)
+        plant.tenant_key = tenant_key
         old_site_key = existing.site_key
         # SEC (#719): re-verify the (possibly changed) client-supplied site_key against
         # the plant's tenant before persisting — closes the same IDOR as #717 did for
@@ -868,7 +923,7 @@ class PlantInstanceService:
                 return
             self._overwintering_materializer.materialize(plant, site)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
-            logger.warning("overwintering_materialize_failed", plant_key=plant.key, error=str(exc))
+            logger.warning("overwintering_materialize_failed", plant_key=plant.key, error=loggable_error(exc))
 
     def _sync_overwintering_on_move(self, plant: PlantInstance, old_site_key: str | None) -> None:
         """Keep the winter profile in sync when a plant changes site (REQ-047 §3.4).
@@ -895,9 +950,9 @@ class PlantInstanceService:
                     self._overwintering_materializer.materialize(plant, new_site)
             elif self._overwintering_service is not None and plant.key:
                 # Moved indoors / lost its site: drop an auto-generated profile only.
-                self._overwintering_service.remove_auto_profile_for_plant(plant.key, plant.tenant_key)
+                self._overwintering_service.remove_auto_profile_for_plant(plant.key, tenant_key=plant.tenant_key)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
-            logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=str(exc))
+            logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=loggable_error(exc))
 
     def _load_plant_location(self, plant: PlantInstance) -> Location | None:
         """Load the plant's :class:`Location` for the frost-exposure resolver (#706).
@@ -927,7 +982,7 @@ class PlantInstanceService:
         *,
         termination_type: TerminationType | None = None,
         termination_cause: TerminationCause | None = None,
-        tenant_key: str = "",
+        tenant_key: str,
     ) -> PlantInstance:
         """Soft-remove a plant, optionally classifying how its lifecycle ended (E5).
 
@@ -938,12 +993,12 @@ class PlantInstanceService:
         and ``termination_cause`` is recorded for failure analytics. ``termination_cause``
         is only valid together with ``died``.
 
-        ``tenant_key`` re-verifies ownership inside the service (SEC-001, defence in
-        depth): the isolation invariant must not depend solely on the router fetching
-        the plant first. Empty (the default) preserves the pre-existing behaviour for
-        internal callers and tests.
+        ``tenant_key`` verifies ownership inside the service (SEC-001): the isolation
+        invariant must not depend on the router fetching the plant first. It is
+        required (#2107) — the ``""`` default it had skipped the check for any caller
+        that left it out.
         """
-        plant = self.get_plant(key, tenant_key=tenant_key)
+        plant = self._get_owned_plant(key, tenant_key)
 
         # E5: a cause only makes sense for an unplanned death.
         if termination_cause is not None and termination_type != TerminationType.DIED:
@@ -1233,11 +1288,16 @@ class PlantInstanceService:
             return ""
         return self._phase_resolver.resolve_name(phase_key)
 
-    def resolve_species(self, species_key: str) -> Species | None:
-        """Resolve a Species key to its full model (for denormalized labels)."""
+    def resolve_species(self, species_key: str, *, tenant_key: str) -> Species | None:
+        """Resolve a Species key to its full model for a denormalized label, under the tenant.
+
+        A plant row may carry a species key its tenant cannot read (written before the
+        reference was verified, #2082): that resolves to ``None`` — the same as an
+        unknown key — never to the foreign species' name.
+        """
         if not species_key or not self._species_repo:
             return None
-        return self._species_repo.get_by_key(species_key)
+        return readable_species(self._species_repo, species_key, tenant_key)
 
     def resolve_cultivar(self, cultivar_key: str | None) -> Cultivar | None:
         """Resolve a Cultivar key to its full model (for denormalized labels)."""

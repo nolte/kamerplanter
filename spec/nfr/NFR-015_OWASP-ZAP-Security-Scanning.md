@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: OWASP ZAP, ZAP Action (Baseline / Full / API), AjaxSpider, GitHub Actions, SARIF
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.2
+Version: 1.3
 Autor: QA / Security Engineering
 Datum: 2026-04-28
 Tags: [security, dast, zap, owasp, ajax-spider, active-scan, passive-scan, api-scan, authenticated-scan, sarif, ci-gate]
@@ -19,6 +19,7 @@ Betroffene Module: [src/backend, src/frontend, helm, .github/workflows, tests/se
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-12 | §4.2: Rate-Limits im Scan-Stack (#2248). Der Merge-Scan lief gegen den `backend`-Dienst mit den Produktions-Budgets, und ZAP erschöpfte sie: der Wechsel zwischen der Antwort des Handlers und 429 mitten in einer Probe-Serie erzeugte ein falsches „SQL Injection“ (Regel 40018) auf `/privacy/email-change/revert`. `docker-compose.security.override.yml` hebt jetzt die Budgets der Routen an, die der anonyme Scan vor dem Limiter erreicht; die Anwendung und der Chart behalten ihre Werte. Klassifizierung jedes Limits durch `src/backend/tests/unit/guards/test_scan_stack_rate_limits.py`. |
 | 1.2 | 2026-09-03 | §4.3/§5.3: Scan-Budget der Nightly korrigiert. Das Beispiel trug `-T 60`, doch `-T` begrenzt in `zap-full-scan.py` nur den ZAP-Start und das Warten auf den Passiv-Scan — Spider und Active Scan liefen unbegrenzt, und 4 von 8 Nächten (2026-08-27 bis 09-02) endeten mit totem Runner statt Report. Jetzt: `-m 15` für beide Spider, `-T 15` für Start und Passiv-Scan-Wartezeit, Active-Scan-Grenze 60 min über `zap_hooks.py` (einziger Ort, an dem sie gesetzt werden kann), Job-Timeout (240 min, nicht 6 h — §5.3 korrigiert) bleibt das Ceiling; der Hook meldet nach den Scans den Active-Scan-Fortschritt, damit ein gekappter Scan nicht wie ein vollständiger aussieht. |
 | 1.1 | 2026-04-29 | Spec-Followup nach PR-#115-Review: §3.2 von einem klassischen Authentication-Script auf ein **HttpSender-Script** umgestellt (Bearer-Header für ALLE Folgerequests, JWT-Refresh bei 401). §3.3 um konkretes **Passive-Rule-Script-Skelett** für Cross-Tenant-Detection erweitert (extrahiert Tenant aus URL und JWT-Payload, raised High-Alert bei Mismatch). §5.1 Severity-Mapping auf striktes 1:1-Mapping ZAP→NFR-Modell mit expliziter Critical-Eskalations-Regel für Cross-Tenant. §4.1 Beschreibung: Baseline-Profil aktiviert AjaxSpider explizit auch passive (nicht erst im Full). §4.3 Replacer-Konfig in `zap-context.xml` zentralisiert statt CLI-Override. Drei Test-Identitäten als Pflicht-Pre-Deploy-Check ergänzt (dürfen nicht in Prod-DB-Snapshots auftauchen). §3.1 Domain-Korrektur: `@kamerplanter.test` (von Pydantic abgelehnt) → `@zap.kamerplanter.example`; Setup-Tooling unter `tests/security/zap-setup/` statt im Backend-Code; Pre-Deploy-Check als AQL-Daten-Prüfung formuliert. PR-#117-Review-Followup: §4.2 um zwei Pässe (auth + anonym) für Auth-Bypass-Detection erweitert (Findings-Logik-Tabelle, Out-of-Scope-Routen referenziert §3.4). §3.2 dokumentiert die Limitation, dass ZAP einen 401-Request nicht automatisch nach `refreshToken()` replay-t — Mitigation über erhöhte Test-Token-Lifetime und Pre-Auth via Setup-Skript. |
 | 1.0 | 2026-04-28 | Erstversion — OWASP ZAP Baseline-, Full- und API-Scan-Profile; authentifizierte Scans gegen Tenant-Routing; AjaxSpider für React-SPA; SARIF-Reporting, Build-Gate, Triage. |
@@ -345,8 +346,26 @@ löst einen Baseline-Scan (passiv + AjaxSpider) gegen die Frontend-URL des
 ephemeren Stacks aus (`.github/workflows/security-zap-postmerge.yml`, Trigger
 `push`); zusammen mit dem API-Scan aus §4.2 im selben Job.
 
-**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem er das Label
-`security-scan` erhält.
+**KANN**: Ein Pull Request wird vor dem Merge gescannt, indem der Workflow per
+`workflow_dispatch` mit der Pull-Request-Nummer gestartet wird — der
+Checkout-Schritt löst daraus `refs/pull/<n>/merge` auf, gescannt wird also der
+Pre-Merge-Stand:
+
+```bash
+gh workflow run security-zap-postmerge.yml --ref develop -f pull_request=<nummer>
+```
+
+> **Warum kein Label-Trigger mehr (2026-09-20, Issue #1607).** Bis dahin stand
+> hier „Label `security-scan`". Das Label existierte in diesem Repository
+> **nicht** — die dokumentierte Aufrufform rief nichts auf, die Lane war nie
+> vor einem Merge gelaufen. Und weil GitHub `pull_request: types: [labeled]`
+> nicht nach Label-*Namen* filtern kann, lag die Auswahl im `if:` des Jobs,
+> also *nach* dem Einreihen des Laufs: jedes beliebige Label an jedem
+> beliebigen Pull Request reihte hier einen Lauf ein, der sofort übersprang.
+> Gemessen über 2026-09-13T05:54Z .. 2026-09-20T16:39Z: **300 `pull_request`-Läufe,
+> 278 übersprungen + 22 abgebrochen, 0 ausgeführt.** Das Label
+> `security-scan` existiert seit #1607 und ist in `.github/settings.yml`
+> deklariert, ist aber ein reiner **Triage-Marker** und löst nichts aus.
 
 > **Warum nicht mehr pro Push auf jedem Pull Request (2026-08-08, Issue #1013).**
 > Bis dahin lief diese Lane per `pull_request`. Über die 100 jüngsten Läufe
@@ -442,7 +461,7 @@ jobs:
 
 ### 4.2 API-Scan (Merge-Scan, OpenAPI-getrieben)
 
-**MUSS**: Im selben Merge-Scan-Job wie §4.1 (Trigger `push` auf `develop`; per Label `security-scan` on demand auch vor dem Merge) läuft ein OpenAPI-getriebener API-Scan gegen die laufende Backend-Spec. Er ist die **einzige** systematische Abdeckung jeder in OpenAPI deklarierten Route — die Nightly (§4.3) spidert das Frontend und deckt ihn nicht ab; das Restfenster ist einen Merge breit. Referenz-Entwurf:
+**MUSS**: Im selben Merge-Scan-Job wie §4.1 (Trigger `push` auf `develop`; on demand auch vor dem Merge per `workflow_dispatch` mit Pull-Request-Nummer, siehe §4.1) läuft ein OpenAPI-getriebener API-Scan gegen die laufende Backend-Spec. Er ist die **einzige** systematische Abdeckung jeder in OpenAPI deklarierten Route — die Nightly (§4.3) spidert das Frontend und deckt ihn nicht ab; das Restfenster ist einen Merge breit. Referenz-Entwurf:
 
 ```yaml
 - name: Generate OpenAPI from running API
@@ -458,6 +477,18 @@ jobs:
 ```
 
 **MUSS**: Der API-Scan deckt ausschließlich Routen ab, die in der OpenAPI deklariert sind. Routen, die in der Implementierung existieren, aber nicht in OpenAPI auftauchen, bilden eine eigene Finding-Class (siehe §4.4).
+
+#### Rate-Limits im Scan-Stack
+
+**MUSS**: Der Scan-Stack (`docker-compose.e2e.yml` + `docker-compose.security.override.yml`) hebt die Rate-Limits **jeder** Route an, die der anonyme Merge-Scan vor dem Limiter erreicht. Die Budgets der Anwendung sind pro Client-Adresse für einen Menschen bemessen; ZAP ist eine Adresse mit Hunderten Payloads pro Route und Minute (lokal gemessen am 2026-10-12: bis 466/min auf `/auth/register`, 123/min auf `/privacy/email-change/revert`). Ein erschöpftes Budget lässt die Antwort mitten in einer Probe-Serie zwischen dem Status des Handlers und `429` wechseln, und ZAPs differenzielle Regeln lesen diesen Wechsel als Wirkung des Payloads.
+
+> **Gemessener Anlass (#2248).** Regel 40018 meldete „SQL Injection“ auf `POST /api/v1/privacy/email-change/revert` (Run 38123811759, Evidenzzeile `(429 Too Many Requests)`). Die Route hasht das Token vor jedem Lookup und fragt ArangoDB mit Bind-Variablen ab; SQL ist nicht erreichbar. Der Mechanismus: der 429-Body ist konstant, jeder 401-Body trägt eine frische `error_id`. ZAPs Boolean-Zweig („Original == AND-wahr == AND-falsch, OR-wahr weicht ab“) ist deshalb genau dann erfüllt, wenn das Zeitfenster des Limiters zwischen der AND-falsch- und der OR-wahr-Probe zurückspringt. Ein lokaler Nachbau dieses Quartetts gegen den Scan-Stack ergab die Alarmform `(429, 429, 429, 401)` bei `10/minute` und keine einzige Gleichheit Original == AND-wahr beim angehobenen Budget.
+
+**MUSS**: Die Anhebung lebt **nur** in `docker-compose.security.override.yml`. Weder der Basisdienst in `docker-compose.e2e.yml` noch der Helm-Chart noch die Defaults in `app/config/settings.py` ändern sich; der Scan-Stack misst kein Rate-Limit-Verhalten. Ausnahme ist `RATE_LIMIT_DEVICE_PAIRING_REDEEM`: das Nuclei-Template `kamerplanter-device-pairing-bruteforce` prüft dessen 429 auf genau diesem Stack (NFR-014), und die Adress-Sperre (423 nach fünf Fehlversuchen) lässt die Antwort unabhängig vom Limit wechseln — dort bleibt die genehmigte Zeile in `tests/security/zap-api-rules.tsv` die Antwort.
+
+**MUSS**: `src/backend/tests/unit/guards/test_scan_stack_rate_limits.py` verlangt für jedes Limit, das ein Routen-Decorator anwendet, eine Entscheidung: angehoben (mit gemessener Begründung) oder bewusst auf Produktionswert (mit gemessener Begründung). Er prüft außerdem, dass jeder angehobene Schlüssel ein echtes `Settings`-Feld trifft (ein vertippter Schlüssel würde still ignoriert), dass das Budget das Zehnfache des gemessenen Scan-Peaks übersteigt und dass die Anhebung nirgends außerhalb der Scan-Schicht steht.
+
+**Grenze**: Limits, die keine Einstellung sind (`_TERMS_RATE_LIMIT` / `_TERM_RATE_LIMIT` des öffentlichen Glossars, als Konstanten in `glossar/public_router.py`), lassen sich im Scan-Stack nicht anheben; Run 38123811759 verzeichnete auch auf `/public/glossary/terms` ein 429. Ebenso bleibt die Login-Sperre (423) ein Wechsel, den kein Rate-Limit beeinflusst.
 
 #### Auth-Bypass-Detection (zwei Pässe)
 
@@ -725,7 +756,7 @@ Durchgesetzt von `src/backend/tests/unit/guards/test_zap_rule_suppressions.py` (
 ### Definition of Done
 
 - [ ] **Profile**
-    - [ ] `.github/workflows/security-zap-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1), und on demand per Label `security-scan`
+    - [ ] `.github/workflows/security-zap-postmerge.yml` läuft auf jedem Merge nach `develop`, der die deployte Fläche berührt (§4.1), und on demand per `workflow_dispatch -f pull_request=<nummer>`
     - [ ] `.github/workflows/security-zap-api.yml` läuft auf jedem PR
     - [ ] `.github/workflows/security-zap-nightly.yml` läuft täglich gegen Staging
     - [ ] Pre-Release-Workflow startet Full-Scan zusätzlich on-demand

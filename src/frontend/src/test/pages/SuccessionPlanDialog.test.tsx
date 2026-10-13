@@ -242,4 +242,37 @@ describe('SuccessionPlanDialog', () => {
     await user.click(screen.getByTestId('form-submit-button'));
     expect(onSaved).not.toHaveBeenCalled();
   });
+
+  /**
+   * #1628 UI review: the species picker was disabled while the catalogue
+   * loaded with no visible reason — indistinguishable, at a glance, from a
+   * field the form itself decided to lock. `PropagationEventDialog` already
+   * showed a loading helper text for the same shared field component; this
+   * follows that pattern instead of leaving the disablement unexplained.
+   */
+  it('shows a loading helper text on the species field while the catalogue is in flight', async () => {
+    let resolveSpecies!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      resolveSpecies = resolve;
+    });
+    server.use(
+      http.get('/api/v1/species', async () => {
+        await pending;
+        return HttpResponse.json({ items: [], total: 0, offset: 0, limit: 200 });
+      }),
+    );
+
+    renderWithProviders(<SuccessionPlanDialog open onClose={() => {}} onSaved={() => {}} />);
+
+    const field = screen.getByTestId('form-field-species_key');
+    expect(field.querySelector('input')?.disabled).toBe(true);
+    expect(field.textContent).toContain(i18n.t('common.loading'));
+
+    resolveSpecies();
+
+    await waitFor(() => {
+      expect(field.querySelector('input')?.disabled).toBe(false);
+    });
+    expect(field.textContent).not.toContain(i18n.t('common.loading'));
+  });
 });

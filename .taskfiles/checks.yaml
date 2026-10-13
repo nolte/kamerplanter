@@ -16,7 +16,7 @@ vars:
   # under an unchanged repository. Aged by the Taskfile custom manager in
   # renovate.json5 (added with this target), so the pin cannot rot either.
   # renovate: datasource=docker depName=renovate/renovate
-  RENOVATE_IMAGE: renovate/renovate:44.94.1@sha256:009fd964cff7a42b1f0a90207250f9dc89affa28cc9a8c086f15fac74c28d803
+  RENOVATE_IMAGE: renovate/renovate:44.149.1@sha256:0423c5dfb1488df5716b6584032b3bcf7091ad7a3bc547c5707f047da7a30674
 
 tasks:
   renovate:dry-run:
@@ -46,6 +46,20 @@ tasks:
       is not the one CI uses, which defeats the purpose. Masking changes only
       what the container can see.
 
+      `.venv-docs` and `site` joined that list in #1509, measured rather than
+      guessed, and they are TWO separate local artefacts of one command
+      (`task docs:build`): the venv made the dry-run report an `html` manager
+      with two package files that do not exist in a clean checkout (MkDocs' own
+      site-packages), and the built site made it report `pip_requirements`
+      fileCount 3 instead of 2, because MkDocs copies every non-Markdown file
+      under `docs/` — `docs/requirements.txt` included — into `site/`.
+      CI never sees either, so both were pure local noise in the one output this
+      target exists to be read from — and the second one contradicted the
+      dashboard fixture derived from it. `_SWEEP_EXCLUDED` in
+      scripts/ci/check_renovate_dashboard.py excludes the same two directories;
+      a fix in one instrument and not the other leaves the disagreement in
+      place, which is what the #1509 review caught.
+
       GITHUB_TOKEN is passed through when set. Without it the datasource lookups
       run anonymously and hit the rate limit quickly — the manager inventory is
       still correct, the "would propose" half is not.
@@ -57,16 +71,48 @@ tasks:
       scripts/ci/check_renovate_dashboard.py before merging a renovate.json5
       edit, instead of after the next Renovate run.
 
+      THE MASKED PATHS ARE PRE-CREATED, AND WHY (#1600). An anonymous volume
+      needs its mount point to exist inside the container; `$PWD` is bind-mounted
+      at /repo, so a mount point Docker has to create lands on the HOST — created
+      by the daemon, hence root-owned. A fresh worktree was left with five
+      root-owned empty directories, and `src/backend/.venv` among them made the
+      documented backend setup fail with `failed to open file
+      .../src/backend/.venv/CACHEDIR.TAG: Permission denied`, pointing nowhere
+      near the dry-run that caused it. `--user "$(id -u):$(id -g)"` does NOT fix
+      this — measured: the daemon creates the mount point before the container's
+      user applies, so it is root-owned either way. Creating the paths here, as
+      the invoking user, does: Docker then finds them and creates nothing. The
+      masking `-v` flags are derived from that same list, so what the run
+      pre-creates and what it masks cannot drift apart. The EXIT trap removes
+      again only what this run created and what stayed empty, so a real venv or
+      node_modules is never touched. Should the trap be missed (an interrupt the
+      task shell does not route through EXIT), the residue is user-owned and
+      empty — annoying, but it breaks nothing.
+
       Requires Docker.
     cmds:
       - |
         set -euo pipefail
         printf 'renovate dry-run using %s\n\n' '{{.RENOVATE_IMAGE}}'
+        masked='src/backend/.venv .venv-docs site src/frontend/node_modules node_modules'
+        created=''
+        mask_args=''
+        for p in $masked; do
+          if [ ! -e "$p" ]; then
+            mkdir -p "$p"
+            created="$created $p"
+          fi
+          mask_args="$mask_args -v /repo/$p"
+        done
+        cleanup() {
+          for p in $created; do
+            rmdir --ignore-fail-on-non-empty "$p" 2>/dev/null || true
+          done
+        }
+        trap cleanup EXIT
         docker run --rm \
           -v "$PWD:/repo" \
-          -v /repo/src/backend/.venv \
-          -v /repo/src/frontend/node_modules \
-          -v /repo/node_modules \
+          $mask_args \
           -w /repo \
           -e LOG_LEVEL="${LOG_LEVEL:-info}" \
           -e RENOVATE_CONFIG_FILE=/repo/renovate.json5 \
@@ -334,6 +380,47 @@ tasks:
         done
         exit "$rc"
 
+  # ── The aggregate every report pastes ───────────────────────
+  #
+  # Every report in this repository quotes this command's output as evidence, so
+  # #1641 and #1649 asked the only question that matters about it: can the
+  # verdict be wrong? It was measured rather than reasoned about, and the record
+  # with its numbers is spec/dev-tooling/PRECOMMIT-CONCURRENCY.md. Three results
+  # belong here, next to the command:
+  #
+  #   * **A false green is real, and it is not the shared cache.** 175
+  #     deliberately concurrent runs from two WORKTREES sharing
+  #     ~/.cache/pre-commit — seeded E501, full CPU starvation, store wiped
+  #     before each pair — produced no wrong verdict in either direction. The
+  #     false green came from two WRITERS IN ONE WORKTREE (#1649): a file staged
+  #     45 s into a 9-minute run is not in the list pre-commit enumerated with
+  #     `git ls-files` at the start, and the whole suite reported 0 Failed and
+  #     exit 0 over a tree the very next run called Failed.
+  #   * **pre-commit's own after-check is half a net.** It diffs the working
+  #     tree against the index after each hook, so it notices a content edit to
+  #     a tracked file — and blames whichever hook held the window, which is the
+  #     #1649 false red. A newly *staged* file moves the index, not the diff, so
+  #     it passes unseen.
+  #   * **`--all-files` never touches the patch/stash machinery** (pre-commit
+  #     4.5.0, commands/run.py: `stash = not args.all_files and not
+  #     args.files`), so the `~/.cache/pre-commit/patch*` collision class this
+  #     repository already knows about cannot reach `task precommit`.
+  #
+  # So this target does NOT hand each worktree its own PRE_COMMIT_HOME, which is
+  # what #1641 proposed. Measured, that store is 253 MB and 1:26 of environment
+  # building PER WORKTREE (41 of them on this machine) — and it would not have
+  # prevented the one false green that exists, which happens inside a single
+  # worktree and never touches the store.
+  #
+  # What it does instead is stop "nothing else was running" from being an
+  # assertion. scripts/precommit_sibling_notice.sh names any overlapping sibling
+  # run, and names every path that changed while the suite was in flight. It
+  # never changes the verdict or the exit code. Serialising the runs was
+  # rejected for a reason worth stating: the demonstrated writer is an editor or
+  # a second agent in the same tree, and no lock held by this command can stop
+  # one. The binding rule stays organisational — one writer per worktree,
+  # spec/project/parallel-working-copies/ — and the notice makes a breach of it
+  # visible rather than preventing it.
   precommit:
     desc: |
       Run the full pre-commit hook suite over the whole tree — the local
@@ -342,8 +429,13 @@ tasks:
       hooks also exist as their own check:* / test:e2e:selftest targets; this is
       the aggregate the PR gate actually enforces. Requires pre-commit
       (`pip install pre-commit` or pipx).
+
+      Prints a notice when a sibling run overlapped this one, and when the tree
+      changed while the suite was in flight — the two ways a pasted verdict can
+      describe a tree that no longer exists (#1641, #1649). Both are
+      informational; the verdict and the exit code are unaffected.
     cmds:
-      - pre-commit run --all-files {{.CLI_ARGS}}
+      - ./scripts/precommit_sibling_notice.sh {{.CLI_ARGS}}
 
   # ── Aggregate quality gate ──────────────────────────────────
   #

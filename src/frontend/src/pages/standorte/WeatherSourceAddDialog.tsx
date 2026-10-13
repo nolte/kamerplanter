@@ -28,6 +28,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { Link as RouterLink } from 'react-router-dom';
 import * as weatherApi from '@/api/endpoints/weatherSources';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type {
   AvailableSourcesResponse,
   HaEntityItem,
@@ -140,9 +141,14 @@ export default function WeatherSourceAddDialog({
     }
   }, [open, existing, publicSources]);
 
+  // MT-015 (#2112): the entity lists are readable only with the `technical`
+  // scope (and hold only the garden's released entities). Without it they are
+  // not requested — the branch explains instead of collecting a 403.
+  const { canConfigureIntegrations } = useTenantPermissions();
+
   // Lazily load HA entities the first time the HA branch is shown.
   useEffect(() => {
-    if (!open || kind !== 'home_assistant' || !haTokenSet) return;
+    if (!open || kind !== 'home_assistant' || !haTokenSet || !canConfigureIntegrations) return;
     if (weatherEntities.length > 0 || sensorEntities.length > 0) return;
     let cancelled = false;
     setLoadingEntities(true);
@@ -164,7 +170,7 @@ export default function WeatherSourceAddDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, kind, haTokenSet, weatherEntities.length, sensorEntities.length]);
+  }, [open, kind, haTokenSet, canConfigureIntegrations, weatherEntities.length, sensorEntities.length]);
 
   const setMappingField = useCallback((field: keyof HaSensorMapping, value: string | null) => {
     setSensorMapping((prev) => ({ ...prev, [field]: value }));
@@ -172,10 +178,11 @@ export default function WeatherSourceAddDialog({
 
   const canSave = useMemo(() => {
     if (kind === 'public') return !!sourceName;
+    if (!canConfigureIntegrations) return false;
     if (haMode === 'weather_entity') return !!weatherEntityId;
     // sensor_mapping: require at least one mapped field.
     return SENSOR_FIELDS.some((f) => !!sensorMapping[f]);
-  }, [kind, sourceName, haMode, weatherEntityId, sensorMapping]);
+  }, [kind, sourceName, canConfigureIntegrations, haMode, weatherEntityId, sensorMapping]);
 
   const handleSave = () => {
     if (kind === 'public') {
@@ -330,7 +337,13 @@ export default function WeatherSourceAddDialog({
           )}
 
           {/* ── Home Assistant branch ── */}
-          {kind === 'home_assistant' && haTokenSet && (
+          {kind === 'home_assistant' && haTokenSet && !canConfigureIntegrations && (
+            <Alert severity="info" data-testid="ha-entities-technical-only-hint">
+              {t('pages.weatherSource.haEntitiesTechnicalOnly')}
+            </Alert>
+          )}
+
+          {kind === 'home_assistant' && haTokenSet && canConfigureIntegrations && (
             <Stack spacing={2}>
               <ToggleButtonGroup
                 exclusive

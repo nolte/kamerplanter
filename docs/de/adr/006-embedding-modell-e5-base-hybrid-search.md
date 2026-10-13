@@ -97,3 +97,15 @@ Dies erfordert:
 ### Neutral
 - Anzahl der Chunks (241) ist klein genug, dass der Modellwechsel sofort messbar ist
 - PostgreSQL German-Stemmer ist für Fachbegriffe wie "Nährstoffmangel" oder "Überwässerung" gut geeignet
+
+## Nachtrag (2026-09-24): Modell-Downloads gepinnt und verifiziert
+
+Seit 2026-09-24 sind alle vier Modell-Downloads des `embedding-service` (`multilingual-e5-small`, `-base`, `-large` sowie das MiniLM-Modell, das als Build-Target weiterhin verfügbar ist) im Docker-Build auf eine feste Commit-Revision gepinnt; jede übernommene Datei wird zusätzlich in derselben Build-Stufe per `sha256sum -c --strict` verifiziert (intern verfolgt als Issue #1724). Das MiniLM-Modell stammt dabei aus einem Drittanbieter-Export (`Xenova/paraphrase-multilingual-MiniLM-L12-v2`), nicht aus dem Repository der Modell-Autoren — daran ändert die Pinning-Maßnahme nichts, sie macht nur reproduzierbar, welche Version davon im Image landet.
+
+**Gemessen** gegen das zuvor ungepinnte Image: alle heruntergeladenen Dateien bit-identisch (sha256), und die erzeugten Embeddings für alle vier Modelle identisch (maximale Abweichung 0,0).
+
+**Nebenbefund beim Messen:** Das Build-Target `--target e5-small` beantwortete zuvor jede `/embed`-Anfrage mit einem Fehler, weil sein ONNX-Graph ein Eingabefeld (`token_type_ids`) erwartet, das der zugehörige Tokenizer nicht erzeugt. Die Eingabe wird seither aus den vom Graph selbst deklarierten Feldern gebaut, nicht mehr aus dem, was der Tokenizer zufällig liefert.
+
+Zusätzlich läuft der Service zur Laufzeit mit `HF_HUB_OFFLINE=1`: Ein `from_pretrained`-Aufruf mit einer Hub-ID oder ein versehentlicher `snapshot_download` schlägt damit fehl, statt unbemerkt ein ungepinntes Modell nachzuladen.
+
+Die eigentliche Entscheidung dieses ADRs — Wechsel auf `multilingual-e5-base`/`-large` und Hybrid Search — bleibt unverändert; geändert hat sich nur, wie reproduzierbar und integritätsgesichert die Modell-Dateien ins Image gelangen.

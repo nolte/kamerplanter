@@ -25,8 +25,10 @@ was bypassing it.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.common.enums import TenantRole
-from app.common.exceptions import ForbiddenError
+from app.common.exceptions import ForbiddenError, NotFoundError
 from app.domain.engines.membership_engine import MembershipEngine
 
 
@@ -106,3 +108,39 @@ def require_role_for_catalogue_create(
         return
     if not MembershipEngine.can_edit_resource(caller_role):
         raise ForbiddenError(f"Your role may not create {plural_noun} in this tenant.")
+
+
+def authorize_hybrid_catalogue_write(
+    owner_tenant_key: str,
+    *,
+    entity: str,
+    plural_noun: str,
+    key: str,
+    tenant_key: str | None,
+    caller_role: TenantRole | None,
+    is_platform_admin: bool,
+    can_role_write: Callable[[TenantRole], bool],
+) -> None:
+    """The write gate of a hybrid catalogue row (substrates #1195, fertilizers #2100).
+
+    One function for both so the two cannot drift: it was the substrate service's
+    private copy that got the global arm right while the fertilizer service answered
+    "any grower of any tenant" for a seed product (#2100). Four arms, in this order:
+
+    * ``tenant_key is None`` — the unscoped **system context** (seeders, migrations);
+      no HTTP route passes it, so it is not reachable from the wire.
+    * a *foreign* row is a 404 (ownership hiding: a foreign key and an absent key stay
+      indistinguishable);
+    * the *global* row (``""``) is a platform admin's — a 403, because the row is
+      visible to every caller and hiding it would be a lie a GET disproves;
+    * an *own* row needs a writing role: ``can_role_write(caller_role)``, or platform admin.
+    """
+    if tenant_key is None:
+        return
+    if owner_tenant_key not in (tenant_key, ""):
+        raise NotFoundError(entity, key)
+    if owner_tenant_key == "":
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=entity)
+        return
+    if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
+        raise ForbiddenError(f"Your role may not modify {plural_noun} in this tenant.")

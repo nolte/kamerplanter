@@ -38,8 +38,8 @@ from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.models.site import Site
 
-_OWN = SimpleNamespace(key="tenant_own", slug="green-club")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club")
+_OWN = SimpleNamespace(key="tenant_own", slug="green-club", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club", is_active=True)
 
 #: A slug that resolves to nothing. Used verbatim in the "does it leak?" checks.
 _UNKNOWN_SLUG = "competitor-gmbh"
@@ -62,7 +62,7 @@ class _FakeTenantService:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
         tenant = self._by_slug.get(slug)
         if tenant is None:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
@@ -75,9 +75,9 @@ class _RecordingSiteService:
     def __init__(self) -> None:
         self.calls: list[str] = []
 
-    def list_sites(self, offset: int, limit: int, *, tenant_key: str) -> tuple[list[Site], int]:
+    def list_sites_window(self, offset: int, limit: int, *, tenant_key: str) -> list[Site]:
         self.calls.append(f"list_sites:{tenant_key}")
-        return [], 0
+        return []
 
     def get_water_warnings(self, site: Site) -> list[Any]:  # pragma: no cover - no sites are returned
         return []

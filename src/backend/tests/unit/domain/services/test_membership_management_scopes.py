@@ -18,9 +18,14 @@ from app.common.exceptions import ForbiddenError, ValidationError
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.models.membership import Membership
 from app.domain.services.tenant_service import TenantService
+from tests.support.step_up import STEP_UP_PASSED, PassedStepUpVerifier
 
 _MANAGER = [AdminScope.MANAGEMENT]
 _NONE: list[AdminScope] = []
+#: The member routes pass the actor's step-up since #2032; this suite is about the scope gate and INV-1, so the
+#: step-up is the passed double. The refusals are pinned against the real verifier in
+#: ``test_tenant_role_membership_step_up.py``.
+_STEP_UP = {"requester": MagicMock(), "client_ip": None, **STEP_UP_PASSED}
 
 
 def _membership(scopes: list[AdminScope], role: TenantRole = TenantRole.LEAD) -> Membership:
@@ -31,7 +36,8 @@ def _service(membership: Membership, manager_count: int) -> tuple[TenantService,
     membership_repo = MagicMock()
     membership_repo.get_by_key.return_value = membership
     membership_repo.get_by_user_and_tenant.return_value = membership
-    membership_repo.count_managers.return_value = manager_count
+    # *manager_count* is the tenant's holders, the target included; the repository counts the others (#2166).
+    membership_repo.count_managers.return_value = max(manager_count - 1, 0)
     membership_repo.delete.return_value = True
     membership_repo.update_fields.return_value = membership
 
@@ -43,6 +49,7 @@ def _service(membership: Membership, manager_count: int) -> tuple[TenantService,
         membership_engine=MembershipEngine(),
         invitation_engine=MagicMock(),
         assignment_repo=MagicMock(),
+        step_up_verifier=PassedStepUpVerifier(),  # type: ignore[arg-type]
     )
     return service, membership_repo
 
@@ -52,19 +59,19 @@ class TestManagementScopeGatesMemberManagement:
         service, _ = _service(_membership(_MANAGER), manager_count=2)
 
         with pytest.raises(ForbiddenError, match="management"):
-            service.remove_member("t1", "m1", actor_scopes=_NONE)
+            service.remove_member("t1", "m1", actor_scopes=_NONE, **_STEP_UP)
 
     def test_scope_holder_can_remove_a_member(self):
         service, repo = _service(_membership(_NONE, role=TenantRole.GROWER), manager_count=1)
 
-        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER) is True
+        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP) is True
         repo.delete.assert_called_once_with("m1")
 
     def test_technical_scope_does_not_substitute(self):
         service, _ = _service(_membership(_NONE), manager_count=2)
 
         with pytest.raises(ForbiddenError, match="management"):
-            service.remove_member("t1", "m1", actor_scopes=[AdminScope.TECHNICAL])
+            service.remove_member("t1", "m1", actor_scopes=[AdminScope.TECHNICAL], **_STEP_UP)
 
 
 class TestLastManagerGuard:
@@ -72,14 +79,23 @@ class TestLastManagerGuard:
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
         with pytest.raises(ValidationError, match="management"):
-            service.remove_member("t1", "m1", actor_scopes=_MANAGER)
+            service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP)
         repo.delete.assert_not_called()
 
     def test_removing_a_manager_while_another_remains_is_allowed(self):
         service, repo = _service(_membership(_MANAGER), manager_count=2)
 
-        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER) is True
+        assert service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP) is True
         repo.delete.assert_called_once_with("m1")
+
+    def test_the_guard_counts_the_other_holders_and_leaves_the_target_out(self):
+        # #2166 W1 — the repository counts live accounts only; the target is counted in by the engine
+        # contract, so a closed account's membership stays removable while one live holder remains.
+        service, repo = _service(_membership(_MANAGER), manager_count=2)
+
+        service.remove_member("t1", "m1", actor_scopes=_MANAGER, **_STEP_UP)
+
+        repo.count_managers.assert_called_once_with("t1", other_than_user_key="u1")
 
     def test_the_last_manager_cannot_leave(self):
         service, repo = _service(_membership(_MANAGER), manager_count=1)
@@ -102,7 +118,9 @@ class TestLastManagerGuard:
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
         with pytest.raises(ValidationError, match="management"):
-            service.change_member_scopes("t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER)
+            service.change_member_scopes(
+                "t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER, actor_user_key="u9", **_STEP_UP
+            )
         repo.update_fields.assert_not_called()
 
     def test_the_domain_role_may_still_be_demoted_freely(self):
@@ -110,6 +128,54 @@ class TestLastManagerGuard:
         # strand a tenant — the guard must not block it.
         service, repo = _service(_membership(_MANAGER), manager_count=1)
 
-        service.change_member_role("t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER)
+        service.change_member_role(
+            "t1", "m1", new_role=TenantRole.VIEWER, actor_scopes=_MANAGER, actor_user_key="u-actor", **_STEP_UP
+        )
 
         repo.update_fields.assert_called_once_with("m1", {"role": TenantRole.VIEWER})
+
+
+class TestScopeChangeStepUp:
+    """MT-045.2 (#2144): the scope change (axis 2) passes the step-up the role change (axis 1) passes.
+
+    Dropping a co-manager's ``management`` scope is the same lockout of another account as demoting them;
+    it was the one membership write left without a re-authentication.
+    """
+
+    def test_a_scope_change_asks_the_step_up_bound_to_the_membership(self):
+        service, repo = _service(_membership(_NONE, role=TenantRole.GROWER), manager_count=1)
+
+        service.change_member_scopes(
+            "t1", "m1", new_scopes=_MANAGER, actor_scopes=_MANAGER, actor_user_key="u9", **_STEP_UP
+        )
+
+        assert service._step_up_verifier.actions == ["tenant_member_role_change"]
+        assert service._step_up_verifier.targets == ["m1"]
+        repo.update_fields.assert_called_once_with("m1", {"admin_scopes": _MANAGER})
+
+    def test_a_refused_step_up_writes_nothing(self):
+        service, repo = _service(_membership(_MANAGER), manager_count=2)
+        refusing = MagicMock()
+        refusing.verify.side_effect = ForbiddenError("step-up failed")
+        service._step_up_verifier = refusing
+
+        with pytest.raises(ForbiddenError, match="step-up"):
+            service.change_member_scopes(
+                "t1", "m1", new_scopes=_NONE, actor_scopes=_MANAGER, actor_user_key="u9", **_STEP_UP
+            )
+        repo.update_fields.assert_not_called()
+
+    def test_scopes_re_sent_unchanged_need_no_step_up_and_write_nothing(self):
+        service, repo = _service(_membership([AdminScope.MANAGEMENT, AdminScope.TECHNICAL]), manager_count=1)
+
+        service.change_member_scopes(
+            "t1",
+            "m1",
+            new_scopes=[AdminScope.TECHNICAL, AdminScope.MANAGEMENT],
+            actor_scopes=_MANAGER,
+            actor_user_key="u9",
+            **_STEP_UP,
+        )
+
+        assert service._step_up_verifier.actions == []
+        repo.update_fields.assert_not_called()

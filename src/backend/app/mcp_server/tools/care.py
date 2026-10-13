@@ -23,7 +23,7 @@ class GetDueCareTasks(ToolBase):
         )
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        entries = ctx.care_service.get_care_dashboard_for_tenant(ctx.tenant_key)
+        entries = ctx.care_service.get_care_dashboard_for_tenant(tenant_key=ctx.tenant_key)
         if args.urgency == "all":
             selected = entries
         elif args.urgency == "actionable":

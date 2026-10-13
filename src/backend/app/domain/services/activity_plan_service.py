@@ -1,11 +1,17 @@
-from app.common.exceptions import ValidationError
-from app.common.tenant_guard import verify_tenant_read_access
+from typing import Any
+
+from app.common.exceptions import NotFoundError, ValidationError
+from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.planting_run import PlantingRun
 from app.domain.models.task import Task, WorkflowTemplate
 
 
@@ -20,6 +26,7 @@ class ActivityPlanService:
         species_repo=None,
         family_repo=None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
+        plant_repo: IPlantInstanceRepository | None = None,
     ) -> None:
         self._engine = engine
         self._activity_repo = activity_repo
@@ -29,6 +36,9 @@ class ActivityPlanService:
         self._species_repo = species_repo
         self._family_repo = family_repo
         self._phase_seq_repo = phase_seq_repo
+        # #2107 review SEC-001: the apply targets are resolved under the caller's
+        # tenant here, not by a router pre-check.
+        self._plant_repo = plant_repo
 
     def _resolve_species_info(
         self,
@@ -56,22 +66,32 @@ class ActivityPlanService:
 
         Tries PhaseSequence first for auto-resolution, then LifecycleConfig.
         """
+        own = self._species_lifecycle_keys(species_key)
         if lifecycle_key:
+            # Only one of the species' own lifecycles (security review of #1876,
+            # SEC-001): a key taken as given copied another species' phases —
+            # another tenant's private lifecycle included — into the plan. One
+            # answer for a foreign and an unknown key.
+            if lifecycle_key not in own:
+                raise ValidationError(f"Lifecycle '{lifecycle_key}' does not belong to species '{species_key}'.")
             return lifecycle_key
-
-        # Try PhaseSequence first — use sequence key as lifecycle_key stand-in
-        if self._phase_seq_repo:
-            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
-            if seq and seq.key:
-                return seq.key
-
-        # Fallback to LifecycleConfig
-        lc = self._phase_repo.get_lifecycle_by_species(species_key)
-        if not lc:
+        if not own:
             raise ValidationError(
                 f"No lifecycle config found for species '{species_key}'.",
             )
-        return lc.key or ""
+        return own[0]
+
+    def _species_lifecycle_keys(self, species_key: str) -> list[str]:
+        """The species' own lifecycle keys, preferred first: its PhaseSequence, then its LifecycleConfig."""
+        keys: list[str] = []
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq and seq.key:
+                keys.append(seq.key)
+        lc = self._phase_repo.get_lifecycle_by_species(species_key)
+        if lc and lc.key:
+            keys.append(lc.key)
+        return keys
 
     def generate_plan(
         self,
@@ -79,15 +99,18 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> WorkflowTemplate:
         """Generate an activity plan and persist as WorkflowTemplate + TaskTemplates.
 
-        ``tenant_key`` decides who owns the result. The default — empty, the
-        globally **shared template** every tenant reads — is what
-        :meth:`get_or_generate_for_species` uses: a generated plan is derived
-        from the species and its phases, nothing tenant-specific goes into it,
-        and generating one per tenant would multiply identical documents. A
+        ``tenant_key`` decides who owns the result and has no default (#2107): the
+        owner of a persisted plan is named by every caller, never implied. Empty
+        means the globally **shared template** every tenant reads — what
+        :meth:`get_or_generate_for_species` passes for a global species: a
+        generated plan is derived from the species and its phases, nothing
+        tenant-specific goes into it, and generating one per tenant would
+        multiply identical documents. A
         tenant only ever owns a plan once they have changed it, which is
         copy-on-write's whole premise (#1003).
 
@@ -135,7 +158,10 @@ class ActivityPlanService:
             )
 
         # Load all activities
-        activities, _ = self._activity_repo.get_all(offset=0, limit=500)
+        # Every catalogue activity this plan's owner may read, not the first 500 (#2015):
+        # a shared template (tenant_key "") is built from global activities only, so a
+        # tenant's own activity can never land in a plan every tenant reads (#2119).
+        activities = get_all_pages(self._activity_repo, tenant_key=tenant_key)
 
         wt, templates = self._engine.generate_plan(
             species_name=species_name,
@@ -166,7 +192,8 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> WorkflowTemplate:
         """Return the caller's activity plan for a species, generating it if absent.
 
@@ -176,18 +203,52 @@ class ActivityPlanService:
         generated when neither exists is the **shared** template, not a private
         plan: reading a plan is not a write, and it is the write that forks.
         """
+        species_owner = self._readable_species_owner(species_key, tenant_key)
         existing = self._task_repo.get_auto_generated_workflow_for_species(
             species_key,
             tenant_key=tenant_key,
         )
         if existing:
             return existing
+        # A plan derived from a *global* species with its defaults is the shared
+        # template. One derived from a private (own or granted) species is the
+        # caller's: a shared template would carry the private species' name to
+        # every tenant (#1871 B10). So is one shaped by the caller's own
+        # parameters — the first caller must not decide what every tenant reads
+        # (security review of #1876, SEC-001).
+        caller_shaped = any(value is not None for value in (lifecycle_key, growth_system, skill_level))
+        shared = species_owner == "" and not caller_shaped
         return self.generate_plan(
             species_key=species_key,
             lifecycle_key=lifecycle_key,
             growth_system=growth_system,
             skill_level=skill_level,
+            tenant_key="" if shared else tenant_key,
         )
+
+    def _readable_species_owner(self, species_key: str, tenant_key: str) -> str:
+        """The species' owner if ``tenant_key`` may read it — global, own or granted (#1092) — else 404.
+
+        The generate routes resolved ``species_key`` unscoped, so another
+        tenant's private species produced a plan (#1871 B10). With no tenant in
+        play (an internal caller) the species is only required to exist.
+        """
+        if self._species_repo is None:
+            # Fail closed for a tenant request (security review of #1876, SEC-004):
+            # without the repository nothing can tell a private species from a
+            # global one, and "global" would generate the shared template.
+            if tenant_key:
+                raise NotFoundError("Species", species_key)
+            return ""
+        species = self._species_repo.get_or_raise(species_key)
+        owner = getattr(species, "tenant_key", "") or ""
+        if (
+            tenant_key
+            and owner not in ("", tenant_key)
+            and not self._species_repo.is_granted_to(species_key, tenant_key)
+        ):
+            raise NotFoundError("Species", species_key)
+        return owner
 
     def regenerate_for_species(
         self,
@@ -195,7 +256,8 @@ class ActivityPlanService:
         lifecycle_key: str | None = None,
         growth_system: str | None = None,
         skill_level: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> WorkflowTemplate:
         """Rebuild the caller's activity plan from scratch.
 
@@ -215,6 +277,7 @@ class ActivityPlanService:
         than a route) this is the pre-#1003 behaviour unchanged: the shared plan
         is replaced in place.
         """
+        self._readable_species_owner(species_key, tenant_key)
         existing = self._task_repo.get_auto_generated_workflow_for_species(
             species_key,
             tenant_key=tenant_key,
@@ -234,7 +297,8 @@ class ActivityPlanService:
         self,
         workflow_template_key: str,
         plant_key: str,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Create tasks from a workflow template's task templates for a single plant.
 
@@ -251,9 +315,36 @@ class ActivityPlanService:
         strict ``== tenant_key`` here would instead reject the shared template
         every reader depends on, which is the #324 trap.
         """
+        self._owned_plant(plant_key, tenant_key=tenant_key)
+        return self._create_plan_tasks(
+            self._readable_workflow(workflow_template_key, tenant_key), plant_key, tenant_key
+        )
+
+    def _readable_workflow(self, workflow_template_key: str, tenant_key: str) -> str:
         workflow = self._task_repo.get_workflow_template_or_raise(workflow_template_key)
         verify_tenant_read_access(workflow, tenant_key, "WorkflowTemplate")
+        return workflow_template_key
 
+    def _owned_plant(self, plant_key: str, *, tenant_key: str) -> PlantInstance:
+        """The plant ``plant_key`` of ``tenant_key``, or 404 (#2107 review SEC-001).
+
+        The route used to check the plant first and this method trusted it. Fails
+        closed when no plant repository is wired: nothing could tell an own plant
+        from a foreign one.
+        """
+        if self._plant_repo is None:
+            raise NotFoundError("PlantInstance", plant_key)
+        plant = self._plant_repo.get_or_raise(plant_key)
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        return plant
+
+    def _owned_run(self, run_key: str, *, tenant_key: str) -> PlantingRun:
+        """The run ``run_key`` of ``tenant_key``, or 404 (#2107 review SEC-001)."""
+        run = self._run_repo.get_or_raise(run_key)
+        verify_tenant_ownership(run, tenant_key, "PlantingRun")
+        return run
+
+    def _create_plan_tasks(self, workflow_template_key: str, plant_key: str, tenant_key: str) -> dict[str, Any]:
         templates = self._task_repo.get_task_templates_for_workflow(workflow_template_key)
         created_keys: list[str] = []
 
@@ -293,29 +384,43 @@ class ActivityPlanService:
         self,
         workflow_template_key: str,
         run_key: str,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
-        """Create tasks from a workflow template for all plants in a run."""
-        self._run_repo.get_or_raise(run_key)
+        """Create tasks from a workflow template for all plants of a run of ``tenant_key``.
 
-        plant_dicts = self._run_repo.get_run_plants(run_key)
-        if not plant_dicts:
+        The run is resolved under the tenant here (#2107 review SEC-001). Its plants
+        come from ``run_contains`` edges, not from the caller: each is resolved again
+        and one that is missing or belongs to another tenant (a legacy edge) is
+        skipped — no task is created for it and it is not counted.
+        """
+        self._owned_run(run_key, tenant_key=tenant_key)
+        workflow_key = self._readable_workflow(workflow_template_key, tenant_key)
+
+        plant_keys = [self._row_key(row) for row in self._run_repo.get_run_plants(run_key)]
+        owned = [key for key in plant_keys if key and self._is_owned_plant(key, tenant_key)]
+        if not owned:
             raise ValidationError("PlantingRun has no plants.")
 
         total_keys: list[str] = []
-        for pd in plant_dicts:
-            plant_key = pd.get("key", pd.get("_key", ""))
-            result = self.apply_plan_to_plant(
-                workflow_template_key,
-                plant_key,
-                tenant_key,
-            )
+        for plant_key in owned:
+            result = self._create_plan_tasks(workflow_key, plant_key, tenant_key)
             total_keys.extend(result["task_keys"])
 
         return {
             "run_key": run_key,
-            "plant_count": len(plant_dicts),
-            "tasks_per_plant": len(total_keys) // max(len(plant_dicts), 1),
+            "plant_count": len(owned),
+            "tasks_per_plant": len(total_keys) // max(len(owned), 1),
             "total_tasks": len(total_keys),
             "task_keys": total_keys,
         }
+
+    @staticmethod
+    def _row_key(row: dict[str, Any]) -> str:
+        return row.get("key") or row.get("_key") or ""
+
+    def _is_owned_plant(self, plant_key: str, tenant_key: str) -> bool:
+        if self._plant_repo is None:
+            return False
+        plant = self._plant_repo.get_by_key(plant_key)
+        return plant is not None and bool(tenant_key) and plant.tenant_key == tenant_key

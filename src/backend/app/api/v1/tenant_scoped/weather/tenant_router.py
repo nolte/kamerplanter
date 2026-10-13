@@ -2,8 +2,10 @@
 
 Mounted under ``/t/{tenant_slug}`` by the tenant-scoped parent router, so the
 paths declared here are already tenant-scoped (no ``/t`` prefix). Reads use
-``get_current_tenant``; writes require at least the ``grower`` role
-(``require_tenant_role``). The router stays thin — all logic lives in
+``get_current_tenant`` and stay open to every member. Choosing which sources a
+site uses — saving the configuration and connection-testing a candidate — is
+the lead's decision (REQ-049 §2.10 / §4.4, #2181), so both writes require the
+``lead`` role (``require_tenant_role``). The router stays thin — all logic lives in
 :class:`WeatherSourceService`.
 """
 
@@ -28,9 +30,9 @@ from app.api.v1.tenant_scoped.weather.schemas import (
     WeatherTestPreviewItem,
     WeatherTestResponse,
 )
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.auth import get_current_tenant, require_admin_scope, require_tenant_role
 from app.common.dependencies import get_sensor_service, get_weather_source_service
-from app.common.enums import TenantRole
+from app.common.enums import AdminScope, TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.data_access.external.weather_attributions import WEATHER_ATTRIBUTIONS
 from app.domain.models.tenant_context import TenantContext
@@ -143,10 +145,14 @@ def get_weather_source(
 def put_weather_source(
     site_key: Annotated[str, Path(description="Document key of the site.")],
     body: WeatherSourceConfigRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """Store the site's weather-source configuration (encrypts new OWM keys)."""
+    """Store the site's weather-source configuration (encrypts new OWM keys).
+
+    Lead only: the selection per site belongs to the garden's lead, growers see
+    it but do not change it (REQ-049 §2.10, #2181).
+    """
     saved = service.save_config(site_key, ctx.tenant_key, ctx.user_key, body)
     return _config_response(site_key, saved)
 
@@ -166,7 +172,7 @@ def get_site_weather_forecast(
     / ``forecast_min_temperature`` / ``forecast_source``). Graceful for owned sites:
     no source, no coordinates, or ``weather_enabled`` off → empty ``forecasts`` +
     ``None`` summary, never a 500. Site ownership is enforced at the API layer
-    (404 unknown / 403 foreign), consistent with the sibling weather-source
+    (404 for an unknown and a foreign site alike), consistent with the sibling weather-source
     endpoints — defense-in-depth on top of the tenant-scoped service read (R10).
     """
     service.verify_site_owned(site_key, ctx.tenant_key)
@@ -203,7 +209,7 @@ def get_site_climate_normals(
     """REQ-041 — the site's long-term climate normals (NASA POWER) for the
     "Klima am Standort" section.
 
-    Site ownership is enforced in the service (404 unknown / 403 foreign);
+    Site ownership is enforced in the service (404 for an unknown and a foreign site alike);
     graceful for owned sites with no populated normals yet (empty ``normals``).
     Each record carries its source's CC-BY attribution string.
     """
@@ -227,27 +233,38 @@ def list_available_sources(
 async def test_weather_source(
     site_key: Annotated[str, Path(description="Document key of the site.")],
     body: WeatherSourceEntryRequest,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """Test an unsaved source configuration (reachability + preview, AC-7)."""
+    """Test an unsaved source configuration (reachability + preview, AC-7).
+
+    Same gate as the save: testing a candidate is part of choosing it, and it
+    makes an outbound call on the tenant's behalf (REQ-049 §2.10, #2181).
+    """
     result = await service.test_source(site_key, ctx.tenant_key, body)
     return _test_response(result)
 
 
 @router.get("/ha/weather-entities", response_model=list[HaEntityItem])
 def list_ha_weather_entities(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """List HA ``weather.*`` entities for mode A (empty when HA is unavailable)."""
-    return [HaEntityItem(**item) for item in service.list_ha_weather_entities()]
+    """List the tenant's granted HA ``weather.*`` entities for mode A (empty when HA is unavailable).
+
+    TECHNICAL scope only (MT-015, #2112): the instance is the operator's, and only
+    the entities the platform admin granted to this tenant are listed.
+    """
+    return [HaEntityItem(**item) for item in service.list_ha_weather_entities(tenant_key=ctx.tenant_key)]
 
 
 @router.get("/ha/sensor-entities", response_model=list[HaEntityItem])
 def list_ha_sensor_entities(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
-    """List HA ``sensor.*`` entities for mode B (empty when HA is unavailable)."""
-    return [HaEntityItem(**item) for item in service.list_ha_sensor_entities()]
+    """List the tenant's granted HA ``sensor.*`` entities for mode B (empty when HA is unavailable).
+
+    TECHNICAL scope only (MT-015, #2112), filtered to the tenant's grants.
+    """
+    return [HaEntityItem(**item) for item in service.list_ha_sensor_entities(tenant_key=ctx.tenant_key)]

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -13,7 +14,21 @@ class IPlantingRunRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[PlantingRun], int]: ...
+
+    @abstractmethod
+    def get_runs_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[PlantingRun]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131); one tenant only."""
+        ...
 
     @abstractmethod
     def get_by_key(self, key: PlantingRunKey) -> PlantingRun | None: ...
@@ -31,6 +46,9 @@ class IPlantingRunRepository(ABC):
     def delete(self, key: PlantingRunKey) -> bool: ...
 
     # ── Entry CRUD ────────────────────────────────────────────────────
+
+    @abstractmethod
+    def verify_entry_references(self, entry: PlantingRunEntry) -> None: ...
 
     @abstractmethod
     def create_entry(self, entry: PlantingRunEntry) -> PlantingRunEntry: ...
@@ -96,7 +114,7 @@ class IPlantingRunRepository(ABC):
     def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]: ...
 
     @abstractmethod
-    def get_runs_at_site(self, site_key: str) -> list[PlantingRun]: ...
+    def get_runs_at_site(self, site_key: str, *, tenant_key: str) -> list[PlantingRun]: ...
 
     @abstractmethod
     def get_active_runs_with_schedule(self) -> list[dict]: ...

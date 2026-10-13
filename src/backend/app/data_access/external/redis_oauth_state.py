@@ -14,7 +14,12 @@ class RedisOAuthStateStore:
     """Store and retrieve OAuth state parameters in Redis with automatic expiry."""
 
     def __init__(self, redis_url: str) -> None:
-        self._redis = redis.Redis.from_url(redis_url, decode_responses=True)
+        # Bounded like every other request-path client (#2062): the redis-py default
+        # of 5 s per socket operation would hold the anonymous OAuth routes that long
+        # against a Valkey that accepts TCP and never answers.
+        from app.common.rate_limit import bounded_redis_client_options
+
+        self._redis = redis.Redis.from_url(redis_url, decode_responses=True, **bounded_redis_client_options())
 
     def save_state(self, state: str, data: dict, ttl: int = 300) -> None:
         """Store OAuth state data with a TTL (default 5 minutes)."""

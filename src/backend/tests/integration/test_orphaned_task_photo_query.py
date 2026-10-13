@@ -22,7 +22,7 @@ Runs in CI against a service container; locally it needs a database of its own
 (a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
 with::
 
-    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_orphaned_task_photo_query.py -v
 """
 
@@ -37,10 +37,9 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.attachment_repository import (
     ArangoAttachmentRepository,
 )
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kamerplanter_orphan_photo_test"
-
+TEST_DATABASE = run_database_name("orphan_photo")
 TENANT = "tenant-a"
 OTHER_TENANT = "tenant-b"
 #: The quota measurement deletes what it finds, so it gets a tenant nothing else

@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.dependencies import get_db
+from app.common.held_count import held_undated_count
 from app.config.settings import settings
-from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.mcp_repository import (
     ArangoMcpAuditRepository,
     ArangoMcpIdempotencyRepository,
@@ -27,18 +28,19 @@ logger = structlog.get_logger(__name__)
 @celery_app.task(name="mcp.cleanup_expired_audit_log")
 def cleanup_expired_audit_log() -> int:
     """Remove ``mcp_audit_log`` entries older than the retention window (AC-S4)."""
-    db = ArangoConnection().db
-    removed = ArangoMcpAuditRepository(db).delete_expired(
-        retention_days=settings.mcp_audit_retention_days,
-    )
-    logger.info("mcp_cleanup_audit_log", removed=removed)
+    db = get_db()
+    repo = ArangoMcpAuditRepository(db)
+    removed = repo.delete_expired(retention_days=settings.mcp_audit_retention_days)
+    # #1806 GDPR-003: entries without a readable ``created_at`` are never selected.
+    held_undated = held_undated_count(repo.count_undated, task="mcp.cleanup_expired_audit_log")
+    logger.info("mcp_cleanup_audit_log", removed=removed, held_undated=held_undated)
     return removed
 
 
 @celery_app.task(name="mcp.cleanup_expired_idempotency")
 def cleanup_expired_idempotency() -> int:
     """Remove ``mcp_idempotency_record`` entries past their TTL (AC-22)."""
-    db = ArangoConnection().db
+    db = get_db()
     removed = ArangoMcpIdempotencyRepository(db).delete_expired()
     logger.info("mcp_cleanup_idempotency", removed=removed)
     return removed

@@ -154,7 +154,7 @@ def test_task_queue_completion_bridge_schedules_the_follow_up() -> None:
     repo = FakeTaskRepo([completed])
     service = _service(repo)
 
-    created = service.ensure_next_watering_task(_profile(), just_completed_task=completed)
+    created = service.ensure_next_watering_task(_profile(), tenant_key=TENANT, just_completed_task=completed)
 
     assert created is not None
     assert len(repo.open_care_tasks(ReminderType.WATERING)) == 1
@@ -195,7 +195,7 @@ def test_recency_rule_still_blocks_callers_that_closed_nothing() -> None:
     repo = FakeTaskRepo([_completed_today_task()])
     service = _service(repo)
 
-    created = service.ensure_next_watering_task(_profile())
+    created = service.ensure_next_watering_task(_profile(), tenant_key=TENANT)
 
     assert created is None
     assert repo.open_care_tasks(ReminderType.WATERING) == []
@@ -226,7 +226,9 @@ def test_follow_up_defers_to_another_still_open_task() -> None:
     repo = FakeTaskRepo([still_open])
     service = _service(repo)
 
-    created = service.ensure_next_watering_task(_profile(), just_completed_task=_completed_today_task())
+    created = service.ensure_next_watering_task(
+        _profile(), tenant_key=TENANT, just_completed_task=_completed_today_task()
+    )
 
     assert created is None
     assert [task.key for task in repo.open_care_tasks(ReminderType.WATERING)] == ["task-other"]
@@ -241,7 +243,25 @@ def test_lookup_flag_is_chosen_per_caller(just_completed: Task | None, expected_
     repo = FakeTaskRepo()
     service = _service(repo)
 
-    service.ensure_next_watering_task(_profile(), just_completed_task=just_completed)
+    service.ensure_next_watering_task(_profile(), tenant_key=TENANT, just_completed_task=just_completed)
 
     assert repo.lookups[0]["include_completed_today"] is expected_flag
     assert repo.lookups[0]["tenant_key"] == TENANT
+
+
+@pytest.mark.parametrize(("plant_tenant", "caller_tenant"), [("tenant-B", TENANT), ("", "")])
+def test_advance_for_a_plant_the_tenant_does_not_own_touches_nothing(plant_tenant: str, caller_tenant: str) -> None:
+    """#2107 — the Gießprotokoll advance runs the tenant predicate in the service.
+
+    The empty-tenant case is red without it: the old ``if not tenant_key`` skip
+    treated ``""`` as the system context and closed and re-scheduled the task.
+    """
+    task = _due_watering_task()
+    task.tenant_key = plant_tenant
+    repo = FakeTaskRepo([task])
+    service = _service(repo)
+    service._plant_repo.get_by_key.return_value.tenant_key = plant_tenant  # type: ignore[union-attr]
+
+    assert service.advance_watering_task_after_log(PLANT_KEY, _confirmation(), tenant_key=caller_tenant) is None
+    assert repo.created == []
+    assert repo.updated == []

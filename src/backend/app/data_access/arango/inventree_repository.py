@@ -19,6 +19,7 @@ from app.common.enums import LinkableEntityCollection
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.domain.models.inventree import (
     Equipment,
     InvenTreeConnection,
@@ -37,7 +38,6 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
 
     is_tenant_scoped = True
     _model_cls = InvenTreeConnection
-    _entity_name = "InvenTreeConnection"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.INVENTREE_CONNECTIONS)
@@ -84,12 +84,32 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
 
     # ── References ──────────────────────────────────────────────────────
 
-    def list_references(self, tenant_key: str, entity_collection: str | None = None) -> list[InvenTreeReference]:
+    def list_references(
+        self,
+        tenant_key: str,
+        entity_collection: str | None = None,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[InvenTreeReference]:
+        """A tenant's entity references by ``entity_collection``; ``offset``/``limit`` read one window (MT-035, #2131).
+
+        Both ``None`` reads every reference (the stock sync walks all of them). The
+        ``_key`` tie-break makes the order total, so a pager never repeats or skips a row.
+        """
         self._require_tenant_key(tenant_key, "list_references")
         extra: list[tuple[str, str, Any]] = []
         if entity_collection:
             extra.append(("entity_collection", "==", entity_collection))
-        return self._references.find_by_field("tenant_key", tenant_key, extra_filters=extra, sort="entity_collection")
+        return self._references.find_by_field(
+            "tenant_key",
+            tenant_key,
+            extra_filters=extra,
+            sort="entity_collection",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
     def get_reference(self, key: str) -> InvenTreeReference | None:
         return self._references.get_by_key(key)
@@ -132,7 +152,7 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
             # REQ-016 narrows the InvenTree-linkable set to fertilizers | tanks |
             # equipment (a subset of the shared ownership allowlist); reject
             # anything outside it before delegating.
-            raise NotFoundError(entity_collection, entity_key)
+            raise NotFoundError(entity_name_for_collection(entity_collection), entity_key)
         # Existence + tenant-ownership (globally-seeded rows stay linkable) via
         # the shared guard — fail-closed 404, no re-implementation (#517).
         self.verify_entity_ownership(entity_collection, entity_key, tenant_key)

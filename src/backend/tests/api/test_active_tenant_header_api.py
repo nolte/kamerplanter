@@ -39,9 +39,9 @@ from app.common.enums import AdminScope, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 
-_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden")
-_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club")
-_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club")
+_PERSONAL = SimpleNamespace(key="tenant_personal_1", slug="user-1-garden", is_active=True)
+_ORG = SimpleNamespace(key="tenant_org_1", slug="green-club", is_active=True)
+_FOREIGN = SimpleNamespace(key="tenant_foreign", slug="foreign-club", is_active=True)
 
 
 class _FakeTenantService:
@@ -62,7 +62,7 @@ class _FakeTenantService:
     def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
         tenant = self._by_slug.get(slug)
         if tenant is None:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace | None:
@@ -87,7 +87,7 @@ def _app(repo: _FakeFamilyRepo) -> FastAPI:
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(families_router, prefix="/api/v1")
-    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="user_1", account_type="user")
+    app.dependency_overrides[auth_mod.get_current_user] = lambda: SimpleNamespace(key="user_1", account_type="human")
     app.dependency_overrides[get_tenant_service] = _FakeTenantService
     app.dependency_overrides[get_family_repo] = lambda: repo
     return app

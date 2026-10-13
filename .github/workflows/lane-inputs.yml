@@ -1,0 +1,564 @@
+name: Lane inputs
+
+# WHAT THIS LANE IS FOR (#1683).
+#
+# Every relevance filter in `.github/` is held against a MEASURED read set, one
+# manifest per job under `.github/lane-inputs/`, by the guard
+# `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py`
+# (#1596). This lane is where those read sets are measured — on the runner the
+# jobs themselves run on, never on a workstation:
+#
+#   plan     reads every manifest and emits one matrix leg per manifest with
+#            invocations, plus one per `covered_by` delegation target that has
+#            no manifest yet (its invocations are that job's own `run:` lines).
+#            There is no second list of lanes in this file.
+#   record   starts the measured job's own `services:` and replays ONE leg's
+#            invocations as the manifest states them — with the job's literal
+#            `env:` laid over the recorded one, so the leg runs with what the
+#            job runs with —
+#            under `strace -ff -y -z` (`scripts/ci/lane_inputs.py replay`), and
+#            uploads the manifest it wrote — including how long the replay took
+#            (`replay_seconds`), from which the next `plan` sizes this leg's
+#            step timeout. An invocation whose tool this lane
+#            does not provide fails the leg; it is never dropped from the
+#            recording.
+#   compare  holds the committed manifests against the recording: a new read
+#            the job's live relevance filter does NOT select (and no accepted
+#            gap explains) is a finding; a new read inside the filter is not
+#            drift (#1683) — the filter already runs the job for it. Also
+#            findings: a differing `job_spec_sha256` (which ignores action pins),
+#            `status` or `invocations`, a recording that read nothing, a lane
+#            with no recording. `replay_seconds` is not compared (wall clock
+#            varies run to run); a replayed manifest without a plausible one is
+#            a finding. A hand-trimmed `reads:` that drops a path outside the
+#            filter therefore still has no path to green.
+#   guard    runs the guard's `lane_inputs_drift` rules (population, freshness,
+#            coverage with the delegation rule, invocation coherence) twice:
+#            over the committed manifests — red whenever `develop` has drifted —
+#            and over the committed manifests with this run's recording copied
+#            in, which says whether the recording ALONE brings `develop` back to
+#            green or a filter needs a hand edit as well.
+#   propose  when `compare` found drift: opens, or force-updates, ONE bot pull
+#            request on `bot/lane-inputs-refresh` whose only change is this
+#            run's recording, copied as recorded. It carries the `automerge`
+#            label only when `guard` was green over the recording, so the
+#            repository's own automerge flow merges it once the required checks
+#            pass; otherwise it waits for the filter fix its body names. When
+#            `compare` found no drift, it closes a bot pull request that is
+#            still open (it describes an older `develop`), and opens nothing.
+#
+# WHEN IT RUNS, AND WHY NOT ON PULL REQUESTS (#1794, operator decision
+# 2026-09-25). Weekly and on `workflow_dispatch`, against the ref it is started
+# on — `develop` for the schedule. It ran on every pull request that touched a
+# workflow until then: 74 runs in two days, 33 failed and 17 cancelled, each
+# recording 30–50 minutes, and every merge under `strict: true` staled the other
+# open pull requests' manifests again. The recordings found filter drift, never a
+# product defect. So a feature pull request no longer needs a recording, and no
+# check a pull request runs holds the committed manifests against the live
+# workflows: the `lane_inputs_drift` rules are deselected everywhere except in the
+# `guard` job below (`--lane-inputs-drift`, tests/conftest.py). A change that
+# alters some job's reads, or a job's definition, is therefore caught by the next
+# run of this lane on `develop` — red here, refreshed by the bot pull request —
+# not by its own pull request. That is the price, stated here rather than hidden.
+#
+# NOT REQUIRED. Nothing here is a required context; whether the guard or this
+# lane should become one is #1683's question, decided on measured history
+# (NFR-018 §4), not by editing this comment.
+#
+# SECURITY (#1614: no job holds a write scope while pull-request code runs).
+# No trigger of this workflow runs pull-request code: `record` replays the code
+# of the ref the run was started on. Every job's GITHUB_TOKEN holds
+# `contents: read` and nothing else. `propose` writes through a short-lived
+# GitHub-App installation token (the one `automerge.yaml` merges with), minted
+# only on `refs/heads/develop` and scoped to `contents` and `pull-requests`; on
+# any other ref it mints nothing and only reports what it would have proposed.
+# The App token is also load-bearing: a pull request opened with GITHUB_TOKEN
+# starts no workflow (GitHub's loop guard), so its required checks would never
+# report and it could never merge.
+#
+# REFRESHING BY HAND is no longer the path. If the bot pull request cannot be
+# used (the App is unavailable), the recording is still the run's `lane-inputs`
+# artifact:
+#
+#   gh run download <run-id> -n lane-inputs -D /tmp/lane-inputs-<run-id>
+#   cp /tmp/lane-inputs-<run-id>/*.yaml .github/lane-inputs/
+
+on:
+  schedule:
+    - cron: '37 3 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: lane-inputs-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # No database image here (#1683). A leg starts the `services:` of the job it
+  # measures, read from that job's own workflow by `lane_inputs.py services`
+  # (the step "Start the measured job's service containers" below). The copy of
+  # the ArangoDB digest that stood here moved with Renovate, but the lane kept
+  # its own LIST of servers too: when backend-guards.yml's integration job gained
+  # a TimescaleDB service (#1943), the leg never started one and every Timescale
+  # test ERRORed in the recording.
+  # The image docker-lint-build.yml runs hadolint from; the binary is copied out
+  # of it so the recorder can trace the process that actually opens the files.
+  # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+  HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+
+jobs:
+  plan:
+    name: Plan the recordings
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the recorder's own dependency
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+      - name: One leg per manifest, read from the manifests
+        id: plan
+        run: python3 scripts/ci/lane_inputs.py plan --github-output "$GITHUB_OUTPUT"
+
+  record:
+    name: Record ${{ matrix.name }}
+    needs: plan
+    runs-on: ubuntu-latest
+    # A full unit run under ptrace is several times slower than without it.
+    # The OUTER bound, and the cap of every leg's own step bound below
+    # (`TIMEOUT_CAP_MINUTES` in scripts/ci/lane_inputs.py; the recorder test pins
+    # the two together). It also bounds the setup steps, which no leg measures.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The guards read git history (the migration-rename guard runs `git log`).
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install strace
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends strace
+          strace -V | head -1
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+      - name: Set up Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: src/frontend/.tool-versions
+      - name: Install the recorder's own dependency
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+
+      - name: Backend environment
+        if: matrix.backend
+        working-directory: src/backend
+        run: |
+          uv sync --locked --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Frontend environment
+        if: matrix.frontend
+        working-directory: src/frontend
+        run: npm ci
+      - name: Setup Helm
+        if: matrix.helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+      - name: Helm chart repositories
+        if: matrix.helm
+        run: |
+          helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+          helm repo add ollama https://otwld.github.io/ollama-helm/
+      - name: Setup Skaffold
+        if: matrix.skaffold
+        # The same install skaffold-verify.yml uses, so the leg replays the job
+        # with the job's own skaffold — and, like the job since #1741, without
+        # the image build the previous setup action ran unconditionally.
+        uses: ./.github/actions/setup-skaffold
+      - name: Resolve the pinned Nuclei version
+        if: matrix.nuclei
+        id: nuclei_pin
+        run: echo "version=$(yq e '.nuclei_version' .github/renovate-pins.yaml)" >> "$GITHUB_OUTPUT"
+      - name: Install Nuclei
+        if: matrix.nuclei
+        uses: projectdiscovery/nuclei-action@cc153d0541e1adf8a42bbe31c0a4fb2376147538 # v3.1.1
+        with:
+          install-only: true
+          version: ${{ steps.nuclei_pin.outputs.version }}
+      - name: Install hadolint from the pinned image
+        if: matrix.hadolint
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          container=$(docker create "$HADOLINT_IMAGE")
+          docker cp "$container:/bin/hadolint" "$RUNNER_TEMP/bin/hadolint"
+          docker rm "$container"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Start the measured job's service containers
+        # Every `services:` entry of the job this leg measures — image and
+        # digest, env, ports (loopback, #1750) and health options exactly as
+        # that job declares them, waited on until healthy. Unconditional: a job
+        # without services starts nothing. The leg's replay below hands each
+        # invocation the job's own literal `env:` the same way (#1683). The
+        # guard test_record_legs_provide_the_measured_jobs_environment.py holds
+        # every planned leg to both.
+        timeout-minutes: 15
+        env:
+          LANE: ${{ matrix.lane }}
+        run: python3 scripts/ci/lane_inputs.py services "$LANE"
+
+      - name: Replay the manifest's invocations under the recorder
+        # Per leg, from the duration this leg's last recording measured
+        # (`replay_seconds` in its manifest): 3x that, at least 10 and at most
+        # 90 minutes; 90 for a leg never measured. `plan` computes it
+        # (`leg_timeout_minutes`), so a hung 2-minute leg is cut off after 10
+        # minutes instead of holding the run for the job's 90 (#1683). A leg
+        # whose job changed since that recording gets the 90: its old duration
+        # measured another job, and a replay cut off records no new one.
+        timeout-minutes: ${{ matrix.timeout_minutes }}
+        env:
+          OUT_DIR: ${{ runner.temp }}/lane-inputs-recorded
+          LANE: ${{ matrix.lane }}
+        run: python3 scripts/ci/lane_inputs.py replay --out-dir "$OUT_DIR" "$LANE"
+      - name: Upload the recorded manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lane-inputs-${{ matrix.name }}
+          path: ${{ runner.temp }}/lane-inputs-recorded/*.yaml
+          if-no-files-found: error
+          retention-days: 14
+
+  compare:
+    name: Compare with the committed manifests
+    needs: [plan, record]
+    # Runs when some record legs failed, too: a lane whose leg failed is
+    # reported as unrecorded here, by name, instead of the whole comparison
+    # silently not happening. The plan must have succeeded, or there is no
+    # recording to compare against.
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      # `true` when compare found drift, `false` when it did not, empty when it
+      # could not decide (the step broke before writing it). Set before the step
+      # exits, so a red compare still hands `propose` its verdict.
+      drift: ${{ steps.compare.outputs.drift }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the recorder's own dependency
+        run: python3 -m pip install --user 'PyYAML==6.0.3'
+      - name: Download every leg's recording
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: lane-inputs-*
+          merge-multiple: true
+          path: recorded/lane-inputs
+      - name: Publish the recording as one artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lane-inputs
+          path: recorded/lane-inputs/*.yaml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Compare
+        id: compare
+        env:
+          REPORT: ${{ runner.temp }}/lane-inputs-report/compare.txt
+        run: |
+          mkdir -p "$(dirname "$REPORT")"
+          set +e
+          python3 scripts/ci/lane_inputs.py compare recorded/lane-inputs --run-id "$GITHUB_RUN_ID" > "$REPORT" 2>&1
+          status=$?
+          set -e
+          cat "$REPORT"
+          # Exit 1 is "findings" (EXIT_FINDINGS in lane_inputs.py); anything else
+          # non-zero is a crash, which proposes nothing.
+          case "$status" in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+          exit "$status"
+      - name: Keep the compare report for the bot pull request
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: report-lane-inputs-compare
+          path: ${{ runner.temp }}/lane-inputs-report/compare.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  guard:
+    name: Hold the manifests against the live workflows
+    needs: [plan, record]
+    # Like compare: a failed leg leaves its committed manifest in place, and the
+    # guard says what that means instead of not running.
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      # `success` when the recording alone brings the committed tree back to
+      # green — the bot pull request is then safe to automerge.
+      recorded: ${{ steps.recorded.outcome }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version-file: src/backend/pyproject.toml
+          enable-cache: true
+          cache-dependency-glob: src/backend/uv.lock
+      - name: Backend environment
+        working-directory: src/backend
+        run: |
+          uv sync --locked --extra dev
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+      - name: Download every leg's recording
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: lane-inputs-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/recorded
+      - name: The guard over the committed manifests
+        # Red whenever `develop` has drifted from what its jobs read. The rules
+        # are opted in with `--lane-inputs-drift`; every other run deselects them
+        # (tests/conftest.py, #1794). The same command, verbatim, is what the
+        # guard's own tests hold this workflow to.
+        id: committed
+        working-directory: src/backend
+        env:
+          REPORT: ${{ runner.temp }}/lane-inputs-report/guard-committed.txt
+        run: |
+          set -o pipefail  # the default `bash -e` would take tee's exit code
+          mkdir -p "$(dirname "$REPORT")"
+          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
+      - name: The guard over the committed manifests with this recording copied in
+        # What the bot pull request would contain. Green here means the recording
+        # alone restores the tree; red means a filter or an accepted gap needs a
+        # hand edit, and the bot pull request says which.
+        id: recorded
+        if: ${{ !cancelled() }}
+        working-directory: src/backend
+        env:
+          RECORDED: ${{ runner.temp }}/recorded
+          REPORT: ${{ runner.temp }}/lane-inputs-report/guard-recorded.txt
+        run: |
+          set -o pipefail
+          cp "$RECORDED"/*.yaml ../../.github/lane-inputs/
+          pytest tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift -q --tb=short --max-skipped 0 2>&1 | tee "$REPORT"
+      - name: Keep the guard reports for the bot pull request
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: report-lane-inputs-guard
+          path: ${{ runner.temp }}/lane-inputs-report/*.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  # gate-integrity-ok: propose is not a check — the verdicts are compare's and
+  # guard's own conclusions, which stay red; this job only acts on them, and a
+  # failed guard withholds the automerge label through its output.
+  propose:
+    name: Propose the recording as a bot pull request
+    needs: [compare, guard]
+    # Only when compare decided (`true` or `false`); a compare that crashed or
+    # never ran proposes nothing and closes nothing.
+    if: ${{ always() && (needs.compare.outputs.drift == 'true' || needs.compare.outputs.drift == 'false') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      BRANCH: bot/lane-inputs-refresh
+      # Review of #1804: a person may push a filter fix onto the bot branch (the
+      # PR body asks for exactly that when the recording alone is not enough).
+      # A commit on the bot pull request by anyone but the App is never
+      # force-pushed over and never deleted with the branch; the run comments
+      # instead. This jq counts those commits.
+      FOREIGN_COMMITS: '[.commits[].authors[].login | select(. != env.BOT_LOGIN)] | length'
+      DRIFT: ${{ needs.compare.outputs.drift }}
+      GUARD_RECORDED: ${{ needs.guard.outputs.recorded }}
+    steps:
+      - name: Report only, off develop
+        # A dispatch on a feature branch measures that branch; proposing its
+        # recording against develop would commit reads of code develop does not
+        # have. It says what it would have done, and mints no token.
+        if: ${{ github.ref != 'refs/heads/develop' }}
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [ "$DRIFT" = "true" ]; then
+            action="open or update the bot pull request on $BRANCH (automerge: $([ "$GUARD_RECORDED" = "success" ] && echo yes || echo no))"
+          else
+            action="open nothing and close an open bot pull request on $BRANCH"
+          fi
+          echo "::notice::$REF is not refs/heads/develop — this run would $action; it proposes nothing."
+          echo "**Report only** ($REF is not \`develop\`): this run would $action." >> "$GITHUB_STEP_SUMMARY"
+      - name: Mint the App token
+        if: ${{ github.ref == 'refs/heads/develop' }}
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.PORTFOLIO_APP_ID }}
+          private-key: ${{ secrets.PORTFOLIO_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Close a bot pull request that describes an older develop
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'false' }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            echo "No drift and no open bot pull request — nothing to do."
+            exit 0
+          fi
+          foreign=$(gh pr view "$number" --json commits --jq "$FOREIGN_COMMITS")
+          if [ "$foreign" != "0" ]; then
+            gh pr comment "$number" --body "$RUN_URL found no drift on develop. This branch carries $foreign commit(s) by someone other than the bot, so it is left open — close it by hand if it is no longer needed."
+            exit 0
+          fi
+          gh pr close "$number" --delete-branch --comment "Closed by $RUN_URL: develop's committed manifests agree with a fresh recording, so this refresh is no longer needed."
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        with:
+          persist-credentials: false
+      - name: Download the recording
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          # The one artifact compare published from every leg — named apart from
+          # the reports so no `lane-inputs-*` pattern above ever picks them up.
+          name: lane-inputs
+          path: ${{ runner.temp }}/downloaded/lane-inputs
+      - name: Download the reports
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: report-lane-inputs-*
+          path: ${{ runner.temp }}/downloaded
+      - name: Open or update the bot pull request
+        if: ${{ github.ref == 'refs/heads/develop' && env.DRIFT == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
+          DOWNLOADED: ${{ runner.temp }}/downloaded
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Exactly the recording, copied as recorded (#1794): the combined
+          # `lane-inputs` artifact compare published, never a hand edit.
+          cp "$DOWNLOADED"/lane-inputs/*.yaml .github/lane-inputs/
+          if git diff --quiet -- .github/lane-inputs; then
+            echo "::warning::compare found drift but the recording changes no committed byte — nothing to propose."
+            exit 0
+          fi
+          number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            foreign=$(gh pr view "$number" --json commits --jq "$FOREIGN_COMMITS")
+            if [ "$foreign" != "0" ]; then
+              gh pr comment "$number" --body "$RUN_URL recorded again and still finds drift. This branch carries $foreign commit(s) by someone other than the bot, so the new recording is NOT force-pushed over them; it is this run's \`lane-inputs\` artifact. Merge this pull request (or close it), and the next run proposes afresh."
+              echo "::warning::bot pull request #$number carries commits by a person — left untouched."
+              exit 0
+            fi
+          fi
+          user_id=$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add .github/lane-inputs
+          git commit -q -m "ci(lane-inputs): refresh the recorded manifests" -m "Recorded by $RUN_URL at develop $GITHUB_SHA."
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git" "HEAD:refs/heads/$BRANCH"
+
+          report() {
+            local file="$DOWNLOADED/$1/$2"
+            if [ -f "$file" ]; then tail -n 60 "$file" | cut -c1-400; else echo "(no report: $2)"; fi
+          }
+          if [ "$GUARD_RECORDED" = "success" ]; then
+            verdict="The guard is **green** over develop with this recording copied in, so this pull request carries \`automerge\` and merges once the required checks pass."
+          else
+            verdict="The guard is **not green** over develop with this recording copied in (outcome: \`${GUARD_RECORDED:-unknown}\`). The recording alone does not restore develop: widen the relevance filter or write the gap down (\`accepted_gaps\` with a reason) on this branch, as the report below names — a later run leaves a branch with your commits untouched. No \`automerge\` label until then."
+          fi
+          body_file=$(mktemp)
+          {
+            echo "## Summary"
+            echo
+            echo "The weekly lane-input recording ($RUN_URL) disagrees with the manifests committed on \`develop\`. This pull request is that recording, copied as recorded — no hand edit (#1794)."
+            echo
+            echo "$verdict"
+            echo
+            echo "## Compare"
+            echo
+            echo '```'
+            report report-lane-inputs-compare compare.txt
+            echo '```'
+            echo
+            echo "## Guard over the recording"
+            echo
+            echo '```'
+            report report-lane-inputs-guard guard-recorded.txt
+            echo '```'
+            echo
+            echo "Opened and updated by \`.github/workflows/lane-inputs.yml\` (\`propose\`); the next run force-updates this branch or closes this pull request when develop no longer drifts."
+          } > "$body_file"
+
+          if [ -z "$number" ]; then
+            gh pr create --base develop --head "$BRANCH" --title "ci(lane-inputs): refresh the recorded manifests" --body-file "$body_file" --label cicd
+            number=$(gh pr list --head "$BRANCH" --base develop --state open --json number --jq '.[0].number')
+          else
+            gh pr edit "$number" --body-file "$body_file"
+          fi
+          if [ "$GUARD_RECORDED" = "success" ]; then
+            gh pr edit "$number" --add-label automerge
+          else
+            if gh pr view "$number" --json labels --jq '.labels[].name' | grep -qx automerge; then
+              gh pr edit "$number" --remove-label automerge
+            fi
+          fi
+          echo "Bot pull request: #$number" >> "$GITHUB_STEP_SUMMARY"

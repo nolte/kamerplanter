@@ -594,7 +594,7 @@ requirements:
         - { kind: glob, path: "tests/e2e/test_req023_*.py", role: e2e }
     drift:
       # Phase 1 (2026-04-29): Service-account scaffolding landed —
-      # User.account_type Literal['user', 'service'] + ApiKey.ip_allowlist
+      # User.account_type Literal['human', 'service'] (stored value was 'user' until #1620) + ApiKey.ip_allowlist
       # + ApiKey.rate_limit_per_minute. Auth flows (login refusal for
       # service accounts, M2M API-key middleware) follow up in the
       # REQ-023 hardening PR.

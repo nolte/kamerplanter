@@ -1,7 +1,7 @@
 import httpx
 import structlog
 
-from app.common.url_safety import validate_ha_url
+from app.common.url_safety import ha_address_policy, pinned_async_transport, pinned_transport, validate_ha_url
 
 logger = structlog.get_logger(__name__)
 
@@ -17,13 +17,26 @@ class HomeAssistantClient:
         self._base_url = validate_ha_url(base_url, allow_private=allow_private).rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"}
         self._timeout = timeout
+        # The constructor check runs once; the client resolves the name again on every
+        # connection. Each connection is therefore opened through a pinned transport that
+        # judges the connect-time answer by the same rule (#2249: DNS rebinding).
+        self._address_policy = ha_address_policy(allow_private=allow_private)
+
+    def _async_client(self) -> httpx.AsyncClient:
+        """A client whose connections go only to addresses the HA rule accepts at connect time."""
+        return httpx.AsyncClient(timeout=self._timeout, transport=pinned_async_transport(self._address_policy))
+
+    def _get(self, url: str, *, timeout: float) -> httpx.Response:
+        """GET *url* with the bearer token, connected through a pinned transport (#2249)."""
+        with httpx.Client(timeout=timeout, transport=pinned_transport(self._address_policy)) as client:
+            return client.get(url, headers=self._headers)
 
     # ── Async methods (for notification engine) ──────────────────────
 
     async def fire_event(self, event_type: str, event_data: dict) -> dict:
         """POST /api/events/{event_type} — fires a custom event in HA."""
         url = f"{self._base_url}/api/events/{event_type}"
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._async_client() as client:
             resp = await client.post(
                 url,
                 json=event_data,
@@ -45,7 +58,7 @@ class HomeAssistantClient:
             "message": message,
             "notification_id": notification_id,
         }
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._async_client() as client:
             resp = await client.post(url, json=payload, headers=self._headers)
             resp.raise_for_status()
 
@@ -53,7 +66,7 @@ class HomeAssistantClient:
         """POST /api/services/persistent_notification/dismiss."""
         url = f"{self._base_url}/api/services/persistent_notification/dismiss"
         payload = {"notification_id": notification_id}
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._async_client() as client:
             resp = await client.post(url, json=payload, headers=self._headers)
             resp.raise_for_status()
 
@@ -65,7 +78,7 @@ class HomeAssistantClient:
     ) -> dict:
         """POST /api/services/{domain}/{service} — generic service call."""
         url = f"{self._base_url}/api/services/{domain}/{service}"
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
+        async with self._async_client() as client:
             resp = await client.post(
                 url,
                 json=service_data,
@@ -77,7 +90,7 @@ class HomeAssistantClient:
     def list_sensor_entities(self) -> list[dict]:
         """GET /api/states -> all sensor.* entities with attributes."""
         url = f"{self._base_url}/api/states"
-        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        resp = self._get(url, timeout=self._timeout)
         resp.raise_for_status()
         results = []
         for entity in resp.json():
@@ -103,7 +116,7 @@ class HomeAssistantClient:
         and is therefore not reusable for weather entities.
         """
         url = f"{self._base_url}/api/states"
-        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        resp = self._get(url, timeout=self._timeout)
         resp.raise_for_status()
         results = []
         for entity in resp.json():
@@ -120,6 +133,33 @@ class HomeAssistantClient:
             )
         return results
 
+    def list_entities(self) -> list[dict[str, str | None]]:
+        """GET /api/states -> every entity of the instance, without its state (MT-015, #2112).
+
+        The platform admin's inventory for the per-tenant entity allowlist: id,
+        domain, friendly name, unit and device class — enough to recognise an
+        entity, nothing of what it currently reports.
+        """
+        url = f"{self._base_url}/api/states"
+        resp = self._get(url, timeout=self._timeout)
+        resp.raise_for_status()
+        results = []
+        for entity in resp.json():
+            eid = entity.get("entity_id", "")
+            if not isinstance(eid, str) or "." not in eid:
+                continue
+            attrs = entity.get("attributes", {}) or {}
+            results.append(
+                {
+                    "entity_id": eid,
+                    "domain": eid.split(".", 1)[0],
+                    "friendly_name": attrs.get("friendly_name", eid),
+                    "unit_of_measurement": attrs.get("unit_of_measurement"),
+                    "device_class": attrs.get("device_class"),
+                }
+            )
+        return results
+
     def get_state_attributes(self, entity_id: str) -> dict | None:
         """GET /api/states/{entity_id} -> the raw ``attributes`` block or None.
 
@@ -128,7 +168,7 @@ class HomeAssistantClient:
         weather.* forecast reader (REQ-046 §3.4). Returns ``None`` on 404.
         """
         url = f"{self._base_url}/api/states/{entity_id}"
-        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        resp = self._get(url, timeout=self._timeout)
         if resp.status_code == 404:
             return None
         resp.raise_for_status()
@@ -162,7 +202,7 @@ class HomeAssistantClient:
         """
         url = f"{self._base_url}/api/states/{entity_id}"
         effective_timeout = self._timeout if timeout is None else min(self._timeout, timeout)
-        resp = httpx.get(url, headers=self._headers, timeout=effective_timeout)
+        resp = self._get(url, timeout=effective_timeout)
         if resp.status_code == 404:
             return None
         resp.raise_for_status()

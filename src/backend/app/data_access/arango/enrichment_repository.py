@@ -17,8 +17,9 @@ class ArangoExternalSourceRepository(BaseArangoRepository[ExternalSource], IExte
         super().__init__(db, col.EXTERNAL_SOURCES)
 
     def get_all(self) -> list[ExternalSource]:
-        items, _ = super().get_all(offset=0, limit=100)
-        return items
+        # Bounded by construction (#2015): nothing in app/ writes external_sources; the
+        # rows are the registered enrichment adapters, a handful per deployment.
+        return super().list_window(offset=0, limit=100)
 
     def get_by_source_key(self, source_key: str) -> ExternalSource | None:
         return self.find_one_by_field("source_key", source_key)
@@ -82,7 +83,7 @@ class ArangoSyncRunRepository(BaseArangoRepository[SyncRun], ISyncRunRepository)
         query = """
         FOR sr IN sync_runs
             FILTER sr.source_key == @source_key
-            SORT sr.created_at DESC
+            SORT DATE_TIMESTAMP(sr.created_at) DESC
             LIMIT @limit
             RETURN sr
         """

@@ -1,7 +1,7 @@
 # Privacy & GDPR
 
 !!! note "Partially available"
-    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, creating a processing restriction, and viewing consents. A few sub-steps (e.g. revoking consent with a click, changing your email address) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
+    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, changing your email address (in account settings), creating a processing restriction, and viewing and revoking consents. A few sub-steps (e.g. lifting a restriction again) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
 
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features.
 
@@ -9,7 +9,7 @@ Kamerplanter is built on the principle of **Privacy by Design**. You have full c
 
 ## For Technical Users / Self-Hosters
 
-This section is aimed at technical users and self-hosters. All GDPR features described below are available as REST endpoints under `/api/v1/privacy/`. Some of them are also directly usable in the graphical interface (see the relevant sections below); a few endpoints — email change, objection, granting/revoking consent with a click, lifting a restriction, export status/download — are currently reachable only via the API. A logged-in session (bearer token) is required, except for `GET /api/v1/privacy/policy`.
+This section is aimed at technical users and self-hosters. All GDPR features described below are available as REST endpoints under `/api/v1/privacy/`. Some of them are also directly usable in the graphical interface (see the relevant sections below); a few endpoints — objection, granting/revoking consent with a click, lifting a restriction, export status/download — are currently reachable only via the API. A logged-in session (bearer token) is required, except for `GET /api/v1/privacy/policy` and the two email-change endpoints that confirm via a token (`confirm`, `revert`).
 
 !!! info "API only / operator configuration"
     The easiest way to try the endpoints is through the interactive API documentation at `/docs` (OpenAPI/Swagger), where requests can be executed directly in the browser. Alternatively via `curl`, e.g. for a data export:
@@ -23,9 +23,10 @@ This section is aimed at technical users and self-hosters. All GDPR features des
 | `POST /api/v1/privacy/export` | Request a data export (Art. 15/20) |
 | `GET /api/v1/privacy/export/{export_key}` | Check export status |
 | `GET /api/v1/privacy/export/{export_key}/download` | Download the export |
-| `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) |
-| `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token |
-| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) |
+| `POST /api/v1/privacy/email-change` | Request an email change (Art. 16) — step-up body `{password}`, `{step_up_code}` or `{step_up_token}`, see below |
+| `POST /api/v1/privacy/email-change/confirm` | Confirm an email change via token — body `{token}`, no login needed |
+| `POST /api/v1/privacy/email-change/revert` | Undo a confirmed email change — body `{token}`, public, rate-limited, only within the revert window (see below) |
+| `POST /api/v1/privacy/erasure` | Request account erasure (Art. 17) — body `{confirm_email, password?}`, see below |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Check erasure status |
 | `POST /api/v1/privacy/restrict` | Restrict processing (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Lift a restriction |
@@ -66,29 +67,78 @@ The export then runs asynchronously in the background (takes 1–5 minutes depen
 !!! info "API only: Checking status & downloading the file"
     Checking the progress of a running export request and downloading the finished file is not yet wired up in the interface — for now this only works via the API: `GET /api/v1/privacy/export/{export_key}` returns the status, `GET /api/v1/privacy/export/{export_key}/download` returns the download metadata (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
-The export contains all data the system knows about you:
-- Profile data (name, email, settings)
-- All created plants, locations, tasks and harvests
-- Care reminders and confirmation history
-- Sensor data (if you have any)
-- Consent history
+The export contains the data Kamerplanter attributes to you as a person:
+
+- your account: profile, sign-in methods, sessions, API keys (without the secret key itself), personal preferences, setup progress, favourites
+- your memberships in gardens, invitations and your personal garden
+- your privacy requests: consents, restrictions, erasure, export and email-change requests
+- what you recorded: tasks and comments, diary entries, harvests and quality assessments, inspections and treatments, plant identifications and diagnoses, pest detections, attachments and contributed reference images, imports
+- your conversations with the AI assistant, dismissed tips and the related logs
+- notifications and their settings, calendar feeds, weather sources and manual device overrides
+- **your personal garden**: sites with their GPS coordinates, beds and slots, plants, planting runs, all tasks, the diary and the details of photos and files (not the files themselves) — including entries other members created in your personal garden, but without their account identifiers. <!-- Issue #2135 -->
+- **readings and logs of your personal garden**: tanks with their measurements, fills and maintenance, watering and feeding logs, your sensors and their readings — the individual values of the last 90 days, hourly averages of the last 2 years and daily averages of the last 5 years. If a section holds more than 100,000 readings, it contains the newest and states how many older ones it leaves out; the hourly and daily averages cover the same sensor over the longer period. Readings the Home Assistant connection stored before 4 October 2026 are included as long as the sensor still exists in your garden. Notes and additional details that invited members left on these entries are included unchanged — you already see them in the app; the export does not name who wrote them. <!-- Issue #2165 -->
+
+In an **organization** (community garden), plants, locations and sensor data belong to the group, not to one person, so they are not part of your personal export — only your membership and what you recorded yourself. Location assignments hang off your membership; your garden's lead can show you which locations are assigned to you.
 
 !!! tip "Data portability"
     The JSON export file complies with GDPR Art. 20 (data portability). You can use it to transfer your data to another system.
 
 ---
 
-## Changing Your Email Address (GDPR Art. 16)
+## Changing Your Email Address (GDPR Art. 16) {#changing-your-email-address-gdpr-art-16}
 
 You have the right to have your data corrected.
 
-!!! info "API only: Changing your email address"
-    Account settings currently show your email address as read-only — changing it is, for now, only possible via the API: `POST /api/v1/privacy/email-change` initiates the change and sends a **verification link to the new address**, `POST /api/v1/privacy/email-change/confirm` confirms it via token (no login needed). Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
+### The Change Process
 
-The new email becomes active once confirmed — all active sessions are ended.
+1. In account settings, go to the **Profile** tab and enter the new address in the **Change Email Address** section
+2. Click **Request Change** and confirm yourself in the dialog — with your current password, if your account has one, otherwise via a fresh sign-in at your linked provider or, only for accounts linked exclusively to GitHub/Apple, via the code emailed to you
+3. The interface confirms that a confirmation link was sent to the new address
+4. Open the link in the email at the **new** address and click **Confirm New Address** there
+
+For details on the form, see [Account & Sign-In — Changing Your Email Address](account.md#changing-your-email-address).
+
+Like account deletion, the request is behind a step-up: your current password, if your account has one — otherwise a fresh sign-in at your linked provider, or, only if you sign in exclusively through GitHub/Apple, the confirmation code (see [API documentation](../api/authentication.md#signing-in-again-to-confirm-oidc)). Your **current** email address is notified as soon as the change is requested.
+
+The new address becomes active only after the explicit click on **Confirm New Address** — merely opening the email confirms nothing. Once confirmed it becomes your sign-in address, and all active sessions are ended.
 
 !!! note "Security notice"
-    After confirming the new email, all open sessions (browser, app) are terminated. You need to log in again. Your old email receives an information email about the change.
+    After confirming the new email, all open sessions (browser, app) are terminated. You need to log in again. Your old email receives an information email about the change — including the undo link from the next section.
+
+!!! warning "A password reset or password change cancels a pending change"
+    If you reset your password, change it in account settings, or sign out everywhere, a not-yet-confirmed email change is automatically withdrawn — the link in the verification email stops working afterwards. This protects you if someone else initiated a change in your name.
+
+!!! info "Also possible via the API"
+    The same change can also be triggered directly via the API: `POST /api/v1/privacy/email-change` (step-up body) and `POST /api/v1/privacy/email-change/confirm` (`{token}`, no login needed). Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
+
+### Undoing the Change
+
+If the change wasn't made by you, or you want to take it back: your **previous** address receives an email with an undo link once the change is confirmed. It is valid for **7 days** (default, configurable by the operator via `RETENTION_EMAIL_CHANGE_REVERT_DAYS`) and can be used **once**.
+
+Opening the link shows what will happen and requires an explicit click on **Restore Previous Address** — merely opening the email confirms nothing here either. Afterwards:
+
+- Your previous address becomes your sign-in address again — unless another account has since claimed it
+- All sessions of the account are signed out, including on other devices
+- A password-reset link sent to the new (now discarded) address becomes invalid
+- A still-pending email change is also revoked
+- Sign-in providers such as Google, GitHub or Apple that were newly linked to your account **since the change was requested** are unlinked again — your local password is unaffected
+- API keys created **since the change was requested** are revoked — older API keys stay active
+- If the change was made again and confirmed in the meantime, that confirmation's own undo link becomes invalid — a later revert can no longer override this restore
+- The address this restore is now moving the account away from receives a fixed-text email about it
+
+!!! danger "Reset your password afterwards"
+    If you didn't initiate the change, someone else may know your password. Reset it after restoring your address via **Forgot password?** (see [Forgot and Reset Your Password](account.md#forgot-and-reset-your-password)).
+
+!!! warning "Check your older API keys"
+    Only API keys created since the email change was requested are revoked automatically (see above). Older keys that already existed before that stay active. If your account was compromised, check them in the **API Keys** tab of your account settings and revoke unfamiliar ones manually (see [API documentation](../api/authentication.md)).
+
+!!! warning "Residual risk: whoever can read the previous address"
+    The undo link only proves access to the previous address — not necessarily your identity. Anyone who can read that address within the 7-day window can use it to take the account back; the address that was current at that point (the new one) is notified about it.
+
+Once the revert window closes, the link no longer works — the previous address is then cleared from the change record (see [Data Retention — Revert Window](../guides/data-retention.md#revert-window-of-a-confirmed-email-change-r-07a)). If another account claims the previous address in the meantime, the page reports that (`422`) instead of performing the restore. If the account has since been closed and queued for deletion, the page reports that too (an error, not a success) — the link itself stays valid and unspent; contact the operator of the instance in that case.
+
+!!! info "Also possible via the API"
+    `POST /api/v1/privacy/email-change/revert` with `{token}` — public, rate-limited, `401` for an invalid/already-used/expired token, `422` if the previous address now belongs to another account, `409` (`ACCOUNT_BEING_ERASED`) if the account is closed and queued for deletion — the token stays unspent in that case. Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 
 ---
 
@@ -116,23 +166,32 @@ No optional consent is needed for the core functions of the system. However, som
 | Purpose | Type | Revocable |
 |---------|------|:---------:|
 | **Core functions** (plant management, reminders) | Required | No |
-| **Error tracking (Sentry)** | Optional | Yes |
-| **HaveIBeenPwned password check** | Optional | Yes |
-| **External master data enrichment** (GBIF, Perenual) | Optional | Yes |
+| **Attribute error reports to my account** (Sentry) | Optional | Yes |
 | **Photo identification** (Pl@ntNet) | Optional | Yes |
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
-| **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
+| **Photo contribution to plant recognition** (own reference photos, `reference_contribution`) | Optional | Yes |
+| **Photo contribution to pest recognition** (promoted pest photos, `pest_reference_contribution`) | Optional | Yes |
+| **AI knowledge question to the knowledge base** (`ai_knowledge_question`) | Optional | Yes |
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
 | **Release diary entries for AI analysis** (`diary_ai_analysis`) | Optional | Yes |
+
+!!! info "What attributing error reports does"
+    If the operator has switched error tracking on and an error occurs in one of your requests, an error report goes to the tracker — without request contents, without IP address and without the requested path. With your consent it additionally carries a pseudonym of your account and your garden, never name or email. This lets an error that affects you be traced specifically. If you revoke, this applies from your next request.
+
+**Error reports from your browser** are asked for separately: if the operator has switched error tracking on, a notice with **Accept all**, **Necessary only** and **Settings** appears at the bottom on your first visit. Only once you consent to error analysis does your browser report crashes to the tracker — without form contents, cookies or email address. The decision applies to this browser. You can change it in the **Consents** tab with the switch **Allow error analysis**; it takes effect immediately, without a reload. In Light mode the notice does not appear and your browser reports no errors.
+
+A password check against known breaches and a consent for external master-data enrichment are no longer in the list: the password check does not exist, and enriching species master data (GBIF, Perenual) sends species names only, no data about you. If you had granted either, the entry stays visible in your data export and is deleted with your account.
 
 ### Revoking Consent
 
 The **Consents** tab in the privacy area shows an overview of all processing purposes with your current status (**Granted** / **Not granted**) and, for required consents, a **Required** label.
 
-!!! info "API only: Granting and revoking consent with a click"
-    The tab is currently **read-only** — there is no toggle in the interface yet to directly grant or revoke a consent. Until then, this only works via the API: `POST /api/v1/privacy/consents` grants a consent, `DELETE /api/v1/privacy/consents/{purpose}` revokes it, taking effect immediately with a timestamp. `GET /api/v1/privacy/consents` returns the same data the tab displays (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+Every granted optional consent has a **Revoke** button. One click revokes it immediately; the status changes to **Not granted**. Required consents have no such button.
+
+!!! info "Granting happens where you use the feature"
+    You don't grant a consent in the tab itself. That happens at the spot where the feature needs it: with the first photo of [plant recognition](plant-identification.md), with the first question on the [AI Assistant](ai-assistant.md) page, or with the **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant). For consents without such a spot, the API remains: `POST /api/v1/privacy/consents` grants, `DELETE /api/v1/privacy/consents/{purpose}` revokes with a timestamp. `GET /api/v1/privacy/consents` returns the same data the tab displays (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 !!! warning "Effects of revoking consent"
     If you revoke consent for external master data enrichment, no new data will be fetched from GBIF or Perenual. Existing enriched data is retained.
@@ -142,7 +201,7 @@ The **Consents** tab in the privacy area shows an overview of all processing pur
 [Plant recognition by photo](plant-identification.md) sends your image to Pl@ntNet (CIRAD/INRIA, France/EU) for analysis. Consent is required because the photo briefly leaves the Kamerplanter instance.
 
 !!! note "Consent behaviour per deployment mode"
-    **Full mode:** Consent is stored as a consent record in the backend (see table below) and persists across browsers and devices. The Consents tab in the privacy interface shows the current status; revoking it currently only works via the API: `DELETE /api/v1/privacy/consents/plant_identification` (see [Revoking Consent](#revoking-consent)).
+    **Full mode:** Consent is stored as a consent record in the backend (see table below) and persists across browsers and devices. The Consents tab in the privacy interface shows the current status; you revoke it there with **Revoke** (see [Revoking Consent](#revoking-consent)).
 
     **Light mode:** The consent subsystem is not available in [Light mode](light-mode.md). Consent is instead obtained and stored **client-side in the browser** (localStorage). The consent dialog appears on the first upload in the respective browser session. The same transparency information (photo is sent to Pl@ntNet/France, EXIF data is removed, no permanent storage) is shown in both modes.
 
@@ -168,9 +227,31 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 
 [Pest detection by photo](pest-detection.md) sends your image — depending on the operator's configuration — either to a self-hosted recognizer (no consent required) or to the Kindwise plant.health cloud service. This consent is only required when the cloud adapter is active. As with plant identification, the photo is stripped of EXIF metadata before sending and is not stored permanently.
 
+### Photo Contribution to Plant Recognition (reference_contribution)
+
+The **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant) is this consent: if you switch it on and save, Kamerplanter grants it before the photo is contributed. After review by the administrators, a numerical fingerprint (embedding) of the photo goes into the installation's shared recognition index; the photo itself is not stored and does not leave the installation. You revoke it here in the **Consents** tab. If it cannot be saved, Kamerplanter does not create the plant and shows an error. In Light mode the switch does not appear. <!-- #2174 -->
+
+### Photo Contribution to Pest Recognition (pest_reference_contribution)
+
+A pest photo you contribute on the [pest detail page](pest-detail.md) first stays private in your garden. If an administrator makes it visible to everyone, it can additionally enter the installation's shared pest recognition index as a reference — **but only with this consent**. What is stored then is a numerical fingerprint (embedding) of the photo and its provenance (which contribution, which garden); the photo itself does not leave the installation. Without consent the promotion stays in the gallery, but the photo does not enter the recognition. In Light Mode nothing is ever indexed.
+
+This consent is a purpose of its own and not an extension of "Photo contribution to plant recognition" (`reference_contribution`): if you shared reference photos of your plants before, you have not agreed to the pest index and need to consent anew. There is no place in the interface to grant it yet; you can grant it via `POST /api/v1/privacy/consents` with `purpose: pest_reference_contribution` and revoke it in the **Consents** tab.
+
+!!! note "Revocation"
+    Revocation applies from the next promotion: after that, none of your further pest photos enters the index. Revocation does not remove a fingerprint that already exists — deleting your contribution or your account does.
+
+### AI Knowledge Question to the Knowledge Base (ai_knowledge_question)
+
+When you ask a freely formulated knowledge question in the [AI Assistant](ai-assistant.md) inside your garden, your text goes — attributed to your account — to the knowledge base and the language model connected to it. This consent is required for that. The text you type yourself is transmitted. Plant values (species, phase, substrate, EC/pH) are only included if you add them to the question yourself — then the consent "AI access to your plant data" (below) is required as well. Light Mode has no consents; the knowledge question works there without one.
+
+This consent is a purpose of its own, not an extension of `ai_tenant_data_access`: granting "AI access to your plant data" earlier did not agree to the knowledge question.
+
+!!! note "Revocation"
+    After revoking, Kamerplanter refuses your next knowledge question before it leaves the instance. Tip cards, "why?" explanations and chat do not depend on this consent.
+
 ### AI Access to Your Plant Data (ai_tenant_data_access)
 
-The [AI Assistant](ai-assistant.md) answers plain knowledge questions without this consent. As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, and "why?" explanations — this consent is required.
+As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, "why?" explanations, and a knowledge question to which you add plant values yourself — this consent is required. For a knowledge question without plant values, `ai_knowledge_question` (above) is enough.
 
 Only master values are transmitted: scientific plant name, current phase, substrate, EC/pH readings, and aggregated counters (e.g. "3 overdue tasks"). Your name, e-mail address, and free-text notes from your plant diary are **never** transmitted.
 
@@ -180,6 +261,8 @@ Only master values are transmitted: scientific plant name, current phase, substr
 ### AI Processing via Cloud Provider (ai_cloud_processing)
 
 Required in addition to the previous consent when your instance uses an external cloud provider (e.g. Anthropic, OpenAI) instead of a locally run model (Ollama) for the AI Assistant — this is decided by the platform operator. Cloud providers may involve a third-country data transfer. Local providers do not need this consent.
+
+For the knowledge question, what counts is the model the knowledge base answers with — the one the platform operator configured, not your garden's provider. If that is a cloud model, you need this consent in addition to `ai_knowledge_question`, and your garden must allow cloud providers; otherwise the question is refused before it leaves the instance.
 
 ### Releasing Diary Entries for AI Analysis (diary_ai_analysis)
 
@@ -225,14 +308,17 @@ You have the right to erasure of your data.
 ### Deletion Process
 
 1. Navigate to **Privacy** > the **Delete Account** tab
-2. Click **Delete Account**
-3. For accounts with a **local password login**, enter your **current password** in the confirmation dialog (to authorize the deletion). This step is skipped for accounts that sign in exclusively through an external provider (Google, GitHub, Apple …).
+2. Click **Delete Account** — already on the tab, and again in the dialog, you see which personal gardens are deleted with your account and how many other members this affects
+3. In the confirmation dialog, type your **own email address** back in. For accounts with a **local password**, also enter your **current password** (to authorize the deletion). If you sign in through Google or a generic OIDC provider, you instead click **Sign in again** and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple, click **Send code by email** and enter the confirmation code it mails you.
 4. In the confirmation dialog, click **Yes, Delete Account**
 
-!!! info "Password confirmation"
-    For local-password accounts, entering the current password is mandatory. If the password is wrong, the dialog stays open and shows an error — the account is **not** deleted.
+!!! info "Confirming with email and password"
+    If the email you type doesn't match your own, the dialog shows an error. For local-password accounts, entering the current password is also mandatory — if it's wrong, the dialog stays open and shows an error. In both cases, the account is **not** deleted.
 
-The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion (for local accounts with the `password` field), `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+!!! warning "Locked out after too many attempts"
+    After several wrong password attempts, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock applies account-wide to all confirmations of this kind (deleting your account, deleting a tenant, changing your password) together, but does **not** affect signing in: you can still sign in normally, end individual sessions in the **Sessions** tab (see [Account & Sign-In](account.md#viewing-and-ending-active-sessions)), or reset your password by email.
+
+The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` expects the same request body as `DELETE /api/v1/users/me` (see [Deleting Your Account](account.md#deleting-your-account)) — `{"confirm_email": "...", "password": "..."}`, where `password` is only required for a local password. `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 What happens next:
 
@@ -241,6 +327,14 @@ Immediately:
 - Soft-delete of the account (status: deleted)
 - All active sessions are terminated
 - You can no longer log in
+- Pending invitations into your personal garden
+  (email and link invitations) are revoked, and new ones can
+  neither be created nor redeemed during the 90 days;
+  nobody can join it during the 90 days any more
+- If you were the last person with the management right in an
+  organization, the longest-serving lead takes over now, or the
+  organization is orphaned (deleted after the grace period);
+  its members get an email right away
 
 Personal data (GDPR Art. 17):
 - Anonymised immediately or deleted after 90 days
@@ -256,6 +350,12 @@ After 90 days:
 
 !!! note "Why are harvest records not fully deleted?"
     The CanG (German Cannabis Act) and the PflSchG (German Plant Protection Act) require that harvest and treatment data be retained for audit and verification purposes. Your name and contact details are removed; the quantity and treatment data remains as anonymized records. This is legally covered by GDPR Art. 17(3)(b).
+
+!!! danger "Your personal garden is deleted with it"
+    Your personal garden is irreversibly deleted with everything in it — even when other members are in it; their entries go with it. Those members get an email as soon as you request the deletion and can secure their data until the final deletion. The email names neither you nor your address. Only if someone newly joins after your request is the garden kept for that person, without your name. Details: [Data Retention — What happens to your personal garden](../guides/data-retention.md#what-happens-to-your-personal-garden).
+
+!!! info "Organizations you manage"
+    If you are the last person with the management right in an organization, this is settled as soon as you request the deletion — not after 90 days: the longest-serving remaining lead takes over management, or, with no lead left, the organization is orphaned and deleted after the tenant-deletion grace period. The members get an email right away; it does not name you. The dialog shows you which organizations are affected before you confirm. An erasure request cannot be withdrawn, so this hand-over is not taken back either. <!-- Issue #2166 -->
 
 ---
 
@@ -279,17 +379,32 @@ When you delete your account, the system distinguishes between two photo types:
 
 | Photo type | What happens |
 |-----------|-------------|
-| **Personal photos** (profile picture, private notes) | Hard deleted — both the file in storage and the metadata entry are removed |
+| **Personal photos** (profile picture, private notes) | Hard deleted — the original file, its generated preview images (WebP, 128/512/1280 px) and the metadata entry are removed |
 | **Documentary photos** (diary entries, IPM inspections, harvest photos, plant photos) | Retained but decoupled from your account — `created by` is set to `_anonymized`. If EXIF data is present, it is stripped at this step. |
 
 Files are retained because they belong to the plant record and may be subject to statutory retention obligations (CanG, PflSchG). Your name is no longer linked to the photos after anonymization.
 
+!!! note "When another member uploaded the identical file"
+    If another member of your garden uploads exactly the same file (identical byte content), each person gets their own entry — but the file itself is stored once and shared. If you delete your account, only your own entry is affected: the stored file and its preview images remain in place as long as at least one other member's entry still points to them, and are only removed once the last entry pointing to them is deleted. Your own entries are always reached by account deletion — regardless of who uploaded the file first.
+
 !!! note "Order of deletion"
     Storage cleanup (step 0) happens before database cleanup. This is the only way the system can still retrieve the metadata needed to map file to user.
 
+If you [contributed your own photos as reference images for plant recognition](plant-identification.md#assigning-the-photo-to-the-new-plant), those contributions are removed on account deletion too: the system deletes the feature vector computed from them from the recognition base. Curated reference images contributed by other users are unaffected.
+
+The same applies to your own [contributed pest photos](pest-detail.md#contribute-your-own-photos): if such a photo was ever promoted by a platform admin for pest recognition, account deletion removes the recognition vector computed from it — regardless of whether the promotion was still active or had already been reverted at the time of deletion.
+
 ### Tenant Deletion
 
-When a tenant is deleted (by the platform admin or on request), all binary data for that tenant is completely removed from storage — regardless of the backend in use (local-fs or S3). This is done by deleting all objects with the prefix `t/{tenant_key}/`. The result is documented in the audit log.
+When a tenant is deleted (by the platform admin or by a member with the Management extra permission), the system first creates a deletion record and immediately deactivates every membership — nobody has access to the tenant anymore after that — and answers `202 Accepted`. A background worker then carries out the actual deletion (issue #1792), no longer the request itself. Every reference-image and pest-image vector contributed by a member of that tenant is then removed from the recognition base, followed by all binary data for that tenant — regardless of the backend in use (local-fs or S3) — by deleting all objects with the prefix `t/{tenant_key}/` — and every sensor reading of the tenant from the time-series database.
+
+Several small database transactions (at most 1000 records each, one collection after the other) then remove every domain record the tenant holds: sites, plants, planting runs, diary entries, tasks, tanks, sensors, feeding and watering logs, notifications, calendar feeds, its own master-data entries (e.g. species, fertilizers or nutrient plans it created itself), memberships, invitations, location assignments and API keys restricted to the tenant — together with every link to a deleted record — and finally the tenant record itself.
+
+One exception applies: harvest and treatment documentation (harvest batches, quality assessments, treatments, inspections) must be kept for several years under statutory law (CanG, German Plant Protection Act; see [Statutory Minimum Retention Periods](../guides/data-retention.md#statutory-minimum-retention-periods)). On these records, each member's account reference is replaced by the same tombstone hash account erasure uses, and name fields (harvester, applicator, inspector, assessor) are emptied — the records themselves remain. The AI call log and the MCP call log are likewise retained until their own retention window expires.
+
+Between the batches the worker reports a heartbeat on the deletion record; a worker that crashes is replaced by the daily run after six hours without a heartbeat, a slow but living one is not. After the last batch, the system checks that nothing still references the tenant. If not everything could be removed, or a step failed (e.g. an external service was unreachable), the deletion stays recorded and is retried automatically every day with a growing delay, until it completes fully; the third unsuccessful attempt already raises an operator alert (log event `tenant_erasure.escalated`, timestamp `escalated_at` on the record). The result is documented in the deletion record.
+
+The members' own accounts are not affected — they keep their account and their memberships in other tenants. A member's personal tenant is not removed by a tenant deletion.
 
 ### Data Portability (GDPR Art. 20)
 

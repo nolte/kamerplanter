@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Authlib, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.13 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.51 (§5a.5: Hintergrundjobs einer Sperre umgesetzt, REQ-024 v1.36, REQ-056 §5.2); 1.50 (§5a.5 Suspendierungs-Semantik und drei Step-up-Aktionen nach REQ-056 verwiesen, #2143); 1.49 (`default_tenant_key` wirkt: OIDC-Auto-Join nach REQ-024 AK-09, #2182); 1.48 (§3.x Refresh-Replay: Begründung „kein Sicherheits-Audit“ an das erweiterte Audit angepasst, #2111); 1.47 (API-Key-Kontrollen setzbar, Service Accounts anlegen/rotieren/entfernen, §5b Umsetzungsstand; #2137); 1.46 (§5a Plattform-Rolle auf `lead` nachgezogen, `tenant_roles` im Token informativ, Umsetzungsstand der Plattform-Admin-Rechte und AK-18/AK-42–AK-55; #2121); 1.44 (Token-Familie mit Replay-Erkennung, Access Token endet mit seiner Sitzung, gehashte Reset-/Bestätigungs-Tokens; #2116, #2158); 1.43 (§5a.5.1/§5a.5.2 Notfall-Verwaltung gestrichen, ersetzt durch Übergabe/`orphaned` bei der Kontolöschung, #2134; Step-up `tenant_erasure_cancel`, #2123); 1.42 (Registrierungsmodus `REGISTRATION_MODE` und Domain-Allowlist, §3.2d, AK-56; #2132); 1.41 (Step-up `admin_membership_add`, #2106); 1.40 (Restbefunde #2062: Valkey-Clients, Token-Reihenfolge, Summe je Postfach); 1.39 (Admin-Seite für OIDC-Provider, #1906); 1.38 (Bestätigungsnachweis `email_confirmed_at`, #1948); 1.37 (Step-up für Rollenwechsel und Mitglieder-Entfernen, #2032); 1.36 (Bereinigung abgebrochener lokaler Registrierungen: Trockenlauf, #2010); 1.35 (Anonyme Routen und Reset-Budget nach den Prüfungen von #2043/#2045 gehärtet, #2048/#2052/#2058/#2059/#2060); 1.34 (Wartezeit der Mail-Budgets bei hängendem Valkey begrenzt, Aussagen der Bündel-Prüfung korrigiert, #2045/#2043/#2046); 1.33 (Login-Ablehnung `EMAIL_NOT_VERIFIED` mit korrektem Passwort verschickt den neuen Bestätigungslink selbst, #2046); 1.32 (Budget je Adresse für `POST /auth/password-reset/request`, #2043); 1.31 (IP-Rate-Limits zählen in geteiltem Speicher, #2045); 1.30 (Neuer Bestätigungslink per `POST /auth/resend-verification`, #2037); 1.29 (SEC-H-009 Bedingung 1 an den neuen Default angepasst, #1948)
 Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 ```
 
@@ -15,6 +15,43 @@ Abhängigkeit: REQ-024 v1.4 (Permission-Matrix), UI-NFR-012 (PWA-Offline)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.51 | 2026-10-11 | **REQ-056 §5.2 (Refs #2098):** §5a.5 nachgeführt — gemessen waren es nicht sechs, sondern dreizehn Beats ohne Zustandsprüfung (zusätzlich Klimanormalwerte, Winterhärtezonen, Bewässerungsbedarf, beide Saison-Läufe, Aktor-Regelkreis und Aktor-Statusabgleich); alle fragen jetzt `ActiveTenants` (REQ-024 v1.36). Ein Sperrgrund bleibt offen (REQ-056 §5.3). |
+| 1.50 | 2026-10-11 | **#2143 (MT-050):** §5a.5 sagte, Pflege-Erinnerungen und Gieß-Aufgaben eines gesperrten Mandanten liefen weiter — seit #2166 (REQ-024 v1.32) stimmt das nicht mehr; nachgeführt (sechs Beats ohne Prüfung bleiben, REQ-056 §5.2). Suspendierungs-Semantik und Sperrgrund verweisen auf REQ-056 §5. §3.9: drei geplante Step-up-Aktionen aus REQ-056 §12.1 (`tenant_export`, `tenant_import`, `tenant_ownership_change`) als nicht implementiert vermerkt. Kein Verhalten geändert. |
+| 1.49 | 2026-10-10 | **#2182 (REQ-024 v1.34, AK-09):** `default_tenant_key` am `OidcProviderConfig` war eine Forward-Referenz ohne Verbraucher. Jetzt setzt das erste Anmelden, das über den Provider ein Konto **neu anlegt**, dieses Konto zusätzlich als `viewer` in den genannten Mandanten; Regeln und Ablehnungsfälle stehen in REQ-024 §1 (Einladungssystem). Das Feld zu setzen oder zu ändern verlangt weiterhin den Step-up (#1883). **Review-Nachtrag (gleiche Version):** `default_tenant_key` nur an einem generischen `oidc`-Provider (Google/GitHub/Apple: 422 beim Setzen, ein älterer Datensatz wird beim Anmelden ignoriert); beim Schreiben geprüft (Mandant vorhanden, nicht persönlich, nicht `platform`; 422 vor dem Step-up); `OidcProviderResponse` trägt das Feld; `PUT` mit `null` oder `""` entfernt es. Der Auto-Join setzt die vom Provider bestätigte Adresse voraus (`email_verified is True`). |
+| 1.48 | 2026-10-10 | **#2111 (MT-014, Rest):** Die Begründung, warum eine Refresh-Replay-Erkennung keine Zeile im `security_audit_log` schreibt, nannte ein Zeilenmodell mit Pflicht-`tenant_key`; seit REQ-024 v1.29 hält das Audit auch Kontozeilen ohne Mandant (Änderung von `is_active`/`email_verified` durch einen Plattform-Admin). Die Entscheidung bleibt, die Begründung lautet jetzt: das Audit hält Zugriffsänderungen durch eine Person, keine Token-Ereignisse. |
+| 1.47 | 2026-10-05 | **#2137 (MT-041, Audit-Befunde ID-06 und ID-14).** Gemessen vor der Änderung: `ip_allowlist`, `rate_limit_per_minute` und `expires_at` auf `ApiKey` wurden auf REST und MCP durchgesetzt (`enforce_api_key_controls`, Ablaufprüfung in `authenticate_api_key` und im MCP-Authenticator), aber von keiner Route geschrieben; `account_type="service"` schrieb kein Codepfad (einzige Service-Account-Route: `POST /auth/service-accounts/validate`); es gab keine Rotation; ein ungescopter Key eines Service Accounts passierte `require_account_principal` und konnte `POST /tenants` und `POST /tenants/invitations/accept` aufrufen (`tenants/router.py` auf Basis b84592b04 Z. 84–97 und 421–434; im Issue noch 81–95 und 372–381). **Neu:** (1) `POST /auth/api-keys` nimmt die drei Kontrollen an (§3.7), geprüft **vor** dem Step-up (422). (2) `POST /t/{slug}/service-accounts` legt einen Service Account an — nur `lead` **und** Scope `technical` (aus der gespeicherten Mitgliedschaft), Step-up `service_account_change`; Rolle `viewer`/`grower`, Key immer auf den Mandanten gescopt, Kontingent `TENANT_MAX_SERVICE_ACCOUNTS` (Default 20, `422 SERVICE_ACCOUNT_LIMIT_REACHED`), belegt einen Platz des Mitgliederlimits. Dazu `GET …/service-accounts`, `POST …/{sa_key}/rotate-key` (Überlappung 0–1440 min, Default 0 = sofort widerrufen; das Ende des Fensters setzt der Ablauf durch, den beide Key-Oberflächen schon prüfen — kein Celery-Task) und `DELETE …/{sa_key}`. (3) `POST /tenants` und die Einladungsannahme weisen einen Service Account mit 403 ab (`allows_interactive_auth`). (4) Die Mitgliederverwaltung hebt einen Service Account nicht zu `lead` (403). Neue Step-up-Aktion `service_account_change` (§3.9); neue Audit-Aktion `service_account_key_rotated`. Umsetzungsstand und Abweichungen von §5b in §5b.0. |
+| 1.46 | 2026-10-05 | **#2121 (MT-025, Spec an den Code angeglichen; reine Spec-Änderung).** Gemessen gegen `develop` (`b064e63b7`): (1) **§5a nannte die Plattform-Rolle `role: admin`** (Beispiel §5a.1, Ableitung §5a.2, Dependency §5a.3, Szenario §5a.6, §5b.3, AK-18, AK-28/AK-29) — seit Migration `v0032` heißt sie `lead` (`app.common.auth.is_platform_admin`: aktive Mitgliedschaft mit `TenantRole.LEAD` im Mandanten `platform`; REQ-049 §2.5). Alle Stellen auf `lead` umgestellt, auch im gestrichenen §5a.5.2 (Vokabular, keine Wiederbelebung). (2) **`tenant_roles` im Access Token ist informativ:** `AuthService` stellt das Token mit leerem `tenant_roles` aus; `is_platform_admin` wird beim Ausstellen aus der gespeicherten Mitgliedschaft abgeleitet. Keine Autorisierungsentscheidung liest einen der beiden Claims — die Wächter lesen Mitgliedschaften zur Laufzeit (§2 Abweichungstabelle, §3.1, §5a.2, AK-19). (3) **Plattform-Viewer** (`viewer` im Mandanten `platform`, §5a.1) ist **nicht implementiert** (#2179): eine solche Mitgliedschaft gewährt keinerlei Admin-Zugriff (REQ-024 §1a.4). (4) **§5a.4 Umsetzungsstand** und **AK-42–AK-55** mit Status: Notfall-Verwaltung gestrichen (v1.43), Mandanten-Sperre über den Zustand `suspended` (#2105, #2123), Konto-Sperre über `PATCH /admin/platform/users/{key}` (`is_active`, beendet Sitzungen, #2116); offen: Selbstsperre/letzter Plattform-Admin (#2144), Celery-Pause gesperrter Mandanten (#2143). Neuer Guard: `test_spec_literal_discriminators_match_models.py` prüft Rollen-Literale in REQ-023/024/049 gegen `TenantRole`/`AdminScope`. |
+| 1.44 | 2026-10-05 | **Sitzungs- und Token-Lebenszyklus (#2158, #2116, MT-019).** (1) **#2158:** Die Spezifikation verlangte für `email_verification_token` und `password_reset_token` schon „gehashed gespeichert"; gemessen wurde der Klartext gespeichert und per Wert gesucht (echter Dienst gegen echte ArangoDB, Dokument-Dump). Die Felder heißen jetzt `email_verification_token_hash` / `password_reset_token_hash` und halten den SHA-256-Hex-Digest (`TokenEngine.hash_token`, wie Refresh-Token und API-Keys; kein HMAC — 256 Bit Zufall sind ohne Schlüssel nicht zu erraten); die Suche hasht den vorgelegten Link. Ablauf und Einmalnutzung unverändert. Migration `v0086` hasht gespeicherte Klartexte per AQL `SHA256()` und entfernt die alten Attribute — vor dem Update verschickte Links funktionieren noch genau einmal (Entscheidung: hashen statt löschen, weil ein verlorener Bestätigungslink die Anmeldung blockiert, §3.2b). (2) **#2116, §3.2a umgesetzt** mit den unten im Abschnitt „Umsetzungsstand" genannten Abweichungen vom Pseudocode (kein Hard Cutover, Client-Abgleich über `User-Agent` statt `device_id`, Gnadenpfad gibt nur ein Access Token aus, kein eigener Fehlercode, keine Prometheus-Zähler). Rotierte Tokens bleiben bis zu ihrem eigenen `expires_at` gespeichert (Replay-Signal; NFR-011 R-11 v1.41). (3) **AK-14 gilt jetzt auch für Access Tokens:** `users.session_generation` und `users.access_token_generation` (§Datenmodell); jedes Access Token trägt `gen` (und `sid` = Family); `FullAuthProvider` lehnt ein Token ab, dessen `gen` nicht der des Kontos entspricht — ohne zusätzlichen Lesezugriff (gemessen: 1 Konto-Lesezugriff je Anfrage vorher wie nachher, der Vergleich kostet < 1 µs). Jeder Widerruf erhöht die Generation: Logout (Family), Session-Widerruf (Family), Logout-all, Passwort-Reset und -Wechsel, E-Mail-Wechsel und Rücknahme, Art.-17-Antrag, Admin-Deaktivierung (neu: beendet jetzt auch die Sitzungen), erkannter Replay. Ein Generationszähler statt `sessions_invalid_before`/`iat`-Zeitstempel: `iat` hat Sekundenauflösung und Replikas können in der Uhr abweichen; ein Zähler ist exakt. Rollenentzug braucht keinen Schnitt: Rollen und Plattform-Admin werden je Anfrage aus der Mitgliedschaft gelesen, nicht aus dem Token. Nur das Refresh-Token-Repository schreibt die Zähler (in derselben AQL-Anweisung wie der Widerruf); das User-Repository lässt sie aus jedem Schreibvorgang heraus, damit ein `update_fields` mit vor dem Widerruf gelesenem Konto sie nicht zurücksetzt. |
+| 1.43 | 2026-10-05 | **#2134 (MT-038) — §5a.5.1 Verwaist-Erkennung und §5a.5.2 Emergency-Admin-Ernennung gestrichen (Entscheidung „streichen“, nicht umsetzen).** Gemessen: Weder der wöchentliche Celery-Task noch `POST /admin/tenants/{tenant_key}/emergency-admin` noch `orphaned_since` existieren im Code; die Plattform-Admin-Routen kennen keine Vergabe des Scopes `management`. Die beiden Wege, auf denen eine Organisation ihre letzte Verwaltung verliert, sind jetzt geschlossen statt nachträglich repariert: freiwillig (Entfernen, Austritt, Scope-Entzug) verhindert INV-1 (REQ-024), und die Kontolöschung — der einzige Weg ohne INV-1 — übergibt die Verwaltung an die dienstälteste Leitung oder setzt die Organisation auf `orphaned` und plant ihre Löschung mit der Gnadenfrist (REQ-025 §3.1.3 Regel 4, REQ-024 AK-52/AK-65). Eine verwaiste Organisation wird nicht wiederbelebt (kein Notfall-Admin, kein Abbruch der Löschung); Mitglieder und Plattform-Admins werden benachrichtigt, das Admin-Panel zeigt sie. §5a.5.3 (Suspendierung) ist mit #2105/#2123 als Zustand `suspended` umgesetzt. **#2123 (§3.9):** neue Step-up-Aktion `tenant_erasure_cancel` (Abbruch einer geplanten Mandantenlöschung), gebunden an den Mandantenschlüssel; Zielprüfung wie `tenant_deletion`. |
+| 1.42 | 2026-10-05 | **#2132 (MT-036, §3.2d, AK-56):** Im Full-Modus legte `POST /auth/register` — und ebenso die erste OIDC-Anmeldung einer unbekannten Adresse — für jeden ein Konto an; es gab keinen Schalter. Neu (**Betreiberentscheidung 2026-10-04**): `REGISTRATION_MODE` = `open` (Default, unverändertes Verhalten) \| `invite_only` \| `closed` und eine optionale Domain-Allowlist `REGISTRATION_ALLOWED_DOMAINS`. Gelesen gilt: Eine **E-Mail-Einladung** (offen, nicht abgelaufen, für genau diese Adresse) ist die Ausnahme von `invite_only` und von der Allowlist — lokal bewiesen durch ihr Token (`invitation_token` im Registrierungs-Body), bei der ersten OIDC-Anmeldung durch die vom Anbieter bestätigte Adresse (`email_verified`); **`closed` lässt niemanden zu, auch nicht mit Einladung** (sonst wären `closed` und `invite_only` derselbe Modus). Eine Link-Einladung öffnet keine Registrierung. Jede Ablehnung ist dieselbe `403 REGISTRATION_NOT_ALLOWED`, entschieden vor jedem Lesen gespeicherter Konten (kein Enumerations-Orakel). `GET /mode` meldet `registration: {mode, domain_restricted}`; Login- und Registrierungsseite passen sich an. Bestehende Konten melden sich in jedem Modus an. Light-Modus unberührt (keine `/auth`-Routen; `/mode` meldet dort `closed`). Guard: `test_account_creation_asks_the_registration_policy.py` — jede Funktion, die ein Konto anlegt, fragt die eine Prüfstelle. |
+| 1.41 | 2026-10-04 | **#2106 (§3.9):** Eine weitere Aktion läuft durch den Step-up: `admin_membership_add` (das Hinzufügen eines Kontos zu einem Mandanten durch einen Plattform-Admin, `POST /admin/platform/tenants/{key}/members` und `…/users/{key}/memberships`), gebunden an das Paar `<tenant_key>|<user_key>` (die Mitgliedschaft gibt es noch nicht; `|` ist kein Zeichen eines Dokumentschlüssels, das Paar ist eindeutig). Die Zielprüfung beim Ausstellen verlangt einen Plattform-Admin sowie einen vorhandenen Mandanten und ein vorhandenes Konto (403 vor 404). Die Registrierung nimmt ein angelegtes Konto zurück, wenn der Anbieter- oder Mandant-Schreibvorgang scheitert (#2118). |
+| 1.40 | 2026-10-04 | **Restbefunde aus #2043/#2045/#2046 (#2062):** (1) **Alle Valkey-Clients der Request-Pfade warten höchstens 0,5 s** (§3.2c): `_get_redis_client()` (Geräte-Kopplung, API-Key-Limiter, MCP-Sitzungen, Identifikations-Limiter) und der OAuth-State-Store nutzten die redis-py-Vorgabe von 5 s je Socket-Operation — gemessen gegen einen Socket, der annimmt und nie antwortet: 5,01 s je Aufruf, die anonyme Kopplungs-Einlösung 10,10 s; jetzt 0,50 s und 1,10 s. Ein Guard verlangt `bounded_redis_client_options()` von jedem in `app/` gebauten Valkey-Client. (2) **Reihenfolge von Token und Mail** (§3.2b): Token-Schreiben und Versand laufen je Konto und Tokenart unter einem Prozess-Lock; vorher konnte die zuletzt eintreffende Mail ein bereits überschriebenes Token tragen (deterministisch reproduziert, Bestätigung und Reset). Je Prozess, nicht je Replik. (3) **Summe je Postfach gemessen** (§3.2b): 16 Mails in einem Fenster (3 anonym, 3 bewiesen, 10 Reset), nicht „bis zu 9“; bewusst kein gemeinsames Budget (ein Squatter könnte sonst den Reset der Inhaberin verbrauchen, vgl. §3.2c „Aussperren durch Dritte“). (4) **Valkey ohne AUTH** (§3.2c): Entscheidung für den Betreiber festgehalten. (5) Guard `anonymous_mail_routes`: anonym heißt „kein `get_current_user` im Abhängigkeitsbaum“ (vorher: Namenspräfix `require_*`/`get_current_*`), `async def`-Methoden werden gelesen. |
+| 1.39 | 2026-10-04 | **#1906 (§4.1, §3.9):** Die OIDC-Provider-Konfigurationen haben eine eigene Admin-Seite `/admin/oidc-providers` (Plattform-Admin, erreichbar im Tab „Plattform-Modus" der Kontoeinstellungen): Liste, Anlegen, Bearbeiten, Löschen und Discovery-Test über `/api/v1/admin/oidc-providers`. Anlegen, Löschen und jede Änderung außer `display_name` und `icon_url` laufen im Dialog `StepUpConfirmDialog` mit der Aktion `oidc_provider_change` (Ziel: Schlüssel der Konfiguration, beim Anlegen `new:<slug>`); `display_name` und `icon_url` speichern ohne Dialog. Das Client-Secret ist schreibgeschützt: Die Schnittstelle gibt es nie zurück, die Seite zeigt es nie an, ein leeres Feld beim Bearbeiten behält das gespeicherte. Feste Endpunkte (`authorization_url`, `token_url`, `userinfo_url`, `jwks_url`) und der Standard-Mandant lassen sich beim Anlegen setzen; die Antwort enthält sie nicht, die Seite zeigt sie später nicht an. Die Aussage „nur über die API verwaltbar" im Admin-Handbuch (#1980) entfällt. Testfälle TC-023-077 bis TC-023-079. |
+| 1.38 | 2026-10-04 | **Bestätigungsnachweis (#1948):** `users.email_confirmed_at` hält fest, dass der Inhaber der Adresse sie belegt hat. Gesetzt nur vom Bestätigungslink (`POST /auth/verify-email`), der Bestätigung des E-Mail-Wechsels, dessen Revert-Link und von einem OIDC-Provider, der `email_verified` behauptet. `email_verified` allein belegt nichts: die Registrierung mit `REQUIRE_EMAIL_VERIFICATION=false` setzt es ohne Bestätigung, und das Umstellen auf `true` ändert gespeicherte Konten nicht. Deshalb liest REQ-030 §3.4 den Nachweis. Ein ohne Bestätigung registriertes Konto meldet sich weiter an (Anmelde-Gate bleibt `email_verified`), bekommt aber keine Benachrichtigungs-Mail, bis es einen Link bestätigt; `POST /auth/resend-verification` (§3.2b) stellt ihn mit `REQUIRE_EMAIL_VERIFICATION=true` auch solchen Konten aus. Migration v0080 stempelt bestehende verifizierte Konten (Grandfathering: Herkunft nicht unterscheidbar, sonst endete jede bestehende Mail beim ersten Deploy). Startwarnung `email_channel_without_verification`, wenn ein Versender (`EMAIL_ADAPTER` smtp/resend) mit `REQUIRE_EMAIL_VERIFICATION=false` zusammentrifft. Admin-gesetztes `email_verified` ist eine Zusicherung, kein Nachweis. |
+| 1.37 | 2026-10-04 | **#2032 (§3.9):** Drei weitere Aktionen laufen durch den Step-up, jeweils an den Schlüssel der Mitgliedschaft gebunden (#1884): `admin_membership_role_change` (`PATCH /admin/platform/tenants/{tenant_key}/members/{membership_key}/role`, `PATCH /admin/platform/users/{user_key}/memberships/{membership_key}/role`), `tenant_member_role_change` (`PATCH /tenants/{slug}/members/{membership_key}/role`) und `tenant_member_removal` (`DELETE /tenants/{slug}/members/{membership_key}`) — das Konto, das den Step-up leistet, ist das **handelnde** (Plattform-Admin bzw. Mandanten-Verwalter mit `management`), nie das betroffene Mitglied. Die Tabelle und die Zielliste in §3.9 führen jetzt auch die Aktionen von #2009 (`admin_tenant_update`, `admin_membership_removal`). Die Routen: REQ-024 AK-56/AK-57. |
+| 1.36 | 2026-10-04 | **#2010 (§3.5, AK-17):** Der Task `cleanup_unverified_accounts` erreichte bisher keine lokal registrierte, nie bestätigte Person: die Registrierung schreibt eine `LOCAL`-Anbieterzeile, und der Selektor behandelte jede Anbieterzeile als verknüpft (gemessen gegen eine echte ArangoDB). Betreiberentscheidung 2026-10-03: erst Trockenlauf. Der Task zählt diese Konten (`local_registrations_pending`) und löscht sie nur, wenn `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED` gesetzt ist; AK-17 gilt für Konten ohne Anbieterzeile uneingeschränkt, für lokale Registrierungen ab Freigabe. Einzelheiten: NFR-011 R-02, v1.28. |
+| 1.35 | 2026-10-04 | **Nacharbeit zu #2043/#2045:** (1) **Ein Zähler je Route, nicht je Pfadwert (#2052):** der IP-Limiter nutzt `key_style="endpoint"`; vorher öffnete jeder vom Aufrufer gewählte Pfadwert (Glossar-Slug, Export-Schlüssel, Tenant-Slug) einen eigenen Zähler und einen eigenen Valkey-Schlüssel (gemessen: 31 Slugs → 31 × `200`). Details am Ende von §3.8. (2) **Limit-Prüfung nicht mehr auf der Ereignisschleife (#2048):** asynchrone begrenzte Routen prüfen über `run_in_threadpool`; `GET /api/health` zählt nur im Prozessspeicher. (3) **Rückfall-Stufe der anonymen Budgets verdrängt nicht (#2058):** eine volle Stufe wirft abgelaufene Einträge hinaus und behandelt sonst eine neue Adresse als über dem Budget; vorher verschaffte eine Flut von 4096 Adressen dem Opfer einen vierten Link. `maxmemory` des Chart-Valkey bleibt bewusst ungesetzt (§3.2c). (4) **Reset-Budget zweistufig (#2059):** 3 je Adresse und Client-IP, 10 Links je Adresse insgesamt (nur zugelassene Anfragen zählen); vorher hielt eine Quelle mit einer Anfrage je Stunde bis zu 1199 Adressen gesperrt (gemessen: 0 von 100 Inhaberinnen bekamen einen Link, danach 100 von 100). Log-Ereignis `password_reset_budget_exhausted` (nur Digest). Kein Admin-Weg — §3.2c sagt das jetzt ausdrücklich. (5) **Reset-Link an die gespeicherte Adresse (#2060):** `to_email=user.email` statt der eingegebenen Schreibweise; Python-`lower()` gegen AQL-`LOWER()` gemessen (13 abweichende BMP-Zeichen, nur in der sicheren Richtung). (6) **Restposten #2062:** Kontosuche des Resets nach der Antwort (gleiche Arbeit diesseits und jenseits des Budgets); `resolve_client_ip` akzeptiert nur IP-Adressen (kanonisch), Chart pinnt `TRUSTED_PROXY_HOPS` genau auf `1`; Ausfall-Signale `rate_limit_storage_never_reached` (Fehler-Level) und `rate_limit_storage_still_unavailable`; TC-023-015 auf die gelbe Warnung und den mitgeschickten Link aktualisiert; der Valkey-Client der Mail-Budgets hat jetzt den Prüfplan des Limiters (`LatchedRedis`) — gemessen 1,0 s je Reset-Anfrage während eines Hängers vorher, 0,0 s nach der ersten danach. |
+| 1.34 | 2026-10-03 | **Bündel-Prüfung #2043/#2045/#2046:** (1) Die Mail-Budgets (§3.2b, §3.2c, Login-Ablehnung) und der Zähler für unbekannte Adressen bekamen ihren Valkey-Client mit den redis-py-Defaults (5 s je Socket-Operation): gemessen über die echten Routen 5,0 s für eine Reset-Anfrage, 5,3 s für eine Login-Ablehnung, 10,6 s für eine fehlgeschlagene Anmeldung mit unbekannter Adresse, auch je für acht gleichzeitige. Jetzt ein eigener, geteilter Client mit den Optionen des IP-Limiters (0,5 s je Verbindungsversuch und Adresse, keine Wiederholung): gemessen 0,51 s, 0,78 s und 1,3 s; ohne Prüfplan, Valkey wird bei jeder Anfrage gefragt. (2) Das Subject des anonymen Bestätigungslinks wird im Service getrimmt und kleingeschrieben wie das des Resets. (3) Korrigiert: Summe der drei Budgets je Postfach, Squatting-Fall und Admin-Ausweg, Neustart von Valkey, `@` im Passwort, Proxy-Benennung, Bedingung der unveränderten Header-Namen. |
+| 1.33 | 2026-10-03 | **Neuer Bestätigungslink über die Login-Ablehnung (#2046):** Das Budget je Adresse von `POST /auth/resend-verification` (§3.2b) zählt jede eingegebene Adresse — wer eine fremde Adresse kennt, konnte es für den Inhaber aufbrauchen und ihm so jeden neuen Link vorenthalten (bisher als Restrisiko geführt). Neu: Die Ablehnung `403 EMAIL_NOT_VERIFIED` (nur nach korrektem Passwort erreichbar) verschickt den neuen Link selbst, nach der Antwort, an die gespeicherte Adresse des Kontos — auf einem eigenen Budget je Konto (Subject `verification-resend-proven:<user_key>`, 3 je Stunde, Valkey-geteilt mit In-Process-Rückfall, nie fail-open), das anonyme Anfragen nicht erreichen. Kein neuer Endpunkt, kein Passwort in einem weiteren Request-Body. Die Antwort bleibt unverändert (Status, Body, Header) — ob gesendet, Budget erschöpft oder Zustellung gescheitert; ein falsches Passwort antwortet wie bisher `401` ohne Mail. Die Login-Route gibt die Ablehnung zurück statt sie zu werfen, weil FastAPI Background-Tasks bei einer Exception verwirft (gemessen). Frontend: der Hinweis stellt den Link in Aussicht (nie „gesendet“), die anonyme Aktion bleibt Rückfall. Details in §3.2b. |
+| 1.32 | 2026-10-03 | **Budget je Adresse beim Passwort-Reset (#2043):** `POST /auth/password-reset/request` war nur je Client-IP begrenzt (`RATE_LIMIT_AUTH`, `20/minute`); gemessen über die echte Route: 20 Reset-Mails an eine Adresse aus einer Quelle in einer Minute, jede mit neuem Link — rechnerisch 1200 je Stunde und Quelle, mit jeder weiteren Quelle mehr. Neu: ein Budget je Adresse wie beim Bestätigungslink (§3.2b) — 3 Anfragen, Auffüllung nach einer Stunde Ruhe, eigenes Budget (Subject `password-reset:<Adresse>`), reserviert vor der Kontosuche für jede eingegebene Adresse gleich, stumm (unverändert `200`, gleicher Body, gleiche Header). Groß-/Kleinschreibung und umgebende Leerzeichen teilen ein Budget. Bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open. Details in §3.2c. |
+| 1.31 | 2026-10-03 | **IP-Rate-Limits geteilt über Replikas (#2045):** Der slowapi-Limiter aller Auth-Routen zählte bisher im Prozessspeicher (`memory://`); N Prozesse vervielfachten jedes Limit um N. Der Zähler liegt jetzt im Speicher aus `RATE_LIMIT_STORAGE_URL` (leer = Valkey aus `REDIS_URL`); scheitert der Speicher mit einem Fehler des Redis-Clients, zählt jeder Prozess für sich weiter (kein Fail-open, kein 500, auch nicht für Anfragen, die beim Ausfall gerade warten; ein frisches Fenster je Prozess und Fenster, nicht je Ausfall); ein hängender Speicher kostet eine Anfrage des Limiters einen Socket-Timeout von 0,5 s je Verbindungsversuch und Adresse (die Mail-Budgets: 1.34) (DNS, mehrere Adressen, Verbindungsaufbau plus Handshake und `NOSCRIPT`-Nachladen nicht abgedeckt); jeder Prozess kehrt mit seiner eigenen nächsten Prüfanfrage zum geteilten Zähler zurück; `RATE_LIMIT_STORAGE_URL` (Schema `redis`, `rediss`, `redis+unix`, `memory` und Form) und `REDIS_URL` (Form) werden beim Laden geprüft, ohne den Wert zu nennen. Neues Log-Ereignis `forwarded_chain_deeper_than_trusted_proxy_hops` bei `TRUSTED_PROXY_HOPS=0` und mehrteiliger `X-Forwarded-For`-Kette (nicht gezählter Proxy oder vom Aufrufer selbst gesendeter Header). Details am Ende von §3.8 (Rate-Limit und Sperre bei Einlösung). |
+| 1.30 | 2026-10-03 | **Neuer Bestätigungslink (#2037):** Neuer §3.2b — `POST /auth/resend-verification` stellt einem Konto, dessen erster Bestätigungslink verloren ging oder abgelaufen ist, einen neuen aus. Ohne ihn kam ein solches Konto mit `REQUIRE_EMAIL_VERIFICATION=true` nie mehr in die Anmeldung (`/auth/register` antwortet einer belegten Adresse nur mit der Info-Mail, ohne neuen Token). Enumerationssicher: immer `202` mit demselben Body für unbekannte, unbestätigte und bestätigte Adressen; vor der Antwort für jede Adresse dieselbe Arbeit (eine Budget-Reservierung), Kontosuche, Token-Schreiben und Versand danach (#1890). Jeder Versand schreibt einen neuen Einmal-Token (24 h) und macht damit alle früheren Links ungültig. Grenzen: je Client-IP `RATE_LIMIT_RESEND_VERIFICATION` (Default `10/hour`, `429`), je Adresse 3 Anfragen mit Auffüllung nach einer Stunde Ruhe (stumm, unveränderte `202`). Keine Mail ohne `REQUIRE_EMAIL_VERIFICATION`, an Service-Accounts, an Konten ohne lokales Passwort (nur föderiert) oder an deaktivierte Konten. Die Login-Ablehnung `EMAIL_NOT_VERIFIED` nennt den Weg; das Frontend bietet ihn auf der Login-Seite und auf der Fehlerseite eines ungültigen Links an (§4.1 `ResendVerificationPage`). |
+| 1.29 | 2026-10-03 | **#1948 umgesetzt:** Der Default `true` ist ausgeliefert (Settings, Helm-Chart, Doku); E2E-Compose und Skaffold-Dev-Werte setzen `false` ausdrücklich. SEC-H-009 Bedingung 1 sagte noch „per Default `false`“ und begründete damit, dass eine echte Registrierung keine Mail verschickt — das stimmt nur noch mit `false`; mit `true` geht die Bestätigungsmail nach der Antwort raus (#1890). Die Bedingung bleibt unverändert gültig. |
+| 1.28 | 2026-10-03 | **Betreiberentscheidungen #1948, #1906:** `REQUIRE_EMAIL_VERIFICATION` hat den Default `true`; OIDC-Provider werden über eine eigene Admin-Seite im Optionen-Bereich verwaltet (neuer Abschnitt vor „Benannte SSO-Provider“). |
+| 1.27 | 2026-10-03 | **#2007, #2008 (Nacharbeit zu #1987):** (1) Der **Token-Endpunkt** (erhält Client-Secret und Autorisierungscode) und der **Userinfo-Endpunkt** (erhält das Access-Token) laufen vor dem Abruf durch `validate_oidc_fetch_url` (`app/common/url_safety.py`) — beim Login und beim Step-up (§3.9): Stammt der Endpunkt aus dem Discovery-Dokument, nie eine Metadaten-/Link-Local-Adresse, eine private nur auf dem Host des Ausstellers selbst oder mit `DEBUG`; vom Admin gesetzt (`token_url`, `userinfo_url`), nie eine Metadaten-/Link-Local-Adresse, eine private ist seine Wahl; die eingebauten Endpunkte von Google/GitHub bleiben ungeprüfte Konstanten. Ebenso wird `issuer_url` vor dem Abruf des Discovery-Dokuments geprüft (wie ein vom Admin gesetzter Endpunkt). Beide Antworten werden wie Discovery und JWKS gestreamt und auf 256 KiB (dekodiert, `Accept-Encoding: identity`) mit 10 s Gesamtfrist begrenzt gelesen; eine Antwort, die kein JSON-Objekt ist, verweigert. Ein verweigerter Endpunkt wird nie angesprochen; der Login endet mit `provider_error` (`oauth_endpoint_refused`, Grund nennt Endpunktart und Regel, nie Adresse), der Step-up mit `step_up_failed`. (2) **Step-up prüft `nbf` und `iat` bewusst nicht** (Entscheidung zu #2008, §3.9): ohne Signaturprüfung stammen die Claims nur vom Provider, und `nonce` (je Anfrage, State einmalig, 5 Minuten) sowie `auth_time` (≤ 300 s + 30 s) begrenzen enger, was eine `iat`-Untergrenze leisten würde. |
+| 1.26 | 2026-10-03 | **#1992:** `PATCH /admin/platform/users/{key}` verlangt das Step-up des Administrators (§3.9; kein API-Schlüssel, 403) bei **jeder Änderung** von `email_verified` oder `is_active` — nicht mehr nur beim Anheben: Eine Änderung, die zur Löschung oder Sperrung eines fremden Kontos führen kann, ist eine Step-up-Handlung. Das erneute Senden unveränderter Werte und eine Namensänderung brauchen keines. Ein gesenktes `email_verified` wird als `email_verified_lowered_at` vermerkt; der Bereinigungstask `cleanup_unverified_accounts` (AK-17) wählt ein so vermerktes Konto nie aus. `DELETE /admin/platform/users/{key}` antwortet seit #1949 mit `202` (REQ-025 AK-IE-01). |
+| 1.25 | 2026-10-03 | **OIDC-Härtung (#1987), Nacharbeit zu #1935/#1936/#1969:** (1) **https an der API-Grenze:** `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` und das neue `jwks_url` lehnen `POST`/`PUT /admin/oidc-providers` mit `422` ab, wenn sie nicht `https` sind (kein Host, Zugangsdaten in der URL ebenfalls); `http` ist nur für Loopback (`localhost`, `127.0.0.1`, `::1`, nach geparstem Host, nie nach Präfix) und nur mit `DEBUG=true` erlaubt — dem bestehenden Entwicklungsschalter, kein neuer. Dieselbe Regel gilt beim Login für einen gespeicherten Endpunkt (`OAuthEngine._resolve_*_url`, `fetch_discovery_document`): eine vor diesem Stand gespeicherte `http`-Konfiguration wird nicht mehr angesprochen, der Login endet mit `provider_error`, und erst die nächste Bearbeitung, die das Feld mitsendet, scheitert mit 422. (2) **Verknüpfung an den unveränderlichen Schlüssel:** `AuthProvider.oidc_config_key` (neu, der `_key` der Konfiguration; der Slug bleibt Beschriftung und Abgleich für Alt-Zeilen). Der Callback prüft vor jedem Schreiben (Konto anlegen, Verknüpfung anlegen oder ändern), dass die geladene Konfiguration unter ihrem Slug noch dieselbe, aktivierte, beim selben Aussteller ist (`reason=configuration_changed`); eine Verknüpfung mit anderem Schlüssel gehört einer gelöschten Konfiguration, passt nie und wird beim nächsten Login des `sub` entfernt; die Wiederanmeldung (§3.9) übergeht sie ebenso. Alt-Verknüpfungen ohne Schlüssel gelten wie bisher über den Slug — keine Migration. `create_provider` legt die Konfiguration zuerst **deaktiviert** an (der eindeutige Slug-Index serialisiert zwei gleichzeitige Anlagen, der Verlierer löscht keine fremden Verknüpfungen), löscht dann die Waisen des Slugs und aktiviert sie erst danach; schlägt das Löschen fehl, verschwindet die neue Konfiguration wieder. (3) **JWKS:** Schlüsselmenge je Konfiguration (und je aufgelöster Quelle, also nie über eine Umstellung hinweg) für 10 Minuten im Prozessspeicher des Workers (`app/domain/engines/jwks_cache.py`; je Worker ein Cache, nichts geteilt); ein unbekanntes `kid` löst genau einen Neuabruf aus, höchstens einen je 10 s und Konfiguration; ein Fehler wird 30 s gemerkt, nie so lange wie ein Erfolg, und nach einem fehlgeschlagenen Neuabruf einer abgelaufenen Menge wird nichts Altes ausgeliefert. Antworten (JWKS und Discovery) sind auf 256 KiB gedeckelt; ein nicht importierbarer oder symmetrischer Schlüssel wird übersprungen, die Menge bleibt nutzbar. Ein vom Anbieter genanntes `jwks_uri` läuft durch `validate_oidc_fetch_url` (`app/common/url_safety.py`): `https`, nie eine Metadaten-/Link-Local-Adresse, eine private nur auf dem Host des Ausstellers selbst oder mit `DEBUG`; ein vom Admin gesetztes `jwks_url` darf privat sein. (4) **`nbf`** wird mit 30 s Toleranz geprüft (vorhanden und falsch, etwa nicht numerisch, verweigert), **`iat`** darf höchstens 10 Minuten (+ Toleranz) zurückliegen. (5) **`jwks_url`** ist in Anlage und Änderung setzbar; ein Umstellen des Ausstellers (nach `same_issuer`, ein Schrägstrich ist keine) löscht im selben Schreibvorgang die gespeicherten `authorization_url`/`token_url`/`userinfo_url`/`jwks_url`, die die Anfrage nicht neu nennt. (6) `POST /admin/oidc-providers/{key}/test` meldet zusätzlich `jwks_check` (Abruf wie im Login, Schlüsselzahl, übersprungene Einträge, `kid`s) und `issuer_check` (nimmt der Login den vom Anbieter angekündigten `iss`; bei Abweisung durch Discovery 4.3 mit dem angekündigten Wert), jeweils `applicable: false` ohne ID-Token (GitHub). |
+| 1.24 | 2026-10-02 | **#1961:** `DELETE /admin/platform/users/{key}` bleibt eine Sofortlöschung ohne Karenzzeit (Betreiberentscheidung, REQ-025 v1.26): die anderen Mitglieder eines persönlichen Mandanten des Zielkontos erfahren in der E-Mail, dass die Löschung jetzt stattfindet. Vor der Bestätigung liest die Administrator-Oberfläche `GET /admin/platform/users/{key}/erasure-preview` (nur Plattform-Admin, Form wie `GET /privacy/erasure-preview`) und zeigt Mandantenname und Anzahl weiterer Mitglieder des **Zielkontos**; eine nicht ladbare Vorschau sagt das ausdrücklich. |
+| 1.23 | 2026-10-02 | **OIDC-Login prüft das ID-Token; Löschen und Umstellen eines Providers hinterlässt nichts Fremdes (#1935, #1936, #1969):** (1) Der Login verifiziert ein ausgestelltes ID-Token (`OAuthEngine.authenticate_login`): **Signatur** gegen die JWKS des Anbieters (`jwks_url`, sonst `jwks_uri` des gültigen Discovery-Dokuments, sonst die dokumentierte URL von Google/Apple, sonst ein sofort abgerufenes und validiertes Discovery-Dokument; nur `https`, nur asymmetrische Algorithmen, kein `none`/`HS*`; jeder Abruffehler verweigert), `iss` (über `same_issuer`, also Googles beide Schreibweisen), `aud`/`azp`, `nonce` (gleich der im State gespeicherten), `exp` und `iat` (30 s Toleranz). Ein Provider mit `openid`-Scope (und Apple), dessen Antwort kein ID-Token enthält, wird verweigert. Das `sub` des ID-Tokens muss nicht leer sein; bei Identität aus dem Userinfo-Endpunkt muss dessen `sub` gleich dem des ID-Tokens sein (OIDC Core 5.3.2); ein leeres, fehlendes oder `null`-`sub` (bzw. GitHub-`id`) verweigert die Anmeldung, auch ohne ID-Token. Jede Verweigerung ist für den Browser dieselbe `?error=provider_error` (kein Orakel, keine Sitzung, kein Konto); geloggt wird nur `oauth_login_refused` mit `provider` und `reason` aus einem festen Vokabular, nie ein Wert. Der Step-up (§3.9) bleibt unverändert beim TLS-Ersatz für die Signaturprüfung. **Betreiberwirkung:** Ein Provider, dessen Token diese Prüfungen nicht besteht, meldet niemanden mehr an — Diagnose über `oauth_login_refused.reason` (siehe Admin-Handbuch). (2) `delete_provider` löscht die Konfiguration und danach **alle** Verknüpfungen mit ihrem `oidc_config_slug` samt verschlüsselten Provider-Token (`IAuthProviderRepository.delete_by_config_slug`; Log: nur die Anzahl `links_deleted`); `create_provider` löscht vor dem Anlegen Verknüpfungen, die ein früheres Löschen unter dem Slug hinterlassen hat (`orphan_links_deleted`). Entscheidung Löschen statt Entbinden: eine Verknüpfung ohne ihre Konfiguration meldet niemanden mehr an; ein „ungebundener“ Zustand wäre die mehrdeutige Alt-Verknüpfung (kollidiert am Unique-Index, wenn zwei gelöschte Konfigurationen dasselbe `sub` hielten) oder ein ungeprüftes Tombstone-Vokabular. Keine Migration nötig — vor diesem Stand hinterlassene Waisen werden beim nächsten Anlegen unter ihrem Slug entfernt. (3) Das Umstellen von `issuer_url` oder `provider_type` setzt `discovery_document` und `discovery_refreshed_at` im selben `update_fields`-Schreibvorgang auf `null`; bei geändertem `issuer_url` werden zudem die Verknüpfungen der Konfiguration **ohne** gespeicherten Aussteller gelöscht (sie passten sonst auf jeden Aussteller, der erste Login des neuen IdP würde sie übernehmen), solche mit Aussteller verweigern den neuen IdP selbst. Zusätzlich nutzt die Engine ein gespeichertes Discovery-Dokument nur, solange sein `issuer` der konfigurierte ist (`OAuthEngine.usable_discovery`; Endpunkte und erwarteter `iss` kommen nie aus dem Dokument eines anderen Ausstellers). `fetch_discovery_document` lehnt ein Dokument ab, das kein JSON-Objekt ist, dessen `issuer` nicht der abgerufene ist (OIDC Discovery 4.3) oder dem `authorization_endpoint`, `token_endpoint` oder `jwks_uri` fehlt, oder dessen Endpunkte (einschl. `userinfo_endpoint`) nicht `https` sind; Apple erwartet `iss` = `https://appleid.apple.com` unabhängig von `issuer_url` — Rotation zählt es als Fehler und schreibt nichts, der Admin-Test meldet den Abruffehler. |
+| 1.22 | 2026-10-02 | **Ausfallender Mail-Versand als Enumerations-Orakel geschlossen (#1890); Discovery-Rotation ohne Voll-Snapshot (#1909):** (1) `POST /auth/password-reset/request` und `POST /auth/register` (bei `require_email_verification`) versenden die Mail jetzt **nach** dem Schreiben der Antwort (FastAPI-Background-Task) und fangen jeden Versandfehler ab; beim Reset wandert auch das Schreiben des Reset-Tokens in den Background-Task, damit der Request-Pfad für bekannte und unbekannte Adresse dieselbe Datenbankarbeit leistet (`AuthService._deliver_mail`). Vorher beantwortete ein bekannter Absender (Reset) bzw. eine freie Adresse (Registrierung) einen SMTP-Ausfall oder ein Resend-429 mit 500, die jeweils andere Seite mit 200/201 — ein Orakel, das SEC-H-009/010 schließen sollten, samt Laufzeitunterschied durch den synchronen Versand. Der Fehler wird als `auth_mail_send_failed` mit `kind` und Fehlertyp geloggt, nie mit Adresse oder Fehlertext; ein Wiederholungsversuch findet nicht statt (kein dauerhafter Ausgang, der Token oder Adresse in einen zweiten Speicher legen würde) — die Person fordert erneut an. Der Mailversand der Schrittbestätigung (`503 STEP_UP_CODE_UNDELIVERABLE`, v1.17) und der E-Mail-Änderung bleibt bewusst unverändert: beide laufen angemeldet bzw. antworten in beiden Zweigen gleich. (2) `rotate_oidc_discovery` schreibt per `IOidcConfigRepository.update_discovery` nur `discovery_document` und `discovery_refreshed_at` und nur, solange der Issuer noch der abgerufene ist; ein während des (bis zu 15 s langen, vom Issuer getakteten) Abrufs per Schrittbestätigung geänderter Provider (`enabled`, Secret, Issuer) wird nicht mehr zurückgesetzt. |
+| 1.21 | 2026-09-30 | **OAuth/OIDC-Login: eine Rückruf-URL, Verknüpfung je Konfiguration (#1865, #1869):** (1) Der Login bildet die Rückruf-URL `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` aus der konfigurierten öffentlichen Basis-URL (nicht mehr aus `request.base_url`/Host-Header), legt sie im OAuth-State ab und tauscht den Code mit genau diesem Wert (RFC 6749 §4.1.3); bisher ging an den Token-Endpunkt `{FRONTEND_URL}/auth/callback`. Ein State ohne `redirect_uri` (vor dem Deployment ausgestellt) wird verweigert (`invalid_state`). Login und Step-up nutzen dieselbe Funktion. (2) Der Login ordnet eine Anbieter-Verknüpfung nur noch über (Konfiguration, `sub`) zu, nicht über (Typ, `sub`): `sub` ist nur je Aussteller eindeutig, und alle generischen OIDC-Konfigurationen speichern unter dem Typ `oidc` — eine Identität bei IdP A mit dem `sub` eines Opfers bei IdP B meldete sich bisher **als das Opfer** an. Wo die Verknüpfung einen Aussteller gespeichert hat, muss `iss` passen (ohne abschließenden `/`, ein fehlendes Schema gilt als `https://` — Google sendet beide Schreibweisen); passt er nicht, wird die Anmeldung mit `link_requires_password` verweigert, ohne ein Konto anzulegen. Eine Verknüpfung ohne gespeicherten Aussteller übernimmt ihn bei der ersten Anmeldung. Eine Verknüpfung ohne `oidc_config_slug` (vor #1815) passt zu keiner Anmeldung und ist auch für die erneute Anmeldung (§3.9) nicht mehr fähig: Migration v0064 bindet beim Deployment jede, deren Typ genau **eine** Konfiguration hat (aktiv oder nicht); eine danach noch ungebundene war mehrdeutig und wird nicht geraten — die Anmeldung läuft dann über den E-Mail-Auto-Link-Pfad, der Step-up über den E-Mail-Code. Der eindeutige Index auf `auth_providers` ist jetzt `[provider, oidc_config_slug, provider_user_id]`; Migration v0064 bindet eindeutige Alt-Verknüpfungen und entfernt den alten Index `[provider, provider_user_id]`. |
+| 1.20 | 2026-09-26 | **Zielbindung und OIDC-Provider-Konfiguration (#1883, #1884):** Code und `step_up_token` einer Aktion auf etwas anderes als das eigene Konto (`admin_account_update`, `admin_account_erasure`, `tenant_deletion`, `provider_unlink`, neu `oidc_provider_change`) sind zusätzlich an das **Ziel** gebunden (Schlüssel des anderen Kontos, des Mandanten, der Provider-Verknüpfung bzw. der OIDC-Konfiguration, `new:<slug>` beim Anlegen). `POST /users/me/step-up-code` und `POST /users/me/step-up/oidc` verlangen dafür das Feld `target` (422 ohne; 422 auch, wenn eine Aktion auf das eigene Konto eines nennt) und stellen den Faktor nur für ein existierendes Ziel aus, auf das die anfragende Person handeln darf (403 vor 404, Betreiber-Entscheid D2). **Breaking** für API-Clients außerhalb des Frontends, die für diese Aktionen Codes oder Reauth-Token anfordern. `POST`/`PUT`/`DELETE /admin/oidc-providers` laufen durch den Step-up des Admins (`oidc_provider_change`); ohne Step-up bleiben nur `display_name` und `icon_url`; auch das Ein- und Abschalten eines Providers verlangt ihn (Betreiber-Entscheide D5/D6, D6 nach Security-Review SEC-001 korrigiert). |
+| 1.19 | 2026-09-26 | **Step-up vor Anmeldemitteln und Vertrauensanhebung (#1847, #1857):** `POST /auth/api-keys`, `POST /auth/device-pairing` und `DELETE /users/me/providers/{provider_key}` laufen durch den Step-up aus §3.9 (Aktionen `api_key_creation`, `device_pairing`, `provider_unlink`; Body-Felder `current_password`/`step_up_token`/`step_up_code`). Damit kann auch ein API-Key keinen API-Key und keinen Kopplungscode mehr ausstellen (403). `PATCH /admin/platform/users/{key}` verlangt den Step-up des Admins (`admin_account_update`), sobald `email_verified` oder `is_active` von false auf true wechselt. Im Light-Modus entfällt der Step-up beim API-Key (einziges Systemkonto, kein Mensch zu bestätigen). Umgesetzter Standard, offene Betreiber-Entscheidung (Fragenliste #1650): Passwortänderung, Passwort-Reset und „überall abmelden" widerrufen API-Keys **nicht** (Begründung in §3.9). |
+| 1.18 | 2026-09-26 | **Frische OIDC-Anmeldung als Regelfall des Step-up (#1815, Betreiber-Entscheid Variante 1):** Neuer Endpunkt `POST /users/me/step-up/oidc` (`{action, provider_key?}` → `{authorization_url}`, `prompt=login`+`max_age=0`) — für ein Konto ohne lokales Passwort mit mindestens einem OIDC-fähigen verknüpften Anbieter (Google, generisches OIDC mit `openid`-Scope) jetzt der Weg, unumkehrbare Aktionen und Zugangsdaten-Änderungen zu bestätigen, statt des E-Mail-Codes. Der bestehende OAuth-Callback meldet dabei niemanden an, sondern leitet auf `/auth/step-up/callback` weiter: Erfolg als `#step_up_token=…&action=…` im URL-Fragment, Fehler als `?error=step_up_failed\|step_up_stale\|step_up_cancelled`. Geprüft werden `iss`, `aud`/`azp`, `nonce`, `exp`, dass `sub` zu einer Verknüpfung dieses Kontos gehört, und dass `auth_time` höchstens fünf Minuten alt ist (30 s Uhrtoleranz) — keine JWKS-Signaturprüfung, weil das ID-Token direkt vom Token-Endpunkt über TLS in einem client-authentifizierten Austausch kommt (OIDC Core 3.1.3.7 Nr. 6). Der `step_up_token` ist fünf Minuten gültig, an Konto und Aktion gebunden, einmal verwendbar; neue Nachweis-Methode `oidc_reauth`. Neuer Fehlercode `STEP_UP_REAUTH_REQUIRED` (401, 422 beim Anfordern eines Codes) und `STEP_UP_REAUTH_FAILED` (401, nur als Redirect-Fehlercode). **Anbietergrenze:** GitHub ist reines OAuth2 ohne ID-Token, Apple liefert kein `auth_time` — ein Konto, dessen verknüpfte Anbieter ausschließlich aus diesen beiden bestehen, behält den E-Mail-Code als Ausweichweg (`EMAIL_CODE_FALLBACK = True`); jedem anderen Konto mit OIDC-fähigem Anbieter wird der Code verweigert. Begründung für den Ausweichweg statt einer Verweigerung ganz ohne Alternative (Variante 2): Sonst könnten GitHub/Apple-only-Konten ihr Art.-17-Löschrecht nicht mehr selbst ausüben. |
+| 1.17 | 2026-09-25 | **Unzustellbarer Step-up-Code (/code-review of #1862):** Scheitert der Mailversand eines Bestätigungscodes (Konsolen-Adapter außerhalb `debug`, SMTP-Fehler), antwortet `POST /users/me/step-up-code` jetzt 503 `STEP_UP_CODE_UNDELIVERABLE` statt 202 zu melden und den Code stillschweigend zu verwerfen; der Code wird zurückgenommen und sein Platz im Stundenkontingent sowie die 60-Sekunden-Wartezeit werden freigegeben, sodass ein Versuch nach Behebung durch den Betreiber sofort möglich ist. Die Redis-Ausgabereservierung läuft als ein `SET NX`-Schritt gegen ein Race zweier gleichzeitiger Anfragen. Zusätzlich laufen bei der Passwortänderung die Passwort-Policy-Prüfung und bei der E-Mail-Änderung die zustandslosen Prüfungen (eigene Adresse, reservierte Domain) jetzt **vor** dem Step-up, damit ein Tippfehler keinen Code und keinen gedrosselten Versuch verbraucht — nur der Adress-Lookup (frei/vergeben) bleibt hinter dem Step-up. |
+| 1.16 | 2026-09-25 | **Security-Review von #1815/#1841:** Der E-Mail-Code aus `POST /users/me/step-up-code` bindet jetzt die Aktion in den Digest (`HMAC(Schlüssel, "Konto:Aktion:Code")`) — Pflichtfeld `action` im Request-Body (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`; fehlend/unbekannt → 422); ein für eine Aktion angeforderter Code bestätigt keine andere, die Mail nennt die Aktion. Der Digest ist jetzt ein HMAC-SHA256 unter einem aus `JWT_SECRET_KEY` abgeleiteten Schlüssel, damit ein Valkey-Dump die 10⁸ möglichen Codes nicht offline umkehrbar macht. Neue Ausgabegrenzen: ein noch unverbrauchter Code jünger als 60 Sekunden wird nicht ersetzt, höchstens 5 Codes pro Konto und Stunde — beide Male 429 `STEP_UP_LOCKED` mit `retry_after_minutes`. `POST /users/me/step-up-code` und `POST /users/me/password` verweigern zusätzlich im Light-Modus (403, #1844): das einzige Konto der Instanz hat kein Passwort, ein dort gesetztes würde nach dem Wechsel in den Full-Modus zur gültigen Anmeldung. |
+| 1.15 | 2026-09-25 | **E-Mail-Code-Step-up für Konten ohne lokales Passwort (#1815); Step-up jetzt auch auf der E-Mail-Änderung (#1841):** Ein Konto ohne lokales Passwort (ausschließlich föderiertes Sign-in) bestätigt eine unumkehrbare Aktion oder eine Zugangsdaten-Änderung nicht mehr mit dem bloßen zurückgetippten Ziel, sondern mit einem per E-Mail zugestellten Einmalcode. Neuer Endpunkt `POST /users/me/step-up-code` (202, `{expires_at, expires_in}`, nie der Code selbst): acht Ziffern, zehn Minuten gültig, einmal verwendbar, als `step_up_code` im Step-up-Body von Kontolöschung, Mandantenlöschung und der ersten Passwortvergabe. Verweigert 403 einer API-Key-Anfrage, einem Dienstkonto oder im Light-Modus, 422 einem Konto mit lokalem Passwort. Ein fehlender Code antwortet 401 `STEP_UP_CODE_REQUIRED`, ein falscher zählt in dasselbe Drossel-Budget wie ein falsches Passwort. Kein OIDC-Re-Login mit `max_age`/`auth_time`: GitHub ist reines OAuth2 ohne `auth_time`, das hätte eine Provider-Klasse auf dem alten Stand belassen. `POST /privacy/email-change` (REQ-025 Art. 16) läuft jetzt ebenfalls durch diesen Step-up. Betriebsvoraussetzung: Ein föderiertes Konto braucht dafür funktionierenden Mail-Versand (`EMAIL_ADAPTER=smtp`) — mit dem Konsolen-Adapter und `DEBUG=false` (die produktive Voreinstellung ohne SMTP-Konfiguration) wird der Code nie zugestellt, und ein solches Konto kann sich dann nicht löschen, kein erstes lokales Passwort setzen, keinen Mandanten löschen und die E-Mail-Adresse nicht ändern. |
+| 1.14 | 2026-09-25 | **Step-up für unumkehrbare Kontoaktionen (#1813, #1814, #1816):** Neuer §3.9. Eine einzige Prüfung (`StepUpVerifier`) für Kontolöschung (`DELETE /users/me`, `POST /privacy/erasure`), Konto-Sofortlöschung durch Plattform-Admins (`DELETE /admin/platform/users/{key}`), Mandantenlöschung (REQ-024 AK-44d) und Passwortänderung: nur aus einer angemeldeten Sitzung eines Menschen (kein API-Key, kein Service Account — 403), Ziel wird zurückgetippt (E-Mail bzw. Slug — 422), das eigene aktuelle Passwort bei lokalem Konto (401). Fehlgeschlagene Passwort-Step-ups werden je Konto **und** Client-Adresse gezählt (Valkey, In-Process-Fallback) und über denselben `LoginThrottleEngine` gesperrt (429 `STEP_UP_LOCKED`), zusätzlich mit kontoweiter Obergrenze; die Login-Sperre bleibt bewusst unberührt. `DELETE /users/me` setzt nicht mehr nur einen Tombstone, sondern eröffnet den Art.-17-Löschauftrag (REQ-025). |
 | 1.12 | 2026-08-12 | **QR-Gerätekopplung für native Clients (#1118):** Neuer §3.8 — eine per QR-Code gekoppelte App tauscht einen Einmalcode gegen das **bestehende** REQ-023-Token-Paar (keine neue Token-Klasse, kein neuer Claim). Der Code liegt ausschließlich in Redis (kein neuer ArangoDB-Node, keine neue Collection); die Prüfspur sind structlog-Events, kein persistiertes Protokoll (§9). Einlösung ist rate-limitiert (`rate_limit_device_pairing_redeem`, Default 10/min) und zusätzlich per Quell-IP über den `LoginThrottleEngine` gesperrt — dieselbe Engine wie `login_local` —, wobei die Sperre **vor** dem Code-Store greift. `POST /auth/refresh` erhält einen Body-Transport (`{"refresh_token": …}`) für Clients ohne Cookie-Jar: Body schlägt Cookie, CSRF entfällt auf dem Body-Pfad (die Double-Submit-Tabelle in §1 ist entsprechend präzisiert). Neuer Frontend-Dialog „Gerät verbinden" im Sessions-Tab (§4.6). TTL `device_pairing_ttl_seconds` (Default 90, validiert 60–120). |
 | 1.11 | 2026-08-07 | **SEC-H-009 Info-Mail gebaut (#958):** Die in §3.2 seit v1.8 geforderte Info-Mail an die bereits registrierte Adresse ist implementiert — aber unter zwei Bedingungen, die §3.2 jetzt ausformuliert, weil die naive Variante genau das Enumeration-Orakel wieder öffnet, das #957 geschlossen hat: (1) **asynchrone Zustellung** über den Celery-Task `app.tasks.auth_tasks.send_duplicate_registration_notice`, eingereiht in einem FastAPI-Background-Task, also erst nachdem die Antwort geschrieben ist; (2) **Sperrfenster je Empfängeradresse** (24 h, `IRegistrationNoticeStore`) statt je Absender-IP. Zusätzlich: `POST /api/v1/privacy/email-change` erhält ein eigenes Rate-Limit (`rate_limit_email_change`, Default 5/hour). |
 | 1.10 | 2026-04-27 | **W-015:** §3.7 M2M-Auth um Light-Modus-Hinweis ergänzt — Service Accounts und API-Keys sind im Light-Modus deaktiviert (REQ-027 §2.1). Bei Mode-Switch Light→Full müssen externe Integrationen neue Keys generieren. |
@@ -81,7 +118,7 @@ Diese Spezifikation verwendet **Authlib** (aktiv maintained) anstelle von `pytho
 | Library | `python-jose` + `passlib` | `authlib` + `passlib` | `python-jose` unmaintained seit 2022; Authlib bietet OIDC/PKCE built-in |
 | Access Token TTL | 1 Stunde | **15 Minuten** | Kürzeres Fenster bei Token-Kompromittierung; Refresh-Token-Mechanismus kompensiert UX |
 | Refresh Token | Nicht spezifiziert | 30 Tage (persistent) oder 24h (Session), HttpOnly Cookie, Rotation, steuerbar via „Angemeldet bleiben" | Erforderlich für 15-Min-Access-Tokens ohne ständige Neuanmeldung; Session-Cookie als sicherer Standard für geteilte Geräte |
-| Token Payload | `sub`, `exp`, `type` | `sub`, `tenant_roles`, `is_platform_admin`, `exp`, `iat`, `type` | Mandanten-Rollen für REQ-024 im Token; PII-Minimierung (SEC-M-001): kein email/display_name |
+| Token Payload | `sub`, `exp`, `type` | `sub`, `tenant_roles`, `is_platform_admin`, `exp`, `iat`, `type` (dazu `jti`, `gen`, `sid`, §3.2a) | PII-Minimierung (SEC-M-001): kein email/display_name. **`tenant_roles` und `is_platform_admin` sind informativ** (v1.46, #2121): `tenant_roles` wird heute leer ausgestellt, keine Autorisierung liest einen der beiden Claims — die Wächter lesen die Mitgliedschaften zur Laufzeit, sodass eine Rollenänderung sofort wirkt und kein Token eine entzogene Rolle weiterträgt |
 | Refresh Grace Window <!-- W-004 --> | Nicht spezifiziert | **60 Sekunden** | Idempotenter Refresh innerhalb dieses Fensters (bei Device-Match) — toleriert paralleles `POST /auth/refresh` aus PWA-Reconnect (Service-Worker + UI-Thread). Nach 60s: strikte Replay-Detection mit Family-Sprengung. (UI-NFR-012 R-049) |
 | Token Family <!-- W-004 --> | Nicht spezifiziert | **`family_key` pro Login**, geteilt durch alle aus Rotation entstandenen Nachfolger | Replay-Detection sprengt die ganze Family; jeder neue Login startet eine neue Family — Multi-Device-Nutzung bleibt unbeeinträchtigt |
 
@@ -126,7 +163,7 @@ oidc_providers:
 | Refresh Token (persistent) | 30 Tage | HttpOnly Secure Cookie (`Expires` gesetzt) | Rotation bei Nutzung (altes Token wird invalidiert) |
 | Refresh Token (Session) | Browser-Session | HttpOnly Secure Session-Cookie (kein `Expires`/`Max-Age`) | Rotation bei Nutzung |
 
-- **Access Token:** Enthält `sub` (user_key), `tenant_roles` (Mapping tenant_key → role), `exp`, `iat`, `type`. Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
+- **Access Token:** Enthält `sub` (user_key), `tenant_roles` (Mapping tenant_key → role; **informativ und heute leer** — Autorisierung liest die gespeicherte Mitgliedschaft, nie diesen Claim, v1.46), `exp`, `iat`, `type`. Kurzlebig, wird bei jedem API-Request als `Authorization: Bearer <token>` mitgesendet.
   - **PII-Minimierung (SEC-M-001):** `email` und `display_name` werden **nicht** im JWT-Payload übertragen, um die Exposition personenbezogener Daten bei Token-Leaks zu minimieren. Diese Daten werden bei Bedarf über `GET /api/v1/users/me` abgefragt (gecacht im Frontend-State).
 - **Refresh Token:** Wird als HttpOnly/Secure/SameSite=Lax Cookie gespeichert. Bei Nutzung wird ein neues Refresh-Token-Paar ausgestellt und das alte invalidiert (Token-Rotation verhindert Token-Diebstahl).
 - **Token-Revocation:** Logout invalidiert alle Refresh Tokens des Nutzers. Optional: "Von allen Geräten abmelden" invalidiert alle Sessions.
@@ -184,7 +221,7 @@ Da Refresh Tokens als HttpOnly Cookie übertragen werden, sind zustandsändernde
 **Account-Linking:**
 Ein User kann mehrere Auth-Provider verknüpfen:
 - Matching erfolgt über **verifizierte E-Mail-Adresse**: Login mit Google (`max@example.com`) wird automatisch mit dem lokalen Account (`max@example.com`) verknüpft
-- Kein Auto-Link bei unverifizierter E-Mail (verhindert Account-Übernahme)
+- Kein Auto-Link bei unverifizierter E-Mail (verhindert Account-Übernahme). Die Seite des bestehenden Kontos ist der Bestätigungsnachweis (`email_confirmed_at`, `User.address_proven`), nicht `email_verified` allein: bei `REQUIRE_EMAIL_VERIFICATION=false` setzt die Registrierung das Flag ohne Bestätigung. Ein Konto ohne Nachweis (auch die Seed-Konten) wird nicht verknüpft; der Inhaber bestätigt die Adresse über den Link (§3.2b) und meldet sich danach über den Anbieter an.
 - User kann verknüpfte Provider jederzeit entfernen (mindestens eine Auth-Methode muss bestehen bleiben)
 - **Kein manuelles Verknüpfen:** ein zusätzlicher Provider entsteht nur über den Auto-Link beim Login mit ihm. Der dafür gedachte Endpunkt `POST /users/me/providers/{provider_slug}/link` existierte, hatte aber nie einen Aufrufer im Frontend und wurde mit #1416 entfernt (Betreiberentscheidung 2026-09-17). Wer den Auto-Link nicht erhält — etwa weil der Anbieter keinen `email_verified`-Anspruch liefert — meldet sich mit E-Mail und Passwort an; die beiden Konten bleiben getrennt.
 
@@ -281,11 +318,13 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     <!-- /Quelle: Service Accounts v1.7 -->
     - `status: Literal['unverified', 'active', 'suspended', 'deleted']`
     - `email_verified: bool` (Default: `false`)
-    - `email_verification_token: Optional[str]` (Einmalig, gehashed gespeichert)
+    - `email_verification_token_hash: Optional[str]` (SHA-256-Hex des einmaligen Tokens; der Klartext steht nur in der Mail, #2158)
     - `email_verification_expires: Optional[datetime]`
     - `password_hash: Optional[str]` (Bcrypt, `null` bei reinen SSO-Accounts und Service Accounts)
-    - `password_reset_token: Optional[str]` (Einmalig, gehashed gespeichert)
+    - `password_reset_token_hash: Optional[str]` (SHA-256-Hex des einmaligen Tokens; der Klartext steht nur in der Mail, #2158)
     - `password_reset_expires: Optional[datetime]`
+    - `session_generation: int` (Default: 0) — steigt bei jedem Ereignis, das **alle** Sitzungen beendet; ein Refresh-Token einer älteren Generation wird abgelehnt (#2116)
+    - `access_token_generation: int` (Default: 0) — steigt bei **jedem** Widerruf; ein Access Token mit anderem `gen` wird abgelehnt (#2116). Beide Zähler schreibt nur das Refresh-Token-Repository.
     - `failed_login_attempts: int` (Default: 0, Reset nach erfolgreichem Login)
     - `locked_until: Optional[datetime]` (Temporäre Sperrung nach zu vielen Fehlversuchen)
     - `last_login_at: Optional[datetime]`
@@ -305,7 +344,9 @@ Ein User kann mehrere Auth-Provider verknüpfen:
   - Collection: `auth_providers`
   - Properties:
     - `provider: str` (z.B. `google`, `github`, `apple`, `keycloak-gemeinschaftsgarten`)
-    - `provider_user_id: str` (Eindeutige ID beim Provider, z.B. Google `sub`)
+    - `provider_user_id: str` (ID beim Provider, z.B. `sub` — nur je Aussteller eindeutig)
+    - `oidc_config_slug: Optional[str]` (Konfiguration, über die die Verknüpfung entstand; `null` nur bei mehrdeutigen Verknüpfungen von vor #1815, die zu keiner Anmeldung passen — siehe v1.21)
+    - `issuer: Optional[str]` (`iss` des ID-Tokens; bei der Verknüpfung oder der ersten Anmeldung danach gesetzt; `null` ohne ID-Token, z.B. GitHub)
     - `provider_email: Optional[str]` (E-Mail beim Provider, kann von User.email abweichen)
     - `provider_name: Optional[str]` (Name beim Provider)
     - `provider_avatar_url: Optional[str]`
@@ -331,7 +372,8 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `family_key: str` (UUID; alle aus Rotation desselben Logins entstehenden Tokens teilen die `family_key`. Bei nachgewiesenem Replay wird die ganze Family invalidiert. Jeder neue Login startet eine neue Family — Multi-Device-Nutzung bleibt unbeeinträchtigt.)
     - `device_id: Optional[str]` (Stable Device-Identifier vom Frontend, persistiert in IndexedDB als UUID — siehe UI-NFR-012 R-049b. Default `null` für migrierte Tokens und API-Clients ohne PWA-Setup. Bei `null` greift der Grace-Window-Schutz nicht.)
     - `rotated_at: Optional[datetime]` (Wann wurde dieses Token durch Rotation invalidiert; `null` = noch aktiv. Wird beim Refresh auf den Vorgänger gesetzt.)
-    - `successor_key: Optional[str]` (Token-Hash des direkten Nachfolgers nach Rotation; nur für Grace-Window-Lookup. Identisch zu `replaced_by` für Tokens nach v1.9; bei Migration werden ältere Tokens mit eigenem Hash gefüllt.)
+    - `successor_key: Optional[str]` (Token-Hash des direkten Nachfolgers nach Rotation; nur für Grace-Window-Lookup. Identisch zu `replaced_by` für Tokens nach v1.9; bei Migration werden ältere Tokens mit eigenem Hash gefüllt.) **Umgesetzt (#2116):** Dokumentschlüssel des Nachfolgers, nicht dessen Hash; keine Migration — ein Token ohne `family_key` übernimmt bei seiner ersten Rotation den eigenen Schlüssel als Family.
+    - `session_generation: int` (Default: 0, #2116) — `users.session_generation` beim Login, an Nachfolger vererbt
     <!-- /Quelle: Widerspruchsanalyse W-004 -->
   - **IP-Anonymisierung (SEC-K-002):** Nach 7 Tagen wird `ip_address` automatisch anonymisiert (Celery-Task, NFR-011 R-03):
     - IPv4: Letztes Oktett → `0` (z.B. `192.168.1.42` → `192.168.1.0`)
@@ -355,7 +397,7 @@ Ein User kann mehrere Auth-Provider verknüpfen:
     - `icon_url: Optional[str]` (Für Login-Button)
     - `enabled: bool` (Default: `true`)
     - `auto_discover: bool` (Default: `true`, nutzt `.well-known/openid-configuration`)
-    - `default_tenant_key: Optional[str]` (Forward-Referenz → REQ-024: Neuen Usern automatisch diesem Tenant zuweisen. Wird erst mit REQ-024 aktiv.)
+    - `default_tenant_key: Optional[str]` (REQ-024 AK-09, umgesetzt v1.49: ein beim ersten Anmelden über diesen Provider **neu angelegtes** Konto mit vom Provider bestätigter Adresse tritt dem Tenant als `viewer` bei; nur bei `provider_type: oidc`, beim Schreiben geprüft, in der Antwort, mit `null` entfernbar; nie `platform` oder ein persönlicher, nicht aktiver oder voller Mandant — dann übersprungen, die Anmeldung gelingt. Ändern nur mit Step-up, #1883)
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -374,7 +416,7 @@ users:
   - PERSISTENT INDEX on [status]
 
 auth_providers:
-  - PERSISTENT INDEX on [provider, provider_user_id] UNIQUE  (eindeutig pro Provider)
+  - PERSISTENT INDEX on [provider, oidc_config_slug, provider_user_id] UNIQUE  (eindeutig je Konfiguration — `sub` ist nur je Aussteller eindeutig, #1869)
 
 refresh_tokens:
   - PERSISTENT INDEX on [token_hash] UNIQUE
@@ -404,7 +446,7 @@ LET providers = (
 RETURN MERGE(user, { auth_providers: providers })
 ```
 
-**User per Provider-ID finden (SSO-Login):**
+**User per Provider-ID finden (SSO-Login):** liefert die **Kandidaten** eines (Typ, `sub`)-Paars; der Login wählt daraus die Verknüpfung der Konfiguration, über die angemeldet wurde (v1.21, #1869) — nie die erste beliebige.
 ```aql
 FOR ap IN auth_providers
   FILTER ap.provider == @provider AND ap.provider_user_id == @provider_user_id
@@ -589,6 +631,7 @@ class AuthService:
     async def verify_email(self, token: str) -> User: ...
     async def request_password_reset(self, email: str) -> None: ...
         # Sendet Reset-E-Mail, KEIN Fehler wenn E-Mail nicht existiert (Enumeration-Schutz)
+        # Versand nach der Antwort; ein Versandfehler wird nur geloggt, nie beantwortet (#1890)
     async def reset_password(self, token: str, new_password: str) -> None: ...
         # Invalidiert alle Refresh Tokens nach Reset
 
@@ -673,8 +716,9 @@ nicht neu herleiten muss — und damit niemand die Mail „vereinfacht" und dabe
 genau das Orakel wieder öffnet, das SEC-H-009 schließen soll.
 
 **Bedingung 1 — asynchrone Zustellung, nach der Antwort.**
-`require_email_verification` ist per Default `false`. Eine *echte* Registrierung
-verschickt also **gar keine Mail**. Ein synchroner SMTP-Roundtrip nur im
+Eine *echte* Registrierung verschickt **innerhalb der Anfrage keine Mail**: mit
+`require_email_verification=false` gar keine, mit `true` (Default seit #1948,
+v1.28) geht die Bestätigungsmail erst nach der Antwort raus (#1890). Ein synchroner SMTP-Roundtrip nur im
 Duplikat-Zweig macht diesen Zweig damit messbar **langsamer** als eine echte
 Registrierung — dieselbe Auskunft, nur über die Uhr statt über den Body. Schlimmer
 noch: `SmtpEmailAdapter._send` wirft weiter, ein Zustellfehler würde aus dem
@@ -833,6 +877,19 @@ async def _detect_and_handle_replay(stored: RefreshToken, reason: str) -> None:
     )
 ```
 
+#### Umsetzungsstand (#2116, v1.44)
+
+Umgesetzt in `AuthService.refresh_tokens` / `ArangoRefreshTokenRepository`, mit diesen Abweichungen vom Pseudocode oben (gemessen und entschieden; der Betreiber kann sie überstimmen):
+
+- **Kein Hard Cutover** (v1.9 sah vor, alle Refresh-Tokens beim Deployment zu invalidieren): Tokens ohne `family_key` bleiben bis zum Ablauf gültig und bilden bei ihrer ersten Rotation eine Family mit dem eigenen Schlüssel. Kein erzwungenes Neuanmelden.
+- **Client-Abgleich über `User-Agent` statt `device_id`:** Das Frontend führt keine `device_id` (UI-NFR-012 R-049b nicht umgesetzt). Das Gnadenfenster greift nur bei gleichem, nicht leerem `User-Agent`; fehlt er auf einer Seite, gibt es kein Gnadenfenster (wie `device_id = null`).
+- **Gnadenpfad gibt nur ein Access Token aus**, keinen Nachfolger: Der Klartext des Nachfolgers ist nicht rekonstruierbar (Tokens liegen nur als Hash vor). Der Cookie-Weg braucht ihn nicht — der Gewinner des Wettlaufs hat den Nachfolger bereits in das gemeinsame Cookie-Glas des Browsers geschrieben; die Antwort des Verlierers setzt keinen Cookie.
+- **Body-Transport (gekoppelte Geräte) ohne Gnadenfenster:** Ein Client mit einem einzigen Token darf nicht doppelt rotieren; ein erneut vorgelegtes rotiertes Token sprengt die Family (auch nach verlorener Antwort — der Client koppelt neu).
+- **Antwort `401 INVALID_TOKEN`** wie bei einem unbekannten Token, kein eigener `error_code` (der Fehlervertrag bleibt unverändert); der Fall steht im Log als `auth.refresh_replay_detected` mit `reason` ∈ {`grace_expired`, `no_grace_transport`, `client_mismatch`, `family_ended`}, pseudonymem `subject` und `family_revoked` (ob Tokens widerrufen wurden).
+- **Keine Prometheus-Zähler** `kp_auth_refresh_replay_total` / `kp_auth_token_family_invalidated_total`: Die Domänenschicht schreibt keine Metriken (NFR-001); Auswertung über das Log-Ereignis. **Kein Eintrag im `security_audit_log`** (MT-014): das Audit hält Zugriffsänderungen durch eine Person (Mitgliedschaften, Vertrauensflags eines Kontos, Lebenszyklus eines Mandanten; REQ-024 AK-60), keine Token-Ereignisse.
+- **Die Family-Sprengung beendet auch die Access Tokens des Kontos** (`access_token_generation` steigt), damit der Inhaber des gestohlenen Strangs nicht noch bis zu 15 Minuten weiterarbeitet.
+- **Rotation atomar:** Das Beanspruchen eines Tokens ist eine AQL-Anweisung mit Bedingung `revoked == false AND rotated_at == null`; von zwei gleichzeitigen Anfragen gewinnt genau eine.
+
 #### Verhaltenstabelle
 
 | Situation | `rotated_at` | Alter | Device-Match | Verhalten |
@@ -899,6 +956,287 @@ Frontend-Anforderungen sind in **UI-NFR-012 §3.9** definiert:
 
 <!-- /Quelle: Widerspruchsanalyse W-004 -->
 
+<!-- Quelle: Issue #2037 -->
+### 3.2b Neuer Bestätigungslink (`POST /auth/resend-verification`, #2037)
+
+Ein Konto, dessen erster Bestätigungslink verloren ging oder abgelaufen ist,
+kommt mit `REQUIRE_EMAIL_VERIFICATION=true` sonst nie in die Anmeldung: der Login
+antwortet `403 EMAIL_NOT_VERIFIED`, und eine erneute Registrierung derselben
+Adresse nimmt den Duplikat-Zweig (§3.2, SEC-H-009 — Info-Mail, kein neuer Token).
+Der Endpunkt ist **anonym** und unterliegt denselben Anti-Enumerations-Regeln wie
+Registrierung und Passwort-Reset.
+
+**Eine Antwort für jede Adresse.** Immer `202 Accepted` mit demselben Body
+(`"If this address belongs to an account that still needs verification, a new
+verification email is on its way."`) — für eine unbekannte, eine unbestätigte, eine
+bestätigte Adresse, einen Service-Account, ein Konto ohne lokales Passwort, eine
+Adresse über ihrem Budget und eine Installation ohne Verifikationspflicht.
+
+**Dieselbe Arbeit vor der Antwort.** Im Request-Pfad passiert für jede Adresse
+genau eine Reservierung im Budget je Adresse (unten) und — innerhalb des Budgets —
+die Übergabe einer Aufgabe an die FastAPI-Background-Tasks. Kontosuche,
+Token-Schreiben und Versand laufen erst, nachdem die Antwort geschrieben ist
+(#1890-Muster; der Passwort-Reset macht es seit #2062 genauso, §3.2c). Ein Zustellfehler wird gefangen und nur mit Typ geloggt
+(`auth_mail_send_failed`, `kind=verification_resend`), nie mit Adresse.
+
+**Wer eine Mail bekommt.** Nur mit `REQUIRE_EMAIL_VERIFICATION=true` (sonst wird
+nichts reserviert und nichts verschickt) und nur ein Konto, das aktiv, unbestätigt,
+interaktiv (`account_type` nicht `service`, #1559) ist und ein lokales Passwort hat.
+Ein nur föderiertes Konto meldet sich beim Anbieter an und braucht keinen Link.
+
+**Frischer Einmal-Token.** Jeder Versand schreibt den SHA-256-Hash eines neuen
+Tokens (32 Byte, `secrets.token_urlsafe`; Feld `email_verification_token_hash`, v1.44) mit 24 h Gültigkeit
+über den gespeicherten — jeder früher verschickte Link ist ab da ungültig.
+`POST /auth/verify-email` löscht den Token beim Einlösen (einmalig verwendbar).
+**Reihenfolge (#2062):** Token-Schreiben und Versand eines Kontos laufen unter einem
+Lock je Konto und Tokenart (`KeyedLocks`, Eintrag nur solange jemand hält oder wartet),
+auch beim Reset (§3.2c). Ohne ihn konnten ein anonymer Resend und ein bewiesener Link
+(oder zwei Reset-Anfragen) so verschränken: Schreiben A, Schreiben B, Mail B, Mail A —
+die zuletzt eintreffende Mail trug dann das schon überschriebene Token (mit Ereignissen
+deterministisch reproduziert). Der Lock gilt je Prozess: Zwei Replikas können weiter
+verschränken; Folge ist eine tote Mail über der gültigen, der Weg zurück ist eine
+weitere Anfrage. Er wird nicht über Valkey verteilt — das wäre ein verteilter Lock mit
+Ausfallpfad für höchstens eine tote Mail. Die Haltezeit ist die Versandzeit (SMTP-Timeout
+10 s) und blockiert nur Mails desselben Kontos.
+
+**Grenzen.**
+
+| Grenze | Wert | Antwort bei Überschreitung | Umsetzung |
+|--------|------|----------------------------|-----------|
+| Je Client-IP | `settings.rate_limit_resend_verification`, Env `RATE_LIMIT_RESEND_VERIFICATION`, Default `10/hour` | `429 Too Many Requests` | slowapi-Limiter des Auth-Routers, Schlüssel über `resolve_client_ip` (#1130) |
+| Je Adresse | 3 Anfragen; Auffüllung, sobald eine Stunde lang keine Anfrage für die Adresse kam (Fenster wird je Anfrage erneuert) | Unverändert `202`, es wird nur nichts verschickt | Zähler-Mechanik des Step-up-Throttles (`reserve_attempt`, atomar per `MULTI/EXEC`), eigene Instanz mit 1-h-Fenster und eigenem In-Process-Rückfall; Subject `verification-resend:<Adresse>`, normalisiert und als SHA-256 abgelegt (NFR-011); bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open |
+
+Die Grenze je IP darf `429` antworten, weil sie eine Eigenschaft der Quelle ist,
+nie der Adresse. Die Grenze je Adresse zählt **jede** eingegebene Adresse gleich,
+bevor irgendetwas über sie bekannt ist — ein Budget nur für echte Konten wäre selbst
+das Orakel —, und antwortet deshalb stumm. Beide Werte sind nach der legitimen
+Nutzung bemessen (ein, höchstens zwei neue Links; mehrere Personen hinter einem
+NAT). Die Grenze je Adresse ist bewusst nicht konfigurierbar: ein höherer Wert
+macht den Endpunkt wieder zum Werkzeug, ein fremdes Postfach zu fluten.
+
+**Restrisiko.** Wer eine fremde Adresse dauerhaft über ihrem Budget hält (eine
+Anfrage pro Stunde reicht), verhindert neue Links **über diesen Endpunkt**. Das ist
+der Preis der stummen Grenze je Adresse. Seit #2046 sperrt das den Inhaber nicht
+mehr aus: die Login-Ablehnung mit korrektem Passwort verschickt den Link auf einem
+eigenen Budget (unten). Ein Plattform-Admin kann zusätzlich `email_verified` über
+`PATCH /admin/platform/users/{key}` setzen — aber erst, nachdem er geprüft hat, dass
+die anfragende Person das Postfach besitzt: Hat jemand eine fremde Adresse
+registriert (Squatting), bestätigt dieser Schritt das Konto des Squatters. Im
+Zweifel löscht er das Konto, statt es zu bestätigen.
+
+<!-- Quelle: Issue #2046 -->
+**Neuer Link über die Login-Ablehnung (#2046).** Die Ablehnung
+`403 EMAIL_NOT_VERIFIED` von `POST /auth/login` wird erst nach dem korrekten
+Passwort erreicht (nach Sperr-, Passwort- und Aktiv-Prüfung). Sie verschickt den
+neuen Link deshalb selbst, ohne neuen Endpunkt und ohne Passwort in einem
+weiteren Request-Body:
+
+- **Wann:** nur mit `REQUIRE_EMAIL_VERIFICATION=true` und nur für ein Konto, das
+  einen Link braucht (aktiv, unbestätigt, interaktiv, lokales Passwort, keine
+  Tombstone-Adresse — dieselbe Prüfung wie oben).
+- **Budget je Konto:** vor dem Versand eine Reservierung auf einem eigenen Budget,
+  Subject `verification-resend-proven:<user_key>` (Kontoschlüssel, nicht Adresse:
+  keine Schreibweise der Adresse kauft ein zweites Budget, und das anonyme Subject
+  `verification-resend:<Adresse>` kann es nie verbrauchen). 3 Links, Auffüllung
+  nach einer Stunde ohne Anforderung, als SHA-256 abgelegt (NFR-011). Gleiche
+  Mechanik wie oben, eigene Instanz: Valkey-geteilt, bei Ausfall Rückfall auf die
+  eigene In-Process-Stufe, nie fail-open. Diese Stufe hat die Grenze der
+  Rückfall-Stufe des Step-ups (feste Kapazität von 4096, LRU-Verdrängung eines
+  verbrauchten Budgets) — hier zählen allerdings Konten, die nur mit ihrem
+  Passwort erreichbar sind. Die beiden anonymen Budgets (oben und §3.2c)
+  verdrängen nicht (#2058, §3.2c).
+- **Nach der Antwort:** Token-Schreiben und Versand laufen als eine Einheit über
+  die Background-Tasks (#1890-Muster), Zustellfehler werden gefangen und nur mit
+  Typ geloggt (`auth_mail_send_failed`, `kind=verification_resend_proven`).
+  Empfänger ist `user.email` (gespeicherte Schreibweise), nie die eingegebene.
+  Weil FastAPI Background-Tasks verwirft, wenn der Handler eine Exception wirft,
+  gibt die Login-Route die Ablehnung als Antwort zurück — gebaut von derselben
+  Funktion wie der Exception-Handler (`app_error_response`).
+- **Kein neues Orakel:** Die Ablehnung war schon vorher von der Antwort auf ein
+  falsches Passwort unterscheidbar. Status, Body und Header-Namen bleiben
+  unverändert — gleich, ob eine Mail ging, das Budget erschöpft war oder die
+  Zustellung scheiterte. Die Header-Namen gelten nur, solange
+  `RATELIMIT_HEADERS_ENABLED` nicht gesetzt ist: slowapi liest den Schalter aus
+  der Umgebung, und mit `true` trägt die jetzt zurückgegebene `403`
+  `X-RateLimit-*`-Header, eine geworfene Antwort wie die `401` nicht; ein falsches Passwort antwortet unverändert `401` und
+  reserviert und verschickt nichts.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `settings.rate_limit_auth` (`RATE_LIMIT_AUTH`, gilt für den ganzen Login) | `429 Too Many Requests` |
+| Je Konto | 3 Links; Auffüllung, sobald eine Stunde lang keine Anmeldung mit `EMAIL_NOT_VERIFIED` abgelehnt wurde — jede solche Ablehnung reserviert, auch über dem Budget, und erneuert damit das Fenster | Unverändert `403 EMAIL_NOT_VERIFIED`, es wird nur nichts verschickt |
+
+Wer das Passwort kennt, kann über diesen Weg höchstens dreimal pro Stunde einen
+Link an das Postfach schicken lassen. Das ist eines von drei unabhängigen Budgets
+für dasselbe Postfach: Reset (§3.2c, 3), anonymer Bestätigungslink (oben, 3) und
+dieser Weg (3) — zusammen bis zu 16 Mails pro Stunde an ein Postfach (gemessen über den
+Service mit den Produktions-Stores, #2062: 3 + 3 + 10, bei vier oder mehr Quellen für den
+Reset; keine Mail darüber hinaus innerhalb des Fensters), während eines Valkey-Ausfalls bis
+zu 16·P + 16 bei P Backend-Prozessen (aus der früheren Rechnung abgeleitet, nicht gemessen). Ein gemeinsames Budget über die drei Wege gibt es
+bewusst nicht: Wer eine fremde Adresse registriert, verbräuchte damit den Reset der
+Inhaberin — dieselbe Aussperrung durch Dritte wie in §3.2c. Wer das Passwort hält, hält
+nicht unbedingt das Postfach: Wer eine fremde Adresse registriert (Squatting), kennt
+das Passwort seines Kontos, aber die Mails gehen an die echte Inhaberin der Adresse.
+
+**Restrisiko beider Wege.** Wer Adresse **und** Passwort kennt, kann den Inhaber
+aus beiden Wegen zugleich aussperren: Sind beide Budgets einmal verbraucht, hält
+etwa eine anonyme Resend-Anfrage und eine Anmeldung pro Stunde (rund zwei Anfragen)
+beide Fenster offen. Ausweg ist der Plattform-Admin, der `email_verified` über
+`PATCH /admin/platform/users/{key}` setzt — nach Prüfung, dass die anfragende
+Person das Postfach besitzt; im Squatting-Fall bestätigt er sonst das Konto des
+Squatters und löscht es besser.
+
+**Frontend.** Die Login-Seite zeigt bei `error_code=EMAIL_NOT_VERIFIED` statt des
+englischen Backend-Texts einen lokalisierten Hinweis (`role="alert"`), der den
+über die Ablehnung verschickten Link nur in Aussicht stellt — „falls ein neuer
+Link fällig war, ist er unterwegs“, nie „gesendet“ (#2046) —, und darunter als
+Rückfall die Aktion „Neue Bestätigungs-E-Mail senden" (für die Adresse des
+abgelehnten Logins; Ergebnis in einer `role="status"`-Live-Region). Die Fehlerseite eines ungültigen Links
+verweist auf `ResendVerificationPage` (`/resend-verification`, §4.1).
+
+<!-- Quelle: Issue #2043 -->
+### 3.2c Budget je Adresse beim Passwort-Reset (`POST /auth/password-reset/request`, #2043)
+
+Der Reset-Endpunkt ist anonym, und der Aufrufer wählt den Empfänger. Bis #2043
+begrenzte ihn nur das IP-Limit `RATE_LIMIT_AUTH` (`20/minute`): Eine Quelle konnte
+einem Postfach zwanzig Reset-Links pro Minute schicken, jede weitere Quelle zwanzig
+mehr — Last auf dem Postfach und auf der Absender-Reputation (ein Resend-`429`
+blockiert dann auch legitime Mails).
+
+| Grenze | Wert | Antwort bei Überschreitung | Umsetzung |
+|--------|------|----------------------------|-----------|
+| Je Client-IP | `settings.rate_limit_auth`, Env `RATE_LIMIT_AUTH`, Default `20/minute` | `429 Too Many Requests` | slowapi-Limiter des Auth-Routers, Schlüssel über `resolve_client_ip` (#1130) |
+| Je Adresse und Client-IP (#2059) | 3 Anfragen; Auffüllung, sobald von dieser IP eine Stunde lang keine Anfrage für die Adresse kam (Fenster wird je Anfrage dieser Quelle erneuert, auch über dem Budget) | Unverändert `200` mit demselben Body und denselben Headern, es wird nur nichts verschickt | Wie das Budget in §3.2b, aber eigene Instanz: Zähler-Mechanik des Step-up-Throttles (`reserve_attempt`, atomar per `MULTI/EXEC`), 1-h-Fenster, eigener In-Process-Rückfall; Subject `password-reset-source:<Adresse>|<IP>`, IP aus `resolve_client_ip` (ohne auflösbare IP: eine gemeinsame Quelle `unknown`), die Adresse getrimmt und kleingeschrieben, als SHA-256 abgelegt (NFR-011); bei Valkey-Ausfall Rückfall auf die In-Process-Stufe, nie fail-open |
+| Je Adresse insgesamt (#2059) | 10 Links über alle Quellen; gezählt und erneuert **nur** für Anfragen, die die erste Stufe zugelassen hat; Auffüllung, sobald eine Stunde lang keine solche Anfrage kam | wie oben | Dieselbe Instanz, Subject `password-reset:<Adresse>` (`MAX_PASSWORD_RESETS_PER_ADDRESS_PER_WINDOW`) |
+
+Beide Reservierungen laufen **vor** der Kontosuche, für jede eingegebene Adresse
+gleich — unbekannt, Service-Account oder echtes Konto: zuerst je Adresse und Quelle,
+dann (nur wenn die erste zulässt) je Adresse insgesamt. Über einem der Budgets folgt
+weder Kontosuche noch Token noch Mail. Innerhalb der Budgets laufen Kontosuche,
+Token-Schreiben und Versand seit #2062 erst nach der Antwort, wie beim
+Bestätigungslink: Im Request-Pfad stehen nur die Reservierungen, diesseits wie
+jenseits des Budgets (vorher machte die Kontosuche eine Antwort innerhalb des
+Budgets messbar langsamer als eine darüber). Die Anfrage, die eine Stufe als erste
+überschreitet, loggt `password_reset_budget_exhausted` mit `stage`
+(`address_source` / `address`) und `email_digest` (HMAC mit `LOG_PSEUDONYM_SALT`) —
+nie die Adresse, nie die IP; weitere Anfragen über dem Budget loggen nichts.
+
+**Empfänger ist die gespeicherte Adresse (#2060).** Der Link geht an `user.email`,
+nicht an die eingegebene Schreibweise — wie beim Bestätigungslink (§3.2b) und bei
+der Login-Ablehnung. Die Kontosuche vergleicht ohne Groß-/Kleinschreibung, ein
+Mailserver darf den lokalen Teil aber unterscheiden (RFC 5321): Ein Link für
+`Owner@d` hätte sonst ein anderes Postfach `owner@d` erreichen können. Gemessen
+(ArangoDB 3.12.8, Python 3.14): Python `str.lower()` und AQL `LOWER()` stimmen bei
+allen 1152 BMP-Zeichen mit Kleinbuchstaben-Abbildung überein außer 13 neueren
+Unicode-Großbuchstaben (u. a. U+1C89, U+2C2F, U+A7C0–U+A7DC, U+A7F5), die AQL
+unverändert lässt. Das Budget (Python) ist dort gröber als die Kontosuche (AQL):
+Zwei Konten, die sich nur in einem dieser Zeichen unterscheiden, teilen sich ein
+Budget — die sichere Richtung; eine Schreibweise, die bei gleichem Konto ein zweites
+Budget kauft, gibt es nicht. EmailStr kleinschreibt nur die Domain. Beide Budgets sind getrennt: Wer das Budget des
+Bestätigungslinks einer Adresse ausschöpft, verbraucht nicht ihr Reset-Budget, und
+umgekehrt. Wert und Fenster sind die des Bestätigungslinks und ebenso bewusst
+nicht konfigurierbar.
+
+**Aussperren durch Dritte (#2059).** Bis #2059 zählte das Budget nur je Adresse,
+und jede Anfrage — auch über dem Budget — erneuerte das Fenster: Eine Anfrage pro
+Stunde und Adresse hielt die Adresse dauerhaft über dem Budget, ohne jede Kenntnis
+des Kontos. Gemessen über die echte Route mit gefälschter Uhr (IP-Limit 20/min als
+3 s je Anfrage): eine Quelle hielt 1000 und 1199 Adressen; 100 von 1000 Inhaberinnen
+fragten von ihrer eigenen IP an und bekamen **0** Links. (Bei genau 1200 Adressen
+läuft das Fenster beim nächsten Durchgang gerade ab — die Grenze liegt bei 1199,
+nicht bei den zuvor genannten „rund 1200“.) Seit #2059 verbraucht eine Quelle nur
+ihr eigenes Budget je Adresse; dieselbe Messung ergibt 100 von 100 Links. Aussperren
+geht nur noch über das Gesamtbudget: zehn **zugestellte** Links je Stunde, also
+mindestens vier Quellen je Adresse, deren Links tatsächlich bei der Inhaberin
+ankommen. Der Preis: Ein Postfach kann jetzt bis zu zehn statt drei Reset-Links je
+Stunde bekommen (aus mindestens vier Quellen).
+
+**Kein Admin-Weg.** Kein Endpunkt setzt ein Passwort, löst einen Reset-Link aus oder
+leert das Budget — auch nicht für eine Plattform-Administratorin
+(Betreiberentscheidung zu #2059). Wer ausgesperrt ist, wartet eine Stunde ohne
+Anfrage oder meldet sich mit dem bisherigen Passwort an, wenn sie es noch kennt;
+hat ein Squatter ihre Adresse registriert, gibt es kein „bisheriges Passwort“ von
+ihr. Das Log-Ereignis `password_reset_budget_exhausted` macht gehäufte
+Überschreitungen für Betreiber sichtbar, ohne die Adresse zu nennen.
+
+**Valkey ohne AUTH — Entscheidung für den Betreiber (#2062, #2050).** Die `LIMITS:*`-
+und Budget-Schlüssel liegen in einem Valkey ohne Passwort; ihre Integrität ruht auf der
+NetworkPolicy des Charts (`networkpolicies.valkey`): Ingress nur von den Controllern
+`backend`, `celery-worker` und `celery-beat` auf 6379. Gemessen am Chart: kein
+`requirepass`, keine ACL, `REDIS_URL` ohne Zugangsdaten. Ein eigener DB-Index trennt
+nichts (ein Server, keine ACL je Index); ein Passwort wäre ein Secret in allen drei
+Controllern und in `REDIS_URL` und ist eine Chart-/Secret-Änderung. Wer einen dieser
+drei Pods beherrscht, kann die Zähler ohnehin umgehen (das Backend signiert die Tokens
+selbst); schützen muss die Richtung „fremder Pod im Namespace“, und die schließt nur
+eine CNI, die NetworkPolicies durchsetzt — eine ohne diese Durchsetzung lässt die Regel
+wirkungslos. **Vorschlag:** Annahme mit dieser Begründung und `requirepass` nur dort, wo die
+CNI keine NetworkPolicies durchsetzt; nicht von dieser Änderung entschieden, Helm-Secrets
+sind unverändert.
+
+**Alle Valkey-Clients der Request-Pfade sind begrenzt (#2062).** `_get_redis_client()`
+und der OAuth-State-Store nutzten die redis-py-Vorgabe von 5 s je Socket-Operation:
+gemessen gegen einen Socket, der annimmt und nie antwortet, 5,01 s je Aufruf, die
+anonyme Kopplungs-Einlösung (`POST /auth/device-pairing/redeem`, Throttle plus
+Code-Store) 10,10 s. Beide benutzen jetzt `bounded_redis_client_options()` wie der
+Limiter (0,5 s je Verbindung und Lesen, kein Retry): 0,50 s je Aufruf, die Einlösung
+1,10 s. Jeder dieser Aufrufer behandelt einen Valkey-Fehler schon als Ausfall (lokale
+Stufe oder fail-closed wie der API-Key-Limiter, SEC-004); verkürzt ist die Dauer eines
+Ausfalls, nicht seine Bedeutung. Der Rückfall mit Probenplan (`LatchedRedis`) bleibt den
+Budget-Stores vorbehalten.
+
+**Bei Valkey-Ausfall** zählt jeder Prozess für sich: bis zu 3 Links je Adresse,
+Stunde und Worker-Prozess über alle Replikas. **Die In-Process-Stufe verdrängt nie
+(#2058)** — das gilt für dieses Budget und das von §3.2b, deren Subjects frei
+gewählte Adressen sind: Bis dahin verdrängte die volle Stufe (4096 Einträge) den
+ältesten Eintrag und mit ihm ein verbrauchtes Budget; gemessen über die echte
+Route mit ausgefallenem Valkey: nach 4096 erfundenen Adressen bekam das Opfer einen
+vierten Link. Jetzt wirft eine volle Stufe (`anonymous_budget_fallback`, 16 384
+Einträge je Prozess und Budget) zuerst abgelaufene Einträge hinaus; ist sie dann
+noch voll, gilt eine **neue** Adresse als über dem Budget — stumm, kein Link —, bis
+Einträge ablaufen (einmal je Episode `anonymous_budget_fallback_full` im Log, ohne
+Adresse). Seit #2059 belegt beim Reset eine neue Adresse aus einer neuen Quelle
+zwei Einträge (je Quelle und insgesamt). Der Preis: Wer während eines Ausfalls
+16 384 Einträge in einen Prozess
+schickt, hält neue Reset-Links dieses Prozesses bis zu eine Stunde lang auf.
+**`maxmemory` des Chart-Valkey** bleibt ungesetzt (Default `noeviction` ohne
+Obergrenze), bewusst: Eine Verdrängungs-Policy (`allkeys-*`, `volatile-*`) würde
+Budget- und Limiter-Schlüssel — alle mit TTL — verdrängen und so verbrauchte
+Budgets zurückgeben; `noeviction` mit Obergrenze ließe bei vollem Speicher auch die
+Celery-Queue scheitern. Das Wachstum ist begrenzt: Limiter-Schlüssel je Client-
+Adresse und Route (§3.8, #2052), Budget-Schlüssel je Anfrage höchstens eine Stunde. Die Zähler der beiden Stufen sind
+getrennt, ein flatternder Valkey kann deshalb bis zu 3 weitere Links freigeben —
+solange Valkey seine Schlüssel behält. Ein Neustart, der sie verliert, gibt je
+Budget weitere 3 frei.
+
+### 3.2d Registrierungsmodus (`REGISTRATION_MODE`, #2132)
+
+**Betreiberentscheidung 2026-10-04.** Wer ein Konto anlegen darf, entscheidet der Betreiber, nicht der Zufall der
+Erreichbarkeit. Zwei Einstellungen:
+
+| Einstellung | Werte | Default |
+|---|---|---|
+| `REGISTRATION_MODE` | `open` · `invite_only` · `closed` | `open` (unverändertes Verhalten) |
+| `REGISTRATION_ALLOWED_DOMAINS` | kommagetrennte E-Mail-Domains, exakt, Groß-/Kleinschreibung egal, keine Subdomains | leer = jede Domain |
+
+**Regel** (in dieser Reihenfolge entschieden, `RegistrationPolicy.admits`):
+
+1. `closed` lässt **niemanden** zu — auch nicht mit Einladung. Begründung: Ließe die Einladung auch hier zu, wären `closed` und `invite_only` derselbe Modus. Neue Konten entstehen dann nur durch den Betreiber (Seeds, Plattform-Admin).
+2. Eine **E-Mail-Einladung**, die die Adresse zulässt — Typ `email`, Status `pending`, nicht abgelaufen, ausgestellt für genau diese Adresse (Groß-/Kleinschreibung egal) —, ist die Ausnahme von `invite_only` **und** von der Allowlist. Bewiesen wird sie
+   - bei der **lokalen Registrierung** durch ihr Token (`invitation_token` im Body von `POST /auth/register`) — die bloße Existenz einer Einladung für eine Adresse genügt nicht, sonst könnte jemand die eingeladene Adresse vor ihrem Inhaber belegen;
+   - bei der **ersten OIDC-Anmeldung** ohne Token durch die vom Anbieter bestätigte Adresse (`email_verified: true`). Eine unbestätigte Adresse wird gar nicht erst nachgeschlagen.
+3. `invite_only` lässt sonst niemanden zu.
+4. `open` lässt jeden zu; mit Allowlist nur Adressen ihrer Domains. Bei der ersten OIDC-Anmeldung zählt die Allowlist nur für eine vom Anbieter bestätigte Adresse.
+
+Eine **Link-Einladung** öffnet keine Registrierung: Sie ist zum Teilen gedacht, ein weitergegebener Link würde die Installation für jeden öffnen, der ihn hat. Die Annahme einer Einladung durch ein bestehendes Konto (REQ-024 §1a.2) bleibt von der Einstellung unberührt.
+
+**Antwort.** Jede Ablehnung ist `403 REGISTRATION_NOT_ALLOWED` mit derselben Meldung — gleich, ob der Modus, das Token oder die Domain der Grund ist, und gleich, ob die Adresse bereits ein Konto hat: Die Entscheidung fällt vor jedem Lesen gespeicherter Konten und vor der bcrypt-Runde. Die erste OIDC-Anmeldung leitet mit `?error=registration_not_allowed` zurück; es wird nichts angelegt. Die Ablehnung wird nur mit dem gesalzenen Adress-Digest geloggt (`registration_refused`). Das IP-Rate-Limit von `/auth/register` gilt unverändert.
+
+**Bestehende Konten** melden sich in jedem Modus an (lokal und über OIDC, inklusive Auto-Link nach §2); der Modus entscheidet nur über das **Anlegen**.
+
+**Frontend.** `GET /mode` liefert `registration: {mode, domain_restricted}` (die Domains selbst werden nicht veröffentlicht). Die Anmeldeseite blendet den Registrieren-Link bei `closed` aus und beschriftet ihn bei `invite_only` als „Mit Einladung registrieren"; die Registrierungsseite zeigt bei `closed` nur einen Hinweis, bei `invite_only` ein Pflichtfeld „Einladungscode" (vorbelegt aus `/register?invitation=<token>`). Das Frontend ist nur Hinweis — durchgesetzt wird im Backend.
+
+**Light-Modus** ist unberührt: Er bindet keine `/auth`-Routen ein; `/mode` meldet dort `closed`.
+
 <!-- Quelle: Smart-Home-HA-Integration Review A-003 -->
 ### 3.7 M2M-Authentifizierung (API-Keys)
 
@@ -947,6 +1285,36 @@ kp_<48 hex characters>
 
 Die Middleware erkennt anhand des `kp_`-Prefix automatisch, ob ein API-Key oder JWT vorliegt. API-Keys werden gegen den gespeicherten Hash validiert und `last_used_at` wird aktualisiert.
 
+**`tenant_scope` gilt auf REST und MCP gleich, Abgleich auf den Tenant-Key (#1852):** Der Wert wird bereits beim Anlegen des Keys aufgelöst und geprüft — der Aufrufer muss im benannten Tenant (per Slug oder Key referenzierbar) *aktives* Mitglied sein, sonst weist `POST /auth/api-keys` mit `403 Forbidden` ab ("tenant_scope must name a tenant you are an active member of."), mit derselben Antwort für einen unbekannten wie für einen fremden Tenant. Gespeichert und zurückgegeben wird ausschließlich der **Key** des Tenants, nicht der eingegebene Slug — ein Abgleich auf den Slug findet zur Laufzeit nicht mehr statt. Dadurch bleibt der Scope über eine Umbenennung des Tenants hinweg stabil, und die Tenant-Löschung, die Keys mit passendem `tenant_scope` widerruft, trifft weiterhin genau die richtigen Keys. Bestandskeys wurden per Migration (v0063) auf den Tenant-Key umgeschrieben, sofern der Besitzer dort noch aktives Mitglied war, sonst widerrufen.
+
+Auf REST geschieht die Bindung in der Tenant-Auflösung (`/t/{slug}/`-Pfad und `X-Active-Tenant`-Header) mit derselben 403-Antwort wie für einen fremden Tenant; der header-lose Fallback auf den persönlichen Tenant greift nur, wenn dieser der Scope ist, sonst gilt nur der globale Katalog.
+
+**Routen ohne Tenant-Auflösung sind seit #1851 erfasst.** Ein Key mit `tenant_scope` handelt nur innerhalb des einen Tenants — die folgende Tabelle zeigt, wie jede Routenklasse mit einem begrenzten Key umgeht:
+
+| Routenklasse | Beispiele | Verhalten mit `tenant_scope` |
+|---|---|---|
+| Konto-/Anmeldedaten-Routen | `PATCH`/`DELETE /users/me`, Passwort, Sitzungen, verknüpfte Provider | `403 Forbidden` über `require_account_principal` ("This API key is restricted to one tenant and cannot act on the account.") |
+| Datenschutz-Routen | `/api/v1/privacy/*` | `403 Forbidden` über `require_account_principal` |
+| Tenant-Lebenszyklus & API-Key-Verwaltung | `POST /tenants`, `POST /tenants/invitations/accept`, `POST`/`GET`/`DELETE /auth/api-keys`, `POST /auth/device-pairing`, `POST /auth/logout-all` | `403 Forbidden` über `require_account_principal` |
+| Kontoweite Einstellungen unter `/t/{slug}/` | `PUT …/notifications/preferences`, `POST …/notifications/pwa/subscribe`/`unsubscribe`, `PATCH …/user-preferences`, `POST …/onboarding/skip`/`reset`, `PATCH …/onboarding/state`, `DELETE …/favorites/{key}` | `403 Forbidden` über `require_account_principal` — die Einstellungen gelten für alle Tenants des Kontos, nicht nur für den Scope-Tenant |
+| Plattform-Admin-Routen | `/api/v1/admin/*` | Abgewiesen — ein begrenzter Key ist nie Plattform-Admin (unabhängig von `require_account_principal`) |
+| Tenant-auflösende Routen | `/t/{slug}/...`, jede Route mit `X-Active-Tenant` | Scope bindet wie zuvor beschrieben |
+| Identitätsabfrage | `GET /users/me` | Zugelassen — liefert `is_platform_admin: false` für einen begrenzten Key |
+| Tenant-Liste | `GET /tenants` | Zugelassen, aber auf den Scope-Tenant eingeengt |
+| Globale Stammdaten & Berechnungen | z. B. Arten-/Sorten-Katalog, IPM-Referenzdaten, zustandslose Rechner | Zugelassen — kein Tenant-Bezug |
+
+Ein Key **ohne** `tenant_scope` ist von dieser Tabelle nicht betroffen.
+
+**IP-Allowlist und Rate Limit gelten für REST und MCP durch dieselbe Implementierung (#1850):** `ip_allowlist` (CIDR-Liste) und `rate_limit_per_minute` auf `ApiKey` wurden bis dahin nur vom MCP-Authenticator gelesen; ein REST-Aufruf mit demselben Key war davon unberührt. Beide Kontrollen laufen jetzt über eine gemeinsame Funktion, die von beiden Oberflächen aufgerufen wird — eine Adresse außerhalb der Allowlist (oder eine nicht auflösbare) liefert auf beiden Wegen `401 Unauthorized` ("Client IP is not permitted for this API key."), ein überschrittenes Budget `429 Too Many Requests`. Das Budget ist eine Eigenschaft des Keys, nicht der Oberfläche: REST- und MCP-Aufrufe desselben Keys teilen sich einen Zähler pro Minute. Ist der Zähler-Speicher nicht erreichbar, wird `429` geantwortet (fail-closed) statt das Limit stillschweigend zu ignorieren.
+
+**Die Kontrollen werden beim Ausstellen gesetzt (#2137).** Bis v1.46 schrieb keine Route `ip_allowlist`, `rate_limit_per_minute` oder `expires_at` — jeder ausgestellte Key war unbeschränkt und lief nie ab. `POST /auth/api-keys` (und die Anlage eines Service Accounts, §5b.0) nehmen sie jetzt an; geprüft wird **vor** dem Step-up, ein unbrauchbarer Wert ist `422` und es wird nichts ausgestellt:
+
+- `ip_allowlist`: höchstens 32 Einträge in CIDR-Notation (eine einzelne Adresse wird als `/32` bzw. `/128` gespeichert), keine gesetzten Host-Bits (`10.0.0.5/8` → 422), nicht weiter als `/8` (IPv4) bzw. `/32` (IPv6) — `0.0.0.0/0` ist keine Allowlist. Eine leere Liste wird wie keine gespeichert.
+- `rate_limit_per_minute`: 1–10000.
+- `expires_at`: mit Zeitzone, in der Zukunft, höchstens 730 Tage voraus. Ein abgelaufener Key wird auf beiden Oberflächen beim nächsten Aufruf abgewiesen (401).
+
+Die Liste (`GET /auth/api-keys`) und die Anlage-Antwort zeigen die drei Werte. Die Prüfung ist eine Funktion (`api_key_control_errors` in `app/domain/models/auth.py`) für beide Ausstellungswege.
+
 <!-- Quelle: Service Accounts v1.7 -->
 **Erweiterter Flow bei Service-Account-API-Keys:**
 
@@ -968,7 +1336,7 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| `POST` | `/api/v1/auth/api-keys` | Neuen API-Key erstellen | JWT (nur authentifizierte User) |
+| `POST` | `/api/v1/auth/api-keys` | Neuen API-Key erstellen — Step-up nach §3.9 (#1847), kein API-Key | JWT (nur authentifizierte User) |
 | `GET` | `/api/v1/auth/api-keys` | Alle eigenen Keys auflisten | JWT |
 | `DELETE` | `/api/v1/auth/api-keys/{key_id}` | Key revoken | JWT |
 
@@ -976,7 +1344,11 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 ```json
 {
   "label": "Home Assistant",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "mein-garten",
+  "ip_allowlist": ["192.168.1.0/24"],
+  "rate_limit_per_minute": 600,
+  "expires_at": "2027-04-01T00:00:00+02:00",
+  "current_password": "<aktuelles Passwort>"
 }
 ```
 
@@ -985,12 +1357,14 @@ Bei API-Key-Authentifizierung wird zusätzlich geprüft:
 {
   "_key": "ak_001",
   "label": "Home Assistant",
-  "api_key": "kp_a3f8e7b2c9d4f1a6e8b3c5d7f9a2b4c6d8e0f1a3b5c7d9e1f3",
+  "api_key": "kp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
   "key_prefix": "kp_a3f8...",
   "created_at": "2026-02-27T14:30:00Z",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "t-a1b2c3d4"
 }
 ```
+
+Die Request nennt den Tenant per Slug (oder Key); gespeichert und in der Response zurückgegeben wird stets der Tenant-**Key** (#1852, siehe oben).
 
 > **Hinweis:** Der vollständige Key wird nur bei der Erstellung angezeigt. Nach dem Schließen des Dialogs ist er nicht mehr abrufbar. Bei Verlust muss ein neuer Key erstellt werden.
 
@@ -1017,19 +1391,31 @@ class UserService:
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
-| POST | `/auth/register` | Lokale Registrierung | Nein |
-| POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`) | Nein |
+| POST | `/auth/register` | Lokale Registrierung; Body optional `invitation_token`. `403 REGISTRATION_NOT_ALLOWED`, wenn der Registrierungsmodus die Adresse nicht zulässt (§3.2d, #2132) | Nein |
+| POST | `/auth/login` | Lokaler Login (Body: `email`, `password`, `remember_me: bool = false`); `403 EMAIL_NOT_VERIFIED` nach korrektem Passwort verschickt einen neuen Bestätigungslink, 3 je Konto und Stunde (§3.2b, #2046) | Nein |
 | POST | `/auth/logout` | Logout (aktuelles Gerät) | Ja |
 | POST | `/auth/logout-all` | Logout (alle Geräte) | Ja |
 | POST | `/auth/refresh` | Token-Refresh (Cookie-Pfad **oder** optionaler Body-Token `{"refresh_token"}` für native Clients, #1118 — siehe §3.8) | Nein (Cookie oder Body) |
-| POST | `/auth/device-pairing` | Einmaligen QR-Kopplungscode erzeugen (#1118, §3.8) | Ja (Bearer) |
+| POST | `/auth/device-pairing` | Einmaligen QR-Kopplungscode erzeugen (#1118, §3.8) — Step-up nach §3.9 (#1847) | Ja (Bearer) |
 | POST | `/auth/device-pairing/redeem` | QR-Kopplungscode gegen Token-Paar einlösen (#1118, §3.8) | Nein (öffentlich) |
 | POST | `/auth/verify-email` | E-Mail bestätigen | Nein |
-| POST | `/auth/password-reset/request` | Passwort-Reset anfordern | Nein |
+| POST | `/auth/resend-verification` | Neuen Bestätigungslink anfordern — immer `202`, gleicher Body für jede Adresse; 10/h je IP, 3 je Adresse (§3.2b, #2037) | Nein |
+| POST | `/auth/password-reset/request` | Passwort-Reset anfordern — immer `200`, gleicher Body für jede Adresse; 20/min je IP, 3 je Adresse und IP, 10 je Adresse insgesamt, je Stunde (§3.2c, #2043, #2059) | Nein |
 | POST | `/auth/password-reset/confirm` | Passwort-Reset durchführen | Nein |
 | GET | `/auth/oauth/providers` | Aktivierte Provider auflisten (für Login-Seite) | Nein |
 | GET | `/auth/oauth/{provider_slug}` | OAuth-Redirect initiieren | Nein |
 | GET | `/auth/oauth/{provider_slug}/callback` | OAuth-Callback verarbeiten | Nein |
+
+<!-- #1461 -->
+**Der Callback ist ein Schreibpfad mit GET-Verb.** Der Identity-Provider schickt den Nutzer
+per Browser-Redirect zurück; ein Redirect kann nur ein `GET` sein, ein anderes Verb steht
+protokollbedingt nicht zur Verfügung. Der Handler legt dabei den User an oder aktualisiert
+ihn, verknüpft den `AuthProvider` und stellt das Refresh-Token aus — er **persistiert also
+auf einem `GET`**, und das ist hier kein Defekt, sondern die Form, die OAuth2 vorgibt. Die
+Ausnahme ist an die gemessenen Schreibsenken gebunden (`_INTENTIONAL_PERSISTING_READS` in
+`tests/unit/api/test_write_route_gates.py`): erreicht der Handler eine Schreibstelle, die
+dort nicht steht, wird der Wächter rot. Für jeden anderen `GET` der API gilt unverändert,
+dass er nichts schreibt.
 
 **Router: `/api/v1/users`** — Benutzerverwaltung:
 
@@ -1038,26 +1424,34 @@ class UserService:
 | GET | `/users/me` | Eigenes Profil abrufen | Ja |
 | PATCH | `/users/me` | Eigenes Profil aktualisieren | Ja |
 | GET | `/users/me/providers` | Verknüpfte Auth-Provider auflisten | Ja |
-| DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen | Ja |
-| POST | `/users/me/password` | Lokales Passwort setzen/ändern | Ja |
+| DELETE | `/users/me/providers/{provider_key}` | Provider-Verknüpfung entfernen — Step-up nach §3.9 (#1847) | Ja |
+| POST | `/users/me/password` | Lokales Passwort setzen/ändern; das aktuelle Passwort ist ein Step-up nach §3.9 (gedrosselt, kein API-Key) | Ja |
+| POST | `/users/me/step-up/oidc` | Frische Anmeldung beim verknüpften OIDC-Provider zur Bestätigung starten — Regelfall für Konten ohne lokales Passwort (§3.9, #1815) | Ja |
+| POST | `/users/me/step-up-code` | Einmaligen Bestätigungscode per E-Mail anfordern — Ausweichweg nur für Konten ohne lokales Passwort und ohne OIDC-fähigen Anbieter; Body `{action}` bindet den Code an die Aktion (§3.9, #1815) | Ja |
 | GET | `/users/me/sessions` | Aktive Sessions auflisten | Ja |
 | DELETE | `/users/me/sessions/{session_key}` | Einzelne Session beenden | Ja |
-| DELETE | `/users/me` | Account löschen (Soft-Delete) | Ja |
+| DELETE | `/users/me` | Konto löschen — eröffnet den Art.-17-Löschauftrag wie `POST /privacy/erasure` (REQ-025); Body `{confirm_email, password?}`, Step-up nach §3.9 | Ja |
 
 **Router: `/api/v1/admin/oidc-providers`** — OIDC-Provider-Verwaltung (nur System-Admin):
 
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | GET | `/admin/oidc-providers` | Alle konfigurierten Provider auflisten | Plattform-Admin |
-| POST | `/admin/oidc-providers` | Neuen OIDC-Provider registrieren | Plattform-Admin |
+| POST | `/admin/oidc-providers` | Neuen OIDC-Provider registrieren — Step-up nach §3.9 (#1883) | Plattform-Admin |
 | GET | `/admin/oidc-providers/{slug}` | Provider-Details abrufen | Plattform-Admin |
-| PATCH | `/admin/oidc-providers/{slug}` | Provider aktualisieren | Plattform-Admin |
-| DELETE | `/admin/oidc-providers/{slug}` | Provider deaktivieren | Plattform-Admin |
-| POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen | Plattform-Admin |
+| PUT | `/admin/oidc-providers/{key}` | Provider aktualisieren — Step-up nach §3.9, außer für `display_name` und `icon_url` (#1883) | Plattform-Admin |
+| DELETE | `/admin/oidc-providers/{key}` | Provider löschen — Step-up nach §3.9 (#1883) | Plattform-Admin |
+| POST | `/admin/oidc-providers/{slug}/test` | OIDC-Discovery testen; meldet zusätzlich `scope_check`, `provider_type_check`, `jwks_check` und `issuer_check` (#1987) | Plattform-Admin |
+
+**Endpunkte sind `https` (#1987).** `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` und `jwks_url` (optional, pinnt den Schlüsselendpunkt) lehnen `POST`/`PUT` mit `422` ab, wenn sie nicht `https` sind; `http` nur zu Loopback und nur mit `DEBUG=true`. Der Login wendet dieselbe Regel auf bereits gespeicherte Konfigurationen an (siehe Changelog 1.25).
+
+**Geschlossenes Vokabular für `provider_type` (#1497).** `provider_type` ist an der API-Grenze auf `google | github | apple | oidc` beschränkt (Enum `OidcProviderType`); jede andere Schreibweise — auch `GitHub`, `GITHUB` oder `local` — lehnen `POST` und `PUT` mit `422` ab. Der Grund ist die Auswertung: `OAuthEngine.extract_user_info` verzweigt auf die exakte Schreibweise und die Tabelle der Well-known-Endpunkte trägt dieselben Werte als Schlüssel; ein Provider vom Typ `GitHub` wurde also gespeichert und danach **stillschweigend vom generischen OIDC-Zweig bedient** — ohne Well-known-Endpunkte, ohne den GitHub-Adressabruf und ohne jede Meldung. Das Datenmodell oben schrieb dieses `Literal` bereits vor; die Implementierung hatte es zu `str` verbreitert.
+
+Das Domänenmodell `OidcProviderConfig` behält bewusst `str`: das Repository baut dasselbe Modell beim **Lesen**, ein Enum dort machte eine vor dieser Prüfung gespeicherte Konfiguration unlesbar statt reparierbar. `POST /{key}/test` meldet den Befund für Bestandskonfigurationen im Antwortfeld `provider_type_check` (`ok`, `provider_type`, `known_provider_types`, `detail`). Es gibt keine Migration und keine Normalisierung beim Schreiben.
 
 **Scope-Anforderung GitHub (#1477).** Ein Provider mit `provider_type == "github"`, dessen `scopes` weder `user:email` noch den übergeordneten Scope `user` enthalten, wird von `POST` und `PATCH` mit `422` abgelehnt. GitHub liefert das `verified`-Merkmal einer Adresse nur über `GET /user/emails`, das ohne diesen Scope `403` antwortet; ohne ihn ist `email_verified` bei jeder Anmeldung leer und die automatische Kontoverknüpfung (§ REQ-023 OAuth-Callback) bleibt dauerhaft aus. `POST /{slug}/test` meldet denselben Befund für Bestandskonfigurationen im Antwortfeld `scope_check` (`ok`, `provider_type`, `configured_scopes`, `missing_scopes`, `detail`) — unabhängig davon, ob ein Discovery-Dokument abrufbar ist, denn GitHub veröffentlicht keins.
 
-**Gesamtanzahl API-Endpunkte:** ~25
+**Gesamtanzahl API-Endpunkte:** ~27
 
 ### 3.4 Middleware
 
@@ -1091,8 +1485,8 @@ def require_role(role: str):
 | Task | Schedule | Beschreibung |
 |------|----------|-------------|
 | `cleanup_expired_tokens` | Stündlich | Entfernt abgelaufene/revoked Refresh Tokens |
-| `cleanup_unverified_accounts` | Täglich 03:00 | Löscht unbestätigte Accounts älter als 7 Tage |
-| `rotate_oidc_discovery` | Alle 6 Stunden | Aktualisiert OIDC-Discovery-Dokumente (JWKS, Endpoints) |
+| `cleanup_unverified_accounts` | Täglich 03:10 | Löscht unbestätigte Accounts älter als 7 Tage; Konten mit `LOCAL`-Anbieterzeile (lokale Registrierung) erst nach Freigabe `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED`, bis dahin nur gezählt (#2010) |
+| `rotate_oidc_discovery` | Alle 6 Stunden | Aktualisiert OIDC-Discovery-Dokumente (JWKS, Endpoints); schreibt nur `discovery_document` und `discovery_refreshed_at`, nur solange der Issuer unverändert ist (#1909) |
 
 <!-- Quelle: Issue #1118 -->
 ### 3.8 Gerätekopplung per QR-Code (#1118)
@@ -1106,7 +1500,9 @@ Der Kopplungscode wird ausschließlich in Redis abgelegt (Store `IDevicePairingC
 Die Lebensdauer des Codes steuert `settings.device_pairing_ttl_seconds` (Default `90`, im Settings-Modell validiert `ge=60, le=120`). Ein Wert außerhalb 60–120 s verweigert den Start, statt still geklemmt zu werden. Unter 60 s läuft der Code ab, bevor der Nutzer scannen kann; über 120 s überlebt er den Moment, in dem der Nutzer auf den Bildschirm sah.
 
 **Rate-Limit und Sperre bei Einlösung.**
-Die Einlösung ist rate-limitiert (`settings.rate_limit_device_pairing_redeem`, Default `10/minute`, bewusst unter `rate_limit_auth`). Der slowapi-Limiter arbeitet dabei — wie an allen Auth-Routen — **global** (nicht pro IP). Der eigentliche verhaltensbasierte Schutz ist eine **Sperre pro Quell-IP**: `AuthService.redeem_device_pairing` zählt Fehlversuche je Adresse (`resolve_client_ip`, proxy-bewusst) und entscheidet die Sperre über **denselben** `LoginThrottleEngine`, den auch `login_local` nutzt (kein zweiter Schwellwert). **Reihenfolge:** Die Sperre wird geprüft, **bevor** der Code-Store konsultiert wird — ein gesperrter Versuch verbraucht den Code also nicht. Ein erfolgreicher Versuch leert den Zähler der IP.
+Die Einlösung ist rate-limitiert (`settings.rate_limit_device_pairing_redeem`, Default `10/minute`, bewusst unter `rate_limit_auth`). Der slowapi-Limiter zählt dabei — wie an allen Auth-Routen — je aufgelöster Client-Adresse (`resolve_client_ip`), nicht je Proxy. Der eigentliche verhaltensbasierte Schutz ist eine **Sperre pro Quell-IP**: `AuthService.redeem_device_pairing` zählt Fehlversuche je Adresse (`resolve_client_ip`, proxy-bewusst) und entscheidet die Sperre über **denselben** `LoginThrottleEngine`, den auch `login_local` nutzt (kein zweiter Schwellwert). **Reihenfolge:** Die Sperre wird geprüft, **bevor** der Code-Store konsultiert wird — ein gesperrter Versuch verbraucht den Code also nicht. Ein erfolgreicher Versuch leert den Zähler der IP.
+
+**Geltungsbereich der IP-Rate-Limits (#2045).** Alle `@limiter.limit`-Grenzen der Auth-Routen (Login, Registrierung, Passwort-Reset, Einlösung u. a.) zählen in einem **über alle Replikas und Worker-Prozesse geteilten Speicher**: `RATE_LIMIT_STORAGE_URL`, bei leerem Wert der Valkey aus `REDIS_URL`. Erlaubte Schemata sind `redis://`, `rediss://`, `redis+unix://` und `memory://` (gemessen gegen `limits` 5.8: `valkey://` ist dort registriert, braucht aber das nicht ausgelieferte Paket `valkey`; `async+…` liefert dem synchronen Limiter Koroutinen); ein anderer Wert verhindert den Start, ebenso eine URL in `RATE_LIMIT_STORAGE_URL` oder `REDIS_URL`, deren Authority nicht als `[user[:password]@]host[:port]` zerfällt (unkodiertes `/`, `#` oder `?` im Passwort — `urllib` läse das Passwort sonst als Port, und redis-py zitierte es beim Import — oder ein `@` in Pfad, Query oder Fragment; ein `@` im Passwort selbst ist zulässig, `redis://:p@ss@h:6379/0` lädt, weil `urllib` am letzten `@` trennt). Die Meldung nennt nur Variable und erlaubte Form, nie den Wert (Muster #1832); jeder Fehler beim Bau des Speichers wird ohne Wert und ohne `__context__` als `RateLimitStorageConfigError` gemeldet. `memory://` ohne `DEBUG` loggt beim Bau des Limiters einmal `rate_limit_storage_counts_per_process`. Ist der Speicher nicht erreichbar, **degradiert** der Limiter auf eine Zählung je Prozess (kein Fail-open; kein 500 bei Speicherfehlern, d. h. Fehlern aus der Fehlerfamilie des Speichers, bei Redis `RedisError`): Ein Wrapper um den Speicher (`FailoverStorage`, `app/common/rate_limit.py`) beantwortet **jeden** Speicheraufruf, der mit dieser Fehlerfamilie scheitert, aus dem Prozessspeicher — auch Anfragen, die beim Ausfall gerade warten. Ein anderer Fehler gilt als Defekt und wird nicht verschluckt; trifft er eine Prüfanfrage, rückt der Prüfplan trotzdem weiter. Der Fixed-Window-Zähler je Prozess beginnt bei null, wenn der Prozess im laufenden Fenster noch nicht selbst gezählt hat; die Zählungen je Prozess bleiben über die Rückkehr hinaus bis zum Ablauf ihres Fensters stehen, sodass ein flatternder Speicher kein frisches Fenster je Ausfall erzeugt (höchstens eines je Prozess und Fenster). Der Redis-Client hat Socket-Timeouts von 0,5 s und keine Wiederholung: Bei hängendem Speicher wartet die Anfrage, die den Ausfall bemerkt (und jede gleichzeitig wartende), einen Socket-Timeout je Verbindungsversuch und Adresse; Namensauflösung (DNS), mehrere Adressen eines Namens, Verbindungsaufbau plus Handshake und das Nachladen des Skripts nach `NOSCRIPT` sind darin nicht abgedeckt. Danach spricht der Prozess den Speicher nicht mehr je Anfrage an, sondern mit je einer Prüfanfrage in Abständen von 1, 2, 4, 8, 16 und 32 s und danach alle 32 s. Die Rückkehr gilt **je Prozess**: Antwortet der Speicher, zählt dieser Prozess ab seiner Prüfanfrage wieder im geteilten Speicher; jeder andere Prozess erst mit seiner eigenen nächsten Prüfanfrage — bis zu rund 32 s, nachdem der Speicher wieder da ist, und nur, wenn bei ihm Anfragen eintreffen (`rate_limit_storage_unavailable` / `rate_limit_storage_recovered` im Log). Das alles gilt für den Limiter. Die Mail-Budgets (§3.2b, §3.2c, Login-Ablehnung) und der Zähler für unbekannte Adressen nutzen einen eigenen geteilten Client mit denselben Optionen (`_get_throttle_redis_client`, `app/common/dependencies.py`) und seit #2062 mit demselben Prüfplan (`LatchedRedis`, `app/data_access/external/latched_redis.py`): Der erste Speicheraufruf, der einen Ausfall bemerkt, wartet höchstens einen Socket-Timeout (0,5 s) — mit denselben Ausnahmen (DNS, mehrere Adressen, Verbindungsaufbau plus Handshake) —, danach fällt jeder Aufruf des Prozesses sofort auf die In-Process-Stufe zurück, bis eine Prüfanfrage (1, 2, 4, 8, 16, 32 s, danach alle 32 s) wieder eine Antwort bekommt (`throttle_store_unavailable` / `throttle_store_recovered`). Gemessen über die echte Reset-Route gegen einen Socket, der nie antwortet: vorher 1,0 s je Anfrage (zwei Reservierungen seit #2059) für die ganze Dauer des Ausfalls, danach 0,58 s für die erste Anfrage und 0,0 s für die folgenden. Steht `TRUSTED_PROXY_HOPS` auf `0`, obwohl die `X-Forwarded-For`-Kette mehr als einen Eintrag hat, loggt das Backend einmal je Prozess `forwarded_chain_deeper_than_trusted_proxy_hops` (ohne Header-Wert und ohne IP). Zwei Ursachen sind möglich: ein Proxy, den die Einstellung nicht zählt, oder ein Aufrufer, der auf einer Installation ohne Ingress (für die `0` richtig ist) selbst `X-Forwarded-For` sendet. Der `hint` im Log nennt beide und rät, `TRUSTED_PROXY_HOPS` nur zu erhöhen, wenn wirklich mehr Proxys davor stehen — ein zu hoher Wert macht jede IP-basierte Kontrolle fälschbar. Das Helm-Chart setzt `TRUSTED_PROXY_HOPS=1`. **Ein Zähler je Route und Client-Adresse, nie je Pfadwert (#2052).** Der Limiter wird mit `key_style="endpoint"` gebaut (`LIMITER_KEY_STYLE`, `app/common/rate_limit.py`): Der Schlüssel nennt die Routenfunktion, nicht den Anfragepfad. Mit dem slowapi-Default (`"url"`) war auf einer Route mit Pfadparameter jeder vom Aufrufer gewählte Wert ein eigener Zähler — gemessen auf `GET /public/glossary/term/{slug}` (30/min): 31 verschiedene Slugs → 31 × `200` und 31 Speicherschlüssel, `vpd%20` statt `vpd` ebenso; dasselbe galt für `/privacy/export/{export_key}/download` und `/t/{tenant_slug}/notifications/test`. Seitdem teilen sich alle Werte einer Route einen Zähler je Adresse; auch das Budget für Testbenachrichtigungen gilt je Adresse über alle Tenants hinweg (es war schon immer als „je Client-Adresse“ beschrieben). Der Wächter `tests/unit/guards/test_limited_routes_count_per_endpoint.py` misst für jede begrenzte Route der App den Schlüssel zweier Anfragen, die sich nur im Pfad unterscheiden. **Die Prüfung läuft nie auf der Ereignisschleife (#2048).** slowapi prüft auch auf `async def`-Routen synchron im Wrapper; gegen den geteilten Speicher war das ein Netzwerk-Roundtrip auf der Ereignisschleife, hinter dem jede andere Anfrage des Prozesses wartete — gemessen über die echte App: eine unbeteiligte asynchrone Route 0,007 s allein, 0,935 s, während drei begrenzte `POST /public/ai/ask` auf einen Speicher mit 0,3 s Antwortzeit trafen. Der Limiter (`OffLoopLimiter`) führt die Prüfung asynchroner Routen über `run_in_threadpool` aus, wo die Prüfung jeder `def`-Route ohnehin läuft (betroffen: `public_ask`, `download_export`, `send_test_notification`; danach 0,02 s). Gewählt statt die drei Routen auf `def` umzustellen, weil ihre Rümpfe asynchrone Services awaiten und der Wrapper jede künftige asynchrone Route ohne Zutun erfasst. `GET /api/health` zählt in einem eigenen Limiter nur im Prozessspeicher (`process_memory_limiter`): Das Limit bindet dort Last auf interne Dienste (SEC-003), kein replikaübergreifendes Budget, und eine Health-Anfrage soll nie auf Valkey warten (vorher 0,34 s je Anfrage bei 0,3 s Speicher-Antwortzeit). Der Wächter `tests/unit/guards/test_async_limited_routes_check_off_the_loop.py` prüft jede begrenzte asynchrone Route der App, unter welchem Limiter auch immer. **Signale bei Ausfall (#2049, #2062).** Hat der Speicher seit dem Prozessstart nie geantwortet (falsches Passwort oder falscher Host in `REDIS_URL` sehen genau so aus), loggt der erste Fehlschlag `rate_limit_storage_never_reached` auf Fehler-Level statt der Warnung `rate_limit_storage_unavailable`; bleibt er weg, loggt jede zehnte fehlgeschlagene Prüfanfrage `rate_limit_storage_still_unavailable` (im Dauerzustand etwa alle fünf Minuten, mit `down_for_s` und `never_answered`). Die Readiness bleibt bewusst unberührt. **Client-Adresse ist eine IP (#2053, #2062).** `resolve_client_ip` gibt den gewählten `X-Forwarded-For`-Eintrag nur zurück, wenn er eine IP-Adresse ist, und dann in kanonischer Form; sonst `None` („nicht ermittelbar“: die Allowlist lehnt ab, das IP-Limit zählt unter dem Gegenüber, Kopplungssperre und Reset-Budget in einem gemeinsamen `unknown`-Topf) — nicht das Gegenüber selbst, das einer unserer Proxys sein kann und so in einer Allowlist mit Cluster-Bereichen landete (Bündel-Prüfung). Vorher wurde jeder Text zum Schlüssel aller IP-gebundenen Kontrollen (gemessen: `not-an-ip` und 200 × `x` je ein eigener Zähler, `2001:DB8::1` und `2001:db8:0:0::1` zwei). Der Chart-Wächter verlangt `TRUSTED_PROXY_HOPS` jetzt genau `1`, nicht nur ≥ 1: ein zu hoher Wert liest einen Eintrag, den der Aufrufer geschrieben hat. **Valkey ohne AUTH:** Die Integrität der `LIMITS:*`- und Budget-Schlüssel ruht auf der NetworkPolicy des Charts (Ingress auf 6379 nur von `backend`, `celery-worker`, `celery-beat`); bewusst so akzeptiert, kein eigenes Passwort und keine eigene DB in diesem Schritt.
 
 **Einlösung liefert das bestehende Token-Paar.**
 `redeem_device_pairing` ruft dieselbe Fabrik `_create_tokens` wie `login_local` und `complete_oauth` — dasselbe Access-/Refresh-Paar, dieselbe `RefreshToken`-Session (in der Sessions-Liste sichtbar und dort widerrufbar), keine neue Token-Art. Das Konto stammt aus dem gespeicherten Code-Record, nie aus einer vom Aufrufer gelieferten Identität. Unbekannter, benutzter, abgelaufener und unlesbarer Code liefern **eine** generische 401 (kein Orakel); ein deaktiviertes Konto 401; eine gesperrte IP 423 mit Restminuten.
@@ -1129,6 +1525,105 @@ Die Ausgabe-Endpunkte:
 Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind daher im Light-Modus (REQ-027) nicht gemountet — eine Light-Instanz antwortet auf beide mit **404**.
 <!-- /Quelle: Issue #1118 -->
 
+### 3.9 Step-up-Re-Authentifizierung für unumkehrbare Kontoaktionen und Anmeldemittel (#1813, #1814, #1816, #1847, #1857, #1883, #1884)
+
+Unumkehrbare Kontoaktionen verlangen eine erneute Bestätigung durch die handelnde Person. Alle laufen durch **eine** Prüfung (`StepUpVerifier`, `app/domain/services/step_up_service.py`), die im Service erzwungen wird — die Einstiegspunkte nehmen den Step-up als Keyword-Argumente ohne Default, sodass eine neue Route ihn nicht vergessen kann.
+
+| Aktion | Route(n) | Zurückgetipptes Ziel | Passwort / Erneute Anmeldung / Code |
+|---|---|---|---|
+| Eigenes Konto löschen (Art. 17, Karenz) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes Passwort; ohne lokales Passwort ein `step_up_token` aus `POST /users/me/step-up/oidc`, nur bei ausschließlich GitHub/Apple der per E-Mail zugeschickte Einmalcode |
+| Anderes Konto sofort löschen (Plattform-Admin) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos | das des **Admins**; ohne dessen lokales Passwort dessen `step_up_token` bzw. Code |
+| Mandant löschen (REQ-024 AK-44d) | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| E-Mail-Adresse ändern (REQ-025 Art. 16, #1841) | `POST /privacy/email-change` | — (kein Ziel; nur die eigene Sitzung wird bestätigt) | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| Passwort ändern / erstmals setzen | `POST /users/me/password` | — | aktuelles Passwort; die **erste** Passwortvergabe eines Kontos ohne eines bestätigt stattdessen mit `step_up_token` bzw. Code |
+| API-Key ausstellen (#1847) | `POST /auth/api-keys` | — | eigenes Passwort; sonst `step_up_token` bzw. Code. **Light-Modus:** kein Step-up (siehe unten) |
+| Gerät per QR-Code koppeln (#1847) | `POST /auth/device-pairing` | — | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| Anmeldeweg (Provider-Verknüpfung) entfernen (#1847) | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort; sonst `step_up_token` bzw. Code |
+| Vertrauen eines anderen Kontos anheben (Plattform-Admin, #1857) | `PATCH /admin/platform/users/{key}`, nur wenn `email_verified` oder `is_active` von false auf true wechselt | — | das des **Admins**; sonst dessen `step_up_token` bzw. Code |
+| OIDC-Provider-Konfiguration anlegen, ändern, löschen (Plattform-Admin, #1883) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}`; beim `PUT` nicht, wenn nur `display_name` oder `icon_url` geändert werden | — | das des **Admins**; sonst dessen `step_up_token` bzw. Code |
+| Mandanten deaktivieren oder reaktivieren (Plattform-Admin, #2009, REQ-024 AK-56) | `PATCH /admin/platform/tenants/{key}`, nur wenn `is_active` wechselt | — | das des **Admins**; sonst dessen `step_up_token` bzw. Code |
+| Mitglied aus einem Mandanten entfernen (Plattform-Admin, #2009) | `DELETE /admin/platform/tenants/{tenant_key}/members/{membership_key}`, `DELETE /admin/platform/users/{user_key}/memberships/{membership_key}` | — | das des **Admins**; sonst dessen `step_up_token` bzw. Code |
+| Rolle eines Mitglieds ändern (Plattform-Admin, #2032, REQ-024 AK-57) | `PATCH /admin/platform/tenants/{tenant_key}/members/{membership_key}/role`, `PATCH /admin/platform/users/{user_key}/memberships/{membership_key}/role`; nur bei tatsächlicher Änderung | — | das des **Admins**; sonst dessen `step_up_token` bzw. Code |
+| Rolle eines Mitglieds ändern oder Mitglied entfernen (Mandanten-Verwalter, #2032) | `PATCH /tenants/{slug}/members/{membership_key}/role` (nur bei tatsächlicher Änderung), `DELETE /tenants/{slug}/members/{membership_key}` | — | das des **handelnden** Kontos (`management` im Mandanten); sonst dessen `step_up_token` bzw. Code |
+
+| Service Account anlegen, Key rotieren, Service Account entfernen (Mandanten-Leitung mit `technical`, #2137) | `POST /t/{slug}/service-accounts`, `POST /t/{slug}/service-accounts/{sa_key}/rotate-key`, `DELETE /t/{slug}/service-accounts/{sa_key}` | — | das des **handelnden** Kontos; sonst dessen `step_up_token` bzw. Code für `service_account_change`, gebunden an den Mandantenschlüssel (Anlegen) bzw. an `<tenant_key>\|<sa_key>` (Rotation, Entfernen) |
+
+**Geplante Aktionen (REQ-056 §12.1, nicht implementiert).** Mandanten-Export (`tenant_export`, Ziel Mandantenschlüssel), Mandanten-Import durch den Plattform-Admin (`tenant_import`, Ziel `new:<slug>`) sowie Eigentümerwechsel und Billing-Kontakt (`tenant_ownership_change`, Ziel Mandantenschlüssel) laufen nach ihrer Umsetzung durch denselben `StepUpVerifier`; die Tabellen oben nehmen sie erst mit dem Code auf.
+
+**Anmeldemittel ausstellen und entfernen (#1847).** Ein API-Key überlebt Passwortänderung und „überall abmelden"; ein Kopplungscode wird zu einer vollen Sitzung; das Entfernen eines Anmeldewegs ändert, wie das Konto zurückgeholt werden kann. Bis #1847 genügte für alle drei die bloße Sitzung — auch eine, die mit einem `kp_`-Key authentifiziert war: Ein gestohlener Key konnte weitere Keys ausstellen, eine gestohlene Sitzung einen Key hinterlassen, der die Passwortänderung der Eigentümerin überdauert. Sie laufen deshalb durch denselben Step-up wie die Passwortänderung. Im **Light-Modus** (REQ-027) stellt `POST /auth/api-keys` den MCP-Key ohne Step-up aus: Jede Anfrage ist dort ohnehin das eine Systemkonto, es gibt keinen Menschen zu bestätigen und kein Postfach für einen Code, und der Key gewährt nichts, was eine Anfrage nicht schon hat (REQ-033 §4.3). Gerätekopplung und Provider-Trennung existieren im Light-Modus nicht.
+
+**Keine automatische Widerrufung von API-Keys — umgesetzter Standard, offene Betreiber-Entscheidung (#1847, Fragenliste in #1650).** Passwortänderung, Passwort-Reset und „überall abmelden" widerrufen die Refresh-Token, **nicht** die API-Keys des Kontos. Der Betreiber hat noch nicht entschieden, ob das so bleibt; bis dahin gilt dieser Standard mit der folgenden Begründung. Ein Key steht für eine bewusst eingerichtete Maschinen-Integration (Home Assistant, MCP-Client); ihn bei jeder Passwortänderung stillschweigend zu entwerten, würde diese Integrationen ohne Hinweis brechen. Seit #1847 kann ein Key nur noch hinter dem Step-up entstehen, also nicht mehr aus einer bloß gestohlenen Sitzung oder aus einem anderen Key. Die Keys sind unter „API-Keys" mit Erstellungs- und letztem Nutzungszeitpunkt gelistet und einzeln widerrufbar. Restrisiko: Ein Key, den ein Angreifer mit Kenntnis des Passworts (oder vor #1847) ausgestellt hat, bleibt bis zum manuellen Widerruf gültig.
+
+**Vertrauensanhebung durch Plattform-Admins (#1857).** `email_verified` ist der Vertrauensanker der OAuth-Auto-Verknüpfung (`OAuthEngine.should_auto_link`). Eine gekaperte Admin-Sitzung konnte ein vorab registriertes Angreiferkonto unter der Adresse eines Opfers als verifiziert markieren; die nächste föderierte Anmeldung des Opfers mit dieser Adresse landete dann im Angreiferkonto. Wechselt `email_verified` oder `is_active` von false auf true, verlangt `PATCH /admin/platform/users/{key}` deshalb den Step-up des **Admins**. Die Step-up-Felder werden nie in das Konto geschrieben. Namensänderung, Deaktivierung und das erneute Senden unveränderter Werte (das Bearbeitungsformular schickt alle Felder) bleiben ohne Step-up.
+
+**Reihenfolge der Prüfung:**
+
+1. **Wer:** nur die angemeldete Sitzung eines Menschen. Ein Service Account oder eine Anfrage mit `kp_`-API-Key — auch einem, den ein menschliches Konto ausgestellt hat — wird mit 403 abgewiesen, **bevor** etwas gezählt wird.
+2. **Sperre:** ist der Step-up gesperrt, antwortet die Route 429 `STEP_UP_LOCKED` (`details[0].retry_after_minutes`), ohne das Geheimnis zu prüfen.
+3. **Ziel:** wo eine Aktion eines zurücktippt, muss es passen (E-Mail ohne Groß-/Kleinschreibung, Slug exakt) — sonst 422. Ein falsches Echo wird **nicht** gezählt; es prüft kein Geheimnis. Passwortänderung und E-Mail-Änderung haben kein Ziel zum Zurücktippen.
+4. **Geheimnis:** bei einem Konto mit lokalem Passwort das aktuelle — sonst 401. Ohne lokales Passwort prüft `verify()` zuerst, ob der Body ein `reauth_token` (`step_up_token`) trägt — dann zählt nur dieses, unabhängig davon, ob ein Code mitgeschickt wurde. Fehlt es: Hat das Konto einen OIDC-fähigen verknüpften Anbieter (§ unten), verweigert die Route mit 401 `STEP_UP_REAUTH_REQUIRED` — ein Code wird für ein solches Konto nicht mehr geprüft. Sonst (ausschließlich GitHub/Apple) prüft sie den Einmalcode aus `POST /users/me/step-up-code`; fehlt der, 401 `STEP_UP_CODE_REQUIRED`. Ein falsches Geheimnis jeder Art zählt in dasselbe Budget.
+
+**Frische Anmeldung beim Provider statt Echo (#1815, Betreiber-Entscheid: Variante 1).** Bis dahin bestätigte ein ausschließlich föderiertes Konto jede der obigen Aktionen mit dem zurückgetippten Ziel allein — dem Echo —, und die erste Passwortvergabe eines solchen Kontos bestätigte gar nichts. Das Echo prüft kein Geheimnis: Wer die Sitzung hält, liest die eigene E-Mail-Adresse ohnehin vom Profil ab. Ein Konto ohne lokales Passwort, dessen verknüpfter Anbieter das kann, bestätigt seitdem mit einer **frischen** Anmeldung genau bei diesem Anbieter — dem stärksten verfügbaren Nachweis, stärker als ein Einmalcode, der nur die Mailbox belegt.
+
+**Anbietergrenze.** Nur OpenID-Connect-Anbieter können belegen, *wann* sich die Person angemeldet hat: Google und ein generischer OIDC-Provider mit dem `openid`-Scope (`supports_fresh_reauth`, `app/domain/engines/oauth_engine.py`). **GitHub** ist reines OAuth2 und stellt kein ID-Token aus — also auch kein `auth_time`. **Apple** stellt ein ID-Token aus, aber ohne `auth_time`. Ein Konto, dessen verknüpfte Anmeldewege ausschließlich aus GitHub und/oder Apple bestehen, behält deshalb den per E-Mail zugeschickten Code als **Ausweichweg** (`EMAIL_CODE_FALLBACK = True`); ein Konto mit mindestens einem OIDC-fähigen Anbieter wird der Code verweigert (`STEP_UP_REAUTH_REQUIRED`) — der Code belegt nur die Mailbox, die frische Anmeldung mehr. Variante 2 (gar kein Code) hätte GitHub/Apple-only-Konten ihr Art.-17-Löschrecht in Selbstbedienung genommen; der Unterschied zu Variante 1 ist die eine Flagge `EMAIL_CODE_FALLBACK`.
+
+**`POST /users/me/step-up/oidc` (#1815).** Startet die frische Anmeldung: Body `{"action": "...", "provider_key": "..."}` (`provider_key` optional — ohne ihn der erste verknüpfte Anbieter, der es kann), Antwort `{"authorization_url": "..."}`. Die Anfrage an den Provider ist dieselbe wie beim Login (PKCE, State, Nonce, dieselbe Rückruf-URL), zusätzlich `prompt=login` und `max_age=0`: Der Provider muss die Person erneut anmelden statt aus eigener Sitzung zu antworten, und den Anmeldezeitpunkt (`auth_time`) zurückmelden. Der bestehende Callback (`/api/v1/auth/oauth/{slug}/callback`) meldet dabei niemanden an, sondern leitet auf `{frontend}/auth/step-up/callback` weiter — bei Erfolg mit `#step_up_token=…&action=…` im URL-**Fragment** (nie in der Query: erreicht keinen Server, keinen Proxy, keinen `Referer`-Header), bei Fehler mit `?error=step_up_failed` (allgemein), `?error=step_up_stale` (Anmeldung älter als fünf Minuten) oder `?error=step_up_cancelled` (am Provider abgebrochen).
+
+**Prüfung des ID-Tokens (`validate_fresh_reauth_claims`).** `iss` ist der erwartete Aussteller, `aud`/`azp` diese Instanz, `nonce` stimmt mit der Anfrage überein, `exp` ist nicht abgelaufen (`FRESH_REAUTH_CLOCK_SKEW_SECONDS` = 30 s Toleranz), `auth_time` ist vorhanden und höchstens `FRESH_REAUTH_MAX_AGE_SECONDS` = 300 s alt (dieselbe Toleranz) — älter ist `reason="stale"` (die Person kann es erneut versuchen). Zusätzlich prüft der Service, dass `sub` zu einer verknüpften Anmeldung **dieses** Kontos bei diesem Anbieter gehört (`complete_step_up_reauth`) und das Konto noch ein aktiver Mensch ist.
+
+**Keine JWKS-Signaturprüfung.** Das ID-Token kommt direkt vom Token-Endpunkt des Providers über TLS, in einem Austausch, den dieser Server mit seinem eigenen Client-Secret und dem PKCE-Verifier authentifiziert hat — genau der Fall, für den OIDC Core 1.0 §3.1.3.7 Nr. 6 die TLS-Serverauthentifizierung als Ersatz für die Signaturprüfung vorsieht. Ein zusätzlicher JWKS-Abruf und -Cache je Provider würde gegen einen Angreifer, der nicht in dieser TLS-Sitzung sitzt, keinen Gewinn bringen. Deshalb gilt ein Provider nur mit einem `https`-Token-Endpunkt als re-authentifizierbar (`supports_fresh_reauth`, zusätzlich vor dem Tausch geprüft); `auth_time` und `exp` müssen endliche Zahlen sein (kein `NaN`/`Infinity`, kein Boolean).
+
+**Kein `nbf`, keine `iat`-Grenze (Entscheidung zu #2008).** Anders als der Login (v1.25, #1987) liest der Step-up `nbf` und `iat` nicht. Gemessen: `validate_fresh_reauth_claims` prüft `iss`, `aud`/`azp`, `nonce`, `exp` und `auth_time`, keine Signatur. Eine `iat`-Untergrenze würde ein lange gehaltenes oder wiederverwendetes Token abweisen — das leistet hier schon die `nonce`: Sie wird je `POST /users/me/step-up/oidc` neu erzeugt, ihr State ist einmalig verwendbar und lebt fünf Minuten, ein früher ausgestelltes Token kann sie nicht tragen; und `auth_time` begrenzt die Anmeldung selbst auf 300 s (+ 30 s Toleranz). `nbf` gehört nicht zu den ID-Token-Prüfungen von OIDC Core 3.1.3.7; da die Claims ohne Signatur nur über die TLS-Sitzung zum Token-Endpunkt vertraut werden, kann ein `nbf` ohnehin nur vom Provider selbst stammen. Beide Prüfungen würden gegen keinen Angreifer etwas hinzufügen, der nicht in dieser TLS-Sitzung sitzt — gegen einen, der es tut, hilft keine Claim-Prüfung ohne Signatur. Der Token-Endpunkt selbst wird vor dem Austausch adressgeprüft (v1.27, #2007).
+
+**Bindung an Konfiguration, Aussteller und Tab (Security-Review des Bundles).** `sub` ist nur je Aussteller eindeutig. Eine Anbieter-Verknüpfung speichert deshalb die Konfiguration (`oidc_config_slug`) und den Aussteller (`issuer`), über die sie entstand; die frische Anmeldung geht an genau diese Konfiguration, und `iss` muss zum gespeicherten Aussteller passen. Eine ältere Verknüpfung ohne diese Angaben ist seit v1.21 nicht re-authentifizierbar (Migration v0064 hat die eindeutigen gebunden) — ihr steht der E-Mail-Code offen, damit kein Konto ausgesperrt wird. Die Rückruf-URL wird — bei Login und erneuter Anmeldung — aus `APP_BASE_URL` gebildet, nie aus dem Host-Header. Der Client kann ein `client_nonce` (32 Hex-Zeichen) mitgeben, das unverändert neben Token bzw. Fehler zurückkommt; die Callback-Seite übernimmt nur ein Ergebnis mit dem eigenen Nonce. Ein Verifier ohne Re-Authentifizierungs-Richtlinie verweigert Code und Token (fail closed). Unterscheidbare 422-Codes: `STEP_UP_PASSWORD_REQUIRED` (Konto hat ein Passwort), `STEP_UP_REAUTH_UNAVAILABLE` (kein fähiger Anbieter → E-Mail-Code), `STEP_UP_REAUTH_REQUIRED` (beim Code-Abruf: Re-Authentifizierung nehmen). Der Login-Pfad ordnet Verknüpfungen seit v1.21 ebenfalls über (Konfiguration, `sub`) zu und tauscht den Code mit der `redirect_uri` des Autorisierungs-Requests (#1865, #1869). Anders als der Step-up verifiziert der Login das ID-Token vollständig, einschließlich der Signatur gegen die JWKS des Anbieters, und vergleicht `sub` aus Userinfo und ID-Token (v1.23, #1936).
+
+Der zurückgegebene `step_up_token` (32 Zufallsbytes, nur als HMAC unter demselben `JWT_SECRET_KEY`-abgeleiteten, aber zweckgetrennten Schlüssel gespeichert — `kp-step-up-reauth` statt `kp-step-up-code`) ist `REAUTH_TOKEN_TTL_SECONDS` = 5 Minuten gültig, an Konto, Aktion **und** — bei den zielgebundenen Aktionen — Ziel gebunden, wird durch die erste Aktion verbraucht, die ihn vorlegt, und ersetzt einen noch gültigen Token bei erneuter Anfrage. Er geht als `step_up_token` in den Step-up-Body der Aktion (Tabelle oben) — Nachweis-Methode `oidc_reauth`.
+
+Verweigert (Start): 403 einer API-Key-Anfrage, einem Dienstkonto oder im Light-Modus; 422 einem Konto mit lokalem Passwort, einem Konto ohne (bzw. ohne den über `provider_key` gewählten) OIDC-fähigen verknüpften Anbieter — es bestätigt dann mit dem Code —, oder bei fehlendem/unbekanntem `action`; 429 `STEP_UP_LOCKED` bei gesperrtem Step-up. Verweigert (Abschluss/Callback): kein JSON-Fehler, sondern einer der drei Redirect-Fehlercodes oben; die Prüfung selbst schreibt nichts.
+
+**Betreiber-Voraussetzung.** Der verknüpfte Identity-Provider muss `prompt=login`/`max_age` und den Claim `auth_time` unterstützen. Die beim Provider hinterlegte Rückruf-URL ist dieselbe wie beim normalen Login, keine zusätzliche Konfiguration nötig.
+
+**`POST /users/me/step-up-code` (#1815, Ausweichweg für GitHub/Apple, gehärtet im Security-Review des Bundles).** Verschickt einen achtstelligen Code an die eigene E-Mail-Adresse (202, Antwort `{expires_at, expires_in}` — nie der Code selbst). Der Body ist Pflicht: `{"action": "..."}` mit einem der Werte aus der Tabelle oben (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `email_change`, `password_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`) — fehlt `action` oder ist er unbekannt, antwortet die Route 422. Für die zielgebundenen Aktionen (nächster Absatz) gehört `target` dazu. Die Mail nennt die Aktion in Klartext (`CODE_PURPOSES`, feste englische Texte, nie Nutzereingabe).
+
+**Aktionsbindung (review SEC-003).** Der Digest bindet Kontoschlüssel **und** Aktion: `HMAC(Schlüssel, "Kontoschlüssel:Aktion:Ziel:Code")`. Ein für `password_change` angeforderter Code lehnt `verify()` für `account_erasure` ab, ohne ihn zu verbrauchen — er passt einfach auf nichts.
+
+**Zielbindung (#1884).** Eine Aktion auf etwas anderes als das eigene Konto bindet Code und `step_up_token` zusätzlich an ihr Ziel — den Schlüssel, den die Aktion im Pfad nennt:
+
+| Aktion | Ziel (`target`) |
+|---|---|
+| `admin_account_update`, `admin_account_erasure` | Schlüssel des anderen Kontos |
+| `tenant_deletion` | Schlüssel des Mandanten |
+| `provider_unlink` | Schlüssel der Provider-Verknüpfung (`GET /users/me/providers`) |
+| `oidc_provider_change` | Schlüssel der OIDC-Konfiguration; beim Anlegen `new:<slug>` |
+| `admin_tenant_update` | Schlüssel des Mandanten |
+| `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | Schlüssel der Mitgliedschaft |
+| `admin_membership_add` | Mandant und Konto, getrennt durch `\|`: `<tenant_key>\|<user_key>` (#2106) |
+
+Ein für Konto A angeforderter Code bestätigt die Aktion für Konto B nicht und wird durch den Fehlversuch nicht verbraucht. Das Ziel wird im Digest längenpräfixiert (`new:<slug>` enthält den Trenner). Die übrigen Aktionen wirken auf das eigene Konto, das der Digest schon bindet; sie nennen kein Ziel. `POST /users/me/step-up-code` und `POST /users/me/step-up/oidc` verlangen `target` für die zielgebundenen Aktionen (422 ohne; 422 auch für ein Ziel bei einer Aktion auf das eigene Konto) und prüfen es **bei der Ausgabe** (Betreiber-Entscheid D2): das Ziel muss existieren und die anfragende Person muss darauf handeln dürfen — Plattform-Admin (für beide Kontoaktionen und `oidc_provider_change`), `lead` + `management` im Mandanten oder Plattform-Admin (`tenant_deletion`; ein durch einen abgebrochenen Lauf bereits entfernter Mandant mit offenem Löschauftrag zählt), eigene Verknüpfung (`provider_unlink`), Plattform-Admin (`admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`; für `admin_tenant_update` nicht auf den Plattform-Mandanten), `management` im Mandanten der Mitgliedschaft (`tenant_member_removal`, `tenant_member_role_change`, #2032 — eine unbekannte und eine fremde Mitgliedschaft sind dieselbe Antwort, 403). Die Berechtigung wird vor der Existenz geprüft (403 vor 404), damit die Ablehnung nichts über vorhandene Ziele verrät. Die Mail nennt das Ziel nicht (Betreiber-Entscheid D4). Die Aktion selbst prüft Berechtigung und Ziel beim Ausführen erneut; die Prüfung bei der Ausgabe ist das frühere von zwei Toren. Ein vor diesem Stand begonnener Reauth-Lauf ohne Ziel im State endet mit `step_up_failed`, statt einen ungebundenen Token auszustellen.
+
+**OIDC-Provider-Konfiguration (#1883).** Eine Provider-Konfiguration entscheidet, wem eine föderierte Anmeldung zugeordnet wird: Ein Provider unter Kontrolle eines Angreifers kann `email=<Opfer>` mit `email_verified=true` behaupten, und der Auto-Link verknüpft die Anmeldung mit dem Konto des Opfers. Anlegen, Ändern und Löschen laufen deshalb durch denselben Step-up wie eine Anmeldemittel-Änderung (Betreiber-Entscheid D5), geprüft in `OidcProviderAdminService`, nicht im Router; ein API-Key eines Admins ist 403. Ohne Step-up bleiben nur Felder, die die Darstellung ändern — `display_name`, `icon_url` (Betreiber-Entscheid D6, Positivliste: ein neues Feld verlangt den Step-up, bis es bewusst freigegeben wird). Auch `enabled` verlangt ihn in **beide** Richtungen (Korrektur von D6 nach Security-Review SEC-001): `FederatedReauthPolicy` liest nur aktive Konfigurationen, ein Abschalten ohne Step-up würde daher jedes Konto, dessen einzige re-authentifizierbare Verknüpfung dieser Provider ist, von der frischen Anmeldung auf den E-Mail-Code herabstufen — erreichbar mit einer gekaperten Admin-Sitzung oder einem Admin-API-Key. Ein unverändert mitgesendeter Wert gilt nicht als Änderung. Bekannter Randfall: Ein Admin, dessen einzige Anmeldung eine Verknüpfung mit genau dem Provider ist, der gerade repariert werden soll, kann sich dort nicht frisch anmelden und bekommt keinen Code (ein Konto mit OIDC-fähiger Verknüpfung wird auf die erneute Anmeldung verwiesen); ein lokales Passwort oder der Betreiber helfen dann.
+
+**Schlüsselwahl.** Der HMAC-Schlüssel ist von `JWT_SECRET_KEY` abgeleitet (`HMAC(JWT_SECRET_KEY, "kp-step-up-code")`), nicht `ERASURE_TOMBSTONE_SALT` (kann leer sein, zweckgebunden für Pseudonymisierung) und kein neues Pflicht-Secret. Ein bloßer `sha256(Konto:Code)` über nur 10⁸ mögliche Codes wäre aus einem Valkey-Dump offline in Sekunden umkehrbar, solange der Code lebt. Eine Rotation von `JWT_SECRET_KEY` entwertet ausstehende Codes und Reauth-Token gleichermaßen (höchstens zehn bzw. fünf Minuten Bestand).
+
+**Ausgabegrenzen (review SEC-002).** Gültig `CODE_TTL_SECONDS` = 10 Minuten, verbraucht durch die erste Aktion, die ihn vorlegt. Ein neuer Aufruf ersetzt einen noch gültigen Code — außer: ein **noch nicht verbrauchter** Code jünger als `CODE_COOLDOWN_SECONDS` = 60 Sekunden wird nicht ersetzt (sonst würde eine parallele Anfrage den Code entwerten, den die Person gerade eintippt), und höchstens `CODE_ISSUES_PER_WINDOW` = 5 Codes pro Konto und `CODE_ISSUE_WINDOW_SECONDS` = 3600 Sekunden werden ausgegeben. Beide Grenzen antworten 429 `STEP_UP_LOCKED` mit `details[0].retry_after_minutes` — dieselbe Fehlerform wie eine Verify-Sperre, mit eigenem `message`-Text, damit ein Client nicht zwei Fälle unterscheiden muss.
+
+Verweigert: 403 einer API-Key-Anfrage, einem Dienstkonto oder im Light-Modus (`refuse_in_light_mode`-Dependency, #1844: das einzige Konto der Instanz hat kein Passwort, ein dort gesetztes würde nach dem Wechsel in den Full-Modus zur gültigen Anmeldung); 422 einem Konto mit lokalem Passwort (es bestätigt damit, nicht mit einem Code), bei fehlendem/unbekanntem `action`, **oder wenn das Konto einen OIDC-fähigen verknüpften Anbieter hat** (`STEP_UP_REAUTH_REQUIRED`, siehe oben — es bestätigt dann mit der frischen Anmeldung); 429 `STEP_UP_LOCKED` bei gesperrtem Step-up oder ausgeschöpfter Ausgabegrenze. Zusätzlich rate-limitiert wie die übrigen Auth-Routen (`settings.rate_limit_auth`, ein zweiter, adressbezogener Zähler ohne `STEP_UP_LOCKED`-Hülle).
+
+**Unzustellbarer Code (/code-review of #1862).** Scheitert der Versand — der Konsolen-Adapter außerhalb von `debug` liefert bewusst nicht aus, oder der SMTP-Versand meldet einen Fehler —, antwortet die Route 503 `STEP_UP_CODE_UNDELIVERABLE`, statt 202 zu melden und den Code verschwinden zu lassen. `StepUpVerifier.withdraw_code` nimmt den Code dabei zurück: Der Eintrag im Code-Store wird gelöscht, die 60-Sekunden-Sperre aufgehoben und der Platz im Stundenkontingent zurückgegeben — ein erneuter Versuch nach der Behebung durch den Betreiber wartet also nicht auf `CODE_COOLDOWN_SECONDS` oder das nächste Zeitfenster. Die Redis-Reservierung selbst läuft als ein einziger `SET NX`-Schritt, damit zwei gleichzeitige Anfragen nicht beide "kein Warten nötig" lesen und beide einen Code ausgeben.
+
+**Betriebsvoraussetzung.** Ein Konto mit OIDC-fähigem Anbieter braucht dessen `prompt=login`/`max_age`/`auth_time`-Unterstützung (siehe oben), keinen Mail-Versand. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind, braucht für den Ausweichweg funktionierenden Mail-Versand (`EMAIL_ADAPTER=smtp`). Läuft die Instanz mit dem Konsolen-Adapter und `DEBUG=false` (die produktive Voreinstellung ohne SMTP-Konfiguration), meldet die Route das explizit (503 `STEP_UP_CODE_UNDELIVERABLE`, siehe oben) — ein solches Konto kann sich bis zur Behebung trotzdem nicht löschen, kein erstes lokales Passwort setzen, keinen Mandanten löschen und die E-Mail-Adresse nicht ändern.
+
+**Drosselung.** Jeder Bestätigungsversuch (Passwort, Code oder eine vorgelegte, aber ungültige/abgelaufene Reauth-Token) wird **vor** seiner Prüfung atomar reserviert (Valkey `INCR`, In-Process-Fallback bei Ausfall — nie fail-open). Zwei Zähler, beide über denselben `LoginThrottleEngine` wie der Login (ab 5 Fehlversuchen 15 Minuten, verdoppelnd bis 4 Stunden):
+
+- je **(Konto, Client-Adresse)** mit der Login-Schwelle 5;
+- je **Konto** mit der Obergrenze 15 (drei Adress-Budgets) gegen Adress-Rotation.
+
+Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er fehl, sperrt er sofort wieder mit doppelter Dauer (wie beim Login). Anfragen, die gleichzeitig über das Budget hinaus reserviert haben, werden ohne Prüfung abgewiesen; Sperre, Zählung der Sperren und Rücksetzen des Zählers geschehen in einem Schritt (eine Valkey-Transaktion). Die Zähler gelten für alle Step-up-Aktionen eines Kontos gemeinsam (kein Budget je Route) — das Anfordern und das Vorlegen eines Codes oder einer erneuten Anmeldung eingeschlossen. Ein erfolgreicher Step-up leert beide. Im Light-Modus wird keine Kontolöschung per Anfrage angenommen (403) — dort ist jede Anfrage das eine Systemkonto.
+
+**Warum nicht die Login-Sperre.** Einen Step-up-Fehlversuch für ein Konto kann nur erzeugen, wer eine Sitzung dieses Kontos hält — geprüft wird immer das Geheimnis der handelnden Person, API-Keys werden vor dem Zählen abgewiesen. Ein Außenstehender kann ein Opfer über diesen Weg also nicht sperren. Flössen die Fehlversuche in `failed_login_attempts`, könnte aber ein Sitzungsdieb die Eigentümerin von der **Anmeldung** aussperren — genau dem Schritt, mit dem sie die gestohlene Sitzung sieht und widerruft. Umgekehrt würde das Lesen der Login-Sperre einem nicht angemeldeten Angreifer (der jede bekannte Adresse am Login sperren kann) erlauben, auch die Step-ups der Eigentümerin zu blockieren. Die Step-up-Sperre hält deshalb nur Step-ups auf. Restrisiko: ein Sitzungsdieb kann den kontoweiten Zähler gesperrt halten; die Eigentümerin kann sich trotzdem anmelden, Sitzungen widerrufen und das Passwort per E-Mail zurücksetzen. Letzteres trägt nur, solange die E-Mail-Adresse selbst hinter einem Step-up liegt — seit #1841 gilt das auch für die E-Mail-Änderung selbst (`POST /privacy/email-change`): sie läuft durch denselben Step-up wie die Kontolöschung, siehe oben. Verbleibendes Restrisiko: Ein Sitzungsdieb, der zusätzlich das Postfach eines föderierten Kontos kontrolliert oder sich am OIDC-Provider erneut anmelden kann, besteht auch diesen Step-up — das ist die Mailbox bzw. der Provider-Zugang, nicht diese Prüfung.
+
+**Nachweis.** Der Löschauftrag (`erasure_requests`) hält `step_up` (`password` / `oidc_reauth` / `email_code`; ältere, vor #1815 geschriebene Datensätze noch mit dem historischen Echo-Wert); bei einer Admin-Löschung zusätzlich `requested_by_subject` — die gesalzene Referenz des Admins, nie dessen Kontoschlüssel.
+
 ## 4. Frontend
 
 ### 4.1 Neue Seiten
@@ -1136,11 +1631,13 @@ Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind d
 | Seite | Route | Beschreibung |
 |-------|-------|-------------|
 | `LoginPage` | `/login` | E-Mail/Passwort-Login + SSO-Buttons |
-| `RegisterPage` | `/register` | Lokale Registrierung |
-| `EmailVerificationPage` | `/verify-email/:token` | E-Mail-Bestätigung |
+| `RegisterPage` | `/register` | Lokale Registrierung; folgt dem Registrierungsmodus aus `GET /mode` (§3.2d): `closed` nur Hinweis, `invite_only` mit Pflichtfeld „Einladungscode" (`?invitation=` belegt es vor) |
+| `EmailVerificationPage` | `/verify-email/:token` | E-Mail-Bestätigung; im Fehlerfall Verweis auf `ResendVerificationPage` |
+| `ResendVerificationPage` | `/resend-verification` | Neuen Bestätigungslink anfordern (§3.2b, #2037) |
 | `PasswordResetRequestPage` | `/password-reset` | Passwort-Reset anfordern |
 | `PasswordResetConfirmPage` | `/password-reset/:token` | Neues Passwort setzen |
 | `AccountSettingsPage` | `/settings/account` | Profil, Auth-Provider, Sessions |
+| `AdminOidcProvidersPage` | `/admin/oidc-providers` | OIDC-Provider-Konfigurationen der Installation: Liste, Anlegen, Bearbeiten, Löschen, Discovery-Test (nur Plattform-Admin, §3.9, #1906) |
 
 ### 4.2 Komponenten
 
@@ -1154,7 +1651,7 @@ Beide Endpunkte hängen am `auth_router` (nicht am `api_keys_router`) und sind d
   - Apple: Offizielles Apple-Sign-In-Branding (Dark/Light Modus)
   - Generische OIDC: icon_url + display_name
 - Link zu "Passwort vergessen"
-- Link zu "Registrieren"
+- Link zu "Registrieren" — entfällt bei `REGISTRATION_MODE=closed`, lautet bei `invite_only` „Mit Einladung registrieren" (§3.2d)
 
 **`AccountSettingsPage`:**
 - **Tab "Profil":** Anzeigename, Avatar (URL-Eingabe), Sprache (DE/EN), Zeitzone
@@ -1268,6 +1765,11 @@ Der Pfad `/connect` rendert im Browser eine schlanke, credential-freie Landing-S
 
 ## 5. Seed-Daten
 
+### Betreiberentscheidungen vom 2026-10-03 (#1948, #1906)
+
+- **E-Mail-Bestätigung (#1948):** Der Default von `REQUIRE_EMAIL_VERIFICATION` ist **`true`**. Eine Installation ohne ausgehenden Mailversand setzt die Variable ausdrücklich auf `false`; dann gilt die Adresse als nicht belegt (REQ-030); den Beleg trägt `email_confirmed_at` (v1.37).
+- **OIDC-Provider-Verwaltung (#1906):** Plattform-Admins verwalten OIDC-Provider über eine **eigene Seite im Optionen-Bereich** (Anlegen, Ändern, Deaktivieren; jede Änderung läuft über den Step-up `oidc_provider_change`, §3.9). Die Aussage „nur über die API“ (#1980) entfällt, sobald die Seite ausgeliefert ist; die Nutzerdokumentation (DE/EN) wird dann nachgezogen.
+
 ### Benannte SSO-Provider (Vorkonfiguriert):
 
 ```json
@@ -1334,7 +1836,7 @@ Der **Platform-Admin** (KA-Admin) ist ein Benutzer mit Membership im **Platform-
 
 **Architektur-Entscheidung:** Die Platform-Admin-Rolle nutzt das bestehende Membership-Modell (Variante 1: Platform-Tenant) statt eines `is_platform_admin`-Flags auf User-Ebene. Begründung:
 - Wiederverwendung der bestehenden Tenant/Membership-Mechanik
-- Differenzierte Rollen im Platform-Tenant möglich (z.B. `admin` = volle Rechte, `viewer` = Read-Only-Zugang zu globalem Admin-Panel)
+- Differenzierte Rollen im Platform-Tenant möglich: `lead` = Plattform-Admin (umgesetzt). Eine Lese-Variante `viewer` (Read-Only-Zugang zum Admin-Panel, REQ-024 §1a.4) ist vorgesehen, aber **nicht implementiert** (#2179) — eine `viewer`-Mitgliedschaft in `platform` gewährt heute keinerlei Admin-Zugriff
 - Kein zweites Rollen-System neben dem Tenant-scoped-Modell
 
 **Doppelrolle:**
@@ -1342,8 +1844,8 @@ Ein User kann gleichzeitig Memberships in beliebig vielen Tenants haben, inklusi
 
 ```
 User "anna"
-  ├── Membership in tenant/platform (role: admin) → KA-Admin
-  ├── Membership in tenant/annas-garten (role: admin) → Privater Garten
+  ├── Membership in tenant/platform (role: lead) → KA-Admin
+  ├── Membership in tenant/annas-garten (role: lead, admin_scopes: [management, technical]) → Privater Garten
   └── Membership in tenant/gruene-oase (role: grower) → Gemeinschaftsgarten
 ```
 
@@ -1369,11 +1871,13 @@ Das JWT Access Token wird um ein `is_platform_admin`-Flag erweitert:
 }
 ```
 
-Das `is_platform_admin`-Flag wird beim Token-Erstellen aus den `tenant_roles` abgeleitet:
+Das `is_platform_admin`-Flag wird beim Token-Erstellen aus der gespeicherten Mitgliedschaft abgeleitet (`AuthService._holds_platform_lead`, dieselbe Regel wie `app.common.auth.is_platform_admin`):
 
 ```python
-is_platform_admin = "platform" in tenant_roles and tenant_roles["platform"] == "admin"
+is_platform_admin = membership("platform") is not None and membership.is_active and membership.role == "lead"
 ```
+
+**Umsetzungsstand (v1.46, #2121):** Das Beispiel oben zeigt das Zielbild. Ausgestellt wird `tenant_roles` heute **leer** (`{}`); `is_platform_admin` steht im Token, wird aber von keiner Autorisierung gelesen. Backend-Wächter und MCP lesen die Mitgliedschaft zur Laufzeit, das Frontend liest `is_platform_admin` aus `GET /users/me`. Beide Claims sind damit **informativ**: Eine Rollenänderung wirkt mit der nächsten Anfrage, nicht erst mit dem nächsten Token.
 
 ### 5a.3 Backend-Dependency
 
@@ -1385,14 +1889,16 @@ def get_platform_admin(
     membership_repo: IMembershipRepository = Depends(get_membership_repo),
 ) -> User:
     """Stellt sicher, dass der aktuelle User Platform-Admin ist.
-    Wirft ForbiddenError wenn keine admin-Membership im Platform-Tenant."""
+    Wirft ForbiddenError wenn keine aktive lead-Membership im Platform-Tenant."""
     platform_membership = membership_repo.get_by_user_and_tenant(
         current_user.key, "platform"
     )
-    if not platform_membership or platform_membership.role != "admin":
+    if not platform_membership or not platform_membership.is_active or platform_membership.role != "lead":
         raise ForbiddenError("Platform admin access required.")
     return current_user
 ```
+
+**Umgesetzt** als `require_platform_admin` über `get_is_platform_admin` in `app/common/auth.py` (Light-Modus: der System-User gilt als Plattform-Admin; ein auf einen Mandanten beschränkter API-Key ist nie Plattform-Admin, #1817).
 
 Verwendung in Routern:
 
@@ -1424,8 +1930,28 @@ def assign_species_to_tenant(
 | User-Status ändern (suspend/reactivate) | Plattform-Admin | `POST /api/v1/admin/users/{user_key}/suspend`, `POST .../reactivate` |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
+**Umsetzungsstand (v1.46, #2121):** Die Plattform-Admin-Routen liegen unter `/api/v1/admin/platform/...` (Mandanten, Nutzer, Mitgliedschaften, Löschungen, Sicherheits-Audit), die Katalog- und Anmeldeanbieter-Routen unter ihren eigenen Pfaden. Abweichend von der Tabelle: **Notfall-Admin ernennen** ist gestrichen (v1.43, #2134); **Mandant sperren/reaktivieren** ist `PATCH /admin/platform/tenants/{key}` mit `is_active` (Zustand `suspended`/`active`, Step-up, REQ-024 AK-56/AK-65); **Nutzer sperren/reaktivieren** ist `PATCH /admin/platform/users/{key}` mit `is_active` (Step-up; das Sperren beendet alle Sitzungen, #2116, und API-Keys des Kontos werden abgewiesen, solange es gesperrt ist). Einen **Plattform-Viewer** gibt es nicht (REQ-024 §1a.4, #2179).
+
 <!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
 ### 5a.5 Tenant-Notfallverwaltung durch Platform-Admin
+
+> **Gestrichen (v1.43, #2134):** §5a.5.1 (Verwaist-Erkennung per wöchentlichem Task,
+> `orphaned_since`) und §5a.5.2 (Emergency-Admin-Ernennung) werden **nicht** umgesetzt. Eine
+> Organisation verliert ihre letzte Verwaltung nur noch durch eine Kontolöschung; dort
+> übernimmt die dienstälteste Leitung, sonst wird die Organisation `orphaned` und nach der
+> Gnadenfrist gelöscht (REQ-025 §3.1.3 Regel 4, REQ-024 AK-65). Der Text unten bleibt als
+> Entscheidungshistorie stehen. §5a.5.3 ist als Mandantenzustand `suspended` umgesetzt
+> (#2105, #2123), mit `PATCH /admin/platform/tenants/{key}` statt der hier skizzierten Routen.
+>
+> **Umsetzungsstand §5a.5.3/§5a.5.4 (v1.46, #2121):** Ein gesperrter Mandant antwortet auf
+> `/t/{slug}/…`, `X-Active-Tenant` und MCP wie ein unbekannter Kurzname (`403` ohne eigene
+> Meldung — eine Meldung „suspendiert“ wäre ein Existenz-Orakel, REQ-024 AK-48) und erscheint
+> **nicht** im Mandanten-Wechsler (statt ausgegraut). **Hintergrundjobs umgesetzt (v1.51):** Jeder
+> Beat, der in einen Mandanten schreibt oder über ihn benachrichtigt, lässt einen gesperrten Mandanten
+> aus (`TENANT_WRITING_BEATS`, REQ-024 v1.36); ein Sperrgrund fehlt. Die Suspendierungs-Semantik — Hintergrundjobs,
+> Sperrgrund (`suspension_reason`), Benachrichtigung der Mitglieder — spezifiziert REQ-056 §5. Die
+> Konto-Sperre (§5a.5.4) ist `PATCH /admin/platform/users/{key}` mit `is_active`; der Schutz
+> gegen Selbstsperre bzw. das Sperren des letzten Plattform-Admins fehlt (#2144, MT-045).
 
 **Problem:** Wenn alle Admins eines Organisations-Tenants ausfallen (Account gelöscht, suspended, alle verlassen den Tenant), ist der Tenant verwaist — kein Mitglied kann Verwaltungsaktionen durchführen. Ohne Eingriffsmöglichkeit ist der Tenant und alle seine Daten faktisch verloren.
 
@@ -1466,8 +1992,8 @@ def appoint_emergency_admin(
     1. Aufrufender muss Platform-Admin sein
     2. Tenant muss verwaist sein (keine aktiven Admins)
     3. Ziel-User muss existieren und status 'active' haben
-    4. Ziel-User darf bereits Mitglied sein (Rolle wird auf 'admin' hochgestuft)
-       ODER wird als neues Mitglied mit Rolle 'admin' hinzugefügt
+    4. Ziel-User darf bereits Mitglied sein (erhält Rolle 'lead' und Zusatzberechtigung `management`)
+       ODER wird als neues Mitglied mit Rolle 'lead' und `management` hinzugefügt
     5. Aktion wird im Audit-Log protokolliert
     """
 ```
@@ -1486,7 +2012,7 @@ def appoint_emergency_admin(
   "tenant_key": "gruene-oase",
   "user_key": "users/max",
   "previous_role": "grower",
-  "new_role": "admin",
+  "new_role": "lead",
   "reason": "Bisherige Admins Lisa und Tom haben Verein verlassen. Max ist stellvertretender Vorsitzender.",
   "appointed_by": "users/anna",
   "appointed_at": "2026-03-17T14:30:00Z",
@@ -1579,7 +2105,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 4. Anna wählt "Notfall-Admin ernennen" → Max (Grower)
 5. Grund: "Bisherige Admins haben Verein verlassen. Max ist Kassenwart."
 6. System:
-   a) Max' Rolle: grower → admin
+   a) Max' Rolle: grower → lead, Zusatzberechtigung management
    b) orphaned_since: null (Tenant nicht mehr verwaist)
    c) E-Mail an alle 10 verbleibenden Mitglieder:
       "Max wurde von der Plattform-Administration als neuer Admin ernannt."
@@ -1618,7 +2144,7 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 ### 5a.6 Szenario: Platform-Admin verwaltet Stammdaten
 
 ```
-1. Anna ist Platform-Admin (Membership in tenant/platform, role: admin)
+1. Anna ist Platform-Admin (Membership in tenant/platform, role: lead)
 2. Anna navigiert zum Admin-Panel (/admin/stammdaten)
 3. Anna sieht alle globalen Species mit Zuweisungsstatus pro Tenant
 4. Anna wählt Species "Cannabis sativa" und weist sie Tenant "grow-op" zu:
@@ -1634,6 +2160,26 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 <!-- Quelle: Service Accounts v1.7 -->
 ## 5b. Service Accounts
 
+### 5b.0 Umsetzungsstand (#2137, v1.47)
+
+Bis v1.46 war §5b ein Modell-Gerüst: `account_type="service"` und `allows_interactive_auth` existierten, aber kein Codepfad legte einen Service Account an. Umgesetzt ist jetzt der **mandanten-gescopte** Teil; die Abschnitte §5b.1–§5b.12 bleiben die Zielbeschreibung, wo diese Tabelle nichts anderes sagt.
+
+| Bereich | Stand | Abweichung von §5b.1–§5b.12 / Begründung |
+|---|---|---|
+| Anlegen `POST /t/{slug}/service-accounts` | **umgesetzt** | Berechtigt ist `lead` **und** Scope `technical` (REQ-049 Achse 1 ∧ Achse 2; §5b.3 sagte „Tenant-Admin“), aus der gespeicherten Mitgliedschaft, mit Step-up `service_account_change` (§3.9). Rolle `viewer` oder `grower` (nie `lead`, keine Admin-Scopes). Ein Key wird mit angelegt, immer auf den Mandanten gescopt, mit `ip_allowlist` / `rate_limit_per_minute` / `expires_at` (§3.7). Kein Passwort, kein persönlicher Mandant. |
+| E-Mail des Kontos | **abweichend** | `sa-<16 Hex>@service.example.com` statt `{name}@service.{tenant_slug}.local` (AK-39): `EmailStr` weist `.local` ab (dieselbe Messung wie bei `DELETED_EMAIL_DOMAIN`, #1525); die zufällige Lokalteil-Adresse nennt weder Mandant noch Integration und ist eindeutig. Unzustellbar; Benachrichtigungen überspringen Service Accounts ohnehin. |
+| Kontingent (AK-30) | **umgesetzt, abweichend** | `TENANT_MAX_SERVICE_ACCOUNTS` (Default 20) aktive Service Accounts je Mandant; Überschreitung `422 SERVICE_ACCOUNT_LIMIT_REACHED` statt `429` — wie das Mitgliederlimit (REQ-024 AK-64), denn es ist kein Ratenlimit. Ein Service Account belegt zusätzlich einen Platz des Mitgliederlimits (er tritt durch dieselbe Einfügestelle bei). Zwei gleichzeitige Anlagen können das Kontingent um eins überschreiten (kein Nachzählen nach dem Einfügen). |
+| Liste `GET /t/{slug}/service-accounts` | **umgesetzt** | `lead` ∧ `technical`; zeigt die auf den Mandanten gescopten Keys (nur Metadaten). |
+| Key-Rotation `POST …/{sa_key}/rotate-key` (AK-36) | **umgesetzt, erweitert** | Neuer Key mit Allowlist und Rate-Limit des jüngsten Vorgängers. `overlap_minutes` 0–1440, Default 0 = alte Keys sofort widerrufen (Szenario 10); > 0 = alte Keys enden nach dem Fenster. Das Ende setzt der Ablauf (`expires_at`) durch, den REST und MCP bei jedem Aufruf prüfen — **kein** Celery-Task. Audit-Aktion `service_account_key_rotated`. |
+| Entfernen `DELETE …/{sa_key}` (AK-35) | **umgesetzt, abweichend** | Keys des Mandanten widerrufen, Mitgliedschaft entfernt (Audit `membership_removed`, Aufgaben-Zuweisungen enden), Konto deaktiviert, sobald es keine andere Mitgliedschaft mehr hat — statt `status: 'deleted'`/Mitgliedschaft `left` (das Modell hat kein `status`-Feld am Konto). |
+| Kein Login (AK-27) | **umgesetzt** (schon vorher über `allows_interactive_auth`) | — |
+| Gründen / Einladung annehmen | **neu umgesetzt** | `POST /tenants` und `POST /tenants/invitations/accept` antworten einem Service Account mit 403 (Audit-Befund ID-14). |
+| Keine Hochstufung zu `lead` | **neu umgesetzt** | Die Mitgliederverwaltung (`PATCH /tenants/{slug}/members/{key}/role`) weist `lead` für einen Service Account mit 403 ab; der Plattform-Admin-Weg bleibt offen (AK-29). |
+| Light-Modus | **abweichend von §5b.11** | 403 — wie W-015 in §3.7: das eine Konto ist ohne Authentifizierung erreichbar, ein dort ausgestelltes Anmeldemittel belegt nichts (#1844). |
+| `PATCH`, Suspendieren/Reaktivieren (AK-33/34), Plattform-Service-Accounts §5b.4 (AK-29, AK-37), `last_active_at` (AK-38), `account_type` im JWT (AK-41), eigene `allowed_ip_ranges`/`rate_limit_rpm` am Konto (AK-31/32) | **offen** | Die Kontrollen sitzen am Key, nicht am Konto (§3.7); ein Service Account erhält nie ein JWT. `last_used_at` am Key wird gepflegt. |
+| Frontend §5b.10 | **offen** | Keine Oberfläche; die Routen sind über die API nutzbar. |
+| AK-40 (nicht in Nutzerlisten) | **offen** | Ein Service Account erscheint in der Mitgliederliste seines Mandanten. |
+
 ### 5b.1 Konzept
 
 **Service Accounts** sind nicht-interaktive Konten für maschinellen API-Zugriff. Sie werden als User mit `account_type: 'service'` modelliert und nutzen die bestehende Membership- und API-Key-Infrastruktur. Hauptanwendungsfälle:
@@ -1642,9 +2188,9 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 |--------|---------------|---------|
 | **Home Assistant** | `grower` im Tenant | Sensordaten schreiben, Aktoren steuern, Tasks lesen |
 | **Grafana/Prometheus** | `viewer` im Tenant | Metriken/Sensordaten lesen, Dashboard-Daten abfragen |
-| **CI/CD Pipeline** | `admin` im Tenant | Seed-Daten deployen, Konfiguration aktualisieren |
-| **Enrichment-Pipeline** | Platform `viewer` | Globale Stammdaten lesen, Enrichment-Ergebnisse schreiben |
-| **Backup-System** | Platform `admin` | Cross-Tenant Read-Access für Datensicherung |
+| **CI/CD Pipeline** | `grower` im Tenant (mehr vergibt ein Mandant an ein Dienstkonto nicht, §5b.3) | Seed-Daten deployen, Konfiguration aktualisieren |
+| **Enrichment-Pipeline** | Platform `viewer` (**nicht implementiert**, REQ-024 §1a.4, #2179) | Globale Stammdaten lesen, Enrichment-Ergebnisse schreiben |
+| **Backup-System** | Platform `lead` (= Plattform-Admin; Platform Service Accounts: §5b.4) | Cross-Tenant Read-Access für Datensicherung |
 
 **Architektur-Entscheidung:** Service Accounts als User-Subtyp (Variante B) statt separater Entity (Variante A). Begründung:
 - Wiederverwendung der gesamten Membership/API-Key/RBAC-Infrastruktur ohne Code-Duplikation
@@ -1672,9 +2218,9 @@ Voraussetzung: Tenant "Grüne Oase e.V." mit 12 Mitgliedern
 Tenant-Admins können Service Accounts für ihren Tenant erstellen. Der Service Account erhält eine Membership im Tenant mit einer vom Admin festgelegten Rolle.
 
 **Regeln:**
-- Nur Tenant-Admins dürfen Service Accounts erstellen (`role: admin` im Tenant erforderlich)
-- Die zugewiesene Rolle darf maximal `grower` sein — ein Service Account kann nicht `admin` im Tenant werden (verhindert Privilege Escalation über maschinelle Konten)
-- Ausnahme: Platform-Admins dürfen Service Accounts mit jeder Rolle erstellen (auch `admin`)
+- Service Accounts eines Mandanten erstellt nur, wem REQ-049 §2.4 diese Aufgabe zuweist (bis v1.45 stand hier der stillgelegte Wert `admin`; Umsetzung und endgültige Regel: #2137). **Umgesetzt (v1.47, #2137):** REQ-049 v1.12 weist sie der Rolle **Leitung** zusammen mit der Zusatzberechtigung **Technik** zu (vorher Verwaltung) — Entscheidung nach Messung, überstimmbar; Stand in §5b.0
+- Die zugewiesene Rolle darf maximal `grower` sein — ein Service Account kann nicht `lead` im Tenant werden (verhindert Privilege Escalation über maschinelle Konten)
+- Ausnahme: Platform-Admins dürfen Service Accounts mit jeder Rolle erstellen (auch `lead`)
 - Service Accounts werden dem Tenant via Membership zugeordnet (analog zu menschlichen Usern)
 - Ein Service Account kann Memberships in mehreren Tenants haben (z.B. Home Assistant, das mehrere Growzelte überwacht)
 - Die `email` des Service Accounts folgt dem Pattern `{slugified-name}@service.{tenant_slug}.local` (nicht routbar, nur für Eindeutigkeit)
@@ -1685,8 +2231,8 @@ Platform-Admins können Service Accounts auf Plattformebene erstellen. Diese erh
 
 **Regeln:**
 - Nur Platform-Admins dürfen Platform Service Accounts erstellen
-- Platform Service Accounts können Rollen im Platform-Tenant haben (`admin` oder `viewer`)
-- Platform Service Accounts mit `admin`-Rolle im Platform-Tenant haben KA-Admin-Rechte (globale Stammdaten, `tenant_has_access`-Verwaltung)
+- Platform Service Accounts können Rollen im Platform-Tenant haben (`lead` oder `viewer`; `viewer` dort ist **nicht implementiert**, REQ-024 §1a.4, #2179)
+- Platform Service Accounts mit `lead`-Rolle im Platform-Tenant haben KA-Admin-Rechte (globale Stammdaten, `tenant_has_access`-Verwaltung)
 - Platform Service Accounts mit `viewer`-Rolle im Platform-Tenant haben Read-Only-Zugriff auf das Admin-Panel (z.B. für Monitoring/Dashboards)
 
 ### 5b.5 Service Account Lifecycle
@@ -1861,7 +2407,7 @@ class ServiceAccountService:
   "allowed_ip_ranges": ["192.168.1.0/24"],
   "api_key": {
     "_key": "ak_sa_001",
-    "api_key": "kp_b7e2f8a1c3d5e9f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4",
+    "api_key": "kp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "key_prefix": "kp_b7e2...",
     "created_at": "2026-03-17T10:00:00Z"
   },
@@ -1903,7 +2449,7 @@ Das JWT Access Token (§5a.2) wird um `account_type` erweitert:
 3. Dialog: Name "Home Assistant", Beschreibung "Sensor- und Aktor-Integration",
    Rolle: Gärtner (grower), IP-Bereich: 192.168.1.0/24
 4. System erstellt Service Account + initialen API-Key
-5. Dialog zeigt API-Key einmalig an: "kp_b7e2f8a1..."
+5. Dialog zeigt API-Key einmalig an: "kp_xxxxxxxx..."
 6. Anna kopiert Key und hinterlegt ihn in der HA-Konfiguration
 7. HA authentifiziert sich per API-Key → Middleware erkennt kp_-Prefix
    → löst Service Account auf → prüft IP (192.168.1.x ✓) → Zugriff OK
@@ -2033,13 +2579,13 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-11 | Generischer OIDC-Provider mit `auto_discover: true` nutzt `.well-known/openid-configuration` | Integration |
 | AK-12 | Account-Linking: SSO-Login mit gleicher verifizierter E-Mail verknüpft automatisch mit bestehendem Account | Integration |
 | AK-13 | Account-Linking: Entfernen des letzten Auth-Providers wird verhindert (mindestens eine Methode) | Unit |
-| AK-14 | Logout invalidiert Refresh Token; Logout-All invalidiert alle Tokens des Users | Integration |
+| AK-14 | Logout invalidiert Refresh Token; Logout-All invalidiert alle Tokens des Users — **auch die Access Tokens** (ab der nächsten Anfrage `401`, #2116 v1.44) | Integration |
 | AK-15 | Profil-Update (display_name, locale, timezone) persistiert korrekt | Integration |
 | AK-16 | Account-Löschung setzt `status: deleted`, anonymisiert E-Mail, invalidiert alle Tokens | Integration |
-| AK-17 | Celery-Task bereinigt abgelaufene Tokens stündlich und unbestätigte Accounts nach 7 Tagen | Integration |
+| AK-17 | Celery-Task bereinigt abgelaufene Tokens stündlich und unbestätigte Accounts nach 7 Tagen; abgebrochene lokale Registrierungen werden gezählt (Trockenlauf) und erst nach Freigabe gelöscht (#2010) | Integration |
 <!-- Quelle: Platform-Admin v1.6 -->
-| AK-18 | Platform-Admin-Dependency (`get_platform_admin`) prüft Membership im Platform-Tenant mit `role: admin` | Unit + Integration |
-| AK-19 | JWT Access Token enthält `is_platform_admin: true` wenn User Platform-Admin ist | Unit |
+| AK-18 | Platform-Admin-Dependency (`require_platform_admin` / `get_is_platform_admin`, `app/common/auth.py`) prüft eine **aktive** Membership im Platform-Tenant mit `role: lead` (v1.46: vorher `admin`, seit `v0032` stillgelegt) | Unit + Integration |
+| AK-19 | JWT Access Token enthält `is_platform_admin: true` wenn User Platform-Admin ist — **informativ**: keine Autorisierung liest den Claim (v1.46) | Unit |
 | AK-20 | User kann gleichzeitig Platform-Admin und regulärer Tenant-Nutzer sein (Doppelrolle) | Integration |
 | AK-21 | Nicht-Platform-Admins erhalten 403 bei Zugriff auf Platform-Admin-Endpunkte | Integration |
 | AK-22 | Platform-Admin kann globale Species/Cultivars erstellen, bearbeiten, löschen | Integration |
@@ -2047,18 +2593,18 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-24 | Platform-Admin kann Tenant-eigene Species zu globalen promoten (origin: tenant → system, tenant_key → null) | Integration |
 <!-- /Quelle: Platform-Admin v1.6 -->
 <!-- Quelle: Service Accounts v1.7 -->
-| AK-25 | Service Account Erstellung erzeugt User mit `account_type: 'service'`, generierter E-Mail und Membership im Tenant | Integration |
-| AK-26 | Service Account bekommt bei Erstellung automatisch einen API-Key (Klartext einmalig in Response) | Integration |
-| AK-27 | Service Account kann sich NICHT per Passwort oder SSO anmelden (kein `password_hash`, kein AuthProvider) | Unit + Integration |
-| AK-28 | Tenant-Admin kann Service Accounts nur mit Rolle `grower` oder `viewer` erstellen (kein `admin`) | Unit |
-| AK-29 | Platform-Admin kann Service Accounts mit jeder Rolle erstellen (inkl. `admin`) | Integration |
-| AK-30 | Maximal 20 Service Accounts pro Tenant (429 bei Überschreitung) | Unit + Integration |
-| AK-31 | `allowed_ip_ranges` wird bei API-Key-Authentifizierung geprüft — Zugriff von nicht-erlaubter IP gibt 403 | Integration |
-| AK-32 | `rate_limit_rpm` wird als individuelles Rate Limit pro Service Account angewendet | Integration |
+| AK-25 | **Umgesetzt (v1.47, #2137, §5b.0):** Service Account Erstellung erzeugt User mit `account_type: 'service'`, generierter E-Mail und Membership im Tenant | Integration |
+| AK-26 | **Umgesetzt (v1.47, #2137):** Service Account bekommt bei Erstellung automatisch einen API-Key (Klartext einmalig in Response) | Integration |
+| AK-27 | **Umgesetzt (vor v1.47; Status v1.47, #2137):** Service Account kann sich NICHT per Passwort oder SSO anmelden (kein `password_hash`, kein AuthProvider) | Unit + Integration |
+| AK-28 | **Umgesetzt (v1.47, #2137):** Auf Mandanten-Ebene werden Service Accounts nur mit Rolle `grower` oder `viewer` erstellt (kein `lead`; wer sie anlegen darf, regelt REQ-049 §2.4) | Unit |
+| AK-29 | Platform-Admin kann Service Accounts mit jeder Rolle erstellen (inkl. `lead`) | Integration |
+| AK-30 | **Umgesetzt, abweichend: `422 SERVICE_ACCOUNT_LIMIT_REACHED`, `TENANT_MAX_SERVICE_ACCOUNTS` (#2137, §5b.0).** Maximal 20 Service Accounts pro Tenant (429 bei Überschreitung) | Unit + Integration |
+| AK-31 | **Umgesetzt am Key statt am Konto: `ip_allowlist`, Antwort `401` (#1850, #2137).** `allowed_ip_ranges` wird bei API-Key-Authentifizierung geprüft — Zugriff von nicht-erlaubter IP gibt 403 | Integration |
+| AK-32 | **Umgesetzt am Key: `rate_limit_per_minute` (#1850, #2137).** `rate_limit_rpm` wird als individuelles Rate Limit pro Service Account angewendet | Integration |
 | AK-33 | Suspendierung eines Service Accounts macht alle seine API-Keys sofort ungültig (401) | Integration |
 | AK-34 | Reaktivierung eines Service Accounts stellt API-Key-Funktionalität wieder her (nicht-revoked Keys funktionieren) | Integration |
-| AK-35 | Löschung (Soft-Delete) revoked alle API-Keys und setzt Memberships auf `status: 'left'` | Integration |
-| AK-36 | Key-Rotation revoked den alten Key und erstellt einen neuen (Klartext einmalig in Response) | Integration |
+| AK-35 | **Umgesetzt, abweichend: Entfernen widerruft die Keys, entfernt die Mitgliedschaft, deaktiviert das Konto (#2137, §5b.0).** Löschung (Soft-Delete) revoked alle API-Keys und setzt Memberships auf `status: 'left'` | Integration |
+| AK-36 | **Umgesetzt, erweitert um ein Übergangsfenster `overlap_minutes` (#2137).** Key-Rotation revoked den alten Key und erstellt einen neuen (Klartext einmalig in Response) | Integration |
 | AK-37 | Platform Service Account kann Memberships in mehreren Tenants erhalten | Integration |
 | AK-38 | `last_active_at` wird bei jedem API-Key-Zugriff des Service Accounts aktualisiert | Integration |
 | AK-39 | Service Account E-Mail folgt Pattern `{slug}@service.{tenant_slug}.local` und ist UNIQUE | Unit |
@@ -2066,20 +2612,21 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | AK-41 | `account_type` ist im JWT-Token enthalten und korrekt gesetzt (`human` oder `service`) | Unit |
 <!-- /Quelle: Service Accounts v1.7 -->
 <!-- Quelle: Tenant-Notfallverwaltung v1.7 -->
-| AK-42 | Verwaist-Erkennung: Tenant ohne aktive Admins wird korrekt als verwaist erkannt (`is_orphaned() == True`) | Unit + Integration |
-| AK-43 | Emergency-Admin-Ernennung nur bei verwaisten Tenants möglich (409 wenn aktive Admins vorhanden) | Integration |
-| AK-44 | Emergency-Admin-Ernennung erfordert Platform-Admin-Berechtigung (403 für Nicht-Platform-Admins) | Integration |
-| AK-45 | Emergency-Admin-Ernennung: `reason` ist Pflichtfeld (422 bei fehlendem Grund) | Unit |
-| AK-46 | Emergency-Admin-Ernennung: Ziel-User wird korrekt zum Admin befördert (bestehende Membership) oder als Admin hinzugefügt (neue Membership) | Integration |
-| AK-47 | Emergency-Admin-Ernennung: `orphaned_since` wird auf `null` zurückgesetzt | Integration |
-| AK-48 | Emergency-Admin-Ernennung: Alle aktiven Mitglieder des Tenants werden benachrichtigt | Integration |
-| AK-49 | Tenant-Suspendierung: Alle tenant-scoped API-Requests geben 403 zurück | Integration |
-| AK-50 | Tenant-Suspendierung: Platform-Tenant kann NICHT suspendiert werden (400) | Unit |
-| AK-51 | Tenant-Reaktivierung: Zugriff wird sofort wiederhergestellt | Integration |
-| AK-52 | User-Suspendierung: Alle Refresh Tokens invalidiert, alle API-Keys suspendiert | Integration |
-| AK-53 | User-Suspendierung: Platform-Admin kann sich NICHT selbst suspendieren (400) | Unit |
-| AK-54 | User-Suspendierung: Wenn User letzter Admin eines Tenants → Tenant als verwaist markiert | Integration |
-| AK-55 | Celery-Task erkennt verwaiste Tenants wöchentlich und setzt `orphaned_since` | Integration |
+| AK-42 | **Gestrichen (v1.43, #2134; Status v1.46):** Verwaist-Erkennung: Tenant ohne aktive Admins wird korrekt als verwaist erkannt (`is_orphaned() == True`) | Unit + Integration |
+| AK-43 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung nur bei verwaisten Tenants möglich (409 wenn aktive Admins vorhanden) | Integration |
+| AK-44 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung erfordert Platform-Admin-Berechtigung (403 für Nicht-Platform-Admins) | Integration |
+| AK-45 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: `reason` ist Pflichtfeld (422 bei fehlendem Grund) | Unit |
+| AK-46 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: Ziel-User wird korrekt zum Admin befördert (bestehende Membership) oder als Admin hinzugefügt (neue Membership) | Integration |
+| AK-47 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: `orphaned_since` wird auf `null` zurückgesetzt | Integration |
+| AK-48 | **Gestrichen (v1.43, #2134; Status v1.46):** Emergency-Admin-Ernennung: Alle aktiven Mitglieder des Tenants werden benachrichtigt | Integration |
+| AK-49 | **Umgesetzt (#2105, #2123):** Tenant-Suspendierung: Alle tenant-scoped API-Requests geben 403 zurück — dieselbe Antwort wie für einen unbekannten Kurznamen, nicht die eigene Meldung aus §5a.5.3 (REQ-024 AK-48/AK-65) | Integration |
+| AK-50 | **Umgesetzt mit 403 statt 400 (#1021):** Tenant-Suspendierung: Platform-Tenant kann NICHT suspendiert werden | Unit |
+| AK-51 | **Umgesetzt (#2105):** Tenant-Reaktivierung: Zugriff wird sofort wiederhergestellt | Integration |
+| AK-52 | **Umgesetzt (#2116):** User-Suspendierung (`PATCH /admin/platform/users/{key}`, `is_active=false`): Alle Refresh Tokens invalidiert; API-Keys werden nicht widerrufen, aber abgewiesen, solange das Konto gesperrt ist | Integration |
+| AK-53 | **Nicht implementiert (#2144, MT-045):** User-Suspendierung: Platform-Admin kann sich NICHT selbst suspendieren (400) | Unit |
+| AK-54 | **Gestrichen (v1.43, #2134; Status v1.46):** User-Suspendierung: Wenn User letzter Admin eines Tenants → Tenant als verwaist markiert | Integration |
+| AK-55 | **Gestrichen (v1.43, #2134; Status v1.46):** Celery-Task erkennt verwaiste Tenants wöchentlich und setzt `orphaned_since` | Integration |
+| AK-56 | **Registrierungsmodus (#2132, umgesetzt; Betreiberentscheidung 2026-10-04, §3.2d):** `REGISTRATION_MODE=invite_only` + `POST /auth/register` ohne gültiges E-Mail-Einladungs-Token für die Adresse → `403 REGISTRATION_NOT_ALLOWED` (gleiche Antwort für vergebene und freie Adresse, nichts geschrieben); mit Token einer offenen, gültigen E-Mail-Einladung für genau diese Adresse → `201`. Erste OIDC-Anmeldung ohne Einladung für die vom Anbieter bestätigte Adresse → Weiterleitung `?error=registration_not_allowed`, kein Konto. `closed` lehnt auch mit Einladung ab; bestehende Konten melden sich an. `REGISTRATION_ALLOWED_DOMAINS` beschränkt `open` auf die gelisteten Domains (OIDC nur mit bestätigter Adresse). `GET /mode` meldet `registration.mode`. Default `open` ändert nichts. Tests: `test_registration_mode.py` (Unit), `test_registration_mode_api.py` (API), `RegisterPage.test.tsx`, `LoginPage.test.tsx` | Unit + API + Frontend |
 <!-- /Quelle: Tenant-Notfallverwaltung v1.7 -->
 
 ### Sicherheitskriterien:
@@ -2117,6 +2664,7 @@ Membership: `grower` im Demo-Tenant. API-Key: `kp_demo00000000000000000000000000
 | FK-06 | Tab "API-Keys" zeigt Liste aller eigenen Keys mit Label, Prefix, Tenant-Scope, Erstellt, Letzter Zugriff | E2E |
 | FK-07 | Neuen API-Key erstellen zeigt Klartext-Key einmalig im Dialog mit Copy-Button und Warnhinweis | E2E |
 | FK-08 | Key revoken erfordert Bestätigungs-Dialog und entfernt Key aus der Liste | E2E |
+| FK-09 | OIDC-Provider-Seite (`/admin/oidc-providers`, nur Plattform-Admin): Anlegen, Löschen und jede Änderung außer Anzeigename und Icon verlangen den Step-up für `oidc_provider_change` (Ziel: Schlüssel bzw. `new:<slug>`); Anzeigename und Icon speichern ohne Dialog; das Client-Secret wird nie angezeigt | TC-023-077 bis 079 |
 
 ## 7. Abhängigkeiten
 

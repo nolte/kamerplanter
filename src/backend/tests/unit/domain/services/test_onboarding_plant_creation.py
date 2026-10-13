@@ -66,7 +66,8 @@ class _PlantService:
     def __init__(self) -> None:
         self.created: list[PlantInstance] = []
 
-    def create_plant(self, plant: PlantInstance, skip_validation: bool = False) -> PlantInstance:
+    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
+        plant.tenant_key = tenant_key
         if plant.species_key != KNOWN_SPECIES:
             raise NotFoundError("Species", plant.species_key)
         stored = plant.model_copy(update={"key": f"plant-{len(self.created) + 1}"})
@@ -86,8 +87,9 @@ def plant_service(monkeypatch: pytest.MonkeyPatch) -> _PlantService:
 def _service(repo: _StateRepo) -> OnboardingService:
     service = OnboardingService.__new__(OnboardingService)
     service._repo = repo  # type: ignore[attr-defined]
-    service._db = None  # type: ignore[attr-defined]
     service._kit_service = None  # type: ignore[attr-defined]
+    service._favorites = None  # type: ignore[attr-defined]
+    service._preferences = None  # type: ignore[attr-defined]
     service._engine = OnboardingEngine()  # type: ignore[attr-defined]
     return service
 

@@ -9,6 +9,7 @@ above all that Base-64 image data reaches **neither** ``structuredContent``,
 from __future__ import annotations
 
 from base64 import b64encode
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -50,6 +51,8 @@ class _FakeIdempotencyRepo:
         return self.records.get((sa_key, tenant_key, tool_name, idem_key))
 
     def store(self, record, *, ttl_hours=24):
+        # The production repository stamps ``expires_at`` on store, and a lookup honours it (#2144).
+        record.expires_at = record.expires_at or datetime.now(UTC) + timedelta(hours=ttl_hours)
         self.records[(record.service_account_key, record.tenant_key, record.tool_name, record.idempotency_key)] = record
         return record
 

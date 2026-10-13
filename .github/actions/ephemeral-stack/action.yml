@@ -47,6 +47,14 @@ runs:
         # `up -d backend` returns once the backend container is started
         # (its own healthcheck is polled in the readiness step). The
         # frontend is brought up only after the backend is healthy.
+        #
+        # The Fernet key is generated per run, never committed (#1838). The
+        # helper stores it in .e2e-secrets/ of this checkout, so the second
+        # `up` below gets the same key — a different one would make compose
+        # recreate the backend with it.
+        E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)"
+        export E2E_FERNET_KEY
+        echo "::add-mask::$E2E_FERNET_KEY"
         docker compose \
           -f docker-compose.e2e.yml \
           -f docker-compose.security.override.yml \
@@ -88,7 +96,10 @@ runs:
           echo "::error::backend did not become ready" >&2
           exit 1
         fi
-        # Backend healthy → bring up the frontend and wait for it too.
+        # Backend healthy → bring up the frontend and wait for it too, with
+        # the key the backend was started with (see the step above).
+        E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)"
+        export E2E_FERNET_KEY
         docker compose \
           -f docker-compose.e2e.yml \
           -f docker-compose.security.override.yml \

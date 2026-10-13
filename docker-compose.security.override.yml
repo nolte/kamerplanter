@@ -23,6 +23,37 @@ services:
     # under that mode.
     environment:
       KAMERPLANTER_MODE: full
+      # Per-IP budgets on the routes the ANONYMOUS merge scan reaches before the
+      # limiter (#2248). Production sizes them for one human per address; ZAP is
+      # one address sending hundreds of payloads per route and minute (measured
+      # locally on this stack: up to 466/minute on /auth/register, 123/minute on
+      # /privacy/email-change/revert). Every budget it exhausts flips the route's
+      # answer between the handler's own status and 429 in the middle of a probe
+      # series, and ZAP's differential rules read that flip as the payload's
+      # effect. Rule 40018 did exactly that on /privacy/email-change/revert (run
+      # 38123811759): the 429 body is constant while every 401 body carries a
+      # fresh error_id, so "original == AND-true == AND-false, OR-true differs"
+      # holds only when a window resets between AND-false and OR-true. The
+      # alert's own evidence line reads "(429 Too Many Requests)".
+      #
+      # Raised HERE only: the scan stack does not measure rate limiting, and the
+      # application's limits stay as they are everywhere else (base compose,
+      # chart, settings defaults). Sized above ten times the measured peak so no
+      # scan exhausts one. The classification (raised here, or deliberately left
+      # at production with the measured reason) is guarded by
+      # src/backend/tests/unit/guards/test_scan_stack_rate_limits.py.
+      #
+      # NOT raised: RATE_LIMIT_DEVICE_PAIRING_REDEEM. The Nuclei template
+      # kamerplanter-device-pairing-bruteforce asserts its 429 on this very stack,
+      # and the address lockout (423 after five failures) flips that route's
+      # answer whatever the limit is.
+      RATE_LIMIT_EMAIL_CHANGE_CONFIRM: "5000/minute"
+      RATE_LIMIT_AUTH: "5000/minute"
+      RATE_LIMIT_TOKEN_REFRESH: "5000/minute"
+      RATE_LIMIT_RESEND_VERIFICATION: "5000/minute"
+      RATE_LIMIT_CALENDAR_FEED: "5000/minute"
+      RATE_LIMIT_CALENDAR_FEED_PER_TOKEN: "5000/minute"
+      RATE_LIMIT_HEALTH: "5000/minute"
     ports:
       - "127.0.0.1:8000:8000"
 

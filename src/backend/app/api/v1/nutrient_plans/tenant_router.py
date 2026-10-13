@@ -56,7 +56,7 @@ def list_plans(
         filters["recommended_substrate_type"] = recommended_substrate_type
     if is_template is not None:
         filters["is_template"] = is_template
-    items, _total = service.list_plans(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    items = service.list_plans_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_plan_response(p) for p in items]
 
 
@@ -97,9 +97,8 @@ def update_plan(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Update a nutrient plan."""
-    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_plan(key, data)
+    updated = service.update_plan(key, data, tenant_key=ctx.tenant_key)
     return _plan_response(updated)
 
 
@@ -110,8 +109,7 @@ def delete_plan(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Delete a nutrient plan."""
-    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
-    service.delete_plan(key)
+    service.delete_plan(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/clone", response_model=NutrientPlanResponse, status_code=201)
@@ -122,7 +120,6 @@ def clone_plan(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Clone a nutrient plan into a new tenant-owned plan."""
-    service.get_plan(key, tenant_key=ctx.tenant_key)
     cloned = service.clone_plan(key, body.new_name, body.author, tenant_key=ctx.tenant_key)
     return _plan_response(cloned)
 
@@ -134,8 +131,7 @@ def validate_plan(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Validate a nutrient plan and return any issues found."""
-    service.get_plan(key, tenant_key=ctx.tenant_key)
-    return service.validate_plan(key)
+    return service.validate_plan(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/entries", response_model=list[PhaseEntryResponse])
@@ -145,8 +141,7 @@ def list_entries(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """List a nutrient plan's phase entries."""
-    service.get_plan(key, tenant_key=ctx.tenant_key)
-    entries = service.get_phase_entries(key)
+    entries = service.get_phase_entries(key, tenant_key=ctx.tenant_key)
     return [_entry_response(e) for e in entries]
 
 
@@ -158,9 +153,8 @@ def create_entry(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Add a phase entry to a nutrient plan."""
-    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     entry = NutrientPlanPhaseEntry(plan_key=key, **body.model_dump())
-    created = service.create_phase_entry(key, entry)
+    created = service.create_phase_entry(key, entry, tenant_key=ctx.tenant_key)
     return _entry_response(created)
 
 

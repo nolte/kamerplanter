@@ -5,10 +5,12 @@ import structlog
 from app.common.datetimes import today_utc
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, PlantInstanceKey, WateringEventKey
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.engines.watering_volume_engine import VolumeSuggestion, WateringVolumeEngine
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -16,6 +18,19 @@ from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
+from app.domain.services.feeding_references import (
+    FillEventAnchors,
+    require_owned_fill_event,
+    require_readable_nutrient_plan,
+)
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.species_visibility import readable_species
+from app.domain.services.watering_confirmation_scope import (
+    own_run_plants,
+    own_task_or_none,
+    readable_run_plan,
+    require_confirmable_run,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -50,8 +65,13 @@ class WateringService:
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         sensor_service=None,
         irrigation_demand_repo=None,
+        fertilizer_repo: IFertilizerRepository | None = None,
+        fill_event_anchors: FillEventAnchors | None = None,
     ) -> None:
         self._repo = repo
+        # #1872 C6: a fill event's tenant is its tank's.
+        self._fill_event_anchors = fill_event_anchors
+        self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._site_repo = site_repo
         self._run_repo = run_repo
@@ -70,8 +90,31 @@ class WateringService:
 
     # ── Create ─────────────────────────────────────────────────────────
 
-    def create_event(self, event: WateringEvent) -> dict:
-        """Create a watering event and return it with any warnings."""
+    def create_event(self, event: WateringEvent, *, tenant_key: str) -> dict:
+        """Create a watering event of ``tenant_key`` and return it with any warnings.
+
+        A ``fertilizers_used`` line's ``product_key`` must name a fertilizer the
+        event's tenant can see (#1713); a line without one is a free-text product
+        and references nothing.
+
+        The tenant is stamped here, not trusted from the model, and an empty one is
+        refused (#2107): every reference check below reads ``event.tenant_key``.
+        """
+        if not tenant_key:
+            raise ValueError("create_event is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        event.tenant_key = tenant_key
+        assert_fertilizers_visible(
+            self._fertilizer_repo,
+            (f.product_key for f in event.fertilizers_used),
+            tenant_key=event.tenant_key,
+            field="fertilizers_used",
+            owner="WateringService",
+        )
+        # The stored references under the event's tenant (#1872 C6, C7).
+        if event.tank_fill_event_key:
+            require_owned_fill_event(self._fill_event_anchors, event.tank_fill_event_key, event.tenant_key)
+        if event.nutrient_plan_key:
+            require_readable_nutrient_plan(self._nutrient_plan_repo, event.nutrient_plan_key, event.tenant_key)
         # Look up irrigation system from the first plant's placement
         irrigation_system = None
         first_plant_key = event.plant_keys[0]
@@ -102,6 +145,21 @@ class WateringService:
         tenant_key: str = "",
     ) -> tuple[list[WateringEvent], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
+
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[WateringEvent]:
+        """One ``_key``-ordered page of the tenant's watering events without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`list_events` pays a
+        second scan for is never read; ``after`` pages by keyset instead of offset.
+        """
+        return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
 
     def get_by_plant(
         self,
@@ -166,18 +224,25 @@ class WateringService:
         """
         if self._run_repo is None or self._task_repo is None:
             raise ValueError("confirm_watering requires run_repo and task_repo")
+        # The run comes from the request body: resolve it under the tenant before
+        # anything is read through it or written (#1864 sweep, L8).
+        require_confirmable_run(self._run_repo, run_key, tenant_key=tenant_key)
 
-        # Get run and plan info
-        plan_key = self._run_repo.get_run_nutrient_plan_key(run_key)
-        plan = None
-        watering_schedule = None
-        if plan_key and self._nutrient_plan_repo:
-            plan = self._nutrient_plan_repo.get_by_key(plan_key)
-            if plan and hasattr(plan, "watering_schedule"):
-                watering_schedule = plan.watering_schedule
+        # The task is resolved before anything stores its key (security review of
+        # #1872, S1): only the tenant's own task is completed *and recorded*; any
+        # other value (a foreign key, or the date the schedule UI sends) is kept
+        # off the event, the log and the confirmations.
+        task_doc = own_task_or_none(self._task_repo, task_key, tenant_key=tenant_key)
+        own_task_key = task_key if task_doc else None
 
-        # Get plants in the run
-        plants = self._run_repo.get_run_plants(run_key, include_detached=False)
+        # The run's plan only when the tenant may read it (#2107 review SEC-002):
+        # an unreadable plan is no plan — its schedule and key are not used.
+        plan_key, plan = readable_run_plan(self._run_repo, self._nutrient_plan_repo, run_key, tenant_key=tenant_key)
+        watering_schedule = getattr(plan, "watering_schedule", None) if plan is not None else None
+
+        # The run's own plants only: a legacy edge to another tenant's plant is
+        # left out of the event/log and of every derived write (SEC-001 sweep).
+        plants = own_run_plants(self._run_repo, self._plant_repo, run_key, tenant_key=tenant_key)
         plant_keys = [p["_key"] for p in plants if p.get("_key")]
         if not plant_keys:
             raise ValueError("No active plants found in run")
@@ -193,7 +258,7 @@ class WateringService:
             nutrient_plan_key=plan_key,
             measured_ec=measured_ec,
             measured_ph=measured_ph,
-            task_key=task_key,
+            task_key=own_task_key,
             channel_id=channel_id,
         )
         created_event = self._repo.create(event)
@@ -220,7 +285,8 @@ class WateringService:
 
         # Complete the task
         task_completed = False
-        task_doc = self._task_repo.get_by_key(task_key)
+        # Only the tenant's own task is completed; a foreign one is treated as
+        # missing — same answer, nothing changed (#1864 sweep, L8).
         if task_doc:
             self._task_repo.update_fields(
                 task_key,
@@ -236,12 +302,24 @@ class WateringService:
             for plant in plants:
                 plant_key = plant.get("_key", "")
                 if plant_key:
+                    # Fail-closed tenant guard (SEC-001): the run's plants come from graph
+                    # edges, so resolve each one under the tenant before its care profile
+                    # is read or a confirmation is written; skip silently otherwise.
+                    owned_plant = self._plant_repo.get_by_key(plant_key) if self._plant_repo else None
+                    if owned_plant is None or owned_plant.tenant_key != tenant_key:
+                        continue
+                    # ``care_profile_key`` is required: a plant without a care
+                    # profile has no reminder to confirm, so it is skipped (#1898).
+                    profile = self._care_repo.get_profile_by_plant_key(plant_key)
+                    if profile is None or not profile.key:
+                        continue
                     confirmation = CareConfirmation(
                         plant_key=plant_key,
+                        care_profile_key=profile.key,
                         reminder_type=ReminderType.WATERING,
                         action=ConfirmAction.CONFIRMED,
                         confirmed_at=now,
-                        task_key=task_key,
+                        task_key=own_task_key,
                     )
                     self._care_repo.create_confirmation(confirmation)
 
@@ -313,7 +391,7 @@ class WateringService:
         species_seasonal: list[dict] | None = None
         waterlogging_tolerance: str | None = None
         if self._species_repo and plant.species_key:
-            species = self._species_repo.get_by_key(plant.species_key)
+            species = readable_species(self._species_repo, plant.species_key, tenant_key)
             if species:
                 waterlogging_tolerance = getattr(species, "waterlogging_tolerance", None)
                 # Check cultivar override first
@@ -436,7 +514,7 @@ class WateringService:
         try:
             runs = self._run_repo.get_runs_for_plant(plant_key)
         except Exception as exc:  # noqa: BLE001 — never fail volume suggestion on lookup error
-            logger.warning("irrigation_demand_run_lookup_failed", plant_key=plant_key, error=str(exc))
+            logger.warning("irrigation_demand_run_lookup_failed", plant_key=plant_key, error=loggable_error(exc))
             return None
         for run in runs:
             if not run.key:
@@ -491,7 +569,7 @@ class WateringService:
                 "soil_moisture_sensor_lookup_failed",
                 plant_key=plant_key,
                 location_key=slot.location_key,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return None
         moisture_sensors = [
@@ -499,7 +577,7 @@ class WateringService:
         ]
         if not moisture_sensors:
             return None
-        live = self._sensor_service.get_live_state_for_sensors(moisture_sensors)
+        live = self._sensor_service.get_live_state_for_sensors(moisture_sensors, tenant_key=tenant_key)
         entry = (live.get("values") or {}).get(SOIL_MOISTURE_METRIC)
         value = entry.get("value") if entry else None
         # Avoid a tuple-except (a known ruff-format 0.15.x mangling trap) — narrow by type.

@@ -35,6 +35,16 @@ class _FakeAuthService:
         token_pair = SimpleNamespace(access_token="access-token-xyz", expires_in=900)
         return token_pair, "raw-refresh-token", True
 
+    def handle_oauth_callback(self, slug, code, state, user_agent, ip_address):  # noqa: ANN001, ANN201
+        """The route's entry since #1815: a sign-in outcome built from ``complete_oauth``."""
+        from app.domain.services.auth_service import OAuthCallbackOutcome
+
+        token_pair, raw_refresh, is_persistent = self.complete_oauth(slug, code, state, user_agent, ip_address)
+        return OAuthCallbackOutcome(token_pair=token_pair, raw_refresh=raw_refresh, is_persistent=is_persistent)
+
+    def abandon_oauth_state(self, state):  # noqa: ANN001, ANN201
+        return None
+
 
 def _client_with(service: _FakeAuthService) -> Iterator[TestClient]:
     with patch("app.main.get_connection"), patch("app.main.ensure_collections"):
@@ -86,7 +96,7 @@ def test_disabled_account_redirects_to_account_disabled():
     assert resp.headers["location"] == f"{FRONTEND_URL}/auth/callback?error=account_disabled"
 
 
-@pytest.mark.parametrize("exc", [NotFoundError("Oidc", "google"), ValidationError("nope")])
+@pytest.mark.parametrize("exc", [NotFoundError("OidcProviderConfig", "google"), ValidationError("nope")])
 def test_provider_errors_redirect_to_provider_error(exc):
     resp = _callback(_FakeAuthService(exc), "?code=abc&state=xyz")
 

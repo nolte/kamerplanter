@@ -1,0 +1,45 @@
+# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
+#
+# Re-derived after #1846 (squash 9cacdb752): router.py changed; delete_tenant only gained the
+# client_ip dependency (forwarded to TenantService.delete_tenant for the step-up throttle, #1816).
+# Its body (confirm_slug + password), origin platform_admin and TenantErasureEngine.INVENTORY are
+# unchanged. derived_from moves to 9cacdb752; act script, targets, observe step and expectation
+# unchanged.
+id: endpoint-admin-tenant-delete-persists-proof
+summary: tenant_erasure_records after the platform-admin tenant delete — one completed platform_admin record, none containing
+  the member's account key
+declaration:
+  source: endpoint
+  path: src/backend/app/api/v1/admin/platform/router.py
+  location: DELETE /admin/platform/tenants/{key} (delete_tenant) — a tenant_erasure_records entry (origin platform_admin)
+    is persisted as the proof, per TenantService.delete_tenant and the route docstring (#1769)
+tier: T2
+expected:
+  kind: set
+  unit: observed tenant-erasure record facts
+  values:
+  - member-in-records/0
+  - record-unreached/0
+  - record/platform_admin/completed
+derived_from: blob:0367a5efd2a96388e33a2d2b4e4ec9a8ae2bfa11
+environment:
+- reach:stack:up
+- reach:seed:erasure-tenant
+- reach:erasure:admin-delete-tenant
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_tenant_residue.py
+  - --tenant
+  - reach-tenant
+  - --records
+  timeout_seconds: 120
+approval:
+  approved_at: '2026-10-04T12:35:32Z'
+  approved_by: nolte
+  observation_digest: f1df40ac229836df8c90604d3eae1f93f2e61dbe7b6b3a0730e78a3ebe752baa
+  mode: reconfirmed

@@ -350,7 +350,8 @@ controllers:
           LLM_API_URL: "http://kamerplanter-ollama:11434"
           LLM_MODEL: mistral:7b
           RERANKER_URL: "http://kamerplanter-reranker-service:8081"
-          RERANKER_INITIAL_K: "20"
+          RERANKER_INITIAL_K: "15"
+          RERANKER_MAX_DOCUMENT_CHARS: "500"
           RERANKER_TOP_K: "5"
 
   reranker-service:
@@ -508,7 +509,7 @@ flowchart TD
 
 ### Can I upgrade to a larger profile later?
 
-Yes. All profiles use the same database. You can add components at any time (e.g., enable Ollama, start TimescaleDB, switch from light to full mode) without losing data. When switching from light to full mode, you need to set a password for the existing system user once.
+Yes. All profiles use the same database. You can add components at any time (e.g., enable Ollama, start TimescaleDB, switch from light to full mode) without losing data. When switching from light to full mode, you register a new account on the login screen; the first start in full mode locks the light-mode system account and revokes its API keys, and the first account can take the light-mode garden over in a dialog (see [Light Mode](../user-guide/light-mode.md#upgrade-light-full)).
 
 ### Can I run Ollama on a Raspberry Pi?
 

@@ -64,15 +64,17 @@ This overview bundles the boot blockers across all three processes — backend, 
 | `ARANGODB_PASSWORD` | Backend | **Always** | Value must no longer be `rootpassword` |
 | `FERNET_KEY` | Backend | **Always** — regardless of whether OIDC providers are used | Must not be empty; must be a valid Fernet key (32 bytes, url-safe base64, 44 characters) |
 | `ERASURE_TOMBSTONE_SALT` | Backend | **Always** — regardless of whether GDPR erasure requests are actively used | Must be at least 32 characters long |
+| `LOG_PSEUDONYM_SALT` | Backend + Celery Worker | **Always** — regardless of which features are active; the backend and the worker need the same value | Must be at least 32 characters long |
 | `TIMESCALEDB_PASSWORD` | Backend | Only when `TIMESCALEDB_ENABLED=true` | Value must no longer be `changeme` |
 | `INTERNAL_SERVICE_TOKEN` | Backend | Only when `KNOWLEDGE_SERVICE_ENABLED=true` **or** `INFERENCE_SERVICE_ENABLED=true` | Must not be empty |
+| `INTERNAL_SERVICE_TOKEN` + `INFERENCE_SERVICE_ENABLED`/`-URL` | Celery Worker | Only when `INFERENCE_SERVICE_ENABLED=true` — **must be identical to the backend's value**, or the worker holds the GDPR erasure of contributed reference images as a configuration error (see the warning below) | Must not be empty |
 | `INTERNAL_SERVICE_TOKEN` | Knowledge Service | Always, whenever the process runs at all (its own gate, independent of the backend gate) | Must not be empty |
 | `VECTORDB_PASSWORD` | Knowledge Service | Always, whenever the process runs at all | Value must no longer be `changeme` |
 | `INTERNAL_SERVICE_TOKEN` | Inference Service | Always, whenever the process runs at all | Must not be empty |
 | `VECTORDB_PASSWORD` | Inference Service | Always, whenever the process runs at all | Value must no longer be `changeme` |
 
-!!! danger "The first four rows affect EVERY production instance"
-    `JWT_SECRET_KEY`, `ARANGODB_PASSWORD`, `FERNET_KEY`, and `ERASURE_TOMBSTONE_SALT` are **not feature flags** — they are checked regardless of which of the optional features listed below are active. A fresh production instance without these four values simply refuses to start (`SystemExit`) once `DEBUG=false` is set.
+!!! danger "The first five rows affect EVERY production instance"
+    `JWT_SECRET_KEY`, `ARANGODB_PASSWORD`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, and `LOG_PSEUDONYM_SALT` are **not feature flags** — they are checked regardless of which of the optional features listed below are active. A fresh production instance without these five values simply refuses to start (`SystemExit`) once `DEBUG=false` is set — for `LOG_PSEUDONYM_SALT` this applies to both the backend **and** the Celery worker (Celery Beat does not check it).
 
 !!! note "`INTERNAL_SERVICE_TOKEN` must be identical everywhere"
     The backend, Celery worker/beat, Knowledge Service, and Inference Service must all receive the **same** `INTERNAL_SERVICE_TOKEN` value (one Kubernetes secret, injected into all four controllers via `envFrom`/`secretKeyRef`) — it is a shared M2M secret, not a per-service token.
@@ -91,6 +93,9 @@ This overview bundles the boot blockers across all three processes — backend, 
 
 Full setup (activation order, populating the reference index): [Setting Up Plant Identification](inference-service.md).
 
+!!! warning "`INFERENCE_SERVICE_ENABLED` also belongs on the celery-worker (GDPR erasure, internal reference: issue #1753)"
+    The row above lists only the `inference-service`/`vectordb` stack itself. Once users contribute their own photos as reference images, `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` must **also carry the same value on the celery-worker** — it runs the scheduled Art. 17 erasure of those contributions. If it is missing there, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503. Details: [Setting Up Plant Identification](inference-service.md).
+
 ---
 
 ## Pest Detection <!-- REQ-044 --> {#schaedlingserkennung-req-044}
@@ -102,6 +107,9 @@ Full setup (activation order, populating the reference index): [Setting Up Plant
 | Direct detector (mode 1, phase 2, D-FINE/RF-DETR ONNX) | `inference-service` | `PEST_DETECTION_DETECTOR_ENABLED=true` (default `false`) | Trained ONNX detector baked into the service image | shares the `inference-service` pod | Yes (via the shared inference service gate) |
 | Demo adapter (placeholder findings, no real model) | none | `PEST_DETECTION_DEMO_ENABLED=true` (default `false`) — **not** for real decisions | — | none | No |
 | Cloud adapter (Kindwise `plant.health`) | Backend (external HTTP call) | `PEST_DETECTION_CLOUD_ENABLED=true` **and** `PEST_DETECTION_CLOUD_API_KEY` set | `PEST_DETECTION_CLOUD_API_KEY` | no additional pods | No |
+
+!!! warning "`PEST_DETECTION_ENABLED`/`INFERENCE_SERVICE_ENABLED` also belongs on the celery-worker (GDPR erasure, internal reference: issue #1759)"
+    Once a platform admin has promoted a contributed user pest photo into the recognition base, `PEST_DETECTION_ENABLED` **or** `INFERENCE_SERVICE_ENABLED` together with `INFERENCE_SERVICE_URL` must **also be set on the celery-worker** — it runs the scheduled Art. 17 erasure of those contributions (regardless of whether the promotion is still active). If it is missing there, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503. If the inference-service is merely unreachable, it instead answers with HTTP 502. Details: [Setting Up Plant Identification](inference-service.md).
 
 ---
 
@@ -128,6 +136,7 @@ As of this version there is **no** cloud adapter for CV disease diagnosis — di
 | Re-ranking (higher RAG precision, ADR-007) | Reranker Service (`controllers.reranker-service`) | `RERANKER_URL` set **on the Knowledge Service** (empty = disabled) | — | `reranker-service` ~100m/2 CPU, 1.5–4Gi RAM (dev orientation) | No |
 | AI terminology glossary | shares the AI assistant stack | No dedicated switch — follows `AI_FEATURES_ENABLED` | — | — | No |
 | Structured AI diagnosis assistant (symptom catalogue) | shares the AI assistant stack | No dedicated switch — follows `AI_FEATURES_ENABLED`; only available in Full mode | — | — | No |
+| Daily budget for AI calls <!-- #2110 --> | Backend + Valkey (counters per UTC day) | Always on; `AI_BUDGET_USER_CALLS_PER_DAY` (default `50` per account and tenant), `AI_BUDGET_TENANT_CALLS_PER_DAY` (`500` per tenant), `AI_BUDGET_TENANT_TOKENS_PER_DAY` (`2000000` tokens per tenant); `0` switches a budget off. Above that `429 AI_BUDGET_EXCEEDED` with `Retry-After` until the day ends; `RATE_LIMIT_INFERENCE` per account and minute on top | Valkey from `REDIS_URL` — **unreachable: no AI call** (`503 AI_BUDGET_UNAVAILABLE`, fail-closed) | ~no extra demand | No |
 
 !!! warning "No automatic cloud fallback"
     There is **no** runtime fallback between Ollama and a cloud provider. `LLM_PROVIDER` is a single configured value (`ollama`, `anthropic`, or `openai_compatible`) — switching it is a Knowledge Service redeploy, not an automatic failover on unreachability.
@@ -170,10 +179,10 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 |---|---|---|---|---|---|
 | Manual readings | Backend + ArangoDB | Always active, no switch | — | — | No |
 | Home Assistant connection (semi-automatic, live) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` set | `HA_ACCESS_TOKEN` | — | No |
-| Time-series storage with downsampling | `timescaledb` controller (commented out in `values.yaml`) | `TIMESCALEDB_ENABLED=true` **and** the controller manually added (see note) | `TIMESCALEDB_PASSWORD` | ~250m/1 CPU, 512Mi/1Gi RAM (chart-default comment) + 10Gi PVC | Yes — `timescaledb_password` default check (only when `TIMESCALEDB_ENABLED=true`) |
+| Time-series storage with downsampling | `timescaledb` controller (off by default) | `controllers.timescaledb.enabled: true` (also sets `TIMESCALEDB_ENABLED=true` on backend, worker and beat) | `TIMESCALEDB_PASSWORD` | ~250m/1 CPU, 512Mi/1Gi RAM + 10Gi PVC | Yes — `timescaledb_password` default check (only when `TIMESCALEDB_ENABLED=true`) |
 
-!!! note "TimescaleDB controller is commented out in the chart"
-    `helm/kamerplanter/values.yaml` only contains the `timescaledb` controller as a **commented-out** block (Docker Compose, by contrast, has its own `timescaledb` profile: `docker-compose --profile timescaledb up`). In Kubernetes, the operator must enable the block via `valuesObject`.
+!!! note "TimescaleDB with one switch"
+    In the chart, `controllers.timescaledb.enabled: true` switches on the database, its Service, its NetworkPolicy and `TIMESCALEDB_ENABLED` on backend, worker and beat together; add `TIMESCALEDB_PASSWORD` to `kamerplanter-secrets` first (see [TimescaleDB](helm.md#timescaledb)). Docker Compose has its own profile for it: `docker-compose --profile timescaledb up`.
 
 ---
 
@@ -193,7 +202,7 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 |---|---|---|---|---|---|
 | Email channel (console, development) | Backend | `EMAIL_ADAPTER=console` (default) | — | — | No |
 | Email channel (SMTP) | Backend + external SMTP server | `EMAIL_ADAPTER=smtp` + `SMTP_HOST`/`SMTP_USERNAME`/`SMTP_PASSWORD` | `SMTP_PASSWORD` | — | No |
-| Email channel (Resend) | Backend | `EMAIL_ADAPTER=resend` | API key via REST configuration | — | No |
+| Email channel (Resend) | Backend | `EMAIL_ADAPTER=resend` + `RESEND_API_KEY` (+ optional `RESEND_FROM_EMAIL`) | `RESEND_API_KEY` | — | Yes — refuses to start without `RESEND_API_KEY` once `EMAIL_ADAPTER=resend` is set (Pydantic validation while loading the configuration, independent of `DEBUG`; not an `insecure_default_secrets()` check) |
 | Browser push (Web Push / VAPID) | Backend | `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_CONTACT_EMAIL` all three set | `VAPID_PRIVATE_KEY` | — | No |
 | Home Assistant channel (persistent notifications, mobile push, TTS) | Backend | `HA_URL` + `HA_ACCESS_TOKEN` set | `HA_ACCESS_TOKEN` | — | No |
 | Apprise channel (multi-backend push) | Backend image | Always active as long as the optional `apprise` Python package is installed in the image (no env switch) | — | larger backend image | No |
@@ -217,6 +226,10 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 | S3-compatible storage | Backend + Celery Worker + external S3 endpoint | `STORAGE_BACKEND=s3` + `STORAGE_S3_ENDPOINT_URL`/`STORAGE_S3_REGION`/`STORAGE_S3_BUCKET` | `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY` (from the External Secrets Operator) | no PVC needed | No |
 | Virus scanning (ClamAV REST wrapper) | External ClamAV service | `STORAGE_VIRUS_SCAN_ENABLED=true` + `STORAGE_VIRUS_SCAN_ENDPOINT` | — | external, not part of the chart | No |
 | Plant photo gallery <!-- REQ-034 --> | shares the object storage stack | No dedicated switch — `STORAGE_MAX_PHOTOS_PER_INSTANCE` caps the count | — | — | No |
+| Pixel ceiling for images <!-- NFR-013 §5.1 --> | Backend + Celery Worker | Always on, no switch: every upload and every image analysis refuses images above **40 megapixels** with `413` (`IMAGE_PIXEL_LIMIT_EXCEEDED`) before a single pixel is decoded | — | caps the memory of one image decode at about 160 MB (40 MPx RGBA) | No |
+| Image types without EXIF stripping (HEIC/HEIF, GIF) | Backend | Not admitted while `STORAGE_STRIP_EXIF=true` (default) — not even through `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>`; an upload answers `415` | — | — | No |
+| Thumbnail generation | Celery Worker | Always on: at most one job per attachment in five minutes (lock in Valkey, per process during an outage); thumbnails that failed for good answer `404` | — | — | No |
+| Per-account budgets for expensive routes | Backend + Valkey (counters) | `RATE_LIMIT_UPLOAD` (default `30/minute`: uploads, CSV import), `RATE_LIMIT_INFERENCE` (`20/minute`: CV diagnosis, pest detection, plant identification, reference contribution, every route that calls an LLM), `RATE_LIMIT_EXPORT` (`20/minute`: PDF printing) — per route and account; above that `429` with `Retry-After` | Valkey from `REDIS_URL` or `RATE_LIMIT_STORAGE_URL` (falls back to counting per process during an outage) | — | No |
 
 Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — Storage Configuration](helm.md#storage-konfiguration-nfr-013).
 
@@ -229,7 +242,11 @@ Details: [Configure Storage](../user-guide/object-storage.md), [Helm Charts — 
 | Light Mode (no login, single-user) <!-- REQ-027 --> | Backend + Frontend | `KAMERPLANTER_MODE=light` (backend) **and** `KAMERPLANTER_MODE=light` (frontend init container) | — | — | No |
 | Full mode (auth + multi-tenant) <!-- REQ-023 / REQ-024 --> | Backend + Frontend | `KAMERPLANTER_MODE=full` (default) | `JWT_SECRET_KEY`, `FERNET_KEY` (both already mandatory regardless, see above) | — | Yes (via the general backend secrets) |
 | GDPR erasure/anonymization <!-- REQ-025 --> | Backend + Celery Beat | Always active, cannot be disabled | `ERASURE_TOMBSTONE_SALT` | one daily Celery task | Yes (`erasure_tombstone_salt`, always checked) |
-| Email verification at registration | Backend | `REQUIRE_EMAIL_VERIFICATION=true` (default `false`) | Email channel configured (see notification system) | — | No |
+| Log pseudonymization (subject references, email digests) <!-- NFR-011 §3.4 --> | Backend + Celery Worker | Always active, cannot be disabled | `LOG_PSEUDONYM_SALT` — rotatable, independent of `ERASURE_TOMBSTONE_SALT` | — | Yes (`log_pseudonym_salt`, always checked; Celery Beat does not check it) |
+| Email verification at registration | Backend | Active by default (`REQUIRE_EMAIL_VERIFICATION=true`); `false` switches it off | Outbound mail (`EMAIL_ADAPTER=smtp` or `resend`); without it set `false` | — | No |
+| Registration mode <!-- REQ-023 §3.2d --> | Backend + frontend (reads `GET /mode`) | `REGISTRATION_MODE=open` (default) \| `invite_only` \| `closed`; optional `REGISTRATION_ALLOWED_DOMAINS` | — | — | Yes (an unknown mode refuses startup) |
+| Member limit per tenant <!-- REQ-024 AK-64 --> | Backend | Always active; platform ceiling `TENANT_MAX_MEMBERS_CEILING` (default `50`) | — | one count query per join | No (a value below `1` refuses startup) |
+| Service accounts per tenant <!-- REQ-023 §5b.0 --> | Backend | Always active (full mode); quota `TENANT_MAX_SERVICE_ACCOUNTS` (default `20`) | — | one count query per creation | No (a value below `1` refuses startup) |
 | "Have I Been Pwned" check | Backend | `HIBP_ENABLED=true` (default `false`) | — | outbound HTTPS requests on password change | No |
 
 ---

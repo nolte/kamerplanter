@@ -27,6 +27,7 @@ def _mock_dependencies(monkeypatch):
         "get_planting_run_repo",
         "get_season_state_repo",
         "get_task_repo",
+        "get_tenant_repo",
     ):
         setattr(mock_deps, getter, MagicMock())
 
@@ -298,6 +299,8 @@ class TestGenerateDueCareReminders:
         gen_kwargs = service._engine.should_generate_reminder.call_args.kwargs
         assert gen_kwargs["overwintering_profile"] is sentinel_owp
         assert gen_kwargs["frost_sensitivity"] == "sensitive"
+        # The species is resolved under the plant's tenant, never unscoped (#2082).
+        assert service._resolve_species.call_args.args[2] == "tenant_1"
         due_kwargs = service._engine.calculate_due_date.call_args.kwargs
         assert due_kwargs["overwintering_profile"] is sentinel_owp
 

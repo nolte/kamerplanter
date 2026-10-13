@@ -232,9 +232,9 @@ The consent for data contribution (`reference_contribution`) is found in the pri
 
 1. Click your profile picture in the top right.
 2. Select **Account Settings** > **Privacy** > **Consents**.
-3. Enable or disable **Contribute to plant recognition**.
+3. Enable or disable **Photo contribution to plant recognition**.
 
-Revocation takes effect immediately for all future photo uploads. Already-created feature vectors are removed upon revocation and at the latest when the account is deleted.
+Revocation takes effect immediately for all future contributions — gallery photos as well as [promoted pest photos](pest-detail.md#contribute-your-own-photos). Revoking does not by itself remove feature vectors that were already created; they are deleted when you delete the photo they came from, and at the latest when your account is deleted.
 
 !!! note "Light mode"
     In Light mode (anonymous access without login) data contribution to plant recognition is not available because the consent system is not active. The gallery works fully in Light mode.

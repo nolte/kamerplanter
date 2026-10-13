@@ -31,6 +31,11 @@ class IOverwinteringProfileRepository(ABC):
     ) -> tuple[list[OverwinteringProfile], int]: ...
 
     @abstractmethod
+    def list_by_tenant_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[OverwinteringProfile]:
+        """The page of :meth:`list_by_tenant` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def create_subject_edge(
         self,
         profile_key: str,

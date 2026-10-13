@@ -87,8 +87,8 @@ def _overview_sort_clause(sort: DiaryOverviewSort) -> str:
     has no analysis to the top.
     """
     if sort == "analyzed_at":
-        return "SORT doc.analysis.analyzed_at DESC, doc.created_at DESC, doc._key DESC"
-    return "SORT doc.created_at DESC, doc._key DESC"
+        return "SORT DATE_TIMESTAMP(doc.analysis.analyzed_at) DESC, DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC"
+    return "SORT DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC"
 
 
 def _day_bounds_ms(day: date, *, end_of_day: bool) -> int:
@@ -106,10 +106,37 @@ def _day_bounds_ms(day: date, *, end_of_day: bool) -> int:
     return int(moment.timestamp() * 1000)
 
 
+#: The tenant-bound entry selection of :meth:`ArangoPlantDiaryRepository.get_by_plant`;
+#: the count and the window run the same predicate (SEC-002). ``entry != null``
+#: guards a dangling edge: DOCUMENT() answers null for a deleted target, and
+#: ``null.tenant_key`` would be null too — filtering on the tenant already
+#: excludes it, but naming it keeps the intent readable and the count honest.
+_BY_PLANT_BODY = (
+    f"FOR e IN {col.HAS_DIARY_ENTRY} "
+    "FILTER e._from == @plant_id "
+    "LET entry = DOCUMENT(e._to) "
+    "FILTER entry != null AND entry.tenant_key == @tenant_key "
+)
+
+#: The tenant-bound entry selection of :meth:`ArangoPlantDiaryRepository.get_by_run`.
+_BY_RUN_BODY = (
+    f"FOR rc IN {col.RUN_CONTAINS} "
+    "FILTER rc._from == @run_id AND rc.detached_at == null "
+    "LET plant = DOCUMENT(rc._to) "
+    f"FOR de IN {col.HAS_DIARY_ENTRY} "
+    "FILTER de._from == rc._to "
+    "LET entry = DOCUMENT(de._to) "
+    "FILTER entry != null AND entry.tenant_key == @tenant_key "
+)
+
+
 class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDiaryRepository):
     """ArangoDB implementation for plant diary entries."""
 
     _model_cls = PlantDiaryEntry
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PLANT_DIARY_ENTRIES)
@@ -164,29 +191,39 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
         reports rows the caller may never see — and leaks their number.
         """
         self._require_tenant_key(tenant_key, "get_by_plant")
-        plant_id = f"{col.PLANT_INSTANCES}/{plant_key}"
-        bind_vars: dict[str, Any] = {"plant_id": plant_id, "tenant_key": tenant_key}
-
-        # ``entry != null`` guards a dangling edge: DOCUMENT() answers null for a
-        # deleted target, and ``null.tenant_key`` would be null too — filtering
-        # on the tenant already excludes it, but naming it keeps the intent
-        # readable and the count honest.
-        body = (
-            f"FOR e IN {col.HAS_DIARY_ENTRY} "
-            "FILTER e._from == @plant_id "
-            "LET entry = DOCUMENT(e._to) "
-            "FILTER entry != null AND entry.tenant_key == @tenant_key "
+        bind_vars: dict[str, Any] = {"plant_id": f"{col.PLANT_INSTANCES}/{plant_key}", "tenant_key": tenant_key}
+        count_cursor = self._db.aql.execute(
+            f"{_BY_PLANT_BODY}COLLECT WITH COUNT INTO cnt RETURN cnt", bind_vars=bind_vars
         )
-
-        count_cursor = self._db.aql.execute(f"{body}COLLECT WITH COUNT INTO cnt RETURN cnt", bind_vars=bind_vars)
         total = next(count_cursor, 0)
+        return self.get_by_plant_window(plant_key, tenant_key=tenant_key, offset=offset, limit=limit), total
 
+    def get_by_plant_window(
+        self,
+        plant_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PlantDiaryEntry]:
+        """The page of :meth:`get_by_plant` without its count query (MT-035, #2131).
+
+        Same tenant predicate, same order, same ``LIMIT``; the list routes answer
+        a bare array and never read the ``total`` the second scan produced.
+        """
+        self._require_tenant_key(tenant_key, "get_by_plant_window")
+        bind_vars: dict[str, Any] = {
+            "plant_id": f"{col.PLANT_INSTANCES}/{plant_key}",
+            "tenant_key": tenant_key,
+            "offset": offset,
+            "limit": limit,
+        }
         cursor = self._db.aql.execute(
-            f"{body}SORT entry.created_at DESC LIMIT @offset, @limit RETURN entry",
-            bind_vars={**bind_vars, "offset": offset, "limit": limit},
+            f"{_BY_PLANT_BODY}SORT DATE_TIMESTAMP(entry.created_at) DESC, entry._key DESC "
+            "LIMIT @offset, @limit RETURN entry",
+            bind_vars=bind_vars,
         )
-        entries = [PlantDiaryEntry(**self._from_doc(doc)) for doc in cursor]
-        return entries, total
+        return [PlantDiaryEntry(**self._from_doc(doc)) for doc in cursor]
 
     def get_by_run(
         self,
@@ -210,25 +247,27 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
         plant moved between tenants) would ride along today.
         """
         self._require_tenant_key(tenant_key, "get_by_run")
-        run_id = f"{col.PLANTING_RUNS}/{run_key}"
-        bind_vars: dict[str, Any] = {"run_id": run_id, "tenant_key": tenant_key}
-
-        body = (
-            f"FOR rc IN {col.RUN_CONTAINS} "
-            "FILTER rc._from == @run_id AND rc.detached_at == null "
-            "LET plant = DOCUMENT(rc._to) "
-            f"FOR de IN {col.HAS_DIARY_ENTRY} "
-            "FILTER de._from == rc._to "
-            "LET entry = DOCUMENT(de._to) "
-            "FILTER entry != null AND entry.tenant_key == @tenant_key "
+        bind_vars: dict[str, Any] = {"run_id": f"{col.PLANTING_RUNS}/{run_key}", "tenant_key": tenant_key}
+        count_cursor = self._db.aql.execute(
+            f"{_BY_RUN_BODY}COLLECT WITH COUNT INTO cnt RETURN cnt", bind_vars=bind_vars
         )
-
-        count_cursor = self._db.aql.execute(f"{body}COLLECT WITH COUNT INTO cnt RETURN cnt", bind_vars=bind_vars)
         total = next(count_cursor, 0)
+        return self.get_by_run_window(run_key, tenant_key=tenant_key, offset=offset, limit=limit), total
 
+    def get_by_run_window(
+        self,
+        run_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """The page of :meth:`get_by_run` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "get_by_run_window")
+        bind_vars: dict[str, Any] = {"run_id": f"{col.PLANTING_RUNS}/{run_key}", "tenant_key": tenant_key}
         query = (
-            f"{body}"
-            "SORT entry.created_at DESC "
+            f"{_BY_RUN_BODY}"
+            "SORT DATE_TIMESTAMP(entry.created_at) DESC, entry._key DESC "
             "LIMIT @offset, @limit "
             "RETURN { "
             "  plant_key: plant._key, "
@@ -246,7 +285,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
                 doc["diary_entry"] = PlantDiaryEntry(**entry_data).model_dump(by_alias=True, mode="json")
             results.append(doc)
 
-        return results, total
+        return results
 
     # ── REQ-050 AI analysis ──────────────────────────────────────────────────
 
@@ -343,7 +382,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
             stale_clause = (
                 "FILTER doc.analysis_state == @requested_state "
                 "OR doc.analysis_lease_expires_at == null "
-                "OR doc.analysis_lease_expires_at <= @now "
+                "OR DATE_TIMESTAMP(doc.analysis_lease_expires_at) <= DATE_TIMESTAMP(@now) "
             )
             bind_vars["requested_state"] = DiaryAnalysisState.REQUESTED.value
             bind_vars["now"] = moment
@@ -363,7 +402,7 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
         total = next(count_cursor, 0)
 
         cursor = self._db.aql.execute(
-            f"{filter_clause}SORT doc.analysis_requested_at ASC LIMIT @limit RETURN doc",
+            f"{filter_clause}SORT DATE_TIMESTAMP(doc.analysis_requested_at) ASC LIMIT @limit RETURN doc",
             bind_vars={**bind_vars, "limit": limit},
         )
         entries = [PlantDiaryEntry(**self._from_doc(doc)) for doc in cursor]
@@ -455,7 +494,8 @@ class ArangoPlantDiaryRepository(BaseArangoRepository[PlantDiaryEntry], IPlantDi
             clauses.append(
                 "LET displayed_analysis_state = ("
                 "doc.analysis_state == @in_progress_state "
-                "AND (doc.analysis_lease_expires_at == null OR doc.analysis_lease_expires_at <= @now)"
+                "AND (doc.analysis_lease_expires_at == null "
+                "OR DATE_TIMESTAMP(doc.analysis_lease_expires_at) <= DATE_TIMESTAMP(@now))"
                 ") ? @requested_state : NOT_NULL(doc.analysis_state, @none_state)"
             )
             clauses.append("FILTER displayed_analysis_state IN @displayed_states")

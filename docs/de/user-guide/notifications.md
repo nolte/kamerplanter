@@ -83,6 +83,9 @@ Aktivierbare Optionen:
 - **Mobile Push (Companion App)** — sendet an alle in Home Assistant registrierten Companion-App-Geräte (Standard: an)
 - **Sprachansage (TTS)** — liest die Nachricht über eine ausgewählte Lautsprecher-Entity vor (z. B. `media_player.kueche`); standardmäßig deaktiviert und erfordert die Angabe der Entity-ID
 
+!!! info "Zulässige Ziele"
+    Die Entity-ID für die Sprachansage muss eine `media_player.*`- oder `tts.*`-Entität sein. Kamerplanter ruft in Home Assistant nur Dienste der Bereiche `notify` und `tts` auf; ein anderer Wert wird beim Speichern abgelehnt. Ein früher gespeicherter ungültiger Wert wird nicht mehr gesendet — korrigiere ihn, damit sich die Einstellungen wieder speichern lassen.
+
 Zusätzlich feuert Kamerplanter bei jeder Benachrichtigung ein Home-Assistant-Event (z. B. `kamerplanter_care_due`), mit dem du eigene HA-Automationen auslösen kannst — etwa eine Bewässerungsventil-Schaltung bei einer Gieß-Erinnerung.
 
 !!! tip "Mehrere Erinnerungen werden gebündelt"
@@ -90,12 +93,14 @@ Zusätzlich feuert Kamerplanter bei jeder Benachrichtigung ein Home-Assistant-Ev
 
 ### E-Mail
 
-Trage deine E-Mail-Adresse ein und wähle den Zustellmodus:
+Der E-Mail-Kanal schickt Benachrichtigungen an die **bestätigte E-Mail-Adresse deines Kontos**. Eine andere Adresse kannst du hier nicht eintragen; willst du eine andere nutzen, änderst du sie in den Kontoeinstellungen unter „E-Mail-Adresse ändern“ und bestätigst sie per Link. Solange deine Adresse nicht bestätigt ist, verschickt Kamerplanter keine E-Mails — die Einstellungen zeigen dir dann einen Hinweis.
+
+Wähle den Zustellmodus:
 
 - **Sofort** — jede Benachrichtigung wird einzeln als E-Mail verschickt
 - **Tägliche Zusammenfassung** — alle Benachrichtigungen des Tages werden in einer einzigen E-Mail gebündelt
 
-Der Versand erfolgt über den vom Betreiber konfigurierten SMTP-Server (Mailversand-Server, siehe [Umgebungsvariablen — E-Mail](../reference/environment-variables.md#e-mail)). Ist keine SMTP-Verbindung eingerichtet, gibt der Entwicklungsmodus E-Mails nur im Backend-Log aus.
+Der Versand erfolgt über den vom Betreiber konfigurierten E-Mail-Kanal — entweder einen SMTP-Server (Mailversand-Server) oder den Dienst Resend (siehe [Umgebungsvariablen — E-Mail](../reference/environment-variables.md#e-mail)). Ist keiner davon eingerichtet, gibt der Entwicklungsmodus E-Mails nur im Backend-Log aus.
 
 ### Browser-Push (PWA)
 
@@ -105,6 +110,8 @@ Aktiviert Web-Push-Benachrichtigungen direkt im Browser oder in der als App inst
     Browser-Push funktioniert nur, wenn dein Betreiber vorher ein VAPID-Schlüsselpaar (der technische Schlüssel für Web-Push) hinterlegt hat. Zeigt der Kanal **Nicht konfiguriert**, ist das noch nicht geschehen — siehe [Browser-Push einrichten](../guides/browser-push-setup.md).
 
 Wird der Kanal in diesem Browser nicht unterstützt (z. B. älterer Browser) oder hast du Benachrichtigungen zuvor blockiert, zeigt die Seite einen entsprechenden Hinweis anstelle der Aktivieren-Schaltfläche. Über **Deaktivieren** entfernst du die Push-Registrierung dieses Geräts wieder.
+
+Eine Push-Registrierung gehört immer zu genau einem Konto: Aktiviert jemand anderes auf demselben Browser Push, erhält dein Konto über dieses Gerät keine Nachrichten mehr. Beim **Abmelden** wird die Registrierung dieses Geräts entfernt; nach dem nächsten Anmelden aktivierst du Push dort bei Bedarf erneut. <!-- #2117 -->
 
 ### Apprise
 
@@ -116,7 +123,13 @@ slack://<token-a>/<token-b>/<kanal>
 gotify://<hostname>/<token>
 ```
 
-Die genaue URL-Syntax für deinen gewünschten Dienst findest du in der [Apprise-Dokumentation](https://github.com/caronc/apprise/wiki). Kamerplanter selbst benötigt für diesen Kanal keine zusätzliche Konfiguration durch den Betreiber — die Ziel-URLs verwaltest du komplett selbst in deinen Benachrichtigungseinstellungen.
+Die genaue URL-Syntax für deinen gewünschten Dienst findest du in der [Apprise-Dokumentation](https://github.com/caronc/apprise/wiki). Kamerplanter selbst benötigt für diesen Kanal keine zusätzliche Konfiguration durch den Betreiber — die Ziel-URLs verwaltest du komplett selbst in deinen Benachrichtigungseinstellungen. Einzige Ausnahme: ein Server in einem privaten Netz (siehe unten).
+
+!!! info "Erlaubte Dienste"
+    Aus Sicherheitsgründen akzeptiert Kamerplanter nur Apprise-URLs für Telegram (`tgram://`, `telegram://`), Slack, Discord, ntfy (`ntfy://`, `ntfys://`), Gotify (`gotify://`, `gotifys://`), Pushover (`pover://`, `pushover://`) und Matrix (`matrix://`, `matrixs://`). Andere Schemata wie `mailto://`, `json://` oder `https://` werden beim Speichern abgelehnt, ebenso mehrere URLs in einer Zeile und Adressen wie `localhost` oder `169.254.x.x`. Bei Gotify und Matrix (und bei ntfy mit eigenem Server) löst Kamerplanter den Hostnamen auf und lehnt die URL ab, wenn er auf eine solche Adresse zeigt oder gar nicht auflösbar ist; Adressen in privaten Netzen (etwa dein Heimnetz, `192.168.x.x`, `10.x.x.x`) sind in der Einzelnutzer-Installation ohne Anmeldung erlaubt; auf einem Server mit Anmeldung und mehreren Nutzern nur, wenn der Betreiber sie freigegeben hat. Sonst lehnt Kamerplanter sie beim Speichern und beim Senden ab. Eine URL, die schon vor dieser Regel gespeichert war und nicht erlaubt ist, wird nicht mehr gesendet; entferne sie, damit sich die Einstellungen wieder speichern lassen.
+
+!!! info "Gespeicherte URLs werden maskiert angezeigt"
+    Eine Apprise-URL enthält den Zugangsschlüssel des Diensts (etwa den Telegram-Bot-Token). Kamerplanter speichert die URLs deshalb verschlüsselt und zeigt sie nach dem Speichern nur noch als Platzhalter an, zum Beispiel `tgram://****#1` — Dienst und Position, nicht die URL selbst. Lass eine maskierte Zeile stehen, um die URL zu behalten; lösche sie, um die URL zu entfernen; trage eine neue URL in einer eigenen Zeile ein. Willst du eine gespeicherte URL ändern, lösche ihre Zeile und gib die neue vollständig ein. Auch dein Datenexport nennt nur, wie viele URLs hinterlegt sind. <!-- #2113 -->
 
 !!! warning "Voraussetzung für Betreiber: Apprise-Paket installieren"
     Der Apprise-Kanal ist serverseitig standardmäßig aktiv, benötigt aber das Python-Paket `apprise`, das nicht automatisch mit dem Backend-Image ausgeliefert wird. Ist es nicht installiert, zeigt der Kanal **Nicht konfiguriert** und Testnachrichten schlagen mit dem Hinweis "apprise package is not installed" fehl. Der Betreiber muss das Paket zusätzlich in das Backend-Image aufnehmen (`pip install apprise`).
@@ -127,7 +140,7 @@ Die genaue URL-Syntax für deinen gewünschten Dienst findest du in der [Apprise
 
 Nach dem Aktivieren eines Kanals kannst du direkt in den Benachrichtigungseinstellungen prüfen, ob er funktioniert:
 
-1. Aktiviere den gewünschten Kanal und speichere ggf. die zugehörigen Angaben (E-Mail-Adresse, Apprise-URLs, …).
+1. Aktiviere den gewünschten Kanal und speichere ggf. die zugehörigen Angaben (Apprise-URLs, Home-Assistant-Optionen, …).
 2. Klicke bei diesem Kanal auf **Test senden**.
 3. Eine Erfolgs- oder Fehlermeldung erscheint als kurze Benachrichtigung (Snackbar) am unteren Bildschirmrand.
 

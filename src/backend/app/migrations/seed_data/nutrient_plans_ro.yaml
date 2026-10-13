@@ -16,6 +16,9 @@
 nutrient_plans:
   # ── Plagron 100% Terra — Cannabis (Osmosewasser) ────────────────────────────
   - name: "Plagron 100% Terra — Cannabis (Osmosewasser)"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       RO-Wasser-Variante des Plagron 100% Terra Cannabis-Plans.
       Identische Basisdüngung, ergänzt durch Terra Aquatica CalMag
@@ -209,6 +212,8 @@ nutrient_plans:
 
   # ── Monstera deliciosa — Gardol Grünpflanzendünger (Osmosewasser) ───────────
   - name: "Monstera deliciosa — Gardol Grünpflanzendünger (Osmosewasser)"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/monstera_deliciosa_gardol.md ("Pflanze:")
+    species_names: ["Monstera deliciosa"]
     description: >-
       RO-Wasser-Variante des Monstera-Gardol-Plans.
       Identische Basisdüngung, ergänzt durch Terra Aquatica CalMag.
@@ -386,6 +391,8 @@ nutrient_plans:
 
   # ── Chlorophytum comosum — Gardol Grünpflanzendünger (Osmosewasser) ─────────
   - name: "Chlorophytum comosum — Gardol Grünpflanzendünger (Osmosewasser)"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/gruenlilie_gardol.md ("Pflanze:")
+    species_names: ["Chlorophytum comosum"]
     description: >-
       RO-Wasser-Variante des Chlorophytum-Gardol-Plans.
       Osmosewasser EMPFOHLEN — Chlorophytum ist fluorid-empfindlich,
@@ -586,6 +593,8 @@ nutrient_plans:
 
   # ── Spathiphyllum wallisii — Gardol Grünpflanzendünger (Osmosewasser) ───────
   - name: "Spathiphyllum wallisii — Gardol Grünpflanzendünger (Osmosewasser)"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/einblatt_gardol.md ("Pflanze:")
+    species_names: ["Spathiphyllum wallisii"]
     description: >-
       RO-Wasser-Variante des Spathiphyllum-Gardol-Plans.
       Identische Basisdüngung (halbe Dosis), ergänzt durch Terra Aquatica

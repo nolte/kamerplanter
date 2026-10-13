@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.ipm.router import _application_response, _inspection_response
 from app.api.v1.ipm.schemas import (
     HarvestSafetyResponse,
@@ -21,11 +22,13 @@ from app.api.v1.ipm.schemas import (
     TreatmentApplicationCreate,
     TreatmentApplicationResponse,
 )
-from app.common.auth import get_current_tenant, is_platform_admin, require_permission
-from app.common.dependencies import get_ipm_service, get_pest_image_service, get_tenant_service
+from app.common.auth import get_current_tenant, get_is_platform_admin, require_permission
+from app.common.dependencies import get_ipm_service, get_pest_image_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.common.upload_bounds import declared_body_exceeds
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.ipm import Inspection, TreatmentApplication
 from app.domain.models.tenant_context import TenantContext
@@ -37,20 +40,12 @@ from app.domain.services.pest_image_service import (
     PestInspectionImageView,
     PestRecognitionImageView,
 )
-from app.domain.services.tenant_service import TenantService
 
 router = APIRouter(prefix="/ipm", tags=["ipm"], responses=NOT_FOUND_RESPONSE)
 
 # Chunk size for the bounded streaming upload read (1 MiB) — mirrors the
 # attachment router so an oversized body is never fully buffered (SEC-005).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-def _parse_content_length(request: Request) -> int | None:
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -162,6 +157,8 @@ def _recognition_image_response(view: PestRecognitionImageView, pest_key: str) -
     )
 
 
+# tenant-scope-ok: the plant is verified in ArangoIpmRepository.create_inspection
+# (verify_entity_ownership on plant_instances, #517) before the edge is wired.
 @router.post("/plants/{plant_key}/inspections", response_model=InspectionResponse, status_code=201)
 def create_inspection(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
@@ -169,8 +166,13 @@ def create_inspection(
     ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Record an IPM inspection for a plant."""
-    inspection = Inspection(**body.model_dump(), tenant_key=ctx.tenant_key)
+    """Record an IPM inspection for a plant.
+
+    ``inspected_by_key`` comes from the resolved caller, never from the body
+    (#1669) — ``InspectionCreate`` does not declare it, so a body carrying the
+    field is ignored and the stored value is always the caller's account.
+    """
+    inspection = Inspection(**body.model_dump(), tenant_key=ctx.tenant_key, inspected_by_key=ctx.user_key)
     created = service.create_inspection(plant_key, inspection)
     return _inspection_response(created)
 
@@ -183,10 +185,15 @@ def list_inspections(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List a plant's IPM inspections (paginated)."""
-    inspections, _ = service.get_inspections(plant_key, pagination.offset, pagination.limit)
+    inspections = service.get_inspections_window(
+        plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key
+    )
     return [_inspection_response(i) for i in inspections]
 
 
+# tenant-scope-ok: the plant is verified in IpmService.create_treatment_application
+# (keyword-only tenant, #2107) and again in the repository (verify_entity_ownership
+# on plant_instances, #517) before the applied-to edge is wired.
 @router.post(
     "/plants/{plant_key}/treatment-applications",
     response_model=TreatmentApplicationResponse,
@@ -198,9 +205,13 @@ def create_treatment_application(
     ctx: TenantContext = Depends(require_permission(ResourceType.IPM_TREATMENT, Action.CREATE)),
     service: IpmService = Depends(get_ipm_service),
 ):
-    """Record a treatment application for a plant."""
-    app = TreatmentApplication(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_treatment_application(plant_key, app)
+    """Record a treatment application for a plant.
+
+    ``applied_by_key`` comes from the resolved caller, never from the body
+    (#1669); ``TreatmentApplicationCreate`` does not declare it.
+    """
+    app = TreatmentApplication(**body.model_dump(), applied_by_key=ctx.user_key)
+    created = service.create_treatment_application(plant_key, app, tenant_key=ctx.tenant_key)
     return _application_response(created)
 
 
@@ -212,7 +223,7 @@ def list_treatment_applications(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List a plant's treatment applications (paginated)."""
-    apps, _ = service.get_applications(plant_key, pagination.offset, pagination.limit)
+    apps = service.get_applications_window(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_application_response(a) for a in apps]
 
 
@@ -223,7 +234,7 @@ def get_karenz_periods(
     service: IpmService = Depends(get_ipm_service),
 ):
     """List active Karenz (pre-harvest waiting) periods for a plant."""
-    return service.get_karenz_periods(plant_key)
+    return service.get_karenz_periods(plant_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/plants/{plant_key}/harvest-safety", response_model=HarvestSafetyResponse)
@@ -235,7 +246,7 @@ def check_harvest_safety(
 ):
     """Check whether a plant may be harvested given active Karenz periods."""
     pd = datetime.fromisoformat(planned_date) if planned_date else None
-    can_harvest, blocking = service.check_harvest_safety(plant_key, pd)
+    can_harvest, blocking = service.check_harvest_safety(plant_key, pd, tenant_key=ctx.tenant_key)
     return HarvestSafetyResponse(can_harvest=can_harvest, blocking_treatments=blocking)
 
 
@@ -248,7 +259,7 @@ def get_inspection_schedule(
     service: IpmService = Depends(get_ipm_service),
 ):
     """Return the recommended inspection schedule for a plant."""
-    return service.get_inspection_schedule(plant_key, current_phase, pressure_level)
+    return service.get_inspection_schedule(plant_key, current_phase, pressure_level, tenant_key=ctx.tenant_key)
 
 
 # ── REQ-010 User-contributed pest reference images (tenant-private gallery) ──
@@ -261,6 +272,7 @@ def get_inspection_schedule(
 
 
 @router.post("/pests/{pest_key}/images", response_model=PestImageResponse, status_code=201)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def contribute_pest_image(
     pest_key: Annotated[str, Path(description="Document key of the global pest.")],
     request: Request,
@@ -276,8 +288,7 @@ async def contribute_pest_image(
 
     # SEC-005 — reject oversized uploads before buffering the body.
     max_bytes = service.attachment_service_max_upload_bytes()
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise FileTooLargeError(max_bytes)
     data = await _read_upload_bounded(file, max_bytes)
 
@@ -302,7 +313,7 @@ def list_pest_images(
     include_inactive: bool = False,
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: PestImageService = Depends(get_pest_image_service),
-    tenant_service: TenantService = Depends(get_tenant_service),
+    platform_admin: bool = Depends(get_is_platform_admin),
 ) -> list[PestImageResponse]:
     """List reference images for a pest from the caller's tenant perspective.
 
@@ -329,7 +340,10 @@ def list_pest_images(
     """
     # Curation override is platform-admin-only; force it off for everyone else
     # (display-only privilege — no 403, just the default active-only behaviour).
-    effective_include_inactive = include_inactive and is_platform_admin(tenant_service, ctx.user_key)
+    # Resolved through ``get_is_platform_admin`` (#1851), which answers ``False``
+    # for a tenant-scoped API key; ``is True`` keeps a direct call without the
+    # dependency (the house-style unit test) on the active-only default.
+    effective_include_inactive = include_inactive and platform_admin is True
 
     views = service.list_for_pest(ctx.tenant_key, pest_key, include_inactive=effective_include_inactive)
     responses = [_pest_image_response(v, ctx.tenant_slug) for v in views]

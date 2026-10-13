@@ -14,7 +14,7 @@ Runs in CI against a service container; locally it needs a database of its own
 (a missing one is a failure in CI, a loud skip locally — ``conftest.py``). Start one
 with::
 
-    docker run -d -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_diary_overview_query.py -v
 """
 
@@ -29,10 +29,9 @@ from app.common.enums import DiaryAnalysisState
 from app.data_access.arango import collections as col
 from app.data_access.arango.plant_diary_repository import ArangoPlantDiaryRepository
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
-TEST_DATABASE = "kamerplanter_diary_overview_test"
-
+TEST_DATABASE = run_database_name("diary_overview")
 TENANT = "tenant-a"
 FOREIGN_TENANT = "tenant-b"
 

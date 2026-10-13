@@ -319,7 +319,10 @@ class TestSpeciesDetailPage:
         unique = uuid.uuid4().hex[:6]
         species_list.fill_scientific_name(f"Deletus testii{unique}")
         species_list.submit_form()
-        species_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: the dialog closes only once the
+        # create POST resolved 2xx, which is what `click_row_by_name` below
+        # actually needs to be true (#1728).
+        species_list.wait_for_create_dialog_closed()
         screenshot(
             "TC-REQ-001-040_species-created",
             f"Species 'Deletus testii{unique}' created for deletion test",

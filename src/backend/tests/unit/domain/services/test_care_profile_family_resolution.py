@@ -97,7 +97,7 @@ class TestTheBootstrapResolvesTheFamily:
         """
         service, _repo, _resolver = _service(_species())
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.care_style == CareStyleType.CACTUS
         assert profile.watering_interval_days == 21, "the CACTUS preset, not the 7-day TROPICAL one"
@@ -108,7 +108,7 @@ class TestTheBootstrapResolvesTheFamily:
         presets the plant will never have."""
         service, repo, _resolver = _service(_species())
 
-        profile = service.get_or_create_profile("p1", may_create=False)
+        profile = service.get_or_create_profile("p1", may_create=False, tenant_key="tenant-a")
 
         assert profile.care_style == CareStyleType.CACTUS
         repo.create_linked_profile.assert_not_called()
@@ -120,7 +120,7 @@ class TestTheBootstrapResolvesTheFamily:
         repo.get_profile_by_plant_key.return_value = None
         repo.update_profile.side_effect = lambda key, profile: profile
 
-        reset = service.reset_profile("p1")
+        reset = service.reset_profile("p1", tenant_key="tenant-a")
 
         assert reset.care_style == CareStyleType.CACTUS
 
@@ -132,7 +132,7 @@ class TestTheBootstrapResolvesTheFamily:
         """
         service, _repo, _resolver = _service(_species(), families={})
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.care_style == CareStyleType.TROPICAL
 
@@ -141,14 +141,14 @@ class TestTheBootstrapResolvesTheFamily:
         served — the case v0048 has handled since it shipped."""
         service, _repo, _resolver = _service(_species(family_key="Cactaceae"), families={})
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.care_style == CareStyleType.CACTUS
 
     def test_a_plant_without_a_species_still_gets_a_profile(self) -> None:
         service, _repo, _resolver = _service(None)
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.care_style == CareStyleType.TROPICAL
 
@@ -157,8 +157,8 @@ class TestTheBootstrapResolvesTheFamily:
         presets for every unprofiled plant of the tenant in one call."""
         service, _repo, resolver = _service(_species())
 
-        service.get_or_create_profile("p1", may_create=False)
-        service.get_or_create_profile("p1", may_create=False)
+        service.get_or_create_profile("p1", may_create=False, tenant_key="tenant-a")
+        service.get_or_create_profile("p1", may_create=False, tenant_key="tenant-a")
 
         assert resolver.call_count == 1
 
@@ -223,7 +223,7 @@ class TestAUserEditDropsTheGeneratedMarker:
     def test_an_edit_clears_it(self) -> None:
         service, _repo = self._service_with(CareProfile(key="cp1", plant_key="p1", auto_generated=True))
 
-        updated = service.update_profile("p1", {"watering_interval_days": 5}, user_key="u1")
+        updated = service.update_profile("p1", {"watering_interval_days": 5}, tenant_key="tenant-a", user_key="u1")
 
         assert updated.auto_generated is False
 
@@ -233,7 +233,7 @@ class TestAUserEditDropsTheGeneratedMarker:
         stored = CareProfile(key="cp1", plant_key="p1", watering_interval_days=7, auto_generated=True)
         service, _repo = self._service_with(stored)
 
-        updated = service.update_profile("p1", {"watering_interval_days": 7}, user_key="u1")
+        updated = service.update_profile("p1", {"watering_interval_days": 7}, tenant_key="tenant-a", user_key="u1")
 
         assert updated.auto_generated is True
 
@@ -241,7 +241,7 @@ class TestAUserEditDropsTheGeneratedMarker:
         """The other control: creation is not an edit."""
         service, _repo, _resolver = _service(_species())
 
-        assert service.get_or_create_profile("p1", may_create=True).auto_generated is True
+        assert service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a").auto_generated is True
 
 
 class TestTheReadsAreNotDuplicated:
@@ -251,7 +251,7 @@ class TestTheReadsAreNotDuplicated:
     def test_the_species_is_read_once_per_service_lifetime(self) -> None:
         service, _repo, _resolver = _service(_species())
 
-        service.get_or_create_profile("p1", may_create=False)
-        service.get_or_create_profile("p1", may_create=False)
+        service.get_or_create_profile("p1", may_create=False, tenant_key="tenant-a")
+        service.get_or_create_profile("p1", may_create=False, tenant_key="tenant-a")
 
         assert service._species_repo.get_by_key.call_count == 1  # type: ignore[union-attr]

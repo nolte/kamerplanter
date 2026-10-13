@@ -173,6 +173,9 @@ class CreateSubstrateMix(WriteToolBase):
             name_en=args.name_en,
             tenant_key=ctx.tenant_key,
             caller_role=ctx.role,
+            # The acting membership's role decides on MCP; no tool here grants the
+            # platform-admin bypass of the domain rank (the former default, #2107).
+            is_platform_admin=False,
         )
         return self._response(
             summary=f"Created mix '{created.name_de}' in this tenant's catalogue.",
@@ -315,7 +318,7 @@ class SetPlantSubstrate(WriteToolBase):
             plant.substrate_key = args.substrate_key
         if args.substrate_batch_key is not None:
             plant.substrate_batch_key = args.substrate_batch_key
-        updated = ctx.plant_service.update_plant(args.plant_key, plant)
+        updated = ctx.plant_service.update_plant(args.plant_key, plant, tenant_key=ctx.tenant_key)
         return self._response(
             summary=f"Set the substrate of plant '{updated.key}'.",
             data={

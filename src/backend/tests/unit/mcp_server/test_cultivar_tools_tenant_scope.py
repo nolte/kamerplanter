@@ -76,7 +76,7 @@ class _UnionCultivarService:
                 return species
         raise NotFoundError("Species", key)
 
-    def get_compatible_species(self, key: str) -> list:  # noqa: ARG002
+    def get_compatible_species(self, key: str, *, tenant_key=None) -> list:  # noqa: ARG002
         return []
 
     def list_cultivars(self, species_key: str, *, tenant_key: str | None = None) -> list[Cultivar]:

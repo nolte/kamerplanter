@@ -11,7 +11,7 @@ Kamerplanter can be operated in different ways — from a single `docker compose
 | Multiple users, high availability, professional use | [Kubernetes + Helm](kubernetes.md) / [ArgoCD](argocd.md) |
 
 !!! danger "Set the mandatory secrets before every rollout"
-    Regardless of the path you choose, the backend refuses to start once `DEBUG=false` is set and `JWT_SECRET_KEY`, `FERNET_KEY`, or `ERASURE_TOMBSTONE_SALT` is missing. Every deployment page in this section shows where these values belong — the complete reference lives in the [Configuration Matrix](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+    Regardless of the path you choose, the backend refuses to start once `DEBUG=false` is set and `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, or `LOG_PSEUDONYM_SALT` is missing — the Celery worker checks `LOG_PSEUDONYM_SALT` just as strictly. Every deployment page in this section shows where these values belong — the complete reference lives in the [Configuration Matrix](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 ## In this section
 

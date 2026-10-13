@@ -7,21 +7,36 @@ from fastapi.responses import JSONResponse
 
 from app.common.error_ids import new_error_id
 from app.common.exceptions import KamerplanterError
+from app.common.log_privacy import loggable_path
 
 logger = structlog.get_logger()
 
 
 async def app_error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     """Handler for all KamerplanterError subclasses."""
+    return app_error_response(request, exc)
+
+
+def app_error_response(request: Request, exc: KamerplanterError) -> JSONResponse:
+    """The response :func:`app_error_handler` answers ``exc`` with — logged the same way.
+
+    A route returns this instead of raising when the answer must carry
+    ``BackgroundTasks``: FastAPI attaches them only to a response the handler
+    *returns*, and drops them when it raises (#2046, measured in
+    ``tests/api/test_auth_login_proven_resend.py``). One builder, so a returned
+    error and a raised one cannot drift apart.
+    """
     logger.warning(
         "app_error",
         error_id=exc.error_id,
         error_code=exc.error_code,
-        message=exc.message,
-        path=request.url.path,
+        # No ``message``: a domain error's message names what it is about —
+        # NotFoundError("User", <key>) the account key (#1796). The client gets
+        # it in the response; error_id correlates the two.
+        path=loggable_path(request.url.path),
         method=request.method,
     )
-    return JSONResponse(
+    response = JSONResponse(
         status_code=exc.status_code,
         content={
             "error_id": exc.error_id,
@@ -33,6 +48,13 @@ async def app_error_handler(request: Request, exc: KamerplanterError) -> JSONRes
             "method": request.method,
         },
     )
+    # A domain 429 (``RateLimitError`` and its subclasses) knows when its window
+    # frees a request; until #2110 that number reached the message text only, so
+    # every 429 not raised by slowapi went out without ``Retry-After``.
+    retry_after = getattr(exc, "retry_after", None)
+    if exc.status_code == 429 and isinstance(retry_after, int) and retry_after > 0:
+        response.headers["Retry-After"] = str(retry_after)
+    return response
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
@@ -49,7 +71,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     logger.warning(
         "validation_error",
         error_id=error_id,
-        path=request.url.path,
+        path=loggable_path(request.url.path),
         method=request.method,
         detail_count=len(details),
     )
@@ -73,7 +95,7 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     logger.error(
         "unhandled_error",
         error_id=error_id,
-        path=request.url.path,
+        path=loggable_path(request.url.path),
         method=request.method,
         exc_info=True,
     )

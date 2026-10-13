@@ -26,6 +26,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.common.enums import ReminderType
+from app.common.exceptions import NotFoundError
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.watering_engine import WateringEngine
@@ -142,15 +143,16 @@ def test_confirm_reminder_stamps_caller_tenant_key() -> None:
     assert log_repo._logs[0].tenant_key == TENANT
 
 
-def test_confirm_reminder_resolves_tenant_from_plant_when_caller_omits_it() -> None:
-    # The REST care path (care_reminders/router) passes no tenant_key; the tenant
-    # is resolved from the plant so the log is never left unbound.
+def test_confirm_reminder_for_a_foreign_plant_writes_no_log() -> None:
+    # #2107: the tenant can no longer be omitted (and resolved from the plant), so a
+    # caller cannot get a log stamped into the plant's tenant by naming the plant.
     log_repo = FakeWateringLogRepo()
-    care_service, _ = _care_service(log_repo)
+    care_service, _ = _care_service(log_repo, plant_tenant="tenant-B")
 
-    care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING)
+    with pytest.raises(NotFoundError):
+        care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
 
-    assert log_repo._logs[0].tenant_key == TENANT
+    assert log_repo._logs == []
 
 
 def test_confirm_reminder_log_visible_in_both_global_and_per_plant_views() -> None:
@@ -182,13 +184,16 @@ def test_complete_care_task_with_log_stamps_caller_tenant_key() -> None:
     assert log_repo._logs[0].tenant_key == TENANT
 
 
-def test_complete_care_task_with_log_resolves_tenant_from_plant() -> None:
+@pytest.mark.parametrize("plant_tenant", ["tenant-B", ""])
+def test_complete_care_task_with_log_for_a_plant_the_tenant_does_not_own_writes_no_log(plant_tenant: str) -> None:
+    # #2107: the plant is verified against the completing tenant in the service. Red
+    # without it: the log was written for any plant key the caller handed over.
     log_repo = FakeWateringLogRepo()
-    care_service, _ = _care_service(log_repo)
+    care_service, _ = _care_service(log_repo, plant_tenant=plant_tenant)
 
-    care_service.complete_care_task_with_log("task-1", PLANT_KEY, ReminderType.FERTILIZING)
+    care_service.complete_care_task_with_log("task-1", PLANT_KEY, ReminderType.FERTILIZING, tenant_key=TENANT)
 
-    assert log_repo._logs[0].tenant_key == TENANT
+    assert log_repo._logs == []
 
 
 def test_complete_care_task_with_log_visible_in_both_views() -> None:
@@ -214,8 +219,11 @@ def test_confirm_watering_stamps_tenant_key_and_is_visible_in_both_views() -> No
     run_repo = MagicMock()
     run_repo.get_run_nutrient_plan_key.return_value = None
     run_repo.get_run_plants.return_value = [{"_key": PLANT_KEY, "slot_key": "slot-1"}]
+    # The confirmed run and task are the confirming tenant's: #1864 (L8)
+    # resolves both before anything is written.
+    run_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
     task_repo = MagicMock()
-    task_repo.get_by_key.return_value = None
+    task_repo.get_by_key.return_value = SimpleNamespace(tenant_key=TENANT)
 
     service = WateringLogService(
         log_repo,
@@ -223,6 +231,7 @@ def test_confirm_watering_stamps_tenant_key_and_is_visible_in_both_views() -> No
         site_repo=MagicMock(),
         run_repo=run_repo,
         task_repo=task_repo,
+        plant_repo=MagicMock(get_by_key=MagicMock(return_value=SimpleNamespace(tenant_key=TENANT))),
     )
 
     service.confirm_watering(run_key="run-1", task_key="task-1", tenant_key=TENANT)

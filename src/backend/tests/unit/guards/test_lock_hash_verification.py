@@ -117,19 +117,19 @@ def _required_uv_version() -> str | None:
 
 
 class TestTheRequiredVersionIsStillAnExactPin:
-    """A floor instead of an ``==`` pin switches three readers off at once."""
+    """A floor instead of an ``==`` pin switches two readers off at once."""
 
     def test_required_version_is_an_exact_equality_specifier(self) -> None:
         pin = _raw_required_version()
         assert isinstance(pin, str) and pin.startswith("=="), (
             f"src/backend/pyproject.toml pins [tool.uv].required-version to {pin!r}, which is not an exact "
-            "`==` specifier. Three readers degrade silently on anything else and NONE of them goes red on "
+            "`==` specifier. Two readers degrade silently on anything else and NEITHER goes red on "
             "its own: (1) the `uv toolchain` customManager in renovate.json5 matches "
-            '`required-version = "==(?<currentValue>...)"` and stops tracking the pin; (2) the coverage '
-            "lane's install-command in backend.yml appends the specifier to the package name, so a floor "
-            "installs the newest release of the day instead of the pinned one; (3) _required_uv_version() "
-            "above returns None, so this falsifier stops checking that the uv on PATH is the uv the "
-            "repository locks with. Loosen this only together with all three."
+            '`required-version = "==(?<currentValue>...)"` and stops tracking the pin; (2) '
+            "_required_uv_version() above returns None, so this falsifier stops checking that the uv on "
+            "PATH is the uv the repository locks with. Loosen this only together with both. (A third "
+            "reader, the coverage lane's pip install-command in backend.yml, was retired with that lane "
+            "in #1741.)"
         )
 
 
@@ -177,6 +177,7 @@ def _tamper(lock: Path) -> str:
     """Replace the sha256 of *one wheel* of the target package. Returns the old hash."""
     text = lock.read_text()
 
+    # prose-permeable: tamper helper over a generated uv.lock: it must locate the exact bytes it writes back
     entry = re.search(
         rf'^\[\[package\]\]\nname = "{re.escape(_TAMPER_TARGET)}"\n(?P<body>(?:.*\n)*?)\n\[\[package\]\]',
         text,
@@ -201,6 +202,7 @@ def _tamper(lock: Path) -> str:
     assert old_hash is not None, f"{_TAMPER_TARGET}'s wheel entry carries no sha256 — nothing to falsify"
 
     tampered_line = wheel_lines[0].replace(old_hash.group(1), _ZEROED_HASH)
+    # prose-permeable: same helper: the count proves the replacement is unambiguous before writing
     assert text.count(wheel_lines[0]) == 1
     lock.write_text(text.replace(wheel_lines[0], tampered_line))
     return old_hash.group(1)

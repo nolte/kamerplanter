@@ -2,12 +2,24 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import FeedingEventKey
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.interfaces.feeding_repository import IFeedingRepository
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.feeding_event import FeedingEvent
+from app.domain.services.feeding_references import FillEventAnchors, require_owned_fill_event
+from app.domain.services.fertilizer_references import assert_fertilizers_visible
 
 
 class FeedingService:
-    def __init__(self, repo: IFeedingRepository) -> None:
+    def __init__(
+        self,
+        repo: IFeedingRepository,
+        fertilizer_repo: IFertilizerRepository | None = None,
+        *,
+        fill_event_anchors: FillEventAnchors | None = None,
+    ) -> None:
         self._repo = repo
+        self._fertilizer_repo = fertilizer_repo
+        # #1872 C6: a fill event's tenant is its tank's; ``ITankRepository`` answers both.
+        self._fill_event_anchors = fill_event_anchors
         self._runoff_analyzer = RunoffAnalyzer()
 
     # ── CRUD ─────────────────────────────────────────────────────────
@@ -20,17 +32,74 @@ class FeedingService:
     ) -> tuple[list[FeedingEvent], int]:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[FeedingEvent]:
+        """One ``_key``-ordered page of the tenant's feeding events without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`list_events` pays a
+        second scan for is never read; ``after`` pages by keyset instead of offset.
+        """
+        return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
+
     def get_event(self, key: FeedingEventKey, tenant_key: str = "") -> FeedingEvent:
         event = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(event, tenant_key, "FeedingEvent")
         return event
 
-    def create_event(self, event: FeedingEvent) -> FeedingEvent:
+    def _owned_event(self, key: FeedingEventKey, *, tenant_key: str) -> FeedingEvent:
+        """The feeding event ``key`` of ``tenant_key``, or 404 — the load every write starts with (#2107).
+
+        :meth:`get_event` skips the check for an empty tenant; the writes used to
+        call it without one and rely on the router's pre-check (check-then-act).
+        :func:`verify_tenant_ownership` here answers a foreign event and an empty
+        caller tenant alike with ``NotFoundError``.
+        """
+        event = self._repo.get_or_raise(key)
+        verify_tenant_ownership(event, tenant_key, "FeedingEvent")
+        return event
+
+    def create_event(self, event: FeedingEvent, *, tenant_key: str) -> FeedingEvent:
+        """Persist a feeding event of ``tenant_key`` whose fertilizer lines it can see (#1713).
+
+        The repository also writes a ``feeding_used`` edge per line, so an
+        unchecked key would put an edge into another tenant's product.
+
+        The tenant is stamped here, not trusted from the model, and an empty one is
+        refused (#2107 review SEC-003): every reference check below and the
+        repository's plant check read ``event.tenant_key``.
+        """
+        if not tenant_key:
+            raise ValueError("create_event is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        event.tenant_key = tenant_key
+        assert_fertilizers_visible(
+            self._fertilizer_repo,
+            (f.fertilizer_key for f in event.fertilizers_used),
+            tenant_key=event.tenant_key,
+            field="fertilizers_used",
+            owner="FeedingService",
+        )
+        # The fill event under the event's tenant (#1872 C6): REST and the MCP
+        # feeding tool both land here, and both stored the key verbatim.
+        if event.tank_fill_event_key:
+            self.require_fill_event(event.tank_fill_event_key, tenant_key=event.tenant_key)
         return self._repo.create(event)
 
-    def update_event(self, key: FeedingEventKey, data: dict) -> FeedingEvent:
-        existing = self.get_event(key)
+    def require_fill_event(self, key: str, *, tenant_key: str) -> None:
+        """404 unless the fill event belongs to a tank of *tenant_key* (#1872 C6).
+
+        Public so a dry run (the MCP tool's preview) checks exactly what the write does.
+        """
+        require_owned_fill_event(self._fill_event_anchors, key, tenant_key)
+
+    def update_event(self, key: FeedingEventKey, data: dict, *, tenant_key: str) -> FeedingEvent:
+        existing = self._owned_event(key, tenant_key=tenant_key)
         allowed_fields = {
             "application_method",
             "is_supplemental",
@@ -49,8 +118,8 @@ class FeedingService:
                 setattr(existing, field, value)
         return self._repo.update(key, existing)
 
-    def delete_event(self, key: FeedingEventKey) -> bool:
-        self.get_event(key)
+    def delete_event(self, key: FeedingEventKey, *, tenant_key: str) -> bool:
+        self._owned_event(key, tenant_key=tenant_key)
         return self._repo.delete(key)
 
     # ── Queries ──────────────────────────────────────────────────────

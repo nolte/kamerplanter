@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.migrations.seeds.registry import SeedJob, run_seeds
+from tests.unit.migrations.framework.conftest import FakeDatabase
 
 
 class TestSeedRegistry:
@@ -21,7 +22,7 @@ class TestSeedRegistry:
         jobs = [SeedJob("failing", _fail, fatal=False), SeedJob("ok", _ok, fatal=False)]
 
         # Must not raise: a bad reference-data seed is isolated and the next runs.
-        run_seeds(object(), jobs=jobs)
+        run_seeds(FakeDatabase(), jobs=jobs)
 
         assert calls == ["failing", "ok"]
 
@@ -32,7 +33,7 @@ class TestSeedRegistry:
         jobs = [SeedJob("structural", _fail, fatal=True)]
 
         with pytest.raises(RuntimeError):
-            run_seeds(object(), jobs=jobs)
+            run_seeds(FakeDatabase(), jobs=jobs)
 
     def test_fatal_failure_stops_before_later_jobs(self):
         calls: list[str] = []
@@ -47,7 +48,7 @@ class TestSeedRegistry:
         jobs = [SeedJob("structural", _fail, fatal=True), SeedJob("later", _later, fatal=False)]
 
         with pytest.raises(RuntimeError):
-            run_seeds(object(), jobs=jobs)
+            run_seeds(FakeDatabase(), jobs=jobs)
 
         assert calls == ["structural"]
 
@@ -59,7 +60,7 @@ class TestSeedRegistry:
             SeedJob("c", lambda _db: calls.append("c")),
         ]
 
-        run_seeds(object(), jobs=jobs)
+        run_seeds(FakeDatabase(), jobs=jobs)
 
         assert calls == ["a", "b", "c"]
 
@@ -72,8 +73,12 @@ class TestSeedRegistry:
 
         assert by_name["location_types"].fatal is True
         assert by_name["core_data"].fatal is False
-        # The lifecycle reconcile is the last data step (post-seed).
-        assert jobs[-1].name == "lifecycle_to_phase_sequence_reconcile"
+        # The lifecycle reconcile is the last data step (post-seed); after it only the deployment-mode
+        # reconciliation (REQ-027 §7a, #1855), which runs in both modes and is fatal.
+        data_jobs = [job.name for job in jobs if job.name != "deployment_mode"]
+        assert data_jobs[-1] == "lifecycle_to_phase_sequence_reconcile"
+        assert jobs[-1].name == "deployment_mode"
+        assert by_name["deployment_mode"].fatal is True
         # The overwintering seed (REQ-022, #371) is registered between
         # plant_info_extended and fertilizers, matching the pre-framework order.
         assert "overwintering_profiles" in by_name

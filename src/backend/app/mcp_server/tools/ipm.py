@@ -29,6 +29,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.common.enums import McpPermission, PestPressureLevel, PlantPart
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.models.ipm import Inspection, InspectionFinding
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import (
@@ -42,9 +43,6 @@ from app.mcp_server.base import (
 from app.mcp_server.context import ToolContext
 
 _MAX_LIMIT = 100
-#: The catalogue is small enough to scan in one go for a substring filter, but
-#: large enough that returning all of it would swamp the answer.
-_SCAN_LIMIT = 500
 
 
 def _matches(*fields: Any, needle: str) -> bool:
@@ -122,7 +120,11 @@ class ListPests(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        pests, total = ctx.ipm_service.list_pests(offset=0, limit=_SCAN_LIMIT)
+        # Filter over the whole catalogue: a scan capped at 500 rows answered "no match"
+        # for a pest past it and never said it had stopped (#2025). Only the answer is
+        # bounded, by ``args.limit``.
+        pests = read_all_pages(lambda offset, limit: ctx.ipm_service.list_pests(offset=offset, limit=limit))
+        total = len(pests)
         selected = list(pests)
         if args.query:
             needle = args.query.strip().lower()
@@ -204,7 +206,8 @@ class ListDiseases(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        diseases, total = ctx.ipm_service.list_diseases(offset=0, limit=_SCAN_LIMIT)
+        diseases = read_all_pages(lambda offset, limit: ctx.ipm_service.list_diseases(offset=offset, limit=limit))
+        total = len(diseases)
         selected = list(diseases)
         if args.query:
             needle = args.query.strip().lower()
@@ -231,7 +234,7 @@ class GetDisease(ToolBase):
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         disease = ctx.ipm_service.get_disease(args.disease_key)
         data = _disease_summary(disease)
-        data["description"] = getattr(disease, "description_de", None) or getattr(disease, "description", None)
+        data["description"] = disease.description
         return self._response(
             summary=f"{disease.common_name} ({disease.scientific_name}), pathogen: {disease.pathogen_type}.",
             data=data,
@@ -280,7 +283,9 @@ class GetPlantInspections(ToolBase):
         # get_inspections takes no tenant, so ownership is established on the
         # plant first — the same fetch-then-use guard the care log applies.
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
-        inspections, total = ctx.ipm_service.get_inspections(plant.key, offset=0, limit=args.limit)
+        inspections, total = ctx.ipm_service.get_inspections(
+            plant.key, offset=0, limit=args.limit, tenant_key=ctx.tenant_key
+        )
 
         items = [
             {
@@ -429,6 +434,11 @@ class CreateInspection(WriteToolBase):
             # legacy row, and REQ-050's disclosure rule is that a machine-written
             # record says so.
             inspector=args.inspector.strip() or f"mcp:{ctx.principal.account_key}",
+            # The account behind the call, as a key (#1669). ``inspector`` above
+            # is display text — the ``mcp:`` prefix keeps it from ever *equalling*
+            # a key — and this field is what the Art. 15 walk and the Art. 17
+            # anonymisation match on. The tool input has no such field.
+            inspected_by_key=ctx.principal.account_key,
             inspected_at=args.inspected_at,
             pressure_level=args.pressure_level,
             detected_pest_keys=pest_keys,

@@ -32,6 +32,7 @@ from app.domain.models.privacy import (
     DataExportRequest,
     EmailChangeRequest,
     ErasureRequest,
+    PersonalTenantErasurePreview,
     PrivacyPolicyInfo,
     ProcessingRestriction,
     RetentionCategoryInfo,
@@ -92,6 +93,9 @@ class TestPrivacyPolicy:
                     category="account_data",
                     description="Profile",
                     retention_period="Until deletion",
+                    rule_id="R-01",
+                    latest_deletion_point="At the next daily run",
+                    enforcement_status="enforced",
                 ),
             ],
             data_controller=DataControllerInfo(name="Op", contact_email="privacy@example.com"),
@@ -183,6 +187,27 @@ class TestExportEndpoints:
 
 
 class TestErasureEndpoints:
+    def test_erasure_preview_lists_the_callers_personal_tenants_and_only_a_count(
+        self, client: TestClient, service: MagicMock
+    ) -> None:
+        """AK-FK-06 — GET /privacy/erasure-preview, scoped to the authenticated account (#1824)."""
+        service.erasure_preview.return_value = [PersonalTenantErasurePreview(name="Ada", other_member_count=2)]
+
+        response = client.get("/api/v1/privacy/erasure-preview")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "personal_tenants": [{"name": "Ada", "other_member_count": 2}],
+            "organizations": [],  # #2134 - no organisation changed by this erasure
+        }
+        service.erasure_preview.assert_called_once_with(USER_KEY)
+
+    def test_erasure_preview_is_not_shadowed_by_the_status_route(self, client: TestClient, service: MagicMock) -> None:
+        service.erasure_preview.return_value = []
+
+        assert client.get("/api/v1/privacy/erasure-preview").json() == {"personal_tenants": [], "organizations": []}
+        service.get_erasure_status.assert_not_called()
+
     def test_request_erasure(self, client: TestClient, service: MagicMock) -> None:
         service.request_erasure.return_value = ErasureRequest(
             _key="er1",
@@ -196,13 +221,50 @@ class TestErasureEndpoints:
 
         response = client.post(
             "/api/v1/privacy/erasure",
-            json={"password": "very-strong-pass"},
+            json={"confirm_email": "user@example.com", "password": "very-strong-pass"},
         )
 
         assert response.status_code == 201
+        # The step-up reaches the service, which decides (#1813).
+        kwargs = service.request_erasure.call_args.kwargs
+        assert kwargs["confirmation"].echo == "user@example.com"
+        assert kwargs["confirmation"].password == "very-strong-pass"
+        assert kwargs["authenticated_with_api_key"] is False
         body = response.json()
         assert body["status"] == "scheduled"
         assert "harvest_batches" in body["anonymized_collections"]
+
+    def test_request_erasure_reports_pseudonymized_collections(self, client: TestClient, service: MagicMock) -> None:
+        """#1800 code-review — the third AK-08a category must reach the API response, not just the domain model.
+
+        ``PrivacyService._new_erasure_request`` now populates
+        ``ErasureRequest.pseudonymized_collections`` (consent_records, R-04);
+        dropping it here would repeat, one layer further out, the exact
+        drop-a-category defect #1800 fixed on the domain model.
+        """
+        service.request_erasure.return_value = ErasureRequest(
+            _key="er1",
+            user_key=USER_KEY,
+            status="scheduled",
+            requested_at=datetime.now(UTC),
+            soft_deleted_at=datetime.now(UTC),
+            hard_delete_scheduled_at=datetime.now(UTC) + timedelta(days=90),
+            pseudonymized_collections=["consent_records"],
+        )
+
+        response = client.post(
+            "/api/v1/privacy/erasure",
+            json={"confirm_email": "user@example.com", "password": "very-strong-pass"},
+        )
+
+        assert response.status_code == 201
+        assert response.json()["pseudonymized_collections"] == ["consent_records"]
+
+    def test_request_erasure_without_the_e_mail_echo_is_422(self, client: TestClient, service: MagicMock) -> None:
+        response = client.post("/api/v1/privacy/erasure", json={"password": "very-strong-pass"})
+
+        assert response.status_code == 422
+        service.request_erasure.assert_not_called()
 
 
 class TestRestrictionEndpoints:

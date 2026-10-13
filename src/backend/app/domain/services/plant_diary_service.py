@@ -46,10 +46,10 @@ from app.common.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter, IPlantDiaryRepository
-from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.plant_diary_entry import DiaryAnalysis, PlantDiaryEntry
 from app.domain.services.environment_snapshot_service import EnvironmentSnapshot, EnvironmentSnapshotService
@@ -390,14 +390,12 @@ class PlantDiaryService:
         self,
         diary_repo: IPlantDiaryRepository,
         run_repo: IPlantingRunRepository | None = None,
-        plant_repo: IPlantInstanceRepository | None = None,
         consent_checker: ConsentChecker | None = None,
         attachment_repo: IAttachmentRepository | None = None,
         environment_service_factory: Callable[[], EnvironmentSnapshotService | None] | None = None,
     ) -> None:
         self._repo = diary_repo
         self._run_repo = run_repo
-        self._plant_repo = plant_repo
         #: REQ-013 §2.3a — resolves the plant's environment on create.
         #:
         #: A **factory**, not an instance, and the distinction is load-bearing:
@@ -458,9 +456,14 @@ class PlantDiaryService:
         """
         if run_key and self._run_repo:
             plants = self._run_repo.get_run_plants(run_key, include_detached=False)
-            plant_keys = {p.get("_key", "") for p in plants}
+            # A row is the plant document behind the ``run_contains`` edge: a legacy
+            # edge to another tenant's plant is not this tenant's run member, and
+            # answers like a plant that is not in the run (#2107 review SEC-001 sweep).
+            plant_keys = {
+                p.get("_key", "") for p in plants if entry.tenant_key and p.get("tenant_key") == entry.tenant_key
+            }
             if plant_key not in plant_keys:
-                raise NotFoundError("PlantInstance in Run", plant_key)
+                raise NotFoundError("PlantingRunEntry", plant_key)
 
         self._require_attachable_photos(
             entry.photo_refs,
@@ -514,8 +517,8 @@ class PlantDiaryService:
             logger.warning(
                 "diary_environment_service_unavailable",
                 plant_key=plant_key,
-                tenant_key=tenant_key,
-                error=str(exc),
+                tenant=log_tenant(tenant_key),
+                error=loggable_error(exc),
             )
             return self._degraded_snapshot()
         if environment_service is None:
@@ -526,8 +529,8 @@ class PlantDiaryService:
             logger.warning(
                 "diary_environment_capture_skipped",
                 plant_key=plant_key,
-                tenant_key=tenant_key,
-                error=str(exc),
+                tenant=log_tenant(tenant_key),
+                error=loggable_error(exc),
             )
             return self._degraded_snapshot()
 
@@ -667,9 +670,13 @@ class PlantDiaryService:
             if attachment.created_by != user_key:
                 raise ForbiddenError("Only the uploader of a photo, or a tenant lead, may attach it to a diary entry.")
 
-    def delete_entry(self, key: str) -> bool:
-        """Delete a diary entry. Raises NotFoundError if missing."""
-        self.get_entry(key)
+    def delete_entry(self, key: str, *, tenant_key: str) -> bool:
+        """Delete ``tenant_key``'s diary entry ``key``; foreign or missing raises NotFoundError.
+
+        The entry is resolved under the tenant here (#2107), the way
+        :meth:`update_entry` resolves it, rather than only by the calling route.
+        """
+        self._load_scoped(key, tenant_key)
         return self._repo.delete(key)
 
     def list_entries_for_plant(
@@ -698,6 +705,33 @@ class PlantDiaryService:
     ) -> tuple[list[dict], int]:
         """List the diary entries of a run's plants inside ``tenant_key`` (SEC-002)."""
         return self._repo.get_by_run(run_key, tenant_key=tenant_key, offset=offset, limit=limit)
+
+    def list_entries_for_plant_window(
+        self,
+        plant_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PlantDiaryEntry]:
+        """One page of a plant's diary entries without the count query (MT-035, #2131).
+
+        The list routes answer a bare array, so the ``total`` of
+        :meth:`list_entries_for_plant` (a second scan of the plant's entries on
+        every page) was paid for and dropped.
+        """
+        return self._repo.get_by_plant_window(plant_key, tenant_key=tenant_key, offset=offset, limit=limit)
+
+    def list_entries_for_run_window(
+        self,
+        run_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """One page of a run's diary entries without the count query (MT-035, #2131)."""
+        return self._repo.get_by_run_window(run_key, tenant_key=tenant_key, offset=offset, limit=limit)
 
     # ── REQ-050 analysis: reading ────────────────────────────────────────────
 
@@ -810,7 +844,9 @@ class PlantDiaryService:
             },
             expected_rev=rev,
         )
-        logger.info("diary_analysis_requested", entry_key=key, tenant_key=tenant_key, user_key=user_key)
+        logger.info(
+            "diary_analysis_requested", entry_key=key, tenant=log_tenant(tenant_key), subject=log_subject(user_key)
+        )
         return updated
 
     def cancel_analysis_request(
@@ -845,7 +881,12 @@ class PlantDiaryService:
             },
             expected_rev=rev,
         )
-        logger.info("diary_analysis_request_cancelled", entry_key=key, tenant_key=tenant_key, user_key=user_key)
+        logger.info(
+            "diary_analysis_request_cancelled",
+            entry_key=key,
+            tenant=log_tenant(tenant_key),
+            subject=log_subject(user_key),
+        )
         return updated
 
     # ── REQ-050 analysis: agent-driven transitions ───────────────────────────
@@ -919,7 +960,7 @@ class PlantDiaryService:
         logger.info(
             "diary_analysis_claimed",
             entry_key=key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             worker_id=worker,
             lease_expires_at=expires_at_iso,
         )
@@ -992,7 +1033,7 @@ class PlantDiaryService:
         logger.info(
             "diary_analysis_submitted",
             entry_key=key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             worker_id=entry.analysis_claimed_by,
             analysis_state=target.value,
         )

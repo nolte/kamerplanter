@@ -147,6 +147,9 @@ Gib die URL deiner Kamerplanter-Instanz ein:
 
 Die Integration prüft die Erreichbarkeit automatisch via `/api/health`.
 
+!!! note "Kamerplanter mit Docker Compose"
+    Docker Compose bindet Port 8000 standardmäßig an `127.0.0.1` — ein Home Assistant auf einem anderen Rechner erreicht ihn dann nicht. Setze `KAMERPLANTER_BIND_ADDRESS=0.0.0.0` in der `.env` des Kamerplanter-Servers und starte die Dienste neu. Der Compose-Stack läuft im Light-Modus ohne Anmeldung — damit öffnest du deine Daten für jedes Gerät im Netzwerk, nicht nur für Home Assistant. Siehe [Dauerbetrieb — Zugriff von anderen Geräten](../deployment/docker-dauerbetrieb.md#zugriff-von-anderen-geraten).
+
 ### Schritt 2: Authentifizierung
 
 | Modus | Beschreibung |

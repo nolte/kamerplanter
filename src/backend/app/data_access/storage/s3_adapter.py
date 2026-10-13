@@ -24,16 +24,19 @@ from typing import Any
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import log_tenant
 from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
-    strip_exif,
+    strip_exif_of_stored_object,
 )
+from app.domain.engines.storage.export_bundle_key import loggable_storage_key
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     S3_DEFAULT_CAPABILITIES,
     ObjectMetadata,
     ObjectRef,
     StorageCapabilities,
+    StorageErasureResult,
 )
 
 logger = structlog.get_logger()
@@ -119,13 +122,21 @@ class S3StorageAdapter(IObjectStorageAdapter):
         etag = (response.get("ETag") or "").strip('"')
         return ObjectRef(key=key, etag=etag, size_bytes=len(data))
 
-    def _get_sync(self, key: str) -> bytes:
+    def _open_body_sync(self, key: str) -> Any:
+        """``GetObject`` and return the unread ``StreamingBody``."""
         client = self._get_client()
         try:
             response = client.get_object(Bucket=self._bucket, Key=key)
         except client.exceptions.NoSuchKey as exc:
-            raise NotFoundError("object", key) from exc
-        return response["Body"].read()
+            raise NotFoundError("storage object", key) from exc
+        return response["Body"]
+
+    def _get_sync(self, key: str) -> bytes:
+        body = self._open_body_sync(key)
+        try:
+            return body.read()
+        finally:
+            body.close()
 
     def _head_sync(self, key: str) -> ObjectMetadata:
         from botocore.exceptions import ClientError
@@ -136,7 +147,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code")
             if code in ("404", "NoSuchKey", "NotFound"):
-                raise NotFoundError("object", key) from exc
+                raise NotFoundError("storage object", key) from exc
             raise
         last_modified = response.get("LastModified")
         return ObjectMetadata(
@@ -230,21 +241,31 @@ class S3StorageAdapter(IObjectStorageAdapter):
             chunks.append(chunk)
         data = b"".join(chunks)
         ref = await asyncio.to_thread(self._put_sync, key, data, mime_type, metadata or {})
-        logger.info("storage_put_object", backend=BACKEND_KEY, key=key, size_bytes=ref.size_bytes)
+        logger.info("storage_put_object", backend=BACKEND_KEY, key=loggable_storage_key(key), size_bytes=ref.size_bytes)
         return ref
 
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
-        data = await asyncio.to_thread(self._get_sync, key)
+        """Stream the object's body, ``_CHUNK_SIZE`` bytes per read (#1666).
+
+        ``GetObject`` runs before returning, so a missing key raises
+        ``NotFoundError`` here; the body is then read chunk by chunk as the
+        consumer pulls, and closed when the iterator ends or is abandoned. The
+        previous version read the whole body and sliced the in-memory copy.
+        """
+        body = await asyncio.to_thread(self._open_body_sync, key)
 
         async def _iter() -> AsyncIterator[bytes]:
-            for i in range(0, len(data), _CHUNK_SIZE):
-                yield data[i : i + _CHUNK_SIZE]
+            try:
+                while chunk := await asyncio.to_thread(body.read, _CHUNK_SIZE):
+                    yield chunk
+            finally:
+                body.close()
 
         return _iter()
 
     async def delete_object(self, key: str) -> None:
         await asyncio.to_thread(self._delete_sync, key)
-        logger.info("storage_delete_object", backend=BACKEND_KEY, key=key)
+        logger.info("storage_delete_object", backend=BACKEND_KEY, key=loggable_storage_key(key))
 
     async def delete_prefix(self, prefix: str) -> int:
         # SEC-004 — mirror the local-fs guard: reject an empty / bare ``t/`` root
@@ -258,7 +279,9 @@ class S3StorageAdapter(IObjectStorageAdapter):
         # the tenant folder (``t/{key}/``) rather than sibling-key prefixes.
         safe_prefix = f"{normalized}/" if prefix.rstrip().endswith("/") else normalized
         count = await asyncio.to_thread(self._delete_prefix_sync, safe_prefix)
-        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=safe_prefix, deleted=count)
+        logger.info(
+            "storage_delete_prefix", backend=BACKEND_KEY, prefix=loggable_storage_key(safe_prefix), deleted=count
+        )
         return count
 
     async def list_objects(self, prefix: str, page_token: str | None = None) -> dict[str, Any]:
@@ -295,37 +318,35 @@ class S3StorageAdapter(IObjectStorageAdapter):
 
     async def copy_object(self, src_key: str, dst_key: str) -> None:
         await asyncio.to_thread(self._copy_sync, src_key, dst_key)
-        logger.info("storage_copy_object", backend=BACKEND_KEY, src=src_key, dst=dst_key)
+        logger.info(
+            "storage_copy_object",
+            backend=BACKEND_KEY,
+            src=loggable_storage_key(src_key),
+            dst=loggable_storage_key(dst_key),
+        )
 
     async def health_check(self) -> dict[str, Any]:
         return await asyncio.to_thread(self._health_sync)
 
-    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
-        """REQ-025 erasure hook — delete every stored object owned by a user.
+    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> StorageErasureResult:
+        """REQ-025 erasure hook — delete the objects of a user's records.
 
-        Returns 0 until an attachment repository is wired (Lauf 2 DI provider).
+        Each object goes together with its WebP renditions (#1760), unless another
+        record still holds it (#1770, :func:`erase_user_objects`). Nothing is
+        reached until an attachment repository is wired (Lauf 2 DI provider).
         """
-        if self._attachment_repo is None:
-            return 0
-        from app.data_access.storage.local_fs_adapter import _scope_to_categories
+        from app.data_access.storage.local_fs_adapter import erase_user_objects
 
-        categories = _scope_to_categories(scope)
-        if categories is not None and not categories:
-            return 0
-        attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
-        deleted = 0
-        for att in attachments:
-            await self.delete_object(att.storage_key)
-            deleted += 1
+        result = await erase_user_objects(self, self._attachment_repo, tenant_key, user_key, scope)
         logger.info(
             "storage_delete_for_user",
             backend=BACKEND_KEY,
-            tenant_key=tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(tenant_key),
             scope=scope,
-            deleted=deleted,
+            deleted=result.removed,
+            retained_shared=result.retained_shared,
         )
-        return deleted
+        return result
 
     async def strip_exif_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
         """REQ-025 erasure hook — strip EXIF from a user's images.
@@ -346,6 +367,7 @@ class S3StorageAdapter(IObjectStorageAdapter):
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
         skipped_unsupported = 0
+        skipped_over_limit = 0
         for att in attachments:
             if not (att.mime_type or "").startswith("image/"):
                 continue
@@ -354,23 +376,33 @@ class S3StorageAdapter(IObjectStorageAdapter):
                 logger.warning(
                     "exif_strip_unsupported_format",
                     backend=BACKEND_KEY,
-                    tenant_key=tenant_key,
-                    user_key=user_key,
+                    tenant=log_tenant(tenant_key),
                     mime_type=att.mime_type,
                 )
                 continue
             data = await asyncio.to_thread(self._get_sync, att.storage_key)
-            stripped = await asyncio.to_thread(strip_exif, data, att.mime_type)
+            stripped = await asyncio.to_thread(strip_exif_of_stored_object, data, att.mime_type)
+            if stripped is None:
+                # #2108 — above the stored-object pixel ceiling: left as it is,
+                # counted and logged so the audit shows the residual metadata.
+                skipped_over_limit += 1
+                logger.warning(
+                    "exif_strip_over_pixel_limit",
+                    backend=BACKEND_KEY,
+                    tenant=log_tenant(tenant_key),
+                    mime_type=att.mime_type,
+                )
+                continue
             await asyncio.to_thread(self._put_sync, att.storage_key, stripped, att.mime_type, {})
             rewritten += 1
         logger.info(
             "storage_strip_exif_for_user",
             backend=BACKEND_KEY,
-            tenant_key=tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(tenant_key),
             scope=scope,
             rewritten=rewritten,
             skipped_unsupported=skipped_unsupported,
+            skipped_over_limit=skipped_over_limit,
         )
         return rewritten
 

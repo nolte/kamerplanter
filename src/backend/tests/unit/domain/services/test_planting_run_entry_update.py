@@ -16,11 +16,14 @@ from app.domain.services.planting_run_service import PlantingRunService
 from tests.conftest import wire_get_or_raise, wire_or_raise
 
 RUN_KEY = "r1"
+TENANT_KEY = "t1"
 ENTRY_KEY = "e1"
 
 
 def _run(status: PlantingRunStatus = PlantingRunStatus.PLANNED) -> PlantingRun:
-    return PlantingRun(_key=RUN_KEY, name="Tomato batch", run_type=PlantingRunType.MONOCULTURE, status=status)
+    return PlantingRun(
+        _key=RUN_KEY, tenant_key=TENANT_KEY, name="Tomato batch", run_type=PlantingRunType.MONOCULTURE, status=status
+    )
 
 
 def _entry(**overrides) -> PlantingRunEntry:
@@ -54,7 +57,12 @@ def _service(existing: PlantingRunEntry, run: PlantingRun | None = None):
     repo.get_entries.side_effect = lambda _key: [captured.get("merged", existing)]
     repo.update.side_effect = lambda _key, r: r
 
-    service = PlantingRunService(run_repo=repo, plant_repo=MagicMock(), engine=MagicMock())
+    service = PlantingRunService(
+        run_repo=repo,
+        plant_repo=MagicMock(),
+        engine=MagicMock(),
+        species_resolver=lambda key, *, tenant_key: None,  # #1871 B11: readable species only
+    )
     return service, repo, captured
 
 
@@ -62,7 +70,7 @@ class TestPartialEntryUpdate:
     def test_partial_quantity_update_preserves_species(self):
         service, repo, captured = _service(_entry(quantity=3))
 
-        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"quantity": 5})
+        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"quantity": 5}, tenant_key=TENANT_KEY)
 
         assert updated.species_key == "species_tomato"
         assert updated.quantity == 5
@@ -74,7 +82,7 @@ class TestPartialEntryUpdate:
     def test_partial_update_never_writes_placeholder(self):
         service, repo, captured = _service(_entry())
 
-        service.update_entry(RUN_KEY, ENTRY_KEY, {"notes": "watered"})
+        service.update_entry(RUN_KEY, ENTRY_KEY, {"notes": "watered"}, tenant_key=TENANT_KEY)
 
         merged = captured["merged"]
         assert merged.species_key == "species_tomato"
@@ -87,7 +95,7 @@ class TestPartialEntryUpdate:
     def test_explicit_null_clears_notes(self):
         service, _repo, captured = _service(_entry(notes="old note"))
 
-        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"notes": None})
+        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"notes": None}, tenant_key=TENANT_KEY)
 
         assert updated.notes is None
         assert captured["merged"].notes is None
@@ -95,7 +103,7 @@ class TestPartialEntryUpdate:
     def test_explicit_null_clears_cultivar(self):
         service, _repo, captured = _service(_entry(cultivar_key="cultivar_roma"))
 
-        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"cultivar_key": None})
+        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"cultivar_key": None}, tenant_key=TENANT_KEY)
 
         assert updated.cultivar_key is None
         assert captured["merged"].cultivar_key is None
@@ -104,7 +112,7 @@ class TestPartialEntryUpdate:
         service, repo, _ = _service(_entry())
 
         with pytest.raises(ValidationError) as exc:
-            service.update_entry(RUN_KEY, ENTRY_KEY, {"species_key": None})
+            service.update_entry(RUN_KEY, ENTRY_KEY, {"species_key": None}, tenant_key=TENANT_KEY)
 
         assert exc.value.status_code == 422
         assert "species_key" in exc.value.message
@@ -114,7 +122,7 @@ class TestPartialEntryUpdate:
         service, repo, _ = _service(_entry())
 
         with pytest.raises(ValidationError) as exc:
-            service.update_entry(RUN_KEY, ENTRY_KEY, {"quantity": None})
+            service.update_entry(RUN_KEY, ENTRY_KEY, {"quantity": None}, tenant_key=TENANT_KEY)
 
         assert exc.value.status_code == 422
         repo.update_entry.assert_not_called()
@@ -125,12 +133,12 @@ class TestPartialEntryUpdate:
         service, _repo, _ = _service(_entry())
 
         with pytest.raises(PydanticValidationError):
-            service.update_entry(RUN_KEY, ENTRY_KEY, {"id_prefix": "xx"})
+            service.update_entry(RUN_KEY, ENTRY_KEY, {"id_prefix": "xx"}, tenant_key=TENANT_KEY)
 
     def test_species_change_is_merged(self):
         service, _repo, captured = _service(_entry(species_key="species_tomato"))
 
-        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"species_key": "species_basil"})
+        updated = service.update_entry(RUN_KEY, ENTRY_KEY, {"species_key": "species_basil"}, tenant_key=TENANT_KEY)
 
         assert updated.species_key == "species_basil"
         assert captured["merged"].quantity == 3  # untouched
@@ -139,7 +147,7 @@ class TestPartialEntryUpdate:
         service, repo, _ = _service(_entry(), run=_run(PlantingRunStatus.ACTIVE))
 
         with pytest.raises(InvalidRunStateError):
-            service.update_entry(RUN_KEY, ENTRY_KEY, {"quantity": 5})
+            service.update_entry(RUN_KEY, ENTRY_KEY, {"quantity": 5}, tenant_key=TENANT_KEY)
 
         repo.update_entry.assert_not_called()
 
@@ -147,7 +155,7 @@ class TestPartialEntryUpdate:
         service, _repo, captured = _service(_entry())
 
         # ``run_key`` is not in ENTRY_UPDATABLE_FIELDS and must be dropped.
-        service.update_entry(RUN_KEY, ENTRY_KEY, {"run_key": "other-run", "quantity": 7})
+        service.update_entry(RUN_KEY, ENTRY_KEY, {"run_key": "other-run", "quantity": 7}, tenant_key=TENANT_KEY)
 
         assert captured["merged"].run_key == RUN_KEY
         assert captured["merged"].quantity == 7

@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python 3.14+, PyETo, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.1
+Version: 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1
 Abhängigkeit: REQ-004 (Dünge-Logik), REQ-005 (Hybrid-Sensorik/Wetter), REQ-022 (Pflegeerinnerungen), REQ-002 (Standort), REQ-019 (Substrat)
 ```
 
@@ -17,6 +17,7 @@ Abhängigkeit: REQ-004 (Dünge-Logik), REQ-005 (Hybrid-Sensorik/Wetter), REQ-022
 |---------|-------|----------|
 | 1.0 | 2026-06-19 | Initialer Entwurf — Integration von PyETo (awesome-agriculture). Berechnung der Referenz-Evapotranspiration ET₀ → ETc → Netto-Gießbedarf für Freiland- und Gewächshaus-Standorte. |
 | 1.1 | 2026-06-20 | Lizenz-Schärfung: aquacropeto (BSD-3) als Dependency, pyTSEB (GPL-3.0) als Dependency ausgeschlossen |
+| 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen: `irrigation_demands` hat keinen Endpunkt, schreibt nur der Celery-Task, gelesen wird über die Pflegeerinnerungen. |
 
 ## 1. Business Case
 
@@ -446,6 +447,20 @@ fields.cropCoefficientKc                     // "Kulturkoeffizient (Kc)"
 | REQ-025 (DSGVO) | **berührt** — nur indirekter GPS-Standortbezug, bereits durch REQ-002 abgedeckt; keine neue Datenkategorie | **NIEDRIG** |
 
 **Zukunfts-Option (nicht Teil v1.0):** Satellitengestützte ET-Schätzung (Two-Source Energy Balance aus thermischem Remote-Sensing) für großflächige Outdoor-Betriebe — separater REQ. 🔴 **`pyTSEB` darf dabei nicht als Dependency eingebunden werden:** Es ist verifiziert **GPL-3.0-or-later** und damit unvereinbar mit dem MIT-Outbound der öffentlich verteilten Kamerplanter-Codebasis. Falls die TSEB-Methodik benötigt wird, ist sie **eigenständig nachzubauen** ODER `pyTSEB` **strikt prozessgetrennt als eigener Microservice** (kein Code-Import) zu betreiben. Siehe `spec/analysis/awesome-agriculture-lizenz-und-nutzungsanalyse.md`.
+
+## Autorisierung
+
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
+
+> **Vokabular:** Schema aus **REQ-049 §3.3**, Werte nach **REQ-049 §3.1** (Alle Rollen / Ab Gärtner / Nur Leitung /
+> Technik / Verwaltung / Plattform-Admin). Ergänzt mit v1.2 (#2121, MT-025) und **gegen den Code gemessen**
+> (`develop` `b064e63b7`); wo das Zielbild abweicht, steht es in der Spalte Sonderaktionen.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| `irrigation_demands` (Wasserbilanz je Standort) | Alle Rollen — mittelbar über die Pflegeerinnerungen (REQ-022) | — (nur System) | — (nur System) | — (Mandantenlöschung) | **Kein eigener Endpunkt.** Geschrieben ausschließlich vom Celery-Task `compute_irrigation_demand` (Schalter `IRRIGATION_DEMAND_ENABLED`), gelesen vom `CareReminderEngine`; jede Zeile trägt den `tenant_key` ihres Standorts und fällt unter das Mandanten-Löschinventar. Das Widget „Wasserbilanz“ (§4) hat keine eigene Route |
+| Kulturkoeffizient `kc` an `GrowthPhase`/`Species` | wie die Trägerressource | wie die Trägerressource | wie die Trägerressource | wie die Trägerressource | Folgt REQ-001 bzw. REQ-003 §4 (globale Zeilen: Plattform-Admin) |
 
 ## 7. Akzeptanzkriterien
 

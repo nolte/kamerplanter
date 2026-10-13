@@ -43,7 +43,9 @@ on:
       # something weaker, or that rewires the include, triggers no job here at
       # all — the gate's own definition would be the one input the gate does not
       # watch.
-      - '.taskfiles/libs.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
   pull_request:
     branches: [develop]
@@ -59,7 +61,9 @@ on:
       # something weaker, or that rewires the include, triggers no job here at
       # all — the gate's own definition would be the one input the gate does not
       # watch.
-      - '.taskfiles/libs.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
 
 # Least privilege: these jobs only read the checkout. No packages, no PRs, no
@@ -101,7 +105,7 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version-file: src/knowledge-service/pyproject.toml
           enable-cache: true
@@ -152,7 +156,7 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version-file: src/inference-service/pyproject.toml
           enable-cache: true
@@ -203,7 +207,7 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version-file: src/libs/kp_vectordb/pyproject.toml
           enable-cache: true
@@ -215,13 +219,15 @@ jobs:
         #
         # From the hash-verified lock (#1464), like every other PEP 621 tree in
         # this repository — the boundary is named rather than rounded up to "every
-        # Python install" (#1491 review): `tests/e2e/requirements.txt`,
-        # `docs/requirements.txt` and `tools/rag-eval/requirements.txt` are plain
-        # requirement lists with no lock and no hashes, and the sweep in
-        # scripts/ci/check_renovate_dashboard.py reports them as such. What to do
-        # about those three is #1509.
-        # Until then this was the ONE `pip install -e` left, and
-        # the reason given was that a shared library has no image and therefore
+        # Python install" (#1491 review). #1509 then decided the three requirement
+        # lists that sat outside it: `tests/e2e/` was locked the same way,
+        # `docs/requirements.txt` is compiled with `--generate-hashes`, and
+        # `tools/rag-eval/requirements.txt` is the one argued exception (a local
+        # analysis tool no lane installs). The sweep in
+        # scripts/ci/check_renovate_dashboard.py reddens on anything else.
+        #
+        # Until #1464 this step was the ONE `pip install -e` left here, and the
+        # reason given was that a shared library has no image and therefore
         # no lock to sync from — true about images, not about hashes: NFR-009 §2.3
         # is a property of the INSTALL, and this one runs on a runner exactly like
         # the four that were locked in #1374. `src/libs/kp_vectordb/uv.lock` now

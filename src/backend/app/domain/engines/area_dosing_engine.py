@@ -9,10 +9,8 @@ agronomic warnings (missing rate, N on a nitrogen fixer).
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import NutrientDemandLevel
 from app.domain.models.fertilizer import Fertilizer
-
-# Demand level that must not receive nitrogen (REQ-004 W-013 table).
-NITROGEN_FIXER = "nitrogen_fixer"
 
 
 class AreaDosingItem(BaseModel):
@@ -45,16 +43,20 @@ class AreaDosingCalculator:
         self,
         fertilizers: list[Fertilizer],
         area_m2: float,
-        demand_level: str | None = None,
+        demand_level: NutrientDemandLevel | None = None,
     ) -> AreaDosingResult:
         """Compute total amounts for a bed area.
 
         Args:
             fertilizers: Products to apply (organic/area-based).
             area_m2: Bed area in m². Must be > 0.
-            demand_level: Optional plant nutrient demand
-                (heavy_feeder / medium_feeder / light_feeder / nitrogen_fixer)
-                used only for advisory warnings.
+            demand_level: Optional plant nutrient demand, used only for advisory
+                warnings. A ``NutrientDemandLevel`` member, not a loose string:
+                the module used to keep its own ``NITROGEN_FIXER =
+                "nitrogen_fixer"`` constant, a second spelling of
+                ``NutrientDemandLevel.NITROGEN_FIXER`` that nothing tied back to
+                the enum, so retiring or renaming the member would have left this
+                branch silently unreachable (review SCR-002 on #1527).
 
         Raises:
             ValueError: if ``area_m2`` is not positive (mapped to HTTP 422).
@@ -67,7 +69,8 @@ class AreaDosingCalculator:
         instructions: list[str] = [f"Prepare bed of {area_m2} m²."]
         step = 2
 
-        is_n_fixer = demand_level == NITROGEN_FIXER
+        # REQ-004 W-013 table: a nitrogen fixer must not receive nitrogen.
+        is_n_fixer = demand_level == NutrientDemandLevel.NITROGEN_FIXER
 
         for fert in fertilizers:
             total_grams: float | None = None

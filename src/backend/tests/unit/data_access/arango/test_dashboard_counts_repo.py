@@ -233,7 +233,7 @@ def test_list_upcoming_is_windowed_sorted_and_capped() -> None:
     assert "LEFT(doc.due_date, 10) <= @window_end" in q
     # #508: the generic upcoming-tasks list is disjoint from the care section.
     assert "doc.category != @care_category" in q
-    assert "SORT doc.due_date ASC" in q
+    assert "SORT DATE_TIMESTAMP(doc.due_date) ASC" in q
     assert "LIMIT @limit" in q
     bv = db.aql.bind_vars or {}
     assert bv["today"] == "2026-04-29"
@@ -303,7 +303,7 @@ def test_count_below_threshold_resolves_latest_state_per_tank() -> None:
     assert "@@states" in q
     assert "tank.tenant_key == @tenant_key" in q
     # Newest-per-tank resolution + per-tank threshold with the 20 % fallback.
-    assert "SORT s.recorded_at DESC" in q
+    assert "SORT DATE_TIMESTAMP(s.recorded_at) DESC" in q
     assert "s.fill_level_percent != null" in q
     assert "latest_fill < threshold" in q
     bv = db.aql.bind_vars or {}

@@ -469,6 +469,46 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 🗺️ REQ-053: Grafische Garten- und Beetplanung
+**Fokus:** Metrischer Gartenplan als Oberfläche für das bestehende Standortmodell — Beete zeichnen, bepflanzen, pflegen, protokollieren · **Erweitert:** REQ-002 (Geometrie auf Site/Location/Slot), REQ-013 (Layout-Felder, geplante Belegung), REQ-006/REQ-022 (Beet-Aufgaben, Abschluss → Protokoll) · **Neu:** `garden_objects`, `care_events`, `irrigation_zones`
+- **Keine Parallelarchitektur:** Garten = Site, Beet = Location (`is_bed`), Pflanzposition = Slot, Pflegeaufgabe = Task. Der Auftrag nannte Go/Vue/Tailwind — verworfen zugunsten des verbindlichen Stacks (§3.2).
+- **Reale Maße, nicht Pixel:** Zwei Koordinatenrahmen (Plan in Metern; Slots beet-lokal, damit ein verschobenes Beet seine 40 Pflanzpositionen nicht umschreibt). Fläche, Bounding Box und Containment rechnet der Server.
+- **Rendering austauschbar:** SVG-in-React hinter einer `PlanRenderer`-Grenze; Konva erst bei gemessener Schwelle. Begründung in einer 13-Kriterien-Matrix (§19.4) — Accessibility und Testbarkeit entscheiden.
+- **Ein Pflegeprotokoll statt vier Collections:** `care_events` (append-only, Supersede/Void) beantwortet was/wann/wer/warum/Produkt/Menge/Pflanzen/Ergebnis und zeigt auf `watering_events`, `feeding_events`, `treatment_applications`, `harvest_batches`.
+- **Transaktionale Batch-API mit Plan-Revision** (409 bei Konflikt) — bewusste Abweichung vom Teilerfolgs-Muster der Task-Batches, weil eine halb gespeicherte Geometrie nicht reparierbar ist.
+- **Feldmodus** für das Smartphone im Beet: zwei Tipps bis „Erledigt", 64-px-Ziele, Long-Press statt Drag, Position korrigieren per Stepper.
+- **Ein Positionsmodell für Zelt und Beet** (Betreiberentscheidung O-01, v1.1): `Slot.geometry` für alle Slots; `Slot.position` und `Location.dimensions` werden in Welle 1 migriert und entfernt. Alle 15 offenen Punkte sind entschieden (§32).
+- **Drei Reviews eingearbeitet (v1.2):** Agrobiologie (`spec/analysis/agrobiology-review-req-053.md`), Outdoor-Persona, Security. Folgen: Zehrerstufe und N-Fixierung getrennt, `tenant_key` auf Location/Slot, Slot-Reservierung mit Zeitfenster, Beet räumen, Fruchtfolge-/Mischkultur-Hinweis im MVP, Redaktion für Pflegeereignisse, Quoten und Pflicht-Audit, Bodenmodell mit Textur/Füllmedium/Zustand.
+- **49 Given/When/Then-Kriterien, 67 Issue-Kandidaten, 9 Wellen** (MVP in Wellen 0–6, ~16 Wochen).
+
+---
+
+## 🧮 REQ-054: Automatische Anbauplanung
+**Fokus:** Aus einer Pflanzenliste und der Beet-Historie der letzten Jahre eine erklärbare, optimierte Beetbelegung je Saison vorschlagen · **Baut auf:** REQ-053 (Beete, Historie, Zeitfenster-Reservierung), REQ-001/REQ-002 (Rotationsgraph; `CropRotationPlan.optimization_goal` bekommt erstmals einen Konsumenten), REQ-028 (Mischkultur), REQ-015-A (Zeitfenster)
+- **Vorschlag, nie Ausführung:** Der Planer legt nichts an; angenommene Zuordnungen werden geplante Runs mit Zeitfenster und `CropRotationPlan`-Einträge.
+- **Harte Regeln sind nicht verhandelbar** (Anbaupause je Familie, Fläche, Zeitfenster, Frost, `severe`-Inkompatibilität); weiche Ziele mit Gewichten und Profilen (`balanced`, `soil_health`, `pest_control`, `yield`, `low_effort`). Eine Fixierung übersteuert sichtbar, nie still.
+- **Erklärbar je Zuordnung:** Breakdown (Kriterium, Beitrag, Gewicht), regelbasierter Satz, drei verworfene Alternativen mit Hauptunterschied. Kein LLM als Planer (D-01); deterministisch mit Seed, Goldfälle als Regressionsschutz.
+- **Historie ist Pflichteingang:** Beete ohne Rückblick werden als blind geplant markiert; nacherfasste Vorjahre zählen.
+- **v1.2 nach Agrobiologie- und Persona-Review:** Teilplan mit least-bad-Angebot statt Totalausfall, Vor-/Nachkultur und Gründüngung im MVP, Bodengefahren als harte Regel, Frost-Sicherheitsdatum statt Mittelwert, Score-Aggregation nach Flächenanteil, Geltungsbereich mit Schreibrecht je Beet. 27 Akzeptanzkriterien, alle offenen Punkte entschieden, 10 Issue-Kandidaten; Goldfälle im Review-Bericht. Roadmap hängt an REQ-053 Wellen 0–6.
+
+## 🌿 REQ-055: Plant Identity / Plant Social
+**Fokus:** Eine Pflanzeninstanz (nicht die Art) bekommt optional ein eigenes Profil mit teilbarem Link, einen Verlauf aus allen Ereignissen und — wenn gewünscht — einen eigenen Auftritt in einem sozialen Netzwerk, zuerst Mastodon · **Baut auf:** REQ-013/REQ-051 (PlantInstance, Tagebuch mit `milestone_kind`), REQ-052/NFR-013 (Fotos, EXIF-Strip), REQ-023 (OAuth-Muster), REQ-024/REQ-049 (Mandant, Rollen), REQ-025/NFR-011 (Consent `social_publishing`, R-28…R-37), REQ-042 (Modul `social`), REQ-030 (`social.*`-Typen), REQ-001 (`regulatory_class`)
+- **Drei Schichten, ein Port:** `plant_identities` (Profil, Adresse, Sichtbarkeit) → `plant_events` als append-only Ereignisindex mit Quellreferenz über alle Fachcollections → `social_posts` als Outbox mit Policy (Nicht erzählen / Erst fragen / Gleich erzählen / Einmal pro Woche), Limits, Digest und Moderation; darunter `SocialProvider` mit Mastodon als erster Implementierung. Kein Mastodon-Begriff im Domänenmodell (Grep-Gate).
+- **Account-Modell D:** Nutzer verknüpft einen selbst angelegten Bot-Account mit genau einer Pflanze oder einen Garten-Account mit dem Mandanten; keine automatische Kontoerstellung, kein zentraler Kamerplanter-Bot.
+- **Privacy strukturell:** Allowlist je Ereignistyp (`public_safe/optional/never`), Standort nur als gewählte Stufe (nie aus Koordinaten), opake EXIF-freie Medien-URLs, `unlisted` als Capability-Link, Veröffentlichungsfenster gegen Anwesenheitsprofile, Cannabis-Profile per Default gesperrt (KCanG § 6), KI nicht im MVP und nie faktenerfindend.
+- **Casual-first:** Profil in 3 Schritten mit Vorschau und „Link kopieren" ohne Social-Begriffe (verbindliche Begriffsliste Anhang M), Tabs „Profil"/„Verlauf" für alle sichtbar, Mastodon-Teil hinter Modul `social`.
+- **v1.5:** IT-Security-Review (1 kritisch: sitzungsungebundener OAuth-Callback → Sitzungsbindung + Bestätigung) und Casual-User-Review eingearbeitet, zwei Pre-Merge-Reviews (20 Konsistenzbefunde) aufgelöst, alle 20 offenen Punkte und 4 Kern-ADRs entschieden, 85 Akzeptanzkriterien, 28 Abuse Cases, 12 ADR-Kandidaten, TC-REQ-055 mit 45 Browser-Testfällen, 41 Issue-Kandidaten in 7 Wellen.
+
+## 🏷️ REQ-056: Mandanten-Lebenszyklus & Kontingente
+**Fokus:** Ein Ort für Zustände, Sperre, Registrierung, Kontingente, Export und Verantwortung eines Mandanten · **Führt zusammen:** REQ-023 §3.2d/§5a.5, REQ-024 AK-52/AK-56/AK-64/AK-65, REQ-025 §3.1.3 Regel 4, REQ-031 §3 · **Quelle:** Multi-Tenant-/SaaS-Audit 2026-10-04, MT-050 (MT-007, MT-027, MT-036, MT-038, MT-042, MT-049)
+- **Zustände** `active`/`suspended`/`pending_deletion`/`orphaned`/`deleted` (umgesetzt) mit neuer Regel: Der Abbruch einer Löschung stellt den Zustand **vor** der Löschung her — gemessen war eine Sperre über Löschen-und-Abbrechen umgehbar.
+- **Sperre wirkt auch im Hintergrund:** Jeder Beat ist als mandantenschreibend oder mandantenunabhängig eingeordnet (Guard); sechs Beats ohne Prüfung gemessen (beim Umsetzen dreizehn, geschlossen mit REQ-024 v1.36). Sperrgrund mit festen Codes, Mitglieder-Mail ohne Grund.
+- **Plan-Katalog ohne Billing:** Default-Plan `standard` = heutige Grenzen (alle Werte `null` = Instanz-Setting), weitere Pläne nur durch den Plattform-Admin, ein `EntitlementService` für Mitglieder, Dienstkonten, Speicher, Fotos je Pflanze und KI-Budgets; Ablehnungscodes unverändert.
+- **Mandanten-Export und -Import** über das Löschinventar, ohne E-Mail-Adressen und Geheimnisse, Import nur als neuer Mandant mit Schlüssel-Neuvergabe (Roundtrip- und Isolations-AK).
+- **Eigentümerwechsel mit Annahme, Billing-Kontakt** mit Step-up; Billing selbst nur als dokumentierter Anknüpfungspunkt. 45 Abnahmekriterien, 10 überstimmbare Entscheidungen, 3 offene Punkte. Folgeänderungen in NFR-011 (R-39/R-40), NFR-012 §10.3, NFR-013 O-03.
+
+---
+
 ## Technologie-Stack
 
 ### Backend

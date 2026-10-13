@@ -42,6 +42,8 @@ def task_module(monkeypatch):
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_membership_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_notification_service = MagicMock()  # type: ignore[attr-defined]
+    # #2166 — every tenant here is active (a MagicMock tenant is truthy); the gate has its own test.
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
     monkeypatch.setattr("asyncio.run", _sync_run)
 
@@ -289,3 +291,30 @@ class TestEvaluateForecastFrostWarnings:
         assert result["status"] == "ok"
         assert result["errors"] == 1
         assert result["notified"] == 0
+
+
+class TestATenantThatIsNotActiveGetsNoFrostWarning:
+    """#2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody; its members get no warning."""
+
+    @pytest.mark.parametrize("status", ["pending_deletion", "suspended", "orphaned"])
+    def test_no_warning_for_a_site_of_a_tenant_that_is_not_active(self, task_module, monkeypatch, status):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.get_tenant_repo.return_value.get_by_key.return_value = SimpleNamespace(is_active=status == "active")
+
+        _wire_config_cursor(deps)
+        deps.get_site_repo.return_value.get_site_by_key.return_value = _site()
+        deps.get_weather_forecast_repo.return_value.find_by_site.return_value = [_forecast(0, -2.0)]
+        deps.get_membership_repo.return_value.list_by_tenant.return_value = [
+            SimpleNamespace(user_key="u1", is_active=True),
+        ]
+        notification_repo = MagicMock()
+        notification_repo.find_notified_user_keys.return_value = set()
+        service = _make_service(notification_repo)
+        deps.get_notification_service.return_value = service
+
+        result = module.evaluate_forecast_frost_warnings()
+
+        assert result["notified"] == 0
+        assert result["skipped"] == 1
+        service._engine.notify.assert_not_awaited()

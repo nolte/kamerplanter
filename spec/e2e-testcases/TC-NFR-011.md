@@ -66,12 +66,14 @@ Admin-Panel.
 
 **Testschritte**:
 1. Nutzer navigiert zu `/settings` und oeffnet den Tab "Konto"
-2. Nutzer liest den Warnhinweis "Das Loeschen Ihres Kontos kann nicht rueckgaengig gemacht werden. Alle Daten werden unwiderruflich entfernt."
+2. Nutzer liest den Warnhinweis: das Konto wird sofort geschlossen, die Daten nach Ablauf der Loeschfrist endgueltig geloescht
 3. Nutzer klickt auf den Button "Konto loeschen" (`data-testid="delete-account-btn"`)
-4. Ein Browser-Bestaedigungsdialog erscheint mit dem Text: "Sind Sie sicher, dass Sie Ihr Konto loeschen moechten? Dies kann nicht rueckgaengig gemacht werden."
-5. Nutzer klickt auf "OK"
+4. Ein Bestaetigungsdialog (`data-testid="delete-account-dialog"`) erscheint (Step-up, REQ-023 §3.9 — #1813)
+5. Nutzer tippt die eigene E-Mail-Adresse ein (`data-testid="delete-account-email"`) und — bei lokalem Konto — das aktuelle Passwort (`data-testid="delete-account-password"`)
+6. Nutzer klickt auf den Bestaetigungs-Button (`data-testid="delete-account-confirm"`)
 
 **Erwartete Ergebnisse**:
+- Der Bestaetigungs-Button bleibt deaktiviert, solange die E-Mail nicht der eigenen entspricht
 - Der Bestaedigungsdialog schliesst sich
 - Der Browser navigiert automatisch zur Seite `/login`
 - Auf der Login-Seite ist der Nutzer ausgeloggt — kein Name, kein Avatar in der Navigation
@@ -97,8 +99,8 @@ Admin-Panel.
 
 **Testschritte**:
 1. Nutzer klickt auf den Button "Konto loeschen" (`data-testid="delete-account-btn"`)
-2. Ein Browser-Bestaedigungsdialog erscheint mit Text "Sind Sie sicher...?"
-3. Nutzer klickt auf "Abbrechen"
+2. Der Bestaetigungsdialog (`data-testid="delete-account-dialog"`) erscheint
+3. Nutzer klickt auf "Abbrechen" (`data-testid="delete-account-cancel"`)
 
 **Erwartete Ergebnisse**:
 - Der Dialog schliesst sich ohne Aktion
@@ -127,17 +129,18 @@ Admin-Panel.
 2. Admin sucht den Testnutzer in der Nutzerliste und klickt auf seinen Namen oder den Bearbeiten-Button
 3. Auf der Nutzer-Detailseite scrollt Admin nach unten bis zur "Danger Zone"
 4. Admin klickt auf den Button "Benutzer loeschen" (`data-testid="delete-user-btn"`)
-5. Ein roter Bestaetigungsbereich erscheint mit dem Text: "Möchtest du den Benutzer 'Testnutzer' (test-delete@kamerplanter.local) und alle zugehoerigen Daten unwiderruflich loeschen moechten?"
-6. Admin klickt auf den roten Button "Endgueltig loeschen" (`data-testid="confirm-delete-user-btn"`)
+5. Ein Bestaetigungsdialog (`data-testid="delete-user-dialog"`) erscheint (Step-up, REQ-023 §3.9 — #1814)
+6. Admin tippt die E-Mail-Adresse des **Testnutzers** ein (`data-testid="delete-user-email"`) und — bei lokalem Admin-Konto — sein **eigenes** Admin-Passwort (`data-testid="delete-user-password"`)
+7. Admin klickt auf den roten Button "Endgueltig loeschen" (`data-testid="confirm-delete-user-btn"`)
 
 **Erwartete Ergebnisse**:
-- Die Seite zeigt eine Erfolgs-Snackbar: "Benutzer geloescht"
+- Die Seite zeigt eine Erfolgs-Snackbar: "Loeschung angenommen: Das Konto ist gesperrt, seine Daten werden im Hintergrund geloescht" (die Route antwortet seit #1949 mit `202 Accepted`, nicht mehr `204` — das Konto ist erfasst und gesperrt, die Loeschung selbst laeuft im Celery-Task `retention.run_account_erasure`)
 - Admin wird zur Nutzerliste `/admin/users` weitergeleitet
-- Der geloeschte Nutzer erscheint **nicht** mehr in der Nutzerliste
-- Eine Suche nach der E-Mail-Adresse des Nutzers liefert keine Ergebnisse
+- Sobald der Worker den Lauf beendet hat (Status der Loeschanfrage `completed`, lesbar ueber `GET /admin/platform/erasures/{erasure_key}`), erscheint der geloeschte Nutzer **nicht** mehr in der Nutzerliste
+- Eine Suche nach der E-Mail-Adresse des Nutzers liefert dann keine Ergebnisse
 
 **Postconditions**:
-- Nutzer-Account wurde entfernt
+- Nutzer-Account wurde entfernt (nach Abschluss des Hintergrundlaufs); bis dahin ist er deaktiviert und kann sich nicht anmelden
 - Login mit den Zugangsdaten des geloeschten Nutzers schlaegt fehl
 
 **Tags**: [nfr-011, R-01, hard-delete, admin, req-023, admin-panel]
@@ -155,11 +158,11 @@ Admin-Panel.
 
 **Testschritte**:
 1. Admin oeffnet die Nutzer-Detailseite und klickt auf "Benutzer loeschen" (`data-testid="delete-user-btn"`)
-2. Der rote Bestaetigungsbereich erscheint
-3. Admin klickt auf "Abbrechen"
+2. Der Bestaetigungsdialog (`data-testid="delete-user-dialog"`) erscheint
+3. Admin klickt auf "Abbrechen" (`data-testid="delete-user-cancel"`)
 
 **Erwartete Ergebnisse**:
-- Der rote Bestaetigungsbereich verschwindet
+- Der Bestaetigungsdialog schliesst sich
 - Der Button "Benutzer loeschen" erscheint wieder
 - Der Nutzer ist weiterhin in der Datenbank sichtbar (kein Seiteneffekt)
 
@@ -808,7 +811,7 @@ pruefen sichtbare Auswirkungen der Konfiguration im Admin-Bereich.
 
 ## 8. Monitoring und Retention-Lauf-Status (AK-04, AK-05, AK-06)
 
-Der Celery-Master-Task laeuft taeglich um 02:00 UTC. Aus Browser-Perspektive sind
+Die Retention-Regeln laufen als Celery-Einzel-Tasks mit eigenem Takt (NFR-011 §3.1, v1.7). Aus Browser-Perspektive sind
 Monitoring-Informationen nur sichtbar, wenn ein Admin-Dashboard die letzten Celery-Task-
 Resultate oder Prometheus-Metriken anzeigt.
 
@@ -822,15 +825,15 @@ Resultate oder Prometheus-Metriken anzeigt.
 **Status**: Ausstehend — Kein Celery-Task-Status-Widget im Admin-Panel implementiert
 **Preconditions**:
 - Platform-Admin ist eingeloggt
-- Celery-Task `enforce_retention_policy` wurde mindestens einmal ausgefuehrt
+- Die Retention-Einzel-Tasks aus NFR-011 §3.1 wurden mindestens einmal ausgefuehrt
 - Admin-Panel zeigt Celery-Task-Status (z.B. `/admin/tasks` oder System-Health-Widget)
 
 **Testschritte**:
 1. Platform-Admin navigiert zum Admin-Dashboard oder System-Health-Bereich
-2. Admin sucht den Eintrag fuer `enforce_retention_policy`
+2. Admin sucht die Eintraege der Retention-Einzel-Tasks (z.B. `retention.execute_scheduled_erasures`)
 
 **Erwartete Ergebnisse**:
-- Der letzte Ausfuehrungs-Zeitstempel wird angezeigt (z.B. "Heute 02:00 UTC")
+- Der letzte Ausfuehrungs-Zeitstempel je Task wird angezeigt (z.B. "Heute 04:00 UTC")
 - Der Status des Letzten Laufs ist sichtbar: "Erfolgreich" oder "Fehler"
 - Ergebniszaehler pro Kategorie werden angezeigt (z.B. "3 Accounts Hard-Deleted, 47 IPs anonymisiert")
 - Falls Fehler aufgetreten sind: eine Warnmeldung oder rotes Badge ist sichtbar
@@ -1103,9 +1106,9 @@ SharedShoppingList). Diese Funktionen sind noch nicht implementiert.
 
 ---
 
-### TC-NFR011-037: Celery-Retention-Task wird taeglich um 02:00 UTC ausgefuehrt — Admin-Bestaetigung
+### TC-NFR011-037: Celery-Retention-Tasks laufen in ihrem Takt — Admin-Bestaetigung
 
-**Requirement**: NFR-011 §3.1 Master-Task — taeglich 02:00 UTC; AK-04
+**Requirement**: NFR-011 §3.1 Einzel-Tasks je Regel (seit v1.7 statt Master-Task); AK-04
 **Priority**: High
 **Category**: Detailansicht
 **Status**: Ausstehend — Kein Task-Monitoring im Admin-Panel
@@ -1116,13 +1119,13 @@ SharedShoppingList). Diese Funktionen sind noch nicht implementiert.
 
 **Testschritte**:
 1. Platform-Admin navigiert zu System-Health oder Task-Monitor (`/admin/tasks` o.ae.)
-2. Admin sucht den Eintrag `enforce_retention_policy` in der Task-Liste
+2. Admin sucht den Eintrag `retention.execute_scheduled_erasures` in der Task-Liste
 
 **Erwartete Ergebnisse**:
-- Der letzte Ausfuehrungs-Zeitstempel zeigt eine Zeit im Zeitfenster 02:00–02:30 UTC des aktuellen Tages
+- Der letzte Ausfuehrungs-Zeitstempel zeigt eine Zeit im Zeitfenster 04:00–04:30 UTC des aktuellen Tages
 - Status des letzten Laufs: "Erfolgreich"
 - Dauer des letzten Laufs ist angegeben (z.B. "Dauer: 1.2 Sekunden")
-- Naechste geplante Ausfuehrung ist sichtbar (morgen 02:00 UTC)
+- Naechste geplante Ausfuehrung ist sichtbar (morgen 04:00 UTC)
 
 **Postconditions**:
 - Keine Aktion ausgefuehrt
@@ -1185,7 +1188,7 @@ SharedShoppingList). Diese Funktionen sind noch nicht implementiert.
 | §2.1 R-21 SharedShoppingList — Anonymisierung | User-Referenz anonym. | (Kein UI vorhanden) | Ausstehend |
 | §2.1 R-22 Tasks assigned_to — Anonymisierung | Zuweisung anonym., Bewertungen bleiben | TC-NFR011-034 | Ausstehend |
 | §4 Konfigurierbarkeit | Mindestfristen-Schutzwall | TC-NFR011-025, TC-NFR011-026 | Ausstehend |
-| §3.1 Celery Master-Task (02:00 UTC) | Taeglich ausgefuehrt | TC-NFR011-037 | Ausstehend |
+| §3.1 Celery-Einzel-Tasks je Regel | In ihrem Takt ausgefuehrt | TC-NFR011-037 | Ausstehend |
 | §3.3 Logging & Monitoring | Admin-Lauf-Status sichtbar | TC-NFR011-027, TC-NFR011-028 | Ausstehend |
 | §5 DSGVO-Loeschanfrage — Interaktion | Anonymisierung statt Loeschung | TC-NFR011-019 | Ausstehend |
 | AK-10 Mindestfristen nicht unterschreitbar | Formvalidierung Admin | TC-NFR011-026 | Ausstehend |

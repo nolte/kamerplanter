@@ -137,7 +137,7 @@ class TestEraserHooks:
 
     @pytest.mark.asyncio
     async def test_delete_for_user_returns_zero_without_repo(self):
-        assert await self._adapter().delete_for_user("t-1", "u-1", "all") == 0
+        assert (await self._adapter().delete_for_user("t-1", "u-1", "all")).removed == 0
 
     @pytest.mark.asyncio
     async def test_strip_exif_for_user_returns_zero_without_repo(self):

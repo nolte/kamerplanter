@@ -18,10 +18,10 @@ from app.api.v1.admin.settings.schemas import (
     SystemSettingsResponse,
 )
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_ha_client, get_system_settings_service
+from app.common.dependencies import get_ha_client, get_ha_entity_grant_service, get_system_settings_service
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import AUTH_RESPONSES
-from app.common.url_safety import validate_ha_url, validate_storage_endpoint_url
+from app.common.url_safety import ha_address_policy, pinned_transport, validate_ha_url, validate_storage_endpoint_url
 from app.config.settings import settings
 from app.data_access.storage.registry import build_storage_test_adapter
 from app.domain.models.user import User
@@ -140,6 +140,18 @@ def update_ha_settings(
     return _build_response(service)
 
 
+def _ha_get(url: str, *, headers: dict[str, str], timeout: float) -> httpx.Response:
+    """GET the Home Assistant API over a connection pinned to an address the HA rule accepts.
+
+    ``validate_ha_url`` judged one resolver answer; the connection judges its own
+    (#2249: a name that answers a public address to the check and a private one to
+    the connect would otherwise receive the bearer token).
+    """
+    policy = ha_address_policy(allow_private=settings.ha_allow_private_endpoint)
+    with httpx.Client(timeout=timeout, transport=pinned_transport(policy)) as client:
+        return client.get(url, headers=headers)
+
+
 @router.post("/home-assistant/test", response_model=HATestResponse)
 def test_ha_connection(
     body: HATestRequest,
@@ -161,7 +173,7 @@ def test_ha_connection(
     validate_ha_url(str(url), allow_private=settings.ha_allow_private_endpoint)
 
     try:
-        resp = httpx.get(
+        resp = _ha_get(
             f"{str(url).rstrip('/')}/api/",
             headers={"Authorization": f"Bearer {token}"} if token else {},
             timeout=int(timeout),
@@ -407,7 +419,9 @@ def _sync_ha_notification_channel() -> None:
 
     ha_client = get_ha_client()
     if ha_client is not None:
-        NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+        NotificationChannelRegistry.register(
+            HomeAssistantNotificationChannel(ha_client, ha_entity_grants=get_ha_entity_grant_service())
+        )
     else:
         # Remove stale channel if HA was unconfigured
         NotificationChannelRegistry.unregister("home_assistant")

@@ -4,12 +4,12 @@
 # a vendored axe.min.js would not give. The E2E image builds from ./tests/e2e and
 # therefore cannot reach src/frontend/node_modules, which is why the dependency
 # is declared here rather than borrowed from the frontend tree.
-FROM node:22-slim AS axe
+FROM node:26-slim@sha256:193fe51b64e77981119c98c2002c9e32a70e2f006fb4d25068ce0558998917f0 AS axe
 WORKDIR /axe
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
-FROM python:3.14-slim
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 
 LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
       org.opencontainers.image.description="Kamerplanter Selenium E2E test runner" \
@@ -19,8 +19,32 @@ LABEL org.opencontainers.image.title="kamerplanter-e2e-tests" \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# uv is the lock toolchain (NFR-009 section 2.3), exactly as in
+# src/backend/Dockerfile: one static binary, copied from its own digest-pinned
+# image so Renovate's dockerfile manager ages it together with
+# `[tool.uv].required-version` in pyproject.toml. Until #1509 this stage ran
+# `pip install --no-cache-dir -r requirements.txt` against unpinned ranges, so
+# the only Python install left in a BUILT image here resolved whatever PyPI
+# served that minute and verified no hash. The environment pins uv to the
+# interpreter this image ships (no managed-Python download, no cache layer) and
+# puts the project environment on PATH, so the ENTRYPOINT resolves `pytest`
+# without an activation step. It lives in /opt/venv, OUTSIDE /app, because the
+# stage below chowns /app to UID 1000 and a venv inside it would end up
+# writable by the test user.
+COPY --from=ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 /uv /bin/uv
+ENV UV_PYTHON=/usr/local/bin/python3 \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_NO_CACHE=1 \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+# The lock is the single source of truth for what gets installed; `--locked`
+# verifies every artifact against its recorded hash and refuses a lock that no
+# longer matches pyproject.toml.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked
 
 COPY . .
 

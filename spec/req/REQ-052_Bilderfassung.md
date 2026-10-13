@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: React 19, TypeScript 6, MediaDevices API, Canvas, Flutter (geplant)
 Status: Entwurf
 Priorität: Hoch
-Version: 1.0
+Version: 1.1
 Datum: 2026-08-16
 Tags: [capture, camera, upload, normalization, exif, client-neutral, cross-cutting]
 Abhängigkeit: NFR-013 v1.4 (Object Storage — Attachments, Renditions, Mime-Whitelist, Größenlimit), REQ-029 v1.2 (Bilderkennung — Ursprung des Erfassungsdialogs; §7 ist seit v1.2 mit §9 hier deckungsgleich), REQ-029-A v1.2 (§0.1.1 Punkt 4 — Webcam und Smartphone als Bildquelle), REQ-034 v1.2 (Foto-Galerie — parametrierbare Normalisierung), REQ-025 v1.6 (DSGVO — Standortdaten in Bildern), REQ-024 v1.7 / REQ-049 v1.4 (Rollen), REQ-027 (Light-Modus), UI-NFR-001 (Responsive), UI-NFR-002 (Barrierefreiheit)
@@ -19,6 +19,7 @@ Wird benötigt von: REQ-029, REQ-034, REQ-038, REQ-043, REQ-044, REQ-051, REQ-01
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.1 | 2026-10-04 | §4: Der Server nimmt HEIC/HEIF nicht mehr an (NFR-013 v1.8, #2139); angenommen werden sie nur noch im Erfassungsdialog, der sie nach §3 in JPEG umwandelt. O-65 ist gegenstandslos. |
 | 1.0 | 2026-08-16 | Erstfassung. Die Bilderfassung war bis hierher **§4.1 einer Anforderung über KI-Pflanzenidentifikation** (REQ-029) — historisch, weil REQ-029 zuerst da war, nicht fachlich. Sechs Anforderungen berufen sich inzwischen darauf. Diese Anforderung übernimmt REQ-029 §4.1 (Erfassungswege) und REQ-034 §2.2 (Wiederverwendung und parametrierbare Normalisierung), führt die auf zwei Dokumente verstreuten Normalisierungsparameter (1280 px/0.85 gegen 2048 px/0.9) in **einem** Profilbegriff zusammen und schließt vier bislang nirgends spezifizierte Lücken: Kamerawahl und Berechtigungsablehnung, HEIC/HEIF von iOS-Geräten, Mehrfachauswahl, und der native Kamerapfad, den REQ-051 §7.2 fordert, ohne dass es einen Ort gäbe, an dem er steht. |
 
 ---
@@ -208,11 +209,11 @@ moderne Telefone liefern.
 
 Angenommen werden `image/jpeg`, `image/png`, `image/webp`, `image/heic` und `image/heif`.
 
-**Kleine, aber reale Abweichung von NFR-013:** Dessen Mime-Whitelist in §5.2 führt für
-Foto-Kategorien nur `jpeg`, `png`, `webp` und `heic` — **ohne** `heif`. Die Umsetzung
-(`_PHOTO_MIME_TYPES`) enthält `heif`; die Lücke liegt also in NFR-013, nicht im Code. Wer die
-Server-Whitelist aus NFR-013 baut, weist `image/heif` ab, obwohl dieselben Geräte es liefern wie
-`heic`. Die Nachführung gehört in NFR-013 und ist als O-65 geführt.
+**Annahme heißt hier: im Erfassungsdialog.** Der Server nimmt HEIC/HEIF seit NFR-013 v1.8
+nicht mehr an (#2139): Die serverseitige EXIF-Bereinigung kann sie ohne `pillow-heif` nicht neu
+kodieren, sie wurden samt GPS gespeichert. Die Normalisierung nach §3 macht daraus vor dem Upload
+ein JPEG, der Server sieht also nur JPEG; ein HEIC, das den Client unverändert verlässt, endet mit
+415. Die frühere Abweichung (NFR-013 ohne `heif`, O-65) ist damit gegenstandslos.
 
 **HEIC/HEIF ist der iOS-Normalfall und muss ausdrücklich funktionieren.** Ein iPhone liefert seit
 iOS 11 standardmäßig HEIC. Die Normalisierung nach §3 kodiert ohnehin als JPEG neu, löst das

@@ -2,10 +2,14 @@
 
 When a gallery photo is uploaded to a plant instance with a **known species**,
 this task may contribute the photo as an additional ``user_contributed``
-reference for the self-hosted DINOv2 recognition index (REQ-029-A). It is built
-now but stays a **full no-op until Phase 2** of the recognition feature: the
-default :class:`NoopReferenceIndexStore` never computes an embedding and never
-persists anything, and ``inference_service_enabled`` defaults to ``False``.
+reference for the self-hosted DINOv2 recognition index (REQ-029-A). The index
+exists — it is the inference-service's pgvector ``species_embeddings`` table,
+which the interactive contribution route writes to — but **this hook's write
+path is not activated**: no reference-index binding stores anything from
+:meth:`add_user_contribution` (the no-op store where the inference-service is
+off, and the inference-service store, whose hook methods stay inert — it
+exists for the GDPR erasure, #1753). ``inference_service_enabled`` also
+defaults to ``False``, so Guard 1 short-circuits first on most deployments.
 
 Hard guards (REQ-034 §4.1 — ALL must pass, otherwise a clean no-op / abort):
 
@@ -38,12 +42,13 @@ from app.common.dependencies import (
     get_reference_index_store,
     get_species_repo,
 )
+from app.common.log_privacy import log_tenant
 from app.config.settings import settings
+from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION
+from app.domain.services.species_visibility import readable_species
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
-
-_REFERENCE_CONTRIBUTION_PURPOSE = "reference_contribution"
 
 
 def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user_key: str) -> dict:
@@ -52,7 +57,7 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
     Returns a structured outcome (``status`` ∈ no-op / abort / stored) for the
     Celery result and the audit log. Never raises on a routine guard failure.
     """
-    # Guard 1 — inference disabled (Phase 1 default) ⇒ complete no-op (AC-10).
+    # Guard 1 — inference disabled (the default) ⇒ complete no-op (AC-10).
     if not settings.inference_service_enabled:
         return {"status": "noop", "reason": "inference_service_disabled"}
 
@@ -61,8 +66,8 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
         return {"status": "abort", "reason": "light_mode"}
 
     # Guard 3 — contributor consent must be granted (REQ-025).
-    consent = get_consent_repo().get_by_user_and_purpose(user_key, _REFERENCE_CONTRIBUTION_PURPOSE)
-    if not get_consent_engine().is_processing_allowed(_REFERENCE_CONTRIBUTION_PURPOSE, consent):
+    consent = get_consent_repo().get_by_user_and_purpose(user_key, REFERENCE_CONTRIBUTION)
+    if not get_consent_engine().is_processing_allowed(REFERENCE_CONTRIBUTION, consent):
         return {"status": "abort", "reason": "no_consent"}
 
     # Guard 4 — plant must have a known, resolvable species.
@@ -71,7 +76,7 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
         return {"status": "abort", "reason": "plant_not_found"}
     if not plant.species_key:
         return {"status": "abort", "reason": "no_species"}
-    species = get_species_repo().get_by_key(plant.species_key)
+    species = readable_species(get_species_repo(), plant.species_key, tenant_key)
     if species is None:
         return {"status": "abort", "reason": "species_not_found"}
 
@@ -97,7 +102,7 @@ def _evaluate(attachment_id: str, plant_instance_key: str, tenant_key: str, user
         contributed_by=user_key,
     )
     if not stored:
-        # Store is the no-op binding (physical index absent) — Phase-1 no-op.
+        # No binding activates the hook's write path yet (see module docstring).
         return {"status": "noop", "reason": "reference_store_noop"}
     return {"status": "stored", "species_key": plant.species_key}
 
@@ -131,7 +136,7 @@ def feed_user_reference(  # type: ignore[no-untyped-def]
             "feed_user_reference_failed",
             attachment_id=attachment_id,
             plant_instance_key=plant_instance_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             error=type(exc).__name__,
         )
         raise self.retry(exc=exc) from exc
@@ -140,7 +145,7 @@ def feed_user_reference(  # type: ignore[no-untyped-def]
         "feed_user_reference",
         attachment_id=attachment_id,
         plant_instance_key=plant_instance_key,
-        tenant_key=tenant_key,
+        tenant=log_tenant(tenant_key),
         **outcome,
     )
     return outcome

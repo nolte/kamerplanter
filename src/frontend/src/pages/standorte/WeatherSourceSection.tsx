@@ -26,6 +26,7 @@ import WeatherProvenanceBadge from '@/components/weather/WeatherProvenanceBadge'
 import WeatherSourceAddDialog from './WeatherSourceAddDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import * as weatherApi from '@/api/endpoints/weatherSources';
 import type {
   AvailableSourcesResponse,
@@ -86,11 +87,16 @@ function toWorkingEntry(r: WeatherSourceEntryResponse): WorkingEntry {
  * available sources and keeps its own local state (no Redux slice). Priority is
  * ordered via up/down icon buttons (D3, index 0 = highest priority); each entry
  * can be enabled, edited, connection-tested (AC-7) and removed.
+ *
+ * Choosing the sources is the lead's decision (REQ-049 §2.10, #2181): every
+ * other member gets the same list read-only, without the controls the backend
+ * would only answer with 403.
  */
 export default function WeatherSourceSection({ siteKey }: Props) {
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const { canSelectWeatherSource } = useTenantPermissions();
 
   const [available, setAvailable] = useState<AvailableSourcesResponse | null>(null);
   const [entries, setEntries] = useState<WorkingEntry[]>([]);
@@ -224,20 +230,31 @@ export default function WeatherSourceSection({ siteKey }: Props) {
           <CloudIcon />
           {t('pages.weatherSource.title')}
         </Typography>
-        <Button startIcon={<AddIcon />} onClick={openAdd} data-testid="weather-add-source-button">
-          {t('pages.weatherSource.addSource')}
-        </Button>
+        {canSelectWeatherSource && (
+          <Button startIcon={<AddIcon />} onClick={openAdd} data-testid="weather-add-source-button">
+            {t('pages.weatherSource.addSource')}
+          </Button>
+        )}
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.weatherSource.intro')}
       </Typography>
+      {!canSelectWeatherSource && (
+        <Alert severity="info" variant="outlined" role="status" sx={{ mb: 2 }} data-testid="weather-source-readonly-hint">
+          {t('pages.weatherSource.readOnlyHint')}
+        </Alert>
+      )}
 
       {entries.length === 0 ? (
-        <EmptyState
-          message={t('pages.weatherSource.empty')}
-          actionLabel={t('pages.weatherSource.addSource')}
-          onAction={openAdd}
-        />
+        canSelectWeatherSource ? (
+          <EmptyState
+            message={t('pages.weatherSource.empty')}
+            actionLabel={t('pages.weatherSource.addSource')}
+            onAction={openAdd}
+          />
+        ) : (
+          <EmptyState message={t('pages.weatherSource.readOnlyEmpty')} />
+        )
       ) : (
         <Stack spacing={1.5}>
           {entries.map((w, index) => {
@@ -246,36 +263,38 @@ export default function WeatherSourceSection({ siteKey }: Props) {
               <Card variant="outlined" key={`${w.entry.source_name}-${index}`} data-testid={`weather-entry-${index}`}>
                 <CardContent sx={{ '&:last-child': { pb: 2 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                    <Stack sx={{ display: 'flex', flexShrink: 0 }}>
-                      <Tooltip title={t('pages.weatherSource.moveUp')}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => move(index, -1)}
-                            disabled={index === 0}
-                            aria-label={t('pages.weatherSource.moveUp')}
-                            data-testid={`weather-move-up-${index}`}
-                            sx={TOUCH_TARGET_SX}
-                          >
-                            <ArrowUpwardIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title={t('pages.weatherSource.moveDown')}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            onClick={() => move(index, 1)}
-                            disabled={index === entries.length - 1}
-                            aria-label={t('pages.weatherSource.moveDown')}
-                            data-testid={`weather-move-down-${index}`}
-                            sx={TOUCH_TARGET_SX}
-                          >
-                            <ArrowDownwardIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </Stack>
+                    {canSelectWeatherSource && (
+                      <Stack sx={{ display: 'flex', flexShrink: 0 }}>
+                        <Tooltip title={t('pages.weatherSource.moveUp')}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => move(index, -1)}
+                              disabled={index === 0}
+                              aria-label={t('pages.weatherSource.moveUp')}
+                              data-testid={`weather-move-up-${index}`}
+                              sx={TOUCH_TARGET_SX}
+                            >
+                              <ArrowUpwardIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title={t('pages.weatherSource.moveDown')}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => move(index, 1)}
+                              disabled={index === entries.length - 1}
+                              aria-label={t('pages.weatherSource.moveDown')}
+                              data-testid={`weather-move-down-${index}`}
+                              sx={TOUCH_TARGET_SX}
+                            >
+                              <ArrowDownwardIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </Stack>
+                    )}
 
                     <Tooltip title={t('pages.weatherSource.priorityHint', { position: index + 1 })}>
                       <Chip
@@ -310,49 +329,57 @@ export default function WeatherSourceSection({ siteKey }: Props) {
                     </Box>
 
                     <Tooltip title={t('pages.weatherSource.enableToggle')}>
-                      <Switch
-                        checked={w.entry.enabled}
-                        onChange={() => toggleEnabled(index)}
-                        slotProps={{ input: { 'aria-label': t('pages.weatherSource.enableToggle') } }}
-                        data-testid={`weather-enable-${index}`}
-                      />
-                    </Tooltip>
-                    <Tooltip title={t('pages.weatherSource.testSource')}>
+                      {/* span: a disabled Switch fires no events the Tooltip could listen to */}
                       <span>
-                        <IconButton
-                          size="small"
-                          onClick={() => runTest(index)}
-                          disabled={test?.loading}
-                          aria-label={t('pages.weatherSource.testSource')}
-                          data-testid={`weather-test-${index}`}
-                          sx={TOUCH_TARGET_SX}
-                        >
-                          {test?.loading ? <CircularProgress size={18} /> : <ScienceIcon fontSize="small" />}
-                        </IconButton>
+                        <Switch
+                          checked={w.entry.enabled}
+                          onChange={() => toggleEnabled(index)}
+                          disabled={!canSelectWeatherSource}
+                          slotProps={{ input: { 'aria-label': t('pages.weatherSource.enableToggle') } }}
+                          data-testid={`weather-enable-${index}`}
+                        />
                       </span>
                     </Tooltip>
-                    <Tooltip title={t('pages.weatherSource.configure')}>
-                      <IconButton
-                        size="small"
-                        onClick={() => openEdit(index)}
-                        aria-label={t('pages.weatherSource.configure')}
-                        data-testid={`weather-edit-${index}`}
-                        sx={TOUCH_TARGET_SX}
-                      >
-                        <SettingsIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('common.delete')}>
-                      <IconButton
-                        size="small"
-                        onClick={() => remove(index)}
-                        aria-label={t('common.delete')}
-                        data-testid={`weather-remove-${index}`}
-                        sx={TOUCH_TARGET_SX}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {canSelectWeatherSource && (
+                      <>
+                        <Tooltip title={t('pages.weatherSource.testSource')}>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => runTest(index)}
+                              disabled={test?.loading}
+                              aria-label={t('pages.weatherSource.testSource')}
+                              data-testid={`weather-test-${index}`}
+                              sx={TOUCH_TARGET_SX}
+                            >
+                              {test?.loading ? <CircularProgress size={18} /> : <ScienceIcon fontSize="small" />}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title={t('pages.weatherSource.configure')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => openEdit(index)}
+                            aria-label={t('pages.weatherSource.configure')}
+                            data-testid={`weather-edit-${index}`}
+                            sx={TOUCH_TARGET_SX}
+                          >
+                            <SettingsIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('common.delete')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => remove(index)}
+                            aria-label={t('common.delete')}
+                            data-testid={`weather-remove-${index}`}
+                            sx={TOUCH_TARGET_SX}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
                   </Box>
 
                   {test?.result && (
@@ -397,11 +424,13 @@ export default function WeatherSourceSection({ siteKey }: Props) {
         </Stack>
       )}
 
-      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="contained" onClick={save} disabled={saving} data-testid="weather-save-button">
-          {t('common.save')}
-        </Button>
-      </Box>
+      {canSelectWeatherSource && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="contained" onClick={save} disabled={saving} data-testid="weather-save-button">
+            {t('common.save')}
+          </Button>
+        </Box>
+      )}
 
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
         {t('pages.weatherSource.attribution')}

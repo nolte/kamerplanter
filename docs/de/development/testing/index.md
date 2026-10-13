@@ -133,7 +133,7 @@ Um sie gezielt auszuführen:
 # ArangoDB starten (Dev-Stack oder ein Wegwerf-Container)
 task dev:core
 # oder:
-docker run -d --rm --name kp-it-arango -p 8529:8529 \
+docker run -d --rm --name kp-it-arango -p 127.0.0.1:8529:8529 \
   -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
 # Nur Integrationstests — dieselbe Invocation wie in CI
@@ -433,10 +433,16 @@ End-to-End-Tests prüfen komplette Benutzer-Workflows in einem echten Browser. S
 ### Voraussetzungen
 
 ```bash
-pip install -r tests/e2e/requirements.txt
+uv sync --locked --directory tests/e2e
 ```
 
-Abhängigkeiten: `selenium>=4.25.0`, `webdriver-manager>=4.0.0`, `pytest>=8.3.0`.
+Das legt `tests/e2e/.venv` aus dem hash-geprüften `tests/e2e/uv.lock` an — genau
+die Installation, die auch das E2E-Image ausführt (`tests/e2e/Dockerfile`). Nimm
+es in den PATH auf (`export PATH="$PWD/tests/e2e/.venv/bin:$PATH"`) oder stelle
+den folgenden Kommandos `tests/e2e/.venv/bin/python -m` voran.
+
+Abhängigkeiten: `selenium>=4.25.0,<5`, `webdriver-manager>=4.0.0`,
+`pytest>=8.3.0` — deklariert in `tests/e2e/pyproject.toml`.
 
 ### Lokal ausführen
 
@@ -466,8 +472,9 @@ Ein eigener Docker-Compose-Stack startet die komplette Applikation plus Selenium
 # Empfohlen: Wrapper-Skript (startet Stack, sammelt Logs, räumt auf)
 ./scripts/run-e2e.sh
 
-# Oder manuell:
-docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
+# Oder manuell — der Fernet-Key des Stacks wird erzeugt, nie eingecheckt:
+E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" \
+  docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 docker compose -f docker-compose.e2e.yml down -v
 ```
 

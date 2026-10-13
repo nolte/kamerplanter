@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, createTestStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type { PhaseSequence, PhaseSequenceEntry } from '@/api/types';
 
@@ -14,6 +14,20 @@ vi.mock('react-router-dom', async (orig) => {
 });
 
 import PhaseSequenceDetailPage from '@/pages/phasen/PhaseSequenceDetailPage';
+
+/**
+ * Every case below drives an INSTALLATION-WIDE catalogue whose writes carry
+ * `require_platform_admin` since #1501 — PhaseDefinition, PhaseSequence and
+ * PhaseSequenceEntry carry no `tenant_key`, so one row is the row every tenant
+ * resolves. The suite therefore acts as a platform admin, and the non-admin half
+ * of the contract (reads still render, write affordances are gone) is asserted in
+ * this same file so the pair cannot drift apart.
+ */
+const renderAsAdmin = (
+  ui: Parameters<typeof renderWithProviders>[0],
+  options: Omit<NonNullable<Parameters<typeof renderWithProviders>[1]>, 'store'> = {},
+) => renderWithProviders(ui, { ...options, store: createPlatformAdminStore() });
+
 
 const SEQ_URL = '/api/v1/phase-sequences/:key';
 const SPECIES_URL = '/api/v1/phase-sequences/:key/species';
@@ -98,7 +112,7 @@ describe('PhaseSequenceDetailPage', () => {
 
   it('renders the loaded sequence detail with its entry', async () => {
     useSequence(makeSequence());
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -123,7 +137,7 @@ describe('PhaseSequenceDetailPage', () => {
         ],
       }),
     );
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -138,7 +152,7 @@ describe('PhaseSequenceDetailPage', () => {
 
   it('renders the empty-entries placeholder', async () => {
     useSequence(makeSequence({ entries: [] }));
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -155,7 +169,7 @@ describe('PhaseSequenceDetailPage', () => {
     }));
     useSequence(makeSequence(), species);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -176,7 +190,7 @@ describe('PhaseSequenceDetailPage', () => {
   it('navigates back to the list via the back button', async () => {
     useSequence(makeSequence());
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -194,7 +208,7 @@ describe('PhaseSequenceDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -215,7 +229,7 @@ describe('PhaseSequenceDetailPage', () => {
     useSequence(makeSequence());
     server.use(http.put(UPDATE_URL, () => new HttpResponse(null, { status: 500 })));
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -232,7 +246,7 @@ describe('PhaseSequenceDetailPage', () => {
   it('opens the add-entry dialog', async () => {
     useSequence(makeSequence());
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -262,7 +276,7 @@ describe('PhaseSequenceDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -286,7 +300,7 @@ describe('PhaseSequenceDetailPage', () => {
     useSequence(seq);
     server.use(http.post(REORDER_URL, () => new HttpResponse(null, { status: 500 })));
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -308,7 +322,7 @@ describe('PhaseSequenceDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -337,7 +351,7 @@ describe('PhaseSequenceDetailPage', () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -366,7 +380,7 @@ describe('PhaseSequenceDetailPage', () => {
       http.delete(ENTRY_DELETE_URL, () => new HttpResponse(null, { status: 500 })),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -381,7 +395,7 @@ describe('PhaseSequenceDetailPage', () => {
 
   it('hides the edit button and disables entry actions for a system sequence', async () => {
     useSequence(makeSequence({ is_system: true }));
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -397,7 +411,7 @@ describe('PhaseSequenceDetailPage', () => {
   it('offers duplicate for a system sequence but not for a tenant sequence', async () => {
     // Tenant (editable) sequence: no duplicate action, edit button visible.
     useSequence(makeSequence({ is_system: false }));
-    const { unmount } = renderWithProviders(<PhaseSequenceDetailPage />, {
+    const { unmount } = renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
     await screen.findByTestId('entry-row-entry-1');
@@ -407,7 +421,7 @@ describe('PhaseSequenceDetailPage', () => {
 
     // System (read-only) sequence: duplicate action offered (UI-NFR-018 R-015).
     useSequence(makeSequence({ is_system: true }));
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
     await screen.findByTestId('entry-row-entry-1');
@@ -428,7 +442,7 @@ describe('PhaseSequenceDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -451,7 +465,7 @@ describe('PhaseSequenceDetailPage', () => {
     useSequence(makeSequence({ is_system: true }));
     server.use(http.post(CLONE_URL, () => new HttpResponse(null, { status: 500 })));
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -467,7 +481,7 @@ describe('PhaseSequenceDetailPage', () => {
       http.get(SEQ_URL, () => HttpResponse.json(makeSequence())),
       http.get(SPECIES_URL, () => new HttpResponse(null, { status: 500 })),
     );
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -478,7 +492,7 @@ describe('PhaseSequenceDetailPage', () => {
   it('opens the edit-entry dialog from the row action', async () => {
     useSequence(makeSequence());
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -504,7 +518,7 @@ describe('PhaseSequenceDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -520,7 +534,7 @@ describe('PhaseSequenceDetailPage', () => {
   it('closes the add-entry dialog without saving', async () => {
     useSequence(makeSequence());
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -541,7 +555,7 @@ describe('PhaseSequenceDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -563,7 +577,7 @@ describe('PhaseSequenceDetailPage', () => {
       http.get(SPECIES_URL, () => HttpResponse.json([])),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
@@ -582,12 +596,42 @@ describe('PhaseSequenceDetailPage', () => {
       http.get(SPECIES_URL, () => HttpResponse.json([])),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceDetailPage />, {
+    renderAsAdmin(<PhaseSequenceDetailPage />, {
       route: '/phasen/ablaeufe/seq-1',
     });
 
     expect((await screen.findAllByText(i18n.t('errors.notFound'))).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: i18n.t('common.retry') }));
     expect(await screen.findByTestId('phase-sequence-detail-page')).toBeInTheDocument();
+  });
+
+
+  /**
+   * #1501 — the non-admin half. A grower of a tenant may READ the
+   * installation-wide catalogue and must be offered no control that writes it,
+   * because the API now answers 403 for every one of them. Asserted beside the
+   * admin cases so the pair cannot drift; `createTestStore()` seeds a signed-in
+   * non-admin.
+   */
+  it('offers a non-admin the detail and its entries but no write control', async () => {
+    useSequence(makeSequence());
+    renderWithProviders(<PhaseSequenceDetailPage />, {
+      route: '/phasen/ablaeufe/seq-1',
+      store: createTestStore(),
+    });
+
+    expect(await screen.findByTestId('phase-sequence-detail-page')).toBeInTheDocument();
+    // The entry row still renders — reading the sequence is not gated.
+    expect(screen.getByTestId('entry-row-entry-1')).toBeInTheDocument();
+
+    expect(screen.queryByTestId('edit-sequence-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('duplicate-sequence-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('add-entry-button')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.phaseSequences.removeEntry') }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.phaseSequences.moveUp') }),
+    ).not.toBeInTheDocument();
   });
 });

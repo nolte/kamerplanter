@@ -12,8 +12,8 @@ from app.api.v1.feeding_events.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_feeding_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
-from app.common.pagination import PaginationParams, get_pagination
-from app.core.permissions import Action
+from app.common.pagination import CursorPaginationParams, PaginationParams, get_cursor_pagination, get_pagination
+from app.core.permissions import Action, ResourceType
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.feeding_service import FeedingService
@@ -27,24 +27,26 @@ def _event_response(e: FeedingEvent) -> FeedingEventResponse:
 
 @router.get("", response_model=list[FeedingEventResponse])
 def list_events(
-    pagination: PaginationParams = Depends(get_pagination),
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: FeedingService = Depends(get_feeding_service),
 ):
-    """List the tenant's feeding events (paginated)."""
-    items, _total = service.list_events(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    """List the tenant's feeding events (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    items = service.list_events_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
     return [_event_response(e) for e in items]
 
 
 @router.post("", response_model=FeedingEventResponse, status_code=201)
 def create_event(
     body: FeedingEventCreate,
-    ctx: TenantContext = Depends(require_permission("feeding-event", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FEEDING_EVENT, Action.CREATE)),
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Record a new feeding event for the tenant."""
     event = FeedingEvent(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_event(event)
+    created = service.create_event(event, tenant_key=ctx.tenant_key)
     return _event_response(created)
 
 
@@ -63,25 +65,23 @@ def get_event(
 def update_event(
     key: Annotated[str, Path(description="Document key of the feeding event.")],
     body: FeedingEventUpdate,
-    ctx: TenantContext = Depends(require_permission("feeding-event", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FEEDING_EVENT, Action.UPDATE)),
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Update an existing feeding event."""
-    service.get_event(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_event(key, data)
+    updated = service.update_event(key, data, tenant_key=ctx.tenant_key)
     return _event_response(updated)
 
 
 @router.delete("/{key}", status_code=204)
 def delete_event(
     key: Annotated[str, Path(description="Document key of the feeding event.")],
-    ctx: TenantContext = Depends(require_permission("feeding-event", Action.DELETE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.FEEDING_EVENT, Action.DELETE)),
     service: FeedingService = Depends(get_feeding_service),
 ):
     """Delete a feeding event."""
-    service.get_event(key, tenant_key=ctx.tenant_key)
-    service.delete_event(key)
+    service.delete_event(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/runoff", response_model=RunoffAnalysisResponse, response_model_exclude_unset=True)

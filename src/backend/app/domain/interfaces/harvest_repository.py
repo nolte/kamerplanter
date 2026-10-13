@@ -15,6 +15,11 @@ class IHarvestRepository(ABC):
     def get_all_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]: ...
 
     @abstractmethod
+    def list_indicators_window(self, offset: int = 0, limit: int = 50) -> list[HarvestIndicator]:
+        """The page of :meth:`get_all_indicators` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator: ...
 
     @abstractmethod
@@ -38,12 +43,31 @@ class IHarvestRepository(ABC):
         ...
 
     @abstractmethod
+    def get_observations_for_plant_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[HarvestObservation]:
+        """The page of :meth:`get_observations_for_plant` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_latest_observations_by_indicator(self, plant_key: str, *, tenant_key: str) -> list[HarvestObservation]:
         """Return the newest observation per indicator, scoped to ``tenant_key`` (#927)."""
         ...
 
     @abstractmethod
-    def get_all_batches(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestBatch], int]: ...
+    def get_all_batches(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str
+    ) -> tuple[list[HarvestBatch], int]: ...
+
+    @abstractmethod
+    def list_batches_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[HarvestBatch]:
+        """The page of :meth:`get_all_batches` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None: ...
@@ -55,7 +79,7 @@ class IHarvestRepository(ABC):
     def create_batch(self, batch: HarvestBatch) -> HarvestBatch: ...
 
     @abstractmethod
-    def batch_id_exists(self, batch_id: str) -> bool: ...
+    def batch_id_exists(self, batch_id: str, *, tenant_key: str) -> bool: ...
 
     @abstractmethod
     def update_batch(self, key: HarvestBatchKey, batch: HarvestBatch) -> HarvestBatch: ...
@@ -73,4 +97,4 @@ class IHarvestRepository(ABC):
     def get_yield_for_batch(self, batch_key: HarvestBatchKey) -> YieldMetric | None: ...
 
     @abstractmethod
-    def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365) -> dict: ...
+    def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365, *, tenant_key: str) -> dict: ...

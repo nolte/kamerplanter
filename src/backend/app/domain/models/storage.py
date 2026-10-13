@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 @dataclass(frozen=True)
@@ -82,3 +82,21 @@ def local_fs_capabilities(max_object_size_bytes: int) -> StorageCapabilities:
         max_object_size_bytes=max_object_size_bytes,
         requires_per_user_oauth=False,
     )
+
+
+class StorageErasureResult(BaseModel):
+    """What the REQ-025 hard-delete hook did to one user's records in one scope (#1770).
+
+    Deduplicated uploads share one stored object between several uploaders'
+    records. An erasure removes the subject's records; the object goes only
+    when no other record holds it. Both outcomes are counted, per record of the
+    subject, so a report can prove the scope was reached even where it kept the
+    bytes:
+
+    * ``removed`` — records whose object (and renditions) was deleted;
+    * ``retained_shared`` — records whose object was kept because a record
+      outside this erasure still holds it.
+    """
+
+    removed: int = Field(default=0, ge=0)
+    retained_shared: int = Field(default=0, ge=0)

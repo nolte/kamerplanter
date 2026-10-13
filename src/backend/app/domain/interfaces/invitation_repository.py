@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any
 
 from app.domain.models.invitation import Invitation
 
@@ -33,10 +35,59 @@ class IInvitationRepository(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
-    def list_by_tenant(self, tenant_key: str) -> list[Invitation]: ...
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]: ...
 
     @abstractmethod
-    def cleanup_expired(self) -> int: ...
+    def list_pending_email_invitations(self, email: str) -> list[Invitation]:
+        """The pending ``email`` invitations issued for *email*, compared case-insensitively (#2132).
+
+        Expiry is the caller's to check (:meth:`InvitationEngine.is_expired`).
+        """
 
     @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...
+    def count_email_invitations_issued_since(self, invited_by_user_key: str, since_iso: str) -> int:
+        """How many ``email`` invitations *invited_by_user_key* issued at or after *since_iso* (#2162 review W-1).
+
+        Every status counts - a revoked or accepted invitation was mailed all the same.
+        """
+
+    @abstractmethod
+    def consume_use_if_pending(self, key: str, fields: dict[str, Any]) -> Invitation | None:
+        """Consume one use of *key* while it is ``pending`` with a use left; else ``None`` (REQ-024 AK-07).
+
+        One conditional statement: ``use_count`` goes up by one and *fields* are merged in; the use
+        that reaches ``max_uses`` sets the invitation ``accepted``. A revocation that lands between
+        the caller's read and this write wins instead of being overwritten (REQ-025 AK-IE-06,
+        #1825 security review SEC-001), and two concurrent accepts of a link's last use cannot both
+        consume it (#2182). A row without ``max_uses``/``use_count`` (stored before #2182) is single use.
+        """
+        ...
+
+    @abstractmethod
+    def release_use(self, key: str, user_key: str) -> Invitation | None:
+        """Hand back the use :meth:`consume_use_if_pending` took for *user_key* when its join failed (#2182).
+
+        One conditional statement: ``use_count`` goes down by one (never below zero), an invitation
+        that the consumed use had set ``accepted`` is ``pending`` again - a ``revoked`` or ``expired``
+        one stays what it is - and the acceptor fields are cleared when they still name *user_key*.
+        """
+        ...
+
+    @abstractmethod
+    def revoke_pending_for_tenant(self, tenant_key: str) -> int:
+        """Flip every ``pending`` invitation into *tenant_key* to ``revoked``; returns how many (REQ-025 AK-IE-06).
+
+        One statement over the whole tenant — no page limit, e-mail and link
+        invitations alike — so an invitation cannot be missed because it sat
+        behind a listing's cut-off.
+        """
+        ...
+
+    @abstractmethod
+    def cleanup_expired(self, *, now: datetime | None = None) -> int: ...
+
+    @abstractmethod
+    def delete_expired_before(self, cutoff_iso: str) -> int:
+        """Hard-delete every ``expired`` invitation whose ``expires_at`` is before the cutoff (NFR-011 R-12)."""

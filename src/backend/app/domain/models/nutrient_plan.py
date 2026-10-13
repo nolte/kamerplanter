@@ -169,6 +169,21 @@ class NutrientPlanPhaseEntry(BaseModel):
         return self
 
 
+def normalize_species_keys(keys: list[str]) -> list[str]:
+    """Strip, drop blanks and de-duplicate species keys, keeping the caller's order (#1618).
+
+    Module-level so :meth:`NutrientPlanService.update_plan` applies the same rule
+    as the model validator: it assigns onto an existing model, and Pydantic does
+    not validate on assignment.
+    """
+    seen: dict[str, None] = {}
+    for key in keys:
+        stripped = key.strip()
+        if stripped:
+            seen.setdefault(stripped, None)
+    return list(seen)
+
+
 class NutrientPlan(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
@@ -183,6 +198,13 @@ class NutrientPlan(BaseModel):
     is_template: bool = False
     version: str = "1.0"
     tags: list[str] = Field(default_factory=list)
+    # #1618: the species this plan is written for. The onboarding wizard's plan
+    # match reads it (``list_template_plan_summaries``); an empty list is a plan
+    # that is linked to no species and therefore matches none — never "all".
+    species_keys: list[str] = Field(
+        default_factory=list,
+        description="Species keys this plan is intended for; an empty list matches no species.",
+    )
     cloned_from_key: str | None = None
     watering_schedule: WateringSchedule | None = None
     water_mix_ratio_ro_percent: int | None = Field(default=None, ge=0, le=100)
@@ -191,6 +213,11 @@ class NutrientPlan(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("species_keys")
+    @classmethod
+    def validate_species_keys(cls, v: list[str]) -> list[str]:
+        return normalize_species_keys(v)
 
     @model_validator(mode="after")
     def validate_plan_schedule(self) -> Self:

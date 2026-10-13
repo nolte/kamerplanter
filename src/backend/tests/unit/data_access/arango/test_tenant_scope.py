@@ -119,4 +119,4 @@ class TestNoVerbatimInlineCopyRemains:
     def test_task_repository_preserves_the_sort_tie_break(self) -> None:
         # acceptance-2: list_for_run's SORT tie-break must survive the extraction.
         source = (self._REPO_DIR / "task_repository.py").read_text(encoding="utf-8")
-        assert "SORT (doc.tenant_key == @tenant_key ? 0 : 1) ASC, doc.created_at DESC" in source
+        assert "SORT (doc.tenant_key == @tenant_key ? 0 : 1) ASC, DATE_TIMESTAMP(doc.created_at) DESC" in source

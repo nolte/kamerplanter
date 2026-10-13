@@ -216,6 +216,11 @@ controllers:
           # override would drift from it and cause a startup-time HTTP 401.
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
+          # #1781 — MUST equal the backend's DEBUG: with DEBUG false the worker refuses
+          # to start without a >= 32-char ERASURE_TOMBSTONE_SALT and LOG_PSEUDONYM_SALT
+          # (#1812), like the API, and the dev backend runs with DEBUG true, so the dev
+          # secret need not carry either salt.
+          DEBUG: "true"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
           # Home Assistant runs in-cluster (homeassistant.default.svc), so its URL
           # resolves to a private/cluster address. The SSRF guard (url_safety.py)
@@ -230,7 +235,17 @@ controllers:
           TIMESCALEDB_PASSWORD: devpassword
           # REQ-029-A — reference-image acquisition calls the inference-service
           # (/embed, /reference) to build the DINOv2 pgvector index.
+          # #1753 — the scheduled Art. 17 erasure runs HERE and must reach the
+          # same index the backend writes contributions to: the flag MUST equal
+          # the backend's. Without it the worker binds the no-op store, which
+          # refuses (erasure held) once contributions are on record.
+          INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+          # REQ-010 / #1767 — the pest-image promotion index task
+          # (`pest_image_tasks`) runs HERE and is a no-op without this switch,
+          # so contributed pest images were never indexed in dev. MUST equal the
+          # backend's PEST_DETECTION_ENABLED above.
+          PEST_DETECTION_ENABLED: "true"
           # AP-4 (INF-S1/S2): the celery-worker calls the recognition/knowledge
           # services (e.g. reference-image acquisition -> /embed) and must send the
           # SAME shared M2M token they expect. The backend sets this inline too;
@@ -242,19 +257,20 @@ controllers:
           # fetch, daily-forecast, climate-normal, hardiness and season tasks,
           # all gated by this switch.
           WEATHER_ENABLED: "true"
+        # Startup and readiness come from values.yaml (#2154: the worker's own
+        # readiness file). Liveness keeps the dev cluster's slower timing but
+        # asks THIS worker — a broadcast `inspect ping` passes when any worker
+        # answers.
         probes:
           liveness:
             enabled: true
             custom: true
             spec:
               exec:
-                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "10"]
-              initialDelaySeconds: 60
-              periodSeconds: 30
-              timeoutSeconds: 15
+                command: ["sh", "-c", "exec celery -A app.tasks inspect ping -d \"celery@${HOSTNAME}\" --timeout 10"]
+              periodSeconds: 60
+              timeoutSeconds: 20
               failureThreshold: 5
-          readiness:
-            enabled: false
         resources:
           requests:
             cpu: 50m
@@ -328,31 +344,61 @@ controllers:
             cpu: 500m
             memory: 256Mi
 
-  # -- TimescaleDB (dev only — StatefulSet like ArangoDB)
+  # -- TimescaleDB (switched on here; off by default in values.yaml, #2127)
   timescaledb:
+    enabled: true
     type: statefulset
     replicas: 1
-    pod:
-      securityContext:
-        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
-        # Not strictly required today (base values.yaml sets no runAsNonRoot for
-        # timescaledb) but future-proofs against a later base hardening.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
-        fsGroup: 0
+    # Runs with the base hardening (uid 70, read-only root filesystem, no
+    # capabilities, #2127) — nothing here hot-reloads. PGDATA stays at the
+    # volume root (see env below), and a FRESH volume root is root-owned
+    # (root:70 with fsGroup, 2770, or 0777 on local-path): initdb as uid 70
+    # then fails with "could not change permissions of directory ... Operation
+    # not permitted" (measured with docker on a bind mount). This init
+    # container hands the root directory to uid 70 with mode 0700 before
+    # postgres starts — only CHOWN and FOWNER, no escalation. An existing dev
+    # volume (already owned by 70) passes through unchanged; the base chart
+    # does not need it, because its PGDATA is a subdirectory uid 70 creates.
+    initContainers:
+      data-dir-owner:
+        image:
+          repository: timescale/timescaledb
+          tag: "2.30.2-pg16"
+          pullPolicy: IfNotPresent
+        command: ["sh", "-c"]
+        args:
+          - chown 70:70 /var/lib/postgresql/data && chmod 0700 /var/lib/postgresql/data
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+            add: ["CHOWN", "FOWNER"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 64Mi
     containers:
       main:
         image:
           repository: timescale/timescaledb
-          tag: "2.30.0-pg16"
+          tag: "2.30.2-pg16"
           pullPolicy: IfNotPresent
-        securityContext:
-          readOnlyRootFilesystem: false
         env:
           POSTGRES_DB: kamerplanter_sensors
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: devpassword
+          # Dev literal instead of the base's secretKeyRef (null drops it).
+          POSTGRES_PASSWORD:
+            value: devpassword
+            valueFrom: null
+          # The base moved PGDATA into a subdirectory (#2127); the existing dev
+          # volume holds its cluster at the volume root, so keep that here.
+          PGDATA: /var/lib/postgresql/data
         probes:
           liveness:
             enabled: true
@@ -414,11 +460,7 @@ ingress:
     hosts:
       - host: kamerplanter.local
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # /api too: Vite proxies it to the backend (VITE_BACKEND_URL)
             pathType: Prefix
             service:
               identifier: frontend

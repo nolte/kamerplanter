@@ -1,347 +1,194 @@
 # Service Accounts & API-Keys
 
-!!! warning "Noch nicht implementiert"
-    Service Accounts sind spezifiziert (REQ-023 v1.7), aber noch **nicht implementiert**. Diese Seite beschreibt das geplante Verhalten. Die hier dokumentierten Endpunkte sind noch nicht verfügbar.
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Service Accounts und die Einschränkungen eines API-Keys richtest du über die REST-API ein; eine Oberfläche dafür gibt es noch nicht. <!-- REQ-023 §5b, Issue #2137 -->
 
-Service Accounts ermöglichen die maschinelle Kommunikation (M2M) zwischen externen Systemen
-und der Kamerplanter API — ohne persönliche Nutzer-Credentials zu verwenden. Typische
-Einsatzzwecke sind Home Assistant, Grafana, CI/CD-Pipelines und automatisierte
-Monitoring-Systeme.
+Ein **Service Account** ist ein Konto für eine Maschine statt für einen Menschen — Home Assistant,
+Grafana, eine CI/CD-Pipeline. Er gehört zu genau einem Garten (Mandanten), meldet sich nie mit
+Passwort an und arbeitet ausschließlich mit API-Keys. So muss keine Integration mit deinem
+persönlichen Key laufen, und du kannst ihr den Zugang jederzeit entziehen, ohne deinen eigenen
+anzufassen.
 
 ---
 
-## Konzept
+## Was einen Service Account ausmacht
 
-Service Accounts sind eigenständige, nicht-interaktive Konten vom Typ `account_type: 'service'`.
-Im Gegensatz zu menschlichen Accounts (`account_type: 'human'`) gilt:
-
-- Kein Passwort, keine SSO-Anmeldung
-- Authentifizierung ausschließlich per API-Key (Bearer Token)
-- Kein interaktiver Login möglich
-- Eigene Rate-Limits und IP-Einschränkungen konfigurierbar
-
-### Tenant-scoped vs. Platform-scoped
-
-| Typ | Erstellt von | Zugriff | Beispiel |
-|-----|-------------|---------|---------|
-| **Tenant-scoped** | Tenant-Admin | Nur auf Ressourcen des eigenen Tenants | Home Assistant, Grafana pro Tenant |
-| **Platform-scoped** | KA-Admin (Platform-Admin) | Auf globale und mandantenübergreifende Daten | Backup-System, Enrichment-Pipeline |
+- **Kein Passwort, keine Anmeldung, keine Sitzung.** Ein Login mit seiner Adresse wird abgewiesen.
+- **Genau ein Garten.** Er wird als Mitglied mit der Rolle **Beobachter** (`viewer`) oder **Gärtner** (`grower`) angelegt — nie als Leitung, ohne Verwaltungsrechte. Auch über die Mitgliederverwaltung wird er nicht zur Leitung (`403`).
+- **Seine API-Keys gelten nur in diesem Garten.** Jeder Key ist an den Garten gebunden: Ein Aufruf in einem anderen Garten antwortet `403`, ebenso jede kontobezogene Route.
+- **Er gründet keinen Garten und nimmt keine Einladung an** (`403`).
+- **Er belegt einen Platz** im Mitgliederlimit des Gartens.
+- Seine Adresse ist zufällig und unzustellbar (`sa-…@service.example.com`); er bekommt keine E-Mails.
 
 ---
 
 ## Voraussetzungen
 
-- Tenant-Admin-Rolle im betreffenden Tenant (für Tenant-scoped Accounts)
-- Platform-Admin-Rolle (für Platform-scoped Accounts)
+- Du bist im Garten **Leitung** (`lead`) **und** hast den technischen Verwaltungsbereich (`technical`). Beides wird aus deiner gespeicherten Mitgliedschaft gelesen.
+- Du bestätigst jede Änderung mit deinem eigenen Passwort (Step-up). Ohne lokales Passwort holst du dir einen Code oder meldest dich frisch an — Aktion `service_account_change`, Ziel: der Schlüssel des Gartens beim Anlegen, `<garten-schlüssel>|<service-account-schlüssel>` beim Rotieren und Entfernen.
+- Eine Anfrage, die selbst mit einem API-Key authentifiziert ist, darf nichts davon (`403`).
+- Im Light-Modus gibt es keine Service Accounts (`403`).
 
 ---
 
-## Service Account erstellen
-
-### Tenant-scoped Service Account
+## Service Account anlegen
 
 ```bash
-curl -X POST "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/" \
+curl -X POST "https://kamerplanter.example.com/api/v1/t/mein-garten/service-accounts" \
   -H "Authorization: Bearer {access_token}" \
   -H "Content-Type: application/json" \
   -d '{
-    "display_name": "Home Assistant Zelt 1",
-    "description": "Liefert Sensor-Daten und steuert Licht/Lueftung fuer Zelt 1",
-    "rate_limit_rpm": 500,
-    "allowed_ip_ranges": ["192.168.1.0/24"]
+    "name": "Home Assistant",
+    "role": "grower",
+    "ip_allowlist": ["192.168.1.0/24"],
+    "rate_limit_per_minute": 600,
+    "expires_at": "2027-04-01T00:00:00+02:00",
+    "current_password": "<dein aktuelles Passwort>"
   }'
 ```
 
-**Antwort (201 Created):**
+**Antwort (`201 Created`):**
 
 ```json
 {
-  "_key": "sa_abc123",
-  "display_name": "Home Assistant Zelt 1",
-  "account_type": "service",
-  "status": "active",
-  "api_key": "kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "rate_limit_rpm": 500,
-  "allowed_ip_ranges": ["192.168.1.0/24"],
-  "created_at": "2026-03-28T10:00:00Z"
+  "key": "8f3c…",
+  "display_name": "Home Assistant",
+  "role": "grower",
+  "membership_key": "51a0…",
+  "api_key": {
+    "key": "a7d2…",
+    "label": "Home Assistant",
+    "raw_key": "kp_…",
+    "key_prefix": "kp_Xy1aB",
+    "tenant_scope": "<schlüssel von mein-garten>",
+    "created_at": "2026-10-05T10:00:00Z",
+    "ip_allowlist": ["192.168.1.0/24"],
+    "rate_limit_per_minute": 600,
+    "expires_at": "2027-03-31T22:00:00Z"
+  }
 }
 ```
 
-!!! warning "API-Key nur einmal sichtbar"
-    Der `api_key`-Wert wird nur bei der Erstellung im Klartext zurückgegeben.
-    Danach speichert das System nur noch den SHA-256-Hash. Notieren Sie den Key sofort
-    an einem sicheren Ort (z.B. in einem Secret-Manager).
+!!! warning "Den Key siehst du nur einmal"
+    `raw_key` steht nur in dieser Antwort (und in der Antwort einer Rotation). Gespeichert wird
+    nur sein Hash. Trag ihn sofort in die Integration oder einen Secret-Manager ein.
 
-### Platform-scoped Service Account
+**Ablehnungen, bevor nach deinem Passwort gefragt wird:**
 
-```bash
-curl -X POST "https://api.kamerplanter.example.com/api/v1/service-accounts/" \
-  -H "Authorization: Bearer {platform_admin_token}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "display_name": "Backup Pipeline",
-    "description": "Nachts laufende Datensicherung aller Tenants",
-    "rate_limit_rpm": 200
-  }'
-```
+| Antwort | Wann |
+|---|---|
+| `403` | Du bist nicht Leitung mit `technical`, die Anfrage kommt von einem API-Key, oder Light-Modus |
+| `422` | Rolle nicht `viewer`/`grower`, oder eine der Key-Einschränkungen ist unbrauchbar (siehe unten) |
+| `422 SERVICE_ACCOUNT_LIMIT_REACHED` | Der Garten hat schon so viele aktive Service Accounts, wie `TENANT_MAX_SERVICE_ACCOUNTS` erlaubt (Standard 20) |
+| `422 MEMBER_LIMIT_REACHED` | Das Mitgliederlimit des Gartens ist erreicht |
+
+Danach: `401` ohne oder mit falschem Passwort, `429 STEP_UP_LOCKED` nach zu vielen Fehlversuchen.
 
 ---
 
-## API-Key verwenden
+## Die Einschränkungen eines API-Keys
 
-Senden Sie den API-Key als `Authorization: Bearer`-Header bei jedem Request:
+Dieselben drei Felder nimmt auch `POST /api/v1/auth/api-keys` an, mit dem du einen Key für dein
+eigenes Konto ausstellst. Sie gelten auf der REST-API und auf dem MCP-Server gleich.
 
-=== "curl"
+| Feld | Erlaubt | Wirkung |
+|---|---|---|
+| `ip_allowlist` | Höchstens 32 Bereiche in CIDR-Schreibweise; eine einzelne Adresse wird als `/32` bzw. `/128` gespeichert. Keine gesetzten Host-Bits (`10.0.0.5/8` wird abgelehnt), nicht weiter als `/8` (IPv4) bzw. `/32` (IPv6). Leer oder weggelassen: keine Einschränkung | Ein Aufruf von einer anderen Adresse antwortet `401` |
+| `rate_limit_per_minute` | 1–10000 | Darüber `429`; REST und MCP zählen gemeinsam |
+| `expires_at` | Mit Zeitzone, in der Zukunft, höchstens 730 Tage voraus | Danach antwortet jeder Aufruf `401` |
 
-    ```bash
-    curl -X GET "https://api.kamerplanter.example.com/api/v1/t/mein-garten/plants/" \
-      -H "Authorization: Bearer kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    ```
-
-=== "Python (httpx)"
-
-    ```python
-    import httpx
-
-    API_KEY = "kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    BASE_URL = "https://api.kamerplanter.example.com"
-
-    client = httpx.Client(
-        base_url=BASE_URL,
-        headers={"Authorization": f"Bearer {API_KEY}"},
-    )
-
-    response = client.get("/api/v1/t/mein-garten/plants/")
-    response.raise_for_status()
-    plants = response.json()
-    ```
-
-=== "Python (requests)"
-
-    ```python
-    import requests
-
-    API_KEY = "kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    BASE_URL = "https://api.kamerplanter.example.com"
-
-    session = requests.Session()
-    session.headers["Authorization"] = f"Bearer {API_KEY}"
-
-    response = session.get(f"{BASE_URL}/api/v1/t/mein-garten/plants/")
-    response.raise_for_status()
-    plants = response.json()
-    ```
-
-!!! note "Key-Format"
-    Alle API-Keys tragen das Praefix `kp_`. Das Backend erkennt dieses Praefix
-    und leitet den Request in den API-Key-Authentifizierungspfad (statt JWT-Validierung).
+`GET /api/v1/auth/api-keys` zeigt die drei Werte für deine eigenen Keys an.
 
 ---
 
-## Key-Rotation
-
-### Manuelle Rotation
-
-Erstellen Sie einen neuen Key und widerrufen Sie den alten. Die Rotation empfiehlt sich
-regelmaessig (alle 90 Tage) oder nach dem Verdacht auf Kompromittierung.
+## Service Accounts auflisten
 
 ```bash
-# Neuen Key generieren (der alte bleibt vorerst aktiv)
-curl -X POST "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/{sa_key}/rotate-key" \
+curl "https://kamerplanter.example.com/api/v1/t/mein-garten/service-accounts" \
   -H "Authorization: Bearer {access_token}"
 ```
 
-**Antwort:**
+Die Liste nennt jeden aktiven Service Account mit Rolle und seinen Keys in diesem Garten — nur
+Metadaten (Präfix, Einschränkungen, letzter Zugriff, widerrufen ja/nein), nie den Key selbst.
 
-```json
-{
-  "new_api_key": "kp_live_yyyyyyyyyyyyyyyyyyyyyyyy",
-  "old_key_revoked_at": "2026-03-28T11:00:00Z"
-}
-```
+---
 
-!!! tip "Rotations-Workflow"
-    1. Neuen Key per `rotate-key` generieren
-    2. Neuen Key in die externe Anwendung (Home Assistant, CI/CD) eintragen
-    3. Verbindung mit dem neuen Key testen
-    4. Alten Key ist nach dem Rotations-Request automatisch ungueltig
-
-### Service Account deaktivieren
+## Key rotieren
 
 ```bash
-curl -X PATCH "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/{sa_key}" \
+curl -X POST "https://kamerplanter.example.com/api/v1/t/mein-garten/service-accounts/{sa_key}/rotate-key" \
   -H "Authorization: Bearer {access_token}" \
   -H "Content-Type: application/json" \
-  -d '{"status": "suspended"}'
+  -d '{"overlap_minutes": 30, "current_password": "<dein aktuelles Passwort>"}'
 ```
+
+- Der neue Key übernimmt **IP-Allowlist und Ratenlimit** des jüngsten bisherigen Keys. Ein neues Ablaufdatum gibst du optional mit `expires_at` an.
+- `overlap_minutes` (0–1440, Standard **0**): Bei `0` sind die bisherigen Keys **sofort** widerrufen — der richtige Wert, wenn ein Key in falsche Hände geraten ist. Bei einem Wert über 0 funktionieren sie noch so viele Minuten weiter, damit du die Integration ohne Unterbrechung umstellen kannst; danach lehnt jeder Aufruf sie ab.
+- Die Antwort enthält den neuen Key (`api_key.raw_key`, nur dieses eine Mal), `previous_keys_end_at` (das Ende des Übergangsfensters oder `null`) und `replaced_key_count`.
+
+!!! tip "Umstellen ohne Ausfall"
+    1. Rotieren mit `overlap_minutes` (z. B. 30).
+    2. Den neuen Key in Home Assistant oder der Pipeline eintragen.
+    3. Testen. Spätestens nach dem Fenster gilt nur noch der neue Key.
 
 ---
 
-## IP-Allowlist konfigurieren
-
-Beschraenken Sie den Zugriff auf bestimmte IP-Bereiche (CIDR-Notation):
+## Service Account entfernen
 
 ```bash
-curl -X PATCH "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/{sa_key}" \
+curl -X DELETE "https://kamerplanter.example.com/api/v1/t/mein-garten/service-accounts/{sa_key}" \
   -H "Authorization: Bearer {access_token}" \
   -H "Content-Type: application/json" \
-  -d '{
-    "allowed_ip_ranges": [
-      "192.168.1.0/24",
-      "10.0.0.0/8"
-    ]
-  }'
+  -d '{"current_password": "<dein aktuelles Passwort>"}'
 ```
 
-Wird ein Request von einer nicht erlaubten IP abgesendet, antwortet die API mit `403 Forbidden`.
+Alle Keys des Service Accounts in diesem Garten werden sofort widerrufen, seine Mitgliedschaft
+endet (ihm zugewiesene Aufgaben verlieren die Zuweisung), und das Konto wird deaktiviert. Was er
+geschrieben hat, behält ihn als Urheber.
 
-!!! tip "Keine Einschränkung"
-    Setze `allowed_ip_ranges` auf `null` oder lass das Feld weg, um den
-    Zugriff aus allen IP-Bereichen zu erlauben (Standard für neue Service Accounts).
-
----
-
-## Rate Limits
-
-Jeder Service Account hat ein konfigurierbares Rate Limit in Requests pro Minute (RPM).
-
-| Wert | Bedeutung |
-|------|-----------|
-| `null` | Globaler Default (1000 RPM) |
-| `500` | 500 Requests pro Minute |
-| `100` | Restriktiver Zugriff für externe Partner |
-
-Bei Überschreitung antwortet die API mit `429 Too Many Requests` und dem Header
-`Retry-After: <Sekunden>`.
+Anlegen, Rotieren und Entfernen stehen im Sicherheitsprotokoll, das Plattform-Admins lesen können.
 
 ---
 
-## Berechtigungen
-
-Service Accounts unterliegen der gleichen Permission-Matrix wie menschliche Nutzer.
-Ein Tenant-scoped Service Account mit Viewer-Rolle kann nur lesend auf Tenant-Ressourcen
-zugreifen; ein Service Account mit Grower-Rolle kann auch schreiben.
-
-Die Rolle wird bei der Erstellung festgelegt:
+## Den Key verwenden
 
 ```bash
-curl -X POST ".../service-accounts/" \
-  -d '{
-    "display_name": "Grafana Read-Only",
-    "role": "viewer"
-  }'
+curl "https://kamerplanter.example.com/api/v1/t/mein-garten/sites" \
+  -H "Authorization: Bearer kp_…"
 ```
 
-Verfügbare Rollen: `admin`, `grower`, `viewer` (identisch mit menschlichen Mitgliedern).
+Der Key handelt mit der Rolle des Service Accounts im Garten — ein `viewer` liest nur, ein
+`grower` darf auch schreiben, aber nichts löschen.
 
 ---
 
-## Praktisches Beispiel: Home Assistant einrichten
+## Was noch fehlt
 
-Dieses Beispiel zeigt den vollständigen Einrichtungsablauf für eine Home Assistant
-Integration.
-
-### Schritt 1: Service Account erstellen
-
-```python
-import httpx
-
-# Mit dem persoenlichen Account (Tenant-Admin) anmelden
-auth = httpx.post(
-    "https://api.kamerplanter.example.com/api/v1/auth/login",
-    json={"email": "admin@mein-garten.de", "password": "..."},
-)
-token = auth.json()["access_token"]
-
-# Service Account fuer Home Assistant erstellen
-sa = httpx.post(
-    "https://api.kamerplanter.example.com/api/v1/t/mein-garten/service-accounts/",
-    headers={"Authorization": f"Bearer {token}"},
-    json={
-        "display_name": "Home Assistant",
-        "description": "Sensor-Ingestion und Aktor-Steuerung",
-        "role": "grower",
-        "rate_limit_rpm": 1000,
-        "allowed_ip_ranges": ["192.168.1.100/32"],  # Nur HA-Host
-    },
-)
-sa.raise_for_status()
-api_key = sa.json()["api_key"]
-print(f"API Key (jetzt notieren!): {api_key}")
-```
-
-### Schritt 2: API-Key in Home Assistant eintragen
-
-Trage den Key in der Home Assistant Kamerplanter Integration ein
-(Einstellungen → Integrationen → Kamerplanter):
-
-```yaml
-# configuration.yaml (Beispiel fuer REST-Sensor)
-sensor:
-  - platform: rest
-    name: "Kamerplanter Sensor Push"
-    resource: "https://api.kamerplanter.example.com/api/v1/t/mein-garten/observations/"
-    method: POST
-    headers:
-      Authorization: "Bearer kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-      Content-Type: "application/json"
-```
-
-### Schritt 3: Verbindung testen
-
-```bash
-curl -X GET "https://api.kamerplanter.example.com/api/v1/t/mein-garten/service-accounts/me" \
-  -H "Authorization: Bearer kp_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-```
-
-Erwartete Antwort: Informationen zum Service Account (Name, Rolle, letzte Aktivität).
-
----
-
-## Service Accounts auflisten und verwalten
-
-```bash
-# Alle Service Accounts eines Tenants auflisten
-curl "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/" \
-  -H "Authorization: Bearer {access_token}"
-
-# Einzelnen Service Account abrufen
-curl "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/{sa_key}" \
-  -H "Authorization: Bearer {access_token}"
-
-# Service Account loeschen
-curl -X DELETE "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/service-accounts/{sa_key}" \
-  -H "Authorization: Bearer {access_token}"
-```
+!!! warning "Noch nicht implementiert"
+    Folgendes wird es erst später geben: Service Accounts bearbeiten, vorübergehend sperren und
+    wieder freigeben; Service Accounts auf Plattformebene für mehrere Gärten; eine Oberfläche in
+    den Garten-Einstellungen. <!-- REQ-023 §5b.0 -->
 
 ---
 
 ## Häufige Fragen
 
-??? question "Kann ein Service Account mehrere API-Keys gleichzeitig haben?"
-    Nein. Pro Service Account gibt es genau einen aktiven API-Key. Bei einer Rotation
-    wird der alte Key sofort ungültig und ein neuer ausgestellt. Plane die
-    Rotation so, dass du den neuen Key vor dem Widerruf des alten in die Zielanwendung
-    einträgst.
+??? question "Kann ein Service Account mehrere Keys haben?"
+    Während eines Übergangsfensters nach einer Rotation ja — danach gilt nur der neue. Bei einer
+    Rotation mit `overlap_minutes: 0` gibt es nie zwei gültige Keys.
 
-??? question "Was passiert bei einem kompromittierten API-Key?"
-    Setze den Service Account sofort per `status: suspended` außer Betrieb und
-    rotiere anschließend den Key. Prüfe die Aktivitätslogs
-    (`last_active_at`) auf verdächtige Anfragen.
+??? question "Was tue ich bei einem kompromittierten Key?"
+    Rotiere mit `overlap_minutes: 0` — der alte Key ist im selben Moment ungültig. Brauchst du die
+    Integration nicht mehr, entferne den Service Account.
 
-??? question "Wie unterscheidet sich ein Service Account von einem regulären API-Key (v1.4)?"
-    Service Accounts (v1.7) sind vollwertige Entitäten mit eigenem Datensatz, Beschreibung,
-    Rolle und Konfiguration. Einfache API-Keys (v1.4 unter `api_keys`) sind leichtgewichtiger,
-    aber ohne Rollenzuweisung und IP-Einschränkung.
-
-??? question "Können Service Accounts sich auf mehreren Tenants bewegen?"
-    Tenant-scoped Service Accounts sind auf genau einen Tenant beschränkt.
-    Für tenant-übergreifende Zugriffe muss ein Platform-scoped Service Account erstellt
-    werden (erfordert Platform-Admin-Rolle).
+??? question "Worin unterscheidet er sich von meinem eigenen API-Key?"
+    Dein eigener Key handelt als du, in allen deinen Gärten (oder dem einen, auf den du ihn
+    beschränkst), mit deiner Rolle. Ein Service Account ist ein eigenes Mitglied mit höchstens
+    Gärtner-Rechten in genau einem Garten — entfernst du ihn, bleibt dein Zugang unberührt.
 
 ## Siehe auch
 
 - [Authentifizierung](authentication.md)
 - [Fehlerbehandlung](error-handling.md)
 - [Umgebungsvariablen](../reference/environment-variables.md)
-- [MCP-Server — nutzt Service Accounts für externe LLM-Clients](mcp-server.md)
+- [MCP-Server](mcp-server.md)

@@ -45,9 +45,11 @@ def get_recognition_status(_user: User = Depends(require_platform_admin)) -> Rec
 
     rows = get_reference_image_repo().coverage_report()
     usable = sum(1 for r in rows if r.get("usable_for_recognition"))
-    # Total = all species in the system (not just those already acquired), so the
+    # Total = all global species (not just those already acquired), so the
     # coverage reads "0 of 210" before the first acquisition run, not "0 of 0".
-    _, total_species = get_species_repo().get_all(offset=0, limit=1)
+    # Global only: the acquisition never indexes a tenant-owned species (#2173),
+    # so counting those would leave the coverage short forever.
+    _, total_species = get_species_repo().get_all(offset=0, limit=1, tenant_key="")
 
     # Is the local DINOv2 adapter registered and configured?
     from app.domain.services.identification_registry import IdentificationAdapterRegistry

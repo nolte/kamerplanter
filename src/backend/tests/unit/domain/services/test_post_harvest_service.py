@@ -95,8 +95,9 @@ class FakePostHarvestRepo:
         self.observations.setdefault(observation.batch_key, []).insert(0, observation)
         return observation
 
-    def list_observations(self, batch_key):
-        return self.observations.get(batch_key, [])
+    def list_observations(self, batch_key, *, offset=None, limit=None):
+        rows = self.observations.get(batch_key, [])
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def create_mold_alert(self, alert):
         alert.key = self._next_key("alert")
@@ -218,7 +219,7 @@ class TestStageEngine:
 class TestStartDrying:
     def test_creates_batch_in_drying_stage_with_wet_weight(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
         assert batch.stage == PostHarvestStage.DRYING
         assert batch.start_weight_g == 450.0
         assert batch.current_weight_g == 450.0
@@ -227,73 +228,73 @@ class TestStartDrying:
 
     def test_explicit_start_weight_overrides_wet_weight(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1", start_weight_g=500.0)
+        batch = service.start_drying("hb_1", tenant_key=TENANT, start_weight_g=500.0)
         assert batch.start_weight_g == 500.0
 
     def test_unknown_harvest_batch_raises_not_found(self):
         service, _ = _service()
         with pytest.raises(NotFoundError):
-            service.start_drying(TENANT, "missing")
+            service.start_drying("missing", tenant_key=TENANT)
 
     def test_cross_tenant_harvest_batch_rejected(self):
         service, _ = _service({"hb_x": _harvest_batch("hb_x", tenant=OTHER)})
         with pytest.raises(NotFoundError):
-            service.start_drying(TENANT, "hb_x")
+            service.start_drying("hb_x", tenant_key=TENANT)
 
     def test_requires_harvest_repo(self):
         repo = FakePostHarvestRepo()
         service = PostHarvestService(repo)
         with pytest.raises(RuntimeError):
-            service.start_drying(TENANT, "hb_1")
+            service.start_drying("hb_1", tenant_key=TENANT)
 
 
 class TestAdvanceStage:
     def test_drying_to_curing_blocked_until_ready(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
         with pytest.raises(ValidationError):
-            service.advance_stage(batch.key, TENANT, PostHarvestStage.CURING)
+            service.advance_stage(batch.key, PostHarvestStage.CURING, tenant_key=TENANT)
 
     def test_drying_to_curing_allowed_when_ready(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
         # Drive weight down to reach >=95% dryness progress.
-        service.record_drying_progress(batch.key, TENANT, 60.0)
-        advanced = service.advance_stage(batch.key, TENANT, PostHarvestStage.CURING)
+        service.record_drying_progress(batch.key, 60.0, tenant_key=TENANT)
+        advanced = service.advance_stage(batch.key, PostHarvestStage.CURING, tenant_key=TENANT)
         assert advanced.stage == PostHarvestStage.CURING
         assert advanced.curing_started_at is not None
 
     def test_backward_transition_rejected(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
-        service.record_drying_progress(batch.key, TENANT, 60.0)
-        service.advance_stage(batch.key, TENANT, PostHarvestStage.CURING)
-        service.advance_stage(batch.key, TENANT, PostHarvestStage.STORED)
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
+        service.record_drying_progress(batch.key, 60.0, tenant_key=TENANT)
+        service.advance_stage(batch.key, PostHarvestStage.CURING, tenant_key=TENANT)
+        service.advance_stage(batch.key, PostHarvestStage.STORED, tenant_key=TENANT)
         with pytest.raises(InvalidStatusTransitionError):
-            service.advance_stage(batch.key, TENANT, PostHarvestStage.CURING)
+            service.advance_stage(batch.key, PostHarvestStage.CURING, tenant_key=TENANT)
 
     def test_released_sets_completed_at(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
-        service.record_drying_progress(batch.key, TENANT, 60.0)
-        service.advance_stage(batch.key, TENANT, PostHarvestStage.CURING)
-        service.advance_stage(batch.key, TENANT, PostHarvestStage.STORED)
-        released = service.advance_stage(batch.key, TENANT, PostHarvestStage.RELEASED)
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
+        service.record_drying_progress(batch.key, 60.0, tenant_key=TENANT)
+        service.advance_stage(batch.key, PostHarvestStage.CURING, tenant_key=TENANT)
+        service.advance_stage(batch.key, PostHarvestStage.STORED, tenant_key=TENANT)
+        released = service.advance_stage(batch.key, PostHarvestStage.RELEASED, tenant_key=TENANT)
         assert released.completed_at is not None
 
     def test_cross_tenant_access_rejected(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
         with pytest.raises(NotFoundError):
-            service.advance_stage(batch.key, OTHER, PostHarvestStage.CURING)
+            service.advance_stage(batch.key, PostHarvestStage.CURING, tenant_key=OTHER)
 
 
 class TestDryingProgressRollup:
     def test_progress_updates_batch_summary(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
-        service.record_drying_progress(batch.key, TENANT, 180.0, snap_test_passed=True)
-        refreshed = service.get_batch(batch.key, TENANT)
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
+        service.record_drying_progress(batch.key, 180.0, tenant_key=TENANT, snap_test_passed=True)
+        refreshed = service.get_batch(batch.key, tenant_key=TENANT)
         assert refreshed.current_weight_g == 180.0
         assert refreshed.dryness_progress_percent > 0
         assert refreshed.snap_test_passed is True
@@ -302,45 +303,45 @@ class TestDryingProgressRollup:
         # SEC-002: a weight above the start weight is invalid input → 422
         # (ValidationError), not a bare calculator ValueError surfacing as 500.
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")  # start weight 450 g
+        batch = service.start_drying("hb_1", tenant_key=TENANT)  # start weight 450 g
         with pytest.raises(ValidationError):
-            service.record_drying_progress(batch.key, TENANT, 600.0)
+            service.record_drying_progress(batch.key, 600.0, tenant_key=TENANT)
 
 
 class TestObservationsAndMoldAlerts:
     def test_high_rh_observation_raises_mold_alert(self):
         service, repo = _service()
-        batch = service.start_drying(TENANT, "hb_1")
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
         obs = StorageObservation(
             rh_percent=68,
             temperature_c=19,
             visual_condition=StorageVisualCondition.CONCERNING,
             aroma_quality=StorageAromaQuality.OFF,
         )
-        service.record_observation(batch.key, TENANT, obs)
+        service.record_observation(batch.key, obs, tenant_key=TENANT)
         alerts = service.list_mold_alerts(batch.key, TENANT)
         assert len(alerts) == 1
         assert alerts[0].severity == MoldAlertSeverity.CRITICAL
 
     def test_safe_observation_raises_no_alert(self):
         service, _ = _service()
-        batch = service.start_drying(TENANT, "hb_1")
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
         obs = StorageObservation(rh_percent=45, temperature_c=18)
-        service.record_observation(batch.key, TENANT, obs)
+        service.record_observation(batch.key, obs, tenant_key=TENANT)
         assert service.list_mold_alerts(batch.key, TENANT) == []
 
 
 class TestListing:
     def test_list_for_batch_is_tenant_scoped(self):
         service, _ = _service()
-        service.start_drying(TENANT, "hb_1")
+        service.start_drying("hb_1", tenant_key=TENANT)
         assert len(service.list_for_batch("hb_1", TENANT)) == 1
         assert service.list_for_batch("hb_1", OTHER) == []
 
     def test_delete_batch(self):
         service, repo = _service()
-        batch = service.start_drying(TENANT, "hb_1")
-        service.delete_batch(batch.key, TENANT)
+        batch = service.start_drying("hb_1", tenant_key=TENANT)
+        service.delete_batch(batch.key, tenant_key=TENANT)
         assert repo.get_batch_by_key(batch.key) is None
 
 

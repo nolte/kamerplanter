@@ -6,6 +6,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.domain.interfaces.notification_repository import INotificationRepository
 from app.domain.models.notification import Notification, NotificationStatus
 
@@ -17,6 +18,33 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
     """ArangoDB-backed notification repository."""
 
     _model_cls = Notification
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
+
+    #: Full-replace null semantics for ``notifications`` (#1516).
+    #:
+    #: ``NotificationPropagationService._update_single`` nulls ``read_at`` and
+    #: ``acted_at`` under ``reset_read`` so a notification whose subject materially
+    #: changed re-surfaces in the badge (#769). In the inherited merge mode both
+    #: were dropped and the row stayed read — the re-surfacing never happened.
+    #:
+    #: **Both full-model writers start from the stored notification**, so neither can
+    #: lose a field it never mentioned (re-measured 2026-09-18 over every ``update``
+    #: on this repository — the first draft of this table said "the only full-model
+    #: writer is ``_update_single``" and missed the second, which is the shape a
+    #: writer table rots into):
+    #:
+    #: * ``NotificationPropagationService._update_single`` — ``_safe_lookup`` then
+    #:   attribute assignment on the loaded row.
+    #: * ``NotificationEngine.escalate_overdue`` — iterates
+    #:   ``find_overdue_watering``'s rows and writes ``notif.escalation_level`` back
+    #:   onto the very model it read.
+    #:
+    #: ``mark_read``/``mark_acted`` are hand-written AQL ``UPDATE ... WITH``
+    #: statements and set their field explicitly; every other engine path only
+    #: ``create``s.
+    _update_is_full_replace = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, NOTIFICATIONS)
@@ -26,6 +54,18 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         return Notification(**self._from_doc(doc))
 
     # ── CRUD ──────────────────────────────────────────────────────────
+
+    def create(self, model: Notification, *, default_now_fields: tuple[str, ...] = ()) -> Notification:
+        """Insert a notification — never one without a recipient (MT-045.8, #2144).
+
+        Every reader is per user (``doc.user_key == @user_key``): a row with an empty
+        ``user_key`` lands in no inbox, and was readable and actionable by key for every
+        member of the tenant until the readers failed closed. There is no tenant
+        broadcast; the one choke point all five writers pass refuses the shape.
+        """
+        if not model.user_key:
+            raise ValueError("A notification needs a recipient (user_key); there is no tenant broadcast.")
+        return super().create(model, default_now_fields=default_now_fields)
 
     def get(self, key: str) -> Notification | None:
         return super().get_by_key(key)
@@ -70,7 +110,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER {filter_clause} "
-            f"SORT doc.created_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC "
             f"LIMIT @offset, @limit "
             f"RETURN doc"
         )
@@ -92,8 +132,9 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.user_key == @user_key "
-            f"AND doc.created_at != null AND doc.created_at >= @since "
-            f"SORT doc.created_at DESC "
+            f"AND DATE_TIMESTAMP(doc.created_at) != null "
+            f"AND DATE_TIMESTAMP(doc.created_at) >= DATE_TIMESTAMP(@since) "
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC "
             f"LIMIT @limit "
             f"RETURN doc"
         )
@@ -148,7 +189,9 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER STARTS_WITH(doc.notification_type, 'care.watering') "
             f"AND doc.acted_at == null "
-            f"AND doc.created_at < @cutoff "
+            f"AND doc.created_at < @cutoff_slack "
+            f"AND DATE_TIMESTAMP(doc.created_at) != null "
+            f"AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff) "
             f"AND doc.escalation_level == @level "
             f"RETURN doc"
         )
@@ -156,12 +199,13 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             query,
             bind_vars={
                 "cutoff": overdue_since.isoformat(),
+                "cutoff_slack": instant_prefilter_bound(overdue_since),
                 "level": escalation_level,
             },
         )
         return [self._to_notification(doc) for doc in cursor]
 
-    def exists_by_group_key(self, group_key: str, tenant_key: str) -> bool:
+    def exists_by_group_key(self, group_key: str, *, tenant_key: str) -> bool:
         """Return whether the tenant has any notification carrying ``group_key``.
 
         Existence-only primitive: ``LIMIT 1 RETURN 1`` stops at the first match and
@@ -182,7 +226,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return next(cursor, None) is not None
 
-    def list_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+    def list_by_group_key(self, group_key: str, *, tenant_key: str) -> list[Notification]:
         """Return every notification carrying ``(group_key, tenant_key)`` (newest first).
 
         Strictly tenant-scoped (SEC-B4): the ``tenant_key`` is bound into the filter
@@ -193,7 +237,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.group_key == @group_key AND doc.tenant_key == @tenant_key "
-            f"SORT doc.created_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.created_at) DESC "
             f"RETURN doc"
         )
         cursor = self._db.aql.execute(
@@ -202,7 +246,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return [self._to_notification(doc) for doc in cursor]
 
-    def find_notified_user_keys(self, group_key: str, tenant_key: str) -> set[str]:
+    def find_notified_user_keys(self, group_key: str, *, tenant_key: str) -> set[str]:
         """Return the ``user_key`` set already notified for ``(group_key, tenant_key)``.
 
         Projected, index-backed read (``RETURN DISTINCT doc.user_key``) — full

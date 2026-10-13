@@ -5,10 +5,41 @@ from app.domain.models.phase_sequence import (
     PhaseSequence,
     PhaseSequenceEntry,
 )
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
+
+#: The entity name the refusal names, per model. One map rather than a literal at
+#: each call site: eleven copies of a string is eleven chances to name the wrong
+#: catalogue in a 403.
+_DEFINITION = "phase definition"
+_SEQUENCE = "phase sequence"
+_ENTRY = "phase-sequence entry"
 
 
 class PhaseSequenceService:
-    """Service for managing phase definitions, sequences, and entries."""
+    """Service for managing phase definitions, sequences, and entries.
+
+    **Every write here is installation-wide** (#1501). Unlike species, cultivars
+    and substrates, none of the three models carries a ``tenant_key`` — measured,
+    not assumed: :mod:`app.domain.models.phase_sequence` declares ``is_system``
+    and nothing else that could express ownership. So there is no hybrid arm and
+    no ownership arm to fall back on; this is the *global-only* shape
+    :mod:`app.domain.services.catalogue_authorization` describes for botanical
+    families, and the only honest answer to "who may change a row every tenant
+    reads" is platform admin.
+
+    Until #1501 the eleven write routes above this service resolved
+    ``get_current_user`` and nothing else, and the service re-gated nothing: any
+    authenticated member of any tenant could delete the phase definition REQ-003's
+    state machine runs on, for everyone.
+
+    ``is_platform_admin`` is **keyword-only and carries no default** on every write
+    method. A default would be the drift this module cannot afford: a new caller
+    that forgets the argument would inherit permission rather than a
+    ``TypeError``. Nothing but the router reaches these methods — the seeders in
+    ``app/migrations/seed_phase_sequences.py`` write through the *repository*
+    directly (measured) — so there is no system-context escape to keep open and
+    none is offered.
+    """
 
     def __init__(self, repo: IPhaseSequenceRepository) -> None:
         self._repo = repo
@@ -23,16 +54,27 @@ class PhaseSequenceService:
     ) -> tuple[list[PhaseDefinition], int]:
         return self._repo.get_all_definitions(offset, limit, name_filter)
 
+    def list_definitions_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        name_filter: str | None = None,
+    ) -> list[PhaseDefinition]:
+        """One page of :meth:`list_definitions` without the count query (MT-035, #2131)."""
+        return self._repo.list_definitions_window(offset, limit, name_filter)
+
     def get_definition(self, key: str) -> PhaseDefinition:
         defn = self._repo.get_definition_by_key(key)
         if not defn:
             raise NotFoundError("PhaseDefinition", key)
         return defn
 
-    def create_definition(self, defn: PhaseDefinition) -> PhaseDefinition:
+    def create_definition(self, defn: PhaseDefinition, *, is_platform_admin: bool) -> PhaseDefinition:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_DEFINITION)
         return self._repo.create_definition(defn)
 
-    def update_definition(self, key: str, data: dict) -> PhaseDefinition:
+    def update_definition(self, key: str, data: dict, *, is_platform_admin: bool) -> PhaseDefinition:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_DEFINITION)
         defn = self.get_definition(key)
         for field, value in data.items():
             setattr(defn, field, value)
@@ -42,7 +84,7 @@ class PhaseSequenceService:
         self.get_definition(key)
         return self._repo.get_sequences_for_definition(key)
 
-    def get_species_for_definition(self, key: str) -> list[dict]:
+    def get_species_for_definition(self, key: str, *, tenant_key: str) -> list[dict]:
         """List all species (global catalog) that traverse a phase definition (FIX-01 R5/R9).
 
         Composed from existing repository building blocks: every sequence that uses the
@@ -65,7 +107,7 @@ class PhaseSequenceService:
                     override = entry.override_duration_days
                     break
             duration = override if override is not None else default_days
-            for species in self._repo.get_species_for_sequence(seq_key):
+            for species in self._repo.get_species_for_sequence(seq_key, tenant_key=tenant_key):
                 species_key = species.get("key")
                 if not species_key:
                     continue
@@ -84,7 +126,8 @@ class PhaseSequenceService:
                     existing["typical_duration_days"] = duration
         return list(result.values())
 
-    def delete_definition(self, key: str) -> bool:
+    def delete_definition(self, key: str, *, is_platform_admin: bool) -> bool:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_DEFINITION)
         defn = self.get_definition(key)
         if defn.is_system:
             raise ValidationError("Cannot delete system phase definitions.")
@@ -100,18 +143,19 @@ class PhaseSequenceService:
     def get_sequence_by_species(self, species_key: str) -> PhaseSequence | None:
         return self._repo.get_sequence_by_species(species_key)
 
-    def get_species_for_sequence(self, key: str) -> list[dict]:
+    def get_species_for_sequence(self, key: str, *, tenant_key: str) -> list[dict]:
         """List the species bound to a sequence — the reverse lookup (issue #949).
 
         This is what turns "this one plant looks wrong" into "a whole cohort sits on
         the wrong template": seeing *Yucca gigantea* bucketed with Rosenkohl and
         Porree is a systemic finding, not a per-plant complaint.
 
-        An unknown sequence raises ``NotFoundError``; an empty species list is a
+        Only species the caller may see are listed: global, its own or granted to it
+        (#2102). An unknown sequence raises ``NotFoundError``; an empty species list is a
         valid result, mirroring :meth:`get_species_for_definition`.
         """
         self.get_sequence(key)
-        return self._repo.get_species_for_sequence(key)
+        return self._repo.get_species_for_sequence(key, tenant_key=tenant_key)
 
     def list_sequences(
         self,
@@ -119,6 +163,10 @@ class PhaseSequenceService:
         limit: int = 50,
     ) -> tuple[list[PhaseSequence], int]:
         return self._repo.get_all_sequences(offset, limit)
+
+    def list_sequences_window(self, offset: int = 0, limit: int = 50) -> list[PhaseSequence]:
+        """One page of :meth:`list_sequences` without the count query (MT-035, #2131)."""
+        return self._repo.list_sequences_window(offset, limit)
 
     def get_sequence(self, key: str) -> PhaseSequence:
         seq = self._repo.get_sequence_by_key(key)
@@ -152,10 +200,12 @@ class PhaseSequenceService:
             "entries": enriched_entries,
         }
 
-    def create_sequence(self, seq: PhaseSequence) -> PhaseSequence:
+    def create_sequence(self, seq: PhaseSequence, *, is_platform_admin: bool) -> PhaseSequence:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_SEQUENCE)
         return self._repo.create_sequence(seq)
 
-    def update_sequence(self, key: str, data: dict) -> PhaseSequence:
+    def update_sequence(self, key: str, data: dict, *, is_platform_admin: bool) -> PhaseSequence:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_SEQUENCE)
         seq = self.get_sequence(key)
         for field, value in data.items():
             setattr(seq, field, value)
@@ -170,17 +220,26 @@ class PhaseSequenceService:
             self._repo.set_species_sequence(data["species_key"], key)
         return updated
 
-    def clone_sequence(self, source_key: str, new_name: str) -> PhaseSequence:
+    def clone_sequence(self, source_key: str, new_name: str, *, is_platform_admin: bool) -> PhaseSequence:
         """Clone a phase sequence (metadata + ordered entries) into an editable copy.
 
-        The clone is always tenant-owned and editable (``is_system=False``), so users
-        can derive custom lifecycles from read-only system sequences without rebuilding
-        every phase entry by hand. Raises ``NotFoundError`` if the source is missing.
+        The clone is always editable (``is_system=False``), so a derived lifecycle
+        can be built from a read-only system sequence without rebuilding every phase
+        entry by hand. Raises ``NotFoundError`` if the source is missing.
+
+        The docstring used to call the clone "tenant-owned". It never was:
+        :class:`~app.domain.models.phase_sequence.PhaseSequence` carries no
+        ``tenant_key``, so the copy lands in the same installation-wide catalogue
+        as its source and is visible to every tenant. That sentence is why cloning
+        looked like a tenant-local operation and stayed ungated; the clone is a
+        global create and is gated as one (#1501).
         """
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_SEQUENCE)
         self.get_sequence(source_key)  # ensure the source exists (404 otherwise)
         return self._repo.clone_sequence(source_key, new_name)
 
-    def delete_sequence(self, key: str) -> bool:
+    def delete_sequence(self, key: str, *, is_platform_admin: bool) -> bool:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_SEQUENCE)
         seq = self.get_sequence(key)
         if seq.is_system:
             raise ValidationError("Cannot delete system phase sequences.")
@@ -204,13 +263,15 @@ class PhaseSequenceService:
             raise NotFoundError("PhaseSequenceEntry", key)
         return entry
 
-    def create_entry(self, entry: PhaseSequenceEntry) -> PhaseSequenceEntry:
+    def create_entry(self, entry: PhaseSequenceEntry, *, is_platform_admin: bool) -> PhaseSequenceEntry:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_ENTRY)
         # Validate references exist
         self.get_sequence(entry.phase_sequence_key)
         self.get_definition(entry.phase_definition_key)
         return self._repo.create_entry(entry)
 
-    def update_entry(self, key: str, data: dict) -> PhaseSequenceEntry:
+    def update_entry(self, key: str, data: dict, *, is_platform_admin: bool) -> PhaseSequenceEntry:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_ENTRY)
         entry = self.get_entry(key)
         # Validate new references if provided
         if "phase_definition_key" in data:
@@ -219,7 +280,8 @@ class PhaseSequenceService:
             setattr(entry, field, value)
         return self._repo.update_entry(key, entry)
 
-    def delete_entry(self, key: str) -> bool:
+    def delete_entry(self, key: str, *, is_platform_admin: bool) -> bool:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_ENTRY)
         self.get_entry(key)  # ensure exists
         return self._repo.delete_entry(key)
 
@@ -227,6 +289,9 @@ class PhaseSequenceService:
         self,
         seq_key: str,
         orders: list[dict],
+        *,
+        is_platform_admin: bool,
     ) -> list[PhaseSequenceEntry]:
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=_ENTRY)
         self.get_sequence(seq_key)  # ensure sequence exists
         return self._repo.reorder_entries(seq_key, orders)

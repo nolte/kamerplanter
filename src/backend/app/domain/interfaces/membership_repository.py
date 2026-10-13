@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
 
@@ -33,7 +34,24 @@ class IMembershipRepository(ABC):
     def delete(self, key: str) -> bool: ...
 
     @abstractmethod
-    def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]: ...
+    def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
+        """Remove membership *key* only while the tenant's deletion record is open, in one atomic step (#1924).
+
+        The rollback of a join that found the tenant frozen after its insert
+        (REQ-025 AK-IE-07). Atomic against the erasure's withdrawal of the
+        record, so exactly one of the two decisions stands. ``True`` when the
+        membership was removed; ``False`` when no open record exists any more —
+        the membership stands then.
+
+        Raises:
+            WriteConflictError: a concurrent write on the record kept conflicting.
+        """
+
+    @abstractmethod
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[MemberInfo]:
+        """A tenant's members, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
 
     @abstractmethod
     def list_by_user(self, user_key: str) -> list[Membership]: ...
@@ -49,21 +67,56 @@ class IMembershipRepository(ABC):
         """
 
     @abstractmethod
-    def count_managers(self, tenant_key: str) -> int: ...
+    def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
+        """Active ``management`` memberships of live person accounts, *other_than_user_key* left out (INV-1, #2166)."""
+
+    @abstractmethod
+    def count_active_members(self, *, tenant_key: str) -> int:
+        """Active memberships of the tenant (``is_active != false``) - the seats its member limit counts (#2133)."""
 
     @abstractmethod
     def count(self) -> int:
         """Total number of membership documents (platform-admin statistics, #1019)."""
 
     @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int: ...
+    def deactivate_all_for_tenant(self, tenant_key: str) -> int:
+        """Deactivate every membership of the tenant (#1769: freezes a tenant being erased)."""
 
     @abstractmethod
-    def delete_all_for_user(self, user_key: str) -> int:
-        """Delete every membership of one user, with its graph edges (#1019).
+    def activate_all_for_importing_tenant(self, tenant_key: str) -> int:
+        """Activate the memberships of a tenant that is still ``importing`` (REQ-056 §8.4, #2138 SEC-007).
 
-        The user-perspective twin of :meth:`delete_all_for_tenant`; the
-        platform-admin ``delete_user`` cascade routes its membership removal
-        through here instead of hand-writing the ``REMOVE`` + edge cleanup in the
-        router. Returns the number of memberships removed.
+        Conditional on the tenant's state in the same statement: a tenant that left ``importing``
+        (erased by the stale sweep) gets no active membership back.
+        """
+
+    @abstractmethod
+    def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
+        """The distinct account keys holding an active membership of the tenant (#1788)."""
+
+    @abstractmethod
+    def active_memberships_of(self, *, tenant_key: str) -> list[Membership]:
+        """The active memberships of active accounts in the tenant (#2134).
+
+        Same population as :meth:`active_member_user_keys`, as full documents: the
+        account-erasure settlement of an organisation needs each one's role, scopes
+        and start (INV-1, the longest-serving ``lead``).
+        """
+
+    @abstractmethod
+    def active_service_account_memberships(self, *, tenant_key: str) -> list[Membership]:
+        """The active memberships of active service accounts in the tenant (#2137, REQ-023 §5b).
+
+        The population the per-tenant service-account quota counts and the tenant's service-account
+        list shows: membership ``is_active != false``, account ``is_active != false`` and
+        ``account_type == "service"``.
+        """
+
+    @abstractmethod
+    def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
+        """Active member account key → when that membership began (``None`` when not recorded), #1824.
+
+        Same population as :meth:`active_member_user_keys`. Tells a member who
+        was there when an account erasure froze the tenant from one who joined
+        after it.
         """

@@ -1,12 +1,23 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from structlog.testing import capture_logs
 
-from app.common.exceptions import NotFoundError, ValidationError
-from app.domain.models.calendar import CalendarFeed
-from app.domain.services.calendar_service import CalendarService
+from app.common.datetimes import today_utc
+from app.common.enums import TenantRole
+from app.common.exceptions import ForbiddenError, NotFoundError
+from app.domain.engines.token_engine import TokenEngine
+from app.domain.models.calendar import CalendarEvent, CalendarFeed
+from app.domain.services.calendar_service import (
+    FEED_MAX_EVENTS,
+    FEED_WINDOW_FUTURE_DAYS,
+    FEED_WINDOW_PAST_DAYS,
+    CalendarService,
+)
 from tests.conftest import wire_get_or_raise
+from tests.support.calendar_feed_owner import every_owner_stands
 
 
 @pytest.fixture
@@ -20,18 +31,26 @@ def mock_engine():
 
 
 @pytest.fixture
-def service(mock_repo, mock_engine):
-    return CalendarService(mock_repo, mock_engine)
+def owner_stores():
+    return every_owner_stands()
+
+
+@pytest.fixture
+def service(mock_repo, mock_engine, owner_stores):
+    return CalendarService(mock_repo, mock_engine, MagicMock(), **owner_stores)
 
 
 class TestCreateFeed:
-    def test_generates_token(self, service, mock_repo):
+    def test_generates_token_and_stores_only_its_hash(self, service, mock_repo):
         feed = CalendarFeed(name="My Feed", tenant_key="t1", user_key="u1")
         mock_repo.save.return_value = feed
 
-        service.create_feed(feed)
+        issued = service.create_feed(feed)
 
-        assert feed.token != ""
+        assert len(issued.token) > 10
+        saved = mock_repo.save.call_args[0][0]
+        assert saved.token_hash == TokenEngine.hash_token(issued.token)
+        assert issued.token not in saved.model_dump_json()
         mock_repo.save.assert_called_once()
 
 
@@ -45,33 +64,35 @@ class TestGetFeed:
         feed.key = "f1"
         mock_repo.get_by_key.return_value = feed
 
-        result = service.get_feed("f1")
+        result = service.get_feed("f1", tenant_key="t1", user_key="u1", role=TenantRole.GROWER)
         assert result.name == "Feed"
 
     def test_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.get_feed("missing")
+            service.get_feed("missing", tenant_key="t1", user_key="u1", role=TenantRole.LEAD)
 
 
 class TestUpdateFeed:
-    def test_preserves_token(self, service, mock_repo):
+    def test_never_writes_the_token_hash(self, service, mock_repo):
         existing = CalendarFeed(
             name="Old",
             tenant_key="t1",
             user_key="u1",
-            token="secret123",
+            token_hash="digest123",
         )
         existing.key = "f1"
         mock_repo.get_by_key.return_value = existing
-        mock_repo.update.return_value = existing
+        mock_repo.update_fields.return_value = existing
 
         updated = CalendarFeed(name="New", tenant_key="t1", user_key="u1")
-        service.update_feed("f1", updated)
+        service.update_feed("f1", updated, tenant_key="t1", user_key="u1", role=TenantRole.GROWER)
 
-        call_args = mock_repo.update.call_args
-        assert call_args[0][1].token == "secret123"
+        fields = mock_repo.update_fields.call_args[0][1]
+        assert "token_hash" not in fields
+        assert fields["name"] == "New"
+        mock_repo.update.assert_not_called()
 
 
 class TestRegenerateToken:
@@ -80,18 +101,18 @@ class TestRegenerateToken:
             name="Feed",
             tenant_key="t1",
             user_key="u1",
-            token="old-token",
+            token_hash=TokenEngine.hash_token("old-token"),
         )
         feed.key = "f1"
         mock_repo.get_by_key.return_value = feed
-        mock_repo.update.return_value = feed
+        mock_repo.update_fields.return_value = feed
 
-        service.regenerate_token("f1")
+        issued = service.regenerate_token("f1", tenant_key="t1", user_key="u1", role=TenantRole.GROWER)
 
-        call_args = mock_repo.update.call_args
-        new_token = call_args[0][1].token
-        assert new_token != "old-token"
-        assert len(new_token) > 10
+        written = mock_repo.update_fields.call_args[0][1]
+        assert issued.token != "old-token"
+        assert len(issued.token) > 10
+        assert written == {"token_hash": TokenEngine.hash_token(issued.token)}
 
 
 class TestDeleteFeed:
@@ -101,13 +122,13 @@ class TestDeleteFeed:
         mock_repo.get_by_key.return_value = feed
         mock_repo.delete.return_value = True
 
-        assert service.delete_feed("f1") is True
+        assert service.delete_feed("f1", tenant_key="t1", user_key="u1", role=TenantRole.LEAD) is True
 
     def test_delete_not_found(self, service, mock_repo):
         mock_repo.get_by_key.return_value = None
 
         with pytest.raises(NotFoundError):
-            service.delete_feed("missing")
+            service.delete_feed("missing", tenant_key="t1", user_key="u1", role=TenantRole.LEAD)
 
 
 class TestGenerateIcalForFeed:
@@ -116,21 +137,27 @@ class TestGenerateIcalForFeed:
             name="Feed",
             tenant_key="t1",
             user_key="u1",
-            token="tok123",
+            token_hash=TokenEngine.hash_token("tok123"),
         )
         feed.key = "f1"
-        mock_repo.get_by_token.return_value = feed
-        mock_engine.get_events.return_value = []
+        mock_repo.get_by_token_hash.return_value = feed
+        mock_engine.aggregate.return_value = []
 
         result = service.generate_ical_for_feed("f1", "tok123")
 
         assert "BEGIN:VCALENDAR" in result
         assert "END:VCALENDAR" in result
+        mock_repo.get_by_token_hash.assert_called_once_with(TokenEngine.hash_token("tok123"))
+
+    def test_an_empty_token_never_reaches_the_lookup(self, service, mock_repo):
+        with pytest.raises(NotFoundError):
+            service.generate_ical_for_feed("f1", "")
+        mock_repo.get_by_token_hash.assert_not_called()
 
     def test_invalid_token(self, service, mock_repo):
-        mock_repo.get_by_token.return_value = None
+        mock_repo.get_by_token_hash.return_value = None
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("f1", "wrong-token")
 
     def test_inactive_feed(self, service, mock_repo):
@@ -138,13 +165,13 @@ class TestGenerateIcalForFeed:
             name="Feed",
             tenant_key="t1",
             user_key="u1",
-            token="tok123",
+            token_hash=TokenEngine.hash_token("tok123"),
             is_active=False,
         )
         feed.key = "f1"
-        mock_repo.get_by_token.return_value = feed
+        mock_repo.get_by_token_hash.return_value = feed
 
-        with pytest.raises(ValidationError, match="inactive"):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("f1", "tok123")
 
     def test_wrong_feed_key(self, service, mock_repo):
@@ -152,13 +179,114 @@ class TestGenerateIcalForFeed:
             name="Feed",
             tenant_key="t1",
             user_key="u1",
-            token="tok123",
+            token_hash=TokenEngine.hash_token("tok123"),
         )
         feed.key = "f1"
-        mock_repo.get_by_token.return_value = feed
+        mock_repo.get_by_token_hash.return_value = feed
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             service.generate_ical_for_feed("wrong-key", "tok123")
+
+
+def _feed(**overrides) -> CalendarFeed:
+    feed = CalendarFeed(name="Feed", tenant_key="t1", user_key="u1", token_hash=TokenEngine.hash_token("tok123"))
+    feed.key = "f1"
+    return feed.model_copy(update=overrides)
+
+
+class TestTheFeedReadsWithItsOwnersStanding:
+    """#2226 review SEC-001 — the owner's account, membership and tenant decide, each with the same 404."""
+
+    def test_the_owner_is_asked_in_the_feeds_tenant(self, service, mock_repo, mock_engine, owner_stores):
+        mock_repo.get_by_token_hash.return_value = _feed()
+        mock_engine.aggregate.return_value = []
+
+        service.generate_ical_for_feed("f1", "tok123")
+
+        owner_stores["user_repo"].get_by_key.assert_called_once_with("u1")
+        owner_stores["membership_repo"].get_by_user_and_tenant.assert_called_once_with("u1", "t1")
+        owner_stores["tenant_repo"].get_by_key.assert_called_once_with("t1")
+
+    @pytest.mark.parametrize(
+        ("store", "method"),
+        [
+            ("user_repo", "get_by_key"),
+            ("membership_repo", "get_by_user_and_tenant"),
+            ("tenant_repo", "get_by_key"),
+        ],
+    )
+    @pytest.mark.parametrize("answer", [None, SimpleNamespace(is_active=False)], ids=["missing", "inactive"])
+    def test_a_missing_or_inactive_link_refuses(self, service, mock_repo, owner_stores, store, method, answer):
+        mock_repo.get_by_token_hash.return_value = _feed()
+        getattr(owner_stores[store], method).return_value = answer
+
+        with pytest.raises(NotFoundError):
+            service.generate_ical_for_feed("f1", "tok123")
+
+    def test_a_feed_without_an_owner_refuses_before_any_lookup(self, service, mock_repo, owner_stores):
+        mock_repo.get_by_token_hash.return_value = _feed(user_key="")
+
+        with pytest.raises(NotFoundError):
+            service.generate_ical_for_feed("f1", "tok123")
+        owner_stores["membership_repo"].get_by_user_and_tenant.assert_not_called()
+
+    def test_an_unwired_service_serves_no_feed(self, mock_repo):
+        mock_repo.get_by_token_hash.return_value = _feed()
+        service = CalendarService(mock_repo, MagicMock(), MagicMock())
+
+        with pytest.raises(NotFoundError):
+            service.generate_ical_for_feed("f1", "tok123")
+
+
+class TestListTenantFeeds:
+    def test_the_lead_gets_every_feed_of_the_tenant(self, service, mock_repo):
+        mock_repo.list_by_tenant.return_value = [_feed()]
+
+        assert service.list_tenant_feeds(tenant_key="t1", role=TenantRole.LEAD) == [_feed()]
+        mock_repo.list_by_tenant.assert_called_once_with(tenant_key="t1")
+
+    @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+    def test_anyone_else_is_refused(self, service, mock_repo, role):
+        with pytest.raises(ForbiddenError):
+            service.list_tenant_feeds(tenant_key="t1", role=role)
+        mock_repo.list_by_tenant.assert_not_called()
+
+
+class TestTheFeedAnswerIsBounded:
+    """#2226 review SEC-005 — a fixed window and a fixed event cap, nearest to today kept."""
+
+    def test_the_window_is_the_named_constants(self, service, mock_repo, mock_engine):
+        mock_repo.get_by_token_hash.return_value = _feed()
+        mock_engine.aggregate.return_value = []
+
+        service.generate_ical_for_feed("f1", "tok123")
+
+        query = mock_engine.aggregate.call_args.args[0]
+        today = today_utc()
+        assert query.start_date == today - timedelta(days=FEED_WINDOW_PAST_DAYS)
+        assert query.end_date == today + timedelta(days=FEED_WINDOW_FUTURE_DAYS)
+
+    def test_past_the_cap_the_events_nearest_today_are_kept(self, service, mock_repo, mock_engine, monkeypatch):
+        monkeypatch.setattr("app.domain.services.calendar_service.FEED_MAX_EVENTS", 3)
+        now = datetime.combine(today_utc(), datetime.min.time())
+        offsets = [-20, -1, 0, 2, 40]
+        mock_repo.get_by_token_hash.return_value = _feed()
+        mock_engine.aggregate.return_value = [
+            CalendarEvent(id=f"e{offset}", title=f"event {offset}", start=now + timedelta(days=offset))
+            for offset in offsets
+        ]
+
+        with capture_logs() as logs:
+            ics = service.generate_ical_for_feed("f1", "tok123")
+
+        assert [o for o in offsets if f"UID:e{o}@kamerplanter" in ics] == [-1, 0, 2]
+        (line,) = [entry for entry in logs if entry["event"] == "calendar_feed_events_capped"]
+        assert (line["total"], line["kept"]) == (5, 3)
+        assert "t1" not in repr(line)
+        assert "f1" not in repr(line)
+
+    def test_the_cap_is_a_fixed_bound(self):
+        assert 0 < FEED_MAX_EVENTS <= 5000
 
 
 class TestTimelineToBars:

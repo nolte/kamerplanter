@@ -109,7 +109,11 @@ class _FeedingService:
         self.seen_tenant = None
         self.seen_plant = None
 
-    def create_event(self, event: FeedingEvent) -> FeedingEvent:
+    def require_fill_event(self, key: str, *, tenant_key: str) -> None:
+        """Every fill event here is the tenant's own; the real check is in ``FeedingService`` (#1872 C6)."""
+        self.checked_fill_events = [*getattr(self, "checked_fill_events", []), (key, tenant_key)]
+
+    def create_event(self, event: FeedingEvent, *, tenant_key: str) -> FeedingEvent:
         stored = event.model_copy(update={"key": f"fe-{len(self.created) + 1}"})
         if stored.timestamp is None:
             stored.timestamp = datetime.now(UTC)
@@ -127,6 +131,7 @@ class _IpmService:
         self._pests = set(pests)
         self._diseases = set(diseases)
         self._inspections = list(inspections)
+        self.window_tenants: list[str] = []
         self._karenz = list(karenz)
         self._harvest_ok = harvest_ok
         self.created: list[Inspection] = []
@@ -149,10 +154,17 @@ class _IpmService:
         self.created.append(stored)
         return stored
 
-    def get_inspections(self, plant_key, offset=0, limit=50):
+    # Mirrors IpmService's keyword-only, default-less ``tenant_key`` (#1619):
+    # a double that accepts an unscoped call certifies a call the real
+    # service would reject.
+    def get_inspections(self, plant_key, offset=0, limit=50, *, tenant_key):
         return list(self._inspections), len(self._inspections)
 
-    def check_harvest_safety(self, plant_key, planned_date=None):
+    def get_inspections_window(self, plant_key, offset=0, limit=50, *, tenant_key):
+        self.window_tenants.append(tenant_key)
+        return self.get_inspections(plant_key, offset, limit, tenant_key=tenant_key)[0]
+
+    def check_harvest_safety(self, plant_key, planned_date=None, *, tenant_key):
         return self._harvest_ok, list(self._karenz)
 
 
@@ -230,7 +242,7 @@ class _NutrientPlanService:
         self.assignments: list[tuple[str, str, str]] = []
         self.seen_tenants: list[str] = []
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         self.seen_tenants.append(tenant_key)
         plan = self._plans.get(key)
         if plan is None:
@@ -326,6 +338,7 @@ class TestRecordFeedingEvent:
         assert stored.measured_ph_before == 6.1
         assert stored.runoff_ec == 2.4
         assert stored.tank_fill_event_key == "tfe-9"
+        assert feeding.checked_fill_events == [("tfe-9", TENANT)]  # the preview-shared check ran (#1872 C6)
         assert stored.fertilizers_used[0].ml_applied == 5.0
 
         assert resp.data["feeding_event_key"] == "fe-1"
@@ -570,13 +583,14 @@ class TestGetPlantDiagnostics:
             pressure_level=PestPressureLevel.LOW,
             symptoms_observed=["webbing"],
         )
-        resp = await GetPlantDiagnostics().run(
-            self._diag_ctx(
-                ipm_service=_IpmService(inspections=[inspection]),
-                care_reminder_service=_CareService([_Confirmation(now - timedelta(days=1))]),
-            ),
-            GetPlantDiagnostics.Input(plant_key="p1"),
+        ipm = _IpmService(inspections=[inspection])
+        ctx = self._diag_ctx(
+            ipm_service=ipm,
+            care_reminder_service=_CareService([_Confirmation(now - timedelta(days=1))]),
         )
+        resp = await GetPlantDiagnostics().run(ctx, GetPlantDiagnostics.Input(plant_key="p1"))
+        # The count-free inspection window reads the membership's tenant (review SEC-004 of #2272).
+        assert ipm.window_tenants == [ctx.tenant_key] == [TENANT]
         assert resp.data["inspections"][0]["symptoms_observed"] == ["webbing"]
         assert resp.data["care_events"][0]["reminder_type"] == "watering"
         assert resp.data["feeding_events"]
@@ -691,6 +705,26 @@ class TestCreateInspection:
             CreateInspection.Input(plant_key="p1"),
         )
         assert ipm.created[0].inspector == "mcp:u-1"
+        # #1669: the *key* beside the display text — what Art. 15 / 17 match on.
+        # ``mcp:u-1`` is prefixed so it can never equal a key; this is the key.
+        assert ipm.created[0].inspected_by_key == "u-1"
+
+    @pytest.mark.asyncio
+    async def test_the_account_key_is_the_principal_whatever_inspector_says(self):
+        """#1669 — the tool input has no key field; the principal is the key.
+
+        A caller naming somebody else in ``inspector`` changes the display
+        text and nothing else: attribution follows the account behind the
+        call, which is the only thing the server can vouch for.
+        """
+        assert "inspected_by_key" not in CreateInspection.Input.model_fields
+        ipm = _IpmService()
+        await CreateInspection().execute(
+            _ctx(plant_instance_service=_PlantService(), ipm_service=ipm),
+            CreateInspection.Input(plant_key="p1", inspector="Maren"),
+        )
+        assert ipm.created[0].inspector == "Maren"
+        assert ipm.created[0].inspected_by_key == "u-1"
 
     @pytest.mark.asyncio
     async def test_get_plant_inspections_surfaces_what_create_inspection_wrote(self):

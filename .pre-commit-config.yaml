@@ -64,14 +64,14 @@ repos:
         name: ruff check (E2E suite + harness self-tests)
         entry: ruff check --fix
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^tests/(e2e|e2e_selftest)/.*\.py$
         types: [python]
       - id: ruff-format-e2e
         name: ruff format (E2E suite + harness self-tests)
         entry: ruff format
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^tests/(e2e|e2e_selftest)/.*\.py$
         types: [python]
 
@@ -92,9 +92,10 @@ repos:
   # `language: python`, not `language: system`: the required `static` job runs
   # this config on a bare ubuntu-latest + setup-python runner with none of the
   # project's dependencies installed, so a system-python entry would die on
-  # `import selenium`. The isolated env pins what `tests/e2e/requirements.txt`
-  # pins -- a hook that installed a different Selenium would be verifying the
-  # proxy against a version the suite never runs on.
+  # `import selenium`. The isolated env pins what `tests/e2e/pyproject.toml`
+  # pins (`tests/e2e/requirements.txt` until #1509 locked that tree) -- a hook
+  # that installed a different Selenium would be verifying the proxy against a
+  # version the suite never runs on.
   #
   # `python -m pytest`, not the `pytest` console script: the tests import their
   # subject as `tests.e2e.pages...`, and `-m` puts the working directory (the
@@ -125,11 +126,11 @@ repos:
         entry: python -m pytest tests/e2e_selftest -q -p no:cacheprovider
         language: python
         language_version: python3.14
-        additional_dependencies: ['selenium>=4.25.0,<5', 'pytest>=8.3.0']
+        additional_dependencies: ['selenium>=4.25.0,<5', 'pytest>=8.3.0,<10.0.0']
         # `e2e/.*\.py` and not just `e2e/pages/`: the selftests now also read the
         # scenario modules (see test_set_returning_helper_comparisons.py), and a
         # guard the hook never runs on the files it inspects is decoration.
-        files: ^tests/(e2e_selftest/|e2e/.*\.py$|e2e/requirements\.txt$)
+        files: ^tests/(e2e_selftest/|e2e/.*\.py$|e2e/pyproject\.toml$|e2e/uv\.lock$)
         pass_filenames: false
 
   # ── Spec-to-test traceability ─────────────────────────────────────────
@@ -212,7 +213,11 @@ repos:
   # always_run rather than a `files:` filter, for the reason the hooks below give:
   # pre-commit hands a path-filtered hook only added/modified files, and a commit
   # that *deletes* a seed file moves the count exactly as much as one that adds
-  # rows. Also asserted from
+  # rows. Since #1560 the check also scans `src/frontend/src` for modules reading
+  # a catalogue through its capped reader, which makes always_run load-bearing in
+  # a second way: the defect it now catches arrives in a frontend-only commit,
+  # and `static / Static CI Tests` — the required lane, unfiltered on every push —
+  # is where that commit meets this hook. Also asserted from
   # src/backend/tests/unit/test_seed_catalogue_page_size_check.py, so a
   # backend-only change goes red in the backend suite too, not only here.
   - repo: local
@@ -221,7 +226,7 @@ repos:
         name: seeded catalogues fit the page their list view fetches (#995)
         entry: python scripts/check_seed_catalogue_page_size.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -319,7 +324,7 @@ repos:
         name: seed harvest & month facts are consumable (#1002, #1008)
         entry: python scripts/check_seed_harvest_integrity.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -393,6 +398,70 @@ repos:
         files: ^(src/backend/app/api/.*\.py|scripts/check_tenant_body_field\.py)$
         pass_filenames: false
 
+  # ── Plant-scoped route tenant verification (#1619) ─────────────────────
+  # Five tenant-scoped IPM reads took `plant_key` from the path and handed it
+  # to a by-key lookup; three of them did not read `ctx` at all. A member of one
+  # tenant read another's active substance, treatment name, Karenz window and
+  # inspection notes with an HTTP 200. The WRITE routes beside them were already
+  # correct (they verify the plant at the repository, #517) — that asymmetry is
+  # what made the read half invisible in review.
+  #
+  # So the hook does not check those five routes. It enumerates the CLASS: every
+  # route whose URL carries a NON-TERMINAL path parameter naming a tenant-ownable
+  # entity must reach it through a call that also carries a tenant argument, or
+  # sit behind an ownership dependency, or carry a `# tenant-scope-ok: <reason>`
+  # marker. "Tenant-ownable" is derived from OWNERSHIP_VERIFIABLE_COLLECTIONS —
+  # the same allowlist verify_entity_ownership gates on — so a new tenant-owned
+  # entity puts every route taking its key in class automatically.
+  #
+  # Both positive branches are read off the AST, where comments do not exist: a
+  # handler whose only mention of the tenant is `# scoped via ctx.tenant_key` is
+  # as red as one with no comment at all. That is the vacuum trap PR #1545,
+  # #1608 and #1610 each walked into, and it is asserted from
+  # src/backend/tests/unit/test_plant_scoped_route_tenant_check.py rather than
+  # claimed here.
+  #
+  # Measured on the tree: 46 in-class sites — 6 covered by a router dependency,
+  # 20 passing an explicit tenant kwarg, 16 passing it positionally or nested
+  # (the residue the static read cannot follow into the callee), 4 marker-exempt.
+  #
+  # stdlib only, no application import; always_run because DELETING a scoped
+  # call moves the answer exactly as much as adding an unscoped route.
+  - repo: local
+    hooks:
+      - id: plant-scoped-route-tenant
+        name: a route's parent key is verified against the caller's tenant (#1619)
+        entry: python3 scripts/check_plant_scoped_route_tenant.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
+  # ── A gate may not decide about code by matching raw source text ───────
+  # #1456. A gate that searches a file's text for a name answers about whichever
+  # half it hits first, and both halves are wrong in a different direction: a
+  # comment head naming a loader SATISFIES a presence test (#1610 in
+  # fertilizersSlice.ts and activitiesSlice.ts, #1624 in the catalogue registry),
+  # and a docstring explaining a field FALSIFIES an absence test. Four such sites
+  # were repaired by hand in one week, which is the #948 bet — two of four routes
+  # fixed, the rest open for months. This enumerates the class instead: every
+  # membership, regex and occurrence test in every gate file, found through the
+  # parse tree, where comments are not nodes and therefore cannot answer.
+  #
+  # Measured on the tree: 99 gate files, 36 in-class sites, all of them carrying
+  # a `# prose-permeable:` reason (a waiver annotates a site the parser already
+  # found — it cannot create one, and one that excuses nothing is red).
+  #
+  # stdlib only, no application import; always_run because DELETING a reduction
+  # moves the answer exactly as much as adding a raw match.
+  - repo: local
+    hooks:
+      - id: gate-text-assertions
+        name: no gate decides about code by matching raw source text (#1456)
+        entry: python3 scripts/check_gate_text_assertions.py
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── API → data-access layer boundary (P1.3) ────────────────────────────
   # Refuses a NEW `app.data_access` import under src/backend/app/api. NFR-001's
   # layer order says a router reaches persistence through a service; when it
@@ -411,10 +480,54 @@ repos:
   # always_run rather than a `files:` filter: DELETING the last import of an
   # allowlisted module moves the answer exactly as much as adding one, and a
   # path-filtered hook never sees a deletion.
+  #
+  # The same script carries a SECOND rule since #1556: no module under
+  # src/backend/app/domain holds or reaches a persistence handle. #1556 measured
+  # `_repo._db`, found two sites in auth_service.py and called them "the only
+  # two left"; that grep sees only the reach-THROUGH-a-repository spelling and is
+  # blind to the four modules that are simply handed a StandardDatabase. A guard
+  # written to those two literal call sites would have certified the tree clean —
+  # the #948 class. So rule 2 detects the class — an `arango` import, or a handle
+  # detected three ways (an attribute named `_db`, the string "_db" behind a
+  # getattr, a reach for `.aql` under any other name), reported as ONE finding so
+  # changing spelling does not clear it. It has NO allowlist: the four modules
+  # that still crossed were moved behind repositories in #1638 and the entry
+  # mechanism was removed with them, so a crossing can only be fixed, not recorded.
+  # ── One declared personal-data inventory (#1622, REQ-025 / NFR-011) ────
+  # `DataExportEngine.USER_DATA_MANIFEST` and `ErasureEngine.build_erasure_plan`
+  # are the two enumerations an auditor reads to answer "what does this system
+  # hold about me". Neither had a call site. The export and erasure that do run
+  # walked a different enumeration, hand-written at the point of execution:
+  # measured on 2026-09-21 the declared erasure plan named 26 ArangoDB
+  # collections against the cascade's 11, a symmetric difference of 23, and four
+  # collections the cascade removes appeared in no declared inventory at all.
+  #
+  # Repairing those 23 leaves the 24th, added next month, exactly as invisible —
+  # two lists that must agree and are never compared drift, and this pair had.
+  # So the hook enumerates the CLASS: every inventory entry is attributed to an
+  # executor, every collection declared for Art. 15 export appears in the Art. 17
+  # erasure inventory, both inventories are read by executing code, and no
+  # executing path writes a personal-data collection name down again.
+  #
+  # R1/R2/R4 are read off the AST, R3 through `scripts/source_text.py`, so a
+  # comment that names the call satisfies nothing (#1456, #1545, #1610, #1624).
+  # The anti-vacuity floors sit deliberately below today's inventory: they catch
+  # this script's own reader collapsing, not a legitimate change.
+  # The model -> collection reader lives in `scripts/arango_repository_bindings.py`,
+  # shared with the #1708 tenant-scope guard, so a change there re-runs this hook.
+  - repo: local
+    hooks:
+      - id: privacy-inventory
+        name: one declared personal-data inventory, read by the executing path (#1622)
+        entry: python3 scripts/check_privacy_inventory.py
+        language: system
+        files: ^(src/backend/app/.*\.py|scripts/(check_privacy_inventory|arango_repository_bindings)\.py)$
+        pass_filenames: false
+
   - repo: local
     hooks:
       - id: layer-imports
-        name: the API layer does not import data_access (NFR-001)
+        name: the API and business-logic layer boundaries hold (NFR-001)
         entry: python3 scripts/check_layer_imports.py
         language: system
         always_run: true
@@ -482,7 +595,66 @@ repos:
         name: no CI gate that cannot fail, or cannot run on the change (NFR-018 §2, #1313)
         entry: python3 scripts/check_workflow_gate_integrity.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
+        always_run: true
+        pass_filenames: false
+
+  # ── Documented invocation paths (#1607, NFR-018 §1) ────────────────────
+  # Two security workflows told their own reader to "label a pull request
+  # `security-scan`" for a pre-merge scan. The label did not exist, so the
+  # documented path invoked nothing — and because `types: [labeled]` cannot be
+  # filtered by label name at the `on:` level, every OTHER label queued a run
+  # that immediately skipped (300 per workflow in the week to 2026-09-20, none
+  # executed).
+  #
+  # The hook does not look for that label, or for those two workflows. It
+  # checks the CLASS, over every workflow in the tree: an input an expression
+  # reads must be declared, a declared input must be read by something, and a
+  # `gh workflow run` example in a comment must name a workflow that exists,
+  # dispatches, and declares every `-f` key the example passes. `--list` names
+  # the sites so a green run is distinguishable from a vacuous one.
+  #
+  # What it deliberately cannot check: whether a LABEL named in prose exists.
+  # That lives in GitHub, and `.github/settings.yml` declares only the labels
+  # this repository adds on top of the commons — so the tree does not hold the
+  # answer. This is why the on-demand lane moved to a dispatch at all: the
+  # dispatch form is the one a local gate can keep honest.
+  - repo: local
+    hooks:
+      - id: workflow-documented-invocation
+        name: a documented way to invoke a workflow must exist (NFR-018 §1, #1607)
+        entry: python3 scripts/check_workflow_documented_invocation.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
+        always_run: true
+        pass_filenames: false
+
+  # ── Untrusted checkout vs. a writable token (#1614) ────────────────────
+  # `security-zap-postmerge.yml` and its Nuclei twin resolved
+  # `refs/pull/<n>/merge` in a job that held `issues: write` (and
+  # `security-events: write`). Nothing reachable escalated through it — the
+  # only issue-writing step was gated `if: always() && github.event_name ==
+  # 'push'` — but a single `if:` on a single step was the whole distance
+  # between untrusted code and a writable token, and `persist-credentials`
+  # defaults to `true`, so the token sat in `.git/config` inside that tree.
+  #
+  # The hook does not look for those two files. It enumerates the CLASS over
+  # every workflow: a job that puts pull-request code on a runner — by an
+  # explicit `refs/pull` ref, by a `run:` block that fetches it, by a local
+  # composite action that checks out on the job's behalf, or simply because
+  # the workflow is triggered by `pull_request`/`pull_request_target` — may
+  # not hold a write scope, whether declared on the job or inherited from the
+  # workflow level. Exceptions are a no-growth ratchet in the script, each
+  # carrying its measurement; a comment in a workflow cannot silence it.
+  # `--list` names every checked site so a green run is distinguishable from
+  # a vacuous one.
+  - repo: local
+    hooks:
+      - id: untrusted-checkout-permissions
+        name: no write permission on a job holding pull-request code (#1614)
+        entry: python3 scripts/check_untrusted_checkout_permissions.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -622,7 +794,7 @@ repos:
         name: an attesting job carries a Docker-store login (#1218)
         entry: python3 scripts/check_attest_registry_credentials.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -664,7 +836,7 @@ repos:
         name: the develop tree's chart version is a -dev pre-release (#1222)
         entry: python3 scripts/check_chart_develop_version.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -709,7 +881,7 @@ repos:
         name: seed YAML matches the schema it declares (#1406)
         entry: python scripts/check_seed_schema.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0', 'jsonschema>=4.23.0', 'referencing>=0.35.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0', 'jsonschema>=4.23.0,<5.0.0', 'referencing>=0.35.0,<1.0.0']
         files: ^src/backend/app/migrations/seed_data/[^/]+\.ya?ml$
 
   # ── Nuclei binary pin (#1177) ────────────────────────────────────────────
@@ -735,55 +907,68 @@ repos:
         name: ruff check (backend)
         entry: bash -c 'cd src/backend && ruff check --fix "${@/#src\/backend\//}"' --
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^src/backend/.*\.py$
         types: [python]
       - id: ruff-format
         name: ruff format (backend)
         entry: bash -c 'cd src/backend && ruff format "${@/#src\/backend\//}"' --
         language: python
-        additional_dependencies: ['ruff>=0.15.0']
+        additional_dependencies: ['ruff>=0.15.0,<1.0.0']
         files: ^src/backend/.*\.py$
         types: [python]
 
   # ── Microservices / shared lib (mypy type baseline, SCR-001) ───────────
-  # The backend declares mypy strict=true but ships no mypy CI step; these
-  # sibling Python packages carried no static type-checker at all. A non-strict
-  # mypy baseline (config in each package's pyproject.toml) now runs in the
-  # required `static` gate. Each hook cd-s into its package like the ruff hooks
-  # and runs in an isolated venv carrying mypy only — the packages' own
-  # [tool.mypy] overrides ignore runtime imports absent from that venv. The
-  # separate backend-mypy CI gap is left as a documented follow-up (not wired
-  # here). pass_filenames is false so mypy sees each package as a whole module.
+  # These sibling Python packages carried no static type-checker at all. A
+  # non-strict mypy baseline (config in each package's pyproject.toml) now runs
+  # in the required `static` gate. Each hook cd-s into its package like the ruff
+  # hooks and runs in an isolated venv carrying mypy only — the packages' own
+  # [tool.mypy] overrides ignore runtime imports absent from that venv.
+  # pass_filenames is false so mypy sees each package as a whole module. The
+  # backend (strict) is the `mypy-ratchet-backend` hook below (#2169): it needs
+  # the whole locked backend environment, which an isolated hook venv is not.
   - repo: local
     hooks:
       - id: mypy-kp-vectordb
         name: mypy (kp_vectordb)
         entry: bash -c 'cd src/libs/kp_vectordb && mypy kp_vectordb'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/libs/kp_vectordb/kp_vectordb/.*\.py$
         pass_filenames: false
       - id: mypy-kp-errortracking
         name: mypy (kp_errortracking)
         entry: bash -c 'cd src/libs/kp_errortracking && mypy kp_errortracking'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/libs/kp_errortracking/kp_errortracking/.*\.py$
         pass_filenames: false
       - id: mypy-knowledge-service
         name: mypy (knowledge-service)
         entry: bash -c 'cd src/knowledge-service && mypy app'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/knowledge-service/app/.*\.py$
         pass_filenames: false
       - id: mypy-inference-service
         name: mypy (inference-service)
         entry: bash -c 'cd src/inference-service && mypy app'
         language: python
-        additional_dependencies: ['mypy>=1.13.0']
+        additional_dependencies: ['mypy>=1.13.0,<3.0.0']
         files: ^src/inference-service/app/.*\.py$
+        pass_filenames: false
+      # Backend strict mypy as a ratchet (#2169): no NEW finding per (file,
+      # error code) against src/backend/mypy-ratchet-baseline.json. It runs the
+      # locked backend toolchain (`uv run --locked --extra dev`), because the
+      # counts are only comparable under the locked mypy and stubs — so it is
+      # `language: system` and skips, announced, in the Python-only `static` CI
+      # job; the backstop there is the `mypy ratchet` step of Backend CI's
+      # lint-test job. scripts/mypy_ratchet_hook.sh carries the reasoning.
+      - id: mypy-ratchet-backend
+        name: mypy ratchet (backend, #2169)
+        entry: scripts/mypy_ratchet_hook.sh
+        language: system
+        files: ^(src/backend/(app/.*\.py|pyproject\.toml|uv\.lock|mypy-ratchet-baseline\.json)|scripts/check_mypy_ratchet\.py)$
         pass_filenames: false
 
   # ── Shared-lib copy drift (#777) ───────────────────────────────────────
@@ -825,7 +1010,7 @@ repos:
         name: Steckbrief ↔ seed consistency (#680)
         entry: python src/backend/app/migrations/seed_steckbrief_consistency.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false
 
@@ -900,6 +1085,6 @@ repos:
         name: no local skill/agent shadowing a portfolio plugin (#1405)
         entry: python3 scripts/check_skill_plugin_shadowing.py
         language: python
-        additional_dependencies: ['PyYAML>=6.0']
+        additional_dependencies: ['PyYAML>=6.0,<7.0.0']
         always_run: true
         pass_filenames: false

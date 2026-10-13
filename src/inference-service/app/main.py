@@ -6,6 +6,7 @@ it over HTTP only (REQ-029-A 3.1, plan D-3).
 """
 
 import json
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,20 +18,32 @@ from app.confidence import cosine_to_confidence
 from app.config import settings
 from app.disease_classifier import DiseaseClassifier, DiseaseModelNotReadyError
 from app.embedder import Embedder, ModelNotReadyError
-from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.observability.error_tracking import (
+    init_error_tracking,
+    install_uncaught_exception_redaction,
+    resolve_release,
+    shape_text_redactor,
+)
 from app.phenotype_engine import PhenotypeEngine, PhenotypeUnavailableError
 from app.schemas import (
     BatchEmbedResponse,
+    DeleteContributionsResponse,
     DeleteReferenceResponse,
     DiseaseClassificationItem,
     DiseaseClassifyResponse,
     DiseaseModelMeta,
     DiseaseStatusResponse,
     EmbedResponse,
+    EraseContributorContributionsRequest,
+    ErasePestContributionsRequest,
+    ErasePestTenantContributionsRequest,
+    EraseTenantContributionsRequest,
     HealthResponse,
+    ListPestContributionKeysRequest,
     MatchResponse,
     MatchSuggestion,
     ModelInfoResponse,
+    PestContributionKeysResponse,
     PestCoverageItem,
     PestCoverageResponse,
     PestDetectResponse,
@@ -50,8 +63,8 @@ from app.schemas import (
 )
 from app.vectordb.config import VectorDbConfig
 from app.vectordb.connection import VectorDbConnection
-from app.vectordb.pest_repository import PestEmbeddingRepository
-from app.vectordb.repository import SpeciesEmbeddingRepository
+from app.vectordb.pest_repository import PestEmbeddingRepository, require_page_limit
+from app.vectordb.repository import USER_CONTRIBUTED_SOURCE, SpeciesEmbeddingRepository
 from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
@@ -65,7 +78,14 @@ SERVICE_VERSION = "1.0.0"
 init_error_tracking(
     component="inference-service",
     release=resolve_release("kamerplanter-inference-service", SERVICE_VERSION),
+    # The backend's keyed redaction lives in ``app.common.log_privacy`` and cannot be
+    # imported here; the shared shape-based one covers URL userinfo and queries,
+    # credential-bearing paths and addresses (#1926).
+    redact_text=shape_text_redactor,
 )
+# After the SDK has wrapped the interpreter's hooks: an exception that never becomes a
+# log record (startup, a thread, a finaliser) is printed redacted, not raw.
+install_uncaught_exception_redaction()
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
@@ -414,7 +434,25 @@ async def upsert_reference(
     excluded from ``/match`` until a platform admin activates it. ``contributed_by``
     / ``tenant_key`` record the provenance of an interactive user contribution so
     it can be attributed and GDPR-erased (SEC-005).
+
+    A ``source='user_contributed'`` row MUST arrive quarantined and attributed:
+    written active it would enter every tenant's ``/match`` without the admin
+    review, and without ``contributed_by`` / ``tenant_key`` the Art. 17 erasure
+    could never reach it. The index refuses either with 422 instead of trusting
+    the caller to send them (#2173).
     """
+    source = source.strip().lower()
+    contributed_by = contributed_by.strip() if contributed_by else contributed_by
+    tenant_key = tenant_key.strip() if tenant_key else tenant_key
+    if source == USER_CONTRIBUTED_SOURCE:
+        if is_active:
+            raise HTTPException(
+                status_code=422, detail="user_contributed references must be written with is_active=false"
+            )
+        if not contributed_by or not tenant_key:
+            raise HTTPException(
+                status_code=422, detail="user_contributed references require contributed_by and tenant_key"
+            )
     repo = _require_repo()
 
     vector = await _resolve_vector(image, embedding)
@@ -501,6 +539,64 @@ def set_reference_active(
         id=embedding_id,
         is_active=body.is_active,
     )
+
+
+# -- GDPR erasure of user contributions (REQ-025 AK-OS-05, issue #1753) -----
+#
+# POST with a JSON body, not DELETE with the key in the path: the path is
+# written to uvicorn's access log here and to httpx's request log in the
+# backend, and neither may carry a user or tenant key (#1700). Both routes run
+# behind the app-level ``require_service_token`` dependency like every
+# non-probe route. Their two-segment paths do not collide with
+# ``PATCH /reference/{species_key}/{embedding_id}``: a POST only matches these.
+
+
+def _erase_contributions(action: Callable[..., int], **keys: object) -> DeleteContributionsResponse:
+    """Run one erasure delete; a blank key is the caller's error (422), not a no-op.
+
+    The repository's message names the field, never its value.
+    """
+    try:
+        deleted = action(**keys)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return DeleteContributionsResponse(status="ok", deleted=deleted)
+
+
+@app.post(
+    "/reference/contributions/erase-by-contributor",
+    response_model=DeleteContributionsResponse,
+)
+def erase_user_contributions(body: EraseContributorContributionsRequest) -> DeleteContributionsResponse:
+    """Delete one user's contributed reference embeddings (Art. 17 erasure, Phase 0.5).
+
+    Only rows with ``source = 'user_contributed'`` are reached; curated
+    references stay whoever they name. ``tenant_key`` narrows the delete to one
+    tenant; ``null`` reaches every tenant. A missing or blank contributor, or a
+    blank ``tenant_key``, is refused with 422.
+    """
+    repo = _require_repo()
+    if body.contributed_by is None:
+        raise HTTPException(status_code=422, detail="contributed_by is required")
+    return _erase_contributions(
+        repo.delete_user_contributions, contributed_by=body.contributed_by, tenant_key=body.tenant_key
+    )
+
+
+@app.post(
+    "/reference/contributions/erase-by-tenant",
+    response_model=DeleteContributionsResponse,
+)
+def erase_tenant_contributions(body: EraseTenantContributionsRequest) -> DeleteContributionsResponse:
+    """Delete every contributed reference embedding of a tenant (REQ-024 tenant deletion).
+
+    Only rows with ``source = 'user_contributed'`` are reached. A missing or
+    blank tenant key is refused with 422.
+    """
+    repo = _require_repo()
+    if body.tenant_key is None:
+        raise HTTPException(status_code=422, detail="tenant_key is required")
+    return _erase_contributions(repo.delete_tenant_contributions, tenant_key=body.tenant_key)
 
 
 @app.delete("/reference/{species_key}", response_model=DeleteReferenceResponse)
@@ -646,6 +742,56 @@ def set_pest_reference_active(label: str, prototype_id: int, body: PestSetActive
     if not updated:
         raise HTTPException(status_code=404, detail="Prototype not found.")
     return PestSetActiveResponse(status="ok", label=label, id=prototype_id, is_active=body.is_active)
+
+
+# -- GDPR erasure of contributed pest prototypes (REQ-025 / REQ-024, #1759) --
+#
+# Same shape as the reference-index erasure above: POST with the keys in a JSON
+# body (never in a path, #1700), behind the app-level service token, SQL bound
+# to ``source = 'user_contributed'``. The two-segment paths do not collide with
+# ``PATCH /pest/reference/{label}/{prototype_id}``: a POST only matches these.
+
+
+@app.post("/pest/reference/contributions/erase", response_model=DeleteContributionsResponse)
+def erase_pest_contributions(body: ErasePestContributionsRequest) -> DeleteContributionsResponse:
+    """Delete the prototypes indexed from the named contributions (Art. 17 erasure).
+
+    Deletes, not deactivates: a demoted contribution's deactivated row goes too.
+    An empty list or a blank key is refused with 422.
+    """
+    pest_repo = _require_pest_repo()
+    return _erase_contributions(pest_repo.delete_contributions, contribution_keys=body.contribution_keys)
+
+
+@app.post("/pest/reference/contributions/erase-by-tenant", response_model=DeleteContributionsResponse)
+def erase_pest_tenant_contributions(body: ErasePestTenantContributionsRequest) -> DeleteContributionsResponse:
+    """Delete every prototype contributed within a tenant (REQ-024 tenant deletion).
+
+    A blank tenant key, or one containing ``/``, is refused with 422.
+    """
+    pest_repo = _require_pest_repo()
+    return _erase_contributions(pest_repo.delete_tenant_contributions, tenant_key=body.tenant_key)
+
+
+@app.post("/pest/reference/contributions/keys", response_model=PestContributionKeysResponse)
+def list_pest_contribution_keys(body: ListPestContributionKeysRequest) -> PestContributionKeysResponse:
+    """One page of the contribution keys that have a prototype (#1771).
+
+    The backend's orphan sweep compares them with its ``pest_image_contributions``
+    documents and erases the prototypes whose document is gone — rows written
+    before #1766, when deleting a contribution left its prototype behind, and
+    rows a lost undo left over. Returns keys only (no embedding, label or
+    tenant); ascending, strictly after ``after``. A page shorter than ``limit``
+    is the last one. A ``limit`` outside ``1..1000`` is refused with 422.
+    """
+    pest_repo = _require_pest_repo()
+    try:
+        page_size = require_page_limit(body.limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    keys = pest_repo.list_contribution_keys(after=body.after, limit=page_size)
+    next_after = keys[-1] if len(keys) == page_size else None
+    return PestContributionKeysResponse(contribution_keys=keys, next_after=next_after)
 
 
 @app.delete("/pest/reference/{label}", response_model=DeleteReferenceResponse)

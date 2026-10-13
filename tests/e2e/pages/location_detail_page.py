@@ -17,6 +17,10 @@ class LocationDetailPage(BasePage):
     PATH_PREFIX = "/standorte/locations"
 
     # ── Page markers ───────────────────────────────────────────────────
+    #: The page root (`LocationDetailPage.tsx`). Rendered only once the location
+    #: loaded; on a 404 the route renders `ErrorDisplay` *instead*, which is what
+    #: makes it a settle locator for `navigate_direct` (cross-tenant probe, #2120).
+    PAGE = (By.CSS_SELECTOR, "[data-testid='location-detail-page']")
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
     LOADING_SKELETON = (By.CSS_SELECTOR, "[data-testid='loading-skeleton']")
     ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")

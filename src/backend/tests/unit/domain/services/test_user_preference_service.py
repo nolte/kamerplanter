@@ -13,6 +13,7 @@ dict handed to ``update_fields`` — that argument *is* the invariant under test
 """
 
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -60,9 +61,9 @@ class _RecordingRepo:
 
 
 def _service(seed: UserPreference) -> tuple[UserPreferenceService, _RecordingRepo]:
-    service = UserPreferenceService.__new__(UserPreferenceService)
+    service = UserPreferenceService(MagicMock())
     repo = _RecordingRepo(seed)
-    service._repo = repo  # type: ignore[attr-defined]
+    service._repo = repo  # type: ignore[assignment]
     return service, repo
 
 
@@ -152,6 +153,10 @@ class _RaceRepo:
         self._exists = True
         raise DuplicateError("user_preferences", "user_key", USER_KEY)
 
+    def update_fields(self, key: str, fields: dict[str, Any]) -> dict[str, Any]:
+        self._winner.update(fields)
+        return dict(self._winner)
+
 
 class _MultiDocRepo:
     """A legacy volume that still holds duplicate singletons for one user_key."""
@@ -167,23 +172,86 @@ class _MultiDocRepo:
 
 
 def _service_with(repo: Any) -> UserPreferenceService:
-    service = UserPreferenceService.__new__(UserPreferenceService)
-    service._repo = repo  # type: ignore[attr-defined]
+    """The real service with only its repository doubled (review SCR-011).
+
+    ``__new__`` skipped ``__init__`` here, so a constructor that grew a second
+    collection or a derived field would have left these tests exercising an object
+    the application never builds. The ``MagicMock`` database is enough: ``db`` is
+    only used to construct the repository this then replaces.
+    """
+    service = UserPreferenceService(MagicMock())
+    service._repo = repo  # type: ignore[assignment]
     return service
 
 
-def test_get_preferences_rereads_on_duplicate_race():
+def test_the_first_write_rereads_on_duplicate_race():
+    """The auto-create race, on the path it lives on since #1461: the first WRITE.
+
+    It used to live on ``get_preferences``, which made a plain ``GET`` persist.
+    The resolution is unchanged — the refusal is swallowed and the winner's
+    document is returned instead of a 409 reaching the losing request — only the
+    caller that triggers it moved.
+    """
     winner = {"_key": "pref-win", "user_key": USER_KEY, "locale": "en"}
     repo = _RaceRepo(winner)
     service = _service_with(repo)
 
-    result = service.get_preferences(USER_KEY)
+    result = service.update_preferences(USER_KEY, {"theme": "dark"})
 
-    # The DuplicateError is swallowed and the winner's document returned (upsert),
-    # instead of surfacing a 409 to the losing request.
     assert result.key == "pref-win"
     assert result.locale == "en"
     assert repo.create_calls == 1
+
+
+def test_reading_preferences_creates_nothing(monkeypatch):
+    """#1461 — the read answers with the defaults and writes no row.
+
+    ``_RaceRepo`` raises on ``create``, so an auto-create would surface here as a
+    ``DuplicateError`` rather than as a quiet extra row: the assertion on
+    ``create_calls`` is the statement, and the absence of an exception is the
+    control that the statement is not passing for the wrong reason.
+    """
+    repo = _RaceRepo({"_key": "pref-win", "user_key": USER_KEY, "locale": "en"})
+    service = _service_with(repo)
+
+    result = service.get_preferences(USER_KEY)
+
+    assert repo.create_calls == 0
+    assert result.key is None
+    assert result.user_key == USER_KEY
+    # The answer is the same one the freshly created document would have carried.
+    assert result.experience_level == UserPreference(user_key=USER_KEY).experience_level
+
+
+def test_the_first_write_creates_the_row_when_there_is_none():
+    """The other half: nothing reads the row into existence, so a write must."""
+
+    class _ColdRepo:
+        def __init__(self) -> None:
+            self.created: list[UserPreference] = []
+            self._doc: dict[str, Any] | None = None
+
+        def find_by_field(self, field: str, value: Any) -> list[dict[str, Any]]:
+            return [dict(self._doc)] if self._doc else []
+
+        def create(self, model: UserPreference) -> dict[str, Any]:
+            self.created.append(model)
+            self._doc = {"_key": "pref-new", **model.model_dump(mode="json", exclude={"key"})}
+            return dict(self._doc)
+
+        def update_fields(self, key: str, fields: dict[str, Any]) -> dict[str, Any]:
+            assert self._doc is not None
+            self._doc.update(fields)
+            return dict(self._doc)
+
+    repo = _ColdRepo()
+    service = _service_with(repo)
+
+    result = service.update_preferences(USER_KEY, {"theme": "dark"})
+
+    assert len(repo.created) == 1
+    assert result.key == "pref-new"
+    assert result.theme == "dark"
 
 
 def test_get_preferences_picks_smallest_key_on_duplicates():

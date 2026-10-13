@@ -88,6 +88,9 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // Admin
   '/admin/tenants': { label: 'pages.auth.adminTenantsTitle', parent: '/settings' },
   '/admin/users': { label: 'pages.auth.adminUsersTitle', parent: '/settings' },
+  '/admin/oidc-providers': { label: 'pages.admin.oidc.title', parent: '/settings' },
+  '/admin/plans': { label: 'pages.plans.title', parent: '/settings' },
+  '/admin/tenant-imports': { label: 'pages.tenantImports.title', parent: '/settings' },
 };
 
 export function buildBreadcrumbs(

@@ -1,3 +1,7 @@
+from collections.abc import Collection
+from typing import cast
+
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import PhaseKey, PlantID, ProfileKey
@@ -13,6 +17,50 @@ from app.domain.models.phase import (
 )
 
 
+class _PhaseHistoryRepository(BaseArangoRepository[PhaseHistory]):
+    """The ``phase_histories`` collection, with full-replace null semantics (#1516).
+
+    A dedicated class rather than a bare ``BaseArangoRepository`` instance because
+    :attr:`BaseArangoRepository._update_is_full_replace` is a ``ClassVar`` — the
+    null semantics belong to the collection, not to one call site.
+
+    **What it repairs.** In the inherited merge mode a ``None`` never reached the
+    store, so:
+
+    * ``PhaseService.delete_phase_history`` reopens the previous phase by nulling
+      ``exited_at`` and ``actual_duration_days`` — the reopened phase stayed
+      closed, while its sibling clears on the ``PlantInstance``
+      (``current_phase_key`` / ``current_phase_started_at``) *did* land because
+      ``ArangoPlantInstanceRepository`` is already full-replace. That is why the
+      function looked half-correct.
+    * ``PhaseService.update_phase_history_dates`` and
+      ``PlantingRunService.batch_update_phase_dates`` null
+      ``actual_duration_days`` when the exit date is removed — the duration
+      computed from the deleted exit date stayed.
+
+    **Every writer starts from the stored entry**, so none can lose a field it
+    never mentioned (measured 2026-09-18 over all five ``update_phase_history``
+    call sites): the three above load through ``get_phase_history`` and mutate
+    attributes, and the two in ``PhaseTransitionEngine`` (``transition`` and
+    ``terminate``) derive their model with ``model_copy(update=...)`` off the
+    stored one — which is what #1516 changed them to. They used to re-list ten
+    fields into a fresh :class:`PhaseHistory`, and that list had already drifted:
+    ``performance_score`` was missing from it, so under full-replace closing a
+    phase would have erased it — measured per field, against the engine's own call,
+    in ``tests/unit/domain/engines/test_phase_history_close_carries_the_whole_entry.py``.
+
+    Shaped like every other repository in this package (#1525 SCR-013): bound model on
+    the class, collection name in ``__init__``, so a caller cannot construct it
+    against the wrong collection.
+    """
+
+    _model_cls = PhaseHistory
+    _update_is_full_replace = True
+
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.PHASE_HISTORIES)
+
+
 class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRepository):
     _model_cls = LifecycleConfig
 
@@ -26,7 +74,7 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         self._transition_rules = BaseArangoRepository[PhaseTransitionRule](
             db, col.PHASE_TRANSITION_RULES, PhaseTransitionRule
         )
-        self._phase_histories = BaseArangoRepository[PhaseHistory](db, col.PHASE_HISTORIES, PhaseHistory)
+        self._phase_histories = _PhaseHistoryRepository(db)
 
     # ── Lifecycle CRUD ────────────────────────────────────────────────
 
@@ -80,12 +128,104 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
 
     def delete_phase(self, key: PhaseKey) -> bool:
         phase_id = f"{col.GROWTH_PHASES}/{key}"
+        # The phase's requirement and nutrient profiles are its children (the erasure
+        # inventory says so: "children of a growth phase") and go with it. Detaching
+        # only the edges left them behind unreachable — 155 orphans of each on a fresh
+        # install, and 5 more on every boot while two seeds traded one species' phases
+        # (#2002). Which profiles are owned is read FIRST (the edges say so), but they
+        # are removed LAST: the steps are not one transaction, and a failure part-way
+        # must never leave a ``requires_profile`` edge pointing at a removed profile —
+        # ``get_requirement_profile`` then dereferences ``None`` (measured: 500). The
+        # partial states left are the ones this method always had: edges detached,
+        # phase or profiles still present.
+        owned = self._owned_profile_ids(key, phase_id)
         self.delete_edges(col.CONSISTS_OF, phase_id, direction="inbound")
-        self.delete_edges(col.NEXT_PHASE, from_id=phase_id)
+        # `next_phase` is a chain (`create_transition_rule` writes
+        # from_phase → to_phase), so a phase in the middle carries one edge on each
+        # end. Detaching only the outbound half left the predecessor's edge pointing
+        # at a deleted document — the #1535 defect, found here by the R5 rule of
+        # `tests/unit/guards/test_arango_call_surface_scoping.py` (#1573 review
+        # SCR-001).
+        self.delete_edges(col.NEXT_PHASE, vertex_id=phase_id, direction="any")
         self.delete_edges(col.REQUIRES_PROFILE, from_id=phase_id)
         self.delete_edges(col.USES_NUTRIENTS, from_id=phase_id)
         self.delete_edges(col.GOVERNED_BY, from_id=phase_id)
-        return self._phases.delete(key)
+        deleted = self._phases.delete(key)
+        self._remove_unreferenced_profiles(owned)
+        return deleted
+
+    def _owned_profile_ids(self, key: PhaseKey, phase_id: str) -> dict[str, list[str]]:
+        """``{"req": ids, "nut": ids}`` — the profiles phase ``key`` alone owns (read-only).
+
+        Owned means reached by this phase's own edge or naming it in ``phase_key``
+        (the attribute ``create_*_profile`` writes beside the edge), and reached by no
+        other phase's edge, so a profile some other phase still points at is kept.
+        """
+        cursor = self._db.aql.execute(
+            """
+            LET req = (
+                FOR id IN UNION_DISTINCT(
+                    (FOR e IN @@req_edges FILTER e._from == @phase_id RETURN e._to),
+                    (FOR p IN @@req FILTER p.phase_key == @key RETURN p._id)
+                )
+                FILTER PARSE_IDENTIFIER(id).collection == @req_name
+                FILTER LENGTH(FOR e IN @@req_edges FILTER e._to == id AND e._from != @phase_id LIMIT 1 RETURN 1) == 0
+                RETURN PARSE_IDENTIFIER(id).key
+            )
+            LET nut = (
+                FOR id IN UNION_DISTINCT(
+                    (FOR e IN @@nut_edges FILTER e._from == @phase_id RETURN e._to),
+                    (FOR p IN @@nut FILTER p.phase_key == @key RETURN p._id)
+                )
+                FILTER PARSE_IDENTIFIER(id).collection == @nut_name
+                FILTER LENGTH(FOR e IN @@nut_edges FILTER e._to == id AND e._from != @phase_id LIMIT 1 RETURN 1) == 0
+                RETURN PARSE_IDENTIFIER(id).key
+            )
+            RETURN {req: req, nut: nut}
+            """,
+            bind_vars={
+                "@req": col.REQUIREMENT_PROFILES,
+                "@req_edges": col.REQUIRES_PROFILE,
+                "req_name": col.REQUIREMENT_PROFILES,
+                "@nut": col.NUTRIENT_PROFILES,
+                "@nut_edges": col.USES_NUTRIENTS,
+                "nut_name": col.NUTRIENT_PROFILES,
+                "phase_id": phase_id,
+                "key": key,
+            },
+        )
+        owned: dict[str, list[str]] = next(iter(cursor), None) or {"req": [], "nut": []}
+        return owned
+
+    def _remove_unreferenced_profiles(self, owned: dict[str, list[str]]) -> None:
+        """Remove the owned profiles no edge reaches any more — one query, both collections."""
+        if not (owned["req"] or owned["nut"]):
+            return
+        self._db.aql.execute(
+            """
+            LET req = (
+                FOR k IN @req_keys
+                    FILTER LENGTH(FOR e IN @@req_edges FILTER e._to == CONCAT(@req_name, "/", k) LIMIT 1 RETURN 1) == 0
+                    REMOVE k IN @@req OPTIONS { ignoreErrors: true }
+            )
+            LET nut = (
+                FOR k IN @nut_keys
+                    FILTER LENGTH(FOR e IN @@nut_edges FILTER e._to == CONCAT(@nut_name, "/", k) LIMIT 1 RETURN 1) == 0
+                    REMOVE k IN @@nut OPTIONS { ignoreErrors: true }
+            )
+            RETURN 1
+            """,
+            bind_vars={
+                "req_keys": owned["req"],
+                "nut_keys": owned["nut"],
+                "@req": col.REQUIREMENT_PROFILES,
+                "@req_edges": col.REQUIRES_PROFILE,
+                "req_name": col.REQUIREMENT_PROFILES,
+                "@nut": col.NUTRIENT_PROFILES,
+                "@nut_edges": col.USES_NUTRIENTS,
+                "nut_name": col.NUTRIENT_PROFILES,
+            },
+        )
 
     # ── Requirement Profile ───────────────────────────────────────────
 
@@ -164,6 +304,33 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
         histories = [PhaseHistory(**self._from_doc(r["vertex"])) for r in results]
         return sorted(histories, key=lambda h: h.entered_at)
 
+    def get_active_phase_histories(self, plant_keys: Collection[PlantID]) -> dict[PlantID, PhaseHistory]:
+        """The earliest-entered open history entry per plant, for a whole page of plants in one query.
+
+        Walks the ``phase_history_edge`` collection by its ``_from`` edge index — the
+        same edges :meth:`get_phase_history` traverses one plant at a time — and keeps
+        only the entries without ``exited_at`` (a missing field reads as ``null``,
+        like the ``None`` the per-plant read compares against). The earliest
+        ``entered_at`` wins, which is the entry ``next(h for h in sorted(...) if
+        h.exited_at is None)`` picks there (MT-032, #2128).
+        """
+        ids = sorted({f"{col.PLANT_INSTANCES}/{key}" for key in plant_keys if key})
+        if not ids:
+            return {}
+        query = """
+        FOR edge IN @@edge
+          FILTER edge._from IN @ids
+          LET history = DOCUMENT(edge._to)
+          FILTER history != null AND history.exited_at == null
+          RETURN {plant_id: edge._from, history: history}
+        """
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={"@edge": col.PHASE_HISTORY_EDGE, "ids": ids}))
+        open_by_plant: dict[PlantID, list[PhaseHistory]] = {}
+        for row in cursor:
+            plant_key = str(row["plant_id"]).split("/", 1)[1]
+            open_by_plant.setdefault(plant_key, []).append(PhaseHistory(**self._from_doc(row["history"])))
+        return {key: min(entries, key=lambda h: h.entered_at) for key, entries in open_by_plant.items()}
+
     def create_phase_history(self, history: PhaseHistory) -> PhaseHistory:
         created = self._phase_histories.create(history)
         if history.plant_instance_key:
@@ -177,5 +344,12 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
 
     def delete_phase_history(self, key: str) -> bool:
         history_id = f"{col.PHASE_HISTORIES}/{key}"
-        self.delete_edges(col.PHASE_HISTORY_EDGE, to_id=history_id)
+        # The edge points *at* the history entry (plant → history), so the vertex to
+        # detach is the inbound end. Spelled `to_id=` alone since #346, which is the
+        # one combination `delete_edges` rejects outright ("requires from_id or
+        # vertex_id") — so this method raised `ValueError` before it ever deleted
+        # anything, and with it every `DELETE .../phase-history/{key}`. Measured
+        # 2026-09-18 against a real ArangoDB: it is the write path #1516's
+        # `phase_service.delete_phase_history` entry names, and it could not run.
+        self.delete_edges(col.PHASE_HISTORY_EDGE, vertex_id=history_id, direction="inbound")
         return self._phase_histories.delete(key)

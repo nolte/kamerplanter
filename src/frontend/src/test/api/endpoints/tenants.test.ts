@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
+import { ApiError } from '@/api/errors';
 
 const mocks = vi.hoisted(() => {
   const client = {
@@ -32,6 +34,18 @@ describe('tenants endpoints — tenant CRUD', () => {
     expect(client.get).toHaveBeenCalledWith('/tenants');
   });
 
+  it('listMyTenantsWithScheduledDeletion asks for the scheduled deletions too (#2166)', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tenants.listMyTenantsWithScheduledDeletion();
+    expect(client.get).toHaveBeenCalledWith('/tenants', { params: { include_scheduled_deletion: true } });
+  });
+
+  it('cancelTenantErasure posts the step-up to the cancel route (#2166)', async () => {
+    client.post.mockResolvedValue({ data: { key: 't1', status: 'active' } });
+    await tenants.cancelTenantErasure('club', { current_password: 'x' });
+    expect(client.post).toHaveBeenCalledWith('/tenants/club/erasure/cancel', { current_password: 'x' });
+  });
+
   it('createOrganization posts to /tenants', async () => {
     client.post.mockResolvedValue({ data: { key: 't1' } });
     const payload = { name: 'Org' } as never;
@@ -52,10 +66,15 @@ describe('tenants endpoints — tenant CRUD', () => {
     expect(client.patch).toHaveBeenCalledWith('/tenants/org', payload);
   });
 
-  it('deleteTenant deletes tenant by slug', async () => {
-    client.delete.mockResolvedValue({ data: undefined });
-    await tenants.deleteTenant('org');
-    expect(client.delete).toHaveBeenCalledWith('/tenants/org');
+  it('deleteTenant deletes tenant by slug and carries the step-up (#1791)', async () => {
+    const accepted = { tenant_key: 't-1', status: 'in_progress', requested_at: null, message: 'ok' };
+    client.delete.mockResolvedValue({ data: accepted });
+    await expect(tenants.deleteTenant('org', { confirm_slug: 'org', password: 'pw' })).resolves.toEqual(
+      accepted,
+    );
+    expect(client.delete).toHaveBeenCalledWith('/tenants/org', {
+      data: { confirm_slug: 'org', password: 'pw' },
+    });
   });
 });
 
@@ -63,21 +82,26 @@ describe('tenants endpoints — members', () => {
   it('listMembers gets members for slug', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listMembers('org');
-    expect(client.get).toHaveBeenCalledWith('/tenants/org/members');
-  });
-
-  it('changeMemberRole patches role', async () => {
-    client.patch.mockResolvedValue({ data: undefined });
-    await tenants.changeMemberRole('org', 'm1', 'lead');
-    expect(client.patch).toHaveBeenCalledWith('/tenants/org/members/m1/role', {
-      role: 'lead',
+    expect(client.get).toHaveBeenCalledWith('/tenants/org/members', {
+      params: { offset: 0, limit: 200 },
     });
   });
 
-  it('removeMember deletes membership', async () => {
+  it("changeMemberRole patches role with the acting administrator's step-up (#2032)", async () => {
+    client.patch.mockResolvedValue({ data: undefined });
+    await tenants.changeMemberRole('org', 'm1', 'lead', { current_password: 'pw' });
+    expect(client.patch).toHaveBeenCalledWith('/tenants/org/members/m1/role', {
+      role: 'lead',
+      current_password: 'pw',
+    });
+  });
+
+  it("removeMember deletes membership with the acting administrator's step-up (#2032)", async () => {
     client.delete.mockResolvedValue({ data: undefined });
-    await tenants.removeMember('org', 'm1');
-    expect(client.delete).toHaveBeenCalledWith('/tenants/org/members/m1');
+    await tenants.removeMember('org', 'm1', { step_up_code: '12345678' });
+    expect(client.delete).toHaveBeenCalledWith('/tenants/org/members/m1', {
+      data: { step_up_code: '12345678' },
+    });
   });
 
   it('leaveTenant posts to leave endpoint', async () => {
@@ -91,7 +115,7 @@ describe('tenants endpoints — invitations', () => {
   it('listInvitations gets invitations for slug', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listInvitations('org');
-    expect(client.get).toHaveBeenCalledWith('/tenants/org/invitations');
+    expect(client.get).toHaveBeenCalledWith('/tenants/org/invitations', { params: { offset: 0, limit: 200 } });
   });
 
   it('createEmailInvitation posts to email invitations', async () => {
@@ -125,7 +149,9 @@ describe('tenants endpoints — assignments', () => {
   it('listAssignments gets assignments for slug', async () => {
     client.get.mockResolvedValue({ data: [] });
     await tenants.listAssignments('org');
-    expect(client.get).toHaveBeenCalledWith('/tenants/org/assignments');
+    expect(client.get).toHaveBeenCalledWith('/tenants/org/assignments', {
+      params: { offset: 0, limit: 200 },
+    });
   });
 
   it('createAssignment posts assignment', async () => {
@@ -146,5 +172,77 @@ describe('tenants endpoints — assignments', () => {
     client.delete.mockResolvedValue({ data: undefined });
     await tenants.deleteAssignment('org', 'a1');
     expect(client.delete).toHaveBeenCalledWith('/tenants/org/assignments/a1');
+  });
+});
+
+describe('tenants endpoints — entitlements (REQ-056 §7.7, #2142)', () => {
+  it('getTenantEntitlements gets /tenants/{slug}/entitlements', async () => {
+    client.get.mockResolvedValue({ data: { plan: { key: 'standard', name: 'Standard' }, limits: [] } });
+    const result = await tenants.getTenantEntitlements('mein-garten');
+    expect(client.get).toHaveBeenCalledWith('/tenants/mein-garten/entitlements');
+    expect(result.plan.name).toBe('Standard');
+  });
+});
+
+describe('tenants endpoints — exports (REQ-056 §8, #2138)', () => {
+  function blobErrorResponse(status: number, body: string): AxiosError {
+    const config = { headers: new AxiosHeaders() } as InternalAxiosRequestConfig;
+    return new AxiosError('Request failed', 'ERR_BAD_REQUEST', config, {}, {
+      data: new Blob([body], { type: 'application/json' }),
+      status,
+      statusText: '',
+      headers: {},
+      config,
+    });
+  }
+
+  it('requestTenantExport posts the step-up to /tenants/{slug}/exports', async () => {
+    client.post.mockResolvedValue({ data: { key: 'e1', status: 'pending' } });
+    const result = await tenants.requestTenantExport('club', { current_password: 'x' });
+    expect(client.post).toHaveBeenCalledWith('/tenants/club/exports', { current_password: 'x' });
+    expect(result.key).toBe('e1');
+  });
+
+  it('listTenantExports reads the first bounded page, newest first', async () => {
+    client.get.mockResolvedValue({ data: [] });
+    await tenants.listTenantExports('club');
+    expect(client.get).toHaveBeenCalledWith('/tenants/club/exports', {
+      params: { offset: 0, limit: tenants.TENANT_EXPORT_LIST_LIMIT },
+    });
+  });
+
+  it('downloadTenantExport reads the archive as a blob', async () => {
+    const blob = new Blob(['zip']);
+    client.get.mockResolvedValue({ data: blob });
+    await expect(tenants.downloadTenantExport('club', 'e1')).resolves.toBe(blob);
+    expect(client.get).toHaveBeenCalledWith('/tenants/club/exports/e1/download', { responseType: 'blob' });
+  });
+
+  it('downloadTenantExport turns a blob-typed error envelope into an ApiError', async () => {
+    client.get.mockRejectedValue(
+      blobErrorResponse(
+        404,
+        JSON.stringify({
+          error_id: 'err-1',
+          error_code: 'NOT_FOUND',
+          message: 'The export has expired.',
+          details: [],
+          timestamp: '',
+          path: '/x',
+          method: 'GET',
+        }),
+      ),
+    );
+    const error = await tenants.downloadTenantExport('club', 'e1').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).statusCode).toBe(404);
+    expect((error as ApiError).errorCode).toBe('NOT_FOUND');
+    expect((error as ApiError).message).toBe('The export has expired.');
+  });
+
+  it('downloadTenantExport rethrows a blob error that is not the envelope unchanged', async () => {
+    const raw = blobErrorResponse(502, '<html>Bad gateway</html>');
+    client.get.mockRejectedValue(raw);
+    await expect(tenants.downloadTenantExport('club', 'e1')).rejects.toBe(raw);
   });
 });

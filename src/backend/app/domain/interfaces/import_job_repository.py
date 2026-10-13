@@ -18,7 +18,21 @@ class IImportJobRepository(ABC):
     def update(self, key: ImportJobKey, job: ImportJob) -> ImportJob: ...
 
     @abstractmethod
-    def list_all(self, offset: int = 0, limit: int = 50) -> tuple[list[ImportJob], int]: ...
+    def list_all(self, offset: int = 0, limit: int = 50, *, tenant_key: str | None) -> tuple[list[ImportJob], int]:
+        """List import jobs, scoped to ``tenant_key`` when one is given (#1501).
+
+        No default (#1708): ``None`` means "every tenant", so the caller must say
+        it rather than get it by leaving the argument out.
+
+        ``None`` is the unscoped system-context read. Every HTTP caller passes the
+        tenant it resolved: a staged job carries the rows of an uploaded CSV, so an
+        unscoped list handed one tenant's upload to every other one.
+        """
+
+    @abstractmethod
+    def list_all_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[ImportJob]:
+        """The page of :meth:`list_all` without its count query (MT-035, #2131); one tenant only."""
+        ...
 
     @abstractmethod
     def delete(self, key: ImportJobKey) -> bool: ...

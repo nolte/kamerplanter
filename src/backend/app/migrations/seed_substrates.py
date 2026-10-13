@@ -5,8 +5,11 @@ is idempotent: an existing substrate is identified by the tuple
 ``(type, name_de or brand or "")`` and skipped on re-runs, so repeated startups
 never duplicate the catalog.
 
-Substrate reference data is not tenant-scoped — it is a global product catalog
-consulted by substrate/batch management and the nutrient/watering engines.
+The seeded media are **global** rows (``tenant_key`` empty) of a hybrid catalogue:
+a tenant's own mixes live in the same collection (#1195). The identity check
+therefore looks at the global rows only (:func:`_existing_identities`, #2027). It
+used to read the whole collection, so a tenant's mix with a seed's identity counted
+as the seed being present, and the global row was never created for anyone.
 """
 
 from typing import Any
@@ -14,7 +17,7 @@ from typing import Any
 import structlog
 
 from app.common.dependencies import get_substrate_repo
-from app.domain.interfaces.substrate_repository import ISubstrateRepository
+from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.domain.models.substrate import Substrate
 from app.migrations.yaml_loader import load_yaml
 
@@ -26,10 +29,9 @@ def _identity(substrate: Substrate) -> tuple[str, str]:
     return (substrate.type.value, substrate.name_de or substrate.brand or "")
 
 
-def _existing_identities(repo: ISubstrateRepository) -> set[tuple[str, str]]:
-    """Collect dedup identities of all already-seeded substrates."""
-    existing, _ = repo.get_all_substrates(offset=0, limit=500)
-    return {_identity(s) for s in existing}
+def _existing_identities(repo: ArangoSubstrateRepository) -> set[tuple[str, str]]:
+    """Collect the dedup identities of the global (seeded) substrates, never a tenant's mix."""
+    return {_identity(s) for s in repo.get_global_substrates()}
 
 
 def run_seed_substrates() -> None:

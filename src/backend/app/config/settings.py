@@ -1,7 +1,10 @@
+import os
 import re
+from collections.abc import Mapping
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, SecretStr, ValidationError, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings
 
 # What ``/api/health`` reports when no build stamped a revision into the image
@@ -28,6 +31,48 @@ UNKNOWN_BUILD_REVISION = "unknown"
 # or an honest admission of not knowing, and nothing in between.
 _BUILD_REVISION_SHAPE = re.compile(r"^[0-9a-f]{7,40}$")
 
+#: The ``limits`` storage schemes the IP rate limiter can count in (#2045),
+#: measured against the installed ``limits`` 5.8 rather than its registry:
+#: ``valkey://``, ``valkeys://`` and ``valkey+unix://`` are registered there but
+#: need the ``valkey`` client package, which the backend does not ship, and fail
+#: at import; ``async+…`` storages would hand the synchronous slowapi limiter
+#: coroutines instead of counts; sentinel and cluster storages take options the
+#: limiter's bounded-timeout configuration does not cover (cluster also connects
+#: while it is built).
+RATE_LIMIT_STORAGE_SCHEMES: tuple[str, ...] = ("redis", "rediss", "redis+unix", "memory")
+
+
+def rate_limit_storage_scheme_is_usable(uri: str) -> bool:
+    """Return whether ``uri`` names one of :data:`RATE_LIMIT_STORAGE_SCHEMES` as ``<scheme>://``."""
+    scheme, separator, _ = uri.partition("://")
+    return bool(separator) and scheme in RATE_LIMIT_STORAGE_SCHEMES
+
+
+def storage_url_authority_is_well_formed(uri: str) -> bool:
+    """Return whether ``uri``'s authority parses as ``[user[:password]@]host[:port]`` (#2045, R2-01).
+
+    An unencoded ``/``, ``#`` or ``?`` in a password ends the authority early:
+    ``redis://:pw/x@host:6379`` parses as host ``''`` and port ``'pw'``, and
+    redis-py's ``ValueError`` then quotes that "port" — the password — at
+    import, before any log redaction runs. Such a value is refused when the
+    settings load instead. An ``@`` left in path, query or fragment is the same
+    early end with a numeric "port".
+    """
+    try:
+        parts = urlsplit(uri)
+        _ = parts.port
+        _ = parts.hostname
+    except ValueError:
+        return False
+    return "@" not in parts.path + parts.query + parts.fragment
+
+
+def _malformed_url_message(variable: str) -> str:
+    return (
+        f"{variable} does not parse as scheme://[user[:password]@]host[:port][/db] (value withheld); "
+        "percent-encode '/', '#', '?' and '@' inside the password"
+    )
+
 
 class GBIFSettings(BaseModel):
     base_url: str = "https://api.gbif.org/v1"
@@ -42,6 +87,36 @@ class GBIFSettings(BaseModel):
     plantae_taxon_key: int = 6
     max_description_length: int = 2000
     max_habitat_length: int = 500
+
+
+#: NFR-011 §4 / AK-14 (#1806 GDPR-004, #1946) — the ceiling of every configurable
+#: retention period (the seven of Q-R9 plus R-04, R-04a and R-12), equal to the
+#: NFR's own default for it. An operator may shorten a period (more data
+#: minimisation, Art. 5(1)(c)) but never lengthen it past the
+#: value the NFR fixes; a larger value stops ``Settings`` from loading, so API and
+#: worker (both import it) refuse to start. ``RetentionService`` re-checks the same
+#: table for a caller that builds it with explicit values.
+RETENTION_CEILINGS: dict[str, int] = {
+    "retention_soft_delete_retention_days": 90,  # R-01
+    "retention_unverified_account_days": 7,  # R-02
+    "retention_ip_anonymization_days": 7,  # R-03
+    "retention_export_file_retention_hours": 72,  # R-05
+    "retention_erasure_audit_retention_years": 3,  # R-06 (Q-R12)
+    "retention_email_change_retention_hours": 24,  # R-07
+    "retention_email_change_revert_days": 7,  # R-07a
+    # #1946 — operator decision (default taken by the orchestrating session): the three periods
+    # that were enforced from #1912 on without a bound get the NFR's own period as their ceiling.
+    "retention_consent_retention_years": 3,  # R-04
+    "retention_consent_ip_anonymization_days": 7,  # R-04a
+    "retention_invitation_retention_days": 30,  # R-12
+    # #1960 — the wait between telling the other members of a personal tenant and erasing it, for a
+    # request that was not told at request time. It lengthens how long personal data of an erasure
+    # request stays, so it has a ceiling like the periods above: a week, the NFR's own default.
+    "retention_erasure_member_notice_days": 7,  # R-01a
+    # #2123 (MT-027) — the cancellable grace between a tenant deletion being accepted and the
+    # erasure running. Operator decision 2026-10-04: as long as an account's (R-01), never longer.
+    "retention_tenant_erasure_grace_days": 90,  # R-01b
+}
 
 
 class Settings(BaseSettings):
@@ -98,8 +173,48 @@ class Settings(BaseSettings):
     arangodb_database: str = "kamerplanter"
     arangodb_username: str = "root"
     arangodb_password: str = "rootpassword"
+    #: #2127 (MT-031) — how the backend speaks to ArangoDB. ``http`` is what every
+    #: client hard-coded until #2127 and stays the default, so a deployment that
+    #: sets nothing connects exactly as before. ``https`` is for a database that
+    #: terminates TLS itself — an external or managed instance; the Helm chart sets
+    #: it from ``database.arangodb.external.scheme``. The certificate is verified
+    #: against the system trust store (``REQUESTS_CA_BUNDLE`` names a private CA).
+    #: Anything else refuses to load: a typo must not fall back to plain text.
+    arangodb_scheme: Literal["http", "https"] = "http"
+
+    @field_validator("arangodb_host")
+    @classmethod
+    def _arangodb_host_is_a_bare_host(cls, value: str) -> str:
+        """Refuse a URL in ``ARANGODB_HOST`` (#2127).
+
+        The connection URL is ``{ARANGODB_SCHEME}://{ARANGODB_HOST}:{ARANGODB_PORT}``.
+        A host written as ``https://db.example`` would yield
+        ``http://https://db.example:8529`` — a connection that fails far from its
+        cause, and with ``http`` the TLS the operator asked for silently gone.
+        """
+        if "/" in value or "@" in value:
+            msg = "ARANGODB_HOST must be a bare host name or address; set the scheme in ARANGODB_SCHEME"
+            raise ValueError(msg)
+        return value
+
+    @property
+    def arangodb_url(self) -> str:
+        """The ArangoDB endpoint every client connects to (#2127)."""
+        return f"{self.arangodb_scheme}://{self.arangodb_host}:{self.arangodb_port}"
 
     redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("redis_url")
+    @classmethod
+    def _redis_url_is_well_formed(cls, value: str) -> str:
+        """Refuse a ``REDIS_URL`` whose authority does not parse, without echoing it (#2045, R2-01).
+
+        An empty ``RATE_LIMIT_STORAGE_URL`` hands this value to the IP rate
+        limiter, which is built while the auth router is imported.
+        """
+        if not storage_url_authority_is_well_formed(value):
+            raise ValueError(_malformed_url_message("REDIS_URL"))
+        return value
 
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
@@ -139,7 +254,11 @@ class Settings(BaseSettings):
     # Phase-1 primary adapter is Pl@ntNet (REQ-029-A §0.1.1: DINOv2/local_embedding
     # is Phase 2). Phase 2 switches this to "local_embedding" without touching
     # engine/service/API.
-    identification_primary_adapter: str = "plantnet"
+    #: A ``Literal`` since #1887: an unknown key (a typo) is refused when the
+    #: settings load instead of silently resolving another provider — possibly one
+    #: that sends images to a third party the operator did not choose. A guard test
+    #: pins the values to the keys ``IdentificationAdapterRegistry`` holds.
+    identification_primary_adapter: Literal["plantnet", "local_embedding"] = "plantnet"
     # HTTP timeout (seconds) for the external identification call, env-configurable
     # via ``IDENTIFICATION_HTTP_TIMEOUT``. The Pl@ntNet ``/identify`` request
     # (multipart image upload + server-side ML inference) regularly exceeds the
@@ -193,7 +312,11 @@ class Settings(BaseSettings):
     pest_detection_cloud_api_key: str = ""
     pest_detection_cloud_base_url: str = "https://plant.id/api/v3"
     # Config-driven primary adapter (analog identification) — nie hart kodiert.
-    pest_detection_primary_adapter: str = "local_pest_symptom"
+    #: A ``Literal`` since #1887 (see ``identification_primary_adapter``); a guard
+    #: test pins the values to the keys ``PestDetectionAdapterRegistry`` holds.
+    pest_detection_primary_adapter: Literal[
+        "local_pest_symptom", "local_pest_detector", "kindwise_pest", "demo_pest"
+    ] = "local_pest_symptom"
     pest_detection_max_image_size_mb: int = 8  # §6 multipart upload limit
     # EXIF-Strip behält für das Tiling mehr Auflösung als der ID-Pfad (1024).
     pest_detection_max_image_dimension: int = 2048
@@ -253,8 +376,77 @@ class Settings(BaseSettings):
     fernet_key: str = ""  # For encrypting OIDC provider secrets
     frontend_url: str = "http://localhost:5173"
     hibp_enabled: bool = False
-    require_email_verification: bool = False  # Set True in production
+    #: Default ``True`` since the operator decision #1948 (REQ-023 v1.28): with it
+    #: off, registration stamps ``email_verified`` without a confirmation, and every
+    #: gate trusting that flag (REQ-030 §3.4 mail recipient, OAuth auto-link)
+    #: admits an address the registrant need not own. An installation without
+    #: outbound mail sets ``REQUIRE_EMAIL_VERIFICATION=false`` explicitly.
+    require_email_verification: bool = True
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
+
+    #: REQ-023 §3.2d (#2132) — who may create an account (``POST /auth/register`` and the first OIDC
+    #: sign-in). ``open`` (default, unchanged behaviour), ``invite_only`` (a pending e-mail invitation
+    #: for the address is required), ``closed`` (nobody, not even with an invitation). Existing
+    #: accounts sign in in every mode. A ``Literal``: a typo refuses startup instead of opening up.
+    registration_mode: Literal["open", "invite_only", "closed"] = "open"
+    #: Optional comma-separated e-mail domain allowlist for registration (``club.example,garden.example``;
+    #: exact, case-insensitive, no subdomains). Empty = any domain. An e-mail invitation for the
+    #: address is the exception; the first OIDC sign-in counts only a provider-verified address.
+    registration_allowed_domains: str = ""
+
+    #: REQ-024 AK-64 (#2133) — the platform ceiling of every tenant's member limit. A tenant's
+    #: effective limit is ``min(tenant.max_members, this)``; ``max_members`` is set to at most this
+    #: value, and an organisation founded without one takes it. A tenant stored above a lowered
+    #: ceiling keeps its members; only the next join is refused.
+    tenant_max_members_ceiling: int = Field(default=50, ge=1)
+
+    #: #2137 (MT-041, REQ-023 §5b AK-30) — how many active service accounts one tenant may hold.
+    #: A service account also takes a seat of the tenant's member limit (it is a member). Lowering the
+    #: value removes nobody; only the next creation is refused (422 ``SERVICE_ACCOUNT_LIMIT_REACHED``).
+    tenant_max_service_accounts: int = Field(default=20, ge=1)
+
+    #: REQ-056 §6.2 (#2142) — how many organisations one account may own (``owner_user_key``), counted in
+    #: every state but ``deleted``. ``0`` = no account founds an organisation through ``POST /tenants``;
+    #: organisations are then created by the platform operator only. Refused with
+    #: ``422 ORGANIZATION_LIMIT_REACHED``. An account limit, not a plan dimension (REQ-056 E-04).
+    tenant_max_organizations_per_user: int = Field(default=10, ge=0)
+
+    #: #2162 review W-1 — how many e-mail invitations one account may issue in 24 hours, across all its
+    #: tenants. Every e-mail invitation mails an address the inviter names and does not have to own, and
+    #: any account holds ``management`` in the tenants it founds (``POST /tenants``): without a ceiling the
+    #: invitation route is an open mail relay. Counted from the stored invitations, so it holds across
+    #: replicas and restarts; the next one is refused with ``429 RATE_LIMIT_EXCEEDED`` before anything is
+    #: stored or mailed. The per-minute burst is ``rate_limit_invitation_email``.
+    tenant_invitation_emails_per_day: int = Field(default=50, ge=1)
+
+    #: REQ-056 §8.2 / §13.6 (#2138) — tenant exports one tenant may request in 24 hours, every state
+    #: counted (a failed one too). The next request answers ``429 RATE_LIMIT_EXCEEDED``. An export moves
+    #: the data of every member; the limit bounds what a hijacked management session can pull.
+    tenant_exports_per_day: int = Field(default=3, ge=1)
+
+    #: REQ-056 §8.4 (#2138) — the largest tenant archive a platform admin may upload for an import, in MB
+    #: (compressed upload). Above it ``413``. The unpacked size is bounded independently of this — 1 GiB, of which
+    #: at most 128 MiB documents, plus a compression-ratio and row bound (``tenant_export_engine``, SEC-R2-01).
+    #: This is the import route's own body ceiling in ``RequestBodyLimitMiddleware`` (+ 1 MiB of multipart
+    #: framing; every other route keeps ``storage_max_file_size_mb`` + 1 MiB), bounded by the spool budget
+    #: ``upload_spool_budget_mb``: the upload is spooled to ``/tmp`` before the route runs (#2138).
+    tenant_import_max_upload_mb: int = Field(default=512, ge=1)
+
+    #: REQ-056 §8.3 (#2138) — the installation secret tenant archives are signed with (HMAC-SHA256 over
+    #: the manifest, through a fixed derivation label). Empty: the key is derived from ``jwt_secret_key``
+    #: as before, so rotating the JWT secret makes older archives import as unverified. Set it (at least
+    #: 32 characters, e.g. ``openssl rand -hex 32``) to keep archive signatures apart from token
+    #: signatures; changing it makes older archives import as unverified, nothing worse.
+    tenant_export_signing_secret: str = ""
+
+    @field_validator("tenant_export_signing_secret")
+    @classmethod
+    def _signing_secret_is_long_enough(cls, value: str) -> str:
+        """An empty secret falls back; a set one must be long enough to be one (the value is never echoed)."""
+        if value and len(value) < 32:
+            msg = "TENANT_EXPORT_SIGNING_SECRET must be empty or at least 32 characters long"
+            raise ValueError(msg)
+        return value
 
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:
@@ -297,13 +489,38 @@ class Settings(BaseSettings):
     inventree_allow_private_endpoint: bool = False
 
     # Email
-    email_adapter: str = "console"  # console | smtp | resend
+    #: ``console`` (development: logs, delivers nothing), ``smtp`` or ``resend``.
+    #: A ``Literal`` since #1821: an unknown value (a typo, a retired adapter) is
+    #: refused when the settings load instead of silently falling back to the
+    #: console adapter, which delivers no verification or reset mail at all.
+    email_adapter: Literal["console", "smtp", "resend"] = "console"
     smtp_host: str = "localhost"
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
     smtp_from_email: str = "noreply@kamerplanter.example"
     smtp_use_tls: bool = True
+    #: Resend HTTP API (#1821) — used when ``email_adapter`` is ``resend``, which
+    #: refuses to load without the key. A secret: provide it through the Secret /
+    #: ``.env``, never a values file.
+    resend_api_key: SecretStr = Field(default=SecretStr(""), validate_default=True)
+    #: Sender address; its domain must be verified in the Resend account.
+    resend_from_email: str = "noreply@kamerplanter.example"
+
+    @field_validator("resend_api_key")
+    @classmethod
+    def _resend_needs_its_api_key(cls, value: SecretStr, info: ValidationInfo) -> SecretStr:
+        """``EMAIL_ADAPTER=resend`` without ``RESEND_API_KEY`` is refused at load (#1821).
+
+        A *field* validator, deliberately not a model validator: pydantic renders
+        a model validator's failure with ``input_value=`` set to the whole input —
+        every setting read from the environment, secrets included. This one
+        fails only for an empty key, so its ``input_value`` is ``''``.
+        """
+        if info.data.get("email_adapter") == "resend" and not value.get_secret_value():
+            msg = "EMAIL_ADAPTER=resend requires RESEND_API_KEY"
+            raise ValueError(msg)
+        return value
 
     # Home Assistant (optional — for sensor live-query)
     ha_url: str = ""  # e.g. "http://homeassistant.local:8123"
@@ -316,6 +533,26 @@ class Settings(BaseSettings):
     # commonly runs in the LAN over http (homeassistant.local, 192.168.x.x), so
     # operators who run it on an RFC1918/loopback address must opt in explicitly.
     ha_allow_private_endpoint: bool = False
+
+    #: Whether a user's Apprise host target (``gotify``/``matrix``/``ntfy`` server)
+    #: may sit in private address space: RFC1918, unique-local ``fc00::/7`` and
+    #: shared ``100.64.0.0/10`` (#1996, REQ-030 §3.6). Unset (``None``) means the
+    #: deployment mode decides — see :meth:`apprise_private_targets_allowed`: off
+    #: in ``full`` (a private address there is the cluster: API server, ArangoDB,
+    #: Valkey on pod IPs), on in ``light`` (one user, a LAN Gotify/ntfy is the
+    #: documented use). ``APPRISE_ALLOW_PRIVATE_TARGETS=true|false`` overrides the
+    #: mode in either direction. Unlike ``HA_ALLOW_PRIVATE_ENDPOINT`` (a plain
+    #: ``False`` default in every mode, an admin-typed URL) these targets are typed
+    #: by any user; no validator ties it to other settings, and ``DEBUG`` does not
+    #: loosen it. Loopback, link-local, reserved and metadata addresses stay
+    #: refused regardless.
+    apprise_allow_private_targets: bool | None = None
+
+    def apprise_private_targets_allowed(self) -> bool:
+        """The effective Apprise private-target switch: the explicit setting, else ``light`` mode."""
+        if self.apprise_allow_private_targets is not None:
+            return self.apprise_allow_private_targets
+        return self.kamerplanter_mode == "light"
 
     # Reactive frost-warning threshold (°C) for the HA
     # ``binary_sensor.kp_{location}_frost_warning`` entity. A warning fires when
@@ -422,6 +659,20 @@ class Settings(BaseSettings):
     ai_circuit_breaker_cooldown_s: float = 60.0
     # Light-mode public /ai/ask rate limit (per client IP).
     ai_public_rate_limit_per_min: int = 10
+    # REQ-031 §3 (#2110, MT-013) — daily budgets of LLM calls, counted in Valkey
+    # per UTC day, on top of the per-minute ``rate_limit_inference`` every
+    # generating KI route carries. ``0`` switches one budget off.
+    #: Calls one account may start in one tenant per day (tips, daily tip,
+    #: "why?", chat message, glossary generation, KI diagnosis together).
+    ai_budget_user_calls_per_day: int = Field(default=50, ge=0)
+    #: Calls all members of one tenant may start together per day. Sized for a
+    #: community garden of about ten active growers.
+    ai_budget_tenant_calls_per_day: int = Field(default=500, ge=0)
+    #: LLM tokens (prompt + completion, as the knowledge service reports them)
+    #: one tenant may spend per day. A RAG answer costs roughly 2 000-5 000
+    #: tokens, so the default sits above the call budget and binds only when
+    #: answers grow unusually long.
+    ai_budget_tenant_tokens_per_day: int = Field(default=2_000_000, ge=0)
 
     # REQ-033 MCP server (Model Context Protocol). Opt-in aggregation layer over
     # the existing services, served in-process by the backend and gated by
@@ -486,14 +737,93 @@ class Settings(BaseSettings):
     # enabled — the startup gate refuses to boot without it (AP-4, INF-S1/S2).
     internal_service_token: str = ""
 
+    # Prometheus metrics (#2129, NFR-007). A listener of its own, never a route of
+    # the API app: the public ingress reaches the API on port 8000 and must not
+    # reach the metrics. ``0`` (the default) starts no listener at all; the chart
+    # sets the port when ``monitoring.enabled`` is on and admits only the
+    # configured Prometheus to it (helm/kamerplanter/values.yaml, ``monitoring``).
+    metrics_port: int = Field(default=0, ge=0, le=65535)
+    metrics_bind_address: str = "0.0.0.0"  # noqa: S104 — the pod's own interface; the NetworkPolicy gates it
+
+    # #2154 — the Celery worker's readiness file. Empty (the default, and every
+    # compose/dev setup) changes nothing. Set — the Helm chart does — the worker
+    # proves its ArangoDB login before it consumes a message and refuses to start
+    # when it cannot (a rollout then keeps the old worker), writes this file once
+    # it consumes and removes it on shutdown; the chart's startup and readiness
+    # probes test for it.
+    worker_ready_file: str = ""
+
     # mDNS / Zeroconf Discovery
     mdns_enabled: bool = False  # Enable only for local/on-premise deployments (opt-in)
     # Auto-generated UUID prefix if empty; alphanumeric + hyphens only, max 64 chars
     instance_id: Annotated[str, Field(max_length=64, pattern=r"^[a-zA-Z0-9\-]*$")] = ""
 
     # Rate limiting
+    #: Where the IP rate limits (the shared slowapi ``limiter``) keep their
+    #: counters (#2045). A ``limits`` storage URI whose scheme is one of
+    #: :data:`RATE_LIMIT_STORAGE_SCHEMES` — ``redis://…``, ``rediss://…``,
+    #: ``redis+unix://…`` or ``memory://``; anything else refuses to load.
+    #:
+    #: **Empty means "use ``redis_url``", and that default is the fix.** slowapi
+    #: falls back to ``memory://`` when given no storage, so every replica and
+    #: every worker process counted on its own and ``N`` processes multiplied each
+    #: documented limit by ``N``. Requiring an explicit value instead would let a
+    #: forgotten one reproduce exactly that, silently; deriving it from the Valkey
+    #: the backend already needs makes the shared count the state nobody has to
+    #: remember.
+    #:
+    #: Set it to point the counters at a different Valkey database, or to
+    #: ``memory://`` where one process *is* the deployment (the unit-test suite,
+    #: a single-process dev server). If the configured storage is unreachable the
+    #: limiter counts per process until it is back — the pre-#2045 bound, never
+    #: open, and no 500 for a storage error (``app/common/rate_limit.py``).
+    rate_limit_storage_url: str = ""
+
+    @field_validator("rate_limit_storage_url")
+    @classmethod
+    def _rate_limit_storage_url_has_a_usable_scheme(cls, value: str) -> str:
+        """Refuse a storage URI the limiter cannot count in, without echoing it (#2045).
+
+        Unchecked, an unknown scheme fails inside ``limits`` while the auth
+        router is imported — before the redacting log setup — with a message
+        that is the whole URI, Valkey password included. The message here names
+        the allowed schemes only: not even the configured scheme, because a
+        value without ``://`` (``user:password@host``) parses its secret as one.
+        """
+        if value and not rate_limit_storage_scheme_is_usable(value):
+            allowed = ", ".join(f"{scheme}://" for scheme in RATE_LIMIT_STORAGE_SCHEMES)
+            msg = f"unsupported rate-limit storage scheme (value withheld); allowed: {allowed}, or empty for REDIS_URL"
+            raise ValueError(msg)
+        if value and not storage_url_authority_is_well_formed(value):
+            raise ValueError(_malformed_url_message("RATE_LIMIT_STORAGE_URL"))
+        return value
+
     rate_limit_auth: str = "20/minute"
-    rate_limit_general: str = "100/minute"
+    #: Per-account budgets of the expensive authenticated routes (#2109), each
+    #: route counted on its own. Keyed on the authenticated principal
+    #: (``user_rate_limit_key``), on the client address only where none was
+    #: resolved. ``rate_limit_general`` ("100/minute") was removed with them:
+    #: no code ever read it.
+    #:
+    #: ``rate_limit_upload`` — every route that takes a file upload (attachments,
+    #: plant and task photos, pest-image contributions, the CSV import). Each
+    #: upload is buffered, magic-byte checked, EXIF-stripped and queues a
+    #: thumbnail render. 30 a minute covers a user picking a whole batch from
+    #: the gallery (the clients upload one request per photo).
+    rate_limit_upload: str = "30/minute"
+    #: ``rate_limit_inference`` — routes that run a model per request (CV
+    #: diagnosis, pest detection, plant identification, reference contribution,
+    #: and since #2110 every route that puts a prompt in front of an LLM: tip and
+    #: daily-tip generation, "why?", chat message, glossary generation, KI
+    #: diagnosis). Below the upload budget: one inference costs more than one
+    #: upload, and nobody photographs twenty plants a minute for a diagnosis. The
+    #: per-day caps of identification and contribution and the daily AI budgets
+    #: (``ai_budget_*``) stay in force on top.
+    rate_limit_inference: str = "20/minute"
+    #: ``rate_limit_export`` — the PDF renders under ``/print``. A print is a
+    #: deliberate act; twenty a minute leaves room for retries and several
+    #: label sheets in a row.
+    rate_limit_export: str = "20/minute"
     #: ``POST /api/v1/privacy/email-change`` (REQ-025 Art. 16), per client IP.
     #:
     #: Deliberately far below ``rate_limit_auth`` rather than equal to it. The
@@ -507,6 +837,11 @@ class Settings(BaseSettings):
     #: account's address is a rare, deliberate act; a handful of attempts an hour
     #: covers a typo plus a change of mind.
     rate_limit_email_change: str = "5/hour"
+    #: ``POST /api/v1/tenants/{slug}/invitations/email`` (#2162 review W-1), per account
+    #: (``user_rate_limit_key``). Like ``rate_limit_email_change`` every call mails an address the
+    #: caller names; inviting a handful of people in a row is the legitimate burst. The daily
+    #: ceiling per account is ``tenant_invitation_emails_per_day``.
+    rate_limit_invitation_email: str = "10/minute"
     #: ``POST /api/v1/t/{slug}/notifications/test`` (REQ-030), per client address.
     #:
     #: **Why there is a limit at all.** The route's docstring claimed "Rate limited
@@ -527,6 +862,10 @@ class Settings(BaseSettings):
     #: noise. Testing a channel is a rare, deliberate act: a handful of attempts an
     #: hour covers a misconfigured endpoint plus a retry after fixing it.
     rate_limit_notification_test: str = "5/hour"
+    #: ``GET /api/v1/system/takeover-status`` and ``POST /api/v1/system/takeover`` (REQ-027 §7a, #1855 R3 W-5),
+    #: per account. Every refused decision writes an audit row and the eligibility check scans the accounts;
+    #: a person decides once, the dialog asks the status once per session - ten a minute is ample.
+    rate_limit_takeover: str = "10/minute"
     #: ``POST /api/v1/privacy/email-change/confirm`` (REQ-025 Art. 16), per client IP.
     #:
     #: **Why there is a limit at all** (#990). The endpoint is unauthenticated and
@@ -559,6 +898,25 @@ class Settings(BaseSettings):
     #: JSON body, so a prefetcher cannot spend the budget. A sandbox that renders
     #: the landing page and executes its JavaScript could — ten absorbs that too.
     rate_limit_email_change_confirm: str = "10/minute"
+    #: ``GET /api/v1/privacy/export/{key}/download`` (REQ-025 Art. 15), per client IP.
+    #:
+    #: **Why a limit at all** (#1666). Every call streams a complete copy of an
+    #: account's personal data out of object storage. The route is authenticated
+    #: and ownership-checked, so this is not an access control; it bounds the
+    #: cost and the blast radius of a leaked session or a client stuck in a loop,
+    #: and it brings the route in line with its siblings, which all carry one.
+    #:
+    #: **Where 10 an hour comes from — the legitimate side.** A bundle is
+    #: downloaded once, perhaps again after an interrupted transfer or on a second
+    #: device, within its 72-hour window. Ten an hour covers that with room for
+    #: several people behind one NAT address. It sits above
+    #: ``rate_limit_email_change`` (that one bounds mail to third parties) and far
+    #: below ``rate_limit_auth`` (an interactive retry surface): a download is
+    #: neither.
+    rate_limit_export_download: str = "10/hour"
+    #: ``POST /api/v1/admin/platform/tenant-imports`` (REQ-056 §8.4, #2138), per account: each call reads,
+    #: verifies and stores an archive of up to ``TENANT_IMPORT_MAX_UPLOAD_MB``.
+    rate_limit_tenant_import: str = "10/hour"
     #: ``POST /api/v1/auth/refresh``, per client IP (#1131).
     #:
     #: **Why its own setting and not ``rate_limit_auth``.** That budget's own
@@ -596,6 +954,44 @@ class Settings(BaseSettings):
     #: behind one NAT address, and stays deliberately below ``rate_limit_auth`` so
     #: the two surfaces cannot be confused for one budget.
     rate_limit_device_pairing_redeem: str = "10/minute"
+    #: ``POST /api/v1/auth/resend-verification`` (REQ-023 §3.2b, #2037), per client IP.
+    #:
+    #: **Why its own setting and not ``rate_limit_auth``.** Like
+    #: ``rate_limit_email_change`` this route may mail a **caller-chosen address**,
+    #: so its budget bounds outbound mail to third parties, not interactive
+    #: retries; 20/minute would fund 1200 mails an hour from one source.
+    #:
+    #: **What it does not bound.** One recipient from many sources — that is the
+    #: per-address budget (three requests, refilled after an hour without one;
+    #: ``AuthService.MAX_VERIFICATION_RESENDS_PER_WINDOW``), which answers
+    #: silently so it cannot become an enumeration oracle. This per-IP limit
+    #: answers 429, which is safe because it is a property of the source, never
+    #: of the address.
+    #:
+    #: **Where 10 an hour comes from — the legitimate side.** A user asks for a
+    #: new link once, perhaps twice; ten leaves room for several people behind
+    #: one NAT address.
+    rate_limit_resend_verification: str = "10/hour"
+    #: ``GET /api/v1/calendar/feeds/{key}/feed.ics`` (REQ-015 CF-004, #2226), per client IP.
+    #:
+    #: **Why a limit at all**, given that the feed token is a 256-bit secret looked
+    #: up by hash: the route is unauthenticated and renders a calendar per call
+    #: (five event-source reads), so a flood would drive database load one cheap
+    #: request at a time. CF-004 puts it in the "anonymous" tier of NFR-001 §6.3:
+    #: 30 a minute per address.
+    #:
+    #: **The legitimate side.** A calendar client polls a subscription every 15
+    #: minutes to every few hours, Home Assistant's calendar coordinator about as
+    #: often. Thirty a minute leaves room for many subscriptions behind one NAT
+    #: address.
+    rate_limit_calendar_feed: str = "30/minute"
+    #: The same route, per presented feed token (#2226 review SEC-005), on top of
+    #: the per-address limit above. A subscription URL pasted into several
+    #: devices (phone, laptop, Home Assistant) is polled a few times an hour by
+    #: each; sixty an hour leaves room for that and bounds a leaked URL polled
+    #: from many addresses at once. Keyed by a digest of the token, so nobody
+    #: without the token can spend its budget.
+    rate_limit_calendar_feed_per_token: str = "60/hour"
     #: ``GET /api/health``, per client IP (#1210, SEC-003).
     #:
     #: **Why this endpoint has a limit and the Kubernetes probes do not.** The
@@ -618,6 +1014,12 @@ class Settings(BaseSettings):
     #: base-URL negotiation, an operator during an incident a handful of times.
     #: Sixty a minute leaves an order of magnitude of headroom for several such
     #: clients behind one NAT address while still bounding a flood.
+    #:
+    #: **Counted per process, in memory** (#2048, ``process_memory_limiter``):
+    #: the bound is about amplification, not a budget that must hold across
+    #: replicas, and a health request must never wait on the shared Valkey —
+    #: least of all while it is down. The deployment-wide bound is this value
+    #: times the number of backend processes.
     rate_limit_health: str = "60/minute"
 
     #: How many proxy addresses **our own** infrastructure appends to the right
@@ -653,11 +1055,151 @@ class Settings(BaseSettings):
 
     # REQ-025 Privacy / GDPR
     erasure_tombstone_salt: str = ""  # NFR-011 §4: must be >= 32 chars in production
+    #: NFR-011 §3.4 L-1/L-2 (#1812): keys the log pseudonyms — the ``sub_…``
+    #: subject references and ``email_sha256`` digests on log lines, and where
+    #: such a reference is persisted (``requested_by_subject`` of erasure and
+    #: tenant-erasure records, subject-redacted ``error_message`` texts). Nothing
+    #: else: no lookup depends on it. Separate from the tombstone salt because that
+    #: one can never rotate; this one can — a rotation stops references written
+    #: before it from correlating with later ones, and an old reference can only be
+    #: recomputed with the retired salt. >= 32 chars in production (API and worker
+    #: refuse to start otherwise).
+    log_pseudonym_salt: str = ""
     privacy_data_controller_name: str = "Kamerplanter Operator"
     privacy_data_controller_email: str = "privacy@kamerplanter.example"
-    privacy_export_retention_hours: int = 72  # NFR-011 R-05
-    privacy_hard_delete_after_days: int = 90  # NFR-011 R-01
-    privacy_email_change_ttl_hours: int = 24
+    # NFR-011 §4 periods (#1782). Each is read in exactly one place,
+    # ``RetentionService``, and applied by the flow or task named on it. The
+    # three ``PRIVACY_*`` names they carried until #1782 keep working as
+    # aliases; the documented ``RETENTION_*`` name is listed first in each
+    # ``AliasChoices`` and wins when both are set. ``ge=1``: a zero period
+    # would hard-delete at request time, expire a link or export before it
+    # could be used, or anonymise a session's IP the moment it was issued.
+    #:
+    #: NFR-011 R-01 — a soft-deleted account is hard-deleted this many days after
+    #: the erasure request (``PrivacyService.request_erasure`` schedules it,
+    #: ``retention.execute_scheduled_erasures`` runs it).
+    retention_soft_delete_retention_days: int = Field(
+        default=90,
+        ge=1,
+        le=RETENTION_CEILINGS["retention_soft_delete_retention_days"],
+        validation_alias=AliasChoices("retention_soft_delete_retention_days", "privacy_hard_delete_after_days"),
+    )
+    #: NFR-011 R-01a (#1960) — the hard delete of an erasure request whose other
+    #: members of a personal tenant were told only *after* the request was
+    #: scheduled (a request from before #1824, or one whose first notice failed)
+    #: waits this many days after that notice; ``retention.execute_scheduled_erasures``
+    #: sends the notice and applies the wait. A request told at request time is not
+    #: delayed by it.
+    retention_erasure_member_notice_days: int = Field(
+        default=7,
+        ge=1,
+        le=RETENTION_CEILINGS["retention_erasure_member_notice_days"],
+        validation_alias=AliasChoices("retention_erasure_member_notice_days"),
+    )
+    #: NFR-011 R-01b / REQ-024 AK-52 (#2123, MT-027) — a tenant deletion (its
+    #: management, a platform admin, or an organisation orphaned by an account
+    #: erasure) is *scheduled* this many days ahead: the tenant is frozen
+    #: (``pending_deletion``), its members are told the date so they can export what
+    #: is theirs (Art. 20), and the management can cancel until then
+    #: (``POST /tenants/{slug}/erasure/cancel``). ``tenant_tasks.resume_tenant_erasures``
+    #: erases it afterwards. ``0`` (self-hosted, single household) keeps the
+    #: immediate erasure of #1792; the default and the ceiling are the 90 days of an
+    #: account's grace (operator decision 2026-10-04).
+    retention_tenant_erasure_grace_days: int = Field(
+        default=90,
+        ge=0,
+        le=RETENTION_CEILINGS["retention_tenant_erasure_grace_days"],
+        validation_alias=AliasChoices("retention_tenant_erasure_grace_days"),
+    )
+    #: NFR-011 R-03 — the IP address of a login session is anonymised this many
+    #: days after the session was issued (``auth_tasks.anonymize_old_ips``).
+    retention_ip_anonymization_days: int = Field(
+        default=7,
+        ge=1,
+        le=RETENTION_CEILINGS["retention_ip_anonymization_days"],
+        validation_alias=AliasChoices("retention_ip_anonymization_days"),
+    )
+    #: NFR-011 R-05 — a built Art. 15 bundle stays downloadable this many hours
+    #: after completion (``PrivacyService.process_data_export`` stamps
+    #: ``expires_at``, ``retention.expire_data_exports`` deletes the file).
+    retention_export_file_retention_hours: int = Field(
+        default=72,
+        ge=1,
+        le=RETENTION_CEILINGS["retention_export_file_retention_hours"],
+        validation_alias=AliasChoices("retention_export_file_retention_hours", "privacy_export_retention_hours"),
+    )
+    #: NFR-011 R-07 — an email-change confirmation link is valid this many hours
+    #: (``PrivacyService.request_email_change`` stamps ``expires_at``,
+    #: ``retention.expire_email_change_requests`` flips it to ``expired``).
+    retention_email_change_retention_hours: int = Field(
+        default=24,
+        ge=1,
+        le=RETENTION_CEILINGS["retention_email_change_retention_hours"],
+        validation_alias=AliasChoices("retention_email_change_retention_hours", "privacy_email_change_ttl_hours"),
+    )
+    #: NFR-011 R-07 / REQ-025 Art. 16 (#1848) — how long the previous address of a
+    #: confirmed e-mail change can take the account back through the revert link
+    #: mailed to it. ``previous_email`` and the revert token's hash are kept exactly
+    #: this long, then cleared by ``retention.expire_email_change_requests``.
+    retention_email_change_revert_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_email_change_revert_days"]
+    )
+    #: NFR-011 R-02 / §4 ``UNVERIFIED_ACCOUNT_DAYS`` and REQ-023 AK-17 — an account
+    #: whose address was never confirmed is erased this many days after
+    #: registration (``auth_tasks.cleanup_unverified_accounts``). The task carried
+    #: a literal 72 hours until #1772; the spec's 7 days is canonical.
+    retention_unverified_account_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_unverified_account_days"]
+    )
+    #: NFR-011 R-02 release switch (#2010) — ``False``: the cleanup reaches only
+    #: provider-less accounts and merely *counts* the locally registered, never
+    #: confirmed accounts it would erase once released (the dry run, logged and
+    #: returned as ``local_registrations_pending``). ``True``: those are erased too.
+    #: Operator decision 2026-10-03: nothing real is deleted before the operator has
+    #: seen that count; the value is read by ``RetentionService.unverified_local_reap_enabled``.
+    retention_unverified_local_reap_enabled: bool = False
+    #: NFR-011 R-06 / §4 ``ERASURE_AUDIT_RETENTION_YEARS`` — a completed erasure
+    #: request (pseudonymised at erasure) is kept this many years as the
+    #: Art. 5(2) accountability proof, then hard-deleted by
+    #: ``retention.purge_expired_erasure_records`` (#1772). The default and the
+    #: ceiling are the spec's 3 years (Q-R12, §195 BGB; the code default was 1
+    #: until #1946); an operator may shorten it, never lengthen it.
+    retention_erasure_audit_retention_years: int = Field(
+        default=3, ge=1, le=RETENTION_CEILINGS["retention_erasure_audit_retention_years"]
+    )
+    #: NFR-011 R-04 / §4 ``CONSENT_RETENTION_YEARS`` (#1800) — a consent record is
+    #: hard-deleted this many years after it was revoked
+    #: (``retention.purge_expired_consent_records``). Pseudonymised at account
+    #: erasure instead of deleted immediately when the period has not run out yet
+    #: (REQ-025 §3.1.3 rule 3); the clock keeps counting from ``revoked_at``.
+    retention_consent_retention_years: int = Field(
+        default=3, ge=1, le=RETENTION_CEILINGS["retention_consent_retention_years"]
+    )
+    #: NFR-011 R-04a (#1800) — the IP address on a consent record is anonymised this
+    #: many days after it was recorded (``retention.anonymize_consent_ips``), the R-03
+    #: analogue for ``consent_records`` instead of ``refresh_tokens``. Reset to
+    #: unanonymised whenever the purpose is granted again (a fresh IP is recorded).
+    retention_consent_ip_anonymization_days: int = Field(
+        default=7, ge=1, le=RETENTION_CEILINGS["retention_consent_ip_anonymization_days"]
+    )
+    #: NFR-011 R-12 / §4 ``INVITATION_RETENTION_DAYS`` (#1800) — an expired invitation
+    #: is hard-deleted this many days after its ``expires_at``
+    #: (``tenant_tasks.cleanup_expired_invitations``, which already flips it to
+    #: ``expired`` at expiry).
+    retention_invitation_retention_days: int = Field(
+        default=30, ge=1, le=RETENTION_CEILINGS["retention_invitation_retention_days"]
+    )
+    #: NFR-011 R-16 / §4 ``HARVEST_DATA_MIN_RETENTION_YEARS`` (#1789) — harvest
+    #: documentation a tenant deletion kept (pseudonymised) is hard-deleted this many
+    #: years after ``harvest_date`` (``retention.purge_expired_legal_retention_rows``).
+    #: The floor is the legal minimum (CanG): it cannot be configured below it.
+    retention_harvest_data_min_retention_years: int = Field(default=5, ge=5)
+    #: NFR-011 R-17 / §4 ``TREATMENT_MIN_RETENTION_YEARS`` (#1789) — the same for
+    #: treatment applications, counted from ``applied_at``; floor PflSchG §11.
+    retention_treatment_min_retention_years: int = Field(default=3, ge=3)
+    #: NFR-011 R-18 / §4 ``INSPECTION_MIN_RETENTION_YEARS`` (#1789) — the same for
+    #: inspections, counted from ``inspected_at``; floor PflSchG §11.
+    retention_inspection_min_retention_years: int = Field(default=3, ge=3)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""
@@ -672,8 +1214,38 @@ class Settings(BaseSettings):
     notification_escalation_days: str = "2,4,7"
 
     # NFR-013 Object storage (§4.1) — defaults target the local-fs backend.
-    storage_backend: str = "local-fs"  # local-fs | s3
+    #: A ``Literal`` since #1887: an unknown backend stopped at first use only; now at start.
+    storage_backend: Literal["local-fs", "s3"] = "local-fs"
     storage_max_file_size_mb: int = 25
+    #: #2254 — byte budget shared by concurrent multipart bodies in one process.
+    #: Starlette spools every file part above 1 MiB into ``/tmp`` before the route
+    #: runs; the chart mounts a memory-backed ``/tmp`` of 64 MiB, so the default
+    #: holds two bodies at the default ceiling (25 + 1 MiB each) with room left.
+    #: Keep it below the backend's ``/tmp`` size when you raise either value.
+    #: Counted in bytes actually received, not in announced lengths.
+    upload_spool_budget_mb: int = Field(default=52, ge=1)
+    #: #2254 — how long an upload waits for spool budget before it gets ``503``.
+    upload_spool_wait_seconds: int = Field(default=30, ge=0)
+
+    @field_validator("upload_spool_budget_mb")
+    @classmethod
+    def _spool_budget_holds_one_full_upload(cls, value: int, info: ValidationInfo) -> int:
+        """Refuse a budget below one full-size multipart body at load (#2254).
+
+        A smaller budget could never admit an upload of the configured maximum:
+        every such upload would wait and end in ``503``. Field validator (not a
+        model validator) so the error echoes only this number, never the
+        environment.
+        """
+        max_file_mb = info.data.get("storage_max_file_size_mb")
+        if isinstance(max_file_mb, int) and value < max_file_mb + 1:
+            msg = (
+                f"UPLOAD_SPOOL_BUDGET_MB ({value}) must be at least STORAGE_MAX_FILE_SIZE_MB + 1 "
+                f"({max_file_mb + 1}): one full-size upload plus its multipart framing"
+            )
+            raise ValueError(msg)
+        return value
+
     storage_presign_ttl_seconds: int = 900
     storage_virus_scan_enabled: bool = False
     storage_virus_scan_endpoint: str = ""
@@ -704,6 +1276,29 @@ class Settings(BaseSettings):
     # plausible form-filling session, never a tuning knob — 48 was the figure this
     # change was built and tested around.
     storage_task_photo_orphan_hours: int = 0
+    # #1834 — periodic reconciliation of the object store against the attachment
+    # catalogue: objects under ``t/{tenant}/`` that no record holds any more.
+    #
+    # **Report-only unless ``STORAGE_RECONCILE_DELETE_ENABLED`` is true, and false is
+    # the shipped default** (operator decision, Datenschutzplan): the first release
+    # counts what it would delete and deletes nothing, so the operator reads a run's
+    # report before arming a job that removes bytes. Flip it only after a report
+    # shows ``eligible`` objects that match expectations.
+    storage_reconcile_delete_enabled: bool = False
+    # An upload writes the object *before* its record (``AttachmentService.upload``
+    # step 8 then 9), so a young unheld object is legitimate in flight. The longest
+    # plausible window is one request (<= ``STORAGE_MAX_FILE_SIZE_MB`` through virus
+    # scan and EXIF strip) plus the thumbnail task's three retries at 60 s: minutes.
+    # ``ge=1`` enforces an hour as the floor — never a tuning knob. 24 h ships.
+    storage_reconcile_min_age_hours: int = Field(default=24, ge=1)
+    # Objects examined per run; the listing resumes where the last run stopped, so a
+    # bucket larger than this is covered over several nights.
+    storage_reconcile_max_objects_per_run: int = Field(default=200_000, ge=1000)
+    # The brake: a page (>= 20 objects) in which more than this share of the objects is
+    # unheld is never deleted from. A wrong database over a bucket, a restore older than
+    # the store, or two installations on one bucket make *every* object look unheld
+    # without any query failing; this is what stops the first armed run there.
+    storage_reconcile_max_orphan_fraction: float = Field(default=0.5, gt=0, le=1)
     # REQ-034 §3 (SR-004) — max gallery photos per plant instance (0 = unlimited).
     storage_max_photos_per_instance: int = 50
     # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``
@@ -716,9 +1311,9 @@ class Settings(BaseSettings):
     reference_contribution_rate_limit_per_user_day: int = 20
     # NFR-013 §5.2 — global MIME whitelist (CSV string). Per-category overrides
     # are read from ``storage_allowed_mime_types_<category>`` (empty = default).
-    storage_allowed_mime_types: str = (
-        "image/jpeg,image/png,image/webp,image/heic,application/pdf,text/csv,application/zip"
-    )
+    # #2139: no HEIC/HEIF — the EXIF strip cannot re-encode them, so they were
+    # stored with their GPS block; the app's clients convert to JPEG first.
+    storage_allowed_mime_types: str = "image/jpeg,image/png,image/webp,application/pdf,text/csv,application/zip"
     storage_allowed_mime_types_diary: str = ""
     storage_allowed_mime_types_ipm: str = ""
     storage_allowed_mime_types_harvest: str = ""
@@ -804,7 +1399,7 @@ class Settings(BaseSettings):
         Resolution order:
           1. An explicit ``storage_allowed_mime_types_<category>`` override, if set.
           2. For photo categories without an override, an image-only subset of
-             the global whitelist (``image/jpeg,png,webp,heic``).
+             the global whitelist (``image/jpeg,png,webp``).
           3. The global ``storage_allowed_mime_types`` list.
         """
         global_types = _split_csv(self.storage_allowed_mime_types)
@@ -825,11 +1420,119 @@ class Settings(BaseSettings):
 _PHOTO_CATEGORIES: frozenset[str] = frozenset(
     {"diary", "ipm", "harvest", "post_harvest", "plant", "pest_reference", "id_recognition", "task"}
 )
-_PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"})
+# #2139 — only the types the EXIF strip can re-encode (``exif_stripper``).
+_PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp"})
 
 
 def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
 
-settings = Settings()
+class SettingsError(RuntimeError):
+    """The environment does not configure a valid ``Settings`` — named by field, never by value (#1832)."""
+
+
+def load_settings() -> Settings:
+    """Build ``Settings`` from the environment, or fail without echoing any value (#1832).
+
+    A pydantic ``ValidationError`` renders ``input_value=`` — the raw value of
+    the offending variable, which may be a password or a key — and it surfaces
+    before any log redaction can run: ``settings`` is built while ``app.main``
+    and ``app.tasks`` are still being imported, so the interpreter prints the
+    uncaught error to stderr. The replacement names each failing variable and
+    pydantic's reason only, and is raised outside the ``except`` block so the
+    original is not even its context.
+    """
+    try:
+        return Settings()
+    except ValidationError as exc:
+        problems = [
+            f"{'.'.join(str(part) for part in error['loc']).upper() or '<settings>'}: {error['msg']} [{error['type']}]"
+            for error in exc.errors(include_url=False, include_input=False, include_context=False)
+        ]
+    # Raised outside the ``except`` block: ``from None`` would only *suppress*
+    # the context — ``__context__`` would still hold the ValidationError with
+    # its ``input_value`` for any renderer that ignores the flag (#1877 review).
+    raise SettingsError(
+        f"{len(problems)} invalid setting(s) in the environment (values withheld):\n  " + "\n  ".join(problems)
+    )
+
+
+# NFR-011 §4 — (deprecated ``PRIVACY_*`` name, documented ``RETENTION_*`` name). The
+# first one still works as an alias; the second one wins when both are set.
+_DEPRECATED_RETENTION_ALIASES: tuple[tuple[str, str], ...] = (
+    ("PRIVACY_HARD_DELETE_AFTER_DAYS", "RETENTION_SOFT_DELETE_RETENTION_DAYS"),
+    ("PRIVACY_EXPORT_RETENTION_HOURS", "RETENTION_EXPORT_FILE_RETENTION_HOURS"),
+    ("PRIVACY_EMAIL_CHANGE_TTL_HOURS", "RETENTION_EMAIL_CHANGE_RETENTION_HOURS"),
+)
+
+
+def report_retention_alias_use(environ: Mapping[str, str] | None = None) -> list[tuple[str, str, bool]]:
+    """Log which deprecated retention names the environment still sets (#1806 GDPR-008).
+
+    A ``PRIVACY_*`` name keeps working, but an operator who set both it and the
+    ``RETENTION_*`` name was silently overruled: the ``RETENTION_*`` value wins.
+    A deprecated name alone gets a warning; both names set to *different* values
+    get an error-level line, because the effective period is not the one the
+    operator's older variable says. Only names are logged, never values (the same
+    rule as :func:`load_settings`); the comparison is made in memory.
+
+    Returns ``(deprecated, canonical, conflicting)`` for each deprecated name set.
+    """
+    import structlog  # noqa: PLC0415 — keeps the settings module importable without logging configured
+
+    env = {key.upper(): value for key, value in (os.environ if environ is None else environ).items()}
+    found: list[tuple[str, str, bool]] = []
+    log = structlog.get_logger("app.config.settings")
+    for deprecated, canonical in _DEPRECATED_RETENTION_ALIASES:
+        if deprecated not in env:
+            continue
+        conflicting = canonical in env and env[canonical].strip() != env[deprecated].strip()
+        found.append((deprecated, canonical, conflicting))
+        if conflicting:
+            log.error(
+                "retention_setting_conflict",
+                deprecated=deprecated,
+                canonical=canonical,
+                effective=canonical,
+                hint="both names are set to different values; the canonical name wins, remove the deprecated one",
+            )
+        else:
+            log.warning("retention_setting_deprecated_name", deprecated=deprecated, canonical=canonical)
+    return found
+
+
+def app_base_url_is_absolute_http(value: str) -> bool:
+    """Whether ``value`` is an absolute ``http://`` or ``https://`` URL with a host."""
+    parts = urlsplit(value.strip())
+    return parts.scheme.lower() in {"http", "https"} and bool(parts.hostname)
+
+
+def report_app_base_url_shape(value: str | None = None) -> bool:
+    """Warn - never fail - when ``APP_BASE_URL`` is not an absolute ``http(s)://host`` URL (#2226 re-review I3).
+
+    The value bases every link the server hands out: QR codes, the OAuth callback,
+    the iCal subscription URL. A start that fails over it would take the whole
+    backend down for a link-shape problem (the precedent: an unresolvable
+    ``HA_URL`` crashed the start), so the start goes on and the operator gets a
+    structured warning naming the variable, never its value. The iCal URL builder
+    adds a missing scheme itself (``tenant_router.public_base_url``).
+
+    Returns whether the value is well-formed.
+    """
+    import structlog  # noqa: PLC0415 — keeps the settings module importable without logging configured
+
+    configured = settings.app_base_url if value is None else value
+    if app_base_url_is_absolute_http(configured):
+        return True
+    structlog.get_logger("app.config.settings").warning(
+        "app_base_url_not_absolute_http",
+        variable="APP_BASE_URL",
+        hint="set it to the public http:// or https:// address with a host; issued links may be broken",
+    )
+    return False
+
+
+settings = load_settings()
+report_retention_alias_use()
+report_app_base_url_shape()

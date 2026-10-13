@@ -44,8 +44,6 @@ from app.api.v1.activity_plans.schemas import (
 from app.common.auth import require_permission
 from app.common.dependencies import (
     get_activity_plan_service,
-    get_plant_instance_service,
-    get_planting_run_service,
     get_task_repo,
     get_task_service,
 )
@@ -54,8 +52,6 @@ from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.activity_plan_service import ActivityPlanService
-from app.domain.services.plant_instance_service import PlantInstanceService
-from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.task_service import TaskService
 
 router = APIRouter(
@@ -106,29 +102,20 @@ def apply_plan(
     body: ActivityPlanApplyRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: ActivityPlanService = Depends(get_activity_plan_service),
-    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
-    run_service: PlantingRunService = Depends(get_planting_run_service),
 ) -> ActivityPlanApplyResponse:
     """Apply an activity plan to a planting run or a single plant.
 
     The tenant comes from the path, not the request body (#1000): the created
     tasks are stamped with ``ctx.tenant_key``, so a caller can no longer write
     into a tenant they are not a member of by naming it. The target plant or run
-    is verified to belong to that same tenant *before* anything is created — a
-    foreign or unknown ``plant_key``/``run_key`` both answer 404
-    (``verify_tenant_ownership`` behind ``get_plant``/``get_run``), so the route
-    is no cross-tenant existence oracle. The plan being applied is resolved for
+    is verified to belong to that same tenant *before* anything is created, in the
+    service (#2107 review SEC-001) — a foreign or unknown ``plant_key``/``run_key``
+    both answer 404, so the route is no cross-tenant existence oracle. The plan being applied is resolved for
     the caller's tenant in the service (shared template or their own fork, never
     another tenant's copy).
     """
     if body.run_key:
-        # Refuses a run of another tenant with 404 before any task is created.
-        run_service.get_run(body.run_key, tenant_key=ctx.tenant_key)
-        result = service.apply_plan_to_run(
-            body.workflow_template_key,
-            body.run_key,
-            ctx.tenant_key,
-        )
+        result = service.apply_plan_to_run(body.workflow_template_key, body.run_key, tenant_key=ctx.tenant_key)
         return ActivityPlanApplyResponse(
             created_count=result["total_tasks"],
             task_keys=result["task_keys"],
@@ -137,13 +124,7 @@ def apply_plan(
         )
 
     if body.plant_key:
-        # Refuses a plant of another tenant with 404 before any task is created.
-        plant_service.get_plant(body.plant_key, tenant_key=ctx.tenant_key)
-        result = service.apply_plan_to_plant(
-            body.workflow_template_key,
-            body.plant_key,
-            ctx.tenant_key,
-        )
+        result = service.apply_plan_to_plant(body.workflow_template_key, body.plant_key, tenant_key=ctx.tenant_key)
         return ActivityPlanApplyResponse(
             created_count=result["created_count"],
             task_keys=result["task_keys"],

@@ -67,7 +67,7 @@ Das Objektfeld `seed_profile` bündelt echte Saatgut-/Keim-Metadaten für samenv
 | `locations` | Räume, Beete, Zonen | `name`, `parent_location_key`, `depth`, `path` |
 | `location_types` | Typen für Standorthierarchie | `name`, `level` (10 System-Seeds) |
 | `slots` | Einzelne Pflanzplätze | `slot_id` (unique), `capacity` |
-| `substrates` | Substrattypen/-profile | `substrate_type`, `ph_range`, `ec_capacity` |
+| `substrates` | Substrattypen/-profile (globale Seed-Substrate und eigene Mischungen je Mandant) | `type`, `name_de`, `brand`, `tenant_key`, `ph_base`, `ec_base_ms` |
 | `substrate_batches` | Konkrete Substrat-Batches | `cycles_used`, `ph_history`, `irrigation_strategy` |
 
 ### Pflanzinstanzen und Durchläufe (REQ-013)
@@ -88,10 +88,10 @@ planned → active → harvesting → completed
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
-| `tanks` | Wassertanks | `name` (unique), `capacity_liters`, `tenant_key` |
+| `tanks` | Wassertanks | `name` (unique je Mandant), `volume_liters`, `tenant_key` |
 | `tank_states` | Messzeitpunkt-Snapshots eines Tanks | `ec_ms`, `ph`, `volume_liters`, `recorded_at` |
 | `tank_fill_events` | Befüllereignisse | `filled_at`, `water_mix_ratio_ro_percent` |
-| `fertilizers` | Dünger-Stammdaten | `product_name`, `brand` (unique je Paar), `mixing_priority` |
+| `fertilizers` | Dünger-Stammdaten | `tenant_key`, `product_name`, `brand` (unique je Mandant und Paar; global genau einmal), `mixing_priority` |
 | `fertilizer_stocks` | Lagerbestände | `quantity_g`, `expiry_date` |
 | `nutrient_plans` | Nährlösungspläne | `name`, `watering_schedule`, `is_template` |
 | `nutrient_plan_phase_entries` | Phasenbezogene Plandaten | `phase_name`, `target_ec_ms`, `fertilizer_doses` |
@@ -125,20 +125,20 @@ planned → active → harvesting → completed
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
-| `workflow_templates` | Wiederverwendbare Workflow-Vorlagen | `name` (unique), `trigger_phase` |
-| `task_templates` | Aufgaben-Vorlagen innerhalb Workflows | `title`, `due_offset_days` |
+| `workflow_templates` | Wiederverwendbare Workflow-Vorlagen (globale Seed-Vorlagen und eigene je Mandant) | `tenant_key`, `name` (unique je Mandant; global genau einmal), `is_system` |
+| `task_templates` | Aufgaben-Vorlagen innerhalb Workflows | `name`, `workflow_template_key`, `days_offset` |
 | `tasks` | Konkrete Aufgaben | `plant_key`, `status`, `due_date` |
 | `workflow_executions` | Aktive Workflow-Ausführungen | `plant_key`, `started_at` |
 | `task_comments` | Kommentare an Aufgaben | `author_key`, `body` |
 | `task_audit_entries` | Audit-Trail je Aufgabe | `changed_by`, `change_type` |
-| `activities` | Aktivitäts-Stammdaten | `name` (unique) |
+| `activities` | Aktivitäts-Stammdaten | `tenant_key`, `name` (unique je Mandant; global genau einmal), `is_system` |
 
 ### Authentifizierung und Benutzer (REQ-023)
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
 | `users` | Benutzerkonten | `email` (unique), `account_type`, `is_active` |
-| `auth_providers` | Verbundene OAuth/OIDC-Provider | `provider`, `provider_user_id` (unique je Paar) |
+| `auth_providers` | Verbundene OAuth/OIDC-Provider | `provider`, `oidc_config_slug`, `provider_user_id` (unique je Tripel — `sub` ist nur je Aussteller eindeutig) |
 | `refresh_tokens` | Aktive Sitzungs-Tokens | `token_hash` (unique), `user_key`, `expires_at` |
 | `oidc_provider_configs` | OIDC-Provider-Konfigurationen | `slug` (unique), `client_id` |
 | `api_keys` | API-Schlüssel für M2M | `key_hash` (unique), `user_key` |
@@ -150,9 +150,9 @@ planned → active → harvesting → completed
 | `tenants` | Mandanten (Gärten, Organisationen) | `slug` (unique), `name` |
 | `memberships` | Nutzer-Mandant-Beziehungen | `user_key`, `tenant_key` (unique je Paar), `role` |
 | `invitations` | Einladungen zu Mandanten | `token_hash` (unique), `tenant_key`, `expires_at` |
-| `location_assignments` | Zuweisungsbasierte Schreibrechte | `membership_key`, `location_key` (unique je Paar) |
+| `location_assignments` | Standort-Zuweisungen (Zuständigkeit, keine Schreibrechte) | `membership_key`, `location_key` (unique je Paar) |
 
-**Rollen je Mandant:** `admin`, `grower`, `viewer`
+**Rollen je Mandant:** `viewer`, `grower`, `lead`, dazu Zusatzberechtigungen `admin_scopes` (`management`, `technical`)
 
 ### Pflegeerinnerungen (REQ-022)
 
@@ -294,8 +294,8 @@ planned → active → harvesting → completed
 
 | Kante | Von | Nach | Bedeutung |
 |-------|-----|------|----------|
-| `has_membership` | `tenants` | `memberships` | Mandant hat Mitgliedschaften |
-| `membership_in` | `users` | `memberships` | Nutzer hat Mitgliedschaft |
+| `has_membership` | `users` | `memberships` | Nutzer hat Mitgliedschaften |
+| `membership_in` | `memberships` | `tenants` | Mitgliedschaft gehört zu Mandant |
 | `belongs_to_tenant` | `sites`, `plant_instances`, `planting_runs`, `tanks`, `fertilizers`, `nutrient_plans`, `tasks` | `tenants` | Ressource gehört zu Mandant |
 | `assigned_to_location` | `location_assignments` | `locations` | Zuweisungsbasierter Standortzugriff |
 
@@ -314,18 +314,20 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 | `users` | `email` | Persistent | Ja |
 | `tenants` | `slug` | Persistent | Ja |
 | `memberships` | `user_key, tenant_key` | Persistent | Ja |
-| `fertilizers` | `product_name, brand` | Persistent | Ja |
+| `fertilizers` | `tenant_key, product_name, brand` | Persistent | Ja |
 | `harvest_batches` | `batch_id` | Persistent (sparse) | Ja |
-| `tanks` | `name` | Persistent | Ja |
+| `tanks` | `tenant_key, name` | Persistent | Ja |
+| `activities` | `tenant_key, name` | Persistent | Ja |
+| `workflow_templates` | `tenant_key, name` | Persistent | Ja |
 | `refresh_tokens` | `token_hash` | Persistent | Ja |
-| `calendar_feeds` | `token` | Persistent | Ja |
+| `calendar_feeds` | `token_hash` | Persistent (sparse) | Ja |
 | `tasks` | `status`, `plant_key` | Persistent | Nein |
 | `feeding_events` | `plant_key`, `timestamp` | Persistent | Nein |
 
-<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
+<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_collections) -->
 
 !!! note "Sparse-Indizes"
-    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`).
+    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`). Auf Datenbanken, die vor Juni 2026 angelegt wurden, führt ArangoDB den alten Index als Typ `hash`. `v0030` übersieht ihn dort, und erst `v0073` entfernt ihn.
 
 ---
 

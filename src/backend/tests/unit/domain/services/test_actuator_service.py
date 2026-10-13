@@ -37,6 +37,7 @@ from app.domain.models.actuator import (
 from app.domain.models.site import Location, Site
 from app.domain.models.task import Task
 from app.domain.services.actuator_service import ActuatorService
+from tests.support.ha_entity_grants import EverythingGrantedTo
 
 
 class FakeActuatorRepo:
@@ -90,6 +91,14 @@ class FakeActuatorRepo:
     def list_events(self, actuator_key, tenant_key, offset=0, limit=50):
         matches = [e for e in self.events if e.actuator_key == actuator_key]
         return matches[offset : offset + limit]
+
+    def count_events(self, actuator_key, *, tenant_key):
+        matches = [e for e in self.events if e.actuator_key == actuator_key and e.tenant_key == tenant_key]
+        return {
+            "total": len(matches),
+            "switch_cycles": sum(1 for e in matches if e.previous_state != e.new_state),
+            "failures": sum(1 for e in matches if not e.success),
+        }
 
     def list_events_for_location(self, location_key, tenant_key, offset=0, limit=50):
         matches = [e for e in self.events if e.location_key == location_key]
@@ -260,6 +269,9 @@ def _service(repo, ha=None, task_repo=None):
         ha_client_factory=(lambda: ha) if ha is not None else None,
         task_repo=task_repo,
         site_repo=FakeSiteRepo(),
+        # MT-015 (#2112): every actuator under test is t1's and its entity granted
+        # to t1; the allowlist has its own tests.
+        ha_entity_grants=EverythingGrantedTo("t1"),
     )
 
 
@@ -268,7 +280,7 @@ class TestDispatchHomeAssistant:
         repo.actuators["act1"] = _ha_actuator()
         ha = FakeHaClient(fail=False)
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "turn_on", None, user="u1")
+        event = service.send_command("act1", "turn_on", None, tenant_key="t1", user="u1")
         assert event.success is True
         assert event.event_source == ControlEventSource.MANUAL
         assert repo.actuators["act1"].current_state == "on"
@@ -280,7 +292,7 @@ class TestDispatchHomeAssistant:
         ha = FakeHaClient(fail=True)
         task_repo = FakeTaskRepo()
         service = _service(repo, ha=ha, task_repo=task_repo)
-        event = service.send_command("act1", "t1", "turn_on", None, user="u1")
+        event = service.send_command("act1", "turn_on", None, tenant_key="t1", user="u1")
         assert event.success is False
         assert event.event_source == ControlEventSource.FALLBACK_TASK
         assert event.error_message is not None
@@ -300,7 +312,7 @@ class TestDispatchHomeAssistant:
         repo.actuators["act2"] = manual
         task_repo = FakeTaskRepo()
         service = _service(repo, ha=FakeHaClient(), task_repo=task_repo)
-        event = service.send_command("act2", "t1", "turn_on", None)
+        event = service.send_command("act2", "turn_on", None, tenant_key="t1")
         assert event.event_source == ControlEventSource.FALLBACK_TASK
         assert len(task_repo.tasks) == 1
 
@@ -310,14 +322,14 @@ class TestTenantIsolation:
         repo.actuators["act1"] = _ha_actuator()
         service = _service(repo, ha=FakeHaClient())
         with pytest.raises(NotFoundError):
-            service.get_actuator("act1", "other-tenant")
+            service.get_actuator("act1", tenant_key="other-tenant")
 
     def test_create_on_foreign_location_rejected(self, repo):
         repo.location = Location(_key="loc1", name="x", area_m2=1.0, site_key="site_foreign")
         service = _service(repo, ha=FakeHaClient())
         actuator = _ha_actuator()
         with pytest.raises(NotFoundError):
-            service.create_actuator("loc1", "t1", actuator)
+            service.create_actuator("loc1", actuator, tenant_key="t1")
 
 
 class TestOverride:
@@ -334,7 +346,7 @@ class TestOverride:
             override_value=100,
             created_by="u1",
         )
-        created = service.set_override("act1", "t1", override, "u1")
+        created = service.set_override("act1", override, "u1", tenant_key="t1")
         assert created.key == "ov1"
         assert ha.calls  # immediate dispatch happened
 
@@ -354,7 +366,7 @@ class TestOverride:
             created_by="u1",
         )
         with pytest.raises(ValidationError):
-            service.set_override("act1", "t1", override, "u1")
+            service.set_override("act1", override, "u1", tenant_key="t1")
         assert not ha.calls  # nothing dispatched for an expired override
 
     def test_override_value_is_clamped_to_max(self, repo):
@@ -373,7 +385,7 @@ class TestOverride:
             override_value=5000,
             created_by="u1",
         )
-        service.set_override("act1", "t1", override, "u1")
+        service.set_override("act1", override, "u1", tenant_key="t1")
         assert repo.actuators["act1"].current_value == 100.0
         assert repo.events[-1].value == 100.0
 
@@ -388,7 +400,7 @@ class TestValueClamping:
         repo.actuators["act1"] = self._bounded_actuator()
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "set_value", 5000.0, user="u1")
+        event = service.send_command("act1", "set_value", 5000.0, tenant_key="t1", user="u1")
         assert event.value == 100.0
         assert repo.actuators["act1"].current_value == 100.0
         # The HA service call also received the clamped value, not 5000.
@@ -399,14 +411,14 @@ class TestValueClamping:
         repo.actuators["act1"] = actuator
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "set_value", -10.0, user="u1")
+        event = service.send_command("act1", "set_value", -10.0, tenant_key="t1", user="u1")
         assert event.value == 20.0
 
     def test_command_inside_bounds_passes_through(self, repo):
         repo.actuators["act1"] = self._bounded_actuator()
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "set_value", 60.0, user="u1")
+        event = service.send_command("act1", "set_value", 60.0, tenant_key="t1", user="u1")
         assert event.value == 60.0
 
     def test_unbounded_actuator_numeric_value_is_refused(self, repo):
@@ -416,7 +428,7 @@ class TestValueClamping:
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
         with pytest.raises(ValidationError):
-            service.send_command("act1", "t1", "set_value", 250.0, user="u1")
+            service.send_command("act1", "set_value", 250.0, tenant_key="t1", user="u1")
         assert not ha.calls  # nothing forwarded to Home Assistant
         assert repo.events == []  # no event logged for a refused command
 
@@ -426,7 +438,7 @@ class TestValueClamping:
         repo.actuators["act1"] = _ha_actuator(state="off")
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "turn_on", None, user="u1")
+        event = service.send_command("act1", "turn_on", None, tenant_key="t1", user="u1")
         assert event.success is True
         assert event.value is None
         assert ha.calls
@@ -457,7 +469,7 @@ class TestNumericEnvelopeInvariant:
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
         with pytest.raises(ValidationError):
-            service.send_command("act1", "t1", "set_value", 999.0, user="u1")
+            service.send_command("act1", "set_value", 999.0, tenant_key="t1", user="u1")
         assert not ha.calls  # 999 never reached climate.set_temperature
         assert repo.events == []
 
@@ -465,7 +477,7 @@ class TestNumericEnvelopeInvariant:
         repo.actuators["act1"] = _heater(min_value=15.0, max_value=30.0)
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "set_value", 999.0, user="u1")
+        event = service.send_command("act1", "set_value", 999.0, tenant_key="t1", user="u1")
         assert event.value == 30.0
         assert repo.actuators["act1"].current_value == 30.0
         # HA received the clamped temperature, never 999.
@@ -511,7 +523,7 @@ class TestNonFiniteRejection:
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
         with pytest.raises(ValidationError):
-            service.send_command("act1", "t1", "set_value", float("nan"), user="u1")
+            service.send_command("act1", "set_value", float("nan"), tenant_key="t1", user="u1")
         assert not ha.calls
 
     def test_clamp_never_passes_nan(self):
@@ -542,7 +554,7 @@ class TestOverrideZeroTurnsOff:
             override_value=0,
             created_by="u1",
         )
-        service.set_override("act1", "t1", override, "u1")
+        service.set_override("act1", override, "u1", tenant_key="t1")
         # HA got a turn_off (not turn_on), and the recorded state agrees.
         assert ha.calls[-1][1] == "turn_off"
         assert repo.actuators["act1"].current_state == "off"
@@ -571,14 +583,14 @@ class TestEmergencyStop:
         )
         repo.actuators["l1"] = _ha_actuator(key="l1", state="on")
         service = _service(repo, ha=FakeHaClient(), task_repo=FakeTaskRepo())
-        result = service.emergency_stop("t1", "water_leak", "u1")
+        result = service.emergency_stop("water_leak", "u1", tenant_key="t1")
         assert "p1" in result["stopped"]
         assert "l1" not in result["stopped"]  # a light is not affected by water leak
 
     def test_unknown_scenario_raises(self, repo):
         service = _service(repo, ha=FakeHaClient())
         with pytest.raises(ValidationError):
-            service.emergency_stop("t1", "nonsense", "u1")
+            service.emergency_stop("nonsense", "u1", tenant_key="t1")
 
     def test_one_failing_actuator_does_not_abort_the_rest(self, repo):
         # Per-actuator isolation: a repository failure while stopping one pump must
@@ -614,7 +626,7 @@ class TestEmergencyStop:
             return original_update(key, actuator)
 
         repo.update_actuator = flaky_update  # type: ignore[method-assign]
-        result = service.emergency_stop("t1", "water_leak", "u1")
+        result = service.emergency_stop("water_leak", "u1", tenant_key="t1")
         assert "p1" in result["failed"]
         assert "p2" in result["stopped"]  # the second pump was still stopped
 
@@ -643,7 +655,7 @@ class TestEmergencyStop:
         )
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        result = service.emergency_stop("t1", "co2_leak", "u1")
+        result = service.emergency_stop("co2_leak", "u1", tenant_key="t1")
         assert "f1" in result["forced_on"]
         assert "c1" in result["stopped"]
         assert repo.actuators["f1"].current_state == "on"
@@ -742,54 +754,54 @@ class TestScheduleCrud:
     def test_create_list_update_toggle_delete(self, repo):
         repo.actuators["act1"] = _humidifier()
         service = _service(repo, ha=FakeHaClient())
-        created = service.create_schedule("act1", "t1", _schedule())
+        created = service.create_schedule("act1", _schedule(), tenant_key="t1")
         assert created.actuator_key == "act1"
-        assert len(service.list_schedules("act1", "t1")) == 1
-        updated = service.update_schedule("act1", created.key, "t1", {"name": "Renamed"})
+        assert len(service.list_schedules("act1", tenant_key="t1")) == 1
+        updated = service.update_schedule("act1", created.key, {"name": "Renamed"}, tenant_key="t1")
         assert updated.name == "Renamed"
-        toggled = service.toggle_schedule("act1", created.key, "t1")
+        toggled = service.toggle_schedule("act1", created.key, tenant_key="t1")
         assert toggled.is_active is False
-        service.delete_schedule("act1", created.key, "t1")
-        assert service.list_schedules("act1", "t1") == []
+        service.delete_schedule("act1", created.key, tenant_key="t1")
+        assert service.list_schedules("act1", tenant_key="t1") == []
 
     def test_schedule_of_other_actuator_rejected(self, repo):
         repo.actuators["act1"] = _humidifier()
         repo.actuators["act2"] = _humidifier(state="on").model_copy(update={"key": "act2"})
         service = _service(repo, ha=FakeHaClient())
-        created = service.create_schedule("act1", "t1", _schedule())
+        created = service.create_schedule("act1", _schedule(), tenant_key="t1")
         with pytest.raises(ValidationError):
-            service.update_schedule("act2", created.key, "t1", {"name": "x"})
+            service.update_schedule("act2", created.key, {"name": "x"}, tenant_key="t1")
 
 
 class TestRuleCrud:
     def test_create_list_toggle_delete_and_test_rule(self, repo):
         repo.actuators["act1"] = _humidifier(state="off")
         service = _service(repo, ha=FakeHaClient())
-        created = service.create_rule("act1", "t1", _vpd_rule())
-        assert len(service.list_rules("act1", "t1")) == 1
-        assert len(service.list_rules_for_tenant("t1")) == 1
-        toggled = service.toggle_rule("act1", created.key, "t1")
+        created = service.create_rule("act1", _vpd_rule(), tenant_key="t1")
+        assert len(service.list_rules("act1", tenant_key="t1")) == 1
+        assert len(service.list_rules_for_tenant(tenant_key="t1")) == 1
+        toggled = service.toggle_rule("act1", created.key, tenant_key="t1")
         assert toggled.is_active is False
-        dry = service.test_rule(created.key, "t1", {"vpd": 1.7})
+        dry = service.test_rule(created.key, {"vpd": 1.7}, tenant_key="t1")
         assert dry["would_trigger"] is True
-        service.delete_rule("act1", created.key, "t1")
-        assert service.list_rules("act1", "t1") == []
+        service.delete_rule("act1", created.key, tenant_key="t1")
+        assert service.list_rules("act1", tenant_key="t1") == []
 
 
 class TestProfileCrud:
     def test_create_list_get_update_apply_delete(self, repo):
         repo.actuators["act1"] = _humidifier()
         service = _service(repo, ha=FakeHaClient())
-        created = service.create_profile("t1", _profile())
-        assert service.get_profile(created.key, "t1").name == "Veg"
-        assert len(service.list_profiles("t1")) == 1
-        updated = service.update_profile(created.key, "t1", {"name": "Flower"})
+        created = service.create_profile(_profile(), tenant_key="t1")
+        assert service.get_profile(created.key, tenant_key="t1").name == "Veg"
+        assert len(service.list_profiles(tenant_key="t1")) == 1
+        updated = service.update_profile(created.key, {"name": "Flower"}, tenant_key="t1")
         assert updated.name == "Flower"
-        result = service.apply_profile(created.key, "t1", "loc1")
+        result = service.apply_profile(created.key, "loc1", tenant_key="t1")
         assert result["applied"] is True
         assert repo.applied_profiles == [(created.key, "loc1")]
-        service.delete_profile(created.key, "t1")
-        assert service.list_profiles("t1") == []
+        service.delete_profile(created.key, tenant_key="t1")
+        assert service.list_profiles(tenant_key="t1") == []
 
 
 class TestStatsAndEnergy:
@@ -797,20 +809,156 @@ class TestStatsAndEnergy:
         actuator = _humidifier(state="on").model_copy(update={"current_value": 100.0, "power_watts": 50.0})
         repo.actuators["act1"] = actuator
         service = _service(repo, ha=FakeHaClient(), task_repo=FakeTaskRepo())
-        service.send_command("act1", "t1", "turn_on", None, user="u1")
-        state = service.get_state("act1", "t1")
+        service.send_command("act1", "turn_on", None, tenant_key="t1", user="u1")
+        state = service.get_state("act1", tenant_key="t1")
         assert state["current_state"] == "on"
         assert state["has_override"] is False
-        stats = service.get_event_stats("act1", "t1")
+        stats = service.get_event_stats("act1", tenant_key="t1")
         assert stats["total_events"] >= 1
-        energy = service.get_location_energy("loc1", "t1", hours_per_day=12.0)
+        energy = service.get_location_energy("loc1", tenant_key="t1", hours_per_day=12.0)
         assert energy["total_kwh_per_day"] > 0
         assert energy["actuators"][0]["power_watts"] == 50.0
+
+    def test_event_stats_count_the_whole_history_not_the_newest_500(self, repo):
+        """#2025: the stats were computed from one page of 500 events."""
+        repo.actuators["act1"] = _humidifier()
+        for i in range(600):
+            repo.events.append(
+                ControlEvent(
+                    tenant_key="t1",
+                    actuator_key="act1",
+                    event_source=ControlEventSource.MANUAL,
+                    command="turn_on",
+                    previous_state="off" if i % 2 else "on",
+                    new_state="on",
+                    success=i % 3 != 0,
+                )
+            )
+        service = _service(repo, ha=FakeHaClient())
+
+        stats = service.get_event_stats("act1", tenant_key="t1")
+
+        assert (stats["total_events"], stats["switch_cycles"], stats["failures"]) == (600, 300, 200)
 
     def test_clear_override_and_list_events(self, repo):
         repo.actuators["act1"] = _humidifier(state="on")
         service = _service(repo, ha=FakeHaClient(), task_repo=FakeTaskRepo())
-        service.send_command("act1", "t1", "turn_off", None, user="u1")
-        service.clear_override("act1", "t1")
-        assert len(service.list_events("act1", "t1")) == 1
-        assert service.list_location_events("loc1", "t1") == service.list_events("act1", "t1")
+        service.send_command("act1", "turn_off", None, tenant_key="t1", user="u1")
+        service.clear_override("act1", tenant_key="t1")
+        assert len(service.list_events("act1", tenant_key="t1")) == 1
+        assert service.list_location_events("loc1", tenant_key="t1") == service.list_events("act1", tenant_key="t1")
+
+
+# ── REQ-056 SEC-003: a closed tenant's hardware is driven to a safe state ────
+
+
+def _typed(kind: ActuatorType, *, key: str = "act1", state: str = "on", **extra) -> Actuator:
+    return Actuator(
+        _key=key,
+        tenant_key="t1",
+        location_key="loc1",
+        name=kind.value,
+        actuator_type=kind,
+        protocol="home_assistant",
+        ha_entity_id=f"switch.{key}",
+        current_state=state,
+        **extra,
+    )
+
+
+def _overheat_cooler_rule() -> ControlRule:
+    return ControlRule(
+        tenant_key="t1",
+        actuator_key="act1",
+        name="Overheat",
+        rule_type=RuleType.THRESHOLD,
+        sensor_parameter="temperature",
+        condition=RuleCondition(operator=ConditionOperator.GT, threshold=35.0),
+        action=RuleAction(command=ActionCommand.TURN_ON),
+        hysteresis=HysteresisConfig(
+            on_threshold=35.0, off_threshold=30.0, min_on_duration_seconds=0, min_off_duration_seconds=0
+        ),
+        is_safety_rule=True,
+    )
+
+
+class TestDriveToSafeState:
+    def test_an_open_valve_is_closed_once(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.IRRIGATION_VALVE)
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+
+        event = service.drive_to_safe_state(repo.actuators["act1"], {})
+
+        assert event is not None and event.command == "turn_off"
+        assert event.event_source == ControlEventSource.SAFETY
+        assert repo.actuators["act1"].current_state == "off"
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is None  # already off
+        assert len(ha.calls) == 1
+
+    def test_an_unreachable_home_assistant_is_not_asked_every_tick_and_no_task_is_written(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.HEATER)
+        ha = FakeHaClient(fail=True)
+        tasks = FakeTaskRepo()
+        service = _service(repo, ha=ha, task_repo=tasks)
+
+        first = service.drive_to_safe_state(repo.actuators["act1"], {})
+        second = service.drive_to_safe_state(repo.actuators["act1"], {})
+
+        assert first is not None and first.success is False
+        assert second is None  # the off was sent (and recorded failed)
+        assert len(repo.events) == 1
+        assert tasks.tasks == []  # nobody can open a task in a closed tenant
+
+    def test_the_exhaust_fan_keeps_running(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.EXHAUST_FAN)
+        service = _service(repo, ha=FakeHaClient())
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is None
+        assert repo.actuators["act1"].current_state == "on"
+
+    def test_a_firing_safety_rule_wins_over_the_switch_off(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.COOLER, state="off")
+        repo.active_rules = [_overheat_cooler_rule()]
+        service = _service(repo, ha=FakeHaClient())
+
+        event = service.drive_to_safe_state(repo.actuators["act1"], {"temperature": 38.0})
+
+        assert event is not None and event.command == "turn_on"
+        # Next tick the rule still fires and the cooler is on: neither re-sent nor switched off.
+        assert service.drive_to_safe_state(repo.actuators["act1"], {"temperature": 38.0}) is None
+        assert repo.actuators["act1"].current_state == "on"
+
+    def test_schedules_overrides_and_sensor_rules_are_not_evaluated(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.LIGHT, state="off")
+        repo.active_rules = [_vpd_rule()]
+        repo.active_schedules = [_schedule()]
+        service = _service(repo, ha=FakeHaClient())
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {"vpd": 2.0}) is None
+        assert repo.actuators["act1"].current_state == "off"
+
+    def test_fail_safe_state_overrides_the_type(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.ROOF_VENT, fail_safe_state="off")
+        repo.actuators["act2"] = _typed(ActuatorType.HEATER, key="act2", fail_safe_state="on")
+        service = _service(repo, ha=FakeHaClient())
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is not None
+        assert service.drive_to_safe_state(repo.actuators["act2"], {}) is None
+
+    def test_a_manual_actuator_is_left_alone(self, repo):
+        repo.actuators["act1"] = _typed(ActuatorType.PUMP).model_copy(update={"protocol": "manual"})
+        tasks = FakeTaskRepo()
+        service = _service(repo, task_repo=tasks)
+
+        assert service.drive_to_safe_state(repo.actuators["act1"], {}) is None
+        assert tasks.tasks == [] and repo.events == []
+
+
+def test_the_safe_off_types_follow_the_emergency_scenarios():
+    from app.domain.services.actuator_service import _EMERGENCY_SCENARIOS, CLOSED_TENANT_OFF_TYPES
+
+    assert "irrigation_valve" in CLOSED_TENANT_OFF_TYPES
+    assert "heater" in CLOSED_TENANT_OFF_TYPES
+    assert "exhaust_fan" not in CLOSED_TENANT_OFF_TYPES  # co2_leak forces it on
+    assert set(_EMERGENCY_SCENARIOS["fire_alarm"]["off"]) - {"exhaust_fan"} <= CLOSED_TENANT_OFF_TYPES

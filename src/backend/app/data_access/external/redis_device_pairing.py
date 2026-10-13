@@ -115,7 +115,9 @@ class RedisDevicePairingCodeStore(IDevicePairingCodeStore):
         )
         logger.info(
             "device_pairing_code_issued",
-            user_key=user_key,
+            # No account reference here: the store holds no tombstone salt, and
+            # ``AuthService`` logs ``device_pairing_created`` with the salted
+            # subject for the same code (``code_sha256`` joins the two) (#1773).
             # Digest prefix, never a prefix of the code itself: a raw prefix in
             # a log line shrinks the search space of the credential it names.
             code_sha256=key_digest[:16],

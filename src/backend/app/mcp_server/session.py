@@ -9,7 +9,7 @@ server may expire it (answering HTTP 404, at which point the client re-runs
 the API key (§4.3): a valid session with no key is rejected, and a valid key with
 no session still works. The session only carries protocol continuity — which is
 why this store degrades *open* on a Valkey/Redis outage rather than closed, the
-opposite of :class:`app.mcp_server.rate_limit.McpRateLimiter`. Failing closed here
+opposite of :class:`app.domain.services.api_key_controls.ApiKeyRateLimiter`. Failing closed here
 would log every client out on a cache blip while protecting nothing, since the
 key check has already happened by then.
 
@@ -22,6 +22,8 @@ from __future__ import annotations
 import secrets
 
 import structlog
+
+from app.common.log_privacy import loggable_error
 
 logger = structlog.get_logger(__name__)
 
@@ -51,7 +53,7 @@ class McpSessionStore:
         try:
             self._redis.setex(f"{_KEY_PREFIX}{session_id}", _TTL_SECONDS, account_key)
         except Exception as exc:  # noqa: BLE001 - degrade to stateless, see module docstring
-            logger.warning("mcp_session_store_unavailable", op="create", error=str(exc))
+            logger.warning("mcp_session_store_unavailable", op="create", error=loggable_error(exc))
             return None
         return session_id
 
@@ -67,7 +69,7 @@ class McpSessionStore:
         try:
             owner = self._redis.get(f"{_KEY_PREFIX}{session_id}")
         except Exception as exc:  # noqa: BLE001 - degrade open, see module docstring
-            logger.warning("mcp_session_store_unavailable", op="get", error=str(exc))
+            logger.warning("mcp_session_store_unavailable", op="get", error=loggable_error(exc))
             return True
         if owner is None:
             return False
@@ -80,4 +82,4 @@ class McpSessionStore:
         try:
             self._redis.delete(f"{_KEY_PREFIX}{session_id}")
         except Exception as exc:  # noqa: BLE001
-            logger.warning("mcp_session_store_unavailable", op="delete", error=str(exc))
+            logger.warning("mcp_session_store_unavailable", op="delete", error=loggable_error(exc))

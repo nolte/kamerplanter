@@ -65,20 +65,25 @@ class ArangoPostHarvestRepository(BaseArangoRepository[PostHarvestBatch], IPostH
         self._require_tenant_key(tenant_key, "list_batches")
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
+    def list_batches_window(self, *, tenant_key: str, offset: int = 0, limit: int = 50) -> list[PostHarvestBatch]:
+        self._require_tenant_key(tenant_key, "list_batches_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
     def list_for_harvest_batch(
         self,
         harvest_batch_key: str,
         tenant_key: str,
     ) -> list[PostHarvestBatch]:
         self._require_tenant_key(tenant_key, "list_for_harvest_batch")
-        return self.get_page(
-            filters=[
-                ("harvest_batch_key", "==", harvest_batch_key),
-                ("tenant_key", "==", tenant_key),
-            ],
+        # Every post-harvest batch of the harvest batch: ``get_page`` without a
+        # ``limit`` silently returned its default page of 50 (#2025).
+        return self.find_by_field(
+            "harvest_batch_key",
+            harvest_batch_key,
             sort="created_at",
             sort_direction="DESC",
-        )[0]
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     # ── Drying progress ──
 
@@ -111,8 +116,19 @@ class ArangoPostHarvestRepository(BaseArangoRepository[PostHarvestBatch], IPostH
         )
         return created
 
-    def list_observations(self, batch_key: str) -> list[StorageObservation]:
-        return self._observations.find_by_field("batch_key", batch_key, sort="observed_at", sort_direction="DESC")
+    def list_observations(
+        self, batch_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[StorageObservation]:
+        """One batch's observations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._observations.find_by_field(
+            "batch_key",
+            batch_key,
+            sort="observed_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
+        )
 
     # ── Mold alerts ──
 

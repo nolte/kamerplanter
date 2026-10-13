@@ -6,6 +6,19 @@ from app.domain.models.watering_log import WateringLog
 
 class IWateringLogRepository(ABC):
     @abstractmethod
+    def list_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[WateringLog]:
+        """One ``_key``-ordered page of the tenant's rows, without a count (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def create(self, log: WateringLog) -> WateringLog: ...
 
     @abstractmethod
@@ -15,7 +28,9 @@ class IWateringLogRepository(ABC):
     def get_or_raise(self, key: str) -> WateringLog: ...
 
     @abstractmethod
-    def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[WateringLog], int]: ...
+    def get_all(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[WateringLog], int]: ...
 
     @abstractmethod
     def update(self, key: str, log: WateringLog) -> WateringLog: ...
@@ -62,25 +77,6 @@ class IWateringLogRepository(ABC):
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> list[WateringLog]: ...
-
-    @abstractmethod
-    def get_latest_by_plant(
-        self,
-        plant_key: str,
-        tenant_key: str = "",
-        *,
-        all_tenants: bool = False,
-    ) -> WateringLog | None: ...
-
-    @abstractmethod
-    def get_recent_runoff_logs(
-        self,
-        plant_key: str,
-        limit: int = 5,
         tenant_key: str = "",
         *,
         all_tenants: bool = False,

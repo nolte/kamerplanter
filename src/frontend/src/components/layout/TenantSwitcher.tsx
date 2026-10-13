@@ -10,6 +10,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
 import AddIcon from '@mui/icons-material/Add';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -60,6 +61,13 @@ export default function TenantSwitcher() {
     navigate('/tenants/create');
   };
 
+  // #2166 — the garden settings list the gardens whose deletion is scheduled (they are missing
+  // from this menu: such a garden resolves for nobody) and offer their management the cancellation.
+  const handleGardenSettings = () => {
+    handleClose();
+    navigate('/tenants/settings');
+  };
+
   return (
     <>
       <Button
@@ -101,6 +109,7 @@ export default function TenantSwitcher() {
             key={tenant.key}
             selected={tenant.slug === activeTenant?.slug}
             onClick={() => handleSwitch(tenant.slug)}
+            data-testid={`tenant-switcher-item-${tenant.slug}`}
           >
             <ListItemIcon>
               {tenant.tenant_type === 'organization' ? (
@@ -116,7 +125,13 @@ export default function TenantSwitcher() {
           </MenuItem>
         ))}
         <Divider />
-        <MenuItem onClick={handleCreateOrg}>
+        <MenuItem onClick={handleGardenSettings} data-testid="tenant-switcher-garden-settings">
+          <ListItemIcon>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          {t('pages.tenants.gardenSettings')}
+        </MenuItem>
+        <MenuItem onClick={handleCreateOrg} data-testid="tenant-switcher-create-organization">
           <ListItemIcon>
             <AddIcon fontSize="small" />
           </ListItemIcon>

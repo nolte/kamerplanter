@@ -4,6 +4,11 @@ Uses an in-memory fake repository to verify the opt-in policy, upsert
 semantics and the export-facing enabled-key read.
 """
 
+from types import SimpleNamespace
+
+import pytest
+
+from app.common.exceptions import NotFoundError
 from app.domain.models.ha_publish_setting import HaPublishEntityType, HaPublishSetting
 from app.domain.services.ha_publish_service import HaPublishService
 
@@ -35,8 +40,29 @@ class _FakeRepo:
         return setting
 
 
+class _Owners:
+    """Plants and tanks of ``t1`` — except ``plant-9``, which is ``t2``'s (#1872 C8)."""
+
+    def get_by_key(self, key):
+        return SimpleNamespace(key=key, tenant_key="t2" if key == "plant-9" else "t1")
+
+
+class _SiteAnchors:
+    """Every location sits on a site of ``t1``."""
+
+    def get_location_by_key(self, key):
+        return SimpleNamespace(key=key, site_key="site-1")
+
+    def get_site_by_key(self, key):
+        return SimpleNamespace(key=key, tenant_key="t1")
+
+    def get_slot_by_key(self, key):
+        return None
+
+
 def _service():
-    return HaPublishService(_FakeRepo())
+    # #1872 C8: the service resolves each entity under the tenant.
+    return HaPublishService(_FakeRepo(), plant_repo=_Owners(), tank_repo=_Owners(), site_anchors=_SiteAnchors())
 
 
 def test_is_published_defaults_false_opt_in():
@@ -46,29 +72,29 @@ def test_is_published_defaults_false_opt_in():
 
 def test_set_published_then_is_published():
     service = _service()
-    service.set_published("t1", HaPublishEntityType.TANK, "tank-1", enabled=True)
+    service.set_published(HaPublishEntityType.TANK, "tank-1", enabled=True, tenant_key="t1")
     assert service.is_published("t1", HaPublishEntityType.TANK, "tank-1") is True
 
 
 def test_set_published_false_is_not_published():
     service = _service()
-    service.set_published("t1", HaPublishEntityType.PLANT, "plant-1", enabled=False)
+    service.set_published(HaPublishEntityType.PLANT, "plant-1", enabled=False, tenant_key="t1")
     assert service.is_published("t1", HaPublishEntityType.PLANT, "plant-1") is False
 
 
 def test_list_enabled_keys_only_returns_enabled():
     service = _service()
-    service.set_published("t1", HaPublishEntityType.PLANT, "plant-1", enabled=True)
-    service.set_published("t1", HaPublishEntityType.PLANT, "plant-2", enabled=False)
-    service.set_published("t1", HaPublishEntityType.TANK, "tank-1", enabled=True)
+    service.set_published(HaPublishEntityType.PLANT, "plant-1", enabled=True, tenant_key="t1")
+    service.set_published(HaPublishEntityType.PLANT, "plant-2", enabled=False, tenant_key="t1")
+    service.set_published(HaPublishEntityType.TANK, "tank-1", enabled=True, tenant_key="t1")
     keys = service.list_enabled_keys("t1", HaPublishEntityType.PLANT)
     assert keys == ["plant-1"]
 
 
 def test_enabled_keys_are_tenant_scoped():
     service = _service()
-    service.set_published("t1", HaPublishEntityType.PLANT, "plant-1", enabled=True)
-    service.set_published("t2", HaPublishEntityType.PLANT, "plant-9", enabled=True)
+    service.set_published(HaPublishEntityType.PLANT, "plant-1", enabled=True, tenant_key="t1")
+    service.set_published(HaPublishEntityType.PLANT, "plant-9", enabled=True, tenant_key="t2")
     assert service.list_enabled_keys("t1", HaPublishEntityType.PLANT) == ["plant-1"]
     assert service.list_enabled_keys("t2", HaPublishEntityType.PLANT) == ["plant-9"]
 
@@ -76,9 +102,9 @@ def test_enabled_keys_are_tenant_scoped():
 def test_bulk_set_published():
     service = _service()
     result = service.bulk_set_published(
-        "t1",
         HaPublishEntityType.LOCATION,
         {"loc-1": True, "loc-2": False, "loc-3": True},
+        tenant_key="t1",
     )
     assert len(result) == 3
     assert sorted(service.list_enabled_keys("t1", HaPublishEntityType.LOCATION)) == ["loc-1", "loc-3"]
@@ -86,7 +112,38 @@ def test_bulk_set_published():
 
 def test_set_published_is_idempotent_upsert():
     service = _service()
-    service.set_published("t1", HaPublishEntityType.TANK, "tank-1", enabled=True)
-    service.set_published("t1", HaPublishEntityType.TANK, "tank-1", enabled=False)
+    service.set_published(HaPublishEntityType.TANK, "tank-1", enabled=True, tenant_key="t1")
+    service.set_published(HaPublishEntityType.TANK, "tank-1", enabled=False, tenant_key="t1")
     assert service.is_published("t1", HaPublishEntityType.TANK, "tank-1") is False
     assert service.list_settings("t1", HaPublishEntityType.TANK).__len__() == 1
+
+
+# ── #2107: the ownership check lives in the service, reached through the keyword-only tenant ──
+
+
+def test_another_tenant_cannot_publish_or_switch_off_a_foreign_entity():
+    """``t2`` names ``t1``'s plant: refused in the service, nothing written for either tenant."""
+    service = _service()
+    service.set_published(HaPublishEntityType.PLANT, "plant-1", enabled=True, tenant_key="t1")
+
+    with pytest.raises(NotFoundError):
+        service.set_published(HaPublishEntityType.PLANT, "plant-1", enabled=True, tenant_key="t2")
+    with pytest.raises(NotFoundError):
+        service.set_published(HaPublishEntityType.PLANT, "plant-1", enabled=False, tenant_key="t2")
+
+    assert service.list_settings("t2") == []
+    assert service.list_enabled_keys("t1", HaPublishEntityType.PLANT) == ["plant-1"]
+
+
+def test_another_tenant_cannot_bulk_publish_a_foreign_entity():
+    """One foreign key in the batch refuses the whole batch before the first write."""
+    service = _service()
+
+    with pytest.raises(NotFoundError):
+        service.bulk_set_published(
+            HaPublishEntityType.PLANT,
+            {"plant-9": True, "plant-1": True},
+            tenant_key="t2",
+        )
+
+    assert service.list_settings("t2") == []

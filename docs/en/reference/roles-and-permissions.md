@@ -49,8 +49,8 @@ These are granted **in addition** to the domain role — none, one, or both. The
 
 | Scope | Covers | Intended for |
 |-------|--------|--------------|
-| **Management** | Invite and remove members, change roles, garden settings, assign plots, service accounts, delete the garden | Board, teacher, owner |
-| **Technical** | Connect Home Assistant and other integrations, set up sensors and actuators, run imports, enrichment sources | Technical warden, contracted service provider |
+| **Management** | Invite and remove members, change roles, garden settings, assign plots, delete the garden (only together with the Lead role — Management alone is not enough) | Board, teacher, owner |
+| **Technical** | Connect Home Assistant and other integrations, set up sensors and actuators, run imports, enrichment sources, service accounts (only together with the Lead role) | Technical warden, contracted service provider |
 
 The practical gain: rights are granted **individually** rather than as a package. The board manages members without touching the sensors. The technically-minded member connects Home Assistant without seeing the member list. And a student records measurements without being able to delete a bed by accident.
 
@@ -95,11 +95,13 @@ The practical gain: rights are granted **individually** rather than as a package
 | Invite members, change roles, remove members | No | No | No | **Yes** | No |
 | Change garden settings | No | No | No | **Yes** | No |
 | Manage location assignments | No | No | No | **Yes** | No |
-| Delete the garden | No | No | No | **Yes** | No |
+| Delete the garden§ | No | No | No | No | No |
 | View the member list (name and role) | Yes | Yes | Yes | — | — |
 | Leave the garden yourself | Yes | Yes | Yes | Yes* | Yes |
 
 *As the only member holding **Management**, you cannot leave without handing that scope on first — otherwise the garden would be left with nobody who could invite anyone.
+
+§Unlike the other rows in this table, no single column is enough here: deleting the whole garden requires **both** the Lead role and the Management scope at the same time — a Lead without Management cannot, and neither can the secretary with Management from the example above. A service account can never do this, even with a matching role — nor can signing in with a personal API key, even one belonging to an authorized user account: a signed-in session is required. The system additionally requires re-confirmation: the garden's slug and, if the account has a local password, that password — without a local password, instead a fresh sign-in at the linked provider (Google, generic OIDC) or, only for an account signed in exclusively through GitHub/Apple, a one-time code mailed to it. After five wrong confirmations the system locks this confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; signing in itself is not affected. The same confirmation flow and the same lock also apply to deleting your own account, changing your email address, and changing your password (account settings). <!-- Issue #1791, #1813, #1814, #1816, #1815, #1841 -->
 
 ‡Unlike the other rows in this table, marking an entry for AI analysis is additionally tied to **authorship**: a Grower may only mark entries they authored themselves. Only the Lead role may also mark entries from other members. See [Diary](../user-guide/plant-diary.md) for details.
 
@@ -172,7 +174,7 @@ This data is bound to a garden. Anyone who is a member of the garden sees it **i
 - Care profiles and overwintering profiles
 - Dashboard metrics and calendar
 
-Concretely this means: in a community garden **all members see all plots** — including those not assigned to them. Location assignment governs editing, not reading. A community garden is deliberately transparent: who turned the compost, or when plot 7 was last watered, should be traceable for everyone.
+Concretely this means: in a community garden **all members see all plots** — including those not assigned to them. Location assignment only records who looks after a plot — it governs neither reading nor editing. A community garden is deliberately transparent: who turned the compost, or when plot 7 was last watered, should be traceable for everyone.
 
 ### What Belongs to You Personally — Across All Gardens
 
@@ -274,14 +276,14 @@ Besides the roles inside gardens there is a level above them: administering the 
 |------|----------------|
 | **Platform administrator** | Maintain the global master-data catalog; decide which global species a garden sees; overview of all gardens and user accounts; configure login providers; enable image recognition; promote a garden's own species and cultivars into the global catalog; suspend or reactivate gardens and accounts |
 
-The platform administrator is therefore the only role that can look across garden boundaries — but only at **administrative data**: they see that a garden exists, what it is called and who is a member. This does not automatically grant read access to another garden's plants and harvests; for that, an admin of that garden would have to add them as a regular member.
+The platform administrator is therefore the only role that can look across garden boundaries — but only at **administrative data**: they see that a garden exists, what it is called and who is a member. This does not automatically grant read access to another garden's plants and harvests; for that, someone holding the management scope in that garden would have to add them as a regular member.
 
-The role is independent of the garden roles: a platform administrator is still not a member of your private garden. Conversely, being admin in a community garden makes nobody a platform administrator.
+The role is independent of the garden roles: a platform administrator is still not a member of your private garden. Conversely, being lead or holding management in a community garden makes nobody a platform administrator.
 
 What the platform area offers in detail is described under [Platform Admin](../user-guide/admin.md).
 
 !!! warning "Not yet implemented"
-    A read-only role for the platform area is planned — intended for monitoring and audits, without write access to global data. It will make it possible to view the administration area without being able to change anything. Currently only the full platform administrator exists. <!-- REQ-024 §1a.4 Platform-Viewer -->
+    A read-only role for the platform area is planned — intended for monitoring and audits, without write access to global data. It will make it possible to view the administration area without being able to change anything. Currently only the full platform administrator exists. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ---
 
@@ -293,7 +295,7 @@ Besides accounts for humans there are **service accounts** for connecting other 
 
 Technically a service account is an ordinary account with two peculiarities: it has no password and cannot sign in through the interface — it authenticates exclusively via a key. And it receives **the same roles as a human**: a service account with the grower role in your garden may do exactly what a human grower may do there, and no more.
 
-From this follows the practical rule for setup: give a service account the lowest role that is sufficient for its job. A display dashboard needs **Viewer**. An automation service that logs watering needs **Grower**. A service account only needs **Lead** if it is supposed to create locations; managing members would additionally require the Management scope — both are rarely the case.
+From this follows the practical rule for setup: give a service account the lowest role that is sufficient for its job. A display dashboard needs **Viewer**. An automation service that logs watering needs **Grower**. A service account never gets **Lead** in your garden: a garden gives a machine at most Grower, and the member administration does not raise it later either. Creating a service account, renewing its key or removing it takes the Lead role **and** the Technical scope in the garden. <!-- Issue #2137 -->
 
 For AI assistants connected via the tool interface the same ranking applies: a viewer account may only query, a grower account may additionally document, and setup-style interventions such as creating locations remain reserved for accounts holding the Lead role.
 
@@ -308,10 +310,12 @@ Kamerplanter can be run without sign-in — as a local single-person installatio
 <!-- Quelle: src/backend/app/common/auth.py is_platform_admin -->
 
 - There is exactly one account, and it is signed in automatically.
-- That account is admin in its garden **and** platform administrator.
+- That account holds the lead role with both additional permissions in its garden **and** is platform administrator.
 - There is no member management, no invitations and no role selection — there is nobody to assign a role to.
 
-Everything described on this page only becomes relevant once the installation runs with sign-in. Switching is possible: on migration, the first registered account becomes admin of the existing garden and platform administrator. Details under [Light Mode](../user-guide/light-mode.md).
+Everything described on this page only becomes relevant once the installation runs with sign-in. Details under [Light Mode](../user-guide/light-mode.md).
+
+When switching from light mode to sign-in mode, Kamerplanter locks the former single account. The first registered account can take the existing garden over in a dialog: it becomes its lead with both management scopes and, as long as there is none yet, platform admin. Details under [Light Mode](../user-guide/light-mode.md#upgrade-light-full). <!-- REQ-027 §7a, #1855 -->
 
 ---
 
@@ -331,13 +335,17 @@ Three limitations matter for operations, because the specification is ahead of t
 
 - **The viewer role is not yet a reliable boundary.** A substantial share of writing endpoints currently only checks membership in the garden, not the minimum role. Anyone addressing the interface directly can therefore create and change data as a viewer, even though the interface does not offer it. So assign the viewer role as an organizational arrangement, not as a security boundary against a member you do not trust. The ranking is fully enforced for actuators, propagation, aquaponics, post-harvest, inventory and member management, among others.
 - **Notifications currently reach only one person.** The target state delivers every due task to all growers of the garden. What is implemented is a single recipient — whoever created or last edited the task, falling back to the assigned person. When a care task is generated automatically and nobody is assigned, **nobody** is notified at present.
-- **Some side paths around the plant sit outside the garden check.** The plant endpoints proper verify garden ownership on every access. Three older paths, however, are bound only to being signed in, not to a garden: a plant's growth phases, its care reminders, and an older dashboard summary. Anyone who knows the key of another garden's plant can read and change phase and care data through them. Likewise, writing access to the global master-data catalog (species, lifecycles, phase profiles) is not yet restricted to the platform role.
+- **Some side paths around the plant sit outside the garden check.** The plant endpoints proper verify garden ownership on every access. Three older paths, however, are bound only to being signed in, not to a garden: a plant's growth phases, its care reminders, and an older dashboard summary. Anyone who knows the key of another garden's plant can read and change phase and care data through them. Writing access to the global master-data catalog is now restricted to the platform role throughout: species and cultivars since the shared-catalog rule was introduced, and phase profiles, phase sequences and the plant-protection catalog (pests, diseases, treatments) brought in line most recently. Fertilizers follow the same rule (issue #2100): only the platform administrator may change or delete a global fertilizer — before, any grower of any garden could overwrite the values of a shared fertilizer. Another garden's fertilizer answers "not found" on change and delete; your own needs the grower role (delete: lead). Shared workflow templates (such as a species' generated activity plan) belong to no single garden either (issue #2101): changing one creates a copy for your garden, deleting it or writing its phases or task templates is not possible — duplicate the template first. Reading stays open to every member — a catalog nobody may read would be as useless as one anybody may change.
+
+The CSV import is garden-bound too now: an upload belongs to the garden that was active when it was uploaded. Other gardens neither see it nor can apply or delete it; inside your own garden a gardener and above may upload and apply, while deleting is reserved for the lead. Imports uploaded before this change carry no garden. They are therefore reachable by nobody — not even by accounts without a garden of their own — and a database migration removes them on the next start; an import that had not been applied yet has to be uploaded again afterwards.
+
+One consequence concerns phase sequences: a sequence somebody duplicated from a system one was never garden-bound — the data model has no garden key there at all, so the copy lands in the same installation-wide catalog as its source and is visible to everyone. It can therefore only be edited, duplicated or deleted by the platform administrator from now on. Measured on the development installation (2026-09-18): 21 phase sequences, **0** of them duplicates — the restriction affects nobody there, but it certainly would on an installation with copies of its own.
 
 The first two points only affect the gradation **inside** a garden. The third affects the separation **between** gardens: for the core resources — plant list, locations, tasks, harvests, photos — it is enforced in all queries; for the side paths named above it is not yet. So for now, run an instance with several mutually unknown parties only with trustworthy accounts.
 
 ### Location Assignments via the API
 
-Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; all writing calls there require the Management scope. An assignment links a membership to a location and carries a flag for the intended edit permission plus a free-text note field. The corresponding calls already exist in the frontend as interface functions but are not yet wired to any page.
+Assignments are managed under the path `/api/v1/tenants/{garden-slug}/assignments`; all writing calls there require the Management scope. An assignment links a membership to a location and carries a flag for the intended edit permission plus a free-text note field. The corresponding calls already exist in the frontend as interface functions but are not yet wired to any page.
 
 ---
 
@@ -350,7 +358,7 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
     No. Your houseplants live in your personal garden, which is completely separate from all other gardens. In the member list, association members only see your display name and your role in the association.
 
 ??? question "Do other association members see my plot in the association?"
-    Yes. Inside a garden all members may read everything — including other people's plots. Location assignment is meant to govern *editing*, not reading. If you want to keep something truly private, it belongs in your personal garden.
+    Yes. Inside a garden all members may read everything — including other people's plots. Location assignment only shows who looks after a plot — it restricts neither reading nor editing. If you want to keep something truly private, it belongs in your personal garden.
 
 ??? question "Can the association's Management change my role without asking me?"
     Yes, inside their garden. They can demote you to viewer there or remove you entirely. They have no access to your personal garden or your other memberships.
@@ -362,10 +370,10 @@ Assignments are managed under the path `/api/v1/t/{garden-slug}/assignments`; al
     No. You always see exactly one garden. Notifications are the exception: they reach you regardless of which garden is currently open.
 
 ??? question "How do I get permissions for the platform area?"
-    Through an admin membership in the technical platform tenant — granted by an existing platform administrator. On your own installation, the first registered account receives this role automatically.
+    Through a membership with the lead role in the technical platform tenant — granted by an existing platform administrator, confirmed with their password. Nobody can give the role to themselves. On your own installation you set up the first platform admin account on the server (`python -m app.migrations.add_platform_admin <email>`); a first registered account does not become platform administrator automatically.
 
 ??? question "Does Home Assistant need an account with administrative scopes?"
-    No. A service account with the Grower role is enough to read and document. Only creating locations would need the Lead role, and *setting up* the Home Assistant connection itself needs the Technical scope.
+    No. A service account with the Grower role is enough to read and document. Locations are created by a person with the Lead role; the service account itself is set up by someone holding the Lead role and the Technical scope.
 
 ---
 

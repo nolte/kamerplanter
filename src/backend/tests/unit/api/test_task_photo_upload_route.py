@@ -102,6 +102,13 @@ class FakeAttachmentService:
         )
 
 
+#: The route function without its per-user rate limit (#2109): these tests call it
+#: directly with a stand-in request, which slowapi's wrapper refuses. The limit
+#: itself is held by ``tests/unit/guards/test_expensive_routes_carry_a_per_user_limit.py``
+#: and ``tests/api/test_expensive_routes_per_user_limit.py``.
+_upload_task_photo = inspect.unwrap(photo_router.upload_task_photo)
+
+
 @pytest.fixture
 def services() -> tuple[FakeTaskService, FakeAttachmentService]:
     return FakeTaskService({"task-1": "tenant-a", "task-of-other-tenant": "tenant-b"}), FakeAttachmentService()
@@ -162,7 +169,7 @@ class TestTheUpload:
         """The category drives the storage prefix and the DSGVO erasure scope."""
         tasks, attachments = services
 
-        response = await photo_router.upload_task_photo(
+        response = await _upload_task_photo(
             "task-1", FakeRequest(), FakeUpload(), ctx=_ctx(), task_service=tasks, attachment_service=attachments
         )
 
@@ -174,7 +181,7 @@ class TestTheUpload:
     async def test_the_response_exposes_no_storage_detail(self, services) -> None:
         tasks, attachments = services
 
-        response = await photo_router.upload_task_photo(
+        response = await _upload_task_photo(
             "task-1", FakeRequest(), FakeUpload(), ctx=_ctx(), task_service=tasks, attachment_service=attachments
         )
 
@@ -188,7 +195,7 @@ class TestTheUpload:
         tasks, attachments = services
 
         with pytest.raises(NotFoundError):
-            await photo_router.upload_task_photo(
+            await _upload_task_photo(
                 "task-of-other-tenant",
                 FakeRequest(),
                 FakeUpload(),
@@ -197,7 +204,7 @@ class TestTheUpload:
                 attachment_service=attachments,
             )
         with pytest.raises(NotFoundError):
-            await photo_router.upload_task_photo(
+            await _upload_task_photo(
                 "no-such-task",
                 FakeRequest(),
                 FakeUpload(),
@@ -215,7 +222,7 @@ class TestTheUpload:
         tasks, attachments = services
 
         with pytest.raises(FileTooLargeError):
-            await photo_router.upload_task_photo(
+            await _upload_task_photo(
                 "task-1",
                 FakeRequest(content_length=999 * 1024 * 1024),
                 FakeUpload(),
@@ -231,7 +238,7 @@ class TestTheUpload:
         tasks, attachments = services
 
         with pytest.raises(InvalidFileTypeError):
-            await photo_router.upload_task_photo(
+            await _upload_task_photo(
                 "task-1",
                 FakeRequest(),
                 FakeUpload(content_type=None),

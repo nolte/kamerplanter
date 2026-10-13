@@ -1,5 +1,6 @@
 """REQ-013 §2 (Z.160) — clone_from_run_key copies configuration, not plants."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from app.common.enums import PlantingRunStatus, PlantingRunType
@@ -55,7 +56,23 @@ def _service():
     repo.create_entry.side_effect = lambda entry: entry
 
     plant_repo = MagicMock()
-    service = PlantingRunService(run_repo=repo, plant_repo=plant_repo, engine=PlantingRunEngine())
+    # The template's location is the tenant's own: the run service refuses a
+    # location it cannot anchor (#1872, fail closed without a site repository).
+    sites = MagicMock()
+    sites.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_lisa")
+    sites.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=TENANT)
+    # The template's batches are the tenant's own; #1868 resolves the inherited
+    # key, and a resolver that answers for them keeps this file about cloning.
+    service = PlantingRunService(
+        run_repo=repo,
+        plant_repo=plant_repo,
+        engine=PlantingRunEngine(),
+        site_repo=sites,
+        # The template's plan is readable by the tenant (#2107 review, S3).
+        nutrient_plan_repo=MagicMock(),
+        substrate_batch_resolver=lambda key, *, tenant_key: None,
+        species_resolver=lambda key, *, tenant_key: None,
+    )
     return service, repo, plant_repo, captured
 
 
@@ -69,7 +86,7 @@ class TestCloneConfig:
             run_type=PlantingRunType.MONOCULTURE,
             clone_from_run_key=TEMPLATE_KEY,
         )
-        created = service.create_run(new_run)
+        created = service.create_run(new_run, tenant_key=TENANT)
 
         persisted = captured["run"]
         assert persisted.location_key == "loc_beet_c"
@@ -87,7 +104,7 @@ class TestCloneConfig:
             run_type=PlantingRunType.MONOCULTURE,
             clone_from_run_key=TEMPLATE_KEY,
         )
-        service.create_run(new_run)
+        service.create_run(new_run, tenant_key=TENANT)
 
         # entry composition copied from the template ...
         assert repo.create_entry.call_count == 1
@@ -107,7 +124,7 @@ class TestCloneConfig:
             clone_from_run_key=TEMPLATE_KEY,
             location_key="loc_beet_d",
         )
-        service.create_run(new_run)
+        service.create_run(new_run, tenant_key=TENANT)
 
         assert captured["run"].location_key == "loc_beet_d"
 
@@ -121,7 +138,7 @@ class TestCloneConfig:
             clone_from_run_key=TEMPLATE_KEY,
         )
         own_entry = PlantingRunEntry(species_key="species_spinacia", quantity=8, id_prefix="SPI")
-        service.create_run(new_run, [own_entry])
+        service.create_run(new_run, [own_entry], tenant_key=TENANT)
 
         repo.get_entries.assert_not_called()
         created_entry = repo.create_entry.call_args.args[0]

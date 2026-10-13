@@ -1,12 +1,18 @@
-"""Knowledge / RAG API endpoints -- proxies to the Knowledge Service microservice."""
+"""Knowledge / RAG API endpoints -- proxies to the Knowledge Service microservice.
+
+Search only. The question-answering route that used to live here
+(``POST /api/v1/knowledge/ask``) put an LLM call behind nothing but a login: no
+KI toggle, no consent, no daily budget (#2175). It is now
+``POST /api/v1/t/{tenant_slug}/ai/knowledge/ask`` on the KI-Assistent tenant
+router, behind the same admission as every other generating KI route.
+``GET /knowledge/search`` runs no language model and stays here.
+"""
 
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.knowledge.schemas import (
-    KnowledgeAskRequest,
-    KnowledgeAskResponse,
     KnowledgeChunkResponse,
     KnowledgeSearchResponse,
 )
@@ -52,27 +58,4 @@ def search_knowledge(
         results=[KnowledgeChunkResponse(**r) for r in data["results"]],
         total=data["total"],
         doc_language=data.get("doc_language"),
-    )
-
-
-@router.post("/ask", response_model=KnowledgeAskResponse)
-def ask_knowledge(
-    body: KnowledgeAskRequest,
-    client: KnowledgeServiceClient = Depends(_require_knowledge_client),
-) -> KnowledgeAskResponse:
-    """RAG question answering (proxied to Knowledge Service)."""
-    context_dict = body.context.model_dump(exclude_none=True) if body.context else None
-    data = client.ask(
-        body.question,
-        top_k=body.top_k,
-        doc_language=body.doc_language,
-        prompt_language=body.prompt_language,
-        context=context_dict,
-    )
-    return KnowledgeAskResponse(
-        answer=data["answer"],
-        question_type=data.get("question_type", "factual"),
-        model=data["model"],
-        usage=data["usage"],
-        sources=[KnowledgeChunkResponse(**s) for s in data["sources"]],
     )

@@ -1,0 +1,29 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: frontend.yml
+job: node-version
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-10-13'
+measured_at_commit: cbb36e3ac58411929d350df4d68f6f1ca7353ddd
+job_spec_sha256: a7c440ac88d6206de0e021fc6ef2f8905dd758edfd0ec1b17fbdcf75b1325003
+invocations:
+- command: awk '$1=="nodejs"{print $2}' src/frontend/.tool-versions
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 0
+subprocesses:
+- awk
+accepted_gaps: []
+reads:
+- src/frontend/.tool-versions
+test_modules: []
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

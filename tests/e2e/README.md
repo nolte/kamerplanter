@@ -260,7 +260,8 @@ because no gate looked.
 
 ```bash
 task test:e2e:smoke       # -m smoke  (190 tests, ~7 min with -n 4)
-docker compose -f docker-compose.e2e.yml --profile core-crud run --rm e2e-core-crud
+E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" \
+  docker compose -f docker-compose.e2e.yml --profile core-crud run --rm e2e-core-crud
 ```
 
 ## TC-ID traceability

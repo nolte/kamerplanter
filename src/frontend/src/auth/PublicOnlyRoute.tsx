@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAppSelector } from '@/store/hooks';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { postLoginPath } from '@/utils/pendingInvitation';
 
 export default function PublicOnlyRoute() {
   const { isAuthenticated, initialized } = useAppSelector((s) => s.auth);
@@ -14,7 +15,8 @@ export default function PublicOnlyRoute() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    // #2162 — a pending invitation (remembered by ProtectedRoute) continues where it left off.
+    return <Navigate to={postLoginPath()} replace />;
   }
 
   return <Outlet />;

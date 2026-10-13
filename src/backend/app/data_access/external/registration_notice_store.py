@@ -27,6 +27,7 @@ from typing import Protocol
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.domain.interfaces.registration_notice_store import IRegistrationNoticeStore
 
 logger = structlog.get_logger()
@@ -136,6 +137,6 @@ class RedisRegistrationNoticeStore(IRegistrationNoticeStore):
                 nx=True,
             )
         except Exception as exc:  # noqa: BLE001 - any Redis failure degrades to the local tier
-            logger.warning("registration_notice_store_unavailable", error=str(exc))
+            logger.warning("registration_notice_store_unavailable", error=loggable_error(exc))
             return self._fallback.claim(email)
         return bool(claimed)

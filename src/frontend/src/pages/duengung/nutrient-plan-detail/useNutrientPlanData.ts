@@ -82,6 +82,7 @@ export function useNutrientPlanData() {
       is_template: false,
       version: '',
       tags: [],
+      species_keys: [],
       schedule_enabled: false,
       schedule_mode: 'weekdays',
       weekday_schedule: [],
@@ -115,7 +116,9 @@ export function useNutrientPlanData() {
       const [p, e, f] = await Promise.all([
         planApi.fetchNutrientPlan(key),
         planApi.fetchPhaseEntries(key),
-        fertApi.fetchFertilizers(0, 200),
+        // The complete catalogue (#1560); one leg of an imperative sequence
+        // whose surrounding loading and error state already covers it.
+        fertApi.fetchAllFertilizers(),
       ]);
       setPlan(p);
       setEntries(e);
@@ -130,6 +133,7 @@ export function useNutrientPlanData() {
         is_template: p.is_template,
         version: p.version,
         tags: p.tags,
+        species_keys: p.species_keys ?? [],
         schedule_enabled: ws != null,
         schedule_mode: ws?.schedule_mode ?? 'weekdays',
         weekday_schedule: ws?.weekday_schedule ?? [],
@@ -202,6 +206,7 @@ export function useNutrientPlanData() {
         is_template: data.is_template,
         version: data.version,
         tags: data.tags,
+        species_keys: data.species_keys,
         watering_schedule: hasSchedule ? {
           schedule_mode: data.schedule_mode,
           weekday_schedule: data.weekday_schedule,

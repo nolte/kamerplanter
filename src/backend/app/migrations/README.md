@@ -64,6 +64,35 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
    entfernt/umbenannt, MUSS **dieselbe** Änderung eine Migration mitliefern, die
    Bestandsdokumente überführt (Lehre aus Issue #306).
 
+   Für **Feldnamen in `app/domain/models/`** ist diese Regel seit #1468 gegatet:
+   `tests/unit/guards/test_model_field_renames_have_migrations.py` leitet aus der
+   Git-Historie ab, welche Modellfelder seit dem Framework-Baseline-Commit
+   verschwunden sind, und verlangt für jedes eine Migration — die das alte Feld im
+   **Code** nennen muss, eine Erwähnung im Docstring zählt nicht — oder einen
+   belegten Grund (Commit-SHA, Issue oder Migration), warum kein Bestandsdokument
+   betroffen sein kann. Anlass war #1174: Modell und Seed-YAML wurden umbenannt,
+   die gespeicherten Dokumente nicht, und die CEC des gesamten Substratkatalogs
+   las sich monatelang als `None` (v0051 repariert das). Wer ein Feld umbenennt,
+   trägt die Migration dort ein.
+
+   Reichweite des Gates, damit niemand mehr hineinliest, als es misst:
+
+   - Die Population ist auf `(Datei, Klasse, Feld)` geschlüsselt — `substrate.py`
+     deklariert `tenant_key` in `Substrate` **und** in `SubstrateBatch`, und eine
+     Umbenennung in nur einer der beiden Klassen bliebe pro Datei unsichtbar.
+     Folge: eine **Klassen**-Umbenennung lässt alle ihre Felder als verschwunden
+     gelten — laut statt still, aber sie braucht dann Einträge.
+   - Erfasst werden annotierte Klassenfelder **und** ihre `Field(alias=…)`-Namen
+     (der Alias ist der gespeicherte Schlüssel). **Nicht** erfasst: umbenannte
+     Enum-*Werte* und umbenannte Collections — M-9 gilt dort genauso, sie
+     brauchen eine eigene Ableitung.
+   - Die Ableitung braucht volle Git-Historie. Der Pflicht-Check
+     `Write-route and tree guards` checkt deshalb mit `fetch-depth: 0` aus und
+     läuft mit `--max-skipped 0`; auf einem flachen Checkout (z. B. der
+     Coverage-Lane, deren Checkout einem fremden Repo gehört) überspringt der
+     Test, statt vakuös grün zu sein. Dass diese Lane-Voraussetzung bestehen
+     bleibt, prüft derselbe Test ohne Historie mit.
+
 5. **Bestehende Logik wiederverwenden:** Große Transformationen dürfen als reine
    Funktion in einem eigenen Modul liegen; der Version-Wrapper ruft sie nur auf
    (siehe `v0002`–`v0005`). Logik **nicht** duplizieren.
@@ -72,7 +101,24 @@ run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
    editiert — Korrekturen kommen als **neue** Version. Der Framework-Checksum
    (SHA-256 des `up`-Quelltexts) erkennt Drift und warnt beim Start.
 
-7. **Test beilegen:** Unter `tests/unit/migrations/versions/` — mindestens ein
+7. **Indizes nie über `type == "persistent"` erkennen (#2034):** Bis zum
+   07.06.2026 (`516bcd832`) legte `ensure_collections` jeden Index mit
+   `add_hash_index` an. Volumes, die vor diesem Datum zum ersten Mal gestartet
+   sind, tragen diese Indizes bis heute, und ArangoDB 3.12 meldet sie als
+   `type: "hash"`. Ein Neuanlegen mit `add_persistent_index` und derselben
+   Definition ersetzt sie nicht, sondern legt einen zweiten Index daneben an
+   (gemessen auf 3.12.8). Eine Migration, die einen Alt-Index über
+   `type == "persistent"` sucht, sieht ihn dort nicht. Sie meldet Erfolg, und
+   die alte, strengere Constraint bleibt aktiv. So ist es v0030, v0064 und v0069
+   passiert, korrigiert durch v0073, v0074 und v0072. Neue Migrationen wählen
+   Indizes deshalb über `app/migrations/support/legacy_indexes.py`
+   (`is_index_on`, `indexes_on`, `retire_legacy_index`). Der Selektor erkennt
+   `persistent` und `hash`, und `retire_legacy_index` entfernt einen Alt-Index
+   nur, wenn ein eindeutiger Ersatz schon existiert. Der Guard
+   `tests/unit/guards/test_migration_index_selectors.py` lehnt jeden
+   Inline-Vergleich auf den Index-Typ in einer neuen Versionsdatei ab.
+
+8. **Test beilegen:** Unter `tests/unit/migrations/versions/` — mindestens ein
    Smoke-Test (up idempotent/No-op, dry-run schreibt nicht, down verhält sich
    gemäß Reversibilität).
 
@@ -143,14 +189,59 @@ python -m app.migrations downgrade --to 0003 --dry-run
 python -m app.migrations current                 # höchste angewandte Version
 python -m app.migrations history                 # angewandte Migrationen + Zeitstempel
 python -m app.migrations create <slug>           # nächste Migration scaffolden
+python -m app.migrations.audit_legacy_stamps     # v0004-Stempel-Audit, nur lesend (MT-052)
 ```
+
+## Historisches Risiko: v0004-Stempel (MT-052, #2144)
+
+`v0004` (`backfill_tenant_key.py`) hat jede Zeile ohne `tenant_key` in 29
+Collections mit dem Schlüssel **eines** Default-Mandanten gestempelt — auch
+globale Kataloge und auch Daten von Personen, die diesem Mandanten nie
+angehörten. Am Schlüssel allein ist ein Stempel nicht von Eigentum zu
+unterscheiden. Stand der Reparaturen:
+
+| Collection(s) | Stempel | Reparatur |
+|---|---|---|
+| `species`, `cultivars` | auf globalen Seeds | `v0036`, `v0038` |
+| `fertilizers`, `nutrient_plans` (+ Phaseneinträge), `workflow_templates`, `task_templates` | auf globalen Seeds | `v0066` (nur seed-belegte Zeilen) |
+| `harvest_indicators` | auf globalen Seeds | `v0070` |
+| `pests`, `diseases`, `treatments` | auf jeder Zeile (Modell hat kein `tenant_key`) | `v0088` entfernt das Attribut |
+| `locations`, `slots` | Schlüssel der Site | `v0087` entfernt das Attribut |
+| mandanteneigene Daten (Tasks, Sites, Pflanzen, …) | auf Daten fremder Autoren möglich | **nicht automatisch reparierbar** |
+
+Die letzte Zeile ist das verbleibende Risiko: Hat eine Installation vor `v0004`
+Daten mehrerer Personen gehalten, gehören deren Zeilen seither dem
+Default-Mandanten. Messen (nur lesend):
+
+```bash
+python -m app.migrations.audit_legacy_stamps --dry-run   # Exit 0: kein Verdacht, 3: Zeilen mit Status "never"
+```
+
+Der Befehl ordnet jede Zeile mit `tenant_key` und Autorenfeld (`created_by`,
+`*_by_key`) ein: `member` (aktive Mitgliedschaft), `former` (inaktive) oder
+`never` (keine Mitgliedschaft im Mandanten der Zeile — der v0004-Verdacht, oder
+ein Mitglied, dessen Mitgliedschaft beim Entfernen gelöscht wurde). Ausgegeben
+werden nur Dokumentschlüssel. Was mit `never`-Zeilen geschieht (umhängen,
+belassen, löschen), ist eine **rechtliche/fachliche Entscheidung** des
+Betreibers — der Befehl ändert nichts, und keine Migration entscheidet das
+automatisch.
 
 ## Concurrency & Ops
 
 - **Lock (M-8):** `upgrade`/`downgrade` laufen unter einem `__lock__`-Dokument in
   `schema_migrations`. Ein zweiter Runner wird blockiert; `run_pending_migrations`
-  überspringt bei gehaltenem Lock (der gewinnende Runner migriert). Ein Lock, das
+  wartet bei gehaltenem Lock (begrenzt, 2 × TTL) und versucht `upgrade` danach
+  selbst — bereits angewandte Versionen werden übersprungen. Ein Lock, das
   älter als 5 Minuten ist, gilt als verwaist und wird übernommen.
+- **Seeds unter demselben Lock (S-5, #2028):** `run_seeds` nimmt denselben Lock.
+  Der Halter erneuert ihn nach jedem Seed-Job (`tracking.refresh_lock`) und hält
+  den abgeschlossenen Lauf in `schema_migrations/__seed_run__` fest (Lauf-ID,
+  Fingerprint der Seed-Eingaben, fehlgeschlagene Jobs). Ein wartendes Replica
+  seedet nicht erneut, wenn währenddessen ein Lauf mit gleichem Fingerprint ohne
+  fehlgeschlagenen Job fertig wurde. Läuft das Warten ab, bricht der Startup ab
+  (`SeedBarrierTimeoutError`); wird der Lock zwischen zwei Jobs übernommen, bricht
+  der alte Halter ab (`SeedLockLostError`). Ein neuer Seed braucht dafür nichts zu
+  tun — aber S-1 bleibt Pflicht: der Lock schützt nur vor *gleichzeitigen* Läufen.
 - **Zielbild (O-3):** Migrationen sollen mittelfristig als dediziertes
   Kubernetes-Job / Helm-Hook laufen (nicht in jedem App-Pod). Der
   CLI-Entrypoint `python -m app.migrations upgrade` ist die Grundlage; bis dahin

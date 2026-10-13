@@ -49,22 +49,13 @@ def _make_sensor(**kwargs) -> Sensor:
 
 
 class TestRecordReading:
-    def test_record_reading_delegates_to_repo(self, service, mock_obs_repo, mock_sensor_repo):
-        mock_sensor_repo.get.return_value = _make_sensor()
-        reading = _make_reading()
-        service.record_reading(reading)
-        mock_obs_repo.insert.assert_called_once_with(reading)
+    # Ownership of the sensor (#1871 B6) is decided in
+    # test_sensor_reading_ingestion_scope.py; here the delegation after it.
 
     def test_record_reading_raises_if_sensor_not_found(self, service, mock_sensor_repo):
         mock_sensor_repo.get.return_value = None
         with pytest.raises(NotFoundError):
-            service.record_reading(_make_reading())
-
-    def test_record_batch_delegates(self, service, mock_obs_repo):
-        readings = [_make_reading(), _make_reading(value=23.0)]
-        mock_obs_repo.insert_batch.return_value = 2
-        result = service.record_readings_batch(readings)
-        assert result == 2
+            service.record_reading(_make_reading(), tenant_key="t1")
 
 
 class TestGetReadings:

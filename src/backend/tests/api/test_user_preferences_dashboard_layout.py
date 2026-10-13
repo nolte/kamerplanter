@@ -12,15 +12,21 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.user_preferences.tenant_router import router as pref_router
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, get_current_user
 from app.common.dependencies import get_user_preference_service
 from app.common.enums import TenantRole
 from app.domain.models.tenant_context import TenantContext
+from app.domain.models.user import User
 from app.domain.models.user_preference import UserPreference
 from app.domain.services.user_preference_service import UserPreferenceService
 
 TENANT_SLUG = "test-slug"
 USER_KEY = "user-1"
+
+
+def _session_principal() -> User:
+    """A session caller (no API-key scope), for ``require_account_principal``."""
+    return User(_key="user-1", email="user-1@example.org", display_name="User")
 
 
 def _ctx() -> TenantContext:
@@ -67,6 +73,9 @@ def _build_client() -> TestClient:
     app = FastAPI()
     app.include_router(pref_router, prefix=f"/api/v1/t/{TENANT_SLUG}")
     app.dependency_overrides[get_current_tenant] = _ctx
+    # The account-wide writes also refuse a tenant-scoped API key (#1851) through
+    # ``require_account_principal``, which resolves the principal itself.
+    app.dependency_overrides[get_current_user] = _session_principal
     app.dependency_overrides[get_user_preference_service] = lambda: service
     return TestClient(app)
 

@@ -120,4 +120,5 @@ class TestTheServiceMethod:
 
         assert callable(AuthService.unlink_provider)
         assert callable(AuthService._create_oauth_provider)
-        assert "should_auto_link" in inspect.getsource(AuthService.complete_oauth)
+        # The sign-in half of the callback since #1815 split off the step-up half.
+        assert "should_auto_link" in inspect.getsource(AuthService._complete_login)

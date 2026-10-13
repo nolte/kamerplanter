@@ -37,6 +37,10 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
     def get_all_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]:
         return self._indicators.get_all(offset, limit)
 
+    def list_indicators_window(self, offset: int = 0, limit: int = 50) -> list[HarvestIndicator]:
+        """The page of :meth:`get_all_indicators` without its count query (MT-035, #2131)."""
+        return self._indicators.list_window(offset=offset, limit=limit)
+
     def create_indicator(self, indicator: HarvestIndicator) -> HarvestIndicator:
         ind = self._indicators.create(indicator)
 
@@ -47,6 +51,34 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
                 f"{col.HARVEST_INDICATORS}/{ind.key}",
             )
         return ind
+
+    def find_indicator(self, species_key: str, indicator_type: str, measurement_unit: str) -> HarvestIndicator | None:
+        """The indicator a seed entry names, or ``None`` (#1956).
+
+        ``(species, indicator_type, measurement_unit)`` is the identity the seed
+        YAML gives an indicator: ``(species, indicator_type)`` alone is not unique
+        there (a species lists several ``texture`` or ``color`` indicators with
+        different units). Lowest ``_key`` first, so two rows of one identity resolve
+        the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.HARVEST_INDICATORS}
+                FILTER doc.species_key == @species_key
+                    AND doc.indicator_type == @indicator_type
+                    AND doc.measurement_unit == @measurement_unit
+                SORT doc._key
+                LIMIT 1
+                RETURN doc
+            """,
+            bind_vars={
+                "species_key": species_key,
+                "indicator_type": indicator_type,
+                "measurement_unit": measurement_unit,
+            },
+        )
+        doc = next(iter(cursor), None)
+        return HarvestIndicator(**self._indicators._from_doc(doc)) if doc is not None else None
 
     def get_indicators_for_species(self, species_key: str) -> list[HarvestIndicator]:
         return self._indicators.find_by_field("species_key", species_key)
@@ -116,24 +148,40 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
         named endpoints.
         """
         self._require_tenant_key(tenant_key, "get_observations_for_plant")
-        bind_vars = {
+        count_cursor = self._db.aql.execute(
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} COLLECT WITH COUNT INTO cnt RETURN cnt",
+            bind_vars=self._observations_for_plant_vars(plant_key, tenant_key),
+        )
+        total = next(count_cursor, 0)
+
+        items = self.get_observations_for_plant_window(plant_key, offset, limit, tenant_key=tenant_key)
+        return items, total
+
+    def get_observations_for_plant_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[HarvestObservation]:
+        """The page of :meth:`get_observations_for_plant` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "get_observations_for_plant_window")
+        cursor = self._db.aql.execute(
+            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT DATE_TIMESTAMP(doc.observed_at) DESC, doc._key DESC "
+            "LIMIT @offset, @limit RETURN doc",
+            bind_vars={**self._observations_for_plant_vars(plant_key, tenant_key), "offset": offset, "limit": limit},
+        )
+        return [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _observations_for_plant_vars(plant_key: str, tenant_key: str) -> dict[str, str]:
+        return {
             "@observations": col.HARVEST_OBSERVATIONS,
             "plants": col.PLANT_INSTANCES,
             "plant_key": plant_key,
             "tenant_key": tenant_key,
         }
-        count_cursor = self._db.aql.execute(
-            f"{self._OBSERVATIONS_FOR_PLANT_BODY} COLLECT WITH COUNT INTO cnt RETURN cnt",
-            bind_vars=bind_vars,
-        )
-        total = next(count_cursor, 0)
-
-        cursor = self._db.aql.execute(
-            f"{self._OBSERVATIONS_FOR_PLANT_BODY} SORT doc.observed_at DESC LIMIT @offset, @limit RETURN doc",
-            bind_vars={**bind_vars, "offset": offset, "limit": limit},
-        )
-        items = [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
-        return items, total
 
     def get_latest_observations_by_indicator(self, plant_key: str, *, tenant_key: str) -> list[HarvestObservation]:
         """Newest observation per indicator for a plant, **inside one tenant** (#927).
@@ -147,7 +195,7 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             COLLECT indicator = doc.indicator_key INTO group
             LET latest = FIRST(
                 FOR g IN group
-                    SORT g.doc.observed_at DESC
+                    SORT DATE_TIMESTAMP(g.doc.observed_at) DESC
                     LIMIT 1
                     RETURN g.doc
             )
@@ -170,9 +218,15 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
         self,
         offset: int = 0,
         limit: int = 50,
-        tenant_key: str | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[HarvestBatch], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
+
+    def list_batches_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[HarvestBatch]:
+        """The page of :meth:`get_all_batches` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "list_batches_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
 
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None:
         return super().get_by_key(key)
@@ -188,16 +242,21 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
             self.create_edge(col.HARVESTED_AS, plant_id, batch_id)
         return hb
 
-    def batch_id_exists(self, batch_id: str) -> bool:
-        """Report whether any batch already uses ``batch_id``.
+    def batch_id_exists(self, batch_id: str, *, tenant_key: str) -> bool:
+        """Report whether a batch of ``tenant_key`` already uses ``batch_id``.
 
-        The ``batch_id`` unique index is global (not tenant-scoped), so this
-        lookup is deliberately un-scoped to mirror the constraint the generated
-        identifier must satisfy.
+        Scoped like the unique index the generated identifier must satisfy:
+        ``(tenant_key, batch_id)`` since #2065, so another tenant's label neither
+        collides nor steers the generator.
         """
         if not batch_id:
             return False
-        return bool(self.find_by_field("batch_id", batch_id, limit=1, offset=0))
+        self._require_tenant_key(tenant_key, "batch_id_exists")
+        return bool(
+            self.find_by_field(
+                "batch_id", batch_id, limit=1, offset=0, extra_filters=[("tenant_key", "==", tenant_key)]
+            )
+        )
 
     def update_batch(self, key: HarvestBatchKey, batch: HarvestBatch) -> HarvestBatch:
         return super().update(key, batch)
@@ -235,14 +294,23 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
     def get_yield_for_batch(self, batch_key: HarvestBatchKey) -> YieldMetric | None:
         return self._yield.find_one_by_field("batch_key", batch_key)
 
-    def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365) -> dict:
+    def get_yield_statistics_for_species(self, species_key: str, days_back: int = 365, *, tenant_key: str) -> dict:
+        """Aggregate ``tenant_key``'s yields of one species over ``days_back`` days.
+
+        A species is catalogue data every tenant shares; its harvests are not.
+        Before #1708 ``GET /t/{slug}/harvest/species/{key}/yield-stats`` resolved
+        the caller's tenant and then averaged every tenant's batches. The batch
+        carries ``tenant_key`` itself, so that is where the predicate hangs.
+        """
+        self._require_tenant_key(tenant_key, "get_yield_statistics_for_species")
         cutoff = (datetime.now(UTC) - timedelta(days=days_back)).isoformat()
         query = """
         FOR hb IN harvest_batches
+            FILTER hb.tenant_key == @tenant_key
             FOR pi IN plant_instances
                 FILTER pi._key == hb.plant_key
                 FILTER pi.species_key == @species_key
-                FILTER hb.harvest_date >= @cutoff
+                FILTER DATE_TIMESTAMP(hb.harvest_date) >= DATE_TIMESTAMP(@cutoff)
                 FOR ym IN yield_metrics
                     FILTER ym.batch_key == hb._key
                     COLLECT species = @species_key
@@ -258,7 +326,7 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
                         avg_trim_waste_percent: avg_trim_waste
                     }
         """
-        bind = {"species_key": species_key, "cutoff": cutoff}
+        bind = {"species_key": species_key, "cutoff": cutoff, "tenant_key": tenant_key}
         cursor = self._db.aql.execute(query, bind_vars=bind)
         result = next(cursor, None)
         return result or {

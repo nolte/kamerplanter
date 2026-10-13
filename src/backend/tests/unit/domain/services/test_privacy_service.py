@@ -27,10 +27,19 @@ from app.domain.models.privacy import (
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from tests.conftest import wire_get_or_raise
+from tests.support.privacy_doubles import FakePersonalTenants, RecordingErasureExecutor, step_up
 
 USER_KEY = "u1"
 USER_EMAIL = "user@example.com"
 USER_PASSWORD = "correct-horse-battery-staple"
+
+
+@pytest.fixture(autouse=True)
+def _erasure_log_salt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1843: the erasure request is refused up front on a deployment without the log salt (#1812)."""
+    from app.config.settings import settings
+
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "log-pseudonym-test-salt-not-a-secret-01234")
 
 
 @pytest.fixture
@@ -114,6 +123,14 @@ def erasure_repo():
         return erasure
 
     repo.create.side_effect = _create
+
+    def _create_with_key(erasure, key):
+        erasure.key = key
+        return erasure
+
+    # #1843: the self-service request is keyed per subject, like the immediate one.
+    repo.create_with_key.side_effect = _create_with_key
+    repo.get_by_key.return_value = None
     wire_get_or_raise(repo, "ErasureRequest")
     return repo
 
@@ -123,6 +140,10 @@ def email_change_repo():
     repo = MagicMock()
     repo.list_pending_for_user.return_value = []
     repo.get_by_token_hash.return_value = None
+    # #1848: no address held for a revert; the conditional writes succeed.
+    repo.find_revert_reservation.return_value = None
+    repo.claim_status.return_value = True
+    repo.record_confirmation.return_value = True
 
     def _create(change):
         change.key = "ec-1"
@@ -142,6 +163,29 @@ def user_repo(user):
     repo.get_by_key.return_value = user
     repo.get_by_email.return_value = None
     repo.update.side_effect = lambda _k, u: u
+
+    def _update_fields(_key, fields):
+        """Mirror ``ArangoUserRepository.update_fields``: read, merge, return.
+
+        The production override is a read-modify-write over the full model, and
+        since #1525 the repository is full-replace so a ``None`` in ``fields`` is a
+        real clear. Modelling that here — rather than leaving a bare ``MagicMock``
+        whose ``.email`` is another mock — is what keeps these tests measuring the
+        service instead of the double.
+        """
+        for name, value in fields.items():
+            setattr(user, name, value)
+        return user
+
+    repo.update_fields.side_effect = _update_fields
+
+    def _move_email(_key, expected_email, fields):
+        """Mirror ``ArangoUserRepository.move_email``: compare the address, then write (#1848)."""
+        if user.email.lower() != str(expected_email).lower():
+            return None
+        return _update_fields(_key, fields)
+
+    repo.move_email.side_effect = _move_email
     wire_get_or_raise(repo, "User")
     return repo
 
@@ -185,6 +229,10 @@ def service(
         token_engine=TokenEngine("test-secret-key-32-chars-min!!!", "HS256"),
         email_service=email_service,
         frontend_url="http://localhost:5173",
+        # #1843: request_erasure refuses up front what erase_account_now refuses.
+        erasure_executor=RecordingErasureExecutor(),
+        tenant_service=FakePersonalTenants(),
+        tombstone_salt="t" * 32,
     )
 
 
@@ -257,12 +305,15 @@ class TestDataExport:
             download_count=0,
         )
         export_repo.get_by_key.return_value = completed
-        export_repo.update.side_effect = lambda _k, e: e
+        # #1662 SCR-005 — the counter is an atomic increment, not a full-model
+        # write-back that could resurrect a record expiry just cleared.
+        export_repo.increment_download_count.side_effect = lambda _k: completed.model_copy(update={"download_count": 1})
 
         result = service.prepare_export_download(USER_KEY, "export-3")
 
         assert result.download_count == 1
-        export_repo.update.assert_called_once()
+        export_repo.increment_download_count.assert_called_once_with("export-3")
+        export_repo.update.assert_not_called()
 
     def test_prepare_download_rejects_expired(self, service, export_repo):
         export_repo.get_by_key.return_value = DataExportRequest(
@@ -292,6 +343,29 @@ class TestConsent:
         with pytest.raises(ValidationError):
             service.grant_consent(USER_KEY, "unknown_purpose")
 
+    def test_regrant_resets_the_ip_anonymisation_stamp(self, service, consent_repo):
+        """NFR-011 R-04a (#1800): a re-grant writes a new IP and must anonymise it again in its own time.
+
+        Until #1800 only ``ip_address``/``granted_at``/``revoked_at`` were reset
+        on re-grant; ``ip_anonymized_at`` survived from the *previous* grant, so
+        ``anonymize_consent_ips`` (which selects ``ip_anonymized_at == null``)
+        would never anonymise the new address at all.
+        """
+        consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
+            _key="consent-existing",
+            user_key=USER_KEY,
+            purpose="error_tracking",
+            granted=False,
+            revoked_at=datetime.now(UTC) - timedelta(days=1),
+            ip_address="203.0.113.5",
+            ip_anonymized_at=datetime.now(UTC) - timedelta(hours=1),
+        )
+
+        record = service.grant_consent(USER_KEY, "error_tracking", ip_address="198.51.100.9")
+
+        assert record.ip_address == "198.51.100.9"
+        assert record.ip_anonymized_at is None
+
     def test_revoke_required_purpose_blocked(self, service):
         with pytest.raises(ValidationError):
             service.revoke_consent(USER_KEY, "core_functionality")
@@ -309,6 +383,26 @@ class TestConsent:
 
         assert record.granted is False
         assert record.revoked_at is not None
+
+    @pytest.mark.parametrize("retired", ["hibp_check", "external_enrichment"])
+    def test_a_stored_record_of_a_retired_purpose_is_kept_but_no_longer_offered(self, service, consent_repo, retired):
+        """#2136 (MT-040): the record stays (export, erasure, R-04 are generic), the switch is gone.
+
+        No migration deletes it: the record documents a consent that was given, and the
+        retention rules already cover it. It is not listed, and neither grant nor revoke
+        accepts the purpose — no processing exists that either could switch.
+        """
+        stored = ConsentRecord(_key="consent-old", user_key=USER_KEY, purpose=retired, granted=True)
+        consent_repo.list_by_user.return_value = [stored]
+        consent_repo.get_by_user_and_purpose.return_value = stored
+
+        assert retired not in {r.purpose for r in service.list_consents(USER_KEY)}
+        with pytest.raises(ValidationError):
+            service.grant_consent(USER_KEY, retired)
+        with pytest.raises(ValidationError):
+            service.revoke_consent(USER_KEY, retired)
+        consent_repo.update.assert_not_called()
+        consent_repo.delete.assert_not_called()
 
     def test_list_consents_includes_all_purposes(self, service):
         results = service.list_consents(USER_KEY)
@@ -331,7 +425,7 @@ class TestErasure:
         service,
     ):
         with pytest.raises(UnauthorizedError):
-            service.request_erasure(USER_KEY, password_confirmation="wrong-password")
+            service.request_erasure(USER_KEY, **step_up(USER_EMAIL, "wrong-password"))
 
     def test_erasure_soft_deletes_and_revokes_sessions(
         self,
@@ -340,24 +434,55 @@ class TestErasure:
         user_repo,
         refresh_token_repo,
     ):
-        erasure = service.request_erasure(
-            USER_KEY,
-            password_confirmation=USER_PASSWORD,
-        )
+        erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         assert erasure.status == "scheduled"
         assert erasure.soft_deleted_at is not None
         assert erasure.hard_delete_scheduled_at is not None
         assert erasure.anonymized_collections  # not empty
-        # Soft-delete: user.is_active flipped to False
-        update_call = user_repo.update.call_args
-        assert update_call is not None
-        updated_user = update_call[0][1]
-        assert updated_user.is_active is False
-        assert updated_user.password_hash is None
+        # Soft-delete: written as a *named* field dict, not a full-model write-back
+        # (#1525 SCR-003) — the stale snapshot read before the bcrypt verify would
+        # otherwise remove whatever a parallel request set in the meantime, now that
+        # the repository is full-replace.
+        update_call = user_repo.update_fields.call_args
+        assert update_call is not None, "the erasure no longer writes through update_fields"
+        assert update_call[0][1] == {"is_active": False, "password_hash": None}
+        user_repo.update.assert_not_called()
         # Sessions revoked
         refresh_token_repo.revoke_all_for_user.assert_called_once_with(USER_KEY)
-        erasure_repo.create.assert_called_once()
+        erasure_repo.create_with_key.assert_called_once()
+        erasure_repo.create.assert_not_called()
+
+    def test_the_confirmation_lists_all_three_categories_off_the_inventory(self, service):
+        """REQ-025 AK-08a — deleted, anonymised and pseudonymised categories, all from the plan the erasure runs.
+
+        ``deleted_collections`` was declared on the model and never filled, so the
+        confirmation named no deleted category at all (#1645).
+        ``pseudonymized_collections`` likewise (#1800): consent_records moved out
+        of ``deleted_collections`` into this third category when R-04 pseudonymises
+        it instead of deleting it outright.
+        """
+        erasure = service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
+
+        engine = ErasureEngine()
+        assert erasure.deleted_collections == engine.deleted_collection_names()
+        assert erasure.anonymized_collections == engine.anonymized_collection_names()
+        assert erasure.pseudonymized_collections == engine.pseudonymized_collection_names()
+        assert "users" in erasure.deleted_collections
+        assert "consent_records" not in erasure.deleted_collections
+        assert "consent_records" in erasure.pseudonymized_collections
+        # #1663 — quality assessments are retained with the harvest and anonymised.
+        assert "quality_assessments" in erasure.anonymized_collections
+        # #1700 — three categories are split by row, and are truthfully in both
+        # lists: accepted invitations go, sent ones lose the inviter; the
+        # pest-reference attachments whose bytes are gone go, the rest are
+        # anonymised; the subject's own contributions go, ones they promoted as
+        # admin lose the promoter. Any other overlap is a contradiction.
+        assert set(erasure.deleted_collections) & set(erasure.anonymized_collections) == {
+            "invitations",
+            "attachments",
+            "pest_image_contributions",
+        }
 
     def test_erasure_blocked_when_active_exists(
         self,
@@ -371,7 +496,7 @@ class TestErasure:
         )
 
         with pytest.raises(ValidationError):
-            service.request_erasure(USER_KEY, password_confirmation=USER_PASSWORD)
+            service.request_erasure(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
 
 # ── Restriction ────────────────────────────────────────────────────
@@ -420,6 +545,17 @@ class TestRestriction:
 # ── Email change ───────────────────────────────────────────────────
 
 
+def _email_change_step_up() -> dict:
+    """The step-up an e-mail change carries since #1841: the stored user's current password."""
+    return {
+        "password": USER_PASSWORD,
+        "step_up_code": None,
+        "step_up_token": None,
+        "authenticated_with_api_key": False,
+        "client_ip": None,
+    }
+
+
 class TestEmailChange:
     def test_email_change_creates_pending_request(
         self,
@@ -427,12 +563,12 @@ class TestEmailChange:
         email_change_repo,
         email_service,
     ):
-        change = service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com", **_email_change_step_up())
 
         assert change.status == "pending"
         assert str(change.new_email) == "new@example.com"
         email_change_repo.create.assert_called_once()
-        email_service.send_verification_email.assert_called_once()
+        email_service.send_email_change_email.assert_called_once()
 
     def test_email_change_to_a_taken_address_does_not_disclose_it(
         self,
@@ -454,7 +590,7 @@ class TestEmailChange:
             display_name="Other",
         )
 
-        change = service.request_email_change(USER_KEY, "new@example.com")
+        change = service.request_email_change(USER_KEY, "new@example.com", **_email_change_step_up())
 
         assert change.status == "pending"
         email_change_repo.create.assert_not_called()
@@ -533,7 +669,7 @@ class TestDataSubjectServiceFacade:
         from app.domain.services.data_subject_service import DataSubjectService
 
         facade = DataSubjectService(service)
-        erasure = facade.erase(USER_KEY, password_confirmation=USER_PASSWORD)
+        erasure = facade.erase(USER_KEY, **step_up(USER_EMAIL, USER_PASSWORD))
 
         assert erasure.status == "scheduled"
 

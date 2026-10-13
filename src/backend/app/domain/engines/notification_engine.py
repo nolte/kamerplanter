@@ -5,12 +5,15 @@ from zoneinfo import ZoneInfo
 
 import structlog
 
+from app.common.log_privacy import log_subject, log_tenant, loggable_error, mask_url_paths
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
 )
 from app.domain.interfaces.notification_repository import INotificationRepository
+from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.notification import (
+    EMAIL_RECIPIENT_KEYS,
     ChannelPreference,
     ChannelResult,
     EscalationPreference,
@@ -53,10 +56,13 @@ class NotificationEngine:
         preference_repo: INotificationPreferenceRepository,
         channel_registry: NotificationChannelRegistry,
         redis_client: object,
+        *,
+        user_repo: IUserRepository,
     ) -> None:
         self._notification_repo = notification_repo
         self._preference_repo = preference_repo
         self._channel_registry = channel_registry
+        self._user_repo = user_repo
         self._redis = redis_client
 
     # ── Public API ────────────────────────────────────────────────────
@@ -78,9 +84,12 @@ class NotificationEngine:
         6. Persist notification in DB
         7. Set dedup key in Redis
         """
+        # Every line of this run inherits the binding, so the tenant goes in as
+        # its salted reference: beside ``subject`` the raw key would join the
+        # pseudonym to the tenant (#1989, NFR-011 L-1).
         log = logger.bind(
-            user_key=user_key,
-            tenant_key=tenant_key,
+            subject=log_subject(user_key),
+            tenant=log_tenant(tenant_key),
             notification_type=notification.notification_type,
         )
 
@@ -91,7 +100,9 @@ class NotificationEngine:
             notification.group_key,
         )
         if await self._is_duplicate(dedup_key):
-            log.info("notification_deduplicated", dedup_key=dedup_key)
+            # Not the dedup key: it embeds the account key (#1830, NFR-011 §3.4 L-1).
+            # ``subject`` and ``notification_type`` are bound on ``log`` already.
+            log.info("notification_deduplicated")
             return {"status": "deduplicated", "channels_sent": [], "channels_failed": []}
 
         # 2. Preferences
@@ -133,13 +144,16 @@ class NotificationEngine:
                 "channels_failed": [],
             }
 
-        # 5. Send through each channel
+        # 5. Send through each channel — owned by the recipient already, so a
+        # channel can attribute its work (the Apprise resolver share, #1995).
+        notification.user_key = user_key
+        notification.tenant_key = tenant_key
         channels_sent: list[str] = []
         channels_failed: list[str] = []
         results: list[ChannelResult] = []
 
         for channel_key in channel_keys:
-            result = await self._send_to_channel(channel_key, notification, prefs)
+            result = await self._send_to_channel(user_key, channel_key, notification, prefs)
             results.append(result)
             if result.success:
                 channels_sent.append(channel_key)
@@ -191,6 +205,9 @@ class NotificationEngine:
 
         prefs = self._load_preferences(user_key)
         channel_keys = self._resolve_channels(notifications[0], prefs)
+        for notif in notifications:  # owned before sending, as in ``notify`` (#1995)
+            notif.user_key = user_key
+            notif.tenant_key = tenant_key
 
         total_sent = 0
         total_failed = 0
@@ -201,11 +218,12 @@ class NotificationEngine:
                 total_failed += len(notifications)
                 continue
 
-            channel_config = self._get_channel_config(channel_key, prefs)
+            channel_config = self.get_channel_config(user_key, channel_key, prefs)
 
             if channel.supports_batching:
                 try:
                     result = await channel.send_batch(notifications, channel_config)
+                    self.prune_expired_subscriptions(user_key, result)
                     if result.success:
                         total_sent += len(notifications)
                     else:
@@ -213,14 +231,16 @@ class NotificationEngine:
                         logger.warning(
                             "batch_channel_failed",
                             channel=channel_key,
-                            error=result.error,
+                            # A channel's detail can carry a push endpoint, whose
+                            # path is the device token (#1796): host only.
+                            error=loggable_error(mask_url_paths(result.error or "")),
                         )
                 except Exception:
                     total_failed += len(notifications)
                     logger.exception("batch_channel_exception", channel=channel_key)
             else:
                 for notif in notifications:
-                    result = await self._send_to_channel(channel_key, notif, prefs)
+                    result = await self._send_to_channel(user_key, channel_key, notif, prefs)
                     if result.success:
                         total_sent += 1
                     else:
@@ -304,7 +324,7 @@ class NotificationEngine:
 
         logger.info(
             "escalation_complete",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             escalated_count=escalated_count,
         )
 
@@ -401,11 +421,12 @@ class NotificationEngine:
 
     async def _send_to_channel(
         self,
+        user_key: str,
         channel_key: str,
         notification: Notification,
         prefs: NotificationPreferences,
     ) -> ChannelResult:
-        """Send a notification through a single channel with error isolation."""
+        """Send a notification through a single channel with error isolation; prune what expired."""
         channel = self._channel_registry.get(channel_key)
         if channel is None:
             return ChannelResult(
@@ -414,10 +435,10 @@ class NotificationEngine:
                 error=f"Channel '{channel_key}' not registered",
             )
 
-        channel_config = self._get_channel_config(channel_key, prefs)
+        channel_config = self.get_channel_config(user_key, channel_key, prefs)
 
         try:
-            return await channel.send(notification, channel_config)
+            result = await channel.send(notification, channel_config)
         except Exception as exc:
             logger.exception(
                 "channel_send_failed",
@@ -429,17 +450,88 @@ class NotificationEngine:
                 success=False,
                 error=str(exc),
             )
+        self.prune_expired_subscriptions(user_key, result)
+        return result
 
-    def _get_channel_config(
+    def prune_expired_subscriptions(self, user_key: str, result: ChannelResult) -> int:
+        """Remove the push subscriptions *result* reports as gone from *user_key*'s preferences (#1827).
+
+        A push service answers 404/410 for a subscription that no longer
+        exists; until #1827 the endpoint was reported and kept, and dialled again
+        on every notification. Every sender of a channel result calls this — the
+        engine's single and batch paths and the test notification. The removal
+        is one atomic update in the repository that never creates a document
+        (#1892 security review: a read-then-upsert could overwrite a concurrent
+        subscribe, or recreate preferences an erasure had just removed). A
+        failed write is logged and not raised: the notification was delivered or
+        not independently of it. Logs a count, never an endpoint (its path is
+        the device's push token).
+
+        Returns:
+            How many subscriptions were removed.
+        """
+        if not result.expired_endpoints:
+            return 0
+        try:
+            pruned = self._preference_repo.remove_subscriptions(
+                user_key, result.channel_key, list(dict.fromkeys(result.expired_endpoints))
+            )
+        except Exception as exc:
+            logger.warning(
+                "push_subscription_prune_failed",
+                subject=log_subject(user_key),
+                channel=result.channel_key,
+                error_type=type(exc).__name__,
+            )
+            return 0
+        if pruned:
+            logger.info(
+                "push_subscriptions_pruned", subject=log_subject(user_key), channel=result.channel_key, pruned=pruned
+            )
+        return pruned
+
+    def resolve_email_recipient(self, user_key: str) -> str | None:
+        """The one address the e-mail channel may mail for *user_key*, or ``None`` (#1885).
+
+        Only the account's own address, and only while it is confirmed: a
+        live, human account whose owner *proved* the address (``email_confirmed_at``,
+        #1948) — ``email_verified`` alone is not proof, because registration with
+        ``REQUIRE_EMAIL_VERIFICATION=false`` stamps it without a confirmation. A recipient typed into
+        the preferences is never consulted, so nobody can aim the operator's
+        sender reputation at a third party's inbox. ``None`` means "mail
+        nothing", never "fall back to something else".
+        """
+        try:
+            user = self._user_repo.get_by_key(user_key)
+        except Exception:
+            # Fail closed, and keep the failure inside this channel: a lookup
+            # error must not abort the delivery to the other channels.
+            logger.exception("email_recipient_lookup_failed", subject=log_subject(user_key))
+            return None
+        if user is None or not user.email_verified or user.email_confirmed_at is None or not user.is_active:
+            return None
+        if user.account_type != "human":
+            return None
+        return str(user.email)
+
+    def get_channel_config(
         self,
+        user_key: str,
         channel_key: str,
         prefs: NotificationPreferences,
     ) -> dict:
-        """Extract per-channel config from user preferences."""
+        """Per-channel config for one delivery; the e-mail recipient comes from the account, not the preferences."""
         channel_pref = prefs.channels.get(channel_key)
-        if channel_pref is not None:
-            return channel_pref.config
-        return {}
+        config = dict(channel_pref.config) if channel_pref is not None else {}
+        if channel_key == "email":
+            # Whatever a stored row or a request carried under these keys is not
+            # a recipient; the account address replaces it or nothing remains.
+            for legacy in EMAIL_RECIPIENT_KEYS:
+                config.pop(legacy, None)
+            address = self.resolve_email_recipient(user_key)
+            if address is not None:
+                config["email"] = address
+        return config
 
     def _build_dedup_key(
         self,
@@ -457,7 +549,8 @@ class NotificationEngine:
             result = self._redis.get(dedup_key)
             return result is not None
         except Exception:
-            logger.warning("redis_dedup_check_failed", dedup_key=dedup_key)
+            # The key embeds the account key (#1830); the failure is the Redis outage, not the key.
+            logger.warning("redis_dedup_check_failed")
             # Redis failure: allow the notification through (graceful degradation)
             return False
 
@@ -466,7 +559,7 @@ class NotificationEngine:
         try:
             self._redis.set(dedup_key, "1", ex=_DEDUP_TTL_SECONDS)
         except Exception:
-            logger.warning("redis_dedup_set_failed", dedup_key=dedup_key)
+            logger.warning("redis_dedup_set_failed")
             # Redis failure: non-blocking (graceful degradation)
 
     @staticmethod

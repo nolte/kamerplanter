@@ -6,6 +6,7 @@ import { store } from '@/store/store';
 import { router } from '@/routes/AppRoutes';
 import AuthProvider from '@/auth/AuthProvider';
 import { KioskProvider } from '@/kiosk/KioskProvider';
+import AppConsentBanner from '@/components/privacy/AppConsentBanner';
 
 export default function App() {
   return (
@@ -24,6 +25,9 @@ export default function App() {
             <AuthProvider>
               <RouterProvider router={router} />
             </AuthProvider>
+            {/* UI-NFR-013 CB-001 — outside the router so it also shows on the
+                login and registration pages, i.e. on the very first visit. */}
+            <AppConsentBanner />
           </SnackbarProvider>
         </ThemeContextProvider>
       </KioskProvider>

@@ -1,10 +1,36 @@
+import time
+from pathlib import Path
+
+import structlog
 from celery import Celery
 from celery.schedules import crontab
-from celery.signals import beat_init, celeryd_init, worker_process_init
+from celery.signals import (
+    after_setup_logger,
+    after_setup_task_logger,
+    beat_init,
+    before_task_publish,
+    celeryd_init,
+    task_postrun,
+    task_prerun,
+    worker_process_init,
+    worker_ready,
+    worker_shutting_down,
+)
 
+from app.common.log_privacy import loggable_path, redact_text_in_flight
+from app.common.request_context import TELEMETRY_KEYS, current_request
+from app.config.constants import (
+    MIN_LOG_PSEUDONYM_SALT_LENGTH,
+    MIN_TOMBSTONE_SALT_LENGTH,
+    WORKER_DATABASE_START_BUDGET_SECONDS,
+    WORKER_DATABASE_START_RETRY_SECONDS,
+)
+from app.config.logging import install_sink_redaction, setup_logging
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
+from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.tasks.routing import celery_queue_config
 
 # The Celery worker/beat boot via ``celery -A app.tasks`` and never import
 # ``app.main``, so without this call the adapter registries would be empty in the
@@ -47,8 +73,265 @@ def _init_worker_error_tracking(**_kwargs: object) -> None:
     init_error_tracking(
         component="worker",
         release=resolve_release("kamerplanter-worker", settings.app_version),
+        redact_text=redact_text_in_flight,
+        redact_path=loggable_path,
     )
 
+
+def _configure_worker_logging(**_kwargs: object) -> None:
+    """Give the worker and beat the API's logging setup once Celery has configured root (#1795).
+
+    ``celery -A app.tasks worker|beat`` never runs ``app.main``, so ``setup_logging``
+    never ran here: structlog printed through its defaults, and httpx logged every
+    outbound request at INFO on Celery's root handler — the OpenWeatherMap and
+    Perenual API keys included, since both carry the key in the query string.
+
+    Connected to ``after_setup_logger``, which Celery sends only from
+    ``app.log.setup`` — i.e. when the worker or beat program sets up its logging,
+    never on a mere ``import app.tasks`` (the API imports this package to
+    enqueue tasks). Celery has already put its handler on the root logger by
+    then, so ``setup_logging``'s ``basicConfig`` is a no-op and structlog's lines
+    reach Celery's handler; ``harden_library_loggers`` does the rest.
+    """
+    setup_logging(settings.debug)
+
+
+def _redact_task_logger(**_kwargs: object) -> None:
+    """Put the redacting sink filter on the ``celery.task`` handler too (#1796).
+
+    Celery creates that handler in ``setup_task_loggers`` — after
+    ``after_setup_logger`` has run — and ``celery.task`` does not propagate, so
+    the root handler's filter never sees its records.
+    """
+    install_sink_redaction()
+
+
+def _refuse_worker_start_without_tombstone_salt(**_kwargs: object) -> None:
+    """Stop the worker when ``ERASURE_TOMBSTONE_SALT`` is unusable outside debug (#1781).
+
+    The API refuses to start in that configuration (``app.main.
+    insecure_default_secrets``); the worker never imports ``app.main`` and used
+    to start regardless. It then ran the scheduled erasure (which refuses
+    without the salt) and wrote every subject reference as ``anon_unavailable``
+    — the log lines of different accounts became indistinguishable, silently.
+
+    **Raises ``SystemExit``, deliberately not an ``Exception``.** Celery's
+    ``Signal.send`` catches ``Exception`` from a receiver and only logs it, so
+    the worker would start anyway; ``SystemExit`` propagates out of the signal
+    and ends the worker program (``test_worker_salt_fail_fast``).
+    """
+    if settings.debug or len(settings.erasure_tombstone_salt) >= MIN_TOMBSTONE_SALT_LENGTH:
+        return
+    msg = (
+        "FATAL: ERASURE_TOMBSTONE_SALT is missing or shorter than "
+        f"{MIN_TOMBSTONE_SALT_LENGTH} characters (NFR-011 §4). Set it to the same "
+        "value as the backend before running the worker in production."
+    )
+    structlog.get_logger().critical("insecure_defaults", fields=["erasure_tombstone_salt"])
+    raise SystemExit(msg)
+
+
+def _refuse_worker_start_without_log_pseudonym_salt(**_kwargs: object) -> None:
+    """Stop the worker when ``LOG_PSEUDONYM_SALT`` is unusable outside debug (#1812).
+
+    The worker writes the same subject references and e-mail digests as the API
+    (retention, erasure and notification tasks); without the salt every one of
+    them is the constant ``anon_unavailable``/``unavailable`` and the lines of
+    different accounts become indistinguishable, silently. The API refuses to
+    start in that configuration (``app.main.insecure_default_secrets``).
+
+    ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives. The message names the setting, never its value.
+    """
+    if settings.debug or len(settings.log_pseudonym_salt) >= MIN_LOG_PSEUDONYM_SALT_LENGTH:
+        return
+    structlog.get_logger().critical("insecure_defaults", fields=["log_pseudonym_salt"])
+    raise SystemExit(
+        "FATAL: LOG_PSEUDONYM_SALT is missing or shorter than "
+        f"{MIN_LOG_PSEUDONYM_SALT_LENGTH} characters (NFR-011 §3.4). Set it to the same "
+        "value as the backend before running the worker in production."
+    )
+
+
+def _refuse_worker_start_without_a_usable_fernet_key(**_kwargs: object) -> None:
+    """Stop the worker when ``FERNET_KEY`` is missing or malformed outside debug (#1859).
+
+    The API refuses to start without the key (``app.main.insecure_default_secrets``);
+    the worker never imports ``app.main`` and used to start regardless. It then
+    built ``EncryptionEngine("")``, whose plaintext passthrough stores the
+    encrypted-at-rest fields (OIDC client secrets, integration tokens) in clear
+    and hands ciphertext to integrations as their credential — after a single
+    warning line. A malformed key is refused too: ``Fernet(key)`` raises on it,
+    so the worker would otherwise fail on the first task touching a secret.
+
+    ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives. The message names the setting, never its value.
+    """
+    if settings.debug:
+        return
+    if is_usable_fernet_key(settings.fernet_key):
+        return
+    reason = "malformed" if settings.fernet_key else "missing"
+    structlog.get_logger().critical("insecure_defaults", fields=["fernet_key"], reason=reason)
+    raise SystemExit(
+        f"FATAL: FERNET_KEY is {reason}. Set it to the same value as the backend before running "
+        "the worker in production (INF-S5); without it secrets are stored in plaintext."
+    )
+
+
+def _refuse_worker_start_without_database_access(**_kwargs: object) -> None:
+    """Stop the worker when it cannot open ArangoDB, before it consumes anything (#2154).
+
+    The worker opened its database lazily, in the first task. A worker whose
+    login failed after an upgrade (wrong ``ARANGODB_PASSWORD``, an application
+    account not provisioned) started, consumed messages and failed every one of
+    them; and with no readiness probe the Deployment counted it ready at once
+    and removed the old, working worker. Now a worker that reports readiness
+    (``WORKER_READY_FILE`` set — the chart does) proves the login first: it
+    retries for :data:`WORKER_DATABASE_START_BUDGET_SECONDS` (a fresh install
+    starts the database and the application account alongside the worker), then
+    raises ``SystemExit``. The container restarts, never becomes ready, and the
+    rollout keeps the old pod.
+
+    Off without ``WORKER_READY_FILE``: compose and dev setups start the worker
+    next to a database that may come up later, and they have no rollout to
+    protect. ``SystemExit`` for the reason ``_refuse_worker_start_without_tombstone_salt``
+    gives; the log names the error type, never the account or the password.
+    """
+    if not settings.worker_ready_file:
+        return
+    from app.common.dependencies import check_database_access
+
+    log = structlog.get_logger()
+    deadline = time.monotonic() + WORKER_DATABASE_START_BUDGET_SECONDS
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            check_database_access()
+        except Exception as exc:  # noqa: BLE001 — every failure to open the database is the same answer here
+            if time.monotonic() + WORKER_DATABASE_START_RETRY_SECONDS >= deadline:
+                log.critical("worker_database_unavailable", attempts=attempt, error_type=type(exc).__name__)
+                raise SystemExit(
+                    "FATAL: the worker cannot open the ArangoDB database with ARANGODB_USERNAME/ARANGODB_PASSWORD "
+                    f"({type(exc).__name__}, {attempt} attempt(s) in {WORKER_DATABASE_START_BUDGET_SECONDS}s). "
+                    "It consumes no task until it can (#2154)."
+                ) from None
+            log.warning("worker_database_retry", attempt=attempt, error_type=type(exc).__name__)
+            time.sleep(WORKER_DATABASE_START_RETRY_SECONDS)
+        else:
+            if attempt > 1:
+                log.info("worker_database_available", attempts=attempt)
+            return
+
+
+def _mark_worker_ready(**_kwargs: object) -> None:
+    """``worker_ready``: the consumer is running — write the readiness file the probes test (#2154).
+
+    Celery sends ``worker_ready`` after the broker connection is up and the
+    consumer has started, so the file means "this worker takes tasks", which is
+    what a rollout has to wait for. The database login was proved before
+    (``_refuse_worker_start_without_database_access``).
+    """
+    if not settings.worker_ready_file:
+        return
+    path = Path(settings.worker_ready_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{int(time.time())}\n", encoding="utf-8")
+
+
+def _clear_worker_ready(**_kwargs: object) -> None:
+    """``worker_shutting_down``: a stopping worker stops reporting ready (#2154)."""
+    if not settings.worker_ready_file:
+        return
+    Path(settings.worker_ready_file).unlink(missing_ok=True)
+
+
+#: Message headers that carry the dispatching request's context into the worker
+#: (#2130). Prefixed so they cannot collide with Celery's own protocol headers.
+#: Values are the request id and the *pseudonyms* ``log_subject``/``log_tenant`` —
+#: never an account or tenant key: a message header sits in the broker and in
+#: the worker's logs, which have no retention rule of their own (NFR-011 L-1).
+TASK_CONTEXT_HEADERS = {key: f"kp_{key}" for key in TELEMETRY_KEYS}
+#: The longest header value accepted back; a request id is 36 chars, a pseudonym 20.
+_MAX_CONTEXT_VALUE = 64
+
+
+def _publishing_context() -> dict[str, str]:
+    """The context of whatever is dispatching: a request, or a task running in the worker."""
+    telemetry = current_request()
+    if telemetry is not None:
+        return telemetry.fields()
+    bound = structlog.contextvars.get_contextvars()
+    return {key: str(bound[key]) for key in TELEMETRY_KEYS if bound.get(key)}
+
+
+def _attach_request_context(headers: dict[str, object] | None = None, **_kwargs: object) -> None:
+    """``before_task_publish``: put the dispatcher's request id, actor and tenant into the message.
+
+    Runs in the dispatching thread — the request's (a sync endpoint's copy of the
+    request context still holds the telemetry object) or a task's in the worker
+    (re-dispatch keeps the original request id). Beat publishes with no context
+    and adds nothing. A header the caller set explicitly is kept.
+    """
+    if headers is None:
+        return
+    for key, value in _publishing_context().items():
+        headers.setdefault(TASK_CONTEXT_HEADERS[key], value)
+
+
+def _bind_task_context(task_id: str | None = None, task: object = None, **_kwargs: object) -> None:
+    """``task_prerun``: bind the task id and the dispatcher's context for the task's log lines."""
+    request = getattr(task, "request", None)
+    if getattr(request, "is_eager", False):
+        # ``.apply()`` inside a request runs the task in the request's own thread:
+        # it inherits that context, and wiping it would strip the request id from
+        # the endpoint's remaining lines.
+        if task_id:
+            structlog.contextvars.bind_contextvars(task_id=str(task_id))
+        return
+    context: dict[str, str] = {"task_id": str(task_id)} if task_id else {}
+    for key, header in TASK_CONTEXT_HEADERS.items():
+        value = getattr(request, header, None)
+        if isinstance(value, str) and 0 < len(value) <= _MAX_CONTEXT_VALUE:
+            context[key] = value
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(**context)
+
+
+def _clear_task_context(task: object = None, **_kwargs: object) -> None:
+    """``task_postrun``: the worker reuses its thread; the next task starts clean.
+
+    An eager task only takes its own ``task_id`` back off the caller's context.
+    """
+    if getattr(getattr(task, "request", None), "is_eager", False):
+        structlog.contextvars.unbind_contextvars("task_id")
+        return
+    structlog.contextvars.clear_contextvars()
+
+
+# #2130 — request/task correlation. ``before_task_publish`` fires in the process
+# that dispatches (the API, or the worker for a chained task); the other two in
+# the process that executes. Connecting is inert on import: nothing runs until a
+# task is published or executed.
+before_task_publish.connect(_attach_request_context, weak=False)
+task_prerun.connect(_bind_task_context, weak=False)
+task_postrun.connect(_clear_task_context, weak=False)
+
+# The salt gate runs on ``celeryd_init`` only — the worker program. Beat
+# schedules, it runs no task and writes no subject reference.
+celeryd_init.connect(_refuse_worker_start_without_tombstone_salt, weak=False)
+celeryd_init.connect(_refuse_worker_start_without_log_pseudonym_salt, weak=False)
+# The key gate likewise: beat stores no secret (#1859).
+celeryd_init.connect(_refuse_worker_start_without_a_usable_fernet_key, weak=False)
+# #2154 — the database gate after the configuration gates (they are instant and
+# their message is the more useful one); readiness follows the consumer.
+celeryd_init.connect(_refuse_worker_start_without_database_access, weak=False)
+worker_ready.connect(_mark_worker_ready, weak=False)
+worker_shutting_down.connect(_clear_worker_ready, weak=False)
+# Worker and beat both set up logging through ``app.log.setup``; see the docstring.
+after_setup_logger.connect(_configure_worker_logging, weak=False)
+after_setup_task_logger.connect(_redact_task_logger, weak=False)
 
 # All three, because they are three different processes and none implies another:
 # ``celeryd_init`` is the worker program's first step (fires for every pool),
@@ -88,9 +371,11 @@ celery_app.conf.update(
         "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
         "app.tasks.season_tasks",
+        "app.tasks.security_audit_tasks",
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.storage_tasks",
         "app.tasks.tank_maintenance_tasks",
+        "app.tasks.tenant_export_tasks",
         "app.tasks.tenant_tasks",
         "app.tasks.vernalization_updates",
         "app.tasks.watering_tasks",
@@ -101,6 +386,9 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    # MT-032 (#2128): named queues, routes, time limits, one reserved message per
+    # process and a visibility timeout above the longest limit — app/tasks/routing.py.
+    **celery_queue_config(),
     beat_schedule={
         "enrichment-incremental-daily": {
             "task": "app.tasks.enrichment_tasks.sync_all_sources_task",
@@ -119,6 +407,13 @@ celery_app.conf.update(
         "storage-cleanup-orphaned-task-photos-daily": {
             "task": "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
             "schedule": crontab(hour=3, minute=40),
+        },
+        # #1834 — reconcile the object store against the attachment catalogue.
+        # 04:10, after the task-photo sweep; report-only until the operator sets
+        # STORAGE_RECONCILE_DELETE_ENABLED, bounded per run and resumable.
+        "storage-reconcile-orphaned-objects-daily": {
+            "task": "app.tasks.storage_tasks.reconcile_orphaned_storage_objects",
+            "schedule": crontab(hour=4, minute=10),
         },
         # REQ-031 KI-Assistent retention (§4.6)
         "ai-cleanup-conversations-daily": {
@@ -147,18 +442,24 @@ celery_app.conf.update(
             "task": "mcp.cleanup_expired_idempotency",
             "schedule": 3600,
         },
+        # MT-014 (#2111) security audit retention (NFR-011 R-38)
+        "security-audit-purge-daily": {
+            "task": "security_audit.purge_expired",
+            "schedule": crontab(hour=2, minute=55),
+        },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {
             "task": "app.tasks.auth_tasks.cleanup_expired_tokens",
-            "schedule": 3600,
+            # R-11. Clock-anchored (#1946): an interval restarts with every beat-pod restart.
+            "schedule": crontab(minute=10),
         },
         "auth-cleanup-unverified-daily": {
             "task": "app.tasks.auth_tasks.cleanup_unverified_accounts",
-            "schedule": 86400,
+            "schedule": crontab(hour=3, minute=10),  # R-02, 03:10 UTC daily (#1946)
         },
         "auth-anonymize-ips-daily": {
             "task": "app.tasks.auth_tasks.anonymize_old_ips",
-            "schedule": 86400,
+            "schedule": crontab(hour=3, minute=20),  # R-03, 03:20 UTC daily (#1946)
         },
         "auth-rotate-oidc-discovery": {
             "task": "app.tasks.auth_tasks.rotate_oidc_discovery",
@@ -167,7 +468,12 @@ celery_app.conf.update(
         # REQ-024 Tenant tasks
         "tenant-cleanup-invitations-daily": {
             "task": "app.tasks.tenant_tasks.cleanup_expired_invitations",
-            "schedule": 86400,
+            "schedule": crontab(hour=2, minute=0),  # R-12, 02:00 UTC daily (#1946)
+        },
+        # #1769 — retry tenant deletions left open (partially_completed / stale).
+        "tenant-resume-erasures-daily": {
+            "task": "app.tasks.tenant_tasks.resume_tenant_erasures",
+            "schedule": crontab(hour=4, minute=30),  # 04:30 UTC daily, after the account erasures
         },
         # REQ-022 Care Reminder tasks
         "care-generate-reminders-daily": {
@@ -219,6 +525,12 @@ celery_app.conf.update(
             "task": "retention.execute_scheduled_erasures",
             "schedule": crontab(hour=4, minute=0),  # 04:00 UTC daily
         },
+        # #1771 — contributed pest prototypes whose contribution document is gone
+        # (pre-#1766 deletes, lost undos): after the erasures, idempotent.
+        "retention-sweep-orphaned-pest-prototypes-daily": {
+            "task": "pest_image.sweep_orphaned_prototypes",
+            "schedule": crontab(hour=4, minute=30),
+        },
         "retention-expire-email-changes-hourly": {
             "task": "retention.expire_email_change_requests",
             "schedule": crontab(minute=15),  # every hour at :15
@@ -230,6 +542,32 @@ celery_app.conf.update(
         "retention-redispatch-stale-exports-hourly": {
             "task": "retention.redispatch_stale_pending_exports",
             "schedule": crontab(minute=25),  # every hour at :25
+        },
+        # NFR-011 R-06 (#1772): completed erasure records past their year.
+        "retention-purge-erasure-records-daily": {
+            "task": "retention.purge_expired_erasure_records",
+            "schedule": crontab(hour=4, minute=30),  # 04:30 UTC daily, after the erasure run
+        },
+        # NFR-011 R-04 (#1800): consent records revoked past their period.
+        "retention-purge-consent-records-daily": {
+            "task": "retention.purge_expired_consent_records",
+            "schedule": crontab(hour=4, minute=35),  # 04:35 UTC daily, after the erasure-record purge
+        },
+        # NFR-011 R-04a (#1800): the R-03 analogue for consent-record IPs.
+        "retention-anonymize-consent-ips-daily": {
+            "task": "retention.anonymize_consent_ips",
+            "schedule": crontab(hour=4, minute=40),  # 04:40 UTC daily
+        },
+        # NFR-011 R-16/R-17/R-18 (#1789): harvest, treatment and inspection rows
+        # a tenant deletion kept, once their legal period is over.
+        "retention-purge-legal-retention-rows-daily": {
+            "task": "retention.purge_expired_legal_retention_rows",
+            "schedule": crontab(hour=4, minute=45),  # 04:45 UTC daily
+        },
+        # NFR-011 R-06a (#1793): tenant-erasure records, after the rows they kept.
+        "retention-purge-tenant-erasure-records-daily": {
+            "task": "retention.purge_expired_tenant_erasure_records",
+            "schedule": crontab(hour=4, minute=50),  # 04:50 UTC daily, after the row purge
         },
     },
 )

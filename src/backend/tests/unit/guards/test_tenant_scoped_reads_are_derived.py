@@ -1,0 +1,1602 @@
+"""#1708 — which repository reads must be tenant-scoped is derived, not remembered.
+
+#1704 found the aggregated calendar reading three sources of **every** tenant.
+No guard saw it: ``test_catalogue_reads_carry_a_tenant_predicate.py`` covers only
+the hybrid catalogues, and ``TestTheSurfacesStayStrict`` in
+``test_arango_call_surface_scoping.py`` was a hand list of methods — a new read
+that takes no tenant is simply not on it. That is the "guard opt-in at the call
+site" shape again: a guard that holds only for the sites someone enrolled.
+
+**The rule, stated as a derivation.** Every public *read* method on a class under
+``app/data_access`` is inventoried from the AST. Its collections are the ones its
+body names (``col.X``, a bound sub-repository ``self._x``, the class's own
+collection through the base primitives, a literal ``FOR v IN <name>``), followed
+through same-class ``self.<method>()`` calls. A read is **subject** when one of
+those collections carries a tenant:
+
+* its model declares ``tenant_key`` (the models are the anchor — read through
+  ``BaseArangoRepository[M]`` via ``scripts/arango_repository_bindings.py``, the
+  module the privacy inventory shares), or
+* its tenant is reachable through a parent declared once in
+  :data:`PARENT_CHAINS` (``maintenance_logs → tanks``, ``slots → locations →
+  sites`` …).
+
+A subject read passes when it is, in this order:
+
+``strict``            ``tenant_key`` keyword-only without a default. The target shape.
+``positional``        ``tenant_key`` required but positional. It cannot be omitted,
+                      which is the #1533 failure; it can be transposed with a
+                      neighbouring ``str``. Not converted here — the count is pinned
+                      exactly (:data:`POSITIONAL_TENANT_COUNT`) so a *new* method must
+                      be ``strict`` and each conversion lowers the number.
+``runtime-enforced``  ``tenant_key`` optional, paired with a keyword-only
+                      ``all_tenants`` flag, and the body reaches
+                      ``BaseArangoRepository._enforce_tenant_scope`` — omission raises
+                      at run time unless the caller *says* "system context".
+``catalogue-union``   reads only hybrid catalogues, takes ``tenant_key`` and builds the
+                      ``tenant_scope`` union predicate; ``None`` is the documented
+                      system-context whole-catalogue read (``SpeciesRepository.get_all``).
+``anchored``          no tenant, but a parameter names a document of a **tenant-owned**
+                      collection: ``key`` (the one document itself — its ``tenant_key``
+                      comes back for the caller to verify), ``keys`` on a strictly owned
+                      collection, the declared parent key of a collection it reads
+                      (:data:`PARENT_CHAINS`), or a name/annotation in
+                      :data:`ANCHOR_TARGETS` that lands on a strictly owned or
+                      parent-scoped collection. A hybrid-catalogue anchor
+                      (``species_key``) is **not** one: every tenant's rows hang off a
+                      global species. Nor is ``keys`` over a catalogue — a batch
+                      dereference is the #952 name-disclosure shape.
+
+Anything else is a **finding**, unless it is on :data:`EXCLUSIONS` with a kind and
+a reason. An exclusion that no longer matches a finding fails, so the list cannot
+outlive what it excused; a ``system`` exclusion is additionally checked against
+the typed call graph (no HTTP or MCP handler may reach it).
+
+**What ``anchored`` does not prove — measured, not assumed.** The issue asked
+whether a by-key read followed by an ownership check at the caller is a
+legitimate category, *with evidence the check exists*. That evidence was measured
+over the typed call graph of ``tests/unit/api/_write_call_graph.py``: of the 111
+tenant-less subject reads of a first inventory on 2026-09-24, **73** had at least one resolved caller
+without an ownership primitive (``verify_tenant_ownership``, ``require_owned_*``,
+``resolve_owned_*``, a ``.tenant_key`` comparison) in the caller or a same-class
+helper. The misses are dominated by shapes where the check is real but elsewhere:
+a router-level ``Depends(require_owned_plant)`` (no call edge), a parent resolved
+by one helper and the child read in the next, a Celery task that iterates one
+tenant at a time. A rule that red on 73 mostly-correct sites would be lifted blind
+the third time, so ``anchored`` is decided on the signature alone. Its residual is
+the #927 shape — a route that hands an *unresolved* URL key to an anchored read —
+and that is what the per-route two-tenant tests and the ``require_owned_*``
+dependencies cover, not this file. Where an exclusion *can* name the check, it
+does: a ``verified`` exclusion carries a witness function that is proven to call
+both the read and the authorisation (:class:`TestTheExclusionsHoldTheirEvidence`).
+
+**Re-measured for #1714 — should ``anchored`` demand a witness?** #1714 was that
+residual: ``GET``/``POST /tasks/executions/{key}`` handed the URL key to
+``ArangoTaskRepository.get_workflow_execution_by_key`` and nothing checked the
+owner. The fix did not add a witness; it made the read ``strict`` (the owner is
+resolved inside the query), which is the shape a by-key read reached from a URL
+should take. Whether ``anchored`` could instead *require* a witness — a function
+on the path that calls both the read and an ownership check, as ``verified``
+exclusions do — was measured on the typed call graph after that fix
+(2026-09-24): of **115** anchored reads, 21 have no resolved caller and **88** are
+reached from an HTTP or MCP handler. A *strong* witness (a ``verify*`` /
+``require_owned_*`` / ``resolve_owned_*`` call, a ``Depends`` on one, or a
+comparison against ``.tenant_key``) sits on every request path of only **27 of
+88**. Loosened until it proves little — any call in the same function that passes
+``tenant_key=`` counts — it still covers only **67 of 88**; the 21 left are
+dominated by keys that are not request values at all but read off a document
+already resolved under the tenant (``get_site_by_key(plant.site_key)``,
+``get_cultivar_by_key(plant.cultivar_key)``, a run's entries after the run). A
+witness rule would therefore red on 61 (strong) or 21 (loose) correct sites, and
+the loose variant would green on a sibling read that happens to be scoped. **The
+decision is no**: ``anchored`` stays signature-decided, and a by-key read a route
+feeds with a raw URL key is converted to ``strict`` and pinned by a two-tenant
+route test, as #1714 did.
+
+**What the first run found.** On ``origin/develop`` at 18329ac36 the derivation
+named 50 unscoped or optionally scoped reads out of 324 subject reads. Seven were
+fixed as cross-tenant leaks reachable from a tenant route, each with a two-tenant
+test (``tests/integration/test_derived_read_scope_tenant_isolation.py``); five took
+an optional ``tenant_key`` and now take it without a default; one was dead code and
+was removed. The remaining 37 are :data:`EXCLUSIONS`, each with a kind that says
+what was checked. The interface half found ``IFertilizerRepository.get_stocks``
+lagging its strict implementation.
+
+**Spellings this does not match**, named rather than discovered later:
+
+* a collection reached only through a **graph traversal over an edge** whose
+  ``_to`` lands in it, with no ``col.X`` of that collection in the body — the edge
+  collection is seen, the vertex collection is not;
+* a collection reached by calling **another repository's** method from inside a
+  repository (a hop across classes is not followed). A call to a module-level
+  helper under ``app/data_access`` *is* followed one level, and those helpers are
+  not inventoried as reads themselves — ``visible_fertilizer_labels`` takes its
+  tenant keyword-only on its own account;
+* a method that both reads and writes (``get_or_create``) is a *writer* here and
+  is not inspected;
+* a read on a class that is not under ``app/data_access`` (a service that holds a
+  ``StandardDatabase`` is refused outright by ``check_layer_imports.py``).
+"""
+
+from __future__ import annotations
+
+import ast
+import inspect
+import re
+import shutil
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from functools import cache
+from pathlib import Path
+
+import pytest
+
+from app.data_access.arango import collections as col
+from app.domain.services.favorites_service import _TENANT_OWNED_CATALOG_COLLECTIONS
+from tests.support.execution_guards import find_project_root
+from tests.support.repo_scripts import load_repo_script
+from tests.unit.api._write_call_graph import _COLLECTION_MUTATORS, _QUERY_WRITE, call_graph
+
+bindings = load_repo_script("arango_repository_bindings")
+
+_APP = find_project_root(Path(__file__)) / "app"
+
+# ── The declarations: collection-level, once ─────────────────────────────────
+
+#: Hybrid catalogues: global seeds (``tenant_key == ""``) plus tenant rows, read
+#: through the ``tenant_scope`` union. The favouritable set is held equal to the
+#: models by ``test_favoritable_collections_declare_ownership.py``; cultivars are
+#: added because #1090 made them tenant-ownable while ``v0038`` left the whole
+#: legacy population global — the same shape, not favouritable.
+#: Workflow and task templates follow the same convention (``TaskTemplate``'s
+#: own comment: ``""`` is the hybrid-catalogue marker), and their reads go
+#: through ``verify_tenant_read_access``, the hybrid read check.
+HYBRID_CATALOGUES: frozenset[str] = frozenset(_TENANT_OWNED_CATALOG_COLLECTIONS) | {
+    col.CULTIVARS,
+    col.WORKFLOW_TEMPLATES,
+    col.TASK_TEMPLATES,
+}
+
+#: Collections whose tenant is reachable only through a parent document, as
+#: ``collection -> ((foreign-key field, parent collection), ...)``. More than one
+#: pair means "exactly one of these parents" (``Sensor`` validates at most one).
+#: ``locations`` and ``slots`` used to declare a ``tenant_key`` field no write path
+#: filled (#1397); #2107 removed it — the site is the only document in the chain
+#: that carries a tenant, and ``test_parent_scoped_models_declare_no_tenant.py``
+#: holds every collection declared here to a model without the field.
+#:
+#: Checked both ways by :class:`TestTheParentChainsAreDeclaredOnceAndComplete`:
+#: every field named here exists on the model and every parent carries a tenant,
+#: and every non-tenant model with a foreign key onto a tenant-bearing collection
+#: is declared here — so a new child collection cannot be forgotten.
+PARENT_CHAINS: dict[str, tuple[tuple[str, str], ...]] = {
+    col.MAINTENANCE_LOGS: (("tank_key", col.TANKS),),
+    col.MAINTENANCE_SCHEDULES: (("tank_key", col.TANKS),),
+    col.TANK_STATES: (("tank_key", col.TANKS),),
+    col.TANK_FILL_EVENTS: (("tank_key", col.TANKS),),
+    col.CARE_PROFILES: (("plant_key", col.PLANT_INSTANCES),),
+    col.CARE_CONFIRMATIONS: (("plant_key", col.PLANT_INSTANCES),),
+    col.HARVEST_OBSERVATIONS: (("plant_key", col.PLANT_INSTANCES),),
+    col.PHASE_HISTORIES: (("plant_instance_key", col.PLANT_INSTANCES),),
+    col.QUALITY_ASSESSMENTS: (("batch_key", col.HARVEST_BATCHES),),
+    col.YIELD_METRICS: (("batch_key", col.HARVEST_BATCHES),),
+    col.DRYING_PROGRESS: (("batch_key", col.POST_HARVEST_BATCHES),),
+    col.STORAGE_OBSERVATIONS: (("batch_key", col.POST_HARVEST_BATCHES),),
+    col.MOLD_ALERTS: (("batch_key", col.POST_HARVEST_BATCHES),),
+    col.BURPING_EVENTS: (("batch_key", col.POST_HARVEST_BATCHES),),
+    col.NUTRIENT_PLAN_PHASE_ENTRIES: (("plan_key", col.NUTRIENT_PLANS),),
+    col.SENSORS: (("tank_key", col.TANKS), ("site_key", col.SITES), ("location_key", col.LOCATIONS)),
+    col.LOCATIONS: (("site_key", col.SITES),),
+    col.SLOTS: (("location_key", col.LOCATIONS),),
+    col.TASK_COMMENTS: (("task_key", col.TASKS),),
+    col.TASK_AUDIT_ENTRIES: (("task_key", col.TASKS),),
+    # ``entity_key`` is polymorphic over ``entity_type`` — every target owns it.
+    col.WORKFLOW_EXECUTIONS: (
+        ("entity_key", col.PLANT_INSTANCES),
+        ("entity_key", col.LOCATIONS),
+        ("entity_key", col.TANKS),
+        ("entity_key", col.PLANTING_RUNS),
+    ),
+}
+
+#: Non-tenant collections owned by an **account**, not a tenant: a reference from
+#: one of them onto a tenant-bearing collection is a pointer the account wrote,
+#: not the row's owner. Exempt from the parent-chain completeness check, with the
+#: reason.
+ACCOUNT_SCOPED_COLLECTIONS: dict[str, str] = {
+    col.ONBOARDING_STATES: "the wizard state of one account (REQ-020); selected_site_key is its own choice",
+}
+
+#: Foreign-key field / parameter name -> the collection it names. ``None`` marks
+#: a reference that is not a tenant anchor at all (an account, an external id, a
+#: global catalogue row). Used twice: to decide whether a read's parameter
+#: *anchors* it, and to prove :data:`PARENT_CHAINS` complete. A name that is not
+#: here is not guessed at — an unknown ``*_key`` field on a non-tenant model is
+#: reported, and an unknown parameter does not anchor.
+#:
+#: ``batch_key`` and ``plan_key`` are deliberately absent: each names a different
+#: collection in different models, so only :data:`PARENT_CHAINS` may resolve them.
+ANCHOR_TARGETS: dict[str, str | None] = {
+    "tank_key": col.TANKS,
+    "source_tank_key": col.TANKS,
+    "plant_key": col.PLANT_INSTANCES,
+    # The plural, like ``run_keys`` / ``task_keys``: a page of plant documents (the auto-transition
+    # scan's batched history read, MT-032 #2128) — each one the caller's own, read by a tenant walk.
+    "plant_keys": col.PLANT_INSTANCES,
+    "plant_instance_key": col.PLANT_INSTANCES,
+    "mother_key": col.PLANT_INSTANCES,
+    "site_key": col.SITES,
+    "location_key": col.LOCATIONS,
+    "slot_key": col.SLOTS,
+    "run_key": col.PLANTING_RUNS,
+    "planting_run_key": col.PLANTING_RUNS,
+    "run_keys": col.PLANTING_RUNS,
+    "actuator_key": col.ACTUATORS,
+    "system_key": col.AQUAPONIC_SYSTEMS,
+    "membership_key": col.MEMBERSHIPS,
+    "harvest_batch_key": col.HARVEST_BATCHES,
+    "task_key": col.TASKS,
+    "task_keys": col.TASKS,
+    "watering_log_key": col.WATERING_LOGS,
+    "care_profile_key": col.CARE_PROFILES,
+    "substrate_key": col.SUBSTRATES,
+    "nutrient_plan_key": col.NUTRIENT_PLANS,
+    "species_key": col.SPECIES,
+    "cultivar_key": col.CULTIVARS,
+    # Not tenant anchors.
+    "user_key": None,  # an account; spans every tenant it is a member of
+    "oidc_config_key": None,  # a platform-wide sign-in provider configuration (#1987); tenants do not own it
+    "owner_user_key": None,
+    "plan_key": None,  # REQ-056 §7 (#2142): the global plan catalogue; tenants point at a plan, no plan names a tenant
+    "old_plan_key": None,  # the plan a tenant left, on a security-audit row (#2142)
+    # REQ-056 §13.5 (#2138) — a platform admin's import request: the admin account, the tenant the run
+    # founds (a tenant id, not a document of one) and the uploaded archive's object key.
+    "requested_by_user_key": None,
+    "target_tenant_key": None,
+    "upload_storage_key": None,
+    "default_tenant_key": None,  # a tenant id, not a document of one
+    "personal_tenant_keys": None,  # tenant ids an account erasure recorded (#1788), not documents of one
+    "gbif_taxon_key": None,  # external taxonomy id
+    "internal_key": None,  # ExternalMapping -> species / cultivar, both catalogue
+    "source_key": None,  # external source registry
+    "lifecycle_key": None,  # species lifecycle catalogue
+    "phase_sequence_key": None,
+    "phase_key": None,  # growth phase catalogue
+    "from_phase_key": None,
+    "to_phase_key": None,
+    "indicator_key": None,  # harvest indicator catalogue
+    "mixing_result_key": None,  # a computed mixing result, stored on the event itself
+    # botanical families are global; on a refresh token it is the login a rotation chain
+    # descends from (#2116) - an account's session, not a tenant document either way
+    "family_key": None,
+    "successor_key": None,  # the refresh token a rotation minted (#2116): account-scoped, no tenant
+    "pest_key": None,  # pests are global
+    "workflow_template_key": col.WORKFLOW_TEMPLATES,
+    "source_template_key": col.TASK_TEMPLATES,
+    "activity_key": col.ACTIVITIES,
+    "workflow_phase_key": None,  # a phase of a (hybrid) workflow template
+    "phase_definition_key": None,  # phase definition catalogue
+    # Catalogue references held by a starter kit or an onboarding state.
+    "species_keys": col.SPECIES,
+    "cultivar_keys": col.CULTIVARS,
+    "nutrient_plan_keys": col.NUTRIENT_PLANS,
+    "workflow_template_keys": col.WORKFLOW_TEMPLATES,
+    "favorite_species_keys": col.SPECIES,
+    "favorite_nutrient_plan_keys": col.NUTRIENT_PLANS,
+    "selected_site_key": col.SITES,
+    # Parameter *annotations* (``app/common/types.py`` aliases) name the same
+    # thing where the parameter name does not: ``entry_key: PlantingRunEntryKey``.
+    "PlantInstanceKey": col.PLANT_INSTANCES,
+    "SiteKey": col.SITES,
+    "LocationKey": col.LOCATIONS,
+    "SlotKey": col.SLOTS,
+    "PlantingRunKey": col.PLANTING_RUNS,
+    "PlantingRunEntryKey": col.PLANTING_RUN_ENTRIES,
+    "TankKey": col.TANKS,
+    "TankStateKey": col.TANK_STATES,
+    "MaintenanceLogKey": col.MAINTENANCE_LOGS,
+    "MaintenanceScheduleKey": col.MAINTENANCE_SCHEDULES,
+    "HarvestBatchKey": col.HARVEST_BATCHES,
+    "HarvestObservationKey": col.HARVEST_OBSERVATIONS,
+    "TaskKey": col.TASKS,
+    "CareProfileKey": col.CARE_PROFILES,
+    "SuccessionPlanKey": col.SUCCESSION_PLANS,
+    "SpeciesKey": col.SPECIES,
+    "CultivarKey": col.CULTIVARS,
+    "FamilyKey": None,
+    "PestKey": None,
+    "UserKey": None,
+}
+
+#: The ``tenant_scope`` predicate builders a catalogue read must call. Read off
+#: the module so a new builder is recognised without editing this file.
+from app.data_access.arango import tenant_scope as _tenant_scope  # noqa: E402
+
+PREDICATE_BUILDERS: frozenset[str] = frozenset(
+    name for name in dir(_tenant_scope) if not name.startswith("_") and callable(getattr(_tenant_scope, name))
+)
+
+#: Methods of ``BaseArangoRepository`` that read the class's OWN collection. A
+#: call ``self.<name>(...)`` in a repository body means "this reads my
+#: collection". Attribute reads (``self.collection``, ``self._collection_name``)
+#: count the same way. The count-free window primitives of MT-035 (#2131) read the
+#: same window as their counted siblings and are listed with them (SEC-001: missing
+#: them left every read that pages only through a window out of the inventory).
+_OWN_COLLECTION_ACCESS = frozenset(
+    {
+        "collection",
+        "_collection_name",
+        "_list_docs",
+        "_window_docs",
+        "list_window",
+        "get_page_window",
+        "_find_docs",
+        "_get_doc",
+        "get_by_key",
+        "get_or_raise",
+        "get_all",
+        "get_page",
+        "find_by_field",
+        "find_one_by_field",
+        "get_edges",
+    }
+)
+
+#: A literal loop over a collection inside a query string: ``FOR t IN tasks``.
+#: Read from AST string constants, never from file text (#1456).
+_LITERAL_LOOP = re.compile(r"\bIN\s+([a-z_][a-z_0-9]*)\b")
+
+#: A **reverse lookup** inside a query: ``DOCUMENT(CONCAT("{col.X}/", row.fk))`` or
+#: ``DOCUMENT({col.X}, row.fk)``. It dereferences a collection by a key read off
+#: another row, so the row it returns is whatever that key names — including a
+#: document of another tenant (#2099: a global fertilizer's usage listed the plans
+#: of every tenant). Read from the f-string's own source, so the ``{col.X}`` hole
+#: is still visible.
+_REVERSE_LOOKUP = re.compile(r"DOCUMENT\(\s*(?:CONCAT\(\s*)?[\"']?\{col\.([A-Z][A-Z_0-9]*)\}")
+
+#: The same reverse lookup with the collection behind a **bind variable**
+#: (``DOCUMENT(CONCAT(@plants, "/", row.fk))``, ``DOCUMENT(@@col, row.fk)``) — #2120:
+#: #2148 named this spelling as unmatched, and five repositories use it. The
+#: variable is resolved through the ``bind_vars`` dict literals of the same method
+#: (``{"plants": col.PLANT_INSTANCES}``); a variable that resolves to no
+#: collection constant adds nothing (named here, not discovered later).
+_REVERSE_LOOKUP_BIND = re.compile(r"DOCUMENT\(\s*(?:CONCAT\(\s*)?@@?([a-z_][a-z_0-9]*)")
+
+#: And with the collection spelled **literally** (``DOCUMENT(CONCAT('growth_phases/', …))``).
+_REVERSE_LOOKUP_LITERAL = re.compile(r"DOCUMENT\(\s*CONCAT\(\s*[\"']([a-z_][a-z_0-9]*)/")
+
+#: Measured on 2026-09-24. Pinned exactly: raising it means a new method took the
+#: tenant positionally instead of keyword-only; lowering it is the conversion
+#: this number exists to record. 2026-10-04 (#2102): 102 -> 103 with no new method —
+#: the derivation began counting a traversal's vertex collection as touched, so
+#: three existing grant checks (``is_granted``, ``is_granted_to``,
+#: ``is_cultivar_granted_to``) became subject reads. 2026-10-10 (#2119, MT-023): 103 -> 92 —
+#: eleven reads of the user-data repositories that took ``is_tenant_scoped`` now take
+#: the tenant keyword-only (identification ``get``/``list_for_user``, pest detection
+#: ``get``/``list_for_plant``, pest image ``get``/``list_for_pest``/``list_for_tenant``,
+#: calendar feed ``list_by_user``, notification ``exists_by_group_key``/
+#: ``list_by_group_key``/``find_notified_user_keys``).
+POSITIONAL_TENANT_COUNT = 92
+
+#: Anti-vacuity floors, a margin below the measured 2026-09-24 inventory (see
+#: :class:`TestTheInventoryIsNotVacuous` for the printed counts).
+MIN_READ_METHODS = 380
+MIN_SUBJECT_READS = 220
+MIN_REPOSITORY_CLASSES = 70
+
+
+# ── The inventory ────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ReadMethod:
+    """One public read method on a data-access class."""
+
+    path: str
+    owner: str
+    name: str
+    lineno: int
+    collections: frozenset[str]
+    positional: tuple[str, ...]
+    #: The annotation name of each positional parameter (``None`` when absent).
+    annotations: tuple[str | None, ...]
+    keyword_only: tuple[str, ...]
+    #: The annotation name of each keyword-only parameter.
+    keyword_annotations: tuple[str | None, ...]
+    tenant_shape: str
+    all_tenants_flag: bool
+    enforces_tenant_scope: bool
+    builds_union_predicate: bool
+    #: Collections the body dereferences through a reverse lookup (see
+    #: :data:`_REVERSE_LOOKUP`), followed through same-class calls like ``collections``.
+    dereferenced: frozenset[str] = frozenset()
+
+    @property
+    def qualname(self) -> str:
+        return f"{self.owner}.{self.name}"
+
+
+@dataclass
+class Inventory:
+    app_root: Path
+    reads: list[ReadMethod] = field(default_factory=list)
+    classes_seen: int = 0
+    tenant_models: set[tuple[str, str]] = field(default_factory=set)
+    #: collection -> ("own" | "hybrid" | "parent")
+    tenant_collections: dict[str, str] = field(default_factory=dict)
+    #: collection -> model identities bound to it
+    collection_models: dict[str, set[tuple[str, str]]] = field(default_factory=lambda: defaultdict(set))
+    fields_by_model: dict[tuple[str, str], set[str]] = field(default_factory=dict)
+    duplicate_class_names: list[str] = field(default_factory=list)
+    unplaceable_by_hand: list[str] = field(default_factory=list)
+
+
+def _tenant_shape(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+    args = fn.args
+    positional = [*args.posonlyargs, *args.args]
+    defaults = dict(
+        zip([a.arg for a in positional][len(positional) - len(args.defaults) :], args.defaults, strict=True)
+    )
+    keyword_only = {a.arg: d for a, d in zip(args.kwonlyargs, args.kw_defaults, strict=True)}
+    if "tenant_key" in keyword_only:
+        return "strict" if keyword_only["tenant_key"] is None else "optional"
+    if any(a.arg == "tenant_key" for a in positional):
+        return "optional" if "tenant_key" in defaults else "positional"
+    return "absent"
+
+
+def _calls(fn: ast.AST) -> list[ast.Call]:
+    return [node for node in ast.walk(fn) if isinstance(node, ast.Call)]
+
+
+def _callee_name(call: ast.Call) -> str | None:
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return None
+
+
+def _is_self(node: ast.expr) -> bool:
+    return isinstance(node, ast.Name) and node.id == "self"
+
+
+def _is_super(node: ast.expr) -> bool:
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "super"
+
+
+@cache
+def _base_repository_writers(app_root: Path) -> frozenset[str]:
+    """``BaseArangoRepository`` methods that write, derived from its own body.
+
+    A method writes when it calls a python-arango mutator on a collection
+    receiver, holds an AQL write statement, or calls another base method that
+    writes. Derived so a new base writer joins by existing.
+    """
+    path = app_root / "data_access" / "arango" / "base_repository.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    base = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == bindings.BASE_REPOSITORY)
+    methods = {n.name: n for n in base.body if isinstance(n, ast.FunctionDef)}
+    direct = {name for name, fn in methods.items() if _writes_directly(fn, frozenset())}
+    writers = set(direct)
+    changed = True
+    while changed:
+        changed = False
+        for name, fn in methods.items():
+            if name in writers:
+                continue
+            if any(
+                _callee_name(c) in writers and (_is_self(c.func.value) if isinstance(c.func, ast.Attribute) else False)
+                for c in _calls(fn)
+            ):
+                writers.add(name)
+                changed = True
+    return frozenset(writers)
+
+
+def _writes_directly(fn: ast.AST, repository_writers: frozenset[str]) -> bool:
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            attr, receiver = node.func.attr, node.func.value
+            if attr in _COLLECTION_MUTATORS and re.search(r"\bcollection\b|\bcol\b|coll\b", ast.unparse(receiver)):
+                return True
+            if attr in repository_writers and (
+                _is_self(receiver)
+                or _is_super(receiver)
+                or (isinstance(receiver, ast.Attribute) and _is_self(receiver.value))
+            ):
+                return True
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and _QUERY_WRITE.search(node.value):
+            return True
+        elif isinstance(node, ast.JoinedStr):
+            literal = "FMT".join(
+                part.value for part in node.values if isinstance(part, ast.Constant) and isinstance(part.value, str)
+            )
+            if _QUERY_WRITE.search(literal):
+                return True
+    return False
+
+
+def _annotation_name(node: ast.expr | None) -> str | None:
+    """``PlantingRunEntryKey`` / ``types.PlantingRunEntryKey`` -> the name; anything else -> ``None``."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _uses_arango(repo: object) -> bool:
+    imports = repo.imports  # type: ignore[attr-defined]
+    return any(module == "arango" or module.startswith("arango.") for module in imports.values())
+
+
+def build_inventory(app_root: Path) -> Inventory:
+    """Derive every public read method under ``app_root/data_access`` and its collections."""
+    inventory = Inventory(app_root=app_root)
+    constants = bindings.collection_constants(app_root)
+    names = set(constants.values())
+    classes = bindings.repository_classes(app_root, constants, include_plain=True)
+    repositories = bindings.repository_classes(app_root, constants)
+    fields = bindings.model_fields(app_root)
+    inventory.fields_by_model = fields
+
+    # Duplicate class names would make the name-keyed maps above lie.
+    seen_names: dict[str, int] = defaultdict(int)
+    for path in sorted((app_root / bindings.DATA_ACCESS_REL).rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.ClassDef):
+                seen_names[node.name] += 1
+    inventoried = {n for n, r in classes.items() if n in repositories or _uses_arango(r)}
+    inventory.duplicate_class_names = sorted(n for n, count in seen_names.items() if count > 1 and n in inventoried)
+
+    # Model identity per binding, resolved through the repository's own imports.
+    for repo in classes.values():
+        pairs = []
+        if repo.model and repo.collection:
+            pairs.append((repo.model, repo.collection))
+        for attribute, model in repo.attribute_models.items():
+            pairs.append((model, repo.attributes[attribute]))
+        for model, collection in pairs:
+            module = repo.imports.get(model)
+            if module is not None and (module, model) in fields:
+                inventory.collection_models[collection].add((module, model))
+
+    # Models the repositories write without a ``BaseArangoRepository[M]`` binding,
+    # placed by the same declaration the privacy inventory reads (#1700).
+    for model, collection in bindings.MODEL_COLLECTIONS_BY_HAND.items():
+        defined = [ident for ident in fields if ident[1] == model]
+        if len(defined) == 1:
+            inventory.collection_models[collection].add(defined[0])
+        else:
+            inventory.unplaceable_by_hand.append(f"{model}: {len(defined)} definitions")
+
+    for collection, models in inventory.collection_models.items():
+        if any("tenant_key" in fields[m] for m in models):
+            inventory.tenant_models |= {m for m in models if "tenant_key" in fields[m]}
+            inventory.tenant_collections[collection] = "hybrid" if collection in HYBRID_CATALOGUES else "own"
+    for collection in HYBRID_CATALOGUES:
+        inventory.tenant_collections[collection] = "hybrid"
+    for collection in PARENT_CHAINS:
+        inventory.tenant_collections[collection] = "parent"
+
+    repository_writers = _base_repository_writers(app_root)
+
+    # Module-level helpers under ``data_access`` that a method may call by bare
+    # name (``visible_fertilizer_labels(self._db, ...)``, the care repository's
+    # AQL builders): their collections count for the caller. ``collections.py``
+    # is the schema bootstrap, not a read path.
+    # A traversal ``FOR v IN 1..1 INBOUND @id <edge>`` returns the *vertices* the edge
+    # connects, and the query body names only the edge — the vertex collection never
+    # appears (#2102: ``has_phase_sequence`` handed out every tenant's species). The
+    # named graph declares which collections each edge joins, so that declaration is
+    # what makes a traversal's returned collection count as touched.
+    edge_vertices: dict[str, set[str]] = defaultdict(set)
+    for definition in col.GRAPH_EDGE_DEFINITIONS:
+        edge_vertices[definition["edge_collection"]] |= set(definition["from_vertex_collections"])
+        edge_vertices[definition["edge_collection"]] |= set(definition["to_vertex_collections"])
+
+    helper_collections: dict[str, set[str]] = defaultdict(set)
+    for path in sorted((app_root / bindings.DATA_ACCESS_REL).rglob("*.py")):
+        if path.name == "collections.py":
+            continue
+        for node in ast.parse(path.read_text(encoding="utf-8")).body:
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Attribute) and isinstance(inner.value, ast.Name):
+                    if inner.value.id == "col" and inner.attr in constants:
+                        helper_collections[node.name].add(constants[inner.attr])
+                elif isinstance(inner, ast.Constant) and isinstance(inner.value, str):
+                    helper_collections[node.name].update(m for m in _LITERAL_LOOP.findall(inner.value) if m in names)
+
+    for repo in sorted(classes.values(), key=lambda r: r.name):
+        if repo.name not in repositories and not _uses_arango(repo):
+            continue
+        inventory.classes_seen += 1
+        methods = {n.name: n for n in repo.node.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)}
+
+        def dereferences(fn: ast.AST) -> set[str]:
+            found: set[str] = set()
+            bound: dict[str, str] = {}
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Dict):
+                    for name, value in zip(node.keys, node.values, strict=True):
+                        is_col = isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name)
+                        is_col = is_col and value.value.id == "col" and value.attr in constants  # type: ignore[union-attr]
+                        if isinstance(name, ast.Constant) and isinstance(name.value, str) and is_col:
+                            bound[name.value.lstrip("@")] = constants[value.attr]  # type: ignore[union-attr]
+            for node in ast.walk(fn):
+                if isinstance(node, ast.JoinedStr | ast.Constant):
+                    text = ast.unparse(node)
+                    found.update(constants[m] for m in _REVERSE_LOOKUP.findall(text) if m in constants)
+                    found.update(bound[m] for m in _REVERSE_LOOKUP_BIND.findall(text) if m in bound)
+                    found.update(m for m in _REVERSE_LOOKUP_LITERAL.findall(text) if m in names)
+            return found
+
+        def direct(fn: ast.AST, repo=repo, methods=methods) -> tuple[set[str], bool, set[str], set[str]]:
+            collections: set[str] = set()
+            self_calls: set[str] = set()
+            callee_names: set[str] = set()
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Attribute):
+                    if isinstance(node.value, ast.Name) and node.value.id == "col" and node.attr in constants:
+                        collections.add(constants[node.attr])
+                    elif _is_self(node.value):
+                        if node.attr in repo.attributes:
+                            collections.add(repo.attributes[node.attr])
+                        if node.attr in _OWN_COLLECTION_ACCESS and repo.collection:
+                            collections.add(repo.collection)
+                        if node.attr in methods:
+                            self_calls.add(node.attr)
+                    elif _is_super(node.value) and repo.collection:
+                        collections.add(repo.collection)
+                elif isinstance(node, ast.Name) and node.id in constants and node.id.isupper():
+                    collections.add(constants[node.id])
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    collections.update(m for m in _LITERAL_LOOP.findall(node.value) if m in names)
+                elif isinstance(node, ast.Call) and (name := _callee_name(node)) is not None:
+                    callee_names.add(name)
+                    if isinstance(node.func, ast.Name):
+                        collections |= helper_collections.get(name, set())
+            return collections, _writes_directly(fn, repository_writers), self_calls, callee_names
+
+        facts = {name: direct(fn) for name, fn in methods.items()}
+        derefs = {name: dereferences(fn) for name, fn in methods.items()}
+
+        def dereferenced(name: str, seen: frozenset[str], methods=methods, facts=facts, derefs=derefs) -> set[str]:
+            found = set(derefs[name])
+            for other in facts[name][2] - seen:
+                found |= dereferenced(other, seen | {other})
+            return found
+
+        def closure(name: str, seen: frozenset[str], facts=facts) -> tuple[set[str], bool, set[str]]:
+            collections, writes, self_calls, callees = facts[name]
+            collections, callees = set(collections), set(callees)
+            for edge in list(collections):
+                collections |= edge_vertices.get(edge, set())
+            for other in self_calls - seen:
+                c2, w2, n2 = closure(other, seen | {other})
+                collections |= c2
+                writes = writes or w2
+                callees |= n2
+            return collections, writes, callees
+
+        for name, fn in methods.items():
+            if name.startswith("_"):
+                continue
+            collections, writes, callees = closure(name, frozenset({name}))
+            if writes:
+                continue
+            args = fn.args
+            inventory.reads.append(
+                ReadMethod(
+                    path=str(repo.path.relative_to(app_root)),
+                    owner=repo.name,
+                    name=name,
+                    lineno=fn.lineno,
+                    collections=frozenset(collections),
+                    positional=tuple(a.arg for a in [*args.posonlyargs, *args.args][1:]),
+                    annotations=tuple(_annotation_name(a.annotation) for a in [*args.posonlyargs, *args.args][1:]),
+                    keyword_only=tuple(a.arg for a in args.kwonlyargs),
+                    keyword_annotations=tuple(_annotation_name(a.annotation) for a in args.kwonlyargs),
+                    tenant_shape=_tenant_shape(fn),
+                    all_tenants_flag="all_tenants" in {a.arg for a in args.kwonlyargs},
+                    # ``_list_docs``/``_window_docs`` reach ``_enforce_tenant_scope`` through
+                    # ``_list_builder``; ``get_all``/``list_window`` do too, but they take
+                    # ``all_tenants`` themselves, so they count only when the caller forwards one.
+                    enforces_tenant_scope=bool(callees & {"_enforce_tenant_scope", "_list_docs", "_window_docs"})
+                    or (
+                        bool(callees & {"get_all", "list_window"}) and "all_tenants" in {a.arg for a in args.kwonlyargs}
+                    ),
+                    builds_union_predicate=bool(callees & PREDICATE_BUILDERS),
+                    dereferenced=frozenset(dereferenced(name, frozenset({name}))),
+                )
+            )
+    return inventory
+
+
+# ── The verdict ──────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Verdict:
+    method: ReadMethod
+    passed: bool
+    category: str
+    detail: str = ""
+
+    def __str__(self) -> str:
+        return f"{self.method.path}:{self.method.lineno} {self.method.qualname} [{self.category}] {self.detail}"
+
+
+def _anchor(method: ReadMethod, inventory: Inventory) -> str | None:
+    """The parameter that anchors *method* on a tenant-owned document, if any.
+
+    Three ways, in order: ``key``/``keys`` is the document itself; a parameter
+    that is the declared parent foreign key of a collection the method reads is
+    the parent (reading a tank's logs by ``tank_key`` *is* reading the tank);
+    otherwise the parameter's name or annotation must land, via
+    :data:`ANCHOR_TARGETS`, on a strictly owned or parent-scoped collection.
+    """
+    strict_owned = {c for c, kind in inventory.tenant_collections.items() if kind in ("own", "parent")}
+    declared_parents = {fk: parent for c in method.collections & set(PARENT_CHAINS) for fk, parent in PARENT_CHAINS[c]}
+    touched = method.collections & set(inventory.tenant_collections)
+    parameters = [
+        *zip(method.positional, method.annotations, strict=True),
+        *zip(method.keyword_only, method.keyword_annotations, strict=True),
+    ]
+    for parameter, annotation in parameters:
+        if parameter == "key" and not (method.dereferenced & set(inventory.tenant_collections)):
+            # ``key`` names ONE document; a read that then dereferences another
+            # tenant-bearing collection by keys read off its rows returns rows the
+            # ``key`` says nothing about (#2099) — so it is not anchored by it.
+            return "key (the document itself)"
+        if parameter == "keys" and touched <= strict_owned:
+            # A batch dereference of catalogue rows is the #952 disclosure shape:
+            # nobody verifies each of N documents after the fact, so on a hybrid
+            # catalogue ``keys`` is not an anchor.
+            return "keys (the documents themselves)"
+        if parameter in declared_parents:
+            return f"{parameter} -> {declared_parents[parameter]} (declared parent)"
+        for name in (parameter, annotation):
+            target = ANCHOR_TARGETS.get(name) if name is not None else None
+            if target is not None and target in strict_owned:
+                return f"{parameter}: {name} -> {target}"
+    return None
+
+
+def classify(method: ReadMethod, inventory: Inventory) -> Verdict | None:
+    """``None`` for a read that touches no tenant-bearing collection."""
+    touched = method.collections & set(inventory.tenant_collections)
+    if not touched:
+        return None
+    reads = f"reads {sorted(touched)}"
+    if method.tenant_shape == "strict":
+        return Verdict(method, True, "strict")
+    if method.tenant_shape == "positional":
+        return Verdict(method, True, "positional", reads)
+    if method.tenant_shape == "optional":
+        if method.all_tenants_flag and method.enforces_tenant_scope:
+            return Verdict(method, True, "runtime-enforced")
+        only_catalogue = all(inventory.tenant_collections[c] == "hybrid" for c in touched)
+        if only_catalogue and method.builds_union_predicate:
+            return Verdict(method, True, "catalogue-union")
+        return Verdict(method, False, "optional-tenant", f"{reads}; tenant_key has a default and nothing enforces it")
+    anchor = _anchor(method, inventory)
+    if anchor is not None:
+        return Verdict(method, True, "anchored", anchor)
+    return Verdict(method, False, "unscoped", f"{reads}; no tenant_key and no tenant-owned anchor")
+
+
+@dataclass(frozen=True)
+class Exclusion:
+    """A finding this file accepts, with the decision and — where it can — the proof.
+
+    ``kind`` decides what is checked, not only what is written:
+
+    ``system``     a cross-tenant sweep (Celery task, migration, operator report).
+                   **Checked:** no HTTP route and no MCP tool reaches it through the
+                   typed call graph (:class:`TestTheExclusionsHoldTheirEvidence`).
+    ``platform``   a platform-admin surface. **Checked:** at least one route reaches
+                   it, every route that does is gated by ``require_platform_admin``
+                   (decorator, parameter or router dependency), and no MCP tool does.
+    ``verified``   a read whose result the caller authorises before using it.
+                   **Checked:** ``witness`` (``module::qualname``) calls both
+                   ``via`` (the read, or the service method that performs it) and
+                   ``check`` (the authorisation). That proves the check exists on
+                   the path named; it does not prove every path has one.
+    ``catalogue``  global reference data written only by platform admins or seeds;
+                   the reason names the write gate. Reason only.
+    ``credential`` a lookup by a secret (a token or its hash); the secret is the
+                   anchor. Reason only.
+    ``account``    scoped by the calling account's ``user_key`` — every row belongs
+                   to that account, across the tenants it is a member of. Reason only.
+    ``probe``      a boolean existence check whose answer never leaves the service.
+                   Reason only.
+    """
+
+    kind: str
+    reason: str
+    witness: str | None = None
+    via: str | None = None
+    check: str | None = None
+
+
+_CATALOGUE_WRITTEN_BY_ADMINS = (
+    "every write path is platform-admin only (require_platform_admin on the write routes) or a seed, "
+    "and none stamps a tenant — every stored row is global catalogue data"
+)
+
+#: ``(class, method) -> Exclusion``. Each entry was measured on 2026-09-24; an
+#: entry that no longer matches a finding fails (:class:`TestTheExclusionsAreLive`).
+EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
+    # ── catalogue ──────────────────────────────────────────────────────────
+    ("ArangoAiProviderRepository", "get_system_default"): Exclusion(
+        "catalogue",
+        "reads only the platform's own provider rows (FILTER tenant_key == null), never a tenant's — the "
+        "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
+        "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
+    ),
+    # The three ArangoActivityRepository reads left this list with #2119 (MT-023): each now
+    # takes tenant_key keyword-only and carries the hybrid-union predicate.
+    # The ones below became subjects in #2102, when a traversal's vertex collection began to
+    # count as touched (``edge_vertices`` in :func:`build_inventory`); each was read for
+    # whether a tenant-owned species can sit behind the edge it walks.
+    # get_compatible_species / get_incompatible_species / get_companion_counts / get_species_by_family
+    # left this list with MT-054 (#2144): each now carries the hybrid-union predicate on the vertex.
+    ("ArangoAquaponikRepository", "get_compatible_plants"): Exclusion(
+        "catalogue",
+        "fish-to-plant compatibility edges are written by seeds only (link_compatible_plant has no "
+        "application caller), so every plant species reached is a global one",
+    ),
+    ("ArangoModeSwitchRepository", "earliest_eligible_person_key"): Exclusion(
+        "account",
+        "#1855 SEC-008: for each candidate account it asks only whether that account holds an active membership in "
+        "a personal tenant the account itself owns; it returns one account key, never a membership or tenant data",
+    ),
+    ("ArangoFavoritesRepository", "find_edge"): Exclusion(
+        "account", "starts at the calling account's own user vertex (from_id): every edge is that account's favourite"
+    ),
+    ("ArangoFavoritesRepository", "list_edges"): Exclusion(
+        "account", "starts at the calling account's own user vertex (from_id): every edge is that account's favourite"
+    ),
+    ("ArangoOverwinteringProfileTemplateRepository", "count_subjects"): Exclusion(
+        "system", "a usage count of one template with no application caller; cross-tenant by nature, never returned"
+    ),
+    ("ArangoLifecycleRepository", "get_lifecycle_by_species"): Exclusion(
+        "catalogue", f"lifecycle configs: {_CATALOGUE_WRITTEN_BY_ADMINS}; the species key only selects one"
+    ),
+    ("ArangoPhaseSequenceRepository", "get_sequence_by_species"): Exclusion(
+        "catalogue",
+        "phase sequences are written only by platform admins (require_platform_admin_for_global_catalogue, "
+        "#1501) or seeds; the species key only selects one",
+    ),
+    ("ArangoPestImageRepository", "list_promoted_for_pest"): Exclusion(
+        "catalogue",
+        "a PROMOTED contribution is one a platform admin moved into the shared reference set; "
+        "PestImageService.list_for_pest unions it with the caller's own and marks foreign ones",
+    ),
+    # ── credential ─────────────────────────────────────────────────────────
+    ("ArangoCalendarFeedRepository", "get_by_token_hash"): Exclusion(
+        "credential",
+        "the hash of the iCal feed token, which is the credential of the unauthenticated feed URL (REQ-015, #2171)",
+    ),
+    ("ArangoInvitationRepository", "get_by_token_hash"): Exclusion(
+        "credential", "the hashed invitation token is what the invitee presents; it names one invitation"
+    ),
+    ("ArangoInvitationRepository", "list_pending_email_invitations"): Exclusion(
+        "probe",
+        "read only by TenantService.email_invitation_pending_for, which answers one boolean to the registration "
+        "gate of a first OIDC sign-in (#2132) for an address the identity provider proved; no row leaves the service",
+    ),
+    ("ArangoInvitationRepository", "count_email_invitations_issued_since"): Exclusion(
+        "account",
+        "the daily mail budget of one inviting account across all its tenants (#2162 review W-1); the key is the "
+        "caller's own (TenantService passes the acting user), and only a count leaves the repository",
+    ),
+    # ── account ────────────────────────────────────────────────────────────
+    ("ArangoMembershipRepository", "list_by_user"): Exclusion(
+        "account", "a user's memberships span their tenants by definition; the key is the caller's own"
+    ),
+    ("ArangoMembershipRepository", "list_by_user_with_tenant"): Exclusion(
+        "account", "a user's memberships span their tenants by definition; the key is the caller's own"
+    ),
+    ("ArangoNotificationRepository", "list_for_user"): Exclusion(
+        "account",
+        "filters on the recipient's user_key; tenant_key only narrows within that account's own "
+        "notifications, so an omitted tenant widens nothing beyond the caller's rows",
+    ),
+    ("ArangoNotificationRepository", "count_unread"): Exclusion(
+        "account", "same shape as list_for_user: recipient user_key first, tenant narrows within it"
+    ),
+    ("ArangoNotificationRepository", "list_for_user_since"): Exclusion(
+        "account", "the e-mail digest of one recipient, across the tenants that recipient belongs to"
+    ),
+    ("ArangoPestImageRepository", "list_for_user"): Exclusion(
+        "account", "the contributions one account made — read for its own DSGVO export and erasure"
+    ),
+    ("ArangoMcpAuditRepository", "list_for_service_account"): Exclusion(
+        "account", "the MCP audit trail of one service account, read by that account (REQ-033 §4.6)"
+    ),
+    ("ArangoMcpAuditRepository", "list_for_user_accounts"): Exclusion(
+        "account", "the MCP audit trail across the service accounts one user owns (REQ-033 §4.6)"
+    ),
+    ("ArangoSecurityAuditRepository", "list_recent"): Exclusion(
+        "platform",
+        "the platform admin's read of the persistent security audit (MT-014, #2111): newest first across all "
+        "tenants or one named by the caller; the only route is GET /admin/platform/security-audit",
+    ),
+    # ── probe ──────────────────────────────────────────────────────────────
+    ("ArangoPlantingRunRepository", "verify_entry_references"): Exclusion(
+        "probe",
+        "runs the owned-reference check of an unsaved entry against the entry's own tenant_key and "
+        "returns nothing; it reads no planting_run_entries row (#1874 review)",
+    ),
+    # ── verified ───────────────────────────────────────────────────────────
+    ("ArangoSpeciesRepository", "list_grants"): Exclusion(
+        "verified",
+        "owner-only: the grant list is read after the species write authorisation (#1092)",
+        witness="app.domain.services.species_service::SpeciesService.list_species_grants",
+        via="list_grants",
+        check="_authorize_species_write",
+    ),
+    ("ArangoSpeciesRepository", "list_cultivar_grants"): Exclusion(
+        "verified",
+        "owner-only: the grant list is read after the cultivar write authorisation (#1092)",
+        witness="app.domain.services.species_service::SpeciesService.list_cultivar_grants",
+        via="list_cultivar_grants",
+        check="_authorize_cultivar_write",
+    ),
+    ("ArangoSpeciesRepository", "get_by_scientific_name"): Exclusion(
+        "verified",
+        "the CSV import's update strategy authorises every matched row before writing it (#1110); "
+        "the other callers are seeders",
+        witness="app.domain.services.import_service::ImportService._get_update_fn.<locals>.update_species",
+        via="get_by_scientific_name",
+        check="_authorize_tenant_owned_write",
+    ),
+    ("ArangoTaskRepository", "get_task_templates_for_workflow"): Exclusion(
+        "verified",
+        "task templates are read by their workflow template, whose hybrid read access the route "
+        "checks first; the service-internal callers act on a template they already resolved",
+        witness="app.api.v1.tasks.tenant_router::list_task_templates",
+        via="get_task_templates",
+        check="get_workflow_template",
+    ),
+    # ── system ─────────────────────────────────────────────────────────────
+    ("ArangoAttachmentRepository", "find_orphaned_task_photos"): Exclusion(
+        "system", "the orphaned task-photo sweep of the storage Celery task (#1393)"
+    ),
+    ("ArangoAttachmentRepository", "held_storage_keys"): Exclusion(
+        "system",
+        "the installation-wide object reconciliation (#1834) asks whether ANY record holds a key; "
+        "deliberately not tenant-filtered, so the answer can only keep more objects than a tenant-scoped one",
+    ),
+    ("ArangoAttachmentRepository", "count_undated_orphaned_task_photos"): Exclusion(
+        "system", "held-count of the same installation-wide orphan sweep (#1806 GDPR-003)"
+    ),
+    ("ArangoAiAuditRepository", "count_undated"): Exclusion(
+        "system", "held-count of the installation-wide ai_audit_log retention task (#1806 GDPR-003)"
+    ),
+    ("ArangoMcpAuditRepository", "count_undated"): Exclusion(
+        "system", "held-count of the installation-wide mcp_audit_log retention task (#1806 GDPR-003)"
+    ),
+    ("ArangoSecurityAuditRepository", "count_undated"): Exclusion(
+        "system", "held-count of the installation-wide security_audit_log retention task (NFR-011 R-38, #2111)"
+    ),
+    ("ArangoLegacyStampAudit", "measure"): Exclusion(
+        "system",
+        "the operator-invoked, read-only v0004 stamp audit (MT-052, #2144): classifies every tenant-stamped "
+        "row's author against the memberships of that row's own tenant; prints document keys only",
+    ),
+    ("ArangoHaEntityGrantRepository", "all_granted"): Exclusion(
+        "system",
+        "every tenant's Home Assistant entity grants, read once by the cross-tenant ingest/control/weather "
+        "beat tasks so each row is checked against its own tenant's allowlist (MT-015, #2112)",
+    ),
+    ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
+        "system", "the escalation Celery task re-notifies every overdue watering reminder"
+    ),
+    ("ArangoFertilizerRepository", "get_global_fertilizers"): Exclusion(
+        "system",
+        "the fertilizer seed loaders match a seed product to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own product), over the whole catalogue (#2000); no request handler reaches it",
+    ),
+    ("ArangoActivityRepository", "get_global_activities"): Exclusion(
+        "system",
+        "the activity seed matches a seed entry to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own activity), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoTaskRepository", "get_global_workflow_templates"): Exclusion(
+        "system",
+        "the workflow seed matches a seed template to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own template), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoSubstrateRepository", "get_global_substrates"): Exclusion(
+        "system",
+        "the substrate seed checks a seed identity against the GLOBAL rows only (tenant_key empty, never a "
+        "tenant's own mix), over the whole catalogue (#2027); no request handler reaches it",
+    ),
+    ("ArangoNutrientPlanRepository", "get_global_plans"): Exclusion(
+        "system",
+        "the nutrient-plan seed loaders match a seed to a GLOBAL row only (tenant_key empty, never a tenant's "
+        "own plan), over the whole catalogue (#1957); no request handler reaches it",
+    ),
+    ("ArangoTenantExportRequestRepository", "list_expiry_due"): Exclusion(
+        "system", "the hourly NFR-011 R-05 beat expires every tenant's completed export archives (#2138)"
+    ),
+    ("ArangoTenantExportRequestRepository", "list_stale_active"): Exclusion(
+        "system", "the hourly beat ends export runs of every tenant whose heartbeat is stale (#2138)"
+    ),
+    ("ArangoTenantErasureRepository", "list_due"): Exclusion(
+        "system", "the daily tenant-erasure retry beat walks every open deletion record (#1769)"
+    ),
+    ("ArangoLegalRetentionRepository", "delete_expired_tenant_erasure_records"): Exclusion(
+        "system", "the daily NFR-011 R-06a beat purges every completed deletion record past its period (#1793)"
+    ),
+    ("ArangoPlantingRunRepository", "get_active_runs_with_schedule"): Exclusion(
+        "system", "the watering-task generator iterates every run with an active schedule"
+    ),
+    ("ArangoPlantingRunRepository", "get_plant_keys_with_active_schedule"): Exclusion(
+        "system", "the watering-task generator skips plants already covered by a run schedule"
+    ),
+    ("ArangoSiteRepository", "find_site_docs_by_types"): Exclusion(
+        "system", "the daily season and irrigation tasks evaluate every outdoor site (REQ-047 AC-18)"
+    ),
+    ("ArangoSiteRepository", "find_site_keys_with_frost_exposed_location"): Exclusion(
+        "system", "the daily season task adds sites with a frost-exposed location to its batch"
+    ),
+    ("ArangoSpeciesRepository", "get_by_normalized_scientific_name"): Exclusion(
+        "system", "the unscoped dedup lookup kept for migrations and reports (#1162); no route calls it"
+    ),
+    ("ArangoSpeciesRepository", "list_all_species"): Exclusion(
+        "system", "backs the operator shadow-pair report (#975), a cross-comparison of every record"
+    ),
+    ("ArangoTankRepository", "get_active_auto_create_schedules"): Exclusion(
+        "system", "the maintenance Celery task creates tasks from every auto-create schedule"
+    ),
+    # ── platform ───────────────────────────────────────────────────────────
+    ("ArangoPestImageRepository", "list_all_for_pest"): Exclusion(
+        "platform", "platform-admin moderation of every tenant's contributions (REQ-044)"
+    ),
+    ("ArangoMembershipRepository", "count"): Exclusion(
+        "platform", "installation-wide membership count for the platform statistics"
+    ),
+    ("ArangoExternalMappingRepository", "find_unmapped_species"): Exclusion(
+        "platform",
+        "REQ-011 enrichment sweep, run by the Celery schedule or a platform admin's sync trigger; its "
+        "result becomes mappings, never a response",
+    ),
+}
+
+_EXCLUSION_KINDS = frozenset({"system", "platform", "verified", "catalogue", "credential", "account", "probe"})
+
+
+@cache
+def _real_inventory() -> Inventory:
+    return build_inventory(_APP)
+
+
+def _verdicts(inventory: Inventory) -> list[Verdict]:
+    return [v for m in inventory.reads if (v := classify(m, inventory)) is not None]
+
+
+def findings(inventory: Inventory, exclusions: dict[tuple[str, str], Exclusion]) -> list[Verdict]:
+    return [v for v in _verdicts(inventory) if not v.passed and (v.method.owner, v.method.name) not in exclusions]
+
+
+# ── Tests ────────────────────────────────────────────────────────────────────
+
+
+class TestTheInventoryIsNotVacuous:
+    """A derivation over an empty or collapsed tree is green and proves nothing."""
+
+    def test_the_counts_clear_their_floors(self, capsys: pytest.CaptureFixture[str]) -> None:
+        inventory = _real_inventory()
+        verdicts = _verdicts(inventory)
+        by_category: dict[str, int] = defaultdict(int)
+        for verdict in verdicts:
+            by_category[verdict.category] += 1
+        with capsys.disabled():
+            print(
+                f"\n[#1708] classes={inventory.classes_seen} reads={len(inventory.reads)} "
+                f"subject={len(verdicts)} " + " ".join(f"{k}={v}" for k, v in sorted(by_category.items()))
+            )
+        assert inventory.classes_seen >= MIN_REPOSITORY_CLASSES
+        assert len(inventory.reads) >= MIN_READ_METHODS
+        assert len(verdicts) >= MIN_SUBJECT_READS
+
+    def test_no_class_name_is_ambiguous(self) -> None:
+        """The binding maps are keyed by class name; a duplicate would merge two classes."""
+        assert _real_inventory().duplicate_class_names == []
+
+
+class TestTheReaderAgreesWithTheRuntime:
+    """The AST reader decides; the imported models are the independent check on it."""
+
+    def test_tenant_models_match_model_fields(self) -> None:
+        import importlib
+
+        inventory = _real_inventory()
+        disagreements = []
+        for models in inventory.collection_models.values():
+            for module, name in models:
+                runtime = importlib.import_module(module).__dict__[name]
+                derived = "tenant_key" in inventory.fields_by_model[(module, name)]
+                if derived != ("tenant_key" in runtime.model_fields):
+                    disagreements.append(f"{module}.{name}: AST says {derived}")
+        assert disagreements == []
+
+    def test_the_reader_sees_the_spellings_it_was_extended_for(self) -> None:
+        """Two binding spellings the first version of the shared reader missed (#1708).
+
+        ``PropagationRepository`` binds its sibling collections with an
+        unsubscripted ``BaseArangoRepository(db, col.X, Model)`` — the model is only
+        the third argument — and ``ArangoPhaseSequenceRepository`` calls
+        ``BaseArangoRepository.__init__(self, db, col.X)`` instead of ``super()``.
+        """
+        inventory = _real_inventory()
+        assert {col.PROPAGATION_BATCHES, col.PHENOTYPE_NOTES, col.ROOTING_PROTOCOLS} <= set(inventory.collection_models)
+        constants = bindings.collection_constants(_APP)
+        classes = bindings.repository_classes(_APP, constants)
+        assert classes["ArangoPhaseSequenceRepository"].collection == col.PHASE_DEFINITIONS
+
+    def test_every_hand_placed_model_names_a_declared_collection(self) -> None:
+        constants = bindings.collection_constants(_APP)
+        unknown = {m: c for m, c in bindings.MODEL_COLLECTIONS_BY_HAND.items() if c not in constants.values()}
+        assert unknown == {}
+        assert _real_inventory().unplaceable_by_hand == []
+
+    def test_every_bound_collection_is_placed(self) -> None:
+        """A repository binding whose model the reader cannot find is a silent hole."""
+        inventory = _real_inventory()
+        constants = bindings.collection_constants(_APP)
+        placed = set(inventory.collection_models)
+        bound = set().union(*bindings.repository_bindings(_APP, constants).values())
+        assert bound - placed == set()
+
+
+class TestTheParentChainsAreDeclaredOnceAndComplete:
+    def test_every_declared_chain_names_a_real_field_and_a_tenant_parent(self) -> None:
+        inventory = _real_inventory()
+        problems = []
+        for collection, chains in PARENT_CHAINS.items():
+            models = inventory.collection_models.get(collection, set())
+            if not models:
+                problems.append(f"{collection}: no repository binds a model to it")
+            for fk, parent in chains:
+                for model in models:
+                    if fk not in inventory.fields_by_model[model]:
+                        problems.append(f"{collection}: {model[1]} has no field {fk!r}")
+                if parent not in inventory.tenant_collections:
+                    problems.append(f"{collection}: parent {parent} carries no tenant")
+        assert problems == []
+
+    def test_every_child_of_a_tenant_collection_is_declared(self) -> None:
+        """The completeness half: derived from the models, not from this file."""
+        inventory = _real_inventory()
+        strict_owned = {c for c, kind in inventory.tenant_collections.items() if kind in ("own", "parent")}
+        problems = []
+        for collection, models in sorted(inventory.collection_models.items()):
+            if collection in PARENT_CHAINS or collection in ACCOUNT_SCOPED_COLLECTIONS:
+                continue
+            for model in sorted(models):
+                fields = inventory.fields_by_model[model]
+                if "tenant_key" in fields:
+                    continue
+                for name in sorted(f for f in fields if f.endswith(("_key", "_keys")) and f != "tenant_key"):
+                    if name not in ANCHOR_TARGETS:
+                        problems.append(f"{collection}: {model[1]}.{name} names no known target")
+                    elif ANCHOR_TARGETS[name] in strict_owned:
+                        problems.append(
+                            f"{collection}: {model[1]}.{name} -> {ANCHOR_TARGETS[name]} carries a tenant; "
+                            "declare the chain in PARENT_CHAINS"
+                        )
+        assert problems == [], (
+            "A non-tenant model references a tenant-bearing collection without a declared parent "
+            "chain (or names a key this file cannot resolve):\n  " + "\n  ".join(problems)
+        )
+
+
+class TestTheRuleFires:
+    """Red first, on a copy of the real tree with one tenant-less read planted."""
+
+    #: The shape #1704 shipped: a date-window read with no tenant at all.
+    _PLANTED = (
+        "\n    def list_between(self, start: str, end: str) -> list[WateringLog]:\n"
+        '        query = f"FOR w IN {col.WATERING_LOGS} FILTER w.logged_at >= @start RETURN w"\n'
+        "        cursor = self._db.aql.execute(query, bind_vars={'start': start})\n"
+        "        return [WateringLog(**self._from_doc(d)) for d in cursor]\n"
+    )
+
+    def _copy(self, tmp_path: Path) -> Path:
+        root = tmp_path / "app"
+        shutil.copytree(_APP, root, ignore=shutil.ignore_patterns("__pycache__"))
+        return root
+
+    def test_a_tenant_less_watering_log_read_is_a_finding(self, tmp_path: Path) -> None:
+        root = self._copy(tmp_path)
+        baseline = {str(v) for v in findings(build_inventory(root), EXCLUSIONS)}
+        target = root / "data_access" / "arango" / "watering_log_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + self._PLANTED, encoding="utf-8")
+        after = findings(build_inventory(root), EXCLUSIONS)
+        new = [v for v in after if str(v) not in baseline]
+        assert [v.method.qualname for v in new] == ["ArangoWateringLogRepository.list_between"]
+        assert new[0].category == "unscoped"
+
+    def test_a_calendar_read_that_drops_its_tenant_is_a_finding(self, tmp_path: Path) -> None:
+        """#1704's five methods are caught by derivation, not by enrolment."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "calendar_source_repository.py"
+        source = target.read_text(encoding="utf-8")
+        planted = source.replace(
+            "def list_watering_logs(self, start: str, end: str, *, tenant_key: str)",
+            "def list_watering_logs(self, start: str, end: str, tenant_key: str | None = None)",
+        )
+        assert planted != source, "the #1704 signature moved; re-aim this falsification"
+        target.write_text(planted, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "list_watering_logs"]
+        assert [v.category for v in hits] == ["optional-tenant"]
+
+    def test_a_parent_scoped_read_is_subject_through_its_parent(self, tmp_path: Path) -> None:
+        """``maintenance_logs`` has no tenant field; its tank does."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "tank_repository.py"
+        target.write_text(
+            target.read_text(encoding="utf-8")
+            + "\n    def all_logs(self) -> list[MaintenanceLog]:\n"
+            + "        return self._logs.find_by_field('kind', 'x')\n",
+            encoding="utf-8",
+        )
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "all_logs"]
+        assert [(v.category, v.method.collections) for v in hits] == [("unscoped", frozenset({col.MAINTENANCE_LOGS}))]
+
+    #: The #2099 shape: ``key`` names a fertilizer, the query then dereferences the
+    #: plan of every entry by the key the entry carries.
+    _PLANTED_REVERSE = (
+        "\n    def plans_using(self, key: str) -> list[dict]:\n"
+        '        query = f"""FOR e IN {col.NUTRIENT_PLAN_PHASE_ENTRIES} '
+        'LET p = DOCUMENT(CONCAT(\'{col.NUTRIENT_PLANS}/\', e.plan_key)) RETURN p.name"""\n'
+        "        return list(self._db.aql.execute(query, bind_vars={'k': key}))\n"
+    )
+
+    def test_a_key_anchored_reverse_lookup_is_a_finding(self, tmp_path: Path) -> None:
+        """#2099: ``key`` is not an anchor for rows a ``DOCUMENT(CONCAT(col.X/…))`` fetches."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + self._PLANTED_REVERSE, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "plans_using"]
+        assert [v.category for v in hits] == ["unscoped"]
+
+    def test_the_same_read_without_the_reverse_lookup_stays_anchored(self, tmp_path: Path) -> None:
+        """The counterpart: the rule is the lookup, not the ``key`` parameter."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        planted = self._PLANTED_REVERSE.replace(
+            "LET p = DOCUMENT(CONCAT('{col.NUTRIENT_PLANS}/', e.plan_key)) RETURN p.name", "RETURN e.plan_key"
+        )
+        assert planted != self._PLANTED_REVERSE
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "plans_using"]
+        assert [(v.passed, v.category) for v in verdicts] == [(True, "anchored")]
+
+    #: #2120: the same lookup with the collection behind a bind variable, and spelled literally.
+    _PLANTED_REVERSE_BIND = (
+        "\n    def plans_using(self, key: str) -> list[dict]:\n"
+        '        query = """FOR e IN nutrient_plan_phase_entries '
+        'LET p = DOCUMENT(CONCAT(@plans, \'/\', e.plan_key)) RETURN p.name"""\n'
+        "        return list(self._db.aql.execute(query, bind_vars={'k': key, 'plans': col.NUTRIENT_PLANS}))\n"
+    )
+
+    _PLANTED_REVERSE_LITERAL = _PLANTED_REVERSE_BIND.replace("CONCAT(@plans, '/',", "CONCAT('nutrient_plans/',")
+
+    @pytest.mark.parametrize("spelling", [_PLANTED_REVERSE_BIND, _PLANTED_REVERSE_LITERAL], ids=["bind-var", "literal"])
+    def test_a_reverse_lookup_in_any_spelling_is_a_finding(self, tmp_path: Path, spelling: str) -> None:
+        assert self._PLANTED_REVERSE_LITERAL != self._PLANTED_REVERSE_BIND
+        assert "@plans" not in self._PLANTED_REVERSE_LITERAL
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + spelling, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "plans_using"]
+        assert [v.category for v in hits] == ["unscoped"]
+
+    def test_an_unresolvable_bind_variable_adds_nothing(self, tmp_path: Path) -> None:
+        """The counterpart: a variable no dict literal binds to a collection names nothing."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "fertilizer_repository.py"
+        planted = self._PLANTED_REVERSE_BIND.replace(", 'plans': col.NUTRIENT_PLANS", "")
+        assert planted != self._PLANTED_REVERSE_BIND
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "plans_using"]
+        assert [(v.passed, v.category) for v in verdicts] == [(True, "anchored")]
+
+    def test_the_spellings_are_seen_on_the_real_tree(self) -> None:
+        """Anti-vacuity: the bind-var and literal spellings occur in today's repositories."""
+        derefs = {(m.owner, m.name): m.dereferenced for m in build_inventory(_APP).reads}
+        assert col.PLANT_INSTANCES in derefs[("ArangoWateringLogRepository", "resolve_plant_names")]
+        assert col.GROWTH_PHASES in derefs[("ArangoTankRepository", "get_active_nutrient_plans")]
+
+    #: The #2102 shape: a traversal that names only the edge, so the vertex collection it
+    #: returns never appears in the body.
+    _PLANTED_TRAVERSAL = (
+        "\n    def species_of(self, seq_key: str) -> list[dict]:\n"
+        '        query = f"FOR v IN 1..1 INBOUND @id {col.HAS_PHASE_SEQUENCE} RETURN v.scientific_name"\n'
+        "        return list(self._db.aql.execute(query, bind_vars={'id': seq_key}))\n"
+    )
+
+    def test_a_traversal_that_returns_species_is_a_finding(self, tmp_path: Path) -> None:
+        """#2102: the edge names no species, the vertices it reaches are species."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "phase_sequence_repository.py"
+        target.write_text(target.read_text(encoding="utf-8") + self._PLANTED_TRAVERSAL, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "species_of"]
+        assert [(v.category, col.SPECIES in v.method.collections) for v in hits] == [("unscoped", True)]
+
+    def test_the_same_traversal_with_a_tenant_is_not(self, tmp_path: Path) -> None:
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "phase_sequence_repository.py"
+        planted = self._PLANTED_TRAVERSAL.replace("seq_key: str)", "seq_key: str, *, tenant_key: str)")
+        assert planted != self._PLANTED_TRAVERSAL
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        hits = [v for v in _verdicts(build_inventory(root)) if v.method.name == "species_of"]
+        assert [(v.passed, v.category) for v in hits] == [(True, "strict")]
+
+    #: SEC-001 (#2131): the count-free window primitives read the class's own
+    #: collection exactly as ``get_all``/``get_page``/``_list_docs`` do. A read that
+    #: reaches its collection only through one of them used to touch *no*
+    #: collection in the derivation — the guard did not see it at all.
+    _WINDOW_SPELLINGS = (
+        "self.list_window(limit=limit)",
+        "self.get_page_window(limit=limit)",
+        "self._wrap_many(self._window_docs(0, limit, None, all_tenants=True))",
+    )
+
+    @pytest.mark.parametrize("spelling", _WINDOW_SPELLINGS, ids=["list_window", "get_page_window", "_window_docs"])
+    def test_a_tenant_less_window_read_is_a_finding(self, tmp_path: Path, spelling: str) -> None:
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "watering_log_repository.py"
+        planted = f"\n    def recent_window(self, limit: int = 50) -> list[WateringLog]:\n        return {spelling}\n"
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        hits = [v for v in findings(build_inventory(root), EXCLUSIONS) if v.method.name == "recent_window"]
+        assert [(v.category, v.method.collections) for v in hits] == [("unscoped", frozenset({col.WATERING_LOGS}))]
+
+    def test_an_optional_tenant_window_read_with_the_flag_is_runtime_enforced(self, tmp_path: Path) -> None:
+        """The counterpart: ``list_window`` enforces the scope as ``get_all`` does (``_list_builder``)."""
+        root = self._copy(tmp_path)
+        target = root / "data_access" / "arango" / "watering_log_repository.py"
+        planted = (
+            "\n    def recent_window(\n"
+            "        self, limit: int = 50, tenant_key: str | None = None, *, all_tenants: bool = False\n"
+            "    ) -> list[WateringLog]:\n"
+            "        return self.list_window(limit=limit, tenant_key=tenant_key, all_tenants=all_tenants)\n"
+        )
+        target.write_text(target.read_text(encoding="utf-8") + planted, encoding="utf-8")
+        verdicts = [v for v in _verdicts(build_inventory(root)) if v.method.name == "recent_window"]
+        assert [(v.passed, v.category) for v in verdicts] == [(True, "runtime-enforced")]
+
+    def test_the_window_reads_of_2131_are_inventoried(self) -> None:
+        """Anti-vacuity on the real tree: the three window reads SEC-001 named are subject reads."""
+        verdicts = {(v.method.owner, v.method.name): v for v in _verdicts(_real_inventory())}
+        for owner, name, collection in (
+            ("ArangoHarvestRepository", "list_batches_window", col.HARVEST_BATCHES),
+            ("ArangoPostHarvestRepository", "list_batches_window", col.POST_HARVEST_BATCHES),
+            ("ArangoImportJobRepository", "list_all_window", col.IMPORT_JOBS),
+        ):
+            verdict = verdicts.get((owner, name))
+            assert verdict is not None, f"{owner}.{name} is not a subject read"
+            assert collection in verdict.method.collections
+            assert (verdict.passed, verdict.category) == (True, "strict")
+
+    def test_a_hybrid_catalogue_key_does_not_anchor(self) -> None:
+        inventory = _real_inventory()
+        method = ReadMethod(
+            path="x.py",
+            owner="X",
+            name="by_species",
+            lineno=1,
+            collections=frozenset({col.PLANT_INSTANCES}),
+            positional=("species_key",),
+            annotations=("SpeciesKey",),
+            keyword_only=(),
+            keyword_annotations=(),
+            tenant_shape="absent",
+            all_tenants_flag=False,
+            enforces_tenant_scope=False,
+            builds_union_predicate=False,
+        )
+        verdict = classify(method, inventory)
+        assert verdict is not None and verdict.category == "unscoped"
+
+
+class TestTheApplicationIsClean:
+    def test_every_tenant_bearing_read_is_scoped_anchored_or_excluded(self) -> None:
+        offenders = findings(_real_inventory(), EXCLUSIONS)
+        assert offenders == [], (
+            "Repository reads over a tenant-bearing collection that take no enforceable tenant "
+            "(#1704/#1708). Take tenant_key keyword-only without a default, anchor the read on a "
+            "tenant-owned document key, or add it to EXCLUSIONS with a kind and a reason:\n  "
+            + "\n  ".join(str(v) for v in offenders)
+        )
+
+    def test_the_positional_count_does_not_grow(self) -> None:
+        positional = [v for v in _verdicts(_real_inventory()) if v.category == "positional"]
+        assert len(positional) == POSITIONAL_TENANT_COUNT, (
+            "The number of reads taking tenant_key positionally changed. A new read must take it "
+            "keyword-only; a conversion lowers POSITIONAL_TENANT_COUNT in the same change.\n  "
+            + "\n  ".join(str(v) for v in positional)
+        )
+
+
+class TestTheExclusionsAreLive:
+    def test_every_exclusion_names_a_current_finding(self) -> None:
+        inventory = _real_inventory()
+        failing = {(v.method.owner, v.method.name) for v in _verdicts(inventory) if not v.passed}
+        stale = sorted(set(EXCLUSIONS) - failing)
+        assert stale == [], f"exclusions that no longer excuse anything: {stale}"
+
+    def test_every_exclusion_has_a_known_kind_and_a_reason(self) -> None:
+        bad = [k for k, e in EXCLUSIONS.items() if e.kind not in _EXCLUSION_KINDS or len(e.reason) < 40]
+        assert bad == []
+
+    def test_only_verified_exclusions_carry_a_witness(self) -> None:
+        shapes = {
+            k: (e.kind == "verified", all((e.witness, e.via, e.check)), any((e.witness, e.via, e.check)))
+            for k, e in EXCLUSIONS.items()
+        }
+        wrong = [
+            k for k, (verified, complete, partial) in shapes.items() if verified != complete or complete != partial
+        ]
+        assert wrong == []
+
+
+def _callers(graph) -> dict[str, list[str]]:
+    callers: dict[str, list[str]] = defaultdict(list)
+    for fn in graph.functions:
+        for callee in fn.callees:
+            if (fn.id, callee.id) not in graph.fallback_edges:
+                callers[callee.id].append(fn.id)
+    return callers
+
+
+def _reachers(owner: str, method: str) -> tuple[set[str], set[str]]:
+    """``(every function reaching owner.method, the roots among them)`` over the typed call graph.
+
+    A root has no caller in the graph: a route handler, a Celery task, a
+    migration step. Name-fallback edges are left out — they are guesses.
+    """
+    graph = call_graph()
+    callers = _callers(graph)
+    start = [fn.id for fn in graph.functions if fn.owner == owner and fn.name == method]
+    assert start, f"{owner}.{method} is not in the call graph — the evidence check would pass on nothing"
+    seen, queue = set(start), deque(start)
+    while queue:
+        current = queue.popleft()
+        for caller in callers.get(current, ()):
+            if caller not in seen:
+                seen.add(caller)
+                queue.append(caller)
+    roots = {fn for fn in seen if not callers.get(fn)}
+    return seen, roots
+
+
+_REQUEST_MODULES = ("app.api.", "app.mcp_server.")
+
+
+def _request_entry_points(owner: str, method: str) -> set[str]:
+    """Every function under ``app.api`` / ``app.mcp_server`` that reaches ``owner.method``."""
+    reaching, _roots = _reachers(owner, method)
+    return {fn for fn in reaching if fn.startswith(_REQUEST_MODULES)}
+
+
+def _names(node: ast.AST) -> set[str]:
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)} | {
+        n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)
+    }
+
+
+def _is_platform_admin_route(function_id: str) -> bool:
+    """Whether a route handler is gated by ``require_platform_admin`` — read off the AST.
+
+    Three places a FastAPI gate can sit: the route decorator's
+    ``dependencies=[...]``, a parameter's ``Depends(...)``, or the module
+    router's ``APIRouter(dependencies=[...])``. Nothing else counts, and a
+    comment naming the gate cannot create any of these nodes (#1456).
+    """
+    module, qualname = function_id.split("::", 1)
+    path = _APP.parent / (module.replace(".", "/") + ".py")
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    function = next(
+        (n for n in tree.body if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef) and n.name == qualname), None
+    )
+    if function is None:
+        return False
+    gate = "require_platform_admin"
+    if any(gate in _names(decorator) for decorator in function.decorator_list):
+        return True
+    if any(gate in _names(default) for default in [*function.args.defaults, *function.args.kw_defaults] if default):
+        return True
+    return any(
+        isinstance(stmt, ast.Assign)
+        and isinstance(stmt.value, ast.Call)
+        and _callee_name(stmt.value) == "APIRouter"
+        and gate in _names(stmt.value)
+        for stmt in tree.body
+    )
+
+
+class TestTheExclusionsHoldTheirEvidence:
+    """The kinds that can be checked are checked; the rest carry a reason only."""
+
+    @pytest.mark.parametrize(
+        "owner,method", sorted(k for k, e in EXCLUSIONS.items() if e.kind == "system"), ids=lambda v: str(v)
+    )
+    def test_a_system_read_is_not_reachable_from_a_request(self, owner: str, method: str) -> None:
+        assert _request_entry_points(owner, method) == set()
+
+    @pytest.mark.parametrize(
+        "owner,method", sorted(k for k, e in EXCLUSIONS.items() if e.kind == "platform"), ids=lambda v: str(v)
+    )
+    def test_a_platform_read_is_reached_from_admin_routes_only(self, owner: str, method: str) -> None:
+        _reaching, roots = _reachers(owner, method)
+        request_roots = {r for r in roots if r.startswith(_REQUEST_MODULES)}
+        ungated = {r for r in request_roots if r.startswith("app.mcp_server.") or not _is_platform_admin_route(r)}
+        assert request_roots, f"{owner}.{method}: no route reaches it — it is a system read, not a platform one"
+        assert ungated == set(), f"reached from a route without require_platform_admin: {sorted(ungated)}"
+
+    @pytest.mark.parametrize(
+        "owner,method", sorted(k for k, e in EXCLUSIONS.items() if e.kind == "verified"), ids=lambda v: str(v)
+    )
+    def test_a_verified_read_has_a_witness_that_checks_before_it_reads(self, owner: str, method: str) -> None:
+        exclusion = EXCLUSIONS[(owner, method)]
+        witness = call_graph().by_id.get(exclusion.witness or "")
+        assert witness is not None, f"witness {exclusion.witness} does not exist"
+        called = {_callee_name(call) for call in witness._call_nodes}
+        assert exclusion.via in called, f"{exclusion.witness} no longer calls {exclusion.via}"
+        assert exclusion.check in called, f"{exclusion.witness} no longer calls {exclusion.check}"
+
+    def test_the_reachability_check_can_see_a_route(self) -> None:
+        """Falsification: a read a tenant route certainly reaches is reported as reachable."""
+        entries = _request_entry_points("ArangoWateringLogRepository", "get_by_slot")
+        assert any(e.startswith("app.api.v1.watering_logs.") for e in entries), entries
+
+    def test_the_gate_check_tells_a_gated_route_from_an_open_one(self) -> None:
+        """Falsification of the platform check, on both sides of the line."""
+        assert _is_platform_admin_route("app.api.v1.enrichment.router::trigger_sync")
+        assert _is_platform_admin_route("app.api.v1.admin.pests.router::list_pest_contributions")
+        assert not _is_platform_admin_route("app.api.v1.watering_logs.tenant_router::get_slot_logs")
+
+
+class TestInterfacesStayAsStrictAsTheirImplementations:
+    """Replaces the hand list in ``TestTheSurfacesStayStrict`` (#1533, #1704).
+
+    A service typed against ``ITaskRepository`` reads the interface signature. If
+    the interface regains a default, a call that omits the tenant type-checks — so
+    every interface method an implementation overrides strictly must be strict too.
+    """
+
+    def test_interface_signatures_match_strict_implementations(self) -> None:
+        import importlib
+
+        inventory = _real_inventory()
+        drifted = []
+        checked = 0
+        for verdict in _verdicts(inventory):
+            if verdict.category != "strict":
+                continue
+            method = verdict.method
+            module = "app." + method.path.removesuffix(".py").replace("/", ".")
+            owner = importlib.import_module(module).__dict__[method.owner]
+            for base in owner.__mro__[1:]:
+                if not base.__module__.startswith("app.domain.interfaces") or method.name not in base.__dict__:
+                    continue
+                checked += 1
+                parameter = inspect.signature(base.__dict__[method.name]).parameters.get("tenant_key")
+                if (
+                    parameter is None
+                    or parameter.kind is not inspect.Parameter.KEYWORD_ONLY
+                    or parameter.default is not inspect.Parameter.empty
+                ):
+                    drifted.append(f"{base.__name__}.{method.name}")
+        assert drifted == []
+        assert checked >= 10, f"only {checked} interface methods compared — the walk lost its subjects"

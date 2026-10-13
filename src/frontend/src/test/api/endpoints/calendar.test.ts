@@ -46,7 +46,7 @@ describe('calendar endpoints — events', () => {
 describe('calendar endpoints — feeds', () => {
   it('createCalendarFeed posts name and filters', async () => {
     client.post.mockResolvedValue({ data: { key: 'f1' } });
-    const filters = { categories: ['care'], site_key: 's1' };
+    const filters = { categories: ['care'] };
     await calendar.createCalendarFeed('My Feed', filters);
     expect(client.post).toHaveBeenCalledWith('/calendar/feeds', {
       name: 'My Feed',
@@ -78,7 +78,7 @@ describe('calendar endpoints — feeds', () => {
     client.put.mockResolvedValue({ data: { key: 'f1' } });
     const body = {
       name: 'X',
-      filters: { categories: [], site_key: null },
+      filters: { categories: [] },
       is_active: true,
     };
     await calendar.updateCalendarFeed('f1', body);

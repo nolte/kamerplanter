@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.log_privacy import loggable_error
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.cycle_resolver import resolve_effective_cycle
 from app.domain.engines.phase_sequence_resolver import (
     INDOOR_DEFAULT_SEQUENCE,
@@ -42,10 +44,6 @@ from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceReposi
 from app.domain.models.species import Species
 
 logger = structlog.get_logger()
-
-#: Page size for the sequence lookup. Mirrors the seed linker's 500 — the catalogue
-#: holds ~21 sequences, and both sides must see the same set or they bind differently.
-_SEQUENCE_PAGE = 500
 
 
 def _enum_value(value: object) -> str | None:
@@ -87,7 +85,9 @@ class PhaseSequenceBinder:
             if self._phase_seq_repo.get_sequence_by_species(species_key) is not None:
                 return None
 
-            sequences, _ = self._phase_seq_repo.get_all_sequences(0, _SEQUENCE_PAGE)
+            # Every sequence, as the seed linker reads them: a first page of 500 missed a
+            # sequence past it and bound to the fallback instead (#2025).
+            sequences = read_all_pages(self._phase_seq_repo.get_all_sequences)
             key_by_name = {s.name: (s.key or "") for s in sequences}
 
             lifecycle = None
@@ -142,7 +142,7 @@ class PhaseSequenceBinder:
                 "phase_sequence_binding_failed",
                 species_key=species_key,
                 scientific_name=species.scientific_name,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return None
         return resolved_name

@@ -1,0 +1,20 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: frontend.yml
+job: changes
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-09-24'
+measured_at_commit: 1ae574fc128061ac340fb9b1c46ec03295036339
+job_spec_sha256: 44428e881c2cef82810f7a5d62bcaba978244e5cffbe65dd7c4c47b65bf6cf30
+invocations: []
+subprocesses: []
+accepted_gaps: []
+reads: []
+empty_reads_reason: its steps are actions/checkout and dorny/paths-filter only; the filter reads the pull request's file list
+  from the GitHub API (or the push range from git history) and nothing from the tree

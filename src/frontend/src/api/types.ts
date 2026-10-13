@@ -184,6 +184,18 @@ export interface ApiErrorDetail {
    * branch on when the two cases mean different things (#1437).
    */
   entity?: string;
+  /**
+   * Minutes until a throttled step-up may be retried, as a **string** (e.g.
+   * `"15"`). Set only on the `STEP_UP_LOCKED` detail of a 429 (#1816).
+   */
+  retry_after_minutes?: string;
+  /**
+   * The consent purpose a `403 CONSENT_REQUIRED` refusal names, e.g.
+   * `ai_knowledge_question` (field `consent`). Machine-readable, so a caller
+   * need not parse the English `message`; absent on older servers and on every
+   * other error.
+   */
+  purpose?: string | null;
 }
 
 // Botanical Families
@@ -1273,12 +1285,7 @@ export interface PlantingRunEntryCreate {
  * attribute at all and the backend reads those as `none` (AK-26), so the client
  * never has to treat "missing" as a sixth case.
  */
-export type DiaryAnalysisState =
-  | 'none'
-  | 'requested'
-  | 'in_progress'
-  | 'completed'
-  | 'failed';
+export type DiaryAnalysisState = 'none' | 'requested' | 'in_progress' | 'completed' | 'failed';
 
 /** REQ-050 §5 — one finding of an AI analysis. */
 export interface DiaryFinding {
@@ -2248,6 +2255,8 @@ export interface NutrientPlan {
   is_template: boolean;
   version: string;
   tags: string[];
+  /** Species this plan is written for (#1618); empty = linked to no species. */
+  species_keys: string[];
   cloned_from_key: string | null;
   watering_schedule: WateringSchedule | null;
   water_mix_ratio_ro_percent: number | null;
@@ -2265,6 +2274,7 @@ export interface NutrientPlanCreate {
   is_template?: boolean;
   version?: string;
   tags?: string[];
+  species_keys?: string[];
   watering_schedule?: WateringSchedule | null;
   water_mix_ratio_ro_percent?: number | null;
   cycle_restart_from_sequence?: number | null;
@@ -2279,6 +2289,8 @@ export interface NutrientPlanUpdate {
   is_template?: boolean;
   version?: string;
   tags?: string[];
+  /** Replaces the species relation; `[]` clears it, omitted leaves it (#1618). */
+  species_keys?: string[];
   watering_schedule?: WateringSchedule | null;
   water_mix_ratio_ro_percent?: number | null;
   cycle_restart_from_sequence?: number | null;
@@ -3823,6 +3835,24 @@ export interface TaskTemplateUpdate {
 /** REQ-006 FreeStyle task origin (#1082). Orthogonal to `TaskCategory`. */
 export type TaskOrigin = 'user' | 'system' | 'pipeline';
 
+/**
+ * The origins a *machine* produced — the "machine-generated" half of the task
+ * queue's provenance filter, which the server is asked for as a repeated
+ * `origin` parameter (#1503).
+ *
+ * `satisfies` rather than a plain annotation on purpose: every entry has to be a
+ * non-user origin, so a typo or a `'user'` slipping in is a compile error. That
+ * the list is also *complete* — the direction that matters when a fourth origin
+ * is added to {@link TaskOrigin} and the machine filter silently stops returning
+ * it — cannot be expressed in the same `satisfies`, and is asserted instead by
+ * `src/test/guards/queueScopeIsAskedOfTheServer.test.ts`, which reads the union
+ * members out of this file.
+ */
+export const MACHINE_TASK_ORIGINS = ['system', 'pipeline'] as const satisfies readonly Exclude<
+  TaskOrigin,
+  'user'
+>[];
+
 export interface TaskItem {
   key: string;
   name: string;
@@ -4054,6 +4084,60 @@ export interface RegisterRequest {
   email: string;
   password: string;
   display_name: string;
+  /**
+   * The token of a pending **e-mail** invitation for this address (#2132). Required
+   * when the registration mode is `invite_only`; with a domain allowlist it admits an
+   * address outside the list. A link invitation unlocks no registration.
+   */
+  invitation_token?: string;
+}
+
+/** Who may create an account (#2132, REQ-023 §3.2d). `closed` admits nobody, not even with an invitation. */
+export type RegistrationMode = 'open' | 'invite_only' | 'closed';
+
+/** Size of the light-mode garden shown in the take-over dialog (REQ-027 §7a.4, #1855). */
+export interface TakeoverResourceCounts {
+  plants: number;
+  sites: number;
+  planting_runs: number;
+  nutrient_plans: number;
+  tasks: number;
+}
+
+/**
+ * `GET /system/takeover-status` (REQ-027 §7a.4, #1855) — whether the data of a former light-mode
+ * installation wait to be taken over. Tenant and counts only when `eligible`.
+ */
+export interface TakeoverStatus {
+  pending: boolean;
+  eligible: boolean;
+  /** The key the decision's step-up factor is bound to (`light_mode_takeover`). */
+  tenant_key: string | null;
+  tenant_name: string | null;
+  tenant_slug: string | null;
+  resource_counts: TakeoverResourceCounts | null;
+}
+
+/** `POST /system/takeover` (REQ-027 §7a.2, #1855) — the decided take-over. */
+export interface TakeoverResult {
+  accepted: boolean;
+  tenant_slug: string | null;
+  platform_admin_granted: boolean;
+}
+
+/** `GET /mode` (REQ-027) — the deployment mode, its feature flags and the registration mode (#2132). */
+export interface ModeResponse {
+  mode: 'light' | 'full';
+  features: {
+    auth: boolean;
+    multi_tenant: boolean;
+    privacy_consent: boolean;
+  };
+  registration: {
+    mode: RegistrationMode;
+    /** An allowlist of e-mail domains applies; the list itself is not published. */
+    domain_restricted: boolean;
+  };
 }
 
 export interface LoginResponse {
@@ -4116,7 +4200,17 @@ export interface OAuthProviderListItem {
   icon_url: string | null;
 }
 
-export interface ApiKeyCreate {
+/** The network controls a key is minted with (#2137); enforced on REST and MCP alike. */
+export interface ApiKeyControls {
+  /** CIDR ranges; no host bits, nothing wider than /8 (IPv4) or /32 (IPv6), at most 32. */
+  ip_allowlist?: string[] | null;
+  /** 1..10000 requests per minute. */
+  rate_limit_per_minute?: number | null;
+  /** ISO timestamp with a timezone, in the future, at most 730 days ahead. */
+  expires_at?: string | null;
+}
+
+export interface ApiKeyCreate extends CredentialStepUp, ApiKeyControls {
   label: string;
   tenant_scope?: string | null;
 }
@@ -4128,6 +4222,9 @@ export interface ApiKeyCreated {
   key_prefix: string;
   tenant_scope: string | null;
   created_at: string | null;
+  ip_allowlist?: string[] | null;
+  rate_limit_per_minute?: number | null;
+  expires_at?: string | null;
 }
 
 export interface ApiKeySummary {
@@ -4138,6 +4235,9 @@ export interface ApiKeySummary {
   revoked: boolean;
   last_used_at: string | null;
   created_at: string | null;
+  ip_allowlist?: string[] | null;
+  rate_limit_per_minute?: number | null;
+  expires_at?: string | null;
 }
 
 /**
@@ -4191,6 +4291,15 @@ export interface Tenant {
 export interface TenantWithRole extends Tenant {
   role: TenantRole;
   admin_scopes: AdminScope[];
+  /** Whether the tenant resolves for its members (`status === 'active'`). */
+  is_active?: boolean;
+  /**
+   * Lifecycle state (#2166). Always `active` in the default listing; `pending_deletion` /
+   * `orphaned` only in the answer of `listMyTenantsWithScheduledDeletion` (`api/endpoints/tenants.ts`).
+   */
+  status?: TenantStatus;
+  /** End of the cancellable grace of a scheduled deletion; `null` otherwise. */
+  deletion_scheduled_at?: string | null;
 }
 
 export interface TenantCreate {
@@ -4226,6 +4335,10 @@ export interface Invitation {
   created_by: string;
   expires_at: string;
   created_at: string | null;
+  /** How many accounts may join with it (REQ-024 AK-07, #2182); `1` for an e-mail invitation. */
+  max_uses: number;
+  /** Uses consumed so far; the invitation turns `accepted` with the one that reaches `max_uses`. */
+  use_count: number;
 }
 
 export interface InvitationCreate {
@@ -4233,8 +4346,28 @@ export interface InvitationCreate {
   role: TenantRole;
 }
 
+/**
+ * What creating an invitation answers (#2162). `accept_url` is the accept page's link with the
+ * token — the one an e-mail invitation mails and the one the inviter shares. `delivered` says
+ * whether the e-mail invitation's mail left (`null` for a link invitation): when it is `false`
+ * the invitation exists, but nobody received it.
+ */
+export interface InvitationCreated {
+  invitation_key: string;
+  token: string;
+  expires_at: string;
+  accept_url: string;
+  delivered: boolean | null;
+  /** How many accounts may join with it (REQ-024 AK-07, #2182). */
+  max_uses: number;
+}
+
+/** Bounds of `max_uses` — the backend's `INVITATION_MAX_USES_LIMIT` (REQ-024 AK-07, #2182). */
+export const INVITATION_MAX_USES_LIMIT = 100;
+
 export interface InvitationLinkCreate {
   role: TenantRole;
+  /** How many accounts may join with the link, `1`..`INVITATION_MAX_USES_LIMIT`; omitted: `1`. */
   max_uses?: number;
 }
 
@@ -4261,6 +4394,24 @@ export type CareStyleType =
   | 'mediterranean'
   | 'fern'
   | 'cactus'
+  // REQ-022 v2.5 outdoor presets (§3.1). The union carried only the nine
+  // houseplant styles until #1505, so a profile the backend generated as
+  // `outdoor_annual_veg` was not assignable here and the form's Select had no
+  // option to show it. Kept in sync with the backend enum by
+  // tests/contracts/test_plant_property_enum_sync.py.
+  | 'outdoor_annual_veg'
+  | 'outdoor_annual_ornamental'
+  | 'outdoor_perennial'
+  | 'fruit_tree'
+  | 'berry_shrub'
+  | 'rose'
+  | 'frost_tender_tuber'
+  | 'frost_tender_container'
+  | 'winter_vegetable'
+  | 'spring_bulb'
+  // #1505 — the two seeded families no other preset fits
+  | 'bromeliad'
+  | 'aquatic'
   | 'custom';
 export type ReminderType =
   | 'watering'
@@ -4417,6 +4568,10 @@ export interface NutrientPlanMatch {
   name: string;
   description: string | null;
   substrate_type: string | null;
+  /** Every species the plan is linked to (#1618). */
+  species_keys: string[];
+  /** The requested species this plan matched, in request order (#1618). */
+  matched_species: string[];
   fertilizer_count: number;
   fertilizers: NutrientPlanFertilizerInfo[];
 }
@@ -4570,21 +4725,35 @@ export interface CalendarEventsResponse {
   total: number;
 }
 
+/**
+ * What a feed narrows the tenant's calendar to: event categories. A site
+ * filter was stored but never applied and was removed (#2226 review SEC-003).
+ */
 export interface CalendarFeedFilters {
   categories: string[];
-  site_key: string | null;
 }
 
+/**
+ * A calendar feed as every read returns it. It carries no token and no
+ * subscription URL: the server keeps only a hash of the token (#2171).
+ */
 export interface CalendarFeed {
   key: string;
   name: string;
-  token: string;
   user_key: string;
   filters: CalendarFeedFilters;
   is_active: boolean;
-  ical_url: string;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/**
+ * Response of creating a feed or rotating its token — the only place the token
+ * and its subscription URL appear. Shown once, never kept in the store.
+ */
+export interface CalendarFeedIssued extends CalendarFeed {
+  token: string;
+  ical_url: string;
 }
 
 // Sowing Calendar (REQ-015 §3.8)
@@ -4854,6 +5023,222 @@ export interface TaskTemplateUpdateRequest {
 
 // ── Admin Platform Types ──────────────────────────────────────────────
 
+/**
+ * Lifecycle state of a tenant (REQ-024 AK-65, #2123) — mirrors `TenantStatus` in the
+ * backend. Only `active` resolves for its members; `orphaned` marks an organization an
+ * account deletion left without anybody who can administer it (#2134); `importing` is a tenant a
+ * platform admin's import is still writing (#2138).
+ */
+export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
+
+/**
+ * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.
+ * Since #1792 both answer `202 Accepted` with this body. Since #2123 a deletion with a
+ * grace period is `scheduled` (until `scheduled_for`, cancellable); with a grace of 0 the
+ * deletion is recorded and the tenant frozen, the erasure itself runs afterwards in a worker.
+ */
+export interface TenantDeletionAccepted {
+  tenant_key: string;
+  /** `scheduled` inside the grace; `in_progress` for a deletion just recorded; `partially_completed` for one an earlier run left open. */
+  status: 'scheduled' | 'in_progress' | 'partially_completed' | 'completed';
+  requested_at: string | null;
+  /** End of the cancellable grace (#2123); `null` when the erasure runs at once. */
+  scheduled_for?: string | null;
+  message: string;
+}
+
+/**
+ * The step-up every tenant deletion carries (#1791) — `DELETE /tenants/{slug}`
+ * and `DELETE /admin/platform/tenants/{key}` alike. `confirm_slug` is the
+ * tenant's slug typed back; `password` is the requester's current password,
+ * omitted only by an account that signs in through a federated provider alone.
+ * The answer is a {@link TenantDeletionAccepted} (202, #1792).
+ */
+export interface TenantDeleteRequest {
+  confirm_slug: string;
+  password?: string;
+  /** E-mailed one-time code of a requester without a local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
+}
+
+export interface ErasurePreviewTenant {
+  /** The caller's own tenant name — never another member's. */
+  name: string;
+  /** How many other active members lose the tenant with it; a count only. */
+  other_member_count: number;
+}
+
+/**
+ * What an account erasure does to an organization the account is a member of (#2134):
+ * the last `management` holder hands it to the longest-serving lead, or the organization
+ * is left without anybody who can administer it and becomes `orphaned`.
+ */
+export interface ErasurePreviewOrganization {
+  /** The organization's name — the subject is a member of it. */
+  name: string;
+  outcome: 'management_passes_to_lead' | 'orphaned';
+}
+
+/** GET /privacy/erasure-preview (REQ-025 AK-FK-06, #1824; organizations since #2134). */
+export interface ErasurePreview {
+  personal_tenants: ErasurePreviewTenant[];
+  /** Only the organizations the erasure changes; absent from a backend older than #2134. */
+  organizations?: ErasurePreviewOrganization[];
+}
+
+/**
+ * The 202 body of `DELETE /admin/platform/users/{key}` (#1949): the erasure is recorded, the
+ * account closed and the other members told; the erasure itself runs afterwards in a worker.
+ */
+export interface AccountDeletionAccepted {
+  /** Key of the erasure request: poll `GET /admin/platform/erasures/{erasure_key}` for the outcome. */
+  erasure_key: string;
+  /** `scheduled`/`in_progress` for a run just recorded; `partially_completed` for one an earlier run left open. */
+  status: 'scheduled' | 'in_progress' | 'completed' | 'partially_completed';
+  requested_at: string | null;
+  message: string;
+}
+
+/** `GET /admin/platform/erasures/{erasure_key}` (#1949) — an account erasure's progress; names no account. */
+export interface ErasureStatus {
+  key: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'partially_completed';
+  requested_at: string | null;
+  completed_at?: string | null;
+  retained_reason?: string | null;
+}
+
+/**
+ * Step-up body of the three account-erasure routes (#1813, #1814):
+ * `DELETE /users/me`, `POST /privacy/erasure`, `DELETE /admin/platform/users/{key}`
+ * (which answers an {@link AccountDeletionAccepted}, 202, #1949).
+ * `confirm_email` is the e-mail of the account being erased; `password` is the
+ * *requester's* current password, omitted by a federated-only account.
+ */
+export interface AccountErasureRequest {
+  confirm_email: string;
+  password?: string;
+  /** E-mailed one-time code of a requester without a local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
+}
+
+/**
+ * The act an e-mailed step-up code confirms (review SEC-003). A code requested
+ * for one act does not confirm another — mirrors `StepUpAction` in the backend's
+ * `step_up_service.py`.
+ */
+export type StepUpAction =
+  | 'account_erasure'
+  | 'admin_account_erasure'
+  | 'tenant_deletion'
+  | 'password_change'
+  | 'email_change'
+  // #1847 — minting or removing a sign-in credential of the own account.
+  | 'api_key_creation'
+  | 'device_pairing'
+  | 'provider_unlink'
+  // #1857 — a platform admin raising another account's trust (email_verified, is_active).
+  | 'admin_account_update'
+  // #1883 — a platform admin creating, repointing or deleting an OIDC provider configuration.
+  | 'oidc_provider_change'
+  // #2009 — a platform admin deactivating (or reactivating) a whole tenant.
+  | 'admin_tenant_update'
+  // #2009 — a platform admin removing a member from a tenant.
+  | 'admin_membership_removal'
+  // #2032 — a platform admin changing a member's role (demoting a tenant's last lead).
+  | 'admin_membership_role_change'
+  // #2032 — a tenant's member administrator (the `management` scope) removing a member.
+  | 'tenant_member_removal'
+  // #2032 — a tenant's member administrator changing a member's role.
+  | 'tenant_member_role_change'
+  // #2106 — a platform admin adding an account to a tenant (bound to `<tenant_key>|<user_key>`).
+  | 'admin_membership_add'
+  // #2123 — cancelling a scheduled tenant deletion (bound to the tenant's key).
+  | 'tenant_erasure_cancel'
+  // #2137 — a tenant's lead (technical scope) creating, re-keying or removing a service account
+  // (bound to the tenant's key, or to `<tenant_key>|<service_account_key>`).
+  | 'service_account_change'
+  // #2138 — a tenant's management (or a platform admin) exporting a tenant (bound to the tenant's key).
+  | 'tenant_export'
+  // #2138 — a platform admin importing a tenant archive as a new tenant
+  // (bound to `archive:<first 32 hex of the upload's SHA-256>`).
+  | 'tenant_import'
+  // #1855 — deciding the take-over of the former light-mode garden (bound to its key).
+  | 'light_mode_takeover';
+
+/**
+ * The step-up a credential change carries in its body (#1847, #1857, REQ-023
+ * §3.9) — mirrors `CredentialStepUp` in the backend's `auth/schemas.py`.
+ *
+ * Which field is needed is the backend's rule: `current_password` for an
+ * account with a local password; for one without, `step_up_token` from a fresh
+ * sign-in at its identity provider or `step_up_code` from
+ * `POST /users/me/step-up-code`. Only the supplied fields are sent.
+ */
+export interface CredentialStepUp {
+  current_password?: string;
+  step_up_code?: string;
+  step_up_token?: string;
+}
+
+/** Body of `POST /users/me/step-up-code`. */
+export interface StepUpCodeRequest {
+  action: StepUpAction;
+  /** What the act acts on (#1884) — required for a targeted act, absent for any other. */
+  target?: string;
+}
+
+/**
+ * `POST /users/me/step-up-code` (#1815): a one-time code was e-mailed to the
+ * requester, who has no local password to confirm a step-up with.
+ */
+export interface StepUpCodeSent {
+  /** ISO-8601 instant after which the code is rejected. */
+  expires_at: string;
+  /** Lifetime of the code in seconds. */
+  expires_in: number;
+}
+
+/** Body of `POST /users/me/step-up/oidc` (#1815). */
+export interface StepUpReauthRequest {
+  action: StepUpAction;
+  /** What the act acts on (#1884) — required for a targeted act, absent for any other. */
+  target?: string;
+  /** Key of one of the account's linked providers; omitted: the backend picks the first capable one. */
+  provider_key?: string;
+  /** 32 hex characters; returned unchanged beside the token or error on the callback (SEC-005). */
+  client_nonce?: string;
+}
+
+/** `POST /users/me/step-up/oidc` (#1815): where to send the browser for the fresh sign-in. */
+export interface StepUpReauthStart {
+  authorization_url: string;
+}
+
+/** Body of `POST /users/me/password`. */
+export interface PasswordChangeRequest {
+  /** `null` for an account without a local password (setting the first one). */
+  current_password: string | null;
+  new_password: string;
+  /** E-mailed one-time code, required when the account has no local password (#1815). */
+  step_up_code?: string;
+  /**
+   * One-time token of a fresh sign-in at the requester's identity provider
+   * (#1815): 5 minutes, single use, bound to the account and the act.
+   */
+  step_up_token?: string;
+}
+
 export interface AdminTenant {
   key: string;
   name: string;
@@ -4861,12 +5246,171 @@ export interface AdminTenant {
   tenant_type: TenantType;
   description: string | null;
   owner_user_key: string;
+  /** Derived from `status` — `true` only for `active`. */
   is_active: boolean;
+  /** Lifecycle state (#2123); absent only from a backend older than #2123. */
+  status?: TenantStatus;
+  /** When a `pending_deletion` / `orphaned` tenant is erased (#2123). */
+  deletion_scheduled_at?: string | null;
   is_platform: boolean;
   max_members: number;
   member_count: number;
   created_at: string | null;
   updated_at: string | null;
+  /** REQ-056 §7.1 (#2142) — the plan whose quotas apply; absent only from a backend older than #2142. */
+  plan_key?: string;
+}
+
+/**
+ * `GET /admin/platform/tenants/{key}` (REQ-056 §7.7, #2142): one tenant with its plan and, per quota
+ * dimension, the effective limit and the usage — the lead-only dimensions included.
+ */
+export interface AdminTenantDetail extends AdminTenant {
+  entitlements: TenantEntitlements;
+}
+
+// ── Plan catalogue and quotas (REQ-056 §7) ──────────────────────────
+
+/** A quota a plan can set for a tenant (REQ-056 §7.2), mirrors the backend `EntitlementDimension`. */
+export type EntitlementDimension =
+  | 'members'
+  | 'service_accounts'
+  | 'storage_mb'
+  | 'photos_per_instance'
+  | 'ai_calls_per_user_day'
+  | 'ai_calls_per_tenant_day'
+  | 'ai_tokens_per_tenant_day';
+
+/**
+ * The limits of a plan. `null` (or absent) = **the instance setting**; `0` = **unlimited** for
+ * `storage_mb` / `photos_per_instance` and **budget off** (no limit) for the three AI budgets —
+ * never "nothing allowed". `members` and `service_accounts` are at least 1.
+ */
+export type PlanLimits = Partial<Record<EntitlementDimension, number | null>>;
+
+/** `GET/POST/PATCH /admin/platform/plans` (REQ-056 §7.6). */
+export interface Plan {
+  key: string;
+  name: string;
+  description: string | null;
+  limits: PlanLimits;
+  /** The dimensions this plan sets to `0` — unlimited (storage, photos) or budget off (AI). */
+  unlimited: EntitlementDimension[];
+  is_default: boolean;
+  /** How many tenants point at the plan; a plan in use cannot be deleted (409). */
+  tenant_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** `POST /admin/platform/plans`. A new plan is never the default; mark it with `PATCH` afterwards. */
+export interface PlanCreate {
+  key: string;
+  name: string;
+  description?: string | null;
+  limits?: PlanLimits;
+}
+
+/** `PATCH /admin/platform/plans/{plan_key}` — only the fields sent change; `is_default: false` is refused. */
+export interface PlanUpdate {
+  name?: string;
+  description?: string | null;
+  limits?: PlanLimits;
+  is_default?: true;
+}
+
+/** One dimension of a tenant's quotas: `limit: null` = unlimited, `used: null` = not counted per tenant. */
+export interface EntitlementUsage {
+  dimension: EntitlementDimension;
+  limit: number | null;
+  used: number | null;
+}
+
+/** `GET /tenants/{slug}/entitlements` (REQ-056 §7.7). */
+export interface TenantEntitlements {
+  plan: { key: string; name: string };
+  limits: EntitlementUsage[];
+}
+
+/**
+ * State of a tenant export (REQ-056 §8, #2138) — mirrors `TenantExportStatus` in the backend's
+ * `domain/models/tenant_export.py`: `pending` → `running` → `completed` / `failed` → `expired`.
+ */
+export type TenantExportStatus = 'pending' | 'running' | 'completed' | 'failed' | 'expired';
+
+/** Who asked for the export (REQ-056 §8.2). */
+export type TenantExportOrigin = 'tenant_management' | 'platform_admin';
+
+/** The only failure reasons the backend puts on the record — never an exception text. */
+export type TenantExportFailureReason =
+  | 'too_large'
+  | 'tenant_not_exportable'
+  | 'storage_unavailable'
+  | 'internal_error';
+
+/**
+ * One tenant export request — `TenantExportResponse` of `POST/GET /tenants/{slug}/exports`.
+ * The archive itself is read through the download route.
+ */
+export interface TenantExport {
+  key: string;
+  status: TenantExportStatus;
+  origin: TenantExportOrigin;
+  failure_reason: TenantExportFailureReason | null;
+  size_bytes: number | null;
+  /** Rows per archive part (`collections/<name>.jsonl`, …). */
+  counts: Record<string, number>;
+  requested_at: string;
+  completed_at: string | null;
+  /** When the archive is removed (NFR-011 R-05, 72 h); the download answers 404 after. */
+  expires_at: string | null;
+}
+
+/**
+ * State of a tenant import (REQ-056 §8.4, #2138) — mirrors `TenantImportStatus` in the backend's
+ * `domain/models/tenant_export.py`: `pending` → `validating` → `running` → `completed` / `failed`;
+ * `cleanup_pending` when a failed run left rows the hourly sweep still has to remove.
+ */
+export type TenantImportStatus =
+  | 'pending'
+  | 'validating'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cleanup_pending';
+
+/**
+ * One tenant import — `TenantImportResponse` of `POST /admin/platform/tenant-imports` and
+ * `GET /admin/platform/tenant-imports/{import_key}`. The report holds counts only, no contents.
+ */
+export interface TenantImport {
+  key: string;
+  status: TenantImportStatus;
+  /** The archive's format, e.g. `kamerplanter-tenant-export/1`. */
+  source_format: string;
+  /** The new tenant's key, once the run founded it. */
+  target_tenant_key: string | null;
+  plan_key: string | null;
+  /** This installation signed the archive; `false` = foreign, unsigned or changed. */
+  verified: boolean;
+  /** Rows written per collection. */
+  report: Record<string, number>;
+  /** An `IMPORT_*` or quota code; never an exception text. */
+  failure_reason: string | null;
+  missing_catalog_entries: string[];
+  requested_at: string;
+  completed_at: string | null;
+}
+
+/**
+ * What the importing admin confirms for one member of the archive (REQ-056 §8.4 step 4) — the
+ * value of one `member_mapping` entry, keyed by the member's user key **in the archive**. The role
+ * and scopes are the admin's, never the archive's; the address must belong to an existing account.
+ */
+export interface TenantImportMemberGrant {
+  email: string;
+  role: TenantRole;
+  admin_scopes: AdminScope[];
 }
 
 export interface AdminUserTenantRole {
@@ -4896,14 +5440,26 @@ export interface AdminPlatformStats {
   total_memberships: number;
 }
 
-export interface AdminTenantUpdate {
+/**
+ * `PATCH /admin/platform/tenants/{key}`. The step-up fields are the **admin's
+ * own** (#2009) and are needed only when `is_active` changes — deactivating
+ * locks every member out; they are never written to the tenant.
+ */
+export interface AdminTenantUpdate extends CredentialStepUp {
   name?: string;
   description?: string;
   max_members?: number;
   is_active?: boolean;
+  /** REQ-056 §7.6 (#2142) — assign another plan; no step-up. 422 for the platform tenant or an unknown plan. */
+  plan_key?: string;
 }
 
-export interface AdminUserUpdate {
+/**
+ * `PATCH /admin/platform/users/{key}`. The step-up fields are the **admin's
+ * own** (#1857) and are needed only when `email_verified` or `is_active` turns
+ * true; they are never written to the user.
+ */
+export interface AdminUserUpdate extends CredentialStepUp {
   display_name?: string;
   is_active?: boolean;
   email_verified?: boolean;
@@ -5086,6 +5642,39 @@ export interface ConsentRecord {
   granted: boolean;
   granted_at: string | null;
   revoked_at: string | null;
+}
+
+// REQ-025 Art. 16 — e-mail change (#1841, #1848)
+
+/**
+ * Body of `POST /privacy/email-change` — the new address and the shared step-up
+ * (REQ-023 §3.9). Only one factor is sent: `password` for an account with a
+ * local password (the field is `password` here, not `current_password`), else
+ * `step_up_token` of a fresh sign-in or `step_up_code` e-mailed for the act
+ * `email_change`.
+ */
+export interface EmailChangeCreateRequest {
+  new_email: string;
+  password?: string;
+  step_up_code?: string;
+  step_up_token?: string;
+}
+
+export type EmailChangeStatus = 'pending' | 'confirmed' | 'expired' | 'cancelled';
+
+/** `201` of `POST /privacy/email-change`: the request waits for the link sent to `new_email`. */
+export interface EmailChangeResponse {
+  key: string;
+  new_email: string;
+  status: EmailChangeStatus;
+  requested_at: string | null;
+  expires_at: string;
+  confirmed_at?: string | null;
+}
+
+/** `200` of the public token routes `/privacy/email-change/confirm` and `/revert`. */
+export interface PrivacyMessageResponse {
+  message: string;
 }
 
 // REQ-029 / REQ-029-A — AI plant identification (Phase 1: Pl@ntNet-first)
@@ -5812,6 +6401,57 @@ export interface AiResponse {
   generated_at?: string | null;
 }
 
+/**
+ * Request of `POST /t/{slug}/ai/knowledge/ask` (#2175) — the Full-mode
+ * knowledge question. `context` would additionally need the consent
+ * `ai_tenant_data_access`; the KI page sends none.
+ */
+export interface KnowledgeAskRequest {
+  question: string;
+  top_k?: number;
+  doc_language?: 'de' | 'en' | 'all';
+  prompt_language?: 'de' | 'en';
+  context?: {
+    species?: string;
+    phase?: string;
+    substrate?: string;
+    ec?: number;
+    ph?: number;
+  };
+}
+
+/** One retrieved knowledge chunk of a {@link KnowledgeAskResponse}. */
+export interface KnowledgeChunk {
+  source_key: string;
+  source_type: string;
+  title: string;
+  content: string;
+  score: number;
+  metadata: Record<string, unknown>;
+  language: string;
+}
+
+/** Response of `POST /t/{slug}/ai/knowledge/ask`. */
+export interface KnowledgeAskResponse {
+  answer: string;
+  question_type: string;
+  model: string;
+  usage: Record<string, number>;
+  sources: KnowledgeChunk[];
+  /**
+   * Provider type of the platform's system default provider (`ollama`,
+   * `anthropic`, …) — the Knowledge Service answers with that model, not the
+   * garden's. Optional: older servers do not send it.
+   */
+  provider_type?: string | null;
+  /**
+   * Whether the answer counts as produced by a cloud LLM (classified like the
+   * glossary cache). `null`/absent on older servers — then no cloud label is
+   * claimed.
+   */
+  uses_cloud_provider?: boolean | null;
+}
+
 /** A single tip card. */
 export interface AiTipCard {
   key?: string | null;
@@ -5833,6 +6473,13 @@ export interface AiTipCard {
 
 export interface AiTipListResponse {
   tips: AiTipCard[];
+  /**
+   * REQ-031 / #1461 — whether this caller may (re)generate the tips through
+   * `POST /ai/tips/refresh`. Since the read stopped generating on a cache miss,
+   * an empty `tips` means "nothing generated yet", and the server is the
+   * authority on who can do something about it (grower or lead).
+   */
+  refresh_available?: boolean;
 }
 
 export interface AiExplainRequest {
@@ -6424,4 +7071,116 @@ export interface GraftCompatibilityResponse {
   same_genus: boolean;
   same_family: boolean;
   message: string;
+}
+
+// ── Admin: OIDC / OAuth provider configurations (#1906, REQ-023 §3.9) ───────
+
+/** The closed provider-type vocabulary of `OidcProviderType` in the backend; lower-case. */
+export type OidcProviderType = 'google' | 'github' | 'apple' | 'oidc';
+
+/**
+ * `OidcProviderResponse` of `GET /admin/oidc-providers`. The client secret is
+ * write-only: the API never returns it (or its ciphertext), and neither do
+ * the endpoint URL overrides — those can be set on create (and on update
+ * through the API) but not read back. The default tenant is returned since
+ * #2182 (security review SEC-002).
+ */
+export interface OidcProvider {
+  key: string;
+  slug: string;
+  display_name: string;
+  /** Stays `string` on the way out: a record stored before the write gate may carry any spelling (#1497). */
+  provider_type: string;
+  issuer_url: string;
+  client_id: string;
+  scopes: string[];
+  enabled: boolean;
+  icon_url: string | null;
+  auto_discover: boolean;
+  /** The tenant every new account of this provider joins as viewer (REQ-024 AK-09, #2182); `null` when none. */
+  default_tenant_key: string | null;
+  discovery_refreshed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/** `POST /admin/oidc-providers`; carries the admin's step-up for `oidc_provider_change` / `new:<slug>`. */
+export interface OidcProviderCreate extends CredentialStepUp {
+  slug: string;
+  display_name: string;
+  provider_type: OidcProviderType;
+  issuer_url: string;
+  client_id: string;
+  client_secret: string;
+  scopes: string[];
+  authorization_url?: string;
+  token_url?: string;
+  userinfo_url?: string;
+  jwks_url?: string;
+  auto_discover?: boolean;
+  enabled?: boolean;
+  icon_url?: string;
+  default_tenant_key?: string;
+}
+
+/** `PUT /admin/oidc-providers/{key}` — partial; only sent fields change. Step-up unless it is presentation only. */
+export interface OidcProviderUpdate extends CredentialStepUp {
+  display_name?: string;
+  provider_type?: OidcProviderType;
+  issuer_url?: string;
+  client_id?: string;
+  client_secret?: string;
+  scopes?: string[];
+  authorization_url?: string;
+  token_url?: string;
+  userinfo_url?: string;
+  jwks_url?: string;
+  auto_discover?: boolean;
+  enabled?: boolean;
+  icon_url?: string;
+  /** `null` or `''` clears it (#2182 SEC-002); generic `oidc` providers only, an existing organisation. */
+  default_tenant_key?: string | null;
+}
+
+export interface OidcScopeCheck {
+  ok: boolean;
+  provider_type: string;
+  configured_scopes: string[];
+  missing_scopes: string[];
+  detail: string;
+}
+
+export interface OidcProviderTypeCheck {
+  ok: boolean;
+  provider_type: string;
+  known_provider_types: string[];
+  detail: string;
+}
+
+export interface OidcJwksCheck {
+  ok: boolean;
+  applicable: boolean;
+  jwks_url: string | null;
+  key_count: number;
+  skipped_key_count: number;
+  key_ids: string[];
+  detail: string;
+}
+
+export interface OidcIssuerCheck {
+  ok: boolean;
+  applicable: boolean;
+  configured_issuer: string;
+  accepted_issuers: string[];
+  discovery_issuer: string | null;
+  detail: string;
+}
+
+/** `POST /admin/oidc-providers/{key}/test` — four verdicts plus the discovery message. */
+export interface OidcProviderTestResult {
+  message: string;
+  scope_check: OidcScopeCheck;
+  provider_type_check: OidcProviderTypeCheck;
+  jwks_check: OidcJwksCheck;
+  issuer_check: OidcIssuerCheck;
 }

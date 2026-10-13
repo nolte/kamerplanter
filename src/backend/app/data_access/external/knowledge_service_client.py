@@ -18,6 +18,11 @@ class KnowledgeServiceClient:
     to ``settings.internal_service_token`` so all call sites are authenticated
     without having to thread it through; it can be overridden per instance
     (e.g. in tests).
+
+    It has no ``ask``: an LLM answer is spent only through the async
+    ``IKnowledgeService`` adapter behind the KI admission of
+    ``AiAssistantService`` (toggle, consent, daily budget — #2175). The sync
+    ``ask`` existed for the ungated ``POST /api/v1/knowledge/ask`` alone.
     """
 
     def __init__(self, base_url: str, *, service_token: str | None = None) -> None:
@@ -45,33 +50,6 @@ class KnowledgeServiceClient:
         response = httpx.get(
             f"{self._base_url}/search",
             params=params,
-            headers=self._auth_headers(),
-            timeout=_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        return response.json()
-
-    def ask(
-        self,
-        question: str,
-        *,
-        top_k: int = 5,
-        doc_language: str | None = None,
-        prompt_language: str | None = None,
-        context: dict | None = None,
-    ) -> dict:
-        """RAG question answering via the knowledge service."""
-        payload: dict = {"question": question, "top_k": top_k}
-        if doc_language:
-            payload["doc_language"] = doc_language
-        if prompt_language:
-            payload["prompt_language"] = prompt_language
-        if context:
-            payload["context"] = context
-
-        response = httpx.post(
-            f"{self._base_url}/ask",
-            json=payload,
             headers=self._auth_headers(),
             timeout=_TIMEOUT_SECONDS,
         )

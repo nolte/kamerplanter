@@ -2,16 +2,20 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Cookie, Depends, Header, Path
+from fastapi import Cookie, Depends, Header, Path, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import AdminScope, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
+from app.common.request_context import bind_actor, bind_tenant
+from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.engines.full_auth_provider import is_api_key_authorization
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
+from app.domain.models.auth import api_key_scope_admits
 from app.domain.models.membership import Membership
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
@@ -38,19 +42,111 @@ def _raw_authorization(credentials: HTTPAuthorizationCredentials | None) -> str 
 
 
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User:
-    """Extract and validate user from Bearer token, API key, or system user."""
-    return auth_provider.resolve_user(_raw_authorization(credentials))
+    """Extract and validate user from Bearer token, API key, or system user.
+
+    The client address is resolved here and handed to the provider (#1850): an
+    API key's ``ip_allowlist`` is decided on it, through the same implementation
+    the MCP authenticator uses.
+    """
+    return _resolve_principal(request, credentials, auth_provider, optional=False)  # type: ignore[return-value]
+
+
+#: The refusal a tenant-scoped API key gets on an account-level route (#1851).
+SCOPED_KEY_ON_ACCOUNT_ROUTE = "This API key is restricted to one tenant and cannot act on the account."
+
+
+def require_account_principal(user: User = Depends(get_current_user)) -> User:
+    """The caller, refused when it is a tenant-scoped API key (#1851, REQ-023).
+
+    A key restricted to one tenant (``tenant_scope``) binds on every route that
+    resolves a tenant (#1817). A route that resolves *no* tenant acts on the
+    owner's whole account — its credentials, sessions, linked providers, other
+    API keys, its GDPR rights over every tenant, the tenants it creates or joins.
+    A scoped key acting there would be the whole account again, so such a route
+    depends on this instead of on :func:`get_current_user`. Sessions and
+    unscoped keys pass unchanged.
+
+    Which routes take this and which admit a scoped key is decided per route
+    class in REQ-023 and held by
+    ``tests/unit/guards/test_scoped_keys_on_routes_without_a_tenant.py``.
+    """
+    if _key_scope(user):
+        raise ForbiddenError(SCOPED_KEY_ON_ACCOUNT_ROUTE)
+    return user
+
+
+def get_authenticated_with_api_key(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> bool:
+    """Whether this request authenticated with an API key rather than a session (#1791 review SEC-001).
+
+    ``get_current_user`` resolves a ``kp_`` key to the account that owns it —
+    a *human* account too, since every account may issue keys. An action that
+    demands a step-up re-authentication must refuse such a request: the key is
+    a long-lived credential stored in some integration, not a person present.
+    """
+    return is_api_key_authorization(_raw_authorization(credentials))
 
 
 def get_current_user_optional(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User | None:
     """Extract user from Bearer token, or return None if no token."""
-    return auth_provider.resolve_user_optional(_raw_authorization(credentials))
+    return _resolve_principal(request, credentials, auth_provider, optional=True)
+
+
+#: Where one request keeps the principal it resolved (#1850).
+_PRINCIPAL_STATE = "kp_principal"
+
+
+def _resolve_principal(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None,
+    auth_provider: IAuthProvider,
+    *,
+    optional: bool,
+) -> User | None:
+    """Resolve the request's principal once, whichever of the two dependencies asks first.
+
+    FastAPI caches a dependency per request, but ``get_current_user`` and
+    ``get_current_user_optional`` are two dependencies: a route whose tree holds
+    both would authenticate twice, and an API key's ``rate_limit_per_minute``
+    would count one request as two (#1850). The resolved principal is therefore
+    kept on the request for the header it was resolved from. A required
+    resolution after an optional one that found nobody still raises.
+    """
+    authorization = _raw_authorization(credentials)
+    cached = getattr(request.state, _PRINCIPAL_STATE, None)
+    if cached is not None and cached[0] == authorization and (optional or cached[1] is not None):
+        return cached[1]
+    client_ip = resolve_client_ip(request)
+    if optional:
+        user = auth_provider.resolve_user_optional(authorization, client_ip=client_ip)
+    else:
+        user = auth_provider.resolve_user(authorization, client_ip=client_ip)
+    setattr(request.state, _PRINCIPAL_STATE, (authorization, user))
+    # The request's log lines, the tasks it dispatches and its error events name
+    # the principal by pseudonym from here on (#2130).
+    bind_actor(user.key if user is not None else None)
+    return user
+
+
+def resolved_principal_key(request: Request) -> str | None:
+    """The key of the principal this request already resolved, or ``None`` (#2109).
+
+    Reads what :func:`_resolve_principal` stored — it never resolves anything
+    itself — so a rate-limit key function that runs after the route's
+    dependencies can bucket on the account without authenticating twice.
+    """
+    cached = getattr(request.state, _PRINCIPAL_STATE, None)
+    user = cached[1] if isinstance(cached, tuple) and len(cached) == 2 else None
+    return user.key if isinstance(user, User) and user.key else None
 
 
 def get_refresh_token_from_cookie(
@@ -73,10 +169,25 @@ def get_refresh_token_from_cookie(
 _ACTIVE_TENANT_DENIED = "You do not have access to the requested tenant."
 
 
+def _key_scope(user: User) -> str | None:
+    """The tenant restriction of the API key *user* authenticated with, if any (#1817).
+
+    Read with ``getattr`` rather than as an attribute because the resolvers are
+    also driven with lightweight principal doubles across the test suite; a
+    double without the field stands for a session caller, which is exactly what
+    ``None`` means. A real :class:`User` always carries the field — the tests in
+    ``tests/unit/common/test_api_key_tenant_scope.py`` build real ones, so a
+    rename of the field turns them red instead of making this read inert.
+    """
+    return getattr(user, "api_key_tenant_scope", None)
+
+
 def _membership_for_slug(
     tenant_service: TenantService,
     user_key: str,
     slug: str,
+    *,
+    key_scope: str | None,
 ) -> tuple[Tenant, Membership]:
     """Resolve a caller-supplied tenant *slug* and prove their active membership in it.
 
@@ -95,18 +206,42 @@ def _membership_for_slug(
     first time one of them is edited (A-11 exists because exactly that drift was
     already shipped: the path surface answered 404, the header surface 403).
 
+    ``key_scope`` is the ``tenant_scope`` of the API key the request
+    authenticated with (``User.api_key_tenant_scope``; ``None`` for a session).
+    Keyword-only and without a default on purpose (#1817): every caller must
+    state the scope it holds, so a new call site cannot silently resolve a
+    tenant on the key owner's memberships alone — the defect this closes, where
+    a key scoped to tenant A acted in any tenant B its owner was a member of.
+
+    A **deactivated** tenant (``is_active == false``, set by a platform admin
+    through ``PATCH /admin/platform/tenants/{key}``, REQ-024 AK-56) resolves for
+    nobody (#2105). Its memberships stay stored and active — reactivating the
+    tenant restores every member's access unchanged — but while it is
+    deactivated it answers exactly like a slug that names no tenant. Until #2105
+    only ``GET /tenants`` hid it; every member who knew the slug kept reading and
+    writing through the path and the header. Platform administration is not
+    affected: it addresses tenants by key on ``/admin/platform/...`` behind
+    :func:`require_platform_admin`, which never passes through here.
+
     Raises:
-        ForbiddenError: The slug names a tenant that does not exist, or one the
-            caller holds no *active* membership in — refused with the same
-            :data:`_ACTIVE_TENANT_DENIED` message, so the two cases are one
-            answer. Notably **not** the 404 ``get_tenant_by_slug`` raises: that
-            body named the entity type *and* echoed the probed slug, so it
-            answered "does this tenant exist?" for any authenticated caller.
+        ForbiddenError: The slug names a tenant that does not exist, a
+            deactivated one, one the caller holds no *active* membership in, or
+            one the API key's scope does not admit — refused with the same
+            :data:`_ACTIVE_TENANT_DENIED` message, so the cases are one answer.
+            Notably **not** the 404 ``get_tenant_by_slug`` raises: that body
+            named the entity type *and* echoed the probed slug, so it answered
+            "does this tenant exist?" for any authenticated caller.
     """
     try:
         tenant = tenant_service.get_tenant_by_slug(slug)
     except NotFoundError as exc:
         raise ForbiddenError(_ACTIVE_TENANT_DENIED) from exc
+
+    if not tenant.is_active:
+        raise ForbiddenError(_ACTIVE_TENANT_DENIED)
+
+    if not api_key_scope_admits(key_scope, tenant_key=tenant.key or ""):
+        raise ForbiddenError(_ACTIVE_TENANT_DENIED)
 
     membership = tenant_service.get_membership(user_key, tenant.key or "") if user_key else None
     if not membership or not membership.is_active:
@@ -135,7 +270,11 @@ def get_current_tenant(
     alone, and the 404 body spelled out the probed slug in both its ``message``
     and its ``details``.
     """
-    tenant, membership = _membership_for_slug(tenant_service, user.key or "", tenant_slug)
+    tenant, membership = _membership_for_slug(tenant_service, user.key or "", tenant_slug, key_scope=_key_scope(user))
+    # Recorded on the request's telemetry holder, not with ``bind_contextvars``:
+    # this dependency runs in a worker thread on a copy of the request context,
+    # and a contextvar set there is lost when it returns (#2130).
+    bind_tenant(tenant.key)
 
     return TenantContext(
         tenant_key=tenant.key or "",
@@ -212,7 +351,8 @@ def _resolve_active_tenant(
 
     * **No header** (absent, empty or whitespace-only — see
       :func:`get_active_tenant_key` for why blank counts as absent): the caller's
-      personal tenant, ``""`` when they have none. Unvalidated, exactly as before
+      personal tenant, ``""`` when they have none or it is deactivated (#2105).
+      Otherwise unvalidated, exactly as before
       #1091 — a user's own personal tenant needs no membership proof, and the
       fallback must stay fail-open-to-*narrow* (global-only), never an error.
       A **service account** has no personal fallback at all and resolves to ``""``
@@ -251,6 +391,21 @@ def _resolve_active_tenant(
         if user.account_type == "service":
             return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         personal = tenant_service.get_personal_tenant(user_key)
+        # A deactivated personal tenant (#2105) is no fallback: the request
+        # narrows to global scope — the same fail-open-to-narrow answer a user
+        # without a personal tenant gets — rather than reading and writing a
+        # tenant a platform admin switched off.
+        if personal is not None and not personal.is_active:
+            personal = None
+        # An API key restricted to one tenant (#1817) keeps the personal fallback
+        # only when that *is* its tenant. The fallback names a tenant without a
+        # slug, so it never passes :func:`_membership_for_slug`; without this a
+        # key scoped to an organisation would read and write its owner's personal
+        # tenant on every header-less call. Narrowed to global scope instead —
+        # the same fail-safe a service account gets above.
+        scope = _key_scope(user)
+        if scope and personal is not None and not api_key_scope_admits(scope, tenant_key=personal.key or ""):
+            return _ActiveTenant(key="", tenant=None, membership=lambda: None)
         key = personal.key if personal and personal.key else ""
         return _ActiveTenant(
             key=key,
@@ -261,7 +416,7 @@ def _resolve_active_tenant(
     # The slug came from an untrusted header, so it takes the same validated route
     # a ``/t/{slug}/`` path segment takes — including the 404→403 conversion that
     # keeps both surfaces free of a tenant-existence oracle.
-    tenant, membership = _membership_for_slug(tenant_service, user_key, slug)
+    tenant, membership = _membership_for_slug(tenant_service, user_key, slug, key_scope=_key_scope(user))
     return _ActiveTenant(key=tenant.key or "", tenant=tenant, membership=lambda: membership)
 
 
@@ -333,7 +488,9 @@ def get_active_tenant_key(
     path (:func:`get_current_tenant`), and favourites stay personal across
     tenants; a future consumer opts in by depending on this function.
     """
-    return _resolve_active_tenant(user, tenant_service, active_tenant_slug).key
+    key = _resolve_active_tenant(user, tenant_service, active_tenant_slug).key
+    bind_tenant(key)
+    return key
 
 
 def get_active_tenant_context(
@@ -369,6 +526,7 @@ def get_active_tenant_context(
     widening the role here.
     """
     resolved = _resolve_active_tenant(user, tenant_service, active_tenant_slug)
+    bind_tenant(resolved.key)
     membership = resolved.membership()
     active = membership if (membership and membership.is_active) else None
     return TenantContext(
@@ -392,7 +550,15 @@ def get_is_platform_admin(
     (``tenant_key == ""``). In light mode (REQ-027) the sole anonymous operator is
     treated as platform admin, so light-mode curation of the shared catalogue
     keeps working.
+
+    An API key restricted to one tenant (#1817) is never a platform admin, even
+    when its owner is: the platform role is a membership in the technical
+    ``platform`` tenant, which is not the tenant the key was restricted to, and
+    the admin surface it unlocks spans every tenant. Deciding it here also
+    covers :func:`require_platform_admin`, which resolves through this function.
     """
+    if _key_scope(user):
+        return False
     return is_platform_admin(tenant_service, user.key or "")
 
 
@@ -430,17 +596,48 @@ def is_platform_admin(tenant_service: TenantService, user_key: str) -> bool:
     return bool(membership and membership.is_active and membership.role == TenantRole.LEAD)
 
 
+def refuse_in_light_mode() -> None:
+    """Refuse a request that would set a credential or issue an access token in light mode (#1844).
+
+    A light-mode installation (REQ-027) has one account — the seeded system user
+    every request resolves to *without authentication* — and it has no password.
+    A credential set on it, or an invitation token issued in its name, proves
+    nothing about who asked for it: the caller was never authenticated. It is
+    inert while the instance stays in light mode and becomes a working way in —
+    a sign-in of the operator account, or a membership in its tenant — once the
+    instance runs in ``full``, for whoever asked first. The same reasoning
+    already refuses account and tenant erasure in light mode.
+
+    Read at request time rather than wired into a service, so no construction
+    site can forget the mode.
+    """
+    if settings.kamerplanter_mode == "light":
+        raise ForbiddenError(
+            "The account of a light-mode installation cannot be given sign-in credentials or invitations."
+        )
+
+
 def require_platform_admin(
     user: User = Depends(get_current_user),
-    tenant_service: TenantService = Depends(get_tenant_service),
+    platform_admin: bool = Depends(get_is_platform_admin),
 ) -> User:
     """Require the user to be a platform admin (admin membership in platform tenant).
 
     In light mode (REQ-027) there is no platform tenant and only the single
     anonymous system user exists — that user is the sole operator and therefore
     treated as platform admin.
+
+    Resolved **through** :func:`get_is_platform_admin` rather than by calling
+    :func:`is_platform_admin` itself (#1501 review SCR-006). Both spellings give
+    the same answer — the boolean one is a thin wrapper over the same function —
+    but they are two different dependency objects, so a route carrying the gate
+    *and* threading the flag into its service (which is every write #1501 gates)
+    made FastAPI resolve two independent sub-graphs and hit the tenant store
+    twice per request. Sharing the sub-dependency lets the per-request dependency
+    cache answer the second one, and it also removes the possibility of the gate
+    and the flag disagreeing — they are now literally the same value.
     """
-    if not is_platform_admin(tenant_service, user.key or ""):
+    if not platform_admin:
         raise ForbiddenError("Platform admin role required.")
     return user
 
@@ -456,6 +653,21 @@ _ROLE_ORDER: dict[TenantRole, int] = {
     TenantRole.GROWER: 1,
     TenantRole.LEAD: 2,
 }
+
+
+def meets_tenant_role(role: TenantRole, min_role: TenantRole) -> bool:
+    """Whether ``role`` ranks at or above ``min_role`` — the rank rule, as a function.
+
+    Extracted so a route that has to *report* the rank decision (rather than
+    enforce it) can read the same predicate the gate decides on. ``GET /ai/tips``
+    tells its caller whether they may regenerate (#1461); a hand-written copy of
+    "grower or lead" in the router or in the client would be a second ordering
+    to drift, and what it would drift about is who may write.
+
+    Fails closed on an unknown role for the same reason :data:`_ROLE_ORDER` maps
+    it to 0.
+    """
+    return _ROLE_ORDER.get(role, 0) >= _ROLE_ORDER[min_role]
 
 
 def require_tenant_role(min_role: TenantRole) -> Callable:
@@ -474,7 +686,7 @@ def require_tenant_role(min_role: TenantRole) -> Callable:
     """
 
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
-        if _ROLE_ORDER.get(ctx.role, 0) < _ROLE_ORDER[min_role]:
+        if not meets_tenant_role(ctx.role, min_role):
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
         return ctx
 
@@ -507,7 +719,7 @@ def require_active_tenant_role(min_role: TenantRole) -> Callable:
     """
 
     def _check(ctx: TenantContext = Depends(get_active_tenant_context)) -> TenantContext:
-        if _ROLE_ORDER.get(ctx.role, 0) < _ROLE_ORDER[min_role]:
+        if not meets_tenant_role(ctx.role, min_role):
             raise ForbiddenError(f"Requires at least {min_role.value} role.")
         return ctx
 
@@ -552,21 +764,30 @@ def require_permission(resource: ResourceType | str, action: Action) -> Callable
     """
 
     def _check(ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
-        if action in (Action.CREATE, Action.UPDATE):
-            allowed = MembershipEngine.can_edit_resource(ctx.role)
-        elif action == Action.DELETE:
-            allowed = MembershipEngine.can_delete_resource(ctx.role)
-        elif action == Action.READ:
-            allowed = MembershipEngine.can_view_resource(ctx.role)
-        else:
-            # Unknown / not-yet-mapped verb (e.g. INVITE belongs on axis 2):
-            # fail closed rather than silently allow.
-            allowed = False
-        if not allowed:
+        if not role_permits(ctx.role, action):
             raise ForbiddenError(f"Your role '{ctx.role.value}' may not '{action.value}' a {resource} in this tenant.")
         return ctx
 
     return _check
+
+
+def role_permits(role: TenantRole, action: Action) -> bool:
+    """The one decision behind every tenant-scoped CRUD gate (MT-045.6, #2144).
+
+    :func:`require_permission` and the attachment guard
+    (``app.api.v1.attachments.permissions``) both decide here, on the pure
+    :class:`MembershipEngine` predicates — ``CREATE``/``UPDATE`` →
+    ``can_edit_resource``, ``DELETE`` → ``can_delete_resource`` (lead only),
+    ``READ`` → ``can_view_resource``. Any other verb (``INVITE`` belongs on axis
+    2) fails closed.
+    """
+    if action in (Action.CREATE, Action.UPDATE):
+        return MembershipEngine.can_edit_resource(role)
+    if action == Action.DELETE:
+        return MembershipEngine.can_delete_resource(role)
+    if action == Action.READ:
+        return MembershipEngine.can_view_resource(role)
+    return False
 
 
 def require_admin_scope(scope: AdminScope) -> Callable:

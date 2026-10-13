@@ -84,7 +84,7 @@ class ArangoWateringRepository(BaseArangoRepository[WateringEvent], IWateringRep
           FILTER e._to == @plant_id
           LET doc = DOCUMENT(e._from)
           FILTER doc != null AND doc.tenant_key == @tenant_key
-          SORT doc.watered_at DESC
+          SORT DATE_TIMESTAMP(doc.watered_at) DESC
           LIMIT @offset, @limit
           RETURN doc
         """
@@ -127,7 +127,7 @@ class ArangoWateringRepository(BaseArangoRepository[WateringEvent], IWateringRep
               FILTER water_edge._to == placed_edge._from
               LET doc = DOCUMENT(water_edge._from)
               FILTER doc != null AND doc.tenant_key == @tenant_key
-              SORT doc.watered_at DESC
+              SORT DATE_TIMESTAMP(doc.watered_at) DESC
               LIMIT @offset, @limit
               RETURN DISTINCT doc
         """
@@ -215,7 +215,7 @@ class ArangoWateringRepository(BaseArangoRepository[WateringEvent], IWateringRep
         FOR we IN @@watering_events
           FILTER we.tenant_key == @tenant_key
           FILTER LENGTH(INTERSECTION(we.plant_keys, plant_keys)) > 0
-          SORT we.watered_at DESC
+          SORT DATE_TIMESTAMP(we.watered_at) DESC
           LIMIT 1
           RETURN we.watered_at
         """

@@ -46,13 +46,58 @@ describe('SpeciesCreateDialog', () => {
     expect(screen.queryByTestId('show-all-fields-toggle')).toBeNull();
   });
 
-  it('loads families into the family select when opened', async () => {
+  it('offers the families past the reader default, not just its first page', async () => {
+    // This replaces a case that only waited for `form-field-family_key` to
+    // exist: the field renders with zero options, so it was satisfied by a
+    // catalogue that never arrived. What follows asserts the options.
+    //
+    // Found by the #1530 class sweep, and live rather than latent: 57 botanical
+    // families are seeded (`check_seed_catalogue_page_size.py`), and this dialog
+    // fetched them with `listBotanicalFamilies()` — no arguments, so the
+    // client's own `limit = 50` applied. Seven families existed that this
+    // dropdown could not offer, which is the defect `listAllBotanicalFamilies`
+    // was written for (#550, #995); the list view moved, this picker did not.
+    //
+    // The fixture is the seeded size, and it has to stay above the reader
+    // default: at or below it the capped reader returns everything too and the
+    // case passes against the defect (#1531).
+    const FAMILY_READER_DEFAULT = 50;
+    const SEEDED_FAMILIES = 57;
+    const families = Array.from({ length: SEEDED_FAMILIES }, (_v, index) => ({
+      key: `fam-${index}`,
+      name: `Familie ${String(index).padStart(2, '0')}`,
+      typical_nutrient_demand: 'medium',
+      common_pests: [],
+      rotation_category: 'fruit',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: null,
+    }));
+    expect(families.length).toBeGreaterThan(FAMILY_READER_DEFAULT);
+    const lastFamily = families[families.length - 1].name;
+
+    server.use(
+      http.get('/api/v1/botanical-families', ({ request }) => {
+        const url = new URL(request.url);
+        const offset = Number(url.searchParams.get('offset') ?? '0');
+        const limit = Number(url.searchParams.get('limit') ?? String(FAMILY_READER_DEFAULT));
+        return HttpResponse.json(families.slice(offset, offset + limit));
+      }),
+    );
+
+    const user = userEvent.setup();
     renderWithProviders(<SpeciesCreateDialog open onClose={() => {}} onCreated={() => {}} />, {
       store: createStoreWithExpertise('expert'),
     });
-    // Family options come from the mocked /botanical-families endpoint
+
+    const combobox = within(await screen.findByTestId('form-field-family_key')).getByRole(
+      'combobox',
+    );
+    // Clicked once, then the assertion waits: a click inside `waitFor` would be
+    // retried and would toggle the select shut again.
+    await user.click(combobox);
+    const listbox = await screen.findByRole('listbox');
     await waitFor(() => {
-      expect(screen.getByTestId('form-field-family_key')).toBeTruthy();
+      expect(within(listbox).getByText(lastFamily)).toBeTruthy();
     });
   });
 

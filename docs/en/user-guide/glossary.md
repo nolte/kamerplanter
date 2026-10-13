@@ -8,7 +8,9 @@ The terminology glossary explains terms like VPD, EC, or the pre-harvest interva
 
 - Your instance operator must have AI features enabled instance-wide. If not, the glossary page is just as unreachable as the [AI Assistant](ai-assistant.md) — details under [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 - Logging in is **not** required: the glossary is purely factual knowledge with no reference to your specific plants, so it also works in anonymous [Light Mode](light-mode.md).
-- If your garden (tenant) uses a cloud provider instead of a local model as its default, you additionally need your "AI processing via cloud provider" consent — see [Granting consent](ai-assistant.md#granting-consent). This doesn't apply in Light Mode, since it always processes locally.
+- If the instance uses a cloud provider instead of a local model as its default, **generating** a new explanation additionally needs your "AI processing via cloud provider" consent — see [Granting consent](ai-assistant.md#granting-consent). What counts is the instance's default provider, not your garden's: an explanation is generated once and shown to every garden. Reading an existing explanation needs no consent. This doesn't apply in Light Mode, since it always processes locally.
+- Generating a new explanation counts towards your daily quota of AI requests, as with the [AI Assistant](ai-assistant.md). <!-- #2110 -->
+- To **generate** a new explanation, your garden must also have AI features enabled — the same garden-level approval the [AI chat](ai-assistant.md#for-technical-users-self-hosters) needs. If it is off, Kamerplanter refuses to generate ("The AI features are currently disabled for this garden."). You can still read the terms and any explanation that has already been prepared.
 
 ## Browsing the glossary
 
@@ -35,6 +37,19 @@ The explanation you see is tailored to your configured [experience level](onboar
 
 Not every term has a sufficiently relevant hit in the knowledge base. In that case, the glossary honestly shows you an editorially maintained short definition instead of an AI-generated answer, labeled "Short definition (no knowledge-base match)". This way you're never given a fabricated or unreliable answer.
 
+## Detailed explanations are prepared in advance, not produced while you read
+
+Opening a term costs nothing and triggers no AI request: the glossary shows you the explanation that has **already been prepared**, and as long as none exists for a term in your language and experience level, you see the editorial short definition — the same honest label as above.
+
+Explanations are prepared in two places:
+
+- **automatically**, after the operator re-ingests the knowledge base. The cache is cleared and then refilled in the background for the whole term catalogue.
+- **on request**, when somebody with the Gardener or Lead role in a garden that has AI features enabled has an explanation generated. Viewers, anonymous visitors and gardens without AI enabled cannot trigger it.
+
+That is deliberate: every AI explanation costs the installation's operator compute time or money. Previously, the first person to click a term decided when that cost was incurred — in anonymous Light Mode, somebody without an account at all. <!-- #1460 -->
+
+You only see the **Generate detailed explanation** button while AI features are available. If Kamerplanter refuses to generate because AI features are switched off for your garden or for the whole installation, the button disappears, for the other terms too, and the reason is shown in its place. Another attempt would be refused the same way. Other errors, such as a used-up daily quota, keep the button so you can try again later.
+
 ## The inline question-mark icon
 
 !!! note "Partially available: question-mark icons on other pages"
@@ -50,11 +65,11 @@ The glossary is one of the few features that works entirely without a user accou
 
 ## For Technical Users / Self-Hosters {#for-technical-users-self-hosters}
 
-The glossary uses the same instance-wide AI toggle as the [AI Assistant](ai-assistant.md#for-technical-users-self-hosters) (`AI_FEATURES_ENABLED=true`), but **not** the additional garden-level toggle (stage 2) — it needs no tenant-level AI activation because it doesn't use any plant data. Details on the environment variable are in [Environment Variables — AI Assistant](../reference/environment-variables.md#ki-assistent).
+The glossary uses the same instance-wide AI toggle as the [AI Assistant](ai-assistant.md#for-technical-users-self-hosters) (`AI_FEATURES_ENABLED=true`), The additional garden-level toggle (stage 2, `tenant.settings.ai_features_enabled`) only gates **generating** (`POST /api/v1/t/{slug}/glossary/term/{slug}/generate`): if it is off, the route answers `403` (`AI_DISABLED_FOR_TENANT`) before the cache, the daily quota or the language model is touched; if the instance-wide toggle is off already, it answers `404`. Reading (the term list, single terms, the public routes) needs no garden-level activation, because it makes no AI request. Details on the environment variable are in [Environment Variables — AI Assistant](../reference/environment-variables.md#ki-assistent).
 
-If your garden (tenant) uses a cloud provider as its default provider, the regular "AI processing via cloud provider" consent check (`ai_cloud_processing`) still applies before a request reaches the cloud provider — see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters). If consent is missing or the associated user can't be determined unambiguously, the request is rejected outright rather than silently redirected to a local model.
+If the **instance's system default provider** (a provider record without a tenant) is a cloud provider, generating runs the regular "AI processing via cloud provider" consent check (`ai_cloud_processing`). A single garden's default provider plays no part, because an explanation is generated once and served to every garden; its cloud notice is stored with the entry. Which language model actually answers is set by the Knowledge Service through its own environment (`LLM_PROVIDER`) <!-- #2110 --> — see [Privacy & GDPR](privacy.md#for-technical-users-self-hosters). If consent is missing or the associated user can't be determined unambiguously, the request is rejected outright rather than silently redirected to a local model.
 
-Like the AI Assistant, every glossary call is logged without any plant or account data included in the request sent to the knowledge base.
+Like the AI Assistant, every **AI request to the knowledge base** is logged, without any plant or account data included in it. Simply reading an already-prepared term makes no such request and therefore writes no log entry; previously every anonymous call wrote one. <!-- #1460 -->
 
 ---
 
@@ -67,7 +82,10 @@ Like the AI Assistant, every glossary call is logged without any plant or accoun
     That means the knowledge base didn't find a sufficiently relevant match for this term. Instead of making up an unreliable AI answer, the glossary then shows you a short, editorially reviewed definition.
 
 ??? question "Why does the explanation change when I switch my experience level?"
-    The explanation is generated to match your configured experience level — beginners get everyday language, experts get concrete value ranges. This applies to explanations fetched after the level change.
+    Explanations are prepared separately per experience level — beginners get everyday language, experts get concrete value ranges. After a level change you see the version for your new level; if none has been prepared for it yet, the editorial short definition comes first.
+
+??? question "Why do I only see the short definition for a term even though AI is enabled?"
+    Then no detailed explanation has been prepared for that term in your language and experience level yet. Reading does not produce one — anybody who is a Gardener or Lead in their garden can request it, and after a knowledge-base re-ingest the operator refills the catalogue in the background.
 
 ??? question "Why don't I see the question-mark icon next to terms on other pages yet?"
     Rolling it out to existing pages (plant detail page, dashboard, substrate editor, and more) isn't finished yet. Until then, you can find the same explanations via the [glossary overview](#browsing-the-glossary).

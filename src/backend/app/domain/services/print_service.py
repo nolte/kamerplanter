@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.common.log_privacy import log_tenant
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -12,6 +14,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.care_reminder import CareDashboardEntry
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger(__name__)
 
@@ -59,7 +62,7 @@ class PrintService:
             NotFoundError: If the plan does not exist.
         """
         plan = self._nutrient_plan_service.get_plan(plan_key, tenant_key=tenant_key)
-        entries = self._nutrient_plan_service.get_phase_entries(plan_key)
+        entries = self._nutrient_plan_service.get_phase_entries(plan_key, tenant_key=tenant_key)
 
         # Build phase data with resolved fertilizer names
         phases_data: list[dict] = []
@@ -136,7 +139,7 @@ class PrintService:
         logger.info(
             "print_service.generate_nutrient_plan_pdf",
             plan_key=plan_key,
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             phase_count=len(phases_data),
         )
 
@@ -159,11 +162,7 @@ class PrintService:
             PDF file content as bytes.
         """
         # Load all plant instances for the tenant
-        plants, _total = self._plant_repo.get_all(
-            offset=0,
-            limit=500,
-            tenant_key=tenant_key,
-        )
+        plants = get_all_pages(self._plant_repo, tenant_key=tenant_key)  # every plant, not the first 500 (#2015)
 
         # Resolve species names via species_repo (cache to avoid repeated lookups)
         species_cache: dict[str, str] = {}
@@ -174,7 +173,7 @@ class PrintService:
             species_name = None
             if plant.species_key:
                 if plant.species_key not in species_cache:
-                    species = self._species_repo.get_by_key(plant.species_key)
+                    species = readable_species(self._species_repo, plant.species_key, tenant_key)
                     species_cache[plant.species_key] = (
                         species.common_names[0] if species and species.common_names else ""
                     )
@@ -191,7 +190,7 @@ class PrintService:
             )
 
         # Get care dashboard entries
-        entries = self._care_reminder_service.get_care_dashboard(plant_data, hemisphere="north")
+        entries = self._care_reminder_service.get_care_dashboard(plant_data, hemisphere="north", tenant_key=tenant_key)
 
         # Filter by date if provided
         if date:
@@ -220,7 +219,7 @@ class PrintService:
 
         logger.info(
             "print_service.generate_care_checklist_pdf",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             date=date,
             entry_count=len(entries),
         )
@@ -269,7 +268,7 @@ class PrintService:
             species_data: dict = {}
             if plant.species_key:
                 if plant.species_key not in species_cache:
-                    species = self._species_repo.get_by_key(plant.species_key)
+                    species = readable_species(self._species_repo, plant.species_key, tenant_key)
                     if species:
                         species_data = {
                             "scientific_name": species.scientific_name,
@@ -337,7 +336,7 @@ class PrintService:
 
         logger.info(
             "print_service.generate_plant_labels_pdf",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             plant_count=len(cards),
             layout=layout,
             fields=fields,

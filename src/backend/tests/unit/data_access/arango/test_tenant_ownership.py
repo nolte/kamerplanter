@@ -74,7 +74,8 @@ class TestVerifyEntityOwnership:
     def test_allowlist_membership(self):
         assert col.PLANT_INSTANCES in OWNERSHIP_VERIFIABLE_COLLECTIONS
         assert col.PLANTING_RUNS in OWNERSHIP_VERIFIABLE_COLLECTIONS
-        assert col.HARVEST_OBSERVATIONS in OWNERSHIP_VERIFIABLE_COLLECTIONS
+        # #2107: an observation carries no tenant_key, so it is verified through its plant.
+        assert col.HARVEST_OBSERVATIONS not in OWNERSHIP_VERIFIABLE_COLLECTIONS
         assert "users" not in OWNERSHIP_VERIFIABLE_COLLECTIONS
 
 

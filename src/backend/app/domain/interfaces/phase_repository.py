@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 
 from app.common.types import PhaseKey, PlantID, ProfileKey
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
@@ -65,6 +66,17 @@ class IPhaseRepository(ABC):
 
     @abstractmethod
     def get_phase_history(self, plant_key: PlantID) -> list[PhaseHistory]: ...
+
+    @abstractmethod
+    def get_active_phase_histories(self, plant_keys: Collection[PlantID]) -> dict[PlantID, PhaseHistory]:
+        """The active (open) phase-history entry of each plant in ``plant_keys``, in one read.
+
+        "Active" is what :meth:`PhaseService.get_current_phase` picks out of
+        :meth:`get_phase_history`: the earliest-entered entry without ``exited_at``.
+        A plant without an open entry is absent from the result. Built for the
+        auto-transition scan (MT-032, #2128), which reads one page of plants at a
+        time and must not pay one history read per plant.
+        """
 
     @abstractmethod
     def create_phase_history(self, history: PhaseHistory) -> PhaseHistory: ...

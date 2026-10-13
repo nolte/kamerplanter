@@ -210,7 +210,7 @@ def test_interval_edit_retiming_a_pending_task_keeps_the_read_state() -> None:
     task_repo = FakeTaskRepo([pending])
     service = _service(task_repo, notification_repo)
 
-    service.update_profile(PLANT_KEY, {"watering_interval_days": 14}, user_key=USER)
+    service.update_profile(PLANT_KEY, {"watering_interval_days": 14}, tenant_key=TENANT, user_key=USER)
 
     row = _care_row(notification_repo)
     assert row.read_at == read_at, "a retimed occurrence must not resurface in the badge"
@@ -238,7 +238,7 @@ def test_interval_edit_creating_a_task_resets_the_read_state() -> None:
     task_repo = FakeTaskRepo()  # no open watering task at all
     service = _service(task_repo, notification_repo)
 
-    service.update_profile(PLANT_KEY, {"watering_interval_days": 14}, user_key=USER)
+    service.update_profile(PLANT_KEY, {"watering_interval_days": 14}, tenant_key=TENANT, user_key=USER)
 
     created = task_repo.open_care_tasks(ReminderType.WATERING)
     assert len(created) == 1

@@ -34,7 +34,7 @@ from app.common.dependencies import get_plant_diary_service, get_plant_instance_
 from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
-from app.core.permissions import Action
+from app.core.permissions import Action, ResourceType
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.plant_diary_service import PlantDiaryService
@@ -81,7 +81,7 @@ def list_plant_diary_entries(
     is why it is evaluated per entry and not once for the page.
     """
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_plant(
+    entries = diary_service.list_entries_for_plant_window(
         key,
         tenant_key=ctx.tenant_key,
         offset=pagination.offset,
@@ -94,7 +94,7 @@ def list_plant_diary_entries(
 def create_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: DiaryEntryCreateRequest,
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.CREATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -145,7 +145,7 @@ def update_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
     body: DiaryEntryUpdateRequest,
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.UPDATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -172,14 +172,14 @@ def update_plant_diary_entry(
 def delete_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.DELETE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.DELETE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
     """Delete a diary entry of this plant, along with its analysis result (AK-23)."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     _load_entry_in_scope(diary_service, entry_key, key, ctx.tenant_key)
-    diary_service.delete_entry(entry_key)
+    diary_service.delete_entry(entry_key, tenant_key=ctx.tenant_key)
 
 
 # ── REQ-050 §2.5.1 — marking an entry for AI analysis ────────────────
@@ -189,7 +189,7 @@ def delete_plant_diary_entry(
 def request_plant_diary_entry_analysis(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.CREATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -216,7 +216,7 @@ def request_plant_diary_entry_analysis(
 def cancel_plant_diary_entry_analysis(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.UPDATE)),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):

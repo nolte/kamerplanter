@@ -34,7 +34,17 @@ def propagation() -> MagicMock:
 
 @pytest.fixture
 def service(repo, propagation) -> TaskService:
-    return TaskService(repo, MagicMock(), MagicMock(), notification_propagation=propagation)
+    return TaskService(
+        repo, MagicMock(), MagicMock(), notification_propagation=propagation, membership_lookup=_every_user_is_a_member
+    )
+
+
+def _every_user_is_a_member(user_key: str, tenant_key: str):
+    # Assignees must be members since #1871 B9 (test_task_assignee_is_a_member);
+    # this file is about the notification coupling, so every assignee is one.
+    from types import SimpleNamespace
+
+    return SimpleNamespace(is_active=True)
 
 
 def _task(**kwargs) -> Task:
@@ -112,7 +122,7 @@ def test_batch_assign_noop_when_same_assignee(service, propagation, repo):
 
 def test_no_propagation_service_is_safe(repo):
     """A TaskService without the coupling wired must not crash on mutations."""
-    service = TaskService(repo, MagicMock(), MagicMock())
+    service = TaskService(repo, MagicMock(), MagicMock(), membership_lookup=_every_user_is_a_member)
     repo.get_task_or_raise.return_value = _task(status="pending")
     # Should complete without raising even though no propagation is wired.
     service.create_task(_task())

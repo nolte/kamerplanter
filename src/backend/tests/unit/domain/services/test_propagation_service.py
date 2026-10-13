@@ -174,7 +174,7 @@ def test_finalize_batch_rolls_up_survivors_and_links_run() -> None:
     planting_run_repo.get_by_key.return_value = run
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
-    result = service.finalize_batch("batch-1", "tenant-a", "run-1")
+    result = service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
 
     assert result.status == PropagationBatchStatus.COMPLETED
     assert result.total_survived == 13
@@ -189,7 +189,7 @@ def test_finalize_batch_foreign_run_is_404() -> None:
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("batch-1", "tenant-a", "foreign-run")
+        service.finalize_batch("batch-1", "foreign-run", tenant_key="tenant-a")
 
 
 def test_finalize_batch_run_without_tenant_key_is_rejected_fail_closed() -> None:
@@ -204,7 +204,7 @@ def test_finalize_batch_run_without_tenant_key_is_rejected_fail_closed() -> None
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("batch-1", "tenant-a", "run-1")
+        service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
     repo.update_batch.assert_not_called()
 
 
@@ -218,7 +218,7 @@ def test_finalize_batch_run_with_none_tenant_key_is_rejected() -> None:
     service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
 
     with pytest.raises(NotFoundError):
-        service.finalize_batch("batch-1", "tenant-a", "run-1")
+        service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
     repo.update_batch.assert_not_called()
 
 
@@ -234,7 +234,7 @@ def test_finalize_already_completed_is_422() -> None:
     service = PropagationService(propagation_repo=repo)
 
     with pytest.raises(ValidationError):
-        service.finalize_batch("batch-1", "tenant-a", "run-1")
+        service.finalize_batch("batch-1", "run-1", tenant_key="tenant-a")
 
 
 # ── Protocols ──────────────────────────────────────────────────────────────────
@@ -280,7 +280,7 @@ def test_add_phenotype_requires_owned_plant() -> None:
     note = PhenotypeNote(plant_key="foreign", note="Nice aroma")
 
     with pytest.raises(NotFoundError):
-        service.add_phenotype(note, "tenant-a")
+        service.add_phenotype(note, tenant_key="tenant-a")
 
 
 def test_delete_phenotype_wrong_plant_is_404() -> None:
@@ -289,7 +289,7 @@ def test_delete_phenotype_wrong_plant_is_404() -> None:
     service = PropagationService(propagation_repo=repo)
 
     with pytest.raises(NotFoundError):
-        service.delete_phenotype("plant-1", "n1", "tenant-a")
+        service.delete_phenotype("plant-1", "n1", tenant_key="tenant-a")
 
 
 # ── Stats ──────────────────────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ def test_stats_valid_grouping_delegates() -> None:
     repo.stats.return_value = [{"key": "cutting", "event_count": 3}]
     service = PropagationService(propagation_repo=repo)
     result = service.stats("tenant-a", "method")
-    repo.stats.assert_called_once_with("tenant-a", "method")
+    repo.stats.assert_called_once_with("tenant-a", "method", offset=None, limit=None)
     assert result[0]["event_count"] == 3
 
 
@@ -325,8 +325,31 @@ def test_create_batch_stamps_started_at() -> None:
     repo = _prop_repo()
     repo.create_batch.side_effect = lambda b: b
     service = PropagationService(propagation_repo=repo)
-    batch = service.create_batch(PropagationBatch(tenant_key="tenant-a", name="B", method="cutting"))
+    batch = service.create_batch(
+        PropagationBatch(tenant_key="tenant-a", name="B", method="cutting"), tenant_key="tenant-a"
+    )
     assert batch.started_at is not None
+
+
+def test_create_batch_checks_the_target_run_against_the_callers_tenant_not_the_models() -> None:
+    """#2107: the run was checked against ``batch.tenant_key``, a model field defaulting to ``""``.
+
+    The batch here carries a forged tenant that owns the run; the caller's tenant
+    does not. The argument decides, so the foreign run is refused and nothing is
+    written.
+    """
+    repo = _prop_repo()
+    runs = MagicMock()
+    runs.get_by_key.return_value = MagicMock(tenant_key="tenant-b")
+    service = PropagationService(propagation_repo=repo, planting_run_repo=runs)
+
+    with pytest.raises(NotFoundError):
+        service.create_batch(
+            PropagationBatch(tenant_key="tenant-b", name="B", method="cutting", target_planting_run_key="run-b"),
+            tenant_key="tenant-a",
+        )
+
+    repo.create_batch.assert_not_called()
 
 
 def test_list_events_and_batches_delegate() -> None:
@@ -433,21 +456,21 @@ def test_designate_and_retire_and_health_mother() -> None:
     repo.update_plant_fields.side_effect = lambda key, fields: {"_key": key, **fields}
     service = PropagationService(propagation_repo=repo)
 
-    designated = service.designate_mother("plant-1", "tenant-a", priority="critical")
+    designated = service.designate_mother("plant-1", tenant_key="tenant-a", priority="critical")
     assert designated["is_mother"] is True
     assert designated["mother_priority"] == "critical"
 
-    retired = service.retire_mother("plant-1", "tenant-a", reason="old")
+    retired = service.retire_mother("plant-1", tenant_key="tenant-a", reason="old")
     assert retired["is_mother"] is False
 
-    healthy = service.update_mother_health("plant-1", "tenant-a", health_score=90)
+    healthy = service.update_mother_health("plant-1", tenant_key="tenant-a", health_score=90)
     assert healthy["mother_health_score"] == 90
 
 
 def test_update_mother_health_out_of_range_is_422() -> None:
     service = PropagationService(propagation_repo=_prop_repo())
     with pytest.raises(ValidationError):
-        service.update_mother_health("plant-1", "tenant-a", health_score=150)
+        service.update_mother_health("plant-1", tenant_key="tenant-a", health_score=150)
 
 
 def test_list_and_get_mother() -> None:
@@ -456,7 +479,7 @@ def test_list_and_get_mother() -> None:
     repo.get_plant_raw.return_value = {"_key": "plant-1", "is_mother": True}
     service = PropagationService(propagation_repo=repo)
     assert service.list_mothers("tenant-a")[0]["_key"] == "plant-1"
-    assert service.get_mother("plant-1", "tenant-a")["is_mother"] is True
+    assert service.get_mother("plant-1", tenant_key="tenant-a")["is_mother"] is True
 
 
 def test_get_mother_unknown_is_404() -> None:
@@ -464,7 +487,7 @@ def test_get_mother_unknown_is_404() -> None:
     repo.get_plant_raw.return_value = None
     service = PropagationService(propagation_repo=repo)
     with pytest.raises(NotFoundError):
-        service.get_mother("ghost", "tenant-a")
+        service.get_mother("ghost", tenant_key="tenant-a")
 
 
 # ── phenotypes + lineage ─────────────────────────────────────────────────────────
@@ -478,10 +501,10 @@ def test_add_and_list_phenotype() -> None:
         PhenotypeNote(key="n1", tenant_key="tenant-a", plant_key="plant-1", note="Nice")
     ]
     service = PropagationService(propagation_repo=repo)
-    added = service.add_phenotype(PhenotypeNote(plant_key="plant-1", note="Nice"), "tenant-a")
+    added = service.add_phenotype(PhenotypeNote(plant_key="plant-1", note="Nice"), tenant_key="tenant-a")
     assert added.tenant_key == "tenant-a"
     assert added.observed_at is not None
-    assert len(service.list_phenotypes("plant-1", "tenant-a")) == 1
+    assert len(service.list_phenotypes("plant-1", tenant_key="tenant-a")) == 1
 
 
 def test_lineage_and_descendants_and_graft() -> None:
@@ -509,9 +532,9 @@ def test_lineage_and_descendants_and_graft() -> None:
     )
     service = PropagationService(propagation_repo=repo, lineage_engine=engine)
 
-    lineage = service.get_lineage("plant-1", "tenant-a")
+    lineage = service.get_lineage("plant-1", tenant_key="tenant-a")
     assert lineage["paths"] == [["mother-1"]]
-    assert len(service.get_descendants("plant-1", "tenant-a")) == 1
+    assert len(service.get_descendants("plant-1", tenant_key="tenant-a")) == 1
 
     # graft check needs two distinct owned plants
     repo.get_plant.side_effect = [

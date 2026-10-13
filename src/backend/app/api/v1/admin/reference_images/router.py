@@ -37,7 +37,7 @@ router = APIRouter(
 
 @router.post("/acquire", response_model=AcquireResponse, status_code=202)
 def acquire_all(_user: User = Depends(require_platform_admin)) -> AcquireResponse:
-    """Dispatch acquisition for every species (initial index build)."""
+    """Dispatch acquisition for every global species (initial index build, #2173)."""
     from app.tasks.reference_image_tasks import acquire_all_reference_images_task
 
     task = acquire_all_reference_images_task.delay()
@@ -49,11 +49,16 @@ def acquire_species(
     species_key: Annotated[str, Path(description="Document key of the species.")],
     _user: User = Depends(require_platform_admin),
 ) -> AcquireResponse:
-    """Dispatch (re-)acquisition for a single species."""
+    """Dispatch (re-)acquisition for a single global species.
+
+    A tenant-owned species answers 404 like an unknown one (#2173): the reference
+    index is shared by every tenant's ``/match``, so only the global catalogue is
+    indexed — the same rule the bulk acquisition applies.
+    """
     from app.tasks.reference_image_tasks import acquire_reference_images_task
 
     species = get_species_repo().get_by_key(species_key)
-    if species is None:
+    if species is None or species.tenant_key:
         raise NotFoundError("Species", species_key)
 
     task = acquire_reference_images_task.delay(species_key, species.scientific_name)

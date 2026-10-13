@@ -29,12 +29,11 @@ flowchart TB
             FE["Frontend<br/>(Deployment, 2 Replicas)"]
             BE["Backend<br/>(Deployment, 2 Replicas)"]
             DB["ArangoDB<br/>(StatefulSet, 1 Replica)"]
-            VK["Valkey<br/>(StatefulSet, 1 Replica)"]
+            VK["Valkey<br/>(Deployment, 1 Replica)"]
         end
     end
 
-    ING -->|"/api/*"| BE
-    ING -->|"/"| FE
+    ING -->|"/ and /api/*"| FE
     BE --> DB
     BE --> VK
     FE -->|"proxy /api"| BE
@@ -51,7 +50,7 @@ flowchart TB
 | Backend | Deployment | 2 | FastAPI application (API + Celery worker) |
 | Frontend | Deployment | 2 | React app behind nginx, proxies `/api` to the backend |
 | ArangoDB | StatefulSet | 1 | Document/graph database with Persistent Volume (5 Gi) |
-| Valkey | StatefulSet | 1 | Redis-compatible cache + Celery broker (1 Gi) |
+| Valkey | Deployment (`Recreate`) | 1 | Redis-compatible cache + Celery broker, own volume (1 Gi, append-only file) |
 
 ---
 
@@ -108,7 +107,7 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 0.2.0
 ### 2. Create the mandatory secrets
 
 !!! danger "No backend pod starts without this secret"
-    Before installing the chart, the Kubernetes secret `kamerplanter-secrets` must exist. The backend container reads `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` exclusively via `envFrom` from this secret — **not** from `values.yaml`. If any of the last three values is missing (or `ARANGODB_PASSWORD` is left at the literal `rootpassword`), the backend start-up aborts with `SystemExit` as soon as `DEBUG=false` is set (fail-fast gate, `src/backend/app/main.py`). `ARANGO_ROOT_PASSWORD` must be identical to `ARANGODB_PASSWORD` — both go to the same ArangoDB container.
+    Before installing the chart, the Kubernetes secret `kamerplanter-secrets` must exist. The backend container reads `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` exclusively via `envFrom` from this secret — **not** from `values.yaml`. If any of the last four values is missing (or `ARANGODB_PASSWORD` is left at the literal `rootpassword`), the backend start-up aborts with `SystemExit` as soon as `DEBUG=false` is set (fail-fast gate, `src/backend/app/main.py`). The Celery worker pod draws from the same secret and checks `LOG_PSEUDONYM_SALT` at start-up just as strictly; it aborts with `SystemExit` if the value is missing or shorter than 32 characters.
 
 ```bash
 kubectl create namespace kamerplanter
@@ -119,8 +118,37 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ARANGO_ROOT_PASSWORD="your-secure-password" \
   --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
   --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
-  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
+  --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
+
+If you switch TimescaleDB on (`controllers.timescaledb.enabled: true`), the Secret also needs `TIMESCALEDB_PASSWORD` — see [TimescaleDB](helm.md#timescaledb).
+
+#### Database credentials
+
+The application does not connect to ArangoDB as `root` but with the account `kamerplanter` (`database.arangodb.appUsername`). A helper container `app-user` in the ArangoDB pod creates or updates it on every start: password from `ARANGODB_PASSWORD`, read and write access to the application database only, no access to `_system`. The ArangoDB container itself receives only `ARANGO_ROOT_PASSWORD` from the Secret.
+
+- **`ARANGODB_PASSWORD`** is the application account's password. Choose a value of its own, not the root password.
+- **`ARANGO_ROOT_PASSWORD`** is needed by the ArangoDB pod only. Put it into a Secret of its own; then the backend no longer sees the root password (it reads all of `kamerplanter-secrets` via `envFrom`):
+
+```bash
+kubectl create secret generic kamerplanter-arangodb-root \
+  --namespace kamerplanter \
+  --from-literal=ARANGO_ROOT_PASSWORD="$(openssl rand -hex 32)"
+```
+
+```yaml title="values-production.yaml (excerpt)"
+database:
+  arangodb:
+    rootPasswordSecret: kamerplanter-arangodb-root
+```
+
+!!! warning "Existing installation: separate root access in three steps"
+    ArangoDB reads `ARANGO_ROOT_PASSWORD` only on the very first start with an empty volume. For an existing installation therefore:
+
+    1. **Upgrade:** after the upgrade, `app-user` creates the account `kamerplanter` with the current `ARANGODB_PASSWORD`, and the backend, worker and beat connect with it. If your values set `ARANGODB_USERNAME: root` or an `envFrom` on the ArangoDB container (earlier version of this guide), remove both — otherwise root access stays. Back to the old behaviour: `database.arangodb.appUsername: root`.
+    2. **Own application password:** set a new value for `ARANGODB_PASSWORD` in `kamerplanter-secrets`, restart the ArangoDB pod first (`app-user` applies the password) and then the backend, worker and beat (`kubectl rollout restart`).
+    3. **Move the root password out:** create `kamerplanter-arangodb-root` with the **current** root password, set `database.arangodb.rootPasswordSecret`, and only then remove `ARANGO_ROOT_PASSWORD` from `kamerplanter-secrets`. To change the root password itself, change it in ArangoDB first (`arangosh`) and then in the Secret.
 
 Full overview of every mandatory secret per enabled feature (e.g. `INTERNAL_SERVICE_TOKEN` once the AI assistant or image recognition is active): [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
@@ -140,7 +168,6 @@ controllers:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["https://plants.example.com"]'
           DEBUG: "false"
@@ -150,17 +177,24 @@ controllers:
     replicas: 2
 
   arangodb:
-    containers:
-      main:
-        envFrom:
-          - secret: kamerplanter-secrets    # (4)!
     statefulset:
       volumeClaimTemplates:
         - name: data
           accessMode: ReadWriteOnce
           size: 10Gi    # (5)!
-          globalMounts:
-            - path: /var/lib/arangodb3
+          advancedMounts:    # (4)!
+            main:
+              - path: /var/lib/arangodb3
+
+# Attachments in S3 — mandatory with more than one backend replica
+storage:
+  backend: s3
+  s3:
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: kamerplanter-prod
+    credentialsRef:
+      secretName: storage-s3-credentials
 
 ingress:
   main:
@@ -168,25 +202,21 @@ ingress:
     hosts:
       - host: plants.example.com    # (6)!
         paths:
-          - path: /api
-            pathType: Prefix
-            service:
-              identifier: backend
-          - path: /
+          - path: /              # /api too: the frontend nginx proxies it to the backend
             pathType: Prefix
             service:
               identifier: frontend
 ```
 
-1. Two replicas for rolling updates without downtime.
-2. Pulls `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` from the secret created in the previous step — no plain-text passwords in `values.yaml`.
+1. Two replicas for rolling updates without downtime. **Only with S3** (`storage.backend: s3`, see below) or a `ReadWriteMany` volume: on the default `ReadWriteOnce` volume the chart refuses more than one backend replica, because a second pod on another node never starts ([Storage configuration](helm.md#storage-configuration-nfr-013)).
+2. Pulls `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` and `LOG_PSEUDONYM_SALT` from the secret created in the previous step — no plain-text passwords in `values.yaml`.
 3. `light` = without login/tenant system, single user. `full` (the chart default) = with JWT auth and tenant management. Details: [Deployment Profiles](betriebsprofile.md).
-4. `ARANGO_ROOT_PASSWORD` is also injected from `kamerplanter-secrets`.
+4. Only the ArangoDB `main` container mounts the data volume, not the `app-user` helper container. The chart sets up the root password and the application account itself (see [Database credentials](#database-credentials)); set no `envFrom` and no `ARANGODB_USERNAME` here.
 5. Adjust the size to your needs. The chart default for the ArangoDB PVC is 5Gi.
 6. Your desired hostname. The Ingress controller must be configured for it.
 
 !!! warning "Never inline passwords in the values file"
-    `values-production.yaml` references secrets exclusively via `envFrom`/`secretKeyRef` — never as a plain-text value under `env:`. For GitOps workflows, use a secret management tool like Sealed Secrets or External Secrets Operator instead of a manual `kubectl create secret` (see [ArgoCD — Declarative secret management](argocd.md#prepare-the-secret)).
+    `values-production.yaml` references secrets exclusively via `envFrom`/`secretKeyRef` — never as a plain-text value under `env:`. For GitOps workflows, use a secret management tool like Sealed Secrets or External Secrets Operator instead of a manual `kubectl create secret` (see [ArgoCD — Declarative secret management](argocd.md#prepare-the-secret)). For the External Secrets Operator the chart ships a switchable `ExternalSecret`: [Secrets from a secret store](helm.md#secrets-from-a-secret-store).
 
 ### 4. Install the Helm chart
 
@@ -243,6 +273,36 @@ helm upgrade kamerplanter \
 ```
 
 The backend and frontend deployments perform a **rolling update** — there is no downtime, as old pods are only terminated once the new ones are ready.
+
+### Backend start-up time {#backend-start-up-time}
+
+Before its first request, a new backend pod prepares the database: it creates missing collections and indexes, runs the pending migrations and loads the master-data seeds. Only then does it accept connections. This happens on purpose inside the backend process and not in a separate migration job — an upgrade needs no extra step.
+
+On an empty database that takes about 40 seconds (measured on a workstation; under the chart's 1-CPU limit rather longer). With a long migration, or while another pod is migrating and this one waits, it takes several minutes. So that Kubernetes does not restart the pod during that time, a `startupProbe` checks the start first; the liveness and readiness probes only begin once it succeeded. Until then the old pod keeps serving.
+
+| Limit | Value |
+|-------|-------|
+| Maximum start-up time (`startupProbe`: 10 s × 90 attempts) | 900 s (15 minutes) |
+| Longest wait for another pod's migration (`BARRIER_TIMEOUT_SECONDS`) | 600 s |
+| When a migration lock counts as orphaned (`LOCK_TTL_SECONDS`) | 300 s |
+
+What that means for you:
+
+- **If a pod waits longer than 600 seconds** for a migration another pod holds, it stops itself with `MigrationBarrierTimeoutError` — the backend decides that the start failed, not the kubelet. The maximum start-up time therefore always lies above this wait.
+- **If a migrating pod is killed**, its lock stays for up to 300 seconds; after that another pod takes over. A restart within that window waits instead of migrating right away.
+- **If a migration needs longer than 15 minutes**, raise the `startupProbe`'s `failureThreshold` before the upgrade (the other probe values are kept). Never lower it below 70: a pod that waited the full 600 seconds for another pod's migration still needs its own start afterward (about 40 seconds, longer under 1 CPU). 10 s × 70 = 700 seconds leave 100 seconds of headroom for that; with less, Kubernetes kills a pod that is legitimately waiting or just finishing its start.
+- **When scaling up** (replicas or the [autoscaler](helm.md#scaling)), a new pod only helps after its start. Plan scaling in minutes, not seconds.
+
+```yaml title="values-production.yaml (excerpt) — only for very long migrations"
+controllers:
+  backend:
+    containers:
+      main:
+        probes:
+          startup:
+            spec:
+              failureThreshold: 180    # 10 s × 180 = 30 minutes
+```
 
 ---
 

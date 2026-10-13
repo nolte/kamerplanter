@@ -6,7 +6,7 @@ target the public interface (returned ``Notification`` models, counts) and the
 AQL query/bind_vars and edges the repository emits to its collaborator.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -50,6 +50,8 @@ def _notif_doc(**kwargs) -> dict:
 
 def _notif_model(**kwargs) -> Notification:
     defaults = {
+        # Every writer names its recipient; the repository refuses one without (MT-045.8, #2144).
+        "user_key": "u1",
         "notification_type": "care.watering.due",
         "title": "Watering due",
         "body": "Your tomato needs water",
@@ -164,8 +166,8 @@ class TestListForUserSince:
         query = call.args[0]
         bind_vars = call.kwargs["bind_vars"]
         assert "doc.user_key == @user_key" in query
-        assert "doc.created_at >= @since" in query
-        assert "SORT doc.created_at DESC" in query
+        assert "DATE_TIMESTAMP(doc.created_at) >= DATE_TIMESTAMP(@since)" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC" in query
         assert bind_vars["user_key"] == "u1"
         assert bind_vars["since"] == since.isoformat()
         assert bind_vars["limit"] == 100
@@ -227,7 +229,11 @@ class TestFindOverdueWatering:
         assert len(result) == 1
         call = mock_db.aql.execute.call_args
         assert "STARTS_WITH(doc.notification_type, 'care.watering')" in call.args[0]
-        assert call.kwargs["bind_vars"] == {"cutoff": cutoff.isoformat(), "level": 1}
+        assert call.kwargs["bind_vars"] == {
+            "cutoff": cutoff.isoformat(),
+            "cutoff_slack": (cutoff + timedelta(days=1)).isoformat(),
+            "level": 1,
+        }
 
     def test_empty_result_returns_empty_list(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
@@ -259,7 +265,7 @@ class TestExistsByGroupKey:
     def test_returns_true_when_a_row_exists(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([1])
 
-        assert repo.exists_by_group_key("frost-forecast:s1:2026-07-09", "t1") is True
+        assert repo.exists_by_group_key("frost-forecast:s1:2026-07-09", tenant_key="t1") is True
         call = mock_db.aql.execute.call_args
         query = call.args[0]
         assert "LIMIT 1" in query
@@ -274,13 +280,13 @@ class TestExistsByGroupKey:
     def test_returns_false_when_absent(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        assert repo.exists_by_group_key("g1", "t1") is False
+        assert repo.exists_by_group_key("g1", tenant_key="t1") is False
 
     def test_is_tenant_scoped(self, repo, mock_db):
         # A foreign tenant sees no match — the tenant_key is bound into the filter.
         mock_db.aql.execute.return_value = iter([])
 
-        assert repo.exists_by_group_key("g1", "other-tenant") is False
+        assert repo.exists_by_group_key("g1", tenant_key="other-tenant") is False
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
 
 
@@ -288,7 +294,7 @@ class TestListByGroupKey:
     def test_returns_models_scoped_by_group_and_tenant(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([_notif_doc(group_key="task.due:t1")])
 
-        result = repo.list_by_group_key("task.due:t1", "t1")
+        result = repo.list_by_group_key("task.due:t1", tenant_key="t1")
 
         assert len(result) == 1
         assert isinstance(result[0], Notification)
@@ -296,26 +302,26 @@ class TestListByGroupKey:
         query = call.args[0]
         assert "doc.group_key == @group_key" in query
         assert "doc.tenant_key == @tenant_key" in query
-        assert "SORT doc.created_at DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC" in query
         assert call.kwargs["bind_vars"] == {"group_key": "task.due:t1", "tenant_key": "t1"}
 
     def test_is_tenant_scoped(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        repo.list_by_group_key("g1", "other-tenant")
+        repo.list_by_group_key("g1", tenant_key="other-tenant")
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
 
     def test_empty_result_is_empty_list(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        assert repo.list_by_group_key("g1", "t1") == []
+        assert repo.list_by_group_key("g1", tenant_key="t1") == []
 
 
 class TestFindNotifiedUserKeys:
     def test_returns_distinct_user_key_set(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter(["u1", "u2"])
 
-        result = repo.find_notified_user_keys("g1", "t1")
+        result = repo.find_notified_user_keys("g1", tenant_key="t1")
 
         assert result == {"u1", "u2"}
         call = mock_db.aql.execute.call_args
@@ -328,17 +334,17 @@ class TestFindNotifiedUserKeys:
     def test_empty_result_is_empty_set(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        assert repo.find_notified_user_keys("g1", "t1") == set()
+        assert repo.find_notified_user_keys("g1", tenant_key="t1") == set()
 
     def test_drops_falsy_user_keys(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter(["u1", None, "", "u2"])
 
-        assert repo.find_notified_user_keys("g1", "t1") == {"u1", "u2"}
+        assert repo.find_notified_user_keys("g1", tenant_key="t1") == {"u1", "u2"}
 
     def test_is_tenant_scoped(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        repo.find_notified_user_keys("g1", "other-tenant")
+        repo.find_notified_user_keys("g1", tenant_key="other-tenant")
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
 
 

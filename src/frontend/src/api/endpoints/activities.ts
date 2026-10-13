@@ -1,4 +1,5 @@
 import client from '../client';
+import { invalidateCatalogue } from '../catalogueRevision';
 import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type { Activity, ActivityCreate } from '../types';
 
@@ -52,14 +53,17 @@ export async function getActivity(key: string): Promise<Activity> {
 
 export async function createActivity(payload: ActivityCreate): Promise<Activity> {
   const { data } = await client.post<Activity>(BASE, payload);
+  invalidateCatalogue('activities');
   return data;
 }
 
 export async function updateActivity(key: string, payload: Partial<ActivityCreate>): Promise<Activity> {
   const { data } = await client.put<Activity>(`${BASE}/${key}`, payload);
+  invalidateCatalogue('activities');
   return data;
 }
 
 export async function deleteActivity(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+  invalidateCatalogue('activities');
 }

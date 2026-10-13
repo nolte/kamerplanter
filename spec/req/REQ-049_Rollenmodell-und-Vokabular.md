@@ -7,7 +7,7 @@ Kategorie: Plattform & Sicherheit
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, React 19, TypeScript 5.9
 Status: Entwurf
-Version: 1.5 (§3.1: persönliche Datensätze bekommen keinen eigenen Begriff)
+Version: 1.14 (§2.10 Abweichung bei der Wetterquellen-Auswahl aufgelöst: Code folgt der Leitung; #2181); 1.13 (§2.12 Persönliche Einstellungen gelten über alle Mandanten, MT-055; #2144); 1.12 (Dienstkonten verwalten: Leitung **und** Technik statt Verwaltung, §2.4/§4.2; #2137); 1.11 (§2.5 Plattform-Rolle = aktive `lead`-Mitgliedschaft in `platform`, Plattform-Viewer nicht implementiert; §2.6 Kontoart `human`; §2.10 Auswahl der Wetterquelle: Abweichung im Code markiert; #2121); 1.9 (AK-19: ein persönlicher Mandant nimmt ein weiteres Mitglied nach Anheben des Mitgliederlimits auf, #2133); 1.8 (§2.5: Mitgliedschaft im Mandanten `platform` nur mit Step-up, nie selbst, mit Audit, #2106); 1.7 (§2.3/§2.5: globale Katalogzeile schreiben = nur Plattform-Admin, Düngemittel #2100; geteilte Workflow-Vorlagen #2101; mandantenlose MCP-Schreib-Werkzeuge #2103); 1.6 (§4.2: Mandant löschen braucht Verwaltung **und** Leitung, #1791)
 Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hier im Vokabular abgelöst und im Rollenumfang erweitert), REQ-023 (Authentifizierung — Kontoart, Dienstkonten), REQ-027 (Light-Modus — Einzelkonto), REQ-030 (Benachrichtigungssystem — übernimmt die Empfängerregel §2.8), REQ-022 (Pflegeerinnerungen — dieselbe Empfängerregel), REQ-046 (Wetterdienste — wandern auf die globale Ebene §2.9), REQ-005 + REQ-018 (Home Assistant — wandert auf die Mandantenebene §2.9), NFR-001 (Schichtenarchitektur), NFR-015 (OWASP-ZAP — Permission-Matrix-Tests), NFR-016 (Versioniertes Migrations-Framework — Datenmigration der Mitgliedschaften)
 ```
 
@@ -15,6 +15,14 @@ Abhängigkeit: REQ-024 (Mandantenverwaltung — Permission-Matrix §1a, wird hie
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.14 | 2026-10-09 | **#2181 (§2.10, Entscheidung nach Spec-Hierarchie, keine Betreiberentscheidung — überstimmbar):** Die in v1.11 markierte Abweichung ist aufgelöst — der Code folgt dieser Spezifikation. `PUT /t/{slug}/sites/{key}/weather-source` und der Verbindungstest verlangen `lead`; Gärtner und Beobachter sehen die Auswahl schreibgeschützt. Begründung: §2.10, §4 („entscheidet die Leitung des jeweiligen Gartens“) und §4.4 ordnen die Auswahl seit v1.3 übereinstimmend der Leitung zu; die Zuordnung ist eine bewusste Entscheidung der Dreiteilung Angebot/Anbindung/Auswahl, kein Versehen. |
+| 1.13 | 2026-10-09 | **#2144 (MT-055, entschieden):** Neuer §2.12: Dashboard-Layout, Benachrichtigungs-Einstellungen (Kanäle, Ruhezeiten, Typ-Overrides), Modul-Sichtbarkeit, Onboarding-Zustand und Favoriten sind **persönlich** und gelten in jedem Mandanten des Kontos. Gemessen: Kein Speicherort trägt mandanteneigene Daten — Widget-Konfigurationen halten nur Freitext/Zahlen, die Inhalte laden je aktivem Mandanten; der Home-Assistant-Kanal prüft die Freigabe beim Senden gegen den Mandanten der Benachrichtigung. Kein `(user_key, tenant_key)`-Schlüssel. |
+| 1.12 | 2026-10-05 | **Dienstkonten (#2137, MT-041; Entscheidung nach Messung, keine Betreiberentscheidung — überstimmbar):** Bis v1.9 nannten §2.4 und §4.2 „Dienstkonten“ unter **Verwaltung**; umgesetzt war nichts (kein Codepfad legte ein Dienstkonto an). Der Multi-Tenant-Audit vom 2026-10-04 (MT-041, Berechtigungsmatrix) und Issue #2137 legen „Leitung ∧ Technik“ fest; so ist es jetzt umgesetzt und hier nachgezogen: Ein Dienstkonto ist eine **mandanteneigene Integration** (Achse 2, `technical` — wie die Home-Assistant-Anbindung, für die es meist angelegt wird) und zugleich ein Anmeldemittel, das jede Sitzung überdauert; deshalb verlangt Anlegen, Schlüssel rotieren und Entfernen zusätzlich die Rolle **Leitung** (Achse 1, Irreversibilitätsgrenze) und einen Step-up. `management` allein genügt nicht mehr. Ein Dienstkonto erhält höchstens `grower`, keine Zusatzberechtigung, und wird über die Mitgliederverwaltung nicht zur Leitung (REQ-023 §5b.0). |
+| 1.11 | 2026-10-05 | **#2121 (MT-025, Vokabular an den Code angeglichen):** (1) **§2.6** nannte die Kontoart eines Menschen `user`; Modell (`AccountType = Literal["human", "service"]`, `app/domain/models/user.py`) und REQ-023 sagen `human` — korrigiert. (2) **§2.5:** Die Plattform-Rolle ist keine Admin-, sondern eine **aktive `lead`-Mitgliedschaft** im Mandanten `platform` (`app.common.auth.is_platform_admin`); `platform_admin` ist kein gespeicherter Schlüssel, sondern das daraus berechnete Merkmal `is_platform_admin`. „Notfall-Admins ernennen“ ist gestrichen (REQ-023 v1.43). Der Plattform-Viewer ist **nicht implementiert** (REQ-024 §1a.4, #2179). (3) **§2.10/§4.4:** Die Quellenauswahl je Standort ist hier der Leitung zugeordnet; `PUT /t/{slug}/sites/{key}/weather-source` verlangt im Code nur `grower` (`require_tenant_role(TenantRole.GROWER)`) — als Abweichung markiert (REQ-046 §Autorisierung), Entscheidung offen (#2181). |
+| 1.9 | 2026-10-05 | **Mitgliederlimit (#2133, Betreiberentscheidung 2026-10-04, REQ-024 AK-64):** Jeder Mandant hat ein Mitgliederlimit `max_members`, gekappt auf die Plattform-Obergrenze `TENANT_MAX_MEMBERS_CEILING`. Ein persönlicher Mandant wird mit dem Limit `1` gegründet. **AK-19 angepasst:** Er nimmt ein weiteres Mitglied ohne Umstellung, Migration oder Moduswechsel auf, sobald jemand mit Verwaltung das Limit angehoben hat (`PATCH /tenants/{slug}`, höchstens die Obergrenze); vorher antwortet der Beitritt `422 MEMBER_LIMIT_REACHED`. **P3 bleibt gewahrt:** Das Limit gilt für jeden Mandanten gleich und wird nicht nach `tenant_type` verzweigt — der persönliche Mandant unterscheidet sich nur im Startwert, den jeder mit Verwaltung ändern kann (AK-18 unberührt). |
+| 1.8 | 2026-10-04 | **Mitgliedschaft in `platform` (§2.5, #2106):** Wer dem Mandanten `platform` hinzugefügt wird — erst recht mit `lead` — wird Plattform-Admin; das Hinzufügen verlangt deshalb den Step-up des Administrators (REQ-024 AK-59), die Rolle `lead` dort vergibt nur ein bestehender Plattform-Admin, ein Plattform-Admin fügt sich dem Mandanten `platform` nie selbst hinzu, und jede Vergabe steht im Sicherheits-Audit (REQ-024 AK-60, NFR-011 R-38). |
+| 1.7 | 2026-10-04 | **Globale Düngemittel (#2100):** Schreiben auf eine globale Katalogzeile (`tenant_key == ""`) ist Plattform-Admin vorbehalten; das gilt für Düngemittel wie für Substrate (eine gemeinsame Regel, `authorize_hybrid_catalogue_write`). Fremde Zeile → 404, eigene Zeile → fachliche Rolle (Löschen: Leitung, §2.3). **Geteilte Workflow-Vorlagen (#2101):** eine Vorlage ohne Eigentümer (`tenant_key == ""`, kein System-Seed) wird nie an Ort und Stelle geschrieben — Ändern legt dem Mandanten eine Kopie an, Löschen und das Schreiben ihrer Phasen/Task-Templates ist 403 (REQ-006 §4). **Mandantenlose MCP-Schreib-Werkzeuge (#2103):** Plattform-Admin (§2.5), nicht die stärkste Rolle irgendwo (REQ-033 §4.4). |
+| 1.6 | 2026-09-25 | **Mandant löschen (#1791):** Die einzige Aktion, die **beide** Achsen verlangt — Verwaltung (§2.4) **und** Leitung (§2.3) —, weil sie seit #1769 alle Daten des Mandanten unwiderruflich vernichtet. Das ist eine Schnittmenge, keine Vermischung: keine der beiden Achsen öffnet die Aktion allein. Dazu ein Step-up (Kurzname zurücktippen, Passwort bei lokalem Konto), Einzelheiten in REQ-024 §1a.2. §2.4 und §4.2 nachgeführt. |
 | 1.5 | 2026-08-15 | **§2.11 (Dienstkonten):** Ein Dienstkonto (`account_type: 'service'`, REQ-023) nimmt über ein echtes Membership teil wie ein interaktiver Aufrufer, hat aber **keinen** Rückfall auf einen persönlichen Mandanten — ohne Header globaler Scope `""`. Normativ festgehalten, weil das heutige Verhalten sonst nur durch die Datenlage entsteht und ein später angelegter persönlicher Mandant es ohne Codeänderung erweitern würde. Schließt #1122 (Folge-F-4 aus #1091). |
 | 1.4 | 2026-08-11 | **ADR-009:** Neue §2.11 (Aktiver Mandant auf globalen Routen): Ein `X-Active-Tenant`-Header trägt auf globalen, mandantenbewussten Routen den Mandanten-Slug, in dem der Aufrufer handelt; ein Resolver löst Read, Write-Stamping und Rolle identisch auf, die Rolle stammt aus dem Membership im *aktiven* Mandanten (§2.7). Fail-safe: abwesender Header → persönlich/global wie bisher, ungültiger Header → orakelfreies `403`, nie ein stiller Rückfall. Schließt damit die offene Designfrage **A1** aus #808 (Auflösung des Mandanten auf global-aber-mandantenbewussten Routen). **AK-09** von `404` auf `403` korrigiert: Nach der Angleichung der `/t/{slug}/`-Pfadroute (Package A-11) verweigert `get_current_tenant` einem Nicht-Member — auch einem Plattform-Admin ohne Mitgliedschaft — orakelfrei mit `403` **vor** jedem Datenzugriff; beide Mandantengrenzen (Pfad und Header) sind damit orakelfrei. |
 | 1.3 | 2026-07-25 | Offenen Punkt aus §2.9 entschieden und als §2.10 ausgeführt: Trennung von **Angebot** (global, Plattform-Admin), **Anbindung** (pro Mandant, Technik) und **Auswahl** (pro Standort, Leitung). Ein global eingerichteter Dienst ist auswählbar, wirkt aber nur, wo er ausgewählt wurde. Das globale Angebot darf leer sein — Home-Assistant-Sensoren sind eine vollwertige Wetterquelle ohne jeden externen Dienst, und umgekehrt. AK-23 korrigiert (Angebot ≠ automatische Wirkung), AK-25 bis AK-29 ergänzt. |
@@ -70,7 +78,7 @@ Alle Pflanzen, Standorte und Aufgaben eines Mandanten werden von **allen** Gärt
 Wer etwas nicht teilen will, legt es in einen anderen Mandanten. Innerhalb eines Mandanten gibt es keine privaten Bereiche, keine für Mitglieder unsichtbaren Datensätze und keine auf einzelne Mitglieder beschränkten Schreibrechte auf Fachdaten. Das macht die Sichtbarkeit für Nutzer vorhersagbar: Was im Garten liegt, sehen und pflegen alle im Garten.
 
 **P3 — Es gibt keinen Sonderfall „persönlicher Mandant".**
-Ein privater Garten ist derselbe Mandantentyp wie ein Kleingartenverein — nur mit genau einem Mitglied, das die fachliche Rolle Leitung sowie beide administrativen Zusatzberechtigungen besitzt. Er unterliegt denselben Regeln, denselben Endpunkten und denselben Benachrichtigungen. Er kann **jederzeit** weitere Mitglieder aufnehmen, ohne Umstellung, Migration oder Moduswechsel. Umgekehrt darf kein Verhalten daran hängen, ob ein Mandant als persönlich oder als Organisation angelegt wurde; `tenant_type` ist eine Anzeigeeigenschaft, keine Fallunterscheidung.
+Ein privater Garten ist derselbe Mandantentyp wie ein Kleingartenverein — nur mit genau einem Mitglied, das die fachliche Rolle Leitung sowie beide administrativen Zusatzberechtigungen besitzt. Er unterliegt denselben Regeln, denselben Endpunkten und denselben Benachrichtigungen. Er kann **jederzeit** weitere Mitglieder aufnehmen, ohne Umstellung, Migration oder Moduswechsel — im Rahmen seines Mitgliederlimits, das bei der Gründung `1` ist und das jemand mit Verwaltung bis zur Plattform-Obergrenze anhebt wie in jedem anderen Mandanten (REQ-024 AK-64, v1.9). Umgekehrt darf kein Verhalten daran hängen, ob ein Mandant als persönlich oder als Organisation angelegt wurde; `tenant_type` ist eine Anzeigeeigenschaft, keine Fallunterscheidung.
 
 **P4 — Keine Berechtigung entsteht aus einer anderen.**
 Die Leitung erhält durch ihre fachliche Rolle keine Verwaltungsrechte. Ein Plattform-Admin erhält durch seine Plattform-Rolle keinen Lesezugriff auf die Fachdaten eines fremden Mandanten. Jede Berechtigung wird ausdrücklich vergeben.
@@ -108,8 +116,8 @@ Diese Berechtigungen werden **zusätzlich** zur fachlichen Rolle vergeben. Ein M
 
 | Zusatzberechtigung | Schlüssel | Umfasst | Typische Besetzung |
 |--------------------|-----------|---------|--------------------|
-| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, Mitglieder entfernen; Einladungslinks erstellen und widerrufen; Mandanten-Einstellungen (Name, Kurzname, Stammdaten-Zuweisung); Standort-Zuweisungen; Dienstkonten; Mandanten löschen | Vorstand, Lehrkraft, Inhaber, Schriftführer |
-| **Technik** | `technical` | **Mandanteneigene** Integrationen einrichten: die Home-Assistant-Instanz dieses Mandanten, MQTT, InvenTree; Sensoren und Aktoren konfigurieren (nicht: bedienen); CSV-Import ausführen; Anreicherungsquellen und Sync-Trigger; KI-Provider des Mandanten; Benachrichtigungskanäle des Mandanten | Technikwart, IT-Verantwortlicher, betreuender Dienstleister |
+| **Verwaltung** | `management` | Mitglieder einladen, Rollen ändern, Mitglieder entfernen; Einladungslinks erstellen und widerrufen; Mandanten-Einstellungen (Name, Kurzname, Stammdaten-Zuweisung); Standort-Zuweisungen; Mandanten löschen — nur zusammen mit der Rolle **Leitung** und einem Step-up (§4.2, REQ-024 §1a.2) | Vorstand, Lehrkraft, Inhaber, Schriftführer |
+| **Technik** | `technical` | **Mandanteneigene** Integrationen einrichten: die Home-Assistant-Instanz dieses Mandanten, MQTT, InvenTree; Sensoren und Aktoren konfigurieren (nicht: bedienen); CSV-Import ausführen; Anreicherungsquellen und Sync-Trigger; KI-Provider des Mandanten; Benachrichtigungskanäle des Mandanten; Dienstkonten anlegen, Schlüssel rotieren, entfernen — nur zusammen mit der Rolle **Leitung** und einem Step-up (#2137) | Technikwart, IT-Verantwortlicher, betreuender Dienstleister |
 
 Nicht enthalten sind **global konfigurierte** externe Dienste — sie gehören zur Plattform-Ebene (§2.5) und folgen der Regel aus §2.9.
 
@@ -119,21 +127,23 @@ Nicht enthalten sind **global konfigurierte** externe Dienste — sie gehören z
 
 ### 2.5 Plattform-Ebene
 
-Die Plattform-Rolle wird über eine Admin-Mitgliedschaft im technischen Mandanten `platform` abgebildet und gilt einmal für die gesamte Installation.
+Die Plattform-Rolle wird über eine **aktive Mitgliedschaft mit der Rolle `lead`** im technischen Mandanten `platform` abgebildet und gilt einmal für die gesamte Installation (`app.common.auth.is_platform_admin`; bis `v0032` hieß der Wert dort `admin`). Im Light-Modus gilt der System-User als Plattform-Admin; ein auf einen Mandanten beschränkter API-Key nie.
 
 | Rolle | Schlüssel | Darf |
 |-------|-----------|------|
-| **Plattform-Admin** | `platform_admin` | Globalen Stammdaten-Katalog pflegen (Arten, Sorten, botanische Familien, Schädlinge, Krankheiten, Behandlungsmittel, globale Düngemittel und Nährstoffpläne); `tenant_has_access`-Zuweisungen; Arten und Sorten aus einem Mandanten in den globalen Katalog übernehmen; Companion- und Fruchtfolge-Graphkanten; **global konfigurierte externe Dienste samt Zugangsschlüsseln** (§2.9); Mandanten- und Nutzerübersicht; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Mandanten und Konten sperren, reaktivieren und Notfall-Admins ernennen |
+| **Plattform-Admin** | `lead` in `platform` (berechnetes Merkmal `is_platform_admin`, kein gespeicherter Schlüssel) | Globalen Stammdaten-Katalog pflegen (Arten, Sorten, botanische Familien, Schädlinge, Krankheiten, Behandlungsmittel, globale Düngemittel und Nährstoffpläne); `tenant_has_access`-Zuweisungen; Arten und Sorten aus einem Mandanten in den globalen Katalog übernehmen; Companion- und Fruchtfolge-Graphkanten; **global konfigurierte externe Dienste samt Zugangsschlüsseln** (§2.9); Mandanten- und Nutzerübersicht; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Mandanten und Konten sperren und reaktivieren (Notfall-Admins ernennen ist gestrichen, REQ-023 v1.43) |
+
+**Vergabe der Plattform-Rolle (#2106):** Die Mitgliedschaft im Mandanten `platform` vergibt nur ein bestehender Plattform-Admin, mit seinem eigenen Step-up (Aktion `admin_membership_add`, REQ-024 AK-59); die Rolle `lead` dort erst recht (§2.4, REQ-024 AK-58). Ein Plattform-Admin fügt sich dem Mandanten `platform` nie selbst hinzu. Jede Vergabe, Änderung und Entfernung steht im persistenten Sicherheits-Audit (REQ-024 AK-60).
 
 **Abgrenzung:** Der Plattform-Admin sieht *Verwaltungsdaten* über Mandanten hinweg (Existenz, Name, Mitgliederliste). Er erhält dadurch **keinen** Lesezugriff auf die Fachdaten eines Mandanten. Wer dorthin Zugriff braucht, muss regulär als Mitglied aufgenommen werden.
 
-Eine reine Lese-Variante (`platform_viewer`) für Monitoring und Prüfungen ist in REQ-024 §1a.4 vorgesehen und bleibt dort spezifiziert; sie ist nicht Gegenstand dieses Dokuments.
+Eine reine Lese-Variante (Plattform-Viewer: `viewer` in `platform`) für Monitoring und Prüfungen ist in REQ-024 §1a.4 vorgesehen und bleibt dort spezifiziert; sie ist nicht Gegenstand dieses Dokuments und **nicht implementiert** (#2179) — eine `viewer`-Mitgliedschaft in `platform` gewährt heute keinerlei Admin-Zugriff.
 
 ### 2.6 Kontoart
 
 | Kontoart | Schlüssel | Bedeutung |
 |----------|-----------|-----------|
-| **Nutzerkonto** | `user` | Mensch. Meldet sich interaktiv an (lokal oder föderiert). |
+| **Nutzerkonto** | `human` | Mensch. Meldet sich interaktiv an (lokal oder föderiert). |
 | **Dienstkonto** | `service` | Maschine (Home Assistant, Auswertungs-Dashboard, KI-Assistent, CI/CD). Kein Passwort, keine interaktive Anmeldung; ausschließlich Schlüssel-Authentifizierung mit optionaler IP-Freigabeliste und Ratenbegrenzung. |
 
 Die Kontoart ändert **keine** Rechte: Ein Dienstkonto mit der Rolle Gärtner darf exakt, was ein menschlicher Gärtner darf. Für die Einrichtung gilt das Prinzip der geringsten Berechtigung — ein Anzeige-Dashboard erhält Beobachter, ein protokollierender Automatisierungsdienst Gärtner.
@@ -227,7 +237,7 @@ Daraus folgt normativ:
 - Die Quellenauswahl eines Standorts speist sich aus **zwei unabhängigen Töpfen**: den global angebotenen externen Diensten und den Entitäten der mandanteneigenen Home-Assistant-Instanz. Beide Töpfe dürfen einzeln leer sein.
 - Sind beide leer, hat der Standort keine automatischen Wetterdaten. Das ist ein **gültiger Zustand**, kein Fehler — die manuelle Erfassung bleibt der Rückfallweg.
 - Entfällt ein global angebotener Dienst oder wird sein Zugangsschlüssel entzogen, greift an jedem betroffenen Standort die nächste konfigurierte Priorität. Der Standort ist nicht defekt, und die Herkunftskennzeichnung der Daten macht den Wechsel nachvollziehbar.
-- Beobachter sehen die Auswahl, ändern sie nicht. Gärtner sehen sie ebenfalls; geändert wird sie von der Leitung.
+- Beobachter sehen die Auswahl, ändern sie nicht. Gärtner sehen sie ebenfalls; geändert wird sie von der Leitung. `PUT /t/{slug}/sites/{key}/weather-source` und der Verbindungstest verlangen `lead` (REQ-046 §Autorisierung; bis v1.13 genügte `grower`, #2181).
 
 Diese Dreiteilung ist auf jeden weiteren Dienst übertragbar, der sowohl betreiberseitig angeboten als auch mandantenseitig ersetzt werden kann — beim KI-Provider gilt sie bereits (§2.9, Zeile „Hybrid").
 
@@ -249,6 +259,20 @@ Die **globalen** Katalog-Routen — Arten, Sorten, botanische Familien, Companio
 Diese Ausnahme ist normativ und nicht bloß beschreibend. Heute legt kein Pfad einen persönlichen Mandanten für ein Dienstkonto an, das Verhalten wäre also auch ohne Regel identisch — durch Zufall der Datenlage. Sobald ein Administrator, eine Migration oder ein Fixture einem Dienstkonto einen persönlichen Mandanten gibt, würde jeder header-lose M2M-Aufruf still innerhalb eines Mandanten handeln. Das ist eine Erweiterung ohne Codeänderung, die sie ankündigt — genau das, was der Fail-safe-Grundsatz oben verbietet.
 
 **Abgrenzung.** Die `/t/{slug}/`-Routen binden den Mandanten weiterhin über den Pfad; für sie gilt der Header nicht. Favoriten bleiben persönlich-über-Mandanten und werden vom Header nicht umgebunden. Der Header ist nicht safelisted und wird über die bestehende CORS-Freigabe zugelassen.
+
+### 2.12 Persönliche Einstellungen gelten über alle Mandanten
+
+**Entscheidung (MT-055, #2144):** Diese Einstellungen gehören dem **Konto**, nicht einem Mandanten, und gelten in jedem Mandanten, in dem es Mitglied ist:
+
+- Dashboard-Layout (REQ-045) — welche Widgets wo stehen;
+- Benachrichtigungs-Einstellungen (REQ-030) — Kanäle, Ruhezeiten, Bündelung, Eskalation, Typ-Overrides, Tageszusammenfassung;
+- Modul-Sichtbarkeit (REQ-042), Onboarding-Zustand (REQ-020), Favoriten.
+
+Die Route bleibt `/t/{slug}/user-preferences`; der Slug wählt nur den Mandanten, *aus dem heraus* geschrieben wird, nicht einen eigenen Satz Einstellungen.
+
+**Warum kein Satz je Mandant.** Gemessen am Code (2026-10-09): Keiner dieser Speicherorte trägt mandanteneigene Daten. Widget-Konfigurationen halten nur Freitext und Zahlen (`location` als Ortsname für die Wettervorhersage, `timeframe_days`); was ein Widget zeigt, lädt es je aktivem Mandanten über die mandantengebundenen Routen. Der Home-Assistant-Benachrichtigungskanal prüft die Freigabe eines Ziels beim **Senden** gegen den Mandanten der jeweiligen Benachrichtigung (`ha_destination_not_granted_at_send`) — ein im Garten A freigegebenes Ziel erhält keine Benachrichtigung aus Garten B, wenn es dort nicht freigegeben ist. Ein Schlüssel `(user_key, tenant_key)` würde nichts schützen, aber jede Person zwingen, ihr Dashboard und ihre Kanäle je Garten neu einzurichten.
+
+**Was eine Änderung erzwingen würde:** sobald eine dieser Einstellungen einen Schlüssel eines Mandanten speichert (etwa ein an eine Location gebundenes Widget) oder einen Inhalt, der einem Mandanten gehört, muss sie je Mandant gespeichert werden.
 
 ## 3. Verbindliches Vokabular
 
@@ -379,8 +403,8 @@ Diese Tabelle ist die anwenderseitige Umkehrung von §2 — sortiert nach Tätig
 | Einen Einladungslink erstellen oder widerrufen | Verwaltung |
 | Namen, Kurznamen oder Stammdaten-Zuweisung ändern | Verwaltung |
 | Eine Parzelle einem Mitglied zuweisen | Verwaltung |
-| Ein Dienstkonto anlegen | Verwaltung |
-| Den Mandanten löschen | Verwaltung |
+| Ein Dienstkonto anlegen, seinen Schlüssel rotieren oder es entfernen | Technik **und** Leitung, dazu Passwort zur Bestätigung |
+| Den Mandanten löschen | Verwaltung **und** Leitung, dazu Kurzname und Passwort zur Bestätigung |
 | Die Home-Assistant-Instanz **dieses Gartens** anbinden | Technik |
 | MQTT oder InvenTree anbinden | Technik |
 | Einen Sensor oder Aktor **konfigurieren** (nicht bedienen) | Technik |
@@ -484,7 +508,7 @@ Die Migration läuft über das versionierte Migrations-Framework (NFR-016) und i
 | AK-16 | Ein Gärtner kann einen Standort bearbeiten, der einem anderen Mitglied zugewiesen ist (P1, §3.5) | Integration |
 | AK-17 | Ein Gärtner kann eine Aufgabe erledigen, die einem anderen Mitglied zugewiesen ist | Integration |
 | AK-18 | Kein Endpunkt und keine Oberflächenfunktion verzweigt auf `tenant_type` (P3) | CI-Prüfung |
-| AK-19 | Ein persönlicher Mandant kann ohne Umstellung ein weiteres Mitglied aufnehmen; danach gelten unverändert dieselben Regeln (P3) | Integration |
+| AK-19 | Ein persönlicher Mandant kann ohne Umstellung ein weiteres Mitglied aufnehmen, sobald jemand mit Verwaltung sein Mitgliederlimit (Startwert `1`) angehoben hat; vorher `422 MEMBER_LIMIT_REACHED` (REQ-024 AK-64, v1.9). Danach gelten unverändert dieselben Regeln (P3) | Integration |
 | AK-20 | Zwei Mandanten mit **unterschiedlichen** Home-Assistant-Instanzen arbeiten gleichzeitig; Sensorwerte und Schaltbefehle landen jeweils bei der richtigen Instanz (P5, §2.9) | Integration |
 | AK-21 | Es existiert keine instanzweite Home-Assistant-Konfiguration mehr; eine nicht auflösbare Adresse eines Mandanten verhindert weder den Anwendungsstart noch beeinträchtigt sie andere Mandanten | Integration |
 | AK-22 | Ein Mandant ohne Home-Assistant-Anbindung ist funktionsfähig und erzeugt keine Fehlermeldung | Integration |

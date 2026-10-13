@@ -66,3 +66,32 @@ def test_not_ready_when_storage_raises(monkeypatch):
     resp = _client().get("/health/ready")
     assert resp.status_code == 503
     assert resp.json()["object_storage"] is False
+
+
+def test_a_refused_index_retirement_is_reported_without_failing_readiness(monkeypatch):
+    """#2064: a too-strict constraint is an operator's case, not a reason to leave rotation."""
+    from app.migrations.support import retired_indexes
+
+    refused = retired_indexes.RetiredIndexEnforcement(
+        enforced=("tanks(name)", "activities(name)"), re_retired=(), refused=("tanks(name)",)
+    )
+    monkeypatch.setattr(retired_indexes, "_last", refused)
+    monkeypatch.setattr(health_module, "get_connection", lambda: _conn(True))
+    monkeypatch.setattr(health_module, "get_object_storage", lambda: _FakeStorage(True))
+
+    resp = _client().get("/health/ready")
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "ready"
+    assert resp.json()["retired_indexes_refused"] == 1
+    assert "tanks" not in resp.text
+
+
+def test_no_enforcement_yet_reports_zero(monkeypatch):
+    from app.migrations.support import retired_indexes
+
+    monkeypatch.setattr(retired_indexes, "_last", None)
+    monkeypatch.setattr(health_module, "get_connection", lambda: _conn(True))
+    monkeypatch.setattr(health_module, "get_object_storage", lambda: _FakeStorage(True))
+
+    assert _client().get("/health/ready").json()["retired_indexes_refused"] == 0

@@ -3,6 +3,7 @@ from httpx import Client, HTTPStatusError, RequestError
 from markdownify import markdownify
 
 from app.common.exceptions import ExternalSourceError, RateLimitError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
 from app.domain.models.enrichment import ExternalSpeciesData, GBIFMatchResult
@@ -52,7 +53,7 @@ class GBIFAdapter(ExternalSourceAdapter):
         except RateLimitError:
             raise
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_match_failed", name=scientific_name, error=str(e))
+            logger.warning("gbif_match_failed", name=scientific_name, error=loggable_error(e))
             raise ExternalSourceError("gbif", str(e)) from e
 
     def resolve_synonyms(self, usage_key: int) -> list[str]:
@@ -69,7 +70,7 @@ class GBIFAdapter(ExternalSourceAdapter):
                     names.append(name)
             return names
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_synonyms_failed", usage_key=usage_key, error=str(e))
+            logger.warning("gbif_synonyms_failed", usage_key=usage_key, error=loggable_error(e))
             return []
 
     def get_vernacular_names(self, usage_key: int, languages: list[str] | None = None) -> list[str]:
@@ -90,7 +91,7 @@ class GBIFAdapter(ExternalSourceAdapter):
                     names.append(name)
             return names
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_vernacular_failed", usage_key=usage_key, error=str(e))
+            logger.warning("gbif_vernacular_failed", usage_key=usage_key, error=loggable_error(e))
             return []
 
     def get_descriptions(self, usage_key: int) -> tuple[str, str]:
@@ -130,7 +131,7 @@ class GBIFAdapter(ExternalSourceAdapter):
 
             return description, native_habitat
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_descriptions_failed", usage_key=usage_key, error=str(e))
+            logger.warning("gbif_descriptions_failed", usage_key=usage_key, error=loggable_error(e))
             return "", ""
 
     def enrich_species(self, scientific_name: str, full_sync: bool = False) -> ExternalSpeciesData | None:
@@ -204,7 +205,7 @@ class GBIFAdapter(ExternalSourceAdapter):
             data = response.json()
             return [self._map_species(r) for r in data.get("results", []) if r.get("scientificName")]
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_search_failed", query=query, error=str(e))
+            logger.warning("gbif_search_failed", query=query, error=loggable_error(e))
             raise ExternalSourceError("gbif", str(e)) from e
 
     def get_species_by_id(self, external_id: str) -> ExternalSpeciesData | None:
@@ -218,7 +219,7 @@ class GBIFAdapter(ExternalSourceAdapter):
                 return None
             return self._map_species(data)
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_get_species_failed", external_id=external_id, error=str(e))
+            logger.warning("gbif_get_species_failed", external_id=external_id, error=loggable_error(e))
             raise ExternalSourceError("gbif", str(e)) from e
 
     def get_species_list(self, page: int = 1, per_page: int = 30) -> tuple[list[ExternalSpeciesData], int]:
@@ -241,7 +242,7 @@ class GBIFAdapter(ExternalSourceAdapter):
             results = [self._map_species(r) for r in data.get("results", []) if r.get("scientificName")]
             return results, total
         except (HTTPStatusError, RequestError) as e:
-            logger.warning("gbif_list_failed", error=str(e))
+            logger.warning("gbif_list_failed", error=loggable_error(e))
             raise ExternalSourceError("gbif", str(e)) from e
 
     def health_check(self) -> bool:

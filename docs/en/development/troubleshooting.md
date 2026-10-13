@@ -106,7 +106,7 @@ Solutions to common technical problems when installing, operating, and using Kam
     Check:
 
     1. **Correct email and password?** Demo account: `demo@kamerplanter.local` / `demo-passwort-2024`
-    2. **Email verification required?** If `REQUIRE_EMAIL_VERIFICATION=true` is set, the email must be confirmed. Set to `false` for development.
+    2. **Email verification required?** `REQUIRE_EMAIL_VERIFICATION` defaults to `true` — then the email must be confirmed. In a development environment without outbound mail, set it to `false`. The demo account is already confirmed.
     3. **JWT secret key changed?** All active tokens become invalid. Users must log in again.
 
 ??? question "Registration fails — 'Email already registered'"

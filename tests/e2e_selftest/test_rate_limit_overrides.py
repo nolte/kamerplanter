@@ -42,6 +42,17 @@ _API_ROOT = _ROOT / "src" / "backend" / "app" / "api" / "v1"
 #: human-scale. "We have not tripped it yet" is not a reason — that was true of
 #: the refresh budget until the suite grew past it.
 _LEFT_AT_PRODUCTION: dict[str, str] = {
+    "rate_limit_calendar_feed": (
+        "No E2E test fetches a feed.ics URL (#2226): test_req015_calendar.py only reads the "
+        "issued URL text, the browser never requests it. Calendar clients poll a subscription "
+        "every 15 minutes or slower, and the per-minute budget is the anonymous-tier bound of "
+        "REQ-015 CF-004 on an unauthenticated route; raising it here would test nothing the "
+        "suite uses."
+    ),
+    "rate_limit_calendar_feed_per_token": (
+        "The per-token bucket of the same feed.ics route (#2226 review SEC-005); no E2E test "
+        "fetches a feed.ics URL, so no request ever reaches it."
+    ),
     "rate_limit_device_pairing_redeem": (
         "One redemption per pairing test, a handful per run (#1118). Nowhere near a "
         "per-minute budget, and the limit is a brute-force defence whose behaviour "
@@ -52,6 +63,31 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "A couple of change requests per run; the flow is not on any journey path."
     ),
     "rate_limit_email_change_confirm": ("Same volume as the request half it follows."),
+    "rate_limit_invitation_email": (
+        "One e-mail invitation per run (TC-024-022 in test_req024_tenant_settings.py), per account; "
+        "the budget is per account and minute (#2162 review W-1) and is a mail-relay defence, so "
+        "raising it here would test nothing the suite uses."
+    ),
+    "rate_limit_export_download": (
+        "No E2E test downloads an Art. 15 export bundle (grep over tests/e2e finds no "
+        "call to the download route, #1666), and a user downloads their own bundle "
+        "a handful of times at most. The hourly budget is a scraping defence on a "
+        "full personal-data copy; raising it here would test nothing the suite uses."
+    ),
+    "rate_limit_resend_verification": (
+        "No E2E test calls the resend-verification route (grep over tests/e2e finds no "
+        "reference, #2037); it is reached only from the login refusal of an unverified "
+        "account or its own page, one deliberate request per recovery. The hourly budget "
+        "is a mail-flood defence per address and client; raising it here would test "
+        "nothing the suite uses."
+    ),
+    "rate_limit_tenant_import": (
+        "No E2E test imports a tenant archive (grep over tests/e2e finds no call to "
+        "/admin/platform/tenant-imports, #2138), and the import has no UI yet (REQ-056 §15). A "
+        "platform admin imports a handful of archives at most; the hourly per-account budget "
+        "bounds a route that reads, verifies and stores a whole upload, so raising it here would "
+        "test nothing the suite uses."
+    ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "
         "deliberate send per channel a user is configuring. It is not on any bootstrap "

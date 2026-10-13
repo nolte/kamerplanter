@@ -7,7 +7,7 @@ Kategorie: Integration & Inventar
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.1 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 1.2 (IT-007: Verbindung an die geprüfte Adresse gebunden, #2249; 1.1: Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## 1. Business Case
@@ -1371,6 +1371,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | IT-004 | Token-Rotation SOLL unterstützt werden: Endpoint zum Aktualisieren des API-Tokens ohne Neuanlage der Connection. | SOLL |
 | IT-005 | Kamerplanter→InvenTree-Requests MÜSSEN auf 60 req/min pro Connection begrenzt werden (Client-seitiges Rate-Limiting). | MUSS |
 | IT-006 | Health-Check-Endpoint (`/inventree/connections/{key}/health`) DARF NICHT offenlegen, ob die URL eine gültige InvenTree-Instanz ist, wenn die Authentication fehlschlägt — generische Fehlermeldung. | MUSS |
+| IT-007 | Die `base_url` wird vor jeder Anfrage gegen SSRF geprüft (Link-Local/Cloud-Metadaten immer gesperrt, private Adressen nur mit `INVENTREE_ALLOW_PRIVATE_ENDPOINT`). Die Verbindung MUSS die Adressen, zu denen sie aufgebaut wird, nach derselben Regel prüfen und sich nur mit einer geprüften Adresse verbinden (kein erneutes Auflösen nach der Prüfung, DNS-Rebinding); `Host`-Header, SNI und Zertifikatsprüfung bleiben beim Hostnamen. Privat heißt: RFC1918, Loopback und jeder nicht global routbare Raum (u. a. CGNAT `100.64.0.0/10`, `fec0::/10`); eine in IPv6 eingebettete IPv4-Adresse wird als diese beurteilt. Weiterleitungen (3xx) werden nicht verfolgt. Umgesetzt mit `pinned_async_transport` in `app/common/url_safety.py` (#2249). | MUSS |
 
 ## 5. Abhängigkeiten
 

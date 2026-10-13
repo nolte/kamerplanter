@@ -173,6 +173,10 @@ Gib einen Namen ein (z.B. "Tomaten Hochbeet 2026") und wähle optional ein **emp
 !!! note "Referenz-Substrat für die EC-Berechnung ist ein eigenes Feld"
     Das Substrat, gegen das Kamerplanter EC-Toleranz und CalMag-Empfehlungen berechnet (`reference_substrate_type`), ist beim Anlegen nicht sichtbar und steht standardmäßig auf **Erde**. Du änderst es später im Tab **Bearbeiten** über das Feld **„Referenz-Substrat (EC-Kalibrierung)"** — sichtbar ab der Erfahrungsstufe **Experte**.
 
+### Pflanzenarten zuordnen
+
+Im Tab **Bearbeiten** legst du unter **Geeignet für Pflanzenarten** fest, für welche Arten der Plan gedacht ist. Du kannst mehrere Arten wählen. Der Einrichtungsassistent schlägt einen als Vorlage markierten Plan nur für diese Arten vor — ein Plan ohne zugeordnete Art wird dort nie angeboten. Beim Klonen übernimmt die Kopie die Zuordnung des Originals.
+
 ### Schritt 3: Phaseneinträge hinzufügen
 
 Der neue Plan öffnet sich auf dem Tab **Phaseneinträge** — er zeigt die Phasen als Gantt-Zeitleiste. Für jede Wachstumsphase fügst du die Dünger-Dosierungen ein:

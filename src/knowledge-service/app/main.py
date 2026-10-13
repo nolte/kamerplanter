@@ -7,12 +7,18 @@ from typing import Literal
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Query
 
+from app.access_log import install_access_log_redaction
 from app.auth import check_insecure_config, require_service_token
 from app.config import settings
 from app.embedding import EmbeddingEngine
 from app.ingestor import KnowledgeIngestor
 from app.llm import create_llm_adapter
-from app.observability.error_tracking import init_error_tracking, resolve_release
+from app.observability.error_tracking import (
+    init_error_tracking,
+    install_uncaught_exception_redaction,
+    resolve_release,
+    shape_text_redactor,
+)
 from app.prompt_engine import PromptEngine
 from app.reranker import RerankerEngine
 from app.schemas import (
@@ -32,6 +38,9 @@ from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
 
+# The question a person typed reaches the access log as ``/search?q=…`` (#1796).
+install_access_log_redaction()
+
 #: Single source for the version reported to OpenAPI and used as the release
 #: fallback, so the two can never disagree about which build is running.
 SERVICE_VERSION = "1.0.0"
@@ -41,7 +50,14 @@ SERVICE_VERSION = "1.0.0"
 init_error_tracking(
     component="knowledge-service",
     release=resolve_release("kamerplanter-knowledge-service", SERVICE_VERSION),
+    # The backend's keyed redaction lives in ``app.common.log_privacy`` and cannot be
+    # imported here; the shared shape-based one covers URL userinfo and queries,
+    # credential-bearing paths and addresses (#1926).
+    redact_text=shape_text_redactor,
 )
+# After the SDK has wrapped the interpreter's hooks: an exception that never becomes a
+# log record (startup, a thread, a finaliser) is printed redacted, not raw.
+install_uncaught_exception_redaction()
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
@@ -54,6 +70,7 @@ _vec_conn: VectorDbConnection | None = None
 async def lifespan(app: FastAPI):
     """Application lifespan: connect to vectordb, build components, and cleanup on shutdown."""
     global _service, _ingestor, _vec_conn
+    install_access_log_redaction()
 
     # Fail-fast on default/missing secrets before touching any dependency (AP-4,
     # INF-S4). Skipped in debug mode for local development / tests.
@@ -94,9 +111,17 @@ async def lifespan(app: FastAPI):
     llm_adapter = create_llm_adapter(settings)
     prompt_engine = PromptEngine()
 
-    reranker = RerankerEngine(settings.reranker_url or None)
+    reranker = RerankerEngine(
+        settings.reranker_url or None,
+        max_document_chars=settings.reranker_max_document_chars,
+    )
     if reranker.available:
-        logger.info("reranker_enabled", url=settings.reranker_url)
+        logger.info(
+            "reranker_enabled",
+            url=settings.reranker_url,
+            initial_k=settings.reranker_initial_k,
+            max_document_chars=settings.reranker_max_document_chars,
+        )
     else:
         logger.info("reranker_disabled")
 

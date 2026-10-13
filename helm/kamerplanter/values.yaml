@@ -38,19 +38,30 @@
 # controllers. That change belongs in that repository; this comment is the
 # invariant it has to satisfy, kept next to the values that enforce it here.
 
-# -- NFR-013 Object-storage configuration (§4.1, §10).
+# -- NFR-013 Object-storage configuration (§4.1, §10) — THE storage switch (#2124).
 #
-# This block is the operator-facing source of truth for the storage backend.
-# The bjw-s common chart consumes ``controllers``/``persistence`` literally
-# (values.yaml is not templated), so the concrete wiring lives there:
-#   * ``STORAGE_*`` env vars on the backend + celery-worker controllers
-#   * the ``backend-uploads`` PVC mounted at ``storage.localFs.root`` (local-fs)
-# Keep this block and that wiring in sync when changing the backend.
+# This block is the one place an operator chooses where attachments live. Since
+# bjw-s common 5.2 every string in these values is rendered as a template, and
+# the backend + celery-worker controllers and the ``backend-attachments``
+# persistence below read this block through ``{{ .Values.storage.* }}``
+# expressions. Until #2124 nothing read it: setting ``backend: s3`` here still
+# deployed local-fs with a volume — a switch the docs described and the chart
+# ignored.
+#
+#   * ``local-fs`` (default): the ``backend-attachments`` claim is rendered and
+#     mounted at ``localFs.root`` in the backend and the celery-worker.
+#   * ``s3``: no claim, no mount; the backend + worker get ``STORAGE_BACKEND=s3``,
+#     the ``s3.*`` parameters and the two credential keys from
+#     ``s3.credentialsRef``. **Required for shared (multi-node / SaaS)
+#     operation**, see ``localFs.singleNode``.
 #
 # SECRETS (NFR-013 §4.1): the S3 access key / secret are NEVER placed in
-# values.yaml, a ConfigMap or Git. They are resolved from a Secret produced by
-# the External Secrets Operator (``s3.credentialsRef``) and injected via
-# ``envFrom`` — see the commented example on the backend controller.
+# values.yaml, a ConfigMap or Git. They come from the Secret named in
+# ``s3.credentialsRef`` (e.g. produced by the External Secrets Operator) and are
+# injected key by key via ``secretKeyRef`` — only those two keys, not the whole
+# Secret. The references are ``optional`` so that a local-fs release, which has
+# no such Secret, still starts; with ``backend: s3`` and the Secret missing, the
+# storage health check fails readiness (the rollout stops, the old pods serve).
 storage:
   backend: local-fs   # local-fs | s3
   maxFileSizeMb: 25
@@ -63,13 +74,18 @@ storage:
     root: /data/attachments
     pvc:
       size: 20Gi
-      # ReadWriteMany is required once the backend runs with >1 replica AND the
-      # celery-worker shares the volume (thumbnail generation). With a single
-      # backend replica + single worker on the same node, ReadWriteOnce is fine
-      # but limits horizontal scaling — prefer RWX on a CSI that supports it
-      # (Longhorn, NFS, CephFS).
+      # The claim is mounted by the backend AND the celery-worker. A
+      # ReadWriteOnce volume attaches to ONE node: a second pod scheduled onto
+      # another node stays in ContainerCreating with `Multi-Attach error`. So more
+      # than one backend or worker replica on local-fs needs ReadWriteMany on a
+      # CSI that supports it (Longhorn RWX, NFS, CephFS) — or S3. The render
+      # refuses the combination (``renderChecks.attachmentVolume`` below).
       accessMode: ReadWriteOnce
       storageClass: ""   # "" = cluster default StorageClass
+    # Set to true ONLY on a single-node cluster: there every pod shares the one
+    # node, so ReadWriteOnce carries several replicas. On more than one node it
+    # does not, whatever this flag says.
+    singleNode: false
 
   s3:
     endpointUrl: https://s3.eu-central-1.amazonaws.com
@@ -78,13 +94,561 @@ storage:
     usePathStyle: false
     forceTls: true
     kmsKeyId: ""
-    # External Secrets Operator reference — the operator syncs the upstream
-    # secret store into a Kubernetes Secret with these keys. NEVER inline the
-    # values here (NFR-013 §4.1).
+    # A private / in-cluster endpoint (MinIO, Ceph RGW) is refused by the
+    # admin "test connection" probe unless this is true (SEC-002). The
+    # backend's NetworkPolicy also excludes RFC1918 egress — an in-cluster
+    # endpoint additionally needs an egress rule in your values.
+    allowPrivateEndpoint: false
+    # Name and keys of the Secret holding the S3 credentials (synced by the
+    # External Secrets Operator or created by hand). NEVER inline the values.
     credentialsRef:
       secretName: storage-s3-credentials
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
+
+# -- REQ-056 §8 tenant export and import (#2138).
+#
+# ``importMaxUploadMb`` is the largest archive the platform admin's import
+# (``POST /api/v1/admin/platform/tenant-imports``) takes, in MiB
+# (TENANT_IMPORT_MAX_UPLOAD_MB). That ONE route gets its own body ceiling of
+# importMaxUploadMb + 1 MiB on all three layers: the backend's
+# RequestBodyLimitMiddleware, a `location =` in the frontend nginx, and a
+# derived Ingress `tenant-import` (templates/_tenant_import_ingress.tpl) for
+# ingress-nginx. Every other path keeps storage.maxFileSizeMb + 1 MiB.
+#
+# THE /tmp BUDGET (docs: tenant-export-import.md, "Archivgröße und /tmp").
+# FastAPI spools the upload into the backend's /tmp before the route runs, and
+# that /tmp is memory (backend-tmp, 64Mi). The backend therefore lowers the
+# import ceiling to UPLOAD_SPOOL_BUDGET_MB (52 by default): out of the box an
+# archive up to ~51 MiB is accepted, a larger one is refused with 413. To take
+# archives up to N MiB, set importMaxUploadMb: N, raise
+# controllers.backend.containers.main.env.UPLOAD_SPOOL_BUDGET_MB to at least
+# N + 1, raise persistence.backend-tmp.sizeLimit above it (bjw-s does not
+# template sizeLimit) and the backend's memory limit by the same amount — a
+# memory-backed /tmp is charged to the pod. The worker writes and reads the
+# archive through a temporary file too: raise persistence.celery-worker-tmp.sizeLimit
+# (and the worker's memory) to the largest archive you export or import.
+#
+# ``signingSecret`` names an OPTIONAL Secret key holding
+# TENANT_EXPORT_SIGNING_SECRET (at least 32 characters, e.g.
+# `openssl rand -hex 32`) — the key tenant archives are signed and checked with.
+# Absent (the default: the key is not in kamerplanter-secrets) the backend
+# derives the key from JWT_SECRET_KEY as before. Backend (checks imports) and
+# celery-worker (signs exports) read it; changing it makes older archives
+# import as unverified. Never put the value into values.yaml.
+tenantExport:
+  importMaxUploadMb: 512
+  signingSecret:
+    secretName: kamerplanter-secrets
+    key: TENANT_EXPORT_SIGNING_SECRET
+  # The derived ingress for the import path (rendered only when ingress.main
+  # renders). Its annotations are the body limit and timeouts for ingress-nginx;
+  # set more here (they are merged), never certificate annotations — the TLS
+  # Secret of ingress.main is reused, its certificate is issued for main.
+  importIngress:
+    enabled: true
+    annotations: {}
+
+# -- Celery workers per queue (MT-032, #2128).
+#
+# The application routes every task to one of three queues
+# (src/backend/app/tasks/routing.py): ``critical`` (retention and erasure,
+# notifications, frost warnings, the actuator control loop), ``celery`` (the
+# default) and ``bulk`` (dataset and reference-image acquisition, enrichment
+# syncs, storage migrations).
+#
+#   * ``dedicatedQueues: false`` (default): ONE worker, ``controllers.celery-worker``,
+#     consumes all three. A long bulk job occupies one of its processes; the
+#     other keeps serving (``--concurrency=2``, prefetch 1).
+#   * ``dedicatedQueues: true``: one Deployment per queue. ``celery-worker``
+#     consumes only ``critical``; ``celery-worker-default`` consumes ``celery``;
+#     ``celery-worker-bulk`` consumes ``bulk``. A dataset or image job can then
+#     no longer delay a reminder, an erasure or a frost warning at all.
+#
+# The extra workers are copies of ``controllers.celery-worker``, made at RENDER
+# time by ``templates/_celery_workers.tpl`` from the merged values — so whatever
+# an overlay, ``--set`` or an ArgoCD ``valuesObject`` sets on
+# ``controllers.celery-worker`` (image, env, securityContext, probes, resources,
+# pod options) and on ``networkpolicies.celery-worker`` (egress) reaches the
+# copies too, and every mount of the worker and every policy that admits it as a
+# peer is extended to them. Only the queue differs. To tune ONE copy, set
+# ``controllers.<copy>.<key>``: it is merged over the copy (e.g.
+# ``controllers.celery-worker-bulk.containers.main.resources``). With the switch
+# off the copies do not exist and such keys are ignored.
+#
+# Cost: two more pods with the worker's requests (100m CPU / 512Mi each). They
+# mount the attachments claim like the worker and therefore follow the same node
+# rule (#2153): with a ReadWriteOnce local-fs claim all three land on the
+# backend's node — plan the node's memory for it, or use ``storage.backend: s3``.
+# Docs: docs/de/deployment/helm.md#celery-worker-pro-queue.
+celeryWorkers:
+  dedicatedQueues: false
+  # -- Which copy reads which queue. Part of the chart's contract with
+  # app/tasks/routing.py (tests/unit/guards/test_every_task_has_a_queue.py,
+  # scripts/ci/assert_chart_contracts.sh) — not a tuning knob.
+  copies:
+    celery-worker-default: celery
+    celery-worker-bulk: bulk
+  # -- Worker autoscaling by queue length (#2128 MT-032, #2127 MT-031). OFF by default.
+  #
+  # With ``enabled: true`` every worker listed under ``workers`` gets a
+  # HorizontalPodAutoscaler (autoscaling/v2) on an ``External`` metric: the
+  # messages waiting in the queues that worker consumes, divided by its pods
+  # (``target.type: AverageValue`` = ``targetPerReplica``). The queues are read
+  # from the worker's own ``-Q`` argument, so the selector follows
+  # ``dedicatedQueues``: one worker for all three queues scales on their sum;
+  # with dedicated workers ``celery-worker`` scales on ``critical``,
+  # ``celery-worker-default`` on ``celery``, ``celery-worker-bulk`` on ``bulk``.
+  # An entry for a copy is ignored while ``dedicatedQueues`` is off (the copy
+  # does not exist), like every other key of a copy.
+  #
+  # The series is ``celery_queue_length{queue}`` from the backend's ``/metrics``
+  # (app/observability/queue_metrics.py), so ``monitoring.enabled`` is required.
+  # The chart does NOT install the Prometheus Adapter: it must run in the cluster
+  # and serve this series on the external metrics API under ``metricName``
+  # (``external.metrics.k8s.io``). The adapter rule, and how to check it with
+  # ``kubectl get --raw``, is in docs/de/deployment/helm.md#worker-autoscaling-nach-queue-laenge.
+  # Without it the HPA reports ``FailedGetExternalMetric`` and keeps its current
+  # replica count — it never scales on a missing value.
+  #
+  # Refused at render time (templates/_celery_workers.tpl, renderChecks.autoscalers):
+  # enabled without ``monitoring.enabled`` or without ``metricName``; an entry
+  # without ``maxReplicas`` or ``targetPerReplica`` > 0; ``minReplicas`` < 1 or
+  # not below ``maxReplicas``; a worker that also carries a hand-written
+  # ``controllers.<worker>.horizontalPodAutoscaler``. More than one pod of a
+  # worker needs the attachments on S3 or a ReadWriteMany volume, as for every
+  # other autoscaler (renderChecks.attachmentVolume).
+  #
+  # Scaling DOWN stops a worker pod: Celery finishes its running tasks on
+  # SIGTERM within the pod's termination grace period (30 s unless set), then
+  # the pod is killed. A task acknowledged at start (not in ACKS_LATE_TASKS) is
+  # then lost, an acks-late one runs again after the visibility timeout. Hence
+  # the slow default scale-down below; for ``celery-worker-bulk`` (runs of up to
+  # 3 h) raise ``controllers.celery-worker-bulk.pod.terminationGracePeriodSeconds``
+  # or keep its ``minReplicas`` at the level it normally needs.
+  queueAutoscaling:
+    enabled: false
+    # The External metric name the adapter serves (its rule's ``name.as``).
+    metricName: celery_queue_length
+    # Default HPA ``behavior`` for every worker; an entry's own ``behavior`` replaces it.
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 0
+        policies:
+          - type: Pods
+            value: 2
+            periodSeconds: 60
+      scaleDown:
+        stabilizationWindowSeconds: 600
+        policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 300
+    workers:
+      celery-worker:
+        minReplicas: 1
+        maxReplicas: 3
+        # Waiting messages per worker pod the HPA aims for.
+        targetPerReplica: 20
+      celery-worker-default:
+        minReplicas: 1
+        maxReplicas: 3
+        targetPerReplica: 20
+      celery-worker-bulk:
+        minReplicas: 1
+        maxReplicas: 2
+        targetPerReplica: 5
+
+# -- Render-time checks (#2124). bjw-s renders every string in these values as a
+# template, and ``fail`` aborts ``helm template`` / ``helm upgrade`` / the ArgoCD
+# render with the message — before anything reaches the cluster. The checks
+# render to an empty string when they pass and are read by nothing else.
+renderChecks:
+  attachmentVolume: >-
+    {{- $storage := .Values.storage -}}
+    {{- if not (has $storage.backend (list "local-fs" "s3")) -}}
+    {{- fail (printf "storage.backend must be local-fs or s3, got %q" (toString $storage.backend)) -}}
+    {{- end -}}
+    {{- if and (eq $storage.backend "local-fs") (ne $storage.localFs.pvc.accessMode "ReadWriteMany") (not $storage.localFs.singleNode) -}}
+    {{- range $name := list "backend" "celery-worker" "celery-worker-default" "celery-worker-bulk" -}}
+    {{- $controller := index $.Values.controllers $name | default dict -}}
+    {{- /* #2127: an autoscaler scales up to maxReplicas, so it is held to the same volume rule as replicas. */ -}}
+    {{- $replicas := int (default 1 $controller.replicas) -}}
+    {{- with $controller.horizontalPodAutoscaler -}}
+    {{- $replicas = int (default 1 .maxReplicas) -}}
+    {{- end -}}
+    {{- if and (ne (toString $controller.enabled) "false") (gt $replicas 1) -}}
+    {{- fail (printf "controllers.%s scales to %d replicas (replicas or horizontalPodAutoscaler.maxReplicas) with storage.backend=local-fs on a %s attachment volume: the volume attaches to one node, so a second pod on another node never starts (Multi-Attach error). Use storage.backend=s3 (required for shared operation), or storage.localFs.pvc.accessMode=ReadWriteMany with an RWX storage class, or - on a cluster with exactly one node - storage.localFs.singleNode=true. See docs/deployment/helm.md#storage-konfiguration-nfr-013 (#2124)." $name $replicas $storage.localFs.pvc.accessMode) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  # #2127 — scaling switches. HPA and PDB are opt-in per controller through the
+  # bjw-s keys `controllers.<name>.horizontalPodAutoscaler` and
+  # `controllers.<name>.podDisruptionBudget` (docs/deployment/helm.md#skalierung).
+  # Two mistakes would render cleanly and only show up in the cluster:
+  #  * a second pod of a singleton — celery-beat schedules every periodic task
+  #    once per replica (duplicate retention and deletion runs), and every
+  #    arangodb / vectordb / timescaledb replica is an independent database on
+  #    its own claim;
+  #  * a PodDisruptionBudget that admits no eviction (minAvailable >= the
+  #    smallest replica count, a percentage minAvailable that rounds up to it,
+  #    or maxUnavailable 0 / "0%"): every node drain and cluster upgrade then
+  #    hangs.
+  scaling: >-
+    {{- range $name := list "celery-beat" "arangodb" "vectordb" "timescaledb" -}}
+    {{- $controller := index $.Values.controllers $name | default dict -}}
+    {{- if ne (toString $controller.enabled) "false" -}}
+    {{- if or $controller.horizontalPodAutoscaler (ne (int (default 1 $controller.replicas)) 1) -}}
+    {{- fail (printf "controllers.%s runs exactly one pod: no horizontalPodAutoscaler, and replicas stays 1 (celery-beat would run every periodic task once per replica; arangodb, vectordb and timescaledb replicas are independent databases, not a cluster). See docs/deployment/helm.md#skalierung (#2127)." $name) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+    {{- range $name, $controller := .Values.controllers -}}
+    {{- if and (kindIs "map" $controller) (ne (toString $controller.enabled) "false") $controller.podDisruptionBudget -}}
+    {{- $pdb := $controller.podDisruptionBudget -}}
+    {{- $minReplicas := int (default 1 $controller.replicas) -}}
+    {{- with $controller.horizontalPodAutoscaler -}}
+    {{- $minReplicas = int (default $minReplicas .minReplicas) -}}
+    {{- end -}}
+    {{- /* Kubernetes rounds a percentage UP to whole pods: minAvailable "50%" of one pod is that pod, and
+           any maxUnavailable above 0% is at least one pod. A string without "%" is a count. */ -}}
+    {{- $blocking := "" -}}
+    {{- if hasKey $pdb "minAvailable" -}}
+    {{- $value := $pdb.minAvailable -}}
+    {{- $pods := int $value -}}
+    {{- if and (kindIs "string" $value) (hasSuffix "%" $value) -}}
+    {{- $pods = div (add (mul (atoi (trimSuffix "%" $value)) $minReplicas) 99) 100 -}}
+    {{- end -}}
+    {{- if ge (int $pods) $minReplicas -}}
+    {{- $blocking = printf "minAvailable=%v" $value -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if hasKey $pdb "maxUnavailable" -}}
+    {{- $value := $pdb.maxUnavailable -}}
+    {{- $pods := int $value -}}
+    {{- if and (kindIs "string" $value) (hasSuffix "%" $value) -}}
+    {{- $pods = atoi (trimSuffix "%" $value) -}}
+    {{- end -}}
+    {{- if le (int $pods) 0 -}}
+    {{- $blocking = printf "maxUnavailable=%v" $value -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if $blocking -}}
+    {{- fail (printf "controllers.%s.podDisruptionBudget.%s with %d replica(s) admits no eviction: every node drain and cluster upgrade would hang. Keep at least one pod evictable: minAvailable below the replica count (a percentage is rounded up to whole pods), or maxUnavailable of at least 1 (or a percentage above 0%%); raise replicas (or horizontalPodAutoscaler.minReplicas) if needed. See docs/deployment/helm.md#skalierung (#2127)." $name $blocking $minReplicas) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  # #2128 — an autoscaler that cannot scale, or cannot read its metric, renders
+  # cleanly and only shows up in the cluster as an HPA that never moves:
+  #  * minReplicas not below maxReplicas (the count is fixed — set replicas);
+  #  * an ``External`` metric without ``metric.name``, or without a target
+  #    (``type: Value`` with ``value`` / ``type: AverageValue`` with ``averageValue``).
+  # Applies to every controller's horizontalPodAutoscaler, hand-written or
+  # derived from celeryWorkers.queueAutoscaling.
+  autoscalers: >-
+    {{- range $name, $controller := .Values.controllers -}}
+    {{- if and (kindIs "map" $controller) (ne (toString $controller.enabled) "false") $controller.horizontalPodAutoscaler -}}
+    {{- $hpa := $controller.horizontalPodAutoscaler -}}
+    {{- $min := int (default 1 $controller.replicas) -}}
+    {{- if hasKey $hpa "minReplicas" -}}
+    {{- $min = int $hpa.minReplicas -}}
+    {{- end -}}
+    {{- $max := int (default 0 $hpa.maxReplicas) -}}
+    {{- if and (gt $max 0) (ge $min $max) -}}
+    {{- fail (printf "controllers.%s.horizontalPodAutoscaler: minReplicas %d is not below maxReplicas %d, so the autoscaler can never change the replica count. Lower minReplicas or raise maxReplicas, or drop the autoscaler and set replicas. See docs/deployment/helm.md#skalierung (#2128)." $name $min $max) -}}
+    {{- end -}}
+    {{- range $metric := ($hpa.metrics | default list) -}}
+    {{- if and (kindIs "map" $metric) (eq (toString $metric.type) "External") -}}
+    {{- $external := $metric.external | default dict -}}
+    {{- $target := $external.target | default dict -}}
+    {{- $metricName := "" -}}
+    {{- if kindIs "map" $external.metric -}}
+    {{- $metricName = toString ($external.metric.name | default "") -}}
+    {{- end -}}
+    {{- $targetType := toString ($target.type | default "") -}}
+    {{- $targetValue := "" -}}
+    {{- if eq $targetType "Value" -}}
+    {{- $targetValue = toString ($target.value | default "") -}}
+    {{- else if eq $targetType "AverageValue" -}}
+    {{- $targetValue = toString ($target.averageValue | default "") -}}
+    {{- end -}}
+    {{- if or (not $metricName) (not $targetValue) -}}
+    {{- fail (printf "controllers.%s.horizontalPodAutoscaler: an External metric needs external.metric.name and external.target (type Value with value, or AverageValue with averageValue); got name %q, target type %q. Without them the autoscaler reads nothing and never scales. See docs/deployment/helm.md#worker-autoscaling-nach-queue-laenge (#2128)." $name $metricName $targetType) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  # #2122 — an enabled backup without a bucket would run every night and fail
+  # every night; refuse it at render time instead.
+  backupTarget: >-
+    {{- if and .Values.backup.enabled (empty .Values.backup.s3.bucket) -}}
+    {{- fail "backup.enabled=true needs backup.s3.bucket (and the Secret named in backup.s3.credentialsRef). See docs/deployment/backup-restore.md (#2122)." -}}
+    {{- end -}}
+  # #2127 (MT-031) — external databases. Each refusal is a combination that
+  # renders cleanly and fails only in the cluster: a client pointed at an empty
+  # host or at a Valkey Service that no longer exists, a scheme the backend
+  # refuses at start, both an external and the bundled ArangoDB, or a
+  # NetworkPolicy that under default-deny never lets the client through.
+  externalDatabases: >-
+    {{- $policies := .Values.networkpolicies | default dict -}}
+    {{- $arango := .Values.database.arangodb.external -}}
+    {{- if $arango.enabled -}}
+    {{- if empty $arango.host -}}
+    {{- fail "database.arangodb.external.enabled=true needs database.arangodb.external.host (a bare host name or address, no scheme). See docs/deployment/helm.md#externe-datenbanken (#2127)." -}}
+    {{- end -}}
+    {{- if or (contains "/" (toString $arango.host)) (contains "@" (toString $arango.host)) -}}
+    {{- fail "database.arangodb.external.host must be a bare host name or address; the scheme goes into database.arangodb.external.scheme (#2127)." -}}
+    {{- end -}}
+    {{- if not (has (toString $arango.scheme) (list "http" "https")) -}}
+    {{- fail (printf "database.arangodb.external.scheme must be http or https, got %q (#2127)." (toString $arango.scheme)) -}}
+    {{- end -}}
+    {{- if not (regexMatch "^[0-9]+$" (toString $arango.port)) -}}
+    {{- fail (printf "database.arangodb.external.port must be a port number, got %q (#2127)." (toString $arango.port)) -}}
+    {{- end -}}
+    {{- if eq (toString .Values.controllers.arangodb.enabled) "true" -}}
+    {{- fail "database.arangodb.external.enabled=true and controllers.arangodb.enabled=true: the backend would use the external database and the bundled one would run unused. Remove controllers.arangodb.enabled; the external switch turns the bundled database off (#2127)." -}}
+    {{- end -}}
+    {{- end -}}
+    {{- $valkeyClients := false -}}
+    {{- range $name := list "backend" "celery-worker" "celery-beat" -}}
+    {{- if ne (toString (dig $name "enabled" true $.Values.controllers)) "false" -}}
+    {{- $valkeyClients = true -}}
+    {{- end -}}
+    {{- end -}}
+    {{- $valkeyUrl := toString .Values.database.valkey.external.url -}}
+    {{- if and (not .Values.valkey.enabled) $valkeyClients -}}
+    {{- if empty $valkeyUrl -}}
+    {{- fail "valkey.enabled=false needs database.valkey.external.url (redis://… or rediss://…): backend, celery-worker and celery-beat would otherwise look for the bundled Valkey Service, which is gone. See docs/deployment/helm.md#externe-datenbanken (#2127)." -}}
+    {{- end -}}
+    {{- if not (regexMatch "^rediss?://" $valkeyUrl) -}}
+    {{- fail "database.valkey.external.url must start with redis:// or rediss:// (value withheld) (#2127)." -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if and .Values.valkey.enabled $valkeyUrl -}}
+    {{- fail "database.valkey.external.url is set but valkey.enabled is true: the bundled Valkey would be used and the URL ignored. Set valkey.enabled=false to use the external Valkey (#2127)." -}}
+    {{- end -}}
+    {{- /* Each external policy admits literal ports (a templated port renders as a string, which Kubernetes reads as a
+           port NAME). The configured port must be one of them, and a policy with an ipBlock needs a cidr. */ -}}
+    {{- $checks := list -}}
+    {{- if $arango.enabled -}}
+    {{- $checks = append $checks (dict "policy" "arangodb-external" "port" (toString $arango.port) "cidr" (toString $arango.cidr) "key" "database.arangodb.external") -}}
+    {{- end -}}
+    {{- if and (not .Values.valkey.enabled) $valkeyClients $valkeyUrl -}}
+    {{- $port := "6379" -}}
+    {{- $authority := regexReplaceAll "/.*$" (regexReplaceAll "^[a-z]+://([^/]*@)?" $valkeyUrl "") "" -}}
+    {{- if regexMatch ":[0-9]+$" $authority -}}
+    {{- $port = regexFind "[0-9]+$" $authority -}}
+    {{- end -}}
+    {{- $checks = append $checks (dict "policy" "valkey-external" "port" $port "cidr" (toString .Values.database.valkey.external.cidr) "key" "database.valkey.external") -}}
+    {{- end -}}
+    {{- range $check := $checks -}}
+    {{- $policy := index $policies $check.policy | default dict -}}
+    {{- if ne (toString $policy.enabled) "false" -}}
+    {{- $ports := list -}}
+    {{- $usesCidr := false -}}
+    {{- range $rule := (dig "rules" "egress" list $policy) -}}
+    {{- range $peer := ($rule.to | default list) -}}
+    {{- if and (kindIs "map" $peer) (hasKey $peer "ipBlock") -}}
+    {{- $usesCidr = true -}}
+    {{- end -}}
+    {{- end -}}
+    {{- range $p := ($rule.ports | default list) -}}
+    {{- $ports = append $ports (toString $p.port) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- if and $usesCidr (empty $check.cidr) -}}
+    {{- fail (printf "%s needs cidr: networkpolicies.%s admits the clients to that address range, and under the default-deny baseline nothing else lets them reach the database. Set %s.cidr (e.g. 203.0.113.10/32), or replace networkpolicies.%s.rules.egress / disable that policy and ship your own. See docs/deployment/helm.md#externe-datenbanken (#2127)." $check.key $check.policy $check.key $check.policy) -}}
+    {{- end -}}
+    {{- if not (has $check.port $ports) -}}
+    {{- fail (printf "%s uses port %s, which networkpolicies.%s does not admit (it admits %s): the clients would be dropped under default-deny. Replace networkpolicies.%s.rules.egress with a rule for that port (#2127)." $check.key $check.port $check.policy (join ", " $ports) $check.policy) -}}
+    {{- end -}}
+    {{- end -}}
+    {{- end -}}
+
+# -- ArangoDB application account (#2126). The backend, celery-worker and
+# celery-beat connect with this account (their ARANGODB_USERNAME renders it), and
+# the arangodb `app-user` container provisions it with ARANGODB_PASSWORD from
+# kamerplanter-secrets: `rw` on the application database and its collections,
+# no access to `_system`. Until #2126 the application connected as root.
+#
+# Set to `root` to keep the old behaviour (the provisioner then does nothing).
+# What the chart cannot do for you: the backend still receives the whole
+# kamerplanter-secrets, so as long as ARANGO_ROOT_PASSWORD lives in that Secret
+# the backend can read it. Move it into a Secret of its own and give the
+# application account its own ARANGODB_PASSWORD — docs/deployment/kubernetes.md.
+database:
+  arangodb:
+    appUsername: kamerplanter
+    # Secret holding ARANGO_ROOT_PASSWORD, read by the arangodb pod only. The
+    # default keeps today's place; set a Secret of its own to take the root
+    # password out of what the backend receives.
+    rootPasswordSecret: kamerplanter-secrets
+    # -- #2127 (MT-031) An ArangoDB outside this chart (managed, another
+    # namespace, another cluster). `enabled: true` is the ONE switch: the bundled
+    # arangodb StatefulSet, its Service, NetworkPolicy and volumes are not
+    # rendered, and backend, celery-worker, celery-beat and the backup CronJob
+    # connect to `scheme://host:port` (ARANGODB_HOST / _PORT / _SCHEME).
+    #
+    # The chart then provisions nothing in that database: the application
+    # database and the account named in `appUsername` (rw on that database)
+    # must exist, and ARANGODB_PASSWORD in kamerplanter-secrets is its password.
+    # `scheme: https` verifies the server certificate against the image's trust
+    # store; a private CA goes in via REQUESTS_CA_BUNDLE (docs/deployment/helm.md).
+    #
+    # NetworkPolicy: under the default-deny baseline the clients reach the
+    # database only through `networkpolicies.arangodb-external`, which admits
+    # TCP 8529 and 443 to `cidr`. `cidr` is therefore required; a database
+    # reached by namespace / pod selector instead replaces that policy's
+    # `rules.egress` (and still names a cidr, or disables the policy and ships
+    # its own). A port the policy does not admit is refused at render time.
+    external:
+      enabled: false
+      host: ""
+      port: 8529
+      scheme: http   # http | https
+      cidr: ""       # e.g. 203.0.113.10/32
+  # -- #2127 (MT-031) A Valkey / Redis outside this chart. Switched by
+  # `valkey.enabled: false` (the subchart's own condition); `url` is then the
+  # REDIS_URL of backend, celery-worker and celery-beat — broker, result
+  # backend, cache and rate-limit counters. Scheme `redis://` or `rediss://`
+  # (TLS). A password never goes into values: reference a key of
+  # kamerplanter-secrets, which the pods receive by envFrom, as `$(KEY)` —
+  # Kubernetes expands it at container start, e.g.
+  # `rediss://:$(VALKEY_PASSWORD)@valkey.example.net:6380/0` (percent-encode
+  # `/ # ? @` inside the password, the backend refuses them unencoded).
+  # `networkpolicies.valkey-external` admits TCP 6379 and 6380 to `cidr`, like
+  # the ArangoDB policy above.
+  valkey:
+    external:
+      url: ""
+      cidr: ""
+
+# -- Application Secret from a secret store (#2127, NFR-002 §3.7). OFF by
+# default: the chart then expects `kamerplanter-secrets` to exist, created out
+# of band (docs/deployment/kubernetes.md, "Pflicht-Secrets anlegen").
+#
+# With `enabled: true` the chart renders an ExternalSecret
+# (external-secrets.io/v1 — the External Secrets Operator and its CRDs must be
+# installed) that writes `kamerplanter-secrets` from the store entry named in
+# `dataFrom[0].extract.key`; every property of that entry becomes one key of the
+# Secret. Backend, worker and beat read that Secret in full (envFrom), so the
+# entry carries only the mandatory keys — NOT ARANGO_ROOT_PASSWORD, which goes
+# into a Secret of its own named in database.arangodb.rootPasswordSecret. A
+# `secretStoreRef.name` is required — bjw-s refuses the render without one. A
+# ClusterSecretStore serves every namespace unless its `spec.conditions` limit
+# it; restrict it, or use a namespaced SecretStore.
+# `target.creationPolicy: Owner` lets the operator create and own the Secret; a
+# Secret that already exists from a manual `kubectl create` is not simply
+# adopted — delete it in the same change, or set `Merge` so the operator writes
+# into it (docs/deployment/helm.md#secrets-aus-einem-secret-store). Owner also
+# means `helm uninstall` (which deletes the ExternalSecret) garbage-collects the
+# Secret; deletionPolicy below only covers an entry deleted in the store.
+# Further Secrets (storage.s3.credentialsRef, backup.s3.credentialsRef,
+# database.arangodb.rootPasswordSecret) are added the same way, one entry each.
+externalSecrets:
+  app:
+    enabled: false
+    refreshInterval: 1h
+    secretStoreRef:
+      kind: ClusterSecretStore
+      name: ""
+    target:
+      name: kamerplanter-secrets
+      creationPolicy: Owner
+      # bjw-s defaults to Delete: an entry missing in the store would delete the
+      # Secret and stop every pod start. Retain keeps the last good Secret. It
+      # does not survive `helm uninstall` (ownerReference, see above).
+      deletionPolicy: Retain
+    dataFrom:
+      - extract:
+          key: kamerplanter/app
+
+# -- ArangoDB backup (#2122, NFR-002 §8, NFR-012 §9.1). OFF by default — an
+# enabled backup needs a bucket and credentials only the operator has.
+#
+# A CronJob (controller ``arangodb-backup``) runs ``arangodump`` of the
+# application database into a scratch volume (init container, the SAME arangodb
+# image and tag as the database, so client and server versions cannot drift),
+# then ``rclone`` copies the dump to ``s3://<bucket>/<prefix>/<UTC stamp>/`` and
+# writes ``<prefix>/LATEST`` with that stamp — the recovery point, readable
+# without a cluster (RPO = now − LATEST). Retention deletes dump directories
+# older than ``retentionDays``, never the one the run just wrote, so a backup
+# outage cannot age the last good dump away.
+#
+# Credentials: the dump reads ``ARANGODB_USERNAME`` / ``ARANGODB_PASSWORD`` — the
+# application account, which can read its own database; the root password is
+# not in this pod. The S3 keys come key by key from ``s3.credentialsRef``. No
+# password is ever on a command line: arangodump expands ``@ARANGODB_PASSWORD@``
+# from its own environment.
+#
+# Encryption: ``s3.serverSideEncryption`` (``AES256`` or ``aws:kms`` with
+# ``s3.kmsKeyId``) is requested on every upload; the bucket's own default
+# encryption and versioning are the operator's to set.
+#
+# What this does NOT back up: attachments (with ``storage.backend: s3`` use
+# bucket versioning / replication, NFR-013 §7.1; with local-fs a CSI
+# VolumeSnapshot of the ``backend-attachments`` claim) and TimescaleDB (not part
+# of this chart's production values). Restore: docs/deployment/backup-restore.md.
+backup:
+  enabled: false
+  schedule: "15 2 * * *"
+  retentionDays: 30
+  # Node-disk scratch for one dump; size it above the compressed database.
+  scratchSize: 10Gi
+  s3:
+    # rclone's S3 provider name: AWS, Minio, Ceph, Cloudflare, Other, ...
+    provider: AWS
+    endpointUrl: https://s3.eu-central-1.amazonaws.com
+    region: eu-central-1
+    bucket: ""
+    prefix: kamerplanter/arangodb
+    forcePathStyle: false
+    serverSideEncryption: AES256   # "" | AES256 | aws:kms
+    kmsKeyId: ""
+    credentialsRef:
+      secretName: kamerplanter-backup-s3
       accessKeyIdKey: AWS_ACCESS_KEY_ID
       secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+
+# -- Prometheus metrics of the backend (#2129, MT-033, NFR-007).
+#
+# ONE switch. With ``enabled: true`` the chart (a) sets METRICS_PORT on the
+# backend, which then serves ``/metrics`` on that port — its own listener, never
+# a route of the API on 8000, so the public ingress (-> frontend nginx -> backend
+# :8000) cannot reach it; (b) adds the ``metrics`` port to the backend Service;
+# (c) renders a ``ServiceMonitor`` (monitoring.coreos.com/v1 — the Prometheus
+# Operator CRD must exist, which is why the default is off); and (d) renders the
+# ``backend-metrics`` NetworkPolicy that admits exactly the Prometheus pods
+# below to that port and to nothing else. The backend's own policy still admits
+# only the frontend to :8000, so Prometheus cannot use the scrape path to reach
+# the API around nginx (#1159).
+#
+# The series carry no tenant and no person: ``handler`` is the route pattern
+# (``/api/v1/t/{tenant_slug}/…``), never the requested path. The per-tenant view
+# is the ``tenant=ten_…`` field of the log lines (#2130).
+#
+# Each consumer reads this block through a template string, which bjw-s common
+# >= 5.2 renders against the merged values (no own template files, HELM.md §2.1).
+# ``enabled`` renders ``"true"`` or ``""`` — never ``"false"``, which is truthy.
+#
+# The port is 9464 and written as a literal in three places — METRICS_PORT on
+# the backend, the Service's ``metrics`` port, the NetworkPolicy's port — because
+# a NetworkPolicy port rendered from a template is a string, which Kubernetes
+# reads as a *named* port. tests/unit/guards/test_chart_metrics_port_is_private.py
+# pins that the three agree and that nothing else admits the port.
+monitoring:
+  enabled: false
+  scrapeInterval: 30s
+  # Who may scrape: the namespace Prometheus runs in and the value of its pods'
+  # ``app.kubernetes.io/name`` label. Defaults fit kube-prometheus-stack in
+  # ``monitoring``; adjust both to the cluster. The ServiceMonitor's own label
+  # (what the operator's ``serviceMonitorSelector`` matches) too.
+  prometheus:
+    namespace: monitoring
+    podName: prometheus
+    serviceMonitorLabels:
+      release: kube-prometheus-stack
 
 # -- Default pod-level security context applied to all controllers (SEC-M-004)
 defaultPodOptions:
@@ -140,6 +704,24 @@ controllers:
     rollingUpdate:
       surge: 1
       unavailable: 0
+    # #2127 — autoscaling and disruption budget are OFF by default and switched
+    # on per installation with the bjw-s keys below (docs/deployment/helm.md#skalierung).
+    # Both need more than one backend pod, so the attachments must live on S3
+    # or a ReadWriteMany volume first — renderChecks refuses the rest.
+    #   horizontalPodAutoscaler:      # replaces `replicas` (bjw-s drops it from the Deployment)
+    #     minReplicas: 2
+    #     maxReplicas: 6
+    #     metrics:
+    #       - type: Resource
+    #         resource:
+    #           name: cpu
+    #           target:
+    #             type: Utilization
+    #             averageUtilization: 70
+    #   podDisruptionBudget:
+    #     minAvailable: 1             # must stay below replicas / minReplicas
+    # A new pod needs up to the startup budget below before it serves; a
+    # scale-up therefore helps after minutes, not seconds (#2125).
     pod:
       # NOTE: setting pod.securityContext here REPLACES the
       # defaultPodOptions.securityContext (bjw-s does not deep-merge it), so
@@ -153,6 +735,32 @@ controllers:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # #2153 — every pod that mounts the attachments claim lands on ONE node.
+      # A ReadWriteOnce volume attaches to one node only. The backend AND the
+      # celery-worker mount it, and a rolling update starts the new pod before
+      # the old one stops (surge 1). Nothing told the scheduler that: a new
+      # backend pod placed on another node waited in ContainerCreating with
+      # `Multi-Attach error` and the rollout hung; a worker placed apart from
+      # the backend never started at all. Both controllers carry this label
+      # and require a pod with it on the same node (`topologyKey` hostname),
+      # so a new pod joins the node the volume is attached to and the rolling
+      # update keeps its zero downtime (no `Recreate`). The first pod of a
+      # release matches its own term, which the scheduler accepts.
+      #
+      # Only while the volume is ReadWriteOnce local-fs: with
+      # `storage.backend: s3` or a ReadWriteMany claim the topology key renders
+      # to `kubernetes.io/os`, a label every node carries with the same value —
+      # the term is then always met and pods spread freely. (A Helm string
+      # cannot remove the term, but it can make it meaningless.)
+      labels: &attachments-volume-label
+        kamerplanter.io/attachments-volume: '{{ .Release.Name }}'
+      affinity: &attachments-volume-affinity
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  kamerplanter.io/attachments-volume: '{{ .Release.Name }}'
+              topologyKey: '{{ if and (eq .Values.storage.backend "local-fs") (ne .Values.storage.localFs.pvc.accessMode "ReadWriteMany") }}kubernetes.io/hostname{{ else }}kubernetes.io/os{{ end }}'
     containers:
       main:
         image:
@@ -171,11 +779,25 @@ controllers:
           # entry is needed here.
           - secret: kamerplanter-secrets
         env:
-          ARANGODB_HOST: kamerplanter-arangodb
-          ARANGODB_PORT: "8529"
+          # #2127 — the bundled database, or `database.arangodb.external` when that
+          # switch is on. celery-worker and celery-beat reuse these (YAML anchors).
+          ARANGODB_HOST: &arangodb-host '{{ if .Values.database.arangodb.external.enabled }}{{ .Values.database.arangodb.external.host }}{{ else }}kamerplanter-arangodb{{ end }}'
+          ARANGODB_PORT: &arangodb-port '{{ if .Values.database.arangodb.external.enabled }}{{ .Values.database.arangodb.external.port }}{{ else }}8529{{ end }}'
+          ARANGODB_SCHEME: &arangodb-scheme '{{ if .Values.database.arangodb.external.enabled }}{{ .Values.database.arangodb.external.scheme }}{{ else }}http{{ end }}'
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
-          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
+          # #2127 — the bundled Valkey, or `database.valkey.external.url` with
+          # `valkey.enabled: false`.
+          REDIS_URL: &redis-url '{{ if .Values.valkey.enabled }}redis://kamerplanter-valkey:6379/0{{ else }}{{ .Values.database.valkey.external.url }}{{ end }}'
+          # #2127 — follows controllers.timescaledb.enabled (the one switch);
+          # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
+          TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
           # How many proxy addresses this deployment's own infrastructure appends
           # to X-Forwarded-For, counted from the right (#1151). Only the backend
           # needs it — the Celery controllers serve no requests.
@@ -213,6 +835,9 @@ controllers:
           # attributable to the release that introduced it.
           SENTRY_RELEASE: ""
           SENTRY_SAMPLE_RATE: "1.0"
+          # #2129 — the metrics listener; "0" starts none. Follows the
+          # ``monitoring`` block at the top of this file, never set it here.
+          METRICS_PORT: '{{ if .Values.monitoring.enabled }}9464{{ else }}0{{ end }}'
           # NetworkPolicy caveat: the external-egress rule below deliberately
           # EXCLUDES the RFC1918 ranges, so a self-hosted tracker on a private
           # address is unreachable until the operator adds an explicit egress
@@ -221,6 +846,15 @@ controllers:
           # changes, not one.
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
+          # #1948 — a self-registered account must confirm its address before it
+          # can sign in (also the application default).
+          # WARNING: this chart sets NO EMAIL_ADAPTER, so the backend uses the
+          # console adapter, which delivers no mail. Without a mail adapter
+          # (EMAIL_ADAPTER=smtp or resend plus its settings), NEW REGISTRATIONS
+          # CANNOT LOG IN unless you set REQUIRE_EMAIL_VERIFICATION: "false" in
+          # your values. Existing accounts are unaffected. The backend logs
+          # email_adapter_console_in_production at startup in that state.
+          REQUIRE_EMAIL_VERIFICATION: "true"
           # #1236 — the last delivery hop, made measurable. `GET /api/health`
           # discloses `build_revision` (the full 40-character commit the running
           # image was built from) only when this is true; the application default
@@ -284,37 +918,83 @@ controllers:
           MCP_IDEMPOTENCY_TTL_HOURS: "24"
           # mcp_audit_log retention; the floor is set by NFR-011, not by taste.
           MCP_AUDIT_RETENTION_DAYS: "90"
-          # NFR-013 Object storage (§4.1). Defaults target the local-fs backend
-          # whose root MUST match the backend-uploads PVC mount below. Switch to
-          # s3 by setting STORAGE_BACKEND=s3 + the STORAGE_S3_* values and adding
-          # the credentials via envFrom from the ESO-synced Secret (see comment).
-          STORAGE_BACKEND: "local-fs"
-          STORAGE_LOCAL_FS_ROOT: /data/attachments
-          STORAGE_MAX_FILE_SIZE_MB: "25"
-          STORAGE_PRESIGN_TTL_SECONDS: "900"
-          STORAGE_VIRUS_SCAN_ENABLED: "false"
-          # -- S3 backend (uncomment + set STORAGE_BACKEND=s3 to enable):
-          # STORAGE_S3_ENDPOINT_URL: https://s3.eu-central-1.amazonaws.com
-          # STORAGE_S3_REGION: eu-central-1
-          # STORAGE_S3_BUCKET: kamerplanter-prod
-          # STORAGE_S3_USE_PATH_STYLE: "false"
-          # STORAGE_S3_FORCE_TLS: "true"
-          # STORAGE_S3_KMS_KEY_ID: ""
-          # -- S3 credentials come ONLY from the External Secrets Operator —
-          # never inline them here (NFR-013 §4.1). Provide a Secret named
-          # ``storage-s3-credentials`` (keys STORAGE_S3_ACCESS_KEY_ID /
-          # STORAGE_S3_SECRET_ACCESS_KEY) and reference it via envFrom:
-          #   envFrom:
-          #     - secret: kamerplanter-secrets
-          #     - secret: storage-s3-credentials
+          # #2254 — byte budget for concurrent multipart uploads spooled to /tmp
+          # (backend-tmp, 64Mi). 52 MiB holds two full uploads at the default limit;
+          # a larger storage.maxFileSizeMb raises it to one full upload, which the
+          # backend requires at start. bjw-s does not template emptyDir sizeLimit:
+          # raise persistence.backend-tmp.sizeLimit yourself above ~60 MiB uploads.
+          UPLOAD_SPOOL_BUDGET_MB: '{{ max 52 (add (int .Values.storage.maxFileSizeMb) 1) }}'
+          # REQ-056 §8.4 (#2138) — the import route's own body ceiling, bounded by
+          # UPLOAD_SPOOL_BUDGET_MB above (see tenantExport for the /tmp sizing).
+          TENANT_IMPORT_MAX_UPLOAD_MB: '{{ .Values.tenantExport.importMaxUploadMb }}'
+          # REQ-056 §8.3 (#2138) — optional; absent, the key derives from JWT_SECRET_KEY.
+          TENANT_EXPORT_SIGNING_SECRET:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.tenantExport.signingSecret.secretName }}'
+                key: '{{ .Values.tenantExport.signingSecret.key }}'
+                optional: true
+          # NFR-013 Object storage (§4.1) — rendered from the top-level
+          # ``storage`` block (#2124); set the backend THERE, not here. The
+          # celery-worker carries the same lines and must stay identical.
+          STORAGE_BACKEND: '{{ .Values.storage.backend }}'
+          STORAGE_LOCAL_FS_ROOT: '{{ .Values.storage.localFs.root }}'
+          STORAGE_MAX_FILE_SIZE_MB: '{{ .Values.storage.maxFileSizeMb }}'
+          STORAGE_PRESIGN_TTL_SECONDS: '{{ .Values.storage.presignTtlSeconds }}'
+          STORAGE_VIRUS_SCAN_ENABLED: '{{ .Values.storage.virusScan.enabled }}'
+          STORAGE_VIRUS_SCAN_ENDPOINT: '{{ .Values.storage.virusScan.endpoint }}'
+          # The S3 parameters are empty (= the application defaults) unless the
+          # backend is s3; the two booleans always carry the configured value.
+          STORAGE_S3_ENDPOINT_URL: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.endpointUrl }}{{ end }}'
+          STORAGE_S3_REGION: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.region }}{{ end }}'
+          STORAGE_S3_BUCKET: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.bucket }}{{ end }}'
+          STORAGE_S3_KMS_KEY_ID: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.kmsKeyId }}{{ end }}'
+          STORAGE_S3_USE_PATH_STYLE: '{{ .Values.storage.s3.usePathStyle }}'
+          STORAGE_S3_FORCE_TLS: '{{ .Values.storage.s3.forceTls }}'
+          STORAGE_S3_ALLOW_PRIVATE_ENDPOINT: '{{ .Values.storage.s3.allowPrivateEndpoint }}'
+          # S3 credentials: only these two keys of the Secret named in
+          # storage.s3.credentialsRef, never inlined (NFR-013 §4.1).
+          STORAGE_S3_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.accessKeyIdKey }}'
+                optional: true
+          STORAGE_S3_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
+                optional: true
         probes:
-          liveness:
+          # #2125 — the lifespan runs ensure_collections, every pending migration
+          # and the seeds BEFORE uvicorn listens (measured 2026-10-04 on an empty
+          # ArangoDB: ~6 s import + ~33 s database work on a workstation), and a
+          # replica that finds the migration lock held waits up to
+          # BARRIER_TIMEOUT_SECONDS (600 s) for it. Liveness alone killed that
+          # start ~35 s in, and a killed migrator leaves its lock fresh, so the
+          # next start waited and was killed again. Liveness and readiness only
+          # begin once this probe succeeded; its budget (10 s x 90 = 900 s) must
+          # stay above the barrier so the application's own bounded wait, not
+          # the kubelet, decides that a start failed
+          # (tests/unit/guards/test_chart_backend_startup_budget.py).
+          startup:
             enabled: true
             custom: true
             spec:
               httpGet:
                 path: /api/v1/health/live
                 port: &backend-port 8000
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 90
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              httpGet:
+                path: /api/v1/health/live
+                port: *backend-port
               initialDelaySeconds: 15
               periodSeconds: 10
               timeoutSeconds: 5
@@ -348,6 +1028,10 @@ controllers:
     rollingUpdate:
       surge: 1
       unavailable: 0
+    # #2127 — opt-in like the backend (stateless nginx, no volume constraint):
+    #   replicas: 2
+    #   podDisruptionBudget:
+    #     minAvailable: 1
     pod:
       securityContext:
         runAsNonRoot: true
@@ -392,6 +1076,14 @@ controllers:
             value: ""
           SENTRY_SAMPLE_RATE:
             value: "1.0"
+        # #2127 — every container carries a limit (NFR-002 §11); a heredoc
+        # into an emptyDir needs next to nothing.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+          limits:
+            memory: 64Mi
     containers:
       main:
         image:
@@ -443,6 +1135,10 @@ controllers:
             memory: 256Mi
 
   arangodb:
+    # #2127 — off with `database.arangodb.external.enabled` (the one switch); an
+    # overlay may still set `enabled: false` directly (the ki / recognition
+    # profiles do). Service, NetworkPolicy and volumes below follow both.
+    enabled: '{{ if not .Values.database.arangodb.external.enabled }}true{{ end }}'
     type: statefulset
     replicas: 1
     pod:
@@ -457,15 +1153,26 @@ controllers:
       main:
         image:
           repository: arangodb
-          tag: "3.12.11"
+          tag: "3.12.12"
           pullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
-        envFrom:
-          - secret: kamerplanter-secrets
-        env: {}
+        # #2126 — exactly the root password, nothing else of the application
+        # Secret. Until #2126 this was `envFrom: kamerplanter-secrets`, which put
+        # JWT_SECRET_KEY, FERNET_KEY, INTERNAL_SERVICE_TOKEN and every mail/API
+        # key into the database pod. `optional` keeps the old behaviour for a
+        # Secret without the key (the image only reads it to initialise an
+        # empty volume). To separate the root password from the application
+        # Secret, set `database.arangodb.rootPasswordSecret` (docs: kubernetes.md).
+        env:
+          ARANGO_ROOT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
         probes:
           liveness:
             enabled: true
@@ -494,6 +1201,103 @@ controllers:
           limits:
             cpu: "1"
             memory: 1Gi
+      # -- #2126 application account. Provisions — idempotently, on every pod
+      # start — the account the backend connects with: the application database
+      # (created if missing), the account with ARANGODB_PASSWORD, `rw` on that
+      # database and its collections, `none` on `_system`. Then it idles.
+      # It reads ARANGODB_USERNAME/ARANGODB_DATABASE from the backend's own env,
+      # so a backend overridden to `root` makes it provision nothing.
+      # Runs beside arangod because that is the one pod that holds the root
+      # password anyway; it reaches the server on localhost (no NetworkPolicy
+      # change), and passes no password on a command line (arangosh expands
+      # `@ARANGO_ROOT_PASSWORD@` from its environment). A failure is retried every
+      # 15 s and logged; it never blocks the database itself. Verified against
+      # ArangoDB 3.12.12 under this security context on 2026-10-04.
+      app-user:
+        image:
+          repository: arangodb
+          # Same image and tag as the server (client == server version).
+          tag: '{{ .Values.controllers.arangodb.containers.main.image.tag }}'
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -u
+            trap 'exit 0' TERM INT
+            provision() {
+              arangosh \
+                --server.endpoint tcp://127.0.0.1:8529 \
+                --server.username root \
+                --server.password @ARANGO_ROOT_PASSWORD@ \
+                --console.history false \
+                --quiet \
+                --javascript.execute-string "$(cat <<'JS'
+            const users = require('@arangodb/users');
+            const env = require('internal').env;
+            const name = env.ARANGODB_DATABASE;
+            const user = env.ARANGODB_USERNAME;
+            const password = env.ARANGODB_PASSWORD;
+            if (!name || !user || !password) {
+              throw new Error('ARANGODB_DATABASE, ARANGODB_USERNAME and ARANGODB_PASSWORD must be set');
+            }
+            if (user === 'root') {
+              print('app-user: the application connects as root, nothing to provision');
+            } else {
+              if (!db._databases().includes(name)) {
+                db._createDatabase(name);
+                print('app-user: created database ' + name);
+              }
+              if (users.exists(user)) {
+                users.update(user, password, true);
+              } else {
+                users.save(user, password, true);
+              }
+              users.grantDatabase(user, name, 'rw');
+              users.grantCollection(user, name, '*', 'rw');
+              users.grantDatabase(user, '_system', 'none');
+              print('app-user: ' + user + ' has rw on ' + name + ' and no access to _system');
+            }
+            JS
+            )"
+            }
+            until provision; do
+              echo "app-user: provisioning failed, retrying in 15s"
+              sleep 15 &
+              wait $!
+            done
+            while :; do
+              sleep 3600 &
+              wait $!
+            done
+        env:
+          ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
+          ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
+          # Both optional: a missing key must never stop the database pod; the
+          # script then logs and retries.
+          ARANGODB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: ARANGODB_PASSWORD
+                optional: true
+          ARANGO_ROOT_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.database.arangodb.rootPasswordSecret }}'
+                key: ARANGO_ROOT_PASSWORD
+                optional: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
     statefulset:
       volumeClaimTemplates:
         - name: data
@@ -501,8 +1305,156 @@ controllers:
           size: 5Gi
           annotations:
             helm.sh/resource-policy: keep
-          globalMounts:
-            - path: /var/lib/arangodb3
+          # The database volume belongs to arangod alone, not to `app-user`
+          # (#2126). The claim template itself is unchanged.
+          advancedMounts:
+            main:
+              - path: /var/lib/arangodb3
+
+  # -- #2122 ArangoDB backup CronJob — configured through the top-level
+  # ``backup`` block; ``enabled`` renders to "true" or "" (see the storage
+  # persistence for why not "false").
+  arangodb-backup:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: cronjob
+    cronjob:
+      schedule: '{{ .Values.backup.schedule }}'
+      concurrencyPolicy: Forbid
+      successfulJobsHistory: 3
+      failedJobsHistory: 3
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200
+    pod:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+    initContainers:
+      dump:
+        image:
+          repository: arangodb
+          # The database's own tag (client == server version); Renovate bumps
+          # the arangodb controller above and this follows.
+          tag: '{{ .Values.controllers.arangodb.containers.main.image.tag }}'
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            # arangodump names TLS `ssl://`, plain text `tcp://` (#2127).
+            case "${ARANGODB_SCHEME}" in
+              https) endpoint="ssl://${ARANGODB_HOST}:${ARANGODB_PORT}" ;;
+              *) endpoint="tcp://${ARANGODB_HOST}:${ARANGODB_PORT}" ;;
+            esac
+            arangodump \
+              --server.endpoint "${endpoint}" \
+              --server.username "${ARANGODB_USERNAME}" \
+              --server.password @ARANGODB_PASSWORD@ \
+              --server.database "${ARANGODB_DATABASE}" \
+              --include-system-collections true \
+              --compress-output true \
+              --output-directory "/backup/${stamp}"
+            printf '%s\n' "${stamp}" > /backup/STAMP
+        env:
+          # The application's own connection — whatever account the backend
+          # uses, the backup uses.
+          ARANGODB_HOST: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_HOST $ }}'
+          ARANGODB_PORT: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_PORT $ }}'
+          ARANGODB_SCHEME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_SCHEME $ }}'
+          ARANGODB_DATABASE: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_DATABASE $ }}'
+          ARANGODB_USERNAME: '{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'
+          ARANGODB_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: ARANGODB_PASSWORD
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    containers:
+      main:
+        image:
+          repository: rclone/rclone
+          tag: "1.75.2"
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -eu
+            # The dump holds personal data; it leaves the node with the upload
+            # and is never left behind in a finished pod's volume.
+            trap 'rm -rf /backup/*' EXIT
+            stamp="$(cat /backup/STAMP)"
+            dest="backup:${BACKUP_S3_BUCKET}/${BACKUP_S3_PREFIX}"
+            rclone copy "/backup/${stamp}" "${dest}/${stamp}"
+            printf '%s\n' "${stamp}" | rclone rcat "${dest}/LATEST"
+            echo "backup ${stamp} uploaded"
+            if [ "${BACKUP_RETENTION_DAYS}" -gt 0 ]; then
+              cutoff="$(date -u -d "@$(( $(date -u +%s) - BACKUP_RETENTION_DAYS * 86400 ))" +%Y%m%dT%H%M%SZ)"
+              rclone lsf --dirs-only "${dest}" | sed 's#/$##' | while read -r old; do
+                case "${old}" in
+                  [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z) ;;
+                  *) continue ;;
+                esac
+                if [ "${old}" != "${stamp}" ] && [ "${old}" \< "${cutoff}" ]; then
+                  rclone purge "${dest}/${old}"
+                  echo "backup ${old} expired (older than ${BACKUP_RETENTION_DAYS} days)"
+                fi
+              done
+            fi
+        env:
+          HOME: /tmp
+          RCLONE_CONFIG: /tmp/rclone.conf
+          BACKUP_S3_BUCKET: '{{ .Values.backup.s3.bucket }}'
+          BACKUP_S3_PREFIX: '{{ .Values.backup.s3.prefix }}'
+          BACKUP_RETENTION_DAYS: '{{ .Values.backup.retentionDays }}'
+          # rclone remote "backup:" configured entirely from the environment.
+          RCLONE_CONFIG_BACKUP_TYPE: s3
+          RCLONE_CONFIG_BACKUP_PROVIDER: '{{ .Values.backup.s3.provider }}'
+          RCLONE_CONFIG_BACKUP_ENDPOINT: '{{ .Values.backup.s3.endpointUrl }}'
+          RCLONE_CONFIG_BACKUP_REGION: '{{ .Values.backup.s3.region }}'
+          RCLONE_CONFIG_BACKUP_FORCE_PATH_STYLE: '{{ .Values.backup.s3.forcePathStyle }}'
+          RCLONE_CONFIG_BACKUP_SERVER_SIDE_ENCRYPTION: '{{ .Values.backup.s3.serverSideEncryption }}'
+          RCLONE_CONFIG_BACKUP_SSE_KMS_KEY_ID: '{{ .Values.backup.s3.kmsKeyId }}'
+          # The bucket must exist; the backup key needs no CreateBucket right.
+          RCLONE_CONFIG_BACKUP_NO_CHECK_BUCKET: "true"
+          RCLONE_CONFIG_BACKUP_ENV_AUTH: "false"
+          RCLONE_CONFIG_BACKUP_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.backup.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.backup.s3.credentialsRef.accessKeyIdKey }}'
+          RCLONE_CONFIG_BACKUP_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.backup.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.backup.s3.credentialsRef.secretAccessKeyKey }}'
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
 
   celery-worker:
     type: deployment
@@ -522,6 +1474,10 @@ controllers:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      # #2153 — on the backend's node while the attachments claim is
+      # ReadWriteOnce; see controllers.backend.pod.affinity.
+      labels: *attachments-volume-label
+      affinity: *attachments-volume-affinity
     containers:
       main:
         image:
@@ -529,7 +1485,21 @@ controllers:
           tag: latest
           pullPolicy: IfNotPresent
         command: ["celery"]
-        args: ["-A", "app.tasks", "worker", "--loglevel=info", "--concurrency=2"]
+        # MT-032 (#2128): consume every queue the application declares
+        # (app/tasks/routing.py) — all three, or only `critical` while
+        # `celeryWorkers.dedicatedQueues` runs `celery` and `bulk` in workers of
+        # their own (templates/_celery_workers.tpl copies this controller). A queue no
+        # worker consumes keeps its tasks in Valkey forever, silently —
+        # tests/unit/guards/test_every_task_has_a_queue.py and
+        # scripts/ci/assert_chart_contracts.sh hold both states to the code.
+        args:
+          - "-A"
+          - "app.tasks"
+          - "worker"
+          - "--loglevel=info"
+          - "--concurrency=2"
+          - "-Q"
+          - '{{ if .Values.celeryWorkers.dedicatedQueues }}critical{{ else }}critical,celery,bulk{{ end }}'
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -542,11 +1512,21 @@ controllers:
           # entry is needed here.
           - secret: kamerplanter-secrets
         env:
-          ARANGODB_HOST: kamerplanter-arangodb
-          ARANGODB_PORT: "8529"
+          ARANGODB_HOST: *arangodb-host
+          ARANGODB_PORT: *arangodb-port
+          ARANGODB_SCHEME: *arangodb-scheme
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
-          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
+          REDIS_URL: *redis-url
+          # #2127 — follows controllers.timescaledb.enabled (the one switch);
+          # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
+          TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
           # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
@@ -566,27 +1546,89 @@ controllers:
           # rule for it. Events would be dropped silently — the SDK does not
           # surface a blocked connection. Enabling the DSN is therefore two
           # changes, not one.
+          # #2154 — the readiness file the probes below test. With it set the
+          # worker proves its ArangoDB login before consuming (and exits when
+          # it cannot), writes the file once its consumer runs and removes it
+          # on shutdown. Lives on the writable /tmp emptyDir.
+          WORKER_READY_FILE: &worker-ready-file /tmp/worker-ready
           # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
           # storage erasure (§6.2), so it MUST see the same backend + volume as
-          # the backend pod. Keep these in sync with the backend controller.
-          STORAGE_BACKEND: "local-fs"
-          STORAGE_LOCAL_FS_ROOT: /data/attachments
-          STORAGE_MAX_FILE_SIZE_MB: "25"
-          # For the s3 backend, add the same STORAGE_S3_* vars + an envFrom on
-          # the ESO-synced ``storage-s3-credentials`` Secret (see backend).
+          # the backend pod: these lines are the backend's, verbatim (#2124).
+          STORAGE_BACKEND: '{{ .Values.storage.backend }}'
+          STORAGE_LOCAL_FS_ROOT: '{{ .Values.storage.localFs.root }}'
+          STORAGE_MAX_FILE_SIZE_MB: '{{ .Values.storage.maxFileSizeMb }}'
+          STORAGE_PRESIGN_TTL_SECONDS: '{{ .Values.storage.presignTtlSeconds }}'
+          STORAGE_VIRUS_SCAN_ENABLED: '{{ .Values.storage.virusScan.enabled }}'
+          STORAGE_VIRUS_SCAN_ENDPOINT: '{{ .Values.storage.virusScan.endpoint }}'
+          STORAGE_S3_ENDPOINT_URL: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.endpointUrl }}{{ end }}'
+          STORAGE_S3_REGION: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.region }}{{ end }}'
+          STORAGE_S3_BUCKET: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.bucket }}{{ end }}'
+          STORAGE_S3_KMS_KEY_ID: '{{ if eq .Values.storage.backend "s3" }}{{ .Values.storage.s3.kmsKeyId }}{{ end }}'
+          STORAGE_S3_USE_PATH_STYLE: '{{ .Values.storage.s3.usePathStyle }}'
+          STORAGE_S3_FORCE_TLS: '{{ .Values.storage.s3.forceTls }}'
+          STORAGE_S3_ALLOW_PRIVATE_ENDPOINT: '{{ .Values.storage.s3.allowPrivateEndpoint }}'
+          STORAGE_S3_ACCESS_KEY_ID:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.accessKeyIdKey }}'
+                optional: true
+          STORAGE_S3_SECRET_ACCESS_KEY:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.storage.s3.credentialsRef.secretName }}'
+                key: '{{ .Values.storage.s3.credentialsRef.secretAccessKeyKey }}'
+                optional: true
+          # REQ-056 §8.3 (#2138) — the worker signs the export archives; same optional key as the backend.
+          TENANT_EXPORT_SIGNING_SECRET:
+            valueFrom:
+              secretKeyRef:
+                name: '{{ .Values.tenantExport.signingSecret.secretName }}'
+                key: '{{ .Values.tenantExport.signingSecret.key }}'
+                optional: true
         probes:
+          # #2154 — a worker is ready when its consumer runs, which the worker
+          # itself records (WORKER_READY_FILE above): `test -f` costs nothing
+          # (measured: <1 ms, ~2 MB) where a `celery inspect` probe starts a
+          # Python interpreter that imports the whole application (~6 s,
+          # ~95 MB, inside this container's memory limit). Until the file
+          # exists the rollout keeps the old worker (surge 1, unavailable 0).
+          # Startup budget 5 s x 36 = 180 s: import (~6 s) + the database gate
+          # (WORKER_DATABASE_START_BUDGET_SECONDS 60 s, one attempt up to
+          # ~18 s more) + broker connect — tests/unit/guards/test_chart_worker_probes.py.
+          startup:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["test", "-f", *worker-ready-file]
+              periodSeconds: 5
+              timeoutSeconds: 2
+              failureThreshold: 36
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["test", "-f", *worker-ready-file]
+              periodSeconds: 10
+              timeoutSeconds: 2
+              failureThreshold: 3
+          # Liveness asks THIS worker (`-d celery@$HOSTNAME`; the pod name is
+          # the node name). Plain `inspect ping` broadcasts and passes when ANY
+          # worker answers — measured: exit 0 with this pod's own worker dead
+          # and another one alive — so during a rollout the old pod kept the
+          # new one "alive". It still costs an interpreter start, hence the
+          # long period; it runs only after the startup probe succeeded.
           liveness:
             enabled: true
             custom: true
             spec:
               exec:
-                command: ["celery", "-A", "app.tasks", "inspect", "ping", "--timeout", "5"]
-              initialDelaySeconds: 30
-              periodSeconds: 30
-              timeoutSeconds: 10
+                command: ["sh", "-c", "exec celery -A app.tasks inspect ping -d \"celery@${HOSTNAME}\" --timeout 10"]
+              periodSeconds: 60
+              timeoutSeconds: 20
               failureThreshold: 3
-          readiness:
-            enabled: false
         # The worker does the same in-memory Pillow image decoding as the
         # backend (thumbnail generation §8.2), so 512Mi OOMKills it under load.
         # Match the backend's 2Gi headroom.
@@ -600,6 +1642,9 @@ controllers:
 
   celery-beat:
     type: deployment
+    # Singleton: one scheduler, stopped before its successor starts (Recreate).
+    # A second replica runs every periodic task twice; renderChecks.scaling
+    # refuses replicas != 1 and an autoscaler here (#2127).
     replicas: 1
     strategy: Recreate
     pod:
@@ -629,11 +1674,21 @@ controllers:
           # entry is needed here.
           - secret: kamerplanter-secrets
         env:
-          ARANGODB_HOST: kamerplanter-arangodb
-          ARANGODB_PORT: "8529"
+          ARANGODB_HOST: *arangodb-host
+          ARANGODB_PORT: *arangodb-port
+          ARANGODB_SCHEME: *arangodb-scheme
           ARANGODB_DATABASE: kamerplanter
-          ARANGODB_USERNAME: root
-          REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #2126 — the application account, provisioned by the arangodb
+          # `app-user` container; see `database.arangodb.appUsername`.
+          ARANGODB_USERNAME: '{{ .Values.database.arangodb.appUsername }}'
+          REDIS_URL: *redis-url
+          # #2127 — follows controllers.timescaledb.enabled (the one switch);
+          # TIMESCALEDB_PASSWORD arrives through envFrom of kamerplanter-secrets.
+          TIMESCALEDB_ENABLED: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ else }}false{{ end }}'
+          TIMESCALEDB_HOST: kamerplanter-timescaledb
+          TIMESCALEDB_PORT: "5432"
+          TIMESCALEDB_DATABASE: kamerplanter_sensors
+          TIMESCALEDB_USERNAME: postgres
           # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
           # is never initialised and the process is unchanged, so this block is
           # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
@@ -756,7 +1811,12 @@ controllers:
   # model baked at build). Disabled by default; the operator enables it together
   # with the vectordb (controllers.inference-service.enabled,
   # service.inference-service.enabled, networkpolicies.inference-service.enabled).
-  # INFERENCE_SERVICE_ENABLED on the backend is set in GitOps, not here.
+  # INFERENCE_SERVICE_ENABLED is set in GitOps, not here — and it MUST be set,
+  # together with INFERENCE_SERVICE_URL (INTERNAL_SERVICE_TOKEN comes from
+  # kamerplanter-secrets), on BOTH the backend AND the celery-worker (#1753):
+  # the backend writes user contributions to the index, the worker runs the
+  # scheduled Art. 17 erasure that must delete them. A worker without the flag
+  # holds every erasure while contributions are on record.
   inference-service:
     enabled: false
     type: deployment
@@ -860,123 +1920,99 @@ controllers:
             cpu: "2"
             memory: 2Gi
 
-  # -- TimescaleDB (optional — disabled by default, enable via values override)
-  # timescaledb:
-  #   type: statefulset
-  #   replicas: 1
-  #   pod:
-  #     securityContext:
-  #       runAsUser: 999
-  #       runAsGroup: 999
-  #       fsGroup: 999
-  #   containers:
-  #     main:
-  #       image:
-  #         repository: timescale/timescaledb
-  #         tag: "2.17.2-pg16"
-  #         pullPolicy: IfNotPresent
-  #       securityContext:
-  #         allowPrivilegeEscalation: false
-  #         capabilities:
-  #           drop: ["ALL"]
-  #       env:
-  #         POSTGRES_DB: kamerplanter_sensors
-  #         POSTGRES_USER: postgres
-  #         POSTGRES_PASSWORD: changeme
-  #       probes:
-  #         liveness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 30
-  #             periodSeconds: 10
-  #             timeoutSeconds: 5
-  #             failureThreshold: 5
-  #         readiness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 15
-  #             periodSeconds: 5
-  #             timeoutSeconds: 3
-  #             failureThreshold: 5
-  #       resources:
-  #         requests:
-  #           cpu: 250m
-  #           memory: 512Mi
-  #         limits:
-  #           cpu: "1"
-  #           memory: 1Gi
-  #   statefulset:
-  #     volumeClaimTemplates:
-  #       - name: data
-  #         accessMode: ReadWriteOnce
-  #         size: 10Gi
-  #         globalMounts:
-  #           - path: /var/lib/postgresql/data
-
-  # -- VectorDB (optional — PostgreSQL + pgvector for AI/RAG, disabled by default)
-  # vectordb:
-  #   type: statefulset
-  #   replicas: 1
-  #   pod:
-  #     securityContext:
-  #       runAsUser: 999
-  #       runAsGroup: 999
-  #       fsGroup: 999
-  #   containers:
-  #     main:
-  #       image:
-  #         repository: kamerplanter-vectordb
-  #         tag: latest
-  #         pullPolicy: IfNotPresent
-  #       securityContext:
-  #         allowPrivilegeEscalation: false
-  #         capabilities:
-  #           drop: ["ALL"]
-  #       env:
-  #         POSTGRES_DB: kamerplanter_vectors
-  #         POSTGRES_USER: postgres
-  #         POSTGRES_PASSWORD: changeme
-  #       probes:
-  #         liveness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 30
-  #             periodSeconds: 10
-  #             timeoutSeconds: 5
-  #             failureThreshold: 5
-  #         readiness:
-  #           enabled: true
-  #           custom: true
-  #           spec:
-  #             exec:
-  #               command: ["pg_isready", "-U", "postgres"]
-  #             initialDelaySeconds: 15
-  #             periodSeconds: 5
-  #             timeoutSeconds: 3
-  #             failureThreshold: 5
-  #       resources:
-  #         requests:
-  #           cpu: 50m
-  #           memory: 128Mi
-  #         limits:
-  #           cpu: 500m
-  #           memory: 512Mi
-  #   statefulset:
-  #     volumeClaimTemplates:
-  #       - name: data
-  #         accessMode: ReadWriteOnce
-  #         size: 2Gi
-  #         globalMounts:
-  #           - path: /var/lib/postgresql/data
+  # -- TimescaleDB (REQ-005 sensor time series, #2127 MT-031). OFF by default.
+  #
+  # `controllers.timescaledb.enabled: true` is the ONE switch: the Service, the
+  # NetworkPolicy, the two scratch volumes below and TIMESCALEDB_ENABLED on
+  # backend, celery-worker and celery-beat all follow it at render time, so the
+  # database never runs unreachable and the application never looks for a
+  # database that is not there.
+  #
+  # The password is NEVER inlined: the operator adds the key TIMESCALEDB_PASSWORD
+  # to kamerplanter-secrets. The database reads it by secretKeyRef (that one key,
+  # no envFrom of the whole Secret); backend and worker receive it through their
+  # existing envFrom, under the very name their settings read. A missing key
+  # stops the database pod (CreateContainerConfigError), and the backend refuses
+  # to start on the built-in default password (`changeme`) once DEBUG is false.
+  #
+  # Non-root as the image's own `postgres` user (uid/gid 70, Alpine image) with
+  # a read-only root filesystem: only the data volume, the socket directory and
+  # /tmp are writable (measured: initdb, the TimescaleDB extension and a restart
+  # on the existing volume all succeed with `--read-only -u 70:70 --cap-drop ALL`).
+  # PGDATA is a subdirectory because a fresh volume's root can carry
+  # `lost+found`, which initdb refuses.
+  #
+  # Singleton: a second replica is an independent database on its own claim,
+  # not a replica — renderChecks.scaling refuses it, like arangodb/vectordb.
+  timescaledb:
+    enabled: false
+    type: statefulset
+    replicas: 1
+    pod:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+    containers:
+      main:
+        image:
+          repository: timescale/timescaledb
+          tag: "2.30.2-pg16"
+          pullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        env:
+          POSTGRES_DB: kamerplanter_sensors
+          POSTGRES_USER: postgres
+          PGDATA: /var/lib/postgresql/data/pgdata
+          POSTGRES_PASSWORD:
+            valueFrom:
+              secretKeyRef:
+                name: kamerplanter-secrets
+                key: TIMESCALEDB_PASSWORD
+        probes:
+          liveness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            custom: true
+            spec:
+              exec:
+                command: ["pg_isready", "-U", "postgres"]
+              initialDelaySeconds: 15
+              periodSeconds: 5
+              timeoutSeconds: 3
+              failureThreshold: 5
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+    statefulset:
+      volumeClaimTemplates:
+        - name: data
+          accessMode: ReadWriteOnce
+          size: 10Gi
+          annotations:
+            helm.sh/resource-policy: keep
+          globalMounts:
+            - path: /var/lib/postgresql/data
 
   # -- Embedding Service (optional — sentence-transformers CPU inference, disabled by default)
   # embedding-service:
@@ -1040,17 +2076,88 @@ configMaps:
     enabled: true
     data:
       default.conf: |
+        # Access log without secrets or personal data (#1795). This file is included
+        # inside `http {}`, so the maps and the log format live at its top level.
+        #
+        # The default `combined` format wrote the full request line — the SPA's
+        # `/password-reset/<token>` and `/verify-email/<token>` links (a reset token
+        # takes over the account), `/api/v1/attachments/token/<token>` (the token IS
+        # the download authorisation), the tenant slug in `/t/<slug>/…` (derived from a
+        # person's display name) and every query string — plus the full client address,
+        # the user agent and the referrer (which can carry the reset link again).
+        #
+        # Logged instead: the client address truncated like NFR-011 R-03 (IPv4 last
+        # octet 0, IPv6 its /48), the method, a path reduced to the fixed files the
+        # build serves (everything else is `/<spa-route>`; `/api/...` is written by the
+        # backend itself, masked by `loggable_path`), status, bytes and request time.
+        # The path is matched on `$request_uri` because `$uri` has already been
+        # rewritten to `/index.html` by the SPA fallback when the line is written; only
+        # the captured file name is logged, never `$request_uri`, `$request` or `$args`.
+        map $remote_addr $kp_log_client {
+            "~^(?<kp_v4>\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$"                        "${kp_v4}.0";
+            "~^(?<kp_v6>[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}):"        "${kp_v6}::";
+            "~^(?<kp_v6z>[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|[0-9A-Fa-f]{1,4}|)::"     "${kp_v6z}::";
+            default                                                                    "-";
+        }
+
+        map $request_uri $kp_log_path {
+            "~^/api/"                                                                  "/api/...";
+            "~^(?<kp_file>/(assets|icons)/[A-Za-z0-9._-]+)(\?.*)?$"                    $kp_file;
+            "~^(?<kp_root>/(index\.html|runtime-config\.js|sw\.js|manifest\.json|favicon\.ico|robots\.txt)?)(\?.*)?$" $kp_root;
+            default                                                                    "/<spa-route>";
+        }
+
+        log_format kp_redacted '$kp_log_client - [$time_local] "$request_method $kp_log_path" '
+                               '$status $body_bytes_sent $request_time';
+
         server {
             listen 8080;
             server_name _;
             root /usr/share/nginx/html;
             index index.html;
 
+            # #1795 — see the log_format above. The error log stays at `crit`: nginx's
+            # error-log format cannot be redacted and writes `client: <full address>`
+            # plus the full request line (token, slug, query) with every upstream error.
+            # The trade-off: a 502/504 is still visible as its status in the redacted
+            # access line, only nginx's own explanation of it is gone. `log_not_found
+            # off` drops the "open() … failed" error lines, which name the requested path.
+            access_log /dev/stdout kp_redacted;
+            error_log /dev/stderr crit;
+            log_not_found off;
+
+            # #2144 (G-10) — request body limit at the edge. nginx's default is
+            # 1 MiB, which refused every upload above 1 MiB with 413. The largest
+            # legitimate body is an attachment (storage.maxFileSizeMb) plus its
+            # multipart framing, hence + 1 MiB: nothing the backend accepts is
+            # cut, a body in between still gets the backend's typed 413, anything
+            # larger stops here. Same expression as the ingress annotation
+            # (ingress.main); held by scripts/ci/assert_chart_contracts.sh.
+            client_max_body_size {{ add (int .Values.storage.maxFileSizeMb) 1 }}m;
+
             location / {
                 try_files $uri $uri/ /index.html;
             }
 
             location /api/ {
+                proxy_pass http://kamerplanter-backend:8000;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            # #2138 — the platform admin's tenant import takes an archive up to
+            # tenantExport.importMaxUploadMb (+ 1 MiB framing); this exact path only,
+            # every other path keeps the server-level limit above. Streamed to the
+            # backend (no buffering into /var/cache/nginx, a 64Mi tmpfs), with time
+            # for the backend to verify the archive before it answers. Same
+            # expression as the derived Ingress `tenant-import`.
+            location = /api/v1/admin/platform/tenant-imports {
+                client_max_body_size {{ add (int .Values.tenantExport.importMaxUploadMb) 1 }}m;
+                proxy_request_buffering off;
+                proxy_read_timeout 300s;
+                proxy_send_timeout 300s;
                 proxy_pass http://kamerplanter-backend:8000;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
@@ -1081,6 +2188,10 @@ service:
     ports:
       http:
         port: 8000
+      # #2129 — only with ``monitoring.enabled``; see the ``monitoring`` block.
+      metrics:
+        enabled: '{{ if .Values.monitoring.enabled }}true{{ end }}'
+        port: 9464
   frontend:
     controller: frontend
     ports:
@@ -1090,6 +2201,8 @@ service:
         port: 80
         targetPort: 8080
   arangodb:
+    # #2127 — follows the arangodb controller (see there).
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     controller: arangodb
     ports:
       http:
@@ -1111,6 +2224,14 @@ service:
     ports:
       http:
         port: 8000
+
+  # -- #2127 follows controllers.timescaledb.enabled (see the controller).
+  timescaledb:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    controller: timescaledb
+    ports:
+      postgresql:
+        port: 5432
 
 persistence:
   nginx-config:
@@ -1190,25 +2311,36 @@ persistence:
           - path: /data/uploads
 
   # -- NFR-013 local-fs object storage (§3.1, §10). Persistent PVC at
-  # STORAGE_LOCAL_FS_ROOT (/data/attachments). Shared by the backend (uploads /
-  # streaming) and the celery-worker (thumbnail generation §8.2, DSGVO erasure
-  # §6.2). Use ReadWriteMany once the backend scales beyond one replica; with a
-  # single backend + worker on the same node ReadWriteOnce suffices. The
-  # ``storage.localFs.pvc`` block above documents the operator-facing values.
-  # ``retain: true`` protects attachment data from accidental ``helm uninstall``.
+  # ``storage.localFs.root``, shared by the backend (uploads / streaming) and the
+  # celery-worker (thumbnail generation §8.2, DSGVO erasure §6.2). Every field
+  # is rendered from the top-level ``storage`` block (#2124): the claim exists
+  # only with ``storage.backend: local-fs``.
+  #
+  # ``enabled`` renders to "true" or to "" — not to "false", because bjw-s tests
+  # the value for truth and the non-empty string "false" is true.
+  #
+  # Kept data on purpose: ``retain: true`` (``helm.sh/resource-policy: keep``)
+  # survives ``helm uninstall``, and the ArgoCD sync options keep a prune — e.g.
+  # after switching to ``storage.backend: s3``, which drops the claim from the
+  # render — or an Application deletion from deleting the attachments. Migrate
+  # them first (``python -m scripts.storage.migrate --from local-fs --to s3``),
+  # then delete the claim by hand.
   backend-attachments:
-    enabled: true
+    enabled: '{{ if eq .Values.storage.backend "local-fs" }}true{{ end }}'
     type: persistentVolumeClaim
-    accessMode: ReadWriteOnce
-    size: 20Gi
+    accessMode: '{{ .Values.storage.localFs.pvc.accessMode }}'
+    size: '{{ .Values.storage.localFs.pvc.size }}'
+    storageClass: '{{ .Values.storage.localFs.pvc.storageClass }}'
     retain: true
+    annotations:
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
     advancedMounts:
       backend:
         main:
-          - path: /data/attachments
+          - path: '{{ .Values.storage.localFs.root }}'
       celery-worker:
         main:
-          - path: /data/attachments
+          - path: '{{ .Values.storage.localFs.root }}'
 
   # -- Fontconfig writable cache (suppresses "No writable cache directories" warning)
   backend-fontconfig:
@@ -1243,13 +2375,31 @@ persistence:
 
   # -- ArangoDB apps directory (required at startup, not persisted)
   arangodb-apps:
-    enabled: true
+    # #2127 — follows the arangodb controller: bjw-s refuses a persistence item
+    # whose controller is disabled.
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     type: emptyDir
     sizeLimit: 64Mi
     advancedMounts:
       arangodb:
         main:
           - path: /var/lib/arangodb3-apps
+
+  # -- #2126 arangosh in the `app-user` container needs a writable temp directory
+  # under readOnlyRootFilesystem (it aborts with "failed to create a temporary
+  # directory" without one — measured). Follows the arangodb controller's own
+  # switch: bjw-s refuses a persistence item whose controller is disabled, and a
+  # release that runs without the database (the ki / recognition overlays) must
+  # not have to know this item exists.
+  arangodb-app-user-tmp:
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 16Mi
+    advancedMounts:
+      arangodb:
+        app-user:
+          - path: /tmp
 
   # celery-beat writes --schedule=/tmp/celery-beat/celerybeat-schedule under
   # readOnlyRootFilesystem:true, so mount the writable emptyDir at that subdir
@@ -1264,6 +2414,36 @@ persistence:
         main:
           - path: /tmp/celery-beat
 
+  # -- #2122 backup scratch: the dump lives here between the two containers of one
+  # run and goes with the pod. On node disk, not memory — a dump is the size of
+  # the database.
+  arangodb-backup-scratch:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: emptyDir
+    sizeLimit: '{{ .Values.backup.scratchSize }}'
+    advancedMounts:
+      arangodb-backup:
+        dump:
+          - path: /backup
+        main:
+          # writable: the upload removes the dump when it exits
+          - path: /backup
+
+  # arangodump and rclone both need a writable temp directory under
+  # readOnlyRootFilesystem (arangodump aborts with "failed to create a temporary
+  # directory" without one — measured).
+  arangodb-backup-tmp:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      arangodb-backup:
+        dump:
+          - path: /tmp
+        main:
+          - path: /tmp
+
   # -- REQ-029-A inference-service writable /tmp (readOnlyRootFilesystem support,
   # onnxruntime scratch). Disabled by default; operator enables it together with
   # the inference-service controller. The vectordb store uses its statefulset
@@ -1275,6 +2455,30 @@ persistence:
     sizeLimit: 64Mi
     advancedMounts:
       inference-service:
+        main:
+          - path: /tmp
+
+  # -- #2127 TimescaleDB under readOnlyRootFilesystem: the socket directory and
+  # /tmp are the only writable paths besides the data volume. Both follow the
+  # controller's switch (bjw-s refuses a persistence item whose controller is
+  # disabled).
+  timescaledb-run:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 1Mi
+    advancedMounts:
+      timescaledb:
+        main:
+          - path: /var/run/postgresql
+
+  timescaledb-tmp:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      timescaledb:
         main:
           - path: /tmp
 
@@ -1297,7 +2501,40 @@ persistence:
   #         - path: /app/knowledge
   #           readOnly: true
 
-ingress: {}
+# -- Ingress (off unless you give it hosts).
+#
+# #2144 (G-10): `main` carries the request body limit for ingress-nginx, whose
+# own default is 1 MiB and would refuse uploads before they reach the frontend
+# nginx. The value is the frontend nginx's `client_max_body_size` expression —
+# storage.maxFileSizeMb + 1 MiB of multipart headroom — so both follow the
+# upload bound. Other controllers ignore the annotation: Traefik and
+# Contour/Envoy set no body limit by default, and the frontend nginx enforces it
+# on the path `/` and `/api` -> frontend that the backend NetworkPolicy requires
+# (#1159). An ingress under another key than `main` does not inherit it.
+#
+# `enabled` renders `true` as soon as `ingress.main.hosts` is set, so values that
+# give hosts without `enabled` keep their Ingress; `enabled: false` still wins.
+ingress:
+  main:
+    enabled: '{{ if .Values.ingress.main.hosts }}true{{ end }}'
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: '{{ add (int .Values.storage.maxFileSizeMb) 1 }}m'
+
+# -- #2129 ServiceMonitor for the backend's metrics port (Prometheus Operator).
+# Rendered only with ``monitoring.enabled``; see the ``monitoring`` block.
+serviceMonitor:
+  backend:
+    enabled: '{{ if .Values.monitoring.enabled }}true{{ end }}'
+    labels:
+      release: '{{ .Values.monitoring.prometheus.serviceMonitorLabels.release }}'
+    service:
+      identifier: backend
+    endpoints:
+      - port: metrics
+        scheme: http
+        path: /metrics
+        interval: '{{ .Values.monitoring.scrapeInterval }}'
+        scrapeTimeout: 10s
 
 # -- NetworkPolicies: restrict pod-to-pod traffic to least-privilege (SEC-M-005)
 networkpolicies:
@@ -1488,6 +2725,29 @@ networkpolicies:
             - protocol: TCP
               port: 465
 
+  # #2129 — Prometheus may scrape the backend's metrics port, and nothing else.
+  # Rendered only with ``monitoring.enabled``. Rules of all policies selecting a
+  # pod are a union: this adds exactly (Prometheus pods -> backend :metricsPort).
+  # It names a namespace AND a pod label, so neither another pod in the
+  # monitoring namespace nor a pod labelled like Prometheus elsewhere qualifies.
+  backend-metrics:
+    enabled: '{{ if .Values.monitoring.enabled }}true{{ end }}'
+    controller: backend
+    policyTypes:
+      - Ingress
+    rules:
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  kubernetes.io/metadata.name: '{{ .Values.monitoring.prometheus.namespace }}'
+              podSelector:
+                matchLabels:
+                  app.kubernetes.io/name: '{{ .Values.monitoring.prometheus.podName }}'
+          ports:
+            - protocol: TCP
+              port: 9464
+
   # Celery worker: no ingress needed, same egress as backend
   celery-worker:
     controller: celery-worker
@@ -1610,8 +2870,11 @@ networkpolicies:
             - protocol: TCP
               port: 53
 
-  # ArangoDB: accept from backend + celery-worker, no egress needed
+  # ArangoDB: accept from backend + celery-worker (+ the backup CronJob when
+  # enabled, #2122), no egress needed
   arangodb:
+    # #2127 — follows the arangodb controller (see there).
+    enabled: '{{ if and (ne (toString .Values.controllers.arangodb.enabled) "false") (not .Values.database.arangodb.external.enabled) }}true{{ end }}'
     controller: arangodb
     policyTypes:
       - Ingress
@@ -1625,6 +2888,9 @@ networkpolicies:
             - podSelector:
                 matchLabels:
                   app.kubernetes.io/controller: celery-worker
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb-backup
           ports:
             - protocol: TCP
               port: 8529
@@ -1641,6 +2907,48 @@ networkpolicies:
             - protocol: TCP
               port: 53
 
+  # -- #2122 ArangoDB backup CronJob: no ingress; egress to ArangoDB, DNS and the
+  # S3 endpoint on 443. Like the backend's external rule, RFC1918 and link-local
+  # are excluded, so an in-cluster / private S3 target (MinIO, Ceph RGW) needs an
+  # extra egress rule in your values.
+  arangodb-backup:
+    enabled: '{{ if .Values.backup.enabled }}true{{ end }}'
+    controller: arangodb-backup
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress:
+        - to:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: arangodb
+          ports:
+            - protocol: TCP
+              port: 8529
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+        - to:
+            - ipBlock:
+                cidr: 0.0.0.0/0
+                except:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
+                  - 192.168.0.0/16
+                  - 169.254.0.0/16
+          ports:
+            - protocol: TCP
+              port: 443
+
   # Valkey (Redis-wire cache + Celery broker, subchart): accept ingress only from
   # backend + celery-worker + celery-beat on 6379, egress DNS only. The valkey
   # subchart ships no NetworkPolicy of its own, so without this rule the
@@ -1648,6 +2956,8 @@ networkpolicies:
   # subchart's ``app.kubernetes.io/name: valkey`` label (same selector the backend
   # and celery egress rules already target), not by a chart ``controller``.
   valkey:
+    # #2127 — follows the subchart's own switch.
+    enabled: '{{ if .Values.valkey.enabled }}true{{ end }}'
     podSelector:
       matchLabels:
         app.kubernetes.io/name: valkey
@@ -1681,6 +2991,63 @@ networkpolicies:
               port: 53
             - protocol: TCP
               port: 53
+
+  # -- #2127 (MT-031) External ArangoDB: egress from every client of the
+  # database — backend, the celery workers (dedicated-queue copies included), celery-beat
+  # and the backup CronJob — to `database.arangodb.external.cidr` on 8529 and
+  # 443. Rendered only with `database.arangodb.external.enabled`. Rules of all
+  # policies selecting a pod are a union, so this adds exactly that path. The
+  # ports are literals (a templated port is a string, i.e. a port NAME), and
+  # renderChecks.externalDatabases refuses an external port not listed here.
+  # For a database reached by namespace / pod selector, replace `rules.egress`.
+  arangodb-external:
+    enabled: '{{ if .Values.database.arangodb.external.enabled }}true{{ end }}'
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+      matchExpressions:
+        - key: app.kubernetes.io/controller
+          operator: In
+          values: [backend, celery-worker, celery-worker-default, celery-worker-bulk, celery-beat, arangodb-backup]
+    policyTypes:
+      - Egress
+    rules:
+      egress:
+        - to:
+            - ipBlock:
+                cidr: '{{ .Values.database.arangodb.external.cidr }}'
+          ports:
+            - protocol: TCP
+              port: 8529
+            - protocol: TCP
+              port: 443
+
+  # -- #2127 (MT-031) External Valkey: egress from every Valkey client —
+  # backend, the celery workers and celery-beat — to
+  # `database.valkey.external.cidr` on 6379 and 6380 (the common TLS port).
+  # Rendered only with `valkey.enabled: false` and an external URL; see
+  # `arangodb-external` above for ports and selectors.
+  valkey-external:
+    enabled: '{{ if and (not .Values.valkey.enabled) .Values.database.valkey.external.url }}true{{ end }}'
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/instance: '{{ .Release.Name }}'
+      matchExpressions:
+        - key: app.kubernetes.io/controller
+          operator: In
+          values: [backend, celery-worker, celery-worker-default, celery-worker-bulk, celery-beat]
+    policyTypes:
+      - Egress
+    rules:
+      egress:
+        - to:
+            - ipBlock:
+                cidr: '{{ .Values.database.valkey.external.cidr }}'
+          ports:
+            - protocol: TCP
+              port: 6379
+            - protocol: TCP
+              port: 6380
 
   # -- REQ-029-A inference-service: accept from backend + celery-worker on 8000,
   # talk to the vectordb (5432) + DNS. Disabled by default; operator enables
@@ -1755,11 +3122,93 @@ networkpolicies:
             - protocol: TCP
               port: 53
 
+  # -- #2127 TimescaleDB: accept from backend + celery-worker on 5432 (the
+  # backend and worker egress rules above already name it), no egress beyond
+  # DNS. Follows controllers.timescaledb.enabled; without it the default-deny
+  # baseline would leave the database unreachable.
+  timescaledb:
+    enabled: '{{ if eq (toString (dig "timescaledb" "enabled" false .Values.controllers)) "true" }}true{{ end }}'
+    controller: timescaledb
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+          ports:
+            - protocol: TCP
+              port: 5432
+      egress:
+        # DNS only (for cluster-internal resolution)
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+# -- Valkey (subchart): Celery broker AND cache — the queued tasks live here.
+#
+# #2127 (MT-031) hardening, measured against valkey-helm 0.12.0:
+#  * Persistence. The chart set `dataStorage.size`, a key the subchart does not
+#    know; its PVC template needs `requestedSize`, so NO claim was rendered and
+#    /data was an emptyDir — every Valkey restart lost the queued tasks, and
+#    the snapshots the docs promised went nowhere. `requestedSize` renders the
+#    claim; `keepPvc` keeps it through `helm uninstall`.
+#  * `deploymentStrategy: Recreate`: the claim is ReadWriteOnce and the
+#    subchart runs a Deployment — a RollingUpdate would start the new pod while
+#    the old one still holds the volume (Multi-Attach on another node).
+#  * `maxmemory` + `noeviction`: a full Valkey refuses writes (a visible error at
+#    the producer) instead of evicting queued tasks or keys without notice.
+#    Every key the backend writes carries a TTL, so the cache does not grow
+#    without bound.
+#  * `appendonly yes` (fsync every second): a restart replays the tasks of the
+#    last seconds instead of falling back to the last snapshot.
+#  * The memory limit is at least twice `maxmemory` (640Mi for 256mb): an AOF
+#    rewrite or snapshot forks the process, and pages written meanwhile are
+#    held twice; the rest covers the AOF rewrite buffer, client buffers and
+#    allocator overhead outside `maxmemory`. Too tight a limit and Kubernetes
+#    kills Valkey before Valkey can refuse a write. Raise both together —
+#    scripts/ci/assert_chart_contracts.sh checks limit >= 2 x maxmemory.
+#  * No storageClass: the claim needs a default StorageClass, else Valkey stays
+#    Pending and the broker is gone. Name one in `dataStorage.className`.
+# The subchart already runs non-root (uid 1000), read-only root filesystem, all
+# capabilities dropped, RuntimeDefault seccomp.
 valkey:
   enabled: true
+  deploymentStrategy: Recreate
   dataStorage:
     enabled: true
-    size: 1Gi
+    requestedSize: 1Gi
+    keepPvc: true
+  valkeyConfig: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+    appendonly yes
+    appendfsync everysec
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 640Mi
+  # The init container only writes valkey.conf (a few lines of shell).
+  initResources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
 
 # -- Ollama subchart (optional — local LLM inference, disabled by default)
 ollama:

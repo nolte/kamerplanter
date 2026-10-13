@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, createTestStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type {
   PhaseDefinition,
@@ -20,6 +20,20 @@ vi.mock('react-router-dom', async (orig) => {
 });
 
 import PhaseDefinitionDetailPage from '@/pages/phasen/PhaseDefinitionDetailPage';
+
+/**
+ * Every case below drives an INSTALLATION-WIDE catalogue whose writes carry
+ * `require_platform_admin` since #1501 — PhaseDefinition, PhaseSequence and
+ * PhaseSequenceEntry carry no `tenant_key`, so one row is the row every tenant
+ * resolves. The suite therefore acts as a platform admin, and the non-admin half
+ * of the contract (reads still render, write affordances are gone) is asserted in
+ * this same file so the pair cannot drift apart.
+ */
+const renderAsAdmin = (
+  ui: Parameters<typeof renderWithProviders>[0],
+  options: Omit<NonNullable<Parameters<typeof renderWithProviders>[1]>, 'store'> = {},
+) => renderWithProviders(ui, { ...options, store: createPlatformAdminStore() });
+
 
 const DEF_URL = '/api/v1/phase-definitions/:key';
 const SEQ_URL = '/api/v1/phase-definitions/:key/sequences';
@@ -134,7 +148,7 @@ describe('PhaseDefinitionDetailPage', () => {
 
   it('renders the loaded definition detail', async () => {
     useDefinition(makeDefinition());
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -152,7 +166,7 @@ describe('PhaseDefinitionDetailPage', () => {
       }),
       [makeSequence()],
     );
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -174,7 +188,7 @@ describe('PhaseDefinitionDetailPage', () => {
       http.get(DEF_URL, () => HttpResponse.json(makeDefinition())),
       http.get(SEQ_URL, () => new HttpResponse(null, { status: 500 })),
     );
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -197,7 +211,7 @@ describe('PhaseDefinitionDetailPage', () => {
       }),
       [makeSequence({ is_repeating: false, display_name: '', display_name_de: '' })],
     );
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -213,7 +227,7 @@ describe('PhaseDefinitionDetailPage', () => {
   it('opens and closes the edit dialog', async () => {
     useDefinition(makeDefinition());
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -233,7 +247,7 @@ describe('PhaseDefinitionDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -249,7 +263,7 @@ describe('PhaseDefinitionDetailPage', () => {
   it('navigates back to the list via the back button', async () => {
     useDefinition(makeDefinition());
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -267,7 +281,7 @@ describe('PhaseDefinitionDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -293,7 +307,7 @@ describe('PhaseDefinitionDetailPage', () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -315,7 +329,7 @@ describe('PhaseDefinitionDetailPage', () => {
     useDefinition(makeDefinition());
     server.use(http.delete(DEF_URL, () => new HttpResponse(null, { status: 500 })));
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -328,7 +342,7 @@ describe('PhaseDefinitionDetailPage', () => {
 
   it('disables delete for an in-use definition', async () => {
     useDefinition(makeDefinition({ usage_count: 5 }));
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -338,7 +352,7 @@ describe('PhaseDefinitionDetailPage', () => {
 
   it('disables edit and delete for a system definition', async () => {
     useDefinition(makeDefinition({ is_system: true }));
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -357,7 +371,7 @@ describe('PhaseDefinitionDetailPage', () => {
       http.get(SEQ_URL, () => HttpResponse.json([])),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseDefinitionDetailPage />, {
+    renderAsAdmin(<PhaseDefinitionDetailPage />, {
       route: '/phasen/definitionen/def-1',
     });
 
@@ -377,7 +391,7 @@ describe('PhaseDefinitionDetailPage', () => {
       };
       useDefinition(makeDefinition(), [], plants);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -390,7 +404,7 @@ describe('PhaseDefinitionDetailPage', () => {
     it('renders empty state when no plants in phase', async () => {
       useDefinition(makeDefinition(), [], { total: 0, items: [] });
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -407,7 +421,7 @@ describe('PhaseDefinitionDetailPage', () => {
       useDefinition(makeDefinition(), [], plants);
       const user = userEvent.setup();
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -429,7 +443,7 @@ describe('PhaseDefinitionDetailPage', () => {
       };
       useDefinition(makeDefinition(), [], plants);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -449,7 +463,7 @@ describe('PhaseDefinitionDetailPage', () => {
       };
       useDefinition(makeDefinition(), [], plants);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -469,7 +483,7 @@ describe('PhaseDefinitionDetailPage', () => {
       ];
       useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -481,7 +495,7 @@ describe('PhaseDefinitionDetailPage', () => {
     it('renders empty state when no species in phase', async () => {
       useDefinition(makeDefinition(), [], { total: 0, items: [] }, []);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -496,7 +510,7 @@ describe('PhaseDefinitionDetailPage', () => {
       useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
       const user = userEvent.setup();
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -513,7 +527,7 @@ describe('PhaseDefinitionDetailPage', () => {
       ];
       useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -534,7 +548,7 @@ describe('PhaseDefinitionDetailPage', () => {
         http.get(SPECIES_URL, () => HttpResponse.json([])),
       );
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
@@ -551,12 +565,32 @@ describe('PhaseDefinitionDetailPage', () => {
       ];
       useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
 
-      renderWithProviders(<PhaseDefinitionDetailPage />, {
+      renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
       await screen.findByTestId('phase-definition-species-card');
       expect(screen.getByText(/Tomate.*Tomato.*Pomodoro/)).toBeInTheDocument();
     });
+  });
+
+
+  /**
+   * #1501 — the non-admin half. A grower of a tenant may READ the
+   * installation-wide catalogue and must be offered no control that writes it,
+   * because the API now answers 403 for every one of them. Asserted beside the
+   * admin cases so the pair cannot drift; `createTestStore()` seeds a signed-in
+   * non-admin.
+   */
+  it('offers a non-admin the detail but no edit or delete control', async () => {
+    useDefinition(makeDefinition());
+    renderWithProviders(<PhaseDefinitionDetailPage />, {
+      route: '/phasen/definitionen/def-1',
+      store: createTestStore(),
+    });
+
+    expect(await screen.findByTestId('phase-definition-detail-page')).toBeInTheDocument();
+    expect(screen.queryByTestId('delete-definition-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('edit-definition-button')).not.toBeInTheDocument();
   });
 });

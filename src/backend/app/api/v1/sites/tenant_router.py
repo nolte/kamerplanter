@@ -95,7 +95,7 @@ def list_sites(
     service: SiteService = Depends(get_site_service),
 ):
     """List the tenant's sites (paginated)."""
-    items, _total = service.list_sites(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    items = service.list_sites_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_site_response(s, service) for s in items]
 
 
@@ -143,7 +143,7 @@ def update_site(
         site.mean_annual_minimum_c = existing.mean_annual_minimum_c
     else:
         site.hardiness_zone_source = "manual"
-    updated = service.update_site(key, site)
+    updated = service.update_site(key, site, tenant_key=ctx.tenant_key)
     return _site_response(updated, service)
 
 
@@ -154,8 +154,7 @@ def delete_site(
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a site."""
-    service.get_site(key, tenant_key=ctx.tenant_key)
-    service.delete_site(key)
+    service.delete_site(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/hardiness", response_model=SiteHardinessResponse)
@@ -187,7 +186,7 @@ def resolve_site_hardiness_zone(
     State-changing (mutates ``Site.hardiness_zone``), so it requires at least the
     ``grower`` role — a ``viewer`` cannot trigger a zone derivation (SEC-001).
     """
-    site = service.resolve_for_site(key, ctx.tenant_key, force=force, fetch_if_missing=True)
+    site = service.resolve_for_site(key, tenant_key=ctx.tenant_key, force=force, fetch_if_missing=True)
     return _hardiness_response(site, service.catalog_entry(site.hardiness_zone))
 
 
@@ -210,12 +209,12 @@ def get_location_tree(
     slots_by_location: dict[str, int] = {}
     for loc in all_locations:
         loc_key = loc.key or ""
-        slots = service.list_slots(loc_key)
+        slots = service.list_slots(loc_key, tenant_key=ctx.tenant_key)
         slots_by_location[loc_key] = len(slots)
 
     # Count active plants per location
     plants_by_location: dict[str, int] = {}
-    plants, _ = plant_service.list_plants(offset=0, limit=10000, tenant_key=ctx.tenant_key)
+    plants = plant_service.list_all_plants(ctx.tenant_key)  # every plant, not the first 10000 (#2025)
     for p in plants:
         if p.location_key and p.location_key in location_keys and not p.removed_on:
             plants_by_location[p.location_key] = plants_by_location.get(p.location_key, 0) + 1
@@ -264,7 +263,7 @@ def create_site_sensor(
         mqtt_topic=body.mqtt_topic,
         site_key=key,
     )
-    created = sensor_service.create_sensor(sensor)
+    created = sensor_service.create_sensor(sensor, tenant_key=ctx.tenant_key)
     return to_response(created, SensorResponse)
 
 
@@ -293,6 +292,7 @@ def update_site_sensor(
         body.model_dump(exclude_unset=True),
         parent_field="site_key",
         parent_key=key,
+        tenant_key=ctx.tenant_key,
     )
     return to_response(updated, SensorResponse)
 
@@ -320,5 +320,5 @@ def get_site_sensors_live(
     """Return the live sensor readings for a site."""
     site_service.get_site(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_site(key)
-    result = sensor_service.get_live_state_for_sensors(sensors)
+    result = sensor_service.get_live_state_for_sensors(sensors, tenant_key=ctx.tenant_key)
     return LiveStateResponse(**result)

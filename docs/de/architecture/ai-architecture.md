@@ -167,6 +167,26 @@ Der Embedding-Service läuft als eigenständiger Microservice, den der Knowledge
 !!! note "Modellwahl"
     ADR-006 hat ursprünglich `multilingual-e5-base` (768 Dimensionen) eingeführt; die Konfiguration wurde seither auf die größere `multilingual-e5-large`-Variante (1024 Dimensionen) angehoben. Das Präfix-Schema (`"query: "`/`"passage: "`) aus ADR-006 gilt unverändert.
 
+!!! note "Modell-Pinning und Integritätsprüfung (seit 2026-09-24)"
+    Alle vier auslieferbaren Modelle (`multilingual-e5-small`, `-base`, `-large` sowie das MiniLM-Modell) sind im Docker-Build auf eine feste Commit-Revision gepinnt; jede übernommene Datei wird zusätzlich per sha256-Prüfsumme verifiziert, bevor sie ins Image gelangt. Gemessen gegen das vorherige, ungepinnte Image: alle Dateien bit-identisch, erzeugte Embeddings identisch. Das MiniLM-Modell stammt aus einem Drittanbieter-Export (`Xenova/paraphrase-multilingual-MiniLM-L12-v2`), nicht aus dem Original-Repository der Modell-Autoren. Zur Laufzeit läuft der Service mit `HF_HUB_OFFLINE=1` und lädt daher nie unbemerkt ein Modell nach. Ebenfalls seit diesem Datum behoben: `--target e5-small` beantwortete zuvor jede `/embed`-Anfrage mit einem Fehler, weil dessen ONNX-Graph ein Eingabefeld (`token_type_ids`) erwartet, das der Tokenizer nicht liefert — die Eingabe wird jetzt aus den vom Graph deklarierten Feldern gebaut.
+
+### Anfragelimits und Threading (Embedding-Service)
+
+`POST /embed` begrenzt Anfragen und antwortet bei Überschreitung mit HTTP 422 (Validierungsfehler):
+
+| Feld | Limit |
+|------|-------|
+| `texts` (Anzahl) | höchstens 64 |
+| `texts[i]` (Zeichen je Text) | höchstens 16.384 |
+| `prefix` (Zeichen) | höchstens 64 |
+| `model` (Zeichen) | höchstens 128 |
+
+Eine leere `texts`-Liste ist gültig und liefert HTTP 200 mit einer leeren Embedding-Liste. Der Knowledge-Service selbst sendet Embedding-Anfragen in Abschnitten von höchstens 16 Texten und bleibt damit unter dem Limit.
+
+Vor der Validierung schützt eine ASGI-Middleware vor übergroßen Anfragen: ein Body über 12.650.752 Bytes (~12,7 MB, aus den obigen Limits abgeleitet) wird mit HTTP 413 abgelehnt, bevor er überhaupt geparst wird. Ein 422-Validierungsfehler enthält nur noch `loc`, `type` und `msg` je Fehler — die fehlerhafte Eingabe selbst wird nicht mehr gespiegelt. Da alle Anfragen dieselbe Inferenz-Sperre teilen, wartet eine Anfrage höchstens 60 Sekunden auf die Sperre (danach HTTP 503 `{"status": "busy"}` mit `Retry-After: 60`) und wird nach insgesamt höchstens 110 Sekunden abgebrochen (HTTP 503 `{"status": "timeout"}`). `/health` und `/ready` teilen die Sperre nicht und bleiben auch unter Last erreichbar.
+
+Die Anzahl der Inferenz-Threads (`intra_op_num_threads`) richtet sich nach dem CPU-Kontingent des Containers (cgroup-Quota bzw. CPU-Affinität), nicht nach der Kernzahl des Host-Systems — sonst plant die ONNX-Runtime mehr Threads ein, als der Container tatsächlich nutzen darf, und der Kernel drosselt sie. Der Service verarbeitet je Anfrage einen Text nach dem anderen unter einer prozessweiten Sperre statt alle Texte in einem gepolsterten Batch; gemessen: identische Embeddings bei niedrigerem Speicherbedarf.
+
 ### Vektorspeicher (dedizierte PostgreSQL + pgvector-Instanz)
 
 Die Vektoren liegen **nicht** in TimescaleDB, sondern in einer eigenen PostgreSQL-Instanz mit der `pgvector`-Extension (Datenbank `kamerplanter_vectors`, eigener Container/Pod `vectordb`). Das hält die Vektorsuche von der Sensor-Zeitreihen-Last auf TimescaleDB getrennt.
@@ -244,10 +264,10 @@ class VectorChunkRepository:
 ### Einordnung in die Pipeline
 
 ```text
-Anfrage → Hybrid Search (top_k=20) → Cross-Encoder Re-Rank (top_k=5) → LLM
+Anfrage → Hybrid Search (max(RERANKER_INITIAL_K, top_k) Kandidaten) → Cross-Encoder bewertet nur die ersten RERANKER_INITIAL_K → Rest in Hybrid-Reihenfolge angehängt → oberste top_k an LLM
 ```
 
-Der Re-Ranker sitzt **zwischen Retrieval und LLM-Generation**. Die Hybrid-Search ruft bewusst mehr Chunks ab als letztlich an den LLM übergeben werden (Over-Retrieval-Strategie): 20 Kandidaten werden abgerufen, durch den Cross-Encoder nach semantischer Relevanz neu sortiert, und nur die besten 5 landen im Kontext-Fenster des LLM.
+Der Re-Ranker sitzt **zwischen Retrieval und LLM-Generation**. Die Hybrid-Search liefert bewusst mehr Kandidaten, als letztlich neu bewertet werden (Over-Retrieval-Strategie): `max(RERANKER_INITIAL_K, top_k)` Kandidaten werden abgerufen. Von diesen werden nur die ersten `RERANKER_INITIAL_K` (Default 15) durch den Cross-Encoder nach semantischer Relevanz neu sortiert — mehr passt nicht in das Zeitbudget des Sidecars (siehe unten). Fragt ein Aufrufer mehr Ergebnisse an, als bewertet wurden — etwa der MCP-Endpunkt mit bis zu 20 oder `/search` mit bis zu 50 —, werden die restlichen Kandidaten unverändert in ihrer Hybrid-Reihenfolge angehängt. Sie behalten dabei ihren Hybrid-Score (RRF, höchstens etwa 0,016). Der ist mit den Cross-Encoder-Scores (0 bis 1) des bewerteten Kopfes nicht vergleichbar und liegt bewusst unter jeder Zitier-Schwelle wie `min_score=0.6` im MCP-Tool. Diese Bewertungs-Obergrenze bestimmt also **nie**, wie viele Ergebnisse ein Aufrufer erhält, sondern nur, wie viele Kandidaten durch den Cross-Encoder laufen. Jeder bewertete Kandidat wird für den Cross-Encoder-Aufruf zusätzlich auf `RERANKER_MAX_DOCUMENT_CHARS` Zeichen gekürzt (Default 500, angewendet auf `titel\ninhalt`); der Chunk, der anschließend an den LLM-Kontext übergeben wird, behält seinen vollständigen Text — nur die Reranker-Eingabe wird verkürzt.
 
 ### Warum Cross-Encoder?
 
@@ -257,9 +277,9 @@ Bi-Encoder (E5-base) und BM25 ranken unabhängig voneinander. Keyword-reiche Chu
 
 Der Re-Ranker läuft als eigenständiger `reranker-service` — analog zum Embedding-Service:
 
-- **Kein PyTorch** im Container — nur ONNX Runtime und Hugging Face Tokenizer
-- **Multi-Stage Dockerfile:** Modell-Download und ONNX-Export in einem gecachten Build-Stage; Runtime-Image bleibt schlank
-- **Port 8081**, FastAPI mit zwei Endpunkten: `/rerank` (POST) und `/health` (GET)
+- **Kein PyTorch** im Container — nur ONNX Runtime und die `tokenizers`-Bibliothek
+- **Multi-Stage Dockerfile:** Modell-Download (bereits als ONNX vorliegend, gepinnt und sha256-verifiziert) in einem gecachten Build-Stage; kein ONNX-Export mehr zur Build-Zeit (siehe Nachtrag in [ADR-007](../adr/007-cross-encoder-reranking.md)); Runtime-Image bleibt schlank
+- **Port 8081**, FastAPI mit drei Endpunkten: `/rerank` (POST), `/health` (GET) und `/ready` (GET)
 - **Modell:** `BAAI/bge-reranker-v2-m3` — multilingual (DE/EN), 568M Parameter, Apache-2.0-Lizenz
 
 <!-- diagram-source: user-described — sequence of the cross-encoder re-ranking call between Knowledge Service and Reranker Service -->
@@ -268,27 +288,69 @@ sequenceDiagram
     participant KS as Knowledge Service
     participant RE as Reranker Service<br/>(Port 8081)
 
-    KS->>KS: Hybrid Search → 20 candidates
-    KS->>RE: POST /rerank<br/>{query, documents[20], top_k: 5}
-    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, ~500ms
-    RE-->>KS: {results: [{index, score, text}×5]}
-    KS->>KS: Sort chunks by score
-    KS->>KS: Build context for LLM
+    KS->>KS: Hybrid Search → max(15, top_k) candidates
+    KS->>RE: POST /rerank<br/>{query, documents[head, ≤15], top_k: len(head)}
+    RE->>RE: Cross-Encoder inference<br/>ONNX Runtime, p50 ~13s
+    RE-->>KS: {results: [{index, score}×len(head)]}
+    KS->>KS: Reranked head + hybrid-order tail
+    KS->>KS: Truncate to top_k, build context for LLM
 ```
 
 ### Graceful Degradation
 
-Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Re-Ranker-Service löst ebenfalls diesen Fallback aus — mit einem `WARNING`-Logeintrag (`reranker_fallback`).
+Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Re-Ranker-Service löst denselben Fallback für den bewerteten Kopf aus: `RerankerEngine.rerank()` liefert dann den unveränderten Kopf zurück, sodass das Gesamtergebnis von `KnowledgeService.search()` vollständig der ungerankten Hybrid-Reihenfolge entspricht — mit genau einem `WARNING`-Logeintrag (`reranker_fallback`).
+
+### Fallback-Gründe und Zeitbudget {#fallback-gruende-und-zeitbudget}
+
+Jeder Fallback loggt strukturiert genau eine `reranker_fallback`-Warnung mit den Feldern `reason`, `status_code`, `documents`, `elapsed_s` und `error`. `reason` stammt aus einer geschlossenen Menge von Werten:
+
+| `reason` | Auslöser |
+|----------|----------|
+| `deadline` | Sidecar antwortet mit HTTP 503 `{"status": "timeout"}` — das serverseitige 25-Sekunden-Zeitlimit des Re-Ranker-Service ist abgelaufen. |
+| `busy` | Sidecar antwortet mit HTTP 503 `{"status": "busy"}` — die Inferenz-Sperre wurde nicht innerhalb von 10 Sekunden erlangt. |
+| `loading` | Sidecar antwortet mit HTTP 503, während das Modell noch lädt. |
+| `http_status` | Jede andere Nicht-2xx-Antwort, einschließlich eines 503 mit unbekanntem oder nicht parsbarem Body. |
+| `client_timeout` | Der eigene 30-Sekunden-Timeout des Knowledge-Service-Clients ist abgelaufen. |
+| `transport` | Verbindungs-, DNS- oder Protokollfehler auf HTTP-Ebene. |
+| `malformed_response` | Eine 2xx-Antwort, deren Body kein verwertbares `results`-Feld enthält. |
+
+Ein erfolgreicher Re-Rank loggt stattdessen `reranker_complete` mit `elapsed_s`. Betreiber können z. B. die Häufigkeit von `reason=deadline` auswerten, um zu erkennen, wie oft das Zeitlimit tatsächlich greift.
+
+Hintergrund des `deadline`-Falls (gemessen am 2026-09-25): `bge-reranker-v2-m3` kostet am 2-CPU-Limit des Helm-Charts rund 3 Sekunden je (Query, Dokument)-Paar mit 512 Tokens. Die Chunks im Korpus haben median rund 430 Tokens. Ein realer HTTP-Test über alle 100 Benchmark-Fragen bestätigt das für den ursprünglichen Default (`RERANKER_INITIAL_K=20`, volle Dokumente bis 512 Tokens): Jede Anfrage traf die serverseitige 25-Sekunden-Deadline (503 nach rund 27 Sekunden), rechnerisch entspräche das rund 54 Sekunden Gesamtaufwand — Re-Ranking lief in der Praxis nie durch, und jede Suche wartete rund 27 Sekunden lang auf nichts.
+
+Mit den aktuellen Standardwerten `RERANKER_INITIAL_K=15` und `RERANKER_MAX_DOCUMENT_CHARS=500` (Paar-Median 166 Tokens, maximal 222) waren im selben Test alle 100 Anfragen erfolgreich — p50 12,9 Sekunden, p90 15,0 Sekunden, maximal 16,0 Sekunden, innerhalb des 25-Sekunden-Budgets. Beide Werte erfüllen zusammen exakt die Zeichenbudget-Grenze des Reranker-Service (`RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7.500`, siehe [Umgebungsvariablen](../reference/environment-variables.md)); wer einen der beiden Werte darüber hinaus erhöht, muss die Latenz vorher neu messen.
+
+Die Kontextqualität (Anteil der von der Benchmark erwarteten Themen im zurückgegebenen Kontext, gemessen über 54 Fragen in 9 Kategorien) hängt vom angeforderten `top_k` ab: Bei `top_k=5` — etwa beim KI-Fachbegriff-Glossar — steigt sie von 0,927 ohne Re-Ranking auf 0,974 mit den neuen Standardwerten (ein ungebremstes Re-Ranking aller Kandidaten läge bei 0,982, passt aber nicht in die Deadline). Beim Chat-Standardwert `top_k=10` ist der Gewinn deutlich kleiner: 0,978 ohne Re-Ranking gegenüber 0,979 mit den neuen Standardwerten (ungebremst 0,995). Der größere Nutzen des Re-Rankings liegt also bei Aufrufern, die wenige Chunks anfordern (Glossar `top_k=5`, Diagnose-Assistent `top_k=8`) — nicht beim Chat mit `top_k=10`.
+
+### Anfragelimits und Threading (Reranker-Service)
+
+`POST /rerank` begrenzt Anfragen und antwortet bei Überschreitung mit HTTP 422 (Validierungsfehler):
+
+| Feld | Limit |
+|------|-------|
+| `query` (Zeichen) | höchstens 4.096 |
+| `documents` (Anzahl) | höchstens 100 |
+| `documents[i]` (Zeichen je Dokument) | höchstens 16.384 |
+| `top_k` | 1 bis 50 (Default 5, unverändert) |
+
+Eine leere `documents`-Liste ist gültig und liefert HTTP 200 mit einer leeren Ergebnisliste. Der Knowledge-Service sendet höchstens `reranker_initial_k` (Default 15) Dokumente pro Anfrage und kürzt jedes Dokument vorher auf `reranker_max_document_chars` Zeichen (Default 500) — beides bleibt weit unter den serverseitigen Limits von 100 Dokumenten bzw. 16.384 Zeichen je Dokument.
+
+Vor der Validierung schützt eine ASGI-Middleware vor übergroßen Anfragen: ein Body über 19.775.488 Bytes (~19,8 MB, aus den obigen Limits abgeleitet) wird mit HTTP 413 abgelehnt, bevor er überhaupt geparst wird. Ein 422-Validierungsfehler enthält nur noch `loc`, `type` und `msg` je Fehler — die fehlerhafte Eingabe selbst wird nicht mehr gespiegelt. Da alle Anfragen dieselbe Inferenz-Sperre teilen, wartet eine Anfrage höchstens 10 Sekunden auf die Sperre (danach HTTP 503 `{"status": "busy"}` mit `Retry-After: 10`) und wird nach insgesamt höchstens 25 Sekunden abgebrochen (HTTP 503 `{"status": "timeout"}`). `/health` und `/ready` teilen die Sperre nicht und bleiben auch unter Last erreichbar. Der Knowledge-Service behandelt ein HTTP 503 des Re-Rankers wie jeden anderen Fehler und fällt auf die ungerankte Chunk-Liste zurück (siehe „Graceful Degradation" oben).
+
+Wie beim Embedding-Service richtet sich die Anzahl der Inferenz-Threads (`intra_op_num_threads`) nach dem CPU-Kontingent des Containers (cgroup-Quota bzw. CPU-Affinität), nicht nach der Kernzahl des Host-Systems. Der Service verarbeitet je Anfrage ein Query-Dokument-Paar nach dem anderen unter einer prozessweiten Sperre statt alle Paare in einem gepolsterten Batch; gemessen: identisches Ranking bei niedrigerem Speicherbedarf.
 
 ### Ressourcenbedarf
 
 | Szenario | RAM | CPU | Latenz/Query |
 |----------|-----|-----|-------------|
-| Re-Ranker aktiv (20→5) | 1,5–4 GB | 1–2 Kerne | +~500ms |
+| Re-Ranker aktiv (Bewertung ≤15 Kandidaten, gemessen 2026-09-25) | 1,5–4 GB | bis zu 2 Kerne (Chart-Limit) | p50 ~12,9s, p90 ~15s, max ~16s |
 | Re-Ranker deaktiviert | 0 | 0 | 0ms |
 
 !!! tip "Erster Docker-Build"
-    Der erste Build des `reranker-service`-Images dauert 10–15 Minuten, da `BAAI/bge-reranker-v2-m3` heruntergeladen und via `optimum` nach ONNX exportiert wird. Folge-Builds nutzen den gecachten Layer und sind in Sekunden abgeschlossen.
+    Der erste Build des `reranker-service`-Images lädt das bereits als ONNX exportierte Modell `BAAI/bge-reranker-v2-m3` von Hugging Face herunter, gepinnt auf eine feste Commit-Revision und per sha256-Prüfsumme verifiziert — ein Export via `optimum` findet nicht mehr statt (siehe [ADR-007](../adr/007-cross-encoder-reranking.md)). Die Build-Zeit hängt danach vor allem von der Downloadgeschwindigkeit ab; Folge-Builds nutzen den gecachten Layer und sind in Sekunden abgeschlossen.
+
+!!! info "Container-Härtung (embedding-service und reranker-service)"
+    Beide ONNX-Sidecars laufen im Runtime-Image ohne Paketmanager: `pip` wird beim Image-Build aus dem Basis-Image entfernt, ein `uv` erreicht die Runtime-Stage ohnehin nie; Anwendungscode, Python-Umgebung und Modell-Dateien gehören `root` und sind für die Service-UID (1000) nur lesbar. Im Entwicklungs-Chart (`values-dev-ki.yaml`) laufen beide Container mit `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, vollständig entzogenen Linux-Capabilities und `seccompProfile: RuntimeDefault`; ein memory-backed `/tmp`-emptyDir steht für Bibliotheken bereit, die zwingend eine Scratch-Datei brauchen. `docker-compose.yml` startet den Reranker-Service in derselben Form — schreibgeschützt, als UID 1000, ohne Capabilities, mit einem `/tmp`-tmpfs — und bindet dessen (nicht authentifizierten) Port nur an `127.0.0.1`, nicht an alle Netzwerkschnittstellen des Hosts.
 
 ---
 
@@ -406,12 +468,12 @@ Tipp-Karten werden sofort neu generiert bei:
 
 ---
 
-## Consent-Middleware
+## Einwilligungsprüfung (Consent-Guard)
 
-Cloud-Provider (OpenAI, Anthropic) erfordern eine explizite DSGVO-Einwilligung (REQ-025). Die Consent-Middleware prüft vor jeder Anfrage, ob die Einwilligung vorliegt.
+Cloud-Provider (OpenAI, Anthropic) erfordern eine explizite DSGVO-Einwilligung (REQ-025). Geprüft wird nicht in einer Middleware, sondern in der Service-Schicht: `ConsentGuard` (`app/domain/guards/consent_guard.py`) fragt vor dem Aufruf, ob die Einwilligung vorliegt, und antwortet sonst mit `403 ConsentRequiredError`. Das Beispiel zeigt die Logik vereinfacht.
 
 ```python
-# app/common/dependencies.py
+# vereinfacht — umgesetzt in app/domain/guards/consent_guard.py (ConsentGuard)
 
 async def require_ai_consent(
     provider_config: AiProviderConfig,

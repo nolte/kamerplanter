@@ -1,6 +1,9 @@
+from typing import Any
+
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
+from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.dosage_calculation_engine import (
     DosageCalculationEngine,
@@ -12,9 +15,16 @@ from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.fertilizer import DEFAULT_MIXING_PRIORITY, Fertilizer
-from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
+from app.domain.models.nutrient_plan import (
+    DeliveryChannel,
+    NutrientPlan,
+    NutrientPlanPhaseEntry,
+    normalize_species_keys,
+)
 from app.domain.models.site import RoWaterProfile
+from app.domain.services.fertilizer_references import assert_fertilizers_visible, require_visible_fertilizer
 from app.domain.services.location_ownership import resolve_owned_location
 
 
@@ -25,11 +35,13 @@ class NutrientPlanService:
         fert_repo: IFertilizerRepository,
         validator: NutrientPlanValidator,
         site_repo: ISiteRepository | None = None,
+        species_repo: ISpeciesRepository | None = None,
     ) -> None:
         self._repo = repo
         self._fert_repo = fert_repo
         self._validator = validator
         self._site_repo = site_repo
+        self._species_repo = species_repo
         self._water_calc = WaterMixCalculator()
         self._dosage_engine = DosageCalculationEngine()
 
@@ -44,26 +56,40 @@ class NutrientPlanService:
     ) -> tuple[list[NutrientPlan], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_plan(self, key: NutrientPlanKey, tenant_key: str = "", *, for_write: bool = False) -> NutrientPlan:
+    def list_plans_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[NutrientPlan]:
+        """One page of :meth:`list_plans` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
+
+    def get_plan(self, key: NutrientPlanKey, *, tenant_key: str, for_write: bool = False) -> NutrientPlan:
+        """A plan ``tenant_key`` may read — or, with ``for_write``, may change (#2107).
+
+        Nutrient plans are a hybrid catalog: read access spans the caller's own plans
+        PLUS globally seeded plans (empty tenant_key), so the detail/entries/clone
+        routes work for global plans the list restores. Writes stay owner-only — a
+        tenant may read or clone a global plan but never mutate it (there is no
+        is_system flag; empty tenant_key IS the global marker). ``tenant_key`` is
+        keyword-only without a default: an empty one used to skip both checks.
+        """
         plan = self._repo.get_or_raise(key)
-        if tenant_key:
-            # Nutrient plans are a hybrid catalog: read access spans the caller's
-            # own plans PLUS globally seeded plans (empty tenant_key), so the
-            # detail/entries/clone routes work for global plans the list restores.
-            # Writes must stay owner-only — a tenant may read or clone a global
-            # plan but never mutate it (there is no is_system flag; empty
-            # tenant_key IS the global marker), so write callers pass for_write.
-            if for_write:
-                verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
-            else:
-                verify_tenant_read_access(plan, tenant_key, "NutrientPlan")
+        if for_write:
+            verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
+        else:
+            verify_tenant_read_access(plan, tenant_key, "NutrientPlan")
         return plan
 
     def create_plan(self, plan: NutrientPlan) -> NutrientPlan:
+        self._assert_species_visible(plan.species_keys, tenant_key=plan.tenant_key)
         return self._repo.create(plan)
 
-    def update_plan(self, key: NutrientPlanKey, data: dict) -> NutrientPlan:
-        existing = self.get_plan(key)
+    def update_plan(self, key: NutrientPlanKey, data: dict, *, tenant_key: str) -> NutrientPlan:
+        existing = self.get_plan(key, tenant_key=tenant_key, for_write=True)
         allowed_fields = {
             "name",
             "description",
@@ -73,28 +99,92 @@ class NutrientPlanService:
             "is_template",
             "version",
             "tags",
+            "species_keys",
             "watering_schedule",
             "water_mix_ratio_ro_percent",
             "cycle_restart_from_sequence",
         }
+        if "species_keys" in data:
+            # Assignment below bypasses the model validator, so normalise here.
+            data = {**data, "species_keys": normalize_species_keys(data["species_keys"])}
+            self._assert_species_visible(data["species_keys"], tenant_key=existing.tenant_key)
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(existing, field, value)
         return self._repo.update(key, existing)
 
-    def delete_plan(self, key: NutrientPlanKey) -> bool:
-        self.get_plan(key)
+    def _assert_species_visible(self, species_keys: list[str], *, tenant_key: str) -> None:
+        """Refuse a species relation that names a species the plan's tenant cannot see (#1618).
+
+        The relation is what the onboarding match filters on, so a key that does
+        not resolve would make a plan match nothing while looking linked, and a
+        key of another tenant's private species would store a reference to a
+        document the owner may not read. Visibility is the species catalogue's
+        own union — own ∪ global ∪ granted
+        (:meth:`ISpeciesRepository.list_visible_keys`) — so this check and the
+        species list the form offers cannot disagree. Unknown and invisible keys
+        are reported alike (422), never as 403/404: telling them apart would be an
+        existence oracle for another tenant's species.
+        """
+        if not species_keys:
+            return
+        if self._species_repo is None:
+            # A wiring defect, not a user error: the DI factory always passes it.
+            raise RuntimeError("NutrientPlanService needs a species repository to link species")
+        visible = self._species_repo.list_visible_keys(tenant_key=tenant_key) or set()
+        unknown = [key for key in species_keys if key not in visible]
+        if unknown:
+            raise ValidationError(
+                "Unknown species in species_keys",
+                details=[{"field": "species_keys", "message": f"Unknown species: {key}"} for key in unknown],
+            )
+
+    def delete_plan(self, key: NutrientPlanKey, *, tenant_key: str) -> bool:
+        self.get_plan(key, tenant_key=tenant_key, for_write=True)
         return self._repo.delete(key)
 
     # ── Phase entries ────────────────────────────────────────────────
 
-    def create_phase_entry(self, plan_key: NutrientPlanKey, entry: NutrientPlanPhaseEntry) -> NutrientPlanPhaseEntry:
-        self.get_plan(plan_key)
+    def create_phase_entry(
+        self, plan_key: NutrientPlanKey, entry: NutrientPlanPhaseEntry, *, tenant_key: str
+    ) -> NutrientPlanPhaseEntry:
+        plan = self.get_plan(plan_key, tenant_key=tenant_key, for_write=True)
         entry.plan_key = plan_key
+        self._assert_dosages_visible(entry.delivery_channels, tenant_key=plan.tenant_key)
         return self._repo.create_phase_entry(entry)
 
-    def get_phase_entries(self, plan_key: NutrientPlanKey) -> list[NutrientPlanPhaseEntry]:
-        self.get_plan(plan_key)
+    def _assert_dosages_visible(self, channels: list, *, tenant_key: str) -> None:
+        """Refuse a dosage naming a fertilizer the plan's tenant cannot see (#1713).
+
+        ``channels`` are models on create and plain dicts on a patch
+        (``model_dump`` in the route); both are read. Unknown and foreign keys
+        are one 422, like :meth:`_assert_species_visible`.
+        """
+
+        def keys():
+            for channel in channels or []:
+                dosages = (
+                    channel.get("fertilizer_dosages", []) if isinstance(channel, dict) else channel.fertilizer_dosages
+                )
+                for dosage in dosages or []:
+                    yield dosage.get("fertilizer_key") if isinstance(dosage, dict) else dosage.fertilizer_key
+
+        assert_fertilizers_visible(
+            self._fert_repo,
+            keys(),
+            tenant_key=tenant_key,
+            field="delivery_channels",
+            owner="NutrientPlanService",
+        )
+
+    def get_phase_entries(self, plan_key: NutrientPlanKey, *, tenant_key: str) -> list[NutrientPlanPhaseEntry]:
+        """The phase entries of a plan the caller may read — its own or a global one (#2104).
+
+        The plan is resolved under ``tenant_key`` first: an entry carries no tenant of
+        its own, so without that a foreign plan's EC targets, phase names and dosages
+        are one key away. A foreign or unknown plan is ``NotFoundError``.
+        """
+        self.get_plan(plan_key, tenant_key=tenant_key)
         return self._repo.get_phase_entries(plan_key)
 
     def update_phase_entry(
@@ -123,7 +213,7 @@ class NutrientPlanService:
         if existing.plan_key != plan_key:
             # Same 404 a foreign entry gets: naming plan A while editing an entry
             # of plan B must not be distinguishable from the entry not existing.
-            raise NotFoundError("nutrient plan phase entry", key)
+            raise NotFoundError("NutrientPlanPhaseEntry", key)
         allowed_fields = {
             "phase_name",
             "sequence_order",
@@ -143,6 +233,8 @@ class NutrientPlanService:
             "watering_schedule_override",
             "water_mix_ratio_ro_percent",
         }
+        if "delivery_channels" in data:
+            self._assert_dosages_visible(data["delivery_channels"], tenant_key=tenant_key)
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(existing, field, value)
@@ -158,7 +250,7 @@ class NutrientPlanService:
         """Delete one phase entry, ownership-checked like :meth:`update_phase_entry`."""
         existing = self._owned_phase_entry_or_raise(key, tenant_key)
         if existing.plan_key != plan_key:
-            raise NotFoundError("nutrient plan phase entry", key)
+            raise NotFoundError("NutrientPlanPhaseEntry", key)
         return self._repo.delete_phase_entry(key)
 
     # ── Channel fertilizer assignment ─────────────────────────────────
@@ -197,7 +289,8 @@ class NutrientPlanService:
         channel_ids = [ch.channel_id for ch in entry.delivery_channels]
         if channel_id not in channel_ids:
             raise NotFoundError("DeliveryChannel", channel_id)
-        self._fert_repo.get_or_raise(fertilizer_key)
+        # Unknown was already a 404 here; a foreign key now answers the same (#1713).
+        require_visible_fertilizer(self._fert_repo, fertilizer_key, tenant_key=tenant_key, owner="NutrientPlanService")
         return self._repo.add_fertilizer_to_channel(
             entry_key,
             channel_id,
@@ -251,13 +344,14 @@ class NutrientPlanService:
         """The plan assigned to a plant of ``tenant_key`` (#927)."""
         return self._repo.get_plant_plan(plant_key, tenant_key=tenant_key)
 
-    def remove_plant_plan(self, plant_key: str) -> bool:
-        return self._repo.remove_plant_plan(plant_key)
+    def remove_plant_plan(self, plant_key: str, *, tenant_key: str) -> bool:
+        """Detach a plant of ``tenant_key`` from its plan; the repository verifies the plant (#2107)."""
+        return self._repo.remove_plant_plan(plant_key, tenant_key=tenant_key)
 
     # ── Clone ────────────────────────────────────────────────────────
 
     def clone_plan(
-        self, source_key: NutrientPlanKey, new_name: str, author: str = "", tenant_key: str = ""
+        self, source_key: NutrientPlanKey, new_name: str, author: str = "", *, tenant_key: str
     ) -> NutrientPlan:
         # The clone is owned by tenant_key (the cloning tenant), never by the
         # source. A tenant may clone a global plan, but the copy must be private
@@ -268,8 +362,8 @@ class NutrientPlanService:
 
     # ── Validation ───────────────────────────────────────────────────
 
-    def validate_plan(self, plan_key: NutrientPlanKey) -> dict:
-        self.get_plan(plan_key)
+    def validate_plan(self, plan_key: NutrientPlanKey, *, tenant_key: str) -> dict:
+        self.get_plan(plan_key, tenant_key=tenant_key)
         entries = self._repo.get_phase_entries(plan_key)
 
         completeness = self._validator.validate_completeness(entries)
@@ -572,9 +666,10 @@ class NutrientPlanService:
         without tenant_key falls back to an explicit all-tenant catalog scan.
         """
         # Search for supplement products with "CalMag" in the name
-        ferts, _ = self._fert_repo.get_all(
-            offset=0,
-            limit=100,
+        # Every supplement, not the first 100 by name: a CalMag sorted past the
+        # window was reported as absent (#2015).
+        ferts = get_all_pages(
+            self._fert_repo,
             filters={"fertilizer_type": "supplement"},
             tenant_key=tenant_key or None,
             all_tenants=not tenant_key,

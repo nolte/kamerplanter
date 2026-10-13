@@ -10,6 +10,7 @@ from typing import Any
 import structlog
 
 from app.common.dependencies import (
+    get_db,
     get_fertilizer_repo,
     get_nutrient_plan_repo,
 )
@@ -159,18 +160,21 @@ def _build_nutrient_plan(raw: dict[str, Any]) -> NutrientPlan:
 
 def run_seed_nutrient_plans_ro() -> None:
     """Create RO-water nutrient plan variants with CalMag supplement."""
-    from app.migrations.seed_upsert_helpers import upsert_nutrient_plan_with_entries
+    from app.migrations.seed_upsert_helpers import (
+        global_fertilizer_keys,
+        global_plan_map,
+        load_species_key_map,
+        resolve_plan_species_keys,
+        upsert_nutrient_plan_with_entries,
+    )
 
     data = load_yaml("nutrient_plans_ro.yaml")
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
 
     # ── Load fertilizer keys (all brands — plans reference Plagron, Gardol, Terra Aquatica) ──
-    existing_ferts, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
-    fert_keys: dict[str, str] = {}
-    for f in existing_ferts:
-        if f.key:
-            fert_keys[f.product_name] = f.key
+    # Global products only, whole catalogue (#2000): a global plan never references a tenant's product.
+    fert_keys = global_fertilizer_keys(fert_repo)
 
     required_products = {
         "CalMag",
@@ -192,14 +196,19 @@ def run_seed_nutrient_plans_ro() -> None:
         return
 
     # ── Upsert nutrient plans ──
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=200, all_tenants=True)  # seed: global catalog
-    existing_plan_map = {p.name: p for p in existing_plans}
+    # #1618: seeded plans are linked to the species their source names.
+    species_key_map = load_species_key_map(get_db())
+    # #1957: global rows only (never a tenant's same-named plan), whole catalogue, first row wins.
+    existing_plan_map = global_plan_map(plan_repo)
 
     raw_plans = data["nutrient_plans"]
     for raw_plan in raw_plans:
         plan = _build_nutrient_plan(raw_plan)
         entries = _build_phase_entries(raw_plan.get("phase_entries", []), fert_keys)
-        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map)
+        species_keys = resolve_plan_species_keys(
+            raw_plan.get("species_names", []), species_key_map, plan_name=plan.name
+        )
+        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map, species_keys=species_keys)
 
     logger.info(
         "seed_nutrient_plans_ro_complete",

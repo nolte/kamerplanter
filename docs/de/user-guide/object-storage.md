@@ -143,7 +143,7 @@ Die Migration läuft als Celery-Task mit Fortschrittsanzeige und kann bei Unterb
 ## Häufige Fragen
 
 ??? question "Was passiert mit Anhängen, wenn ein Mandant gelöscht wird?"
-    Kamerplanter löscht alle Binärdaten des Mandanten über `delete_prefix("t/{tenant_key}/")` im konfigurierten Storage-Backend. Dies geschieht bevor die ArangoDB-Einträge entfernt werden, damit die Metadaten noch abrufbar sind. Das Ergebnis wird im Audit-Log dokumentiert. Weitere Details: [Datenschutz (DSGVO) — Account und Mandanten löschen](privacy.md#account-loschen-art-17-dsgvo).
+    Kamerplanter löscht zuerst alle Binärdaten des Mandanten über `delete_prefix("t/{tenant_key}/")` im konfigurierten Storage-Backend. Die zugehörigen Metadaten-Einträge (u. a. die Anhang-Datensätze) werden anschließend zusammen mit allen anderen fachlichen Daten des Mandanten in derselben ArangoDB-Transaktion entfernt. Das Ergebnis wird im Löschungs-Datensatz dokumentiert. Weitere Details: [Datenschutz (DSGVO) — Mandantenlöschung](privacy.md#mandantenloschung).
 
 ??? question "Kann ich MinIO im Cluster als S3-Backend verwenden?"
     Ja. Konfiguriere `STORAGE_S3_ENDPOINT_URL` auf die interne MinIO-Adresse (z. B. `http://minio.kamerplanter.svc:9000`), setze `STORAGE_S3_USE_PATH_STYLE=true` und `STORAGE_S3_ALLOW_PRIVATE_ENDPOINT=true`. Letztere Variable erlaubt es dem Backend, einen privaten (nicht öffentlich erreichbaren) Endpunkt anzusprechen. Weitere Details: [Umgebungsvariablen — Object Storage](../reference/environment-variables.md#object-storage-nfr-013).

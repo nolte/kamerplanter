@@ -11,11 +11,19 @@
  *    no DSN nothing is initialised.
  * 2. **Near-zero cost when off.** `@sentry/react` is behind a dynamic
  *    `import()`, so it lands in its own chunk that the browser never fetches
- *    unless a DSN is configured. Measured against the UI-NFR-003 initial-payload
- *    budget: the SDK chunk is 184 KB gzip and stays out of it entirely; only
- *    this module's own wiring is in the initial payload, at +1.5 KB gzip
- *    (345.5 -> 347.0 KB, budget 400). That is why `init` is async and awaited
- *    before the app mounts rather than imported at the top.
+ *    unless a DSN is configured and the user consented. Measured against the
+ *    UI-NFR-003 initial-payload budget: the SDK chunk is 184 KB gzip and stays
+ *    out of it entirely; only this module's own wiring is in the initial
+ *    payload, at +1.5 KB gzip (345.5 -> 347.0 KB, budget 400). That is why
+ *    `init` is async and awaited before the app mounts rather than imported at
+ *    the top.
+ * 3. **Consent-gated** (UI-NFR-013 CI-001/CI-002/CW-003, #2159). A DSN is the
+ *    operator's opt-in; the user's own `error_tracking` consent is the second,
+ *    independent gate. The SDK chunk is neither fetched nor initialised until
+ *    that consent is `true` — undecided (`null`) counts as no. A decision made
+ *    after boot takes effect without a reload: a later grant initialises, a
+ *    revoke disables the client synchronously and then closes it. Light mode
+ *    (REQ-027) never tracks in the browser, whatever is stored.
  *
  * The PII rules mirror `src/libs/kp_errortracking/` on the Python side. They are
  * restated rather than shared because the two run on different platforms with
@@ -24,8 +32,38 @@
  */
 
 import { runtimeConfig } from '@/config/runtimeConfig';
+import { isLightMode } from '@/config/mode';
+import { hasConsent, subscribeConsent } from '@/observability/consent';
 
 type SentryModule = typeof import('@sentry/react');
+
+/**
+ * The SDK's `dataCollection` contract, derived from `init`'s own parameter
+ * type so it tracks whichever SDK version is installed. (`@sentry/core`
+ * exports the `DataCollection` name only from 11 on; the derivation compiles
+ * on 10.x and 11 alike.)
+ */
+type DataCollection = NonNullable<
+  NonNullable<Parameters<SentryModule['init']>[0]>['dataCollection']
+>;
+
+/**
+ * Every category the SDK can collect, minus the three that are deliberately
+ * not decided here. `Required` is the point: the resolver takes the SDK's
+ * *permissive* default for any category the block does not name, so a minor
+ * SDK bump that adds a category must fail the typecheck rather than start
+ * collecting it in production.
+ *
+ * - `frameContextLines`: source code around a frame, not personal data. Not
+ *   pinned, so it follows the SDK default — 7 under the old `sendDefaultPii`
+ *   bridge, 5 once `dataCollection` is set (the resolver switches its base).
+ * - `queryParams`: the deprecated 10.x alias of `urlQueryParams`; gone in 11.
+ * - `queues`: 11-only, server-side messaging instrumentation with no browser
+ *   reader, and absent from the 10.x typings this must still compile against.
+ */
+type DecidedDataCollection = Required<
+  Omit<DataCollection, 'frameContextLines' | 'queryParams' | 'queues'>
+>;
 
 /**
  * The closed stage vocabulary. Identical to `ENVIRONMENTS` in
@@ -58,6 +96,32 @@ const REDACTED = '[redacted]';
 /** Module-scoped handle, set only after a successful init. */
 let sentry: SentryModule | null = null;
 
+/**
+ * Upper bound for the post-revoke `close()`. The client is already disabled
+ * when it runs, so this only bounds how long the SDK may wait for requests that
+ * were in flight before the revoke; it gates nothing.
+ */
+const CLOSE_TIMEOUT_MS = 2000;
+
+/**
+ * The chunk load, shared by every start. One `import()` per page: a grant ->
+ * revoke -> grant burst reuses it instead of racing two loads of the same chunk.
+ */
+let sdkLoad: Promise<SentryModule> | null = null;
+
+/** The init in flight, so a burst of consent events loads the SDK once. */
+let starting: Promise<boolean> | null = null;
+
+/**
+ * Bumped by every stop. An init that was in flight when the user revoked
+ * compares its captured value on return and discards itself, so a slow chunk
+ * download can never resurrect tracking after a "no".
+ */
+let generation = 0;
+
+/** The consent subscription, registered once per page by `initErrorTracking`. */
+let unsubscribeConsent: (() => void) | null = null;
+
 export function isSensitiveName(name: string): boolean {
   const lowered = name.toLowerCase();
   return SENSITIVE_NAME_PARTS.some((part) => lowered.includes(part));
@@ -72,17 +136,9 @@ export function redactRecord(record: Record<string, unknown>): void {
   }
 }
 
-/**
- * Strip the query string's sensitive parameters while keeping the path.
- *
- * The path is the single most valuable grouping signal an event carries, so it
- * survives; a `?token=…` on it does not. Anything unparseable is returned
- * untouched rather than guessed at.
- */
-export function scrubUrl(url: string): string {
-  const [base, query] = url.split('?');
-  if (!query) return url;
-  const scrubbed = query
+/** Redact the values of sensitive `name=value` pairs in a query string or fragment. */
+function scrubParams(params: string): string {
+  return params
     .split('&')
     .map((pair) => {
       const eq = pair.indexOf('=');
@@ -91,7 +147,26 @@ export function scrubUrl(url: string): string {
       return isSensitiveName(name) ? `${name}=${REDACTED}` : pair;
     })
     .join('&');
-  return `${base}?${scrubbed}`;
+}
+
+/**
+ * Strip the query string's and the fragment's sensitive parameters while
+ * keeping the path.
+ *
+ * The path is the single most valuable grouping signal an event carries, so it
+ * survives; a `?token=…` on it does not, and neither does a `#step_up_token=…`
+ * — the step-up callback carries its one-time token in the fragment, and the
+ * history breadcrumb of removing it records the old URL (#1815). Anything
+ * unparseable is returned untouched rather than guessed at.
+ */
+export function scrubUrl(url: string): string {
+  const hashAt = url.indexOf('#');
+  const beforeHash = hashAt < 0 ? url : url.slice(0, hashAt);
+  const fragment = hashAt < 0 ? null : url.slice(hashAt + 1);
+  const [base, query] = beforeHash.split('?');
+  let scrubbed = query ? `${base}?${scrubParams(query)}` : beforeHash;
+  if (fragment !== null) scrubbed += `#${scrubParams(fragment)}`;
+  return scrubbed;
 }
 
 /** `beforeSend`: strip personal data before the event leaves the browser. */
@@ -159,15 +234,113 @@ function resolveSampleRate(raw: string | undefined): number {
   return rate;
 }
 
+function configuredDsn(): string {
+  return (runtimeConfig().SENTRY_DSN ?? '').trim();
+}
+
 /**
- * Load and initialise the SDK when a DSN is configured.
+ * Whether the operator configured a DSN. The consent banner only asks for an
+ * `error_tracking` decision when there is something for it to switch on.
+ */
+export function isErrorTrackingConfigured(): boolean {
+  return configuredDsn() !== '';
+}
+
+/**
+ * Wire error tracking to the DSN and the user's consent.
+ *
+ * With no DSN nothing happens — no subscription, no chunk, no init. With one,
+ * the module subscribes to consent changes (once) and starts the SDK only if
+ * `error_tracking` consent is already `true`.
  *
  * @returns `true` when tracking is active, `false` when it stayed off. Callers
  *   ignore this; it exists so the behaviour is directly testable.
  */
 export async function initErrorTracking(): Promise<boolean> {
+  if (!isErrorTrackingConfigured()) return false;
+  if (!unsubscribeConsent) {
+    unsubscribeConsent = subscribeConsent(() => {
+      void applyConsent();
+    });
+  }
+  return applyConsent();
+}
+
+/**
+ * Whether the browser may track right now: the user's explicit grant, and never
+ * in Light mode — there is no banner there (household exemption), so a grant
+ * left over from before a full -> light switch must not start the SDK.
+ */
+function trackingPermitted(): boolean {
+  return !isLightMode && hasConsent('error_tracking');
+}
+
+/** Start or stop the SDK to match the current consent. */
+function applyConsent(): Promise<boolean> {
+  if (trackingPermitted()) return startErrorTracking();
+  stopErrorTracking();
+  return Promise.resolve(false);
+}
+
+/**
+ * Stop reporting at once (CW-003) and tear the SDK down. Safe when tracking is off.
+ *
+ * `Sentry.close(timeout)` alone is not immediate: in @sentry/core 11 it awaits
+ * `flush(timeout)` and only then sets `enabled = false`, and a timeout of `0`
+ * means *unbounded* (`while (!timeout || ticked < timeout)`), so the still-
+ * installed global handlers could send for as long as the flush ran. The
+ * client is therefore disabled synchronously first; the consent check inside
+ * `beforeSend`/`beforeBreadcrumb` covers anything already past that point.
+ * `addBreadcrumb` only checks that a client *exists* and writes to the
+ * isolation scope, so the revoked session's trail is cleared too — a later
+ * re-grant must not ship it.
+ */
+export function stopErrorTracking(): void {
+  generation += 1;
+  starting = null;
+  const active = sentry;
+  sentry = null;
+  if (!active) return;
+  try {
+    const client = active.getClient();
+    if (client) client.getOptions().enabled = false;
+    active.getIsolationScope().clearBreadcrumbs();
+    // `Scope#clear()` no longer exists in SDK 11; breadcrumbs are the only
+    // trail this module lets the SDK keep (the user block is scrubbed).
+    active.getCurrentScope().clearBreadcrumbs();
+  } catch (error) {
+    console.warn('[error-tracking] disabling the client failed', error);
+  }
+  active.close(CLOSE_TIMEOUT_MS).catch((error: unknown) => {
+    console.warn('[error-tracking] closing the client failed', error);
+  });
+}
+
+function loadSdk(): Promise<SentryModule> {
+  if (!sdkLoad) {
+    sdkLoad = import('@sentry/react').catch((error: unknown) => {
+      // A failed chunk load may be transient; let the next grant retry it.
+      sdkLoad = null;
+      throw error;
+    });
+  }
+  return sdkLoad;
+}
+
+function startErrorTracking(): Promise<boolean> {
+  if (sentry) return Promise.resolve(true);
+  if (!starting) {
+    const started = loadAndInit(generation).finally(() => {
+      if (starting === started) starting = null;
+    });
+    starting = started;
+  }
+  return starting;
+}
+
+async function loadAndInit(startedIn: number): Promise<boolean> {
   const config = runtimeConfig();
-  const dsn = (config.SENTRY_DSN ?? '').trim();
+  const dsn = configuredDsn();
   if (!dsn) return false;
 
   const environment = (config.SENTRY_ENVIRONMENT ?? 'development').trim() || 'development';
@@ -183,7 +356,9 @@ export async function initErrorTracking(): Promise<boolean> {
   }
 
   try {
-    const Sentry = await import('@sentry/react');
+    const Sentry = await loadSdk();
+    // The user revoked (or the module was reset) while the chunk was loading.
+    if (startedIn !== generation || !trackingPermitted()) return false;
     Sentry.init({
       dsn,
       environment,
@@ -192,14 +367,42 @@ export async function initErrorTracking(): Promise<boolean> {
       // It is deliberately not silent: an unattributable release makes
       // regression detection impossible, and `@dev` says so in the tracker.
       release: config.SENTRY_RELEASE || 'kamerplanter-frontend@dev',
-      sendDefaultPii: false,
+      // Explicit because the SDK's own defaults are permissive: Sentry 11
+      // removed `sendDefaultPii` and, with `dataCollection` left unset, now
+      // collects user info (IP), cookies, headers, bodies and query data by
+      // default (MIGRATION.md, "`sendDefaultPii` is replaced by
+      // `dataCollection`"). Every category is switched off by name, which is
+      // stricter than the old `sendDefaultPii: false` bridge (that kept
+      // deny-listed headers/cookies/query params and stack-frame variables).
+      // Option names are the SDK's own (`DataCollection` in
+      // `@sentry/core/build/types/types/datacollection.d.ts`); the
+      // `satisfies` closes the set — see `DecidedDataCollection`.
+      dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: { request: false, response: false },
+        httpBodies: [],
+        urlQueryParams: false,
+        graphQL: { document: false, variables: false },
+        genAI: { inputs: false, outputs: false },
+        databaseQueryData: false,
+        stackFrameVariables: false,
+      } satisfies DecidedDataCollection,
       sampleRate: resolveSampleRate(config.SENTRY_SAMPLE_RATE),
       // Performance tracing stays advisory per the observability spec and is
       // off until someone decides to adopt it.
       tracesSampleRate: 0,
-      beforeSend: (event) => scrubEvent(event as unknown as Record<string, unknown>) as never,
+      // Both hooks re-check consent first: the SDK's global handlers stay
+      // installed after a revoke, and these run for whatever they still hand
+      // over. `null` drops the event / breadcrumb.
+      beforeSend: (event) =>
+        (trackingPermitted()
+          ? scrubEvent(event as unknown as Record<string, unknown>)
+          : null) as never,
       beforeBreadcrumb: (crumb) =>
-        scrubBreadcrumb(crumb as unknown as Record<string, unknown>) as never,
+        (trackingPermitted()
+          ? scrubBreadcrumb(crumb as unknown as Record<string, unknown>)
+          : null) as never,
     });
     sentry = Sentry;
     return true;
@@ -231,7 +434,11 @@ export function isErrorTrackingActive(): boolean {
   return sentry !== null;
 }
 
-/** Test seam: drop the loaded SDK handle. */
+/** Test seam: drop the loaded SDK handle and the consent subscription. */
 export function resetErrorTrackingForTests(): void {
+  unsubscribeConsent?.();
+  unsubscribeConsent = null;
+  generation += 1;
+  starting = null;
   sentry = null;
 }

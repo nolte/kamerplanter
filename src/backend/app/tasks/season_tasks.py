@@ -11,7 +11,8 @@ duplicates side effects.
 
 import structlog
 
-from app.common.enums import OVERWINTERING_SITE_TYPES
+from app.common.enums import OVERWINTERING_SITE_TYPES, TenantStatus
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -24,11 +25,15 @@ def evaluate_season_states(self) -> dict:  # noqa: ANN001 — Celery bound-task 
     if not settings.season_state_eval_enabled:
         return {"status": "skipped", "reason": "season_state_eval_disabled"}
 
-    from app.common.dependencies import get_season_state_service, get_site_repo
+    from app.common.dependencies import get_season_state_service, get_site_repo, get_tenant_repo
     from app.domain.models.site import Site
+    from app.tasks.tenant_gate import ActiveTenants
 
     site_repo = get_site_repo()
     service = get_season_state_service()
+    # REQ-056 §5.2 — the season of a site whose tenant is not ``active`` is not advanced: no
+    # overwintering task, no dormancy switch written into it.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # Cross-tenant iteration stays in the data-access layer (NFR-001); docs are
     # returned normalised so each Site is constructed defensively below.
@@ -49,11 +54,13 @@ def evaluate_season_states(self) -> dict:  # noqa: ANN001 — Celery bound-task 
     for doc in docs_by_key.values():
         # AC-18: constructing the Site (Pydantic) is inside the guard, so a single
         # schema-drift document is logged and skipped instead of aborting the run.
+        if doc.get("tenant_key") and not tenant_is_active(doc["tenant_key"]):
+            continue
         try:
             site = Site(**doc)
             state, changed = service.evaluate_site_detailed(site)
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
-            logger.warning("season_evaluate_site_failed", site_key=doc.get("_key"), error=str(exc))
+            logger.warning("season_evaluate_site_failed", site_key=doc.get("_key"), error=loggable_error(exc))
             errors += 1
             continue
         if state is None:
@@ -84,24 +91,27 @@ def evaluate_quarter_climate(self) -> dict:  # noqa: ANN001 — Celery bound-tas
     if not settings.season_state_eval_enabled:
         return {"status": "skipped", "reason": "season_state_eval_disabled"}
 
-    from app.common.dependencies import get_plant_repo, get_quarter_climate_service
+    from app.common.dependencies import get_plant_repo, get_quarter_climate_service, get_tenant_repo
 
     plant_repo = get_plant_repo()
     service = get_quarter_climate_service()
+    # REQ-056 §5.2 — no quarter-climate task is written into a tenant that is not ``active``.
+    # MT-032 (#2128): the tenant and the removal are filtered in AQL and the plants come one page at a
+    # time, so the worker never holds the installation's plants, nor reads a closed tenant's.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    plants, _total = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)
     evaluated = 0
     warnings = 0
     errors = 0
-    for plant in plants:
-        if plant.removed_on is not None or not plant.key:
+    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
+        if not plant.key:
             continue
         evaluated += 1
         try:
-            if service.evaluate_plant(plant.key) is not None:
+            if service.evaluate_plant(plant.key, tenant_key=plant.tenant_key) is not None:
                 warnings += 1
         except Exception as exc:  # noqa: BLE001 — one bad plant must not abort the run
-            logger.warning("quarter_climate_evaluate_failed", plant_key=plant.key, error=str(exc))
+            logger.warning("quarter_climate_evaluate_failed", plant_key=plant.key, error=loggable_error(exc))
             errors += 1
 
     logger.info("quarter_climate_evaluate_complete", evaluated=evaluated, warnings=warnings, errors=errors)

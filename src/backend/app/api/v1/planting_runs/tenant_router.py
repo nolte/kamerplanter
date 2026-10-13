@@ -57,6 +57,7 @@ from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_diary_service import PlantDiaryService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.species_visibility import readable_species
 
 router = APIRouter(prefix="/planting-runs", tags=["planting-runs"], responses=NOT_FOUND_RESPONSE)
 
@@ -87,7 +88,7 @@ def list_runs(
         filters["run_type"] = run_type
     if location_key:
         filters["location_key"] = location_key
-    items, _total = service.list_runs(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    items = service.list_runs_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     active_keys = [r.key for r in items if r.key and r.status != PlantingRunStatus.PLANNED]
     summaries = service.get_batch_phase_summaries(active_keys) if active_keys else {}
     return [_run_response(r, summaries.get(r.key)) for r in items]
@@ -104,7 +105,7 @@ def create_run(
     entries = None
     if body.entries:
         entries = [PlantingRunEntry(**e.model_dump()) for e in body.entries]
-    created = service.create_run(run, entries)
+    created = service.create_run(run, entries, tenant_key=ctx.tenant_key)
     return _run_response(created)
 
 
@@ -128,9 +129,8 @@ def update_run(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Update a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_run(key, data)
+    updated = service.update_run(key, data, tenant_key=ctx.tenant_key)
     return _run_response(updated)
 
 
@@ -141,8 +141,7 @@ def delete_run(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Delete a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    service.delete_run(key)
+    service.delete_run(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/entries", response_model=list[EntryResponse])
@@ -165,9 +164,8 @@ def add_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Add an entry to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     entry = PlantingRunEntry(**body.model_dump())
-    created = service.add_entry(key, entry)
+    created = service.add_entry(key, entry, tenant_key=ctx.tenant_key)
     return _entry_response(created)
 
 
@@ -180,13 +178,12 @@ def update_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Partially update a planting-run entry."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     # Partial update: only fields explicitly sent by the client are applied.
     # ``exclude_unset`` (not ``exclude_none``) keeps an explicit ``null`` for a
     # nullable field distinguishable from "not sent" — the service merges the
     # patch onto the persisted entry and re-validates required fields.
     data = body.model_dump(exclude_unset=True)
-    updated = service.update_entry(key, entry_key, data)
+    updated = service.update_entry(key, entry_key, data, tenant_key=ctx.tenant_key)
     return _entry_response(updated)
 
 
@@ -198,8 +195,7 @@ def delete_entry(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Delete a planting-run entry."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    service.delete_entry(key, entry_key)
+    service.delete_entry(key, entry_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/create-plants", response_model=BatchCreatePlantsResponse, status_code=201)
@@ -209,8 +205,7 @@ def batch_create_plants(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Create plant instances in bulk from a planting run's entries."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.create_plants(key)
+    result = service.create_plants(key, tenant_key=ctx.tenant_key)
     return BatchCreatePlantsResponse(**result)
 
 
@@ -222,8 +217,7 @@ def adopt_plants(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Attach existing plant instances to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.adopt_plants(key, body.plant_keys)
+    result = service.adopt_plants(key, body.plant_keys, tenant_key=ctx.tenant_key)
     return AdoptPlantsResponse(**result)
 
 
@@ -238,7 +232,7 @@ def get_phase_timeline(
     service.get_run(key, tenant_key=ctx.tenant_key)
     timelines = service.get_phase_timeline(key)
     for tl in timelines:
-        sp = species_repo.get_by_key(tl["species_key"])
+        sp = readable_species(species_repo, tl["species_key"], ctx.tenant_key)
         if sp:
             tl["species_name"] = sp.scientific_name
     return timelines
@@ -252,8 +246,7 @@ def transition_run(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Transition all plants of a planting run to a target phase."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.transition(key, body.target_phase_key, body.target_phase_name)
+    result = service.transition(key, body.target_phase_key, body.target_phase_name, tenant_key=ctx.tenant_key)
     return RunTransitionResponse(**result)
 
 
@@ -265,11 +258,12 @@ def batch_update_phase_dates(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Bulk-update the entered/exited dates for a phase across a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
     if body.entered_at is None and body.exited_at is None:
         raise HTTPException(status_code=422, detail="At least one of entered_at or exited_at must be provided")
     try:
-        result = service.batch_update_phase_dates(key, body.phase_key, body.entered_at, body.exited_at)
+        result = service.batch_update_phase_dates(
+            key, body.phase_key, body.entered_at, body.exited_at, tenant_key=ctx.tenant_key
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
     return BatchUpdatePhaseDatesResponse(**result)
@@ -283,8 +277,7 @@ def batch_remove(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Bulk-remove the plants of a planting run with a shared reason."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.batch_remove(key, body.reason, body.target_status)
+    result = service.batch_remove(key, body.reason, body.target_status, tenant_key=ctx.tenant_key)
     return BatchRemoveResponse(**result)
 
 
@@ -309,7 +302,8 @@ def list_plants(
         if not species_key:
             return None
         if species_key not in species_cache:
-            sp = species_repo.get_by_key(species_key)
+            # #2082: a legacy plant may carry another tenant's private species key.
+            sp = readable_species(species_repo, species_key, ctx.tenant_key)
             species_cache[species_key] = (
                 SpeciesSummary(scientific_name=sp.scientific_name, common_names=sp.common_names) if sp else None
             )
@@ -351,8 +345,7 @@ def detach_plant(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Detach a plant instance from a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    result = service.detach_plant(key, plant_key, body.reason)
+    result = service.detach_plant(key, plant_key, body.reason, tenant_key=ctx.tenant_key)
     return DetachPlantResponse(**result)
 
 
@@ -388,8 +381,7 @@ def remove_nutrient_plan(
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
     """Remove the nutrient plan assigned to a planting run."""
-    service.get_run(key, tenant_key=ctx.tenant_key)
-    service.remove_nutrient_plan(key)
+    service.remove_nutrient_plan(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/active-channels", response_model=list[ActiveChannelResponse])
@@ -476,6 +468,7 @@ def _load_entry_in_scope(
     diary_service: PlantDiaryService,
     entry_key: str,
     plant_key: str,
+    *,
     tenant_key: str,
 ) -> PlantDiaryEntry:
     """Load a diary entry, refusing anything outside this tenant *and* this plant.
@@ -530,7 +523,7 @@ def list_plant_diary_entries(
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
     plant_service.get_plant(plant_key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_plant(
+    entries = diary_service.list_entries_for_plant_window(
         plant_key,
         tenant_key=ctx.tenant_key,
         offset=pagination.offset,
@@ -539,6 +532,10 @@ def list_plant_diary_entries(
     return [_diary_response(e, diary_service, ctx) for e in entries]
 
 
+# tenant-scope-ok: the run is tenant-verified on the line below, and
+# PlantDiaryService.create_entry refuses a plant_key that is not a member of
+# that run — so the plant inherits the run's ownership rather than being
+# resolved from the path.
 @router.post(
     "/{key}/plants/{plant_key}/diary",
     response_model=DiaryEntryResponse,
@@ -548,7 +545,7 @@ def create_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: DiaryEntryCreateRequest,
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -593,7 +590,7 @@ def get_plant_diary_entry(
 ):
     """Return a single plant-diary entry by key."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entry = _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    entry = _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     return _diary_response(entry, diary_service, ctx)
 
 
@@ -606,13 +603,13 @@ def update_plant_diary_entry(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
     body: DiaryEntryUpdateRequest,
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
     """Update a plant-diary entry."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = diary_service.update_entry(
         entry_key,
@@ -632,14 +629,14 @@ def delete_plant_diary_entry(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.DELETE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.DELETE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
     """Delete a plant-diary entry."""
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
-    diary_service.delete_entry(entry_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
+    diary_service.delete_entry(entry_key, tenant_key=ctx.tenant_key)
 
 
 # ── REQ-050 §2.5.1 — marking an entry for AI analysis ────────────────
@@ -653,7 +650,7 @@ def request_run_diary_entry_analysis(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.CREATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -667,7 +664,7 @@ def request_run_diary_entry_analysis(
     409 ``conflict.invalid_state`` (REQ-050 §6, §7.2, §7.5, AK-01/02/03).
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     updated = diary_service.request_analysis(
         entry_key,
         tenant_key=ctx.tenant_key,
@@ -685,7 +682,7 @@ def cancel_run_diary_entry_analysis(
     key: Annotated[str, Path(description="Document key of the planting run.")],
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     entry_key: Annotated[str, Path(description="Document key of the diary entry.")],
-    ctx: TenantContext = Depends(require_permission("diary-entry", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.DIARY_ENTRY, Action.UPDATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
 ):
@@ -696,7 +693,7 @@ def cancel_run_diary_entry_analysis(
     clicking answers 409 instead of silently doing nothing.
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    _load_entry_in_scope(diary_service, entry_key, plant_key, ctx.tenant_key)
+    _load_entry_in_scope(diary_service, entry_key, plant_key, tenant_key=ctx.tenant_key)
     updated = diary_service.cancel_analysis_request(
         entry_key,
         tenant_key=ctx.tenant_key,
@@ -735,7 +732,7 @@ def list_run_diary_entries(
     round-trip of the model, not a raw ArangoDB document.
     """
     service.get_run(key, tenant_key=ctx.tenant_key)
-    entries, _total = diary_service.list_entries_for_run(
+    entries = diary_service.list_entries_for_run_window(
         key,
         tenant_key=ctx.tenant_key,
         offset=pagination.offset,

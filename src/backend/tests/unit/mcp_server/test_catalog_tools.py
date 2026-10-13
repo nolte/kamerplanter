@@ -96,7 +96,7 @@ class _SpeciesService:
     def get_species(self, key, *, tenant_key=None):
         return _Species()
 
-    def get_compatible_species(self, key):
+    def get_compatible_species(self, key, *, tenant_key=None):
         return self._companions
 
     # ``tenant_key`` keyword-only with default None, exactly like the real
@@ -177,7 +177,7 @@ class _IndoorSpeciesService:
             mature_height_cm="100-300",
         )
 
-    def get_compatible_species(self, key):
+    def get_compatible_species(self, key, *, tenant_key=None):
         return []
 
     def list_cultivars(self, species_key, *, tenant_key=None):
@@ -198,7 +198,7 @@ async def test_species_info_projects_indoor_suitable_and_mature_height_when_popu
 @pytest.mark.asyncio
 async def test_species_info_survives_a_missing_companion_graph():
     class _Broken(_SpeciesService):
-        def get_compatible_species(self, key):
+        def get_compatible_species(self, key, *, tenant_key=None):
             raise RuntimeError("graph unavailable")
 
     resp = await GetSpeciesInfo().run(_ctx(species_service=_Broken()), GetSpeciesInfo.Input(species_key="sp-tomato"))
@@ -235,7 +235,7 @@ class _UnresearchedSpeciesService:
     def get_species(self, key, *, tenant_key=None):
         return Species(_key="11441306", scientific_name="Dracaena reflexa", genus="Dracaena")
 
-    def get_compatible_species(self, key):
+    def get_compatible_species(self, key, *, tenant_key=None):
         return []
 
     def list_cultivars(self, species_key, *, tenant_key=None):
@@ -422,3 +422,20 @@ async def test_glossary_search_filters_and_passes_the_language_through():
     resp = await SearchGlossary().run(_ctx(glossary_service=svc), SearchGlossary.Input(query="vpd", language="en"))
     assert svc.seen == (None, "en")
     assert [i["slug"] for i in resp.data["items"]] == ["vpd"]
+    # #2226 sweep: the link named /api/v1/glossary/terms, which no route serves.
+    assert [link.url for link in resp.links] == ["/api/v1/public/glossary/terms"]
+
+
+@pytest.mark.asyncio
+async def test_list_substrates_finds_a_mix_past_the_old_cap_of_200():
+    """#2025: the filter scanned the first 200 substrates and answered "none" past them."""
+    rows = [Substrate(_key=f"s{i:03d}", name_de=f"Füller {i}", name_en=f"Filler {i}") for i in range(250)]
+    rows.append(Substrate(_key="s-late", name_de="Seltene Mischung", name_en="Rare mix"))
+
+    class _Svc:
+        def list_substrates(self, offset=0, limit=50, *, tenant_key=None):
+            return rows[offset : offset + limit], len(rows)
+
+    resp = await ListSubstrates().run(_ctx(substrate_service=_Svc()), ListSubstrates.Input(query="rare mix"))
+
+    assert [i["name_de"] for i in resp.data["items"]] == ["Seltene Mischung"]

@@ -1,38 +1,76 @@
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
-
-from arango.database import StandardDatabase
 
 from app.common.enums import (
     CATEGORY_COLORS,
     CalendarEventCategory,
     CalendarEventSource,
 )
-from app.data_access.arango import collections as col
 from app.domain.engines.watering_volume_engine import SUBSTRATE_WATERING_RATIO as _SUBSTRATE_WATERING_RATIO
 from app.domain.models.calendar import CalendarEvent, CalendarEventsQuery
+
+
+@dataclass(frozen=True)
+class CalendarSourceRows:
+    """The pre-loaded rows one calendar request is aggregated from (#1638).
+
+    Loaded by :class:`~app.domain.services.calendar_service.CalendarService`
+    through :class:`~app.domain.interfaces.calendar_source_repository.ICalendarSourceRepository`;
+    one field per event source, in the shape the repository returns them.
+    ``fertilizer_names`` resolves the dosage hints of the watering forecast; a
+    key missing from it is shown as the key itself.
+    """
+
+    tasks: list[dict] = field(default_factory=list)
+    phase_plants: list[dict] = field(default_factory=list)
+    maintenance_logs: list[dict] = field(default_factory=list)
+    watering_logs: list[dict] = field(default_factory=list)
+    forecast_plants: list[dict] = field(default_factory=list)
+    fertilizer_names: dict[str, str] = field(default_factory=dict)
 
 
 class CalendarAggregationEngine:
     """Aggregate calendar events from multiple sources (tasks, phase transitions, maintenance, watering).
 
-    NOTE: AQL queries currently traverse HAS_LIFECYCLE + CONSISTS_OF edges for LifecycleConfig.
-    TODO: Update AQL to also traverse HAS_PHASE_SEQUENCE edges once PhaseSequence migration is complete.
-    The current queries still work because LifecycleConfig data is preserved during the migration period.
+    Stateless since #1638: it used to run its own AQL against a database handle.
+    The rows now arrive pre-loaded as :class:`CalendarSourceRows`, and the
+    queries live in
+    :class:`~app.data_access.arango.calendar_source_repository.ArangoCalendarSourceRepository`.
     """
 
-    def __init__(self, db: StandardDatabase) -> None:
-        self._db = db
-
-    def get_events(self, query: CalendarEventsQuery) -> list[CalendarEvent]:
+    @staticmethod
+    def window(query: CalendarEventsQuery) -> tuple[datetime, datetime]:
+        """The UTC bounds a query's date range covers: first second to last second."""
         start_dt = datetime.combine(query.start_date, time.min, tzinfo=UTC)
         end_dt = datetime.combine(query.end_date, time(23, 59, 59), tzinfo=UTC)
+        return start_dt, end_dt
+
+    @staticmethod
+    def forecast_fertilizer_keys(forecast_plants: list[dict]) -> list[str]:
+        """Every fertilizer key a forecast row's plan entries name, deduplicated.
+
+        A superset of the keys :meth:`_resolve_dosage_metadata` will look up, so
+        the caller can resolve their names in one read before aggregating.
+        """
+        keys: dict[str, None] = {}
+        for doc in forecast_plants:
+            for entry in doc.get("plan_entries") or []:
+                for channel in entry.get("delivery_channels") or []:
+                    for dosage in channel.get("fertilizer_dosages") or []:
+                        key = dosage.get("fertilizer_key")
+                        if key:
+                            keys[key] = None
+        return list(keys)
+
+    def aggregate(self, query: CalendarEventsQuery, rows: CalendarSourceRows) -> list[CalendarEvent]:
+        start_dt, end_dt = self.window(query)
 
         events: list[CalendarEvent] = []
-        events.extend(self._task_events(start_dt, end_dt, query))
-        events.extend(self._phase_transition_events(start_dt, end_dt, query))
-        events.extend(self._maintenance_events(start_dt, end_dt, query))
-        events.extend(self._watering_events(start_dt, end_dt, query))
-        events.extend(self._watering_forecast_events(query))
+        events.extend(self._task_events(rows.tasks))
+        events.extend(self._phase_transition_events(start_dt, end_dt, rows.phase_plants))
+        events.extend(self._maintenance_events(rows.maintenance_logs))
+        events.extend(self._watering_events(rows.watering_logs))
+        events.extend(self._watering_forecast_events(query, rows.forecast_plants, rows.fertilizer_names))
 
         if query.categories:
             events = [e for e in events if e.category in query.categories]
@@ -40,27 +78,9 @@ class CalendarAggregationEngine:
         events.sort(key=lambda e: e.start or datetime.min.replace(tzinfo=UTC))
         return events
 
-    def _task_events(
-        self,
-        start: datetime,
-        end: datetime,
-        query: CalendarEventsQuery,
-    ) -> list[CalendarEvent]:
-        aql = f"""
-        FOR t IN {col.TASKS}
-          FILTER t.due_date != null
-          FILTER t.due_date >= @start AND t.due_date <= @end
-          FILTER t.tenant_key == @tenant_key
-          RETURN t
-        """
-        bind = {
-            "start": start.isoformat(),
-            "end": end.isoformat(),
-            "tenant_key": query.tenant_key,
-        }
-        cursor = self._db.aql.execute(aql, bind_vars=bind)
+    def _task_events(self, tasks: list[dict]) -> list[CalendarEvent]:
         events = []
-        for doc in cursor:
+        for doc in tasks:
             category = self._task_category_map(doc.get("category", ""))
             events.append(
                 CalendarEvent(
@@ -82,7 +102,7 @@ class CalendarAggregationEngine:
         self,
         start: datetime,
         end: datetime,
-        query: CalendarEventsQuery,
+        plants: list[dict],
     ) -> list[CalendarEvent]:
         """Return phase spans (actual + projected) that overlap the requested date range.
 
@@ -92,58 +112,12 @@ class CalendarAggregationEngine:
         3. Build a full timeline: completed → current → projected
         4. Emit CalendarEvents for phases overlapping [start, end]
         """
-        # Single AQL: fetch active plants with phase histories, species, run, lifecycle
-        aql = f"""
-        FOR pi IN {col.PLANT_INSTANCES}
-          FILTER pi.removed_on == null
-          LET run_edge = FIRST(
-            FOR e IN {col.RUN_CONTAINS}
-              FILTER e._to == pi._id
-              RETURN e
-          )
-          LET run = run_edge != null ? DOCUMENT(run_edge._from) : null
-          FILTER run == null OR run.status IN ["active", "harvesting"]
-          LET lc_edge = FIRST(
-            FOR e IN {col.HAS_LIFECYCLE}
-              FILTER e._from == CONCAT("{col.SPECIES}/", pi.species_key)
-              RETURN e
-          )
-          LET lc = lc_edge != null ? DOCUMENT(lc_edge._to) : null
-          FILTER lc != null
-          LET gps = (
-            FOR e IN {col.CONSISTS_OF}
-              FILTER e._from == lc._id
-              LET gp = DOCUMENT(e._to)
-              FILTER gp != null
-              SORT gp.sequence_order ASC
-              RETURN gp
-          )
-          FILTER LENGTH(gps) > 0
-          LET histories = (
-            FOR ph IN {col.PHASE_HISTORIES}
-              FILTER ph.plant_instance_key == pi._key
-              RETURN ph
-          )
-          LET current_gp = DOCUMENT(CONCAT("{col.GROWTH_PHASES}/", pi.current_phase_key))
-          RETURN {{
-            plant_key: pi._key,
-            instance_id: pi.instance_id,
-            plant_name: pi.plant_name,
-            species_key: pi.species_key,
-            current_phase: current_gp != null ? current_gp.name : '',
-            run_key: run._key,
-            run_name: run.name,
-            growth_phases: gps,
-            phase_histories: histories
-          }}
-        """
-        cursor = self._db.aql.execute(aql)
         now = datetime.now(UTC)
         cat = CalendarEventCategory.PHASE_TRANSITION
         color = CATEGORY_COLORS.get(cat, "#9C27B0")
         events: list[CalendarEvent] = []
 
-        for doc in cursor:
+        for doc in plants:
             plant_key = doc.get("plant_key", "")
             plant_label = doc.get("plant_name") or doc.get("instance_id") or ""
             run_key = doc.get("run_key")
@@ -229,22 +203,9 @@ class CalendarAggregationEngine:
 
         return events
 
-    def _maintenance_events(
-        self,
-        start: datetime,
-        end: datetime,
-        query: CalendarEventsQuery,
-    ) -> list[CalendarEvent]:
-        aql = f"""
-        FOR m IN {col.MAINTENANCE_LOGS}
-          FILTER m.performed_at != null
-          FILTER m.performed_at >= @start AND m.performed_at <= @end
-          RETURN m
-        """
-        bind = {"start": start.isoformat(), "end": end.isoformat()}
-        cursor = self._db.aql.execute(aql, bind_vars=bind)
+    def _maintenance_events(self, logs: list[dict]) -> list[CalendarEvent]:
         events = []
-        for doc in cursor:
+        for doc in logs:
             cat = CalendarEventCategory.TANK_MAINTENANCE
             events.append(
                 CalendarEvent(
@@ -260,28 +221,9 @@ class CalendarAggregationEngine:
             )
         return events
 
-    def _watering_events(
-        self,
-        start: datetime,
-        end: datetime,
-        query: CalendarEventsQuery,
-    ) -> list[CalendarEvent]:
-        aql = f"""
-        FOR w IN {col.WATERING_LOGS}
-          FILTER w.logged_at != null
-          FILTER w.logged_at >= @start AND w.logged_at <= @end
-          LET plant_names = (
-            FOR pk IN (w.plant_keys || [])
-              LET pi = DOCUMENT(CONCAT("{col.PLANT_INSTANCES}/", pk))
-              FILTER pi != null
-              RETURN pi.plant_name || pi.instance_id || pk
-          )
-          RETURN MERGE(w, {{ resolved_plant_names: plant_names }})
-        """
-        bind = {"start": start.isoformat(), "end": end.isoformat()}
-        cursor = self._db.aql.execute(aql, bind_vars=bind)
+    def _watering_events(self, logs: list[dict]) -> list[CalendarEvent]:
         events = []
-        for doc in cursor:
+        for doc in logs:
             cat = CalendarEventCategory.FEEDING
             plant_names = doc.get("resolved_plant_names", [])
             plant_label = ", ".join(plant_names) if plant_names else ""
@@ -312,6 +254,8 @@ class CalendarAggregationEngine:
     def _watering_forecast_events(
         self,
         query: CalendarEventsQuery,
+        plants: list[dict],
+        fertilizer_names: dict[str, str],
     ) -> list[CalendarEvent]:
         """Project future watering dates from CareProfiles of active plant instances.
 
@@ -325,90 +269,12 @@ class CalendarAggregationEngine:
 
         forecast_engine = WateringForecastEngine()
 
-        # Query: active plants + care profile + last watering + lifecycle phases + cultivar overrides
-        aql = f"""
-        FOR pi IN {col.PLANT_INSTANCES}
-          FILTER pi.removed_on == null
-          FILTER pi.tenant_key == @tenant_key
-          LET cp = FIRST(
-            FOR c IN {col.CARE_PROFILES}
-              FILTER c.plant_key == pi._key
-              RETURN c
-          )
-          FILTER cp != null
-          LET last_confirm = FIRST(
-            FOR cc IN {col.CARE_CONFIRMATIONS}
-              FILTER cc.plant_key == pi._key
-              FILTER cc.reminder_type == "watering"
-              FILTER cc.action == "confirmed"
-              SORT cc.confirmed_at DESC
-              LIMIT 1
-              RETURN cc
-          )
-          LET lc_edge = FIRST(
-            FOR e IN {col.HAS_LIFECYCLE}
-              FILTER e._from == CONCAT("{col.SPECIES}/", pi.species_key)
-              RETURN e
-          )
-          LET lc = lc_edge != null ? DOCUMENT(lc_edge._to) : null
-          LET gps = lc != null ? (
-            FOR e IN {col.CONSISTS_OF}
-              FILTER e._from == lc._id
-              LET gp = DOCUMENT(e._to)
-              FILTER gp != null
-              SORT gp.sequence_order ASC
-              RETURN gp
-          ) : []
-          LET histories = (
-            FOR ph IN {col.PHASE_HISTORIES}
-              FILTER ph.plant_instance_key == pi._key
-              RETURN ph
-          )
-          LET cultivar = pi.cultivar_key != null ? DOCUMENT(CONCAT("{col.CULTIVARS}/", pi.cultivar_key)) : null
-          LET plan_edge = FIRST(
-            FOR e IN {col.FOLLOWS_PLAN}
-              FILTER e._from == pi._id
-              RETURN e
-          )
-          LET plan = plan_edge != null ? DOCUMENT(plan_edge._to) : null
-          LET plan_entries = plan != null ? (
-            FOR pe IN {col.NUTRIENT_PLAN_PHASE_ENTRIES}
-              FILTER pe.plan_key == plan._key
-              SORT pe.sequence_order ASC
-              RETURN pe
-          ) : []
-          LET current_gp2 = DOCUMENT(CONCAT("{col.GROWTH_PHASES}/", pi.current_phase_key))
-          RETURN {{
-            plant_key: pi._key,
-            plant_name: pi.plant_name,
-            instance_id: pi.instance_id,
-            species_key: pi.species_key,
-            current_phase: current_gp2 != null ? current_gp2.name : '',
-            planted_on: pi.planted_on,
-            container_volume_liters: pi.container_volume_liters,
-            substrate_type_override: pi.substrate_type_override,
-            care_profile: cp,
-            last_watering: last_confirm.confirmed_at,
-            growth_phases: gps,
-            phase_histories: histories,
-            cultivar_phase_overrides: cultivar.phase_watering_overrides,
-            plan_name: plan.name,
-            plan_cycle_restart: plan.cycle_restart_from_sequence,
-            plan_entries: plan_entries
-          }}
-        """
-        bind = {"tenant_key": query.tenant_key}
-        try:
-            cursor = self._db.aql.execute(aql, bind_vars=bind)
-        except Exception:
-            return []
-
         now = datetime.now(UTC)
         events: list[CalendarEvent] = []
         cat = CalendarEventCategory.WATERING_FORECAST
         color = CATEGORY_COLORS.get(cat, "#42A5F5")
 
-        for doc in cursor:
+        for doc in plants:
             cp_data = doc.get("care_profile")
             if not cp_data:
                 continue
@@ -453,7 +319,7 @@ class CalendarAggregationEngine:
                         break
 
             # Resolve active nutrient plan phase entry for dosage hints
-            dosage_meta = self._resolve_dosage_metadata(doc, now)
+            dosage_meta = self._resolve_dosage_metadata(doc, now, fertilizer_names)
 
             for d in forecast_dates:
                 events.append(
@@ -480,7 +346,7 @@ class CalendarAggregationEngine:
 
         return events
 
-    def _resolve_dosage_metadata(self, doc: dict, now: datetime) -> dict:
+    def _resolve_dosage_metadata(self, doc: dict, now: datetime, fertilizer_names: dict[str, str]) -> dict:
         """Extract dosage hints from the active nutrient plan phase entry."""
         entries = doc.get("plan_entries", [])
         if not entries:
@@ -571,19 +437,9 @@ class CalendarAggregationEngine:
                         }
                     )
 
-        # Resolve fertilizer names
-        if dosages:
-            fert_keys = [d["fertilizer_key"] for d in dosages]
-            fert_docs = {}
-            try:
-                for fk in fert_keys:
-                    fdoc = self._db.collection(col.FERTILIZERS).get(fk)
-                    if fdoc:
-                        fert_docs[fk] = fdoc.get("product_name", fk)
-            except Exception:
-                pass
-            for d in dosages:
-                d["product_name"] = fert_docs.get(d["fertilizer_key"], d["fertilizer_key"])
+        # Resolve fertilizer names (pre-loaded; an unresolved key shows as itself)
+        for d in dosages:
+            d["product_name"] = fertilizer_names.get(d["fertilizer_key"], d["fertilizer_key"])
 
         meta: dict = {
             "phase_name": active_entry.get("phase_name", ""),

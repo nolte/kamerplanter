@@ -121,6 +121,21 @@ class WriteConflictError(KamerplanterError):
         )
 
 
+class AccountBeingErasedError(KamerplanterError):
+    """The account is closed and queued for erasure, so the e-mail revert cannot restore it (#1848).
+
+    409: the request is well-formed and conflicts with the account's state. The
+    revert token stays unspent; the operator can still act within the grace period.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="This account is closed and scheduled for deletion. Contact the operator of this installation.",
+            error_code="ACCOUNT_BEING_ERASED",
+            status_code=409,
+        )
+
+
 class PhaseTransitionError(KamerplanterError):
     def __init__(self, message: str) -> None:
         super().__init__(
@@ -357,6 +372,20 @@ class ForbiddenError(KamerplanterError):
         )
 
 
+class RegistrationNotAllowedError(ForbiddenError):
+    """REQ-023 §3.2d (#2132) — the installation's registration mode does not admit this new account.
+
+    One answer for every reason (mode closed, no or no valid invitation, domain not on the allowlist,
+    an address the provider did not prove): the reason is the operator's configuration, and a finer
+    answer would only tell a caller which invitation tokens exist. Decided before any stored account
+    is read, so it says nothing about whether the address has an account.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Registration is not open for this address.")
+        self.error_code = "REGISTRATION_NOT_ALLOWED"
+
+
 class AccountLockedError(KamerplanterError):
     def __init__(self, retry_after_minutes: int) -> None:
         super().__init__(
@@ -373,6 +402,180 @@ class AccountLockedError(KamerplanterError):
         )
 
 
+class StepUpLockedError(KamerplanterError):
+    """A password step-up is locked after too many failures (#1816) — HTTP 429.
+
+    Not :class:`AccountLockedError` (423): the *account* is not locked — signing
+    in still works, only the re-confirmation of an irreversible act or a password
+    change is held back. ``details[0].retry_after_minutes`` carries the wait so a
+    client can render it in its own language.
+
+    Also raised when an e-mailed step-up code may not be issued yet (review
+    SEC-002: an unspent code younger than a minute, or the hourly budget spent) —
+    same code and detail, so a client needs no second handling, with its own
+    ``message`` (``code_issue=True``).
+    """
+
+    def __init__(self, retry_after_minutes: int, *, code_issue: bool = False) -> None:
+        self.retry_after_minutes = retry_after_minutes
+        message = (
+            f"No new confirmation code can be sent yet. Try again in {retry_after_minutes} minutes."
+            if code_issue
+            else f"Too many failed confirmations. Try again in {retry_after_minutes} minutes."
+        )
+        super().__init__(
+            message=message,
+            error_code="STEP_UP_LOCKED",
+            status_code=429,
+            details=[
+                {
+                    "field": "password",
+                    "reason": f"Too many failed step-up confirmations. Locked for {retry_after_minutes} minutes.",
+                    "code": "STEP_UP_LOCKED",
+                    "retry_after_minutes": str(retry_after_minutes),
+                }
+            ],
+        )
+
+
+class StepUpCodeRequiredError(KamerplanterError):
+    """A step-up needs the e-mailed one-time code and none was sent (#1815) — HTTP 401.
+
+    An account without a local password (federated sign-in only) has no secret of
+    its own to re-enter; it confirms an irreversible act or a credential change
+    with a code mailed to its address (``POST /users/me/step-up-code``). Its own
+    error code, not ``UNAUTHORIZED``, so a client can tell "ask for the code" from
+    "the code or password was wrong" without parsing ``message``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="This account confirms with a one-time code sent by e-mail. Request one and send it back.",
+            error_code="STEP_UP_CODE_REQUIRED",
+            status_code=401,
+            details=[
+                {
+                    "field": "step_up_code",
+                    "reason": "Request a confirmation code (POST /api/v1/users/me/step-up-code) and send it back.",
+                    "code": "STEP_UP_CODE_REQUIRED",
+                }
+            ],
+        )
+
+
+class StepUpReauthRequiredError(KamerplanterError):
+    """A step-up needs a fresh sign-in at the account's identity provider (#1815) — 401 (422 on code issue).
+
+    The account has no local password but a linked provider that can
+    re-authenticate a person freshly (OpenID Connect: Google, a generic OIDC
+    provider). It confirms with the one-time ``step_up_token`` that
+    ``POST /users/me/step-up/oidc`` leads to — not with the e-mailed code, which
+    proves only the mailbox. ``details[0].field`` is ``step_up_token``, the field
+    to fill, so a client shows the "sign in again" button rather than the code form.
+    """
+
+    def __init__(self, *, status_code: int = 401) -> None:
+        super().__init__(
+            message=(
+                "This account confirms by signing in again at its identity provider. "
+                "Start it with POST /api/v1/users/me/step-up/oidc and send the step_up_token back."
+            ),
+            error_code="STEP_UP_REAUTH_REQUIRED",
+            status_code=status_code,
+            details=[
+                {
+                    "field": "step_up_token",
+                    "reason": "Sign in again at your identity provider (POST /api/v1/users/me/step-up/oidc).",
+                    "code": "STEP_UP_REAUTH_REQUIRED",
+                }
+            ],
+        )
+
+
+class StepUpPasswordRequiredError(KamerplanterError):
+    """The account has a local password and confirms with it — not with a code or a re-authentication (422).
+
+    Answered by ``POST /users/me/step-up-code`` and ``POST /users/me/step-up/oidc``
+    (#1815 review), so a client can tell "show the password field" from the other
+    422s of those routes without parsing ``message``.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="This account confirms with its current password.",
+            error_code="STEP_UP_PASSWORD_REQUIRED",
+            status_code=422,
+            details=[
+                {
+                    "field": "password",
+                    "reason": "Confirm with the current password.",
+                    "code": "STEP_UP_PASSWORD_REQUIRED",
+                }
+            ],
+        )
+
+
+class StepUpReauthUnavailableError(KamerplanterError):
+    """No linked provider of the account can re-authenticate freshly — it confirms with the mailed code (422).
+
+    Answered by ``POST /users/me/step-up/oidc`` (#1815 review): GitHub/Apple-only
+    links, a link whose configuration is ambiguous or disabled, or a provider
+    without a TLS token endpoint. The client shows the e-mailed-code path.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="No linked sign-in provider of this account can confirm it; use the e-mailed code.",
+            error_code="STEP_UP_REAUTH_UNAVAILABLE",
+            status_code=422,
+            details=[
+                {
+                    "field": "step_up_code",
+                    "reason": "Request a code with POST /api/v1/users/me/step-up-code.",
+                    "code": "STEP_UP_REAUTH_UNAVAILABLE",
+                }
+            ],
+        )
+
+
+class StepUpReauthFailedError(KamerplanterError):
+    """The provider callback of a step-up proves no fresh sign-in of the account (#1815).
+
+    Never rendered as JSON: the callback is a browser redirect, and the route
+    turns ``reason`` (``stale`` / ``failed`` / ``cancelled``) into a whitelisted
+    error code on the frontend's step-up page. ``action`` is the act the
+    re-authentication was for, when the state named one.
+    """
+
+    def __init__(self, reason: str, *, action: str | None = None) -> None:
+        self.reason = reason
+        self.action = action
+        #: The starting page's ``client_nonce``, set by the callback handler.
+        self.client_nonce: str | None = None
+        super().__init__(
+            message="The sign-in at the identity provider could not confirm this action.",
+            error_code="STEP_UP_REAUTH_FAILED",
+            status_code=401,
+        )
+
+
+class StepUpCodeUndeliverableError(KamerplanterError):
+    """The step-up code could not be mailed (/code-review of #1862) — HTTP 503.
+
+    The code was withdrawn and its issuance given back, so a retry after the
+    operator fixed the mail setup is not held by the one-minute wait or the
+    hourly budget. Typically the console e-mail adapter outside ``debug`` or an
+    SMTP outage; the requester can only ask the operator.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The confirmation code cannot be delivered by e-mail. Contact the operator of this installation.",
+            error_code="STEP_UP_CODE_UNDELIVERABLE",
+            status_code=503,
+        )
+
+
 class PayloadTooLargeError(KamerplanterError):
     def __init__(self, max_bytes: int) -> None:
         max_mb = max_bytes / (1024 * 1024)
@@ -384,7 +587,7 @@ class PayloadTooLargeError(KamerplanterError):
 
 
 class UnsupportedMediaTypeError(KamerplanterError):
-    def __init__(self, content_type: str, allowed: list[str]) -> None:
+    def __init__(self, allowed: list[str]) -> None:
         super().__init__(
             message=f"Unsupported file type. Allowed types: {', '.join(allowed)}.",
             error_code="UNSUPPORTED_MEDIA_TYPE",
@@ -393,9 +596,21 @@ class UnsupportedMediaTypeError(KamerplanterError):
 
 
 class EmailNotVerifiedError(KamerplanterError):
+    """403 for a local sign-in whose credential was right but whose address is unverified.
+
+    Raised only after the password was accepted, so it tells nothing to a caller
+    who does not already hold the credential. The message names the way out
+    (#2037): a lost or expired link is replaced through
+    ``POST /api/v1/auth/resend-verification``. Clients key on ``error_code``,
+    not on this wording.
+    """
+
     def __init__(self) -> None:
         super().__init__(
-            message="Email address has not been verified.",
+            message=(
+                "Email address has not been verified. "
+                "You can request a new verification email if the link was lost or has expired."
+            ),
             error_code="EMAIL_NOT_VERIFIED",
             status_code=403,
         )
@@ -451,6 +666,109 @@ class PhotoQuotaExceededError(KamerplanterError):
         )
 
 
+class MemberLimitReachedError(KamerplanterError):
+    """REQ-024 AK-64 (#2133) — the tenant's active memberships reached its effective member limit.
+
+    422, not 409: no concurrent write is in the way; the request asks for a membership the tenant's
+    limit does not admit. The limit is named, the members are not.
+    """
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            message=f"This tenant has reached its limit of {limit} members.",
+            error_code="MEMBER_LIMIT_REACHED",
+            status_code=422,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": f"The tenant admits at most {limit} active members.",
+                    "code": "MEMBER_LIMIT_REACHED",
+                }
+            ],
+        )
+
+
+class ServiceAccountLimitReachedError(KamerplanterError):
+    """REQ-023 §5b AK-30 (#2137) — the tenant holds as many active service accounts as it may.
+
+    422 like :class:`MemberLimitReachedError`: the request asks for an account the tenant's quota does not
+    admit; no concurrent write is in the way. The quota is the setting ``TENANT_MAX_SERVICE_ACCOUNTS``.
+    """
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            message=f"This tenant has reached its limit of {limit} service accounts.",
+            error_code="SERVICE_ACCOUNT_LIMIT_REACHED",
+            status_code=422,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": f"The tenant admits at most {limit} active service accounts.",
+                    "code": "SERVICE_ACCOUNT_LIMIT_REACHED",
+                }
+            ],
+        )
+
+
+class OrganizationLimitReachedError(KamerplanterError):
+    """REQ-056 §6.2 (#2142) — the account already owns as many organisations as it may found.
+
+    422 as before (the refusal used to be a generic ``VALIDATION_ERROR``); only the code is new. The limit
+    is the instance setting ``TENANT_MAX_ORGANIZATIONS_PER_USER`` — it belongs to the account, not to a
+    tenant's plan (REQ-056 E-04). ``0`` means no account founds an organisation itself.
+    """
+
+    def __init__(self, limit: int) -> None:
+        reason = (
+            "Organisations are created by the platform operator on this installation."
+            if limit == 0
+            else f"An account may own at most {limit} organisations."
+        )
+        super().__init__(
+            message="Maximum number of organizations reached",
+            error_code="ORGANIZATION_LIMIT_REACHED",
+            status_code=422,
+            details=[{"field": "tenant", "reason": reason, "code": "ORGANIZATION_LIMIT_REACHED"}],
+        )
+
+
+class ExportAlreadyRunningError(KamerplanterError):
+    """REQ-056 §8.2 (#2138) — a tenant has at most one export pending or running (409)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="An export of this tenant is already running.",
+            error_code="EXPORT_ALREADY_RUNNING",
+            status_code=409,
+            details=[
+                {
+                    "field": "tenant",
+                    "reason": "Wait until the running export has finished.",
+                    "code": "EXPORT_ALREADY_RUNNING",
+                }
+            ],
+        )
+
+
+class TenantImportRefusedError(KamerplanterError):
+    """REQ-056 §8.4 (#2138) — the archive cannot be imported; nothing was written (422).
+
+    ``error_code`` is the import code (``IMPORT_FORMAT_UNSUPPORTED``, ``IMPORT_CHECKSUM_MISMATCH``,
+    ``IMPORT_UNDECLARED_REFERENCE``, ``IMPORT_MISSING_CATALOG_ENTRIES``, ``IMPORT_MEMBER_NOT_FOUND``); the
+    details list the offending entries (collection/key, part name, archive user key), never a stack trace.
+    """
+
+    def __init__(self, code: str, message: str, entries: list[str] | None = None) -> None:
+        listed = (entries or [])[:200]
+        super().__init__(
+            message=message,
+            error_code=code,
+            status_code=422,
+            details=[{"field": "archive", "reason": entry, "code": code} for entry in listed]
+            or [{"field": "archive", "reason": message, "code": code}],
+        )
+
+
 class InvalidFileTypeError(KamerplanterError):
     """NFR-013 §5.1 steps 2 & 3 — type not allowed, or content/MIME mismatch."""
 
@@ -481,6 +799,55 @@ class FileTooLargeError(KamerplanterError):
         )
 
 
+class RequestBodyTooLargeError(KamerplanterError):
+    """#2254 — the request body passes the ASGI body ceiling (HTTP 413).
+
+    Raised by ``RequestBodyLimitMiddleware`` before routing, for any route: the
+    ceiling bounds what the multipart parser spools, not one route's file limit.
+    """
+
+    def __init__(self, max_bytes: int) -> None:
+        max_mb = max_bytes / (1024 * 1024)
+        super().__init__(
+            message=f"Request body exceeds the maximum allowed size of {max_mb:.0f} MB.",
+            error_code="REQUEST_BODY_TOO_LARGE",
+            status_code=413,
+        )
+
+
+class UploadCapacityExhaustedError(KamerplanterError):
+    """#2254 — the upload spool budget stayed taken for the whole wait (HTTP 503).
+
+    Concurrent multipart bodies share a byte budget sized to the backend's
+    temporary storage; a request that cannot get its share in time is told to
+    retry instead of filling ``/tmp`` until its parse fails.
+    """
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(
+            message="Too many uploads are in progress. Try again shortly.",
+            error_code="UPLOAD_CAPACITY_EXHAUSTED",
+            status_code=503,
+        )
+        self.retry_after = retry_after
+
+
+class ImagePixelLimitError(KamerplanterError):
+    """#2108 — an image whose header declares more pixels than the decode ceiling.
+
+    Raised from the header alone, before any pixel is decoded
+    (``app.common.image_bounds``). The message names the ceiling, never the
+    image's own dimensions or content.
+    """
+
+    def __init__(self, max_pixels: int) -> None:
+        super().__init__(
+            message=f"Image exceeds the maximum of {max_pixels / 1_000_000:.0f} megapixels.",
+            error_code="IMAGE_PIXEL_LIMIT_EXCEEDED",
+            status_code=413,
+        )
+
+
 class VirusScanRejectedError(KamerplanterError):
     """NFR-013 §5.1 step 5 — the optional virus scan reported a finding."""
 
@@ -504,9 +871,16 @@ class AttachmentNotFoundError(NotFoundError):
 
 
 class ConsentRequiredError(KamerplanterError):
-    """REQ-029 §5 — processing blocked because a required consent is missing."""
+    """REQ-029 §5 — processing blocked because a required consent is missing.
+
+    ``details[0].purpose`` names the missing purpose key machine-readably, so a
+    client that has to ask for exactly that consent need not parse ``message``
+    (one route can refuse for either of two purposes — the knowledge question,
+    REQ-031 §5.1). Additive: ``field`` stays ``"consent"``.
+    """
 
     def __init__(self, purpose: str) -> None:
+        self.purpose = purpose
         super().__init__(
             message=f"Consent for '{purpose}' is required for this action.",
             error_code="CONSENT_REQUIRED",
@@ -516,6 +890,7 @@ class ConsentRequiredError(KamerplanterError):
                     "field": "consent",
                     "reason": f"Grant consent for '{purpose}' to use this feature.",
                     "code": "CONSENT_REQUIRED",
+                    "purpose": purpose,
                 }
             ],
         )
@@ -532,6 +907,64 @@ class FeatureNotConfiguredError(KamerplanterError):
             message=message,
             error_code="FEATURE_NOT_CONFIGURED",
             status_code=503,
+        )
+
+
+class ErasureIncompleteError(KamerplanterError):
+    """An immediate account erasure ran but did not account for every declared step (#1767).
+
+    The platform-admin delete and the unverified-account cleanup run the erasure
+    at once instead of after the self-service grace. When the run leaves a
+    declared step unreached, the request is recorded ``partially_completed`` with
+    a backoff and the daily beat retries it — the duty is persisted, not
+    dropped — and the caller is told the account is **not** erased yet.
+    """
+
+    def __init__(self, unreached: list[str]) -> None:
+        # No request key in the answer (#1767 review SEC-C): the log line
+        # ``retention.erasure.steps_unreached`` carries it for the operator.
+        super().__init__(
+            message=(
+                "The account erasure did not finish; it is recorded and retried automatically. "
+                f"Unreached steps: {', '.join(unreached)}."
+            ),
+            error_code="ERASURE_INCOMPLETE",
+            status_code=500,
+        )
+
+
+class TenantErasureIncompleteError(KamerplanterError):
+    """A tenant deletion ran but something still holds the tenant (#1769).
+
+    The run is recorded ``partially_completed`` with a backoff and the daily
+    beat retries it; the caller is told the tenant is **not** fully erased yet.
+    The collection names say *where*, never whose — no tenant or account key.
+    """
+
+    def __init__(self, unreached: list[str]) -> None:
+        super().__init__(
+            message=(
+                "The tenant deletion did not finish; it is recorded and retried automatically. "
+                f"Still holding the tenant: {', '.join(unreached)}."
+            ),
+            error_code="TENANT_ERASURE_INCOMPLETE",
+            status_code=500,
+        )
+
+
+class TenantErasureClaimLostError(KamerplanterError):
+    """A tenant-deletion run lost its claim on the record (#1792).
+
+    The heartbeat between two batches found the claim re-taken — a second worker
+    claimed the record after this run's heartbeat lapsed. The run stops without
+    recording a failure: the record is the other run's now, and it decides.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The tenant deletion is held by another run.",
+            error_code="TENANT_ERASURE_CLAIM_LOST",
+            status_code=409,
         )
 
 
@@ -555,6 +988,44 @@ class AiDisabledError(KamerplanterError):
                     "code": "AI_DISABLED_FOR_TENANT",
                 }
             ],
+        )
+
+
+class AiBudgetExceededError(RateLimitError):
+    """REQ-031 §3 (#2110, MT-013) — a daily budget of LLM calls is used up (HTTP 429).
+
+    ``scope`` names which budget refused the call — ``user_calls`` (this account
+    in this tenant), ``tenant_calls`` (every member of the tenant together) or
+    ``tenant_tokens`` (the tenant's LLM tokens) — and travels as
+    ``details[0].code`` so the client can tell "you" from "your garden" apart.
+    ``retry_after`` is the number of seconds until the UTC day ends, when every
+    daily budget starts again; the error handler sends it as ``Retry-After``.
+    """
+
+    def __init__(self, scope: str, retry_after: int) -> None:
+        KamerplanterError.__init__(
+            self,
+            message=f"The daily AI budget '{scope}' is used up. Retry after {retry_after}s.",
+            error_code="AI_BUDGET_EXCEEDED",
+            status_code=429,
+            details=[{"field": "ai_budget", "reason": "Daily budget used up.", "code": scope}],
+        )
+        self.retry_after = retry_after
+
+
+class AiBudgetUnavailableError(KamerplanterError):
+    """REQ-031 §3 (#2110, MT-013) — the AI budget cannot be checked (HTTP 503).
+
+    The budget counters live in Valkey. When it cannot be reached no LLM call
+    runs: an outage of the counter store must not turn into unbounded spending
+    on a paid provider or an unbounded queue on a shared GPU (fail-closed).
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The AI budget cannot be checked right now. Try again shortly.",
+            error_code="AI_BUDGET_UNAVAILABLE",
+            status_code=503,
         )
 
 

@@ -48,6 +48,23 @@ class MigrationBarrierTimeoutError(MigrationError):
     """
 
 
+class SeedBarrierTimeoutError(MigrationBarrierTimeoutError):
+    """Raised when a replica times out waiting for the lock to run the seed registry (#2028).
+
+    Startup fails rather than continue without seeding: on a fresh volume the
+    reference data (location types, phases, catalogues) would simply be missing, and
+    a pod that fails its readiness is restarted and retries.
+    """
+
+
+class SeedLockLostError(MigrationError):
+    """Raised when the seeding replica finds its lock taken over between two seed jobs (#2028).
+
+    Another replica judged the lock stale and is seeding now; continuing would put two
+    seeders back on the same collections, which is the defect the lock removes.
+    """
+
+
 @dataclass
 class MigrationReport:
     """Uniform result of a single migration ``up()``/``down()`` invocation.

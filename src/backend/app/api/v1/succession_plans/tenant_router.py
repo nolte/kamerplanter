@@ -45,7 +45,7 @@ def list_succession_plans(
     service: SuccessionPlanService = Depends(get_succession_plan_service),
 ):
     """List the tenant's succession plans (paginated)."""
-    items, _total = service.list_plans(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
+    items = service.list_plans_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_plan_response(p) for p in items]
 
 
@@ -57,7 +57,7 @@ def create_succession_plan(
 ):
     """Create a succession plan for the tenant."""
     plan = SuccessionPlan(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_plan(plan)
+    created = service.create_plan(plan, tenant_key=ctx.tenant_key)
     return _plan_response(created)
 
 

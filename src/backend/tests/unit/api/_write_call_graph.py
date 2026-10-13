@@ -19,9 +19,19 @@ claimed a coverage the scan did not have. Everything else is derived: a function
 writes if it can reach one of those through the call graph.
 
 **How it resolves a call.** By receiver type, not by method name. ``self.X`` is
-resolved through the enclosing class and the type its ``__init__`` annotates for
-``X``; a local or a parameter through its annotation, its constructor call, or
-the return annotation of the call it came from. A method found on a type is then
+resolved through the enclosing class and the type its methods give ``X`` — an
+annotation wins, otherwise the union of every bare ``self.X = value`` in ANY
+method, constructor calls only (#2039); a local or a parameter through its
+annotation, its constructor call, or the return annotation of the call it came
+from; a loop or comprehension variable through the element type of what it
+iterates (in-tree classes only); a name in a tuple-unpacking target through its
+POSITION in a fixed-arity ``tuple[...]`` element (``enumerate``, ``zip`` and
+``.items()`` included; an unstated arity or a starred target types nothing); a
+``with … as x`` name through a ``@contextmanager``'s ``Iterator[X]`` or an
+annotated ``__enter__`` (an unannotated one types nothing); a class
+named directly through itself; ``a or b`` / ``a if c else b`` through both
+operands, in a body and in an ``__init__`` assignment alike; an attribute that is
+a ``@property`` through the property's return annotation. A method found on a type is then
 looked up across that type's bases **and** its subclasses — the services here are
 annotated against ``I*Repository`` interfaces whose bodies are ``...``, so
 ignoring implementors would miss every write in the application.
@@ -143,6 +153,7 @@ _TRANSPARENT_GENERICS = frozenset(
         "Awaitable",
         "Coroutine",
         "Optional",
+        "Union",
         "Annotated",
         "Final",
         "ClassVar",
@@ -198,6 +209,10 @@ class FunctionNode:
         "direct_write_lineno",
         "_call_nodes",
         "_assignments",
+        "_iterations",
+        "_unpacked_iterations",
+        "_context_bindings",
+        "context_manager",
         "_annotations",
         "_return_annotation",
         "callees",
@@ -214,6 +229,21 @@ class FunctionNode:
         self.direct_write_lineno: int | None = None
         self._call_nodes: list[ast.Call] = []
         self._assignments: dict[str, list[ast.expr]] = defaultdict(list)
+        #: `for plant in plants:` and `[p.key for p in plants]` — the ITERABLE a
+        #: loop variable is drawn from, so the variable is typed by its element.
+        self._iterations: dict[str, list[ast.expr]] = defaultdict(list)
+        #: `for repo, svc in pairs:` — the iterable and the POSITION PATH of each
+        #: name inside the yielded value, `((0, 2),)` being "first of two". The
+        #: variable is typed by that position of the element's annotation, never
+        #: by the element as a whole (#2039).
+        self._unpacked_iterations: dict[str, list[tuple[ast.expr, tuple[tuple[int, int], ...]]]] = defaultdict(list)
+        #: `with open_conn() as conn:` — the context-manager expression a name is
+        #: bound to by `with` / `async with` (#2039).
+        self._context_bindings: dict[str, list[ast.expr]] = defaultdict(list)
+        #: Decorated `@contextmanager` / `@asynccontextmanager`: the return
+        #: annotation `Iterator[X]` then names what `with` binds, not what a call
+        #: returns.
+        self.context_manager = False
         self._annotations: dict[str, ast.expr] = {}
         self._return_annotation: ast.expr | None = None
         self.callees: list[FunctionNode] = []
@@ -250,7 +280,7 @@ class FunctionNode:
 class ClassNode:
     """One `class` in the app tree: its bases, its methods and its attribute types."""
 
-    __slots__ = ("module", "name", "bases", "methods", "attributes")
+    __slots__ = ("module", "name", "bases", "methods", "attributes", "explicit_attributes")
 
     def __init__(self, module: str, name: str) -> None:
         self.module = module
@@ -258,6 +288,10 @@ class ClassNode:
         self.bases: list[str] = []
         self.methods: dict[str, list[FunctionNode]] = defaultdict(list)
         self.attributes: dict[str, ast.expr] = {}
+        #: Attributes whose type is WRITTEN DOWN — a class-level or `self.X: T`
+        #: annotation, a property's return type. A bare `self.X = value` in any
+        #: method only adds to the others; an explicit annotation is not widened.
+        self.explicit_attributes: set[str] = set()
 
     def __repr__(self) -> str:  # pragma: no cover - diagnostics only
         return f"<ClassNode {self.module}.{self.name}>"
@@ -313,6 +347,158 @@ def _is_query_write(value: ast.expr | None) -> bool:
     return False
 
 
+_SEQUENCE_HEADS = frozenset(
+    {
+        "list",
+        "set",
+        "frozenset",
+        "deque",
+        "Sequence",
+        "MutableSequence",
+        "Iterable",
+        "Iterator",
+        "Collection",
+        "AsyncIterator",
+        "AsyncIterable",
+        "Generator",
+        "AsyncGenerator",
+    }
+)
+_MAPPING_HEADS = frozenset({"dict", "Mapping", "MutableMapping", "defaultdict", "OrderedDict"})
+
+#: An annotation that denotes nothing: a position `zip()` could not type. `Any`
+#: is the annotation saying "unknown", and `_base_names` of it is never a class.
+_UNKNOWN_ANNOTATION = ast.Name(id="Any", ctx=ast.Load())
+
+
+def _is_context_manager(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    for decorator in node.decorator_list:
+        target = decorator.func if isinstance(decorator, ast.Call) else decorator
+        name = target.attr if isinstance(target, ast.Attribute) else getattr(target, "id", None)
+        if name in {"contextmanager", "asynccontextmanager"}:
+            return True
+    return False
+
+
+def _unpacked_targets(
+    target: ast.expr, prefix: tuple[tuple[int, int], ...] = ()
+) -> Iterator[tuple[str, tuple[tuple[int, int], ...]]]:
+    """Names bound by a tuple target, each with its position path: `(i, (a, b))` -> i:(0,2), a:(1,2),(0,2).
+
+    A target with a starred element is skipped whole: the position of the names
+    after the star depends on a length the annotation need not state.
+    """
+    if isinstance(target, ast.Name):
+        if prefix:
+            yield target.id, prefix
+        return
+    if isinstance(target, ast.Tuple | ast.List):
+        if any(isinstance(element, ast.Starred) for element in target.elts):
+            return
+        arity = len(target.elts)
+        for index, element in enumerate(target.elts):
+            yield from _unpacked_targets(element, (*prefix, (index, arity)))
+
+
+def _alternatives(annotation: ast.expr, depth: int = 0) -> list[ast.expr]:
+    """The non-`None` members of an annotation: `X | None`, `Optional[X]`, `"X"`, `Union[...]`."""
+    if depth > _MAX_TYPE_DEPTH:
+        return []
+    if isinstance(annotation, ast.Constant):
+        if isinstance(annotation.value, str):
+            try:
+                return _alternatives(ast.parse(annotation.value, mode="eval").body, depth + 1)
+            except SyntaxError:  # pragma: no cover - defensive
+                return []
+        return []
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return _alternatives(annotation.left, depth + 1) + _alternatives(annotation.right, depth + 1)
+    head, parts = _subscript_parts(annotation)
+    if head in {"Optional", "Union"}:
+        found: list[ast.expr] = []
+        for part in parts:
+            found += _alternatives(part, depth + 1)
+        return found
+    return [annotation]
+
+
+def _subscript_parts(annotation: ast.expr) -> tuple[str | None, list[ast.expr]]:
+    """`dict[str, Repo]` -> ("dict", [str, Repo]); anything not subscripted -> (None, [])."""
+    if not isinstance(annotation, ast.Subscript):
+        return None, []
+    value = annotation.value
+    head = value.attr if isinstance(value, ast.Attribute) else getattr(value, "id", None)
+    inner = annotation.slice
+    return head, list(inner.elts) if isinstance(inner, ast.Tuple) else [inner]
+
+
+def _tuple_annotation(members: list[ast.expr]) -> ast.expr:
+    return ast.Subscript(
+        value=ast.Name(id="tuple", ctx=ast.Load()), slice=ast.Tuple(elts=members, ctx=ast.Load()), ctx=ast.Load()
+    )
+
+
+def _union_annotation(members: list[ast.expr]) -> ast.expr:
+    """Join annotations flat: a left-nested `a | b | c` chain would exhaust `_MAX_TYPE_DEPTH`."""
+    flat: list[ast.expr] = []
+    seen: set[str] = set()
+    for member in members:
+        for part in _flatten_union(member):
+            marker = ast.dump(part)
+            if marker not in seen:
+                seen.add(marker)
+                flat.append(part)
+    if len(flat) == 1:
+        return flat[0]
+    return ast.Subscript(
+        value=ast.Name(id="Union", ctx=ast.Load()), slice=ast.Tuple(elts=flat, ctx=ast.Load()), ctx=ast.Load()
+    )
+
+
+def _flatten_union(annotation: ast.expr) -> list[ast.expr]:
+    head, parts = _subscript_parts(annotation)
+    if head == "Union":
+        return [flat for part in parts for flat in _flatten_union(part)]
+    return [annotation]
+
+
+def _navigate_tuple(annotation: ast.expr, path: tuple[tuple[int, int], ...]) -> list[ast.expr]:
+    """Walk `path` into fixed-arity `tuple[...]` annotations; anything else yields nothing."""
+    current = [annotation]
+    for index, arity in path:
+        following: list[ast.expr] = []
+        for candidate in current:
+            for alternative in _alternatives(candidate):
+                head, parts = _subscript_parts(alternative)
+                is_fixed = head in {"tuple", "Tuple"} and not any(
+                    isinstance(part, ast.Constant) and part.value is Ellipsis for part in parts
+                )
+                if is_fixed and len(parts) == arity:
+                    following.append(parts[index])
+        current = following
+        if not current:
+            return []
+    return current
+
+
+def _record_attribute(klass: ClassNode, name: str, annotation: ast.expr, *, explicit: bool) -> None:
+    """Remember what `klass.<name>` can hold.
+
+    A written-down annotation is authoritative and is not widened. Bare
+    `self.X = value` assignments, in ANY method, are alternatives of one another:
+    the attribute can hold either, so the type is their union — the first one
+    winning would hide the others from the call graph.
+    """
+    if name in klass.explicit_attributes:
+        return
+    if explicit:
+        klass.attributes[name] = annotation
+        klass.explicit_attributes.add(name)
+        return
+    existing = klass.attributes.get(name)
+    klass.attributes[name] = annotation if existing is None else _union_annotation([existing, annotation])
+
+
 class CallGraph:
     """The parsed app tree, its typed call graph, and write reachability over it."""
 
@@ -346,6 +532,17 @@ class CallGraph:
         self.subclasses: dict[str, list[ClassNode]] = defaultdict(list)
         self.modules_parsed = 0
         self.unresolved_calls = 0
+        #: The two parts of `unresolved_calls` (#2039). `genuine` is a receiver
+        #: nothing in the tree types and no external library owns — a missing
+        #: annotation someone can add. `external` is a receiver typed as, or
+        #: reached from, a class or module outside the tree (`structlog`'s
+        #: logger, `self._db.aql`, `datetime.now()`): typing it can never resolve
+        #: the call, so counting it would let the ceiling move on work that is
+        #: not a gap.
+        self.genuine_unresolved_calls = 0
+        self.external_unresolved_calls = 0
+        #: Per module: the names bound by an import of something outside `app`.
+        self.external_names: dict[str, set[str]] = defaultdict(set)
         #: `(caller id, callee id)` pairs linked by NAME because nothing typed the
         #: receiver. Reported inside the path so a triage can see which hop is a
         #: guess rather than a resolution.
@@ -370,6 +567,12 @@ class CallGraph:
             if isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
                 for alias in node.names:
                     symbols[alias.asname or alias.name] = f"{node.module}::{alias.name}"
+                    if node.module.split(".")[0] != "app":
+                        self.external_names[module].add(alias.asname or alias.name)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] != "app":
+                        self.external_names[module].add(alias.asname or alias.name.split(".")[0])
         for node in tree.body:
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
                 symbols[node.name] = f"{module}::{node.name}"
@@ -390,14 +593,21 @@ class CallGraph:
                     function = FunctionNode(
                         module, prefix + child.name, child.name, child.lineno, owner.name if owner else None
                     )
+                    function.context_manager = _is_context_manager(child)
                     self._scan_function(child, function, docstrings, self.query_write_globals[module])
                     self.functions.append(function)
                     self.by_id[function.id] = function
                     self.by_name[function.name].append(function)
                     if owner is not None:
                         owner.methods[child.name].append(function)
-                        if child.name == "__init__":
-                            _harvest_self_attributes(child, owner)
+                        # Every method, not `__init__` alone (#2039): a connection
+                        # a `connect()` opens is `self._conn` all the same.
+                        _harvest_self_attributes(child, owner)
+                        if child.returns is not None and _is_property(child):
+                            # `ctx.plant_service.get(...)` reads an attribute whose
+                            # type is the property's return annotation; it is not
+                            # a call of `plant_service`, so nothing else types it.
+                            _record_attribute(owner, child.name, child.returns, explicit=True)
                     visit(child, function.qualname + ".<locals>.", None)
                 elif isinstance(child, ast.ClassDef):
                     klass = ClassNode(module, child.name)
@@ -405,7 +615,7 @@ class CallGraph:
                         klass.bases.extend(_base_names(base))
                     for statement in child.body:
                         if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
-                            klass.attributes.setdefault(statement.target.id, statement.annotation)
+                            _record_attribute(klass, statement.target.id, statement.annotation, explicit=True)
                     self.classes[child.name].append(klass)
                     for base_name in klass.bases:
                         self.subclasses[base_name].append(klass)
@@ -433,6 +643,16 @@ class CallGraph:
                 for target in inner.targets:
                     if isinstance(target, ast.Name):
                         fn._assignments[target.id].append(inner.value)
+            elif isinstance(inner, ast.For | ast.AsyncFor | ast.comprehension):
+                if isinstance(inner.target, ast.Name):
+                    fn._iterations[inner.target.id].append(inner.iter)
+                else:
+                    for name, path in _unpacked_targets(inner.target):
+                        fn._unpacked_iterations[name].append((inner.iter, path))
+            elif isinstance(inner, ast.With | ast.AsyncWith):
+                for item in inner.items:
+                    if isinstance(item.optional_vars, ast.Name):
+                        fn._context_bindings[item.optional_vars.id].append(item.context_expr)
             elif isinstance(inner, ast.Call):
                 fn._call_nodes.append(inner)
                 callee = inner.func
@@ -482,10 +702,26 @@ class CallGraph:
             found: set[str] = set()
             for assigned in scope._assignments.get(expression.id, ()):
                 found |= self._types_of(assigned, scope, depth + 1)
+            for iterable in scope._iterations.get(expression.id, ()):
+                # The element of `plants: list[Plant]` is a `Plant` — containers
+                # are already looked through by `_base_names`. Only a type defined
+                # in this tree is taken: an unparameterised `list` or a `dict`
+                # (whose iteration yields KEYS) must leave the variable untyped,
+                # so a write-vocabulary call on it still falls back by name.
+                found |= {name for name in self._types_of(iterable, scope, depth + 1) if name in self.classes}
+            for iterable, path in scope._unpacked_iterations.get(expression.id, ()):
+                found |= self._unpacked_types(iterable, path, scope, depth + 1)
+            for manager in scope._context_bindings.get(expression.id, ()):
+                found |= self._entered_types(manager, scope, depth + 1)
             if not found:
                 module_level = self.module_globals.get(scope.module, {}).get(expression.id)
                 if module_level is not None:
                     found |= self._types_of(module_level, scope, depth + 1)
+            if not found and expression.id in self.classes and expression.id in self.module_symbols[scope.module]:
+                # A class named directly — `TenantErasureEngine.plan(...)`, a
+                # static or class method. The name is bound to the class by its
+                # own `class` statement or by an import, not by a guess.
+                found = {expression.id}
             return found
         if isinstance(expression, ast.Attribute):
             found = set()
@@ -546,7 +782,133 @@ class CallGraph:
             return self._types_of(expression.body, scope, depth + 1) | self._types_of(
                 expression.orelse, scope, depth + 1
             )
+        if isinstance(expression, ast.BoolOp):
+            # `repo or DefaultRepository()` — either operand can be the value.
+            found = set()
+            for operand in expression.values:
+                found |= self._types_of(operand, scope, depth + 1)
+            return found
         return set()
+
+    def _unpacked_types(
+        self,
+        iterable: ast.expr,
+        path: tuple[tuple[int, int], ...],
+        scope: FunctionNode,
+        depth: int,
+    ) -> set[str]:
+        """The type names position `path` of what `iterable` yields can denote (#2039).
+
+        Positional, never wholesale: `for repo, svc in pairs` over
+        `list[tuple[Repo, Svc]]` makes `repo` a `Repo` and `svc` a `Svc`, not both
+        of them. A tuple whose arity the annotation does not state (`tuple[X, ...]`,
+        a bare `tuple`, an arity that differs from the target's) types nothing:
+        a wrong resolution would let a write guard certify a call it never saw.
+        """
+        found: set[str] = set()
+        for yielded in self._yielded_annotations(iterable, scope, depth):
+            for annotation in _navigate_tuple(yielded, path):
+                found |= _base_names(annotation)
+        # Taken UNFILTERED, unlike a single-name loop: the position is known, so a
+        # `str` or a `StandardDatabase` is a fact and keeps a non-repository value
+        # out of the name fallback. `Any`/`object` are the annotation saying
+        # "unknown" and must not block it.
+        return found - {"Any", "object"}
+
+    def _yielded_annotations(self, iterable: ast.expr, scope: FunctionNode, depth: int) -> list[ast.expr]:
+        """Annotations of the value one iteration over `iterable` yields, as far as written down."""
+        if depth > _MAX_TYPE_DEPTH:
+            return []
+        if isinstance(iterable, ast.Call):
+            callee = iterable.func
+            if isinstance(callee, ast.Name) and callee.id in self.module_symbols.get(scope.module, {}):
+                # A function of this module named `enumerate`: not the builtin.
+                return self._element_of_annotations(self._annotations_of(iterable, scope, depth), depth)
+            if isinstance(callee, ast.Name) and callee.id == "enumerate" and iterable.args:
+                return [
+                    _tuple_annotation([ast.Name(id="int", ctx=ast.Load()), element])
+                    for element in self._yielded_annotations(iterable.args[0], scope, depth + 1)
+                ]
+            if isinstance(callee, ast.Name) and callee.id == "zip" and iterable.args and not iterable.keywords:
+                members = []
+                for argument in iterable.args:
+                    elements = self._yielded_annotations(argument, scope, depth + 1)
+                    members.append(_union_annotation(elements) if elements else _UNKNOWN_ANNOTATION)
+                return [_tuple_annotation(members)]
+            if isinstance(callee, ast.Name) and callee.id in {"sorted", "reversed", "list", "tuple", "set"}:
+                return self._yielded_annotations(iterable.args[0], scope, depth + 1) if iterable.args else []
+            if isinstance(callee, ast.Attribute) and callee.attr == "items" and not iterable.args:
+                pairs = []
+                for mapping in self._annotations_of(callee.value, scope, depth + 1):
+                    for alternative in _alternatives(mapping):
+                        head, parts = _subscript_parts(alternative)
+                        if head in _MAPPING_HEADS and len(parts) == 2:
+                            pairs.append(_tuple_annotation(parts))
+                return pairs
+        return self._element_of_annotations(self._annotations_of(iterable, scope, depth), depth)
+
+    def _annotations_of(self, expression: ast.expr, scope: FunctionNode, depth: int) -> list[ast.expr]:
+        """The annotations WRITTEN for an expression: a parameter, a `self.X`, a call's return type."""
+        if isinstance(expression, ast.Name):
+            written = scope._annotations.get(expression.id)
+            return [written] if written is not None else []
+        if isinstance(expression, ast.Attribute):
+            found: list[ast.expr] = []
+            for owner in self._types_of(expression.value, scope, depth + 1):
+                for klass in self._related_classes(owner):
+                    declared = klass.attributes.get(expression.attr)
+                    if declared is not None:
+                        found.append(declared)
+            return found
+        if isinstance(expression, ast.Call):
+            return [
+                target._return_annotation
+                for target in self._call_targets(expression, scope, depth + 1)
+                if target._return_annotation is not None
+            ]
+        return []
+
+    @staticmethod
+    def _element_of_annotations(annotations: list[ast.expr], depth: int) -> list[ast.expr]:
+        elements: list[ast.expr] = []
+        for annotation in annotations:
+            for alternative in _alternatives(annotation):
+                head, parts = _subscript_parts(alternative)
+                if (head in _SEQUENCE_HEADS or head in _MAPPING_HEADS) and parts:
+                    # A mapping iterates its KEYS; `.items()` is handled apart.
+                    elements.append(parts[0])
+                elif head in {"tuple", "Tuple"} and parts:
+                    elements.append(_union_annotation([part for part in parts if not isinstance(part, ast.Constant)]))
+        return elements
+
+    def _entered_types(self, manager: ast.expr, scope: FunctionNode, depth: int) -> set[str]:
+        """What `with <manager> as x` binds `x` to, if the source says so (#2039).
+
+        Two written-down facts and nothing else: a `@contextmanager` function's
+        `Iterator[X]`/`Generator[X, ...]` yields an `X`; a class's annotated
+        `__enter__`/`__aenter__` returns what it names (`Self` is the class
+        itself). A manager whose `__enter__` is not annotated binds an UNTYPED
+        name — assuming it returns `self` is the guess this method exists to avoid.
+        """
+        inner = manager.value if isinstance(manager, ast.Await) else manager
+        found: set[str] = set()
+        managers: list[FunctionNode] = []
+        if isinstance(inner, ast.Call):
+            managers = [t for t in self._call_targets(inner, scope, depth) if t.context_manager]
+            for target in managers:
+                found |= _base_names(target._return_annotation)
+            callee = inner.func
+            if isinstance(callee, ast.Name) and callee.id == "open" and "open" not in self.module_symbols[scope.module]:
+                found.add("IO")
+        if managers:
+            return found
+        for owner in self._types_of(inner, scope, depth):
+            for klass in self._related_classes(owner):
+                for hook in ("__enter__", "__aenter__"):
+                    for method in klass.methods.get(hook, ()):
+                        names = _base_names(method._return_annotation)
+                        found |= {owner} if names == {"Self"} else names
+        return found
 
     def _related_classes(self, name: str) -> Iterator[ClassNode]:
         """`name`'s own definitions, its ancestors, and its implementors — not its siblings.
@@ -669,6 +1031,10 @@ class CallGraph:
                 targets = self._call_targets(call, fn)
                 if not targets and isinstance(call.func, ast.Attribute):
                     self.unresolved_calls += 1
+                    if self._is_external_receiver(call.func.value, fn):
+                        self.external_unresolved_calls += 1
+                    else:
+                        self.genuine_unresolved_calls += 1
                     fn.unresolved.append(call.func.attr)
                     # Only an UNTYPED receiver falls back. A receiver whose type
                     # is known and simply carries no such method is not a blind
@@ -691,6 +1057,65 @@ class CallGraph:
                     if id(target) not in seen:
                         seen.add(id(target))
                         fn.callees.append(target)
+
+    def _is_external_receiver(self, expression: ast.expr, scope: FunctionNode, depth: int = 0) -> bool:
+        """Is this receiver typed as, or rooted in, something outside the tree? (#2039)
+
+        Rooted in an external import (`datetime`, `asyncio`, `httpx`), a module
+        global or local bound to a call on one (`logger = structlog.get_logger()`),
+        an attribute or subscript of such a thing, or a value whose resolved type
+        is a name this tree does not define (`StandardDatabase`, `dict`, `str`).
+        `Any` and `object` are not types in this sense: they are the annotation
+        saying "unknown".
+        """
+        if depth > _MAX_TYPE_DEPTH:
+            return False
+        if isinstance(expression, ast.Name):
+            if expression.id in scope._annotations or expression.id in {"self", "cls"}:
+                return self._types_are_external(expression, scope)
+            local = scope._assignments.get(expression.id)
+            if local:
+                return all(self._is_external_receiver(v, scope, depth + 1) for v in local) or (
+                    self._types_are_external(expression, scope)
+                )
+            managers = scope._context_bindings.get(expression.id)
+            if managers and (
+                all(self._is_external_receiver(m, scope, depth + 1) for m in managers)
+                or self._types_are_external(expression, scope)
+            ):
+                return True
+            if expression.id in self.external_names.get(scope.module, ()):
+                return True
+            imported_from = self.module_symbols.get(scope.module, {}).get(expression.id, "")
+            if imported_from.startswith("app."):
+                # `celery_app` is built in `app.tasks.celery_app` and imported here:
+                # judge it where it is bound.
+                home_module, _, home_name = imported_from.partition("::")
+                home_bound = self.module_globals.get(home_module, {}).get(home_name)
+                if home_bound is not None and not isinstance(home_bound, ast.Name | ast.Attribute):
+                    home = FunctionNode(home_module, "<module>", "<module>", 0, None)
+                    return self._is_external_receiver(home_bound, home, depth + 1)
+            bound = self.module_globals.get(scope.module, {}).get(expression.id)
+            if bound is not None and not isinstance(bound, ast.Name | ast.Attribute):
+                return self._is_external_receiver(bound, scope, depth + 1) or self._types_are_external(
+                    expression, scope
+                )
+            return self._types_are_external(expression, scope)
+        if isinstance(expression, ast.Attribute | ast.Subscript):
+            return self._is_external_receiver(expression.value, scope, depth + 1) or self._types_are_external(
+                expression, scope
+            )
+        if isinstance(expression, ast.Call):
+            return self._is_external_receiver(expression.func, scope, depth + 1) or self._types_are_external(
+                expression, scope
+            )
+        if isinstance(expression, ast.Await):
+            return self._is_external_receiver(expression.value, scope, depth + 1)
+        return self._types_are_external(expression, scope)
+
+    def _types_are_external(self, expression: ast.expr, scope: FunctionNode) -> bool:
+        found = self._types_of(expression, scope)
+        return bool(found) and not (found & set(self.classes)) and not (found <= {"Any", "object"})
 
     def _write_vocabulary(self) -> frozenset[str]:
         """Method names on repository classes that reach a direct write.
@@ -798,6 +1223,15 @@ class CallGraph:
         return None  # pragma: no cover - a writer always reaches a direct write
 
 
+def _is_property(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Is this method read as an attribute — `@property` or `@cached_property`?"""
+    for decorator in node.decorator_list:
+        name = decorator.attr if isinstance(decorator, ast.Attribute) else getattr(decorator, "id", None)
+        if name in {"property", "cached_property"}:
+            return True
+    return False
+
+
 def _docstring_ids(tree: ast.Module) -> set[int]:
     found: set[int] = set()
     for node in ast.walk(tree):
@@ -812,7 +1246,7 @@ def _docstring_ids(tree: ast.Module) -> set[int]:
 
 
 def _harvest_self_attributes(node: ast.FunctionDef | ast.AsyncFunctionDef, klass: ClassNode) -> None:
-    """`self._repo = repo` inherits the annotation of the `repo` parameter."""
+    """`self._repo = repo` inherits the annotation of the `repo` parameter — in any method (#2039)."""
     parameters = {
         argument.arg: argument.annotation
         for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
@@ -821,18 +1255,50 @@ def _harvest_self_attributes(node: ast.FunctionDef | ast.AsyncFunctionDef, klass
     for inner in ast.walk(node):
         if isinstance(inner, ast.AnnAssign) and isinstance(inner.target, ast.Attribute):
             if isinstance(inner.target.value, ast.Name) and inner.target.value.id == "self":
-                klass.attributes.setdefault(inner.target.attr, inner.annotation)
+                _record_attribute(klass, inner.target.attr, inner.annotation, explicit=True)
         elif isinstance(inner, ast.Assign):
             for target in inner.targets:
                 if not (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)):
                     continue
                 if target.value.id != "self":
                     continue
-                source = inner.value
-                if isinstance(source, ast.Name) and source.id in parameters:
-                    klass.attributes.setdefault(target.attr, parameters[source.id])
-                elif isinstance(source, ast.Call) and isinstance(source.func, ast.Name | ast.Subscript):
-                    klass.attributes.setdefault(target.attr, source.func)
+                annotation = _attribute_annotation(inner.value, parameters)
+                if annotation is not None:
+                    _record_attribute(klass, target.attr, annotation, explicit=False)
+
+
+def _attribute_annotation(source: ast.expr, parameters: dict[str, ast.expr]) -> ast.expr | None:
+    """The type expression an `__init__` assignment gives `self.X`, if one is written down.
+
+    `self._repo = repo` takes the parameter's annotation and `self._engine =
+    Engine()` the constructor. The DEFAULTED shapes — `repo or Default()` and
+    `repo if repo is not None else Default()` — are the same two facts joined, and
+    are read as their union: every operand is a value the attribute can hold. An
+    operand that names nothing typed contributes nothing; it does not untype the
+    others.
+    """
+    if isinstance(source, ast.Name):
+        return parameters.get(source.id)
+    if isinstance(source, ast.Call) and (
+        isinstance(source.func, ast.Name)
+        and source.func.id.lstrip("_")[:1].isupper()
+        or isinstance(source.func, ast.Subscript)
+    ):
+        # A constructor, not any call: `self._x = open_conn()` names a FUNCTION,
+        # and recording `open_conn` as the attribute's type blocks the name
+        # fallback for it while resolving nothing (#2039).
+        return source.func
+    operands: list[ast.expr] = []
+    if isinstance(source, ast.BoolOp):
+        operands = list(source.values)
+    elif isinstance(source, ast.IfExp):
+        operands = [source.body, source.orelse]
+    union: ast.expr | None = None
+    for operand in operands:
+        part = _attribute_annotation(operand, parameters)
+        if part is not None:
+            union = part if union is None else ast.BinOp(left=union, op=ast.BitOr(), right=part)
+    return union
 
 
 @lru_cache(maxsize=1)
@@ -921,6 +1387,16 @@ def reachable_keyword_arguments(endpoint: Any, callee_name: str, keyword: str) -
 def unresolved_call_count() -> int:
     """Attribute calls no receiver type could resolve — the measured blind spot."""
     return call_graph().unresolved_calls
+
+
+def genuine_unresolved_call_count() -> int:
+    """Unresolved calls whose receiver is an annotation gap in this tree (#2039)."""
+    return call_graph().genuine_unresolved_calls
+
+
+def external_unresolved_call_count() -> int:
+    """Unresolved calls on a receiver typed as, or rooted in, an external library."""
+    return call_graph().external_unresolved_calls
 
 
 def direct_writers() -> list[FunctionNode]:

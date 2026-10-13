@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1
+Version: 1.5 (develop-Branch-Protection ohne `strict`, Betreiberentscheidung 2026-10-03)
 Autor: nolte
 Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
@@ -20,6 +20,10 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.5 | 2026-10-03 | **`strict` auf `develop` abgeschaltet (Betreiberentscheidung):** `required_status_checks.strict` steht in `.github/settings.yml` auf `false`. Gegeben wird die Zusicherung, dass ein Pull Request, der auf seinem eigenen Stand grün ist, auch auf dem gemergten Ergebnis grün ist; ausgeglichen wird das durch den Lauf auf `develop` nach jedem Merge (Rot wird sofort vorwärts repariert) und die weiter required Wächter. Die Messungen unter §4.3 und die Erwähnungen von `strict: true` beschreiben den Stand bis 2026-10-02. |
+| 1.4 | 2026-09-25 | §4.3: die Messung verlässt die Feature-Pull-Requests (#1794). `lane-inputs.yml` läuft wöchentlich und per Dispatch auf `develop` und schlägt Drift als Bot-Pull-Request vor; die Regeln, die eingecheckte Manifeste gegen die aktuellen Workflows halten, laufen nur dort (Marker `lane_inputs_drift`). Der überholte Übergangszustand (Register, lokale Messung) ist durch den gemessenen Stand ersetzt. |
+| 1.3 | 2026-09-23 | §4.3 (ein Relevanzfilter wird an dem gemessen, was sein Job liest — nicht an dem, was sein Workflow erwähnt, #1596) ergänzt; die Regel stand zuvor nur als Messung in den Pull-Request-Bodies von #1595 und als Kommentar über dem `guards`-Job in `backend-guards.yml`. |
+| 1.2 | 2026-09-21 | §2.3 (ein Gate entscheidet nicht anhand von Prosa) kam mit #1642 und wird hier im Changelog nachgetragen; §2.4 (Skip-Obergrenze je Tier, #1434), §2.5 (ein Ausnahmeregister muss altern können), §4.1 (ein required Check darf nicht pfadgefiltert sein, #1432/#1578) und §4.2 (was eine advisory Lane dem Default-Branch schuldet, #1547/#1617) ergänzt. Alle fünf Regeln standen zuvor nur als Kommentar in einer Workflow-, Taskfile- oder Guard-Datei oder in einem Pull-Request-Body (#1581). |
 | 1.1 | 2026-08-08 | §2.1 (Ratchet-Baselines werden berechnet, nicht versioniert — Herleitung #973, bis dahin nur ein `Taskfile.yaml`-Kommentar) und §2.2 (eine überwiegend abgebrochene Lane existiert nicht — Verallgemeinerung der Analyse aus NFR-014 §4.1, #993/#1013) ergänzt. Beide aus der Issue-Muster-Analyse vom 2026-08-08, Maßnahmen P5.6/P5.3. |
 | 1.0 | 2026-08-01 | Erstversion. Entstanden aus dem CI/CD-Audit vom 2026-08-01, das 21 Befunde ergab — von denen die Mehrzahl derselben Fehlerklasse angehörte. Diese NFR hält die Klasse und die daraus abgeleiteten Regeln fest, damit sie nicht bei jedem Audit neu entdeckt werden muss. |
 
@@ -141,6 +145,47 @@ Die geltende Bauform:
 Hergeleitet aus #973. Die Lektion stand bis dahin nur als Kommentar im
 `Taskfile.yaml` — also genau dort, wo sie niemand liest, der ein neues Gate baut.
 
+### 2.3 Ein Gate entscheidet über Code nicht anhand von Prosa
+
+**MUSS**: Ein Gate, das eine Aussage über den Quellbaum aus einem Dateitext
+ableitet, MUSS den Text vorher auf seinen ausführbaren Anteil reduzieren —
+Kommentare und Docstrings entfernen (`scripts/source_text.py`) oder ihn parsen
+(`ast.parse`, `yaml.safe_load`, `json.loads`, `tomllib.loads`).
+
+Der Grund ist, dass ein Dateitext zwei Inhalte trägt, den Code und die Prosa
+daneben, und eine Suche, die beide nicht trennt, über den jeweils zuerst
+getroffenen entscheidet. Beide Richtungen sind gemessen:
+
+- **Vorhandensein.** `"fetchAllFertilizers" in slice_source` ist durch einen
+  Kommentarkopf erfüllt, der den Loader nennt. Wird der echte Aufruf gelöscht,
+  bleibt das Gate grün — zweimal in einer Woche (`fertilizersSlice.ts` und
+  `activitiesSlice.ts`, #1610; die Katalogregistratur, #1624), dazu der eigene
+  Kommentarkopf eines Guards in PR #1545.
+- **Abwesenheit.** `"cec_meq_per_100g" not in migration_source` wird durch einen
+  Docstring widerlegt, der festhält, dass das Feld absichtlich **nicht**
+  migriert wird: rot wegen eines Satzes, grün über dem Defekt. Ein `grep` dieses
+  Repositories meldete einmal einen behobenen Defekt als offen, weil die
+  Erklärung der Reparatur den Namen weiterhin nannte.
+
+**MUSS**: Ist die Prosa der Prüfgegenstand — dass ein `# renovate:`-Marker über
+einer Pin-Zeile steht, dass eine Begründung im Artefakt selbst geschrieben steht,
+oder dass die naive Form nachweislich hereinfällt —, dann trägt die Stelle eine
+Begründung: `# prose-permeable: <Grund>`. Diese Marke verbirgt nichts: Die Stelle
+wird weiterhin über den Parse-Baum gefunden, weiterhin gezählt und bei jedem Lauf
+ausgegeben; eine Marke, die keine gefundene Stelle begründet, ist rot.
+
+**MUSS**: Die Durchsetzung selbst DARF NICHT textuell sein.
+`scripts/check_gate_text_assertions.py` findet die Stellen über den AST, in dem
+Kommentare keine Knoten sind — kein Kommentar kann also eine Stelle erzeugen oder
+entfernen. `src/backend/tests/unit/test_gate_text_assertions_check.py` weist beide
+Richtungen nach: eine Datei, deren einziges Vorkommen des Musters Kommentar und
+Docstring ist, ergibt keinen Befund; eine Datei mit echtem Prädikat ergibt einen,
+den keine Prosa beseitigt.
+
+Hergeleitet aus #1456. Die portable Fassung der Regel gehört in
+`spec/project/defect-class-guards/` (claude-shared, EN-kanonisch, nolte/claude-shared#637);
+hier steht die Lane.
+
 ### 2.2 Eine überwiegend abgebrochene Lane existiert nicht
 
 **MUSS**: Für jede gatende **oder** berichtende Lane MUSS die Abbruchrate
@@ -170,6 +215,79 @@ die Nuclei-Lane 85 % abgebrochene Läufe gemessen und den Trigger auf
 ZAP-Lane (44 %) — der Beleg dafür, dass die Erkenntnis pro Lane angewandt statt
 als Regel gehoben worden war. Eine bewusste Verringerung der Abdeckung durch
 Umplatzierung ist nach §4 zu benennen, nicht als Reparatur auszugeben.
+
+### 2.4 Skips sind der Messwert, nicht Grün
+
+**MUSS**: Jede Test-Lane MUSS die Zahl der Fälle deklarieren, die sie
+überspringen darf, und rot werden, sobald sie diese Zahl überschreitet. Der
+Exit-Code eines Test-Runners behandelt einen übersprungenen Fall wie einen
+bestandenen — eine Lane, deren Fälle still aufgehört haben zu laufen, meldet
+daher Erfolg. Das ist §1 in der Test-Schicht: Erfolg ohne Messung.
+
+**MUSS**: Die deklarierte Zahl ist **gemessen**, nicht geschätzt, und jeder
+zugelassene Skip ist im selben Register benannt. Die Erhöhung der Zahl gehört in
+denselben Commit wie der neue Skip, der sie nötig macht; der Fehlschlag listet
+jede Skip-Begründung auf, damit die neue identifizierbar ist.
+
+Die geltende Bauform ist `--max-skipped N` (#1434): `src/backend/tests/conftest.py`
+registriert die Option, `tests/support/execution_guards.py::skip_floor_violation`
+entscheidet, und die Zahl steht am Tier-Target selbst, nicht in einer Datei
+daneben. Nachmessen:
+
+```bash
+grep -n 'max-skipped' .taskfiles/backend.yaml
+```
+
+Die vier Backend-Tiers tragen heute `1 / 0 / 0 / 0` (unit / contracts / api /
+integration). Der eine zugelassene Skip ist eine parametrisierte Allowlist und
+damit von Bauart permanent; die Null am Integrations-Tier ist die eigentliche
+Aussage, weil derselbe Lauf ohne Datenbank 136 Skips hat (gemessen 2026-09-16)
+und vorher lautlos grün war. Die Prosa „480 passed, 0 skipped" stand am
+API-Tier monatelang, ohne dass irgendetwas sie prüfte.
+
+**Bekannte Lücke.** `frontend` und `e2e` tragen keine Skip-Obergrenze
+(`grep -c 'max-skipped' .taskfiles/frontend.yaml .taskfiles/e2e.yaml` → je `0`).
+Das ist keine Ausnahme von der Regel, sondern eine unerfüllte Stelle: die
+E2E-Matrix meldete einmal Grün bei 6 von 23 übersprungenen Fällen.
+
+### 2.5 Ein Ausnahmeregister MUSS altern können
+
+**MUSS**: Jedes Register, das Befunde eines Gates ausnimmt — Allowlist,
+Exemption, Waiver, Suppression —, MUSS einen Mechanismus tragen, durch den ein
+Eintrag **rot** wird, der nichts mehr ausnimmt. Ohne diesen Mechanismus altert
+jede Ausnahme per Default in eine dauerhafte Befreiung, und ein Register, das
+nur berichtet, ist von einer stillschweigenden Absenkung der Schwelle nicht zu
+unterscheiden.
+
+**MUSS**: Welche Form der Alterungsprüfung richtig ist, folgt daraus, **was der
+Eintrag ist** — und nur diese beiden Formen sind zulässig:
+
+| Der Eintrag ist … | Alterungsprüfung | Beleg im Repository |
+|---|---|---|
+| an eine Stelle gebunden (diese Route, dieser Import, dieses Prädikat) | **strukturell**: verschwindet die Stelle, ist der Eintrag rot | `check_layer_imports.py` (obsolete allowlist entry), `check_route_role_guards.py` (`obsolete-decision`), `check_route_consumers.py` (`stale_exemptions`), `check_skill_plugin_shadowing.py`, `check_gate_text_assertions.py` (`StaleWaiver`) |
+| ein aufgeschobener Posten (diese Advisory heute nicht beheben) | **Ablaufdatum**, §6 | — |
+
+Nachmessen, welche Register diese Form tragen:
+
+```bash
+grep -rln 'obsolete\|stale_exemptions\|StaleWaiver\|no longer' scripts/check_*.py
+```
+
+Ein Ablaufdatum an einem stellengebundenen Eintrag wäre falsch, nicht bloß
+überflüssig: Dieser Eintrag hält eine dauerhaft richtige Entscheidung fest und
+nicht einen Aufschub, und ein Datum würde ihn periodisch zur Neuverhandlung
+zwingen, ohne dass sich an der Sache etwas geändert hätte. Entsprechend kennt
+die Grammatik des Markers kein Datumsfeld:
+
+```bash
+grep -n 'WAIVER = ' scripts/check_gate_text_assertions.py
+```
+
+Die erste gebaute Fassung im Repository ist `# prose-permeable: <Grund>` aus
+#1642 (§2.3): Die Marke verbirgt nichts, wird bei jedem Lauf ausgegeben — und
+eine Marke, die keine gefundene Stelle begründet, lässt den Lauf fehlschlagen
+(`StaleWaiver`). Die portable Fassung der Regel gehört nach
+`spec/project/defect-class-guards/` (nolte/claude-shared#637).
 
 ---
 
@@ -236,6 +354,226 @@ Fehlermodus als die Lücke, die er schließen soll. Die Kommentare in
 aus dem required-Set entfernt und die Doku unverändert lässt. Entweder wird die
 Abdeckung nachweislich anderswo erbracht — dann ist das zu benennen — oder die
 Reduktion ist eine bewusste, dokumentierte Verringerung der Abdeckung.
+
+### 4.1 Ein required Check DARF NICHT in einem pfadgefilterten Workflow liegen
+
+**MUSS**: Für jeden required Kontext MUSS mindestens ein diff-getriebener
+Trigger seines Workflows bei **jedem** Pull Request gegen `develop` feuern. Ein
+`pull_request`-Trigger erfüllt das, wenn er keinen `paths:`-Filter trägt und
+sein `branches:`-Filter fehlt oder `develop` nennt; ein `push`-Trigger nur, wenn
+er weder `paths:` noch `branches:` trägt.
+
+Der Grund ist, dass GitHub „nicht gemeldet" nicht als „bestanden" liest, sondern
+als *Expected — waiting for status to be reported*: Der Pull Request hängt
+dauerhaft. `Integration tests (ArangoDB)` wurde zum required Kontext befördert,
+während sein Job in einem auf `src/backend/**` gefilterten Workflow saß; drei
+offene Pull Requests, die keinen dieser Pfade berührten, waren damit unbefristet
+blockiert (#1432, gemessen 2026-09-17 an #1470, #1475, #1410 über
+`gh pr view <n> --json statusCheckRollup`).
+
+Das ist der Zwilling des Fehlers, den §1 von der anderen Seite kennt — ein
+pfadgefilterter Check, der **grün** meldet über eine Änderung, die er nie
+angesehen hat. Dieselbe Ursache, das entgegengesetzte Symptom, und beide sind in
+der Workflow-Datei allein unsichtbar: Der Filter steht dort, die Requiredness
+steht im Branch-Protection-Zustand, und nichts verband die beiden.
+
+**MUSS**: Die Verdrahtung wird maschinell gehalten, nicht als Kommentar.
+`src/backend/tests/unit/guards/test_required_contexts_are_unfiltered.py` ist die
+Referenzimplementierung. Der Live-Zustand:
+
+```bash
+gh api repos/nolte/kamerplanter/branches/develop/protection \
+  --jq '.required_status_checks.contexts'
+```
+
+**MUSS**: Auswahl, die ohnehin stattfinden muss, gehört in ein Job-Level-`if:`,
+**nicht** in den Trigger. Ein per `if:` übersprungener Job meldet ein Ergebnis,
+das Branch Protection akzeptiert; ein per `paths:` übersprungener Workflow meldet
+überhaupt nichts. Daraus folgt die Richtung des Fehlverhaltens, die §2 bereits
+für den Fall „alle Schritte übersprungen" verlangt: Ein Erkennungsschritt, der
+fehlschlägt, MUSS den teuren Job **laufen lassen**, nie überspringen — denn
+Überspringen ist hier die grüne Richtung. `frontend.yml` (`RUN_FRONTEND`) und
+`e2e-smoke.yml` sind die geltende Bauform; `backend-guards.yml` trägt aus
+demselben Grund bewusst **kein** Job-Level-`if:`.
+
+### 4.2 Was eine advisory Lane dem Default-Branch schuldet
+
+**MUSS**: „Advisory" beschreibt, dass ein Check **nicht blockiert** — nicht,
+dass er ignoriert werden darf. Ein roter advisory Check MUSS vor dem Merge
+bewertet werden, und die Bewertung MUSS ein Ergebnis hinterlassen: entweder ist
+der Befund behoben, oder er ist ein Issue.
+
+**MUSS**: Das Merge-Kriterium lautet „jeder Check hat **gemeldet** und ist
+grün", nicht „kein Check ist rot". Ein Re-Run setzt einen roten Check auf
+`IN_PROGRESS` zurück; in genau diesem Moment ist „kein Rot" erfüllt und sagt
+nichts aus. Gemessen an #1617: gemergt `2026-09-20T18:53:04Z`, während
+`E2E smoke (compose, light)` erst `2026-09-20T19:00:34Z` abschloss — der Check,
+auf den sich der Merge berief, lief zum Zeitpunkt des Merges noch.
+
+```bash
+gh pr view 1617 --json mergedAt,statusCheckRollup \
+  --jq '.mergedAt, (.statusCheckRollup[] | select(.name|test("E2E smoke")) | .completedAt)'
+```
+
+**MUSS**: Eine Lane, deren einziger Trigger `pull_request` ist, hat auf dem
+Default-Branch **keine Instanz**. Wird ihr roter Befund gemergt, existiert kein
+Lauf, der den Schaden wiederfindet — die Lücke ist dann nicht advisory, sondern
+unbeobachtet. Für jede solche Lane MUSS deshalb entweder ein `push`-Trigger auf
+`develop` bestehen, oder der rote Befund wird vor dem Merge zu einem benannten
+Posten.
+
+Gemessen an `skaffold-verify.yml`: Sein einziger Trigger ist `pull_request`, und
+unter den letzten 100 Läufen liegt **keiner** auf `develop`. #1547 wurde am
+`2026-09-19T14:43:01Z` mit rotem `verify` gemergt; danach gab es nichts, was
+diesen Zustand erneut gemessen hätte.
+
+```bash
+gh run list --workflow skaffold-verify.yml --limit 100 --json headBranch \
+  --jq '[.[]|select(.headBranch=="develop")]|length'
+gh pr view 1547 --json mergedAt,statusCheckRollup \
+  --jq '.mergedAt, (.statusCheckRollup[] | select(.conclusion=="FAILURE") | .name)'
+```
+
+---
+
+### 4.3 Ein Relevanzfilter wird an dem gemessen, was sein Job LIEST
+
+**MUSS**: Ein Pfadfilter — `on.<event>.paths` eines Workflows oder ein
+`dorny/paths-filter`-Schritt in einem Job — ist die Behauptung, dass keine
+Änderung außerhalb der genannten Pfade das Urteil des Jobs verändern kann.
+Diese Behauptung wird an der **gemessenen Lesemenge** des Jobs geprüft: an den
+versionierten Dateien, die der Aufruf des Jobs tatsächlich öffnet, und an den
+Verzeichnissen, die er auflistet — **nicht** an den Pfaden, die der Workflow-Text
+erwähnt. Die beiden Mengen sind verschieden, und die Differenz ist die Lücke:
+`Write-route and tree guards` sagt `pytest tests/unit/api tests/unit/guards`
+und öffnet 57 Dateien unter `src/frontend/src/api/endpoints/`, jede
+Workflow-Datei, `renovate.json5`, acht `pyproject.toml`/`uv.lock`-Paare
+außerhalb seines Pakets und listet die Wurzel des Checkouts auf (gemessen
+2026-09-20 und 2026-09-23). Nichts davon steht im Text des Workflows.
+
+**MUSS**: Die Messung folgt Subprozessen. Ein `sys.addaudithook` sieht nur den
+Interpreter, in dem er installiert ist; was `git`, `task`, `uv` oder `npx`
+lesen, bleibt ihm verborgen, und ein Wächter, der aus dieser Messung gespeist
+wird, bescheinigt die Klasse als geschlossen, während ein Subprozess außerhalb
+des Filters liest. `scripts/ci/lane_inputs.py` misst darum mit `strace -f` an
+der Syscall-Grenze und hält die gefolgten Subprozesse im Manifest fest. Wo ein
+Job in einem Container liest, den der Daemon startet (`docker build`), wird die
+Lesemenge aus dem Build-Kontext **abgeleitet** — Docker wendet dabei selbst die
+`.dockerignore` an — und das Manifest sagt, dass es abgeleitet ist.
+
+**MUSS**: Je gefiltertem Job liegt ein Manifest unter `.github/lane-inputs/`
+mit dem Aufruf, dem Datum, der Lesemenge und einem Hash der **geparsten**
+Job-Definition. Ein gefilterter Job ohne Manifest ist ein Fehler, keine
+Auslassung — sonst ist das Register eine Opt-in-Liste, die Klasse aus #1402
+und #1406. Weicht der Hash vom Job ab, ist das Manifest älter als der Job und
+wird neu gemessen; ein Kommentar im Job ändert den Hash nicht, weil er den
+Job nicht ändert. Der Hash und nicht ein Commit ist der Anker, weil `develop`
+per Squash gemergt wird und der messende Commit den Merge nicht überlebt.
+
+**MUSS**: Ein Lesepfad, den der Filter nicht auswählt, ist rot — es sei denn,
+er steht als `accepted_gaps`-Eintrag mit Begründung im Manifest. Lautet die
+Begründung „eine andere Lane läuft das ohnehin", nennt der Eintrag diese Lane
+(`covered_by`), und der Wächter prüft die Nennung: Die Lane ist an keinem
+diff-getriebenen Trigger gefiltert, entscheidet ihre Relevanz nicht selbst im
+Job, und — trägt sie ein eigenes Manifest — liest sie die delegierten Pfade
+tatsächlich. Ein Eintrag, der keinen ungedeckten Lesepfad mehr trifft, ist
+veraltet und rot (§2.5).
+
+**MUSS**: Die Delegation gilt dem **lesenden Test**, nicht nur dem Pfad
+(#1749). Liest in der delegierenden Lane ein Test einen delegierten Pfad, muss
+genau dieses Testmodul in der benannten Lane laufen; dass dort ein *anderer*
+Test dieselbe Datei liest, prüft dessen Zusicherungen, nicht die des neuen.
+Der Recorder ordnet darum jeden Lesezugriff eines pytest-Aufrufs dem Testmodul
+zu, das gerade aktiv war — ein pytest-Plugin öffnet vor jeder Sammlung und
+jedem Test eine Markerdatei, `strace -ttt` stellt Marker und Lesezugriffe
+aller Prozesse (auch Subprozesse und Threads, die ein Test startet) auf
+dieselbe Zeitachse — und hält `test_modules` (die Module, von denen mindestens
+ein Test lief) und `readers` (je Modul die Lesepfade außerhalb des eigenen
+Filters) im Manifest fest. Ein Modul, das einen delegierten Pfad liest und
+nicht unter den `test_modules` der benannten Lane steht, ist rot — im Wächter
+über die committeten Manifeste und in `compare` über die frische Aufzeichnung.
+Ein Manifest ohne diese Felder ist rot, nicht grün: Es wurde vor der Zuordnung
+aufgezeichnet, und „kein Leser bekannt" ist nicht „kein Leser". Lesezugriffe
+außerhalb jedes Tests (pytest-Start, `conftest`-Sammlung, ein Aufruf ohne
+pytest) haben keinen Leser und bleiben allein am Pfad gehalten. Zwei Grenzen
+der Zuordnung, benannt statt versteckt: Sie ist **Erstzugriff** — was ein
+Prozess einmal liest und danach aus einem Cache bedient (importiertes Modul,
+Verzeichnisliste des Import-Systems, `functools.cache`, Session-Fixture), zählt
+für das Modul, das zuerst zugriff; ein späteres Modul, das nur den Cache nutzt,
+gilt nicht als Leser. Und sie ist **modulgenau**: Ein Modul, das in der
+benannten Lane läuft, deckt alle seine Tests, auch einen, den diese Lane
+abwählt. Beides zu schließen hieße ein Prozess je Testmodul in der
+Aufzeichnung.
+
+**MUSS**: Für einen required Kontext, dessen Relevanz **im Job** entschieden
+wird (§4.1, die Bauform von `backend-guards.yml`), hält der Wächter zusätzlich
+die drei Eigenschaften, die die Bauform tragen und bis dahin nur ein Kommentar
+hielt (#1596, W-5): kein Job-Level-`if:` außer `always()`, kein
+`continue-on-error` am Erkennungsschritt, und das Lauf-Flag steht **vor** der
+Erkennung auf „laufen" und wird nur durch eine erfolgreiche, negative
+Erkennung verengt.
+
+Referenzimplementierung:
+`src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py`;
+Messinstrument: `scripts/ci/lane_inputs.py`. Shape 5 von
+`scripts/check_workflow_gate_integrity.py` bleibt daneben bestehen: Es
+beantwortet die Frage „erwähnt der Workflow einen Pfad, den sein Filter
+ausschließt?" in der required `static`-Lane ohne Abhängigkeiten und ohne
+Messung; diese Regel beantwortet die andere Frage. Beide sind billig, und keine
+ersetzt die andere.
+
+**MUSS (#1794)**: Die Regeln, die die eingecheckten Manifeste gegen die
+**aktuellen** Workflows halten — Population, Wohlgeformtheit, Frische,
+Abdeckung samt Delegations- und Leserregel (#1749), Aufruf-Kohärenz —, laufen in **keinem**
+Pull-Request-Check. Ändert ein Pull Request einen Job, kann er sie nur mit einer
+CI-Messung grün machen, und diese Messung auf Pull Requests kostete 74 Läufe in
+zwei Tagen, davon 33 rot und 17 abgebrochen (gemessen 2026-09-24/25); unter
+`strict: true` ließ jeder Merge die Manifeste der übrigen offenen Pull Requests
+erneut veralten. Die Regeln tragen den pytest-Marker `lane_inputs_drift`;
+`tests/conftest.py` wählt sie ab, solange nicht `--lane-inputs-drift` übergeben
+wird, und nur `lane-inputs.yml` übergibt es. Was im Wächter keine Messung
+braucht — die Entscheidungsform required Kontexte, die gepflanzten Bäume, der
+Matcher —, läuft weiter, wo die Datei läuft. Gehalten von
+`test_lane_inputs_drift_runs_only_in_its_lane.py` in der required Guards-Lane.
+
+**MUSS (#1794)**: `lane-inputs.yml` läuft wöchentlich und per
+`workflow_dispatch`, nicht auf `pull_request`. Der Lauf auf `develop` misst jedes
+Manifest, vergleicht (`compare`), lässt die `lane_inputs_drift`-Regeln einmal
+gegen die eingecheckten Manifeste und einmal mit der Messung darübergelegt
+laufen (`guard`) und ist bei Drift **rot**. Bei Drift öffnet oder aktualisiert
+`propose` genau einen Bot-Pull-Request (`bot/lane-inputs-refresh`), dessen
+einzige Änderung die Messung ist, wie aufgezeichnet kopiert. Er trägt das Label
+`automerge` nur, wenn der Wächter mit der Messung grün ist; sonst braucht der
+Filter eine Hand-Änderung, die der Body benennt. Ohne Drift öffnet der Lauf
+nichts und schließt einen noch offenen Bot-Pull-Request. Weil der Workflow
+keinen Pull-Request-Code ausführt, hält kein Job ein Schreibrecht, während
+Pull-Request-Code läuft (#1614): jedes `GITHUB_TOKEN` ist `contents: read`, und
+`propose` schreibt mit einem kurzlebigen GitHub-App-Token, das nur auf
+`refs/heads/develop` erzeugt wird. Ein Lauf auf einem anderen Branch meldet nur,
+was er vorschlagen würde.
+
+**Bekannte Grenze, benannt statt versteckt**: Das Manifest ist eine
+Momentaufnahme, und die Messung läuft nicht mehr im Pull Request. Ändert ein
+Pull Request einen Job oder das, was ein Job liest, sieht das erst der nächste
+Lauf auf `develop` — bis zu einer Woche später, oder sofort per Dispatch —, und
+bis der Bot-Pull-Request gemergt ist, ist `develop` gegenüber diesen Regeln rot.
+Das ist der Preis dafür, Feature-Pull-Requests nicht an eine 30–50-minütige
+Messung zu binden; er steht hier, statt versteckt zu sein.
+
+**Stand, benannt (#1683, #1748)**: `backend-guards.yml/guards` hat ein in CI
+aufgezeichnetes Manifest (`backend-guards--guards.yaml`, `gate.kind:
+unfiltered`), gegen das die `covered_by`-Delegationen aus
+`backend--lint-test.yaml` gemessen, nicht angenommen, gehalten werden;
+`backend--coverage.yaml` gibt es seit #1748 nicht mehr. Wächter und Lane sind
+**advisory**. Die Datei
+trägt weiterhin den Marker `advisory`, und die required Lane
+`Write-route and tree guards` wählt sie mit `-m 'not advisory'` ab. Ob der
+Wächter oder die Lane required wird, entscheidet #1683 an gemessener Historie
+(§4). Ein Manifest mit einer Invocation, die nicht mit 0 endete, trägt eine
+`allow_failure_reason`, die benennt, welche Lesepfade der Fehlerpfad
+übersprungen haben kann; ein `run:`-Befehl des Jobs, den kein Manifest
+aufgezeichnet hat, ist rot, es sei denn, er steht mit Begründung unter
+`unrecorded_invocations`.
 
 ---
 
@@ -305,6 +643,8 @@ passen, damit eine behobene Abhängigkeit keine Unterdrückung zurücklässt.
     - [ ] Jedes Gate schlägt bei leerem Prüfgegenstand fehl
     - [ ] Jeder CI-Skip ist angekündigt und nennt einen **existierenden** Backstop
     - [ ] Jeder required Check behandelt den Ausfall seiner Vorbedingungen (`needs.<job>.result`)
+    - [ ] Jede Test-Lane deklariert ihre Skip-Obergrenze und wird rot, wenn sie sie überschreitet
+    - [ ] Jedes Ausnahmeregister lässt einen Eintrag rot werden, der nichts mehr ausnimmt
 - [ ] **Reproduzierbarkeit**
     - [ ] Keine bewegliche Referenz in `.github/workflows/` — weder Action-Tag noch Branch noch unbeschränkte Toolversion
     - [ ] Jeder inline gepinnte Wert ist von Renovate erfasst
@@ -312,6 +652,9 @@ passen, damit eine behobene Abhängigkeit keine Unterdrückung zurücklässt.
 - [ ] **Required Checks**
     - [ ] `gh api …/branches/develop/protection` deckt sich mit dem, was CLAUDE.md und die NFRs behaupten
     - [ ] Für jeden required Check existiert eine gemessene Begründung
+    - [ ] Kein required Kontext liegt in einem Workflow, dessen diff-getriebene Trigger sämtlich `paths:`-gefiltert sind
+    - [ ] Jede advisory Lane, deren einziger Trigger `pull_request` ist, hat einen `push`-Trigger auf `develop` — oder jeder rote Befund von ihr ist vor dem Merge ein benannter Posten
+    - [ ] Jeder pfadgefilterte Job hat ein Manifest seiner gemessenen Lesemenge unter `.github/lane-inputs/`, und der Filter deckt sie — oder die Lücke steht mit Begründung im Manifest
 - [ ] **Auslieferung**
     - [ ] Jedes Image und der Helm-Chart tragen signierte Provenance
     - [ ] Die Artefakt-zu-Stage-Matrix ist in `docs/<lang>/deployment/ci-cd.md` gepflegt, inklusive bekannter Lücken

@@ -183,7 +183,7 @@ def test_create_species_end_to_end_accepts_17_column_csv():
 
     svc._repo.get_or_raise.return_value = job
     svc._repo.update.side_effect = lambda key, j: j
-    result = svc.confirm("job-1")
+    result = svc.confirm("job-1", tenant_key=None)
 
     assert result.result is not None
     assert result.result.created == 1
@@ -260,7 +260,7 @@ def test_confirm_update_strategy_updates_duplicates():
     svc._repo.update.side_effect = lambda key, j: j
     species_repo.get_by_scientific_name.return_value = Species(scientific_name="Rosa canina")
 
-    result = svc.confirm("job-1")
+    result = svc.confirm("job-1", tenant_key=None)
 
     assert result.result is not None
     assert result.result.updated == 1
@@ -275,7 +275,7 @@ def test_confirm_skip_strategy_does_not_update():
     svc._repo.get_or_raise.return_value = job
     svc._repo.update.side_effect = lambda key, j: j
 
-    result = svc.confirm("job-1")
+    result = svc.confirm("job-1", tenant_key=None)
 
     assert result.result is not None
     assert result.result.skipped == 1

@@ -43,7 +43,7 @@ class _AuthService:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    def login_local(self, email, password, user_agent, ip_address, *, remember_me=False):
+    def login_local(self, email, password, user_agent, ip_address, *, remember_me=False, defer_mail=None):
         self.calls.append({"email": email, "remember_me": remember_me})
         pair = SimpleNamespace(access_token=_ACCESS, token_type="bearer", expires_in=900)
         return pair, _RAW_REFRESH, remember_me

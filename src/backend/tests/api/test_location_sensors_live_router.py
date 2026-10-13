@@ -21,6 +21,7 @@ from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.sensor_service import SensorService
+from tests.support.ha_entity_grants import EverythingGrantedTo
 
 TENANT_KEY = "t-test-1"
 LOCATION_KEY = "loc-1"
@@ -70,7 +71,9 @@ class FakeHaClient:
 def _client(sensors: list[Sensor], states: dict[str, dict]) -> TestClient:
     sensor_repo = MagicMock()
     sensor_repo.find_by_location.return_value = sensors
-    sensor_service = SensorService(sensor_repo, FakeHaClient(states))
+    # MT-015 (#2112): every entity here is granted to the tenant; the allowlist has its own
+    # tests (test_ha_entity_grants_api.py).
+    sensor_service = SensorService(sensor_repo, FakeHaClient(states), ha_entity_gate=EverythingGrantedTo(TENANT_KEY))
 
     app = FastAPI()
     app.include_router(locations_router, prefix="/api/v1/t/test-slug")

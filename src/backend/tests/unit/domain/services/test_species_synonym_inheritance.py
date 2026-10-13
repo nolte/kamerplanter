@@ -17,10 +17,14 @@ and the fuller/global record itself is never modified or hidden (#324).
 
 from __future__ import annotations
 
-from app.common.enums import DataOrigin, GrowthHabit, HarvestPattern, PlantCategory
+from app.common.enums import DataOrigin, GrowthHabit, HarvestPattern, PlantCategory, TenantRole
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.species import Species
 from app.domain.services.species_service import SpeciesService
+
+#: The light-mode operator curating the global catalogue (#2107: the service no longer
+#: offers a defaulted system context; the stored rows here are global, ``""``).
+_GLOBAL_CURATOR = {"tenant_key": "", "caller_role": TenantRole.VIEWER, "is_platform_admin": True}
 
 
 class _FakeSpeciesRepo:
@@ -65,17 +69,22 @@ class _FakeSpeciesRepo:
         self._by_norm[species.scientific_name_normalized] = species
         return species
 
-    def find_synonym_match_candidates(self, species: Species) -> list[Species]:
+    def find_synonym_match_candidates(self, species: Species, *, tenant_key: str) -> list[Species]:
         """Precise synonym-link candidates (mirrors the AQL repo contract).
 
         Returns every stored record whose normalized name equals one of the new
         record's normalized synonyms, or whose normalized synonyms contain the
         new record's normalized name — excluding an exact normalized-name match.
+        Only records ``tenant_key`` may read qualify (own ∪ global, #1708); the
+        real query also admits explicitly granted rows, which this double does
+        not model — it is stricter, never looser, than the repository.
         """
         new_norm = species.scientific_name_normalized
         new_syn_norms = {normalize_scientific_name(s) for s in species.synonyms}
         candidates: list[Species] = []
         for stored in self._by_norm.values():
+            if stored.tenant_key not in ("", tenant_key):
+                continue
             if stored.scientific_name_normalized == new_norm:
                 continue
             stored_syn_norms = {normalize_scientific_name(s) for s in stored.synonyms}
@@ -118,7 +127,7 @@ def test_sparse_record_inherits_unset_fields_from_synonym_match():
         synonyms=["Yucca elephantipes"],
         common_names=["Riesen-Yucca"],  # caller-set — must survive
     )
-    result = _service(repo).create_species(sparse)
+    result = _service(repo).create_species(sparse, **_GLOBAL_CURATOR)
 
     # A new record was inserted (not resolved onto the fuller one — names differ).
     assert len(repo.inserted) == 1
@@ -149,7 +158,7 @@ def test_caller_set_field_is_not_overwritten():
         synonyms=["Yucca elephantipes"],
         photosynthesis_type="c3",  # deliberately different from the fuller record's "cam"
     )
-    result = _service(repo).create_species(sparse)
+    result = _service(repo).create_species(sparse, **_GLOBAL_CURATOR)
 
     assert result.photosynthesis_type == "c3"
 
@@ -163,7 +172,7 @@ def test_non_empty_but_default_field_is_not_corrected():
         origin=DataOrigin.TENANT,
         synonyms=["Yucca elephantipes"],
     )
-    result = _service(repo).create_species(sparse)
+    result = _service(repo).create_species(sparse, **_GLOBAL_CURATOR)
 
     # HERB is the model default and non-empty, so it is NOT treated as unset.
     assert result.growth_habit == GrowthHabit.HERB
@@ -173,7 +182,7 @@ def test_record_without_match_is_stored_unchanged():
     repo = _FakeSpeciesRepo([_full_yucca()])
 
     lonely = Species(scientific_name="Solanum lycopersicum", origin=DataOrigin.TENANT)
-    result = _service(repo).create_species(lonely)
+    result = _service(repo).create_species(lonely, **_GLOBAL_CURATOR)
 
     assert result.photosynthesis_type is None
     assert result.plant_category is None
@@ -191,7 +200,7 @@ def test_global_system_record_is_untouched_and_readable():
         origin=DataOrigin.TENANT,
         synonyms=["Yucca elephantipes"],
     )
-    _service(repo).create_species(sparse)
+    _service(repo).create_species(sparse, **_GLOBAL_CURATOR)
 
     # The fuller record was never updated.
     assert repo.updated_keys == []
@@ -208,7 +217,7 @@ def test_reverse_direction_synonym_link_is_matched():
     repo = _FakeSpeciesRepo([full])
 
     sparse = Species(scientific_name="Yucca gigantea", origin=DataOrigin.TENANT)
-    result = _service(repo).create_species(sparse)
+    result = _service(repo).create_species(sparse, **_GLOBAL_CURATOR)
 
     assert result.photosynthesis_type == "cam"
     assert result.plant_category == PlantCategory.INDOOR_HOUSEPLANT

@@ -20,10 +20,12 @@ from datetime import UTC, date, datetime
 import structlog
 
 from app.common.enums import WEATHER_RELEVANT_SITE_TYPES
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.calculators.crop_coefficient import resolve_kc
 from app.domain.calculators.evapotranspiration_calculator import EvapotranspirationCalculator
 from app.domain.models.irrigation_demand import IrrigationDemand
+from app.domain.services.species_visibility import readable_species
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -41,9 +43,11 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
         get_planting_run_repo,
         get_site_repo,
         get_species_repo,
+        get_tenant_repo,
         get_weather_forecast_repo,
     )
     from app.domain.models.site import Site
+    from app.tasks.tenant_gate import ActiveTenants
 
     site_repo = get_site_repo()
     forecast_repo = get_weather_forecast_repo()
@@ -52,6 +56,8 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
     lifecycle_repo = get_lifecycle_repo()
     demand_repo = get_irrigation_demand_repo()
     calculator = EvapotranspirationCalculator()
+    # REQ-056 §5.2 — no demand is materialised for a site whose tenant is not ``active``.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     site_docs = site_repo.find_site_docs_by_types([t.value for t in WEATHER_RELEVANT_SITE_TYPES])
     today = datetime.now(UTC).date()
@@ -62,6 +68,9 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
     for doc in site_docs:
         site = Site(**site_repo._from_doc(doc))  # noqa: SLF001 — cross-tenant iteration
         if not site.key or site.gps_coordinates is None:
+            skipped += 1
+            continue
+        if site.tenant_key and not tenant_is_active(site.tenant_key):
             skipped += 1
             continue
 
@@ -82,7 +91,7 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
                 solar_radiation_mj_m2=forecast.solar_radiation_mj_m2,
             )
 
-            runs = run_repo.get_runs_at_site(site.key)
+            runs = run_repo.get_runs_at_site(site.key, tenant_key=site.tenant_key)
             if not runs:
                 skipped += 1
                 continue
@@ -102,7 +111,7 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
                     today=today,
                 )
         except Exception as exc:  # noqa: BLE001 — per-site isolation: one failure never aborts the run
-            logger.warning("irrigation_demand_site_failed", site_key=site.key, error=str(exc))
+            logger.warning("irrigation_demand_site_failed", site_key=site.key, error=loggable_error(exc))
             errors.append({"site_key": site.key, "error": str(exc)})
             continue
 
@@ -184,7 +193,9 @@ def _resolve_species_kc(run, run_repo, species_repo):  # noqa: ANN001, ANN201
     entries = run_repo.get_entries(run.key) if run.key else []
     if not entries:
         return None, None
-    species = species_repo.get_by_key(entries[0].species_key)
+    # The entry's key is a stored one, and rows written before #1876 may name another
+    # tenant's private species: only a species the run's tenant may read feeds the demand (#1963).
+    species = readable_species(species_repo, entries[0].species_key, run.tenant_key)
     if species is None:
         return None, None
     return getattr(species, "default_crop_coefficient_kc", None), getattr(species, "plant_category", None)

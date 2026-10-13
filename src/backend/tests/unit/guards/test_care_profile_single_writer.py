@@ -70,6 +70,9 @@ import re
 
 import app as _app_package
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
+from tests.support.repo_scripts import load_repo_script
+
+_source_text = load_repo_script("source_text")
 
 APP_ROOT = pathlib.Path(_app_package.__file__).resolve().parent
 REPOSITORY = APP_ROOT / "data_access" / "arango" / "care_reminder_repository.py"
@@ -280,10 +283,16 @@ class TestTheEdgeCollectionHasADeclaredAudience:
         edge without naming ``HAS_CARE_PROFILE`` somewhere, though — so the set of
         modules that name it is bounded here, with a reason each. This claims
         nothing about what those modules do; it makes a new one a decision.
+
+        Over the **executable** text only (#1456). Both directions of the naive
+        form are wrong here: a module that merely explains the edge in a comment
+        would have to be excused as if it wrote one, and deleting such a comment
+        would make the excuse look stale and turn the test red over prose.
         """
         naming = {}
         for path in sorted(APP_ROOT.rglob("*.py")):
-            if "HAS_CARE_PROFILE" in path.read_text(encoding="utf-8"):
+            code = _source_text.executable_source(path.read_text(encoding="utf-8"), language="python")
+            if "HAS_CARE_PROFILE" in code:
                 naming[str(path.relative_to(APP_ROOT))] = _EDGE_COLLECTION_AUDIENCE.get(str(path.relative_to(APP_ROOT)))
 
         unexplained = sorted(module for module, reason in naming.items() if reason is None)

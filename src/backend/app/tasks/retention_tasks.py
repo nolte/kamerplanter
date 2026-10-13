@@ -1,26 +1,50 @@
 """Celery tasks for NFR-011 retention policy enforcement.
 
-Three concerns are bundled here, all backed by REQ-025 PrivacyService:
+The retention concerns bundled here, all backed by REQ-025 PrivacyService:
 
 - ``process_data_export`` — fan-out task fired when a user requests a
   GDPR Art. 15/20 export. Walks the user's data, builds a JSON manifest,
   uploads it to object storage (NFR-013), and flips the request to
-  ``status=completed`` with a 72-hour expiry.
+  ``status=completed`` with the NFR-011 R-05 expiry (default 72 hours,
+  ``RETENTION_EXPORT_FILE_RETENTION_HOURS``).
 - ``execute_scheduled_erasures`` — daily beat task that hard-deletes
-  users whose ErasureRequest passed the 90-day soft-delete grace period
-  (REQ-025 Art. 17).
+  users whose ErasureRequest passed the NFR-011 R-01 soft-delete grace
+  period (default 90 days, ``RETENTION_SOFT_DELETE_RETENTION_DAYS``;
+  REQ-025 Art. 17).
+- ``run_account_erasure`` — on-demand task dispatched when a platform admin's
+  ``DELETE /admin/platform/users/{key}`` is accepted (``202``, #1949); the daily
+  ``execute_scheduled_erasures`` is its safety net.
 - ``expire_email_change_requests`` — hourly beat task that marks
-  unconfirmed email changes older than 24 h as ``status=expired``.
+  unconfirmed email changes past their NFR-011 R-07 ``expires_at``
+  (default 24 h, ``RETENTION_EMAIL_CHANGE_RETENTION_HOURS``) as
+  ``status=expired``.
 - ``expire_data_exports`` — hourly beat task that flips completed
   exports past their ``expires_at`` to ``status=expired`` and removes
   the underlying download.
 - ``redispatch_stale_pending_exports`` — hourly safety-net beat task
   that re-enqueues ``process_data_export`` for exports whose original
   dispatch was lost (broker outage or legacy ``pending`` records).
+- ``purge_expired_erasure_records`` — daily beat task that hard-deletes
+  completed erasure records past the NFR-011 R-06 period (default one
+  year after completion, ``RETENTION_ERASURE_AUDIT_RETENTION_YEARS``).
+- ``purge_expired_consent_records`` — daily beat task that hard-deletes
+  consent records past the NFR-011 R-04 period (default 3 years after
+  revocation, ``RETENTION_CONSENT_RETENTION_YEARS``, #1800).
+- ``anonymize_consent_ips`` — daily beat task that anonymises the IP
+  address of consent records past the NFR-011 R-04a period (default 7
+  days after they were recorded, ``RETENTION_CONSENT_IP_ANONYMIZATION_DAYS``,
+  #1800) — the R-03 analogue for ``consent_records``.
+- ``purge_expired_legal_retention_rows`` — daily beat task that hard-deletes
+  the harvest (R-16), treatment (R-17) and inspection (R-18) rows a tenant
+  deletion kept, once their legal period is over (#1789).
+- ``purge_expired_tenant_erasure_records`` — daily beat task that hard-deletes
+  tenant-erasure records past NFR-011 R-06a (#1793).
 
 The actual data-walk, manifest-build, soft/hard-delete and expiry
 logic lives in ``PrivacyService``; these tasks are thin schedulers
-that bridge Celery to the async service layer.
+that bridge Celery to the async service layer. ``expire_email_change_requests``
+also hard-deletes (NFR-011 R-07/R-07b, #1800): see its own docstring and
+``PrivacyService.expire_email_change_requests``.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -28,7 +52,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.tasks import celery_app
-from app.tasks.task_bridge import run_async_task
+from app.tasks.task_bridge import TaskAttempt, run_async_task
 
 logger = structlog.get_logger(__name__)
 
@@ -37,34 +61,61 @@ STALE_EXPORT_REDISPATCH_AFTER_MINUTES = 15
 
 @run_async_task(  # type: ignore[misc]
     name="retention.process_data_export",
+    bind=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
     retry_backoff_max=600,
     retry_jitter=True,
     max_retries=5,
 )
-async def process_data_export(export_key: str) -> dict:
-    """Build the export bundle and flip the request to completed.
+async def process_data_export(attempt: TaskAttempt, export_key: str) -> dict:
+    """Build the export bundle and flip the request to a terminal state.
 
     Triggered by ``PrivacyService.request_data_export`` via ``.delay`` once the
-    request record exists. Idempotent — the service skips non-``pending``
-    exports — so ``autoretry_for=(Exception,)`` may retry broadly (bounded by
-    ``max_retries`` + backoff). The ``run_async_task`` decorator bridges the
+    request record exists. The ``run_async_task`` decorator bridges the
     coroutine to Celery and logs/re-raises failures.
+
+    **Retry policy (#1666).** The service ends a request as ``failed`` at once
+    only for failures a retry would repeat (no bundle can be produced, a domain
+    error). An infrastructure failure — object storage, database — propagates
+    while attempts remain, so ``autoretry_for`` with backoff actually runs; the
+    request stays ``processing`` meanwhile and the retry resumes it
+    (``is_retry``). Only the last attempt (``retries == max_retries``) records
+    ``failed``. ``attempt`` is the bridge's snapshot of the retry position —
+    ``self.request`` would read empty on the coroutine's thread. Before #1666
+    the service swallowed every exception, so an outage ended the Art. 15
+    request on the first attempt and the declared five retries never fired.
     """
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    result = await service.process_data_export(export_key)
-    logger.info(
-        "retention.process_data_export.completed",
-        export_key=export_key,
-        file_size_bytes=result.file_size_bytes if result else None,
+    result = await service.process_data_export(
+        export_key,
+        final_attempt=attempt.is_final,
+        is_retry=attempt.is_retry,
     )
+    status = result.status if result else "unknown"
+    # The event name follows the outcome: an operator reading "completed" must
+    # be reading a delivered bundle, not a failed or skipped request (#1666).
+    if status == "completed":
+        logger.info(
+            "retention.process_data_export.completed",
+            export_key=export_key,
+            status=status,
+            attempt=attempt.number,
+            file_size_bytes=result.file_size_bytes if result else None,
+        )
+    else:
+        logger.warning(
+            "retention.process_data_export.not_completed",
+            export_key=export_key,
+            status=status,
+            attempt=attempt.number,
+        )
     return {
         "export_key": export_key,
-        "status": result.status if result else "unknown",
+        "status": status,
     }
 
 
@@ -75,7 +126,7 @@ async def process_data_export(export_key: str) -> dict:
     default_retry_delay=300,
 )
 async def execute_scheduled_erasures() -> dict:
-    """Hard-delete users past their 90-day soft-delete grace period.
+    """Hard-delete users past their NFR-011 R-01 soft-delete grace period.
 
     Runs daily. Picks up every ``ErasureRequest`` with
     ``hard_delete_scheduled_at <= now`` and finalises the deletion via
@@ -94,13 +145,39 @@ async def execute_scheduled_erasures() -> dict:
 
 
 @run_async_task(  # type: ignore[misc]
+    name="retention.run_account_erasure",
+)
+async def run_account_erasure(erasure_key: str) -> dict:
+    """Run one accepted account erasure (#1949), dispatched by ``DELETE /admin/platform/users/{key}``.
+
+    The request recorded the erasure, closed the account and told the other members,
+    then answered ``202 Accepted``; this task claims the request atomically and runs
+    the declared erasure (object storage, the personal tenants in bounded batches
+    with their heartbeat, the ArangoDB plan). A second dispatch, the daily
+    :func:`execute_scheduled_erasures` beat and a still-live run all find the claim
+    held and do nothing; a run that crashed is claimed again once its claim is stale.
+    A failed run is recorded on the request (``partially_completed``, backoff), never
+    raised — the broker must not redeliver an erasure the request already retries.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    return await get_privacy_service().run_account_erasure_task(erasure_key)
+
+
+@run_async_task(  # type: ignore[misc]
     name="retention.expire_email_change_requests",
     autoretry_for=(ConnectionError, TimeoutError),
     max_retries=3,
     default_retry_delay=300,
 )
 async def expire_email_change_requests() -> dict:
-    """Flip stale email-change requests (>24 h) to ``status=expired``."""
+    """Flip email-change requests past their R-07 ``expires_at`` to ``status=expired``.
+
+    Also hard-deletes (#1800): an unconfirmed request (R-07) once it is past
+    ``expires_at``, and a confirmed one (R-07b) once its R-07a revert window has
+    elapsed. See ``PrivacyService.expire_email_change_requests``.
+    """
 
     from app.common.dependencies import get_privacy_service
 
@@ -120,17 +197,135 @@ async def expire_email_change_requests() -> dict:
     default_retry_delay=300,
 )
 async def expire_data_exports() -> dict:
-    """Flip completed exports past their 72-hour expiry to ``status=expired``."""
+    """Delete the bundles of exports past their 72-hour expiry, then mark them ``expired``.
+
+    The order is the point (#1767 GDPR-005): a bundle whose delete failed keeps
+    its record unexpired and is retried on the next hourly run.
+
+    REQ-056 §8.3 (#2138) — the tenant archives share the rule and the beat (NFR-011 R-05):
+    the same run deletes the archives past their window, ends export runs whose heartbeat
+    is older than six hours, and purges export/import request records past R-40.
+    """
+
+    from app.common.dependencies import get_privacy_service, get_tenant_export_service
+
+    service = get_privacy_service()
+    expired = await service.expire_data_exports(now=datetime.now(UTC))
+    tenant_exports = await get_tenant_export_service().expire()
+    logger.info(
+        "retention.expire_data_exports.completed",
+        expired=expired,
+        tenant_exports=tenant_exports,
+    )
+    return {"expired": expired, "tenant_exports": tenant_exports}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_erasure_records",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_erasure_records() -> dict:
+    """Hard-delete completed erasure records past the NFR-011 R-06 period (#1772).
+
+    Only ``completed`` records whose completion lies more than
+    ``settings.retention_erasure_audit_retention_years`` back go; an open
+    request is never touched, nor a completed one still carrying a plaintext
+    ``user_key`` (held and counted, #1773 review GDPR-006). The service logs
+    the counts, never a key.
+    """
 
     from app.common.dependencies import get_privacy_service
 
     service = get_privacy_service()
-    expired = await service.expire_data_exports(now=datetime.now(UTC))
-    logger.info(
-        "retention.expire_data_exports.completed",
-        expired=expired,
-    )
-    return {"expired": expired}
+    result = await service.purge_expired_erasure_records(now=datetime.now(UTC))
+    return {"purged": result.purged, "held_without_tombstone": result.held_without_tombstone}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_consent_records",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_consent_records() -> dict:
+    """Hard-delete consent records past the NFR-011 R-04 period (#1800).
+
+    Only a record with a ``revoked_at`` more than
+    ``settings.retention_consent_retention_years`` in the past goes; a consent
+    never revoked is not selected (it is not a proof still owed, unlike R-06's
+    plaintext-key exception — it is simply not due).
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    purged = await service.purge_expired_consent_records(now=datetime.now(UTC))
+    return {"purged": purged}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.anonymize_consent_ips",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def anonymize_consent_ips() -> dict:
+    """Anonymise the IP address of consent records past the NFR-011 R-04a period (#1800).
+
+    The R-03 analogue for ``consent_records`` instead of ``refresh_tokens``:
+    the period is ``settings.retention_consent_ip_anonymization_days`` (default
+    7 days after ``granted_at``).
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    # The service already logs "retention.anonymize_consent_ips.completed"
+    # (#1800 /code-review) — logging it again here doubled every daily event.
+    anonymized = await service.anonymize_consent_ips(now=datetime.now(UTC))
+    return {"anonymized": anonymized}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_legal_retention_rows",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_legal_retention_rows() -> dict:
+    """Hard-delete the NFR-011 R-16/R-17/R-18 rows of deleted tenants past their period (#1789).
+
+    Only rows whose tenant no longer exists are selected, each with its
+    children and edges; the service logs the counts per rule.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    purged = await service.purge_expired_legal_retention_rows(now=datetime.now(UTC))
+    return {"purged": purged}
+
+
+@run_async_task(  # type: ignore[misc]
+    name="retention.purge_expired_tenant_erasure_records",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+async def purge_expired_tenant_erasure_records() -> dict:
+    """Hard-delete completed tenant-erasure records past NFR-011 R-06a (#1793).
+
+    Runs after :func:`purge_expired_legal_retention_rows`: a record goes once
+    none of the rows it kept remains, or five years after the deletion.
+    """
+
+    from app.common.dependencies import get_privacy_service
+
+    service = get_privacy_service()
+    purged = await service.purge_expired_tenant_erasure_records(now=datetime.now(UTC))
+    return {"purged": purged}
 
 
 @celery_app.task(  # type: ignore[misc]

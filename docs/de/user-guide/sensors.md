@@ -69,14 +69,17 @@ Fülle das Formular aus:
 
 ### HA-Entity-Autocomplete
 
-Ist Home Assistant konfiguriert, lädt der Dialog beim Öffnen automatisch die verfügbaren Home-Assistant-Entities. Wählst du eine Entity aus der Liste, übernimmt Kamerplanter automatisch:
+Ist Home Assistant konfiguriert und hast du im Garten das Recht **Technik**, lädt der Dialog beim Öffnen die Home-Assistant-Entities, die für diesen Garten freigegeben sind. Wählst du eine Entity aus der Liste, übernimmt Kamerplanter automatisch:
 
 - den vorgeschlagenen Sensornamen,
 - die passende Maßeinheit,
 - eine vorgeschlagene Messgröße (sofern Home Assistant eine `device_class` liefert, aus der sich die Messgröße ableiten lässt),
 - die Entity-ID selbst.
 
-Werden keine Home-Assistant-Entities gefunden (z. B. weil keine HA-Integration eingerichtet ist oder Home Assistant aktuell nicht erreichbar ist), blendet der Dialog stattdessen ein Freitextfeld **HA Entity-ID** ein, in das du den Entity-Namen von Hand einträgst.
+Werden keine Home-Assistant-Entities gefunden (z. B. weil keine HA-Integration eingerichtet ist, Home Assistant aktuell nicht erreichbar ist oder für den Garten noch nichts freigegeben ist), blendet der Dialog stattdessen ein Freitextfeld **HA Entity-ID** ein, in das du den Entity-Namen von Hand einträgst. Ohne das Recht **Technik** siehst du die Liste nicht, sondern einen Hinweis — das Freitextfeld bleibt.
+
+!!! info "Nur freigegebene Home-Assistant-Entities"
+    Kamerplanter ist mit genau einer Home-Assistant-Instanz verbunden, der des Betreibers, und nutzt sie für alle Gärten. Welche Entities dieser Instanz dein Garten verwenden darf, legt der Plattform-Admin fest (siehe [Plattform-Admin-Bereich](admin.md#home-assistant-entitaeten-freigeben)). Trägst du eine Entity ein, die für deinen Garten nicht freigegeben ist, lehnt Kamerplanter das Speichern ab und bittet dich, den Plattform-Admin um die Freigabe zu bitten. Zieht der Plattform-Admin eine Freigabe zurück, bleibt der Sensor bestehen, liefert aber keine Werte mehr, bis die Entity wieder freigegeben ist. Dasselbe gilt für Aktoren, Home-Assistant-Wetterquellen und Home-Assistant-Benachrichtigungsziele. Im [Light-Modus](light-mode.md) bist du selbst der Betreiber: Dort gibt Kamerplanter jede Entität frei, sobald du sie einträgst. <!-- Issue #2112 -->
 
 ### Messgrößen im Formular {#messgroessen-im-formular}
 

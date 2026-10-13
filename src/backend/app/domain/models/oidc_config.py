@@ -3,10 +3,17 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import OidcProviderType
+
 #: The one spelling of "this provider is GitHub". ``OAuthEngine.extract_user_info``
 #: dispatches on it and the #1477 scope gate refuses on it; two literals would let
-#: the gate and the branch it guards drift apart.
-GITHUB_PROVIDER_TYPE = "github"
+#: the gate and the branch it guards drift apart. Derived from the vocabulary the
+#: API boundary enforces (#1497) so there is one spelling, not two.
+GITHUB_PROVIDER_TYPE = OidcProviderType.GITHUB.value
+
+#: The spellings the sign-in flow actually dispatches on, built once rather than
+#: per call. This is the vocabulary the API boundary enforces (#1497).
+KNOWN_PROVIDER_TYPES: frozenset[str] = frozenset(member.value for member in OidcProviderType)
 
 #: Scopes that let a GitHub token read ``GET /user/emails``, the only place GitHub
 #: exposes the per-address ``verified`` flag that ``should_auto_link`` needs (#1403).
@@ -22,6 +29,19 @@ GITHUB_REQUIRED_SCOPE = "user:email"
 _SCOPE_SEPARATORS = re.compile(r"[\s,]+")
 
 
+def admits_default_tenant(provider_type: str) -> bool:
+    """Whether a provider of *provider_type* may place new accounts in a default tenant (#2182 SEC-001).
+
+    Only a generic ``oidc`` provider - an organisation's own identity provider, whose accounts the
+    organisation issues. On ``google``, ``github`` and ``apple`` **anybody** can create an identity,
+    so a ``default_tenant_key`` there would turn "every new account of the provider joins the tenant"
+    into "everybody on the internet may join it": refused when set (422,
+    ``OidcProviderAdminService``) and ignored at sign-in for a record stored before that gate. An
+    allow-list, so a spelling stored before the #1497 vocabulary gate admits none either.
+    """
+    return provider_type == OidcProviderType.OIDC.value
+
+
 def is_github_provider(provider_type: str) -> bool:
     """Whether this provider takes the GitHub branch of ``extract_user_info``.
 
@@ -31,6 +51,18 @@ def is_github_provider(provider_type: str) -> bool:
     not use.
     """
     return provider_type == GITHUB_PROVIDER_TYPE
+
+
+def is_known_provider_type(provider_type: str) -> bool:
+    """Whether this spelling is one the engine actually dispatches on (#1497).
+
+    Since #1497 the API boundary refuses anything else on create and update, so
+    this answers ``False`` only for a record stored before that gate existed.
+    ``POST /admin/oidc-providers/{key}/test`` reports it; nothing rewrites it,
+    because a stored value is the operator's data and the read-only measurement
+    that would justify a migration found no record at all.
+    """
+    return provider_type in KNOWN_PROVIDER_TYPES
 
 
 def scope_tokens(scopes: list[str]) -> list[str]:
@@ -68,11 +100,82 @@ class ProviderScopeCheck(BaseModel):
     detail: str = ""
 
 
+class ProviderTypeCheck(BaseModel):
+    """Structured verdict on a stored ``provider_type`` (#1497).
+
+    Since #1497 the API boundary refuses a spelling outside
+    :class:`~app.common.enums.OidcProviderType`, so this can only be ``ok=False``
+    for a record written before that gate existed. It is carried by
+    ``POST /admin/oidc-providers/{key}/test`` — the same shape #1477 used for the
+    scope verdict, and for the same reason: the gate protects the next write, and
+    a record already stored has no other place to report itself.
+    """
+
+    ok: bool
+    provider_type: str
+    known_provider_types: list[str] = Field(default_factory=list)
+    detail: str = ""
+
+
+class ProviderJwksCheck(BaseModel):
+    """Structured verdict on whether the login can obtain the provider's signing keys (#1987).
+
+    Carried by ``POST /admin/oidc-providers/{key}/test`` beside the scope and type verdicts,
+    for the same reason: the login verifies every ID token's signature against these keys, and
+    until this check an operator learnt that it could not from ``oauth_login_refused`` in the
+    log — after the first users had been turned away. ``applicable`` is ``False`` for a
+    provider that issues no ID token (GitHub, or a configuration without the ``openid`` scope):
+    there is nothing to verify and no key to fetch.
+    """
+
+    ok: bool
+    applicable: bool = True
+    jwks_url: str | None = None
+    key_count: int = 0
+    skipped_key_count: int = 0
+    key_ids: list[str] = Field(default_factory=list)
+    detail: str = ""
+
+
+class ProviderIssuerCheck(BaseModel):
+    """Structured verdict on whether the ``iss`` the provider sends is one the login accepts (#1987).
+
+    The login refuses an ID token whose ``iss`` is not the configured issuer (or, for Google
+    and Apple, a documented spelling). A provider's discovery document names the issuer it
+    puts in its tokens; when that differs from ``issuer_url`` every login fails with the
+    reason ``iss`` — the commonest cause being a realm or tenant path the operator left out.
+    """
+
+    ok: bool
+    applicable: bool = True
+    configured_issuer: str = ""
+    accepted_issuers: list[str] = Field(default_factory=list)
+    discovery_issuer: str | None = None
+    detail: str = ""
+
+
+#: The spelling of a provider slug — the URL segment of ``/auth/oauth/{slug}/...``.
+OIDC_SLUG_MAX_LENGTH = 50
+OIDC_SLUG_PATTERN = r"^[a-z0-9-]+$"
+
+
+def is_valid_oidc_slug(slug: str) -> bool:
+    """Whether *slug* is one :class:`OidcProviderConfig` would accept (#1883: the step-up target of a creation)."""
+    return 0 < len(slug) <= OIDC_SLUG_MAX_LENGTH and re.fullmatch(OIDC_SLUG_PATTERN, slug) is not None
+
+
 class OidcProviderConfig(BaseModel):
     key: str | None = Field(default=None, alias="_key")
-    slug: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9-]+$")
+    slug: str = Field(min_length=1, max_length=OIDC_SLUG_MAX_LENGTH, pattern=OIDC_SLUG_PATTERN)
     display_name: str = Field(min_length=1, max_length=200)
-    provider_type: str = "oidc"  # google, github, apple, oidc
+    # DELIBERATELY ``str``, not ``OidcProviderType`` (#1497). The vocabulary is
+    # enforced on the REQUEST schemas; this model is also what ``repo.get_by_key``
+    # constructs from a stored document, so an enum here would raise on reading a
+    # record written before the gate existed. That record would then answer 500 on
+    # every read — list, get, delete, and the ``/{key}/test`` endpoint meant to
+    # report the very finding — leaving the operator unable to see or repair it.
+    # The lesson is #1477's: the read path constructs this model.
+    provider_type: str = OidcProviderType.OIDC.value
     issuer_url: str
     client_id: str
     client_secret_encrypted: str = ""
@@ -84,6 +187,9 @@ class OidcProviderConfig(BaseModel):
     auto_discover: bool = True
     enabled: bool = False
     icon_url: str | None = None
+    #: The tenant every **new** account of this provider joins as ``viewer`` (REQ-024 AK-09, #2182).
+    #: Generic OIDC providers only (:func:`admits_default_tenant`); checked when written by
+    #: ``OidcProviderAdminService`` - an existing organisation, never personal, never ``platform``.
     default_tenant_key: str | None = None
     discovery_document: dict | None = None
     discovery_refreshed_at: datetime | None = None
@@ -91,36 +197,3 @@ class OidcProviderConfig(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
-
-
-class OidcProviderConfigCreate(BaseModel):
-    slug: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9-]+$")
-    display_name: str = Field(min_length=1, max_length=200)
-    provider_type: str = "oidc"
-    issuer_url: str
-    client_id: str
-    client_secret: str
-    scopes: list[str] = Field(default_factory=lambda: ["openid", "email", "profile"])
-    authorization_url: str | None = None
-    token_url: str | None = None
-    userinfo_url: str | None = None
-    auto_discover: bool = True
-    enabled: bool = False
-    icon_url: str | None = None
-    default_tenant_key: str | None = None
-
-
-class OidcProviderConfigUpdate(BaseModel):
-    display_name: str | None = Field(default=None, min_length=1, max_length=200)
-    provider_type: str | None = None
-    issuer_url: str | None = None
-    client_id: str | None = None
-    client_secret: str | None = None
-    scopes: list[str] | None = None
-    authorization_url: str | None = None
-    token_url: str | None = None
-    userinfo_url: str | None = None
-    auto_discover: bool | None = None
-    enabled: bool | None = None
-    icon_url: str | None = None
-    default_tenant_key: str | None = None

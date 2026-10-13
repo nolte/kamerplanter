@@ -12,8 +12,9 @@ treatment (§0) — at most an IPM inspection is suggested.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Path, Query, UploadFile
+from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.pest_detection.schemas import (
     CreateInspectionResponse,
     FeedbackRequest,
@@ -25,6 +26,7 @@ from app.common.dependencies import get_pest_detection_service
 from app.common.enums import CaptureDevice, TenantRole
 from app.common.exceptions import UnsupportedMediaTypeError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.pest_detection_service import PestDetectionService
@@ -44,7 +46,9 @@ def pest_detection_status(
 
 
 @router.post("/detect", response_model=PestDetectionResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def detect_pests_global(
+    request: Request,
     image: UploadFile,
     language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
     capture_device: CaptureDevice = Form(
@@ -83,9 +87,10 @@ async def detect_pests_global(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
-    image_data = await image.read()
+    # #2254 — at most one byte past the limit is read; the service refuses it.
+    image_data = await image.read(settings.pest_detection_max_image_size_mb * 1024 * 1024 + 1)
     result = service.detect_pests(
         image_data,
         tenant_key=ctx.tenant_key,
@@ -98,7 +103,9 @@ async def detect_pests_global(
 
 
 @router.post("/plants/{plant_key}/detect", response_model=PestDetectionResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def detect_pests(
+    request: Request,
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     image: UploadFile,
     language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
@@ -134,9 +141,10 @@ async def detect_pests(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
-    image_data = await image.read()
+    # #2254 — at most one byte past the limit is read; the service refuses it.
+    image_data = await image.read(settings.pest_detection_max_image_size_mb * 1024 * 1024 + 1)
     result = service.detect_pests(
         image_data,
         tenant_key=ctx.tenant_key,
@@ -192,5 +200,7 @@ def create_inspection(
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> CreateInspectionResponse:
     """Create a REQ-010 inspection from a detection. Never a treatment (§0)."""
-    result = service.create_inspection(detection_key, tenant_key=ctx.tenant_key, plant_key=plant_key)
+    result = service.create_inspection(
+        detection_key, tenant_key=ctx.tenant_key, plant_key=plant_key, user_key=ctx.user_key
+    )
     return CreateInspectionResponse(**result)

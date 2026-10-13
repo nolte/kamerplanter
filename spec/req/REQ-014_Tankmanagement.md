@@ -7,13 +7,14 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery
 Status: Entwurf
-Version: 1.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 1.8 (Enum-Werte `water_source`/`application_method` an das Modell angeglichen, #2183)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.8 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `TankFillEvent.water_source` und `WateringEvent.water_source` (§Datenmodell und Pydantic-Modelle) nennen beide alle Werte des gemeinsamen Enums `WaterSource` — am TankFillEvent kommt `tank` hinzu, am WateringEvent `mixed`. `WateringEvent.application_method` nennt alle Werte von `ApplicationMethod` inkl. `any`. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht die Felder jetzt mit dem Code. |
 | 1.6 | 2026-04-27 | **W-021:** §1 Wasserquellen-Defaults-Kaskade konsolidiert — REQ-014 delegiert die Auflösungs-Logik vollständig an `REQ-004 WaterMixCalculator.resolve_water_defaults()`. Eine Quelle der Wahrheit, keine Implementations-Drift. Pseudocode für Aufruf-Schnittstelle ergänzt. |
 | 1.5 | (vorher) | HA-Sensor-Binding & Bulk-Endpoints |
 
@@ -176,7 +177,7 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `target_ph: Optional[float]` (Ziel-pH laut Plan/Rezept)
     - `measured_ec_ms: Optional[float]` (gemessen nach Befüllung)
     - `measured_ph: Optional[float]` (gemessen nach Befüllung)
-    - `water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']]` (Wasserherkunft; `'mixed'` = Osmose/Leitungswasser-Mischung mit definierbarem Verhältnis)
+    - `water_source: Optional[Literal['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']]` (Enum `WaterSource`, dasselbe wie am `WateringEvent`, #2183; Wasserherkunft; `'tank'` = aus einem anderen Tank umgefüllt (Kaskade, vgl. `source_tank_key`); `'mixed'` = Osmose/Leitungswasser-Mischung mit definierbarem Verhältnis)
     - `water_mix_ratio_ro_percent: Optional[int]` (ge=0, le=100) — Osmose-Anteil in Prozent bei `water_source='mixed'`. Überschreibt den NutrientPlan-Default (REQ-004) und den Site-Default (REQ-002) für diese einzelne Befüllung. `null` = Default aus Kaskade (NutrientPlan → Site).
     - `source_tank_key: Optional[str]` (Quell-Tank bei Kaskade, z.B. Reservoir)
     - `fertilizers_used: Optional[list[FertilizerSnapshot]]` (Dünger-Snapshot: [{name, ml_per_liter, product_key}])
@@ -192,7 +193,7 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
   - Collection: `watering_events`
   - Properties:
     - `watered_at: datetime`
-    - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress']` (Art der Ausbringung — analog REQ-004 ApplicationMethod)
+    - `application_method: Literal['fertigation', 'drench', 'foliar', 'top_dress', 'any']` (Art der Ausbringung — Enum `ApplicationMethod`, analog REQ-004; `any` wird vom Modell nicht abgewiesen, #2183)
     - `is_supplemental: bool` (Ergänzend zur automatischen Bewässerung — z.B. organische Düngung per Gießkanne bei Drip-versorgten Pflanzen)
     - `volume_liters: float` (Gesamtvolumen)
     - `slot_keys: list[str]` (Betroffene Slots — mindestens 1)
@@ -206,7 +207,7 @@ Auch bei Locations mit automatischer Bewässerung (`irrigation_system != 'manual
     - `measured_ph: Optional[float]`
     - `runoff_ec_ms: Optional[float]` (Drain-Messung bei Drain-to-Waste)
     - `runoff_ph: Optional[float]`
-    - `water_source: Optional[Literal['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well']]`
+    - `water_source: Optional[Literal['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']]` (Enum `WaterSource`, #2183)
     - `performed_by: Optional[str]`
     - `notes: Optional[str]`
 
@@ -586,7 +587,7 @@ class TankFillEvent(BaseModel):
     measured_ph: Optional[float] = Field(None, ge=0, le=14)
 
     # Wasserherkunft
-    water_source: Optional[Literal['tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']] = None
+    water_source: Optional[Literal['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']] = None  # Enum WaterSource (#2183)
     water_mix_ratio_ro_percent: Optional[int] = Field(
         None, ge=0, le=100,
         description="Osmose-Anteil bei 'mixed' water_source (0-100%). "
@@ -704,7 +705,7 @@ class WateringEvent(BaseModel):
     runoff_ph: Optional[float] = Field(None, ge=0, le=14)
 
     # Wasserherkunft
-    water_source: Optional[Literal['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well']] = None
+    water_source: Optional[Literal['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well', 'mixed']] = None  # Enum WaterSource (#2183)
 
     performed_by: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=2000)

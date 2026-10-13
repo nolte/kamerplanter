@@ -76,7 +76,11 @@ import {
   fetchOverdueTasks,
   fetchCompletedTasks,
   setQueueScope,
+  resetQueue,
+  sameQueueScope,
+  EMPTY_QUEUE_SCOPE,
 } from '@/store/slices/tasksSlice';
+import type { OriginFilter, QueueScope } from '@/store/slices/tasksSlice';
 import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
@@ -104,10 +108,6 @@ const taskCategories = [
 type UrgencyGroup = 'overdue' | 'today' | 'thisWeek' | 'future';
 
 type SourceFilter = 'all' | 'tasks' | 'care';
-
-// REQ-006 FreeStyle (#1082): filter tasks by who produced them. `machine` keeps
-// only producer-created tasks (origin != user), `user` keeps only user-authored.
-type OriginFilter = 'all' | 'machine' | 'user';
 
 // A unified item that wraps either a task or a care reminder
 interface UnifiedItem {
@@ -225,13 +225,13 @@ export default function TaskQueuePage() {
   // the full width (UI-NFR-001 R-002 mobile-first, R-011/R-012 touch targets).
   const isCompactCard = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // Task state. The plant scope is read from the store rather than held here:
-  // it is what the queries ask for, so a component copy could disagree with the
-  // rows on screen (#1484).
+  // Task state. The queue scope — plant, category and origin — is read from the
+  // store rather than held here: it is what the queries ask for, so a component
+  // copy could disagree with the rows on screen (#1484, #1503).
   const {
     taskQueue,
     taskQueueScope,
-    queueScope: filterPlantKey,
+    queueScope,
     queueLoading: tasksLoading,
     queueError,
     queueLoaded,
@@ -239,10 +239,10 @@ export default function TaskQueuePage() {
     completedTasksLoading,
     completedTasksError,
   } = useAppSelector((s) => s.tasks);
+  const { plantKey: filterPlantKey, category: filterCategory, origin: originFilter } = queueScope;
   const [createOpen, setCreateOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<string>('');
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   // The plant list is how a user reaches a plant at all, so a failure here has
   // to be visible: swallowing it left a silently empty filter that looked like
@@ -254,7 +254,6 @@ export default function TaskQueuePage() {
   // layout shift under the user's finger.
   const [plantsLoading, setPlantsLoading] = useState(true);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
-  const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   const [showCompleted, setShowCompleted] = useState(false);
 
   // Care state
@@ -275,11 +274,11 @@ export default function TaskQueuePage() {
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
-  // The plant filter is a *server-side scope*, not a filter over the answer
-  // (#1484). `GET /tasks/queue` returns at most 200 rows and the completed list
-  // at most 100, so a plant whose tasks sit past that cut was absent from the
-  // payload the page filtered — the filter then reported an empty queue for a
-  // plant that had work.
+  // Plant, category and origin are *server-side scopes*, not filters over the
+  // answer (#1484, #1503). `GET /tasks/queue` returns at most 200 rows and the
+  // completed list at most 100, so a task that matches the selection but sits
+  // past that cut was absent from the payload the page filtered — the filter
+  // then reported an empty queue for a selection that has work.
   //
   // Neither reload takes the scope as an argument: both thunks read it from the
   // store. That is what makes the fix structural rather than a habit — there is
@@ -293,17 +292,41 @@ export default function TaskQueuePage() {
     dispatch(fetchCompletedTasks());
   }, [dispatch]);
 
-  const setFilterPlantKey = useCallback(
-    (key: string | null) => {
-      dispatch(setQueueScope(key));
+  // One writer for all three, so a filter control cannot narrow the page without
+  // narrowing the query: there is no other way to move a filter. The patch is
+  // merged by the reducer, not here — composing it against a render-time copy is
+  // what let "clear all filters" lose two of its three changes.
+  const patchScope = useCallback(
+    (patch: Partial<QueueScope>) => {
+      dispatch(setQueueScope(patch));
     },
     [dispatch],
   );
 
-  // The scope is store state, so it outlives this page unless it is cleared;
-  // a fresh visit must start on the whole tenant, not on the plant picked last
-  // time — which the filter bar would not even be showing.
-  useEffect(() => () => { dispatch(setQueueScope(null)); }, [dispatch]);
+  const setFilterPlantKey = useCallback(
+    (key: string | null) => patchScope({ plantKey: key }),
+    [patchScope],
+  );
+  const setFilterCategory = useCallback(
+    (category: string) => patchScope({ category: category || null }),
+    [patchScope],
+  );
+  const setOriginFilter = useCallback(
+    (origin: OriginFilter) => patchScope({ origin }),
+    [patchScope],
+  );
+  // One patch, not three: three dispatches would each be merged in turn and work
+  // as well now, but saying "no filters" once is what the button means, and it
+  // issues one query instead of three.
+  const clearFilters = useCallback(() => patchScope(EMPTY_QUEUE_SCOPE), [patchScope]);
+
+  // The queue is store state, so it outlives this page unless it is cleared. Both
+  // halves have to go: a fresh visit must start on the whole tenant rather than
+  // on the selection made last time (which the filter bar would not even be
+  // showing), and the narrowed *rows* must not stay behind either — the kiosk
+  // start screen counts `taskQueue` as "open tasks", so a filtered list left
+  // standing is a wrong number on another screen.
+  useEffect(() => () => { dispatch(resetQueue()); }, [dispatch]);
 
   // Only the async callbacks touch state here: the first call comes from an
   // effect, and `plantsLoading` already starts true. 200 is the endpoint's
@@ -340,20 +363,22 @@ export default function TaskQueuePage() {
     loadPlants();
   }, [loadPlants]);
 
-  // Runs on mount and again whenever the plant scope changes — selecting a
-  // plant re-queries the server instead of narrowing a capped answer. The
-  // dependency is the scope, not the callback: the callback is stable now.
+  // Runs on mount and again whenever any part of the scope changes — picking a
+  // plant, a category or an origin re-queries the server instead of narrowing a
+  // capped answer. The dependencies are the scope's *fields*, not the object:
+  // the reducer already refuses an unchanged scope, and depending on the object
+  // would re-query on any unrelated identity change.
   useEffect(() => {
     dispatch(fetchTaskQueue());
-  }, [dispatch, filterPlantKey]);
+  }, [dispatch, filterPlantKey, filterCategory, originFilter]);
 
   // Lazily load completed tasks only when the user reveals them; re-loaded when
-  // the plant scope changes, for the same reason as the queue.
+  // the scope changes, for the same reason as the queue.
   useEffect(() => {
     if (showCompleted) {
       dispatch(fetchCompletedTasks());
     }
-  }, [showCompleted, filterPlantKey, dispatch]);
+  }, [showCompleted, filterPlantKey, filterCategory, originFilter, dispatch]);
 
   // ── Task actions ─────────────────────────────────────────────────────
 
@@ -600,11 +625,10 @@ export default function TaskQueuePage() {
     const now = new Date();
     const items: (UnifiedItem & { urgency: UrgencyGroup })[] = [];
 
-    // Add tasks
+    // Add tasks. No category/origin narrowing here: `taskQueue` already *is* the
+    // answer to those questions (#1503). Re-applying them over a capped payload
+    // is what hid the matching rows the cap had dropped.
     for (const task of taskQueue) {
-      if (filterCategory && task.category !== filterCategory) continue;
-      if (originFilter === 'machine' && task.origin === 'user') continue;
-      if (originFilter === 'user' && task.origin !== 'user') continue;
       const taskPlantKey =
         task.entity_type === PLANT_INSTANCE_ENTITY_TYPE ? task.entity_key : null;
       items.push({
@@ -643,8 +667,21 @@ export default function TaskQueuePage() {
       // The origin filter selects on *task* provenance; care reminders are a
       // distinct source, so any non-"all" origin selection hides them.
       if (originFilter !== 'all') continue;
+      // The same rule for the category, and it is load-bearing twice over
+      // (#1503). A care reminder carries no category, so a selection other than
+      // `care_reminder` is not about this source — and the de-duplication below
+      // reads its index out of `taskQueue`, which under such a scope contains no
+      // care rows at all. Without this line every reminder already covered by a
+      // care_reminder task would reappear as a second card.
+      if (filterCategory && filterCategory !== 'care_reminder') continue;
       // `GET /care-reminders/dashboard` takes only `hemisphere` — there is no
-      // plant scope to ask for, so this source stays narrowed client-side.
+      // plant, category or origin scope to ask for, so this source stays
+      // narrowed client-side. That is a deliberate asymmetry, not an oversight
+      // (#1503): the dashboard is not a capped *page* of reminders but a
+      // projection over at most 500 plants
+      // (`CareReminderService._build_plant_data_for_tenant`), so narrowing its
+      // answer loses nothing until a tenant exceeds 500 plants — a much looser
+      // bound than the queue's 200 rows, and one REQ-006 §7 states explicitly.
       if (filterPlantKey && entry.plant_key !== filterPlantKey) continue;
 
       // Skip if there's already a care_reminder task for this plant + type
@@ -695,18 +732,14 @@ export default function TaskQueuePage() {
     return groups;
   }, [filtered]);
 
-  // Completed tasks respect the active category/plant filters and are sorted by
-  // most-recently completed first. Care reminders are excluded from this list —
-  // the "care" source has its own not-due state, not a completed status.
+  // Completed tasks arrive already narrowed by the active scope — the list
+  // endpoint takes `category`, `origin` and the plant's entity pair (#1503) —
+  // and are sorted by most-recently completed first. Care reminders are excluded
+  // from this list: the "care" source has its own not-due state, not a completed
+  // status.
   const completedFiltered = useMemo(() => {
     if (!showCompleted || sourceFilter === 'care') return [];
     return completedTasks
-      .filter((task) => {
-        if (filterCategory && task.category !== filterCategory) return false;
-        if (originFilter === 'machine' && task.origin === 'user') return false;
-        if (originFilter === 'user' && task.origin !== 'user') return false;
-        return true;
-      })
       .slice()
       .sort((a, b) => {
         const da = a.completed_at ?? a.due_date;
@@ -716,7 +749,7 @@ export default function TaskQueuePage() {
         if (!db) return -1;
         return new Date(db).getTime() - new Date(da).getTime();
       });
-  }, [showCompleted, sourceFilter, completedTasks, filterCategory, originFilter]);
+  }, [showCompleted, sourceFilter, completedTasks]);
 
   const allTaskKeys = useMemo(
     () => filtered.filter((i) => i.source === 'task').map((i) => i.task!.key),
@@ -731,7 +764,8 @@ export default function TaskQueuePage() {
     });
   }, [allTaskKeys]);
 
-  const hasActiveFilters = filterCategory !== '' || filterPlantKey !== null || originFilter !== 'all';
+  const hasActiveFilters =
+    filterCategory !== null || filterPlantKey !== null || originFilter !== 'all';
 
   // ── Render helpers ───────────────────────────────────────────────────
 
@@ -1316,7 +1350,7 @@ export default function TaskQueuePage() {
   // Defining it as the scope mismatch alone also caught the state after a failed
   // scope change, where nothing is in flight and the mismatch never clears — it
   // made the error's own retry button unclickable.
-  const rowsAreStale = isRefetching && taskQueueScope !== filterPlantKey;
+  const rowsAreStale = isRefetching && !sameQueueScope(taskQueueScope, queueScope);
 
   // Naming the plant here, rather than only in the "active filter" chip above
   // the list, is what tells someone who scopes to a plant with no tasks that
@@ -1516,7 +1550,7 @@ export default function TaskQueuePage() {
             <FormControl size="small" sx={{ minWidth: 160, flex: '1 1 160px', maxWidth: 240 }}>
               <InputLabel>{t('pages.tasks.filterByCategory')}</InputLabel>
               <Select
-                value={filterCategory}
+                value={filterCategory ?? ''}
                 label={t('pages.tasks.filterByCategory')}
                 onChange={(e) => setFilterCategory(e.target.value)}
                 data-testid="filter-category"
@@ -1591,7 +1625,7 @@ export default function TaskQueuePage() {
             <Button
               size="small"
               startIcon={<ClearIcon />}
-              onClick={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
+              onClick={clearFilters}
               data-testid="clear-filters-button"
               sx={{ minHeight: 36, whiteSpace: 'nowrap' }}
             >
@@ -1707,7 +1741,7 @@ export default function TaskQueuePage() {
                 message={filteredEmptyMessage}
                 description={t('pages.tasks.noTasksFilteredDesc')}
                 actionLabel={t('common.clearFilters')}
-                onAction={() => { setFilterCategory(''); setFilterPlantKey(null); setOriginFilter('all'); }}
+                onAction={clearFilters}
               />
             ) : (
               <EmptyState

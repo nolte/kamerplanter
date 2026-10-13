@@ -4,7 +4,7 @@
 the long-lived bearer token attached, so it is the most dangerous HA path. The URL
 is validated against SSRF BEFORE any request:
 
-  * an internal / cloud-metadata URL is rejected with 422 and ``httpx.get`` is
+  * an internal / cloud-metadata URL is rejected with 422 and ``_ha_get`` is
     never called (the token is never sent);
   * the cloud-metadata range stays blocked even with the private opt-in on;
   * a LAN URL is dialed when ``ha_allow_private_endpoint`` is set.
@@ -24,6 +24,7 @@ from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_system_settings_service
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
+from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.models.system_settings import SystemSettings
 from app.domain.services.system_settings_service import SystemSettingsService
 
@@ -36,7 +37,7 @@ def _service() -> SystemSettingsService:
     repo = MagicMock()
     repo.get.return_value = SystemSettings()
     repo.upsert.side_effect = lambda s: s
-    return SystemSettingsService(repo)
+    return SystemSettingsService(repo, EncryptionEngine(""))
 
 
 def _build_app(service: SystemSettingsService) -> FastAPI:
@@ -62,7 +63,7 @@ def _build_app(service: SystemSettingsService) -> FastAPI:
     ],
 )
 def test_ha_test_rejects_ssrf_url_without_dialing(monkeypatch, url, ip):
-    """SEC-B3: internal HA URLs are refused (422) BEFORE ``httpx.get`` is dialed."""
+    """SEC-B3: internal HA URLs are refused (422) BEFORE the HA API is dialed."""
     import app.api.v1.admin.settings.router as router_mod
 
     monkeypatch.setattr(router_mod.settings, "ha_allow_private_endpoint", False)
@@ -71,7 +72,7 @@ def test_ha_test_rejects_ssrf_url_without_dialing(monkeypatch, url, ip):
             "app.common.url_safety._resolved_addresses",
             return_value=[ipaddress.ip_address(ip)],
         ),
-        patch("app.api.v1.admin.settings.router.httpx.get") as mock_get,
+        patch("app.api.v1.admin.settings.router._ha_get") as mock_get,
     ):
         client = TestClient(_build_app(_service()))
         resp = client.post(
@@ -93,7 +94,7 @@ def test_ha_test_always_blocks_metadata_even_with_private_optin(monkeypatch):
             "app.common.url_safety._resolved_addresses",
             return_value=[ipaddress.ip_address("169.254.169.254")],
         ),
-        patch("app.api.v1.admin.settings.router.httpx.get") as mock_get,
+        patch("app.api.v1.admin.settings.router._ha_get") as mock_get,
     ):
         client = TestClient(_build_app(_service()))
         resp = client.post(
@@ -117,7 +118,7 @@ def test_ha_test_dials_lan_url_with_private_optin(monkeypatch):
             "app.common.url_safety._resolved_addresses",
             return_value=[ipaddress.ip_address("192.168.1.50")],
         ),
-        patch("app.api.v1.admin.settings.router.httpx.get", return_value=mock_resp) as mock_get,
+        patch("app.api.v1.admin.settings.router._ha_get", return_value=mock_resp) as mock_get,
     ):
         client = TestClient(_build_app(_service()))
         resp = client.post(

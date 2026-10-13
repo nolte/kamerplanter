@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import { renderWithProviders } from '../helpers';
+import { createPlatformAdminStore, createTestStore, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type { PhaseSequence } from '@/api/types';
 
@@ -14,6 +14,20 @@ vi.mock('react-router-dom', async (orig) => {
 });
 
 import PhaseSequenceListPage from '@/pages/phasen/PhaseSequenceListPage';
+
+/**
+ * Every case below drives an INSTALLATION-WIDE catalogue whose writes carry
+ * `require_platform_admin` since #1501 — PhaseDefinition, PhaseSequence and
+ * PhaseSequenceEntry carry no `tenant_key`, so one row is the row every tenant
+ * resolves. The suite therefore acts as a platform admin, and the non-admin half
+ * of the contract (reads still render, write affordances are gone) is asserted in
+ * this same file so the pair cannot drift apart.
+ */
+const renderAsAdmin = (
+  ui: Parameters<typeof renderWithProviders>[0],
+  options: Omit<NonNullable<Parameters<typeof renderWithProviders>[1]>, 'store'> = {},
+) => renderWithProviders(ui, { ...options, store: createPlatformAdminStore() });
+
 
 const LIST_URL = '/api/v1/phase-sequences';
 const DELETE_URL = '/api/v1/phase-sequences/:key';
@@ -68,7 +82,7 @@ describe('PhaseSequenceListPage', () => {
 
   it('renders the loaded sequence row', async () => {
     useSequences([makeSequence()]);
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     expect(await screen.findByText('Tomaten-Zyklus')).toBeInTheDocument();
     expect(screen.getByTestId('create-sequence-button')).toBeInTheDocument();
@@ -89,7 +103,7 @@ describe('PhaseSequenceListPage', () => {
         ],
       }),
     ]);
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     // display_name empty -> falls back to raw name
     expect(await screen.findByText('tomato-cycle')).toBeInTheDocument();
@@ -107,7 +121,7 @@ describe('PhaseSequenceListPage', () => {
       makeSequence({ key: 'b', name: 'beta', display_name_de: 'Beta', cycle_type: 'perennial', entries: [{ effective_duration_days: 20 } as PhaseSequence['entries'][number]] }),
     ]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await screen.findByText('Alpha');
     const searchBox = within(screen.getByTestId('table-search-input')).getByRole('textbox');
@@ -151,7 +165,7 @@ describe('PhaseSequenceListPage', () => {
     })) as unknown as typeof window.matchMedia;
     try {
       useSequences([makeSequence({ is_repeating: true, entries: [{ effective_duration_days: 7 } as PhaseSequence['entries'][number]] })]);
-      renderWithProviders(<PhaseSequenceListPage />);
+      renderAsAdmin(<PhaseSequenceListPage />);
 
       expect(await screen.findByTestId('data-table-cards')).toBeInTheDocument();
       expect(screen.getByText('Tomaten-Zyklus')).toBeInTheDocument();
@@ -163,7 +177,7 @@ describe('PhaseSequenceListPage', () => {
   it('navigates to the sequence detail on row click', async () => {
     useSequences([makeSequence()]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await user.click(await screen.findByText('Tomaten-Zyklus'));
     expect(mockNavigate).toHaveBeenCalledWith('/phasen/ablaeufe/seq-1');
@@ -179,7 +193,7 @@ describe('PhaseSequenceListPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await user.click(await screen.findByTestId('create-sequence-button'));
     const dialog = await screen.findByRole('dialog');
@@ -199,7 +213,7 @@ describe('PhaseSequenceListPage', () => {
     useSequences([makeSequence()]);
     server.use(http.post(CREATE_URL, () => new HttpResponse(null, { status: 500 })));
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await user.click(await screen.findByTestId('create-sequence-button'));
     const dialog = await screen.findByRole('dialog');
@@ -222,7 +236,7 @@ describe('PhaseSequenceListPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await screen.findByText('Tomaten-Zyklus');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -251,7 +265,7 @@ describe('PhaseSequenceListPage', () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await screen.findByText('Tomaten-Zyklus');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -280,7 +294,7 @@ describe('PhaseSequenceListPage', () => {
       http.delete(DELETE_URL, () => new HttpResponse(null, { status: 500 })),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await screen.findByText('Tomaten-Zyklus');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -299,7 +313,7 @@ describe('PhaseSequenceListPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     expect((await screen.findAllByText(i18n.t('errors.server'))).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: i18n.t('common.retry') }));
@@ -309,7 +323,7 @@ describe('PhaseSequenceListPage', () => {
   it('opens the create dialog from the empty-state action', async () => {
     useSequences([]);
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await user.click(
       await screen.findByRole('button', {
@@ -325,7 +339,7 @@ describe('PhaseSequenceListPage', () => {
 
   it('hides the delete action for system-owned sequences', async () => {
     useSequences([makeSequence({ is_system: true })]);
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await screen.findByText('Tomaten-Zyklus');
     expect(
@@ -335,7 +349,7 @@ describe('PhaseSequenceListPage', () => {
 
   it('offers a duplicate action only for system-owned sequences (UI-NFR-018 R-015)', async () => {
     useSequences([makeSequence({ is_system: false })]);
-    const { unmount } = renderWithProviders(<PhaseSequenceListPage />);
+    const { unmount } = renderAsAdmin(<PhaseSequenceListPage />);
     await screen.findByText('Tomaten-Zyklus');
     expect(
       screen.queryByRole('button', { name: i18n.t('pages.phaseSequences.duplicate') }),
@@ -343,7 +357,7 @@ describe('PhaseSequenceListPage', () => {
     unmount();
 
     useSequences([makeSequence({ is_system: true })]);
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
     await screen.findByText('Tomaten-Zyklus');
     expect(
       screen.getByRole('button', { name: i18n.t('pages.phaseSequences.duplicate') }),
@@ -364,7 +378,7 @@ describe('PhaseSequenceListPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<PhaseSequenceListPage />);
+    renderAsAdmin(<PhaseSequenceListPage />);
 
     await screen.findByText('Tomaten-Zyklus');
     await user.click(
@@ -377,5 +391,30 @@ describe('PhaseSequenceListPage', () => {
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith('/phasen/ablaeufe/seq-copy'),
     );
+  });
+
+
+  /**
+   * #1501 — the non-admin half. A grower of a tenant may READ the
+   * installation-wide catalogue and must be offered no control that writes it,
+   * because the API now answers 403 for every one of them. Asserted beside the
+   * admin cases so the pair cannot drift; `createTestStore()` seeds a signed-in
+   * non-admin.
+   */
+  it('offers a non-admin the list but no create, duplicate or delete control', async () => {
+    useSequences([
+      makeSequence({ key: 'own', name: 'own', display_name_de: 'Eigener Ablauf' }),
+      makeSequence({ key: 'sys', name: 'sys', display_name_de: 'System-Ablauf', is_system: true }),
+    ]);
+    renderWithProviders(<PhaseSequenceListPage />, { store: createTestStore() });
+
+    expect(await screen.findByText('Eigener Ablauf')).toBeInTheDocument();
+    expect(screen.getByText('System-Ablauf')).toBeInTheDocument();
+
+    expect(screen.queryByTestId('create-sequence-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('duplicate-sequence-sys')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: i18n.t('common.delete') }),
+    ).not.toBeInTheDocument();
   });
 });

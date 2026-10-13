@@ -151,7 +151,8 @@ def install(monkeypatch: pytest.MonkeyPatch, *, tier: str) -> None:
 
     * :meth:`app.data_access.arango.connection.ArangoConnection.connect` — the only
       place an ``ArangoClient`` is built; ``get_db()``, ``get_connection().db`` and
-      the Celery tasks that build their own ``ArangoConnection`` all pass here.
+      ``check_database_access()`` all pass here (no task builds its own
+      connection any more, #2150).
     * :meth:`app.data_access.timescale.connection.TimescaleConnection.connect` —
       the only place a psycopg ``ConnectionPool`` is opened.
     * ``redis.connection.AbstractConnection.connect`` — the socket-level choke

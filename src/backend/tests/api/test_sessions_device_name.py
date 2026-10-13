@@ -54,6 +54,8 @@ from app.domain.interfaces.refresh_token_repository import IRefreshTokenReposito
 from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH, RefreshToken
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.refresh_family_fakes import RefreshFamilyMemoryMixin
+from tests.support.step_up import PassedStepUpVerifier
 
 _ISSUE_PATH = "/api/v1/auth/device-pairing"
 _REDEEM_PATH = "/api/v1/auth/device-pairing/redeem"
@@ -103,7 +105,7 @@ class _FakeCodeStore(IDevicePairingCodeStore):
         return self._records.pop(code, None)
 
 
-class _MemoryRefreshTokenRepository(IRefreshTokenRepository):
+class _MemoryRefreshTokenRepository(RefreshFamilyMemoryMixin, IRefreshTokenRepository):
     """A session store that actually forgets a revoked token.
 
     ``get_by_hash`` filtering out revoked documents is the single behaviour that
@@ -155,14 +157,22 @@ class _MemoryRefreshTokenRepository(IRefreshTokenRepository):
                 revoked += 1
         return revoked
 
-    def cleanup_expired(self) -> int:
+    def cleanup_expired(self, *, now: datetime | None = None) -> int:
         return 0
 
-    def list_active_for_user(self, user_key: UserKey) -> list[RefreshToken]:
-        now = datetime.now(UTC)
+    def list_active_for_user(self, user_key: UserKey, *, now: datetime | None = None) -> list[RefreshToken]:
+        moment = now or datetime.now(UTC)
         return [
-            doc for doc in self._docs.values() if doc.user_key == user_key and not doc.revoked and doc.expires_at > now
+            doc
+            for doc in self._docs.values()
+            if doc.user_key == user_key and not doc.revoked and doc.expires_at > moment
         ]
+
+    def list_unanonymized_ips_before(self, cutoff_iso: str) -> list[tuple[str, str]]:
+        return []
+
+    def mark_ip_anonymized(self, key: str, anonymized_ip: str, anonymized_at_iso: str) -> None:
+        return None
 
 
 @dataclass
@@ -225,6 +235,7 @@ def _harness() -> Iterator[_Harness]:
     sessions = _MemoryRefreshTokenRepository()
 
     service = AuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=user_repo,
         auth_provider_repo=MagicMock(),
         refresh_token_repo=sessions,

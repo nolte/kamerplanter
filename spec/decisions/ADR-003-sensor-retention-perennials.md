@@ -5,6 +5,17 @@
 **Accepted** — *Entschieden: 2026-04-27, durch nolte*
 *Erstellt: 2026-04-27*
 
+**Umsetzungsstand (2026-09-26, Datenschutzplan Q-O5, #1800):** Die Entscheidung bleibt
+**Accepted**; ihre „Folgemaßnahmen" (unten) sind gemessen **nicht umgesetzt** —
+`Location.data_classification` existiert nicht im Modell (REQ-002), die
+Stufe-3-Differenzierung nach Klassifizierung ist in `003_retention_policies.sql` nur als
+Literal (90 Tage / 2 Jahre / 5 Jahre, ohne Differenzierung) vorhanden, und keines der in
+NFR-011 §4 benannten `SENSOR_*`-Settings hat einen Leser. Die Vollumsetzung ist damit
+explizit zum **Roadmap-Ziel** erklärt (NFR-011 v1.12 §2.2 „Retention-Observability" führt
+sie zusammen mit R-15/AK-06) — sie berührt REQ-002, REQ-003, REQ-005 und NFR-011 gleichzeitig
+und ist kein Zuschnitt für einen einzelnen PR. Diese Notiz ersetzt keinen der Einträge in der
+Folgemaßnahmen-Tabelle; sie hält nur fest, dass keiner davon bereits erledigt ist.
+
 ## Context
 
 NFR-011 R-14 (Sensordaten-Retention) und REQ-003 §1 (Dauerkulturen-Modus) verfolgen gegensätzliche Ziele:

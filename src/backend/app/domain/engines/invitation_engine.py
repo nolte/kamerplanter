@@ -22,6 +22,16 @@ class InvitationEngine:
         return hashlib.sha256(raw_token.encode()).hexdigest()
 
     @staticmethod
+    def accept_url(frontend_url: str, raw_token: str) -> str:
+        """The link that opens the accept page with *raw_token* (#2162).
+
+        The page is ``InvitationAcceptPage`` (route ``/invitations/accept``), which reads the token
+        from the query. The e-mail adapters build the same link from the same two values; a test
+        holds both spellings equal (``test_invitation_mail_link_matches_the_accept_url``).
+        """
+        return f"{frontend_url}/invitations/accept?token={raw_token}"
+
+    @staticmethod
     def calculate_expiry(days: int = 7) -> datetime:
         """Calculate invitation expiry datetime."""
         return datetime.now(UTC) + timedelta(days=days)

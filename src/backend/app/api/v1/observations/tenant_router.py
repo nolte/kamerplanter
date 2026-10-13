@@ -45,7 +45,7 @@ def record_sensor_reading(
         raw_value=body.raw_value,
         metadata=body.metadata,
     )
-    service.record_reading(reading)
+    service.record_reading(reading, tenant_key=ctx.tenant_key)
     return SensorReadingResponse(
         time=reading.time,
         sensor_key=reading.sensor_key,
@@ -87,7 +87,7 @@ def record_sensor_readings_batch(
         )
         for r in body.readings
     ]
-    inserted = service.record_readings_batch(readings)
+    inserted = service.record_readings_batch(sensor_key, readings, tenant_key=ctx.tenant_key)
     return BatchInsertResponse(inserted=inserted)
 
 

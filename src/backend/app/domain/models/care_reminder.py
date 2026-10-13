@@ -5,6 +5,27 @@ from pydantic import BaseModel, Field
 
 from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
 
+#: The REQ-047 §2.4 season-state fields of :class:`CareProfile`.
+#:
+#: They are toggled by the season state machine (``DormancyCareActivator``, driven by
+#: the ``winter_dormancy`` / ``pre_spring`` transitions), never by a user and never by
+#: a recomputation of the care presets. Anything that rebuilds a profile from the
+#: presets — ``CareReminderService.reset_profile``, the v0050 repair migration — has
+#: to carry them over from the stored profile instead: a plant whose site is
+#: currently wintering would otherwise be handed "not dormant, no regime, 30 days"
+#: by an operation that says nothing about the season.
+#:
+#: Declared here, next to the fields, because two callers act on the same set and a
+#: second hand-written copy is how they drift. ``v0050._PRESERVED_FIELDS`` is this
+#: set plus the profile's identity; ``reset_profile`` excludes exactly this set.
+SEASON_STATE_FIELDS: frozenset[str] = frozenset(
+    {
+        "dormancy_care_mode",
+        "dormancy_watering",
+        "dormancy_check_interval_days",
+    }
+)
+
 
 class CareProfile(BaseModel):
     key: str | None = Field(default=None, alias="_key")

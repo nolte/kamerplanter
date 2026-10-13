@@ -21,7 +21,7 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
-from app.domain.services.location_ownership import resolve_owned_location
+from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 
 logger = structlog.get_logger()
 
@@ -41,8 +41,17 @@ class PlantingRunService:
         care_profile_bootstrap: Callable[[Any], None] | None = None,
         rotation_validator: CropRotationValidator | None = None,
         companion_engine: CompanionPlantingEngine | None = None,
+        substrate_batch_resolver: Callable[..., Any] | None = None,
+        species_resolver: Callable[..., Any] | None = None,
     ) -> None:
         self._repo = run_repo
+        # ``SubstrateService.get_batch``-shaped: ``resolver(key, tenant_key=...)``
+        # answers the batch or raises 404 for one that is not the tenant's (#1868).
+        self._substrate_batch_resolver = substrate_batch_resolver
+        # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
+        # answers a species the tenant may read — global, own, granted — or 404
+        # (#1871 B11). Without it an entry is refused.
+        self._species_resolver = species_resolver
         self._plant_repo = plant_repo
         self._engine = engine
         self._schedule_engine = watering_schedule_engine or WateringScheduleEngine()
@@ -98,13 +107,57 @@ class PlantingRunService:
     ) -> tuple[list[PlantingRun], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
+    def list_runs_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[PlantingRun]:
+        """One page of the tenant's runs without the count query (MT-035, #2131).
+
+        ``tenant_key`` is required here: an empty value is refused by the
+        repository's tenant-scope guard instead of widening the page.
+        """
+        return self._repo.get_runs_window(offset, limit, filters, tenant_key=tenant_key)
+
     def get_run(self, key: PlantingRunKey, tenant_key: str = "") -> PlantingRun:
         run = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(run, tenant_key, "PlantingRun")
         return run
 
-    def create_run(self, run: PlantingRun, entries: list[PlantingRunEntry] | None = None) -> PlantingRun:
+    def _owned_run(self, key: PlantingRunKey, *, tenant_key: str) -> PlantingRun:
+        """The run ``key`` of ``tenant_key``, or 404 — the load every write starts with (#2107).
+
+        The write methods used to reload the run with :meth:`get_run` and **no**
+        tenant, relying on the router having called ``get_run(key, tenant_key=…)``
+        first (check-then-act, the #948 sibling-drift class). The predicate now
+        lives here, unconditionally: :func:`verify_tenant_ownership` answers a
+        foreign run and an empty caller tenant alike with ``NotFoundError``.
+        """
+        run = self._repo.get_or_raise(key)
+        verify_tenant_ownership(run, tenant_key, "PlantingRun")
+        return run
+
+    def create_run(
+        self,
+        run: PlantingRun,
+        entries: list[PlantingRunEntry] | None = None,
+        *,
+        tenant_key: str,
+    ) -> PlantingRun:
+        """Create a run owned by ``tenant_key`` (#2107).
+
+        The run is stamped with the tenant here rather than trusted from the
+        caller, and a ``clone_from_run_key`` template must be the tenant's own.
+        An empty tenant is refused: every reference check below skips a run
+        without one, so creating such a run would store unchecked references.
+        """
+        if not tenant_key:
+            raise ValueError("create_run is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        run.tenant_key = tenant_key
         run.status = PlantingRunStatus.PLANNED
         if run.clone_from_run_key:
             entries = self._apply_clone_config(run, entries)
@@ -116,6 +169,19 @@ class PlantingRunService:
         # your own tenant that points at a foreign location, and the new run
         # inherits it. Here the check sees whichever key the run ends up with.
         self._require_owned_location(run)
+        # After the clone config for the same reason as the location: the check
+        # sees whichever key the run ends up with, inherited or supplied (#1868).
+        self._require_owned_substrate_batch(run)
+        self._require_owned_source_plant(run)
+        self._require_readable_nutrient_plan(run)
+        # Entries carry the run's tenant so their owned references (a
+        # ``cultivar_key``) are checked — and checked before the run is stored,
+        # so a foreign reference refuses the whole create rather than leaving a
+        # run with a partial set of entries behind (#1871 B12, #1874 review).
+        for entry in entries or []:
+            entry.tenant_key = run.tenant_key
+            self._require_readable_species(entry.species_key, run.tenant_key)
+            self._repo.verify_entry_references(entry)
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -146,8 +212,7 @@ class PlantingRunService:
         filled, so an explicit override on the new run always wins.
         """
         template = self._repo.get_or_raise(run.clone_from_run_key)
-        if run.tenant_key:
-            verify_tenant_ownership(template, run.tenant_key, "PlantingRun")
+        verify_tenant_ownership(template, run.tenant_key, "PlantingRun")
 
         if run.location_key is None:
             run.location_key = template.location_key
@@ -204,12 +269,92 @@ class PlantingRunService:
         ``update_run`` needs it before it assigns, and ``create_run`` after it has
         a run — one predicate either way, so the two entry points cannot drift.
         """
-        if not tenant_key or not location_key or self._site_repo is None:
+        if not tenant_key or not location_key:
             return
+        # Fail closed without the anchor (#1876 review, SEC-004): a tenant request
+        # whose location cannot be resolved is refused, not stored.
+        if self._site_repo is None:
+            raise NotFoundError("Location", location_key)
         resolve_owned_location(self._site_repo, location_key, tenant_key)
 
-    def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
-        run = self.get_run(key)
+    def _require_owned_source_plant(self, run: PlantingRun) -> None:
+        """Refuse a ``source_plant_key`` that is not a plant of the run's tenant (#1872 C1).
+
+        A clone run names its mother plant; the key was only required to be
+        present and was stored and echoed as given. Unknown and foreign answer
+        the same 404. Skipped for a run with no tenant (seeds, migrations).
+        """
+        if not run.source_plant_key or not run.tenant_key:
+            return
+        plant = self._plant_repo.get_by_key(run.source_plant_key)
+        if plant is None or plant.tenant_key != run.tenant_key:
+            raise NotFoundError("PlantInstance", run.source_plant_key)
+
+    def _require_readable_nutrient_plan(self, run: PlantingRun) -> None:
+        """Refuse a ``nutrient_plan_key`` the run's tenant may not read (#2107 review, S3).
+
+        The create body cannot carry the key; it arrives only through
+        :meth:`_apply_clone_config`, copied from a template run that may predate
+        #950 and name another tenant's plan. Read access, like
+        :meth:`assign_nutrient_plan` — global plans stay usable (#324). Without a
+        wired plan repository a plan reference is refused, not stored unchecked.
+        """
+        if not run.nutrient_plan_key:
+            return
+        if self._nutrient_plan_repo is None:
+            raise NotFoundError("NutrientPlan", run.nutrient_plan_key)
+        self._readable_plan_or_raise(run.nutrient_plan_key, run.tenant_key)
+
+    def _require_readable_species(self, species_key: str, tenant_key: str) -> None:
+        """Refuse an entry species the tenant may not read (#1871 B11).
+
+        An entry's ``species_key`` came from request bodies and was stored with
+        an edge to the species, then copied onto every plant ``create_plants``
+        built from it. Skipped for a run with no tenant (seeds, migrations).
+        """
+        if not tenant_key:
+            return
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        self._species_resolver(species_key, tenant_key=tenant_key)
+
+    def _species_is_readable(self, species_key: str, tenant_key: str) -> bool:
+        """Whether an entry's *stored* species is one the run's tenant may read (#1963).
+
+        The read-side twin of :meth:`_require_readable_species`: that one refuses a
+        species on the way in, this one is asked about rows that are already stored,
+        where a legacy entry (written before #1876) may still name another tenant's
+        private species — v0067 dropped its edge, not its field. A run with no tenant
+        (seeds, migrations) is not judged, matching the write side.
+        """
+        if not tenant_key:
+            return True
+        try:
+            self._require_readable_species(species_key, tenant_key)
+        except NotFoundError:
+            return False
+        return True
+
+    def _require_owned_substrate_batch(self, run: PlantingRun) -> None:
+        """Refuse a ``substrate_batch_key`` that is not the run's tenant's (#1868).
+
+        The key came from the request body or a cloned template and was stored
+        as given; the repository then wrote a ``run_uses_substrate`` edge to the
+        batch it named — any tenant's. A batch has exactly one owner (#1195), so
+        it is resolved strictly under the run's tenant. Without a wired resolver
+        a batch reference is refused, never waved through.
+
+        Skipped for a run with no tenant (seeds, migrations, light mode) and for
+        a run with no batch, like the location rule.
+        """
+        if not run.tenant_key or not run.substrate_batch_key:
+            return
+        if self._substrate_batch_resolver is None:
+            raise NotFoundError("SubstrateBatch", run.substrate_batch_key)
+        self._substrate_batch_resolver(run.substrate_batch_key, tenant_key=run.tenant_key)
+
+    def update_run(self, key: PlantingRunKey, data: dict, *, tenant_key: str) -> PlantingRun:
+        run = self._owned_run(key, tenant_key=tenant_key)
         old_location_key = run.location_key
         allowed_fields = {"name", "notes", "planned_start_date", "location_key"}
         # Resolved from the incoming value, before the model is touched (#1372).
@@ -230,28 +375,15 @@ class PlantingRunService:
             PlantingRunStatus.ACTIVE,
             PlantingRunStatus.HARVESTING,
         ):
-            self._reassign_plant_slots(key, old_location_key, new_location_key)
+            self._reassign_plant_slots(key, new_location_key, tenant_key=tenant_key)
 
         return updated
 
-    def delete_run(self, key: PlantingRunKey) -> bool:
-        run = self.get_run(key)
+    def delete_run(self, key: PlantingRunKey, *, tenant_key: str) -> bool:
+        run = self._owned_run(key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("delete", run.status.value)
         return self._repo.delete(key)
-
-    # ── Status transitions ────────────────────────────────────────────
-
-    def _transition_status(self, key: PlantingRunKey, target: PlantingRunStatus) -> PlantingRun:
-        run = self.get_run(key)
-        self._engine.validate_status_transition(run.status, target)
-        run.status = target
-        now = datetime.now(UTC)
-        if target == PlantingRunStatus.ACTIVE and run.started_at is None:
-            run.started_at = now
-        if target in (PlantingRunStatus.COMPLETED, PlantingRunStatus.CANCELLED):
-            run.completed_at = now
-        return self._repo.update(key, run)
 
     # ── Entry management ──────────────────────────────────────────────
 
@@ -259,16 +391,17 @@ class PlantingRunService:
         self.get_run(run_key)
         return self._repo.get_entries(run_key)
 
-    def add_entry(self, run_key: PlantingRunKey, entry: PlantingRunEntry) -> PlantingRunEntry:
-        run = self.get_run(run_key)
+    def add_entry(self, run_key: PlantingRunKey, entry: PlantingRunEntry, *, tenant_key: str) -> PlantingRunEntry:
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("add_entry", run.status.value)
         entry.run_key = run_key
         # The entry inherits the run's tenant (SEC-004, #1112). Not for access —
-        # this route already resolved the run tenant-scoped — but so the
+        # ``_owned_run`` above resolved the run tenant-scoped — but so the
         # repository's owned-reference guard has a tenant to compare a
         # body-supplied `cultivar_key` against. Without it the guard is skipped.
         entry.tenant_key = run.tenant_key
+        self._require_readable_species(entry.species_key, run.tenant_key)
         created = self._repo.create_entry(entry)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
@@ -284,6 +417,8 @@ class PlantingRunService:
         run_key: PlantingRunKey,
         entry_key: str,
         data: dict,
+        *,
+        tenant_key: str,
     ) -> PlantingRunEntry:
         """Partially update a run entry (REQ-013).
 
@@ -292,10 +427,10 @@ class PlantingRunService:
         merged entry is re-validated against the model so field constraints
         (``quantity >= 1``, ``id_prefix`` pattern) keep applying.
         """
-        run = self.get_run(run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("update_entry", run.status.value)
-        existing = self._repo.get_entry_or_raise(entry_key)
+        existing = self._entry_of_run(run_key, entry_key)
 
         patch = {k: v for k, v in data.items() if k in self.ENTRY_UPDATABLE_FIELDS}
         nulled_required = self.ENTRY_REQUIRED_FIELDS & {k for k, v in patch.items() if v is None}
@@ -309,6 +444,8 @@ class PlantingRunService:
         # merged entry that kept the empty tenant would skip the guard on the one
         # path that needs it most.
         merged.tenant_key = run.tenant_key
+        if "species_key" in patch:
+            self._require_readable_species(merged.species_key, run.tenant_key)
         updated = self._repo.update_entry(entry_key, merged)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
@@ -316,17 +453,30 @@ class PlantingRunService:
         self._repo.update(run_key, run)
         return updated
 
-    def delete_entry(self, run_key: PlantingRunKey, entry_key: str) -> bool:
-        run = self.get_run(run_key)
+    def delete_entry(self, run_key: PlantingRunKey, entry_key: str, *, tenant_key: str) -> bool:
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("delete_entry", run.status.value)
-        self._repo.get_entry_or_raise(entry_key)
+        self._entry_of_run(run_key, entry_key)
         result = self._repo.delete_entry(entry_key)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)
         run.planned_quantity = sum(e.quantity for e in entries)
         self._repo.update(run_key, run)
         return result
+
+    def _entry_of_run(self, run_key: PlantingRunKey, entry_key: str) -> PlantingRunEntry:
+        """The entry ``entry_key`` **of run** ``run_key``, or 404 (#1867).
+
+        An entry is addressed through its run, and the run is what the caller's
+        tenant was checked against. Loading the entry by its key alone let a
+        member of one tenant edit or delete any tenant's entry through a run of
+        their own. A foreign and an unknown entry answer the same.
+        """
+        entry = self._repo.get_entry_or_raise(entry_key)
+        if entry.run_key != run_key:
+            raise NotFoundError("PlantingRunEntry", entry_key)
+        return entry
 
     # ── Batch operations ──────────────────────────────────────────────
 
@@ -369,15 +519,24 @@ class PlantingRunService:
             self._rotation.validate_or_raise(slot_key, spec["species_key"], tenant_key=tenant_key)
             self._companion.check_or_raise(spec["species_key"], slot_key, tenant_key=tenant_key)
 
-    def create_plants(self, run_key: PlantingRunKey) -> dict:
+    def create_plants(self, run_key: PlantingRunKey, *, tenant_key: str) -> dict:
         """Batch-create PlantInstances from run entries."""
-        run = self.get_run(run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("create_plants", run.status.value)
+        # The stored location is re-resolved under the tenant before its slots are
+        # read or occupied (#2107 review, W2): create/update check the key on the
+        # way in, but a run written before #1372 may still name a foreign one.
+        self._require_owned_location_key(run.location_key, tenant_key)
 
         entries = self._repo.get_entries(run_key)
         if not entries:
             raise ValueError("Run has no entries.")
+        # The stored species of every entry is resolved under the run's tenant before the
+        # phase data is read through it or a plant is stamped with it: an entry written
+        # before #1876 can still name another tenant's species (#1963).
+        for entry in entries:
+            self._require_readable_species(entry.species_key, run.tenant_key)
 
         self._engine.validate_run_type_constraints(
             run.run_type,
@@ -504,16 +663,27 @@ class PlantingRunService:
             "slots_assigned": min(len(available_slots), len(created_plants)),
         }
 
-    def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str]) -> dict:
+    def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str], *, tenant_key: str) -> dict:
         """Adopt existing standalone PlantInstances into the run.
 
+        ``tenant_key`` is keyword-only and has no default (#1973): the plant is
+        loaded by key through the unscoped ``get_by_key``, and the write that follows
+        (``link_run_to_plant`` + the run's phase) is aimed at it, so the predicate
+        sits here on the plant rather than on the run alone. A plant of another
+        tenant is answered exactly like an unknown key ("Plant not found", no
+        existence oracle) and nothing is linked. An empty ``tenant_key`` owns
+        nothing and is refused, not read as "skip the check".
+
         Validates:
+        - Run must belong to the tenant
         - Run must be planned or active
         - Each plant must not be in another active run
         - Each plant must not be removed
         - Species must match the run's entry
         """
-        run = self.get_run(run_key)
+        if not tenant_key:
+            raise NotFoundError("PlantingRun", run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status not in (PlantingRunStatus.PLANNED, PlantingRunStatus.ACTIVE):
             raise InvalidRunStateError("adopt_plants", run.status.value)
 
@@ -523,9 +693,10 @@ class PlantingRunService:
         adopted: list[str] = []
         skipped: list[dict] = []
 
-        for pk in plant_keys:
+        # Deduplicated: a repeated key would be linked and counted twice.
+        for pk in dict.fromkeys(plant_keys):
             plant = self._plant_repo.get_by_key(pk)
-            if plant is None:
+            if plant is None or plant.tenant_key != tenant_key:
                 skipped.append({"plant_key": pk, "reason": "Plant not found"})
                 continue
             if plant.removed_on is not None:
@@ -586,31 +757,60 @@ class PlantingRunService:
             key=lambda s: s.slot_id,
         )
 
+    def _owned_run_plant_rows(self, run_key: PlantingRunKey, tenant_key: str) -> list[dict[str, Any]]:
+        """The run's attached plant rows whose plant belongs to ``tenant_key`` (#2107 review SEC-001).
+
+        ``get_run_plants`` follows ``run_contains`` edges, which are stored data,
+        not proof of ownership: a legacy edge can point at another tenant's plant.
+        Every row is re-resolved through the plant repository and kept only when
+        that plant is the caller's; an empty tenant keeps nothing.
+        """
+        rows: list[dict[str, Any]] = []
+        for row in self._repo.get_run_plants(run_key, include_detached=False):
+            plant_key = row.get("_key") or row.get("key", "")
+            plant = self._plant_repo.get_by_key(plant_key) if plant_key else None
+            if plant is not None and tenant_key and plant.tenant_key == tenant_key:
+                rows.append(row)
+        return rows
+
     def _reassign_plant_slots(
         self,
         run_key: PlantingRunKey,
-        old_location_key: str | None,
         new_location_key: str | None,
+        *,
+        tenant_key: str,
     ) -> None:
-        """Clear slot assignments from old location and assign to new location's slots."""
+        """Clear the run's slot assignments and assign the new location's slots.
+
+        Both sides are re-checked under ``tenant_key`` at action time (#2107
+        review, W2). A legacy run can point at a foreign location, and its
+        plants at foreign slots: the release clears the plant's own
+        ``slot_key`` but frees only a slot the tenant owns, and the new
+        location is resolved before one of its slots is occupied.
+        """
         if not self._site_repo:
             return
+        self._require_owned_location_key(new_location_key, tenant_key)
 
-        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+        # Only the tenant's own plants are moved: a legacy run edge to another
+        # tenant's plant is skipped, not re-slotted (#2107 review SEC-001 sweep).
+        plants_raw = self._owned_run_plant_rows(run_key, tenant_key)
 
         # Release old slots
         for p in plants_raw:
             slot_key = p.get("slot_key")
             if slot_key:
                 plant_key = p.get("_key") or p.get("key", "")
-                plant = self._plant_repo.get(plant_key)
+                plant = self._plant_repo.get_by_key(plant_key)
                 if plant:
                     plant.slot_key = None
                     self._plant_repo.update(plant_key, plant)
-                slot = self._site_repo.get_slot_by_key(slot_key)
-                if slot:
-                    slot.currently_occupied = False
-                    self._site_repo.update_slot(slot_key, slot)
+                try:
+                    slot, _location = resolve_owned_slot(self._site_repo, slot_key, tenant_key)
+                except NotFoundError:
+                    continue  # a foreign or vanished slot is not this tenant's to free
+                slot.currently_occupied = False
+                self._site_repo.update_slot(slot_key, slot)
 
         # Assign to new location's available slots
         available_slots = self._get_available_slots(new_location_key)
@@ -618,7 +818,7 @@ class PlantingRunService:
             if i >= len(available_slots):
                 break
             plant_key = p.get("_key") or p.get("key", "")
-            plant = self._plant_repo.get(plant_key)
+            plant = self._plant_repo.get_by_key(plant_key)
             if plant and available_slots[i].key:
                 plant.slot_key = available_slots[i].key
                 self._plant_repo.update(plant_key, plant)
@@ -630,13 +830,15 @@ class PlantingRunService:
         run_key: PlantingRunKey,
         target_phase_key: str,
         target_phase_name: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Run-level phase transition — all plants in the run share this phase.
 
         REQ-013 v2.0: The phase lives on the PlantingRun, not on individual
         PlantInstances. No per-plant exclude is possible.
         """
-        run = self.get_run(run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status not in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING):
             raise InvalidRunStateError("transition", run.status.value)
 
@@ -676,6 +878,8 @@ class PlantingRunService:
         run_key: PlantingRunKey,
         reason: str = "batch_remove",
         target_status: str | None = None,
+        *,
+        tenant_key: str,
     ) -> dict:
         """Remove all active plants from the run and transition to target status.
 
@@ -683,7 +887,7 @@ class PlantingRunService:
         ``COMPLETED`` when the run is already in HARVESTING, ``CANCELLED``
         otherwise.
         """
-        run = self.get_run(run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status not in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING):
             raise InvalidRunStateError("batch_remove", run.status.value)
 
@@ -699,7 +903,8 @@ class PlantingRunService:
                 else PlantingRunStatus.CANCELLED
             )
 
-        plants = self._repo.get_run_plants(run_key, include_detached=False)
+        # A legacy edge to another tenant's plant is skipped (#2107 review SEC-001 sweep).
+        plants = self._owned_run_plant_rows(run_key, tenant_key)
         removed = []
         for plant in plants:
             plant_key = plant.get("_key", "")
@@ -812,7 +1017,7 @@ class PlantingRunService:
 
     def get_phase_timeline(self, run_key: PlantingRunKey) -> list[dict]:
         """Build per-species phase timeline with completed/current/projected phases."""
-        self.get_run(run_key)
+        run = self.get_run(run_key)
         if self._phase_repo is None and self._phase_seq_repo is None:
             return []
 
@@ -834,6 +1039,11 @@ class PlantingRunService:
         for species_key in species_keys:
             sp_plants = species_plants.get(species_key, [])
             if not sp_plants:
+                continue
+            # A stored species key is not proof the run's tenant may read it (#1963): a
+            # legacy entry (and the plants stamped from it) can name another tenant's
+            # private species, whose phases and name must not reach this timeline.
+            if not self._species_is_readable(species_key, run.tenant_key):
                 continue
 
             # Get phases — prefer PhaseSequence, fallback to LifecycleConfig
@@ -965,9 +1175,11 @@ class PlantingRunService:
         phase_key: str,
         entered_at: datetime | None = None,
         exited_at: datetime | None = None,
+        *,
+        tenant_key: str,
     ) -> dict:
         """Update phase history dates for ALL plants in the run that have a matching phase_key."""
-        run = self.get_run(run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status not in (PlantingRunStatus.ACTIVE, PlantingRunStatus.HARVESTING):
             raise InvalidRunStateError("batch_update_phase_dates", run.status.value)
 
@@ -977,7 +1189,9 @@ class PlantingRunService:
         if entered_at is not None and exited_at is not None and entered_at >= exited_at:
             raise ValueError("entered_at must be before exited_at")
 
-        plants_raw = self._repo.get_run_plants(run_key, include_detached=False)
+        # Phase history is the plant's: a legacy edge to another tenant's plant is
+        # not followed (#2107 review SEC-001 sweep).
+        plants_raw = self._owned_run_plant_rows(run_key, tenant_key)
         updated_count = 0
         skipped_count = 0
 
@@ -1040,6 +1254,8 @@ class PlantingRunService:
         plant_key: PlantID,
         reason: str,
         category: str = "other",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Detach a plant from the run, making it standalone.
 
@@ -1058,13 +1274,27 @@ class PlantingRunService:
         only populated when the run already has a CareProfile attached
         via the standalone-plant code path.
         """
-        run = self.get_run(run_key)
+        run = self._owned_run(run_key, tenant_key=tenant_key)
+        # The plant is resolved BEFORE the edge update (#2107 review, W1): unknown,
+        # foreign and own-but-not-attached-to-this-run answer the same 404, so the
+        # status code is no existence oracle and nothing is written for any of them.
+        attached = {p.get("_key") for p in self._repo.get_run_plants(run_key, include_detached=False)}
+        plant = self._plant_repo.get_by_key(plant_key) if plant_key in attached else None
+        if plant is None or not tenant_key or plant.tenant_key != tenant_key:
+            raise NotFoundError("PlantInstance", plant_key)
         self._repo.detach_plant(run_key, plant_key, reason)
 
-        # Copy run's current phase to the standalone plant
+        # Copy run's current phase to the standalone plant.
+        #
+        # #1619 — ``plant_key`` is a second caller-supplied key and the edge
+        # update above silently no-ops for a plant that is not in the run, so
+        # until this guard a grower could name a FOREIGN plant, reach this
+        # branch and overwrite its ``current_phase_key`` /
+        # ``current_phase_started_at`` and append a ``PhaseHistory`` row to it.
+        # Verifying the run was never enough: the write below is aimed at the
+        # plant, so the predicate belongs on the plant.
         copied_phase = None
-        plant = self._plant_repo.get_by_key(plant_key)
-        if plant and run.current_phase_key:
+        if run.current_phase_key:
             plant.current_phase_key = run.current_phase_key
             plant.current_phase_started_at = run.current_phase_started_at
             self._plant_repo.update(plant_key, plant)
@@ -1135,12 +1365,16 @@ class PlantingRunService:
     ) -> dict:
         """Bind a run to a plan the caller's tenant may read (#950).
 
-        The run side was already verified by the router; the *plan* side was not
+        The run side is verified here (``_owned_run``, #2107); the *plan* side was not
         checked anywhere, so the run's ``follows_plan`` edge could be pointed at
         another tenant's plan and read back through ``GET …/nutrient-plan``.
         Read access, not ownership — global system plans stay assignable (#324).
         """
-        self.get_run(run_key, tenant_key=tenant_key)
+        self._owned_run(run_key, tenant_key=tenant_key)
+        # Fail closed without the plan repository (security review of #1872, S2):
+        # the assignment used to be stored unchecked.
+        if self._nutrient_plan_repo is None:
+            raise NotFoundError("NutrientPlan", plan_key)
         self._readable_plan_or_raise(plan_key, tenant_key)
         return self._repo.assign_nutrient_plan(run_key, plan_key, assigned_by)
 
@@ -1171,8 +1405,8 @@ class PlantingRunService:
                 return plan.model_dump(mode="json") if hasattr(plan, "model_dump") else plan
         return {"key": plan_key}
 
-    def remove_nutrient_plan(self, run_key: PlantingRunKey) -> bool:
-        self.get_run(run_key)
+    def remove_nutrient_plan(self, run_key: PlantingRunKey, *, tenant_key: str) -> bool:
+        self._owned_run(run_key, tenant_key=tenant_key)
         return self._repo.remove_nutrient_plan(run_key)
 
     def _build_channel_calendars(

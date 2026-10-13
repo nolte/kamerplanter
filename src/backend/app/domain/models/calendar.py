@@ -30,20 +30,32 @@ class CalendarEventsQuery(BaseModel):
     start_date: date
     end_date: date
     categories: list[CalendarEventCategory] = Field(default_factory=list)
-    site_key: str | None = None
     tenant_key: str = ""
 
 
 class CalendarFeedFilters(BaseModel):
+    """What a feed narrows the tenant's calendar to: event categories (REQ-015 CF-002).
+
+    A ``site_key`` filter was accepted and stored until #2226 but never applied by
+    any event source, so a "site-only" feed served the whole tenant. It was removed
+    rather than built (review SEC-003); a ``filters.site_key`` still stored on a
+    legacy feed is ignored on read (Pydantic drops unknown fields) and removed by
+    the feed's next update, which replaces the stored filter set whole rather than
+    merging into it (``ArangoCalendarFeedRepository._update_fields_merges_objects``).
+    """
+
     categories: list[CalendarEventCategory] = Field(default_factory=list)
-    site_key: str | None = None
 
 
 class CalendarFeed(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     tenant_key: str = ""
     name: str = Field(min_length=1, max_length=200)
-    token: str = ""
+    #: SHA-256 hex digest of the iCal token (``TokenEngine.hash_token``), never the
+    #: token itself (#2171): the token is handed out once, in the create / rotate
+    #: response, and the public feed URL is resolved by hashing what it presents.
+    #: ``None`` (not stored) only for a feed whose token was never issued.
+    token_hash: str | None = None
     user_key: str = ""
     filters: CalendarFeedFilters = Field(default_factory=CalendarFeedFilters)
     is_active: bool = True
@@ -54,3 +66,16 @@ class CalendarFeed(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+
+class CalendarFeedIssued(BaseModel):
+    """A feed together with the raw iCal token just issued for it (#2171).
+
+    Returned by ``CalendarService.create_feed`` / ``regenerate_token`` so the API can
+    show the token - and the subscription URL built from it - exactly once. Never
+    persisted: the stored feed keeps ``token_hash`` only, so a lost URL is replaced
+    by a rotation, not looked up.
+    """
+
+    feed: CalendarFeed
+    token: str

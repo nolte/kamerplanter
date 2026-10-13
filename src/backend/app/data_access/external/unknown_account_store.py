@@ -33,6 +33,7 @@ from typing import Protocol
 
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.domain.interfaces.unknown_account_store import IUnknownAccountStore
 
 logger = structlog.get_logger()
@@ -170,7 +171,7 @@ class RedisUnknownAccountStore(IUnknownAccountStore):
         try:
             raw = self._redis.get(f"{_PREFIX}{_digest(email)}")
         except Exception as exc:  # noqa: BLE001 - any Redis failure degrades to the local tier
-            logger.warning("unknown_account_store_unavailable", operation="get", error=str(exc))
+            logger.warning("unknown_account_store_unavailable", operation="get", error=loggable_error(exc))
             return self._fallback.get_failure_state(email)
         if raw is None:
             return 0, None
@@ -179,7 +180,7 @@ class RedisUnknownAccountStore(IUnknownAccountStore):
         except (ValueError, TypeError) as exc:
             # A malformed value must not hand the caller a 401 that a real
             # account would have answered with 423; treat it as "no record".
-            logger.warning("unknown_account_store_corrupt_entry", error=str(exc))
+            logger.warning("unknown_account_store_corrupt_entry", error=loggable_error(exc))
             return 0, None
 
     def record_failure(
@@ -195,5 +196,5 @@ class RedisUnknownAccountStore(IUnknownAccountStore):
                 ex=self._ttl_seconds,
             )
         except Exception as exc:  # noqa: BLE001 - see get_failure_state
-            logger.warning("unknown_account_store_unavailable", operation="set", error=str(exc))
+            logger.warning("unknown_account_store_unavailable", operation="set", error=loggable_error(exc))
             self._fallback.record_failure(email, failed_attempts, locked_until)

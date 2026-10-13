@@ -48,12 +48,35 @@ name: Security — Nuclei Post-Merge Scan
 # `main` is deliberately NOT in the push list: it only ever fast-forwards to a
 # commit already scanned on `develop`.
 #
-# PRE-MERGE SCANNING REMAINS AVAILABLE ON DEMAND: label a pull request
-# `security-scan`. Use it for a change that moves the surface the custom
-# templates watch — security headers, CORS, error bodies, debug endpoints, the
-# frontend bundle. That lane carries NO `paths:` filter on purpose: the label IS
-# the selection, and a label that silently did nothing because a path filter did
-# not match would be the same class of trap this comment exists to close.
+# PRE-MERGE SCANNING REMAINS AVAILABLE ON DEMAND — THROUGH `workflow_dispatch`,
+# NOT A LABEL (#1607, 2026-09-20). This paragraph used to read "label a pull
+# request `security-scan`", and closed with the observation that a label which
+# silently did nothing "would be the same class of trap this comment exists to
+# close". It was that trap, twice over:
+#
+#   1. The label did not exist. `gh label list` returned 30 labels and not one
+#      of them matched `scan`, so the documented invocation invoked nothing and
+#      this lane had never run pre-merge.
+#   2. `pull_request: types: [labeled]` cannot be filtered by label NAME at the
+#      `on:` level, so the selection sat in the job's `if:`, which is evaluated
+#      AFTER the run is queued. Every label on every pull request queued a run
+#      that immediately skipped. Measured over 2026-09-13T05:54Z ..
+#      2026-09-20T16:39Z: 300 `pull_request` runs of this workflow, 277 skipped
+#      + 23 cancelled, 0 executed.
+#
+# Use the dispatch for a change that moves the surface the custom templates
+# watch — security headers, CORS, error bodies, debug endpoints, the frontend
+# bundle. It carries NO `paths:` filter on purpose: the dispatch IS the
+# selection. The checkout step resolves `refs/pull/<n>/merge`, so the code
+# scanned is the pre-merge code:
+#
+#     gh workflow run security-nuclei-postmerge.yml --ref develop \
+#       -f pull_request=<number>
+#
+# The `security-scan` label now exists and is declared in `.github/settings.yml`,
+# but it is a TRIAGE MARKER ONLY and triggers nothing — see the matching
+# paragraph in `security-zap-postmerge.yml` for why the invocation belongs
+# behind `actions: write` rather than behind triage-level label permission.
 #
 # RESIDUAL GAP, written down rather than left to be rediscovered: between a
 # merge and the next `security-nuclei-nightly.yml` run, nothing scans the
@@ -89,6 +112,7 @@ on:
       # The shared bring-up action: without this entry a change to the stack's
       # readiness logic would land without the gate that exercises it.
       - '.github/actions/ephemeral-stack/**'
+      - 'scripts/e2e_fernet_key.py'
       - '.github/renovate-pins.yaml'
       # gate-integrity-ok: docs/security/nuclei-triage.md is QUOTED, not read —
       # it is a link in the body of the issue this lane opens on a High/Critical
@@ -98,10 +122,16 @@ on:
       # reference must therefore stay uncovered; this is the decision, recorded
       # where the filter it declines to widen lives (#1313).
 
-  # On-demand pre-merge scan. No `paths:` — see the header.
-  pull_request:
-    types: [labeled]
+  # On-demand pre-merge scan. No `paths:` filter — the dispatch IS the
+  # selection. See the header for why this is not a `labeled` trigger.
   workflow_dispatch:
+    inputs:
+      pull_request:
+        description: >-
+          Pull-request number to scan before it merges. Leave empty to scan the
+          ref this dispatch was started from.
+        required: false
+        type: string
 
 # Read-only floor; the job below declares what it actually needs.
 permissions:
@@ -113,7 +143,10 @@ concurrency:
   # manual dispatch of the same SHA serialise instead of racing, and
   # re-labelling to request a fresh scan queues behind the running one rather
   # than cutting it off.
-  group: security-nuclei-${{ github.event.pull_request.number || github.sha }}
+  # Read through `github.event.inputs.*` rather than the `inputs` context:
+  # `github` is available in every workflow key, `inputs` is documented for
+  # `jobs.*`, and a workflow-level key is not the place to find that out.
+  group: security-nuclei-${{ github.event.inputs.pull_request || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -123,16 +156,26 @@ jobs:
     # small untruth this whole change is about. The SARIF *categories* below
     # keep their historic names on purpose — see the comment there.
     name: Nuclei Scan (fast profile)
-    # `labeled` fires for ANY label; the selection has to be made here.
-    if: >-
-      github.event_name != 'pull_request'
-      || github.event.label.name == 'security-scan'
+    # No `if:` any more. It existed to undo `types: [labeled]` firing for ANY
+    # label; with the trigger gone every remaining event — a push to `develop`
+    # or an explicit dispatch — is one this job should run for, and a condition
+    # that can never be false is a gate that cannot fail (NFR-018 §2).
     runs-on: ubuntu-latest
+    # NO WRITE SCOPE HERE — AND THAT IS THE POINT (#1614).
+    # This job checks out `refs/pull/<n>/merge` on a dispatch, which is
+    # untrusted code, and it used to hold `security-events: write` AND
+    # `issues: write` while doing so. Nothing reachable escalated through it —
+    # the issue step was gated on `github.event_name == 'push'` — but a single
+    # `if:` on a single step was the whole distance between the untrusted tree
+    # and a writable token. Both writes now live in `report-findings` below,
+    # which checks out this workflow's own trusted ref and never the pull
+    # request's, so the permissions and the tree never share a runner.
     permissions:
       contents: read
-      security-events: write
-      # Only the post-merge lane opens issues; see the last step.
-      issues: write
+    outputs:
+      # The report job downloads this run's artefact by name; the name is
+      # derived from the COMMIT THAT WAS SCANNED, not from `github.sha`.
+      label: ${{ steps.target.outputs.label }}
     # NFR-014 §4.1 used to budget 15 minutes. The measured run is 16-19,
     # dominated by building the backend and frontend images from source rather
     # than by scanning (§3.1 budgets the scan itself at < 5 min). The budget
@@ -141,49 +184,95 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Read pinned NUCLEI_TEMPLATES_VERSION
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A dispatch that names a pull request scans THAT pull request's merge
+          # result, not the ref the dispatch was started from. Without this the
+          # input would be accepted and silently ignored — #1607's own shape,
+          # one level down. `''` is checkout's own default for `ref`.
+          ref: ${{ github.event.inputs.pull_request && format('refs/pull/{0}/merge', github.event.inputs.pull_request) || '' }}
+          # checkout's default is `true`, which writes the job token into
+          # `.git/config` as an `http.extraheader` — inside the tree this job
+          # then builds and runs as containers. Nothing after this step needs
+          # it: the only `git` calls are `git rev-parse HEAD` and the template
+          # clone below, which targets a PUBLIC repository through a fresh
+          # `git clone` into a new working copy that does not inherit this
+          # repository's local config.
+          persist-credentials: false
+
+      - name: Record the scan target
+        id: target
+        env:
+          PR_NUMBER: ${{ github.event.inputs.pull_request }}
+        # The artefact used to be named after `github.sha`, which on a dispatch
+        # is the tip of the ref the dispatch started from — NOT the commit that
+        # was scanned. Resolve it from the checkout instead.
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          echo "label=${PR_NUMBER:+pr${PR_NUMBER}-}${sha}" >> "$GITHUB_OUTPUT"
+          echo "Scanning ${PR_NUMBER:+pull request #${PR_NUMBER} at }${sha}"
+
+      - name: Read the pinned community-template commit
         id: pin
         run: |
-          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
-          if [[ -z "$version" || "$version" == "null" ]]; then
-            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
-            exit 1
-          fi
+          # Pre-existing gap, closed here because the step was being rewritten
+          # anyway: without it a failing `yq` left the step green with an empty
+          # output, and the nightly sibling has always had it.
+          set -euo pipefail
           commit=$(yq e '.nuclei_templates_commit' .github/renovate-pins.yaml)
           if [[ -z "$commit" || "$commit" == "null" ]]; then
             echo "::error::nuclei_templates_commit missing in .github/renovate-pins.yaml" >&2
+            exit 1
+          fi
+          # The tag is a LABEL (#1543): it is read for the log line only, so a
+          # reader of this run knows which release the digest belongs to. It is
+          # never fetched and never resolved. Still required to be present, so a
+          # digest bump that drops its label is noticed here rather than by the
+          # next human trying to tell which template set ran.
+          version=$(yq e '.nuclei_templates_version' .github/renovate-pins.yaml)
+          if [[ -z "$version" || "$version" == "null" ]]; then
+            echo "::error::nuclei_templates_version missing in .github/renovate-pins.yaml" >&2
             exit 1
           fi
           {
             echo "version=$version"
             echo "commit=$commit"
           } >> "$GITHUB_OUTPUT"
-          echo "Pinned templates version: $version"
+          echo "Pinned templates commit: $commit (labelled $version)"
 
       - name: Clone & checkout pinned community templates
         env:
           VERSION: ${{ steps.pin.outputs.version }}
-          EXPECTED_COMMIT: ${{ steps.pin.outputs.commit }}
+          COMMIT: ${{ steps.pin.outputs.commit }}
         run: |
           set -euo pipefail
-          git clone --filter=blob:none \
+          # THE COMMIT IS FETCHED DIRECTLY — no tag is resolved here (#1543,
+          # NFR-014 §3.3). GitHub serves an unadvertised object to `fetch`, so a
+          # commit SHA is a valid refspec even though it is not a ref.
+          git clone --filter=blob:none --no-checkout \
             https://github.com/projectdiscovery/nuclei-templates.git \
             ./nuclei-templates
-          git -C ./nuclei-templates fetch --depth=1 origin "$VERSION"
+          git -C ./nuclei-templates fetch --depth=1 origin "$COMMIT"
           git -C ./nuclei-templates checkout FETCH_HEAD
 
-          # A tag can be moved. Assert it still points where it did when it was
-          # reviewed, so a replaced template set fails the run loudly instead of
-          # quietly changing what the scan covers.
-          actual="$(git -C ./nuclei-templates rev-parse HEAD)"
-          if [[ "$actual" != "$EXPECTED_COMMIT" ]]; then
-            echo "::error::$VERSION resolves to $actual, but .github/renovate-pins.yaml records $EXPECTED_COMMIT." >&2
-            echo "         The upstream tag moved. Review the change and update nuclei_templates_commit in the same pull request." >&2
-            exit 1
-          fi
-          echo "Templates at $VERSION = $actual (matches the recorded commit)."
+          # THERE IS DELIBERATELY NO TAG-RESOLUTION ASSERTION HERE. Until #1543
+          # this step fetched the TAG and then asserted it still resolved to the
+          # recorded commit. Under a digest pin that assertion can only produce a
+          # false alarm: an upstream tag move no longer affects one byte of what
+          # this scan reads, because nothing here reads a tag. The risk it
+          # covered is structurally absent, not merely unasserted — please do not
+          # put it back. What CAN go wrong is a digest that does not exist
+          # upstream, and `security-nuclei-templates.yml` asks exactly that on the
+          # pull request that edits the pin, before this lane ever runs.
+          echo "Templates at $(git -C ./nuclei-templates rev-parse HEAD) (labelled $VERSION)."
 
       - name: Build suppression flags
         id: suppress
@@ -361,31 +450,11 @@ jobs:
             --json-out "$GITHUB_WORKSPACE/nuclei-coverage.json" \
             --write-empty-sarif "$GITHUB_WORKSPACE/results.sarif"
 
-      # The two SARIF categories keep their historic names on purpose, even
-      # though the workflow and the job were renamed. A Code Scanning category
-      # is the key under which alerts are resolved: renaming it would orphan
-      # every existing alert from the old category — they would stay open
-      # forever, unmeasured, looking current. Exactly the failure class
-      # NFR-018 §1 catalogues.
-      - name: Upload SARIF (HTTP scan) to Code Scanning
-        if: always() && hashFiles('results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
-        with:
-          sarif_file: results.sarif
-          category: nuclei-pr-http
-
-      - name: Upload SARIF (OpenAPI scan) to Code Scanning
-        if: always() && hashFiles('openapi-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
-        with:
-          sarif_file: openapi-results.sarif
-          category: nuclei-pr-openapi
-
       - name: Archive raw results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: nuclei-scan-results-${{ github.sha }}
+          name: nuclei-scan-results-${{ steps.target.outputs.label }}
           path: |
             results.jsonl
             results.sarif
@@ -434,11 +503,84 @@ jobs:
           done
           exit "$fail"
 
+  # ── The writes live here, and nothing untrusted does (#1614) ───────────
+  # This job holds `security-events: write` and `issues: write`. Its only
+  # checkout is this workflow's OWN ref — the branch the push landed on, or
+  # the ref the dispatch was started from — never `refs/pull/<n>/merge`. The
+  # pull-request tree the scan job resolved does not exist on this runner.
+  #
+  # Why it checks out at all: `github/codeql-action/upload-sarif` resolves a
+  # source root from the workspace. The Nuclei SARIF describes URLs on the
+  # ephemeral stack rather than files in this repository, so the source root
+  # only has to be a valid checkout — but an absent one is a warning path
+  # this lane has never exercised, and a scan's only reporting channel is not
+  # the place to find out.
+  #
+  # `continue-on-error` on the download is load-bearing and is NOT a way of
+  # ignoring a failure: the `hashFiles()` guards below and the script's own
+  # missing-file branch distinguish "produced nothing" (a failure) from
+  # "produced an empty result" (a real clean run), and a hard-failing
+  # download would collapse the first into an infrastructure error before
+  # either could say so.
+  #
+  # gate-integrity-ok: the scan's pass/fail verdict stays in `nuclei-scan` — the
+  # "Fail on High/Critical findings" step — and reddens the run on its own. This
+  # job publishes that verdict; it does not re-derive it, and its own failure
+  # modes (a SARIF upload that errors, `core.setFailed` on an absent results
+  # file) still redden it. `needs.nuclei-scan.result` is deliberately absent
+  # from the `if:` — the job must run when the scan failed, because a partial
+  # scan is when a finding most needs its channel.
+  report-findings:
+    name: Publish SARIF and open issues
+    needs: nuclei-scan
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the scan results
+        # gate-integrity-ok: an absent results file is judged by the steps
+        # below, which fail the job for it. Failing here instead would collapse
+        # "the scan produced nothing" into "the download broke".
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nuclei-scan-results-${{ needs.nuclei-scan.outputs.label }}
+          path: .
+
+      # The two SARIF categories keep their historic names on purpose, even
+      # though the workflow and the job were renamed. A Code Scanning category
+      # is the key under which alerts are resolved: renaming it would orphan
+      # every existing alert from the old category — they would stay open
+      # forever, unmeasured, looking current. Exactly the failure class
+      # NFR-018 §1 catalogues.
+      - name: Upload SARIF (HTTP scan) to Code Scanning
+        if: always() && hashFiles('results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: results.sarif
+          category: nuclei-pr-http
+
+      - name: Upload SARIF (OpenAPI scan) to Code Scanning
+        if: always() && hashFiles('openapi-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: openapi-results.sarif
+          category: nuclei-pr-openapi
+
       # The consumer of the signal. Without this the only channel for a
       # post-merge finding is a red run in the Actions tab — precisely the alarm
       # that failed unnoticed for the nightly for months (see the header of
-      # `security-nuclei-nightly.yml`). Push lane only: on a labelled pull
-      # request the failing job IS the channel, and an issue would be noise.
+      # `security-nuclei-nightly.yml`). Push lane only: on a dispatched
+      # pre-merge scan the failing job IS the channel, and an issue would be
+      # noise.
       - name: Open issue for new High/Critical findings
         if: always() && github.event_name == 'push'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0

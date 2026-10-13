@@ -232,9 +232,9 @@ Die Einwilligung für den Datenbeitrag (`reference_contribution`) findest du in 
 
 1. Klicke oben rechts auf dein Profilbild.
 2. Wähle **Konto-Einstellungen** > **Datenschutz** > **Einwilligungen**.
-3. Aktiviere oder deaktiviere **Beitrag zur Bilderkennung**.
+3. Aktiviere oder deaktiviere **Foto-Beitrag zur Pflanzenerkennung**.
 
-Der Widerruf gilt sofort für alle zukünftigen Foto-Uploads. Bereits erzeugte Merkmals-Vektoren werden beim Widerruf und spätestens bei der Kontolöschung entfernt.
+Der Widerruf gilt sofort für alle zukünftigen Beiträge — Galerie-Fotos ebenso wie [freigegebene Schädlingsfotos](pest-detail.md#eigene-fotos-beitragen). Bereits erzeugte Merkmals-Vektoren entfernt der Widerruf selbst nicht; sie werden gelöscht, wenn du das zugehörige Foto löschst, und spätestens bei der Kontolöschung.
 
 !!! note "Light-Modus"
     Im Light-Modus (anonymer Zugang ohne Login) ist der Datenbeitrag zur Bilderkennung nicht verfügbar, weil das dafür nötige Einwilligungs-System nicht aktiviert ist. Die Galerie funktioniert im Light-Modus vollständig.

@@ -1,11 +1,16 @@
 """Notification service — coordinates engine, repositories and channels."""
 
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import UTC, date, datetime
+from typing import Any
 
 import structlog
 
-from app.common.url_safety import validate_push_endpoint
+from app.common.log_privacy import log_subject, log_tenant, loggable_endpoint_host, loggable_error
+from app.common.notification_targets import ha_channel_grant_references, validate_ha_channel_config
+from app.common.url_safety import validate_apprise_urls, validate_push_endpoint
+from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, URLS, URLS_ENCRYPTED, resolve_masked_urls
 from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.interfaces.notification_preference_repository import (
     INotificationPreferenceRepository,
@@ -18,6 +23,7 @@ from app.domain.models.notification import (
     NotificationStatus,
     NotificationUrgency,
 )
+from app.domain.services.ha_entity_grant_service import DenyAllHaEntityGate, HaEntityGate, require_granted
 
 logger = structlog.get_logger()
 
@@ -40,10 +46,14 @@ class NotificationService:
         engine: NotificationEngine,
         notification_repo: INotificationRepository,
         preference_repo: INotificationPreferenceRepository,
+        ha_entity_grants: HaEntityGate | None = None,
     ) -> None:
         self._engine = engine
         self._notification_repo = notification_repo
         self._preference_repo = preference_repo
+        # MT-015 (#2112): a Home Assistant destination must be granted to the tenant
+        # it is saved in. Absent, nothing is granted (fail-closed).
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
 
     # ── Sending ───────────────────────────────────────────────────────
 
@@ -141,7 +151,7 @@ class NotificationService:
 
         logger.info(
             "care_notifications_sent",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             users_notified=users_notified,
             total_sent=total_sent,
         )
@@ -195,14 +205,14 @@ class NotificationService:
         # this (site_key, forecast_date) event are derived from persisted rows via
         # the index-backed projected read, so only newly-eligible members are sent
         # to (mid-event joiners included) without re-notifying prior recipients.
-        already_notified = self._notification_repo.find_notified_user_keys(group_key, tenant_key)
+        already_notified = self._notification_repo.find_notified_user_keys(group_key, tenant_key=tenant_key)
         pending = [user_key for user_key in user_keys if user_key not in already_notified]
 
         if not pending:
             if already_notified:
                 logger.info(
                     "frost_forecast_notification_deduplicated",
-                    tenant_key=tenant_key,
+                    tenant=log_tenant(tenant_key),
                     site_key=site_key,
                     group_key=group_key,
                     already_notified=len(already_notified),
@@ -239,7 +249,7 @@ class NotificationService:
 
         logger.info(
             "frost_forecast_notifications_sent",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             site_key=site_key,
             expected_date=expected_date.isoformat(),
             recipients=len(pending),
@@ -250,8 +260,9 @@ class NotificationService:
     async def send_email_digest(
         self,
         user_key: str,
-        to_email: str,
         since: datetime,
+        *,
+        tenant_is_active: Callable[[str], bool] | None = None,
     ) -> dict:
         """Send one digest email summarising the user's notifications since ``since``.
 
@@ -259,29 +270,45 @@ class NotificationService:
         single batch email through the registered ``email`` channel, reusing its
         batch HTML rendering (REQ-030).
 
-        Returns a dict ``{"status": "sent"|"empty"|"failed", "count": int}``.
-        An empty window sends no mail; a missing/unhealthy channel or a failed
-        send returns ``"failed"`` without raising.
+        The recipient is the account's confirmed address (#1885), resolved here
+        and not accepted from the caller. Returns a dict
+        ``{"status": "sent"|"empty"|"failed"|"no_confirmed_address", "count": int}``.
+        An empty window sends no mail; an account without a confirmed address
+        gets none (``"no_confirmed_address"``); a missing/unhealthy channel or a
+        failed send returns ``"failed"`` without raising.
+
+        ``tenant_is_active`` (REQ-056 §5.2) drops every notification about a tenant
+        that is no longer ``active`` — a suspended or pending-deletion tenant resolves
+        for nobody, and the digest would otherwise deliver what was created about it
+        before the suspension. A notification without a tenant (account-level) stays.
+        A window left empty by the filter sends no mail.
         """
         notifications = self._notification_repo.list_for_user_since(user_key, since)
+        if tenant_is_active is not None:
+            notifications = [n for n in notifications if not n.tenant_key or tenant_is_active(n.tenant_key)]
         if not notifications:
             return {"status": "empty", "count": 0}
 
         channel = self._engine._channel_registry.get("email")
         if channel is None:
-            logger.warning("email_digest_channel_unavailable", user_key=user_key)
+            logger.warning("email_digest_channel_unavailable", subject=log_subject(user_key))
             return {"status": "failed", "count": 0}
+
+        to_email = self._engine.resolve_email_recipient(user_key)
+        if to_email is None:
+            logger.warning("email_digest_no_confirmed_address", subject=log_subject(user_key))
+            return {"status": "no_confirmed_address", "count": len(notifications)}
 
         result = await channel.send_batch(notifications, {"email": to_email})
         if not result.success:
             logger.warning(
                 "email_digest_send_failed",
-                user_key=user_key,
-                error=result.error,
+                subject=log_subject(user_key),
+                error=loggable_error(result.error or "", user_key=user_key),
             )
             return {"status": "failed", "count": len(notifications)}
 
-        logger.info("email_digest_sent", user_key=user_key, count=len(notifications))
+        logger.info("email_digest_sent", subject=log_subject(user_key), count=len(notifications))
         return {"status": "sent", "count": len(notifications)}
 
     # ── Read operations ───────────────────────────────────────────────
@@ -327,7 +354,9 @@ class NotificationService:
         Returns ``None`` when the notification is absent, belongs to another tenant
         or (when ``user_key`` is given) to another user — never disclosing the
         difference, so a foreign key is indistinguishable from a missing one
-        (SEC-B4). Backs the §4.2 actionable callback, which must inspect the
+        (SEC-B4). A row without a recipient is nobody's (MT-045.8, #2144): it used
+        to pass the owner check for every member, although no inbox lists it.
+        Backs the §4.2 actionable callback, which must inspect the
         notification's source before confirming it.
         """
         notif = self._notification_repo.get(notification_key)
@@ -335,7 +364,7 @@ class NotificationService:
             return None
         if notif.tenant_key != tenant_key:
             return None
-        if user_key and notif.user_key and notif.user_key != user_key:
+        if user_key is not None and notif.user_key != user_key:
             return None
         return notif
 
@@ -347,7 +376,7 @@ class NotificationService:
         if notif.tenant_key != tenant_key:
             return None
         # Verify the requesting user owns this notification
-        if user_key and notif.user_key and notif.user_key != user_key:
+        if user_key is not None and notif.user_key != user_key:
             return None
         # notification-write-ok: user-action: the reader marked their own row read
         # (REQ-030 §5.2). Nothing at the source changed — the reader did — so this write
@@ -368,7 +397,7 @@ class NotificationService:
         if notif.tenant_key != tenant_key:
             return None
         # Verify the requesting user owns this notification
-        if user_key and notif.user_key and notif.user_key != user_key:
+        if user_key is not None and notif.user_key != user_key:
             return None
         # notification-write-ok: user-action: the reader acted on their own row
         # (REQ-030 §5.2), same class as mark_read above.
@@ -387,8 +416,74 @@ class NotificationService:
         self,
         user_key: str,
         preferences: NotificationPreferences,
+        *,
+        tenant_key: str,
     ) -> NotificationPreferences:
-        """Create or update user notification preferences."""
+        """Create or update user notification preferences.
+
+        An Apprise channel's ``urls`` must stay inside the scheme allow-list
+        (#1947) and a Home Assistant channel's ``notify_service`` /
+        ``tts_entity_id`` / ``tts_service`` inside their shape (#1985) —
+        refused with a value-free 422 before anything is stored.
+
+        A Home Assistant ``notify_service`` or ``tts_entity_id`` that *changes*
+        must be granted to ``tenant_key`` — the tenant the preferences are saved
+        in (MT-015, #2112). An unchanged value is not re-checked, so a user can
+        still edit quiet hours with a destination stored before the allowlist;
+        the send path checks every destination against the notification's own
+        tenant regardless.
+        """
+        apprise = preferences.channels.get(APPRISE_CHANNEL)
+        if apprise is not None:
+            # #2113: the stored form is derived from ``urls`` only; and a masked
+            # placeholder the client sends back stands for the stored URL.
+            apprise.config.pop(URLS_ENCRYPTED, None)
+            if URLS in apprise.config:
+                apprise.config[URLS] = resolve_masked_urls(apprise.config[URLS], self._stored_apprise_urls(user_key))
+                validate_apprise_urls(apprise.config[URLS], owner_key=user_key)
+        home_assistant = preferences.channels.get("home_assistant")
+        if home_assistant is not None:
+            validate_ha_channel_config(home_assistant.config)
+            self._require_granted_ha_destinations(user_key, tenant_key, home_assistant.config)
+        return self._store_preferences(user_key, preferences)
+
+    def _require_granted_ha_destinations(self, user_key: str, tenant_key: str, config: dict[str, Any]) -> None:
+        stored = self._preference_repo.get_by_user(user_key)
+        stored_channel = stored.channels.get("home_assistant") if stored is not None else None
+        stored_refs = (
+            ha_channel_grant_references(stored_channel.config, include_defaults=False) if stored_channel else {}
+        )
+        changed = {
+            f"channels.home_assistant.config.{key}": grant_id
+            for key, grant_id in ha_channel_grant_references(config, include_defaults=False).items()
+            if stored_refs.get(key) != grant_id
+        }
+        require_granted(self._ha_entity_gate, tenant_key, changed)
+        if self._ha_entity_gate.admits_on_use():
+            # Light mode: the destination a send will dial — the default broadcast
+            # service included — is granted when the channel is saved.
+            require_granted(
+                self._ha_entity_gate, tenant_key, ha_channel_grant_references(config, include_defaults=True)
+            )
+
+    def _stored_apprise_urls(self, user_key: str) -> list[str]:
+        """The decrypted Apprise URLs stored for *user_key* — what a masked placeholder resolves to."""
+        stored = self._preference_repo.get_by_user(user_key)
+        apprise = stored.channels.get(APPRISE_CHANNEL) if stored is not None else None
+        urls = apprise.config.get(URLS) if apprise is not None else None
+        return [url for url in urls if isinstance(url, str)] if isinstance(urls, list) else []
+
+    def _store_preferences(
+        self,
+        user_key: str,
+        preferences: NotificationPreferences,
+    ) -> NotificationPreferences:
+        """Persist preferences without re-validating the Apprise URLs.
+
+        The Web Push subscribe/unsubscribe paths rewrite the whole document; a
+        legacy Apprise URL stored before the allow-list must not make a device
+        registration fail. Such a URL is never *sent* (the channel re-checks).
+        """
         preferences.user_key = user_key
         preferences.updated_at = datetime.now(UTC)
         return self._preference_repo.upsert(preferences)
@@ -407,7 +502,8 @@ class NotificationService:
 
         Creates the ``pwa`` channel preference if missing, enables it and
         deduplicates subscriptions by ``endpoint``. Persists via the existing
-        preferences update path.
+        preferences update path. The endpoint is then removed from every other
+        account (#2117): one endpoint, one holder.
 
         The endpoint is validated against SSRF before being stored (SEC-001):
         it must be https and must not resolve to an internal/non-routable
@@ -451,7 +547,7 @@ class NotificationService:
             subscriptions = subscriptions[-MAX_PWA_SUBSCRIPTIONS_PER_USER:]
             logger.info(
                 "pwa_subscriptions_evicted",
-                user_key=user_key,
+                subject=log_subject(user_key),
                 evicted=len(evicted),
                 cap=MAX_PWA_SUBSCRIPTIONS_PER_USER,
             )
@@ -459,8 +555,16 @@ class NotificationService:
         channel_pref.config["subscriptions"] = subscriptions
         channel_pref.enabled = True
 
-        self.update_preferences(user_key, prefs)
-        logger.info("pwa_subscription_added", user_key=user_key, endpoint=endpoint)
+        self._store_preferences(user_key, prefs)
+        # #2117 — the endpoint is this browser on this device; whoever subscribed it
+        # before (the previous user of a shared device) stops receiving through it.
+        taken = self._preference_repo.remove_endpoint_from_other_users("pwa", endpoint, user_key)
+        logger.info(
+            "pwa_subscription_added",
+            subject=log_subject(user_key),
+            endpoint_host=loggable_endpoint_host(endpoint),
+            taken_from_another_account=bool(taken),
+        )
         return endpoint
 
     def unsubscribe_pwa(self, user_key: str, endpoint: str) -> bool:
@@ -484,8 +588,10 @@ class NotificationService:
             return False
 
         channel_pref.config["subscriptions"] = remaining
-        self.update_preferences(user_key, prefs)
-        logger.info("pwa_subscription_removed", user_key=user_key, endpoint=endpoint)
+        self._store_preferences(user_key, prefs)
+        logger.info(
+            "pwa_subscription_removed", subject=log_subject(user_key), endpoint_host=loggable_endpoint_host(endpoint)
+        )
         return True
 
     # ── Channel status ────────────────────────────────────────────────
@@ -521,6 +627,8 @@ class NotificationService:
     ) -> dict:
         """Send a test notification through a specific channel."""
         notification = Notification(
+            user_key=user_key,
+            tenant_key=tenant_key,
             notification_type="system.test",
             title="Test Notification",
             body="This is a test notification from Kamerplanter.",
@@ -535,10 +643,11 @@ class NotificationService:
             return {"status": "error", "error": f"Channel '{channel_key}' not found"}
 
         prefs = self._engine._load_preferences(user_key)
-        channel_config = self._engine._get_channel_config(channel_key, prefs)
+        channel_config = self._engine.get_channel_config(user_key, channel_key, prefs)
 
         try:
             result = await channel.send(notification, channel_config)
+            self._engine.prune_expired_subscriptions(user_key, result)
             return {
                 "status": "delivered" if result.success else "failed",
                 "channel_key": channel_key,

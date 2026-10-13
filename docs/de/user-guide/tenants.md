@@ -15,10 +15,16 @@ Ein Tenant ist der zentrale Isolations-Container für alle Ressourcen: Pflanzen,
 
 ### Persönlicher Tenant
 
-Bei der Registrierung erstellt das System automatisch deinen **persönlichen Tenant**. Du bist dort automatisch Admin. Alle Ressourcen, die du in Kamerplanter anlegst, landen standardmäßig in deinem persönlichen Tenant.
+Bei der Registrierung erstellt das System automatisch deinen **persönlichen Tenant**. Du hast dort automatisch die Rolle **Leitung** und beide Zusatzberechtigungen (**Verwaltung** und **Technik**). Alle Ressourcen, die du in Kamerplanter anlegst, landen standardmäßig in deinem persönlichen Tenant.
 
 !!! info "Persönliche Daten bleiben privat"
     Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Kein Mitglied eines anderen Tenants kann deine privaten Zimmerpflanzen oder deinen Balkongarten sehen — auch wenn du demselben Gemeinschaftsgarten angehörst.
+
+!!! warning "Dein persönlicher Tenant endet mit deinem Konto"
+    Lädst du jemanden in deinen persönlichen Tenant ein, wird er mit deinem Konto gelöscht — auch mit allem, was die anderen Mitglieder darin angelegt haben. Sie bekommen eine E-Mail, sobald du die Löschung beantragst. Für einen Garten, den ihr gemeinsam und dauerhaft führen wollt, lege deshalb einen eigenen Gemeinschaftsgarten an. Details: [Datenaufbewahrung](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+
+!!! info "Mitgliederlimit"
+    Jeder Tenant hat ein Mitgliederlimit. Dein persönlicher Tenant startet mit **1** — dir selbst. Willst du jemanden in deinen persönlichen Tenant einladen, hebe das Limit vorher an; sonst bekommt die eingeladene Person beim Annehmen die Meldung, dass der Tenant voll ist. Ein Gemeinschaftsgarten startet mit dem Höchstwert, den der Betreiber der Plattform festlegt (Standard: 50); höher geht es nicht. <!-- Issue #2133 -->
 
 ---
 
@@ -48,6 +54,18 @@ Zum Anlegen einer neuen Pflanzenart oder Sorte brauchst du mindestens die Rolle 
 
 ---
 
+## Was für alle deine Gärten gleich bleibt
+
+Einige Einstellungen gehören dir, nicht einem Garten. Sie gelten in jedem Tenant, in dem du Mitglied bist, und wechseln **nicht** mit dem Tenant-Selektor:
+
+- dein **Dashboard-Layout** — welche Widgets wo stehen;
+- deine **Benachrichtigungs-Einstellungen** — Kanäle, Ruhezeiten, Bündelung und Eskalation;
+- welche **Module** du eingeblendet hast, dein Onboarding-Stand und deine **Favoriten**.
+
+Was ein Widget anzeigt, kommt dagegen immer aus dem gerade aktiven Garten: Dasselbe Dashboard zeigt im Gemeinschaftsgarten dessen Pflanzen und Aufgaben, in deinem persönlichen Garten deine eigenen. Eine Benachrichtigung über Home Assistant geht nur an Ziele, die für den Garten der Benachrichtigung freigegeben sind.
+
+---
+
 ## Gemeinschaftsgarten erstellen
 
 ### Neuen Tenant anlegen
@@ -65,57 +83,76 @@ Zum Anlegen einer neuen Pflanzenart oder Sorte brauchst du mindestens die Rolle 
 
 4. Klicke auf **Erstellen**
 
-Du bist automatisch Admin des neuen Tenants.
+Du bist automatisch **Leitung** des neuen Tenants und hast beide Zusatzberechtigungen (**Verwaltung** und **Technik**).
 
 ---
 
 ## Mitglieder einladen
 
-Als Admin kannst du Mitglieder auf drei Wegen einladen:
+Mit der Zusatzberechtigung **Verwaltung** kannst du Mitglieder auf drei Wegen einladen:
+
+!!! note "Ist der Tenant voll, bleibt die Einladung offen"
+    Hat dein Tenant sein Mitgliederlimit erreicht, kann niemand mehr beitreten — weder über eine E-Mail-Einladung noch über einen Einladungslink. Die Einladung verfällt dadurch nicht: Sobald ein Platz frei wird (jemand verlässt den Tenant) oder du das Limit anhebst, kann sie angenommen werden. Mitglieder, die schon dabei sind, bleiben es in jedem Fall — auch wenn du das Limit unter die aktuelle Mitgliederzahl senkst. <!-- Issue #2133 -->
 
 ### Methode 1: E-Mail-Einladung
 
 1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladen**
 2. Gib die E-Mail-Adresse des Mitglieds ein
-3. Wähle die Rolle (Admin, Gärtner, Beobachter)
+3. Die Einladung vergibt die Rolle **Beobachter** — eine andere Rolle gibst du dem Mitglied nach dem Beitritt unter [Rollen ändern](#rollen-andern)
 4. Klicke auf **Einladung senden**
 
-Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird der Nutzer deinem Tenant mit der vorgewählten Rolle hinzugefügt — egal ob er sich neu registriert oder bereits ein Konto hat.
+Kamerplanter schickt der Adresse eine E-Mail mit einem Link zur Annahme-Seite; er ist 7 Tage gültig. Wer ihn öffnet, meldet sich an — oder registriert sich mit genau dieser Adresse —, bestätigt auf der Annahme-Seite mit **Einladung annehmen** und wird deinem Tenant mit der vorgewählten Rolle hinzugefügt. Wer beim Öffnen noch nicht angemeldet ist, landet nach der Anmeldung (auch über einen Anmeldeanbieter) wieder auf der Annahme-Seite. Die E-Mail nennt weder deinen Namen noch den Namen des Tenants — die eingeladene Person sieht erst nach der Anmeldung, worum es geht.
+
+!!! note "Wenn die E-Mail nicht rausgeht"
+    Nach dem Absenden sagt dir die Seite, ob die E-Mail verschickt wurde. Ist auf der Installation kein E-Mail-Versand eingerichtet oder schlägt er fehl, ist die Einladung trotzdem angelegt: Die Seite zeigt dir dann den Einladungslink mit einer Schaltfläche zum Kopieren — gib ihn selbst weiter, zum Beispiel per Messenger. Annehmen kann ihn auch dann nur, wer sich mit der eingeladenen Adresse anmeldet. Welche Installation E-Mails verschickt, legt dein Betreiber fest (`EMAIL_ADAPTER`). <!-- Issue #2162, REQ-024 AK-06 -->
+
+!!! warning "Die Einladung gilt nur für die eingeladene Adresse"
+    Eine E-Mail-Einladung kann nur das Konto annehmen, dessen E-Mail-Adresse die eingeladene ist **und** die bestätigt wurde. Wer den Link weiterleitet, verleiht damit niemandem die Mitgliedschaft: ein anderes Konto — oder dasselbe Konto mit noch unbestätigter Adresse — bekommt `403`, die Einladung bleibt offen und nichts wird angelegt. Bestätige die Adresse deines Kontos zuerst, wenn du eingeladen wirst, und melde dich mit dem Konto an, das diese Adresse trägt. Ein **Einladungslink** (Methode 2) ist dagegen zum Teilen gedacht und bleibt für jedes angemeldete Konto gültig. <!-- Issue #2115, REQ-024 AK-61 -->
 
 ### Methode 2: Einladungslink
 
-1. Navigiere zu **Einstellungen** > **Mitglieder** > **Einladungslink generieren**
-2. Stelle optional ein:
-    - Maximale Anzahl Nutzungen (z.B. 20)
-    - Ablaufdatum (z.B. in 30 Tagen)
-    - Rolle, die neue Mitglieder erhalten
-3. Kopiere den Link und teile ihn (WhatsApp, Aushang, E-Mail-Verteiler)
+1. Navigiere zu **Einstellungen** > Tab **Einladungen**
+2. Trage unter **Personen pro Link** ein, wie viele Personen mit dem Link beitreten können (1 bis 100, voreingestellt 1)
+3. Klicke auf **Einladungslink** — der Link wird in die Zwischenablage kopiert und zum erneuten Kopieren angezeigt
+4. Teile ihn (WhatsApp, Aushang, E-Mail-Verteiler)
+
+Der Link vergibt die Rolle **Beobachter** und gilt 7 Tage. Jedes angemeldete Konto, das ihn öffnet und **Einladung annehmen** bestätigt, wird Mitglied, bis die Nutzungen verbraucht sind; in der Liste der Einladungen siehst du unter **Genutzt**, wie viele es schon waren (z. B. „3 von 20“). Dasselbe Konto kann einen Link nur einmal nutzen. Solange dein Tenant gesperrt, verwaist oder zur Löschung vorgemerkt ist, kann niemand eine Einladung annehmen; ist er wieder aktiv, gilt sie bis zu ihrem Ablauf weiter. <!-- Issue #2182, REQ-024 AK-07 -->
 
 !!! tip "Ideal für große Gruppen"
-    Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Jeder mit dem Link kann beitreten, bis das Limit erreicht ist.
+    Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Stell die Personenzahl so ein, wie viele du erwartest — wer den Link später noch hat, kann danach nicht mehr beitreten. Jede Nutzung zählt außerdem gegen das Mitgliederlimit deines Tenants: Ist er voll, wird niemand mehr aufgenommen, auch wenn der Link noch Nutzungen übrig hat.
+
+!!! warning "Noch nicht implementiert"
+    Ein eigenes Ablaufdatum und die Rolle, die neue Mitglieder erhalten, kannst du beim Einladungslink in der Oberfläche nicht wählen: Er gilt immer 7 Tage und vergibt **Beobachter**. Eine andere Rolle gibst du dem Mitglied nach dem Beitritt unter [Rollen ändern](#rollen-andern). <!-- REQ-024 §1 Einladungssystem -->
 
 ### Methode 3: OIDC (OpenID Connect) Auto-Join
 
-Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak, etc.) kann die OIDC-Integration so konfiguriert werden, dass neue Nutzer automatisch dem Tenant beitreten. Dies richtet der Plattform-Administrator ein.
+Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak etc.) kann die Plattform-Administration beim Anmeldeanbieter einen **Standard-Mandanten** hinterlegen (siehe [Plattform-Admin](admin.md)). Wer sich dann zum **ersten Mal** über diesen Anbieter anmeldet und dabei ein neues Konto bekommt, tritt deinem Tenant automatisch als **Beobachter** bei — zusätzlich zu seinem persönlichen Garten. Eine andere Rolle oder eine Zusatzberechtigung gibst du dem Mitglied danach selbst. <!-- Issue #2182, REQ-024 AK-09 -->
+
+Wer schon ein Konto hat und den Anbieter nur verknüpft, tritt nicht automatisch bei — lade diese Personen wie gewohnt ein. Ist dein Tenant voll, gesperrt oder in Löschung, oder hat der Anbieter die E-Mail-Adresse der Person nicht bestätigt, wird der Beitritt still übersprungen; die Anmeldung selbst klappt trotzdem. Einen Standard-Mandanten gibt es nur bei einem eigenen OIDC-Anbieter, nicht bei Google, GitHub oder Apple — dort kann sich jede Person ein Konto anlegen.
 
 ---
 
 ## Rollen und Berechtigungen
 
-Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun darf:
+Jedes Mitglied hat pro Tenant genau eine Rolle: **Leitung**, **Gärtner** oder **Beobachter**. Die Rolle bestimmt, was es an den Gartendaten tun darf. Unabhängig davon kann ein Mitglied Zusatzberechtigungen halten: **Verwaltung** (Mitglieder, Einladungen, Einstellungen) und **Technik** (Home Assistant, Sensoren, Import). Eine Rolle „Admin“ gibt es im Tenant nicht mehr.
 
 ### Rollenvergleich
 
-| Aufgabe | Admin | Gärtner | Beobachter |
-|---------|:-----:|:--------:|:----------:|
+| Aufgabe | Leitung | Gärtner | Beobachter |
+|---------|:-------:|:--------:|:----------:|
 | Alles lesen | Ja | Ja | Ja |
 | Pflanzen anlegen/bearbeiten | Ja | Ja | Nein |
 | Standorte anlegen/bearbeiten | Ja | Ja | Nein |
 | Aufgaben erstellen | Ja | Ja | Nein |
 | Ernten dokumentieren | Ja | Ja | Nein |
-| Mitglieder einladen | Ja | Nein | Nein |
-| Rollen ändern | Ja | Nein | Nein |
-| Tenant-Einstellungen ändern | Ja | Nein | Nein |
+| Daten löschen | Ja | Nein | Nein |
+| Wetterquellen eines Standorts auswählen | Ja | Nein | Nein |
+
+| Aufgabe | Wer darf das? |
+|---------|---------------|
+| Mitglieder einladen | Zusatzberechtigung **Verwaltung**, unabhängig von der Rolle |
+| Rollen ändern | Zusatzberechtigung **Verwaltung**, unabhängig von der Rolle |
+| Tenant-Einstellungen ändern | Zusatzberechtigung **Verwaltung**, unabhängig von der Rolle |
 
 Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten und der Frage, wer welche Daten zu sehen bekommt — steht unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md).
 
@@ -127,7 +164,13 @@ Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten 
 1. Navigiere zu **Einstellungen** > **Mitglieder**
 2. Klicke beim gewünschten Mitglied auf das Bearbeitungs-Symbol
 3. Wähle die neue Rolle
-4. Bestätigen — die Änderung gilt sofort
+4. Bestätige mit **deinem eigenen** Zugang — die Änderung gilt sofort
+
+!!! note "Rollenwechsel und Entfernen verlangen deine eigene Bestätigung"
+    Wer die Rolle eines Mitglieds ändert oder ein Mitglied entfernt, gibt dazu **sein eigenes** aktuelles Passwort ein — ohne lokales Passwort meldet er sich stattdessen frisch bei seinem Anmeldeanbieter an, oder lässt sich, nur bei einer Anmeldung ausschließlich über GitHub oder Apple, einen Code per E-Mail schicken. Grund: Die Rolle bestimmt, was jemand im Mandanten ändern und löschen darf, und das Entfernen sperrt die Person aus — auch die letzte Leitung. Eine Rolle, die du unverändert erneut sendest, braucht keine Bestätigung. Das Löschen einer Parzellen-Zuordnung braucht sie nicht: Es sperrt niemanden aus dem Mandanten aus.
+
+!!! warning "Du kannst deine eigene Rolle nicht erhöhen"
+    Auch mit Verwaltung erhöhst du die Rolle deiner **eigenen** Mitgliedschaft nicht — das Herabstufen bleibt möglich. Im technischen Mandanten `platform` ist die Rolle Leitung die Plattform-Rolle; sie vergibt dort, per Rollenwechsel wie per Einladung, nur, wer sie selbst hat. Das wird auch beim Annehmen geprüft: Eine Leitungs-Einladung in `platform`, deren Absender dort inzwischen keine Leitung mehr ist, lässt sich nicht annehmen. In jedem anderen Mandanten darf die Verwaltung weiterhin eine Leitung ernennen. <!-- Issue #2078, #2180, REQ-024 AK-58 -->
 
 ---
 
@@ -139,7 +182,7 @@ Ein Garten ist eine gemeinsame Arbeitsmenge: Alle Gärtner pflegen alle Pflanzen
 - **Gemeinschaftsflächen** wie Kompost oder Gewächshaus brauchen gar keine Zuordnung.
 - **Beobachter** lesen alles und ändern nichts — unabhängig von Zuordnungen.
 
-Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitglied ein, ohne dass ein Admin erst etwas umstellen muss.
+Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitglied ein, ohne dass jemand mit der Zusatzberechtigung Verwaltung erst etwas umstellen muss.
 
 !!! tip "Etwas wirklich privat halten"
     Trennung verläuft immer an der Gartengrenze, nie innerhalb eines Gartens. Was nur dich etwas angeht, gehört in deinen persönlichen Garten — oder in einen weiteren Garten, den du jederzeit anlegen kannst.
@@ -156,7 +199,7 @@ Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitgl
 
 ### Pinnwand
 
-Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder sein: Mitglieder werden Beiträge veröffentlichen können, Admins werden Beiträge anpinnen und löschen können.
+Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder sein: Mitglieder werden Beiträge veröffentlichen können, die Leitung wird Beiträge anpinnen und löschen können.
 
 !!! example "Typische Pinnwand-Posts (Konzept)"
     - "Schneckenalarm! Bitte Bierfallen aufstellen."
@@ -165,17 +208,17 @@ Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder
 
 ### Gießrotation
 
-Für die Verteilung von Gießpflichten unter Mitgliedern ist eine Rotationsfunktion geplant: Ein Intervall (z. B. wöchentlich) und die beteiligten Mitglieder werden hinterlegbar sein, und das System wird das jeweils zuständige Mitglied erinnern. Mitglieder sollen Dienste untereinander tauschen können, ohne den Admin einzubeziehen.
+Für die Verteilung von Gießpflichten unter Mitgliedern ist eine Rotationsfunktion geplant: Ein Intervall (z. B. wöchentlich) und die beteiligten Mitglieder werden hinterlegbar sein, und das System wird das jeweils zuständige Mitglied erinnern. Mitglieder sollen Dienste untereinander tauschen können, ohne die Leitung einzubeziehen.
 
 ### Gemeinsame Einkaufsliste
 
-Eine gemeinsame Einkaufsliste ist geplant: Alle Gärtner sollen Einträge hinzufügen und abhaken können, Admins sollen Listen archivieren können.
+Eine gemeinsame Einkaufsliste ist geplant: Alle Gärtner sollen Einträge hinzufügen und abhaken können, die Leitung soll Listen archivieren können.
 
 ---
 
 ## Tenant-Einstellungen
 
-Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon).
+Mit der Zusatzberechtigung **Verwaltung** erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon).
 
 ### Wichtige Einstellungen
 
@@ -183,8 +226,18 @@ Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon)
 |-------------|-------------|
 | **Name & Slug** | Anzeigename und URL-Kurzname |
 | **Stammdaten-Zuweisung** | Welche globalen Pflanzenarten sind sichtbar |
-| **Einladungseinstellungen** | Standard-Rolle für neue Mitglieder |
-| **OIDC-Konfiguration** | Auto-Join über externen Identity Provider |
+| **Einladungen** | E-Mail-Einladungen und Einladungslinks (Tab **Einladungen**, siehe [Mitglieder einladen](#mitglieder-einladen)) |
+
+### Kontingente
+
+Im Tab **Kontingente** der Garten-Einstellungen siehst du — als jedes Mitglied, nicht nur mit **Verwaltung** — den Plan deines Gartens und je Kontingent, wie viel davon schon belegt ist: Mitglieder, Speicherplatz, Fotos je Pflanze und die KI-Aufrufe des Tages. Ein Balken zeigt den Verbrauch; ab 80 % wird er orange, an der Grenze rot. Steht „unbegrenzt“ da, gibt es für dieses Kontingent keine Grenze. <!-- REQ-056 AK-45 -->
+
+- Bei den KI-Aufrufen je Konto siehst du immer nur deinen **eigenen** Verbrauch, nie den eines anderen Mitglieds.
+- Dienstkonten und die KI-Tokens des Gartens sieht nur, wer die Rolle **Leitung** hat.
+- Fotos zählt Kamerplanter je Pflanze, nicht für den ganzen Garten — die Karte nennt deshalb nur die Grenze.
+- Den Plan legt der Betreiber deiner Installation fest; du kannst ihn nicht selbst wechseln. Brauchst du mehr, wende dich an ihn.
+
+Ist ein Kontingent erschöpft, sagt dir Kamerplanter beim nächsten Versuch, welches Kontingent erreicht ist — etwa beim Hochladen eines Fotos oder beim Einladen eines Mitglieds.
 
 !!! warning "Slug ändern bricht URLs"
     Wenn du den Slug änderst, ändern sich alle URLs innerhalb des Tenants. Lesezeichen und geteilte Links werden ungültig. Ändere den Slug nur, wenn nötig.
@@ -193,13 +246,16 @@ Als Admin erreichst du alle Einstellungen unter **Einstellungen** (Zahnrad-Icon)
 
 ## Tenant verlassen
 
-Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
+Du kannst einen Tenant verlassen, solange du nicht das einzige Mitglied mit der Zusatzberechtigung **Verwaltung** bist:
 
 1. Navigiere zu **Einstellungen** > **Mitgliedschaft** > **Tenant verlassen**
 2. Bestätigen
 
-!!! warning "Als einziger Admin"
-    Wenn du der einzige Admin bist, musst du vorher entweder ein anderes Mitglied zum Admin befördern oder den Tenant löschen.
+!!! note "Aufgaben und Erinnerungen"
+    Verlässt du einen Tenant — oder entfernt dich jemand mit der Zusatzberechtigung Verwaltung —, bist du dort bei keiner Aufgabe mehr zugewiesen: Die Aufgaben bleiben im Tenant, aber ohne Zuständigen. Die täglichen Pflege-Erinnerungen und die Tageszusammenfassung gehen nur noch an aktive Mitglieder; eine Zusammenfassung enthält immer nur die Aufgaben **eines** Tenants (hast du mehrere, bekommst du je Tenant eine). <!-- Issue #2114, REQ-024 AK-62 -->
+
+!!! warning "Als einziges Mitglied mit Verwaltung"
+    Bist du das einzige Mitglied mit der Zusatzberechtigung Verwaltung, musst du sie vorher entweder an ein anderes Mitglied weitergeben oder den Tenant löschen — Letzteres setzt zusätzlich voraus, dass du dort sowohl die Rolle Leitung als auch die Zusatzberechtigung Verwaltung hast. Details dazu unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md). <!-- Issue #1791 -->
 
 ---
 
@@ -212,10 +268,19 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
     Es gibt keine technische Begrenzung. Du kannst beliebig viele Tenants erstellen und beitreten.
 
 ??? question "Was passiert mit meinen Daten, wenn ich einen Tenant lösche?"
-    Alle Ressourcen des Tenants werden gelöscht. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind davon nicht betroffen.
+    Löschen darf nur ein Mitglied, das im betroffenen Tenant sowohl die Rolle Leitung als auch die Zusatzberechtigung Verwaltung hat — nicht bereits die Verwaltung allein (Details unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md)) —, und zwar nur aus einer angemeldeten Sitzung heraus; ein persönlicher API-Schlüssel genügt dafür nicht. Zur Sicherheit fragt das System dabei zusätzlich den Kurznamen (Slug) des Tenants sowie, sofern das Konto ein lokales Passwort hat, dieses Passwort erneut ab (zusätzlich zum Kurznamen); ein Konto ohne lokales Passwort, das sich über Google oder einen generischen OIDC-Anbieter anmeldet, bestätigt stattdessen mit einer frischen Anmeldung bei diesem Anbieter, ein Konto ausschließlich über GitHub und/oder Apple mit einem per E-Mail zugeschickten Bestätigungscode. Nach fünf falschen Bestätigungen sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden, die Fehlermeldung nennt die verbleibende Zeit; die Anmeldung selbst bleibt davon unberührt. <!-- Issue #1791, #1813, #1814, #1816, #1815 -->
 
-??? question "Sehen Tenant-Admins meine persönlichen Zimmerpflanzen?"
-    Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn ein Admin im Gemeinschaftsgarten mehr Rechte hat, kann er niemals Daten in deinem persönlichen Tenant sehen.
+    Die Löschung wird zuerst nur **geplant**: Der Tenant ist ab sofort für alle Mitglieder gesperrt, und alle Mitglieder erhalten eine E-Mail mit dem Löschdatum — bis dahin können sie ihre eigenen Daten über den Datenexport sichern. Bis zu diesem Datum (standardmäßig 90 Tage) kann ein Mitglied mit Leitung und Verwaltung die Löschung abbrechen, ebenso ein Platform-Admin im Admin-Bereich; danach ist der Tenant wieder in dem Zustand wie vor der Löschung, alle Mitgliedschaften sind unverändert. Hatte der Betreiber den Tenant vorher gesperrt, bleibt er auch nach dem Abbruch gesperrt — du verhinderst mit dem Abbruch also den Datenverlust, die Sperre hebt nur der Betreiber auf. <!-- Issue #2123, REQ-056 §4.3 --> Weil ein vorgemerkter Tenant im Tenant-Selektor fehlt, findest du ihn über den Tenant-Selektor > **Garten-Einstellungen** im Abschnitt **Zur Löschung vorgemerkte Gärten** mit Zustand und Löschdatum; dort steht für Leitung und Verwaltung **Löschung abbrechen** bereit (Bestätigung mit deinem eigenen Passwort, einem E-Mail-Code oder einer erneuten Anmeldung). Ein verwaister Tenant wird dort ebenfalls angezeigt, lässt sich aber nicht zurückholen. <!-- Issue #2166 --> Erst nach Ablauf der Frist werden alle Mitgliedschaften deaktiviert. Anschließend werden die dazu beigetragenen Erkennungsvektoren, der Dateispeicher (Fotos, Anhänge) und sämtliche fachlichen Daten des Tenants gelöscht: Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren, Dünge- und Gießprotokolle und alle weiteren Standort-gebundenen Daten, danach der Tenant-Datensatz selbst. <!-- Issue #1769 -->
+
+    Eine Ausnahme gilt für Ernte- und Behandlungsdokumentation (Erntechargen, Qualitätsbewertungen, Behandlungen, Inspektionen): Diese muss aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden. Diese Datensätze bleiben deshalb erhalten, werden aber pseudonymisiert — Namensangaben von Mitgliedern werden entfernt und ihre Kontenreferenzen durch ein Pseudonym ersetzt.
+
+    Konnte beim Löschen nicht sofort alles vollständig entfernt werden, bleibt der Vorgang vorgemerkt und wird automatisch täglich wiederholt, bis er abgeschlossen ist. Dein persönlicher Tenant und deine Mitgliedschaften in anderen Tenants sind von einer solchen Löschung nicht betroffen.
+
+??? question "Können wir unseren ganzen Garten sichern oder umziehen?"
+    Ja. Ein Mitglied mit Leitung und Verwaltung kann den ganzen Garten als Archiv exportieren — auch noch, während er zur Löschung vorgemerkt ist. Alle Mitglieder mit Verwaltung erhalten dabei eine E-Mail. Das Archiv enthält keine E-Mail-Adressen und keine Zugangsdaten. Einspielen kann es nur ein Plattform-Admin, und zwar immer als neuen Garten; wer dort wieder Mitglied wird, legt der Admin über die E-Mail-Adressen fest. Eine Schaltfläche dafür gibt es in den Garten-Einstellungen noch nicht; den Weg über die API beschreibt [Mandanten exportieren und importieren](../deployment/tenant-export-import.md). <!-- REQ-056 §8 / Issue #2138 -->
+
+??? question "Sieht die Leitung eines Gemeinschaftsgartens meine persönlichen Zimmerpflanzen?"
+    Nein. Dein persönlicher Tenant ist vollständig von allen anderen Tenants isoliert. Selbst wenn jemand im Gemeinschaftsgarten Leitung ist oder Zusatzberechtigungen hat, kann er niemals Daten in deinem persönlichen Tenant sehen.
 
 ---
 

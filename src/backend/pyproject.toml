@@ -46,6 +46,12 @@ dependencies = [
     # initialised and the process is unchanged. The [fastapi] extra pulls the
     # Starlette/FastAPI integration that installs the global exception handler.
     "sentry-sdk[fastapi]>=2.20.0,<3.0.0",
+    # #2129 (MT-033) — Prometheus exposition for the NFR-007 SLOs. The official
+    # client only (Apache-2.0 + a bundled BSD-2-Clause `decorator`, no transitive
+    # dependencies); the HTTP histogram is recorded by our own ASGI middleware
+    # (app/observability/metrics.py) so the label set — route pattern, never the
+    # raw path, never a tenant — is ours.
+    "prometheus-client>=0.21.0,<1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -73,6 +79,13 @@ dev = [
     # `uv sync --locked --extra dev` that CI, `task deps:sync` and the dev image
     # already run installs it, with no second selector to keep in step.
     "debugpy>=1.8.0,<2.0.0",
+    # `tests/unit/guards/test_pre_commit_dependency_bounds.py` parses PEP 440
+    # requirement specifiers with it (#1572). It was already in the lock, but
+    # only TRANSITIVELY through pytest — an undeclared import whose presence is a
+    # property of somebody else's dependency tree. A pytest that stopped
+    # depending on it would break a guard that has nothing to do with pytest.
+    # Declared here so the tree that imports it is the tree that asks for it.
+    "packaging>=24.0,<27.0",
 ]
 
 [tool.ruff]
@@ -99,6 +112,18 @@ markers = [
     # mandatory reason: `grep -rn allow_db_connection tests/` then counts every
     # exception, which a per-test patch never did.
     "allow_db_connection(reason): this test may open a real datastore connection",
+    # #1683 — a guard whose instrument does not run in CI yet. The required
+    # `Write-route and tree guards` lane (backend-guards.yml) deselects it with
+    # `-m 'not advisory'`; `pytest tests/unit/` (task test:backend:unit, the
+    # advisory backend.yml lanes) still runs it. Removing the marker from a file
+    # is how #1683 promotes it. `grep -rn "mark.advisory" tests/` lists them.
+    "advisory: runs in the unit tier but is deselected by the required guards lane until #1683",
+    # #1794 — the rules that hold the committed .github/lane-inputs/ manifests against
+    # the live workflows. A pull request cannot turn them green without a CI
+    # recording, so no pull-request lane runs them: tests/conftest.py deselects them
+    # unless `--lane-inputs-drift` is given, which only lane-inputs.yml (weekly and
+    # on dispatch, on develop) passes.
+    "lane_inputs_drift: needs a lane-inputs recording; runs only with --lane-inputs-drift (lane-inputs.yml)",
 ]
 
 [tool.black]
@@ -123,7 +148,7 @@ target-version = ["py314"]
 # five pyproject files, five Dockerfiles, seven workflow steps — into one
 # `uv toolchain` pull request. Contributors: `uv self update`, or run the
 # Taskfile targets through `uvx --from 'uv==<this version>' uv …`.
-required-version = "==0.12.15"
+required-version = "==0.13.0"
 # Two runtime dependencies ship as sdists only (aquacropeto, http-ece via
 # pywebpush), so `uv sync` builds them. Without this their `[build-system]`
 # requires would be fetched unpinned at every image build — the floating input

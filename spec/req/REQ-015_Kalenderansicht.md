@@ -7,7 +7,7 @@ Kategorie: Visualisierung & Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, React (FullCalendar), iCalendar (RFC 5545)
 Status: Entwurf
-Version: 1.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 1.9 (öffentlicher Abruf `feed.ics` wieder eingebunden: einheitliche 404-Antwort, Rate-Limit `RATE_LIMIT_CALENDAR_FEED`, `Cache-Control: no-store`, Abo-URL aus der Routenvorlage, Feld `ical_url` mit `https://`; Security-Review: Feed nur solange sein Eigentümer aktives Mitglied mit aktivem Konto ist, Feeds enden mit der Mitgliedschaft, Leitungsliste `?scope=all`, RFC-5545-Escaping mit Zeilenfaltung, ungenutzter Standortfilter `site_key` entfernt, Abo-URL aus `APP_BASE_URL`, Ereignis-Obergrenze und Rate-Limit je Token; Re-Review: Einzelabruf `GET …/feeds/{key}` nur eigener Feed oder Leitung, Filter-Update ersetzt statt mischt, Unicode-Zeilenumbrüche NEL/LS/PS im Escaping, `APP_BASE_URL` ohne `http(s)://` warnt beim Start, Abo-URL ergänzt das Schema; #2226)
 ```
 
 ## 1. Business Case
@@ -89,12 +89,12 @@ calendar_feeds:
 | # | Regel | Stufe |
 |---|-------|-------|
 | CF-001 | Feed-Token MUSS als SHA-256-Hash gespeichert werden (analog zu API-Keys in REQ-023). Der Klartext-Token wird nur bei Erstellung einmalig angezeigt. | MUSS |
-| CF-002 | Jeder Feed MUSS an genau einen User und einen Tenant gebunden sein. Der Feed-Endpunkt liefert ausschließlich Events dieses Tenants. | MUSS |
+| CF-002 | Jeder Feed MUSS an genau einen User und einen Tenant gebunden sein. Der Feed-Endpunkt liefert ausschließlich Events dieses Tenants. Einzelabruf (`GET …/feeds/{key}`, Re-Review v1.9), Ändern, Token-Rotation und Löschen eines Feeds stehen nur seinem User und der Leitung des Tenants zu; für jedes andere Mitglied antwortet ein fremder Feed wie ein unbekannter (`404`). Ein `PUT` schreibt nur Name, Filter und Aktiv-Status — den Token-Hash setzt allein die Rotation. Ein Feed liest mit der Stellung seines Users (v1.9, #2226): Der Abruf liefert nur, solange das Konto des Users aktiv ist, er aktives Mitglied des Feed-Tenants ist und der Tenant aktiv ist — sonst dieselbe `404` wie für einen unbekannten Feed; ein Feed ohne User liefert nie. Endet die Mitgliedschaft (Entfernen, Austritt, Entfernen durch Plattform-Admin, Entfernen eines Service-Accounts), werden die Feeds des Users in diesem Tenant gelöscht. | MUSS |
 | CF-003 | Feed-Token MÜSSEN über die Feed-Verwaltung (UI) revozierbar sein (`is_active = false`). | MUSS |
-| CF-004 | Feed-Endpunkte MÜSSEN dem Rate-Limiting-Tier "Anonym" (30 req/min pro IP, NFR-001 §6.3) unterliegen. | MUSS |
+| CF-004 | Feed-Endpunkte MÜSSEN dem Rate-Limiting-Tier "Anonym" (30 req/min pro IP, NFR-001 §6.3) unterliegen. Zusätzlich gilt ein Budget je vorgelegtem Token (`RATE_LIMIT_CALENDAR_FEED_PER_TOKEN`, Standard `60/hour`, v1.9), damit eine geleakte URL auch von vielen Adressen aus begrenzt bleibt. | MUSS |
 | CF-005 | Feeds SOLLEN ein optionales Ablaufdatum (`expires_at`) unterstützen. Abgelaufene Feeds liefern HTTP 410 Gone. | SOLL |
 | CF-006 | Feed-Inhalte DÜRFEN KEINE personenbezogenen Daten enthalten (keine Nutzernamen, E-Mails). Event-Titel und Beschreibungen verwenden nur Sachdaten (Pflanzenname, Aufgabentyp). | MUSS |
-| CF-007 <!-- W-017 --> | **Light-Modus (REQ-027):** Token-basierte iCal-Auth ist KEINE JWT-Auth — der Feed-Endpunkt ist auch im Light-Modus erreichbar, weil er ein eigenes Token-Schema mit URL-basierter Capability nutzt (kein User-Login). Das Token wird beim Light-Modus-Seed (REQ-027 §6.1) für den System-User automatisch erzeugt; die UI zeigt es in den Account-Settings → Integrationen-Sektion. Externe Kalender-Apps (Google Calendar, Apple Kalender) abonnieren den Feed über die Token-URL identisch in beiden Modi. | MUSS |
+| CF-007 <!-- W-017 --> | **Light-Modus (REQ-027):** Token-basierte iCal-Auth ist KEINE JWT-Auth — der Feed-Endpunkt ist auch im Light-Modus erreichbar, weil er ein eigenes Token-Schema mit URL-basierter Capability nutzt (kein User-Login). Feeds legt der System-User im Light-Modus wie im Full-Modus über die Feed-Verwaltung an; die Abo-URL zeigt die UI nach CF-001 nur einmal, bei Erstellung oder Rotation (ein beim Seed erzeugter Token könnte niemandem angezeigt werden). Externe Kalender-Apps (Google Calendar, Apple Kalender) abonnieren den Feed über die Token-URL identisch in beiden Modi. | MUSS |
 
 ### AQL — Multi-Source-Aggregation:
 
@@ -230,13 +230,16 @@ FOR we IN watering_events
   }
 ```
 
-**Feed-Lookup via Token:**
+**Feed-Lookup via Token-Hash (CF-001):** Der Server hasht den Token aus der Abo-URL (SHA-256, dieselbe Funktion wie für Refresh-, Einladungs-, Reset- und Verifikations-Token) und sucht den Hash. Der Klartext-Token wird nie gespeichert.
 
 ```aql
 FOR feed IN calendar_feeds
-  FILTER feed.token == @token
+  FILTER feed.token_hash == @token_hash
+  LIMIT 1
   RETURN feed
 ```
+
+**Bestandsdaten (v1.8):** Feeds, die vor der Umsetzung von CF-001 mit Klartext-`token` gespeichert wurden, überführt eine Migration in `token_hash` (Hash des gespeicherten Werts) und entfernt das Klartext-Attribut sowie den alten eindeutigen Index auf `token`. Bereits verteilte Abo-URLs bleiben dadurch gültig; anzeigen kann der Server sie nicht mehr — eine verlorene URL ersetzt die Rotation (`regenerate-token`).
 
 ## 3. Technische Umsetzung (Python)
 
@@ -318,7 +321,17 @@ class CalendarEvent(BaseModel):
 
 
 class CalendarFeedFilters(BaseModel):
-    """Persistierte Filter-Konfiguration für einen Feed."""
+    """Persistierte Filter-Konfiguration für einen Feed.
+
+    Umsetzungsstand (v1.9, #2226): umgesetzt ist nur `categories`. Ein Filter, der
+    gespeichert wird, MUSS in den Ereignis-Abfragen angewendet werden — der früher
+    gespeicherte, aber nie angewendete `site_key` wurde deshalb entfernt (ein
+    "nur Standort X"-Feed lieferte den ganzen Tenant). Ein bei Altdaten noch
+    gespeicherter `filters.site_key` fällt beim nächsten Ändern des Feeds weg: das
+    Update ersetzt das Filterobjekt, statt es mit dem gespeicherten zu mischen.
+    Die übrigen Filter unten
+    sind Zielbild und werden erst mit ihrer Anwendung in den Quellen eingeführt.
+    """
     categories: list[CalendarEventCategory] = Field(default_factory=list)
     location_ids: list[str] = Field(default_factory=list)
     plant_ids: list[str] = Field(default_factory=list)
@@ -330,7 +343,7 @@ class CalendarFeed(BaseModel):
     """Persistierter iCal-Feed mit Token-basiertem Zugang."""
     key: Optional[str] = Field(None, alias="_key")
     name: str
-    token: str
+    token_hash: str  # SHA-256 des Tokens (CF-001); der Klartext wird nie persistiert
     filters: CalendarFeedFilters = Field(default_factory=CalendarFeedFilters)
     include_timeline: bool = False
     alarm_enabled: bool = True
@@ -770,6 +783,8 @@ class ICalGenerator:
         )
 ```
 
+**Umsetzung (v1.9, #2226):** Titel und Beschreibungen sind nutzergeschrieben. Das Escaping normalisiert CRLF, CR, LF sowie die Unicode-Umbrüche NEL (U+0085), LINE SEPARATOR (U+2028) und PARAGRAPH SEPARATOR (U+2029) zu einem escapten `\n` (ein nacktes CR beendete in vielen Parsern die Eigenschaft — `x\rATTACH:…` hätte jedem Abonnenten einen Anhang untergeschoben), entfernt alle übrigen Steuerzeichen außer HTAB, und auch Nicht-TEXT-Werte (UID, Farbe, Status) verlieren Steuerzeichen und alle Zeilenumbrüche. Jede Inhaltszeile wird nach RFC 5545 §3.1 auf höchstens 75 Oktette gefaltet (Fortsetzung mit einem Leerzeichen, nie innerhalb einer UTF-8-Sequenz).
+
 ### 3.5 CalendarService
 
 ```python
@@ -815,19 +830,20 @@ class CalendarService:
 
     # --- Feed CRUD ---
 
-    def create_feed(self, dto: CalendarFeedCreate) -> CalendarFeed:
-        """Erstellt einen neuen iCal-Feed mit generiertem Token."""
+    def create_feed(self, dto: CalendarFeedCreate) -> tuple[CalendarFeed, str]:
+        """Erstellt einen neuen iCal-Feed; gibt den Klartext-Token einmalig mit zurück (CF-001)."""
         now = datetime.utcnow()
+        raw_token = secrets.token_urlsafe(32)
         feed = CalendarFeed(
             name=dto.name,
-            token=secrets.token_hex(16),
+            token_hash=hash_token(raw_token),
             filters=dto.filters,
             include_timeline=dto.include_timeline,
             alarm_enabled=dto.alarm_enabled,
             created_at=now,
             updated_at=now,
         )
-        return self._feeds.create(feed)
+        return self._feeds.create(feed), raw_token
 
     def get_feed(self, feed_id: str) -> CalendarFeed:
         return self._feeds.get_by_id(feed_id)
@@ -848,12 +864,13 @@ class CalendarService:
     def delete_feed(self, feed_id: str) -> None:
         self._feeds.delete(feed_id)
 
-    def regenerate_token(self, feed_id: str) -> CalendarFeed:
-        """Generiert einen neuen Token für einen bestehenden Feed."""
+    def regenerate_token(self, feed_id: str) -> tuple[CalendarFeed, str]:
+        """Generiert einen neuen Token; der Klartext geht einmalig an den Aufrufer (CF-001)."""
         feed = self._feeds.get_by_id(feed_id)
-        feed.token = secrets.token_hex(16)
+        raw_token = secrets.token_urlsafe(32)
+        feed.token_hash = hash_token(raw_token)
         feed.updated_at = datetime.utcnow()
-        return self._feeds.update(feed)
+        return self._feeds.update(feed), raw_token
 
     # --- iCal-Export ---
 
@@ -863,7 +880,7 @@ class CalendarService:
         Aktualisiert last_accessed_at für Monitoring.
         Standard-Zeitraum: heute ± 90 Tage.
         """
-        feed = self._feeds.get_by_token(token)
+        feed = self._feeds.get_by_token_hash(hash_token(token))
         feed.last_accessed_at = datetime.utcnow()
         self._feeds.update(feed)
 
@@ -918,7 +935,7 @@ class ICalendarFeedRepository(ABC):
     def get_by_id(self, feed_id: str) -> CalendarFeed: ...
 
     @abstractmethod
-    def get_by_token(self, token: str) -> CalendarFeed: ...
+    def get_by_token_hash(self, token_hash: str) -> CalendarFeed: ...
 
     @abstractmethod
     def list_all(self) -> list[CalendarFeed]: ...
@@ -1590,7 +1607,19 @@ class SeasonOverviewEngine:
 |-----------|-----|---------|-------------|
 | `token` | `str` | ✅ | Authentifizierungs-Token des Feeds |
 
-**Response:** `200 OK` (Content-Type: `text/calendar; charset=utf-8`)
+**Antwortverhalten (v1.9, #2226):**
+
+- `200 OK` mit `Content-Type: text/calendar; charset=utf-8` und `Cache-Control: no-store` — nur für einen **aktiven** Feed, dessen Token-Hash zum übergebenen Token passt und dessen Schlüssel dem Pfad entspricht. Die Ereignisse stammen ausschließlich aus dem Tenant des Feeds (CF-002).
+- `404` — einheitlich (gleicher `error_code`, gleiche Meldungsform) für fehlenden oder leeren Token, unbekannten oder rotierten Token, den Token eines anderen Feeds, einen unbekannten Feed-Schlüssel und einen deaktivierten Feed. Die Antwort verrät weder, ob ein Feed-Schlüssel existiert, noch ob ein Token je gültig war.
+- `410 Gone` — Feed nach `expires_at` (CF-005); erreichbar nur mit dem gültigen Token dieses Feeds.
+- `422` — Token länger als 256 Zeichen oder Feed-Schlüssel länger als 254 Zeichen (Eingabegrenze, vor jedem Lookup).
+- `429` — mehr als `RATE_LIMIT_CALENDAR_FEED` (Standard `30/minute`, CF-004) Abrufe je Client-IP; abgewiesene Abrufe zählen mit, und weder Schlüssel noch Token öffnen ein eigenes Budget.
+- Token und Feed-Schlüssel erscheinen in keiner Log-Zeile: Das Zugriffslog des Backends schreibt `/api/v1/calendar/feeds/{}/feed.ics?<redacted>`, das nginx-Log des Frontends nur `/api/...`. Ein vorgelagerter Ingress (Traefik o. ä.) protokolliert die volle URL samt Token jedoch, wenn sein Access-Log aktiv ist — Betreiberhinweis in der Doku.
+- `404` auch, wenn der Eigentümer des Feeds nicht mehr aktives Mitglied des Feed-Tenants ist, sein Konto deaktiviert oder gelöscht ist, der Tenant deaktiviert ist oder der Feed keinen Eigentümer hat (CF-002, Security-Review). Ein abgelaufener Feed eines solchen Eigentümers antwortet ebenfalls `404`, nicht `410`.
+- `429` auch nach `RATE_LIMIT_CALENDAR_FEED_PER_TOKEN` (Standard `60/hour`) Abrufen mit demselben Token, gleich von welcher Adresse; der Bucket ist über einen Digest des Tokens geschlüsselt, ohne das Token kann niemand das Budget eines Abonnenten verbrauchen.
+- Zeitfenster fest: 30 Tage zurück bis 90 Tage voraus (UTC). Höchstens 2000 Ereignisse je Antwort; darüber bleiben die dem heutigen Tag nächsten erhalten, der Schnitt wird ohne Tenant- und Feed-Schlüssel geloggt.
+
+**Response-Beispiel:** `200 OK` (Content-Type: `text/calendar; charset=utf-8`)
 ```
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -1621,9 +1650,9 @@ END:VEVENT
 END:VCALENDAR
 ```
 
-**webcal:// URL für Kalender-Abonnement:**
+**Abo-URL für Kalender-Abonnement:** Die API gibt sie als `ical_url` auf Basis von `APP_BASE_URL` aus, nie aus dem `Host`-Header der Anfrage (Security-Review, v1.9); ein `http://`-Wert wird zu `https://` angehoben, außer für `localhost`, `127.0.0.1` und `::1` (Entwicklung). Ein `APP_BASE_URL` ohne `http://`- oder `https://`-Schema oder ohne Host bricht den Start nicht ab (Re-Review v1.9): Das Backend protokolliert eine Warnung ohne den Wert, und die Abo-URL ergänzt `https://` (Loopback: `http://`), statt eine relative URL auszugeben; sie wird aus der Pfadvorlage des Abruf-Endpunkts gebaut, damit ausgegebene URL und Route nicht auseinanderlaufen (#2226). Kalender-Apps, die `webcal://` erwarten, akzeptieren dieselbe URL mit ersetztem Schema.
 ```
-webcal://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}
+https://kamerplanter.local/api/v1/calendar/feeds/{feed_id}/feed.ics?token={token}
 ```
 
 **Einrichtung in externen Kalender-Apps:**
@@ -1685,11 +1714,11 @@ mode: single
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | `POST` | `/api/v1/calendar/feeds` | Neuen Feed erstellen | Ab Gärtner |
-| `GET` | `/api/v1/calendar/feeds` | Alle Feeds auflisten | Alle Rollen |
-| `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen | Alle Rollen |
-| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Ab Gärtner |
+| `GET` | `/api/v1/calendar/feeds` | Eigene Feeds auflisten; mit `?scope=all` alle Feeds des Tenants (v1.9) | Alle Rollen; `scope=all` nur Leitung (sonst `403`) |
+| `GET` | `/api/v1/calendar/feeds/{feed_id}` | Feed-Details abrufen | Alle Rollen, eigener Feed (Leitung: jeder); fremder Feed `404` (v1.9) |
+| `PUT` | `/api/v1/calendar/feeds/{feed_id}` | Feed aktualisieren | Ab Gärtner, eigener Feed (Leitung: jeder) |
 | `DELETE` | `/api/v1/calendar/feeds/{feed_id}` | Feed löschen | Nur Leitung |
-| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Ab Gärtner |
+| `POST` | `/api/v1/calendar/feeds/{feed_id}/regenerate-token` | Token erneuern | Ab Gärtner, eigener Feed (Leitung: jeder) |
 
 **POST /api/v1/calendar/feeds — Request:**
 ```json
@@ -1723,16 +1752,18 @@ mode: single
   "created_at": "2026-02-26T14:00:00",
   "updated_at": "2026-02-26T14:00:00",
   "last_accessed_at": null,
-  "webcal_url": "webcal://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+  "ical_url": "https://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
 }
 ```
+
+`token` und `ical_url` stehen **nur** in dieser Antwort und in der Antwort von `regenerate-token` (CF-001). `GET /api/v1/calendar/feeds`, `GET …/feeds/{feed_id}` und `PUT …/feeds/{feed_id}` liefern weder Token noch Token-Hash noch Abo-URL; die UI zeigt die URL deshalb einmalig in einem Dialog und bietet für bestehende Feeds nur die Rotation an.
 
 **POST /api/v1/calendar/feeds/{feed_id}/regenerate-token — Response:** `200 OK`
 ```json
 {
   "_key": "feed_abc123",
   "token": "new_token_here_replacing_old_one",
-  "webcal_url": "webcal://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=new_token_here_replacing_old_one"
+  "ical_url": "https://kamerplanter.local/api/v1/calendar/feeds/feed_abc123/feed.ics?token=new_token_here_replacing_old_one"
 }
 ```
 
@@ -1899,7 +1930,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 |-----------|-------|---------|--------|---------|----------------|
 | Kalender-Events | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
 | iCal-Feed (`feed.ics`) | **Ohne Anmeldung, per Feed-Token** | — | — | — | Abruf zusätzlich per Feed-Token **ohne Anmeldung** — Token ersetzt die Rolle nicht, er adressiert einen Feed |
-| Feed-Verwaltung | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | — |
+| Feed-Verwaltung | Alle Rollen, eigener Feed (Leitung: jeder) | Ab Gärtner | Ab Gärtner, eigener Feed (Leitung: jeder) | Nur Leitung | Token erneuern: wie Ändern |
 | Aussaatkalender | Alle Rollen | — | — | — | — |
 | Saisonübersicht | Alle Rollen | — | — | — | — |
 

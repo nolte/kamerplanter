@@ -222,10 +222,11 @@ class TestGetSpeciesForSequence:
             [{"key": "sp1", "scientific_name": "Solanum lycopersicum", "common_names": ["Tomate"]}]
         )
 
-        result = repo.get_species_for_sequence("s1")
+        result = repo.get_species_for_sequence("s1", tenant_key="t1")
 
         assert result == [{"key": "sp1", "scientific_name": "Solanum lycopersicum", "common_names": ["Tomate"]}]
-        assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {"seq_id": "phase_sequences/s1"}
+        # The caller's tenant is bound, never interpolated, next to the sequence (#2102).
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {"seq_id": "phase_sequences/s1", "tenant_key": "t1"}
 
 
 class TestGetAllSequences:

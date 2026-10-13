@@ -10,8 +10,7 @@ Pure-logic + In-Memory-PIL; geteilte Infrastruktur mit REQ-038 (§0).
 
 import io
 
-from PIL import Image
-
+from app.common.image_bounds import open_bounded_image
 from app.domain.interfaces.pest_detection_adapter import PestFinding
 
 # §4.3 / Prep §6 — Tag-1-Default. Die finale, klassenweise Schwelle kommt aus
@@ -33,6 +32,7 @@ class ImageTiler:
 
         Raises:
             ValueError: when the bytes cannot be decoded as an image.
+            ImagePixelLimitError: above the 40 MPx decode ceiling (#2108).
         """
         if not 0.0 <= overlap < 1.0:
             raise ValueError("overlap must be in [0, 1).")
@@ -40,7 +40,7 @@ class ImageTiler:
             raise ValueError("tile size must be positive.")
 
         try:
-            with Image.open(io.BytesIO(image)) as img:
+            with open_bounded_image(image) as img:
                 rgb = img.convert("RGB")
                 width, height = rgb.size
                 step = max(1, int(tile * (1.0 - overlap)))

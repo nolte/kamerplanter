@@ -30,10 +30,25 @@ def mock_task_repo() -> MagicMock:
     return MagicMock()
 
 
+_TENANT = "tenant-1"
+
+
 @pytest.fixture
 def mock_plant_repo() -> MagicMock:
+    """A plant of ``_TENANT`` with no display name, so the label falls back to its key.
+
+    The care service verifies every plant against the caller's tenant (#2107); an
+    unknown plant (``get_by_key`` → ``None``) now gets no task at all.
+    """
+    plant = MagicMock()
+    plant.key = "plant-1"
+    plant.tenant_key = _TENANT
+    plant.plant_name = None
+    plant.instance_id = None
+    plant.current_phase_key = None
+    plant.slot_key = None
     repo = MagicMock()
-    repo.get_by_key.return_value = None
+    repo.get_by_key.return_value = plant
     return repo
 
 
@@ -106,7 +121,7 @@ def test_creates_task_when_no_pending_exists(
         status=TaskStatus.PENDING,
     )
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is not None
     mock_task_repo.create_task.assert_called_once()
@@ -131,7 +146,7 @@ def test_skips_when_pending_task_exists(
     profile = _profile()
     mock_task_repo.find_open_care_task.return_value = _watering_task(TaskStatus.PENDING)
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is None
     mock_task_repo.create_task.assert_not_called()
@@ -154,7 +169,7 @@ def test_skips_when_task_completed_today_exists(
     completed_today = datetime.combine(today_utc(), time(12, 0), tzinfo=UTC)
     mock_task_repo.find_open_care_task.return_value = _watering_task(TaskStatus.COMPLETED, completed_at=completed_today)
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is None
     mock_task_repo.create_task.assert_not_called()
@@ -181,7 +196,7 @@ def test_creates_task_when_prior_task_completed_yesterday(
     )
     mock_task_repo.create_task.return_value = _watering_task(TaskStatus.PENDING)
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is not None
     mock_task_repo.create_task.assert_called_once()
@@ -217,7 +232,7 @@ def test_scopes_dedup_lookup_by_plant_tenant(
     )
     mock_task_repo.create_task.return_value = _watering_task(TaskStatus.PENDING)
 
-    service.ensure_next_watering_task(profile)
+    service.ensure_next_watering_task(profile, tenant_key="tenant-A")
 
     args, kwargs = mock_task_repo.find_open_care_task.call_args
     assert args[0] == "plant-1"
@@ -249,7 +264,7 @@ def test_creates_task_regardless_of_auto_create_flag(
         status=TaskStatus.PENDING,
     )
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is not None
     mock_task_repo.create_task.assert_called_once()
@@ -262,7 +277,7 @@ def test_skips_when_no_task_repo(
     service = CareReminderService(mock_care_repo, engine, task_repo=None)
     profile = _profile()
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is None
 
@@ -290,7 +305,7 @@ def test_due_date_calculated_from_last_confirmation(
         status=TaskStatus.PENDING,
     )
 
-    service.ensure_next_watering_task(profile, last_confirmation=last)
+    service.ensure_next_watering_task(profile, last_confirmation=last, tenant_key=_TENANT)
 
     created = mock_task_repo.create_task.call_args[0][0]
     # 7 days after March 5 = March 12
@@ -336,7 +351,7 @@ def test_fixed_interval_next_due_routes_through_recurrence_engine(
     mock_task_repo.find_open_care_task.return_value = None
     mock_task_repo.create_task.side_effect = lambda task: task
 
-    result = service.ensure_next_watering_task(profile, last_confirmation=last)
+    result = service.ensure_next_watering_task(profile, last_confirmation=last, tenant_key=_TENANT)
 
     # The shared recurrence engine was consulted with a fixed-interval RRULE...
     spy.assert_called_once()
@@ -366,7 +381,7 @@ def test_snoozed_last_confirmation_keeps_engine_interval_authority(
     mock_task_repo.find_open_care_task.return_value = None
     mock_task_repo.create_task.side_effect = lambda task: task
 
-    result = service.ensure_next_watering_task(profile, last_confirmation=snoozed)
+    result = service.ensure_next_watering_task(profile, last_confirmation=snoozed, tenant_key=_TENANT)
 
     assert result is not None
     # 3-day snooze after March 5 = March 8 (interval is ignored while snoozed).
@@ -399,7 +414,7 @@ def test_confirm_triggers_next_task_creation(
         status=TaskStatus.PENDING,
     )
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=_TENANT)
 
     mock_task_repo.create_task.assert_called_once()
 
@@ -447,7 +462,7 @@ def test_confirm_with_open_task_completes_it_and_schedules_follow_up(
 
     service = CareReminderService(mock_care_repo, engine, task_repo, plant_repo=plant_repo)
 
-    service.confirm_reminder("plant-1", ReminderType.WATERING)
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key=_TENANT)
 
     completed = task_repo.completed_care_tasks(ReminderType.WATERING)
     pending = task_repo.open_care_tasks(ReminderType.WATERING)
@@ -475,7 +490,7 @@ def test_confirm_non_watering_does_not_trigger_task(
     mock_care_repo.get_confirmations_by_plant.return_value = []
     mock_task_repo.find_open_care_task.return_value = None
 
-    service.confirm_reminder("plant-1", ReminderType.FERTILIZING)
+    service.confirm_reminder("plant-1", ReminderType.FERTILIZING, tenant_key=_TENANT)
 
     mock_task_repo.create_task.assert_not_called()
 
@@ -513,9 +528,38 @@ def test_resolves_plant_name_for_task_display(
         status=TaskStatus.PENDING,
     )
 
-    result = service.ensure_next_watering_task(profile)
+    result = service.ensure_next_watering_task(profile, tenant_key=_TENANT)
 
     assert result is not None
     created = mock_task_repo.create_task.call_args[0][0]
     assert created.name == "Monstera \u2014 watering"
     assert "Water Monstera" in created.instruction
+
+
+@pytest.mark.parametrize("plant_tenant", ["tenant-B", ""])
+def test_a_plant_of_another_tenant_gets_no_task(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+    mock_task_repo: MagicMock,
+    mock_plant_repo: MagicMock,
+    plant_tenant: str,
+) -> None:
+    """#2107 — the tenant predicate runs in the service: a foreign plant gets no task.
+
+    Red without it: the old code resolved the tenant from the plant itself, so a
+    caller naming any plant had a task stamped into that plant's tenant.
+    """
+    mock_plant_repo.get_by_key.return_value.tenant_key = plant_tenant
+    mock_task_repo.find_open_care_task.return_value = None
+    mock_task_repo.create_task.side_effect = lambda task: task
+    service = CareReminderService(mock_care_repo, engine, mock_task_repo, plant_repo=mock_plant_repo)
+
+    assert service.ensure_next_watering_task(_profile(), tenant_key=_TENANT) is None
+    mock_task_repo.create_task.assert_not_called()
+
+
+def test_an_empty_tenant_owns_no_plant(service: CareReminderService, mock_task_repo: MagicMock) -> None:
+    """``""`` means "no tenant", never "every tenant" — the predicate fails closed (#2107)."""
+    mock_task_repo.find_open_care_task.return_value = None
+    assert service.ensure_next_watering_task(_profile(), tenant_key="") is None
+    mock_task_repo.create_task.assert_not_called()

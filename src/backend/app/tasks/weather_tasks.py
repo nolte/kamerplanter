@@ -10,6 +10,7 @@ observed). Guarded by the ``weather_enabled`` kill-switch.
 import structlog
 
 from app.common.async_bridge import run_async
+from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -26,23 +27,30 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         _effective_weather_settings,
         get_encryption_engine,
         get_ha_client,
+        get_ha_entity_grant_service,
         get_site_repo,
+        get_tenant_repo,
         get_weather_forecast_repo,
         get_weather_source_config_repo,
     )
     from app.data_access.arango.collections import WEATHER_SOURCE_CONFIGS
     from app.domain.models.weather import WeatherSourceConfig
     from app.domain.services.weather_source_resolver import WeatherSourceResolver
+    from app.tasks.tenant_gate import ActiveTenants
 
     config_repo = get_weather_source_config_repo()
     forecast_repo = get_weather_forecast_repo()
     site_repo = get_site_repo()
+    # REQ-056 §5.2 — a tenant that is not ``active`` gets no weather: no provider call, no write.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
     # Inject the DB-backed effective provider config so the fetch honours the
     # central admin overrides (base URL, timeout, enable flags, global OWM key).
     resolver = WeatherSourceResolver(
         get_encryption_engine(),
         get_ha_client,
         weather_settings_provider=_effective_weather_settings,
+        # MT-015 (#2112): one read of every tenant's grants for the whole run.
+        ha_entity_gate=get_ha_entity_grant_service().snapshot(),
     )
 
     db = config_repo._db  # noqa: SLF001 — direct AQL for cross-tenant iteration
@@ -68,15 +76,18 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
             logger.warning(
                 "weather_fetch_tenant_mismatch",
                 site_key=config.site_key,
-                config_tenant=config.tenant_key,
-                site_tenant=site.tenant_key,
+                config_tenant=log_tenant(config.tenant_key),
+                site_tenant=log_tenant(site.tenant_key),
             )
+            skipped += 1
+            continue
+        if not tenant_is_active(site.tenant_key):
             skipped += 1
             continue
         try:
             forecasts = run_async(resolver.resolve_daily(site, config))
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
-            logger.warning("weather_fetch_site_failed", site_key=config.site_key, error=str(exc))
+            logger.warning("weather_fetch_site_failed", site_key=config.site_key, error=loggable_error(exc))
             errors.append({"site_key": config.site_key, "error": str(exc)})
             continue
 

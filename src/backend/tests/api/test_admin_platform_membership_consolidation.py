@@ -38,6 +38,7 @@ from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
+from tests.support.step_up import PassedStepUpVerifier
 
 # ── In-memory repository doubles (real models, real service logic) ────────────
 
@@ -49,8 +50,10 @@ class InMemoryTenantRepo:
     def get_by_key(self, key: str) -> Tenant | None:
         return self._store.get(key)
 
-    def list_all(self) -> list[Tenant]:
-        return sorted(self._store.values(), key=lambda t: t.created_at or "", reverse=True)
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
+        # Newest first with the key breaking ties, and the window, as the repository does (MT-035).
+        rows = sorted(self._store.values(), key=lambda t: (t.created_at or "", t.key or ""), reverse=True)
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def count(self, *, active_only: bool = False) -> int:
         values = self._store.values()
@@ -71,8 +74,10 @@ class InMemoryUserRepo:
             raise NotFoundError("User", key)
         return user
 
-    def list_all(self) -> list[User]:
-        return sorted(self._store.values(), key=lambda u: u.created_at or "", reverse=True)
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
+        # Newest first with the key breaking ties, and the window, as the repository does (MT-035).
+        rows = sorted(self._store.values(), key=lambda u: (u.created_at or "", u.key or ""), reverse=True)
+        return rows if limit is None else rows[offset or 0 : (offset or 0) + limit]
 
     def count(self, *, active_only: bool = False) -> int:
         values = self._store.values()
@@ -116,6 +121,9 @@ class InMemoryMembershipRepo:
         self.edges.append(("membership_in", f"memberships/{key}", f"tenants/{created.tenant_key}"))
         return created
 
+    def count_active_members(self, *, tenant_key: str) -> int:
+        return sum(1 for m in self._store.values() if m.tenant_key == tenant_key and m.is_active)
+
     def update_fields(self, key: str, fields: dict[str, Any]) -> Membership | None:
         existing = self._store.get(key)
         if existing is None:
@@ -134,7 +142,9 @@ class InMemoryMembershipRepo:
         del self._store[key]
         return True
 
-    def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[MemberInfo]:
         infos = []
         for m in self._store.values():
             if m.tenant_key != tenant_key:
@@ -152,6 +162,8 @@ class InMemoryMembershipRepo:
                     joined_at=m.joined_at,
                 )
             )
+        if offset is not None and limit is not None:
+            return infos[offset : offset + limit]
         return infos
 
     def list_by_user_with_tenant(self, user_key: str) -> list[UserMembershipInfo]:
@@ -178,12 +190,6 @@ class InMemoryMembershipRepo:
     def count(self) -> int:
         return len(self._store)
 
-    def delete_all_for_user(self, user_key: str) -> int:
-        keys = [k for k, m in self._store.items() if m.user_key == user_key]
-        for k in keys:
-            self.delete(k)
-        return len(keys)
-
 
 def _tenant(key: str, name: str, slug: str, *, is_active: bool = True, is_platform: bool = False) -> Tenant:
     return Tenant(
@@ -207,7 +213,7 @@ def _user(key: str, name: str, email: str, *, is_active: bool = True) -> User:
         password_hash="hash",
         email_verified=True,
         is_active=is_active,
-        account_type="user",
+        account_type="human",
         created_at=f"2026-02-0{key[-1]}T00:00:00+00:00",
     )
 
@@ -228,6 +234,10 @@ class Backend:
         self.tenant_repo = InMemoryTenantRepo(self.tenants)
         self.user_repo = InMemoryUserRepo(self.users)
 
+        # The removal passes the admin's step-up since #2009; this suite is about the two
+        # views converging, so the step-up is the passed double (it records act and target).
+        # The refusals are pinned against the real verifier in test_admin_tenant_step_up.py.
+        self.step_up = PassedStepUpVerifier()
         self.tenant_service = TenantService(
             tenant_repo=self.tenant_repo,  # type: ignore[arg-type]
             membership_repo=self.membership_repo,  # type: ignore[arg-type]
@@ -236,11 +246,10 @@ class Backend:
             tenant_engine=MagicMock(),
             membership_engine=MagicMock(),
             invitation_engine=MagicMock(),
+            step_up_verifier=self.step_up,  # type: ignore[arg-type]
         )
         self.user_service = UserService(
             self.user_repo,  # type: ignore[arg-type]
-            MagicMock(),
-            self.membership_repo,  # type: ignore[arg-type]
         )
 
         app = FastAPI()
@@ -308,6 +317,9 @@ class TestAddMembershipEquivalence:
             "is_active": True,
             "admin_scopes": [],
         }
+        # … behind the same step-up act, bound to the same ``<tenant>|<user>`` pair (#2106) …
+        assert tenant_view.step_up.actions == user_view.step_up.actions == ["admin_membership_add"]
+        assert tenant_view.step_up.targets == user_view.step_up.targets == ["t-1|u-1"]
         # … and the same two graph edges (identity kinds/endpoints).
         assert tenant_view.membership_repo.edges == user_view.membership_repo.edges
         assert tenant_view.membership_repo.edges == [
@@ -349,6 +361,9 @@ class TestChangeRoleEquivalence:
         # Both responses carry the new role, in their own shape.
         assert resp_t.json()["role"] == "lead"
         assert resp_u.json()["role"] == "lead"
+        # … and both passed the same step-up, bound to the same membership (#2032, #1884).
+        assert tenant_view.step_up.actions == user_view.step_up.actions == ["admin_membership_role_change"]
+        assert tenant_view.step_up.targets == user_view.step_up.targets == ["m-1"]
 
 
 class TestRemoveMembershipEquivalence:
@@ -370,6 +385,9 @@ class TestRemoveMembershipEquivalence:
         assert user_view.membership_repo.location_assignments_cleaned == ["m-1"]
         assert tenant_view.membership_repo.edges == []
         assert user_view.membership_repo.edges == []
+        # … and both passed the same step-up, bound to the same membership (#2009, #1884).
+        assert tenant_view.step_up.actions == user_view.step_up.actions == ["admin_membership_removal"]
+        assert tenant_view.step_up.targets == user_view.step_up.targets == ["m-1"]
 
 
 # ── Ownership constraint: a membership addressed under the wrong parent 404s ───
@@ -416,6 +434,23 @@ class TestReadsRouteThroughServices:
         assert by_key["t-1"]["member_count"] == 1
         assert by_key["t-2"]["member_count"] == 0
 
+    def test_the_tenant_list_counts_members_without_reading_them(self, backend, monkeypatch):
+        # #2131: one count query per tenant row, not the tenant's whole member list
+        # joined to its users; an inactive membership is not a counted seat.
+        backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-1", role=TenantRole.GROWER))
+        backend.membership_repo.create(
+            Membership(user_key="u-2", tenant_key="t-1", role=TenantRole.VIEWER, is_active=False)
+        )
+
+        def no_list(*args, **kwargs):
+            raise AssertionError("member_count must not read the member list")
+
+        monkeypatch.setattr(backend.membership_repo, "list_by_tenant", no_list)
+        resp = backend.client.get("/api/v1/admin/platform/tenants")
+
+        assert resp.status_code == 200, resp.text
+        assert {t["key"]: t["member_count"] for t in resp.json()} == {"t-1": 1, "t-2": 0}
+
     def test_list_user_memberships_joins_tenant_name_and_slug(self, backend):
         backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-1", role=TenantRole.GROWER))
         resp = backend.client.get("/api/v1/admin/platform/users/u-1/memberships")
@@ -446,17 +481,3 @@ class TestReadsRouteThroughServices:
         assert len(rows) == 1
         assert rows[0]["email"] == "alice@example.com"
         assert rows[0]["membership_key"] == "m-1"
-
-
-# ── delete_user cascade removes memberships before the user (SEC-003 order) ────
-
-
-class TestDeleteUserCascade:
-    def test_permanent_delete_removes_memberships_then_the_user(self, backend):
-        backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-1", role=TenantRole.GROWER))
-        backend.membership_repo.create(Membership(user_key="u-1", tenant_key="t-2", role=TenantRole.VIEWER))
-
-        backend.user_service.delete_account_permanently("u-1")
-
-        assert backend.membership_repo._store == {}
-        assert backend.user_repo.deleted == ["u-1"]

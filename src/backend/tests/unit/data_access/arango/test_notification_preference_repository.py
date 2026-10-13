@@ -14,6 +14,7 @@ from app.data_access.arango.notification_preference_repository import (
     NOTIFICATION_PREFERENCES,
     ArangoNotificationPreferenceRepository,
 )
+from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.models.notification import NotificationPreferences
 
 
@@ -24,7 +25,7 @@ def mock_db():
 
 @pytest.fixture
 def repo(mock_db):
-    return ArangoNotificationPreferenceRepository(mock_db)
+    return ArangoNotificationPreferenceRepository(mock_db, EncryptionEngine(""))
 
 
 def _doc(**kwargs) -> dict:
@@ -106,3 +107,73 @@ class TestListUsersWithDigestEnabled:
         mock_db.aql.execute.return_value = iter([])
 
         assert repo.list_users_with_digest_enabled() == []
+
+
+class TestAppriseUrlsSealed:
+    """#2113 — the stored form carries ciphertext only; the reader decrypts; a read never writes."""
+
+    URL = "tgram://" + "123456789:" + "AAbot2113" + "Unit/4711"
+
+    @pytest.fixture
+    def keyed(self, mock_db):
+        from cryptography.fernet import Fernet  # noqa: PLC0415
+
+        return ArangoNotificationPreferenceRepository(mock_db, EncryptionEngine(Fernet.generate_key().decode()))
+
+    def _prefs(self) -> NotificationPreferences:
+        from app.domain.models.notification import ChannelPreference  # noqa: PLC0415
+
+        return NotificationPreferences(
+            user_key="u1", channels={"apprise": ChannelPreference(enabled=True, config={"urls": [self.URL]})}
+        )
+
+    def test_insert_stores_ciphertext_and_returns_plaintext(self, keyed, mock_db):
+        coll = mock_db.collection.return_value
+        coll.get.return_value = None
+        coll.insert.side_effect = lambda data, return_new: {"new": dict(data)}
+
+        result = keyed.upsert(self._prefs())
+
+        inserted = coll.insert.call_args.args[0]
+        assert self.URL not in str(inserted)
+        assert "urls" not in inserted["channels"]["apprise"]["config"]
+        assert result.channels["apprise"].config["urls"] == [self.URL]
+
+    def test_update_removes_a_plaintext_key_the_merge_would_keep(self, keyed, mock_db):
+        coll = mock_db.collection.return_value
+        coll.get.return_value = _doc()
+        coll.update.side_effect = lambda data, return_new, keep_none: {"new": dict(data)}
+
+        keyed.upsert(self._prefs())
+
+        payload = coll.update.call_args.args[0]
+        assert payload["channels"]["apprise"]["config"]["urls"] is None
+        assert coll.update.call_args.kwargs["keep_none"] is False
+        assert self.URL not in str(payload)
+
+    def test_a_legacy_row_is_read_without_a_write(self, keyed, mock_db):
+        """A read never writes (the preferences GET must not persist); v0083 or the next save seals it."""
+        mock_db.collection.return_value.get.return_value = _doc(
+            channels={"apprise": {"enabled": True, "config": {"urls": [self.URL]}}}
+        )
+
+        assert keyed.get_by_user("u1").channels["apprise"].config["urls"] == [self.URL]
+        mock_db.aql.execute.assert_not_called()
+        mock_db.collection.return_value.update.assert_not_called()
+
+    def test_without_a_key_a_legacy_row_is_not_rewritten(self, repo, mock_db):
+        mock_db.collection.return_value.get.return_value = _doc(
+            channels={"apprise": {"enabled": True, "config": {"urls": [self.URL]}}}
+        )
+
+        assert repo.get_by_user("u1").channels["apprise"].config["urls"] == [self.URL]
+        mock_db.aql.execute.assert_not_called()
+
+    def test_an_already_sealed_row_is_not_rewritten(self, keyed, mock_db):
+        sealed = keyed._encryption.encrypt(self.URL)
+        mock_db.collection.return_value.get.return_value = _doc(
+            channels={"apprise": {"enabled": True, "config": {"urls_encrypted": [sealed]}}}
+        )
+
+        assert keyed.get_by_user("u1").channels["apprise"].config["urls"] == [self.URL]
+        mock_db.aql.execute.assert_not_called()

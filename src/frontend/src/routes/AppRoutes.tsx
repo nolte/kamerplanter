@@ -19,11 +19,17 @@ import { isLightMode } from '@/config/mode';
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const EmailVerificationPage = lazy(() => import('@/pages/auth/EmailVerificationPage'));
+const ResendVerificationPage = lazy(() => import('@/pages/auth/ResendVerificationPage'));
 const PasswordResetRequestPage = lazy(() => import('@/pages/auth/PasswordResetRequestPage'));
 const PasswordResetConfirmPage = lazy(() => import('@/pages/auth/PasswordResetConfirmPage'));
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
 const PrivacySettingsPage = lazy(() => import('@/pages/auth/PrivacySettingsPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
+// #1815 — landing of the fresh sign-in that confirms a step-up.
+const StepUpCallbackPage = lazy(() => import('@/pages/auth/StepUpCallbackPage'));
+// #1848 — landings of the links in the e-mail-change mails (confirm / undo).
+const EmailChangeConfirmPage = lazy(() => import('@/pages/auth/EmailChangeConfirmPage'));
+const EmailChangeRevertPage = lazy(() => import('@/pages/auth/EmailChangeRevertPage'));
 // #1118 P13 — browser landing for the light-mode instance-discovery deep link
 // (https://<instance>/connect?v=1). Public and mode-agnostic: a system-camera
 // visitor without the app must not hit a 404 or a login bounce.
@@ -129,6 +135,9 @@ const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'
 // Admin
 const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage'));
 const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
+const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvidersPage'));
+const AdminPlansPage = lazy(() => import('@/pages/admin/AdminPlansPage'));
+const AdminTenantImportsPage = lazy(() => import('@/pages/admin/AdminTenantImportsPage'));
 
 // UI-NFR-019 Kiosk mode
 const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
@@ -165,6 +174,48 @@ export const router = createBrowserRouter(
         />
       )}
 
+      {/* #1815 — step-up re-authentication callback — full mode only (light mode
+          has no accounts to re-authenticate). Deliberately outside ProtectedRoute:
+          the page only moves the one-time token from the URL fragment into
+          sessionStorage and strips it at once, before any auth bootstrap; the
+          page it returns to is protected as usual. */}
+      {!isLightMode && (
+        <Route
+          path="auth/step-up/callback"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <StepUpCallbackPage />
+            </Suspense>
+          }
+        />
+      )}
+
+      {/* #1848 — e-mail change links: confirm (mail to the new address) and undo
+          (notice to the previous one). Full mode only — light mode has no
+          accounts. Public, but deliberately outside PublicOnlyRoute: the person
+          opening the link often still holds a session in this browser, and a
+          redirect to the dashboard would leave the change (or its undo) undone. */}
+      {!isLightMode && (
+        <Route
+          path="email-change/:token"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <EmailChangeConfirmPage />
+            </Suspense>
+          }
+        />
+      )}
+      {!isLightMode && (
+        <Route
+          path="email-change/revert/:token"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <EmailChangeRevertPage />
+            </Suspense>
+          }
+        />
+      )}
+
       {/* Public-only routes (redirect to dashboard when authenticated) — full mode only */}
       {!isLightMode && (
         <Route element={<PublicOnlyRoute />}>
@@ -189,6 +240,14 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <EmailVerificationPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="resend-verification"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <ResendVerificationPage />
               </Suspense>
             }
           />
@@ -259,7 +318,7 @@ export const router = createBrowserRouter(
             />
           )}
 
-          {/* Admin: Edit tenant/user — full mode only.
+          {/* Admin: Edit tenant/user, OIDC providers — full mode only.
               REQ-049 §2.4 / #1336: the platform-admin axis, guarded by its own
               wrapper. Every request these pages make is `require_platform_admin`,
               the reads included, so refusal replaces the page instead of
@@ -283,6 +342,38 @@ export const router = createBrowserRouter(
                   <RequirePlatformAdmin>
                     <Suspense fallback={<LoadingSkeleton variant="form" />}>
                       <AdminEditUserPage />
+                    </Suspense>
+                  </RequirePlatformAdmin>
+                }
+              />
+              <Route
+                path="admin/oidc-providers"
+                element={
+                  <RequirePlatformAdmin>
+                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                      <AdminOidcProvidersPage />
+                    </Suspense>
+                  </RequirePlatformAdmin>
+                }
+              />
+              {/* REQ-056 §7.6 / §15 (AK-45): the plan catalogue. */}
+              <Route
+                path="admin/plans"
+                element={
+                  <RequirePlatformAdmin>
+                    <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                      <AdminPlansPage />
+                    </Suspense>
+                  </RequirePlatformAdmin>
+                }
+              />
+              {/* REQ-056 §8.4 / §15 (#2138): import a tenant archive as a new tenant. */}
+              <Route
+                path="admin/tenant-imports"
+                element={
+                  <RequirePlatformAdmin>
+                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                      <AdminTenantImportsPage />
                     </Suspense>
                   </RequirePlatformAdmin>
                 }

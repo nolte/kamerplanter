@@ -1,4 +1,4 @@
-# Packaging source for the embedding service (#1374). This is a deployable
+# Packaging source for the reranker service (#1374). This is a deployable
 # service, not a distributable library: main.py is COPYed into the image and run
 # by uvicorn from the working directory, so `[tool.uv].package = false` keeps uv
 # from ever building a wheel of it. The file exists so that every Python install
@@ -9,25 +9,46 @@ name = "kamerplanter-reranker-service"
 version = "1.0.0"
 description = "ONNX cross-encoder reranker re-scoring RAG retrieval hits for Kamerplanter (ADR-007)"
 requires-python = ">=3.14"
-# Carried over unchanged from the requirements.txt this file replaces; Renovate
-# ages them from here through the lock (`rangeStrategy: update-lockfile`).
+# Renovate ages these from here through the lock (`rangeStrategy:
+# update-lockfile`).
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "onnxruntime>=1.20.0",
-    "transformers>=4.46.0",
+    # The tokenizer is the Rust `tokenizers` library, read straight from the
+    # model's `tokenizer.json` — NOT transformers, and that is #1480.
+    #
+    # transformers used to sit here, held on the 4.57.x line by the ONNX
+    # exporter the build stage ran: `optimum-onnx` declared
+    # `transformers>=4.36,<4.58` in every release it had published (0.0.1 …
+    # 0.1.0, read from PyPI on 2026-09-24), and that line carries three HIGH
+    # CVEs (CVE-2026-9856, CVE-2026-4372, CVE-2026-5241) plus one MEDIUM
+    # (CVE-2026-1839). The service called exactly one thing from it,
+    # `AutoTokenizer`, whose fast path IS this library; main.py configures the
+    # padding and truncation transformers used to add per call, with measured
+    # parity for both shipped models. The exporter is gone too — the download
+    # stages fetch pre-exported ONNX (see the Dockerfile) — so nothing in this
+    # tree needs transformers any more, at runtime or at build time.
+    #
+    # `sentencepiece` and `protobuf` left with it. sentencepiece was the slow
+    # tokenizer's backend, which `tokenizer.json` never touches; protobuf is
+    # onnxruntime's own dependency and stays in the lock through it, it is just
+    # no longer something this service claims to import.
+    "tokenizers>=0.22.0",
     "numpy",
-    "sentencepiece",
-    "protobuf",
 ]
 
-# The model-download stage's toolchain. A PEP 735 group, so `uv sync` in the
-# runtime stage leaves it out and the shipped image stays free of it.
+# The model-download stage's toolchain. A PEP 735 group, so `uv sync --no-dev`
+# in the runtime stage does not install it FROM HERE — but huggingface-hub
+# still ships: `tokenizers` above depends on it, and it arrives transitively
+# (with hf-xet, requests, fsspec, filelock). The runtime never calls it; the
+# Dockerfile sets `HF_HUB_OFFLINE=1` so it cannot download anything either.
+# The group is a downloader and nothing else: the models are fetched already
+# exported to ONNX, at a pinned revision, so no exporter, no torch and no
+# transformers are installed even at build time.
 [dependency-groups]
 build = [
     "huggingface-hub",
-    "optimum[onnxruntime]",
-    "sentencepiece",
 ]
 
 [tool.uv]
@@ -37,5 +58,5 @@ build = [
 # and CI installs `uv==<same>`. renovate.json5 groups all references into one
 # `uv toolchain` pull request, so the reading and the relocking side never age
 # apart (#1296 class).
-required-version = "==0.12.15"
+required-version = "==0.13.0"
 package = false

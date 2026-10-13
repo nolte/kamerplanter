@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { invalidateCatalogue } from '../catalogueRevision';
 import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Fertilizer,
@@ -60,6 +61,7 @@ export async function createFertilizer(
   payload: FertilizerCreate,
 ): Promise<Fertilizer> {
   const { data } = await client.post<Fertilizer>(BASE, payload);
+  invalidateCatalogue('fertilizers');
   return data;
 }
 
@@ -68,11 +70,13 @@ export async function updateFertilizer(
   payload: FertilizerUpdate,
 ): Promise<Fertilizer> {
   const { data } = await client.put<Fertilizer>(`${BASE}/${key}`, payload);
+  invalidateCatalogue('fertilizers');
   return data;
 }
 
 export async function deleteFertilizer(key: string): Promise<void> {
   await client.delete(`${BASE}/${key}`);
+  invalidateCatalogue('fertilizers');
 }
 
 // ── Stocks ────────────────────────────────────────────────────────────

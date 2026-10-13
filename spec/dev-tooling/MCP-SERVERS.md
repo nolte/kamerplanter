@@ -373,7 +373,8 @@ Der Selenium-Stack in `docker-compose.e2e.yml` und die Konventionen aus NFR-008/
 
 1. **Temporäres** Publizieren des `frontend`-Ports (lokal, nicht ins Repo committen):
    ```bash
-   docker compose -f docker-compose.e2e.yml \
+   E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" \
+     docker compose -f docker-compose.e2e.yml \
      run --service-ports --rm frontend
    ```
 2. Playwright-MCP / Chrome-DevTools-MCP auf dem Host gegen `http://localhost:<port>`.

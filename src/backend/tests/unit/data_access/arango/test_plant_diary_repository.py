@@ -298,7 +298,7 @@ class TestListPendingAnalyses:
         # The index is (tenant_key, analysis_state, analysis_requested_at) — it
         # is only used when tenant_key filters first, by equality.
         assert query.index("doc.tenant_key == @tenant_key") < query.index("doc.analysis_state IN @states")
-        assert "SORT doc.analysis_requested_at ASC" in query
+        assert "SORT DATE_TIMESTAMP(doc.analysis_requested_at) ASC" in query
         assert "LIMIT @limit" in query
         assert bind_vars["states"] == ["requested", "in_progress"]
         assert bind_vars["tenant_key"] == "tenant-a"
@@ -404,7 +404,7 @@ class TestListOverview:
         # The narrowing happens inside the query, so ``total`` counts the same
         # set the page is taken from.
         assert "FILTER displayed_analysis_state IN @displayed_states" in query
-        assert "doc.analysis_lease_expires_at <= @now" in query
+        assert "DATE_TIMESTAMP(doc.analysis_lease_expires_at) <= DATE_TIMESTAMP(@now)" in query
 
     def test_no_state_filter_emits_no_state_predicate(self, repo, mock_db):
         mock_db.aql.execute.side_effect = [iter([0]), iter([])]
@@ -490,7 +490,7 @@ class TestListOverview:
         repo.list_overview("tenant-a")
 
         query, bind_vars = _list_call(mock_db)
-        assert "SORT doc.created_at DESC, doc._key DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC" in query
         assert "LIMIT @offset, @limit" in query
         assert bind_vars["offset"] == 0
         assert bind_vars["limit"] == 50
@@ -501,7 +501,7 @@ class TestListOverview:
         repo.list_overview("tenant-a", DiaryOverviewFilter(sort="analyzed_at"))
 
         query, _bind_vars = _list_call(mock_db)
-        assert "SORT doc.analysis.analyzed_at DESC" in query
+        assert "SORT DATE_TIMESTAMP(doc.analysis.analyzed_at) DESC" in query
 
     def test_empty_tenant_key_is_refused(self, repo):
         with pytest.raises(ValueError, match="tenant"):

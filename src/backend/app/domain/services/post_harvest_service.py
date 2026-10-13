@@ -53,20 +53,24 @@ class PostHarvestService:
     ) -> tuple[list[PostHarvestBatch], int]:
         return self._repo.list_batches(tenant_key, offset, limit)
 
+    def list_batches_window(self, *, tenant_key: str, offset: int = 0, limit: int = 50) -> list[PostHarvestBatch]:
+        """One ``_key``-ordered page of the tenant's post-harvest batches without the count query (MT-035, #2131)."""
+        return self._repo.list_batches_window(tenant_key=tenant_key, offset=offset, limit=limit)
+
     def list_for_batch(self, harvest_batch_key: str, tenant_key: str) -> list[PostHarvestBatch]:
         """Return all post-harvest batches tracked for a HarvestBatch."""
         return self._repo.list_for_harvest_batch(harvest_batch_key, tenant_key)
 
-    def get_batch(self, key: str, tenant_key: str) -> PostHarvestBatch:
+    def get_batch(self, key: str, *, tenant_key: str) -> PostHarvestBatch:
         batch = self._repo.get_batch_or_raise(key)
         verify_tenant_ownership(batch, tenant_key, "PostHarvestBatch")
         return batch
 
     def start_drying(
         self,
-        tenant_key: str,
         harvest_batch_key: str,
         *,
+        tenant_key: str,
         species_type: PostHarvestSpeciesType = PostHarvestSpeciesType.FLOWER,
         drying_method: DryingMethod = DryingMethod.HANG_DRY,
         start_weight_g: float | None = None,
@@ -106,8 +110,9 @@ class PostHarvestService:
     def advance_stage(
         self,
         key: str,
-        tenant_key: str,
         target_stage: PostHarvestStage,
+        *,
+        tenant_key: str,
     ) -> PostHarvestBatch:
         """Advance a batch to the next stage (forward-only state machine).
 
@@ -115,7 +120,7 @@ class PostHarvestService:
         engine). The ``drying → curing`` step additionally requires the drying
         criterion to be met (``ready_for_curing``, i.e. dryness >= 95 %).
         """
-        batch = self.get_batch(key, tenant_key)
+        batch = self.get_batch(key, tenant_key=tenant_key)
         stage_engine.validate_transition(batch.stage, target_stage)
 
         drying_to_curing = batch.stage == PostHarvestStage.DRYING and target_stage == PostHarvestStage.CURING
@@ -142,16 +147,16 @@ class PostHarvestService:
     def record_drying_progress(
         self,
         key: str,
-        tenant_key: str,
         current_weight_g: float,
         *,
+        tenant_key: str,
         water_activity: float | None = None,
         co2_ppm: int | None = None,
         snap_test_passed: bool | None = None,
         notes: str | None = None,
     ) -> DryingProgress:
         """Record a drying measurement and update the batch drying summary."""
-        batch = self.get_batch(key, tenant_key)
+        batch = self.get_batch(key, tenant_key=tenant_key)
         start_weight = batch.start_weight_g or current_weight_g
 
         # A current weight above the starting weight is invalid input (the batch
@@ -204,11 +209,11 @@ class PostHarvestService:
         return created
 
     def get_latest_drying_progress(self, key: str, tenant_key: str) -> DryingProgress | None:
-        self.get_batch(key, tenant_key)
+        self.get_batch(key, tenant_key=tenant_key)
         return self._repo.get_latest_drying_progress(key)
 
     def list_drying_progress(self, key: str, tenant_key: str) -> list[DryingProgress]:
-        self.get_batch(key, tenant_key)
+        self.get_batch(key, tenant_key=tenant_key)
         return self._repo.list_drying_progress(key)
 
     # ── Storage observations (with mold-alert auto-raise) ──
@@ -216,11 +221,12 @@ class PostHarvestService:
     def record_observation(
         self,
         key: str,
-        tenant_key: str,
         observation: StorageObservation,
+        *,
+        tenant_key: str,
     ) -> StorageObservation:
         """Persist a storage observation, auto-raising a MoldAlert on risk."""
-        batch = self.get_batch(key, tenant_key)
+        batch = self.get_batch(key, tenant_key=tenant_key)
         observation.batch_key = key
         created = self._repo.create_observation(observation)
 
@@ -242,16 +248,19 @@ class PostHarvestService:
             )
         return created
 
-    def list_observations(self, key: str, tenant_key: str) -> list[StorageObservation]:
-        self.get_batch(key, tenant_key)
-        return self._repo.list_observations(key)
+    def list_observations(
+        self, key: str, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[StorageObservation]:
+        """A batch's observations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        self.get_batch(key, tenant_key=tenant_key)
+        return self._repo.list_observations(key, offset=offset, limit=limit)
 
     def list_mold_alerts(self, key: str, tenant_key: str) -> list[MoldAlert]:
-        self.get_batch(key, tenant_key)
+        self.get_batch(key, tenant_key=tenant_key)
         return self._repo.list_mold_alerts(key)
 
     # ── Admin ──
 
-    def delete_batch(self, key: str, tenant_key: str) -> None:
-        self.get_batch(key, tenant_key)
+    def delete_batch(self, key: str, *, tenant_key: str) -> None:
+        self.get_batch(key, tenant_key=tenant_key)
         self._repo.delete_batch(key)

@@ -17,22 +17,32 @@ Security model (PFLICHT):
   the caller's tenant is irrelevant: a promoted image is a global release.
 
 Download responses reuse the same SEC-009 hardening + lazy-thumbnail behaviour
-as the tenant attachment endpoint.
+as the tenant attachment endpoint, and its cache policy (#2254): the route needs a
+signed-in user and a promotion can be withdrawn, so the answer is
+``private, no-cache`` with an ETag and a ``304`` after the checks — never
+``public, max-age=86400``, which let a shared cache keep it for a day.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Response
+from fastapi import APIRouter, Depends, Path, Request, Response
 from fastapi.responses import StreamingResponse
 
-from app.api.v1.attachments.response_headers import harden_download_headers
+from app.api.v1.attachments.response_headers import (
+    SESSION_DOWNLOAD_CACHE_CONTROL,
+    harden_download_headers,
+    if_none_match_hits,
+    object_etag,
+    rendition_etag,
+)
 from app.common.auth import get_current_user
-from app.common.dependencies import get_pest_image_service
+from app.common.dependencies import get_pest_image_service, get_rendition_dispatch_claims
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
-from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
+from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES
+from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.user import User
 from app.domain.services.pest_image_service import PestImageService
 
@@ -42,6 +52,7 @@ router = APIRouter(prefix="/ipm/pest-images", tags=["ipm"], responses={**AUTH_RE
 @router.get("/{contribution_id}")
 async def get_promoted_pest_image(
     contribution_id: Annotated[str, Path(description="Key of the promoted pest-image contribution.")],
+    request: Request,
     _user: User = Depends(get_current_user),
     service: PestImageService = Depends(get_pest_image_service),
 ):
@@ -54,11 +65,11 @@ async def get_promoted_pest_image(
         raise NotFoundError("PestImageContribution", contribution_id)
 
     attachment = content.attachment
+    etag = object_etag(attachment.storage_key, attachment.sha256)
+    if if_none_match_hits(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
     stream = await service.open_content_stream(content)
-    headers = {
-        "Cache-Control": "public, max-age=86400",
-        "ETag": f'"{attachment.sha256}"',
-    }
+    headers = {"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag}
     # SEC-009 — nosniff always; non-image MIME types are forced to download.
     headers = harden_download_headers(headers, mime_type=attachment.mime_type)
     return StreamingResponse(stream, media_type=attachment.mime_type, headers=headers)
@@ -68,12 +79,15 @@ async def get_promoted_pest_image(
 async def get_promoted_pest_image_thumbnail(
     contribution_id: Annotated[str, Path(description="Key of the promoted pest-image contribution.")],
     size: Annotated[int, Path(description="Requested thumbnail edge length in pixels.")],
+    request: Request,
     _user: User = Depends(get_current_user),
     service: PestImageService = Depends(get_pest_image_service),
+    claims: IRenditionDispatchClaims = Depends(get_rendition_dispatch_claims),
 ):
     """Stream a thumbnail rendition of a globally-promoted pest image.
 
-    404 for any non-promoted / unknown contribution; 202 + lazy regeneration
+    404 for any non-promoted / unknown contribution and for a rendition that can
+    never come (#2108); 202 + lazy regeneration, queued at most once per window,
     when the rendition is not yet materialised.
     """
     if size not in THUMBNAIL_SIZES:
@@ -87,17 +101,21 @@ async def get_promoted_pest_image_thumbnail(
         raise NotFoundError("PestImageContribution", contribution_id)
 
     attachment = content.attachment
+    etag = rendition_etag(attachment.storage_key, attachment.sha256, size)
+    if if_none_match_hits(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
     try:
         stream = await service.open_content_thumbnail_stream(content, size)
     except NotFoundError:
-        # Lazy regeneration (NFR-013 §8.2): re-trigger the task and 202 the caller.
-        if can_render(attachment.mime_type):
-            from app.tasks.storage_tasks import generate_thumbnails
+        # Lazy regeneration (NFR-013 §8.2), claimed once per window (#2108). The
+        # task runs against the attachment's own (owning) tenant.
+        from app.tasks.storage_tasks import request_thumbnails
 
-            generate_thumbnails.delay(attachment.key, content.contribution.tenant_key)
+        if not request_thumbnails(attachment, claims):
+            raise NotFoundError("storage object", f"{contribution_id}/{size}") from None
         return Response(status_code=202)
 
-    headers = {"Cache-Control": "public, max-age=86400"}
+    headers = {"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag}
     # Thumbnails are always image/webp — nosniff, inline allowed (SEC-009).
     headers = harden_download_headers(headers, mime_type="image/webp")
     return StreamingResponse(stream, media_type="image/webp", headers=headers)

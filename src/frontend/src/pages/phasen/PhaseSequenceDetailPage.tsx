@@ -46,6 +46,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import OriginChip from '@/components/common/OriginChip';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import { useOriginProtection } from '@/hooks/useOriginProtection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -293,6 +294,12 @@ export default function PhaseSequenceDetailPage() {
   const [deletingEntry, setDeletingEntry] = useState(false);
   const [reordering, setReordering] = useState(false);
   // UI-NFR-018: PhaseSequence carries only is_system; treat true as origin='system'.
+  // #1501 — a phase sequence and its entries are INSTALLATION-WIDE: PhaseSequence
+  // carries no tenant_key, so every write here (edit, clone, add/edit/remove entry,
+  // reorder) is gated on `require_platform_admin` backend-side. Cloning in
+  // particular is not a tenant-local copy, whatever its docstring used to say — it
+  // creates another row in the same shared catalogue.
+  const canCurate = useCanEditInstallationCatalogue();
   const { isReadOnly, canCopyAsTemplate } = useOriginProtection({ isSystem: sequence?.is_system });
   const [linkedSpecies, setLinkedSpecies] = useState<{ key: string; scientific_name: string; common_names: string[] }[]>([]);
   const [showAllSpecies, setShowAllSpecies] = useState(false);
@@ -446,7 +453,7 @@ export default function PhaseSequenceDetailPage() {
 
   // Declared here rather than inline so the header can pick a primary action
   // without repeating either definition (see the `action` slot below).
-  const editAction: HeaderAction | null = isReadOnly
+  const editAction: HeaderAction | null = isReadOnly || !canCurate
     ? null
     : {
         label: t('pages.phaseSequences.editSequence'),
@@ -455,7 +462,7 @@ export default function PhaseSequenceDetailPage() {
         testId: 'edit-sequence-button',
         onClick: () => setEditOpen(true),
       };
-  const duplicateAction: HeaderAction | null = canCopyAsTemplate
+  const duplicateAction: HeaderAction | null = canCopyAsTemplate && canCurate
     ? {
         label: t('pages.phaseSequences.duplicate'),
         icon: <ContentCopyIcon />,
@@ -571,16 +578,18 @@ export default function PhaseSequenceDetailPage() {
         <Typography variant="h6" component="h2">
           {t('pages.phaseSequences.sequenceEntries')}
         </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={handleOpenAddEntry}
-          disabled={sequence.is_system}
-          data-testid="add-entry-button"
-        >
-          {t('pages.phaseSequences.addEntry')}
-        </Button>
+        {canCurate && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={handleOpenAddEntry}
+            disabled={sequence.is_system}
+            data-testid="add-entry-button"
+          >
+            {t('pages.phaseSequences.addEntry')}
+          </Button>
+        )}
       </Box>
 
       {sortedEntries.length === 0 ? (
@@ -601,7 +610,12 @@ export default function PhaseSequenceDetailPage() {
                 <TableCell>{t('pages.phaseSequences.effectiveDuration')}</TableCell>
                 {hasTerminal && <TableCell>{t('pages.phaseSequences.isTerminal')}</TableCell>}
                 {hasHarvest && <TableCell>{t('pages.phaseSequences.allowsHarvest')}</TableCell>}
-                <TableCell align="right">{t('common.actions')}</TableCell>
+                {/* #1501 — reorder/edit/remove are this column's only content, and
+                    a non-admin gets none of them, so the header is omitted with
+                    the cells below rather than leaving a permanently empty
+                    "Aktionen" header for a catalogue nobody but a platform admin
+                    may write (#1467 usability pass). */}
+                {canCurate && <TableCell align="right">{t('common.actions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -658,6 +672,7 @@ export default function PhaseSequenceDetailPage() {
                       )}
                     </TableCell>
                   )}
+                  {canCurate && (
                   <TableCell align="right">
                     <Tooltip title={t('pages.phaseSequences.moveUp')}>
                       <span>
@@ -711,6 +726,7 @@ export default function PhaseSequenceDetailPage() {
                       </span>
                     </Tooltip>
                   </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

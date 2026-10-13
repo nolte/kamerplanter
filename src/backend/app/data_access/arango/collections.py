@@ -75,6 +75,8 @@ USERS = "users"
 AUTH_PROVIDERS = "auth_providers"
 REFRESH_TOKENS = "refresh_tokens"
 OIDC_PROVIDER_CONFIGS = "oidc_provider_configs"
+#: The unique key of a provider link (#1869) — see ``ensure_collections``.
+AUTH_PROVIDER_UNIQUE_FIELDS = ["provider", "oidc_config_slug", "provider_user_id"]
 API_KEYS = "api_keys"
 
 # REQ-024 Tenants
@@ -155,6 +157,10 @@ SYSTEM_SETTINGS = "system_settings"
 # NFR-016 Schema-migration tracking (versioned migration framework)
 SCHEMA_MIGRATIONS = "schema_migrations"
 
+# REQ-027 §7a (#1855) — installation-wide bookkeeping of the deployment mode: the mode the last
+# start ran in (``deployment_mode``) and an open light-to-full take-over (``pending_takeover``).
+SYSTEM_META = "system_meta"
+
 # Home Assistant publish selection (per-tenant, per-entity opt-in)
 HA_PUBLISH_SETTINGS = "ha_publish_settings"
 
@@ -185,6 +191,8 @@ CONSENT_RECORDS = "consent_records"
 PROCESSING_RESTRICTIONS = "processing_restrictions"
 ERASURE_REQUESTS = "erasure_requests"
 EMAIL_CHANGE_REQUESTS = "email_change_requests"
+# REQ-024 / REQ-025 (#1769) — proof and retry state of a tenant deletion
+TENANT_ERASURE_RECORDS = "tenant_erasure_records"
 
 # REQ-029-A DINOv2 — diagnosis (task B, backlog) + reference-image acquisition
 DIAGNOSIS_REQUESTS = "diagnosis_requests"
@@ -237,6 +245,27 @@ GLOSSARY_TERM_CACHE = "glossary_term_cache"
 # tools by idempotency key (retention 24h).
 MCP_AUDIT_LOG = "mcp_audit_log"
 MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
+
+# MT-014 (#2111) — the persistent security audit: who changed whose membership,
+# role or scopes, in which tenant, when. Append-only; retention in NFR-011 R-38.
+SECURITY_AUDIT_LOG = "security_audit_log"
+
+# MT-015 (#2112) — which entities of the operator's one Home Assistant instance a
+# tenant may use. Maintained by the platform admin; unique per (tenant, entity).
+TENANT_HA_ENTITY_GRANTS = "tenant_ha_entity_grants"
+#: The identity of a grant — enforced unique, so a re-grant is a no-op.
+HA_ENTITY_GRANT_IDENTITY_FIELDS = ["tenant_key", "entity_id"]
+
+# REQ-056 §7 (#2142) — the plan catalogue: named quota sets every tenant points at with
+# ``plan_key``. Global (not tenant-scoped), kept by the platform admin; ``standard`` is seeded.
+PLANS = "plans"
+#: Counting a plan's tenants (listing, refusing to delete a plan in use) reads by this field.
+TENANT_PLAN_INDEX_FIELDS = ["plan_key"]
+
+# REQ-056 §8 (#2138) — tenant export requests (tenant-scoped, deleted with the tenant) and tenant
+# import requests (global: the target tenant only comes into being during the run).
+TENANT_EXPORT_REQUESTS = "tenant_export_requests"
+TENANT_IMPORT_REQUESTS = "tenant_import_requests"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -315,6 +344,7 @@ DOCUMENT_COLLECTIONS = [
     SENSORS,
     SYSTEM_SETTINGS,
     SCHEMA_MIGRATIONS,
+    SYSTEM_META,
     HA_PUBLISH_SETTINGS,
     LOCATION_TYPES,
     WATERING_LOGS,
@@ -330,6 +360,7 @@ DOCUMENT_COLLECTIONS = [
     PROCESSING_RESTRICTIONS,
     ERASURE_REQUESTS,
     EMAIL_CHANGE_REQUESTS,
+    TENANT_ERASURE_RECORDS,
     IDENTIFICATION_REQUESTS,
     PLANT_DIAGNOSIS_REQUESTS,
     DIAGNOSIS_REQUESTS,
@@ -356,6 +387,15 @@ DOCUMENT_COLLECTIONS = [
     # REQ-033 MCP server (adapter-layer only)
     MCP_AUDIT_LOG,
     MCP_IDEMPOTENCY_RECORD,
+    # MT-014 security audit (#2111)
+    SECURITY_AUDIT_LOG,
+    # MT-015 Home Assistant entity allowlist (#2112)
+    TENANT_HA_ENTITY_GRANTS,
+    # REQ-056 plan catalogue (#2142)
+    PLANS,
+    # REQ-056 tenant export / import (#2138)
+    TENANT_EXPORT_REQUESTS,
+    TENANT_IMPORT_REQUESTS,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -1248,15 +1288,21 @@ GRAPH_EDGE_DEFINITIONS = [
         "to_vertex_collections": [API_KEYS],
     },
     # REQ-024 Tenants
+    # Both ends follow ``ArangoMembershipRepository``, which writes the chain
+    # ``user -> membership -> tenant`` (#1574). The table previously declared
+    # ``tenants -> memberships`` and ``users -> memberships``; the second of those
+    # does not even name the collection its own edge is called after. No stored
+    # edge had to move: ``create_edge`` inserts straight into the edge collection,
+    # so the documents have always had the shape declared here.
     {
         "edge_collection": HAS_MEMBERSHIP,
-        "from_vertex_collections": [TENANTS],
+        "from_vertex_collections": [USERS],
         "to_vertex_collections": [MEMBERSHIPS],
     },
     {
         "edge_collection": MEMBERSHIP_IN,
-        "from_vertex_collections": [USERS],
-        "to_vertex_collections": [MEMBERSHIPS],
+        "from_vertex_collections": [MEMBERSHIPS],
+        "to_vertex_collections": [TENANTS],
     },
     {
         "edge_collection": HAS_INVITATION,
@@ -1924,6 +1970,225 @@ def ensure_care_task_dedup_index(tasks_col: StandardCollection) -> None:
         )
 
 
+#: Fields of the fertilizer identity index (#2000).
+#:
+#: Compound, the same decision ``species`` took in #1162: ``(tenant_key,
+#: product_name, brand)``. The pre-#2000 index was collection-wide on
+#: ``(product_name, brand)``, so a tenant's private product and a global seed product
+#: of the same name could not coexist: the seed loader found the tenant's row,
+#: rewrote it as global and overwrote it — and a loader that only matches global rows
+#: would have been refused by the index instead, denying the seed product to every
+#: tenant. It also made a second tenant's create of a privately held name a ``409``,
+#: which told that tenant the other one owns such a product. The shared catalogue
+#: (``tenant_key == ""``) still holds exactly one row per pair.
+FERTILIZER_IDENTITY_INDEX_FIELDS = ["tenant_key", "product_name", "brand"]
+
+#: The pre-#2000 collection-wide index; ``v0069`` recognises and drops it. Left in
+#: place it would keep the old, stricter constraint in force and make the compound
+#: index cosmetic.
+LEGACY_GLOBAL_FERTILIZER_INDEX_FIELDS = ["product_name", "brand"]
+
+#: Fields of the tank name index (#2029): a tank name is unique **per tenant**.
+#:
+#: ``tanks`` is tenant-owned (every row carries its owner's ``tenant_key``; there is
+#: no shared catalogue). The index used to be collection-wide on ``name``, so tenant
+#: B was refused a tank name tenant A already used, and the ``409`` told B that some
+#: other tenant holds a tank of that name. ``v0075`` creates this index on a legacy
+#: volume and retires the old one.
+TANK_NAME_INDEX_FIELDS = ["tenant_key", "name"]
+
+#: The pre-#2029 collection-wide index; ``v0075`` recognises and drops it, whether
+#: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
+LEGACY_TANK_NAME_INDEX_FIELDS = ["name"]
+
+#: Fields of the activity name index (#2027): a name is unique **per tenant**, the
+#: global seed rows (``tenant_key`` empty) forming one scope of their own.
+#:
+#: ``activities`` is a hybrid catalogue (global seed rows plus, by the model, rows of
+#: a tenant). The index used to be collection-wide on ``name``, so a global seed row
+#: and a tenant's activity of the same name could not coexist, and the seed loader
+#: resolved the clash by rewriting the tenant's row as the global one. ``v0076``
+#: creates this index on a legacy volume and retires the old one.
+ACTIVITY_NAME_INDEX_FIELDS = ["tenant_key", "name"]
+
+#: The pre-#2027 collection-wide index; ``v0076`` recognises and drops it, whether
+#: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
+LEGACY_ACTIVITY_NAME_INDEX_FIELDS = ["name"]
+
+#: Fields of the workflow template name index (#2027): a name is unique **per
+#: tenant**, the global templates (``tenant_key`` empty) forming one scope of their own.
+#:
+#: Tenants create their own templates (``POST /t/{slug}/tasks/workflows``). The index used
+#: to be collection-wide on ``name``: a tenant was refused a name another tenant (or
+#: the seed) holds, and the seed loader rewrote a tenant's template named like a seed
+#: as the global one. ``v0077`` creates this index on a legacy volume and retires the
+#: old one.
+WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["tenant_key", "name"]
+
+#: The pre-#2027 collection-wide index; ``v0077`` recognises and drops it, whether
+#: the server reports it as ``persistent`` or (pre-June volumes) ``hash``.
+LEGACY_WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["name"]
+
+#: Fields of the plant instance id index (#2065): an ``instance_id`` is unique **per
+#: tenant**. Onboarding derives it from the global species (``onb-<species_key>-<n>``),
+#: so with the collection-wide index the second tenant to onboard a species had its
+#: plants refused, and a caller-chosen id another tenant used answered ``409`` — the
+#: existence of another tenant's plant. ``v0079`` retires the legacy index.
+PLANT_INSTANCE_ID_INDEX_FIELDS = ["tenant_key", "instance_id"]
+
+#: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
+LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
+
+#: The keyset index of a tenant's ``_key``-ordered list (MT-035, #2131).
+#: ``BaseArangoRepository.list_window`` reads ``FILTER doc.tenant_key == @t [AND
+#: doc._key > @after] SORT doc._key LIMIT @n``. Without it the optimizer either
+#: takes another ``tenant_key``-prefixed index and sorts every row of the tenant
+#: (plant_instances: 50 000 index entries and ~170 ms for page 1, measured on
+#: ArangoDB 3.12) or walks the primary index and filters out every other tenant's
+#: rows on the way — cheap for one big tenant, a full scan for a small one among
+#: many. With it, page 1 and a deep cursor page each read ``limit`` entries (~4 ms).
+#: Non-unique and additive; ``ensure_collections`` builds it on the next start.
+TENANT_KEY_ORDER_INDEX_FIELDS = ["tenant_key", "_key"]
+
+#: The tenant's task queue (#1534, MT-021). ``GET /t/{slug}/tasks/queue``,
+#: ``.../overdue`` and the status-filtered list read ``FILTER doc.tenant_key == @t
+#: AND doc.status == @s``. With only the single-field ``status`` index the
+#: optimizer took that and filtered the tenant afterwards, so every tenant's queue
+#: read *all pending tasks of the installation*: measured on ArangoDB 3.12.12 at
+#: 970 426 tasks / 3 406 tenants, a 277-task tenant scanned 533 680 index entries
+#: and took ~1.4 s per query (two per queue call); with this index it reads 149
+#: entries in ~2 ms (``spec/analysis/task-queue-index-measurement-2026-10.md``).
+#: ``due_date`` as a third field changed no plan of the queries as written
+#: (``DATE_TIMESTAMP`` sort, ``_key`` tie-breaker, orphan guard before the
+#: ``SORT``), so it is left out. The single-field ``status`` index stays: a read
+#: on status without a tenant (cross-tenant maintenance) cannot use this one, and
+#: retiring it is not part of #1534. Non-unique and additive; v0092 builds it on
+#: a volume that predates it.
+TASK_TENANT_STATUS_INDEX_FIELDS = ["tenant_key", "status"]
+
+#: The collections whose list route pages by keyset (``get_cursor_pagination``).
+KEYSET_PAGED_COLLECTIONS = (PLANT_INSTANCES, WATERING_LOGS, WATERING_EVENTS, FEEDING_EVENTS)
+
+#: The window of ``GET /tenants/{slug}/assignments`` (MT-035, #2131) reads
+#: ``FILTER doc.tenant_key == @t SORT doc.created_at, doc._key LIMIT @o, @n``.
+#: ``location_assignments`` had only its ``(membership_key, location_key)``
+#: uniqueness index, so every page was a full collection scan (20 000 scanned
+#: for one tenant's first page, measured on ArangoDB 3.12). Non-unique, additive.
+LOCATION_ASSIGNMENT_TENANT_INDEX_FIELDS = ["tenant_key", "created_at"]
+
+#: The window of ``GET /t/{slug}/tasks/workflows/{key}/executions`` (MT-035,
+#: #2131) starts with ``FILTER we.workflow_template_key == @template_key``.
+#: ``workflow_executions`` carried no index at all, so every page scanned every
+#: execution of every template (20 000 scanned for one template's first page).
+#: An execution has no ``tenant_key`` of its own (its entity owns it), so the
+#: template key is the narrowest filter the query has. Non-unique, additive.
+WORKFLOW_EXECUTION_TEMPLATE_INDEX_FIELDS = ["workflow_template_key"]
+
+#: Fields of the slot id index (#2065): a ``slot_id`` is unique **per location**. A
+#: slot carries no tenant of its own (``Slot.tenant_key`` stays empty, #1397); its
+#: location is the parent that belongs to exactly one tenant, and the id itself names
+#: a position in it (``TENT01_A1``). ``location_key`` is the scope, so it comes first,
+#: like ``tenant_key`` in the other compound indexes.
+SLOT_ID_INDEX_FIELDS = ["location_key", "slot_id"]
+
+#: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
+LEGACY_SLOT_ID_INDEX_FIELDS = ["slot_id"]
+
+#: Fields of the harvest lot label index (#2065): a ``batch_id`` is unique **per
+#: tenant**. **Sparse** as since #740: an unlabelled batch (``null``) stays outside the
+#: constraint — a sparse compound index skips a row where any field is ``null``.
+HARVEST_BATCH_ID_INDEX_FIELDS = ["tenant_key", "batch_id"]
+
+#: The collection-wide label index (sparse since v0030, dense before); ``v0079``
+#: drops the sparse one, v0030/v0073 dropped the dense one.
+LEGACY_HARVEST_BATCH_ID_INDEX_FIELDS = ["batch_id"]
+
+#: The calendar feed lookup index (#2171): the public iCal URL is resolved by the
+#: SHA-256 digest of its token, globally (no tenant is known yet). **Sparse**, so a
+#: feed written before v0090 hashed its plaintext token - no ``token_hash`` yet -
+#: does not stop ``ensure_collections`` from creating the index on the boot that
+#: runs that migration.
+CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS = ["token_hash"]
+
+#: The pre-#2171 index on the plaintext token; ``v0090`` drops it once the digests
+#: are written. Dense and unique: left behind, it would refuse the second feed that
+#: has no ``token`` attribute (two ``null`` values).
+LEGACY_CALENDAR_FEED_TOKEN_INDEX_FIELDS = ["token"]
+
+#: The identity a seed gives a harvest indicator (#1956, #2001):
+#: ``(species, indicator_type, measurement_unit)`` — see
+#: ``ArangoHarvestRepository.find_indicator``. **Sparse**, so a legacy species-less
+#: row (written when the species was not yet resolvable) is outside the constraint;
+#: the seed never writes one any more.
+HARVEST_INDICATOR_IDENTITY_FIELDS = ["species_key", "indicator_type", "measurement_unit"]
+
+#: The vertex pair of an IPM treatment edge — the identity
+#: ``BaseArangoRepository.create_edge_if_absent`` gives it (#1956, #2001).
+EDGE_PAIR_FIELDS = ["_from", "_to"]
+
+#: The edge collections the seed writes create-if-absent by vertex pair. A unique
+#: index on the pair makes the storage layer reject the loser of two replicas that
+#: boot at the same time; the read-then-write check alone cannot.
+UNIQUE_PAIR_EDGE_COLLECTIONS = (TARGETS_PEST, TARGETS_DISEASE, CONTRAINDICATED_WITH)
+
+
+#: ArangoDB's ``ERROR_ARANGO_UNIQUE_CONSTRAINT_VIOLATED`` — what a unique index
+#: creation over duplicate values fails with.
+_UNIQUE_CONSTRAINT_VIOLATED = 1210
+
+
+def has_unique_index(collection: StandardCollection, fields: list[str], *, sparse: bool = False) -> bool:
+    """Whether ``collection`` carries a unique persistent index on exactly ``fields``."""
+    return any(
+        isinstance(idx, dict)
+        and idx.get("type") == "persistent"
+        and idx.get("fields") == fields
+        and idx.get("unique")
+        and bool(idx.get("sparse")) == sparse
+        for idx in collection.indexes()
+    )
+
+
+def ensure_unique_index_when_clean(collection: StandardCollection, fields: list[str], *, sparse: bool = False) -> bool:
+    """Create a unique index on ``fields`` unless duplicates prevent it; ``True`` when present.
+
+    ``ensure_collections`` runs at startup *before* the migration runner, so on a
+    volume that still carries the duplicates a migration is about to remove, the
+    creation fails — and must not take startup down. The collection is then left
+    unconstrained (the shape of :func:`ensure_care_task_dedup_index`); the migration
+    that removes the duplicates calls this again, and every later boot retries.
+
+    Only the duplicate refusal is absorbed: ArangoDB answers it with ``1210`` (unique
+    constraint violated; measured on 3.12). Any other ``IndexCreateError`` — a
+    permission, a timeout, a server fault — is re-raised, like every other index
+    creation in ``ensure_collections``: read as "duplicates" it would leave the
+    collection unconstrained silently and send an operator after rows that do not exist.
+    """
+    if has_unique_index(collection, fields, sparse=sparse):
+        return True
+    try:
+        collection.add_persistent_index(fields=fields, unique=True, sparse=sparse)
+    except IndexCreateError as exc:
+        if exc.error_code != _UNIQUE_CONSTRAINT_VIOLATED:
+            raise
+        return False
+    return True
+
+
+def ensure_seed_identity_indexes(db: StandardDatabase) -> None:
+    """The unique identity indexes of the create-if-absent seed writes (#2001).
+
+    ``harvest_indicators`` on :data:`HARVEST_INDICATOR_IDENTITY_FIELDS` (sparse) and
+    the vertex pair of every :data:`UNIQUE_PAIR_EDGE_COLLECTIONS` edge. The seed
+    registry runs on every replica without a lock; with these in place a second
+    replica's insert of the same row is refused by the storage layer and read as
+    "exists" (``create_edge_if_absent``, ``run_seed_harvest_indicators``).
+    """
+    ensure_unique_index_when_clean(db.collection(HARVEST_INDICATORS), HARVEST_INDICATOR_IDENTITY_FIELDS, sparse=True)
+    for name in UNIQUE_PAIR_EDGE_COLLECTIONS:
+        ensure_unique_index_when_clean(db.collection(name), EDGE_PAIR_FIELDS)
+
+
 def ensure_collections(db: StandardDatabase) -> None:
     """Create all collections and the graph if they don't exist."""
     for name in DOCUMENT_COLLECTIONS:
@@ -1947,10 +2212,19 @@ def ensure_collections(db: StandardDatabase) -> None:
     families_col.add_persistent_index(fields=["name"], unique=True)
 
     slots_col = db.collection(SLOTS)
-    slots_col.add_persistent_index(fields=["slot_id"], unique=True)
+    # Per location since #2065; v0079 drops the legacy collection-wide index. Always
+    # creatable on a legacy volume: the old, stricter index implies it holds.
+    slots_col.add_persistent_index(fields=SLOT_ID_INDEX_FIELDS, unique=True)
 
     plants_col = db.collection(PLANT_INSTANCES)
-    plants_col.add_persistent_index(fields=["instance_id"], unique=True)
+    # Per tenant since #2065; v0079 drops the legacy collection-wide index.
+    plants_col.add_persistent_index(fields=PLANT_INSTANCE_ID_INDEX_FIELDS, unique=True)
+
+    # MT-035 (#2131): the keyset/offset window of each tenant's list reads `limit` entries.
+    for keyset_collection in KEYSET_PAGED_COLLECTIONS:
+        db.collection(keyset_collection).add_persistent_index(
+            fields=TENANT_KEY_ORDER_INDEX_FIELDS, unique=False, in_background=True
+        )
 
     mappings_col = db.collection(EXTERNAL_MAPPINGS)
     mappings_col.add_persistent_index(fields=["internal_collection", "internal_key", "source_key"], unique=True)
@@ -1966,13 +2240,17 @@ def ensure_collections(db: StandardDatabase) -> None:
     succession_plans_col.add_persistent_index(fields=["tenant_key"], unique=False)
 
     tanks_col = db.collection(TANKS)
-    tanks_col.add_persistent_index(fields=["name"], unique=True)
+    # Tenant-scoped since #2029; v0075 drops the legacy collection-wide index.
+    # Always creatable on a legacy volume: the old, stricter index implies it holds.
+    tanks_col.add_persistent_index(fields=TANK_NAME_INDEX_FIELDS, unique=True)
 
     tank_states_col = db.collection(TANK_STATES)
     tank_states_col.add_persistent_index(fields=["recorded_at"], unique=False)
 
     fertilizers_col = db.collection(FERTILIZERS)
-    fertilizers_col.add_persistent_index(fields=["product_name", "brand"], unique=True)
+    # Tenant-scoped identity since #2000; v0069 drops the legacy collection-wide index.
+    # Always creatable on a legacy volume: the old, stricter index implies it holds.
+    fertilizers_col.add_persistent_index(fields=FERTILIZER_IDENTITY_INDEX_FIELDS, unique=True)
 
     feeding_events_col = db.collection(FEEDING_EVENTS)
     feeding_events_col.add_persistent_index(fields=["plant_key"], unique=False)
@@ -2001,6 +2279,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     treatment_apps_col.add_persistent_index(fields=["plant_key"], unique=False)
     treatment_apps_col.add_persistent_index(fields=["treatment_key"], unique=False)
 
+    # #2001: seed identity of harvest indicators and IPM treatment edges.
+    ensure_seed_identity_indexes(db)
+
     # REQ-007 Harvest indexes
     harvest_obs_col = db.collection(HARVEST_OBSERVATIONS)
     harvest_obs_col.add_persistent_index(fields=["plant_key"], unique=False)
@@ -2009,8 +2290,9 @@ def ensure_collections(db: StandardDatabase) -> None:
     harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
     # sparse: batch_id is an optional user-facing lot label; only real values must
     # be unique. Without sparse, a second unlabelled batch (null/absent) would
-    # collide on the missing key (#740). Migration v0030 promotes existing volumes.
-    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True, sparse=True)
+    # collide on the missing key (#740). Per tenant since #2065; v0079 drops the
+    # collection-wide index (v0030 made it sparse, v0073 retired its hash twin).
+    harvest_batches_col.add_persistent_index(fields=HARVEST_BATCH_ID_INDEX_FIELDS, unique=True, sparse=True)
 
     # REQ-008 Post-Harvest indexes
     post_harvest_batches_col = db.collection(POST_HARVEST_BATCHES)
@@ -2030,13 +2312,15 @@ def ensure_collections(db: StandardDatabase) -> None:
     tasks_col.add_persistent_index(fields=["plant_key"], unique=False)
     tasks_col.add_persistent_index(fields=["status"], unique=False)
     tasks_col.add_persistent_index(fields=["planting_run_key"], unique=False)
+    # #1534: the tenant's queue reads its own pending tasks, not the installation's.
+    tasks_col.add_persistent_index(fields=TASK_TENANT_STATUS_INDEX_FIELDS, unique=False, in_background=True)
     # "At most one OPEN care task per (tenant, plant, reminder type)" — the
     # storage-level half of the guarantee ``find_open_care_task`` used to make on
     # its own with a read-then-create (#1301).
     ensure_care_task_dedup_index(tasks_col)
 
     wf_templates_col = db.collection(WORKFLOW_TEMPLATES)
-    wf_templates_col.add_persistent_index(fields=["name"], unique=True)
+    wf_templates_col.add_persistent_index(fields=WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS, unique=True)
 
     wf_phases_col = db.collection(WORKFLOW_PHASES)
     wf_phases_col.add_persistent_index(fields=["workflow_template_key"], unique=False)
@@ -2046,7 +2330,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     users_col.add_persistent_index(fields=["email"], unique=True)
 
     auth_providers_col = db.collection(AUTH_PROVIDERS)
-    auth_providers_col.add_persistent_index(fields=["provider", "provider_user_id"], unique=True)
+    # A subject is unique per issuer, not per link type (#1869): two generic OIDC
+    # configurations may each hold the same ``sub``. The unique key is therefore
+    # (type, configuration, sub); v0064 drops the (type, sub) index of an existing
+    # volume.
+    auth_providers_col.add_persistent_index(fields=AUTH_PROVIDER_UNIQUE_FIELDS, unique=True)
     auth_providers_col.add_persistent_index(fields=["user_key"], unique=False)
 
     refresh_tokens_col = db.collection(REFRESH_TOKENS)
@@ -2063,9 +2351,20 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-024 Tenant indexes
     tenants_col = db.collection(TENANTS)
     tenants_col.add_persistent_index(fields=["slug"], unique=True)
+    # REQ-056 §13.2 (#2142) — how many tenants a plan has (listing, delete refusal).
+    tenants_col.add_persistent_index(fields=TENANT_PLAN_INDEX_FIELDS, unique=False, in_background=True)
 
     memberships_col = db.collection(MEMBERSHIPS)
     memberships_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=True)
+
+    # REQ-056 §8.2 (#2138) — the daily limit and the one-running-export rule read a tenant's requests.
+    db.collection(TENANT_EXPORT_REQUESTS).add_persistent_index(
+        fields=["tenant_key", "requested_at"], unique=False, in_background=True
+    )
+    db.collection(TENANT_EXPORT_REQUESTS).add_persistent_index(
+        fields=["status", "expires_at"], unique=False, in_background=True
+    )
+    db.collection(TENANT_IMPORT_REQUESTS).add_persistent_index(fields=["status"], unique=False, in_background=True)
     # REQ-049 INV-1: every write that removes or demotes a membership first counts
     # the tenant's remaining ``management`` holders. Without this index that is a
     # full collection scan on the hot path of member management.
@@ -2077,6 +2376,12 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     location_assignments_col = db.collection(LOCATION_ASSIGNMENTS)
     location_assignments_col.add_persistent_index(fields=["membership_key", "location_key"], unique=True)
+    location_assignments_col.add_persistent_index(
+        fields=LOCATION_ASSIGNMENT_TENANT_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(WORKFLOW_EXECUTIONS).add_persistent_index(
+        fields=WORKFLOW_EXECUTION_TEMPLATE_INDEX_FIELDS, unique=False, in_background=True
+    )
 
     # REQ-022 Care Reminder indexes
     care_confirmations_col = db.collection(CARE_CONFIRMATIONS)
@@ -2154,11 +2459,11 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     # Activity indexes
     activities_col = db.collection(ACTIVITIES)
-    activities_col.add_persistent_index(fields=["name"], unique=True)
+    activities_col.add_persistent_index(fields=ACTIVITY_NAME_INDEX_FIELDS, unique=True)
 
     # REQ-015 Calendar indexes
     calendar_feeds_col = db.collection(CALENDAR_FEEDS)
-    calendar_feeds_col.add_persistent_index(fields=["token"], unique=True)
+    calendar_feeds_col.add_persistent_index(fields=CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS, unique=True, sparse=True)
 
     # REQ-013 v2.0 Plant Diary indexes
     plant_diary_entries_col = db.collection(PLANT_DIARY_ENTRIES)
@@ -2214,9 +2519,18 @@ def ensure_collections(db: StandardDatabase) -> None:
     erasure_requests_col.add_persistent_index(fields=["status"], unique=False)
     erasure_requests_col.add_persistent_index(fields=["hard_delete_scheduled_at"], unique=False)
 
+    # #1769 — the retry run selects open tenant-erasure records by status.
+    db.collection(TENANT_ERASURE_RECORDS).add_persistent_index(fields=["status"], unique=False)
+
     email_change_requests_col = db.collection(EMAIL_CHANGE_REQUESTS)
     email_change_requests_col.add_persistent_index(fields=["user_key"], unique=False)
     email_change_requests_col.add_persistent_index(fields=["verification_token_hash"], unique=True)
+    # #1848: the public revert route looks a request up by this hash; sparse, since
+    # only confirmed changes within their window carry one.
+    email_change_requests_col.add_persistent_index(fields=["revert_token_hash"], unique=True, sparse=True)
+    # #1848: registration and e-mail changes look up whether an address is held
+    # for the revert of a confirmed change.
+    email_change_requests_col.add_persistent_index(fields=["previous_email"], unique=False, sparse=True)
 
     # REQ-029 plant identification indexes
     identification_requests_col = db.collection(IDENTIFICATION_REQUESTS)
@@ -2261,7 +2575,10 @@ def ensure_collections(db: StandardDatabase) -> None:
     attachments_col.add_persistent_index(fields=["tenant_key", "created_by"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "sha256"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "category"], unique=False)
-    attachments_col.add_persistent_index(fields=["storage_key"], unique=True)
+    # Not unique (#1770): deduplicated uploads give every uploader a record of
+    # their own over one stored object, so several records share a storage key.
+    # v0062 drops the unique index an existing volume still carries.
+    attachments_col.add_persistent_index(fields=["storage_key"], unique=False)
 
     # REQ-046 Weather data sources indexes
     weather_forecasts_col = db.collection(WEATHER_FORECASTS)
@@ -2309,6 +2626,17 @@ def ensure_collections(db: StandardDatabase) -> None:
     mcp_audit_log_col.add_persistent_index(fields=["service_account_key"], unique=False)
     mcp_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
     mcp_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    # MT-014 (#2111) security audit: read by tenant (tenant's own history) and by
+    # target account, swept by created_at (NFR-011 R-38).
+    security_audit_log_col = db.collection(SECURITY_AUDIT_LOG)
+    security_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
+    security_audit_log_col.add_persistent_index(fields=["target_user_key"], unique=False)
+    security_audit_log_col.add_persistent_index(fields=["actor_user_key"], unique=False)
+    security_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    # MT-015 (#2112) Home Assistant entity allowlist: one row per (tenant, entity).
+    db.collection(TENANT_HA_ENTITY_GRANTS).add_persistent_index(fields=HA_ENTITY_GRANT_IDENTITY_FIELDS, unique=True)
 
     mcp_idempotency_record_col = db.collection(MCP_IDEMPOTENCY_RECORD)
     mcp_idempotency_record_col.add_persistent_index(

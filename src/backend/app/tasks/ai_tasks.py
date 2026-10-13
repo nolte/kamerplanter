@@ -10,11 +10,12 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.dependencies import get_db
+from app.common.held_count import held_undated_count
 from app.data_access.arango.ai_repository import (
     ArangoAiAuditRepository,
     ArangoAiConversationRepository,
 )
-from app.data_access.arango.connection import ArangoConnection
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -26,7 +27,7 @@ _AUDIT_RETENTION_DAYS = 30
 @celery_app.task(name="ai.cleanup_expired_conversations")
 def cleanup_expired_conversations() -> int:
     """Remove ``ai_conversations`` whose ``expires_at`` has passed (§4.6)."""
-    db = ArangoConnection().db
+    db = get_db()
     removed = ArangoAiConversationRepository(db).delete_expired()
     logger.info("ai_cleanup_conversations", removed=removed)
     return removed
@@ -35,10 +36,13 @@ def cleanup_expired_conversations() -> int:
 @celery_app.task(name="ai.cleanup_expired_audit_log")
 def cleanup_expired_audit_log() -> int:
     """Remove ``ai_audit_log`` entries older than the retention window (§4.6)."""
-    db = ArangoConnection().db
+    db = get_db()
     cutoff = datetime.now(UTC) - timedelta(days=_AUDIT_RETENTION_DAYS)
-    removed = ArangoAiAuditRepository(db).delete_older_than(cutoff)
-    logger.info("ai_cleanup_audit_log", removed=removed, cutoff=cutoff.isoformat())
+    repo = ArangoAiAuditRepository(db)
+    removed = repo.delete_older_than(cutoff)
+    # #1806 GDPR-003: entries without a readable ``created_at`` are never selected.
+    held_undated = held_undated_count(repo.count_undated, task="ai.cleanup_expired_audit_log")
+    logger.info("ai_cleanup_audit_log", removed=removed, held_undated=held_undated, cutoff=cutoff.isoformat())
     return removed
 
 
@@ -54,6 +58,11 @@ def knowledge_service_ingest(self) -> dict:  # noqa: ANN001 - Celery bound task
 
     Best-effort — a Knowledge-Service outage must not crash the beat worker; the
     autoretry policy handles transient connectivity issues.
+
+    A finished reingest (``status == "ok"``; ``/ingest`` answers only once the
+    indexing is done) queues ``glossary.invalidate_after_reingest`` (REQ-035
+    §4.3, #2169), which drops both glossary cache tiers and queues the warm-up.
+    A skipped reingest changed nothing and leaves the cache alone.
     """
     import httpx
 
@@ -70,4 +79,10 @@ def knowledge_service_ingest(self) -> dict:  # noqa: ANN001 - Celery bound task
     response.raise_for_status()
     result = response.json()
     logger.info("ai_knowledge_service_ingest", status=result.get("status"))
+    if result.get("status") == "ok":
+        # Imported here: the glossary task module pulls in the glossary service graph,
+        # which this module does not otherwise need.
+        from app.tasks.glossary_tasks import invalidate_after_reingest
+
+        invalidate_after_reingest.delay()
     return result

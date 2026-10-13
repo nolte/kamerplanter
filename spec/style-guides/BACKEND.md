@@ -559,6 +559,50 @@ geschieht, ist sie kein Muster, das man abschreibt.
     entstehen in der Lane `ci/issue-pattern-gates` (Massnahmen P1.1/P1.2 der
     Issue-Muster-Analyse). Bis sie required sind, traegt der Review die Last.
 
+### 6.4 Listen-Routen lesen ein begrenztes Fenster (MT-035, #2131)
+
+Eine Route mit `response_model=list[...]` haengt von `get_pagination` ab
+(`offset`, `limit` 1–200, Standard 50) oder — wenn ihre Liste nach `_key` sortiert
+ist und schnell waechst — von `get_cursor_pagination` (zusaetzlich `after=<key>`).
+Die Antwort bleibt ein Array ohne Gesamtzahl.
+
+```python
+@router.get("", response_model=list[PlantResponse])
+def list_plants(
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantInstanceService = Depends(get_plant_instance_service),
+):
+    items = service.list_plants_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
+```
+
+- Das Fenster gehoert **in die Abfrage** (`LIMIT @offset, @limit`), nicht in ein
+  Python-Slice nach dem Lesen.
+- Eine Sortierung nach einem nicht eindeutigen Feld (`created_at`, `due_date`)
+  bekommt `_key` als zweites Sortierkriterium (`tiebreak_key=True`), sonst kann ein
+  Eintrag auf zwei Seiten erscheinen und ein anderer auf keiner.
+- Ein Repository, dessen Aufrufer die Gesamtzahl verwirft, liest mit
+  `list_window` statt `get_all` bzw. `get_page_window` statt `get_page` — die
+  gezaehlten Methoden zaehlen bei jeder Seite alle Treffer. Eine handgeschriebene
+  Abfrage bekommt eine `*_window`-Schwester mit demselben Seiten-Query ohne
+  `COLLECT WITH COUNT`; die gezaehlte Methode bleibt fuer Aufrufer, die die Zahl
+  wirklich lesen. Das ist die Form von `include_total=false`: die Listen-Antwort
+  traegt keine Gesamtzahl, also gibt es keinen Query-Parameter dafuer. Eine Route,
+  die `rows, _ = service.list_x(...)` entpackt, faellt durch den Guard
+  `tests/unit/guards/test_list_routes_do_not_discard_a_paid_total.py` — ohne
+  Ausnahme, auch Kataloge und Konfigurationslisten lesen das Fenster. Ausserhalb der
+  Routen faellt dort jeder Aufruf einer gezaehlten Methode (Rueckgabe
+  `tuple[list[...], int]`) auf, der die Zahl verwirft; die wenigen Ausnahmen stehen
+  mit Grund in einer gezaehlten Tabelle.
+- Eine Collection mit Cursor-Route traegt den Index `(tenant_key, _key)`
+  (`KEYSET_PAGED_COLLECTIONS`).
+- Ausnahmen (globale Kataloge, Kinder eines Elterndokuments, berechnete Listen fester
+  Laenge) stehen mit Art und Grund in der Tabelle des Guards
+  `tests/unit/guards/test_list_routes_are_bounded.py`; die Art `remaining` ist die
+  gezaehlte Liste noch nicht begrenzter, wachsender Routen und darf nicht wachsen.
+
 ---
 
 ## 7. Service-Pattern
@@ -926,6 +970,23 @@ class TestTankEngine:
 - Assertions: einfache `assert`-Statements (pytest-Stil)
 - Mocking: `unittest.mock.patch` mit vollem Modulpfad
 - `pytest.ini`: `asyncio_mode = "auto"`
+
+### 16.3 Credential-förmige Testwerte
+
+Ein Testwert, der wie ein echtes Geheimnis aussieht — Fernet-Key, `kp_`-API-Key, JWT, Passwort in einer URL (`scheme://user:pass@host`), `password=…`-Beispiel —, steht **nie als Literal** im Repository. Er wird **zur Laufzeit zusammengesetzt** (#1838, #1837):
+
+```python
+# Richtig — kein Scanner-Treffer, derselbe Wert zur Laufzeit
+_RAW_KEY = "kp_" + "a" * 32
+_FERNET = base64.urlsafe_b64encode(bytes(range(32))).decode()
+_PASSWORD = "-".join(["probe", "value", "only"])
+
+# Falsch — ein Secret-Scanner (GitGuardian) meldet es, und nichts hindert
+# jemanden daran, den Wert in eine echte Konfiguration zu kopieren
+_FERNET = "<44 Zeichen URL-safe Base64, endend auf =>"
+```
+
+Gilt auch für Compose-Dateien und Fixtures: Ein Laufzeit-Stack bekommt seine Schlüssel pro Lauf erzeugt (`scripts/e2e_fernet_key.py` → `E2E_FERNET_KEY`), nicht eingecheckt. Klar erkennbare Platzhalter (`kp_live_xxxx…`, `e2e-test-password`) sind erlaubt, weil sie nicht das Format eines echten Schlüssels haben. `tests/unit/guards/test_no_committed_fernet_key.py` verweigert jeden echten Fernet-Key im Baum außerhalb einer begründeten Allow-List; `tests/unit/guards/test_no_committed_credential_shapes.py` tut dasselbe für `kp_`-API-Keys, JWTs und Passwörter in einer URL (#1860). Als Platzhalter gilt dort ein Wert mit Template-Markierung (`${…}`, `{…}`, `[…]`, `<…>`); bei Key und JWT außerdem ein Wert mit einer Entropie unter 3 Bit pro Zeichen (`kp_live_xxxx…`), bei einem URL-Passwort ein Platzhalter-Wort, auch mit Zahl (`pass`, `password`, `pw-1795`), oder ein wiederholtes Zeichen. Nicht maschinell erzwungen bleibt das `password=…`-Literal außerhalb einer URL.
 
 ---
 

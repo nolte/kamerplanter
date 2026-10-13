@@ -1,10 +1,14 @@
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from app.common.datetimes import today_utc
-from app.common.exceptions import ValidationError
+import structlog
+
+from app.common.datetimes import replace_year, today_utc
+from app.common.enums import TenantRole
+from app.common.exceptions import FeedExpiredError, ForbiddenError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
-from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine
+from app.data_access.arango.base_repository import get_all_pages
+from app.domain.engines.calendar_aggregation_engine import CalendarAggregationEngine, CalendarSourceRows
 from app.domain.engines.season_overview_engine import (
     SeasonOverview,
     SeasonOverviewEngine,
@@ -19,16 +23,37 @@ from app.domain.engines.sowing_calendar_engine import (
     SowingCalendarEntry,
     SpeciesData,
 )
+from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
+from app.domain.interfaces.calendar_source_repository import ICalendarSourceRepository
+from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
+from app.domain.interfaces.tenant_repository import ITenantRepository
+from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.calendar import (
     CalendarEvent,
     CalendarEventsQuery,
     CalendarFeed,
+    CalendarFeedIssued,
 )
+from app.domain.models.site import Site
 from app.domain.services.ical_generator import ICalGenerator
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.species_visibility import readable_species
+
+logger = structlog.get_logger()
+
+#: The window a subscribed feed renders, in days around today (UTC): the recent past
+#: a calendar client may still show, and the season ahead (REQ-015 §4.2, #2226).
+FEED_WINDOW_PAST_DAYS = 30
+FEED_WINDOW_FUTURE_DAYS = 90
+
+#: The most events one ``feed.ics`` answer carries (#2226 review SEC-005). The route
+#: is unauthenticated apart from the token and polled by clients for months, so its
+#: answer has a fixed upper size whatever the tenant holds. Past the cap the events
+#: nearest to today are kept; the cut is logged without tenant or feed key.
+FEED_MAX_EVENTS = 2000
 
 
 class CalendarService:
@@ -36,14 +61,26 @@ class CalendarService:
         self,
         feed_repo: ICalendarFeedRepository,
         aggregation_engine: CalendarAggregationEngine,
+        source_repo: ICalendarSourceRepository,
         species_repo: ISpeciesRepository | None = None,
         site_repo: ISiteRepository | None = None,
         sowing_engine: SowingCalendarEngine | None = None,
         season_engine: SeasonOverviewEngine | None = None,
         planting_run_service=None,
+        *,
+        membership_repo: IMembershipRepository | None = None,
+        user_repo: IUserRepository | None = None,
+        tenant_repo: ITenantRepository | None = None,
     ) -> None:
+        # The three stores the public feed asks whether the feed's owner still
+        # stands in its tenant (#2226 review SEC-001). ``get_calendar_service``
+        # always wires them; without them no feed is served (fail closed).
+        self._membership_repo = membership_repo
+        self._user_repo = user_repo
+        self._tenant_repo = tenant_repo
         self._feed_repo = feed_repo
         self._engine = aggregation_engine
+        self._sources = source_repo
         self._ical = ICalGenerator()
         self._species_repo = species_repo
         self._site_repo = site_repo
@@ -52,52 +89,203 @@ class CalendarService:
         self._run_service = planting_run_service
 
     def get_events(self, query: CalendarEventsQuery) -> list[CalendarEvent]:
-        return self._engine.get_events(query)
+        """Load every event source's rows, then let the stateless engine aggregate them.
+
+        The loading used to happen inside the engine, which held a database
+        handle to do it (#1638). The order of the reads and both degradations
+        are unchanged: the watering forecast is best-effort (a failing read
+        contributes no forecast events instead of failing the calendar), and an
+        unresolvable fertilizer name falls back to its key.
+
+        Every per-tenant source is read with ``query.tenant_key`` (#1704). An
+        empty tenant key fails closed: it would otherwise match every legacy row
+        whose ``tenant_key`` was never stamped, across all tenants.
+        """
+        if not query.tenant_key:
+            logger.warning("calendar_events_without_tenant_refused")
+            return []
+        start_dt, end_dt = CalendarAggregationEngine.window(query)
+        start, end = start_dt.isoformat(), end_dt.isoformat()
+
+        tasks = self._sources.list_tasks_due(start, end, tenant_key=query.tenant_key)
+        phase_plants = self._sources.list_phase_timeline_rows(tenant_key=query.tenant_key)
+        maintenance_logs = self._sources.list_maintenance_logs(start, end, tenant_key=query.tenant_key)
+        watering_logs = self._sources.list_watering_logs(start, end, tenant_key=query.tenant_key)
+        try:
+            forecast_plants = self._sources.list_watering_forecast_rows(tenant_key=query.tenant_key)
+        except Exception:  # noqa: BLE001 — the forecast is an optional overlay
+            logger.warning("calendar_watering_forecast_unavailable", exc_info=True)
+            forecast_plants = []
+
+        fertilizer_names: dict[str, str] = {}
+        fertilizer_keys = CalendarAggregationEngine.forecast_fertilizer_keys(forecast_plants)
+        if fertilizer_keys:
+            try:
+                fertilizer_names = self._sources.get_fertilizer_product_names(
+                    fertilizer_keys, tenant_key=query.tenant_key
+                )
+            except Exception:  # noqa: BLE001 — names are a display hint; keys stand in
+                logger.warning("calendar_fertilizer_names_unavailable", exc_info=True)
+
+        rows = CalendarSourceRows(
+            tasks=tasks,
+            phase_plants=phase_plants,
+            maintenance_logs=maintenance_logs,
+            watering_logs=watering_logs,
+            forecast_plants=forecast_plants,
+            fertilizer_names=fertilizer_names,
+        )
+        return self._engine.aggregate(query, rows)
 
     # ── Feed CRUD ────────────────────────────────────────────────────
 
-    def create_feed(self, feed: CalendarFeed) -> CalendarFeed:
-        feed.token = secrets.token_urlsafe(32)
-        return self._feed_repo.save(feed)
+    @staticmethod
+    def _issue_token(feed: CalendarFeed) -> str:
+        """Give ``feed`` a fresh iCal token; only its digest stays on the feed (#2171).
 
-    def get_feed(self, key: str, tenant_key: str = "") -> CalendarFeed:
+        The raw value goes back to the caller for the one response that shows it;
+        the stored feed carries ``TokenEngine.hash_token`` of it - the same SHA-256
+        digest refresh, invitation, reset and verification tokens are stored as.
+        """
+        raw = secrets.token_urlsafe(32)
+        feed.token_hash = TokenEngine.hash_token(raw)
+        return raw
+
+    def create_feed(self, feed: CalendarFeed) -> CalendarFeedIssued:
+        """Persist ``feed`` with a new token and return it with the raw token, once."""
+        raw = self._issue_token(feed)
+        return CalendarFeedIssued(feed=self._feed_repo.save(feed), token=raw)
+
+    def get_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
+        """The feed ``key`` as the caller may read it: their own, or any of the tenant's for a lead.
+
+        The same rule as changing it (:meth:`_managed_feed`, #2226 re-review SEC-W1):
+        a feed belongs to one member, and its name and filters say what that member
+        follows. A grower or viewer asking for a colleague's key gets the 404 an
+        unknown key gets, so a key does not tell them whether that feed exists; the
+        lead sees every feed of the tenant, as ``?scope=all`` already lists them.
+        Never skipped, whoever calls (#2119): a foreign feed and any feed for an
+        empty ``tenant_key`` answer alike. The only tenant-less way to a feed is the
+        public iCal URL, which authenticates by the feed token in
+        :meth:`generate_ical_for_feed`.
+        """
+        return self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
+
+    def _tenant_feed(self, key: str, *, tenant_key: str) -> CalendarFeed:
+        """The feed ``key`` of ``tenant_key``, or 404 - the tenant half of every feed rule."""
         feed = self._feed_repo.get_or_raise(key)
-        if tenant_key:
-            verify_tenant_ownership(feed, tenant_key, "CalendarFeed")
+        verify_tenant_ownership(feed, tenant_key, "CalendarFeed")
         return feed
 
     def list_feeds(self, user_key: str, tenant_key: str) -> list[CalendarFeed]:
-        return self._feed_repo.list_by_user(user_key, tenant_key)
+        return self._feed_repo.list_by_user(user_key, tenant_key=tenant_key)
 
-    def update_feed(self, key: str, feed: CalendarFeed) -> CalendarFeed:
-        existing = self.get_feed(key)
-        feed.token = existing.token
-        return self._feed_repo.update(key, feed)
+    def list_tenant_feeds(self, *, tenant_key: str, role: TenantRole) -> list[CalendarFeed]:
+        """Every feed of the tenant, for its lead only (#2226 review SEC-001).
 
-    def delete_feed(self, key: str) -> bool:
-        self.get_feed(key)
+        A feed is a standing read of the tenant's calendar by whoever holds its
+        URL. The lead may already change, rotate and delete any feed of the tenant
+        (:meth:`_managed_feed`); this is the list that lets them find one. Anyone
+        else is refused with a 403: the overview names colleagues' feeds.
+        """
+        if role != TenantRole.LEAD:
+            raise ForbiddenError("Only the tenant's lead lists every calendar feed")
+        return self._feed_repo.list_by_tenant(tenant_key=tenant_key)
+
+    def _managed_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeed:
+        """The feed ``key`` the caller may read or change: their own, or any of the tenant's for a lead.
+
+        ``_tenant_feed`` answers for the tenant; a feed belongs to one member (REQ-015
+        CF-002), and a grower who changes, rotates or deletes another member's feed
+        would break - or take over - that member's calendar subscription. A lead
+        manages every feed of the tenant, as the lead manages everything else in it.
+        A foreign feed answers exactly like an unknown one (404), so a key does not
+        tell a grower whether a colleague's feed exists. An empty ``user_key`` never
+        matches, not even a legacy feed whose owner was never stamped.
+        """
+        feed = self._tenant_feed(key, tenant_key=tenant_key)
+        if role != TenantRole.LEAD and (not user_key or feed.user_key != user_key):
+            raise NotFoundError("CalendarFeed", key)
+        return feed
+
+    #: What a ``PUT`` may change. Everything else on a feed - owner, tenant, token
+    #: digest, expiry, creation time - is set by create / rotate and never by an edit.
+    _EDITABLE_FEED_FIELDS = frozenset({"name", "filters", "is_active"})
+
+    def update_feed(
+        self,
+        key: str,
+        feed: CalendarFeed,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+    ) -> CalendarFeed:
+        """Change name, filters and state of a managed feed - those three fields and nothing else.
+
+        Written as a field merge from an allow-list, not as the full model (#2171
+        review W-2): the request model carries no owner and no token digest, and a
+        full write that copied them from the feed read first would put back the
+        digest a rotation committed in between - reviving the URL the member just
+        retired and killing the one they just copied. ``feed`` is a validated
+        model, so its dump types every value it hands to the merge.
+        """
+        self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
+        fields = feed.model_dump(mode="json", include=set(self._EDITABLE_FEED_FIELDS))
+        return self._feed_repo.update_fields(key, fields)
+
+    def delete_feed(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> bool:
+        self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
         return self._feed_repo.delete(key)
 
-    def regenerate_token(self, key: str) -> CalendarFeed:
-        feed = self.get_feed(key)
-        feed.token = secrets.token_urlsafe(32)
-        return self._feed_repo.update(key, feed)
+    def regenerate_token(self, key: str, *, tenant_key: str, user_key: str, role: TenantRole) -> CalendarFeedIssued:
+        """Replace the token of a managed feed; the old URL stops resolving at once.
+
+        This is also how a member gets a URL for a feed whose URL was lost: the
+        stored digest cannot be turned back into the token (#2171). Only the digest
+        is written, so a rotation cannot undo an edit that committed in between.
+        """
+        feed = self._managed_feed(key, tenant_key=tenant_key, user_key=user_key, role=role)
+        raw = self._issue_token(feed)
+        stored = self._feed_repo.update_fields(key, {"token_hash": feed.token_hash})
+        return CalendarFeedIssued(feed=stored, token=raw)
 
     # ── Sowing calendar (REQ-015 §3.8) ─────────────────────────────
+
+    def _owned_site(self, site_key: str | None, *, tenant_key: str) -> Site | None:
+        """The site ``site_key`` of ``tenant_key``, ``None`` without a key, or 404 (#1870).
+
+        The REST sowing and season-overview routes passed ``?site_id=`` through
+        unchecked, and the site, its runs and their phase timelines were read
+        for any tenant's key; only the MCP tool checked first. The check lives
+        here now so no caller can skip it. A foreign and an unknown site answer
+        the same.
+        """
+        if not site_key:
+            return None
+        site = self._site_repo.get_site_by_key(site_key) if self._site_repo else None
+        if site is None or site.tenant_key != tenant_key:
+            raise NotFoundError("Site", site_key)
+        return site
 
     def get_sowing_calendar(
         self,
         site_key: str | None,
         year: int,
+        *,
+        tenant_key: str,
     ) -> tuple[list[SowingCalendarEntry], FrostConfig]:
-        frost_config = self._build_frost_config(site_key, year)
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        frost_config = self._build_frost_config(site, year)
 
         run_entries: list[SowingCalendarEntry] = []
-        if site_key and self._run_service:
-            run_entries = self._build_entries_from_runs(site_key, year)
+        if site is not None and self._run_service:
+            run_entries = self._build_entries_from_runs(site.key or "", year, tenant_key=tenant_key)
 
-        # Theoretical species data
-        species_list, _ = self._species_repo.get_all(offset=0, limit=5000) if self._species_repo else ([], 0)
+        # Theoretical species data — the tenant's visible catalogue (global seeds
+        # plus its own additions), never another tenant's private species (#1870).
+        # Every visible species, not the first 5000 (#2015).
+        species_list = get_all_pages(self._species_repo, tenant_key=tenant_key) if self._species_repo else []
         species_data = [
             SpeciesData(
                 key=sp.key or "",
@@ -146,6 +334,8 @@ class CalendarService:
         self,
         site_key: str,
         year: int,
+        *,
+        tenant_key: str,
     ) -> list[SowingCalendarEntry]:
         """Build calendar entries from actual PlantingRun phase timelines.
 
@@ -154,7 +344,7 @@ class CalendarService:
         """
 
         run_svc: PlantingRunService = self._run_service
-        runs = run_svc._repo.get_runs_at_site(site_key)
+        runs = run_svc._repo.get_runs_at_site(site_key, tenant_key=tenant_key)
         if not runs:
             return []
 
@@ -169,7 +359,7 @@ class CalendarService:
             # shows how far out the expected harvest is.
             run_entries = run_svc._repo.get_entries(run.key)
             for re in run_entries:
-                bars.extend(self._species_harvest_bars(re.species_key, year))
+                bars.extend(self._species_harvest_bars(re.species_key, year, tenant_key=tenant_key))
 
             if not bars:
                 continue
@@ -185,11 +375,17 @@ class CalendarService:
         entries.sort(key=lambda e: min(b.start_date for b in e.bars) if e.bars else date.max)
         return entries
 
-    def _species_harvest_bars(self, species_key: str, year: int) -> list[SowingBar]:
-        """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months)."""
+    def _species_harvest_bars(self, species_key: str, year: int, *, tenant_key: str) -> list[SowingBar]:
+        """Build harvest/bloom bars from Species stammdaten (harvest_months / bloom_months).
+
+        Only a species the tenant may read — global, its own, or granted to it
+        (#1092), the rule the species list above applies too: a run entry can
+        still name another tenant's private species (#1871 B11), and its months
+        must not reach this calendar.
+        """
         if not self._species_repo:
             return []
-        sp = self._species_repo.get_by_key(species_key)
+        sp = readable_species(self._species_repo, species_key, tenant_key)
         if sp is None:
             return []
 
@@ -262,13 +458,12 @@ class CalendarService:
         self,
         site_key: str | None,
         year: int,
+        *,
+        tenant_key: str,
     ) -> SeasonOverview:
-        entries, frost_config = self.get_sowing_calendar(site_key, year)
-        site_name = ""
-        if site_key and self._site_repo:
-            site = self._site_repo.get_site_by_key(site_key)
-            if site:
-                site_name = site.name
+        entries, frost_config = self.get_sowing_calendar(site_key, year, tenant_key=tenant_key)
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        site_name = site.name if site is not None else ""
 
         # For now, task_events is empty — can be expanded with AQL aggregation
         task_events: list[TaskEvent] = []
@@ -280,17 +475,13 @@ class CalendarService:
             year,
         )
 
-    def _build_frost_config(self, site_key: str | None, year: int) -> FrostConfig:
-        if site_key and self._site_repo:
-            site = self._site_repo.get_site_by_key(site_key)
-            if site:
-                return FrostConfig(
-                    last_frost_date=(site.last_frost_date_avg or date(year, 5, 1)).replace(year=year),
-                    first_frost_date=(
-                        site.first_frost_date_avg.replace(year=year) if site.first_frost_date_avg else None
-                    ),
-                    eisheilige_date=(site.eisheilige_date or date(year, 5, 15)).replace(year=year),
-                )
+    def _build_frost_config(self, site: Site | None, year: int) -> FrostConfig:
+        if site is not None:
+            return FrostConfig(
+                last_frost_date=replace_year(site.last_frost_date_avg or date(year, 5, 1), year),
+                first_frost_date=(replace_year(site.first_frost_date_avg, year) if site.first_frost_date_avg else None),
+                eisheilige_date=replace_year(site.eisheilige_date or date(year, 5, 15), year),
+            )
         return FrostConfig(
             last_frost_date=date(year, 5, 1),
             eisheilige_date=date(year, 5, 15),
@@ -299,36 +490,86 @@ class CalendarService:
     # ── iCal generation ──────────────────────────────────────────────
 
     def generate_ical_for_feed(self, feed_key: str, token: str) -> str:
-        feed = self._feed_repo.get_by_token(token)
-        if feed is None or feed.key != feed_key:
-            raise ValidationError("Invalid feed token")
-        if not feed.is_active:
-            raise ValidationError("Feed is inactive")
+        """The iCal document of the feed ``feed_key`` that ``token`` opens, or 404 (#2226).
+
+        This is the only tenant-less way into a tenant's events (the public
+        ``feed.ics`` route), so every refusal answers alike: no token, a token no
+        feed carries, the token of another feed and a deactivated feed all raise
+        the same ``NotFoundError("CalendarFeed", feed_key)`` - the caller learns
+        nothing it did not send. The feed is resolved by the digest of what the
+        URL presents, never by the raw value (#2171); the stored digest itself is
+        not a working token. Only a feed past its ``expires_at`` answers
+        differently, ``410`` (CF-005), and only to the holder of its token.
+
+        **The feed reads with its owner's standing** (#2226 review SEC-001). A
+        feed is a member's standing read of the tenant, so it is served only
+        while that member still holds it: the owner's account exists and is
+        active, the owner holds an active membership in the feed's tenant, and
+        the tenant is active. A feed without an owner (legacy rows never stamped)
+        is served to nobody. Each of these answers the same 404 - the URL of a
+        removed member, a deactivated account or a deactivated tenant stops
+        working at once, whether or not the feed rows were cleaned up yet.
+        """
+        feed = self._feed_repo.get_by_token_hash(TokenEngine.hash_token(token)) if token else None
+        if feed is None or feed.key != feed_key or not feed.is_active or not self._owner_stands(feed):
+            raise NotFoundError("CalendarFeed", feed_key)
         # REQ-015 v1.6 CF-005: feeds past expires_at return HTTP 410.
         if feed.expires_at is not None:
-            from datetime import datetime as _datetime
-
-            now = _datetime.now(tz=feed.expires_at.tzinfo) if feed.expires_at.tzinfo else _datetime.now()
+            now = datetime.now(tz=feed.expires_at.tzinfo) if feed.expires_at.tzinfo else datetime.now()
             if now >= feed.expires_at:
-                from app.common.exceptions import FeedExpiredError
-
                 raise FeedExpiredError(feed_key)
-
-        from datetime import timedelta
 
         # The window is matched against event dates derived from stored UTC
         # timestamps, so both bounds are anchored in UTC. Resolved once: two
         # ``today`` reads could straddle midnight and produce a 121-day window.
         today = today_utc()
         query = CalendarEventsQuery(
-            start_date=today - timedelta(days=30),
-            end_date=today + timedelta(days=90),
+            start_date=today - timedelta(days=FEED_WINDOW_PAST_DAYS),
+            end_date=today + timedelta(days=FEED_WINDOW_FUTURE_DAYS),
             categories=feed.filters.categories,
-            site_key=feed.filters.site_key,
             tenant_key=feed.tenant_key,
         )
-        events = self._engine.get_events(query)
+        events = _nearest_events(self.get_events(query), today, FEED_MAX_EVENTS)
         return self._ical.generate(events, feed.name)
+
+    def _owner_stands(self, feed: CalendarFeed) -> bool:
+        """Whether the feed's owner may still read its tenant: active account, active membership, active tenant.
+
+        Fails closed: a feed without owner or tenant, and a service built
+        without the three stores, stand for nobody.
+        """
+        if not feed.user_key or not feed.tenant_key:
+            return False
+        if self._membership_repo is None or self._user_repo is None or self._tenant_repo is None:
+            logger.warning("calendar_feed_owner_check_unwired")
+            return False
+        user = self._user_repo.get_by_key(feed.user_key)
+        if user is None or not user.is_active:
+            return False
+        membership = self._membership_repo.get_by_user_and_tenant(feed.user_key, feed.tenant_key)
+        if membership is None or not membership.is_active:
+            return False
+        tenant = self._tenant_repo.get_by_key(feed.tenant_key)
+        return tenant is not None and tenant.is_active
+
+
+def _nearest_events(events: list[CalendarEvent], today: date, limit: int) -> list[CalendarEvent]:
+    """At most ``limit`` of ``events``: those nearest to ``today``, in their original order (SEC-005).
+
+    An event without a start sorts last. The cut is logged with the two counts
+    only - no tenant, no feed key.
+    """
+    if len(events) <= limit:
+        return events
+
+    def distance(indexed: tuple[int, CalendarEvent]) -> tuple[int, int]:
+        start = indexed[1].start
+        days = abs((_to_date(start) - today).days) if start is not None else 10**6
+        return days, indexed[0]
+
+    kept = sorted(sorted(enumerate(events), key=distance)[:limit], key=lambda indexed: indexed[0])
+    logger.warning("calendar_feed_events_capped", total=len(events), kept=limit)
+    return [event for _, event in kept]
 
 
 def _has_sowing_data(sp) -> bool:

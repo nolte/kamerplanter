@@ -43,6 +43,8 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
 | `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
+| `lane-inputs.yml` | weekly on `develop`, manual | Measures which files the filtered jobs read, compares with `.github/lane-inputs/` and proposes differences as a bot pull request ([details](#lane-inputs)) |
+| `reach-audit.yml` | weekly (Sunday 02:43 UTC), manual | Runs the capability reach audit including the full-stack T2 probes on a runner; advisory, no merge gate ([details](#reach-audit)) |
 
 ---
 
@@ -55,6 +57,7 @@ The backend CI workflow runs on every push to `develop` and on pull requests whe
 1. **Ruff lint** — checks Python code for style and quality issues (`ruff check .`)
 2. **Ruff format** — ensures the code is correctly formatted (`ruff format --check .`)
 3. **Unit tests** — runs all tests under `tests/unit/` with pytest
+4. **Test coverage** — measures coverage in the same test run (no second run) and fails the job below 60 %
 
 ```yaml title=".github/workflows/backend.yml (simplified)"
 jobs:
@@ -171,7 +174,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v4
         with:
-          node-version: 22    # (1)!
+          node-version: 25    # (1)!
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -182,7 +185,7 @@ jobs:
       - run: npm run build
 ```
 
-1. Only the `lint-test-build` job uses Node 22. The `bundle-budget` and `lighthouse` jobs in the same workflow run on Node 24 — matching the frontend Dockerfile, which builds with `node:24-alpine` (see [Frontend image](#frontend-image) below).
+1. All frontend jobs run on Node 26, like local development. For historical reasons the check is still named `lint-test-build (22)` because it is the required context in `.github/settings.yml`. The frontend Dockerfile builds with `node:26-alpine` too (see [Frontend image](#frontend-image) below).
 
 !!! tip "Local check before pushing"
     ```bash
@@ -209,7 +212,7 @@ Besides `lint-test-build`, the same workflow runs two standalone jobs that watch
 | Initial CSS bundle | 50 KB | under budget |
 | `/dashboard` route chunk | 12 KB | under budget |
 
-Exceeding a budget fails the job; the bundle analyzer report (treemap via `rollup-plugin-visualizer`) is uploaded as the `bundle-stats` artifact. This budget is achievable thanks to a `manualChunks` vendor strategy in `vite.config.ts`: React, MUI core, Redux Toolkit, and react-i18next are eagerly grouped into stable, long-lived vendor chunks, while heavy route-scoped libraries (`recharts`, `@mui/x-*`, `react-grid-layout`) stay lazy.
+The job runs only on pull requests that change the frontend (the same detection as `lint-test-build`) and on every push to `develop`. Exceeding a budget fails the job; the bundle analyzer report (treemap via `rollup-plugin-visualizer`) is uploaded as the `bundle-stats` artifact. This budget is achievable thanks to a `manualChunks` vendor strategy in `vite.config.ts`: React, MUI core, Redux Toolkit, and react-i18next are eagerly grouped into stable, long-lived vendor chunks, while heavy route-scoped libraries (`recharts`, `@mui/x-*`, `react-grid-layout`) stay lazy.
 
 !!! note "300 KB target not yet reached"
     UI-NFR-003 sets a target of 300 KB gzip for the initial JavaScript bundle. The current 490 KB budget only locks in the measured baseline against further silent growth — it does not yet meet the target. The main driver is the eagerly-loaded i18n translation bundle (~160 KB gzip). Reaching the 300 KB target requires lazy-loading the translations and is tracked as an open follow-up. <!-- UI-NFR-003 R-013 -->
@@ -245,6 +248,9 @@ helm/**         →  publish-helm-charts
 
 On a `v*` tag or manual trigger, the filtering is skipped — all components are always built.
 
+!!! info "What a filter is measured against"
+    Every path filter — at a workflow's `on:` or as a `dorny/paths-filter` step — is checked against what the job actually *reads*, not against what the workflow text *mentions*. `scripts/ci/lane_inputs.py` records a job's read set under `strace` (subprocesses included) and stores it as a manifest under `.github/lane-inputs/`; the guard `test_lane_filters_cover_measured_inputs.py` holds every filter against it and goes red when a filtered job has no manifest, the manifest is older than the job, or a read path lies outside the filter. The rule is NFR-018 §4.3. These checks need a fresh measurement as soon as a job changes, so they run only in the weekly `lane-inputs.yml` run on `develop` and in no pull-request check; a bot pull request fixes a drift there ([details](#lane-inputs)).
+
 ### Backend image
 
 The backend image is based on `python:3.14-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):
@@ -273,7 +279,7 @@ The image is pushed to `ghcr.io/nolte/kamerplanter-backend`. Dependencies come e
 The frontend image also uses a multi-stage Dockerfile: first the React app is built with Node.js 24, then the static files are copied into a slim, **unprivileged** nginx image (does not run as root, compatible with `runAsNonRoot`):
 
 ```dockerfile title="src/frontend/Dockerfile (simplified)"
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -453,8 +459,78 @@ This workflow runs on pull requests to `develop` when `skaffold.yaml`, Helm file
 4. **`skaffold diagnose`** — validates the Skaffold configuration
 5. **`skaffold render`** — generates rendered manifests and uploads them as an artifact
 
+The workflow builds no images: it only installs the `skaffold` binary and checks that the configuration and the chart fit together. Whether the Dockerfiles' `dev` stages build shows on your first `skaffold dev` run.
+
 !!! note "Skaffold is for local development only"
     Skaffold is used exclusively for the local development environment (Kind cluster). Production deployments do not go through Skaffold — they use the `docker-publish` workflow in combination with the Helm chart.
+
+---
+
+## Measured inputs of the path filters (`lane-inputs.yml`) {#lane-inputs}
+
+Many workflows only run when a pull request changes certain paths. Such a path filter is a claim: "a change outside these paths cannot change this job's result." Whether that holds depends on which files the job actually **reads** — not on which paths the workflow mentions.
+
+That is why `.github/lane-inputs/` holds one manifest per filtered job with its measured read set. The guard `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py` holds every path filter against that set: if a job reads a file its filter does not select, the guard fails. The fix is to widen the **filter**. Only a file that genuinely does not affect the job's result, or that another unfiltered required job checks anyway, goes under `accepted_gaps` with a specific reason (with `covered_by` when another job stands in — the guard then checks that this job reads the file according to its own manifest).
+
+### What the workflow does
+
+The workflow `lane-inputs.yml` measures the read sets where the jobs themselves run — on a GitHub runner:
+
+1. **plan** reads every manifest and emits one matrix entry per manifest. There is no second list of jobs.
+2. **record** re-runs the commands recorded in the manifest under `strace` and writes a fresh manifest. The real job's environment is derived from its workflow (for example a `.venv/bin` added via `$GITHUB_PATH`). If a tool is missing or a command fails, no shorter manifest is written — the entry fails instead.
+3. **compare** compares the committed manifests with the measurement (read set, job hash, status, commands) and fails on any difference.
+4. **guard** runs the guard's rules that hold committed manifests against the live workflows — once against the state on `develop`, once with the fresh measurement laid over it.
+5. **propose** opens a bot pull request on the branch `bot/lane-inputs-refresh` when there is a difference; it contains exactly the measurement. If the guard is green with the measurement, it carries the `automerge` label and merges once the required checks are green. Without a difference it opens nothing and closes a bot pull request that is still open.
+
+It runs weekly on `develop` and on demand, **not** on pull requests. A pull request that changes a workflow job or the inputs of a filtered job therefore needs no measurement: the rules that would need one run in no pull-request check. The next run on `develop` shows the difference, and the bot pull request fixes it. The workflow and the guard are **not required** (advisory); promoting them is decided on their measured history (NFR-018 §4).
+
+!!! note "Why the weekly run can turn red without anyone's mistake"
+    Many jobs list directories. When a file is added there, the job's read set grows — the committed manifest is then stale although nobody did anything wrong. Surfacing exactly that is what the weekly run is for; the bot pull request then brings the manifests back to the measured state.
+
+### When the bot pull request does not merge on its own
+
+`reads:` is never edited by hand. If the bot pull request carries no `automerge`, the measurement alone is not enough: the job reads a path its filter does not select. Widen the path filter in the workflow on the bot branch — or give the gap a reason under `accepted_gaps`. The bot pull request's body names the paths. If that changes the job definition (not just the filter patterns, which are not part of the job hash), start a new run afterwards:
+
+```bash
+gh workflow run lane-inputs.yml --ref develop
+```
+
+To run the guard with these rules locally (from `src/backend`):
+
+```bash
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift
+```
+
+A run on any branch other than `develop` measures that branch and only reports what it would propose; it opens no pull request.
+
+---
+
+## Capability reach audit (`reach-audit.yml`) {#reach-audit}
+
+The reach audit asks of every declared capability whether it really reaches what it promises: it runs the approved probes in `project/reach-probes/` and reports each capability as *reached*, *partially reached*, *not reached* or *not probed*. The **T2** probes need the full stack with seeded data (a Docker Compose stack plus the reranker image build). This workflow runs them on a GitHub runner so you do not have to start that stack on your machine.
+
+The workflow is **advisory**: it runs weekly and on demand, never on pull requests, and it is not a required check.
+
+### Run it
+
+```bash
+gh workflow run reach-audit.yml                       # T0, T1 and T2
+gh workflow run reach-audit.yml -f include_t2=false   # T0 and T1 only
+```
+
+A cold run builds two images (the backend stack and the reranker with its model download) and can take well over an hour; a warm run takes about 15 minutes.
+
+### What the result means
+
+The job writes the report `.audits/capability-reach/<date>.md` and uploads it as the artifact `capability-reach-report`; the job summary lists what needs attention.
+
+- **The job is red** when a probe measured *not reached*, when an environment (stack, seed, reranker) did not come up, when a probe was *weakened* or is invalid, or when the runner itself failed.
+- **The job stays green and lists a warning** for a *stale* probe (its declaration changed after the probe was derived), for a capability no probe could be built for (*not constructible*) and for *partially reached*. These are coverage gaps, not defects. A stale probe is not edited: you re-confirm or re-derive it with the `capability-reach-audit` skill.
+
+The headline of the report counts the entries that were **not probed**. Read that number first: it says how much of the declared surface the audit did not measure.
+
+!!! note "The runner is not part of this repository"
+    `reach_audit.py` comes from `nolte/claude-shared`, checked out at one pinned commit inside the workflow. Moving the pin is a deliberate one-line change in `reach-audit.yml`.
 
 ---
 
@@ -624,6 +700,13 @@ A rollback is a commit in the **GitOps repository**: set `targetRevision` back t
     for the one release tag where that assumption failed. `0.1.0` is used
     above because it still carries its original release timestamp; when in
     doubt, pin the manifest digest instead of a bare version number.
+
+!!! warning "No rollback below a migration that retired an index"
+
+    An older backend image re-creates, at startup, the unique indexes a later
+    migration dropped; the migration never runs again. Which versions are
+    therefore no rollback target is listed in the
+    [changelog](../changelog/unreleased.md) under "Operations (rollback)".
 
 ArgoCD pulls the older chart version — together with the digests that version pins — and the pods roll back. Verify the result **in the running pod**, not in the values file and not from a controller status:
 

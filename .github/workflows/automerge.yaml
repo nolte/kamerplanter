@@ -19,6 +19,48 @@ on:
       - completed
   status: {}
 
+# WHY THIS WORKFLOW NEEDS A CONCURRENCY GROUP (#1585).
+#
+# The trigger set above is the widest in this repository: every finished check
+# suite and every commit-status event starts a run. With 18 open pull requests
+# carrying roughly fifteen checks each, and `required_status_checks.strict`
+# restarting that round for every other pull request on every merge, this
+# workflow queues faster than it drains. Measured on 2026-09-19: **99 of its
+# last 100 runs were queued**, 45 of them still waiting two hours later, while
+# the lanes they are waiting on competed for the same capacity.
+#
+# Cancellation is free here, unlike on the lanes. An automerge decision is a
+# function of the pull request's CURRENT state, so a superseded run has nothing
+# left to contribute — where cancelling a test lane would discard real work,
+# cancelling this one discards an answer that is already stale.
+#
+# The key falls back through the event shapes this workflow subscribes to,
+# because most of them carry no pull-request number: `pull_request` events do,
+# `check_suite` carries its head SHA, `status` carries `sha`, and `github.ref`
+# is the backstop. Each fallback keeps runs about the SAME commit in one group
+# and runs about different commits apart — which is the property that matters,
+# since the merge decision is per commit.
+#
+# RENOVATE BRANCHES GET A GROUP OF THEIR OWN — one per run — and the job below
+# skips them (operator decision 2026-09-24, NFR-009 §3.4). Renovate merges its
+# own pull requests (`platformAutomerge: false` in renovate.json5) and does so
+# only when EVERY check run on the head commit is `success`, `neutral` or
+# `skipped`; a `cancelled` run counts as pending, and pending never merges.
+# Under the shared per-PR group above, the burst of `opened`/`labeled`/`edited`
+# events Renovate produces for one pull request cancelled earlier runs of this
+# workflow ON THE HEAD COMMIT: 13 of the last 25 Renovate heads carried a
+# `cancelled` `automerge / automerge` check run (measured 2026-09-24), which
+# would have held each of them forever. A run-scoped group is never cancelled,
+# and the skipped job reports `skipped`. Skipping, not merely not-labelling,
+# also keeps this workflow from becoming a second merger that waits for the
+# REQUIRED checks only — which is exactly the gate the decision replaced.
+# `github.event.pull_request` is present on the `pull_request` and
+# `pull_request_review` events; `check_suite`/`status` runs attach their check
+# runs to the default branch, not to a Renovate head, and keep the old key.
+concurrency:
+  group: automerge-${{ startsWith(github.event.pull_request.head.ref, 'renovate/') && format('renovate-{0}', github.run_id) || github.event.pull_request.number || github.event.check_suite.head_sha || github.event.sha || github.ref }}
+  cancel-in-progress: true
+
 # The merging job declares `contents: write` and `pull-requests: write` itself.
 # Read-only here so anything added later starts from the minimum rather than
 # inheriting the repository default (§B of the GitHub-Actions spec: privileges
@@ -28,6 +70,9 @@ permissions:
 
 jobs:
   automerge:
+    # Renovate merges its own pull requests once every check is green (see the
+    # concurrency comment above); this workflow is the path for everything else.
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'renovate/') }}
     # When `vars.PORTFOLIO_APP_ID` is set, the reusable mints a short-lived
     # GitHub-App installation token from `secrets.PORTFOLIO_APP_PRIVATE_KEY`
     # and merges with it instead of GITHUB_TOKEN. This is load-bearing: a
@@ -37,7 +82,7 @@ jobs:
     # to that guard and triggers release-drafter normally.
     # Backwards compatibility: when `vars.PORTFOLIO_APP_ID` is unset, the
     # reusable falls back to `secrets.token` (GITHUB_TOKEN).
-    uses: nolte/gh-plumbing/.github/workflows/reusable-automerge.yaml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
+    uses: nolte/gh-plumbing/.github/workflows/reusable-automerge.yaml@80cb5ebb91a3b49126729de31b1037f11c34b5cd # v2.2.0
     with:
       app-id: ${{ vars.PORTFOLIO_APP_ID }}
     secrets:

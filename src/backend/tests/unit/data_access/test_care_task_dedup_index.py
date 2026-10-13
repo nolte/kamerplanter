@@ -27,6 +27,17 @@ def test_index_and_lookup_agree_on_open_statuses():
     assert col.CARE_TASK_OPEN_STATUSES == ArangoTaskRepository._CARE_OPEN_STATUSES
 
 
+def test_every_open_status_predicate_in_the_repository_is_the_same_object():
+    """One set, not three copies that happen to be equal today (#1573 review SCR-003).
+
+    ``_CARE_OPEN_STATUSES`` (care dedup), ``_OPEN_STATUSES`` (dashboard "open" tiles
+    and the #1533 task-name dedup) are now an alias pair. Identity rather than
+    equality, because equality is exactly what three independent copies satisfy right
+    up to the day one of them gains a status.
+    """
+    assert ArangoTaskRepository._CARE_OPEN_STATUSES is ArangoTaskRepository._OPEN_STATUSES
+
+
 def test_open_statuses_are_real_task_statuses():
     """Guards against a typo that would make the expression match nothing."""
     valid = {status.value for status in TaskStatus}

@@ -19,12 +19,12 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
 
-_DB_NAME = "kamerplanter_lineage_isolation_test"
+_DB_NAME = run_database_name("lineage_isolation")
 
 
 def _plant_doc(key: str, tenant_key: str) -> dict:

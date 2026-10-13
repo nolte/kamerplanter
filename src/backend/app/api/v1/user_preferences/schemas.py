@@ -5,6 +5,13 @@ from app.domain.models.user_preference import DashboardLayout
 
 
 class UserPreferenceResponse(BaseModel):
+    #: ``""`` until the row exists. Reading preferences no longer creates it
+    #: (#1461): a user who has never stated a preference gets the defaults, and
+    #: the first PATCH materialises the document. Every other field carries the
+    #: same value it would have carried had the read written one, so the response
+    #: shape is unchanged — ``to_response`` already coalesces an absent key to
+    #: ``""`` everywhere in this API, which is why this stays a required ``str``
+    #: rather than becoming nullable and forcing every client to re-type it.
     key: str
     user_key: str
     experience_level: ExperienceLevel

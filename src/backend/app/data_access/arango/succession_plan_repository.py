@@ -26,6 +26,11 @@ class ArangoSuccessionPlanRepository(BaseArangoRepository[SuccessionPlan], ISucc
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SUCCESSION_PLANS)
 
+    def list_plans_window(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> list[SuccessionPlan]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        self._require_tenant_key(tenant_key, "list_plans_window")
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
     def delete(self, key: SuccessionPlanKey) -> bool:
         plan_id = f"{col.SUCCESSION_PLANS}/{key}"
         self.delete_edges(col.HAS_SUCCESSION_PLAN, from_id=plan_id)

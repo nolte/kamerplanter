@@ -107,7 +107,7 @@ class TestCreatePlantStartPhase:
     # ── auto-resolution (no phase supplied) ──────────────────────────────
 
     def test_no_phase_auto_resolves_first_and_marks_initial(self) -> None:
-        created = self.service.create_plant(_plant(current_phase_key=None))
+        created = self.service.create_plant(_plant(current_phase_key=None), tenant_key="tenant-a")
 
         assert created.current_phase_key == "entry-germ"
         assert self._written_history().transition_reason == "initial"
@@ -115,14 +115,14 @@ class TestCreatePlantStartPhase:
     # ── valid supplied phase ─────────────────────────────────────────────
 
     def test_valid_first_phase_is_accepted_as_plain_initial(self) -> None:
-        created = self.service.create_plant(_plant(current_phase_key="entry-germ"))
+        created = self.service.create_plant(_plant(current_phase_key="entry-germ"), tenant_key="tenant-a")
 
         assert created.current_phase_key == "entry-germ"
         # Choosing the first phase is not an actual-state capture.
         assert self._written_history().transition_reason == "initial"
 
     def test_valid_non_first_phase_marks_actual_state_capture(self) -> None:
-        created = self.service.create_plant(_plant(current_phase_key="entry-flower"))
+        created = self.service.create_plant(_plant(current_phase_key="entry-flower"), tenant_key="tenant-a")
 
         assert created.current_phase_key == "entry-flower"
         assert self._written_history().transition_reason == "initial_actual_state"
@@ -131,7 +131,7 @@ class TestCreatePlantStartPhase:
 
     def test_garbage_phase_key_is_rejected_with_422(self) -> None:
         with pytest.raises(ValidationError) as exc:
-            self.service.create_plant(_plant(current_phase_key="does-not-exist"))
+            self.service.create_plant(_plant(current_phase_key="does-not-exist"), tenant_key="tenant-a")
 
         assert exc.value.status_code == 422
         assert exc.value.details[0]["code"] == "PHASE_NOT_IN_SEQUENCE"
@@ -142,7 +142,7 @@ class TestCreatePlantStartPhase:
         # A key that belongs to a *different* species' sequence is not in this
         # species' phase set and must be rejected just like a garbage key.
         with pytest.raises(ValidationError) as exc:
-            self.service.create_plant(_plant(current_phase_key="entry-from-other-species"))
+            self.service.create_plant(_plant(current_phase_key="entry-from-other-species"), tenant_key="tenant-a")
 
         assert exc.value.status_code == 422
         self.plant_repo.create.assert_not_called()
@@ -157,19 +157,19 @@ class TestCreatePlantStartPhase:
             _growth_phase("gp-flower", "flowering", 1),
         ]
 
-        created = self.service.create_plant(_plant(current_phase_key="gp-flower"))
+        created = self.service.create_plant(_plant(current_phase_key="gp-flower"), tenant_key="tenant-a")
         assert created.current_phase_key == "gp-flower"
         assert self._written_history().transition_reason == "initial_actual_state"
 
         with pytest.raises(ValidationError):
-            self.service.create_plant(_plant(current_phase_key="gp-bogus"))
+            self.service.create_plant(_plant(current_phase_key="gp-bogus"), tenant_key="tenant-a")
 
     def test_unconfigured_species_leaves_supplied_phase_untouched(self) -> None:
         # No PhaseSequence and no LifecycleConfig → empty valid set → cannot reject.
         self.phase_seq_repo.get_sequence_by_species.return_value = None
         self.phase_repo.get_lifecycle_by_species.return_value = None
 
-        created = self.service.create_plant(_plant(current_phase_key="anything"))
+        created = self.service.create_plant(_plant(current_phase_key="anything"), tenant_key="tenant-a")
         assert created.current_phase_key == "anything"
         # No first phase to compare against → plain initial.
         assert self._written_history().transition_reason == "initial"
@@ -204,14 +204,14 @@ class TestCreatePlantWithoutAnyResolvablePhase:
 
     def test_plant_is_still_created(self) -> None:
         """A master-data gap must not cost the user their plant record."""
-        created = self.service.create_plant(_plant(current_phase_key=None))
+        created = self.service.create_plant(_plant(current_phase_key=None), tenant_key="tenant-a")
 
         assert created is not None
         self.plant_repo.create.assert_called_once()
 
     def test_no_phase_history_entry_is_written(self) -> None:
         """An 'initial' entry with an empty phase_key would fake enrolment."""
-        self.service.create_plant(_plant(current_phase_key=None))
+        self.service.create_plant(_plant(current_phase_key=None), tenant_key="tenant-a")
 
         self.phase_repo.create_phase_history.assert_not_called()
 
@@ -219,7 +219,7 @@ class TestCreatePlantWithoutAnyResolvablePhase:
         from unittest.mock import patch
 
         with patch("app.domain.services.plant_instance_service.logger") as log:
-            self.service.create_plant(_plant(current_phase_key=None))
+            self.service.create_plant(_plant(current_phase_key=None), tenant_key="tenant-a")
 
         assert log.warning.called, "creating a plant with no resolvable phase must not be silent"
         event, kwargs = log.warning.call_args.args[0], log.warning.call_args.kwargs
@@ -229,7 +229,7 @@ class TestCreatePlantWithoutAnyResolvablePhase:
 
     def test_a_supplied_phase_is_still_honoured_and_recorded(self) -> None:
         """The unvalidatable-but-supplied case keeps its history entry (unchanged)."""
-        self.service.create_plant(_plant(current_phase_key="caller-supplied"))
+        self.service.create_plant(_plant(current_phase_key="caller-supplied"), tenant_key="tenant-a")
 
         self.phase_repo.create_phase_history.assert_called_once()
         history = self.phase_repo.create_phase_history.call_args.args[0]
@@ -255,7 +255,7 @@ class TestCreatePlantWithoutAnyResolvablePhase:
             _classify_phase_state,
         )
 
-        created = self.service.create_plant(_plant(current_phase_key=None))
+        created = self.service.create_plant(_plant(current_phase_key=None), tenant_key="tenant-a")
         assert not created.current_phase_key
         self.phase_repo.create_phase_history.assert_not_called()
 

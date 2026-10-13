@@ -293,8 +293,8 @@
     "required": "Pflichtfeld",
     "rowsPerPage": "Zeilen pro Seite",
     "of": "von",
-    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?",
-    "deleteConfirm": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "unsavedChanges": "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?",
+    "deleteConfirm": "Bist du sicher, dass du \"{{name}}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
     "createdAt": "Erstellt am",
     "updatedAt": "Aktualisiert am",
     "skipToContent": "Zum Inhalt springen",
@@ -351,11 +351,24 @@
       "typical": "Typisch"
     },
     "failed": "Fehlgeschlagen",
-    "moreActions": "Weitere Aktionen"
+    "moreActions": "Weitere Aktionen",
+    "catalogue": {
+      "loadFailedTitle": "{{catalogue}} konnte nicht geladen werden",
+      "loadFailedPicker": "Die Auswahl ist gesperrt, bis die Liste geladen ist. Eine leere Auswahl bedeutet hier nicht, dass es keine Einträge gibt. Prüfe deine Verbindung und versuche es erneut.",
+      "loadFailedLookup": "Namen aus dieser Liste können deshalb fehlen oder nur als Kennung erscheinen. Prüfe deine Verbindung und versuche es erneut.",
+      "names": {
+        "activities": "Die Tätigkeitsliste",
+        "botanicalFamilies": "Die Liste der Pflanzenfamilien",
+        "fertilizers": "Die Düngerliste",
+        "nutrientPlans": "Die Liste der Nährstoffpläne",
+        "species": "Die Artenliste",
+        "substrates": "Die Substratliste"
+      }
+    }
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
-    "noSearchResults": "Keine Ergebnisse für Ihre Suche gefunden",
+    "noSearchResults": "Keine Ergebnisse für deine Suche gefunden",
     "resetFilters": "Filter zurücksetzen",
     "sortedBy": "Sortiert nach",
     "searchPlaceholder": "Tabelle durchsuchen...",
@@ -428,15 +441,15 @@
     "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
   },
   "errors": {
-    "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
-    "networkTimeout": "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie es erneut.",
-    "server": "Serverfehler: Bitte versuchen Sie es später erneut.",
+    "network": "Netzwerkfehler. Bitte überprüfe deine Verbindung.",
+    "networkTimeout": "Die Anfrage hat zu lange gedauert. Bitte versuche es erneut.",
+    "server": "Serverfehler: Bitte versuche es später erneut.",
     "serverWithDetail": "Serverfehler: {{detail}}",
-    "forbidden": "Sie haben keine Berechtigung für diese Aktion.",
+    "forbidden": "Du hast keine Berechtigung für diese Aktion.",
     "conflict": "Konflikt: Die Ressource wurde zwischenzeitlich geändert.",
-    "tooLarge": "Die Datei ist zu groß. Bitte wählen Sie eine kleinere Datei.",
+    "tooLarge": "Die Datei ist zu groß. Bitte wähle eine kleinere Datei.",
     "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
-    "validation": "Bitte überprüfen Sie Ihre Eingaben.",
+    "validation": "Bitte überprüfe deine Eingaben.",
     "validationWithDetail": "Validierungsfehler: {{detail}}",
     "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
     "unknown": "Ein unbekannter Fehler ist aufgetreten.",
@@ -445,7 +458,14 @@
     "tenantsLoadFailed": "Die Mandanten konnten nicht geladen werden.",
     "onboardingStateLoadFailed": "Der Onboarding-Status konnte nicht geladen werden.",
     "starterKitsLoadFailed": "Die Starter-Sets konnten nicht geladen werden.",
-    "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden."
+    "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden.",
+    "quota": {
+      "organizationLimitReached": "Du kannst keine weitere Organisation gründen: Dein Konto hat die Höchstzahl an Organisationen dieser Installation erreicht – oder Organisationen legt hier nur der Betreiber an. Wende dich an den Betreiber, wenn du eine weitere brauchst.",
+      "memberLimitReached": "Der Garten hat die Höchstzahl an Mitgliedern erreicht. Entferne ein Mitglied, bevor jemand Neues dazukommt, oder bitte den Betreiber um einen größeren Plan.",
+      "serviceAccountLimitReached": "Der Garten hat die Höchstzahl an Dienstkonten seines Plans erreicht. Lösche ein nicht mehr genutztes Dienstkonto oder bitte den Betreiber um einen größeren Plan.",
+      "storageQuotaExceeded": "Der Speicherplatz des Gartens ist aufgebraucht. Lösche nicht mehr benötigte Fotos oder Anhänge oder bitte den Betreiber um mehr Speicher.",
+      "photoQuotaExceeded": "Diese Pflanze hat die Höchstzahl an Fotos erreicht. Lösche ältere Fotos, bevor du neue hochlädst."
+    }
   },
   "validation": {
     "required": "Pflichtfeld.",
@@ -543,12 +563,16 @@
     "disclaimer": "KI-Antworten können fehlerhaft sein. Bei kritischen Entscheidungen bitte die Quellen prüfen.",
     "dailyTip": {
       "heading": "Tipp des Tages",
-      "dismiss": "Tipp des Tages schließen"
+      "dismiss": "Tipp des Tages schließen",
+      "empty": "Für heute wurde noch kein Tipp erzeugt.",
+      "generate": "Tipp des Tages erzeugen"
     },
     "tips": {
       "heading": "KI-Pflegehinweise",
       "refresh": "Aktualisieren",
-      "learnMore": "Mehr erfahren"
+      "learnMore": "Mehr erfahren",
+      "empty": "Noch keine KI-Pflegehinweise erzeugt. Mit „Hinweise erzeugen“ fragst du den Wissensdienst nach Hinweisen zu dieser Pflanze.",
+      "generate": "Hinweise erzeugen"
     },
     "why": {
       "tooltip": "Warum?",
@@ -572,8 +596,18 @@
     },
     "errors": {
       "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
+      "notEnabled": "Die KI-Funktionen sind auf dieser Installation nicht eingeschaltet. Die Betreiberin oder der Betreiber kann sie aktivieren.",
       "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
-      "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
+      "consentRequiredLink": "Zu den Datenschutz-Einstellungen",
+      "budgetUserExceeded": "Du hast dein Tageskontingent an KI-Anfragen in diesem Garten aufgebraucht. Ab Mitternacht (UTC) kannst du wieder fragen.",
+      "budgetTenantExceeded": "Das Tageskontingent an KI-Anfragen für diesen Garten ist aufgebraucht. Ab Mitternacht (UTC) steht es wieder zur Verfügung.",
+      "budgetUnavailable": "Das KI-Kontingent kann gerade nicht geprüft werden. Versuche es in ein paar Minuten noch einmal.",
+      "tooManyRequests": "Zu viele KI-Anfragen in kurzer Zeit. Warte eine Minute und versuche es dann noch einmal.",
+      "generateFailed": "Die Erklärung konnte nicht erzeugt werden.",
+      "tipsGenerateFailed": "Die Hinweise konnten nicht erzeugt werden.",
+      "dailyTipGenerateFailed": "Der Tipp des Tages konnte nicht erzeugt werden.",
+      "dailyTipGenerateEmpty": "Es konnte gerade kein Tipp erzeugt werden. Versuche es später noch einmal.",
+      "retry": "Erneut versuchen"
     }
   },
   "components": {
@@ -581,6 +615,39 @@
       "searchHelper": "Suche nach Pflanzenname oder Kennung",
       "noResults": "Keine Pflanze gefunden",
       "loading": "Pflanzen werden geladen…"
+    },
+    "lightModeTakeover": {
+      "title": "Daten aus dem Light-Modus übernehmen?",
+      "intro": "Kamerplanter lief bisher im Light-Modus ohne Anmeldung. Der Garten „{{name}}“ aus dieser Zeit ist noch da:",
+      "counts": {
+        "plants_one": "{{count}} Pflanze",
+        "plants_other": "{{count}} Pflanzen",
+        "sites_one": "{{count}} Standort",
+        "sites_other": "{{count}} Standorte",
+        "planting_runs_one": "{{count}} Pflanzdurchlauf",
+        "planting_runs_other": "{{count}} Pflanzdurchläufe",
+        "nutrient_plans_one": "{{count}} eigener Nährstoffplan",
+        "nutrient_plans_other": "{{count}} eigene Nährstoffpläne",
+        "tasks_one": "{{count}} Aufgabe",
+        "tasks_other": "{{count}} Aufgaben"
+      },
+      "acceptExplanation": "Wenn du übernimmst, gehört dir dieser Garten: Du wirst seine Leitung und kannst andere einladen. Deine Daten bleiben unverändert erhalten.",
+      "declineExplanation": "Wenn du ablehnst, startest du mit deinem eigenen leeren Garten. Der alte Garten bleibt erhalten und ist im Admin-Bereich zu finden.",
+      "accept": "Ja, übernehmen",
+      "decline": "Nein, neu starten",
+      "later": "Später entscheiden",
+      "confirm": {
+        "accept": {
+          "title": "Übernahme bestätigen",
+          "description": "Damit gehört der Garten „{{name}}“ dir: Du wirst seine Leitung und – solange es noch keinen gibt – Plattform-Admin. Bestätige das mit deinem Passwort.",
+          "label": "Garten übernehmen"
+        },
+        "decline": {
+          "title": "Ablehnen bestätigen",
+          "description": "Der Garten „{{name}}“ bleibt erhalten und ist im Admin-Bereich zu finden. Solange es noch keinen gibt, wirst du Plattform-Admin. Bestätige das mit deinem Passwort.",
+          "label": "Ablehnen"
+        }
+      }
     }
   },
   "tankAlerts": {
@@ -618,17 +685,17 @@
     "downloadPdf": "Als PDF herunterladen",
     "printing": "PDF wird erstellt...",
     "success": "PDF wurde erfolgreich heruntergeladen",
-    "error": "PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+    "error": "PDF konnte nicht erstellt werden. Bitte versuche es erneut.",
     "nutrientPlan": "Nährstoffplan als PDF herunterladen",
     "careChecklist": "Pflege-Checkliste als PDF herunterladen",
     "plantLabels": "Pflanzen-Infokarten",
     "plantLabelsTitle": "Pflanzen-Infokarten drucken",
-    "plantLabelsIntro": "Erstellt druckfertige PDF-Karten für Ihre Pflanzen. Jede Karte enthält einen QR-Code, mit dem Sie die Pflanze direkt in der App öffnen können – praktisch für das Beschriften von Töpfen, Beeten oder Regalen.",
+    "plantLabelsIntro": "Erstellt druckfertige PDF-Karten für deine Pflanzen. Jede Karte enthält einen QR-Code, mit dem du die Pflanze direkt in der App öffnen kannst – praktisch für das Beschriften von Töpfen, Beeten oder Regalen.",
     "plantLabelsCount_one": "1 Pflanze ausgewählt",
     "plantLabelsCount_other": "{{count}} Pflanzen ausgewählt",
     "plantLabelsNone": "Keine Pflanzen vorhanden. Bitte zuerst Pflanzen anlegen.",
     "fieldsLabel": "Angezeigte Felder",
-    "fieldsIntro": "Wählen Sie die Informationen, die auf jeder Karte erscheinen sollen.",
+    "fieldsIntro": "Wähle die Informationen, die auf jeder Karte erscheinen sollen.",
     "fieldName": "Pflanzenname",
     "fieldScientificName": "Wissenschaftlicher Name",
     "fieldFamily": "Familie",
@@ -899,6 +966,28 @@
       "serviceUnavailable": "Der Wissensassistent ist gerade nicht erreichbar. Bitte versuche es später erneut.",
       "invalidOutput": "Die KI konnte kein verwertbares Ergebnis liefern. Bitte versuche es erneut.",
       "noResult": "Zu den gewählten Symptomen konnte keine Diagnose ermittelt werden."
+    }
+  },
+  "consent": {
+    "banner": {
+      "aria_label": "Datenschutz-Einwilligung",
+      "title": "Wir respektieren deine Privatsphäre",
+      "body": "Notwendige Speicherungen für Login, Sprache und Mandantenauswahl sind immer aktiv. Optional kannst du die Fehleranalyse erlauben: Stürzt die Anwendung ab, wird ein bereinigter Fehlerbericht an den vom Betreiber konfigurierten Fehler-Tracker gesendet. Du kannst deine Entscheidung jederzeit in den Datenschutz-Einstellungen ändern.",
+      "settings": "Einstellungen",
+      "necessary": "Nur Notwendige",
+      "accept_all": "Alle akzeptieren",
+      "save": "Auswahl speichern",
+      "category": {
+        "error_tracking": {
+          "label": "Fehleranalyse",
+          "description": "Sendet bei einem Absturz einen Fehlerbericht ohne Formularinhalte, Cookies oder E-Mail-Adresse an den Fehler-Tracker des Betreibers."
+        }
+      }
+    },
+    "browser": {
+      "heading": "Einwilligungen in diesem Browser",
+      "description": "Diese Entscheidung gilt nur für diesen Browser und wirkt sofort, ohne Neuladen.",
+      "error_tracking": "Fehleranalyse erlauben"
     }
   }
 }

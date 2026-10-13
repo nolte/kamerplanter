@@ -1,7 +1,14 @@
 import structlog
 
-from app.common.dependencies import get_lifecycle_repo, get_phase_sequence_repo, get_plant_repo, get_species_repo
-from app.common.enums import TransitionTrigger
+from app.common.dependencies import (
+    get_lifecycle_repo,
+    get_phase_sequence_repo,
+    get_plant_repo,
+    get_species_repo,
+    get_tenant_repo,
+)
+from app.common.enums import TenantStatus, TransitionTrigger
+from app.common.log_privacy import loggable_error
 from app.domain.engines.dormancy_trigger import DormancyTrigger
 from app.tasks import celery_app
 
@@ -10,18 +17,24 @@ logger = structlog.get_logger()
 
 @celery_app.task(name="check_dormancy_triggers")
 def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> dict:
-    """Check all active perennial plants for dormancy triggers."""
+    """Check all active perennial plants for dormancy triggers.
+
+    **Not scheduled (MT-051, #2144).** Nothing starts this task — no beat entry, no
+    dispatch; the decision and its prerequisite are recorded in
+    ``tests/unit/guards/test_every_task_is_scheduled_or_dispatched.py``
+    (``_NOT_STARTED_BY_THE_APP``), which fails the day something does start it.
+    """
     plant_repo = get_plant_repo()
     species_repo = get_species_repo()
     phase_repo = get_lifecycle_repo()
     trigger = DormancyTrigger(phase_repo, species_repo, phase_seq_repo=get_phase_sequence_repo())
 
     triggered = 0
-    plants, _ = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
+    # REQ-056 §5.2 / MT-032 (#2128): only the plants of active tenants that are not removed, selected in
+    # AQL and read one page at a time.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    for plant in plants:
-        if plant.removed_on is not None:
-            continue
+    for plant in plant_repo.iter_for_tenants(active_tenants, filters=[("removed_on", "==", None)]):
         # Resolve phase name from key to check for dormancy
         phase_name = plant_repo.resolve_phase_name(plant.current_phase_key or "") if plant.current_phase_key else ""
         if phase_name == "dormancy":
@@ -40,6 +53,6 @@ def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> d
                     triggered += 1
                     logger.info("dormancy_triggered", plant_key=plant.key)
         except Exception as e:
-            logger.error("dormancy_check_error", plant_key=plant.key, error=str(e))
+            logger.error("dormancy_check_error", plant_key=plant.key, error=loggable_error(e))
 
     return {"triggered": triggered}

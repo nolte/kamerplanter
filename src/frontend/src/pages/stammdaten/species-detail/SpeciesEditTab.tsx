@@ -18,6 +18,8 @@ import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import type { BotanicalFamily, NutrientPlan } from '@/api/types';
+import type { CatalogueReader } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import SpeciesGrowthPanel from './SpeciesGrowthPanel';
 import SpeciesCultivationPanel from './SpeciesCultivationPanel';
 import {
@@ -31,8 +33,10 @@ interface SpeciesEditTabProps {
   control: Control<SpeciesFormData>;
   /** Pre-bound react-hook-form submit handler (handleSubmit(onValid)). */
   onSubmit: FormEventHandler<HTMLFormElement>;
-  families: BotanicalFamily[];
-  nutrientPlans: NutrientPlan[];
+  /** Family catalogue reader; its failure is rendered at the family field (#1628). */
+  familyCatalogue: CatalogueReader<BotanicalFamily>;
+  /** Nutrient-plan catalogue reader, handed on to the cultivation panel. */
+  nutrientPlanCatalogue: CatalogueReader<NutrientPlan>;
   isReadOnly: boolean;
   saving: boolean;
   phaseSequenceKey: string | null;
@@ -49,8 +53,8 @@ interface SpeciesEditTabProps {
 export default function SpeciesEditTab({
   control,
   onSubmit,
-  families,
-  nutrientPlans,
+  familyCatalogue,
+  nutrientPlanCatalogue,
   isReadOnly,
   saving,
   phaseSequenceKey,
@@ -162,10 +166,16 @@ export default function SpeciesEditTab({
                     control={control}
                     label={t('pages.species.family')}
                     helperText={t('pages.species.familyHelper')}
+                    disabled={familyCatalogue.status !== 'ready'}
                     options={[
                       { value: '', label: '—' },
-                      ...families.map((f) => ({ value: f.key, label: f.name })),
+                      ...familyCatalogue.items.map((f) => ({ value: f.key, label: f.name })),
                     ]}
+                  />
+                  {/* A failed load is its own state, not an empty picker (#1628). */}
+                  <CatalogueLoadError
+                    reader={familyCatalogue}
+                    focusSelector="[data-testid='form-field-family_key'] [role='combobox']"
                   />
                   {currentFamilyKey && (
                     <Link
@@ -208,7 +218,7 @@ export default function SpeciesEditTab({
         </Box>
 
         {/* ── Panel 3: Anbaubedingungen (full-width below master-detail, R-058) ── */}
-        <SpeciesCultivationPanel control={control} nutrientPlans={nutrientPlans} />
+        <SpeciesCultivationPanel control={control} nutrientPlanCatalogue={nutrientPlanCatalogue} />
 
         {/* ── Panel 4: Umgebung (expert) ── */}
         {/* UI-NFR-008 R-041: Expert-only panel hidden as a whole */}

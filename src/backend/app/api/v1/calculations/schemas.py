@@ -1,12 +1,24 @@
-from datetime import date
+"""Request/response schemas for /calculations (REQ-003, REQ-018).
 
-from pydantic import BaseModel, Field
+``VPDRequest.phase`` carries ``PhaseName``, not ``str`` (#1520, review SCR-004).
+The classifier looks the phase up with ``vpd_ranges.get(phase, (0.8, 1.2))``, so
+a misspelt phase never raised — it silently classified the reading against the
+vegetative default and quoted the misspelling back in the recommendation. That is
+the quiet half of the same class: a wrong answer instead of an error.
+"""
+
+from datetime import date
+from typing import Self
+
+from pydantic import BaseModel, Field, model_validator
+
+from app.common.enums import PhaseName
 
 
 class VPDRequest(BaseModel):
     temp_c: float
     humidity_percent: float = Field(ge=0, le=100)
-    phase: str = "vegetative"
+    phase: PhaseName = PhaseName.VEGETATIVE
 
 
 class VPDResponse(BaseModel):
@@ -49,12 +61,25 @@ class SunTimesResponse(BaseModel):
     day_length_hours: float
 
 
+#: Longest range ``/calculations/sun-times-range`` computes: one leap year. The
+#: answer is one row per day, so the request is the only bound on its length
+#: (MT-035, #2131).
+MAX_SUN_TIMES_RANGE_DAYS = 366
+
+
 class SunTimesRangeRequest(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     start_date: date
     end_date: date
     timezone: str = "UTC"
+
+    @model_validator(mode="after")
+    def _range_is_bounded(self) -> Self:
+        days = (self.end_date - self.start_date).days + 1
+        if days > MAX_SUN_TIMES_RANGE_DAYS:
+            raise ValueError(f"the range spans {days} days; at most {MAX_SUN_TIMES_RANGE_DAYS} are computed")
+        return self
 
 
 class SlotCapacityRequest(BaseModel):

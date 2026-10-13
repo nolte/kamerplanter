@@ -190,9 +190,16 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
 export const UNGATED_ROUTES: readonly string[] = [
   'connect',
   'auth/callback',
+  // #1815 — moves the step-up token from the fragment to sessionStorage; calls nothing.
+  'auth/step-up/callback',
   'login',
   'register',
   'verify-email/:token',
+  // #2037 — anonymous by nature: the caller is an account that cannot sign in yet.
+  'resend-verification',
+  // #1848 — public token landings; the token is the only credential, no role involved.
+  'email-change/:token',
+  'email-change/revert/:token',
   'password-reset',
   'password-reset/:token',
   'kiosk',
@@ -249,12 +256,13 @@ export interface PlatformAdminRoute {
  *
  * The survey is over the **axis**, not over the URL prefix: every frontend module
  * that calls an `/admin/...` path was traced to the pages that import it, and each
- * backend `/admin/**` operation read for its dependency. Five routes reach the
- * platform-admin gate, and only two of them are whole admin pages:
+ * backend `/admin/**` operation read for its dependency. Six routes reach the
+ * platform-admin gate, and only three of them are whole admin pages:
  *
- * - `admin/tenants/:key`, `admin/users/:key` — **listed below.** Every request
- *   these pages make is `require_platform_admin`, including the two `GET`s they
- *   load with. A refused member has nothing to read here at all.
+ * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906), `admin/plans` (#2142),
+ *   `admin/tenant-imports` (#2138) —
+ *   **listed below.** Every request these pages make is `require_platform_admin`,
+ *   including the `GET`s they load with. A refused member has nothing to read here at all.
  * - `settings` — the account page **every member owns**. Its *platform* tab is
  *   the admin surface, and since #1385 so is the instance-wide half of the *ha*
  *   tab: every `/admin/settings` operation now resolves through
@@ -264,15 +272,12 @@ export interface PlatformAdminRoute {
  *   offered no platform-admin gate to mirror. That was the defect #1385 fixed,
  *   and the reason went with it.) The route still cannot be guarded on this axis
  *   without taking every member's own account settings away, so it keeps its
- *   domain-axis decision in {@link ACTION_GATED_ROUTES}. Measuring it did
- *   contradict the assumption this entry started from: the `platform` tab is
- *   offered to everyone (unlike the `storage`/`weather` tabs, which are built
- *   only when `canManageInstanceSettings`), and `AccountSettingsPage` derives its own
- *   `isPlatformAdmin` by *probing* the three `/admin/platform` endpoints and
- *   catching the 403 — so a non-admin who opens `/settings#platform` still gets
- *   the tab, with empty cards behind it. That is the same defect on the same axis at the tab
- *   level, and it is deliberately **not** fixed here: it belongs to the page, not
- *   to the router. Recorded in the #1336 pull request as a follow-up.
+ *   domain-axis decision in {@link ACTION_GATED_ROUTES}. The `platform` tab is
+ *   gated at the page, like the `storage`/`weather` tabs: since MT-045.9 (#2144)
+ *   `AccountSettingsPage` builds it only when `usePlatformAdmin()` is true. It used
+ *   to be offered to everyone and decided by *probing* the three `/admin/platform`
+ *   endpoints into a 403 (on the platform and the integrations tab) — the defect
+ *   the #1336 pull request recorded as a follow-up.
  * - `stammdaten/species/:key` (reference-image curation) and
  *   `pflanzenschutz/pests/:key` (the pest gallery's curation controls) — read
  *   pages with an admin-only panel inside, already gated on `usePlatformAdmin()`
@@ -314,5 +319,22 @@ export const PLATFORM_ADMIN_ROUTES: Readonly<Record<string, PlatformAdminRoute>>
   // `GET /admin/platform/users`, with membership management beside it.
   'admin/users/:key': {
     gate: 'GET /api/v1/admin/platform/users — require_platform_admin',
+  },
+  // REQ-023 §3.9 / #1906 — the installation's sign-in provider configurations: list,
+  // create, edit, delete and discovery test are all `require_platform_admin` on
+  // `/admin/oidc-providers` (the reads included), writes behind the admin's step-up.
+  'admin/oidc-providers': {
+    gate: 'GET /api/v1/admin/oidc-providers — require_platform_admin',
+  },
+  // REQ-056 §7.6 / AK-45 (#2142) — the plan catalogue: list, create, change and delete are all
+  // `require_platform_admin` on `/admin/platform/plans` (the read included); no step-up.
+  'admin/plans': {
+    gate: 'GET /api/v1/admin/platform/plans — require_platform_admin',
+  },
+  // REQ-056 §8.4 / §15 (#2138) — importing a tenant archive: the upload and the status read are both
+  // `require_platform_admin` on `/admin/platform/tenant-imports` (never an API key), the upload behind
+  // the admin's step-up `tenant_import`. The page also reads the plan catalogue (same gate).
+  'admin/tenant-imports': {
+    gate: 'POST /api/v1/admin/platform/tenant-imports — require_platform_admin',
   },
 };

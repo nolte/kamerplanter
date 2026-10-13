@@ -7,6 +7,8 @@ scoping filters are asserted without a live database.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from app.data_access.arango import collections as col
 from app.data_access.arango.mcp_repository import (
     ArangoMcpAuditRepository,
@@ -113,6 +115,17 @@ def test_idempotency_get_filters_by_tenant_key():
     query, bind = db.aql.calls[0]
     assert "doc.tenant_key == @tenant_key" in query
     assert bind["tenant_key"] == "garden"
+
+
+def test_idempotency_get_filters_expired_records_as_instants():
+    # #2169: the read hands out live records only; the real-server proof is
+    # tests/integration/test_mcp_idempotency_get_skips_expired.py.
+    db = _FakeDb(rows=[])
+    repo = ArangoMcpIdempotencyRepository(db)
+    repo.get("sa-1", "home", "create_site", "k-1", now=datetime(2026, 10, 10, 12, tzinfo=UTC))
+    query, bind = db.aql.calls[0]
+    assert "DATE_TIMESTAMP(doc.expires_at) > DATE_TIMESTAMP(@now)" in query
+    assert bind["now"] == "2026-10-10T12:00:00+00:00"
 
 
 def test_idempotency_store_uses_deterministic_key_and_overwrite():

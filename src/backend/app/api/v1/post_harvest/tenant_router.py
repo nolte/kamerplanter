@@ -84,7 +84,9 @@ def list_batches(
     if harvest_batch:
         batches = service.list_for_batch(harvest_batch, ctx.tenant_key)
     else:
-        batches, _ = service.list_batches(ctx.tenant_key, pagination.offset, pagination.limit)
+        batches = service.list_batches_window(
+            tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+        )
     return [_batch_response(b) for b in batches]
 
 
@@ -96,8 +98,8 @@ def start_drying(
 ):
     """Take a HarvestBatch into post-harvest tracking at stage ``drying``."""
     created = service.start_drying(
-        ctx.tenant_key,
         body.harvest_batch_key,
+        tenant_key=ctx.tenant_key,
         species_type=_parse_enum(PostHarvestSpeciesType, body.species_type, "species_type"),
         drying_method=_parse_enum(DryingMethod, body.drying_method, "drying_method"),
         start_weight_g=body.start_weight_g,
@@ -114,7 +116,7 @@ def get_batch(
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     """Return a post-harvest batch with its latest drying progress and open alerts."""
-    batch = service.get_batch(key, ctx.tenant_key)
+    batch = service.get_batch(key, tenant_key=ctx.tenant_key)
     latest = service.get_latest_drying_progress(key, ctx.tenant_key)
     open_alerts = sum(1 for a in service.list_mold_alerts(key, ctx.tenant_key) if a.resolved_at is None)
     return PostHarvestBatchDetailResponse(
@@ -133,7 +135,7 @@ def advance_stage(
 ):
     """Advance a batch to the next stage (forward-only; 422 on invalid step)."""
     target = _parse_enum(PostHarvestStage, body.target_stage, "target_stage")
-    updated = service.advance_stage(key, ctx.tenant_key, target)
+    updated = service.advance_stage(key, target, tenant_key=ctx.tenant_key)
     return _batch_response(updated)
 
 
@@ -147,8 +149,8 @@ def record_drying_progress(
     """Record a drying-progress measurement for a post-harvest batch."""
     created = service.record_drying_progress(
         key,
-        ctx.tenant_key,
         body.current_weight_g,
+        tenant_key=ctx.tenant_key,
         water_activity=body.water_activity,
         co2_ppm=body.co2_ppm,
         snap_test_passed=body.snap_test_passed,
@@ -187,18 +189,20 @@ def record_observation(
         observer=body.observer,
         notes=body.notes,
     )
-    created = service.record_observation(key, ctx.tenant_key, observation)
+    created = service.record_observation(key, observation, tenant_key=ctx.tenant_key)
     return _observation_response(created)
 
 
 @router.get("/{key}/observations", response_model=list[StorageObservationResponse])
 def list_observations(
     key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
-    """List a post-harvest batch's storage observations."""
-    return [_observation_response(o) for o in service.list_observations(key, ctx.tenant_key)]
+    """List a post-harvest batch's storage observations, newest first (paginated, MT-035)."""
+    observations = service.list_observations(key, ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
+    return [_observation_response(o) for o in observations]
 
 
 @router.get("/{key}/mold-alerts", response_model=list[MoldAlertResponse])
@@ -218,4 +222,4 @@ def delete_batch(
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     """Delete a post-harvest batch (REQ-008 §4 — Admin only)."""
-    service.delete_batch(key, ctx.tenant_key)
+    service.delete_batch(key, tenant_key=ctx.tenant_key)

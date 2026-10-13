@@ -28,10 +28,26 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             db, col.TREATMENT_APPLICATIONS, TreatmentApplication
         )
 
+    # ── Plant ownership ──
+
+    def verify_plant_ownership(self, plant_key: str, tenant_key: str) -> None:
+        """Delegate to the very guard the #517 write path already uses.
+
+        ``create_inspection`` / ``create_treatment_application`` below call
+        ``verify_entity_ownership(col.PLANT_INSTANCES, …)`` before wiring an
+        edge. Reads routing through the same call means the read half and the
+        write half of this repository cannot drift on *who owns a plant*.
+        """
+        self.verify_entity_ownership(col.PLANT_INSTANCES, plant_key, tenant_key, entity_name="PlantInstance")
+
     # ── Pest CRUD ──
 
     def get_all_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
         return super().get_all(offset, limit)
+
+    def list_pests_window(self, offset: int = 0, limit: int = 50) -> list[Pest]:
+        """The page of :meth:`get_all_pests` without its count query (MT-035, #2131)."""
+        return super().list_window(offset=offset, limit=limit)
 
     def get_pest_by_key(self, key: PestKey) -> Pest | None:
         return super().get_by_key(key)
@@ -59,6 +75,10 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def get_all_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]:
         return self._diseases.get_all(offset, limit)
 
+    def list_diseases_window(self, offset: int = 0, limit: int = 50) -> list[Disease]:
+        """The page of :meth:`get_all_diseases` without its count query (MT-035, #2131)."""
+        return self._diseases.list_window(offset=offset, limit=limit)
+
     def get_disease_by_key(self, key: DiseaseKey) -> Disease | None:
         return self._diseases.get_by_key(key)
 
@@ -84,6 +104,10 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
 
     def get_all_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]:
         return self._treatments.get_all(offset, limit)
+
+    def list_treatments_window(self, offset: int = 0, limit: int = 50) -> list[Treatment]:
+        """The page of :meth:`get_all_treatments` without its count query (MT-035, #2131)."""
+        return self._treatments.list_window(offset=offset, limit=limit)
 
     def get_treatment_by_key(self, key: TreatmentKey) -> Treatment | None:
         return self._treatments.get_by_key(key)
@@ -142,6 +166,15 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             sort_direction="DESC",
         )
 
+    def get_inspections_for_plant_window(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[Inspection]:
+        return self._inspections.get_page_window(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="inspected_at",
+            sort_direction="DESC",
+        )
+
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
         # Strict tenant isolation: only the calling tenant's inspections are
         # scanned. ``pest_key in detected_pest_keys`` selects the inspections
@@ -151,7 +184,7 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             f"FOR doc IN {col.INSPECTIONS} "
             f"FILTER doc.tenant_key == @tenant_key "
             f"FILTER @pest_key IN doc.detected_pest_keys "
-            f"SORT doc.inspected_at DESC "
+            f"SORT DATE_TIMESTAMP(doc.inspected_at) DESC "
             f"RETURN doc.photo_refs"
         )
         cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key, "pest_key": pest_key})
@@ -199,22 +232,33 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             sort_direction="DESC",
         )
 
+    def get_applications_for_plant_window(
+        self, plant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[TreatmentApplication]:
+        return self._applications.get_page_window(
+            offset=offset,
+            limit=limit,
+            filters=[("plant_key", "==", plant_key)],
+            sort="applied_at",
+            sort_direction="DESC",
+        )
+
     # ── Edge creation ──
 
     def create_targets_pest_edge(self, treatment_key: TreatmentKey, pest_key: PestKey) -> None:
         from_id = f"{col.TREATMENTS}/{treatment_key}"
         to_id = f"{col.PESTS}/{pest_key}"
-        self.create_edge(col.TARGETS_PEST, from_id, to_id)
+        self.create_edge_if_absent(col.TARGETS_PEST, from_id, to_id)
 
     def create_targets_disease_edge(self, treatment_key: TreatmentKey, disease_key: str) -> None:
         from_id = f"{col.TREATMENTS}/{treatment_key}"
         to_id = f"{col.DISEASES}/{disease_key}"
-        self.create_edge(col.TARGETS_DISEASE, from_id, to_id)
+        self.create_edge_if_absent(col.TARGETS_DISEASE, from_id, to_id)
 
     def create_contraindicated_edge(self, treatment_a_key: TreatmentKey, treatment_b_key: TreatmentKey) -> None:
         from_id = f"{col.TREATMENTS}/{treatment_a_key}"
         to_id = f"{col.TREATMENTS}/{treatment_b_key}"
-        self.create_edge(col.CONTRAINDICATED_WITH, from_id, to_id)
+        self.create_edge_if_absent(col.CONTRAINDICATED_WITH, from_id, to_id)
 
     # ── Queries ──
 
@@ -225,7 +269,9 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
             FOR t IN treatments
                 FILTER t._key == ta.treatment_key
                 FILTER t.safety_interval_days > 0
-                FILTER DATE_ADD(ta.applied_at, t.safety_interval_days, 'days') > DATE_NOW()
+                // DATE_ADD returns an ISO string and DATE_NOW() a number; AQL orders every
+                // string above every number, so compare epoch milliseconds (#1798).
+                FILTER DATE_TIMESTAMP(DATE_ADD(ta.applied_at, t.safety_interval_days, 'days')) > DATE_NOW()
                 RETURN {
                     active_ingredient: t.active_ingredient,
                     treatment_name: t.name,
@@ -242,7 +288,7 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
         query = """
         FOR ta IN treatment_applications
             FILTER ta.plant_key == @plant_key
-            FILTER ta.applied_at >= @cutoff
+            FILTER DATE_TIMESTAMP(ta.applied_at) >= DATE_TIMESTAMP(@cutoff)
             FOR t IN treatments
                 FILTER t._key == ta.treatment_key
                 RETURN {

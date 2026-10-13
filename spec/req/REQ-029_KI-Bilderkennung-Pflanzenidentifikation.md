@@ -9,7 +9,7 @@ Kategorie: Integration
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI, Flutter
 Status: Entwurf
-Version: 1.3 (§7 nennt die ausgelieferten Schreibrouten; alle vier ab Gärtner)
+Version: 1.4 (#2113: der instanzweite Pl@ntNet-Key aus den Admin-Einstellungen wird Fernet-verschlüsselt als `system_settings.plant_identification.plantnet_api_key_encrypted` gespeichert, nur maskiert ausgeliefert; Bestand per Migration v0083); 1.3 (§7 nennt die ausgelieferten Schreibrouten; alle vier ab Gärtner)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — §4.1 dorthin ausgelagert), REQ-001 v5.0 (Stammdaten), REQ-011 v1.0 (Adapter-Pattern), REQ-020 v1.6 (Onboarding-Wizard), REQ-021 v1.0 (Erfahrungsstufen), REQ-022 v2.4 (Pflegeerinnerungen), REQ-024 v1.3 (Mandantenverwaltung)
 ```
 

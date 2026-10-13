@@ -21,6 +21,11 @@ interface TenantPermissions {
   canEdit: boolean;
   /** Destroy domain records — lead only. */
   canDelete: boolean;
+  /**
+   * Choose and connection-test a site's weather sources — lead only. A grower
+   * sees the selection but does not change it (REQ-049 §2.10 / §4.4, #2181).
+   */
+  canSelectWeatherSource: boolean;
   /** Members, invitations, tenant settings — the `management` scope. */
   canManageMembers: boolean;
   /** The same scope: issuing an invitation is member management. */
@@ -35,6 +40,7 @@ const NO_PERMISSIONS: TenantPermissions = {
   adminScopes: [],
   canEdit: false,
   canDelete: false,
+  canSelectWeatherSource: false,
   canManageMembers: false,
   canInvite: false,
   canConfigureIntegrations: false,
@@ -58,6 +64,7 @@ export function useTenantPermissions(): TenantPermissions {
       adminScopes,
       canEdit: role === 'lead' || role === 'grower',
       canDelete: role === 'lead',
+      canSelectWeatherSource: role === 'lead',
       canManageMembers: hasManagement,
       canInvite: hasManagement,
       canConfigureIntegrations: adminScopes.includes('technical'),

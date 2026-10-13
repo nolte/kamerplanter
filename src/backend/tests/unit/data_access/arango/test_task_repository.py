@@ -87,7 +87,7 @@ class TestRemovedPlantGuard:
     def test_get_all_tasks_filters_removed_plant_instances(self, repo, mock_db):
         mock_db.aql.execute.side_effect = _list_and_count([], 0)
 
-        repo.get_all_tasks()
+        repo.get_all_tasks(tenant_key="tenant-a")
 
         list_query = mock_db.aql.execute.call_args_list[0].args[0]
         assert "doc.entity_type == 'plant_instance'" in list_query
@@ -98,7 +98,7 @@ class TestRemovedPlantGuard:
         # The count must match the list so the total never includes orphans.
         mock_db.aql.execute.side_effect = _list_and_count([], 0)
 
-        repo.get_all_tasks()
+        repo.get_all_tasks(tenant_key="tenant-a")
 
         count_query = mock_db.aql.execute.call_args_list[1].args[0]
         assert "_plant.removed_on == null" in count_query
@@ -118,7 +118,7 @@ class TestRemovedPlantGuard:
         # the guard via the ``entity_type != 'plant_instance'`` branch.
         mock_db.aql.execute.side_effect = _list_and_count([], 0)
 
-        repo.get_all_tasks()
+        repo.get_all_tasks(tenant_key="tenant-a")
 
         list_query = mock_db.aql.execute.call_args_list[0].args[0]
         assert "doc.entity_type != 'plant_instance'" in list_query
@@ -157,6 +157,37 @@ class TestGetTasksForRun:
     def test_omitting_the_tenant_entirely_is_a_type_error(self, repo, mock_db):
         with pytest.raises(TypeError):
             repo.get_tasks_for_run("run-1")
+
+
+class TestGetAllTasksIsAlwaysTenantScoped:
+    """#1533 — "page of one tenant" and "page of the installation" are not one call.
+
+    ``tenant_key`` used to be an optional positional with a ``None`` default and an
+    ``if tenant_key:`` predicate, so dropping one argument widened the answer to
+    every tenant — which is what the two tank beat tasks did.
+    """
+
+    def test_the_tenant_predicate_is_unconditional(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = _list_and_count([], 0)
+
+        repo.get_all_tasks(tenant_key="tenant-a")
+
+        for call in mock_db.aql.execute.call_args_list[:2]:
+            assert "doc.tenant_key == @tenant_key" in call.args[0]
+            assert call.kwargs["bind_vars"]["tenant_key"] == "tenant-a"
+
+    def test_an_empty_tenant_key_is_rejected_instead_of_matching_everything(self, repo, mock_db):
+        with pytest.raises(ValueError, match="tenant"):
+            repo.get_all_tasks(tenant_key="")
+
+    def test_omitting_the_tenant_entirely_is_a_type_error(self, repo, mock_db):
+        with pytest.raises(TypeError):
+            repo.get_all_tasks()
+
+    def test_it_cannot_be_smuggled_in_positionally(self, repo, mock_db):
+        """Keyword-only, so the old positional spelling no longer compiles away."""
+        with pytest.raises(TypeError):
+            repo.get_all_tasks(0, 50, None, "tenant-a")
 
 
 class TestEntityFilterQuery:

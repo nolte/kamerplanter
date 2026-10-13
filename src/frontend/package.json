@@ -4,6 +4,9 @@
   "license": "MIT",
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "npm": ">=11"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.build.json --noEmit && vite build",
@@ -27,7 +30,7 @@
     "@mui/x-date-pickers": "^9.0.0",
     "@mui/x-tree-view": "^9.0.0",
     "@reduxjs/toolkit": "^2.11.2",
-    "@sentry/react": "^10.68.0",
+    "@sentry/react": "^11.0.0",
     "axios": "^1.14.0",
     "dayjs": "^1.11.20",
     "i18next": "^26.0.1",
@@ -52,7 +55,6 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/react-grid-layout": "^2.0.0",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^5.0.0",
     "eslint": "^10.0.0",
@@ -60,8 +62,8 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.4.0",
     "jsdom": "^29.0.1",
-    "knip": "6.36.0",
-    "msw": "^2.12.14",
+    "knip": "6.41.0",
+    "msw": "^3.0.0",
     "prettier": "^3.8.1",
     "rollup-plugin-visualizer": "^7.0.0",
     "typescript": "~6.0.0",

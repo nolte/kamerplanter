@@ -20,6 +20,8 @@ def _mock_dependencies(monkeypatch):
     mock_deps.get_planting_run_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_task_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_nutrient_plan_repo = MagicMock()  # type: ignore[attr-defined]
+    # #2166 — the beat asks the run's tenant; a MagicMock tenant is truthy, so every tenant here is active.
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
 
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 

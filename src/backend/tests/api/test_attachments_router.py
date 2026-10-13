@@ -22,6 +22,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import get_attachment_service, get_object_storage
 from app.common.enums import TenantRole
 from app.common.exceptions import KamerplanterError
+from app.common.upload_bounds import MULTIPART_ENVELOPE_BYTES
 from app.config.settings import Settings
 from app.data_access.storage.local_fs_adapter import LocalFsStorageAdapter
 from app.domain.models.attachment import Attachment
@@ -68,6 +69,20 @@ class _FakeRepo:
                 return a
         return None
 
+    def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):
+        # As the repository answers it (#1770): the uploader's own record only.
+        for a in self._store.values():
+            if (a.tenant_key, a.sha256, a.created_by, a.category) == (tenant_key, sha256, created_by, category):
+                return a
+        return None
+
+    def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):
+        return {
+            a.storage_key
+            for a in self._store.values()
+            if a.tenant_key == tenant_key and a.storage_key in storage_keys and a.key not in excluding
+        }
+
     def count_by_tenant(self, tenant_key):
         return len(self._store)
 
@@ -94,7 +109,7 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
 
-def _build(tmp_path, role: TenantRole = TenantRole.LEAD):
+def _build(tmp_path, role: TenantRole = TenantRole.LEAD, settings: Settings | None = None):
     repo = _FakeRepo()
     adapter = LocalFsStorageAdapter(
         root=str(tmp_path),
@@ -102,8 +117,7 @@ def _build(tmp_path, role: TenantRole = TenantRole.LEAD):
         signing_secret="api-test-secret",
         max_object_size_bytes=25 * 1024 * 1024,
     )
-    settings = Settings()
-    service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings)
+    service = AttachmentService(storage=adapter, attachment_repo=repo, settings=settings or Settings())
 
     app = FastAPI()
     app.include_router(tenant_attachments_router, prefix="/api/v1/t/{tenant_slug}")
@@ -155,7 +169,7 @@ class TestLifecycle:
         resp = client.get(_base(f"/{attachment_id}"))
         assert resp.status_code == 200
         assert resp.headers["content-type"].startswith("image/jpeg")
-        assert resp.headers["cache-control"] == "private, max-age=86400"
+        assert resp.headers["cache-control"] == "private, no-cache"
         assert resp.headers["etag"]
         assert len(resp.content) > 0
 
@@ -294,9 +308,44 @@ class TestPresignUploadDisabled:
         assert resp.json()["error_code"] == "PRESIGN_UPLOAD_UNSUPPORTED"
 
 
+def _jpeg_of_exactly(size: int) -> bytes:
+    """A decodable JPEG padded after its EOI marker to exactly ``size`` bytes."""
+    jpeg = _make_jpeg()
+    assert len(jpeg) <= size
+    return jpeg + b"\x00" * (size - len(jpeg))
+
+
 class TestUploadSizeGuard:
+    def test_a_file_of_exactly_the_limit_is_accepted(self, tmp_path):
+        # #2144 — the Content-Length pre-check compared the WHOLE multipart body
+        # (file + boundaries + form fields) with the FILE limit, so a file of
+        # exactly the allowed size was refused with 413 before it was read.
+        settings = Settings(storage_max_file_size_mb=1)
+        app, service, _adapter = _build(tmp_path, settings=settings)
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _jpeg_of_exactly(service.max_upload_bytes()), "image/jpeg")},
+            data={"category": "diary"},
+        )
+        assert resp.status_code == 201, resp.json()
+
+    def test_a_file_one_byte_over_the_limit_is_refused(self, tmp_path):
+        # The file limit itself stays exact: the bounded read counts file bytes.
+        settings = Settings(storage_max_file_size_mb=1)
+        app, service, _adapter = _build(tmp_path, settings=settings)
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            files={"file": ("plant.jpg", _jpeg_of_exactly(service.max_upload_bytes() + 1), "image/jpeg")},
+            data={"category": "diary"},
+        )
+        assert resp.status_code == 413
+        assert resp.json()["error_code"] == "FILE_TOO_LARGE"
+
     def test_oversized_content_length_rejected_without_reading(self, tmp_path):
-        # SEC-005 — an oversized Content-Length is rejected with 413 up front.
+        # SEC-005 — a Content-Length that cannot carry an allowed file (file limit
+        # plus the multipart envelope) is rejected with 413 up front.
         app, service, _adapter = _build(tmp_path)
         max_bytes = service.max_upload_bytes()
         client = TestClient(app)
@@ -304,7 +353,7 @@ class TestUploadSizeGuard:
             _base(),
             files={"file": ("plant.jpg", _make_jpeg(), "image/jpeg")},
             data={"category": "diary"},
-            headers={"Content-Length": str(max_bytes + 1)},
+            headers={"Content-Length": str(max_bytes + MULTIPART_ENVELOPE_BYTES + 1)},
         )
         assert resp.status_code == 413
         assert resp.json()["error_code"] == "FILE_TOO_LARGE"
@@ -376,6 +425,175 @@ class TestDownloadHeaders:
         assert resp.status_code == 200
         assert resp.headers["x-content-type-options"] == "nosniff"
         assert resp.headers["content-disposition"] == "attachment"
+
+
+def _make_png(width: int, height: int) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (width, height), (10, 120, 30)).save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
+class TestPixelCeiling:
+    """#2108 — an image above the 40 MPx ceiling is refused before it is decoded."""
+
+    def test_a_144_megapixel_png_is_refused_with_413_before_any_decode(self, tmp_path, monkeypatch):
+        # 12 000 x 12 000 = 144 MPx: deliberately *below* Pillow's own 178 MPx
+        # DecompressionBombError, so Pillow alone lets it through (measured: a
+        # DecompressionBombWarning only). The encoded file is ~445 KB.
+        app, service, adapter = _build(tmp_path)
+        bomb = _make_png(12_000, 12_000)
+        assert len(bomb) < service.max_upload_bytes()
+
+        from PIL import ImageFile
+
+        decoded: list[tuple[int, int]] = []
+        original_load = ImageFile.ImageFile.load
+
+        def _refuse_decode(image):  # type: ignore[no-untyped-def]
+            decoded.append(image.size)
+            if image.size[0] * image.size[1] > 40_000_000:
+                raise AssertionError(f"decoded a {image.size} image")
+            return original_load(image)
+
+        monkeypatch.setattr(ImageFile.ImageFile, "load", _refuse_decode)
+        client = TestClient(app)
+        resp = client.post(_base(), files={"file": ("bomb.png", bomb, "image/png")}, data={"category": "diary"})
+
+        assert resp.status_code == 413, resp.text
+        assert resp.json()["error_code"] == "IMAGE_PIXEL_LIMIT_EXCEEDED"
+        assert decoded == []
+        assert list(tmp_path.rglob("*.png")) == []
+
+    def test_an_image_within_the_ceiling_still_uploads(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        resp = client.post(
+            _base(), files={"file": ("ok.png", _make_png(640, 480), "image/png")}, data={"category": "diary"}
+        )
+        assert resp.status_code == 201, resp.text
+
+
+class TestThumbnailRegeneration:
+    """#2108 — a missing rendition dispatches one regeneration, not one per GET."""
+
+    def _upload(self, client: TestClient) -> str:
+        resp = client.post(_base(), files={"file": ("p.jpg", _make_jpeg(), "image/jpeg")}, data={"category": "diary"})
+        assert resp.status_code == 201, resp.text
+        return str(resp.json()["attachment_id"])
+
+    def test_five_gets_on_a_missing_rendition_dispatch_exactly_once(self, tmp_path):
+        # A record whose upload-time dispatch lies outside the window (an object
+        # stored before, a lost task): the record alone, no rendition.
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        record = service._repo.create(
+            Attachment(
+                tenant_key="tenant_anna",
+                mime_type="image/jpeg",
+                byte_size=10,
+                sha256="0" * 64,
+                original_filename="p.jpg",
+                created_by="user_anna",
+                category="diary",
+                storage_key="t/tenant_anna/diary/2026/10/01JABCDEFGHJKMNPQRSTVWXYZ0.jpg",
+            )
+        )
+
+        import app.tasks.storage_tasks as storage_tasks
+
+        dispatched: list[tuple[object, ...]] = []
+        storage_tasks.generate_thumbnails.delay = lambda *a, **k: dispatched.append(a)  # type: ignore[assignment]
+
+        statuses = [client.get(_base(f"/{record.key}/thumbnails/512")).status_code for _ in range(5)]
+
+        assert statuses == [202] * 5
+        assert dispatched == [(record.key, "tenant_anna")]
+
+    def test_the_upload_dispatch_claims_the_window_for_the_gets_after_it(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+
+        import app.tasks.storage_tasks as storage_tasks
+
+        dispatched: list[tuple[object, ...]] = []
+        storage_tasks.generate_thumbnails.delay = lambda *a, **k: dispatched.append(a)  # type: ignore[assignment]
+        attachment_id = self._upload(client)
+
+        statuses = [client.get(_base(f"/{attachment_id}/thumbnails/512")).status_code for _ in range(5)]
+
+        assert statuses == [202] * 5
+        assert dispatched == [(attachment_id, "tenant_anna")]
+
+    def test_a_rendition_that_failed_for_good_answers_404_and_dispatches_nothing(self, tmp_path):
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        attachment_id = self._upload(client)
+        repo = service._repo
+        stored = repo.get(attachment_id, "tenant_anna")
+        repo._store[attachment_id] = stored.model_copy(update={"renditions_failed": True})
+
+        import app.tasks.storage_tasks as storage_tasks
+
+        dispatched: list[tuple[object, ...]] = []
+        storage_tasks.generate_thumbnails.delay = lambda *a, **k: dispatched.append(a)  # type: ignore[assignment]
+
+        resp = client.get(_base(f"/{attachment_id}/thumbnails/128"))
+
+        assert resp.status_code == 404
+        assert dispatched == []
+
+
+def _heic_with_gps() -> bytes:
+    """An ISO-BMFF HEIC prefix that carries an EXIF block with a GPS IFD.
+
+    Not decodable by stock Pillow (no HEIF plugin) — exactly the property that
+    made the EXIF strip pass it through unchanged before #2139.
+    """
+    exif = Image.Exif()
+    exif[0x8825] = {1: "N", 2: (52.0, 31.0, 12.0), 3: "E", 4: (13.0, 24.0, 36.0)}
+    body = b"Exif\x00\x00" + exif.tobytes()
+    ftyp = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00mif1heic"
+    return ftyp + len(body).to_bytes(4, "big") + b"meta" + body
+
+
+class TestHeicIsNotAcceptedUnstripped:
+    """#2139 — an image type whose metadata the pipeline cannot remove is refused, not stored with its GPS."""
+
+    def test_a_heic_photo_with_gps_is_refused_and_nothing_is_stored(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        heic = _heic_with_gps()
+
+        resp = client.post(_base(), files={"file": ("IMG_0001.HEIC", heic, "image/heic")}, data={"category": "diary"})
+
+        assert resp.status_code == 415, resp.text
+        assert resp.json()["error_code"] == "INVALID_FILE_TYPE"
+        assert [p for p in tmp_path.rglob("*") if p.is_file()] == []
+
+    def test_an_operator_override_cannot_readmit_heic_while_stripping_is_on(self, tmp_path, monkeypatch):
+        app, service, _adapter = _build(tmp_path)
+        monkeypatch.setattr(service._settings, "storage_allowed_mime_types_diary", "image/heic,image/jpeg")
+        client = TestClient(app)
+
+        resp = client.post(
+            _base(), files={"file": ("IMG_0001.HEIC", _heic_with_gps(), "image/heic")}, data={"category": "diary"}
+        )
+
+        assert resp.status_code == 415, resp.text
+
+    def test_with_stripping_disabled_the_operator_override_is_honoured(self, tmp_path, monkeypatch):
+        # EXIF stripping off promises nothing about metadata, so an unstrippable
+        # type is no worse than any other there.
+        app, service, _adapter = _build(tmp_path)
+        monkeypatch.setattr(service._settings, "storage_allowed_mime_types_diary", "image/heic,image/jpeg")
+        monkeypatch.setattr(service._settings, "storage_strip_exif", False)
+        client = TestClient(app)
+
+        resp = client.post(
+            _base(), files={"file": ("IMG_0001.HEIC", _heic_with_gps(), "image/heic")}, data={"category": "diary"}
+        )
+
+        assert resp.status_code == 201, resp.text
 
 
 @pytest.fixture(autouse=True)

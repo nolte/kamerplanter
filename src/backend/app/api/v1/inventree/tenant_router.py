@@ -56,7 +56,7 @@ def list_connections(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """List the tenant's InvenTree connections."""
-    return [_connection_response(c) for c in service.list_connections(ctx.tenant_key)]
+    return [_connection_response(c) for c in service.list_connections(tenant_key=ctx.tenant_key)]
 
 
 @router.post("/connections", response_model=InvenTreeConnectionResponse, status_code=201)
@@ -67,7 +67,7 @@ def create_connection(
 ):
     """Create an InvenTree connection for the tenant."""
     created = service.create_connection(
-        ctx.tenant_key,
+        tenant_key=ctx.tenant_key,
         name=body.name,
         base_url=body.base_url,
         api_token=body.api_token,
@@ -86,7 +86,7 @@ def get_connection(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Return a single InvenTree connection by key."""
-    return _connection_response(service.get_connection(connection_key, ctx.tenant_key))
+    return _connection_response(service.get_connection(connection_key, tenant_key=ctx.tenant_key))
 
 
 @router.put("/connections/{connection_key}", response_model=InvenTreeConnectionResponse)
@@ -97,7 +97,7 @@ def update_connection(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Update an InvenTree connection."""
-    updated = service.update_connection(connection_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_connection(connection_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
     return _connection_response(updated)
 
 
@@ -108,7 +108,7 @@ def delete_connection(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Delete an InvenTree connection."""
-    service.delete_connection(connection_key, ctx.tenant_key)
+    service.delete_connection(connection_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/connections/{connection_key}/health-check", response_model=HealthCheckResponse)
@@ -118,7 +118,7 @@ async def health_check(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Probe an InvenTree connection's live health."""
-    result = await service.health_check(connection_key, ctx.tenant_key)
+    result = await service.health_check(connection_key, tenant_key=ctx.tenant_key)
     return HealthCheckResponse(**result)
 
 
@@ -133,10 +133,10 @@ async def link_entity(
 ):
     """Link a domain entity to an InvenTree part."""
     reference = await service.link_entity(
-        ctx.tenant_key,
         body.entity_collection,
         body.entity_key,
         body.inventree_part_id,
+        tenant_key=ctx.tenant_key,
         auto_deduct=body.auto_deduct,
         deduct_unit=body.deduct_unit,
     )
@@ -146,11 +146,14 @@ async def link_entity(
 @router.get("/references", response_model=list[InvenTreeReferenceResponse])
 def list_references(
     entity_collection: str | None = Query(None, description="Filter references by linked entity collection."),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
-    """List the tenant's InvenTree entity references."""
-    references = service.list_references(ctx.tenant_key, entity_collection)
+    """List the tenant's InvenTree entity references (paginated, MT-035)."""
+    references = service.list_references(
+        entity_collection, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+    )
     return [to_response(r, InvenTreeReferenceResponse) for r in references]
 
 
@@ -161,7 +164,7 @@ def unlink_entity(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Remove an InvenTree entity reference."""
-    service.unlink_entity(reference_key, ctx.tenant_key)
+    service.unlink_entity(reference_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/references/{reference_key}/sync")
@@ -171,7 +174,7 @@ async def sync_reference(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Sync a single InvenTree reference's stock level."""
-    return await service.sync_reference(reference_key, ctx.tenant_key)
+    return await service.sync_reference(reference_key, tenant_key=ctx.tenant_key)
 
 
 # ── Browse (member) ─────────────────────────────────────────────────────
@@ -186,7 +189,7 @@ async def browse_parts(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Search parts in the connected InvenTree instance."""
-    return await service.browse_parts(ctx.tenant_key, query, category_id=category_id, limit=limit)
+    return await service.browse_parts(query, tenant_key=ctx.tenant_key, category_id=category_id, limit=limit)
 
 
 @router.get("/browse/categories")
@@ -196,7 +199,7 @@ async def browse_categories(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """List categories in the connected InvenTree instance."""
-    return await service.browse_categories(ctx.tenant_key, parent_id=parent_id)
+    return await service.browse_categories(tenant_key=ctx.tenant_key, parent_id=parent_id)
 
 
 # ── Sync + transactions ─────────────────────────────────────────────────
@@ -208,8 +211,8 @@ async def trigger_sync(
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Trigger a full stock sync and push pending stock transactions."""
-    stock = await service.sync_stock_levels(ctx.tenant_key)
-    push = await service.push_pending_transactions(ctx.tenant_key)
+    stock = await service.sync_stock_levels(tenant_key=ctx.tenant_key)
+    push = await service.push_pending_transactions(tenant_key=ctx.tenant_key)
     return {"stock_sync": stock, "push": push}
 
 
@@ -222,6 +225,6 @@ def list_transactions(
 ):
     """List the tenant's InvenTree stock transactions (paginated)."""
     transactions = service.list_transactions(
-        ctx.tenant_key, status=status, offset=pagination.offset, limit=pagination.limit
+        tenant_key=ctx.tenant_key, status=status, offset=pagination.offset, limit=pagination.limit
     )
     return [to_response(t, StockTransactionResponse) for t in transactions]

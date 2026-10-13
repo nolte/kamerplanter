@@ -30,13 +30,14 @@ kubectl create secret generic kamerplanter-secrets \
   --from-literal=ARANGO_ROOT_PASSWORD=dein-sicheres-passwort \
   --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
   --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
-  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)" \
+  --from-literal=LOG_PSEUDONYM_SALT="$(openssl rand -hex 32)"
 ```
 
-Das Secret wird von Backend und ArangoDB per `envFrom` referenziert — so tauchen keine Passwörter im ArgoCD-Manifest oder in der Git-History auf.
+Das Secret wird von Backend, Celery-Worker und ArangoDB per `envFrom` referenziert — so tauchen keine Passwörter im ArgoCD-Manifest oder in der Git-History auf.
 
-!!! danger "Ohne die drei letzten Werte startet der Backend-Pod nicht"
-    `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` sind — unabhängig von `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD` — eigenständige Boot-Blocker: Das Backend bricht bei `DEBUG=false` mit `SystemExit` ab, wenn einer der drei Werte fehlt oder (bei `ERASURE_TOMBSTONE_SALT`) kürzer als 32 Zeichen ist. Vollständige Übersicht: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+!!! danger "Ohne die vier letzten Werte startet der Backend-Pod nicht"
+    `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` sind — unabhängig von `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD` — eigenständige Boot-Blocker: Das Backend bricht bei `DEBUG=false` mit `SystemExit` ab, wenn einer der vier Werte fehlt oder (bei `ERASURE_TOMBSTONE_SALT`/`LOG_PSEUDONYM_SALT`) kürzer als 32 Zeichen ist. Der Celery-Worker prüft `LOG_PSEUDONYM_SALT` genauso streng. Vollständige Übersicht: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 !!! tip "Deklaratives Secret-Management"
     Statt `kubectl create secret` manuell auszuführen, empfehlen sich für GitOps-Workflows:
@@ -76,16 +77,9 @@ spec:
                   ARANGODB_HOST: kamerplanter-arangodb
                   ARANGODB_PORT: "8529"
                   ARANGODB_DATABASE: kamerplanter
-                  ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://pflanzen.example.com"]'
                   KAMERPLANTER_MODE: light
-          arangodb:
-            containers:
-              main:
-                envFrom:                                        # (2)!
-                  - secretRef:
-                      name: kamerplanter-secrets
   destination:
     server: https://kubernetes.default.svc
     namespace: kamerplanter
@@ -97,8 +91,7 @@ spec:
       - CreateNamespace=true
 ```
 
-1. `ARANGODB_PASSWORD` wird aus dem Secret `kamerplanter-secrets` injiziert.
-2. `ARANGO_ROOT_PASSWORD` wird aus demselben Secret injiziert.
+1. `ARANGODB_PASSWORD` (das Passwort des Anwendungskontos `kamerplanter`) wird aus dem Secret `kamerplanter-secrets` injiziert. Den ArangoDB-Container und das Anwendungskonto richtet das Chart selbst ein — setze dort kein `envFrom` und kein `ARANGODB_USERNAME` (siehe [Datenbank-Zugänge](kubernetes.md#datenbank-zugange)).
 
 !!! warning "Kein `image.tag` in `valuesObject` überschreiben"
 
@@ -183,16 +176,9 @@ spec:
                   ARANGODB_HOST: kamerplanter-arangodb
                   ARANGODB_PORT: "8529"
                   ARANGODB_DATABASE: kamerplanter
-                  ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://pflanzen.example.com"]'
                   KAMERPLANTER_MODE: full
-          arangodb:
-            containers:
-              main:
-                envFrom:
-                  - secretRef:
-                      name: kamerplanter-secrets
 
         ingress:
           main:
@@ -205,11 +191,7 @@ spec:
             hosts:
               - host: pflanzen.example.com                      # (3)!
                 paths:
-                  - path: /api
-                    pathType: Prefix
-                    service:
-                      identifier: backend
-                  - path: /
+                  - path: /              # auch /api: das Frontend-nginx leitet es ans Backend weiter
                     pathType: Prefix
                     service:
                       identifier: frontend
@@ -229,7 +211,7 @@ spec:
       - CreateNamespace=true
 ```
 
-1. Für nginx-ingress: `className: nginx` verwenden und die Traefik-Annotations durch `nginx.ingress.kubernetes.io/proxy-body-size: "10m"` ersetzen.
+1. Für nginx-ingress: `className: nginx` verwenden und die Traefik-Annotations entfernen. Die Body-Grenze `nginx.ingress.kubernetes.io/proxy-body-size` setzt das Chart am Ingress `main` selbst (`storage.maxFileSizeMb` + 1 MiB, Standard `26m`) — überschreibe sie nicht mit einem kleineren Wert, sonst scheitern Uploads am Ingress.
 2. Setzt voraus, dass ein `ClusterIssuer` namens `letsencrypt-prod` im Cluster existiert. Falls du bereits ein Wildcard-Zertifikat hast, entferne diese Annotation und referenziere das bestehende TLS-Secret direkt.
 3. Dein gewünschter Hostname. Der DNS-Eintrag muss auf den Ingress-Controller zeigen.
 4. cert-manager erstellt dieses Secret automatisch. Bei einem bestehenden Wildcard-Zertifikat: den Namen des vorhandenen Secrets verwenden (z.B. `wildcard-example-com-tls`).

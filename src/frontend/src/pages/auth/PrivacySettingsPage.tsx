@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,21 +12,23 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
 import PageTitle from '@/components/layout/PageTitle';
 import client from '@/api/client';
 import { parseApiError } from '@/api/errors';
-import { listProviders } from '@/api/endpoints/auth';
+import { revokeConsent } from '@/api/endpoints/privacy';
+import type { AccountErasureRequest } from '@/api/types';
+import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
+import BrowserConsentSettings from '@/components/privacy/BrowserConsentSettings';
+import { useErasurePreview } from '@/hooks/useErasurePreview';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toStepUpBody } from '@/utils/stepUp';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
+import { useAppSelector } from '@/store/hooks';
 
 interface ConsentItem {
   purpose: string;
@@ -44,7 +46,19 @@ interface ExportItem {
   status: string;
   requested_at: string | null;
   completed_at: string | null;
+  file_size_bytes?: number | null;
+  /** #1645 - why a failed run delivered nothing. */
+  error_message?: string | null;
 }
+
+/**
+ * Export states from which the request no longer moves on its own.
+ *
+ * #1645 - the run used to stop at `processing` for ever, so the UI had nothing
+ * to wait for and said "success" regardless. Naming the terminal set is what
+ * lets the panel distinguish "still working" from "finished" from "failed".
+ */
+const TERMINAL_EXPORT_STATES = ['completed', 'failed', 'expired'];
 
 interface RestrictionItem {
   key: string;
@@ -68,15 +82,22 @@ const TAB_KEYS = ['consents', 'export', 'erasure', 'restrict'] as const;
 
 export default function PrivacySettingsPage() {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [tabIndex, setTabIndex] = useState(0);
+  // #1815 — back from the fresh sign-in at the identity provider: open the
+  // erasure tab and reopen its step-up dialog, which then sends the token.
+  const resumeErasure = useStepUpResume('privacy-erasure');
+  const [tabIndex, setTabIndex] = useState(() => (resumeErasure ? TAB_KEYS.indexOf('erasure') : 0));
 
   // ── Consents tab state ────────────────────────────────────────────
   const [consents, setConsents] = useState<ConsentItem[]>([]);
   const [consentsLoading, setConsentsLoading] = useState(false);
   const [consentsError, setConsentsError] = useState('');
+  // The purpose whose revocation is in flight (one at a time).
+  const [revokingPurpose, setRevokingPurpose] = useState<string | null>(null);
+  // Polite confirmation after a revocation; the row's button disappears with it,
+  // so focus moves to the consents heading instead of falling to <body>.
+  const [consentsStatus, setConsentsStatus] = useState('');
+  const consentsHeadingRef = useRef<HTMLHeadingElement>(null);
 
   // ── Export tab state ──────────────────────────────────────────────
   const [exportRequest, setExportRequest] = useState<ExportItem | null>(null);
@@ -84,25 +105,13 @@ export default function PrivacySettingsPage() {
   const [exportError, setExportError] = useState('');
 
   // ── Erasure tab state ─────────────────────────────────────────────
-  const [erasureDialogOpen, setErasureDialogOpen] = useState(false);
-  const [erasurePending, setErasurePending] = useState(false);
+  // The step-up itself — own e-mail echo, fail-closed password, lockout — lives
+  // in `StepUpConfirmDialog` (#1813, #1816); the page only keeps the outcome.
+  const ownEmail = useAppSelector((s) => s.auth.user?.email ?? '');
+  const [erasureDialogOpen, setErasureDialogOpen] = useState(resumeErasure);
   const [erasureMessage, setErasureMessage] = useState('');
-  const [erasureError, setErasureError] = useState('');
-  const [erasurePassword, setErasurePassword] = useState('');
-  // Tri-state: ``null`` = provider list not yet known (load pending or failed),
-  // ``true``/``false`` = the account has / has not a local-password provider.
-  const [hasLocalPassword, setHasLocalPassword] = useState<boolean | null>(null);
-
-  // Local-password accounts must re-authenticate with their current password
-  // before an erasure request is accepted (REQ-025, backend authorises via the
-  // ``password`` field). We **fail closed**: require the password unless we
-  // positively know the account is federated / password-less. Otherwise a
-  // failed or still-pending provider load would hide the password field for a
-  // local account, the backend would reject the request with 401, and the user
-  // would have no field to supply the password — an unrecoverable dead end
-  // (issue #394). Sending a password the backend ignores for a federated
-  // account is harmless (``password_hash is None`` skips the check).
-  const requiresPassword = hasLocalPassword !== false;
+  // AK-FK-06 — which personal tenants the erasure takes along, read as soon as the tab is open.
+  const erasurePreview = useErasurePreview(TAB_KEYS[tabIndex] === 'erasure' || erasureDialogOpen);
 
   // ── Restrict tab state ────────────────────────────────────────────
   const [restrictions, setRestrictions] = useState<RestrictionItem[]>([]);
@@ -127,16 +136,6 @@ export default function PrivacySettingsPage() {
   }, []);
 
   useEffect(() => {
-    // Determine the account's login providers once so the erasure dialog knows
-    // whether a current-password confirmation is required. A failed load leaves
-    // ``hasLocalPassword`` at ``null`` (unknown → fail closed, see
-    // ``requiresPassword`` above), so the password field is still shown.
-    listProviders()
-      .then((list) => setHasLocalPassword(list.some((p) => p.provider === 'local')))
-      .catch(() => setHasLocalPassword(null));
-  }, []);
-
-  useEffect(() => {
     // Load consents from the backend whenever the consents tab becomes active.
     // This synchronizes React state with the backend (external system), so the
     // setState-in-effect pattern is intentional and matches the loader pattern
@@ -146,6 +145,28 @@ export default function PrivacySettingsPage() {
       loadConsents();
     }
   }, [tabIndex, loadConsents]);
+
+  // REQ-025 Art. 7(3) — withdrawing must be as easy as granting. Every optional
+  // purpose the backend lists gets the action, so a consent granted in place (the
+  // KI page's question, the "use as reference" switch) is revoked here.
+  const handleRevokeConsent = async (purpose: string) => {
+    // aria-disabled, not `disabled`, on the other buttons while one call runs: a
+    // disabled button loses focus. The guard keeps them inert.
+    if (revokingPurpose !== null) return;
+    setRevokingPurpose(purpose);
+    setConsentsError('');
+    setConsentsStatus('');
+    try {
+      const updated = await revokeConsent(purpose);
+      setConsents((prev) => prev.map((c) => (c.purpose === purpose ? { ...c, ...updated } : c)));
+      setConsentsStatus(t('pages.privacy.consentRevokedStatus'));
+      consentsHeadingRef.current?.focus();
+    } catch {
+      setConsentsError(t('pages.privacy.consentRevokeFailed'));
+    } finally {
+      setRevokingPurpose(null);
+    }
+  };
 
   const handleRequestExport = async () => {
     setExportPending(true);
@@ -160,47 +181,52 @@ export default function PrivacySettingsPage() {
     }
   };
 
-  const resetErasureDialogState = () => {
-    setErasureDialogOpen(false);
-    setErasurePassword('');
-    setErasureError('');
-  };
-
-  const closeErasureDialog = () => {
-    // Ignore close attempts (backdrop click, Escape, Cancel button) while the
-    // erasure request is in flight so a stray dismissal cannot mask the
-    // eventual success/error outcome (UI-NFR-008 R-016 double-submit
-    // protection extends to the whole in-flight interaction, not just the
-    // confirm button). The success path below bypasses this guard via
-    // ``resetErasureDialogState`` since it runs while ``erasurePending`` is
-    // still true.
-    if (erasurePending) return;
-    resetErasureDialogState();
-  };
-
-  const handleRequestErasure = async () => {
-    // Local-password accounts must supply their current password; the backend
-    // rejects the request (401) otherwise. Guard client-side to avoid a
-    // guaranteed round-trip failure and to keep the confirm button meaningful.
-    if (requiresPassword && !erasurePassword.trim()) {
-      setErasureError(t('pages.privacy.erasurePasswordRequired'));
-      return;
-    }
-    setErasurePending(true);
-    setErasureError('');
-    setErasureMessage('');
+  const handleRefreshExport = async () => {
+    if (!exportRequest) return;
+    setExportPending(true);
+    setExportError('');
     try {
-      const payload = requiresPassword ? { password: erasurePassword } : {};
-      await client.post('/privacy/erasure', payload);
-      setErasureMessage(t('pages.privacy.erasureRequested'));
-      resetErasureDialogState();
+      const res = await client.get<ExportItem>(`/privacy/export/${exportRequest.key}`);
+      setExportRequest(res.data);
     } catch (err) {
-      // Keep the dialog open so the user can correct the password; the error is
-      // rendered inside the dialog (see erasure confirmation dialog below).
-      setErasureError(parseApiError(err));
+      setExportError(parseApiError(err));
     } finally {
-      setErasurePending(false);
+      setExportPending(false);
     }
+  };
+
+  const handleDownloadExport = async () => {
+    if (!exportRequest) return;
+    setExportPending(true);
+    setExportError('');
+    try {
+      // The endpoint is JWT-protected, so a plain anchor href cannot fetch it;
+      // the bytes come through the authenticated client and are handed to the
+      // browser as an object URL (same shape as the print endpoints).
+      const res = await client.get<Blob>(`/privacy/export/${exportRequest.key}/download`, {
+        responseType: 'blob',
+      });
+      const url = URL.createObjectURL(res.data);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `kamerplanter-export-${exportRequest.key}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(parseApiError(err));
+    } finally {
+      setExportPending(false);
+    }
+  };
+
+  // A rejection propagates to the dialog, which shows it (the lockout included)
+  // and stays open so the echo or the password can be corrected.
+  const handleRequestErasure = async ({ echo, ...credentials }: StepUpConfirmation) => {
+    setErasureMessage('');
+    const payload: AccountErasureRequest = { confirm_email: echo, ...toStepUpBody(credentials) };
+    await client.post('/privacy/erasure', payload);
+    setErasureDialogOpen(false);
+    setErasureMessage(t('pages.privacy.erasureRequested'));
   };
 
   const handleCreateRestriction = async () => {
@@ -250,18 +276,40 @@ export default function PrivacySettingsPage() {
       {TAB_KEYS[tabIndex] === 'consents' && (
         <Card variant="outlined" data-testid="privacy-consents-panel">
           <CardContent>
-            <Typography variant="h6" gutterBottom>
+            <Typography
+              variant="h6"
+              gutterBottom
+              ref={consentsHeadingRef}
+              tabIndex={-1}
+              data-testid="privacy-consents-heading"
+            >
               {t('pages.privacy.consentsHeading')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.privacy.consentsDescription')}
             </Typography>
 
+            <BrowserConsentSettings />
+
             {consentsError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert
+                severity="error"
+                role="alert"
+                sx={{ mb: 2 }}
+                data-testid="privacy-consents-error"
+              >
                 {consentsError}
               </Alert>
             )}
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              role="status"
+              sx={{ mb: consentsStatus ? 2 : 0 }}
+              data-testid="privacy-consents-status"
+            >
+              {consentsStatus}
+            </Typography>
 
             {consentsLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -293,7 +341,7 @@ export default function PrivacySettingsPage() {
                     <ListItemText
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          {c.label || c.purpose}
+                          {c.label || t('pages.privacy.consentPurposeUnnamed')}
                           {/* Clarifies why no revoke action is offered here: required
                               consents are tied to core functionality (REQ-025) and
                               cannot be revoked without deleting the account. */}
@@ -307,7 +355,35 @@ export default function PrivacySettingsPage() {
                           )}
                         </Box>
                       }
-                      secondary={c.description}
+                      secondary={
+                        <>
+                          {c.description}
+                          {c.granted && !c.required && (
+                            <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="inherit"
+                                onClick={() => void handleRevokeConsent(c.purpose)}
+                                aria-disabled={revokingPurpose !== null || undefined}
+                                aria-busy={revokingPurpose === c.purpose || undefined}
+                                aria-label={t('pages.privacy.consentRevokeAria', {
+                                  label: c.label || t('pages.privacy.consentPurposeUnnamed'),
+                                })}
+                                startIcon={
+                                  revokingPurpose === c.purpose ? (
+                                    <CircularProgress size={14} />
+                                  ) : undefined
+                                }
+                                sx={{ minHeight: 44 }}
+                                data-testid={`consent-revoke-${c.purpose}`}
+                              >
+                                {t('pages.privacy.consentRevoke')}
+                              </Button>
+                            </Box>
+                          )}
+                        </>
+                      }
                     />
                   </ListItem>
                 ))}
@@ -344,10 +420,56 @@ export default function PrivacySettingsPage() {
               {t('pages.privacy.exportRequestButton')}
             </Button>
 
-            {exportRequest && (
+            {exportRequest && exportRequest.status === 'completed' && (
               <Alert severity="success" sx={{ mt: 2 }} data-testid="privacy-export-result">
+                {t('pages.privacy.exportReady')}
+              </Alert>
+            )}
+
+            {exportRequest && exportRequest.status === 'failed' && (
+              <Alert severity="error" sx={{ mt: 2 }} data-testid="privacy-export-result">
+                {exportRequest.error_message
+                  ? t('pages.privacy.exportFailed', { reason: exportRequest.error_message })
+                  : t('pages.privacy.exportFailedUnknown')}
+              </Alert>
+            )}
+
+            {exportRequest && exportRequest.status === 'expired' && (
+              // #1662 SCR-009 — a terminal state that showed nothing at all: the
+              // panel went blank, which is the opposite of what this page is for.
+              <Alert severity="info" sx={{ mt: 2 }} data-testid="privacy-export-result">
+                {t('pages.privacy.exportExpired')}
+              </Alert>
+            )}
+
+            {exportRequest && !TERMINAL_EXPORT_STATES.includes(exportRequest.status) && (
+              <Alert severity="info" sx={{ mt: 2 }} data-testid="privacy-export-result">
                 {t('pages.privacy.exportRequested', { status: exportRequest.status })}
               </Alert>
+            )}
+
+            {exportRequest && exportRequest.status === 'completed' && (
+              <Button
+                variant="outlined"
+                sx={{ mt: 2 }}
+                onClick={handleDownloadExport}
+                disabled={exportPending}
+                data-testid="privacy-export-download-btn"
+              >
+                {t('pages.privacy.exportDownload')}
+              </Button>
+            )}
+
+            {exportRequest && !TERMINAL_EXPORT_STATES.includes(exportRequest.status) && (
+              <Button
+                variant="outlined"
+                sx={{ mt: 2 }}
+                onClick={handleRefreshExport}
+                disabled={exportPending}
+                data-testid="privacy-export-refresh-btn"
+              >
+                {t('pages.privacy.exportStatusRefresh')}
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -367,6 +489,12 @@ export default function PrivacySettingsPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.privacy.erasureDescription')}
             </Typography>
+
+            <ErasurePreviewNotice
+              preview={erasurePreview}
+              testIdPrefix="privacy-erasure-preview"
+              variant="alert"
+            />
 
             {erasureMessage && (
               <Alert severity="info" sx={{ mb: 2 }}>
@@ -476,82 +604,39 @@ export default function PrivacySettingsPage() {
         </Card>
       )}
 
-      {/* ── Erasure Confirmation Dialog ── */}
-      <Dialog
+      {/* ── Erasure Confirmation Dialog (step-up, #1813) ── */}
+      <StepUpConfirmDialog
         open={erasureDialogOpen}
-        onClose={closeErasureDialog}
-        fullScreen={fullScreen}
-        maxWidth="xs"
-        fullWidth
-        role="alertdialog"
-        aria-labelledby="privacy-erasure-dialog-title"
-        aria-describedby="privacy-erasure-dialog-description"
-        data-testid="privacy-erasure-dialog"
-      >
-        <DialogTitle id="privacy-erasure-dialog-title">
-          {t('pages.privacy.erasureDialogTitle')}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="privacy-erasure-dialog-description">
+        title={t('pages.privacy.erasureDialogTitle')}
+        description={
+          <>
             {t('pages.privacy.erasureDialogText')}
-          </DialogContentText>
-
-          {/* Local-password accounts confirm their identity with the current
-              password before the erasure is authorised (REQ-025). Autofocus
-              goes to the password field here because it is the next required
-              action; federated accounts (no password field) instead autofocus
-              the Cancel button below to keep the safe default for a
-              destructive action. */}
-          {requiresPassword && (
-            <TextField
-              type="password"
-              label={t('pages.privacy.erasureDialogPasswordLabel')}
-              helperText={t('pages.privacy.erasureDialogPasswordHelper')}
-              value={erasurePassword}
-              onChange={(e) => setErasurePassword(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !erasurePending) {
-                  handleRequestErasure();
-                }
-              }}
-              autoComplete="current-password"
-              fullWidth
-              required
-              autoFocus
-              disabled={erasurePending}
-              error={Boolean(erasureError)}
-              sx={{ mt: 2 }}
-              data-testid="privacy-erasure-password"
+            <ErasurePreviewNotice
+              preview={erasurePreview}
+              testIdPrefix="privacy-erasure-dialog-preview"
             />
-          )}
-
-          {erasureError && (
-            <Alert severity="error" sx={{ mt: 2 }} data-testid="privacy-erasure-dialog-error">
-              {erasureError}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={closeErasureDialog}
-            disabled={erasurePending}
-            autoFocus={!requiresPassword}
-            data-testid="privacy-erasure-cancel-btn"
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button
-            onClick={handleRequestErasure}
-            color="error"
-            variant="contained"
-            disabled={erasurePending || (requiresPassword && !erasurePassword.trim())}
-            startIcon={erasurePending ? <CircularProgress size={16} color="inherit" /> : undefined}
-            data-testid="privacy-erasure-confirm-btn"
-          >
-            {t('pages.privacy.erasureDialogConfirm')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </>
+        }
+        echoLabel={t('pages.privacy.erasureDialogEmailLabel')}
+        echoHelper={t('pages.privacy.erasureDialogEmailHelper', { email: ownEmail })}
+        expectedEcho={ownEmail}
+        echoMatch="caseInsensitive"
+        echoInputType="email"
+        passwordLabel={t('pages.privacy.erasureDialogPasswordLabel')}
+        passwordHelper={t('pages.privacy.erasureDialogPasswordHelper')}
+        passwordRequiredMessage={t('pages.privacy.erasurePasswordRequired')}
+        confirmLabel={t('pages.privacy.erasureDialogConfirm')}
+        testIdPrefix="privacy-erasure"
+        stepUpAction="account_erasure"
+        testIds={{
+          echo: 'privacy-erasure-email',
+          error: 'privacy-erasure-dialog-error',
+          cancel: 'privacy-erasure-cancel-btn',
+          confirm: 'privacy-erasure-confirm-btn',
+        }}
+        onConfirm={handleRequestErasure}
+        onCancel={() => setErasureDialogOpen(false)}
+      />
     </Box>
   );
 }

@@ -1,0 +1,70 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: docs-requirements.yml
+job: requirements
+gate:
+  kind: on-paths
+status: measured
+measured_on: '2026-10-13'
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 47
+job_spec_sha256: 069485b9a5b2e59c9e38dc728738b2aaf5978deef56ca75b97546259e1ff536f
+invocations:
+- command: task docs:venv
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 19959
+- command: task docs:lock
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 1
+- command: git diff --quiet -- docs/requirements.txt
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 3
+subprocesses:
+- .venv-docs/bin/pip
+- cut
+- getopt
+- git
+- ld-linux-x86-64.so.2
+- lsb_release
+- python
+- python3
+- python3.11
+- rustc
+- task
+- tr
+- uname
+- uv
+- uvx
+accepted_gaps: []
+reads:
+- .taskfiles/backend.yaml
+- .taskfiles/checks.yaml
+- .taskfiles/claude.yaml
+- .taskfiles/deploy.yaml
+- .taskfiles/dev.yaml
+- .taskfiles/docs.yaml
+- .taskfiles/e2e.yaml
+- .taskfiles/frontend.yaml
+- .taskfiles/libs.yaml
+- .taskfiles/mcp.yaml
+- .taskfiles/reach.yaml
+- Taskfile.yaml
+- docs/requirements.in
+- docs/requirements.txt
+- src/backend/pyproject.toml
+test_modules: []
+readers: {}
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

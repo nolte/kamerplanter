@@ -22,10 +22,21 @@ The helper is reused both when a subscription is stored (raising
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import socket
-from urllib.parse import urlsplit
+import ssl
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Callable, Iterable, Sequence
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from functools import partial
+from urllib.parse import SplitResult, unquote_plus, urlsplit
 
+import anyio
+import httpcore
+import httpx
 import structlog
 
 from app.common.exceptions import ValidationError
@@ -79,6 +90,21 @@ def _host_matches_allowlist(host: str, allowed_hosts: list[str]) -> bool:
     return any(host == entry or host.endswith(f".{entry}") for entry in allowed_hosts)
 
 
+def _split_url(url: str, *, field: str, code: str = "INVALID_URL") -> SplitResult:
+    """``urlsplit`` that refuses a malformed URL with a ``ValidationError`` (#2249).
+
+    ``urlsplit`` raises a bare ``ValueError`` for an unclosed IPv6 bracket
+    (``http://[::1``); before this, the validators let it escape as a 500.
+    """
+    try:
+        return urlsplit(url)
+    except ValueError:
+        raise ValidationError(
+            "Invalid URL.",
+            details=[{"field": field, "reason": "URL is malformed.", "code": code}],
+        ) from None
+
+
 def is_safe_push_endpoint(endpoint: str) -> bool:
     """Return True if ``endpoint`` is a safe, dial-able Web Push endpoint.
 
@@ -126,7 +152,7 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme != "https":
         raise ValidationError(
             "URL must use https.",
@@ -150,7 +176,7 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
 
     for address in addresses:
         if _is_blocked_address(address):
-            logger.warning("server_side_url_rejected_ssrf", host=host, address=str(address), field=field)
+            logger.warning("server_side_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "URL resolves to a non-routable address.",
                 details=[
@@ -162,6 +188,124 @@ def validate_server_side_url(url: str, *, field: str = "url") -> str:
                 ],
             )
 
+    return url
+
+
+#: Hosts that name this machine — the only ``http`` an OIDC endpoint may have, and
+#: only while the application runs in ``settings.debug`` (#1987).
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def https_endpoint_problem(url: object) -> str | None:
+    """Why *url* is not an acceptable OIDC endpoint, or ``None`` when it is (#1987).
+
+    A **pure predicate** — no DNS, no log — shared by the request schemas (which turn
+    the answer into a 422) and by the login (which refuses to dial the URL). The rule is
+    the scheme: an OIDC endpoint carries the discovery document, the authorization code
+    and the client secret, or the signing keys, and over ``http`` whoever sits on the
+    path answers it. ``http`` to a loopback host is accepted only when
+    ``settings.debug`` is on — the existing development switch, not a new one.
+
+    The host check is on the parsed hostname, never a prefix: ``http://localhost.evil``
+    is not loopback.
+    """
+    if not isinstance(url, str) or not url or len(url) > _MAX_ENDPOINT_LENGTH:
+        return "must be a non-empty URL of at most 2048 characters"
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        parts.port  # noqa: B018 — raises ValueError for a port outside 0-65535, which httpx would raise later
+    except ValueError:
+        return "is not a valid URL"
+    if not host:
+        return "has no host"
+    if parts.username is not None or parts.password is not None:
+        return "must not carry credentials"
+    if parts.scheme == "https":
+        return None
+    if parts.scheme == "http" and settings.debug and host.lower() in _LOOPBACK_HOSTS:
+        return None
+    return "must use https"
+
+
+def _unwrap_embedded_ipv4(address: ipaddress._BaseAddress) -> ipaddress._BaseAddress:
+    """The IPv4 address an IPv6 one carries (mapped, NAT64, 6to4), else *address* itself."""
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return address.ipv4_mapped
+        if address in _NAT64_PREFIX:
+            return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+        if address in _SIXTOFOUR_PREFIX:
+            return ipaddress.IPv4Address((int(address) >> 80) & 0xFFFFFFFF)
+    return address
+
+
+def validate_oidc_fetch_url(
+    url: str, *, field: str = "url", trusted_host: str | None = None, allow_private: bool = False
+) -> str:
+    """Validate a URL the server is about to fetch for an OIDC provider (#1987).
+
+    The scheme rule of :func:`https_endpoint_problem`, plus the address rule of the
+    other server-side validators here: a host that resolves to a link-local /
+    cloud-metadata / reserved / multicast / unspecified address is **always** refused
+    (:func:`_is_metadata_or_link_local` plus the extra metadata addresses of the Apprise
+    validator, an IPv4 address carried in IPv6 judged as itself — never opt-in-able). A private
+    or loopback address is refused too unless one of three things holds:
+
+    * ``allow_private`` — the URL was typed by the platform admin behind a step-up
+      (an explicitly configured ``jwks_url``), which is the same trust the admin already
+      has over ``issuer_url``;
+    * *trusted_host* — the host the provider itself is configured at (the name is compared; the
+      address is not pinned — the OIDC fetches do not connect through :func:`pinned_transport`
+      (#2249) — so a name that changes its answer between this check and the connection is a
+      residual DNS-rebinding risk; TLS with a valid certificate for that name is what bounds
+      it). A self-hosted IdP
+      on the LAN publishes a key set on its own host, and that is the one case where the
+      provider-supplied ``jwks_uri`` of a discovery document is allowed a private address;
+      a key endpoint on *another* private host is exactly the SSRF this exists to stop;
+    * ``settings.debug`` — development against a local provider.
+
+    Raises:
+        ValidationError: not acceptable; the ``code`` in the details says which rule.
+    """
+    problem = https_endpoint_problem(url)
+    if problem is not None:
+        raise ValidationError(
+            f"{field} {problem}.",
+            details=[{"field": field, "reason": f"The URL {problem}.", "code": "INVALID_URL_SCHEME"}],
+        )
+    host = urlsplit(url).hostname or ""
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            f"{field} host could not be resolved.",
+            details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
+        ) from None
+    private_ok = allow_private or settings.debug or (trusted_host is not None and host.lower() == trusted_host.lower())
+    for resolved in addresses:
+        # Judged by the IPv4 address an IPv6 one carries (mapped, NAT64, 6to4), and against the
+        # metadata addresses the stdlib files under "private" or "global" (Alibaba's
+        # 100.100.100.200, AWS IMDS over IPv6 fd00:ec2::254) — the Apprise validator's list, so the
+        # two cannot drift (#1987 security review).
+        address = _unwrap_embedded_ipv4(resolved)
+        # ``::1`` is "reserved" to the stdlib as well as loopback; loopback is the opt-in's to give.
+        always_blocked = (not address.is_loopback and _is_metadata_or_link_local(address)) or any(
+            address in network for network in _APPRISE_EXTRA_BLOCKED_NETWORKS
+        )
+        internal = _is_blocked_address(address) or not address.is_global
+        if always_blocked or (internal and not private_ok):
+            logger.warning("oidc_url_rejected_ssrf", host=host, address=resolved.compressed, field=field)
+            raise ValidationError(
+                f"{field} resolves to a blocked address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": "Host resolves to an internal, link-local or reserved address.",
+                        "code": "URL_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
     return url
 
 
@@ -210,7 +354,7 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme not in ("http", "https"):
         raise ValidationError(
             "Storage endpoint must use http or https.",
@@ -235,7 +379,7 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
     for address in addresses:
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
         if _is_metadata_or_link_local(address):
-            logger.warning("storage_endpoint_rejected_ssrf", host=host, address=str(address), field=field)
+            logger.warning("storage_endpoint_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Storage endpoint resolves to a blocked address.",
                 details=[
@@ -248,7 +392,7 @@ def validate_storage_endpoint_url(url: str, *, field: str = "s3_endpoint_url", a
             )
         # Private / loopback — blocked unless the operator opted in.
         if (address.is_private or address.is_loopback) and not allow_private:
-            logger.warning("storage_endpoint_rejected_private", host=host, address=str(address), field=field)
+            logger.warning("storage_endpoint_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Storage endpoint resolves to a private address.",
                 details=[
@@ -303,7 +447,7 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme not in ("http", "https"):
         raise ValidationError(
             "Home Assistant URL must use http or https.",
@@ -325,10 +469,43 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
             details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
         ) from None
 
-    for address in addresses:
+    _judge_ha_addresses(host, addresses, allow_private=allow_private, field=field)
+    return url
+
+
+def _is_internal_address(address: ipaddress._BaseAddress) -> bool:
+    """Private, loopback, or any other space that is not globally routable (#2249 review).
+
+    ``is_global`` is false for CGNAT ``100.64.0.0/10``, which carries pod addresses in some
+    clusters; IPv6 site-local ``fec0::/10`` is deprecated but still "global" to the stdlib,
+    so it is named here.
+    """
+    if isinstance(address, ipaddress.IPv6Address):
+        return _is_blocked_address(address) or not address.is_global or address.is_site_local
+    if isinstance(address, ipaddress.IPv4Address):
+        return _is_blocked_address(address) or not address.is_global
+    return True
+
+
+def _judge_ha_addresses(
+    host: str, addresses: Sequence[ipaddress._BaseAddress], *, allow_private: bool, field: str = "ha_url"
+) -> None:
+    """The address rule of :func:`validate_ha_url`, for one resolver answer.
+
+    Shared by the validator and by the pinned connection (:func:`pinned_transport`,
+    #2249), so the address a request is sent to is judged by the very same rule.
+
+    Raises:
+        ValidationError: an address is link-local/metadata, or private without the opt-in.
+    """
+    for resolved in addresses:
+        # An IPv4 address carried in IPv6 (mapped, NAT64, 6to4) is judged as itself (#2249 review).
+        address = _unwrap_embedded_ipv4(resolved)
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
-        if _is_metadata_or_link_local(address):
-            logger.warning("ha_url_rejected_ssrf", host=host, address=str(address), field=field)
+        if _is_metadata_or_link_local(address) or any(
+            address in network for network in _APPRISE_EXTRA_BLOCKED_NETWORKS
+        ):
+            logger.warning("ha_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Home Assistant URL resolves to a blocked address.",
                 details=[
@@ -339,9 +516,10 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
                     }
                 ],
             )
-        # Private / loopback — blocked unless the operator opted in.
-        if _is_blocked_address(address) and not allow_private:
-            logger.warning("ha_url_rejected_private", host=host, address=str(address), field=field)
+        # Private / loopback / any other non-global space (CGNAT 100.64.0.0/10, site-local
+        # fec0::/10) — blocked unless the operator opted in (#2249 review, as the OIDC rule).
+        if _is_internal_address(address) and not allow_private:
+            logger.warning("ha_url_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "Home Assistant URL resolves to a private address.",
                 details=[
@@ -355,8 +533,6 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
                     }
                 ],
             )
-
-    return url
 
 
 def validate_inventree_url(url: str, *, allow_private: bool = False, field: str = "base_url") -> str:
@@ -395,7 +571,7 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
             details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
         )
 
-    parts = urlsplit(url)
+    parts = _split_url(url, field=field)
     if parts.scheme not in ("http", "https"):
         raise ValidationError(
             "InvenTree URL must use http or https.",
@@ -417,10 +593,29 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
             details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
         ) from None
 
-    for address in addresses:
+    _judge_inventree_addresses(host, addresses, allow_private=allow_private, field=field)
+    return url
+
+
+def _judge_inventree_addresses(
+    host: str, addresses: Sequence[ipaddress._BaseAddress], *, allow_private: bool, field: str = "base_url"
+) -> None:
+    """The address rule of :func:`validate_inventree_url`, for one resolver answer.
+
+    Shared by the validator and by the pinned connection (:func:`pinned_async_transport`,
+    #2249), so the address a request is sent to is judged by the very same rule.
+
+    Raises:
+        ValidationError: an address is link-local/metadata, or private without the opt-in.
+    """
+    for resolved in addresses:
+        # An IPv4 address carried in IPv6 (mapped, NAT64, 6to4) is judged as itself (#2249 review).
+        address = _unwrap_embedded_ipv4(resolved)
         # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
-        if _is_metadata_or_link_local(address):
-            logger.warning("inventree_url_rejected_ssrf", host=host, address=str(address), field=field)
+        if _is_metadata_or_link_local(address) or any(
+            address in network for network in _APPRISE_EXTRA_BLOCKED_NETWORKS
+        ):
+            logger.warning("inventree_url_rejected_ssrf", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "InvenTree URL resolves to a blocked address.",
                 details=[
@@ -431,9 +626,10 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
                     }
                 ],
             )
-        # Private / loopback — blocked unless the operator opted in.
-        if _is_blocked_address(address) and not allow_private:
-            logger.warning("inventree_url_rejected_private", host=host, address=str(address), field=field)
+        # Private / loopback / any other non-global space (CGNAT 100.64.0.0/10, site-local
+        # fec0::/10) — blocked unless the operator opted in (#2249 review, as the OIDC rule).
+        if _is_internal_address(address) and not allow_private:
+            logger.warning("inventree_url_rejected_private", host=host, address=address.compressed, field=field)
             raise ValidationError(
                 "InvenTree URL resolves to a private address.",
                 details=[
@@ -448,7 +644,232 @@ def validate_inventree_url(url: str, *, allow_private: bool = False, field: str 
                 ],
             )
 
-    return url
+
+# ── Pinned connections (#2249) ──────────────────────────────────────
+#
+# Every validator above resolves the host and judges the answer — and then the
+# HTTP client resolves the name *again* when it connects. A name whose answer
+# changes in between (a TTL-0 record that says 93.184.216.34 once and 127.0.0.1
+# the next time: DNS rebinding) passes the check and is dialed at an address
+# nobody judged. Re-validating "immediately before every request" narrows the
+# window, it does not close it.
+#
+# A pinned transport closes it: its network backend is the place the connection
+# is opened, so it resolves the host there, judges *that* answer with the
+# caller's rule and dials only the judged addresses. The request itself is not
+# rewritten: the URL keeps its host name, so the ``Host`` header, TLS SNI,
+# certificate verification and the connection pool key are those of the name.
+# A redirect, should a caller ever follow one, opens its connection through the
+# same backend and is judged the same way.
+
+#: Judges one resolver answer for one host; raises ``ValidationError`` to refuse.
+AddressPolicy = Callable[[str, Sequence[ipaddress._BaseAddress]], None]
+
+#: The connection limits httpx gives a client of its own (``httpx.Limits`` defaults).
+_PINNED_LIMITS = httpx.Limits(max_connections=100, max_keepalive_connections=20, keepalive_expiry=5.0)
+
+
+class PinnedConnectRefusedError(httpcore.ConnectError):
+    """The host resolved, at connect time, to an address the caller's rule refuses (#2249).
+
+    A ``httpcore.ConnectError``, so httpx surfaces it as ``httpx.ConnectError`` and
+    every caller's existing "cannot connect" handling applies unchanged.
+    """
+
+
+def ha_address_policy(*, allow_private: bool, field: str = "ha_url") -> AddressPolicy:
+    """The Home Assistant address rule (:func:`validate_ha_url`) as a connect-time policy."""
+    return partial(_judge_ha_addresses, allow_private=allow_private, field=field)
+
+
+def inventree_address_policy(*, allow_private: bool, field: str = "base_url") -> AddressPolicy:
+    """The InvenTree address rule (:func:`validate_inventree_url`) as a connect-time policy."""
+    return partial(_judge_inventree_addresses, allow_private=allow_private, field=field)
+
+
+def _pinned_addresses(host: str, policy: AddressPolicy) -> list[str]:
+    """Resolve *host* once and return the addresses *policy* accepts, in resolver order.
+
+    Raises:
+        PinnedConnectRefusedError: an address of the answer is refused — the whole
+            answer is refused, as the validators do (a mixed public/private answer
+            is not "the public half").
+        httpcore.ConnectError: the host does not resolve.
+    """
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError as exc:
+        raise httpcore.ConnectError("host does not resolve") from exc
+    return _judged_addresses(host, addresses, policy)
+
+
+def _judged_addresses(host: str, addresses: Sequence[ipaddress._BaseAddress], policy: AddressPolicy) -> list[str]:
+    """The judged half of :func:`_pinned_addresses`: *policy* over one answer, deduplicated."""
+    if not addresses:
+        raise httpcore.ConnectError("host resolves to no address")
+    try:
+        policy(host, addresses)
+    except ValidationError as exc:
+        raise PinnedConnectRefusedError("connection refused: the host resolves to a blocked address") from exc
+    return list(dict.fromkeys(address.compressed for address in addresses))
+
+
+#: Seconds a connect-time lookup may take when the caller's connect timeout is unbounded.
+PINNED_RESOLVE_TIMEOUT_SECONDS = 10.0
+
+
+def _resolved_address_strings(host: str) -> list[str]:
+    """:func:`_resolved_addresses` as strings — the shape a resolver lane carries."""
+    return [address.compressed for address in _resolved_addresses(host)]
+
+
+async def _resolve_off_loop(host: str, timeout: float | None) -> list[ipaddress._BaseAddress]:
+    """Resolve *host* in the bounded connect lane, never in the loop's shared thread limiter.
+
+    A ``getaddrinfo`` against a nameserver that never answers holds its thread for the
+    system resolver's own timeout. In anyio's default limiter (40 threads, shared with
+    every ``to_thread`` call of the process) a burst of such names would starve unrelated
+    work. The lane bounds it (8 threads, 3 per host) and refuses instead of queueing; the
+    wait is bounded by the connect timeout (#2249 review SEC-003).
+
+    Raises:
+        httpcore.ConnectTimeout: no answer within the timeout.
+        httpcore.ConnectError: the lane is full, or the host does not resolve.
+    """
+    future = _connect_lane.try_submit(host.lower(), _resolved_address_strings, host)
+    if future is None:
+        raise httpcore.ConnectError("resolver busy: connection refused")
+    try:
+        with anyio.fail_after(PINNED_RESOLVE_TIMEOUT_SECONDS if timeout is None else timeout):
+            answer = await asyncio.wrap_future(future)
+    except TimeoutError as exc:
+        raise httpcore.ConnectTimeout("host did not resolve in time") from exc
+    except OSError as exc:
+        raise httpcore.ConnectError("host does not resolve") from exc
+    return [ipaddress.ip_address(address) for address in answer]
+
+
+class _PinnedSyncBackend(httpcore.NetworkBackend):
+    """Opens TCP connections only to addresses judged at connect time."""
+
+    def __init__(self, policy: AddressPolicy) -> None:
+        self._policy = policy
+        self._inner = httpcore.SyncBackend()
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
+        last_error: httpcore.ConnectError | None = None
+        for address in _pinned_addresses(host, self._policy):
+            try:
+                return self._inner.connect_tcp(
+                    address, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except httpcore.ConnectError as exc:
+                last_error = exc
+        raise last_error or httpcore.ConnectError("no address to connect to")
+
+    def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
+        raise httpcore.ConnectError("a pinned transport dials TCP only")
+
+    def sleep(self, seconds: float) -> None:
+        self._inner.sleep(seconds)
+
+
+class _PinnedAsyncBackend(httpcore.AsyncNetworkBackend):
+    """Async twin of :class:`_PinnedSyncBackend`; the resolver runs off the event loop."""
+
+    def __init__(self, policy: AddressPolicy) -> None:
+        self._policy = policy
+        self._inner = httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        last_error: httpcore.ConnectError | None = None
+        resolved = await _resolve_off_loop(host, timeout)
+        for address in _judged_addresses(host, resolved, self._policy):
+            try:
+                return await self._inner.connect_tcp(
+                    address, port, timeout=timeout, local_address=local_address, socket_options=socket_options
+                )
+            except httpcore.ConnectError as exc:
+                last_error = exc
+        raise last_error or httpcore.ConnectError("no address to connect to")
+
+    async def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        raise httpcore.ConnectError("a pinned transport dials TCP only")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class _PinnedTransport(httpx.HTTPTransport):
+    """``httpx.HTTPTransport`` whose connection pool dials through a pinned backend.
+
+    httpx does not take a network backend; its transport is otherwise exactly
+    this pool, so the pool is replaced with one that has the backend. No proxy:
+    a proxy would resolve the name itself, which is the gap being closed.
+    """
+
+    def __init__(self, policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> None:
+        super().__init__(verify=verify)
+        self._pool = httpcore.ConnectionPool(
+            ssl_context=httpx.create_ssl_context(verify=verify),
+            max_connections=_PINNED_LIMITS.max_connections,
+            max_keepalive_connections=_PINNED_LIMITS.max_keepalive_connections,
+            keepalive_expiry=_PINNED_LIMITS.keepalive_expiry,
+            network_backend=_PinnedSyncBackend(policy),
+        )
+
+
+class _PinnedAsyncTransport(httpx.AsyncHTTPTransport):
+    """Async twin of :class:`_PinnedTransport`."""
+
+    def __init__(self, policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> None:
+        super().__init__(verify=verify)
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(verify=verify),
+            max_connections=_PINNED_LIMITS.max_connections,
+            max_keepalive_connections=_PINNED_LIMITS.max_keepalive_connections,
+            keepalive_expiry=_PINNED_LIMITS.keepalive_expiry,
+            network_backend=_PinnedAsyncBackend(policy),
+        )
+
+
+def pinned_transport(policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> httpx.HTTPTransport:
+    """A sync httpx transport that connects only to addresses *policy* accepts at connect time (#2249).
+
+    Pass it as ``httpx.Client(transport=...)``. The validator still runs first (it
+    gives the caller a 422 with a reason); this closes the window between that
+    check and the connection.
+    """
+    return _PinnedTransport(policy, verify=verify)
+
+
+def pinned_async_transport(policy: AddressPolicy, *, verify: bool | ssl.SSLContext = True) -> httpx.AsyncHTTPTransport:
+    """Async twin of :func:`pinned_transport`, for ``httpx.AsyncClient(transport=...)``."""
+    return _PinnedAsyncTransport(policy, verify=verify)
 
 
 def validate_push_endpoint(endpoint: str) -> str:
@@ -471,7 +892,7 @@ def validate_push_endpoint(endpoint: str) -> str:
             details=[{"field": "endpoint", "reason": "Endpoint is empty or too long.", "code": "INVALID_ENDPOINT"}],
         )
 
-    parts = urlsplit(endpoint)
+    parts = _split_url(endpoint, field="endpoint", code="INVALID_ENDPOINT")
     if parts.scheme != "https":
         raise ValidationError(
             "Push endpoint must use https.",
@@ -510,7 +931,7 @@ def validate_push_endpoint(endpoint: str) -> str:
 
     for address in addresses:
         if _is_blocked_address(address):
-            logger.warning("pwa_endpoint_rejected_ssrf", host=host, address=str(address))
+            logger.warning("pwa_endpoint_rejected_ssrf", host=host, address=address.compressed)
             raise ValidationError(
                 "Push endpoint resolves to a non-routable address.",
                 details=[
@@ -523,3 +944,608 @@ def validate_push_endpoint(endpoint: str) -> str:
             )
 
     return endpoint
+
+
+# ── Apprise notification URLs (#1947) ───────────────────────────────
+
+#: The Apprise schemes a user may address, and nothing else. The documented chat
+#: and push services only (``docs/*/user-guide/notifications.md``, REQ-030 §3.6):
+#: Telegram, Slack, Discord, ntfy, Gotify, Pushover, Matrix. Apprise itself speaks
+#: ~100 more, among them ``mailto://`` (mail through a server the user names),
+#: ``json://`` / ``xml://`` / ``form://`` and plain ``http(s)://`` (an arbitrary
+#: request, with title and body of the sender's choosing, from the operator's
+#: backend). A positive list, so a scheme nobody thought of is refused too.
+APPRISE_ALLOWED_SCHEMES: frozenset[str] = frozenset(
+    {
+        "tgram",
+        "telegram",
+        "slack",
+        "discord",
+        "ntfy",
+        "ntfys",
+        "gotify",
+        "gotifys",
+        "pover",
+        "pushover",
+        "matrix",
+        "matrixs",
+    }
+)
+#: At most this many URLs per channel and this many characters per URL.
+APPRISE_MAX_URLS = 10
+_APPRISE_MAX_URL_LENGTH = 512
+#: Apprise splits one string on whitespace and commas into several URLs
+#: (``tgram://a/b mailto://x`` is two), so a single list entry could carry a
+#: second, un-vetted scheme. Control characters are refused with them.
+_APPRISE_FORBIDDEN_CHARS = frozenset(",;[]")
+#: Query parameters that change how Apprise talks to the target: connect/read
+#: timeouts (a slow target would hold an executor thread) and TLS verification.
+_APPRISE_FORBIDDEN_QUERY_KEYS = frozenset({"cto", "rto", "verify"})
+
+
+#: Beyond the stdlib flags: the two metadata addresses the stdlib calls plain
+#: private/global (Alibaba's ``100.100.100.200``, AWS IMDS over IPv6
+#: ``fd00:ec2::254``) and the two IPv6 transition prefixes that embed an IPv4
+#: address in a position this module does not unpack: local-use NAT64
+#: ``64:ff9b:1::/48`` (RFC 8215) and Teredo ``2001::/32``.
+_APPRISE_EXTRA_BLOCKED_NETWORKS = tuple(
+    ipaddress.ip_network(n) for n in ("100.100.100.200/32", "fd00:ec2::/32", "64:ff9b:1::/48", "2001::/32")
+)
+#: ``0.0.0.0/8`` ("this network") — the stdlib files it under ``is_private``, so it
+#: cannot be refused by flag with RFC1918 left allowed. Judged for *resolved*
+#: addresses only: a literal host check also sees the leading digits of a
+#: Telegram bot token (``tgram://123456:TOKEN/chat`` parses as the host ``123456``).
+_THIS_NETWORK = ipaddress.ip_network("0.0.0.0/8")
+#: What ``ipaddress.ip_address`` returns; ``_BaseAddress`` has no ``version`` for mypy.
+_IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+_SIXTOFOUR_PREFIX = ipaddress.ip_network("2002::/16")
+#: Private address space a host target may use only with the operator's switch
+#: (``settings.apprise_private_targets_allowed()``, #1996): RFC1918, unique-local
+#: ``fc00::/7`` and shared ``100.64.0.0/10`` (RFC 6598). Explicit networks, not
+#: ``is_private``: the stdlib flag also covers loopback/link-local (refused anyway)
+#: and ``0.0.0.0/8``, and it does *not* cover ``100.64.0.0/10`` — a range that
+#: carries pod addresses in some clusters (EKS custom networking, CGNAT overlays)
+#: and that the chart's egress policy does not exclude.
+_APPRISE_PRIVATE_NETWORKS = tuple(
+    ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "fc00::/7")
+)
+#: ntfy query keys that make ``ntfy://name`` a server rather than a ntfy.sh topic.
+_APPRISE_NTFY_HOST_QUERY_KEYS = frozenset({"to", "mode"})
+
+#: Seconds the whole resolution of one URL list may take (save and send alike).
+#: A resolver that does not answer in time counts as a refusal (fail closed).
+APPRISE_RESOLVE_TIMEOUT_SECONDS = 3.0
+#: Schemes whose host part is a server the backend (through Apprise) connects to.
+#: ``tgram``/``slack``/``discord``/``pover`` carry tokens there and talk to a fixed
+#: vendor host; ``ntfy`` is host-addressed only when a topic path follows
+#: (``ntfy://host/topic``; ``ntfy://topic`` is the public ntfy.sh).
+_APPRISE_HOST_SCHEMES = frozenset({"gotify", "gotifys", "matrix", "matrixs"})
+_APPRISE_NTFY_SCHEMES = frozenset({"ntfy", "ntfys"})
+#: Schemes whose syntax has no use for ``#``; elsewhere it names a channel or room.
+_APPRISE_NO_FRAGMENT_SCHEMES = frozenset({"gotify", "gotifys", "ntfy", "ntfys"})
+
+#: Threads per resolver lane. A ``getaddrinfo`` against a nameserver that never
+#: answers holds its thread for the system resolver's own timeout (10-30 s);
+#: ``Future.cancel`` cannot stop it (#1995).
+APPRISE_RESOLVER_WORKERS = 8
+#: Resolutions one owner (the user whose URL list it is) may have running in one
+#: lane at a time. A running resolution keeps its slot until its thread returns —
+#: past the request's deadline — so never-answering names hold at most this many
+#: threads per owner. Beyond it a host is refused at once (as a timeout), never
+#: queued (#1995).
+APPRISE_RESOLUTIONS_PER_OWNER = 3
+#: Seconds a save-time resolver answer is reused by the next save: an address
+#: list (``ok`` or ``blocked``), and a failure (NXDOMAIN, resolver error). A
+#: *timeout* is never cached: it says nothing about the name. A stuck save-time
+#: lookup that ends after the deadline caches what it ended with, under these TTLs.
+#: The send path reads only a cached ``blocked`` verdict and writes nothing (see
+#: :class:`_HostCache`).
+APPRISE_RESOLVE_CACHE_TTL_SECONDS = 60.0
+APPRISE_RESOLVE_NEGATIVE_CACHE_TTL_SECONDS = 10.0
+#: Host names the cache holds at most; the oldest entry goes first.
+APPRISE_RESOLVE_CACHE_MAX_ENTRIES = 1024
+
+
+class _HostCache:
+    """Recent save-time resolver answers per host name: address tuple, or ``None`` for a failure.
+
+    Bounded, thread-safe, clock injectable. Only the **save** lane writes it and
+    only the save lane takes every answer from it: a save is followed by no
+    connect, so a reused answer opens no window there.
+
+    The **send** lane takes from it a ``blocked`` verdict only — reusing that can
+    only refuse — and resolves ``ok`` and every failure fresh, writing nothing
+    back. A reused ``ok`` at send would leave the TTL between the check and
+    Apprise's own resolution at connect: a host re-pointed to ``127.0.0.1`` after
+    the save would pass (#1995 review F1). A reused failure would let a lookup
+    that timed out (refused) and later ended with an error read as NXDOMAIN, which
+    ``ntfy://topic`` tolerates.
+    """
+
+    def __init__(
+        self,
+        *,
+        ttl: float = APPRISE_RESOLVE_CACHE_TTL_SECONDS,
+        negative_ttl: float = APPRISE_RESOLVE_NEGATIVE_CACHE_TTL_SECONDS,
+        max_entries: int = APPRISE_RESOLVE_CACHE_MAX_ENTRIES,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._ttl = ttl
+        self._negative_ttl = negative_ttl
+        self._max_entries = max_entries
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._entries: OrderedDict[str, tuple[float, tuple[str, ...] | None]] = OrderedDict()
+
+    def lookup(self, host: str) -> tuple[bool, tuple[str, ...] | None]:
+        """``(hit, addresses)``; ``addresses`` is ``None`` for a cached failure."""
+        key = host.lower()
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                return False, None
+            expires, addresses = entry
+            if self._clock() >= expires:
+                del self._entries[key]
+                return False, None
+            return True, addresses
+
+    def store(self, host: str, addresses: tuple[str, ...] | None) -> None:
+        """Remember an answer (``None`` = the name failed to resolve)."""
+        key = host.lower()
+        ttl = self._ttl if addresses else self._negative_ttl
+        with self._lock:
+            self._entries.pop(key, None)
+            self._entries[key] = (self._clock() + ttl, addresses or None)
+            while len(self._entries) > self._max_entries:
+                self._entries.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._entries)
+
+
+class _ResolverLane:
+    """A resolver thread pool that never queues and caps each owner (#1995).
+
+    At most ``workers`` resolutions run at once, so a submitted one always has a
+    thread and never waits behind a stuck lookup; at most ``per_owner`` of them
+    belong to one owner. A slot is held until the resolution *ends* (returns,
+    raises or is cancelled), not until the caller stops waiting.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        workers: int = APPRISE_RESOLVER_WORKERS,
+        per_owner: int = APPRISE_RESOLUTIONS_PER_OWNER,
+        trusts_cache: bool,
+    ) -> None:
+        self.name = name
+        #: Whether this lane reads every cached answer and writes its own (save),
+        #: or reads only cached ``blocked`` verdicts and writes nothing (send).
+        self.trusts_cache = trusts_cache
+        self._workers = workers
+        self._per_owner = per_owner
+        self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=f"apprise-dns-{name}")
+        self._lock = threading.Lock()
+        self._by_owner: dict[str, int] = {}
+        self._running = 0
+
+    def try_submit(
+        self,
+        owner_key: str,
+        fn: Callable[[str], list[str]],
+        host: str,
+        *,
+        on_end: Callable[[Future[list[str]]], None] | None = None,
+    ) -> Future[list[str]] | None:
+        """Start ``fn(host)`` for ``owner_key``; ``None`` when the owner or the lane is full.
+
+        ``on_end`` runs when the resolution ends, *before* its slot is released:
+        a lane that reads idle has finished every ``on_end`` (the cache write).
+        """
+        with self._lock:
+            if self._running >= self._workers or self._by_owner.get(owner_key, 0) >= self._per_owner:
+                return None
+            self._by_owner[owner_key] = self._by_owner.get(owner_key, 0) + 1
+            self._running += 1
+        try:
+            future = self._pool.submit(fn, host)
+        except BaseException:
+            self._release(owner_key)
+            raise
+        if on_end is not None:
+            future.add_done_callback(on_end)
+        future.add_done_callback(lambda _done: self._release(owner_key))
+        return future
+
+    def outstanding(self, owner_key: str | None = None) -> int:
+        """Resolutions still running — of ``owner_key``, or of the whole lane."""
+        with self._lock:
+            return self._running if owner_key is None else self._by_owner.get(owner_key, 0)
+
+    def _release(self, owner_key: str) -> None:
+        with self._lock:
+            self._running -= 1
+            left = self._by_owner.get(owner_key, 0) - 1
+            if left > 0:
+                self._by_owner[owner_key] = left
+            else:
+                self._by_owner.pop(owner_key, None)
+
+
+_resolution_cache = _HostCache()
+#: Save (a user's PUT) and send (delivery) resolve in separate lanes, so a burst
+#: of saves cannot hold the threads delivery needs, nor the other way round.
+_save_lane = _ResolverLane("save", trusts_cache=True)
+_send_lane = _ResolverLane("send", trusts_cache=False)
+#: Connect-time lookups of the pinned async transport (#2249): their own lane, so a
+#: hanging name can neither starve anyio's shared thread limiter nor the Apprise lanes.
+_connect_lane = _ResolverLane("connect", trusts_cache=False)
+
+
+def resolve_host_addresses(host: str) -> list[str]:
+    """Resolve ``host`` to its address strings. The seam tests replace.
+
+    Raises:
+        OSError: the name does not resolve (NXDOMAIN, no A/AAAA record).
+    """
+    infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    return [str(info[4][0]) for info in infos]
+
+
+def _apprise_literal_address(host: str) -> _IPAddress | None:
+    """The address ``host`` spells, or ``None`` for a name.
+
+    Also numeric spellings ``ip_address`` rejects but ``getaddrinfo`` resolves
+    (``127.1``, ``0x7f.1``, ``2130706433``).
+    """
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        try:
+            return ipaddress.ip_address(socket.inet_aton(host))
+        except OSError, ValueError:
+            return None
+
+
+def _apprise_carried_address(address: _IPAddress) -> _IPAddress:
+    """The IPv4 address IPv6 carries (``::ffff:a.b.c.d``, NAT64, 6to4), else ``address``."""
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.ipv4_mapped is not None:
+            return address.ipv4_mapped
+        if address in _NAT64_PREFIX:
+            return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+        if address in _SIXTOFOUR_PREFIX:
+            return ipaddress.IPv4Address((int(address) >> 80) & 0xFFFFFFFF)
+    return address
+
+
+def _is_apprise_private_address(address: _IPAddress) -> bool:
+    """True for RFC1918 / ``100.64.0.0/10`` / ``fc00::/7``, also carried inside IPv6 (#1996)."""
+    address = _apprise_carried_address(address)
+    return any(address in net for net in _APPRISE_PRIVATE_NETWORKS if net.version == address.version)
+
+
+def _is_apprise_blocked_address(address: _IPAddress, *, resolved: bool = False) -> bool:
+    """True for loopback / link-local / reserved / unspecified / multicast space.
+
+    Refused in every mode. Private space is a separate, switchable rule
+    (:func:`_is_apprise_private_address`, REQ-030 §3.6). IPv4 carried inside IPv6
+    (``::ffff:127.0.0.1``, NAT64, 6to4) is judged by the IPv4 address it carries.
+    ``resolved`` marks an address the backend dials (a resolver answer, or the
+    literal host of a host-addressed URL).
+    """
+    address = _apprise_carried_address(address)
+    return (
+        (resolved and address.version == 4 and address in _THIS_NETWORK)
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_unspecified
+        or address.is_reserved
+        or address.is_multicast
+        or any(address in net for net in _APPRISE_EXTRA_BLOCKED_NETWORKS if net.version == address.version)
+    )
+
+
+def _apprise_host_to_resolve(url: str) -> tuple[str, bool] | None:
+    """``(host, unresolvable_ok)`` Apprise may connect to by name for ``url``, else ``None``.
+
+    ``unresolvable_ok`` marks ``ntfy://name`` without a topic path: Apprise reads
+    that as a *topic* on the public ntfy.sh unless a query (``?to=``, ``?mode=``)
+    makes it a host, so a name that does not resolve is tolerated there, while a
+    name that resolves into blocked space is refused either way.
+    """
+    parts = urlsplit(url)
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").rstrip(".")
+    if not host or _apprise_literal_address(host) is not None or host.lower() == "localhost":
+        return None  # a literal is judged by ``_apprise_url_refusal`` without DNS
+    if scheme in _APPRISE_HOST_SCHEMES:
+        return host, False
+    if scheme in _APPRISE_NTFY_SCHEMES:
+        return host, not _apprise_ntfy_names_a_server(parts.path, parts.query)
+    return None
+
+
+def _apprise_query_keys(query: str) -> set[str]:
+    """The lower-cased, unquoted keys of a URL query string."""
+    return {unquote_plus(pair.split("=", 1)[0]).lower() for pair in query.split("&") if pair}
+
+
+def _apprise_ntfy_names_a_server(path: str, query: str) -> bool:
+    """Whether ``ntfy://name...`` dials ``name``: a topic path, or ``?to=`` / ``?mode=``."""
+    return bool(path.strip("/")) or bool(_apprise_query_keys(query) & _APPRISE_NTFY_HOST_QUERY_KEYS)
+
+
+def _apprise_resolved_verdict(addresses: tuple[str, ...] | None) -> str:
+    """``ok`` / ``blocked`` / ``private`` / ``unresolvable`` for a resolver answer (``None`` = failed).
+
+    Judged on every read, against the settings of that moment: the cache keeps raw
+    address lists, so changing ``APPRISE_ALLOW_PRIVATE_TARGETS`` needs no cache surgery.
+    """
+    if not addresses:
+        return "unresolvable"
+    try:
+        parsed = [ipaddress.ip_address(a.split("%", 1)[0]) for a in addresses]
+    except ValueError:
+        return "unresolvable"
+    if any(_is_apprise_blocked_address(a, resolved=True) for a in parsed):
+        return "blocked"
+    if not settings.apprise_private_targets_allowed() and any(_is_apprise_private_address(a) for a in parsed):
+        return "private"
+    return "ok"
+
+
+def _apprise_answer(future: Future[list[str]]) -> tuple[str, ...] | None:
+    """The address tuple a finished resolution returned; ``None`` when it raised."""
+    try:
+        return tuple(str(a) for a in future.result(timeout=0))
+    except Exception:
+        return None
+
+
+def _apprise_cache_on_end(host: str) -> Callable[[Future[list[str]]], None]:
+    """Done-callback: cache what a resolution ended with — also after the deadline."""
+
+    def _store(future: Future[list[str]]) -> None:
+        if not future.cancelled():
+            _resolution_cache.store(host, _apprise_answer(future))
+
+    return _store
+
+
+def _apprise_resolve_hosts(hosts: list[str], *, owner_key: str, lane: _ResolverLane) -> dict[str, str]:
+    """Host -> ``ok`` / ``blocked`` / ``unresolvable`` / ``timeout``, within one deadline.
+
+    Cached answers first — every one on a lane that trusts the cache, only a
+    ``blocked`` verdict otherwise (see :class:`_HostCache`). The rest runs in ``lane`` under ``owner_key``'s slots:
+    when no slot is free and nothing of this call is running, the remaining hosts
+    are refused at once; otherwise they take the slot the next finished lookup of
+    this call frees, until the deadline.
+    """
+    verdict: dict[str, str] = {}
+    pending: list[str] = []
+    for host in hosts:
+        hit, addresses = _resolution_cache.lookup(host)
+        cached = _apprise_resolved_verdict(addresses) if hit else None
+        if cached is not None and (lane.trusts_cache or cached == "blocked"):
+            verdict[host] = cached
+        else:
+            pending.append(host)
+    resolve: Callable[[str], list[str]] = resolve_host_addresses
+    deadline = time.monotonic() + APPRISE_RESOLVE_TIMEOUT_SECONDS
+    running: dict[Future[list[str]], str] = {}
+    capped = 0
+    while pending:
+        while (
+            pending
+            and (
+                future := lane.try_submit(
+                    owner_key,
+                    resolve,
+                    pending[0],
+                    on_end=_apprise_cache_on_end(pending[0]) if lane.trusts_cache else None,
+                )
+            )
+            is not None
+        ):
+            running[future] = pending.pop(0)
+        if not pending:
+            break
+        if not running:  # the owner's share (or the lane) is held by earlier calls
+            capped = len(pending)
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        done, _ = wait(running, timeout=remaining, return_when=FIRST_COMPLETED)
+        if not done:
+            break
+        for future in done:
+            verdict[running.pop(future)] = _apprise_resolved_verdict(_apprise_answer(future))
+    if running:
+        finished, _ = wait(running, timeout=max(0.0, deadline - time.monotonic()))
+        for future, host in running.items():
+            verdict[host] = _apprise_resolved_verdict(_apprise_answer(future)) if future in finished else "timeout"
+    for host in pending:
+        verdict[host] = "timeout"
+    if capped:
+        logger.warning("apprise_resolution_capped", lane=lane.name, refused_hosts=capped)
+    return verdict
+
+
+def _apprise_resolution_refusals(urls: list[str], *, owner_key: str, lane: _ResolverLane) -> dict[int, str]:
+    """Index -> reason for every URL whose host resolves to blocked space, or not at all.
+
+    All distinct hosts are resolved concurrently under one shared deadline, so a
+    list of ten slow names costs one timeout, not ten — within ``owner_key``'s
+    share of ``lane`` (#1995). Fail closed: NXDOMAIN (except for a possible ntfy
+    topic), a resolver error, a timeout and a host over the owner's share each
+    refuse the URL; the last two read alike. A DNS-rebinding window remains
+    between this check and the connect Apprise performs itself.
+    """
+    targets = {i: t for i, u in enumerate(urls) if (t := _apprise_host_to_resolve(u)) is not None}
+    if not targets:
+        return {}
+    hosts = list(dict.fromkeys(host for host, _ in targets.values()))
+    verdict = _apprise_resolve_hosts(hosts, owner_key=owner_key, lane=lane)
+    reasons = {
+        "blocked": "An Apprise URL host resolves to a loopback, link-local or reserved address.",
+        "private": "An Apprise URL host resolves to a private network address, which this server does not allow.",
+        "unresolvable": "An Apprise URL host could not be resolved.",
+        "timeout": "An Apprise URL host did not resolve in time.",
+    }
+    refusals: dict[int, str] = {}
+    for index, (host, unresolvable_ok) in targets.items():
+        state = verdict[host]
+        if state == "ok" or (state == "unresolvable" and unresolvable_ok):
+            continue
+        refusals[index] = reasons[state]
+    return refusals
+
+
+def _apprise_url_refusal(url: object) -> str | None:
+    """Why ``url`` may not be handed to Apprise; ``None`` when it may.
+
+    The reason names the rule, never the value: a URL carries its credential in
+    the path (``tgram://<bot-token>/<chat>``) and must not travel into an error
+    body or a log line (#1879, #1930).
+    """
+    if not isinstance(url, str) or not url.strip():
+        return "Each Apprise URL must be a non-empty string."
+    if len(url) > _APPRISE_MAX_URL_LENGTH:
+        return "An Apprise URL is too long."
+    # Printable ASCII only, and no whitespace of any kind: Apprise splits a string
+    # with a Unicode-aware ``\\s`` (NEL, NBSP, U+2028 ...), so an ASCII-only
+    # blacklist let ``tgram://a/b<NBSP>json://internal/x`` through.
+    if not url.isascii() or not url.isprintable() or any(ch.isspace() or ch in _APPRISE_FORBIDDEN_CHARS for ch in url):
+        return "An Apprise URL must contain only printable ASCII without whitespace, commas or brackets."
+    scheme, separator, rest = url.partition("://")
+    scheme = scheme.lower()
+    if not separator or scheme not in APPRISE_ALLOWED_SCHEMES:
+        return "An Apprise URL uses a scheme that is not allowed."
+    # Spellings ``urlsplit`` and Apprise's own parser read differently, so the host
+    # judged here is not the host dialled: a second ``@`` in the userinfo
+    # (``a@127.0.0.1@public.example``), a backslash, and a ``#`` that Apprise does not
+    # treat as a fragment (it hides ``?verify=no`` from the query check).
+    authority = rest.split("/", 1)[0].split("?", 1)[0]
+    if authority.count("@") > 1 or "\\" in url:
+        return "An Apprise URL is malformed."
+    fragment_start = url.find("#")
+    if fragment_start != -1 and (
+        scheme in _APPRISE_NO_FRAGMENT_SCHEMES or "?" in url[fragment_start:]
+    ):  # ``slack://.../#channel`` and ``matrix://.../#room`` stay valid
+        return "An Apprise URL is malformed."
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or "").rstrip(".")
+        query_keys = _apprise_query_keys(parts.query)
+    except ValueError:
+        return "An Apprise URL is malformed."
+    if query_keys & _APPRISE_FORBIDDEN_QUERY_KEYS:
+        return "An Apprise URL must not set timeouts or TLS verification."
+    # ``ntfy://1234`` is a topic, ``ntfy://0.1.2.3/topic`` (or ``?to=`` / ``?mode=``) a host:
+    # only the latter is dialled.
+    host_addressed = scheme in _APPRISE_HOST_SCHEMES or (
+        scheme in _APPRISE_NTFY_SCHEMES and _apprise_ntfy_names_a_server(parts.path, parts.query)
+    )
+    # Every allowed scheme names something in the host position. Without one, Apprise
+    # still finds a host: it reads ``scheme:[/\\]+`` as the separator, so
+    # ``ntfy:///169.254.169.254/topic`` dials the address ``urlsplit`` saw as the path.
+    if not host:
+        return "An Apprise URL is malformed."
+    if host:
+        address = _apprise_literal_address(host)
+        if host.lower().rstrip(".") == "localhost" or (
+            address is not None and _is_apprise_blocked_address(address, resolved=host_addressed)
+        ):
+            return "An Apprise URL points at a loopback, link-local or reserved address."
+        if (
+            address is not None
+            and host_addressed
+            and not settings.apprise_private_targets_allowed()
+            and _is_apprise_private_address(address)
+        ):
+            return "An Apprise URL points at a private network address, which this server does not allow."
+    return None
+
+
+def partition_apprise_urls(urls: object, *, owner_key: str) -> tuple[list[str], int]:
+    """Split a stored ``urls`` value into ``(allowed, refused_count)``.
+
+    Never raises: the send path uses it so a legacy row that predates the
+    allow-list neither delivers to a refused target nor aborts the rest. Blocking
+    (it resolves host targets, bounded by :data:`APPRISE_RESOLVE_TIMEOUT_SECONDS`);
+    async callers run it in an executor. ``owner_key`` (the recipient's user key)
+    picks the share of the send lane the resolution may use (#1995).
+    """
+    if not isinstance(urls, list):
+        return [], 1 if urls else 0
+    literal_ok = [u for u in urls[:APPRISE_MAX_URLS] if _apprise_url_refusal(u) is None]
+    refused_by_dns = _apprise_resolution_refusals(literal_ok, owner_key=owner_key, lane=_send_lane)
+    allowed = [u for i, u in enumerate(literal_ok) if i not in refused_by_dns]
+    return allowed, len(urls) - len(allowed)
+
+
+def validate_apprise_urls(urls: object, *, owner_key: str) -> list[str]:
+    """Validate the ``urls`` of an Apprise channel preference on save.
+
+    ``owner_key`` (the saving user's key) picks the share of the save lane the
+    host resolution may use (#1995); it never reaches a log line.
+
+    Raises:
+        ValidationError: a value-free message when the list is not a list of at
+            most :data:`APPRISE_MAX_URLS` strings, or an entry is outside the
+            scheme allow-list, carries a second URL, or addresses loopback /
+            link-local / reserved space, or a host name of a host-addressed
+            scheme resolves to such space (or not at all, or not in time).
+            Private hosts (RFC1918, ``100.64.0.0/10``, ``fc00::/7``) only with
+            ``settings.apprise_private_targets_allowed()`` (#1996): on in light
+            mode, where a LAN Gotify/ntfy is the documented use, off in full mode.
+    """
+    if not isinstance(urls, list) or len(urls) > APPRISE_MAX_URLS:
+        raise ValidationError(
+            f"Apprise URLs must be a list of at most {APPRISE_MAX_URLS} entries.",
+            details=[
+                {
+                    "field": "channels.apprise.config.urls",
+                    "reason": "Not a list or too long.",
+                    "code": "INVALID_APPRISE_URLS",
+                }
+            ],
+        )
+    for index, url in enumerate(urls):
+        reason = _apprise_url_refusal(url)
+        if reason is not None:
+            logger.warning("apprise_url_rejected", index=index, reason=reason)
+            raise ValidationError(
+                "An Apprise URL is not allowed.",
+                details=[
+                    {
+                        "field": f"channels.apprise.config.urls[{index}]",
+                        "reason": reason,
+                        "code": "APPRISE_URL_NOT_ALLOWED",
+                    }
+                ],
+            )
+    for index, reason in sorted(_apprise_resolution_refusals(urls, owner_key=owner_key, lane=_save_lane).items()):
+        logger.warning("apprise_url_rejected", index=index, reason=reason)
+        raise ValidationError(
+            "An Apprise URL is not allowed.",
+            details=[
+                {
+                    "field": f"channels.apprise.config.urls[{index}]",
+                    "reason": reason,
+                    "code": "APPRISE_URL_NOT_ALLOWED",
+                }
+            ],
+        )
+    return urls

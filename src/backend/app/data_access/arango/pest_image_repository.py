@@ -20,18 +20,21 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
     """ArangoDB-backed repository for ``pest_image_contributions``."""
 
     _model_cls = PestImageContribution
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PEST_IMAGE_CONTRIBUTIONS)
 
-    def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
+    def get(self, key: str, *, tenant_key: str) -> PestImageContribution | None:
         contribution = super().get_by_key(key)
         if contribution is None or contribution.tenant_key != tenant_key:
             return None
         return contribution
 
     def list_for_pest(
-        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+        self, *, tenant_key: str, pest_key: str, include_inactive: bool = False
     ) -> list[PestImageContribution]:
         # ``is_active != false`` keeps legacy documents (no field) visible by
         # treating a missing flag as active. Only an explicit ``false`` hides a
@@ -40,7 +43,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         FOR c IN @@collection
           FILTER c.tenant_key == @tenant_key AND c.pest_key == @pest_key
           FILTER @include_inactive OR c.is_active != false
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -52,11 +55,11 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
 
-    def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
+    def list_for_tenant(self, *, tenant_key: str) -> list[PestImageContribution]:
         query = """
         FOR c IN @@collection
           FILTER c.tenant_key == @tenant_key
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -70,7 +73,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         query = """
         FOR c IN @@collection
           FILTER c.contributed_by == @user_key
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -80,11 +83,21 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PestImageContribution(**self._from_doc(doc)) for doc in cursor]
 
+    def existing_keys(self, keys: list[str]) -> set[str]:
+        if not keys:
+            return set()
+        # Primary-index lookup; returns keys only, never a document.
+        cursor = self._db.aql.execute(
+            "FOR c IN @@col FILTER c._key IN @keys RETURN c._key",
+            bind_vars={"@col": col.PEST_IMAGE_CONTRIBUTIONS, "keys": list(keys)},
+        )
+        return set(cursor)
+
     def list_all_for_pest(self, pest_key: str) -> list[PestImageContribution]:
         query = """
         FOR c IN @@collection
           FILTER c.pest_key == @pest_key
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -99,7 +112,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         FOR c IN @@collection
           FILTER c.pest_key == @pest_key AND c.status == @status
           FILTER @include_inactive OR c.is_active != false
-          SORT c.created_at DESC
+          SORT DATE_TIMESTAMP(c.created_at) DESC
           RETURN c
         """
         bind_vars = {
@@ -131,23 +144,7 @@ class ArangoPestImageRepository(BaseArangoRepository[PestImageContribution], IPe
         return super().update(key, updated)
 
     def delete(self, key: str, tenant_key: str) -> bool:
-        existing = self.get(key, tenant_key)
+        existing = self.get(key, tenant_key=tenant_key)
         if existing is None:
             return False
         return super().delete(key)
-
-    def delete_for_tenant(self, tenant_key: str) -> int:
-        query = """
-        FOR c IN @@collection
-          FILTER c.tenant_key == @tenant_key
-          REMOVE c IN @@collection
-          COLLECT WITH COUNT INTO removed
-          RETURN removed
-        """
-        bind_vars = {
-            "@collection": self._collection_name,
-            "tenant_key": tenant_key,
-        }
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        result = list(cursor)
-        return int(result[0]) if result else 0

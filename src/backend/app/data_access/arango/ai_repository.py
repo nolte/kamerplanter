@@ -8,11 +8,14 @@ tip cache, audit log). They are tenant-scoped and back the retention cleanups in
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.models.ai_assistant import (
     AiAuditLogEntry,
@@ -26,6 +29,10 @@ class ArangoAiProviderRepository(BaseArangoRepository[AiProviderConfig]):
     """``ai_provider_configs`` — LLM provider configurations (§3.1)."""
 
     _model_cls = AiProviderConfig
+    #: A tenant's own provider rows plus the platform's null-tenant defaults. The
+    #: base list reads filter strictly on ``tenant_key`` (narrower than the two-arm
+    #: union :meth:`list_for_tenant` reads); none is called today (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AI_PROVIDER_CONFIGS)
@@ -69,6 +76,26 @@ class ArangoAiProviderRepository(BaseArangoRepository[AiProviderConfig]):
                 return provider
         return providers[0] if providers else None
 
+    def get_system_default(self) -> AiProviderConfig | None:
+        """The platform's own default provider — a system row (``tenant_key == null``).
+
+        For output that is shared by every tenant (the glossary cache, #2110):
+        its classification must not depend on which tenant happened to ask
+        first, so it is read from the platform's provider records only, never
+        from a tenant's. Same ordering as :meth:`list_for_tenant`.
+        """
+        query = """
+        FOR doc IN @@collection
+          FILTER doc.is_active == true
+          FILTER doc.tenant_key == null
+          SORT doc.is_default DESC, doc.display_name ASC
+          LIMIT 1
+          RETURN doc
+        """
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars={"@collection": self._collection_name}))
+        rows = list(cursor)
+        return AiProviderConfig(**rows[0]) if rows else None
+
 
 class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
     """``ai_conversations`` — chat histories (retention 90 days, §3.1)."""
@@ -79,13 +106,23 @@ class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AI_CONVERSATIONS)
 
-    def list_for_user(self, tenant_key: str, user_key: str) -> list[AiConversation]:
+    def list_for_user(
+        self, tenant_key: str, user_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[AiConversation]:
+        """One user's conversations in one tenant, most recently updated first.
+
+        ``offset``/``limit`` read one window (MT-035, #2131); ``_key`` breaks
+        ``updated_at`` ties so two pages never serve the same row.
+        """
         return self.find_by_field(
             "tenant_key",
             tenant_key,
             extra_filters=[("user_key", "==", user_key)],
             sort="updated_at",
             sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            tiebreak_key=True,
         )
 
     def delete_expired(self, *, now: datetime | None = None) -> int:
@@ -93,14 +130,20 @@ class ArangoAiConversationRepository(BaseArangoRepository[AiConversation]):
         cutoff = (now or datetime.now(UTC)).isoformat()
         query = """
         FOR doc IN @@collection
-          FILTER doc.expires_at != null AND doc.expires_at < @cutoff
+          FILTER doc.expires_at < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.expires_at) != null
+            AND DATE_TIMESTAMP(doc.expires_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "cutoff": cutoff},
+            bind_vars={
+                "@collection": self._collection_name,
+                "cutoff": cutoff,
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         return next(cursor, 0)
 
@@ -130,8 +173,8 @@ class ArangoAiTipCacheRepository(BaseArangoRepository[AiTipCard]):
           FILTER doc.context_type == @context_type
           FILTER doc.context_key == @context_key
           FILTER doc.dismissed_at == null
-          FILTER doc.valid_until == null OR doc.valid_until > @now
-          SORT doc.priority ASC, doc.generated_at DESC
+          FILTER doc.valid_until == null OR DATE_TIMESTAMP(doc.valid_until) > DATE_TIMESTAMP(@now)
+          SORT doc.priority ASC, DATE_TIMESTAMP(doc.generated_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -192,16 +235,33 @@ class ArangoAiAuditRepository(BaseArangoRepository[AiAuditLogEntry]):
         """Remove audit entries created before ``cutoff``. Returns count."""
         query = """
         FOR doc IN @@collection
-          FILTER doc.created_at != null AND doc.created_at < @cutoff
+          FILTER doc.created_at < @cutoff_slack
+            AND DATE_TIMESTAMP(doc.created_at) != null
+            AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff)
           REMOVE doc IN @@collection
           COLLECT WITH COUNT INTO removed
           RETURN removed
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"@collection": self._collection_name, "cutoff": cutoff.isoformat()},
+            bind_vars={
+                "@collection": self._collection_name,
+                "cutoff": cutoff.isoformat(),
+                "cutoff_slack": instant_prefilter_bound(cutoff),
+            },
         )
         return next(cursor, 0)
+
+    def count_undated(self) -> int:
+        """Entries :meth:`delete_older_than` can never select: no readable ``created_at`` (#1806 GDPR-003)."""
+        query = """
+        FOR doc IN @@collection
+          FILTER DATE_TIMESTAMP(doc.created_at) == null
+          COLLECT WITH COUNT INTO held
+          RETURN held
+        """
+        cursor = self._db.aql.execute(query, bind_vars={"@collection": self._collection_name})
+        return int(next(iter(cursor), 0))
 
     def anonymize_user(self, user_key: str) -> int:
         """DSGVO Art. 17 — null out ``user_key`` while keeping the hashes (§7.5)."""

@@ -11,9 +11,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from app.domain.interfaces.knowledge_service import ConfidenceLevel
+from app.domain.interfaces.knowledge_service import AskResult, ConfidenceLevel
 
 # ── Type aliases ───────────────────────────────────────────────────
 
@@ -59,6 +59,20 @@ class AiResponse(BaseModel):
     provider_type: str = ""
     kb_version: str | None = None
     generated_at: datetime | None = None
+
+
+class KnowledgeAnswer(BaseModel):
+    """``AiAssistantService.ask_knowledge`` result (REQ-031 §5.1).
+
+    The Knowledge Service answers with its own, environment-configured LLM — the
+    ``/ask`` request names no provider. So, as for the glossary cache (REQ-035
+    §6), the cloud label is the platform's: read from the system default
+    provider, not from the asking tenant's records.
+    """
+
+    result: AskResult
+    provider_type: str = "ollama"
+    uses_cloud_provider: bool = False
 
 
 # ── Persisted collections ──────────────────────────────────────────
@@ -132,6 +146,17 @@ class AiTipCard(BaseModel):
     priority: TipPriority = "medium"
     title: str
     body: str
+    #: An in-app link the card may offer ("Mehr erfahren"). Constrained to a
+    #: **site-relative** path (review SCR-012).
+    #:
+    #: Measured on 2026-09-18: nothing writes this field today — neither
+    #: ``TipEngine.rule_based_fallback`` nor the RAG path sets it — so no
+    #: model-derived value reaches it. The constraint is here because the frontend
+    #: renders it straight into ``href`` and the field is persisted: a future
+    #: producer, or a row written by hand, would otherwise be able to put
+    #: ``javascript:`` behind a button the user is invited to press. Refusing the
+    #: value where it enters the model is cheaper than remembering to escape it at
+    #: every render site, and the client checks again anyway.
     action_url: str | None = None
     sources: list[SourceReference] = Field(default_factory=list)
     language: Language = "de"
@@ -147,6 +172,21 @@ class AiTipCard(BaseModel):
     acted_on_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("action_url")
+    @classmethod
+    def _action_url_is_site_relative(cls, value: str | None) -> str | None:
+        """Refuse anything that is not a path inside this app.
+
+        ``//evil.example`` is rejected along with ``javascript:`` and ``https:``:
+        a protocol-relative URL starts with ``/`` and is an *absolute* link, which
+        is exactly the case a naive "must start with /" check waves through.
+        """
+        if value is None or value == "":
+            return None
+        if not value.startswith("/") or value.startswith("//"):
+            raise ValueError("action_url must be a site-relative path, e.g. '/pflanzen/123'")
+        return value
 
 
 class AiAuditLogEntry(BaseModel):
@@ -171,6 +211,11 @@ class AiAuditLogEntry(BaseModel):
     uses_tenant_data: bool = False
     uses_cloud_provider: bool = False
     latency_ms: int = 0
+    #: LLM tokens of the answer as the knowledge service reports them (#2110):
+    #: what makes the AI cost of a tenant countable over the retention window.
+    #: ``0`` where no answer came back or the provider reported none.
+    prompt_tokens: int = Field(default=0, ge=0)
+    completion_tokens: int = Field(default=0, ge=0)
     status: AuditStatus = "ok"
     error_class: str | None = None
     created_at: datetime | None = None

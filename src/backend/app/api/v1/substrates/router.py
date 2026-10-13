@@ -289,11 +289,12 @@ def prepare_reuse(
 ):
     """Run the reuse preparation for a substrate batch and return its steps.
 
-    A write: it advances the batch's reuse cycle. Gated like the other batch
-    writes and scoped to the caller's tenant (#1195).
+    A write: it advances the batch's reuse cycle. Scoped to the caller's tenant
+    (#1195) and gated like the other batch writes — grower or above (MT-045.1, #2144).
     """
-    _ = is_platform_admin
-    result = service.prepare_reuse(key, tenant_key=ctx.tenant_key)
+    result = service.prepare_reuse(
+        key, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
+    )
     return PreparationResponse(
         can_reuse=result["can_reuse"],
         issues=result["issues"],
@@ -312,7 +313,16 @@ def assign_batch_to_slot(
     batch_key: Annotated[str, Path(description="Document key of the substrate batch.")],
     slot_key: Annotated[str, Path(description="Document key of the slot to assign the batch to.")],
     service: SubstrateService = Depends(get_substrate_service),
+    ctx: TenantContext = Depends(get_active_tenant_context),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Assign a substrate batch to a slot."""
-    service.assign_batch_to_slot(batch_key, slot_key)
+    """Assign a substrate batch to a slot of the caller's active tenant.
+
+    Both keys are resolved under the tenant (``X-Active-Tenant``, else the
+    personal tenant) — a foreign or unknown batch or slot answers 404 — and the
+    link needs grower or above (#1864).
+    """
+    service.assign_batch_to_slot(
+        batch_key, slot_key, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
+    )
     return {"status": "assigned", "batch_key": batch_key, "slot_key": slot_key}

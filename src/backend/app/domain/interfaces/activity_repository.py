@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import ActivityKey
 from app.domain.models.activity import Activity
@@ -11,16 +12,30 @@ class IActivityRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[Activity], int]: ...
+
+    @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Activity]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
+    def get_readable_or_raise(self, key: ActivityKey, *, tenant_key: str) -> Activity: ...
 
     @abstractmethod
     def get_by_key(self, key: ActivityKey) -> Activity | None: ...
 
     @abstractmethod
     def get_or_raise(self, key: ActivityKey) -> Activity: ...
-
-    @abstractmethod
-    def get_by_name(self, name: str) -> Activity | None: ...
 
     @abstractmethod
     def create(self, activity: Activity) -> Activity: ...
@@ -32,7 +47,7 @@ class IActivityRepository(ABC):
     def delete(self, key: ActivityKey) -> bool: ...
 
     @abstractmethod
-    def get_system_activities(self) -> list[Activity]: ...
+    def get_system_activities(self, *, tenant_key: str) -> list[Activity]: ...
 
     @abstractmethod
-    def get_by_category(self, category: str) -> list[Activity]: ...
+    def get_by_category(self, category: str, *, tenant_key: str) -> list[Activity]: ...

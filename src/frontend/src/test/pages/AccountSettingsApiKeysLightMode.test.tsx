@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
 import { renderWithProviders, createTestStore } from '@/test/helpers';
@@ -92,5 +93,35 @@ describe('AccountSettingsPage — API keys in light mode', () => {
     // main AccountSettingsPage suites. Asserting on the mount effect keeps this
     // test pinned to the regression rather than to tab-activation mechanics.
     await waitFor(() => expect(apiKeyCalls).toBeGreaterThan(0));
+  });
+  it('creates a key without a step-up — light mode has no password to ask for (#1847)', async () => {
+    vi.doMock('@/config/mode', () => ({
+      KAMERPLANTER_MODE: 'light',
+      isLightMode: true,
+      isFullMode: false,
+    }));
+
+    let body: unknown = null;
+    server.use(
+      http.get('*/api/v1/auth/api-keys', () => HttpResponse.json([])),
+      http.post('*/api/v1/auth/api-keys', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ key: 'ak-2', label: 'mcp', raw_key: 'kp_light_raw_value' });
+      }),
+    );
+
+    const { default: AccountSettingsPage } = await import('@/pages/auth/AccountSettingsPage');
+    const user = userEvent.setup();
+    renderWithProviders(<AccountSettingsPage />, { store: lightModeStore(), route: '/account#apikeys' });
+
+    await user.click(await screen.findByTestId('create-api-key-button'));
+    const dialog = await screen.findByTestId('api-key-label-dialog');
+    await user.type(within(dialog).getByRole('textbox'), 'mcp');
+    await user.click(screen.getByTestId('api-key-label-submit'));
+
+    expect(await screen.findByText('kp_light_raw_value')).toBeInTheDocument();
+    // The label alone — no step-up field, and no confirmation dialog on the way.
+    expect(body).toEqual({ label: 'mcp' });
+    expect(screen.queryByTestId('create-api-key-dialog')).toBeNull();
   });
 });

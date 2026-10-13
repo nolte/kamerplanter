@@ -57,6 +57,18 @@ helm/kamerplanter/
 - **Keine** `_helpers.tpl` — bjw-s stellt alle Helpers bereit
 - `charts/` Verzeichnis: Nur generierte Dateien, nie manuell einchecken
 
+### 2.1.1 Template-Ausdruecke in values.yaml (bjw-s ≥ 5.2)
+
+bjw-s common rendert seit 5.2 **jeden String** der Values einmal als Template gegen die zusammengefuehrten Values. Das ist der vorgesehene Weg fuer abgeleitete Werte, ohne eigene Template-Dateien (#2124):
+
+- **Ein Schalter, viele Stellen:** Operator-Bloecke wie `storage`, `backup`, `database` sind die Quelle; Controller, Persistence und NetworkPolicies lesen sie mit `'{{ .Values.storage.backend }}'`.
+- **`enabled` nie als `"false"` rendern:** bjw-s prueft den Wert auf Wahrheit, und der nicht-leere String `"false"` ist wahr. Muster: `enabled: '{{ if eq .Values.storage.backend "local-fs" }}true{{ end }}'` (rendert `"true"` oder `""`).
+- **Werte, die selbst Template sind, mit `tpl` lesen:** Die Auswertung ist einstufig; `'{{ .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME }}'` liefert den rohen Template-Text, `'{{ tpl .Values.controllers.backend.containers.main.env.ARANGODB_USERNAME $ }}'` dessen Ergebnis.
+- **Render-Pruefungen** stehen unter `renderChecks` als String mit `{{ fail "…" }}` — nur dort, wo eine Kombination nachweislich nicht funktionieren kann, mit einer Meldung, die den Ausweg nennt.
+- **Booleans in Kubernetes-Feldern** (`optional`, `readOnly`) bleiben YAML-Literale; ein Template liefert dort einen String, den die API ablehnt.
+- **Strukturen lassen sich nicht wegrendern:** Ein String-Template kann eine Map (etwa `affinity`) nicht entfernen. Muss eine Bedingung nur in einer Konfiguration wirken, rendert ein String in ihr auf einen wirkungslosen Wert — Muster #2153: `topologyKey` wird `kubernetes.io/hostname` bei `ReadWriteOnce`-Anhängen, sonst `kubernetes.io/os` (jeder Node trägt denselben Wert, die Bedingung ist immer erfüllt).
+- Was nur ein Render zeigt, prueft `scripts/ci/assert_chart_contracts.sh` (`task verify:chart`, CI `skaffold-verify`).
+
 ### 2.2 Dependencies
 
 ```yaml
@@ -68,11 +80,16 @@ type: application
 
 dependencies:
   - name: common
-    version: 4.6.2
+    version: 5.2.1
     repository: https://bjw-s-labs.github.io/helm-charts/
   - name: valkey
-    version: 0.9.3
+    version: 0.12.0
     repository: oci://ghcr.io/valkey-io/valkey-helm
+    condition: valkey.enabled
+  - name: ollama
+    version: 1.87.0
+    repository: https://otwld.github.io/ollama-helm/
+    condition: ollama.enabled
 ```
 
 - Subchart-Versionen werden **gepinnt** (exakte Version)
@@ -243,6 +260,11 @@ controllers:
             drop: ["ALL"]
 ```
 
+**Skalierung (#2127):**
+- HPA und PDB ausschliesslich ueber die bjw-s-Schluessel `controllers.<name>.horizontalPodAutoscaler` / `.podDisruptionBudget`, nie als eigene Template-Datei oder `rawResources`; im Chart-Default **nicht gesetzt** (die Bloecke kennen kein `enabled` — jeder nicht leere Block rendert ein Objekt; Beispiele stehen als Kommentar am Controller)
+- Jede Einstellung, die im Cluster still scheitern wuerde, wird als `renderChecks`-Eintrag mit `fail` verweigert: Singletons (`celery-beat`, `arangodb`, `vectordb`) bleiben bei `replicas: 1` ohne HPA; `maxReplicas` zaehlt fuer Volume-Regeln wie `replicas`; ein PDB mit `minAvailable` >= kleinster Replica-Zahl blockiert jeden Drain
+- Opt-in-Ressourcen (HPA, PDB, `ExternalSecret`) erscheinen weder im Default-Render noch in einem `values-*.yaml`-Profil (Vertrag in `scripts/ci/assert_chart_contracts.sh`)
+
 ### 4.2 StatefulSet (Stateful)
 
 ```yaml
@@ -359,9 +381,11 @@ probes:
 
 **Regeln:**
 - **Immer** Custom Probes (`custom: true`)
+- Container, die vor dem ersten `listen` migrieren (Backend), haben einen `startupProbe`, dessen Budget die Migrations-Wartezeit (`BARRIER_TIMEOUT_SECONDS`) uebersteigt (#2125). Das Budget ist die dokumentierte maximale Startdauer (`docs/{de,en}/deployment/kubernetes.md`, Abschnitt Startdauer des Backends); wer es aendert, aendert die Tabelle dort mit — `test_chart_backend_startup_budget.py` vergleicht beides
 - **Separate** Liveness- und Readiness-Endpunkte
 - Readiness hat kuerzere Intervalle als Liveness
 - ArangoDB: Basic Auth Header in Probe
+- Container ohne HTTP-Endpunkt (Celery-Worker): Readiness ist eine Datei, die der Prozess selbst schreibt, sobald er arbeitet (`WORKER_READY_FILE`, `exec: test -f`), mit `startupProbe`, dessen Budget das Start-Gate des Prozesses uebersteigt (#2154). Eine Probe per `celery inspect` fragt den **eigenen** Knoten (`-d celery@${HOSTNAME}`): ohne Ziel antwortet irgendein Worker und die Probe ist fuer diesen Pod bedeutungslos
 
 ---
 
@@ -615,7 +639,8 @@ Chart-Aenderung
     ├─→ helm lint              → Chart-Struktur, values.yaml Validierung
     ├─→ helm template          → Template-Rendering (Syntax-Fehler)
     ├─→ skaffold diagnose      → Skaffold-Config Validierung
-    └─→ skaffold render        → Vollstaendige Manifest-Generierung
+    ├─→ skaffold render        → Vollstaendige Manifest-Generierung
+    └─→ assert_chart_contracts → Render-Vertraege (Storage, Backup, Probes, DB-Zugaenge)
 ```
 
 Alle Tools muessen in CI/CD **fehlerfrei** durchlaufen.

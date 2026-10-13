@@ -1,14 +1,62 @@
-from arango.database import StandardDatabase
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any, cast
 
-from app.common.enums import AdminScope
+from arango.cursor import Cursor
+from arango.database import StandardDatabase
+from arango.exceptions import AQLQueryExecuteError
+
+from app.common.datetimes import ensure_aware_utc
+from app.common.enums import AdminScope, TenantStatus
+from app.common.exceptions import WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
+
+#: The rollback of a join, against a record **no run ever claimed** (the only state the
+#: erasure can still withdraw — ``ArangoTenantErasureRepository.delete_unclaimed``'s own
+#: condition): reads the record, writes it and removes the membership in one statement.
+_ROLLBACK_UNCLAIMED_AQL = """
+FOR record IN @@records
+  FILTER record._key == @record_key
+    AND record.origin == 'account_erasure'
+    AND record.status == 'in_progress'
+    AND record.last_attempt_at == null
+    AND (record.attempt_count == null OR record.attempt_count == 0)
+  UPDATE record WITH { updated_at: @now } IN @@records
+  FOR member IN @@memberships
+    FILTER member._key == @key AND member.tenant_key == @tenant_key
+    REMOVE member IN @@memberships
+    RETURN OLD._key
+"""
+
+#: The same rollback against a record a run **has claimed**: the erasure decided to erase,
+#: nothing to arbitrate, and the record is left untouched.
+_ROLLBACK_CLAIMED_AQL = """
+FOR record IN @@records
+  FILTER record._key == @record_key
+    AND record.status != 'completed'
+    AND NOT (
+      record.origin == 'account_erasure'
+      AND record.status == 'in_progress'
+      AND record.last_attempt_at == null
+      AND (record.attempt_count == null OR record.attempt_count == 0)
+    )
+  FOR member IN @@memberships
+    FILTER member._key == @key AND member.tenant_key == @tenant_key
+    REMOVE member IN @@memberships
+    RETURN OLD._key
+"""
 
 
 class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRepository):
     _model_cls = Membership
+    #: Every membership belongs to one tenant. The per-account reads
+    #: (``list_by_user``) span tenants on purpose and are hand-written; only the
+    #: base list reads are gated (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.MEMBERSHIPS)
@@ -93,29 +141,112 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         self._db.aql.execute(query, bind_vars={"key": key})
         return super().delete(key)
 
-    def list_by_tenant(self, tenant_key: str) -> list[MemberInfo]:
-        query = """
+    #: Attempts at the rollback below, and at the bulk membership updates, when a concurrent write on the deletion
+    #: record (its withdrawal or its claim) conflicts with the touch.
+    _ROLLBACK_ATTEMPTS = 3
+
+    def delete_while_tenant_frozen(self, key: str, tenant_key: str) -> bool:
+        """Remove membership *key* only while the tenant's deletion record is open, atomically (#1924).
+
+        Against a record **no run has claimed** — the only state the erasure can
+        still withdraw — one AQL statement reads the record, **writes** it
+        (``updated_at``) and removes the membership. The write is what makes the
+        two decisions that meet on a join exclusive: the erasure withdraws the
+        record (``delete_unclaimed``, a write on the same document) and then reads
+        the members again; a read-then-delete on the joiner's side would let the
+        joiner's delete land after that read, and the tenant would be kept for a
+        member nobody has any more. With the touch, the withdrawal and this
+        rollback cannot both succeed on the document: whichever commits first is
+        seen by the other — a rollback that commits first is seen by the
+        erasure's re-read, a withdrawal that commits first leaves this statement
+        nothing to match, and the membership stands.
+
+        Against a record a run **has claimed** the erasure has decided to erase and
+        can no longer keep the tenant, so there is nothing to arbitrate and the
+        record is left untouched: a write here would conflict with the running
+        erasure's own heartbeat and read as a lost claim.
+
+        Returns ``True`` when the membership was removed, ``False`` when no open
+        record exists any more (withdrawn, completed, or never there) — the
+        membership stands then.
+
+        Raises:
+            WriteConflictError: the record kept conflicting with a concurrent
+                write for :attr:`_ROLLBACK_ATTEMPTS` attempts.
+        """
+        bind_vars: dict[str, Any] = {
+            "@records": col.TENANT_ERASURE_RECORDS,
+            "@memberships": col.MEMBERSHIPS,
+            "record_key": TenantErasureEngine.record_key(tenant_key),
+            "key": key,
+            "tenant_key": tenant_key,
+        }
+        for _attempt in range(self._ROLLBACK_ATTEMPTS):
+            try:
+                touched = cast(
+                    Cursor,
+                    self._db.aql.execute(
+                        _ROLLBACK_UNCLAIMED_AQL, bind_vars={**bind_vars, "now": datetime.now(UTC).isoformat()}
+                    ),
+                )
+                if list(touched):
+                    self.delete(key)  # the document is gone: its edges and assignments go
+                    return True
+                # Claimed after the first statement looked: the second sees it claimed.
+                claimed = cast(Cursor, self._db.aql.execute(_ROLLBACK_CLAIMED_AQL, bind_vars=bind_vars))
+                if list(claimed):
+                    self.delete(key)  # the document is gone: its edges and assignments go
+                    return True
+                return False
+            except AQLQueryExecuteError as exc:
+                if exc.error_code != 1200:
+                    raise
+        raise WriteConflictError(col.TENANT_ERASURE_RECORDS)
+
+    def list_by_tenant(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[MemberInfo]:
+        """A tenant's members joined to their user, oldest membership first.
+
+        ``offset``/``limit`` read one window inside the query (MT-035, #2131); both
+        ``None`` reads every member. The order is the ``joined_at`` instant with a
+        ``_key`` tie-break — a total order, so a pager never sees a member twice or
+        never. The ``LIMIT`` follows the user lookup only so the ``SORT`` clause stays
+        literal for the timestamp guard; the optimizer moves the lookup below it
+        (``move-calculations-down``), so only the window's users are read.
+
+        The projection names every :class:`MemberInfo` field: ``admin_scopes`` has a
+        default, so leaving it out failed nothing and every member reported no scope
+        (#2166). A document from before REQ-049 without the field reads as ``[]``.
+        """
+        bind_vars: dict[str, Any] = {
+            "@memberships": col.MEMBERSHIPS,
+            "tenant_key": tenant_key,
+            "users_col": col.USERS,
+        }
+        window = ""
+        if offset is not None and limit is not None:
+            window = "LIMIT @offset, @limit"
+            bind_vars["offset"] = offset
+            bind_vars["limit"] = limit
+        query = f"""
         FOR m IN @@memberships
           FILTER m.tenant_key == @tenant_key
+          SORT DATE_TIMESTAMP(m.joined_at) ASC, m._key ASC
           LET u = DOCUMENT(CONCAT(@users_col, "/", m.user_key))
-          RETURN {
+          {window}
+          RETURN {{
             key: m._key,
             user_key: m.user_key,
             display_name: u.display_name,
             email: u.email,
             role: m.role,
+            admin_scopes: NOT_NULL(m.admin_scopes, []),
             is_active: m.is_active,
             joined_at: m.joined_at
-          }
+          }}
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@memberships": col.MEMBERSHIPS,
-                "tenant_key": tenant_key,
-                "users_col": col.USERS,
-            },
-        )
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [MemberInfo(**doc) for doc in cursor]
 
     def list_by_user(self, user_key: str) -> list[Membership]:
@@ -157,18 +288,38 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
         """Total number of membership documents (platform-admin statistics, #1019)."""
         return self.collection.count()
 
-    def count_managers(self, tenant_key: str) -> int:
-        """Active memberships in the tenant holding the ``management`` scope (INV-1).
+    def count_managers(self, tenant_key: str, *, other_than_user_key: str | None = None) -> int:
+        """Active memberships of **live accounts** in the tenant holding the ``management`` scope (INV-1).
 
         Counts on axis 2, not on the domain rank: after REQ-049 a lead is not
         automatically an administrator, and the guard has to protect the people
         who can actually invite someone.
+
+        Only an account that can still act counts (#2166): an account that asked for
+        its erasure, or that a platform admin deactivated, is closed
+        (``is_active == false``) while its membership stays active until the hard
+        delete. Counted, it let the last *live* holder leave or drop the scope —
+        the tenant kept a ``management`` membership nobody could use. The account
+        population is :meth:`active_memberships_of`'s.
+
+        Only a **person** counts (#2166 re-review W-1): a service account
+        (``account_type == "service"``, ``allows_interactive_auth`` false) holds no
+        session and passes no step-up, so its ``management`` administers nobody —
+        counted, it let the last person holder leave as well.
+
+        Args:
+            other_than_user_key: Leave this account's membership out — the holder
+                about to leave, be removed or lose the scope (``None`` counts all).
         """
         query = """
         FOR doc IN @@collection
           FILTER doc.tenant_key == @tenant_key
             AND doc.is_active == true
             AND @scope IN doc.admin_scopes
+            AND doc.user_key != null AND doc.user_key != ""
+            AND doc.user_key != @other_than
+          LET account = DOCUMENT(@@users, doc.user_key)
+          FILTER account != null AND account.is_active != false AND account.account_type != "service"
           COLLECT WITH COUNT INTO cnt
           RETURN cnt
         """
@@ -176,50 +327,173 @@ class ArangoMembershipRepository(BaseArangoRepository[Membership], IMembershipRe
             query,
             bind_vars={
                 "@collection": col.MEMBERSHIPS,
+                "@users": col.USERS,
                 "tenant_key": tenant_key,
                 "scope": AdminScope.MANAGEMENT.value,
+                "other_than": other_than_user_key or "",
             },
         )
         return next(cursor, 0)
 
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        # First clean up edges for each membership
-        query = f"""
-        FOR m IN {col.MEMBERSHIPS}
-          FILTER m.tenant_key == @tenant_key
-          LET mid = CONCAT("{col.MEMBERSHIPS}/", m._key)
-          LET del_has = (
-            FOR e IN {col.HAS_MEMBERSHIP} FILTER e._to == mid REMOVE e IN {col.HAS_MEMBERSHIP}
-          )
-          LET del_in = (
-            FOR e IN {col.MEMBERSHIP_IN} FILTER e._from == mid REMOVE e IN {col.MEMBERSHIP_IN}
-          )
-          REMOVE m IN {col.MEMBERSHIPS}
-          RETURN 1
-        """
-        cursor = self._db.aql.execute(query, bind_vars={"tenant_key": tenant_key})
-        return sum(1 for _ in cursor)
+    def count_active_members(self, *, tenant_key: str) -> int:
+        """Active memberships of the tenant - the seats its member limit counts (REQ-024 AK-64, #2133).
 
-    def delete_all_for_user(self, user_key: str) -> int:
-        """Delete every membership of one user, with its graph edges (#1019).
+        "Active" as :meth:`deactivate_all_for_tenant` switches it off (``is_active != false``), so a
+        missing flag counts, as the model default says. Not narrowed to active *accounts*: a seat is held
+        by the membership, and a deactivated account's membership comes back with the account.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              COLLECT WITH COUNT INTO cnt
+              RETURN cnt
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+        )
+        return int(next(cast(Cursor, cursor), 0))
 
-        The user-perspective twin of :meth:`delete_all_for_tenant`: same
-        ``has_membership`` (inbound) + ``membership_in`` (outbound) edge cleanup,
-        filtered on ``user_key`` instead of ``tenant_key``. Returns the number of
-        memberships removed.
+    def deactivate_all_for_tenant(self, tenant_key: str) -> int:
+        """Deactivate every membership of the tenant; the rows are removed by the tenant erasure (#1769).
+
+        A deactivated membership is refused by ``_membership_for_slug`` (403), so
+        no member request writes into a tenant while it is being erased.
         """
-        query = f"""
-        FOR m IN {col.MEMBERSHIPS}
-          FILTER m.user_key == @user_key
-          LET mid = CONCAT("{col.MEMBERSHIPS}/", m._key)
-          LET del_has = (
-            FOR e IN {col.HAS_MEMBERSHIP} FILTER e._to == mid REMOVE e IN {col.HAS_MEMBERSHIP}
-          )
-          LET del_in = (
-            FOR e IN {col.MEMBERSHIP_IN} FILTER e._from == mid REMOVE e IN {col.MEMBERSHIP_IN}
-          )
-          REMOVE m IN {col.MEMBERSHIPS}
-          RETURN 1
+        return self._count_updated(
+            lambda: self._db.aql.execute(
+                """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              UPDATE m WITH { is_active: false } IN @@collection
+              COLLECT WITH COUNT INTO affected
+              RETURN affected
+            """,
+                bind_vars={"@collection": col.MEMBERSHIPS, "tenant_key": tenant_key},
+            )
+        )
+
+    def _count_updated(self, execute: Callable[[], Any]) -> int:
+        """Run a bulk ``UPDATE ... RETURN <count>``; a write-write conflict (``1200``) is retried, then surfaced.
+
+        The statement updates every membership the filter selects, so a join rolling its own membership
+        back (:meth:`delete_while_tenant_frozen`) or inserting one in the same instant can hold a row it
+        is about to write. The filter makes the statement idempotent, so a retry only touches what is
+        still left; ``1200`` that outlasts :attr:`_ROLLBACK_ATTEMPTS` becomes :class:`WriteConflictError`
+        (409, retried by the caller's next run) instead of a raw driver error.
         """
-        cursor = self._db.aql.execute(query, bind_vars={"user_key": user_key})
-        return sum(1 for _ in cursor)
+        for _attempt in range(self._ROLLBACK_ATTEMPTS):
+            try:
+                return int(next(cast(Cursor, execute()), 0))
+            except AQLQueryExecuteError as exc:
+                if exc.error_code != 1200:
+                    raise
+        raise WriteConflictError(col.MEMBERSHIPS)
+
+    def activate_all_for_importing_tenant(self, tenant_key: str) -> int:
+        if not tenant_key:
+            raise ValueError("activate_all_for_importing_tenant needs a tenant key")
+        return self._count_updated(
+            lambda: self._db.aql.execute(
+                """
+            LET tenant = DOCUMENT(@@tenants, @tenant_key)
+            FOR m IN @@collection
+              FILTER tenant != null AND tenant.status == @importing
+              FILTER m.tenant_key == @tenant_key AND m.is_active == false
+              UPDATE m WITH { is_active: true } IN @@collection
+              COLLECT WITH COUNT INTO affected
+              RETURN affected
+            """,
+                bind_vars={
+                    "@collection": col.MEMBERSHIPS,
+                    "@tenants": col.TENANTS,
+                    "tenant_key": tenant_key,
+                    "importing": TenantStatus.IMPORTING.value,
+                },
+            )
+        )
+
+    def active_member_user_keys(self, *, tenant_key: str) -> list[str]:
+        """The distinct accounts that still use the tenant: an active membership of an active account (#1788).
+
+        "Active" membership is what :meth:`deactivate_all_for_tenant` switches
+        off (``is_active != false``), so a missing flag counts as active, as the
+        model default says. The **account** must exist and be active too: an
+        account whose own erasure is pending is deactivated when it is requested
+        (#1788 review GDPR-01) — counting it would keep a tenant for someone who
+        is leaving, and nobody would reach that tenant again once both are gone.
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false
+              COLLECT user_key = m.user_key
+              RETURN user_key
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        return list(cursor)
+
+    def active_memberships_of(self, *, tenant_key: str) -> list[Membership]:
+        """Active memberships of active accounts (#2134) — :meth:`active_member_user_keys`' population, whole."""
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false
+              RETURN m
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        return [self.wrap_document(dict(doc)) for doc in cursor]
+
+    def active_service_account_memberships(self, *, tenant_key: str) -> list[Membership]:
+        """Active memberships of active service accounts (#2137) — the quota's population."""
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false AND account.account_type == "service"
+              SORT DATE_TIMESTAMP(m.joined_at)
+              RETURN m
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        return [self.wrap_document(dict(doc)) for doc in cast(Cursor, cursor)]
+
+    def active_member_joined_at(self, *, tenant_key: str) -> dict[str, datetime | None]:
+        """Active member account key -> start of the membership (#1824), as ``active_member_user_keys`` counts them."""
+        cursor = self._db.aql.execute(
+            """
+            FOR m IN @@collection
+              FILTER m.tenant_key == @tenant_key AND m.is_active != false
+              FILTER m.user_key != null AND m.user_key != ""
+              LET account = DOCUMENT(@@users, m.user_key)
+              FILTER account != null AND account.is_active != false
+              RETURN { user_key: m.user_key, joined_at: m.joined_at }
+            """,
+            bind_vars={"@collection": col.MEMBERSHIPS, "@users": col.USERS, "tenant_key": tenant_key},
+        )
+        # One row per account: the (user_key, tenant_key) index is unique.
+        return {row["user_key"]: _parse_instant(row.get("joined_at")) for row in cursor}
+
+
+def _parse_instant(value: object) -> datetime | None:
+    """A stored start as an aware instant; ``None`` when absent or unreadable (#1824).
+
+    An unreadable value must not raise: it would fail every retry of the account
+    erasure that reads it. ``None`` is the "start not recorded" answer the caller
+    already handles.
+    """
+    if not isinstance(value, str | datetime) or value == "":
+        return None
+    try:
+        return ensure_aware_utc(value)
+    except ValueError:
+        return None

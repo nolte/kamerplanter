@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -9,8 +10,18 @@ from app.common.types import (
 )
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.tank_repository import ITankRepository
 from app.domain.models.tank import MaintenanceLog, MaintenanceSchedule, Tank, TankFillEvent, TankState
+
+
+def _is_date_only(value: str) -> bool:
+    """Whether ``value`` is a calendar date (``YYYY-MM-DD``) rather than an instant."""
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return len(value) == 10
 
 
 class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
@@ -37,27 +48,55 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     ) -> tuple[list[Tank], int]:
         self._enforce_tenant_scope(tenant_key, all_tenants)
         if filters:
-            query = f"FOR doc IN {col.TANKS}"
-            bind_vars: dict[str, Any] = {}
-            filter_clauses = []
-            if tenant_key:
-                bind_vars["tenant_key"] = tenant_key
-                filter_clauses.append("doc.tenant_key == @tenant_key")
-            for i, (field, value) in enumerate(filters.items()):
-                bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
-            query += " FILTER " + " AND ".join(filter_clauses)
-            count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            count_vars = dict(bind_vars)
-            bind_vars["offset"] = offset
-            bind_vars["limit"] = limit
-            query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
-            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-            items = [Tank(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-            total = next(count_cursor, 0)
-            return items, total
+            items, total = self._read_filtered(offset, limit, filters, tenant_key, count=True)
+            return items, total or 0
         return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Tank]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        self._enforce_tenant_scope(tenant_key, False)
+        if filters:
+            return self._read_filtered(offset, limit, filters, tenant_key, count=False)[0]
+        return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key)
+
+    def _read_filtered(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any],
+        tenant_key: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[Tank], int | None]:
+        """The filtered page and, with ``count``, its total — callers enforce the scope (MT-035, #2131)."""
+        query = f"FOR doc IN {col.TANKS}"
+        bind_vars: dict[str, Any] = {}
+        filter_clauses = []
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append("doc.tenant_key == @tenant_key")
+        for i, (field, value) in enumerate(filters.items()):
+            bind_vars[f"val{i}"] = value
+            filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
+        query += " FILTER " + " AND ".join(filter_clauses)
+        count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
+        count_vars = dict(bind_vars)
+        bind_vars["offset"] = offset
+        bind_vars["limit"] = limit
+        query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        items = [Tank(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+        return items, next(count_cursor, 0)
 
     def create(self, tank: Tank) -> Tank:
         created = super().create(tank)
@@ -223,6 +262,9 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             self.create_edge(col.MIXED_INTO, from_id, to_id)
         return created
 
+    def get_fill_event(self, key: str) -> TankFillEvent | None:
+        return self._fill_events.get_by_key(key)
+
     def get_fill_events(
         self,
         tank_key: TankKey,
@@ -261,10 +303,23 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             "tank_key": tank_key,
         }
         if start_date:
-            filters.append("doc.filled_at >= @start_date")
+            filters.append("DATE_TIMESTAMP(doc.filled_at) >= DATE_TIMESTAMP(@start_date)")
             bind_vars["start_date"] = start_date
         if end_date:
-            filters.append("doc.filled_at <= @end_date")
+            # ``end_date`` is inclusive. A date-only value (``YYYY-MM-DD``) reads as
+            # midnight in DATE_TIMESTAMP, so ``<=`` against it dropped every fill on
+            # that day (#1802): a date bounds the window by the start of the next
+            # day, exclusively. A full timestamp is kept as the inclusive instant.
+            if _is_date_only(end_date):
+                filters.append(
+                    "DATE_TIMESTAMP(doc.filled_at) != null AND "
+                    "DATE_TIMESTAMP(doc.filled_at) < DATE_TIMESTAMP(DATE_ADD(@end_date, 1, 'day'))"
+                )
+            else:
+                filters.append(
+                    "DATE_TIMESTAMP(doc.filled_at) != null AND "
+                    "DATE_TIMESTAMP(doc.filled_at) <= DATE_TIMESTAMP(@end_date)"
+                )
             bind_vars["end_date"] = end_date
         filter_clause = " AND ".join(filters)
         query = f"""
@@ -305,9 +360,6 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     def get_active_auto_create_schedules(self) -> list[MaintenanceSchedule]:
         return self._schedules.find_by_field("auto_create_task", True, extra_filters=[("is_active", "==", True)])
 
-    def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]:
-        return self.find_by_field("location_key", location_key)
-
     def count_below_threshold(self, tenant_key: str) -> int:
         """Count ``tenant_key`` tanks whose latest fill is below their threshold (REQ-009).
 
@@ -329,7 +381,7 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
             LET latest_fill = FIRST(
               FOR s IN @@states
                 FILTER s.tank_key == tank._key AND s.fill_level_percent != null
-                SORT s.recorded_at DESC
+                SORT DATE_TIMESTAMP(s.recorded_at) DESC
                 LIMIT 1
                 RETURN s.fill_level_percent
             )
@@ -355,7 +407,10 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
         FILTER tank != null AND tank.location_key != null
 
         FOR run IN @@planting_runs
+          // Same tenant as the tank (#1864 sweep, L3): a tank row written before
+          // its location_key was verified may name another tenant's location.
           FILTER run.location_key == tank.location_key
+            AND run.tenant_key == tank.tenant_key
             AND run.status IN ['active', 'harvesting']
             AND run.nutrient_plan_key != null
 

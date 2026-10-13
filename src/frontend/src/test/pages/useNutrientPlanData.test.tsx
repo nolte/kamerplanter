@@ -27,8 +27,10 @@ vi.mock('@/api/endpoints/nutrient-plans', () => ({
   deleteNutrientPlan: vi.fn(),
   updateNutrientPlan: vi.fn(),
 }));
+// The hook reads the complete catalogue (#1560), so the double must carry it.
 vi.mock('@/api/endpoints/fertilizers', () => ({
   fetchFertilizers: vi.fn(),
+  fetchAllFertilizers: vi.fn(),
 }));
 
 import * as planApi from '@/api/endpoints/nutrient-plans';
@@ -59,6 +61,7 @@ function makePlan(overrides: Partial<NutrientPlan> = {}): NutrientPlan {
     is_template: false,
     version: '1.0',
     tags: ['a'],
+    species_keys: ['solanum-lycopersicum'],
     cloned_from_key: null,
     watering_schedule: null,
     water_mix_ratio_ro_percent: null,
@@ -79,6 +82,7 @@ function makeEditData(overrides: Partial<EditFormData> = {}): EditFormData {
     is_template: false,
     version: '1',
     tags: [],
+    species_keys: [],
     schedule_enabled: false,
     schedule_mode: 'weekdays',
     weekday_schedule: [],
@@ -143,7 +147,11 @@ describe('useNutrientPlanData', () => {
     expect(result.current.plan?.name).toBe('Veg Plan');
     expect(result.current.error).toBeNull();
     expect(planApi.fetchNutrientPlan).toHaveBeenCalledWith('np-1');
-    expect(fertApi.fetchFertilizers).toHaveBeenCalledWith(0, 200);
+    // Was `fetchFertilizers(0, 200)` — one explicit page. That assertion pinned
+    // the defect: the dosage table resolves fertilizer keys client-side, so a
+    // product past the page renders as an unresolved key (#1560).
+    expect(fertApi.fetchAllFertilizers).toHaveBeenCalled();
+    expect(fertApi.fetchFertilizers).not.toHaveBeenCalled();
   });
 
   it('captures a load error', async () => {
@@ -193,6 +201,23 @@ describe('useNutrientPlanData', () => {
     const payload = vi.mocked(planApi.updateNutrientPlan).mock.calls[0][1];
     expect(payload.watering_schedule).not.toBeNull();
     expect(payload.watering_schedule?.weekday_schedule).toEqual([1, 3]);
+  });
+
+  it('seeds the species relation from the plan and saves it back (#1618)', async () => {
+    const { result } = await renderLoaded();
+    await act(async () =>
+      result.current.onSave(makeEditData({ species_keys: ['ocimum-basilicum', 'solanum-lycopersicum'] })),
+    );
+    const payload = vi.mocked(planApi.updateNutrientPlan).mock.calls[0][1];
+    expect(payload.species_keys).toEqual(['ocimum-basilicum', 'solanum-lycopersicum']);
+  });
+
+  it('sends an empty species relation when every species was removed (#1618)', async () => {
+    const { result } = await renderLoaded();
+    await act(async () => result.current.onSave(makeEditData({ species_keys: [] })));
+    const payload = vi.mocked(planApi.updateNutrientPlan).mock.calls[0][1];
+    // `[]` clears the relation server-side; omitting the field would keep it.
+    expect(payload.species_keys).toEqual([]);
   });
 
   it('saves a plan with an interval watering schedule', async () => {

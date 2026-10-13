@@ -13,6 +13,7 @@ exercise the plant-instance clone spawn).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -43,7 +44,20 @@ def _now() -> datetime:
 
 
 class PropagationService:
-    """REQ-017 propagation / lineage business logic."""
+    """REQ-017 propagation / lineage business logic.
+
+    Every method keyed on a ``plant_key`` a route takes from its URL declares
+    ``tenant_key`` **keyword-only and without a default** (#1627). Two reasons,
+    both measured rather than assumed:
+
+    * an unscoped call does not type-check, so the #1626 failure mode — a
+      tenant argument that a caller simply forgets — cannot be written;
+    * the call site then names the parameter, which is the only form
+      ``scripts/check_plant_scoped_route_tenant.py`` can tie to a parameter. A
+      tenant that merely travels positionally leaves a site the guard can
+      neither confirm nor refuse, and sixteen such sites had to be measured by
+      hand through a real database to retire them once.
+    """
 
     def __init__(
         self,
@@ -52,7 +66,11 @@ class PropagationService:
         propagation_repo: PropagationRepository | None = None,
         lineage_engine: LineageEngine | None = None,
         planting_run_repo: Any | None = None,
+        species_resolver: Callable[..., Any] | None = None,
     ) -> None:
+        # ``SpeciesService.get_species``-shaped: ``resolver(key, tenant_key=...)``
+        # answers global, own or granted species and 404s the rest (#1872 C11, C12).
+        self._species_resolver = species_resolver
         #: D10-minimal event store (kept for the existing clone-spawn wiring).
         self._repo = repo
         #: Full propagation repository (events / batches / protocols / phenotypes / lineage).
@@ -103,7 +121,7 @@ class PropagationService:
 
     # ── Events ────────────────────────────────────────────────────────────────
 
-    def list_for_plant(self, plant_key: str, tenant_key: str = "") -> list[PropagationEvent]:
+    def list_for_plant(self, plant_key: str, *, tenant_key: str) -> list[PropagationEvent]:
         """All propagation events where the plant is a source or a result."""
         prop = self._require_prop()
         if not tenant_key:
@@ -121,11 +139,59 @@ class PropagationService:
     ) -> tuple[list[PropagationEvent], int]:
         return self._require_prop().list_events(tenant_key, method=method, status=status, offset=offset, limit=limit)
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationEvent]:
+        """One page of the tenant's propagation events without the count query (MT-035, #2131)."""
+        return self._require_prop().list_events_window(
+            tenant_key=tenant_key, method=method, status=status, offset=offset, limit=limit
+        )
+
     def get_event(self, key: str, tenant_key: str) -> PropagationEvent:
         return self._get_event_or_404(key, tenant_key)
 
+    def _require_readable_species(self, species_key: str, tenant_key: str) -> None:
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        self._species_resolver(species_key, tenant_key=tenant_key)
+
+    def _require_owned_run(self, run_key: str, tenant_key: str) -> None:
+        """404 unless *run_key* is a planting run of *tenant_key* — fail closed (SEC-B4)."""
+        run = (
+            self._planting_run_repo.get_by_key(run_key) if self._planting_run_repo is not None and tenant_key else None
+        )
+        if run is None or getattr(run, "tenant_key", None) != tenant_key:
+            raise NotFoundError("PlantingRun", run_key)
+
+    def _require_event_references(self, event: PropagationEvent) -> None:
+        """Resolve every reference an event body names under the event's tenant (#1872 C2, C11).
+
+        Parent and child plants, the rooting protocol (global or own), the batch
+        and the species were stored as given. Foreign and unknown answer the
+        same 404, and nothing is written.
+        """
+        tenant = event.tenant_key
+        if not tenant:
+            raise NotFoundError("PropagationEvent", "")
+        for plant_key in dict.fromkeys([*event.parent_plant_keys, *event.child_plant_keys]):
+            if plant_key:
+                self._get_plant_or_404(plant_key, tenant)
+        if event.protocol_key:
+            self.get_protocol(event.protocol_key, tenant)
+        if event.batch_key:
+            self.get_batch(event.batch_key, tenant)
+        if event.species_key:
+            self._require_readable_species(event.species_key, tenant)
+
     def create_event(self, event: PropagationEvent) -> PropagationEvent:
         prop = self._require_prop()
+        self._require_event_references(event)
         if event.happened_at is None:
             event.happened_at = _now()
         return prop.create_event(event)
@@ -173,8 +239,21 @@ class PropagationService:
 
     # ── Batches ────────────────────────────────────────────────────────────────
 
-    def create_batch(self, batch: PropagationBatch) -> PropagationBatch:
+    def create_batch(self, batch: PropagationBatch, *, tenant_key: str) -> PropagationBatch:
+        """Create ``batch`` in ``tenant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
+        batch: the run check below used the model's own ``tenant_key`` field, which a
+        caller that built the model without it left empty.
+        """
+        if not tenant_key:
+            raise ValueError("create_batch is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        batch.tenant_key = tenant_key
         prop = self._require_prop()
+        # The run the batch will hand its plants to, under the tenant (#1872 C3):
+        # finalize checked it, create stored it as given.
+        if batch.target_planting_run_key:
+            self._require_owned_run(batch.target_planting_run_key, tenant_key)
         if batch.started_at is None:
             batch.started_at = _now()
         return prop.create_batch(batch)
@@ -189,6 +268,20 @@ class PropagationService:
         limit: int = 50,
     ) -> tuple[list[PropagationBatch], int]:
         return self._require_prop().list_batches(tenant_key, status=status, method=method, offset=offset, limit=limit)
+
+    def list_batches_window(
+        self,
+        *,
+        tenant_key: str,
+        status: str | None = None,
+        method: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationBatch]:
+        """One page of the tenant's propagation batches without the count query (MT-035, #2131)."""
+        return self._require_prop().list_batches_window(
+            tenant_key=tenant_key, status=status, method=method, offset=offset, limit=limit
+        )
 
     def get_batch(self, key: str, tenant_key: str) -> PropagationBatch:
         batch = self._require_prop().get_batch(key, tenant_key)
@@ -218,23 +311,23 @@ class PropagationService:
             batch.notes = notes
         return self._require_prop().update_batch(key, batch)
 
-    def finalize_batch(self, key: str, tenant_key: str, target_planting_run_key: str) -> PropagationBatch:
+    def finalize_batch(self, key: str, target_planting_run_key: str, *, tenant_key: str) -> PropagationBatch:
         """Complete a batch and hand its result plants over to a PlantingRun.
 
         The batch is marked ``completed`` and linked to the run; the aggregate
         survivor count is rolled up from the batch's events.
+
+        ``tenant_key`` is keyword-only (#2107): it sat positionally between two
+        ``str`` keys, where a swapped batch and tenant key is invisible to the type
+        checker.
         """
         batch = self.get_batch(key, tenant_key)
         if batch.status == PropagationBatchStatus.COMPLETED:
             raise ValidationError("Batch is already finalized.")
-        if self._planting_run_repo is not None:
-            run = self._planting_run_repo.get_by_key(target_planting_run_key)
-            # Fail-closed tenant scope (SEC-B4): a run whose tenant_key is missing must
-            # be rejected, never silently defaulted to the caller's tenant. Only an
-            # explicit, matching tenant_key lets the finalize proceed.
-            run_tenant_key = getattr(run, "tenant_key", None)
-            if run is None or run_tenant_key is None or run_tenant_key != tenant_key:
-                raise NotFoundError("PlantingRun", target_planting_run_key)
+        # Fail-closed tenant scope (SEC-B4): a run whose tenant_key is missing must be
+        # rejected, never silently defaulted to the caller's tenant — and so must a
+        # run nothing can look up (the check was skipped without a repository).
+        self._require_owned_run(target_planting_run_key, tenant_key)
         events = self._require_prop().list_events_for_batch(key, tenant_key)
         total_survived = sum(e.survived_count or 0 for e in events)
         total_quantity = sum(e.quantity for e in events)
@@ -247,7 +340,14 @@ class PropagationService:
 
     # ── Rooting protocols ──────────────────────────────────────────────────────
 
+    def _require_protocol_species(self, protocol: RootingProtocol) -> None:
+        """Every recommended species readable by the protocol's tenant (#1872 C12)."""
+        for species_key in dict.fromkeys(protocol.recommended_species_keys):
+            if species_key:
+                self._require_readable_species(species_key, protocol.tenant_key)
+
     def create_protocol(self, protocol: RootingProtocol) -> RootingProtocol:
+        self._require_protocol_species(protocol)
         return self._require_prop().create_protocol(protocol)
 
     def list_protocols(
@@ -263,6 +363,20 @@ class PropagationService:
             tenant_key, method=method, is_template=is_template, offset=offset, limit=limit
         )
 
+    def list_protocols_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        is_template: bool | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[RootingProtocol]:
+        """One page of :meth:`list_protocols` without the count query (MT-035, #2131)."""
+        return self._require_prop().list_protocols_window(
+            tenant_key=tenant_key, method=method, is_template=is_template, offset=offset, limit=limit
+        )
+
     def get_protocol(self, key: str, tenant_key: str) -> RootingProtocol:
         protocol = self._require_prop().get_protocol(key, tenant_key)
         if protocol is None:
@@ -274,6 +388,7 @@ class PropagationService:
         if existing.tenant_key == "":
             raise ForbiddenError("Global protocol templates cannot be edited by a tenant.")
         protocol.tenant_key = tenant_key
+        self._require_protocol_species(protocol)
         return self._require_prop().update_protocol(key, protocol)
 
     def delete_protocol(self, key: str, tenant_key: str) -> None:
@@ -303,13 +418,13 @@ class PropagationService:
     def list_mothers(self, tenant_key: str, offset: int = 0, limit: int = 100) -> list[dict[str, Any]]:
         return self._require_prop().list_mothers(tenant_key, offset, limit)
 
-    def get_mother(self, plant_key: str, tenant_key: str) -> dict[str, Any]:
+    def get_mother(self, plant_key: str, *, tenant_key: str) -> dict[str, Any]:
         doc = self._require_prop().get_plant_raw(plant_key, tenant_key)
         if doc is None:
             raise NotFoundError("PlantInstance", plant_key)
         return doc
 
-    def designate_mother(self, plant_key: str, tenant_key: str, *, priority: str | None = None) -> dict[str, Any]:
+    def designate_mother(self, plant_key: str, *, tenant_key: str, priority: str | None = None) -> dict[str, Any]:
         self._get_plant_or_404(plant_key, tenant_key)
         fields: dict[str, Any] = {
             "is_mother": True,
@@ -320,7 +435,7 @@ class PropagationService:
             fields["mother_priority"] = priority
         return self._require_prop().update_plant_fields(plant_key, fields)
 
-    def retire_mother(self, plant_key: str, tenant_key: str, *, reason: str | None = None) -> dict[str, Any]:
+    def retire_mother(self, plant_key: str, *, tenant_key: str, reason: str | None = None) -> dict[str, Any]:
         self._get_plant_or_404(plant_key, tenant_key)
         fields: dict[str, Any] = {
             "is_mother": False,
@@ -329,7 +444,7 @@ class PropagationService:
         }
         return self._require_prop().update_plant_fields(plant_key, fields)
 
-    def update_mother_health(self, plant_key: str, tenant_key: str, *, health_score: int) -> dict[str, Any]:
+    def update_mother_health(self, plant_key: str, *, tenant_key: str, health_score: int) -> dict[str, Any]:
         if not 0 <= health_score <= 100:
             raise ValidationError("health_score must be between 0 and 100.")
         self._get_plant_or_404(plant_key, tenant_key)
@@ -337,18 +452,18 @@ class PropagationService:
 
     # ── Phenotype notes ────────────────────────────────────────────────────────
 
-    def add_phenotype(self, note: PhenotypeNote, tenant_key: str) -> PhenotypeNote:
+    def add_phenotype(self, note: PhenotypeNote, *, tenant_key: str) -> PhenotypeNote:
         self._get_plant_or_404(note.plant_key, tenant_key)
         note.tenant_key = tenant_key
         if note.observed_at is None:
             note.observed_at = _now()
         return self._require_prop().create_phenotype(note)
 
-    def list_phenotypes(self, plant_key: str, tenant_key: str) -> list[PhenotypeNote]:
+    def list_phenotypes(self, plant_key: str, *, tenant_key: str) -> list[PhenotypeNote]:
         self._get_plant_or_404(plant_key, tenant_key)
         return self._require_prop().list_phenotypes_for_plant(plant_key, tenant_key)
 
-    def delete_phenotype(self, plant_key: str, note_key: str, tenant_key: str) -> None:
+    def delete_phenotype(self, plant_key: str, note_key: str, *, tenant_key: str) -> None:
         note = self._require_prop().get_phenotype(note_key, tenant_key)
         if note is None or note.plant_key != plant_key:
             raise NotFoundError("PhenotypeNote", note_key)
@@ -356,7 +471,7 @@ class PropagationService:
 
     # ── Lineage ────────────────────────────────────────────────────────────────
 
-    def get_lineage(self, plant_key: str, tenant_key: str, max_depth: int = 10) -> dict[str, Any]:
+    def get_lineage(self, plant_key: str, *, tenant_key: str, max_depth: int = 10) -> dict[str, Any]:
         """Ancestor chains + flat ancestor list for a plant (tenant-scoped)."""
         self._get_plant_or_404(plant_key, tenant_key)
         engine = self._require_lineage()
@@ -368,7 +483,7 @@ class PropagationService:
             "ancestors": ancestors,
         }
 
-    def get_descendants(self, plant_key: str, tenant_key: str, max_depth: int = 10) -> list[PlantInstance]:
+    def get_descendants(self, plant_key: str, *, tenant_key: str, max_depth: int = 10) -> list[PlantInstance]:
         """Descendant (clone-tree) list for a plant (tenant-scoped)."""
         self._get_plant_or_404(plant_key, tenant_key)
         return self._require_lineage().trace_descendants(plant_key, tenant_key, max_depth)
@@ -385,7 +500,10 @@ class PropagationService:
 
     # ── Statistics ──────────────────────────────────────────────────────────────
 
-    def stats(self, tenant_key: str, group_by: str = "method") -> list[dict[str, Any]]:
+    def stats(
+        self, tenant_key: str, group_by: str = "method", *, offset: int | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Success-rate rows per group; ``offset``/``limit`` read one window ordered by the group key (MT-035)."""
         if group_by not in ("method", "species", "protocol", "cultivar"):
             raise ValidationError(f"Unsupported stats grouping: {group_by}")
-        return self._require_prop().stats(tenant_key, group_by)
+        return self._require_prop().stats(tenant_key, group_by, offset=offset, limit=limit)

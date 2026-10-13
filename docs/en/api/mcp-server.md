@@ -42,6 +42,8 @@ You create your personal key yourself via `POST /api/v1/auth/api-keys` and can r
 !!! warning "An API key is a long-lived credential"
     Unlike a login token, an API key does not expire after minutes — which is exactly what makes it suitable for a permanently running MCP client. Treat it like a password: whoever holds it can do everything you can do in your gardens. Create a separate key per client so you can revoke them individually.
 
+An IP allowlist or per-minute request limit set on the key applies to MCP calls the same way it applies to the REST API — both surfaces share one budget per key (see [Authentication — IP allowlist and rate limit per key](authentication.md#ip-allowlist-and-rate-limit-per-key)).
+
 ### You only ever see your own data
 
 A key grants exactly the gardens (tenants) its account is an **active member** of, resolved from the same source the regular API uses. Nothing is reachable over MCP that you could not see in the web UI. A garden you are not a member of behaves exactly as if it did not exist (`not_found`) — the interface will not even reveal that it is there.
@@ -101,16 +103,9 @@ This endpoint is deliberately restricted to service accounts. An invalid, revoke
 !!! info "Available in light mode too"
     A light-mode instance has no user accounts — sign-in, sessions and security settings are deliberately absent there. **API key management is still present**, because it is the only credential the MCP server accepts. The key belongs to the system user, which is a member of the default garden. This grants no extra authority: anyone who can reach a light instance already has full access — the key merely makes that access usable from outside. Which is exactly why a light instance does not belong on the public internet.
 
-**As a service account — operator step:**
+**As a service account:**
 
-!!! warning "Not yet implemented"
-    Full, self-service service-account management (create, rotate, deactivate via the API — see [Service Accounts & API Keys](service-accounts.md)) is specified but not yet implemented. Today, creating a user account with `account_type: "service"` is an **operator step** outside the public API, not a self-service flow (internal reference: REQ-023).
-
-For an MCP client to obtain a working key today, the following pieces are needed:
-
-1. A user account with `account_type: "service"` (no password, no interactive login) — created by the instance operator.
-2. A tenant membership for that account with exactly the role (`viewer`/`grower`/`admin`) matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup).
-3. An API key for that account, technically the same mechanism described under [Service Accounts & API Keys — Using the API Key](service-accounts.md#using-the-api-key) — but since a service account is never logged in interactively, it cannot request the key itself via the `/auth/api-keys` endpoint; this step, too, currently runs through the operator.
+A machine MCP client gets its key through a service account that a garden's lead creates — see [Service Accounts & API Keys](service-accounts.md#create-a-service-account). The response holds the first key; it is bound to that one garden, and the service account holds the role `viewer` or `grower` there, matching the desired [permission level](#permission-model-mcpread-mcpwrite-mcpsetup). A service account never gets the lead role. Use the key as described under [Use the key](service-accounts.md#use-the-key). <!-- REQ-023 §5b, Issue #2137 -->
 
 ## Setting up a client (Claude Code)
 
@@ -275,7 +270,7 @@ Because the role applies per garden, the same key can write in your own garden a
 | Tool | Purpose |
 |------|---------|
 | `create_site` | Create a site root (apartment, garden, balcony, greenhouse, windowsill, grow tent) |
-| `assign_species_phase_sequence` | Bind a species to an **existing** phase sequence. Requires `mcp.setup` rather than just `mcp.write`, because species and sequences belong to the shared catalogue: a single binding changes the schedule of every plant of that species in *every* garden. *Defining* sequences stays deliberately a job for the web UI |
+| `assign_species_phase_sequence` | Bind a species to an **existing** phase sequence. Requires `mcp.setup` rather than just `mcp.write` **and the platform admin role** (the tool has no tenant; it is not listed for non-admins and is refused with `permission.denied`), because species and sequences belong to the shared catalogue: a single binding changes the schedule of every plant of that species in *every* garden. *Defining* sequences stays deliberately a job for the web UI |
 
 Every tool validates referenced keys (plant, site, location, slot) against the tenant resolved for that call. A foreign key from another tenant consistently returns `not_found` — never `permission.denied` — so no tool ever discloses the existence of another tenant's resources.
 

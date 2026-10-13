@@ -20,7 +20,7 @@ Installiere folgende Werkzeuge, bevor du beginnst:
 | Node.js | 25.1.0 | Frontend-Entwicklung ohne Cluster |
 
 !!! note "Node.js-Version via asdf"
-    Im `src/frontend/`-Verzeichnis liegt eine `.tool-versions`-Datei mit `nodejs 25.1.0`. Nach der asdf-Installation wird die korrekte Version automatisch aktiviert:
+    Im `src/frontend/`-Verzeichnis liegt eine `.tool-versions`-Datei mit `nodejs 26.10.0`. Nach der asdf-Installation wird die korrekte Version automatisch aktiviert:
     ```bash
     asdf plugin add nodejs
     asdf install
@@ -38,6 +38,19 @@ kind create cluster --config kind-config.yaml --name kamerplanter
 
 Der Cluster veröffentlicht auf dem Host-System nur die Ingress-Ports 80 und 443. Der Zugriff auf Backend (8000), Frontend (3000) und ArangoDB (8529) läuft über Skaffolds `--port-forward` (siehe Tabelle unten) — diese Host-Ports müssen beim Start also frei sein.
 
+Beide Ingress-Ports lauschen nur auf `127.0.0.1` (`listenAddress` in `kind-config.yaml`). Ohne diese Angabe bindet Kind auf `0.0.0.0` — dann wäre die Entwicklungs-App auf jeder Netzwerkschnittstelle deines Rechners erreichbar, im Light-Modus sogar ohne Anmeldung, für jedes Gerät im selben Netz.
+
+!!! note "Änderung greift erst nach dem Neuanlegen"
+    Kind legt die Port-Bindung beim Erstellen des Clusters fest. Ein Cluster, den du vor dieser Einstellung angelegt hast, lauscht weiter auf allen Schnittstellen, bis du ihn löschst und neu erstellst. Prüfen kannst du das mit `docker port kamerplanter-control-plane` — die Ausgabe muss `127.0.0.1:80` und `127.0.0.1:443` zeigen, nicht `0.0.0.0`.
+
+??? question "Cluster vom Smartphone oder einem anderen Rechner aus erreichen"
+    Kind wertet in seiner Konfiguration keine Umgebungsvariablen aus, deshalb gibt es keinen Schalter wie `KAMERPLANTER_BIND_ADDRESS` beim Docker-Compose-Betrieb. Wenn du den Entwicklungs-Cluster bewusst im Netz freigeben willst, lege ihn aus einer nicht eingecheckten Kopie an, in der `listenAddress` auf `0.0.0.0` steht:
+    ```bash
+    sed 's/listenAddress: "127.0.0.1"/listenAddress: "0.0.0.0"/' kind-config.yaml > /tmp/kind-config-lan.yaml
+    kind create cluster --config /tmp/kind-config-lan.yaml --name kamerplanter
+    ```
+    Bedenke dabei, dass jedes Gerät im Netz die App dann ohne weitere Hürde erreicht.
+
 !!! warning "Bereits vorhandener Cluster"
     Falls ein Cluster mit dem Namen `kamerplanter` existiert, lösche ihn zunächst:
     ```bash
@@ -54,7 +67,7 @@ kubectl cluster-info --context kind-kamerplanter
 
 ## Secret anlegen
 
-Backend, Celery-Worker und die KI-Dienste referenzieren das Kubernetes-Secret `kamerplanter-secrets` per `envFrom` bzw. `secretKeyRef` (definiert in `helm/kamerplanter/values.yaml`). Die Dev-Overrides heben diese Referenz **nicht** auf, daher muss das Secret im Namespace `default` existieren, **bevor** du Skaffold startest — sonst bleiben die betroffenen Pods in `CreateContainerConfigError` hängen. `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` werden zusätzlich beim Backend-Start als Pflichtwerte geprüft (Fail-Fast).
+Backend, Celery-Worker und die KI-Dienste referenzieren das Kubernetes-Secret `kamerplanter-secrets` per `envFrom` bzw. `secretKeyRef` (definiert in `helm/kamerplanter/values.yaml`). Die Dev-Overrides heben diese Referenz **nicht** auf, daher muss das Secret im Namespace `default` existieren, **bevor** du Skaffold startest — sonst bleiben die betroffenen Pods in `CreateContainerConfigError` hängen. `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` und `LOG_PSEUDONYM_SALT` werden zusätzlich beim Backend-Start als Pflichtwerte geprüft (Fail-Fast); `LOG_PSEUDONYM_SALT` prüft auch der Celery-Worker.
 
 Lege das Secret einmalig pro frisch erstelltem Cluster an:
 
@@ -67,11 +80,12 @@ kubectl create secret generic kamerplanter-secrets -n default \
   --from-literal=VECTORDB_PASSWORD=foba123456 \
   --from-literal=FERNET_KEY=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())") \
   --from-literal=ERASURE_TOMBSTONE_SALT=$(openssl rand -hex 32) \
+  --from-literal=LOG_PSEUDONYM_SALT=$(openssl rand -hex 32) \
   --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
 ```
 
 !!! note "FERNET_KEY-Format"
-    `FERNET_KEY` muss ein gültiger Fernet-Schlüssel sein: **32 Bytes, url-safe base64-kodiert** (44 Zeichen) — genau das, was `cryptography.fernet.Fernet.generate_key()` erzeugt. Ein `openssl rand -hex 32` (64 Hex-Zeichen) ist **kein** gültiger Fernet-Schlüssel: Das Backend startet zwar, aber jeder verschlüsselnde Endpunkt scheitert später mit `ValueError: Fernet key must be 32 url-safe base64-encoded bytes`. Nur `FERNET_KEY` braucht dieses Format; `ERASURE_TOMBSTONE_SALT` und `INTERNAL_SERVICE_TOKEN` sind beliebige Zufallswerte.
+    `FERNET_KEY` muss ein gültiger Fernet-Schlüssel sein: **32 Bytes, url-safe base64-kodiert** (44 Zeichen) — genau das, was `cryptography.fernet.Fernet.generate_key()` erzeugt. Ein `openssl rand -hex 32` (64 Hex-Zeichen) ist **kein** gültiger Fernet-Schlüssel: Das Backend startet zwar, aber jeder verschlüsselnde Endpunkt scheitert später mit `ValueError: Fernet key must be 32 url-safe base64-encoded bytes`. Nur `FERNET_KEY` braucht dieses Format; `ERASURE_TOMBSTONE_SALT`, `LOG_PSEUDONYM_SALT` und `INTERNAL_SERVICE_TOKEN` sind beliebige Zufallswerte.
 
 !!! note "ArangoDB-Passwort"
     `ARANGODB_PASSWORD` und `ARANGO_ROOT_PASSWORD` müssen **denselben Wert** haben: ArangoDB initialisiert sein Root-Passwort aus `ARANGO_ROOT_PASSWORD`, während Backend und Celery sich mit `ARANGODB_PASSWORD` verbinden. Beide kommen ausschließlich aus diesem Secret — `values-dev.yaml` setzt sie **nicht** mehr inline. Weichen die Werte voneinander ab, scheitert der Backend-Start mit HTTP 401.

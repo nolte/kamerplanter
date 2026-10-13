@@ -15,7 +15,7 @@ Two further properties only a real server can supply:
 
 Run with::
 
-    docker run -d --rm -p 8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
+    docker run -d --rm -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0046_reconcile_photo_refs.py -v
 """
 
@@ -24,10 +24,15 @@ from __future__ import annotations
 import pytest
 from arango import ArangoClient
 
-from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, SYSTEM_DATABASE
+from tests.support.arango_integration import (
+    ARANGO_PASSWORD,
+    ARANGO_URL,
+    ARANGO_USERNAME,
+    SYSTEM_DATABASE,
+    run_database_name,
+)
 
-_DB_NAME = "kamerplanter_v0046_migration_test"
-
+_DB_NAME = run_database_name("v0046_migration")
 # The server probe lives in tests/integration/conftest.py (``arango_db``): one
 # probe for the tier, a loud failure under CI, a skip with the address locally.
 # A private ``ARANGO_AVAILABLE`` copy here would be the self-skip #1432 retired.

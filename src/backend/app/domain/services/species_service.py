@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 from app.common.enums import DataOrigin, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
@@ -15,6 +16,7 @@ from app.domain.services.catalogue_authorization import (
 from app.domain.services.catalogue_authorization import (
     require_role_for_catalogue_create as _authorize_tenant_owned_create,
 )
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
 #: Identity / provenance fields the synonym-inheritance (#975) must NEVER copy or
@@ -38,6 +40,44 @@ _INHERIT_PROTECTED_FIELDS: frozenset[str] = frozenset(
 #: against one of these is preferred over a tenant/import record when several
 #: fuller candidates exist (REQ-048, #975).
 _AUTHORITATIVE_ORIGINS: frozenset[DataOrigin] = frozenset({DataOrigin.SYSTEM, DataOrigin.ENRICHMENT})
+
+#: Species fields ``PUT /species/{key}`` does not carry (``SpeciesCreate`` lacks
+#: them), so :meth:`SpeciesService.update_species` takes them from the stored
+#: record. The route rebuilds the model from the body, which held each at its
+#: default: ``traits`` / ``pruning_months`` became ``[]`` and
+#: ``green_manure_suitable`` became ``False`` on every edit, and the repository
+#: wrote them. The fields are written by the seed, the enrichment and the
+#: reference-image pipeline (REQ-029-A §4), and ``origin`` is server-managed
+#: provenance (REQ-001/REQ-011). The ``None``-default ones survived anyway — the
+#: species repository merges and drops a ``None`` — and are listed so the rule
+#: does not hang on that repository mode. ``scientific_name_normalized`` is not
+#: here: the model derives it from ``scientific_name``, which the body does carry.
+SPECIES_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
+    "allergen_info",
+    "cultivation_flexible",
+    "default_crop_coefficient_kc",
+    "effective_root_depth_cm",
+    "green_manure_suitable",
+    "light_compensation_point_ppfd_max",
+    "light_compensation_point_ppfd_min",
+    "nutrient_demand_level",
+    "origin",
+    "pruning_months",
+    "pruning_type",
+    "representative_image_attribution",
+    "representative_image_license",
+    "representative_image_url",
+    "salt_tolerance_class",
+    "salt_tolerance_ece_threshold_ds_m",
+    "salt_tolerance_slope_pct",
+    "seed_profile",
+    "shade_tolerance",
+    "soil_ph_preference",
+    "toxicity",
+    "toxicity_severity",
+    "traits",
+    "waterlogging_tolerance",
+)
 
 
 def _is_unset(value: object) -> bool:
@@ -122,9 +162,13 @@ class SpeciesService:
         species_repo: ISpeciesRepository,
         graph_repo: IGraphRepository,
         phase_sequence_binder: PhaseSequenceBinder | None = None,
+        *,
+        nutrient_plan_repo: Any | None = None,
     ) -> None:
         self._repo = species_repo
         self._graph = graph_repo
+        # #1872 C14: the default plan a species names must be usable by its owner.
+        self._nutrient_plan_repo = nutrient_plan_repo
         # Optional so the many call sites constructing this service for read paths
         # (and their tests) keep working; when absent, create_species simply does not
         # bind — the same state as before #1006, not a crash.
@@ -181,23 +225,29 @@ class SpeciesService:
         self,
         species: Species,
         *,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Species:
         """Create (or idempotently resolve) a species, role-gated — SEC-005 (#1113).
 
         ``caller_role`` / ``is_platform_admin`` are the create pendant of the pair
-        :meth:`update_species` already takes; both default to the **system context**
-        (no role → no gate), which is what keeps the seeders, the CSV import and the
-        enrichment paths creating master data without an HTTP caller. The
-        interactive route always passes the role of the caller's *active* tenant, so
-        a viewer is refused (see :func:`_authorize_tenant_owned_create`).
+        :meth:`update_species` takes; a viewer is refused (see
+        :func:`_authorize_tenant_owned_create`). Required since #2107: the only
+        caller is the HTTP route — the seeders, the CSV import and the enrichment
+        paths write through the repository (measured) — so a defaulted "system
+        context" here was an escape no caller used and any future caller could fall
+        into.
 
-        Deliberately no ``tenant_key`` argument: ownership is stamped on the model
-        by the route from :func:`~app.common.auth.get_creating_tenant_key`, and
-        adding a second tenant input here would create exactly the two-sources
-        problem the shared resolver was built to remove.
+        ``tenant_key`` is the owner, keyword-only without a default (#2107), and this
+        method stamps it on the model: the **one** source of ownership. It used to
+        trust the ``tenant_key`` the route had set on the model; a caller that forgot
+        to set it created a *global* species (the model default is ``""``) and
+        checked its default nutrient plan against the global catalogue. The route
+        passes the value of :func:`~app.common.auth.get_creating_tenant_key` here —
+        the same one it builds the model with — and this stamp is the one that holds.
         """
+        species.tenant_key = tenant_key
         _authorize_tenant_owned_create(
             plural_noun="species",
             caller_role=caller_role,
@@ -231,8 +281,17 @@ class SpeciesService:
         # tenant's row, skip the synonym inheritance for a record that genuinely
         # has no twin here, and then insert anyway — the inheritance would be
         # suppressed by a row the caller can never see.
+        self._require_usable_nutrient_plan(species.default_nutrient_plan_key, species.tenant_key)
         if self._repo.get_by_normalized_scientific_name_for_tenant(species.scientific_name, species.tenant_key) is None:
             species = self._inherit_unset_from_synonym_match(species)
+            # An inherited plan is kept only when the new owner may use it
+            # (security review of #1872, W1): the synonym match can be a granted or
+            # legacy row pointing at another tenant's private plan. Dropped, not
+            # refused — the caller never sent the key.
+            if species.default_nutrient_plan_key and not self._nutrient_plan_usable(
+                species.default_nutrient_plan_key, species.tenant_key
+            ):
+                species.default_nutrient_plan_key = None
         created = self._repo.upsert_by_normalized_scientific_name(species)
         # Give the species the phase sequence the seed would have given it (#1006).
         # Without this, every plant created for a runtime-minted species (identify →
@@ -243,6 +302,26 @@ class SpeciesService:
         if self._phase_sequence_binder is not None:
             self._phase_sequence_binder.bind_default(created)
         return created
+
+    def _nutrient_plan_usable(self, plan_key: str, species_owner: str) -> bool:
+        try:
+            self._require_usable_nutrient_plan(plan_key, species_owner)
+        except NotFoundError:
+            return False
+        return True
+
+    def _require_usable_nutrient_plan(self, plan_key: str | None, species_owner: str) -> None:
+        """404 unless the default plan is global or the species owner's own (#1872 C14).
+
+        The key was stored as given. A global species (owner ``""``) may name only
+        a global plan — a tenant's private plan would otherwise travel to every
+        tenant with it. Fails closed without the plan repository.
+        """
+        if not plan_key:
+            return
+        plan = self._nutrient_plan_repo.get_by_key(plan_key) if self._nutrient_plan_repo is not None else None
+        if plan is None or (getattr(plan, "tenant_key", "") or "") not in ("", species_owner or ""):
+            raise NotFoundError("NutrientPlan", plan_key)
 
     # ── REQ-048 / #975 — synonym-shadow field inheritance ────────────────────
 
@@ -269,7 +348,9 @@ class SpeciesService:
         (``system``/``enrichment``) record wins, then the most-populated one.
         """
         candidates = [
-            c for c in self._repo.find_synonym_match_candidates(species) if self._is_synonym_linked(species, c)
+            c
+            for c in self._repo.find_synonym_match_candidates(species, tenant_key=species.tenant_key)
+            if self._is_synonym_linked(species, c)
         ]
         new_count = _populated_field_count(species)
         fuller = [c for c in candidates if _populated_field_count(c) > new_count]
@@ -432,9 +513,9 @@ class SpeciesService:
         key: SpeciesKey,
         species: Species,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Species:
         # Unscoped load so a foreign key resolves and is answered with the
         # ownership-hiding 404 below, not a leaky "exists but forbidden".
@@ -447,25 +528,19 @@ class SpeciesService:
             is_platform_admin=is_platform_admin,
             can_role_write=MembershipEngine.can_edit_resource,
         )
-        # The representative reference image is owned by the acquisition
-        # pipeline (REQ-029-A §4), not the edit form — preserve it on update.
-        species.representative_image_url = existing.representative_image_url
-        species.representative_image_attribution = existing.representative_image_attribution
-        species.representative_image_license = existing.representative_image_license
-        # The provenance marker is server-managed (REQ-001/REQ-011) and never
-        # submitted by the edit form — preserve it so a full-replace update never
-        # resets an enriched/tenant record back to the 'system' default.
-        species.origin = existing.origin
+        # Every field the edit body does not carry — the reference image, the
+        # provenance marker, cultivation_flexible, the traits, the pruning months,
+        # the green-manure flag, ... — comes from the stored record; see
+        # SPECIES_FIELDS_KEPT_ON_EDIT for the list and why.
+        keep_stored_fields(species, existing, SPECIES_FIELDS_KEPT_ON_EDIT)
         # tenant ownership (REQ-001 v4.0, #808) is server-managed and never
         # submitted by the edit form — preserve it so a full-replace update never
         # resets a tenant-owned species back to the global default (tenant_key ""),
         # which would silently move it out of its owner's catalogue into the shared
         # one. Mirrors the origin preservation above.
         species.tenant_key = existing.tenant_key
-        # cultivation_flexible is master data (seed lifecycle_overrides, ADR-006 E6),
-        # not an edit-form field — preserve it so a full-replace update never resets
-        # the facultative-cultivation capability flag to its default.
-        species.cultivation_flexible = existing.cultivation_flexible
+        if species.default_nutrient_plan_key != existing.default_nutrient_plan_key:
+            self._require_usable_nutrient_plan(species.default_nutrient_plan_key, existing.tenant_key)
         return self._repo.update(key, species)
 
     # ── explicit masterdata grants (#1092) ──────────────────────────────────
@@ -633,9 +708,9 @@ class SpeciesService:
         self,
         key: SpeciesKey,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         existing = self.get_species(key)
         self._authorize_species_write(
@@ -690,21 +765,21 @@ class SpeciesService:
         self,
         cultivar: Cultivar,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Cultivar:
         """Create a cultivar under a species, co-scoping the parent lookup (C-4, #1090).
 
-        ``tenant_key`` scopes the **parent species** existence check, not the new
-        row's ownership (that is stamped on the model by the route, #1000). Two
-        modes, mirroring :meth:`list_cultivars`:
-
-        * ``None`` (the default) — the unscoped **system-context** create the seed
-          loaders and the CSV import use: they populate cultivars for every species
-          in the catalogue and must not start 404-ing (P5).
-        * a string (including ``""``) — the interactive create: the parent species
-          must be the caller's own or global, otherwise :class:`NotFoundError`.
+        ``tenant_key`` scopes the **parent species** existence check and is the new
+        row's owner: this method stamps it on the model (#2107), so the scope the
+        parent is resolved in and the owner the row is written under cannot differ.
+        Keyword-only without a default since #2107: the only caller is the HTTP
+        route — the seed loaders and the CSV import write cultivars through the
+        repository (measured) — so the former ``None`` "system context" default was
+        an unscoped create no caller needed. The parent species must be the caller's
+        own, global or granted, otherwise :class:`NotFoundError`; ``""`` (light
+        mode) collapses the check to the global catalogue.
 
         Without the co-scoping (the state C-4 inherited) a POST under a *foreign*
         tenant's species answered 201: it confirmed that species key exists — a
@@ -714,9 +789,8 @@ class SpeciesService:
         co-scoped list read (operator decision Q3).
 
         ``caller_role`` / ``is_platform_admin`` are the SEC-005 (#1113) role gate,
-        the create pendant of the pair :meth:`update_cultivar` takes; both default
-        to the system context (no role → no gate), so the seeders and the import
-        stay unaffected. See :func:`_authorize_tenant_owned_create`.
+        the create pendant of the pair :meth:`update_cultivar` takes; required, like
+        ``tenant_key``. See :func:`_authorize_tenant_owned_create`.
 
         Order: the parent-species scope is decided **first**, so a cultivar
         addressed under a species the caller cannot see answers 404 regardless of
@@ -726,6 +800,7 @@ class SpeciesService:
         privilege can be probed by varying privilege.
         """
         self.get_species(cultivar.species_key, tenant_key=tenant_key)
+        cultivar.tenant_key = tenant_key
         _authorize_tenant_owned_create(
             plural_noun="cultivars",
             caller_role=caller_role,
@@ -793,9 +868,9 @@ class SpeciesService:
         cultivar: Cultivar,
         *,
         species_key: SpeciesKey | None = None,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Cultivar:
         # Tenant-unscoped load (no ``tenant_key=``) on purpose: the ownership gate
         # below needs the *stored* owner to answer a foreign row with 404 and a
@@ -841,9 +916,9 @@ class SpeciesService:
         key: CultivarKey,
         *,
         species_key: SpeciesKey | None = None,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         # Tenant-unscoped but species-scoped load, same reasoning as update_cultivar:
         # the gate needs the real stored owner to separate foreign→404 from
@@ -861,9 +936,14 @@ class SpeciesService:
         )
         return self._repo.delete_cultivar(key)
 
-    def get_compatible_species(self, species_key: SpeciesKey) -> list[dict]:
-        self.get_species(species_key)
-        raw = self._graph.get_compatible_species(species_key)
+    def get_compatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict]:
+        """The anchor's compatible companions the caller can see (MT-054, #2144).
+
+        ``tenant_key`` scopes the anchor (a foreign one is 404) **and** the far end of
+        each edge; ``None`` is the system context.
+        """
+        self.get_species(species_key, tenant_key=tenant_key)
+        raw = self._graph.get_compatible_species(species_key, tenant_key=tenant_key)
         # Pass the full common_names list straight through from the graph vertex —
         # it is already loaded on the species document (no extra query). The
         # presentation layer derives the layperson-facing display name from it
@@ -878,9 +958,9 @@ class SpeciesService:
             for item in raw
         ]
 
-    def get_incompatible_species(self, species_key: SpeciesKey) -> list[dict]:
-        self.get_species(species_key)
-        raw = self._graph.get_incompatible_species(species_key)
+    def get_incompatible_species(self, species_key: SpeciesKey, *, tenant_key: str | None) -> list[dict]:
+        self.get_species(species_key, tenant_key=tenant_key)
+        raw = self._graph.get_incompatible_species(species_key, tenant_key=tenant_key)
         return [
             {
                 "species_key": item["species"].get("_key", ""),
@@ -891,13 +971,13 @@ class SpeciesService:
             for item in raw
         ]
 
-    def get_companion_counts(self) -> dict[str, dict[str, int]]:
+    def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Whole-catalogue aggregate: per-species compatible/incompatible companion
-        # counts computed in a single batch AQL (no N+1). Companion edges are
-        # global reference data, so no tenant scoping applies.
-        return self._graph.get_companion_counts()
+        # counts computed in a single batch AQL (no N+1). Counted over the edges whose
+        # both ends ``tenant_key`` can see (MT-054); ``None`` counts every edge.
+        return self._graph.get_companion_counts(tenant_key=tenant_key)
 
-    def get_companion_recommendations(self, species_key: SpeciesKey) -> dict:
-        self.get_species(species_key)
+    def get_companion_recommendations(self, species_key: SpeciesKey, *, tenant_key: str | None) -> dict:
+        self.get_species(species_key, tenant_key=tenant_key)
         engine = CompanionPlantingEngine(self._graph, None, self._repo)  # type: ignore[arg-type]
-        return engine.get_companion_recommendations(species_key)
+        return engine.get_companion_recommendations(species_key, tenant_key=tenant_key)

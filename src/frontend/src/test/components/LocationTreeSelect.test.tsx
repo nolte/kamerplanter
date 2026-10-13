@@ -57,13 +57,25 @@ describe('LocationTreeSelect', () => {
 
   it('selects a flattened location option', async () => {
     mockGetLocationTree.mockResolvedValue([node('loc-bed', 'Beet')]);
-    renderWithProviders(<TestForm siteKey="site-1" />);
+    const { container } = renderWithProviders(<TestForm siteKey="site-1" />);
     await waitFor(() => expect(mockGetLocationTree).toHaveBeenCalled());
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('combobox'));
     await user.click(within(screen.getByRole('listbox')).getByText('Beet'));
-    expect(screen.getByText('Beet')).toBeTruthy();
+
+    // #1564 — asserted on the two places that carry the *selection*, never with
+    // a global text match. The previous `expect(screen.getByText('Beet'))` was
+    // wrong in both directions: it was already satisfiable before the click
+    // (the option renders that text), so it stated nothing about selecting; and
+    // while MUI's close transition is still running the menu is still mounted,
+    // so the same text exists twice and the query throws `Found multiple
+    // elements with the text: Beet` — which is how it failed under full-suite
+    // contention while passing alone. Neither the combobox display nor the
+    // hidden form input can ever hold a second copy, so these two assertions
+    // are non-vacuous and independent of how fast the transition runs.
+    expect(screen.getByRole('combobox')).toHaveTextContent('Beet');
+    expect(container.querySelector('input[name="location_key"]')).toHaveValue('loc-bed');
   });
 
   it('falls back to an empty option list when the fetch fails', async () => {

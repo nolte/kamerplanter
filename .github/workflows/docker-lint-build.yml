@@ -14,12 +14,22 @@ on:
       - 'src/knowledge-service/**'
       - 'docker/**'
       - 'spec/knowledge/rag/**'
+      # The smoke script the model-image jobs run (#1609). Without it here, the
+      # one change most able to break those jobs — a change to the script that
+      # decides whether they pass — would never start them.
+      - 'scripts/ci/smoke_model_image.sh'
+      # The contract probe the embedding and reranker jobs run after it (#1725),
+      # for the same reason.
+      - 'scripts/ci/probe_model_service_contract.py'
       # This file itself. Without it the lint workflow could be rewritten and
       # merged WITHOUT ever running — which is what happened to the pull request
       # that introduced this line: it changed how linting works and the job did
       # not fire. `src/knowledge-service/**` was missing for the same reason,
       # although its Dockerfile is one of the eight this job lints.
       - '.github/workflows/docker-lint-build.yml'
+      # The knowledge image builds from context `.`; the ROOT .dockerignore decides what it
+      # copies (measured with scripts/ci/lane_inputs.py, #1596).
+      - '.dockerignore'
 
 permissions:
   contents: read
@@ -31,6 +41,43 @@ concurrency:
 jobs:
   changes:
     runs-on: ubuntu-latest
+    # THE DOCKERFILE LINT LIVES HERE, NOT IN A JOB OF ITS OWN (#1583).
+    # It used to be `hadolint`, a separate job that ran 14 seconds and sat in
+    # `needs:` ahead of all eight `build-*` jobs — which already need `changes`
+    # anyway. Measured 2026-09-19 over the last 300 pull-request runs: a
+    # dependency-free job in this repository waits a MEDIAN OF 21 MINUTES for a
+    # runner slot, because the concurrent-job allotment is account-wide and this
+    # portfolio sits on its ceiling. So the split cost one slot plus a second
+    # full queue wait for every build job, to save nothing.
+    #
+    # Semantics are unchanged: the lint still runs on every pull request that
+    # starts this workflow, independent of which filter matched, and a lint
+    # failure still fails this job and therefore skips every build — exactly
+    # what `needs: [changes, hadolint]` did.
+    env:
+      # The LINTER is pinned here, not just the action that wrapped it (#898).
+      #
+      # `hadolint/hadolint-action` was already SHA-pinned, which looked exact and
+      # was not: that action's own Dockerfile does
+      # `FROM ghcr.io/hadolint/hadolint:v2.15.0-debian`, so the binary floated
+      # independently of the pin. When 2.15.0 shipped, DL3025 began flagging
+      # shell-form `HEALTHCHECK … CMD`; this job turned red on every branch
+      # without a single repository change, and because it is a `needs:`
+      # predecessor of all eight `build-*` jobs, nothing built at all. That is
+      # the NFR-018 §1 failure class — a check that looks pinned but is not.
+      #
+      # Run against the mounted file rather than through stdin: with `-` on
+      # stdin hadolint reports every finding against a file named `-`, which is
+      # useless the moment this job is red across several Dockerfiles.
+      #
+      # Pulled by DIGEST, so the reference is immutable whatever the tag does.
+      # The tag stays for humans and as Renovate's handle: the custom manager in
+      # renovate.json5 reads tag and digest together, so an upgrade arrives as a
+      # reviewable pull request carrying its new findings instead of as a
+      # surprise red job on unrelated branches.
+      #
+      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
+      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -71,79 +118,68 @@ jobs:
               - 'docker/knowledge/**'
               - 'spec/knowledge/rag/**'
               - '.github/workflows/docker-lint-build.yml'
+              # context `.` → the root .dockerignore is part of this build's input (#1596)
+              - '.dockerignore'
             embedding-service:
               - 'docker/embedding-service/**'
               - '.github/workflows/docker-lint-build.yml'
+              # This job runs the smoke script; a change to it must run this job.
+              - 'scripts/ci/smoke_model_image.sh'
+              # ... and the contract probe (#1725), likewise.
+              - 'scripts/ci/probe_model_service_contract.py'
             reranker-service:
               - 'docker/reranker-service/**'
               - '.github/workflows/docker-lint-build.yml'
+              # This job runs the smoke script; a change to it must run this job.
+              - 'scripts/ci/smoke_model_image.sh'
+              # ... and the contract probe (#1725), likewise.
+              - 'scripts/ci/probe_model_service_contract.py'
             knowledge-service:
               - 'src/knowledge-service/**'
               - '.github/workflows/docker-lint-build.yml'
             inference-service:
               - 'src/inference-service/**'
               - '.github/workflows/docker-lint-build.yml'
-
-  hadolint:
-    runs-on: ubuntu-latest
-    env:
-      # The LINTER is pinned here, not just the action that wrapped it (#898).
-      #
-      # `hadolint/hadolint-action` was already SHA-pinned, which looked exact and
-      # was not: that action's own Dockerfile does
-      # `FROM ghcr.io/hadolint/hadolint:v2.15.0-debian`, so the binary floated
-      # independently of the pin. When 2.15.0 shipped, DL3025 began flagging
-      # shell-form `HEALTHCHECK … CMD`; this job turned red on every branch
-      # without a single repository change, and because it is a `needs:`
-      # predecessor of all eight `build-*` jobs, nothing built at all. That is
-      # the NFR-018 §1 failure class — a check that looks pinned but is not.
-      #
-      # Run against the mounted file rather than through stdin: with `-` on
-      # stdin hadolint reports every finding against a file named `-`, which is
-      # useless the moment this job is red across several Dockerfiles.
-      #
-      # Pulled by DIGEST, so the reference is immutable whatever the tag does.
-      # The tag stays for humans and as Renovate's handle: the custom manager in
-      # renovate.json5 reads tag and digest together, so an upgrade arrives as a
-      # reviewable pull request carrying its new findings instead of as a
-      # surprise red job on unrelated branches.
-      #
-      # renovate: datasource=docker depName=ghcr.io/hadolint/hadolint
-      HADOLINT_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
+              # This job runs the smoke script; a change to it must run this job.
+              - 'scripts/ci/smoke_model_image.sh'
       - name: Lint backend Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/backend/Dockerfile
 
       - name: Lint frontend Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/frontend/Dockerfile
 
       - name: Lint vectordb Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/vectordb/Dockerfile
 
       - name: Lint knowledge Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/knowledge/Dockerfile
 
       - name: Lint embedding-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/embedding-service/Dockerfile
 
       - name: Lint reranker-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint docker/reranker-service/Dockerfile
 
       - name: Lint knowledge-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/knowledge-service/Dockerfile
@@ -154,16 +190,24 @@ jobs:
       # below closes that; `tests/unit/guards/test_docker_lint_build_coverage.py`
       # keeps lint and build enumerating the same set of Dockerfiles.
       - name: Lint inference-service Dockerfile
+        if: ${{ !cancelled() }}
         run: |
           docker run --rm -v "$PWD":/w -w /w "$HADOLINT_IMAGE" \
             hadolint src/inference-service/Dockerfile
 
   build-backend:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -178,11 +222,18 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-frontend:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -197,11 +248,18 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-vectordb:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.vectordb == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -216,11 +274,18 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-knowledge:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.knowledge == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -235,11 +300,35 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-embedding-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.embedding-service == 'true'
     runs-on: ubuntu-latest
+    # #1764 — EVERY PINNED MODEL, NOT ONLY THE SHIPPED ONE. This job used to
+    # build one target, the last stage (`minilm`), so the three e5 models were
+    # compared against their golden outputs nowhere: a change to the shared
+    # runtime (main.py, tokenization.py, feed.py, the lock) that broke only an
+    # e5 model passed here. One leg per final stage that ships a pinned model;
+    # src/backend/tests/unit/guards/test_every_pinned_model_is_probed_in_ci.py
+    # derives that set from the Dockerfile and fails while a leg is missing.
+    #
+    # The legs run only when this job's filter matches (the model-bearing
+    # inputs, the smoke script, the probe, this file), so the cost lands on
+    # pull requests that change the model service and nowhere else.
+    # `fail-fast: false`: one model's red leg must not cancel the evidence the
+    # other legs produce.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [minilm, e5-small, e5-base, e5-large]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -249,16 +338,62 @@ jobs:
         with:
           context: docker/embedding-service
           file: docker/embedding-service/Dockerfile
+          target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          tags: kp-embedding-service:pr
+          # One cache scope per leg (#1764): the legs run concurrently, and
+          # legs sharing the default scope overwrite each other's cache
+          # manifest, so each would restore whichever leg exported last —
+          # mostly a miss on its own model download stage.
+          cache-from: type=gha,scope=embedding-service-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=embedding-service-${{ matrix.target }}
+
+      # A build is not a start (#1609) — see the note in `build-reranker-service`.
+      # `load: true` above is what lets this step `docker run` what was built.
+      - name: Prove the embedding service serves its model
+        run: scripts/ci/smoke_model_image.sh kp-embedding-service:pr 8080 /ready
+
+      # #1725 — READY IS NOT THE CONTRACT. The smoke step above proves the model
+      # loads; this one proves the ready image answers `/embed` correctly (two
+      # normalised vectors of the model's width), answers an empty list, and
+      # refuses a request past docker/embedding-service/limits.py with a 422 —
+      # started read-only, capability-free and as UID 1000, as the chart runs
+      # it. The leg's `target:` above decides the model; the probe reads the
+      # width from the image's own config.json and picks the golden file by
+      # the model the image declares (`EMBEDDING_MODEL`).
+      #
+      # #1763 — SHAPE IS NOT CONTENT. The pre-#1758 MiniLM image passed all of
+      # the above while embedding `<unk>` tokens. The probe therefore also
+      # requires the image's vectors for a few fixed inputs (English, German,
+      # mixed-language, >512 tokens) to match
+      # docker/embedding-service/golden/<target>.json within a measured
+      # tolerance — values computed once from the pinned model files and bound
+      # to the `revision=` pin by
+      # src/backend/tests/unit/guards/test_model_golden_outputs_match_pins.py.
+      - name: Prove the embedding service serves its bounded contract
+        run: scripts/ci/probe_model_service_contract.py kp-embedding-service:pr embedding
 
   build-reranker-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.reranker-service == 'true'
     runs-on: ubuntu-latest
+    # #1764 — every pinned model, as in `build-embedding-service` above: this
+    # job used to build `bge-reranker-v2-m3` only, so `ms-marco-minilm` was
+    # compared against its golden outputs nowhere.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [bge-reranker-v2-m3, ms-marco-minilm]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -268,17 +403,54 @@ jobs:
         with:
           context: docker/reranker-service
           file: docker/reranker-service/Dockerfile
-          target: bge-reranker-v2-m3
+          target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          load: true
+          tags: kp-reranker-service:pr
+          # One cache scope per leg — see `build-embedding-service`.
+          cache-from: type=gha,scope=reranker-service-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=reranker-service-${{ matrix.target }}
+
+      # #1609 — A BUILD IS NOT A START.
+      #
+      # `docker/reranker-service` built green here for weeks while its service
+      # could never become ready: the ONNX export saved no tokenizer, the
+      # preload thread died, and because it is a daemon thread the process
+      # stayed up. `/health` answered 200 and the image's TCP HEALTHCHECK
+      # passed. Every image in this file that ships a model exported at build
+      # time now has to prove it can serve it, not just that it compiled.
+      #
+      # `load: true` above is what makes that possible: without it buildx keeps
+      # the result in its cache and nothing can `docker run` it.
+      # src/backend/tests/unit/guards/test_model_images_prove_readiness.py
+      # asserts the pairing over the whole class.
+      - name: Prove the reranker serves its model
+        run: scripts/ci/smoke_model_image.sh kp-reranker-service:pr 8081 /ready
+
+      # #1725 — READY IS NOT THE CONTRACT. The smoke step above proves the model
+      # loads; this one proves the ready image ranks the one relevant document
+      # of three first, answers `documents: []` with `{"results": []}`, and
+      # refuses 101 documents and a 4097-character query with a 422
+      # (docker/reranker-service/limits.py) — started read-only,
+      # capability-free and as UID 1000, as the chart runs it. Since #1763 it
+      # also requires the logits behind the scores of fixed query/document
+      # pairs to match docker/reranker-service/golden/<target>.json.
+      - name: Prove the reranker serves its bounded contract
+        run: scripts/ci/probe_model_service_contract.py kp-reranker-service:pr reranker
 
   build-knowledge-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.knowledge-service == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -298,11 +470,18 @@ jobs:
   # ships `prod` as its last stage and `docker-publish.yml` names none either;
   # naming one here would let the published stage break while this stayed green.
   build-inference-service:
-    needs: [changes, hadolint]
+    needs: changes
     if: needs.changes.outputs.inference-service == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Log in to Docker Hub
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -313,5 +492,20 @@ jobs:
           context: src/inference-service
           file: src/inference-service/Dockerfile
           push: false
+          load: true
+          tags: kp-inference-service:pr
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # A build is not a start (#1609) — see the note in `build-reranker-service`.
+      # `load: true` above is what lets this step `docker run` what was built.
+      #
+      # This one is proved by loading the graph inside the image rather than by
+      # starting the server, and that is measured, not a shortcut: the lifespan
+      # in src/inference-service/app/main.py connects to pgvector and runs
+      # migrations BEFORE `Embedder.start_load()`, so a lone container never
+      # answers at all. An HTTP probe here would assert the absence of a
+      # database; this asserts the presence of a usable model, which is the
+      # thing #1609 was about. The dimension comes from MODEL_DIM in the chart.
+      - name: Prove the inference service ships a loadable model
+        run: scripts/ci/smoke_model_image.sh kp-inference-service:pr model /app/models/dinov2 384 224

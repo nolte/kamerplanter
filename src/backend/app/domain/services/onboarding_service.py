@@ -7,51 +7,97 @@ import structlog
 
 from app.common.datetimes import today_utc
 from app.common.enums import SiteType
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
-from app.data_access.arango.base_repository import BaseArangoRepository
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
+from app.common.log_privacy import loggable_error
+from app.data_access.arango.onboarding_state_repository import ArangoOnboardingStateRepository
 from app.domain.engines.onboarding_engine import OnboardingEngine
 from app.domain.models.onboarding import OnboardingState, PlantConfig
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Site
+from app.domain.services.favorites_service import FavoritesService
 from app.domain.services.singleton_document import pick_singleton
 from app.domain.services.starter_kit_service import StarterKitService
+from app.domain.services.user_preference_service import UserPreferenceService
 
 logger = structlog.get_logger()
 
 
 class OnboardingService:
-    def __init__(self, db, starter_kit_service: StarterKitService) -> None:
-        from app.data_access.arango import collections as col
-
-        # Service-embedded dict view: methods below wrap the raw dict into
-        # OnboardingState themselves, so opt into raw mode (FR-002 A3).
-        self._repo = BaseArangoRepository(db, col.ONBOARDING_STATES, raw=True)
-        self._db = db
+    def __init__(
+        self,
+        state_repo: ArangoOnboardingStateRepository,
+        starter_kit_service: StarterKitService,
+        *,
+        favorites_service: FavoritesService,
+        user_preference_service: UserPreferenceService,
+    ) -> None:
+        # Raw-mode repository: the methods below wrap the raw dict into
+        # OnboardingState themselves (FR-002 A3). It is a named class since #1516 —
+        # ``onboarding_states`` needs full-replace null semantics or
+        # ``reset_wizard`` cannot clear the previous run's selections.
+        #
+        # Every collaborator is injected (#1638). This service used to keep the
+        # ``StandardDatabase`` only to build FavoritesService and
+        # UserPreferenceService from it on demand, which made it a holder of a
+        # persistence handle without ever querying through one.
+        self._repo = state_repo
         self._kit_service = starter_kit_service
+        self._favorites = favorites_service
+        self._preferences = user_preference_service
         self._engine = OnboardingEngine()
 
-    def get_state(self, user_key: str) -> OnboardingState:
+    def _stored(self, user_key: str) -> OnboardingState | None:
+        """The user's stored wizard state, or ``None`` — the read, with no side effect."""
         from app.data_access.arango import collections as col
 
         docs = self._repo.find_by_field("user_key", user_key)
-        if docs:
-            return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
-        # Auto-create initial state. Two concurrent cold reads both find the
-        # collection empty and both try to insert; the unique index on
-        # ``user_key`` makes the loser's insert raise DuplicateError. Re-read and
-        # return the winner's document instead of surfacing a 409 (upsert
-        # semantics) — this is the auto-create race that used to mint duplicate
-        # singletons under parallel load.
-        state = OnboardingState(user_key=user_key)
+        if not docs:
+            return None
+        return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
+
+    def get_state(self, user_key: str) -> OnboardingState:
+        """Return the caller's wizard state — **without persisting one**.
+
+        This used to auto-create the singleton on a cold read, which made
+        ``GET /t/{slug}/onboarding/state`` a write on a safe method: entry 7 of
+        the #1443 detector inventory, filed as #1461. A user who merely opens the
+        app got a row written for a wizard they had not started.
+
+        The answer is unchanged — an unmaterialised user gets the same initial
+        state the freshly created document would have carried — except that
+        ``key`` is ``None`` until a write materialises the row. Every method below
+        that writes goes through :meth:`_materialise` instead, so the row appears
+        on the first real wizard action.
+        """
+        stored = self._stored(user_key)
+        return stored if stored is not None else OnboardingState(user_key=user_key)
+
+    def _materialise(self, user_key: str) -> OnboardingState:
+        """Return the stored state, creating the singleton if there is none.
+
+        The auto-create that used to sit on the read path (#1461). Two concurrent
+        FIRST WRITES both find the collection empty and both insert; the unique
+        index on ``user_key`` refuses the loser, and the re-read resolves it.
+
+        BOTH refusals are caught (#1458): 1210 (DuplicateError) once the winner's
+        unique-index entry is committed and visible, 1200 (WriteConflictError)
+        while its transaction still holds it. See
+        :meth:`UserPreferenceService._materialise` for the same pairing.
+        """
+        stored = self._stored(user_key)
+        if stored is not None:
+            return stored
         try:
-            doc = self._repo.create(state)
-        except DuplicateError:
-            docs = self._repo.find_by_field("user_key", user_key)
-            return OnboardingState(**pick_singleton(docs, collection=col.ONBOARDING_STATES, user_key=user_key))
+            doc = self._repo.create(OnboardingState(user_key=user_key))
+        except DuplicateError, WriteConflictError:
+            winner = self._stored(user_key)
+            if winner is None:  # pragma: no cover - the index refused us; somebody holds the row
+                raise
+            return winner
         return OnboardingState(**doc)
 
     def save_progress(self, user_key: str, wizard_step: int, **kwargs) -> OnboardingState:
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         data = state.model_dump()
         data["wizard_step"] = wizard_step
         data.update(kwargs)
@@ -77,7 +123,7 @@ class OnboardingService:
         smart_home_enabled: bool | None = None,
     ) -> dict:
         """Complete the onboarding wizard, creating site and plants."""
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         created_entities: dict[str, list[str]] = {}
 
         # Derive plant_count from plant_configs if provided
@@ -129,9 +175,7 @@ class OnboardingService:
         fav_plans = favorite_nutrient_plan_keys or []
 
         if fav_species or fav_plans:
-            from app.domain.services.favorites_service import FavoritesService
-
-            fav_service = FavoritesService(self._db)
+            fav_service = self._favorites
             for species_key in fav_species:
                 with contextlib.suppress(ValueError, Exception):
                     fav_service.add_favorite(user_key, species_key, tenant_key=tenant_key, source="onboarding")
@@ -168,10 +212,7 @@ class OnboardingService:
         if smart_home_enabled is not None:
             pref_updates["smart_home_enabled"] = smart_home_enabled
         if pref_updates:
-            from app.domain.services.user_preference_service import UserPreferenceService
-
-            pref_service = UserPreferenceService(self._db)
-            pref_service.update_preferences(user_key, pref_updates)
+            self._preferences.update_preferences(user_key, pref_updates)
 
         return {
             "status": "completed",
@@ -259,7 +300,7 @@ class OnboardingService:
                     tenant_key=tenant_key,
                 )
                 try:
-                    created = plant_service.create_plant(plant, skip_validation=True)
+                    created = plant_service.create_plant(plant, skip_validation=True, tenant_key=tenant_key)
                 except NotFoundError as exc:
                     # The expected refusal: the species (or another reference the
                     # wizard carries) does not resolve under this tenant. Named
@@ -269,7 +310,8 @@ class OnboardingService:
                         "onboarding_plant_skipped_unresolvable_reference",
                         species_key=species_key,
                         instance_id=instance_id,
-                        reason=exc.message,
+                        # Names the catalogue key that did not resolve — not a person.
+                        reason=loggable_error(exc),
                     )
                     skipped.append({"entity_type": "plant_instance", "key": species_key, "reason": exc.message})
                     continue
@@ -316,9 +358,12 @@ class OnboardingService:
         # TODO: REQ-027 — full mode-switch integration
         """
         if takeover_accepted is None:
-            return self.get_state(user_key)
+            # ``ensure``, so this branch materialises too (#1461). The read-only
+            # getter would leave the method's own name untrue for a caller that
+            # passes no takeover decision.
+            return self._materialise(user_key)
 
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         data = state.model_dump()
         if takeover_accepted:
             data.update(
@@ -352,11 +397,9 @@ class OnboardingService:
         edge list and prune by ``source`` to make the reset deterministic.
         Manually added favorites (``source='manual'``) are preserved.
         """
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
 
-        from app.domain.services.favorites_service import FavoritesService
-
-        fav_service = FavoritesService(self._db)
+        fav_service = self._favorites
         for edge in fav_service.list_favorites(user_key):
             if edge.get("source") not in ("onboarding", "cascade"):
                 continue
@@ -391,7 +434,7 @@ class OnboardingService:
         return OnboardingState(**doc)
 
     def skip_wizard(self, user_key: str) -> OnboardingState:
-        state = self.get_state(user_key)
+        state = self._materialise(user_key)
         data = state.model_dump()
         data["skipped"] = True
         data["completed_at"] = datetime.now(UTC).isoformat()

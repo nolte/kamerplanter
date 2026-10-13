@@ -5,6 +5,8 @@ import uuid
 import structlog
 from fastapi import Request, Response
 
+from app.common.request_context import start_request
+
 
 async def request_id_middleware(request: Request, call_next) -> Response:  # type: ignore[type-arg]
     """Assign a unique request ID to every request for end-to-end tracing.
@@ -26,6 +28,9 @@ async def request_id_middleware(request: Request, call_next) -> Response:  # typ
         request_id = str(uuid.uuid4())
 
     structlog.contextvars.bind_contextvars(request_id=request_id)
+    # The holder the sync auth dependencies record actor and tenant on (#2130);
+    # see ``app.common.request_context`` for why a ContextVar binding there is lost.
+    start_request(request_id)
     try:
         response: Response = await call_next(request)
         response.headers["X-Request-ID"] = request_id

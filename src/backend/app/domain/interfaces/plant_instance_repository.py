@@ -1,13 +1,28 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.common.types import PlantID, SlotKey, SpeciesKey
+from app.common.types import PlantID, SlotKey
 from app.domain.models.plant_instance import PlantInstance
 
 
 class IPlantInstanceRepository(ABC):
     @abstractmethod
-    def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[PlantInstance], int]: ...
+    def list_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[PlantInstance]:
+        """One ``_key``-ordered page of the tenant's rows, without a count (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
+    def get_all(
+        self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
+    ) -> tuple[list[PlantInstance], int]: ...
 
     @abstractmethod
     def get_by_key(self, key: PlantID) -> PlantInstance | None: ...
@@ -16,7 +31,7 @@ class IPlantInstanceRepository(ABC):
     def get_or_raise(self, key: PlantID) -> PlantInstance: ...
 
     @abstractmethod
-    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None: ...
+    def get_by_instance_id(self, instance_id: str, *, tenant_key: str) -> PlantInstance | None: ...
 
     @abstractmethod
     def create(self, plant: PlantInstance) -> PlantInstance: ...
@@ -25,10 +40,18 @@ class IPlantInstanceRepository(ABC):
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance: ...
 
     @abstractmethod
-    def delete(self, key: PlantID) -> bool: ...
+    def increment_chill_days(self, key: PlantID) -> int | None:
+        """Add one vernalisation chill day to a live plant, atomically (#1970).
+
+        Returns the new ``chill_days_accumulated``, or ``None`` when the plant is
+        gone or removed. A single server-side increment, so it commutes with any
+        concurrent write of another field and with a concurrent run of itself;
+        the beat task must not write a whole-plant snapshot back instead.
+        """
+        ...
 
     @abstractmethod
-    def get_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]: ...
+    def delete(self, key: PlantID) -> bool: ...
 
     @abstractmethod
     def get_active_by_slot(self, slot_key: SlotKey, *, tenant_key: str) -> list[PlantInstance]:
@@ -39,9 +62,6 @@ class IPlantInstanceRepository(ABC):
     def get_history_by_slot(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
         """Return a slot's planting history inside ``tenant_key`` (#927)."""
         ...
-
-    @abstractmethod
-    def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]: ...
 
     @abstractmethod
     def create_descended_from_edge(self, child_key: PlantID, mother_key: PlantID) -> None:

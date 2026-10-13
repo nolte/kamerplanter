@@ -91,7 +91,7 @@ Jede Domänenentität **MUSS** folgende UI-Operationen unterstützen:
 ### 2.2 Create-Dialog / Create-Seite
 
 **MUSS**:
-- Einleitungstext oberhalb des Formulars, der dem Nutzer kurz erklärt, was er anlegt und welche Auswirkungen das Erstellen hat (z.B. *„Legen Sie eine neue Botanische Familie an. Familien gruppieren Pflanzenarten mit ähnlichem Nährstoffbedarf."*)
+- Einleitungstext oberhalb des Formulars, der dem Nutzer kurz erklärt, was er anlegt und welche Auswirkungen das Erstellen hat (z.B. *„Lege eine neue Botanische Familie an. Familien gruppieren Pflanzenarten mit ähnlichem Nährstoffbedarf."*)
 - Alle Pflichtfelder sind visuell gekennzeichnet (Asterisk `*` im Label)
 - Eingabevalidierung via Zod-Schema mit feldspezifischen Fehlermeldungen
 - Hinweistexte (`helperText`) für Felder, die Erklärung benötigen (vgl. REQ-012 UI-NFR-003)
@@ -130,7 +130,7 @@ Jede Domänenentität **MUSS** folgende UI-Operationen unterstützen:
 ### 2.4 Update / Edit-Formular
 
 **MUSS**:
-- Einleitungstext oberhalb des Formulars, der dem Nutzer erklärt, welchen Datensatz er bearbeitet und worauf er achten sollte (z.B. *„Bearbeiten Sie die Eigenschaften dieser Botanischen Familie. Änderungen wirken sich auf alle zugeordneten Arten aus."*)
+- Einleitungstext oberhalb des Formulars, der dem Nutzer erklärt, welchen Datensatz er bearbeitet und worauf er achten sollte (z.B. *„Bearbeite die Eigenschaften dieser Botanischen Familie. Änderungen wirken sich auf alle zugeordneten Arten aus."*)
 - Formular wird mit den aktuellen Werten des Datensatzes vorbelegt
 - Gleiche Validierungsregeln wie beim Create-Dialog (Zod-Schema)
 - `UnsavedChangesGuard` (`src/frontend/src/components/form/UnsavedChangesGuard.tsx`) warnt vor dem Verlassen bei ungespeicherten Änderungen
@@ -159,7 +159,7 @@ Jede Domänenentität **MUSS** folgende UI-Operationen unterstützen:
 Jede Domänenentität **MUSS** eine tabellarische Listenansicht besitzen, die auf der `DataTable`-Komponente (`src/frontend/src/components/common/DataTable.tsx`) basiert.
 
 **MUSS**:
-- Einleitungstext oberhalb der Tabelle (unterhalb des Seitentitels), der dem Nutzer kurz erklärt, welche Datensätze die Liste enthält und wofür sie verwendet werden (z.B. *„Botanische Familien gruppieren Pflanzenarten nach Verwandtschaft und bestimmen den typischen Nährstoffbedarf. Klicken Sie auf einen Eintrag, um Details und zugehörige Arten zu sehen."*)
+- Einleitungstext oberhalb der Tabelle (unterhalb des Seitentitels), der dem Nutzer kurz erklärt, welche Datensätze die Liste enthält und wofür sie verwendet werden (z.B. *„Botanische Familien gruppieren Pflanzenarten nach Verwandtschaft und bestimmen den typischen Nährstoffbedarf. Klicke auf einen Eintrag, um Details und zugehörige Arten zu sehen."*)
 - Spalten zeigen die wichtigsten Felder der Entität (Name, Status, Typ, Datum etc.)
 - Zeilenklick navigiert zur Detail-Ansicht (`onRowClick`)
 - Jede Zeile ist über einen eindeutigen Schlüssel identifizierbar (`getRowKey`)

@@ -13,6 +13,7 @@ from app.common.exceptions import (
     FeatureNotConfiguredError,
     NotFoundError,
 )
+from app.common.log_privacy import log_subject, log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.config.settings import settings
 from app.domain.engines.consent_engine import ConsentEngine
@@ -271,12 +272,12 @@ class IdentificationService:
 
         logger.info(
             "photo_quality_assessment_requested",
-            tenant_key=tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(tenant_key),
+            subject=log_subject(user_key),
             adapter=adapter.adapter_key,
             external=self._is_external(adapter_key),
         )
-        return self._engine.identify_raw(adapter, image_data, organ=organ, language=language)
+        return self._engine.identify_raw(adapter, image_data, organ=organ, language=language, tenant_key=tenant_key)
 
     def list_assessment_adapters(self) -> list[dict]:
         """Adapter choices for the quality-assessment UI (REQ-034 §4a.1).
@@ -343,7 +344,7 @@ class IdentificationService:
         if self._plant_instance_repo is None:  # pragma: no cover - misconfiguration guard
             raise RuntimeError("link_plant_instance requires a plant_instance_repo.")
 
-        request = self._identification_repo.get(request_key, tenant_key)
+        request = self._identification_repo.get(request_key, tenant_key=tenant_key)
         if request is None:
             raise NotFoundError("IdentificationRequest", request_key)
 

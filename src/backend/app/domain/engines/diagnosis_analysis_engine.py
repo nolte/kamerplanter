@@ -26,6 +26,7 @@ import re
 import structlog
 from pydantic import ValidationError
 
+from app.common.log_privacy import loggable_error
 from app.domain.interfaces.knowledge_service import AskResult, IKnowledgeService, QuestionContext
 from app.domain.models.diagnosis import LlmDiagnosis, SymptomCatalogEntry
 
@@ -187,7 +188,7 @@ class DiagnosisAnalysisEngine:
         except (ValueError, ValidationError, json.JSONDecodeError) as exc:
             # First-attempt parse/validation failure → fall through to the
             # stricter retry below (§4.3 two-attempt strategy).
-            logger.debug("diagnosis.first_attempt_parse_failed", error=str(exc))
+            logger.debug("diagnosis.first_attempt_parse_failed", error=loggable_error(exc))
 
         # Second, stricter attempt (§4.3 two-attempt strategy).
         strict_question = self.build_question(

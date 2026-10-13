@@ -48,7 +48,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.services.task_service import TaskService
 from tests.conftest import wire_or_raise
@@ -103,7 +103,9 @@ def _service(template: TaskTemplate | None = None) -> tuple[TaskService, MagicMo
 
 
 def _template(**overrides) -> TaskTemplate:
-    return TaskTemplate(_key="tt-1", name="Giessen", **overrides)
+    # Owned by the caller unless a test says otherwise: an owner-less template is a
+    # shared one and not writable (#2101).
+    return TaskTemplate(_key="tt-1", name="Giessen", **{"tenant_key": TENANT_KEY, **overrides})
 
 
 class TestASystemWorkflowRefusesTaskTemplateChildren:
@@ -140,7 +142,7 @@ class TestASystemWorkflowRefusesTaskTemplateChildren:
                 tenant_key=TENANT_KEY,
             )
         with pytest.raises(ValidationError) as parent:
-            service.update_workflow_template(SYSTEM_WORKFLOW, {"name": "Hijacked"})
+            service.update_workflow_template(SYSTEM_WORKFLOW, {"name": "Hijacked"}, tenant_key=TENANT_KEY)
 
         assert child.value.status_code == parent.value.status_code == 422
         assert child.value.error_code == parent.value.error_code == "VALIDATION_ERROR"
@@ -173,6 +175,7 @@ class TestASystemWorkflowRefusesPhaseChildren:
         with pytest.raises(ValidationError):
             service.create_workflow_phase(
                 WorkflowPhase(workflow_template_key=SYSTEM_WORKFLOW, name="Neue Phase"),
+                tenant_key=TENANT_KEY,
             )
 
         repo.create_phase.assert_not_called()
@@ -181,7 +184,7 @@ class TestASystemWorkflowRefusesPhaseChildren:
         service, repo = _service()
 
         with pytest.raises(ValidationError):
-            service.update_workflow_phase("ph-sys", {"name": "Umbenannt"})
+            service.update_workflow_phase("ph-sys", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
 
         repo.update_phase.assert_not_called()
 
@@ -189,7 +192,7 @@ class TestASystemWorkflowRefusesPhaseChildren:
         service, repo = _service()
 
         with pytest.raises(ValidationError):
-            service.delete_workflow_phase("ph-sys")
+            service.delete_workflow_phase("ph-sys", tenant_key=TENANT_KEY)
 
         repo.delete_phase.assert_not_called()
 
@@ -307,6 +310,7 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
 
         created = service.create_workflow_phase(
             WorkflowPhase(workflow_template_key=OWN_WORKFLOW, name="Neue Phase"),
+            tenant_key=TENANT_KEY,
         )
 
         assert created.workflow_template_key == OWN_WORKFLOW
@@ -315,8 +319,8 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
     def test_the_callers_own_phase_is_still_editable_and_deletable(self) -> None:
         service, repo = _service()
 
-        assert service.update_workflow_phase("ph-own", {"name": "Umbenannt"}).name == "Umbenannt"
-        assert service.delete_workflow_phase("ph-own") is True
+        assert service.update_workflow_phase("ph-own", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
+        assert service.delete_workflow_phase("ph-own", tenant_key=TENANT_KEY) is True
         repo.update_phase.assert_called_once()
         repo.delete_phase.assert_called_once()
 
@@ -328,33 +332,78 @@ class TestTheTenantsOwnWorkflowStillAcceptsChildren:
         repo.update_task_template.assert_called_once()
         repo.delete_task_template.assert_called_once()
 
-    def test_a_global_standalone_template_is_left_editable(self) -> None:
-        """A standalone template backfilled to the global catalogue (``tenant_key
-        == ""``) stays writable by every tenant — #324's positive direction.
+    def test_a_global_standalone_template_is_not_editable(self) -> None:
+        """A standalone template with no owner (``tenant_key == ""``) is shared, not editable (#2101).
 
-        This is the documented limitation of item 1's backfill: a template that
-        predates the ownership field and was never attached to a workflow has no
-        stored owner to recover, so ``v0035`` lands it in the global catalogue.
-        Refusing it here would hide a row that was editable before and break the
-        #324 guarantee. Newly created standalone templates are stamped with the
-        caller's tenant and are therefore *not* global — they are covered by
-        ``TestForeignTenantTaskTemplatesAreRefused``.
+        Migration ``v0035`` lands the templates it could not attribute in the global
+        catalogue. This test used to pin them **editable** by every tenant — the
+        positive direction of #324 — and thereby certified the defect: the read side
+        of the hybrid catalogue admits ``""``, the write side must not. Newly created
+        templates are stamped with their owner and stay editable by it
+        (``test_the_callers_own_task_template_is_still_editable_and_deletable``).
         """
-        service, repo = _service(_template())  # tenant_key defaults to "" (global)
+        service, repo = _service(_template(tenant_key=""))
 
-        assert service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY).name == "Umbenannt"
-        service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
-        repo.update_task_template.assert_called_once()
-        repo.delete_task_template.assert_called_once()
+        with pytest.raises(ForbiddenError):
+            service.update_task_template("tt-1", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        with pytest.raises(ForbiddenError):
+            service.delete_task_template("tt-1", tenant_key=TENANT_KEY)
+        repo.update_task_template.assert_not_called()
+        repo.delete_task_template.assert_not_called()
 
-    def test_a_phase_with_no_parent_workflow_is_left_alone(self) -> None:
-        """An unparented phase has nothing to anchor on; the guard must not 404 it."""
+    def test_a_phase_with_no_parent_workflow_has_no_owner_to_write_for(self) -> None:
+        """An unparented phase has nothing to anchor a tenant on, so no tenant writes it (#2107).
+
+        This test used to pin the orphan as editable at the service, while the
+        routes in front of it answered 404: they resolved ``get_workflow_template("")``
+        under the caller's tenant before calling the service. Now that the tenant
+        check lives in the service, the service gives the route's answer itself.
+        """
         service, repo = _service()
 
-        assert service.update_workflow_phase("ph-orphan", {"name": "Umbenannt"}).name == "Umbenannt"
-        assert service.delete_workflow_phase("ph-orphan") is True
-        repo.update_phase.assert_called_once()
-        repo.delete_phase.assert_called_once()
+        with pytest.raises(NotFoundError):
+            service.update_workflow_phase("ph-orphan", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+        with pytest.raises(NotFoundError):
+            service.delete_workflow_phase("ph-orphan", tenant_key=TENANT_KEY)
+        repo.update_phase.assert_not_called()
+        repo.delete_phase.assert_not_called()
+
+
+class TestAForeignTenantsWorkflowRefusesPhaseWrites:
+    """#2107: the phase writes check the parent's tenant themselves, not the calling route.
+
+    ``create_workflow_phase`` / ``update_workflow_phase`` / ``delete_workflow_phase``
+    resolved the parent workflow **without** a tenant; the router ran the tenant
+    check first. A second caller (an MCP tool, a task) that skipped that pre-check
+    wrote into another tenant's workflow.
+    """
+
+    def test_creating_a_phase_in_a_foreign_workflow_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.create_workflow_phase(
+                WorkflowPhase(workflow_template_key=FOREIGN_WORKFLOW, name="Eingeschleust"),
+                tenant_key=TENANT_KEY,
+            )
+
+        repo.create_phase.assert_not_called()
+
+    def test_updating_a_phase_of_a_foreign_workflow_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.update_workflow_phase("ph-foreign", {"name": "Umbenannt"}, tenant_key=TENANT_KEY)
+
+        repo.update_phase.assert_not_called()
+
+    def test_deleting_a_phase_of_a_foreign_workflow_is_refused(self) -> None:
+        service, repo = _service()
+
+        with pytest.raises(NotFoundError):
+            service.delete_workflow_phase("ph-foreign", tenant_key=TENANT_KEY)
+
+        repo.delete_phase.assert_not_called()
 
 
 class TestWhatTheUiLegitimatelyDoesWithSystemWorkflowsStillWorks:
@@ -395,7 +444,7 @@ class TestWhatTheUiLegitimatelyDoesWithSystemWorkflowsStillWorks:
         )
         repo.create_task.side_effect = lambda task: task.model_copy(update={"key": "task-1"})
 
-        execution = service.instantiate_workflow(SYSTEM_WORKFLOW, "plant-1", "plant_instance")
+        execution = service.instantiate_workflow(SYSTEM_WORKFLOW, "plant-1", "plant_instance", tenant_key=TENANT_KEY)
 
         assert execution.workflow_template_key == SYSTEM_WORKFLOW
         repo.create_task.assert_called_once()

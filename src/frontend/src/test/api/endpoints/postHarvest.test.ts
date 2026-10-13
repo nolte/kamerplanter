@@ -100,6 +100,6 @@ describe('post-harvest endpoints', () => {
   it('getObservations lists observations', async () => {
     client.get.mockResolvedValue({ data: [] });
     await postHarvest.getObservations('ph1');
-    expect(client.get).toHaveBeenCalledWith('/post-harvest/ph1/observations');
+    expect(client.get).toHaveBeenCalledWith('/post-harvest/ph1/observations', { params: { offset: 0, limit: 200 } });
   });
 });

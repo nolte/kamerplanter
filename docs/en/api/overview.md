@@ -207,13 +207,30 @@ All request bodies and responses use `application/json`. An explicit `Content-Ty
 
 ### Pagination
 
-List endpoints support `skip` and `limit` as query parameters:
+List endpoints answer with a JSON array and read a bounded window through the query parameters `offset` and `limit`:
 
 ```http
-GET /api/v1/species/?skip=0&limit=50
+GET /api/v1/t/my-garden/plant-instances?offset=0&limit=50
 ```
 
-Defaults: `skip=0`, `limit=100` (varies by endpoint).
+| Parameter | Default | Range | Meaning |
+|---|---|---|---|
+| `offset` | `0` | ≥ 0 | Number of items to skip |
+| `limit` | `50` | 1–200 | Maximum number of items per response; `limit=201` is refused with `422` |
+
+The response carries no total. Read the next page until a page is shorter than `limit`. That is why there is no parameter like `include_total`: since issue #2131 no list counts every item internally on each page either — neither a garden's growing lists (tasks, diary, inspections, treatments, harvest, propagation, runs, imports) nor the catalogues and settings lists (sites, tanks, fertilizers, nutrient plans, succession plans, overwintering, rooting protocols, workflow templates, activities, pests, diseases, treatments, harvest indicators, phases).
+
+!!! warning "Without `limit` you get only the first 50 items"
+    Since issue #2131 these lists are bounded too, which used to return **every** item: `GET /admin/platform/tenants`, `GET /admin/platform/users`, `GET /tenants/{slug}/invitations`, `GET /t/{slug}/ai/conversations`, `GET /t/{slug}/tasks/plants/{plant_key}`, `GET /t/{slug}/post-harvest/{key}/observations`, `GET /tenants/{slug}/members`, `GET /tenants/{slug}/assignments`, `GET /admin/platform/tenants/{tenant_key}/members`, `GET /t/{slug}/tasks/workflows/{key}/executions`, `GET /t/{slug}/inventree/references` and `GET /t/{slug}/propagation/stats/by-cultivar`. A client that sends no `limit` there now receives the first 50 items instead of all of them. Read further pages with `offset`.
+
+**Cursor instead of `offset`.** The lists `GET /t/{slug}/plant-instances`, `/watering-logs`, `/watering-events` and `/feeding-events` are sorted by `key` and also accept `after`: the `key` of the last item of the previous page.
+
+```http
+GET /api/v1/t/my-garden/watering-logs?limit=200
+GET /api/v1/t/my-garden/watering-logs?limit=200&after=<key of the last item>
+```
+
+An empty page ends the list. A page with `after` costs the same at item 50,000 as the first one, while a page with `offset=49950` reads every item before it. The API refuses `after` together with an `offset` greater than 0 with `422`, and an `after` value containing characters a key cannot hold.
 
 ### Date Format
 
@@ -268,6 +285,6 @@ Every API response includes the following security headers:
 
 - [Authentication](authentication.md) — Token workflow and API keys
 - [Error Handling](error-handling.md) — Error structure and error codes
-- [Service Accounts](service-accounts.md) — M2M access (planned, not yet implemented)
+- [Service Accounts](service-accounts.md) — M2M access via API key, created per garden by its lead
 - [MCP Server](mcp-server.md) — external LLM clients as a Kamerplanter tool
 - [Local Development Setup](../development/local-setup.md) — Running the backend locally

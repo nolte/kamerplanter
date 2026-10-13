@@ -1,0 +1,56 @@
+##
+## Kamerplanter – capability-reach T2 stack (overlay on docker-compose.e2e.yml)
+##
+## Used ONLY through `task reach:stack:up` / `task reach:stack:down`
+## (scripts/reach/stack.py), never on its own. It reuses the E2E stack's
+## full-mode services — arangodb, valkey, backend-full, celery-worker-full —
+## and changes exactly what an execution-based reach probe needs
+## (spec/project/capability-reach-audit/ in nolte/claude-shared, issue #1680):
+##
+## * Host ports, bound to 127.0.0.1 and chosen by Docker (`::`), so the
+##   observation helpers under scripts/reach/ can read ArangoDB and call the API
+##   from outside the containers without colliding with a dev stack or with a
+##   second working copy running the same probes.
+## * ArangoDB tracks EVERY query with its bind variables: the slow-query
+##   threshold is one microsecond (arangod refuses 0), which no AQL query
+##   finishes under, and every entry names its data sources. `stack.py up`
+##   raises the list's length at runtime (arangod has no startup option for
+##   it). The executing-inventory probe reads that list
+##   to learn which collections the export walk and the erasure actually bound —
+##   the database's own record, not a report the privacy code writes about
+##   itself.
+## * The E2E file's object storage — one volume backend-full and
+##   celery-worker-full already share — backed by .reach/storage instead of a
+##   tmpfs, so the export observation can open the bundle the worker wrote from
+##   the host. Only the volume's backing changes; which containers mount it, and
+##   where, is the E2E file's. `scripts/reach/_reach_common.py` supplies the
+##   absolute path as REACH_STORAGE_DIR (compose does not resolve a relative
+##   device path).
+##
+## The worker's secrets and the storage sharing are not added here: the E2E
+## file gives the worker the API's (#1717), so what this stack proves is what
+## the E2E stack runs.
+##
+## Test-only. Not for any deployment.
+##
+
+services:
+  arangodb:
+    command:
+      - --query.slow-threshold=0.000001
+      - --query.slow-streaming-threshold=0.000001
+      - --query.tracking-with-bindvars=true
+      - --query.tracking-with-datasources=true
+    ports:
+      - "127.0.0.1::8529"
+
+  backend-full:
+    ports:
+      - "127.0.0.1::8000"
+
+volumes:
+  object-storage-full:
+    driver_opts: !override
+      type: none
+      o: bind
+      device: ${REACH_STORAGE_DIR:?REACH_STORAGE_DIR is set by scripts/reach/_reach_common.py; start this stack with task reach:stack:up}

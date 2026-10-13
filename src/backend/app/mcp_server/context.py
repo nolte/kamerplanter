@@ -18,11 +18,38 @@ but can be overridden in the constructor for isolated unit tests.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
+
+if TYPE_CHECKING:
+    from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
+    from app.domain.interfaces.knowledge_service import IKnowledgeService
+    from app.domain.services.attachment_service import AttachmentService
+    from app.domain.services.calendar_service import CalendarService
+    from app.domain.services.care_reminder_service import CareReminderService
+    from app.domain.services.feeding_service import FeedingService
+    from app.domain.services.fertilizer_service import FertilizerService
+    from app.domain.services.glossary_service import GlossaryService
+    from app.domain.services.hardiness_zone_service import HardinessZoneService
+    from app.domain.services.harvest_service import HarvestService
+    from app.domain.services.ipm_service import IpmService
+    from app.domain.services.nutrient_plan_service import NutrientPlanService
+    from app.domain.services.observation_service import ObservationService
+    from app.domain.services.overwintering_profile_service import OverwinteringProfileService
+    from app.domain.services.phase_sequence_service import PhaseSequenceService
+    from app.domain.services.phase_service import PhaseService
+    from app.domain.services.plant_diary_service import PlantDiaryService
+    from app.domain.services.plant_instance_service import PlantInstanceService
+    from app.domain.services.planting_run_service import PlantingRunService
+    from app.domain.services.sensor_service import SensorService
+    from app.domain.services.site_service import SiteService
+    from app.domain.services.species_service import SpeciesService
+    from app.domain.services.starter_kit_service import StarterKitService
+    from app.domain.services.substrate_service import SubstrateService
+    from app.domain.services.task_service import TaskService
 
 
 class ToolContext:
@@ -101,55 +128,55 @@ class ToolContext:
         return self._services[name]
 
     @property
-    def species_service(self) -> Any:
-        return self._service("species_service")
+    def species_service(self) -> SpeciesService:
+        return cast("SpeciesService", self._service("species_service"))
 
     @property
-    def plant_service(self) -> Any:
-        return self._service("plant_instance_service")
+    def plant_service(self) -> PlantInstanceService:
+        return cast("PlantInstanceService", self._service("plant_instance_service"))
 
     @property
-    def site_service(self) -> Any:
-        return self._service("site_service")
+    def site_service(self) -> SiteService:
+        return cast("SiteService", self._service("site_service"))
 
     @property
-    def harvest_service(self) -> Any:
-        return self._service("harvest_service")
+    def harvest_service(self) -> HarvestService:
+        return cast("HarvestService", self._service("harvest_service"))
 
     @property
-    def task_service(self) -> Any:
-        return self._service("task_service")
+    def task_service(self) -> TaskService:
+        return cast("TaskService", self._service("task_service"))
 
     @property
-    def planting_run_service(self) -> Any:
-        return self._service("planting_run_service")
+    def planting_run_service(self) -> PlantingRunService:
+        return cast("PlantingRunService", self._service("planting_run_service"))
 
     @property
-    def care_service(self) -> Any:
-        return self._service("care_reminder_service")
+    def care_service(self) -> CareReminderService:
+        return cast("CareReminderService", self._service("care_reminder_service"))
 
     @property
-    def nutrient_plan_service(self) -> Any:
-        return self._service("nutrient_plan_service")
+    def nutrient_plan_service(self) -> NutrientPlanService:
+        return cast("NutrientPlanService", self._service("nutrient_plan_service"))
 
     @property
-    def calendar_service(self) -> Any:
-        return self._service("calendar_service")
+    def calendar_service(self) -> CalendarService:
+        return cast("CalendarService", self._service("calendar_service"))
 
     @property
-    def ipm_service(self) -> Any:
-        return self._service("ipm_service")
+    def ipm_service(self) -> IpmService:
+        return cast("IpmService", self._service("ipm_service"))
 
     @property
-    def fertilizer_service(self) -> Any:
-        return self._service("fertilizer_service")
+    def fertilizer_service(self) -> FertilizerService:
+        return cast("FertilizerService", self._service("fertilizer_service"))
 
     @property
-    def substrate_service(self) -> Any:
-        return self._service("substrate_service")
+    def substrate_service(self) -> SubstrateService:
+        return cast("SubstrateService", self._service("substrate_service"))
 
     @property
-    def feeding_service(self) -> Any:
+    def feeding_service(self) -> FeedingService:
         """Fertigation records — amount, EC/pH before/after, runoff, tank reference.
 
         The same service ``/t/{slug}/feeding-events`` uses. Its plant-scoped read
@@ -158,10 +185,10 @@ class ToolContext:
         fertigation record by forgetting an argument.
         """
 
-        return self._service("feeding_service")
+        return cast("FeedingService", self._service("feeding_service"))
 
     @property
-    def observation_service(self) -> Any:
+    def observation_service(self) -> ObservationService:
         """Time-series sensor readings (TimescaleDB, REQ-005).
 
         Degrades to a null repository when no TimescaleDB is configured, so a
@@ -169,16 +196,16 @@ class ToolContext:
         different answers rather than assuming the first.
         """
 
-        return self._service("observation_service")
+        return cast("ObservationService", self._service("observation_service"))
 
     @property
-    def sensor_service(self) -> Any:
+    def sensor_service(self) -> SensorService:
         """Sensor master data — which sensors sit at a site, location or tank."""
 
-        return self._service("sensor_service")
+        return cast("SensorService", self._service("sensor_service"))
 
     @property
-    def knowledge_service(self) -> Any:
+    def knowledge_service(self) -> IKnowledgeService:
         """Async RAG port to the Knowledge-Service microservice (REQ-031 §4.1).
 
         Deliberately the **async** ``IKnowledgeService`` adapter and not the
@@ -188,36 +215,36 @@ class ToolContext:
         the circuit breaker the sync client lacks (NFR-007).
         """
 
-        return self._service("knowledge_service_adapter")
+        return cast("IKnowledgeService", self._service("knowledge_service_adapter"))
 
     @property
-    def overwintering_service(self) -> Any:
-        return self._service("overwintering_profile_service")
+    def overwintering_service(self) -> OverwinteringProfileService:
+        return cast("OverwinteringProfileService", self._service("overwintering_profile_service"))
 
     @property
-    def starter_kit_service(self) -> Any:
-        return self._service("starter_kit_service")
+    def starter_kit_service(self) -> StarterKitService:
+        return cast("StarterKitService", self._service("starter_kit_service"))
 
     @property
-    def phase_sequence_service(self) -> Any:
-        return self._service("phase_sequence_service")
+    def phase_sequence_service(self) -> PhaseSequenceService:
+        return cast("PhaseSequenceService", self._service("phase_sequence_service"))
 
     @property
-    def hardiness_zone_service(self) -> Any:
-        return self._service("hardiness_zone_service")
+    def hardiness_zone_service(self) -> HardinessZoneService:
+        return cast("HardinessZoneService", self._service("hardiness_zone_service"))
 
     @property
-    def glossary_service(self) -> Any:
-        return self._service("glossary_service")
+    def glossary_service(self) -> GlossaryService:
+        return cast("GlossaryService", self._service("glossary_service"))
 
     @property
-    def plant_diary_service(self) -> Any:
+    def plant_diary_service(self) -> PlantDiaryService:
         """Diary entries incl. the REQ-050 analysis state machine, lease and CAS."""
 
-        return self._service("plant_diary_service")
+        return cast("PlantDiaryService", self._service("plant_diary_service"))
 
     @property
-    def attachment_service(self) -> Any:
+    def attachment_service(self) -> AttachmentService:
         """Attachment records and their thumbnail renditions (NFR-013).
 
         REQ-050 §4.4 delivers renditions only, never originals — that constraint
@@ -225,17 +252,17 @@ class ToolContext:
         endpoints use.
         """
 
-        return self._service("attachment_service")
+        return cast("AttachmentService", self._service("attachment_service"))
 
     @property
-    def phase_service(self) -> Any:
+    def phase_service(self) -> PhaseService:
         """Growth phases; resolves a plant's current phase across both key-spaces."""
 
-        return self._service("phase_service")
+        return cast("PhaseService", self._service("phase_service"))
 
     @property
-    def mcp_audit_repo(self) -> Any:
-        return self._service("mcp_audit_repo")
+    def mcp_audit_repo(self) -> ArangoMcpAuditRepository:
+        return cast("ArangoMcpAuditRepository", self._service("mcp_audit_repo"))
 
     # ── deep-link helpers (§2.6) ─────────────────────────────────────────
     def global_link(self, path: str) -> dict[str, str]:

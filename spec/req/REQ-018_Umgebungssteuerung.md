@@ -7,8 +7,14 @@ Kategorie: Automatisierung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, Home Assistant, MQTT
 Status: Entwurf
-Version: 1.3 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 1.4 (#2112 / MT-015: Single-Household-Instanz, Aktor-Entitäten nur mit Freigabe); 1.3 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.4 | 2026-10-05 | **#2112 / MT-015 umgesetzt (Betreiberentscheidung Modell A, 2026-10-04).** §4: Kamerplanter steuert über **eine** Home-Assistant-Instanz (die des Betreibers) für alle Mandanten — Single-Household-Instanz, Einzelheiten REQ-005 §4c. Ein Aktor darf nur eine Entität binden, die der Plattform-Admin dem Mandanten freigegeben hat (`tenant_ha_entity_grants`): Anlegen und Ändern von `ha_entity_id` sonst `422 HA_ENTITY_NOT_GRANTED`. Ein Aktor ohne Freigabe (zurückgezogen oder vor dem Upgrade ohne Seed) wird nicht geschaltet — Befehl, Regel, Zeitplan und Not-Aus fallen auf die manuelle Aufgabe zurück wie bei einem HA-Ausfall —, der Status-Sync fragt ihn nicht ab, und der Regelkreis liest nur freigegebene Sensoren der Location. Die Entity-Liste `GET …/actuators/integrations/home-assistant/entities` bleibt `technical` und liefert jetzt nur die dem Mandanten freigegebenen Entitäten. Bestehende Aktoren gibt Migration v0084 frei. |
 
 ## 1. Business Case
 
@@ -1473,6 +1479,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Rules | Alle Rollen | Technik | Technik | Technik | **Einrichtung** ist Achse 2 (REQ-024 §1a.2, REQ-049 §2.4 — „Sensor- und Aktor-Einrichtung"), wie die Sensor-Konfiguration in REQ-005. **Bedienen** ist Achse 1, siehe die Zeilen unten |
 | Command & Override | — | Ab Gärtner | Ab Gärtner | — | **Bedienen, nicht einrichten** — ab Gärtner. Wer die Anlage betreut, muss sie schalten können, ohne `technical` zu halten |
 | HA-Integration | Technik | Technik | Technik | Technik | Enthält Zugangsdaten — auch Lesen ist Technik |
+| HA-Entity-Freigaben (`tenant_ha_entity_grants`) | Plattform-Admin | Plattform-Admin | — | Plattform-Admin | **Single-Household-Instanz (MT-015, REQ-005 §4c):** eine HA-Verbindung je Installation; ein Aktor bindet und schaltet nur freigegebene Entitäten |
 | Emergency-Stop | — | Ab Gärtner | Ab Gärtner | — | **Ab Gärtner, ausdrücklich ohne `technical`.** Ein Not-Aus, der an einer Zusatzberechtigung hängt, ist im Ernstfall nicht erreichbar |
 
 ## 5. Abhängigkeiten

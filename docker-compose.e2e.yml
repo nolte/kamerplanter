@@ -5,6 +5,12 @@
 ## in an isolated network. No host ports required — runs in parallel
 ## with Kind/Skaffold without conflicts.
 ##
+## Every command below needs E2E_FERNET_KEY in its environment: the stack's
+## Fernet key is generated, never committed (#1838). Prefix each command with
+##   E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" docker compose …
+## (one key per working copy, so separate commands agree), or use
+## scripts/run-e2e.sh, which does it. Without it the backend refuses to start.
+##
 ## Usage (light mode — no auth, skips requires_auth tests):
 ##   docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 ##
@@ -30,7 +36,7 @@
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:39bbca489179ea03f2b24b7ea4e4c4cb5258f6474f8c1c4d9bd65f7cd6d211a5
+    image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
     environment:
       ARANGO_ROOT_PASSWORD: e2e-test-password
     healthcheck:
@@ -42,7 +48,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine@sha256:a0dbf4c1d5708782907c10e2c72deff317518518b5288a58416981d9db95d30b
+    image: valkey/valkey:9-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -51,7 +57,7 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.30.0-pg16@sha256:75d58b53f3337a6babd3a1cce5e503f2300bdede62dd7d743651deb1a95b6d76
+    image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: kamerplanter_sensors_e2e
@@ -80,8 +86,12 @@ services:
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       # AP-4 / INF-S5 startup gate (app/main.py): with DEBUG=false the backend
       # refuses to start unless these secrets are provisioned. Test-only values.
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      # FERNET_KEY is generated per run, never committed (#1838): the callers
+      # export E2E_FERNET_KEY from scripts/e2e_fernet_key.py. Unset, it is empty
+      # and the startup gate refuses to start — loud, not a plaintext fallback.
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -114,6 +124,13 @@ services:
       ARANGODB_PASSWORD: e2e-test-password
       REDIS_URL: redis://valkey:6379/0
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      # The worker runs the same code paths as the API behind it and must hold
+      # the same secrets (#1717): the Fernet key decrypts what the API stored,
+      # and without the tombstone salt every scheduled Art. 17 erasure is held
+      # as a configuration error. Values identical to `backend`'s; test-only.
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -145,7 +162,7 @@ services:
 
   # ── Selenium Hub ─────────────────────────────────────────
   selenium-hub:
-    image: selenium/hub:4.48@sha256:d47c27474cb4cf356afa0a20c8eed8c3cf3a25c1b8e375357e6a0911e374d1da
+    image: selenium/hub:4.49@sha256:178c2a330deb5c674c74ca63028737954106372ff66785244c16dfd66276654e
     environment:
       SE_SESSION_REQUEST_TIMEOUT: "300"
       SE_NODE_SESSION_TIMEOUT: "300"
@@ -153,7 +170,7 @@ services:
 
   # ── Chrome Node ──────────────────────────────────────────
   chrome:
-    image: selenium/node-chrome:152.0@sha256:5ac71fd8dd1ef5fb90ff38d01a6040185c3d16481479f96fdc888dbbed18a96a
+    image: selenium/node-chrome:153.0@sha256:4aa889737f48621278192ea09e9c83b96c8beb8a865d8daa8dfabff4c9c068cc
     depends_on:
       - selenium-hub
     environment:
@@ -266,13 +283,15 @@ services:
       context: ./src/backend
     # NFR-013 local-fs object storage (STORAGE_LOCAL_FS_ROOT defaults to
     # /data/attachments): the hardened image runs non-root and ships no /data,
-    # so photo uploads (REQ-034) fail with PermissionError. A per-run tmpfs
-    # (docker default mode 1777) makes the root writable; contents are
-    # deliberately ephemeral. Not shared with celery-worker-full — the only
-    # worker-side attachment readers (pest dataset acquisition) are not
-    # exercised by the E2E suite.
-    tmpfs:
-      - /data
+    # so photo uploads (REQ-034) fail with PermissionError. The tmpfs-backed
+    # volume `object-storage-full` (mode 1777, see `volumes:` at the end of the
+    # file) makes the root writable; contents are deliberately ephemeral. It is
+    # shared with celery-worker-full (#1717): the Art. 15 export runs in the
+    # worker and writes its bundle into this storage, and the API serves the
+    # download from it — a private mount per container would make every bundle
+    # invisible to the API.
+    volumes:
+      - object-storage-full:/data
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
@@ -286,8 +305,12 @@ services:
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
       # AP-4 / INF-S5 startup gate (app/main.py): with DEBUG=false the backend
       # refuses to start unless these secrets are provisioned. Test-only values.
-      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      # FERNET_KEY is generated per run, never committed (#1838): the callers
+      # export E2E_FERNET_KEY from scripts/e2e_fernet_key.py. Unset, it is empty
+      # and the startup gate refuses to start — loud, not a plaintext fallback.
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
       # Both limits are per **client IP** and sized for production, where one
@@ -317,6 +340,18 @@ services:
       # above and leaving an order of magnitude over the observed peak.
       RATE_LIMIT_AUTH: "200/minute"
       RATE_LIMIT_TOKEN_REFRESH: "600/minute"
+      # Per-account budgets on the expensive routes (#2109). The suite runs as one
+      # account from one address and uploads, prints and runs inference far more
+      # often per minute than a person; ten times the production budget, as above.
+      RATE_LIMIT_UPLOAD: "300/minute"
+      RATE_LIMIT_INFERENCE: "200/minute"
+      RATE_LIMIT_EXPORT: "200/minute"
+      # #1855 R3 W-5 — the take-over probe (`GET /system/takeover-status`) runs on every
+      # full-mode app bootstrap (`LightModeTakeoverDialog` in `MainLayout`), so for this suite
+      # it is as busy as the refresh path: every `page.open()` of one account. A refusal only
+      # hides the dialog, but the budget would be spent in seconds by four browsers; sized like
+      # RATE_LIMIT_TOKEN_REFRESH. The POST shares the setting and no test decides a take-over.
+      RATE_LIMIT_TAKEOVER: "600/minute"
       # A *second* account, with platform-admin rights (#1155). Not the demo
       # user: much of this suite asserts what an ordinary member is refused, and
       # promoting the single account those cases share would leave every one of
@@ -355,8 +390,21 @@ services:
       ARANGODB_PASSWORD: e2e-test-password
       REDIS_URL: redis://valkey:6379/1
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      # Same secrets as backend-full (#1717). Art. 15 export and Art. 17 erasure
+      # run as Celery tasks here: without the tombstone salt the scheduled
+      # erasure refuses to run
+      # (`retention.execute_scheduled_erasures.not_configured`), and a Fernet
+      # key differing from the API's would leave the worker unable to read what
+      # the API encrypted. Values identical to backend-full's; test-only.
+      FERNET_KEY: ${E2E_FERNET_KEY:-}
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
+      LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
+    # The API's object storage, at the API's path (see backend-full): export
+    # bundles the worker writes must be the files the API serves.
+    volumes:
+      - object-storage-full:/data
     depends_on:
       arangodb:
         condition: service_healthy
@@ -550,3 +598,14 @@ services:
       - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=tablet
+
+volumes:
+  # Object storage shared by backend-full and celery-worker-full (#1717). A
+  # tmpfs, so contents stay per run and never touch the host disk, with mode
+  # 1777 because the hardened image runs as UID 1000 and a fresh volume root
+  # would otherwise belong to root.
+  object-storage-full:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: mode=1777

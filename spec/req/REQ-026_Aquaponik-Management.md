@@ -898,7 +898,9 @@ class WaterQualityEvaluation(BaseModel):
     parameter: str
     value: float
     limit: float
-    severity: Literal['ok', 'warning', 'critical']
+    # info: nur Temperatur zwischen Stress- und Optimalbereich (suboptimal).
+    # Ein Parameter im Optimalbereich erzeugt keine Bewertung — es gibt kein 'ok'.
+    severity: Literal['info', 'warning', 'critical']
     message_de: str
     message_en: str
 
@@ -957,7 +959,9 @@ class NitrogenCycleEngine:
         - Absoluter Wert vs. artspezifische Schwellen
         - Zusätzlich: Warnung wenn DO < 70% der temperaturabhängigen Sättigung
 
-        Gibt Liste von Bewertungen zurück (ok, info, warning, critical).
+        Gibt nur Befunde zurück (info, warning, critical). Parameter innerhalb
+        ihres Grenz- bzw. Optimalbereichs erzeugen keinen Listeneintrag; eine
+        leere Liste bedeutet „alle geprüften Werte unauffällig".
         """
         ...
 
@@ -1212,7 +1216,10 @@ class BiofilterDimensioning(BaseModel):
     """Biofilter-Dimensionierungsempfehlung."""
     required_surface_area_m2: float
     current_surface_area_m2: Optional[float]
-    status: Literal['sufficient', 'marginal', 'insufficient']
+    # unknown: Bewertung nicht möglich — kein Biofiltertyp/-volumen am System
+    # hinterlegt (current_surface_area_m2 = None) oder Wassertemperatur <5°C
+    # (Nitrifikationsrate 0).
+    status: Literal['sufficient', 'marginal', 'insufficient', 'unknown']
     daily_tan_production_g: float
     filter_capacity_g_tan_per_day: float
 
@@ -1244,6 +1251,14 @@ class BiofilterManager:
         - Nitrifikation <5°C = 0 (praktischer Stopp)
         - Zwischen 5–10°C: <10% der Nominalkapazität
         - Referenztemperatur: 25°C
+
+        Status-Ableitung:
+        - sufficient: vorhandene Oberfläche ≥ 120 % der benötigten
+        - marginal: vorhandene Oberfläche ≥ 100 % und < 120 % der benötigten
+        - insufficient: vorhandene Oberfläche < benötigte
+        - unknown: keine Dimensionierung möglich, weil Biofiltertyp oder
+          -volumen fehlen (vorhandene Oberfläche nicht berechenbar) oder die
+          Temperatur unter 5°C liegt (Nitrifikation praktisch gestoppt)
         """
         ...
 
@@ -1288,7 +1303,9 @@ class BiofilterManager:
 class HealthAlert(BaseModel):
     """Gesundheitswarnung für Fischbestand."""
     alert_type: Literal['mortality_rate', 'feeding_refusal', 'water_quality', 'temperature_stress']
-    severity: Literal['info', 'warning', 'critical']
+    # Jeder Gesundheitsalarm ist mindestens eine Warnung — es gibt keine
+    # rein informative oder Entwarnungs-Meldung.
+    severity: Literal['warning', 'critical']
     message_de: str
     message_en: str
     recommended_action: str

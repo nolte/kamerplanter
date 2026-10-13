@@ -70,6 +70,10 @@ class _FakeTenantService:
     def list_my_tenants(self, user_key: str):
         return self._tenants
 
+    def get_membership(self, user_key: str, tenant_slug: str):
+        # The platform-admin check of the MCP authenticator (#2103): a service account holds no platform role here.
+        return None
+
 
 def _api_key(**overrides) -> ApiKey:
     base = dict(key="ak-1", user_key="sa-1", label="mcp", key_hash=_HASH, key_prefix="kp_secre")
@@ -82,7 +86,7 @@ def _service_user() -> User:
 
 
 def _human_user() -> User:
-    return User(key="u-1", email="alice@example.org", display_name="Alice", account_type="user", is_active=True)
+    return User(key="u-1", email="alice@example.org", display_name="Alice", account_type="human", is_active=True)
 
 
 def _authenticator(api_key, user, tenants) -> McpAuthenticator:

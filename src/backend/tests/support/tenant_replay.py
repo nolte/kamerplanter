@@ -13,8 +13,8 @@ ArangoDB would. That is what makes the negative tests in
 ``tests/api/test_cross_tenant_reads_router.py`` red on the unfixed code and
 green on the fixed one.
 
-The parser is deliberately small: it understands ``<var>.<field> ==|!= @<bind>``,
-which is the shape both the hand-written repository AQL and
+The parser is deliberately small: it understands ``<var>.<field> ==|!= @<bind>``
+and ``<var>.<field> IN @<bind>``, which are the shapes the hand-written repository AQL and
 :class:`~app.data_access.arango.query_builder.AQLBuilder` emit. Anything it does
 not understand is ignored rather than guessed at, so a fake can never be
 *stricter* than the query — the failure mode is a false green on the fixed code,
@@ -30,6 +30,14 @@ from typing import Any
 #: ``plant.tenant_key == @tenant_key``, ``doc.status == @val0``, … — the single
 #: predicate shape both the hand-written AQL and ``AQLBuilder`` produce.
 _PREDICATE_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_.]*)\s*(==|!=)\s*@([A-Za-z_][A-Za-z0-9_]*)")
+
+#: ``doc.origin IN @origins`` — set membership against a *list* bind var, the
+#: second shape the hand-written AQL emits (a repeatable query parameter, #1503).
+#: Without it the fake would ignore the predicate and be *less* strict than the
+#: query, which is a false **red** wherever the test also relies on a ``LIMIT``:
+#: the unfiltered rows fill the page and the row the filter was meant to surface
+#: is paged away again.
+_IN_PREDICATE_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_.]*)\s+IN\s+@([A-Za-z_][A-Za-z0-9_]*)")
 
 #: Resolver: maps a row to the document an AQL variable stands for. ``doc`` is
 #: the row itself; a joined variable (``plant``, ``task``, …) resolves to another
@@ -61,6 +69,23 @@ def apply_predicates(
             return value == _w if _o == "==" else value != _w
 
         rows = [row for row in rows if matches(row)]
+
+    for var, field, bind_name in _IN_PREDICATE_RE.findall(query):
+        resolve = resolvers.get(var)
+        if resolve is None or bind_name not in bind_vars:
+            continue
+        wanted = bind_vars[bind_name]
+        # A *string* bind var is a type error in AQL and a substring test in
+        # Python, so ``doc.origin IN @origins`` with ``@origins='pipelines'``
+        # would quietly select ``pipeline``. Nothing matches instead: the fake
+        # must never select rows the database would not.
+        collection = wanted if isinstance(wanted, (list, tuple, set, frozenset)) else ()
+
+        def contains(row: dict[str, Any], _r=resolve, _f=field, _w=collection) -> bool:
+            target = _r(row)
+            return target is not None and target.get(_f) in _w
+
+        rows = [row for row in rows if contains(row)]
     return rows
 
 

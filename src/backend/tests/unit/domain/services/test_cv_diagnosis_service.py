@@ -143,10 +143,14 @@ class TestConfirmBridge:
                 )
             ],
         )
-        result = service.confirm("diag_1", tenant_key="tenant_anna", plant_key="plant_1")
+        result = service.confirm("diag_1", tenant_key="tenant_anna", plant_key="plant_1", user_key="user_anna")
         assert result["inspection_key"] == "insp_1"
         assert result["detected_disease_keys"] == ["disease_early_blight"]
         ipm_service.create_inspection.assert_called_once()
+        # #1669: the confirming account, as a key, beside an empty display text.
+        inspection = ipm_service.create_inspection.call_args.args[1]
+        assert inspection.inspected_by_key == "user_anna"
+        assert inspection.inspector == ""
         # never a treatment application
         assert not hasattr(ipm_service, "apply_treatment") or not ipm_service.apply_treatment.called
 
@@ -154,4 +158,4 @@ class TestConfirmBridge:
         service, _, repo, _ = _build_service(monkeypatch=monkeypatch)
         repo.get.return_value = None  # tenant-filtered miss
         with pytest.raises(NotFoundError):
-            service.confirm("diag_x", tenant_key="tenant_anna", plant_key="plant_1")
+            service.confirm("diag_x", tenant_key="tenant_anna", plant_key="plant_1", user_key="user_anna")

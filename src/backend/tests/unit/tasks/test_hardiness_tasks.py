@@ -20,6 +20,8 @@ def task_module(monkeypatch):
     mock_deps.get_hardiness_zone_service = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_db = MagicMock()  # type: ignore[attr-defined]
+    # REQ-056 §5.2: every tenant here is active (a MagicMock tenant reads ``is_active``).
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.hardiness_tasks as module
@@ -62,7 +64,7 @@ class TestRefreshSiteHardinessZones:
         result = module.refresh_site_hardiness_zones()
 
         assert result == {"status": "ok", "resolved": 1, "skipped": 0, "errors": 0}
-        service.resolve_for_site.assert_called_once_with("site1", "t1")
+        service.resolve_for_site.assert_called_once_with("site1", tenant_key="t1")
 
     def test_skips_site_without_normals(self, task_module, monkeypatch):
         module, deps = task_module
@@ -100,7 +102,7 @@ class TestRefreshSiteHardinessZones:
         result = module.refresh_site_hardiness_zones()
 
         assert result == {"status": "ok", "resolved": 1, "skipped": 0, "errors": 0}
-        service.resolve_for_site.assert_called_once_with("site1", "t1")
+        service.resolve_for_site.assert_called_once_with("site1", tenant_key="t1")
 
     def test_error_isolated_across_tenants(self, task_module, monkeypatch):
         module, deps = task_module

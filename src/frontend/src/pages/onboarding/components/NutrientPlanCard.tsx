@@ -18,6 +18,8 @@ interface NutrientPlanCardProps {
   favorited: boolean;
   onToggleFavorite: () => void;
   experienceLevel: ExperienceLevel;
+  /** Display names of the selected species this plan was matched for (#1618). */
+  matchedSpeciesNames?: string[];
 }
 
 export default function NutrientPlanCard({
@@ -25,6 +27,7 @@ export default function NutrientPlanCard({
   favorited,
   onToggleFavorite,
   experienceLevel,
+  matchedSpeciesNames = [],
 }: NutrientPlanCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -66,6 +69,18 @@ export default function NutrientPlanCard({
                 sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
               >
                 {plan.description}
+              </Typography>
+            )}
+            {matchedSpeciesNames.length > 0 && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', mt: 0.5 }}
+                data-testid={`plan-matched-species-${plan.plan_key}`}
+              >
+                {t('pages.onboarding.nutrientPlans.matchedSpecies', {
+                  names: matchedSpeciesNames.join(', '),
+                })}
               </Typography>
             )}
           </Box>

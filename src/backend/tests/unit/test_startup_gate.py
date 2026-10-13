@@ -7,12 +7,16 @@ and the internal M2M ``internal_service_token`` in addition to the original
 three (jwt/arango/timescale).
 """
 
+import base64
+
 import pytest
 
 from app import main
 from app.config.settings import settings
 
 _VALID_SALT = "x" * 32
+# Assembled at runtime (BACKEND.md §16.3): a key-shaped literal is a scanner hit.
+_VALID_FERNET_KEY = base64.urlsafe_b64encode(bytes(range(32))).decode()
 
 
 @pytest.fixture
@@ -21,8 +25,9 @@ def secure_settings(monkeypatch):
     monkeypatch.setattr(settings, "jwt_secret_key", "a-real-jwt-secret")
     monkeypatch.setattr(settings, "arangodb_password", "a-real-arango-password")
     monkeypatch.setattr(settings, "timescaledb_enabled", False)
-    monkeypatch.setattr(settings, "fernet_key", "a-real-fernet-key")
+    monkeypatch.setattr(settings, "fernet_key", _VALID_FERNET_KEY)
     monkeypatch.setattr(settings, "erasure_tombstone_salt", _VALID_SALT)
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "l" * 32)
     monkeypatch.setattr(settings, "knowledge_service_enabled", False)
     monkeypatch.setattr(settings, "inference_service_enabled", False)
     monkeypatch.setattr(settings, "internal_service_token", "")
@@ -48,6 +53,14 @@ def test_missing_fernet_key_flagged(secure_settings, monkeypatch):
     assert "fernet_key" in main.insecure_default_secrets()
 
 
+@pytest.mark.parametrize("key", ["a-real-fernet-key", "x" * 44], ids=["short", "not-base64-32"])
+def test_malformed_fernet_key_flagged(secure_settings, monkeypatch, key):
+    # #1859 review: the worker refuses a malformed key; the API gate must too,
+    # or every endpoint touching a secret answers 500 at the first request.
+    monkeypatch.setattr(settings, "fernet_key", key)
+    assert "fernet_key" in main.insecure_default_secrets()
+
+
 def test_short_tombstone_salt_flagged(secure_settings, monkeypatch):
     monkeypatch.setattr(settings, "erasure_tombstone_salt", "too-short")
     assert "erasure_tombstone_salt" in main.insecure_default_secrets()
@@ -56,6 +69,18 @@ def test_short_tombstone_salt_flagged(secure_settings, monkeypatch):
 def test_exactly_32_char_salt_is_accepted(secure_settings, monkeypatch):
     monkeypatch.setattr(settings, "erasure_tombstone_salt", "y" * 32)
     assert "erasure_tombstone_salt" not in main.insecure_default_secrets()
+
+
+@pytest.mark.parametrize("salt", ["", "z" * 31])
+def test_missing_or_short_log_pseudonym_salt_flagged(secure_settings, monkeypatch, salt):
+    """#1812: the API refuses to start without a >= 32-char LOG_PSEUDONYM_SALT, like the tombstone salt."""
+    monkeypatch.setattr(settings, "log_pseudonym_salt", salt)
+    assert "log_pseudonym_salt" in main.insecure_default_secrets()
+
+
+def test_exactly_32_char_log_salt_is_accepted(secure_settings, monkeypatch):
+    monkeypatch.setattr(settings, "log_pseudonym_salt", "z" * 32)
+    assert "log_pseudonym_salt" not in main.insecure_default_secrets()
 
 
 def test_service_token_required_when_knowledge_service_enabled(secure_settings, monkeypatch):

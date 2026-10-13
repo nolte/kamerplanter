@@ -1,0 +1,47 @@
+##
+## Install the pinned skaffold binary — and do nothing else (#1741).
+##
+## Replaces `hiberbee/github-action-skaffold` in `skaffold-verify.yml` and in the
+## skaffold legs of `lane-inputs.yml`. That action cannot be made to only
+## install: after its `command:` (default `diagnose`) it runs an unconditional
+## `skaffold build --quiet --output=...` (`src/index.js`, `run()`, at the pinned
+## 1.27.0), which built every image in skaffold.yaml on every run — 4m05 on
+## #1726, 4m16 plus a 1m52 disk cleanup on #1738 — and threw the result away,
+## because the render renders with `--digest-source=none`. It also downloaded
+## kubectl and container-structure-test, which nothing here uses from it (the
+## runner image ships kubectl).
+##
+## The checksum is the one Google publishes beside the binary
+## (`<url>.sha256`), fixed here so a replaced binary fails the install instead of
+## running. Bumping the version means replacing BOTH values; no Renovate manager
+## covers either (neither did one cover the action's `skaffold-version:` input).
+## The helm version is coupled to this pin — see the note on `Setup Helm` in
+## skaffold-verify.yml.
+##
+name: Set up Skaffold
+description: >-
+  Download the pinned skaffold release for linux/amd64, verify it against its
+  recorded SHA-256, and put it on PATH. Builds nothing.
+
+runs:
+  using: composite
+  steps:
+    - name: Install skaffold
+      shell: bash
+      env:
+        # 2.17.2 cannot drive helm 4: supplying `--images` makes skaffold install
+        # itself as a helm post-renderer plugin, and helm 4 rejects its plugin
+        # manifest (`invalid plugin version "0.1": must be valid semver`).
+        # Measured against helm v4.3.0: 2.19.0 and 2.24.0 both render 40 resources.
+        SKAFFOLD_VERSION: 2.24.0
+        SKAFFOLD_SHA256: 702344081860a587c57937cd55dfa2e70f124c05d6fb845319832ee23fd144a8
+      run: |
+        set -euo pipefail
+        bin="$RUNNER_TEMP/skaffold-bin"
+        mkdir -p "$bin"
+        curl -fsSL --retry 3 -o "$bin/skaffold" \
+          "https://storage.googleapis.com/skaffold/releases/v${SKAFFOLD_VERSION}/skaffold-linux-amd64"
+        echo "${SKAFFOLD_SHA256}  $bin/skaffold" | sha256sum --check --strict
+        chmod +x "$bin/skaffold"
+        echo "$bin" >> "$GITHUB_PATH"
+        "$bin/skaffold" version

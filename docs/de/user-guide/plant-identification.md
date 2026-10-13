@@ -156,6 +156,8 @@ Im Formular zum Anlegen der Pflanze — egal ob über **Diese Pflanze anlegen** 
 - **Foto als Galeriebild übernehmen** (standardmäßig **an**): Das Foto wird direkt nach dem Anlegen als erstes Bild in die [Fotogalerie](plant-photos.md) der neuen Pflanze übernommen. Möchtest du das nicht, schalte den Regler einfach aus, bevor du auf **Erstellen** klickst.
 - **Als Referenzbild für die Erkennung nutzen** (standardmäßig **aus**): Dieser Schalter erscheint nur, wenn deine Instanz die [Self-Hosted-Erkennung mit DINOv2](#self-hosted-erkennung-mit-dinov2) verwendet. Aktivierst du ihn, wird dein Foto zusätzlich der Erkennungsbasis der bestätigten Art hinzugefügt — es hilft also künftigen Foto-Identifikationen dieser Art, auch für andere Nutzer deiner Instanz. <!-- Issue #447 -->
 
+    Der Schalter ist zugleich deine **Einwilligung „Foto-Beitrag zur Pflanzenerkennung“**. Sobald du ihn einschaltest, erklärt ein Hinweis darunter, was geteilt wird: ein Zahlenabdruck (Embedding) des Fotos, der nach Prüfung durch die Administration in den gemeinsamen Erkennungsindex kommt — nicht das Foto selbst. Beim Speichern erteilt Kamerplanter die Einwilligung, bevor das Foto beigetragen wird; hast du sie schon erteilt, bleibt es dabei. Lässt sie sich nicht speichern, wird die Pflanze nicht angelegt, und du siehst einen Fehler. Dann kannst du es erneut versuchen oder den Schalter ausschalten. Widerrufen kannst du die Einwilligung jederzeit unter [Datenschutz](privacy.md#foto-beitrag-zur-pflanzenerkennung-reference_contribution). Im [Light-Modus](light-mode.md) erscheint der Schalter nicht. <!-- #2174 -->
+
 !!! note "Dein Beitrag wird erst nach Prüfung wirksam"
     Ein beigetragenes Foto verändert die Erkennung **nicht sofort**. Es landet zunächst in einer Prüf-Warteschlange (Quarantäne) und wird erst aktiv, nachdem ein Platform-Admin es geprüft und freigegeben hat — ähnlich wie bei der [Referenzbild-Kuratierung](reference-image-curation.md). Der Beitrag erfordert dieselbe Mindestrolle wie das Anlegen von Pflanzen ([Gärtner](tenants.md#rollen-und-berechtigungen) oder Admin) und unterliegt einem täglichen Beitragslimit pro Nutzer, um Missbrauch des Referenz-Index vorzubeugen. Das Originalfoto selbst wird dabei nicht dauerhaft gespeichert — nur ein daraus berechneter Merkmalsvektor.
 
@@ -219,10 +221,10 @@ Alternativ zur Pl@ntNet-Erkennung kann die Bilderkennung **vollständig auf dem 
 
 1. Dienst starten: `task dev:all` (oder `task dev:recognition` neben dem laufenden KI-Stack)
 2. Referenz-Index befüllen: `task recognition:acquire` (lädt lizenzfreie Referenzbilder von GBIF/Wikimedia und indexiert sie)
-3. Aktivieren: Backend-Umgebungsvariable `INFERENCE_SERVICE_ENABLED=true`
+3. Aktivieren: Umgebungsvariable `INFERENCE_SERVICE_ENABLED=true` auf Backend **und** Celery-Worker
 
 !!! warning "Reihenfolge beachten"
-    Vor dem Befüllen des Index liefert die lokale Erkennung keine Treffer. Aktiviere `INFERENCE_SERVICE_ENABLED=true` erst nach dem Beschaffungslauf — Details auf der [Deployment-Seite](../deployment/inference-service.md).
+    Vor dem Befüllen des Index liefert die lokale Erkennung keine Treffer. Aktiviere `INFERENCE_SERVICE_ENABLED=true` erst nach dem Beschaffungslauf — Details auf der [Deployment-Seite](../deployment/inference-service.md). Setze die Variable auf **beiden** Prozessen: Der Celery-Worker führt die planmäßige DSGVO-Löschung beigetragener Referenzbilder aus und braucht denselben Zugang wie das Backend.
 
 ---
 

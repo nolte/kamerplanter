@@ -16,6 +16,7 @@ Alle Konfigurationsparameter des Kamerplanter-Backends werden über Umgebungsvar
 |----------|---------|---------|-------------|
 | `ARANGODB_HOST` | `localhost` | Ja | Hostname oder IP-Adresse der ArangoDB-Instanz |
 | `ARANGODB_PORT` | `8529` | Nein | TCP-Port der ArangoDB |
+| `ARANGODB_SCHEME` | `http` | Nein | `https` für eine ArangoDB, die TLS selbst anbietet (externe oder verwaltete Instanz); andere Werte verweigern den Start |
 | `ARANGODB_DATABASE` | `kamerplanter` | Ja | Name der Zieldatenbank |
 | `ARANGODB_USERNAME` | `root` | Ja | Datenbanknutzer |
 | `ARANGODB_PASSWORD` | — | Ja | Passwort des Datenbanknutzers |
@@ -33,6 +34,7 @@ Alle Konfigurationsparameter des Kamerplanter-Backends werden über Umgebungsvar
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `REDIS_URL` | `redis://localhost:6379/0` | Ja | Verbindungs-URL für Redis oder Valkey (Celery Broker und Backend-Cache) |
+| `WORKER_READY_FILE` | — | Nein | Nur Celery-Worker. Leer (Standard, Docker Compose) ändert nichts. Gesetzt — das Helm-Chart setzt `/tmp/worker-ready` — prüft der Worker beim Start seine ArangoDB-Anmeldung, versucht es bis zu 60 Sekunden lang und beendet sich, wenn sie nicht gelingt; er nimmt dann keine Aufgabe an. Läuft sein Consumer, schreibt er die Datei, beim Herunterfahren entfernt er sie. Startup- und Readiness-Probe des Charts prüfen sie. |
 
 **Format:** `redis://[user]:[password]@[host]:[port]/[db]`
 
@@ -54,10 +56,22 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Nein | Gültigkeitsdauer des JWT-Access-Tokens in Minuten |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Nein | Gültigkeitsdauer des Refresh-Tokens in Tagen |
 | `SESSION_TOKEN_EXPIRE_HOURS` | `24` | Nein | Gültigkeitsdauer serverseitiger Session-Tokens in Stunden. |
-| `FERNET_KEY` | — | Ja | Fernet-Schlüssel zum Verschlüsseln von OIDC-Provider-Secrets. **Unabhängig davon, ob OIDC genutzt wird** — der Startup-Gate verweigert den Produktionsstart bei leerem Wert (AP-4, INF-S5). Muss ein gültiger Fernet-Schlüssel sein: 32 Bytes, url-safe base64-kodiert (44 Zeichen) — erzeugt z. B. mit `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | Nein | E-Mail-Verifikation bei Registrierung erzwingen |
+| `FERNET_KEY` | — | Ja | Fernet-Schlüssel zum Verschlüsseln von OIDC-Provider-Secrets und Integrations-Tokens. **Unabhängig davon, ob OIDC genutzt wird** — der Startup-Gate verweigert den Produktionsstart bei leerem Wert (AP-4, INF-S5). Muss ein gültiger Fernet-Schlüssel sein: 32 Bytes, url-safe base64-kodiert (44 Zeichen) — erzeugt z. B. mit `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. Denselben Gate prüft inzwischen auch der Celery-Worker beim Start und verweigert bei `DEBUG=false` ebenfalls den Start, wenn der Wert fehlt oder kein gültiger Fernet-Schlüssel ist — Backend und Celery-Worker müssen denselben Schlüssel verwenden. Wird ein gespeicherter Wert mit einem abweichenden Schlüssel entschlüsselt, schlägt das laut fehl (`SecretKeyMismatchError`), statt den Chiffretext unbemerkt als Zugangsdaten weiterzugeben. Verschlüsselt sind auch der Home-Assistant-Token, der Pl@ntNet-Key und die Apprise-URLs der Nutzer (#2113): Nach einem Schlüsselwechsel sind sie nicht mehr lesbar und müssen neu eingetragen werden. |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Nein | E-Mail-Verifikation bei Registrierung erzwingen. Eine Installation ohne ausgehenden Mailversand setzt `false` ausdrücklich |
+| `REGISTRATION_MODE` | `open` | Nein | Wer ein Konto anlegen darf (lokal und erste OIDC-Anmeldung): `open` (jeder), `invite_only` (nur mit offener E-Mail-Einladung für die Adresse), `closed` (niemand, auch nicht mit Einladung). Bestehende Konten melden sich in jedem Modus an. Ein unbekannter Wert verweigert den Start |
+| `REGISTRATION_ALLOWED_DOMAINS` | — (leer) | Nein | Optionale kommagetrennte E-Mail-Domains (z. B. `verein.example,garten.example`), exakt, ohne Subdomains. Leer = jede Domain. Eine E-Mail-Einladung für die Adresse ist die Ausnahme; über OIDC zählt nur eine vom Anbieter bestätigte Adresse |
+| `TENANT_MAX_MEMBERS_CEILING` | `50` | Nein | Plattform-Obergrenze für das Mitgliederlimit jedes Mandanten (mindestens `1`). Wirksam ist `min(max_members, TENANT_MAX_MEMBERS_CEILING)`; `max_members` darüber wird abgelehnt (`422`), eine neue Organisation ohne Angabe erhält diesen Wert. Ein voller Mandant verweigert weitere Beitritte mit `422 MEMBER_LIMIT_REACHED`. Senken entfernt niemanden |
+| `TENANT_MAX_SERVICE_ACCOUNTS` | `20` | Nein | Wie viele aktive Service Accounts ein Mandant haben darf (mindestens `1`). Darüber antwortet das Anlegen mit `422 SERVICE_ACCOUNT_LIMIT_REACHED`. Ein Service Account belegt zusätzlich einen Platz im Mitgliederlimit. Senken entfernt keinen |
+| `TENANT_MAX_ORGANIZATIONS_PER_USER` | `10` | Nein | Wie viele Organisationen ein Konto besitzen darf, gezählt in jedem Zustand außer `deleted` (mindestens `0`). Darüber antwortet `POST /tenants` mit `422 ORGANIZATION_LIMIT_REACHED`. `0` heißt: Kein Konto gründet selbst eine Organisation. Eine Grenze des Kontos, kein Plan-Kontingent |
+| `TENANT_INVITATION_EMAILS_PER_DAY` | `50` | Nein | Wie viele E-Mail-Einladungen ein Konto in 24 Stunden verschicken darf, über alle seine Mandanten zusammen (mindestens `1`). Jede E-Mail-Einladung geht an eine Adresse, die der Einladende frei wählt; darüber antwortet `POST /api/v1/tenants/{slug}/invitations/email` mit `429 RATE_LIMIT_EXCEEDED`, und es wird nichts angelegt und nichts verschickt. Gezählt wird aus den gespeicherten Einladungen (Issue #2162) |
+| `TENANT_EXPORTS_PER_DAY` | `3` | Nein | Wie viele Mandanten-Exporte ein Mandant in 24 Stunden anfordern darf, jeder Zustand gezählt, auch fehlgeschlagene (mindestens `1`). Darüber antwortet `POST /api/v1/tenants/{slug}/exports` mit `429 RATE_LIMIT_EXCEEDED`. Siehe [Mandanten exportieren und importieren](../deployment/tenant-export-import.md) (Issue #2138) |
+| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | Nein | Größtes Mandanten-Archiv in MiB, das `POST /api/v1/admin/platform/tenant-imports` annimmt (mindestens `1`); entpackt darf es unabhängig davon höchstens 1 GiB sein. Darüber `413` (Issue #2138). Eigene Upload-Grenze dieser Route (+ 1 MiB) — jede andere Route bleibt bei `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB — und höchstens `UPLOAD_SPOOL_BUDGET_MB`, weil der Upload vor der Route in `/tmp` landet; mit den Standardwerten etwa 51 MiB. Helm: `tenantExport.importMaxUploadMb`. Größe planen: [Archivgröße und /tmp](../deployment/tenant-export-import.md#archivgrosse-und-tmp) |
+| `TENANT_EXPORT_SIGNING_SECRET` | — (leer) | Nein | Geheimnis, mit dem Mandanten-Archive signiert und geprüft werden (HMAC-SHA256 über das Manifest). Leer: wie bisher aus `JWT_SECRET_KEY` abgeleitet. Gesetzt: mindestens 32 Zeichen (`openssl rand -hex 32`), sonst startet das Backend nicht; vorher signierte Archive gelten beim Import als nicht verifiziert. Backend und Celery-Worker brauchen denselben Wert; Helm liest ihn optional aus `tenantExport.signingSecret` (Standard `kamerplanter-secrets`, Schlüssel `TENANT_EXPORT_SIGNING_SECRET`). Nie in `values.yaml` (Issue #2138) |
+| `RATE_LIMIT_TENANT_IMPORT` | `10/hour` | Nein | Mengenbegrenzung für `POST /api/v1/admin/platform/tenant-imports`, je Konto (Issue #2138) |
 | `HIBP_ENABLED` | `false` | Nein | "Have I Been Pwned"-Prüfung bei Passwortänderung aktivieren |
 | `COOKIE_SECURE` | `true` | Nein | Setzt das `Secure`-Flag auf dem Refresh-Token-Cookie. Nur für reine HTTP-E2E-Testumgebungen ohne TLS auf `false` setzen — in Produktion **immer** `true` belassen. |
+
+Seit es Pläne gibt (Issue #2142), sind `TENANT_MAX_MEMBERS_CEILING`, `TENANT_MAX_SERVICE_ACCOUNTS`, `STORAGE_TENANT_QUOTA_MB`, `STORAGE_MAX_PHOTOS_PER_INSTANCE` und die drei `AI_BUDGET_*` der Wert, den ein Plan mit leerem Kontingent übernimmt — beim Standardplan `standard` also für jeden Mandanten. Ein Plan kann davon abweichen; nur `TENANT_MAX_MEMBERS_CEILING` bleibt eine harte Obergrenze. Siehe [API-Referenz: Pläne und Kontingente](api-reference.md#plaene-und-kontingente).
 
 !!! danger "JWT_SECRET_KEY in Produktion ändern"
     Der Standardwert `change-me-in-production-use-openssl-rand-hex-32` darf in produktiven Umgebungen **nicht** verwendet werden. Generieren Sie einen sicheren Wert:
@@ -72,19 +86,47 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anonymisierung personenbezogener Daten (siehe [Datenschutz (DSGVO)](../user-guide/privacy.md)) und sind vom Betriebsmodus unabhängig — sie gelten sowohl im Light- als auch im Full-Modus.
 
-<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Quelle: src/backend/app/config/settings.py (erasure_tombstone_salt, log_pseudonym_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours, retention_email_change_revert_days); src/backend/app/main.py (insecure_default_secrets); src/backend/app/tasks/__init__.py (_refuse_worker_start_without_log_pseudonym_salt) -->
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `ERASURE_TOMBSTONE_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen) zur Pseudonymisierung gelöschter Nutzerkonten (Tombstone-Hashing, NFR-011 §4). **Der Startup-Gate verweigert den Produktionsstart**, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`. |
+| `ERASURE_TOMBSTONE_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen) zur Pseudonymisierung gelöschter Nutzerkonten (Tombstone-Hash, Löschantrags-Schlüssel und Mandanten-Slug-Digest, NFR-011 §4). Dieser Wert darf **nach der ersten Kontolöschung nie mehr geändert werden**. **Der Startup-Gate verweigert den Produktionsstart**, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`. |
+| `LOG_PSEUDONYM_SALT` | — | Ja | Hochentropisches Geheimnis (mindestens 32 Zeichen), das ausschließlich die Log-Pseudonyme verschlüsselt: die `subject=`-Referenzen (`sub_…`) und die `email_sha256`-Digests auf Protokollzeilen sowie das Herkunftsfeld `requested_by_subject` von Lösch- und Mandanten-Löschnachweisen (NFR-011 §3.4). Getrennt von `ERASURE_TOMBSTONE_SALT`, weil dieser Wert — anders als der Tombstone-Salt — rotiert werden darf. **Der Startup-Gate verweigert den Produktionsstart** für Backend **und** Celery-Worker, wenn der Wert leer oder kürzer als 32 Zeichen ist — unabhängig vom Betriebsmodus. Erzeugen mit `openssl rand -hex 32`; sollte sich von `ERASURE_TOMBSTONE_SALT` unterscheiden (wird nicht erzwungen). |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | Nein | Name des datenschutzrechtlich Verantwortlichen, erscheint in Export- und Auskunftsdokumenten. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | Nein | Kontakt-E-Mail des Verantwortlichen für DSGVO-Anfragen. |
-| `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor er automatisch gelöscht wird. |
-| `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes Konto endgültig (Hard-Delete) entfernt wird. |
-| `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung. |
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | Nein | Frist, nach der ein zur Löschung markiertes (soft-gelöschtes) Konto endgültig (Hard-Delete) entfernt wird (NFR-011 R-01). Minimum: `1`, Maximum: `90`. Älterer Name `PRIVACY_HARD_DELETE_AFTER_DAYS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | Nein | Anzahl Tage nach der Registrierung, nach denen ein nie bestätigtes Konto automatisch gelöscht wird (NFR-011 R-02). Minimum: `1`, Maximum: `7`. |
+| `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED` | `false` | Nein | Freigabe-Schalter für R-02: Ist er `false`, zählt die Bereinigung lokal registrierte, nie bestätigte Konten nur (Trockenlauf, `local_registrations_pending`); bei `true` löscht sie diese ebenfalls. Erst setzen, wenn du die gezählte Anzahl gesehen hast (NFR-011 R-02). |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | `7` | Nein | Anzahl Tage nach Ausstellung einer Session, nach denen ihre IP-Adresse anonymisiert wird (IPv4: letztes Oktett → `0`; NFR-011 R-03). Minimum: `1`, Maximum: `7`. Betrifft nur Session-IP-Adressen, nicht die IP-Adresse eines Consent Records. |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | Nein | Aufbewahrungsdauer eines generierten Datenexports (Art. 15/20 DSGVO), bevor die Datei automatisch gelöscht wird (NFR-011 R-05). Minimum: `1`, Maximum: `72`. Älterer Name `PRIVACY_EXPORT_RETENTION_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `3` | Nein | Anzahl Jahre, die ein abgeschlossener Löschungs-Antrag (`erasure_requests`, `status=completed`) als Rechenschaftsnachweis (Art. 5 Abs. 2 DSGVO) aufbewahrt wird, bevor er endgültig gelöscht wird (NFR-011 R-06). Gezählt in Kalenderjahren. Minimum: `1`, Maximum: `3`. |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | Nein | Gültigkeitsdauer des Bestätigungslinks bei einer E-Mail-Adressänderung (NFR-011 R-07); danach wird die Anfrage auf den Status `expired` gesetzt, ein Hard-Delete findet nicht statt. Minimum: `1`, Maximum: `24`. Älterer Name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` wird weiterhin akzeptiert; sind beide gesetzt, gewinnt der neue Name. |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | `7` | Nein | Gültigkeitsdauer des Rückgängig-Links, den die vorherige Adresse nach einer bestätigten E-Mail-Änderung erhält (NFR-011 R-07a). Danach nullt derselbe stündliche Retention-Task wie bei R-07 die Felder `previous_email` und den Hash des Rückgängig-Tokens. Minimum: `1`, Maximum: `7`. |
+| `RETENTION_CONSENT_RETENTION_YEARS` | `3` | Nein | Jahre nach dem Widerruf, nach denen ein Consent Record endgültig gelöscht wird (NFR-011 R-04). Minimum: `1`, Maximum: `3`. Ein höherer Wert verhindert den Start von Backend und Worker. |
+| `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | `7` | Nein | Tage nach der Aufzeichnung, nach denen die IP-Adresse eines Consent Records anonymisiert wird (NFR-011 R-04a). Minimum: `1`, Maximum: `7`. Ein höherer Wert verhindert den Start von Backend und Worker. |
+| `RETENTION_INVITATION_RETENTION_DAYS` | `30` | Nein | Tage nach Ablauf, nach denen eine abgelaufene Einladung endgültig gelöscht wird (NFR-011 R-12). Minimum: `1`, Maximum: `30`. Ein höherer Wert verhindert den Start von Backend und Worker. |
+| `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` | `7` | Nein | Tage, die die endgültige Löschung eines Kontos mit geteiltem persönlichem Garten nach der Benachrichtigung der anderen Mitglieder wartet, wenn diese erst nach der Terminierung des Löschantrags benachrichtigt wurden (Antrag aus der Zeit vor #1824 oder fehlgeschlagene erste E-Mail; NFR-011 R-01a). Eine Sofortlöschung durch einen Administrator wartet nie. Minimum: `1`, Maximum: `7`. Ein höherer Wert verhindert den Start von Backend und Worker. |
+| `RETENTION_TENANT_ERASURE_GRACE_DAYS` | `90` | Nein | Tage, um die eine angenommene Mandantenlöschung aufgeschoben wird (NFR-011 R-01b). In dieser Zeit ist der Mandant gesperrt, die Mitglieder sind mit Datum benachrichtigt, und die Verwaltung kann die Löschung abbrechen. `0` löscht sofort (Self-Hosted mit einem Haushalt). Minimum: `0`, Maximum: `90`. Ein höherer Wert verhindert den Start von Backend und Worker. |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | `5` | Nein | Anzahl Jahre ab `harvest_date`, nach denen die bei einer Mandantenlöschung aufbewahrten Erntedaten (Ernte, Qualitätsbewertung, Ertragskennzahl) endgültig gelöscht werden (NFR-011 R-16). Minimum: `5` (gesetzliche Mindestfrist nach CanG). |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | `3` | Nein | Dasselbe für Behandlungsanwendungen, gezählt ab `applied_at` (NFR-011 R-17). Minimum: `3` (PflSchG §11). |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | `3` | Nein | Dasselbe für Inspektionsprotokolle, gezählt ab `inspected_at` (NFR-011 R-18). Minimum: `3` (PflSchG §11). |
 
-!!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion"
-    Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden. Details zu allen unbedingt erforderlichen Secrets: [Konfigurationsmatrix — Pflicht-Secrets je aktivierter Funktion](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+Ein Wert oberhalb des Maximums bricht den Start von API und Worker ab (die Meldung nennt Variable und Grenzwert, nie den Wert). Das Maximum ist der NFR-011-Wert: Fristen dürfen zur Datenminimierung verkürzt, aber nicht verlängert werden. Wird ein älterer `PRIVACY_*`-Name gesetzt, schreibt der Start eine Warnung; sind beide Namen mit verschiedenen Werten gesetzt, eine Fehlermeldung (der `RETENTION_*`-Wert gilt).
+
+Für `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` und
+`RETENTION_EMAIL_CHANGE_RETENTION_HOURS` waren die älteren `PRIVACY_*`-Namen zwar bereits
+dokumentiert, hatten aber keine Wirkung — der Code nutzte feste Werte. Sie funktionieren
+jetzt tatsächlich und bleiben zusätzlich als Alias gültig.
+
+!!! danger "ERASURE_TOMBSTONE_SALT — Boot-Blocker in Produktion, darf nie wechseln"
+    Anders als die meisten anderen Variablen auf dieser Seite ist `ERASURE_TOMBSTONE_SALT` **kein optionales Feature-Flag**: Das Backend startet in Produktion (`DEBUG=false`) grundsätzlich nicht, wenn dieser Wert fehlt oder zu kurz ist — unabhängig davon, ob DSGVO-Löschanfragen aktiv genutzt werden. Dieser Salt schlüsselt den Tombstone-Hash gelöschter Konten, den Löschantrags-Schlüssel und den Mandanten-Slug-Digest — **niemals** die Log-Pseudonyme (dafür ist `LOG_PSEUDONYM_SALT` zuständig). Er darf sich nach der ersten Kontolöschung **nie mehr ändern**, sonst werden bestehende Tombstones unlesbar. Auch der Celery-Worker beendet sich beim Start, wenn der Salt fehlt oder zu kurz ist; gib ihm denselben Wert und dieselbe `DEBUG`-Einstellung wie dem Backend.
+
+    Mit `DEBUG=true` startet das Backend auch ohne gültigen Wert, etwa im lokalen Entwicklungs-Stack. Die Kontolöschung verweigert dann trotzdem jeden Lauf, bevor sie etwas anfasst: Löscht ein Platform-Admin ein Konto, antwortet das Backend mit `503`. Ein Löschantrag nach Art. 17 wird zwar angenommen, der tägliche Lauf führt ihn aber nicht aus. Der Antrag bleibt als `partially_completed` offen, bis du einen gültigen Salt setzt. Details zu allen unbedingt erforderlichen Secrets: [Konfigurationsmatrix — Pflicht-Secrets je aktivierter Funktion](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+!!! danger "LOG_PSEUDONYM_SALT — Boot-Blocker in Produktion, für Backend und Worker gleich"
+    `LOG_PSEUDONYM_SALT` ist ebenfalls **kein optionales Feature-Flag**: Backend **und** Celery-Worker verweigern in Produktion (`DEBUG=false`) den Start, wenn dieser Wert fehlt oder kürzer als 32 Zeichen ist. Er schlüsselt ausschließlich die Log-Pseudonyme — die `subject=`-Referenz und den `email_sha256`-Digest auf Protokollzeilen sowie das Herkunftsfeld `requested_by_subject` von Lösch- und Mandanten-Löschnachweisen. Gib beiden Prozessen denselben Wert. Mit `DEBUG=true` starten beide auch ohne gültigen Wert; die Konto- und Mandantenlöschung verweigert dann aber jeden Lauf (`503`), weil ihr Nachweis sonst keine Referenz auf das auslösende Konto trüge.
+
+    **Rotation.** Im Gegensatz zu `ERASURE_TOMBSTONE_SALT` darf dieser Salt gewechselt werden: Setze den neuen Wert in Backend und Worker (Kubernetes-Secret `kamerplanter-secrets` bzw. `.env` bei Docker Compose) und starte beide neu. Danach korrelieren Protokollzeilen und `requested_by_subject`-Werte von vor dem Wechsel nicht mehr mit späteren — wer nur den neuen Salt kennt, kann alte Referenzen keinem Konto mehr zuordnen. Auch welches Admin-Konto eine gespeicherte Löschung ausgelöst hat, lässt sich danach nur noch mit dem alten Salt nachrechnen — bewahre ihn gesichert auf, solange der Löschnachweis aufbewahrt wird (ein Jahr), wenn diese Zuordnung prüfbar bleiben soll. Keine Abfrage hängt vom Log-Salt ab, eine Rotation hat also sonst keine Nebenwirkungen. Der Wert sollte sich von `ERASURE_TOMBSTONE_SALT` unterscheiden; das wird nicht erzwungen.
 
 ---
 
@@ -93,9 +135,10 @@ Diese Variablen steuern die datenschutzrechtlich vorgeschriebene Löschung/Anony
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `KAMERPLANTER_MODE` | `full` | Nein | Betriebsmodus: `full` (Auth + Mandanten) oder `light` (kein Auth, lokale Einzelnutzung) |
+| `APPRISE_ALLOW_PRIVATE_TARGETS` | abhängig vom Modus: `false` in `full`, `true` in `light` | Nein | Ob Apprise-Ziele (Gotify, Matrix, ntfy-Server) in privaten Netzen liegen dürfen: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`. Geprüft beim Speichern und beim Senden. Ungesetzt entscheidet `KAMERPLANTER_MODE`; `true` oder `false` überschreibt das in beide Richtungen. Im `full`-Modus erreicht ein privates Ziel die Dienste im Cluster (API-Server, ArangoDB, Valkey), daher aus. Anders als `HA_ALLOW_PRIVATE_ENDPOINT` trägt hier jeder Nutzer die Adresse ein. `DEBUG` lockert die Regel nicht; Loopback, Link-Local und Cloud-Metadaten bleiben immer gesperrt. Siehe [Helm: Egress für Benachrichtigungskanäle](../deployment/helm.md#egress-fur-benachrichtigungskanale-apprise). |
 | `DEBUG` | `false` | Nein | Debug-Logging aktivieren (verbose, nie in Produktion). Deaktiviert zusätzlich den Startup-Gate für Produktions-Secrets — **niemals** in Produktion setzen. |
 | `FRONTEND_URL` | `http://localhost:5173` | Nein | URL des Frontends (wird für E-Mail-Links verwendet) |
-| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. |
+| `APP_BASE_URL` | `http://localhost:5173` | Nein | Basis-URL für QR-Codes auf Pflanzen-Etiketten (Druckansichten, siehe [Druckansichten & Export](../user-guide/print-export.md)). In Produktion auf die öffentlich erreichbare Frontend-URL setzen, sonst zeigen gedruckte QR-Codes auf `localhost`. Bildet auch die Rückruf-URL der OAuth/OIDC-Anmeldung und der erneuten Anmeldung zur Bestätigung (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — diese URL beim Identity-Provider hinterlegen. Bildet außerdem die Abo-URL der iCal-Feeds (`ical_url`, REQ-015, #2226); ein `http://`-Wert wird dort zu `https://` angehoben, außer für `localhost`, `127.0.0.1` und `::1`. Der Wert soll mit `http://` oder `https://` beginnen und einen Host nennen; sonst protokolliert das Backend beim Start die Warnung `app_base_url_not_absolute_http`, und nur die Abo-URL ergänzt das Schema selbst. |
 
 ### Light-Modus (`KAMERPLANTER_MODE=light`)
 
@@ -103,6 +146,14 @@ Im Light-Modus entfällt die Token-Authentifizierung. Die API ist ohne Anmeldung
 
 !!! danger "Light-Modus nicht öffentlich exponieren"
     Der Light-Modus deaktiviert alle Authentifizierungsschichten. Niemals mit einem öffentlich erreichbaren Port betreiben.
+
+### Netzwerk-Freigabe unter Docker Compose
+
+Diese Variable liest nicht das Backend, sondern Docker Compose (`docker-compose.yml` und `docker-compose.release.yml`) beim Start.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `KAMERPLANTER_BIND_ADDRESS` | `127.0.0.1` | Nein | Host-Adresse, an die Compose die Benutzeroberfläche (8080) und die API (8000) bindet. Mit `0.0.0.0` erreichen andere Geräte im Netzwerk beide Ports, siehe [Dauerbetrieb — Zugriff von anderen Geräten](../deployment/docker-dauerbetrieb.md#zugriff-von-anderen-geraten). Datenbanken, Valkey und Ollama bleiben unabhängig davon an `127.0.0.1` gebunden. |
 
 ---
 
@@ -123,18 +174,44 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log), `smtp`, `resend` |
+| `EMAIL_ADAPTER` | `console` | Nein | E-Mail-Adapter: `console` (Ausgabe im Log, Link nur mit `DEBUG=true`), `smtp` oder `resend`. Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still auf `console` zurückzufallen. |
 | `SMTP_HOST` | `localhost` | Nein | SMTP-Server-Hostname |
 | `SMTP_PORT` | `587` | Nein | SMTP-Port |
 | `SMTP_USERNAME` | — | Nein | SMTP-Benutzername |
 | `SMTP_PASSWORD` | — | Nein | SMTP-Passwort |
-| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails |
+| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails über SMTP |
 | `SMTP_USE_TLS` | `true` | Nein | STARTTLS für SMTP aktivieren |
+| `RESEND_API_KEY` | — | Bedingt | API-Schlüssel für den Versand über [Resend](https://resend.com) (Secret). **Pflicht, wenn `EMAIL_ADAPTER=resend` gesetzt ist** — ohne ihn lehnt die Anwendung den Start ab. Trage ihn über das Kubernetes-Secret `kamerplanter-secrets` bzw. deine `.env`-Datei ein, niemals über eine Helm-`values`-Datei. |
+| `RESEND_FROM_EMAIL` | `noreply@kamerplanter.example` | Nein | Absenderadresse für System-E-Mails über Resend. Die Domain dieser Adresse muss im Resend-Konto verifiziert sein, sonst schlägt der Versand fehl. |
 
-Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im Backend-Log ausgegeben.
+Im Entwicklungsmodus (`EMAIL_ADAPTER=console`) werden E-Mails nicht gesendet, sondern im
+Backend-Log ausgegeben. Den Bestätigungs- oder Passwort-Reset-Link enthält diese
+Protokollzeile aber nur, wenn zusätzlich `DEBUG=true` gesetzt ist — sein Token übernimmt
+sonst das Konto. Ohne `DEBUG=true` steht dort lediglich, dass keine E-Mail zugestellt
+wurde, ohne Token. Startet die API mit `EMAIL_ADAPTER=console` und `DEBUG=false` — der
+Fall bei einer produktiven Installation ohne SMTP- oder Resend-Konfiguration, da das
+Helm-Chart standardmäßig keinen Adapter setzt — schreibt sie beim Start eine Warnung ins
+Log (`email_adapter_console_in_production`). Für eine produktive Installation bleibt dann
+`EMAIL_ADAPTER=smtp` oder `EMAIL_ADAPTER=resend` zu konfigurieren, sonst lassen sich
+Registrierung und Passwort-Reset nicht abschließen. Auch E-Mail-Einladungen in einen
+Tenant gehen dann nicht raus: Die Einladung wird angelegt, die Antwort meldet
+`delivered: false`, und die Oberfläche zeigt dem Einladenden den Link zum Weitergeben
+(Issue #2162). Der Link zeigt auf `FRONTEND_URL`.
+
+!!! info "Resend: gehostete E-Mail-Zustellung über eine HTTP-API"
+    `EMAIL_ADAPTER=resend` verschickt dieselben System-E-Mails (E-Mail-Bestätigung,
+    Passwort-Reset, Bestätigungscode für erneute Anmeldung, Benachrichtigungs-E-Mails)
+    wie der SMTP-Adapter, aber über die HTTP-API von Resend statt über eine
+    SMTP-Verbindung. In den Logs erscheint die Empfängeradresse dabei nur als
+    gesalzener Digest, niemals im Klartext; schlägt ein Versand fehl, protokolliert die
+    Anwendung nur den Fehlertyp und den HTTP-Status, nie den Antworttext oder den
+    API-Schlüssel. Jeder Versandversuch hat ein Zeitlimit von 10 Sekunden. <!-- #1821 -->
 
 !!! note "Wird auch vom Benachrichtigungssystem genutzt"
     Diese Variablen konfigurieren zugleich den E-Mail-Kanal des [Benachrichtigungssystems](../user-guide/notifications.md#e-mail) — es gibt keine separate SMTP-Konfiguration für Benachrichtigungen.
+
+!!! info "Zwei verschiedene Voraussetzungen für föderierte Konten"
+    Ein Konto ohne lokales Passwort mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) bestätigt unumkehrbare Kontoaktionen und Zugangsdaten-Änderungen (Kontolöschung, erstes lokales Passwort, Mandantenlöschung, E-Mail-Änderung, seit Version 1.19 auch API-Key ausstellen, Gerätekopplung und Anmeldeweg entfernen) mit einer frischen Anmeldung bei diesem Anbieter — siehe [API-Dokumentation: Authentifizierung](../api/authentication.md#erneut-anmelden-zur-bestatigung-oidc). Dafür muss der Anbieter `prompt=login`/`max_age` und den Claim `auth_time` unterstützen, nicht SMTP. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind (beide können keine frische Anmeldung belegen), nutzt stattdessen den per E-Mail zugestellten Bestätigungscode — siehe [Bestätigungscode per E-Mail anfordern](../api/authentication.md#bestatigungscode-per-e-mail-anfordern-ausweichweg-fur-githubapple). Läuft die Instanz für ein solches Konto mit `EMAIL_ADAPTER=console` und `DEBUG=false`, meldet die Anwendung, dass der Bestätigungscode nicht zugestellt werden kann (`503`), statt ihn stillschweigend verschwinden zu lassen — es kann sich trotzdem nicht löschen, kein erstes lokales Passwort setzen, keinen Mandanten löschen, die E-Mail-Adresse nicht ändern und auch keinen API-Key oder Kopplungscode ausstellen, bis SMTP konfiguriert ist. `EMAIL_ADAPTER=smtp` ist deshalb für den produktiven Betrieb mit GitHub/Apple-only-Konten Pflicht, nicht nur empfohlen.
 
 ---
 
@@ -157,15 +234,16 @@ Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowled
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `RERANKER_URL` | `` (leer) | Nein | HTTP-URL des Reranker-Microservice, z. B. `http://reranker-service:8081`. Leer = Re-Ranking deaktiviert. |
-| `RERANKER_INITIAL_K` | `20` | Nein | Anzahl der Chunks, die aus dem Hybrid-Search-Schritt abgerufen werden (Over-Retrieval). |
+| `RERANKER_INITIAL_K` | `15` | Nein | Anzahl der Kandidaten aus dem Hybrid-Search-Schritt, die höchstens durch den Cross-Encoder neu bewertet werden (Bewertungs-Obergrenze, kein Limit für die Ergebnisanzahl — siehe [KI-Architektur](../architecture/ai-architecture.md#fallback-gruende-und-zeitbudget)). |
+| `RERANKER_MAX_DOCUMENT_CHARS` | `500` | Nein | Maximale Zeichenzahl von `titel\ninhalt` je Kandidaten-Chunk, bevor er an den Reranker-Sidecar geschickt wird. Der an das LLM übergebene Chunk behält seinen vollständigen Text — nur die Reranker-Eingabe wird gekürzt. |
 | `RERANKER_TOP_K` | `5` | Nein | Anzahl der Chunks, die nach dem Re-Ranking an den LLM-Kontext übergeben werden. |
 | `RERANKER_MODEL` | `bge-reranker-v2-m3` | Nein | ONNX-Modellname im Reranker-Service-Container (Verzeichnis unter `/app/models/onnx/`). |
 
 !!! note "RERANKER_MODEL gehört zum Reranker-Service, nicht zum Knowledge Service"
-    `RERANKER_MODEL` wird als Umgebungsvariable am `reranker-service`-Container gesetzt — nicht am `knowledge-service`. Die anderen drei Variablen (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`) gehören zum Knowledge Service.
+    `RERANKER_MODEL` wird als Umgebungsvariable am `reranker-service`-Container gesetzt — nicht am `knowledge-service`. Die anderen vier Variablen (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_MAX_DOCUMENT_CHARS`, `RERANKER_TOP_K`) gehören zum Knowledge Service.
 
-!!! tip "Ressourcenbedarf"
-    Der Reranker-Service benötigt 1,5–4 GB RAM (je nach Modell) und addiert ~500ms Latenz pro Anfrage. Für Raspberry Pi und ressourcenarme Umgebungen empfiehlt sich, `RERANKER_URL` leer zu lassen.
+!!! tip "Ressourcenbedarf und Zeitbudget"
+    Der Reranker-Service benötigt 1,5–4 GB RAM (je nach Modell) und addiert Latenz pro Anfrage. Bei `bge-reranker-v2-m3` am 2-CPU-Limit des Helm-Charts kostet ein (Query, Dokument)-Paar mit 512 Tokens ca. 3 Sekunden; der Sidecar bricht eine Re-Ranking-Anfrage nach 25 Sekunden serverseitig ab (Fallback-Grund `deadline`, siehe [KI-Architektur](../architecture/ai-architecture.md)). Ein realer HTTP-Test über alle 100 Benchmark-Fragen zeigt: Mit den Standardwerten `RERANKER_INITIAL_K=15` und `RERANKER_MAX_DOCUMENT_CHARS=500` (Paar-Median 166 Tokens, maximal 222) waren alle 100 Anfragen erfolgreich — p50 12,9 Sekunden, p90 15,0 Sekunden, maximal 16,0 Sekunden, innerhalb des 25-Sekunden-Budgets. Ein CI-Guard prüft für die Standardwerte und für jede Deployment-Datei im Repository, die eine der beiden Variablen setzt, dass `RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7.500` gilt (`RERANK_SCORED_CHARS_BUDGET` in `config.py`) und `RERANKER_INITIAL_K` höchstens 50 beträgt (die Anfragegrenze des Sidecars). Die Standardwerte schöpfen das Budget mit 15 × 500 = 7.500 exakt aus. Werte, die du außerhalb des Repositorys setzt, sieht der Guard nicht. Wer einen der beiden Werte über dieses Produkt hinaus anheben will, muss die Latenz vorher neu messen. Für Raspberry Pi und ressourcenarme Umgebungen empfiehlt sich weiterhin, `RERANKER_URL` leer zu lassen.
 
 ---
 
@@ -182,7 +260,10 @@ Diese Variablen gehören zum **Kamerplanter-Backend** und steuern den dreistufig
 | `AI_CIRCUIT_BREAKER_THRESHOLD` | `3` | Nein | Anzahl aufeinanderfolgender Fehler, ab der der Adapter den Knowledge Service als nicht erreichbar markiert. |
 | `AI_CIRCUIT_BREAKER_WINDOW_S` | `60` | Nein | Zeitfenster (Sekunden), in dem die Fehler für `AI_CIRCUIT_BREAKER_THRESHOLD` gezählt werden. |
 | `AI_CIRCUIT_BREAKER_COOLDOWN_S` | `60` | Nein | Wartezeit (Sekunden), bevor der Adapter nach dem Auslösen des Circuit Breakers erneut Anfragen an den Knowledge Service zulässt. |
-| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | Nein | IP-Ratenbegrenzung für den anonymen, Light-Modus-fähigen Endpunkt `POST /api/v1/public/ai/ask` (Anfragen pro Minute). |
+| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | Nein | IP-Ratenbegrenzung für die Wissensfrage `POST /api/v1/public/ai/ask` (Anfragen pro Minute). Der Endpunkt existiert nur im Light-Modus und läuft dort als System-User. |
+| `AI_BUDGET_USER_CALLS_PER_DAY` | `50` | Nein | KI-Aufrufe, die ein Konto in einem Mandanten pro UTC-Tag starten darf (Tipps, Tagestipp, „Warum?“, Chat-Nachricht, Glossar-Erzeugung, KI-Diagnose zusammen). Darüber `429 AI_BUDGET_EXCEEDED` mit `Retry-After` bis Tagesende. `0` schaltet das Budget ab. |
+| `AI_BUDGET_TENANT_CALLS_PER_DAY` | `500` | Nein | KI-Aufrufe aller Mitglieder eines Mandanten zusammen pro UTC-Tag. Ein Mitglied, das an seinem eigenen Budget abgewiesen wird, verbraucht dieses Budget nicht. `0` schaltet es ab. |
+| `AI_BUDGET_TENANT_TOKENS_PER_DAY` | `2000000` | Nein | LLM-Tokens (Prompt + Antwort, wie der Knowledge Service sie meldet), die ein Mandant pro UTC-Tag verbrauchen darf. Geprüft wird vor dem nächsten Aufruf; eine einzelne Antwort kann das Budget überschreiten. `0` schaltet es ab. Die Zähler liegen in Valkey; ist Valkey nicht erreichbar, läuft kein KI-Aufruf (`503 AI_BUDGET_UNAVAILABLE`). |
 | `INTERNAL_SERVICE_TOKEN` | — | Bedingt | Gemeinsames Geheimnis für cluster-interne M2M-Aufrufe (u. a. an den Knowledge Service). Pflicht, sobald `KNOWLEDGE_SERVICE_ENABLED=true` gesetzt ist — ohne Token verweigert der Startup-Gate den Start (AP-4). |
 
 !!! warning "Instanzweite Freischaltung reicht allein nicht aus"
@@ -223,6 +304,15 @@ Beim Anlegen eines Tagebuch-Eintrags liest Kamerplanter die Sensorwerte, die die
     Nicht erreichbares Home Assistant, fehlende TimescaleDB oder ein abgelaufenes Zeitbudget führen zu einem Eintrag **ohne** (oder mit unvollständigen) Umgebungswerten, nie zu einer abgelehnten Anlage.
 
 ---
+
+## Metriken (Prometheus) {#metriken-prometheus}
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `METRICS_PORT` | `0` | Nein | Port, auf dem das Backend `/metrics` im Prometheus-Format ausliefert. `0` startet keinen Listener. Das Helm-Chart setzt `9464`, sobald `monitoring.enabled` an ist. |
+| `METRICS_BIND_ADDRESS` | `0.0.0.0` | Nein | Adresse, an die sich der Metrik-Listener bindet. |
+
+Die Metriken laufen auf einem **eigenen Port**, nie als Route der API auf Port 8000. Der Weg von außen (Ingress → Frontend-nginx → Backend :8000) erreicht sie dadurch nicht; im Cluster lässt die NetworkPolicy nur den konfigurierten Prometheus zu. Die Zeitreihen tragen weder Mandant noch Person: `handler` ist das Routenmuster (`/api/v1/t/{tenant_slug}/…`), nie der aufgerufene Pfad. Details: [Helm — Metriken](../deployment/helm.md#metriken-prometheus).
 
 ## mDNS / Zeroconf Discovery
 
@@ -291,7 +381,7 @@ Diese Variablen aktivieren die optionale TimescaleDB-Anbindung für hochfrequent
 | `TIMESCALEDB_POOL_MAX_SIZE` | `10` | Nein | Maximale Connection-Pool-Größe. |
 
 !!! note "Docker Compose: eigenes Profil"
-    In der lokalen Docker-Compose-Umgebung startet TimescaleDB nur mit `docker-compose --profile timescaledb up -d`. In Kubernetes ist der `timescaledb`-Controller im Chart standardmäßig auskommentiert — der Operator ergänzt ihn per `valuesObject` (siehe [Helm Charts](../deployment/helm.md)).
+    In der lokalen Docker-Compose-Umgebung startet TimescaleDB nur mit `docker-compose --profile timescaledb up -d`. In Kubernetes schaltest du ihn mit `controllers.timescaledb.enabled: true` ein; das Chart setzt dann `TIMESCALEDB_ENABLED`, `TIMESCALEDB_HOST` und die übrigen Werte selbst (siehe [Helm Charts](../deployment/helm.md#timescaledb)).
 
 ---
 
@@ -404,7 +494,7 @@ Der unauthentifizierte Endpunkt `GET /api/health` kann beantworten, welcher Buil
 |----------|---------|---------|-------------|
 | `HEALTH_EXPOSE_BUILD_REVISION` | `false` (Helm-Chart setzt `true`) | Nein | Ob `GET /api/health` das Feld `build_revision` überhaupt ausliefert. Bei `false` fehlt der Schlüssel vollständig in der Antwort. Der **Anwendungs**-Standard bleibt `false` — `helm/kamerplanter/values.yaml` setzt für Kubernetes-Installationen seit #1236 `true`, damit der Auslieferungsstand prüfbar ist. |
 | `BUILD_REVISION` | *(leer)* | Nein | Der vollständige Git-Commit, aus dem das Image gebaut wurde. Wird beim Container-Build eingebacken (`docker-publish.yml` reicht ihn als Build-Argument in das Dockerfile); von Hand setzen musst du ihn nur, wenn du selbst baust. |
-| `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Mengenbegrenzung für `GET /api/health`, je Client-IP. Die Kubernetes-Proben zeigen auf `/api/v1/health/live` und `/api/v1/health/ready` und sind davon **nicht** betroffen. |
+| `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Mengenbegrenzung für `GET /api/health`, je Client-IP und Prozess — gezählt nur im Prozessspeicher, damit der Endpunkt nie auf Valkey wartet, auch nicht bei einem Ausfall. Die Kubernetes-Proben zeigen auf `/api/v1/health/live` und `/api/v1/health/ready` und sind davon **nicht** betroffen. |
 
 !!! warning "Warum die Build-Kennung standardmäßig fehlt"
 
@@ -435,8 +525,15 @@ Der Wert wird vor der Ausgabe gegen `^[0-9a-f]{7,40}$` geprüft (nach dem Abschn
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
 | `RATE_LIMIT_AUTH` | `20/minute` | Nein | Rate-Limit für Authentifizierungsendpunkte |
-| `TRUSTED_PROXY_HOPS` | `0` | **Ja, hinter zwei Proxys** | Wie viele Proxy-Adressen die eigene Infrastruktur an `X-Forwarded-For` anhängt, von rechts gezählt. `0` = Client → nginx → Backend (Dev/E2E); `1` = Client → Traefik → nginx → Backend (das Helm-Chart setzt diesen Wert). Zu niedrig löst jeden Aufrufer auf den nächsten Proxy auf — der Device-Pairing-Lockout sperrt dann alle Nutzer gleichzeitig und IP-Allowlist-Service-Accounts scheitern; zu hoch liest Einträge, die ein Aufrufer fälschen kann. |
-| `RATE_LIMIT_GENERAL` | `100/minute` | Nein | Rate-Limit für allgemeine API-Endpunkte |
+| `RATE_LIMIT_STORAGE_URL` | leer | Nein | Speicher, in dem die IP-Rate-Limits zählen (`redis://…`, `rediss://…`, `redis+unix://…` oder `memory://`; ein anderes Schema, ein Passwort mit unkodiertem `/`, `#` oder `?` oder ein `@` in Pfad, Query oder Fragment verhindert den Start — hier und in `REDIS_URL` —, die Meldung nennt den Wert nicht; ein `@` im Passwort selbst ist zulässig). Leer bedeutet: der Valkey aus `REDIS_URL`, damit alle Replikas und Worker-Prozesse gemeinsam zählen. `memory://` zählt je Prozess und passt nur, wenn ein Prozess die ganze Installation ist. Scheitert der Speicher mit einem Fehler des Redis-Clients, zählt jeder Prozess für sich weiter (nicht offen, kein Fehler, auch nicht für Anfragen, die beim Ausfall gerade warten); je Prozess kann ein frisches Zeitfenster gelten, eines je Fenster, nicht je Ausfall. Bei hängendem Speicher wartet nur die Anfrage, die den Ausfall bemerkt (und jede, die gerade wartet), einen Socket-Timeout von 0,5 s je Verbindungsversuch und Adresse (DNS, mehrere Adressen, Verbindungsaufbau plus Handshake und `NOSCRIPT`-Nachladen nicht abgedeckt), ebenso je Prozess eine Prüfanfrage in Abständen von 1, 2, 4, 8, 16, 32 s und danach alle 32 s; jeder Prozess zählt erst mit seiner eigenen nächsten Prüfanfrage wieder gemeinsam. Die Mail-Budgets der Anmelderouten nutzen dieselben Client-Optionen und denselben Prüfplan: Solange Valkey hängt, wartet nur der Speicheraufruf, der den Ausfall bemerkt, und je Prozess eine Prüfanfrage höchstens 0,5 s — siehe [IP-Rate-Limits und Proxy-Tiefe](../api/authentication.md#ip-rate-limits-und-proxy-tiefe). |
+| `TRUSTED_PROXY_HOPS` | `0` | **Ja, hinter zwei Proxys** | Wie viele Proxy-Adressen die eigene Infrastruktur an `X-Forwarded-For` anhängt, von rechts gezählt. `0` = Client → nginx → Backend (Lauf ohne Ingress, z. B. Docker Compose); `1` = Client → Ingress-Controller → nginx → Backend (das Helm-Chart setzt diesen Wert; in der Referenz-Installation ist der Ingress Contour/Envoy). Zu niedrig löst jeden Aufrufer auf den nächsten Proxy auf — der Device-Pairing-Lockout sperrt dann alle Nutzer gleichzeitig und IP-Allowlist-Service-Accounts scheitern; zu hoch liest Einträge, die ein Aufrufer fälschen kann. Bei `0` und einer `X-Forwarded-For`-Kette mit mehr als einem Eintrag loggt das Backend einmal je Prozess `forwarded_chain_deeper_than_trusted_proxy_hops`: entweder ein nicht gezählter Proxy oder ein Aufrufer, der den Header selbst schickt (dann ist `0` richtig); erhöhe den Wert nur bei wirklich mehr Proxys — siehe [Login-Schutz und IP-Limits](../api/authentication.md#ip-rate-limits-und-proxy-tiefe). |
+| `RATE_LIMIT_UPLOAD` | `30/minute` | Nein | Budget je Konto und Route für Datei-Uploads: Anhänge, Pflanzen- und Aufgabenfotos, Schädlingsbilder, CSV-Import (Upload und Bestätigung). Darüber `429` mit `Retry-After`. Ohne angemeldetes Konto zählt die Client-IP. |
+| `RATE_LIMIT_INFERENCE` | `20/minute` | Nein | Budget je Konto und Route für Routen, die ein Modell ausführen: CV-Diagnose, Schädlingserkennung, Pflanzenbestimmung, Referenzbeitrag und jede Route, die ein LLM anspricht (Tipps und Tagestipp erzeugen, „Warum?“, Chat-Nachricht, Glossar-Erzeugung, KI-Diagnose, Wissensfrage `POST /api/v1/t/{slug}/ai/knowledge/ask`). Die Tagesgrenzen von Bestimmung und Referenzbeitrag sowie die KI-Tagesbudgets (`AI_BUDGET_*`) gelten zusätzlich. |
+| `RATE_LIMIT_EXPORT` | `20/minute` | Nein | Budget je Konto und Route für die PDF-Drucke unter `/print` (Nährstoffplan, Pflegeliste, Pflanzenetiketten). |
+| `RATE_LIMIT_RESEND_VERIFICATION` | `10/hour` | Nein | Rate-Limit je Client-IP für `POST /api/v1/auth/resend-verification`. Begrenzt E-Mails an frei wählbare Adressen, deshalb weit unter `RATE_LIMIT_AUTH`. Die zusätzliche Grenze je Adresse (3 Anfragen, Auffüllung nach einer Stunde Ruhe) ist fest und nicht konfigurierbar. |
+| `RATE_LIMIT_CALENDAR_FEED` | `30/minute` | Nein | Rate-Limit je Client-IP für den öffentlichen iCal-Abruf `GET /api/v1/calendar/feeds/{key}/feed.ics` (REQ-015 CF-004). Kalender-Apps rufen ein Abo alle 15 Minuten bis alle paar Stunden ab; darüber `429`. Abgewiesene Abrufe mit falschem Token zählen mit. |
+| `RATE_LIMIT_CALENDAR_FEED_PER_TOKEN` | `60/hour` | Nein | Zusätzliches Rate-Limit je vorgelegtem Feed-Token für denselben Abruf (REQ-015 CF-004, #2226). Begrenzt eine geleakte Abo-URL auch dann, wenn sie von vielen Adressen aus abgerufen wird; ein Abo auf mehreren Geräten (Handy, Laptop, Home Assistant) bleibt weit darunter. Der Bucket ist über einen Digest des Tokens geschlüsselt — ohne den Token kann niemand das Budget verbrauchen. |
+| `RATE_LIMIT_INVITATION_EMAIL` | `10/minute` | Nein | Rate-Limit je Konto für `POST /api/v1/tenants/{slug}/invitations/email`: Jeder Aufruf verschickt eine E-Mail an eine frei gewählte Adresse. Die Tagesgrenze je Konto ist `TENANT_INVITATION_EMAILS_PER_DAY` (Issue #2162) |
 | `RATE_LIMIT_HEALTH` | `60/minute` | Nein | Rate-Limit für `GET /api/health` — siehe [Health-Endpunkt und Build-Kennung](#health-endpunkt) |
 
 **Format:** `[anzahl]/[einheit]` — Einheiten: `second`, `minute`, `hour`, `day`
@@ -466,9 +563,9 @@ Diese Variablen konfigurieren die optionale Pflanzenerkennung per Foto. Wenn kei
 | `PLANTNET_BASE_URL` | `https://my-api.plantnet.org/v2` | Nein | Basis-URL der Pl@ntNet-API. Nur für Self-Hosting oder Test-Endpunkte ändern. |
 | `PLANT_ID_API_KEY` | — | Nein | API-Schlüssel für Plant.id (Kindwise) — ein zusätzlicher, rein Betreiber-initiierter Cloud-Adapter (niemals automatisch primär, anders als Pl@ntNet). |
 | `PLANT_ID_BASE_URL` | `https://plant.id/api/v3` | Nein | Basis-URL der Plant.id-API. |
-| `INFERENCE_SERVICE_ENABLED` | `false` | Nein | Aktiviert den selbst-gehosteten DINOv2-Erkennungspfad (REQ-029-A). Details zur vollständigen Inbetriebnahme (VectorDB, Referenz-Index-Befüllung, Aktivierungsreihenfolge) siehe [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md). |
-| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | Nein | Interne URL des Inferenz-Service. |
-| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | Nein | Bevorzugter Adapter. Mögliche Werte: `plantnet`, `local_embedding` (DINOv2, sobald `INFERENCE_SERVICE_ENABLED=true`). |
+| `INFERENCE_SERVICE_ENABLED` | `false` | Nein | Aktiviert den selbst-gehosteten DINOv2-Erkennungspfad (REQ-029-A). **Muss auf Backend UND Celery-Worker identisch gesetzt sein**, sobald Nutzer eigene Referenzbilder beitragen können — der Worker führt die planmäßige DSGVO-Art.-17-Löschung dieser Beiträge aus (Issue #1753); fehlt die Variable dort, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503. Details zur vollständigen Inbetriebnahme (VectorDB, Referenz-Index-Befüllung, Aktivierungsreihenfolge) siehe [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md). |
+| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | Nein | Interne URL des Inferenz-Service. Ebenfalls auf Backend und Celery-Worker identisch setzen (siehe oben). |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | Nein | Bevorzugter Adapter. Mögliche Werte: `plantnet`, `local_embedding` (DINOv2, sobald `INFERENCE_SERVICE_ENABLED=true`). Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still einen anderen Anbieter zu verwenden. |
 | `IDENTIFICATION_HTTP_TIMEOUT` | `60` | Nein | HTTP-Timeout (Sekunden) für den externen Identifikations-Aufruf (Pl@ntNet-Upload + serverseitige ML-Inferenz kann den früheren 30-Sekunden-Standard unter Last überschreiten). |
 | `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | Nein | Übereinstimmungsschwelle (0–1), ab der ein Vorschlag als „sehr sicher" hervorgehoben wird. |
 | `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | Nein | Mindest-Übereinstimmung (0–1) für die Anzeige eines Vorschlags. Ergebnisse darunter werden gefiltert. |
@@ -510,13 +607,13 @@ Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. D
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `PEST_DETECTION_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. |
+| `PEST_DETECTION_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. **Muss auf Backend UND Celery-Worker gesetzt sein (alternativ `INFERENCE_SERVICE_ENABLED`)**, sobald ein Platform-Admin ein beigetragenes Schädlingsfoto zur Erkennungsbasis freigegeben hat — der Worker führt die planmäßige DSGVO-Art.-17-Löschung dieser Beiträge aus (Issue #1759); fehlt beides dort, hält der Worker fällige Löschungen als Konfigurationsfehler zurück und eine Mandantenlöschung antwortet mit HTTP 503. Details: [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md). |
 | `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | Nein | Schadbild-/Symptom-Erkennung (Modus 2) ein/aus. Aktiv wenn `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_DETECTOR_ENABLED` | `false` | Nein | Direkt-Detektor (Modus 1, Phase 2) ein/aus. Erfordert trainierten ONNX-Detektor. |
 | `PEST_DETECTION_DEMO_ENABLED` | `false` | Nein | Demo-Adapter (kein externer Service, kein echtes Modell). Zeigt den kompletten UI-Ablauf mit klar gekennzeichneten Platzhalter-Befunden, während das trainierte Backend extern blockiert ist. Nur zur Vorschau — nicht für echte Entscheidungen. Aktiv, wenn zusätzlich `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_CLOUD_ENABLED` | `false` | Nein | Cloud-Adapter (Kindwise) ein/aus. Erfordert `PEST_DETECTION_CLOUD_API_KEY`. |
 | `PEST_DETECTION_CLOUD_API_KEY` | — | Nein | API-Key für Kindwise (Cloud-Erkennung). Ohne Key ist der Cloud-Adapter deaktiviert. |
-| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Nein | Bevorzugter Adapter. Mögliche Werte: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | Nein | Bevorzugter Adapter. Mögliche Werte: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise_pest`, `demo_pest`. Ein anderer Wert — etwa ein Tippfehler — wird beim Start abgelehnt: API und Worker starten dann gar nicht erst, statt still einen anderen Anbieter zu verwenden. |
 | `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 400 abgelehnt. |
 
 !!! note "Self-Hosted-First"
@@ -636,7 +733,7 @@ Diese Variablen steuern die Schwellwerte der automatischen Saison-/Überwinterun
 
 ## Fehler-Tracking (optional)
 
-Meldet Laufzeitfehler an einen Sentry-protokollkompatiblen Tracker (Referenz: GlitchTip). **Ist `SENTRY_DSN` leer, passiert nichts** — das SDK wird nie initialisiert, das Frontend lädt sein SDK-Bündel nicht einmal herunter. Ausführlich: [Fehler-Tracking](../deployment/fehler-tracking.md).
+Meldet Laufzeitfehler an einen Sentry-protokollkompatiblen Tracker (Referenz: GlitchTip). **Ist `SENTRY_DSN` leer, passiert nichts** — das SDK wird nie initialisiert, das Frontend lädt sein SDK-Bündel nicht einmal herunter. Mit DSN lädt das Frontend es erst, wenn die Person der Fehleranalyse zugestimmt hat. Ausführlich: [Fehler-Tracking](../deployment/fehler-tracking.md).
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
@@ -664,11 +761,15 @@ ARANGODB_PASSWORD=sicheres-root-passwort
 # Cache / Queue
 REDIS_URL=redis://valkey:6379/0
 
-# Sicherheit (alle drei sind Pflicht-Secrets, Startup-Gate in Produktion)
+# Sicherheit (alle vier sind Pflicht-Secrets, Startup-Gate in Produktion)
 JWT_SECRET_KEY=erzeugen-mit-openssl-rand-hex-32
 FERNET_KEY=erzeugen-mit-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=erzeugen-mit-openssl-rand-hex-32
-REQUIRE_EMAIL_VERIFICATION=false
+LOG_PSEUDONYM_SALT=erzeugen-mit-openssl-rand-hex-32
+# Default true; nur ohne ausgehenden Mailversand auf false setzen
+REQUIRE_EMAIL_VERIFICATION=true
+# Wer ein Konto anlegen darf: open | invite_only | closed (Default open)
+REGISTRATION_MODE=open
 
 # CORS
 CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
@@ -691,7 +792,8 @@ HA_ACCESS_TOKEN=
 
 # Knowledge Service — Re-Ranking (leer = deaktiviert)
 RERANKER_URL=
-RERANKER_INITIAL_K=20
+RERANKER_INITIAL_K=15
+RERANKER_MAX_DOCUMENT_CHARS=500
 RERANKER_TOP_K=5
 
 # KI-Assistent (instanzweit deaktiviert, solange nicht explizit aktiviert)
@@ -721,23 +823,29 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 
 | Variable | Standard | Pflicht | Beschreibung |
 |----------|---------|---------|-------------|
-| `STORAGE_BACKEND` | `local-fs` | Nein | Aktives Backend: `local-fs` oder `s3` |
+| `STORAGE_BACKEND` | `local-fs` | Nein | Aktives Backend: `local-fs` oder `s3`. Ein anderer Wert wird beim Start abgelehnt. |
 | `STORAGE_MAX_FILE_SIZE_MB` | `25` | Nein | Maximale Upload-Größe in Megabyte (gilt für alle Kategorien, überschreibbar per Kategorie) |
 | `STORAGE_PRESIGN_TTL_SECONDS` | `900` | Nein | Gültigkeitsdauer von Pre-Signed URLs in Sekunden (max. 3600) |
+| `UPLOAD_SPOOL_BUDGET_MB` | `52` | Nein | Wie viele MiB gleichzeitige Uploads zusammen in `/tmp` zwischenspeichern dürfen. Gezählt werden die Bytes, die tatsächlich angekommen sind. Muss mindestens `STORAGE_MAX_FILE_SIZE_MB` + 1 sein, sonst startet das Backend nicht. Halte den Wert unter der Größe von `/tmp` im Backend-Pod (im Chart 64 MiB). Das Helm-Chart setzt ihn auf 52 oder, bei größerer Upload-Grenze, auf `storage.maxFileSizeMb` + 1. Er begrenzt auch die Upload-Grenze des Mandanten-Imports (`TENANT_IMPORT_MAX_UPLOAD_MB`): Für Archive bis N MiB hebst du ihn auf mindestens N + 1 an, zusammen mit `/tmp` und dem Speicherlimit (Issue #2138). |
+| `UPLOAD_SPOOL_WAIT_SECONDS` | `30` | Nein | Wie lange ein Upload auf freies Budget wartet. Danach antwortet das Backend mit `503` (`UPLOAD_CAPACITY_EXHAUSTED`) und `Retry-After`. |
 | `STORAGE_ALLOWED_MIME_TYPES` | *(Liste)* | Nein | Kommagetrennte globale Whitelist erlaubter MIME-Types |
 | `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(pro Kategorie)* | Nein | Kategorie-spezifische Whitelist, z. B. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
 | `STORAGE_VIRUS_SCAN_ENABLED` | `false` | Nein | Virenscan via ClamAV-REST-Wrapper aktivieren |
 | `STORAGE_VIRUS_SCAN_ENDPOINT` | *(leer)* | Nein | URL des ClamAV-REST-Wrappers |
-| `STORAGE_STRIP_EXIF` | `true` | Nein | Entfernt EXIF-/GPS-Metadaten aus Bild-Uploads global beim Speichern (NFR-013 §5.1). Es gibt **keine** Kategorie-spezifische Override-Variable — anders als bei den MIME-Whitelists ist dies ein einzelner, globaler Schalter. |
+| `STORAGE_STRIP_EXIF` | `true` | Nein | Entfernt EXIF-/GPS-Metadaten aus Bild-Uploads global beim Speichern (NFR-013 §5.1). Es gibt **keine** Kategorie-spezifische Override-Variable — anders als bei den MIME-Whitelists ist dies ein einzelner, globaler Schalter. Solange er aktiv ist, lehnt der Upload Bildtypen ab, deren Metadaten die Bereinigung nicht entfernen kann (HEIC/HEIF, GIF), auch wenn eine MIME-Whitelist sie zulässt. Bilder über 40 Megapixel werden unabhängig von diesem Schalter mit `413` abgelehnt. |
 | `STORAGE_TENANT_QUOTA_MB` | `2048` | Nein | Speicherkontingent pro Mandant in Megabyte. `0` deaktiviert das Kontingent (unbegrenzt). |
 | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | `50` | Nein | Maximale Anzahl Galerie-Fotos je Pflanzeninstanz (REQ-034). `0` deaktiviert das Limit. |
 | `STORAGE_TASK_PHOTO_ORPHAN_HOURS` | `0` | Nein | Wie lange ein Aufgabenfoto unreferenziert liegen darf, bevor der nächtliche Aufräum-Task es **löscht** (#1393). `0` schaltet ihn ab — und ist der Auslieferungswert: Der Job löscht Daten über eine Referenz-Historie, die jede Client-Version und eine manuelle Migration umfasst, und geht in seinem ersten Release bewusst nicht scharf. Zum Einschalten eine positive Stundenzahl setzen; jeder Upload ist kurzzeitig unreferenziert (der Anhang wird geschrieben, bevor das Formular ihn verknüpft), der Wert ist also ein weiter Sicherheitsabstand und kein Feineinstellungs-Regler — `48` ist die Größe, um die herum gebaut und getestet wurde. |
+| `STORAGE_RECONCILE_DELETE_ENABLED` | `false` | Nein | Schaltet das **Löschen** des nächtlichen Objekt-Abgleichs ein (#1834). Der Task `reconcile_orphaned_storage_objects` (täglich 04:10) listet den Object Store unter `t/` und sucht Objekte, die kein Anhang-Datensatz mehr hält — Reste eines fehlgeschlagenen Storage-Aufrufs nach einer Löschung, eines Datensatzes im Fenster einer Kontolöschung oder einer Schädlingsreferenz in einem verlassenen Mandanten. Ausgelieferter Wert `false`: Der Lauf **berichtet nur**. Im Worker-Log steht je Lauf die Zeile `reconcile_orphaned_storage_objects_audit` mit `scanned`, `found` (kein Datensatz hält das Objekt), `young` (jünger als die Marge, bleibt), `undated` (kein lesbares Alter, bleibt), `eligible`, `would_delete`, `deleted`, `failed`, `freed_bytes` und `truncated`; sie enthält nie Mandanten-, Nutzerschlüssel oder Objektpfade. Erst wenn `would_delete` über mehrere Läufe nur Objekte beschreibt, die du erwartest, `true` setzen; dann löscht der Lauf genau diese Objekte samt Vorschaubildern und nie eines, das ein Datensatz hält. |
+| `STORAGE_RECONCILE_MIN_AGE_HOURS` | `24` | Nein | Mindestalter eines Objekts ohne Datensatz, bevor der Abgleich es beurteilt (#1834). Ein Upload schreibt das Objekt **vor** dem Datensatz, ein frisches Objekt ohne Datensatz ist also kurzzeitig normal. Die Untergrenze ist `1` (Request plus die Wiederholungen des Thumbnail-Tasks); kleinere Werte lehnt der Start ab. Ein Sicherheitsabstand, kein Regler. |
+| `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` | `200000` | Nein | Höchstzahl der Objekte, die ein Lauf des Abgleichs prüft (Untergrenze `1000`). Ein größerer Bestand wird über mehrere Nächte abgedeckt: `truncated: true` im Bericht, der nächste Lauf setzt an der gemerkten Stelle fort (Token in Valkey; fehlt er, beginnt der Lauf von vorn). |
+| `STORAGE_RECONCILE_MAX_ORPHAN_FRACTION` | `0.5` | Nein | Notbremse des Objekt-Abgleichs (#1834): Ist auf einer Seite (ab 20 Objekten) mehr als dieser Anteil der Objekte ohne Datensatz, löscht der Lauf dort nichts und meldet `brake_tripped: true`. Das fängt einen Katalog ab, der gültig, aber leer antwortet — falsche Datenbank über einem bestehenden Bucket, ein Restore, der älter als der Speicher ist, zwei Installationen auf einem Bucket —, bei dem keine Abfrage fehlschlägt und jedes Objekt „verwaist“ aussähe. Wertebereich `0 < x <= 1`. Löst die Bremse aus, den Katalog prüfen, bevor du das Löschen weiter eingeschaltet lässt. |
 
 **Standard-MIME-Whitelist pro Kategorie:**
 
 | Kategorie | Erlaubte MIME-Types | Max-Größe |
 |-----------|---------------------|-----------|
-| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` | 25 MB |
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp` | 25 MB |
 | `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
 | `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
 | `tenant_export` | `application/zip` | 5 GB |

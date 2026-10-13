@@ -16,6 +16,7 @@ from app.domain.models.ipm import (
     TreatmentApplication,
 )
 from app.domain.models.pest_taxonomy import get_taxon
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
 # IPM-Hierarchie für die Gegenmaßnahmen-Reihenfolge auf der Detailseite
 # (REQ-010 DoD „Kultur > Biologisch > Chemisch"; mechanisch vor chemisch).
@@ -32,6 +33,48 @@ def _ipm_rank(treatment: Treatment) -> int:
 
 
 class IpmService:
+    """IPM service — global catalogue plus the tenant-scoped observation records.
+
+    **The catalogue half is installation-wide** (#1501). ``Pest``, ``Disease`` and
+    ``Treatment`` are global reference data — ``app/api/v1/ipm/tenant_router.py``
+    says so in its own module docstring, and the models bear it out: none of the
+    three carries a ``tenant_key``, so one pest row is the row every tenant's IPM
+    plan resolves. Their nine write methods therefore take ``is_platform_admin``
+    **keyword-only and without a default**, and refuse anyone else through the
+    same :func:`~app.domain.services.catalogue_authorization.require_platform_admin_for_global_catalogue`
+    the species, substrate and import paths call.
+
+    Until #1501 the nine routes above them resolved ``get_current_user`` alone, so
+    any authenticated member of any tenant could delete a catalogue pest for
+    everyone. ``create_disease`` / ``create_treatment`` stamp
+    ``origin=DataOrigin.TENANT``, which reads like tenant ownership and is not:
+    with no ``tenant_key`` on the model the marker records *that* a user created
+    the row, never *which tenant owns* it, and nothing anywhere scopes a read by
+    it. That marker is precisely why these creates looked tenant-local.
+
+    The **tenant-scoped** half below (inspections, treatment applications, pest
+    images) carries a ``tenant_key`` on its models, and its routes are gated on
+    ``require_permission`` / ``require_attachment_permission`` — but that gate
+    only answers *may this caller write in their own tenant*, never *is this
+    plant theirs*. Until #1619 nothing asked the second question on the read
+    side: ``GET .../plants/{plant_key}/karenz``, ``/harvest-safety``,
+    ``/treatment-applications``, ``/inspections`` and ``/inspection-schedule``
+    took the key from the path and answered 200 with another tenant's active
+    ingredient, treatment name, Karenz window and inspection notes. The write
+    half beside them was already correct (``create_inspection`` /
+    ``create_treatment_application`` verify the plant at the repository, #517),
+    and that asymmetry is exactly what made the read half easy to miss.
+
+    Every plant-scoped method below therefore takes ``tenant_key`` **keyword-only
+    and without a default** and runs :meth:`_require_own_plant` first.
+    """
+
+    #: The catalogue entity each refusal names. One map, so a 403 cannot name the
+    #: wrong catalogue.
+    _PEST = "pest"
+    _DISEASE = "disease"
+    _TREATMENT = "treatment"
+
     def __init__(
         self,
         repo: IIpmRepository,
@@ -49,6 +92,10 @@ class IpmService:
     def list_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]:
         return self._repo.get_all_pests(offset, limit)
 
+    def list_pests_window(self, offset: int = 0, limit: int = 50) -> list[Pest]:
+        """One ``_key``-ordered page of the pest catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_pests_window(offset, limit)
+
     def get_pest(self, key: str) -> Pest:
         return self._repo.get_pest_or_raise(key)
 
@@ -61,10 +108,23 @@ class IpmService:
         """
         return self._repo.get_inspection_photo_refs_for_pest(tenant_key, pest_key)
 
-    def create_pest(self, pest: Pest) -> Pest:
+    @staticmethod
+    def _require_catalogue_admin(is_platform_admin: bool, entity: str) -> None:
+        """Refuse a non-platform-admin write to the global IPM catalogue (#1501).
+
+        One call site per write method rather than a decorator or a router-level
+        dependency alone: the rule has to be reachable from a caller that is not an
+        HTTP request, which is the argument ``catalogue_authorization`` makes about
+        why it is not a FastAPI dependency in the first place.
+        """
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity=entity)
+
+    def create_pest(self, pest: Pest, *, is_platform_admin: bool) -> Pest:
+        self._require_catalogue_admin(is_platform_admin, self._PEST)
         return self._repo.create_pest(pest)
 
-    def update_pest(self, key: str, data: dict) -> Pest:
+    def update_pest(self, key: str, data: dict, *, is_platform_admin: bool) -> Pest:
+        self._require_catalogue_admin(is_platform_admin, self._PEST)
         existing = self.get_pest(key)
         allowed = {
             "scientific_name",
@@ -97,7 +157,8 @@ class IpmService:
                 setattr(existing, field, value)
         return self._repo.update_pest(key, existing)
 
-    def delete_pest(self, key: str) -> bool:
+    def delete_pest(self, key: str, *, is_platform_admin: bool) -> bool:
+        self._require_catalogue_admin(is_platform_admin, self._PEST)
         self.get_pest(key)
         return self._repo.delete_pest(key)
 
@@ -127,13 +188,19 @@ class IpmService:
     def list_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]:
         return self._repo.get_all_diseases(offset, limit)
 
+    def list_diseases_window(self, offset: int = 0, limit: int = 50) -> list[Disease]:
+        """One ``_key``-ordered page of the disease catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_diseases_window(offset, limit)
+
     def get_disease(self, key: str) -> Disease:
         return self._repo.get_disease_or_raise(key)
 
-    def create_disease(self, disease: Disease) -> Disease:
+    def create_disease(self, disease: Disease, *, is_platform_admin: bool) -> Disease:
+        self._require_catalogue_admin(is_platform_admin, self._DISEASE)
         return self._repo.create_disease(disease)
 
-    def update_disease(self, key: str, data: dict) -> Disease:
+    def update_disease(self, key: str, data: dict, *, is_platform_admin: bool) -> Disease:
+        self._require_catalogue_admin(is_platform_admin, self._DISEASE)
         existing = self.get_disease(key)
         allowed = {
             "scientific_name",
@@ -149,7 +216,8 @@ class IpmService:
                 setattr(existing, field, value)
         return self._repo.update_disease(key, existing)
 
-    def delete_disease(self, key: str) -> bool:
+    def delete_disease(self, key: str, *, is_platform_admin: bool) -> bool:
+        self._require_catalogue_admin(is_platform_admin, self._DISEASE)
         self.get_disease(key)
         return self._repo.delete_disease(key)
 
@@ -158,13 +226,19 @@ class IpmService:
     def list_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]:
         return self._repo.get_all_treatments(offset, limit)
 
+    def list_treatments_window(self, offset: int = 0, limit: int = 50) -> list[Treatment]:
+        """One ``_key``-ordered page of the treatment catalogue without the count query (MT-035, #2131)."""
+        return self._repo.list_treatments_window(offset, limit)
+
     def get_treatment(self, key: str) -> Treatment:
         return self._repo.get_treatment_or_raise(key)
 
-    def create_treatment(self, treatment: Treatment) -> Treatment:
+    def create_treatment(self, treatment: Treatment, *, is_platform_admin: bool) -> Treatment:
+        self._require_catalogue_admin(is_platform_admin, self._TREATMENT)
         return self._repo.create_treatment(treatment)
 
-    def update_treatment(self, key: str, data: dict) -> Treatment:
+    def update_treatment(self, key: str, data: dict, *, is_platform_admin: bool) -> Treatment:
+        self._require_catalogue_admin(is_platform_admin, self._TREATMENT)
         existing = self.get_treatment(key)
         allowed = {
             "name",
@@ -201,18 +275,55 @@ class IpmService:
             "targeted_diseases": diseases,
         }
 
-    def delete_treatment(self, key: str) -> bool:
+    def delete_treatment(self, key: str, *, is_platform_admin: bool) -> bool:
+        self._require_catalogue_admin(is_platform_admin, self._TREATMENT)
         self.get_treatment(key)
         return self._repo.delete_treatment(key)
 
     # ── Inspection ──
 
+    def _require_own_plant(self, plant_key: str, tenant_key: str) -> None:
+        """The one predicate every plant-scoped operation below runs (#1619).
+
+        One private method rather than a check per public method: the six
+        callers cannot drift apart, and a seventh added later either calls it or
+        has no ``tenant_key`` to pass, because the parameter is keyword-only
+        **without a default** on every signature. That is what makes an unscoped
+        call unwritable instead of merely discouraged — the #948 failure this
+        repository has paid for repeatedly is a guard each call site opts into.
+        """
+        self._repo.verify_plant_ownership(plant_key, tenant_key)
+
     def create_inspection(self, plant_key: str, inspection: Inspection) -> Inspection:
         inspection.plant_key = plant_key
         return self._repo.create_inspection(inspection)
 
-    def get_inspections(self, plant_key: str, offset: int = 0, limit: int = 50) -> tuple[list[Inspection], int]:
+    def get_inspections(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> tuple[list[Inspection], int]:
+        self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_inspections_for_plant(plant_key, offset, limit)
+
+    def get_inspections_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[Inspection]:
+        """One page of a plant's inspections without the count query (MT-035, #2131).
+
+        The list route answers a bare array, so the ``total`` :meth:`get_inspections`
+        pays a second scan for is never read.
+        """
+        self._require_own_plant(plant_key, tenant_key)
+        return self._repo.get_inspections_for_plant_window(plant_key, offset, limit)
 
     # ── Treatment Application ──
 
@@ -220,8 +331,25 @@ class IpmService:
         self,
         plant_key: str,
         application: TreatmentApplication,
+        *,
+        tenant_key: str,
     ) -> TreatmentApplication:
+        """Record a treatment application on ``tenant_key``'s plant ``plant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107): the plant used to
+        be verified against ``application.tenant_key``, a model field that defaults
+        to ``""`` — a caller that built the model without it verified against no
+        tenant at all. The argument is now the only authority; it is stamped onto
+        the application, so the stored row and the ownership check name the same
+        tenant.
+        """
         application.plant_key = plant_key
+        application.tenant_key = tenant_key
+        # The plant first (#1871 B7): the resistance read below looks at the
+        # plant's history without a tenant filter, and an over-limit ingredient
+        # answered 422 with a count — for a foreign plant, before the repository's
+        # 404. Resolved here, a foreign and an unknown plant answer the same.
+        self._require_own_plant(plant_key, tenant_key)
 
         # Resistance check
         treatment = self.get_treatment(application.treatment_key)
@@ -244,13 +372,41 @@ class IpmService:
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
+        *,
+        tenant_key: str,
     ) -> tuple[list[TreatmentApplication], int]:
+        self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_applications_for_plant(plant_key, offset, limit)
+
+    def get_applications_window(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+    ) -> list[TreatmentApplication]:
+        """One page of a plant's treatment applications without the count query (MT-035, #2131)."""
+        self._require_own_plant(plant_key, tenant_key)
+        return self._repo.get_applications_for_plant_window(plant_key, offset, limit)
 
     # ── Karenz-Gate API ──
 
-    def check_harvest_safety(self, plant_key: str, planned_date: datetime | None = None) -> tuple[bool, list[dict]]:
-        """Check if harvest is safe for a plant (Karenz-Gate)."""
+    def check_harvest_safety(
+        self,
+        plant_key: str,
+        planned_date: datetime | None = None,
+        *,
+        tenant_key: str,
+    ) -> tuple[bool, list[dict]]:
+        """Check if harvest is safe for a plant (Karenz-Gate).
+
+        A foreign plant now raises rather than answering ``(True, [])``: an
+        unscoped Karenz check is not merely a leak of the other tenant's active
+        ingredient, it is also a gate that says *yes* about a plant whose
+        treatment history the caller cannot see.
+        """
+        self._require_own_plant(plant_key, tenant_key)
         karenz_periods = self._repo.get_active_karenz_periods(plant_key)
         if not karenz_periods:
             return True, []
@@ -258,12 +414,14 @@ class IpmService:
             planned_date = now_utc()
         return self._safety.can_harvest(karenz_periods, planned_date)
 
-    def get_karenz_periods(self, plant_key: str) -> list[dict]:
+    def get_karenz_periods(self, plant_key: str, *, tenant_key: str) -> list[dict]:
+        self._require_own_plant(plant_key, tenant_key)
         return self._repo.get_active_karenz_periods(plant_key)
 
     # ── Recommendations ──
 
-    def get_treatment_recommendations(self, plant_key: str, pest_key: str) -> list[dict]:
+    def get_treatment_recommendations(self, plant_key: str, pest_key: str, *, tenant_key: str) -> list[dict]:
+        self._require_own_plant(plant_key, tenant_key)
         treatments = self._repo.get_treatments_for_pest(pest_key)
         recent = self._repo.get_recent_applications(plant_key)
         available = [
@@ -274,8 +432,16 @@ class IpmService:
 
     # ── Inspection Schedule ──
 
-    def get_inspection_schedule(self, plant_key: str, current_phase: str, pressure_level: str) -> dict:
-        inspections, _ = self._repo.get_inspections_for_plant(plant_key, 0, 1)
+    def get_inspection_schedule(
+        self,
+        plant_key: str,
+        current_phase: str,
+        pressure_level: str,
+        *,
+        tenant_key: str,
+    ) -> dict:
+        self._require_own_plant(plant_key, tenant_key)
+        inspections = self._repo.get_inspections_for_plant_window(plant_key, 0, 1)
         last_at = inspections[0].inspected_at if inspections else None
         next_date = self._scheduler.next_inspection_date(last_at, current_phase, pressure_level)
         urgency = self._scheduler.calculate_urgency(next_date)

@@ -11,7 +11,7 @@ Für jeden Freiland-, Gewächshaus- oder Balkon-Standort legst du fest, woher Ka
 
 - Ein Standort vom **Typ** **Außenbereich**, **Gewächshaus** oder **Balkon** — den Typ legst du direkt im Standort-Formular fest (siehe [Standorte & Substrate](locations-substrates.md#grunddaten-ausfüllen)). Ein Balkon gilt als frostgefährdeter Außenstandort und erhält deshalb dieselben Wetter- und Frostfunktionen wie Außenbereich und Gewächshaus. Bei den übrigen Typen (Innenbereich, Fensterbrett, Growzelt) erscheint der Abschnitt „Wetterquelle" nicht, da du dort ohnehin über [Sensoren](sensors.md) oder Home Assistant misst.
 - **GPS-Koordinaten** (Breiten- und Längengrad) für diesen Standort — ebenfalls direkt im Standort-Formular editierbar. Fehlen sie, zeigt Kamerplanter stattdessen einen Hinweis, dass zuerst die Koordinaten ergänzt werden müssen.
-- Deine Rolle im Mandanten ist **Gärtner** oder **Admin** (siehe [Mandanten & Gärten](tenants.md#rollen-und-berechtigungen)) — als **Beobachter** kannst du die Konfiguration nur ansehen, nicht ändern.
+- Deine Rolle im Mandanten ist **Leitung** (siehe [Mandanten & Gärten](tenants.md#rollen-und-berechtigungen)) — welche Quellen ein Standort nutzt, entscheidet die Leitung des Gartens. Als **Gärtner** oder **Beobachter** siehst du die Konfiguration nur, ohne sie zu ändern oder eine Quelle zu testen. <!-- Issue #2181 -->
 - Für die Home-Assistant-Option zusätzlich: ein hinterlegtes Home-Assistant-Zugangstoken (siehe [Home Assistant Integration](../guides/home-assistant-integration.md#tokens-einrichten)).
 
 ---

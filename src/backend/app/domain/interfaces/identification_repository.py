@@ -10,7 +10,7 @@ class IIdentificationRepository(ABC):
     def create(self, request: IdentificationRequest) -> IdentificationRequest: ...
 
     @abstractmethod
-    def get(self, key: str, tenant_key: str) -> IdentificationRequest | None: ...
+    def get(self, key: str, *, tenant_key: str) -> IdentificationRequest | None: ...
 
     @abstractmethod
     def set_selected_rank(self, key: str, tenant_key: str, selected_rank: int) -> IdentificationRequest | None: ...
@@ -23,6 +23,7 @@ class IIdentificationRepository(ABC):
     @abstractmethod
     def list_for_user(
         self,
+        *,
         tenant_key: str,
         user_key: str,
         limit: int = 20,

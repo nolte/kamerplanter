@@ -74,3 +74,96 @@ def test_build_count_excludes_pagination_binds():
     assert "__offset" not in count_bind
     assert "__limit" not in count_bind
     assert count_bind["v0"] == "tomato"
+
+
+# ── #1784: an ordering comparison on a timestamp compares instants ────────────
+
+
+def test_an_ordering_filter_on_a_datetime_compares_instants():
+    from datetime import UTC, datetime
+
+    cutoff = datetime(2025, 9, 25, 4, 30, tzinfo=UTC)
+    query, bind_vars = AQLBuilder("things").filter("created_at", "<", cutoff).build_list()
+
+    assert "FILTER DATE_TIMESTAMP(doc.created_at) != null AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@v0)" in (
+        query
+    )
+    assert bind_vars["v0"] == "2025-09-25T04:30:00+00:00"
+
+
+def test_an_ordering_filter_with_an_iso_string_on_an_at_field_compares_instants():
+    query, bind_vars = AQLBuilder("things").filter("expires_at", ">=", "2025-09-25T04:30:00.5Z").build_list()
+
+    # ``>=`` is null-safe (``null >= n`` is false), so no null guard is added.
+    assert "FILTER DATE_TIMESTAMP(doc.expires_at) >= DATE_TIMESTAMP(@v0)" in query
+    assert "!= null" not in query
+    assert bind_vars["v0"] == "2025-09-25T04:30:00.5Z"
+
+
+@pytest.mark.parametrize("op", ["<", "<="])
+def test_a_lower_than_filter_on_a_timestamp_excludes_undated_records(op):
+    query, _ = AQLBuilder("things").filter("nested.updated_at", op, "2025-09-25T04:30:00+00:00").build_list()
+
+    assert (
+        f"DATE_TIMESTAMP(doc.nested.updated_at) != null AND DATE_TIMESTAMP(doc.nested.updated_at) {op} "
+        "DATE_TIMESTAMP(@v0)"
+    ) in query
+
+
+def test_an_equality_filter_on_a_timestamp_is_left_alone():
+    query, _ = AQLBuilder("things").filter("created_at", "==", "2025-09-25T04:30:00+00:00").build_list()
+
+    assert "FILTER doc.created_at == @v0" in query
+    assert "DATE_TIMESTAMP" not in query
+
+
+def test_an_ordering_filter_on_a_plain_number_is_left_alone():
+    query, bind_vars = AQLBuilder("things").filter("retry_count", "<", 3).build_list()
+
+    assert "FILTER doc.retry_count < @v0" in query
+    assert bind_vars["v0"] == 3
+
+
+def test_an_ordering_filter_with_a_date_value_is_left_alone():
+    """A ``date`` field is stored as fixed-width ``YYYY-MM-DD`` and compares correctly as text."""
+    from datetime import date
+
+    query, bind_vars = AQLBuilder("things").filter("planted_on", ">=", date(2025, 9, 25)).build_list()
+
+    assert "FILTER doc.planted_on >= @v0" in query
+    assert "DATE_TIMESTAMP" not in query
+
+
+def test_a_string_on_a_field_not_named_at_is_left_alone():
+    query, _ = AQLBuilder("things").filter("name", ">", "m").build_list()
+
+    assert "FILTER doc.name > @v0" in query
+
+
+def test_the_count_query_carries_the_same_instant_comparison():
+    builder = AQLBuilder("things").filter("created_at", "<", "2025-09-25T04:30:00+00:00")
+
+    count_query, _ = builder.build_count()
+
+    assert "DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@v0)" in count_query
+
+
+# ── a paged sort is a total order (MT-035, #2131) ─────────────────────────────
+
+
+def test_tiebreak_key_appends_the_key_in_the_sort_direction():
+    query, _ = AQLBuilder("tenants").sort("created_at", "DESC", tiebreak_key=True).paginate(0, 2).build_list()
+    assert "SORT DATE_TIMESTAMP(doc.created_at) DESC, doc._key DESC" in query
+
+
+def test_without_tiebreak_the_sort_is_unchanged():
+    query, _ = AQLBuilder("tenants").sort("name").build_list()
+    assert "SORT doc.name ASC\n" in query
+
+
+def test_the_cursor_filter_compares_keys_as_text():
+    # ``_key`` is not a timestamp field, so ``>`` stays a plain comparison the
+    # primary index can serve, in the same order ``SORT doc._key`` returns.
+    query, bind_vars = AQLBuilder("plant_instances").filter("_key", ">", "123").sort("_key").build_list()
+    assert "FILTER doc._key > @v0" in query
+    assert bind_vars["v0"] == "123"

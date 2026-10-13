@@ -14,7 +14,7 @@ from app.api.v1.fertilizers.schemas import (
     StockResponse,
     StockUpdate,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, get_is_platform_admin, require_permission
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import DataOrigin
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -54,7 +54,7 @@ def list_fertilizers(
         filters["is_organic"] = is_organic
     if tank_safe is not None:
         filters["tank_safe"] = tank_safe
-    items, _total = service.list_fertilizers(
+    items = service.list_fertilizers_window(
         pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key
     )
     return [_fert_response(f) for f in items]
@@ -89,11 +89,13 @@ def update_fertilizer(
     body: FertilizerUpdate,
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Update a tenant-owned fertilizer product."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
+    """Update a fertilizer: the tenant's own product, or a global seed product as platform admin (#2100)."""
     data = body.model_dump(exclude_none=True)
-    updated = service.update_fertilizer(key, data)
+    updated = service.update_fertilizer(
+        key, data, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
+    )
     return _fert_response(updated)
 
 
@@ -102,10 +104,10 @@ def delete_fertilizer(
     key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.DELETE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Delete a tenant-owned fertilizer product."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.delete_fertilizer(key)
+    """Delete a fertilizer: the tenant's own product, or a global seed product as platform admin (#2100)."""
+    service.delete_fertilizer(key, tenant_key=ctx.tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin)
 
 
 @router.get("/{key}/stocks", response_model=list[StockResponse])
@@ -177,9 +179,8 @@ def list_incompatibilities(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
-    """List a fertilizer's declared incompatibilities."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    return service.get_incompatibilities(key)
+    """List a fertilizer's declared incompatibilities with partners the tenant may see."""
+    return service.get_incompatibilities(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/incompatibilities", response_model=IncompatibilityResponse, status_code=201)
@@ -188,10 +189,17 @@ def add_incompatibility(
     body: IncompatibilityCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Declare an incompatibility between this fertilizer and another."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.add_incompatibility(key, body.other_key, body.reason, body.severity)
+    """Declare an incompatibility — both products visible, one of them the tenant's own."""
+    service.add_incompatibility(
+        key,
+        body.other_key,
+        body.reason,
+        body.severity,
+        tenant_key=ctx.tenant_key,
+        is_platform_admin=is_platform_admin,
+    )
     return IncompatibilityResponse(
         fertilizer_key=body.other_key, product_name=None, reason=body.reason, severity=body.severity
     )
@@ -203,10 +211,10 @@ def remove_incompatibility(
     other_key: Annotated[str, Path(description="Document key of the incompatible fertilizer.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.FERTILIZER, Action.UPDATE)),
     service: FertilizerService = Depends(get_fertilizer_service),
+    is_platform_admin: bool = Depends(get_is_platform_admin),
 ):
-    """Remove a declared incompatibility between two fertilizers."""
-    service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    service.remove_incompatibility(key, other_key)
+    """Remove a declared incompatibility — both products visible, one of them the tenant's own (#1867)."""
+    service.remove_incompatibility(key, other_key, tenant_key=ctx.tenant_key, is_platform_admin=is_platform_admin)
 
 
 @router.get("/{key}/nutrient-plans", response_model=list[NutrientPlanUsageResponse])
@@ -217,4 +225,4 @@ def list_nutrient_plan_usage(
 ):
     """List the nutrient plans that use this fertilizer."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
-    return service.get_nutrient_plan_usage(key)
+    return service.get_nutrient_plan_usage(key, tenant_key=ctx.tenant_key)

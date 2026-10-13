@@ -8,6 +8,8 @@ fakes: a heating failure (too cold) / overheating (too warm) raises a single HIG
 
 from datetime import UTC, datetime
 
+import pytest
+
 from app.common.enums import (
     CareStyleType,
     HardinessRating,
@@ -15,6 +17,7 @@ from app.common.enums import (
     TaskPriority,
     WinterAction,
 )
+from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import (
     CareReminderEngine,
     evaluate_quarter_climate_violation,
@@ -224,7 +227,7 @@ class TestQuarterClimateService:
             temp=-2.0,
             plant=_plant(),
         )
-        task = service.evaluate_plant("plant-1")
+        task = service.evaluate_plant("plant-1", tenant_key=TENANT)
 
         assert task is not None
         assert task.priority == TaskPriority.HIGH
@@ -239,7 +242,7 @@ class TestQuarterClimateService:
             temp=5.0,
             plant=_plant(),
         )
-        assert service.evaluate_plant("plant-1") is None
+        assert service.evaluate_plant("plant-1", tenant_key=TENANT) is None
         assert task_repo.created == []
 
     def test_not_in_dormancy_creates_nothing(self) -> None:
@@ -251,7 +254,7 @@ class TestQuarterClimateService:
             temp=-5.0,
             plant=_plant(),
         )
-        assert service.evaluate_plant("plant-1") is None
+        assert service.evaluate_plant("plant-1", tenant_key=TENANT) is None
         assert task_repo.created == []
 
     def test_no_live_data_creates_nothing(self) -> None:
@@ -262,7 +265,7 @@ class TestQuarterClimateService:
             temp=None,  # no reading
             plant=_plant(),
         )
-        assert service.evaluate_plant("plant-1") is None
+        assert service.evaluate_plant("plant-1", tenant_key=TENANT) is None
         assert task_repo.created == []
 
     def test_existing_open_task_is_not_duplicated(self) -> None:
@@ -274,7 +277,7 @@ class TestQuarterClimateService:
             plant=_plant(),
             existing_open=True,
         )
-        assert service.evaluate_plant("plant-1") is None
+        assert service.evaluate_plant("plant-1", tenant_key=TENANT) is None
         assert task_repo.created == []
 
     def test_no_winter_quarter_creates_nothing(self) -> None:
@@ -287,7 +290,7 @@ class TestQuarterClimateService:
             temp=-5.0,
             plant=_plant(),
         )
-        assert service.evaluate_plant("plant-1") is None
+        assert service.evaluate_plant("plant-1", tenant_key=TENANT) is None
         assert task_repo.created == []
 
     def test_water_temp_sensor_is_ignored(self) -> None:
@@ -302,5 +305,23 @@ class TestQuarterClimateService:
             plant=_plant(),
         )
         # No air-temperature sensor → no reading resolved → no task.
-        assert service.evaluate_plant("plant-1") is None
+        assert service.evaluate_plant("plant-1", tenant_key=TENANT) is None
+        assert task_repo.created == []
+
+
+class TestTheTenantIsCheckedInTheService:
+    """#2107: a plant of another tenant gets no task written into its tenant."""
+
+    def test_a_foreign_tenants_plant_is_not_found_and_no_task_is_written(self) -> None:
+        service, task_repo = _service(
+            profile=_profile(),
+            care=_dormant_care(),
+            sensors=[_temp_sensor()],
+            temp=-2.0,
+            plant=_plant(),
+        )
+
+        with pytest.raises(NotFoundError):
+            service.evaluate_plant("plant-1", tenant_key="tenant-foreign")
+
         assert task_repo.created == []

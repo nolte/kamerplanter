@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
-"""Refuse a new ``app.data_access`` import in the API layer.
+"""Refuse a layer break at either end of the business logic (NFR-001).
+
+Two rules, one gate, because they are the same rule seen from two sides:
+
+* **Rule 1 — the API layer does not import ``app.data_access``.** A router
+  reaches persistence *through* a service, never past it.
+* **Rule 2 — the business logic does not hold or reach a persistence handle.**
+  A service or engine reaches persistence *through* a repository, never past it.
+
+Rule 2 exists because #1556 measured only ``_repo._db`` and concluded there were
+"only two" breaks left. That grep sees exactly one spelling — reaching *through*
+a repository into its private handle — and is blind to the other and larger one:
+a service that is *handed* a ``StandardDatabase`` and runs AQL on it directly.
+Measured across ``app/domain`` on 2026-09-21 that is four more modules and ~22
+more sites. A gate written to the two literal call sites would have certified
+the tree clean while the bigger half stood untouched, which is the #948 class
+this repository has repaired four times in a week.
 
 Runs as a repo-local pre-commit hook in the required ``static`` lane, and can be
 invoked directly::
@@ -42,6 +58,17 @@ here the reason is architectural and belongs where all of them can be read at
 once. Adding an entry is a visible edit to this file, which is the review that
 the import itself never got.
 
+**Rule 2 has no allowlist, and that is the point.** It carried one while four
+modules still held a handle (``favorites_service``, ``starter_kit_service``,
+``onboarding_service``, ``calendar_aggregation_engine``); #1638 moved every one of
+them behind a repository and then removed the entry mechanism itself. An empty
+allowlist is still a door: a crossing could be *recorded* instead of *fixed*, and
+the gate would pass. Without the mechanism the only way to satisfy rule 2 is to
+not cross. Reinstating an allowlist is therefore a visible change to this file's
+structure, not a one-entry edit.
+
+Both rules are reported by the same process with the same exit codes.
+
 Standard library only, no application import, no running stack.
 
 Traces to the 2026-08-08 issue-pattern audit, measure P1.3 (no TC-ID: a
@@ -64,6 +91,33 @@ DEFAULT_SCAN_ROOT = "src/backend/app/api"
 
 #: The package it may not reach into.
 FORBIDDEN_PACKAGE = "app.data_access"
+
+#: The business-logic layer that may not hold or reach a persistence handle.
+DEFAULT_HANDLE_SCAN_ROOT = "src/backend/app/domain"
+
+#: The persistence driver. Business logic that imports it is typing, catching or
+#: constructing something only the data-access layer should know exists.
+DRIVER_PACKAGE = "arango"
+
+#: The private attribute every ``BaseArangoRepository`` stores its handle under.
+#: Business logic naming it is either holding one (``self._db = db``) or reaching
+#: through a repository to borrow one (``self._user_repo._db``) — two spellings of
+#: the same break, and only the second is the one #1556's grep could see.
+HANDLE_ATTRIBUTE = "_db"
+
+#: The driver's query entry point. Detected *as well as* the handle attribute,
+#: because a module that stored the handle under any other name — ``self.db``,
+#: a local, a ``getattr`` — still has to reach ``.aql`` to use it. Asking only
+#: "is the attribute called ``_db``" would be the #1556 mistake one level down:
+#: a rule shaped like the offenders that happen to exist today.
+QUERY_ATTRIBUTE = "aql"
+
+#: One marker for every way of holding or reaching a handle. Deliberately NOT
+#: one marker per spelling: while rule 2 still had an allowlist, one keyed on the
+#: spelling would have gone green the moment a recorded module switched from
+#: ``self._db`` to ``getattr``. Kept as one marker now that the allowlist is gone
+#: (#1638), so a finding reads the same whichever spelling produced it.
+HANDLE_MARKER = "handle"
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
@@ -287,6 +341,103 @@ ALLOWED_IMPORTS: tuple[AllowedImport, ...] = (
 
 
 @dataclass(frozen=True)
+class HandleSite:
+    """One persistence-handle crossing found in the business-logic layer."""
+
+    path: Path
+    line: int
+    marker: str
+
+    def relative(self) -> str:
+        try:
+            return str(self.path.relative_to(REPO_ROOT))
+        except ValueError:
+            return str(self.path)
+
+    @property
+    def identity(self) -> tuple[str, str]:
+        return (self.relative(), self.marker)
+
+
+def _is_driver(dotted: str) -> bool:
+    """True for the driver package itself and anything below it."""
+    return dotted == DRIVER_PACKAGE or dotted.startswith(f"{DRIVER_PACKAGE}.")
+
+
+def _is_handle_node(node: ast.AST) -> bool:
+    """True for any of the three ways business logic reaches a persistence handle.
+
+    ``self._db`` / ``repo._db`` (the attribute), ``getattr(repo, "_db")`` (the
+    string), and ``x.aql`` (the handle stored under some other name and used
+    anyway). One predicate rather than three markers — see :data:`HANDLE_MARKER`.
+    """
+    if isinstance(node, ast.Attribute):
+        return node.attr in {HANDLE_ATTRIBUTE, QUERY_ATTRIBUTE}
+    return isinstance(node, ast.Constant) and node.value == HANDLE_ATTRIBUTE
+
+
+def scan_file_for_handle(path: Path) -> list[HandleSite]:
+    """Find every persistence-handle crossing in one business-logic module.
+
+    Two detections, deliberately both:
+
+    * an ``arango`` import, in either spelling — the module holds or types a
+      handle of its own;
+    * a handle, reported as the single ``handle`` marker and detected three ways:
+      an attribute named ``_db`` (``self._db = db``, ``self._user_repo._db``), the
+      string ``"_db"`` (the ``getattr`` escape), and an attribute named ``aql``
+      (the module stored the handle under some other name and still has to reach
+      the driver's query entry point to use it).
+
+    The second is what makes the rule a rule about the CLASS rather than about
+    ``_repo._db``. Collapsing its three detections into one marker is deliberate:
+    a per-spelling marker would let a recorded module change spelling and pass.
+
+    One site per (module, marker); the earliest line is reported, because the
+    question a reviewer asks is "does this module cross at all", not "how often".
+    """
+    try:
+        source = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise LayerImportCheckError(f"cannot read {path}: {exc}") from exc
+    try:
+        tree = ast.parse(source, filename=str(path))
+    except SyntaxError as exc:
+        raise LayerImportCheckError(f"cannot parse {path}: {exc}") from exc
+
+    earliest: dict[str, int] = {}
+
+    def record(marker: str, line: int) -> None:
+        if marker not in earliest or line < earliest[marker]:
+            earliest[marker] = line
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if _is_driver(alias.name):
+                    record(f"import:{alias.name}", node.lineno)
+        elif isinstance(node, ast.ImportFrom):
+            # A relative import cannot reach the third-party driver, so level>0
+            # is never the driver and is skipped rather than resolved.
+            if not node.level and node.module and _is_driver(node.module):
+                record(f"import:{node.module}", node.lineno)
+        elif _is_handle_node(node):
+            record(HANDLE_MARKER, node.lineno)
+
+    return [HandleSite(path=path, line=line, marker=marker) for marker, line in sorted(earliest.items())]
+
+
+def collect_handles(scan_root: Path) -> list[HandleSite]:
+    """Every persistence-handle crossing below *scan_root*, allowed or not."""
+    if not scan_root.exists():
+        raise LayerImportCheckError(f"scan root does not exist: {scan_root}")
+    sites: list[HandleSite] = []
+    for path in sorted(scan_root.rglob("*.py")):
+        sites.extend(scan_file_for_handle(path))
+    return sites
+
+
+@dataclass(frozen=True)
 class ImportSite:
     """One ``app.data_access`` import found in the API layer."""
 
@@ -338,9 +489,7 @@ def scan_file(path: Path) -> list[ImportSite]:
                 if _is_forbidden(alias.name):
                     sites.append(ImportSite(path=path, line=node.lineno, module=alias.name, names=()))
         elif isinstance(node, ast.ImportFrom):
-            origin = (
-                _resolve_relative(dotted_self, node.module, node.level) if node.level else (node.module or "")
-            )
+            origin = _resolve_relative(dotted_self, node.module, node.level) if node.level else (node.module or "")
             if _is_forbidden(origin):
                 sites.append(
                     ImportSite(
@@ -417,8 +566,13 @@ def report(
     *,
     list_all: bool,
     as_json: bool,
+    handle_sites: list[HandleSite] | None = None,
 ) -> int:
-    """Print the outcome and return the process exit code."""
+    """Print the outcome of both rules and return the process exit code.
+
+    Every handle site is a violation: rule 2 has no allowlist (#1638).
+    """
+    handle_violations = handle_sites or []
     if as_json:
         print(
             json.dumps(
@@ -434,14 +588,17 @@ def report(
                         }
                         for site in violations
                     ],
-                    "obsolete_allowlist": [
-                        {"file": entry.path, "module": entry.module} for entry in obsolete
+                    "obsolete_allowlist": [{"file": entry.path, "module": entry.module} for entry in obsolete],
+                    "handle_violations": [
+                        {"file": site.relative(), "line": site.line, "marker": site.marker}
+                        for site in handle_violations
                     ],
                 },
                 indent=2,
             )
         )
-        return EXIT_DEFECTS if (violations or obsolete) else EXIT_OK
+        bad = violations or obsolete or handle_violations
+        return EXIT_DEFECTS if bad else EXIT_OK
 
     exit_code = EXIT_OK
 
@@ -475,10 +632,34 @@ def report(
             "seed_steckbrief_consistency.ALLOWED_DISCREPANCIES)."
         )
 
+    if handle_violations:
+        if exit_code == EXIT_DEFECTS:
+            print()
+        exit_code = EXIT_DEFECTS
+        print(
+            f"check_layer_imports: {len(handle_violations)} business-logic module(s) hold or "
+            "reach a persistence handle\n"
+        )
+        for site in handle_violations:
+            print(f"  {site.relative()}:{site.line}: {site.marker}")
+        print(
+            "\nNFR-001: Business Logic → Data Access → Persistence. A service or engine\n"
+            "reaches the database THROUGH a repository. `import:<module>` means it imports\n"
+            "the `arango` driver. `handle` means it holds or reaches one — an attribute\n"
+            'named `_db`, the string "_db" behind a getattr, or a reach for `.aql` under\n'
+            "any other name. All three are one finding on purpose, so changing spelling\n"
+            "does not clear it.\n"
+            "\n"
+            "Move the query behind a repository method reached through an interface under\n"
+            "app/domain/interfaces/, and inject the repository via app/common/dependencies.py.\n"
+            "There is no allowlist for this rule (#1638): a crossing cannot be recorded,\n"
+            "only removed."
+        )
+
     if exit_code == EXIT_OK:
         print(
             f"check_layer_imports: OK — {len(sites)} recorded data-access import(s) in the API "
-            "layer, no new ones."
+            "layer, no new ones, and no persistence handle in the business logic."
         )
         if list_all:
             for site in sites:
@@ -497,16 +678,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="check_layer_imports.py",
         description=(
-            "Refuse a new app.data_access import under app/api (NFR-001). The existing "
-            "crossings are recorded in ALLOWED_IMPORTS; an entry that matches nothing is "
-            "an error too."
+            "Refuse a new app.data_access import under app/api, and a new persistence "
+            "handle under app/domain (NFR-001). The existing crossings are recorded in "
+            "ALLOWED_IMPORTS; an entry that matches nothing is an error too. Rule 2 has no "
+            "allowlist."
         ),
     )
     parser.add_argument(
         "--scan-root",
         metavar="PATH",
         default=None,
-        help=f"the API package to scan (default: {DEFAULT_SCAN_ROOT})",
+        help=f"the API package to scan for rule 1 (default: {DEFAULT_SCAN_ROOT})",
+    )
+    parser.add_argument(
+        "--handle-scan-root",
+        metavar="PATH",
+        default=None,
+        help=f"the business-logic package to scan for rule 2 (default: {DEFAULT_HANDLE_SCAN_ROOT})",
     )
     parser.add_argument(
         "--list",
@@ -521,17 +709,28 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    raw = args.scan_root or DEFAULT_SCAN_ROOT
-    scan_root = Path(raw) if Path(raw).is_absolute() else REPO_ROOT / raw
+    def _root(raw: str) -> Path:
+        return Path(raw) if Path(raw).is_absolute() else REPO_ROOT / raw
+
+    scan_root = _root(args.scan_root or DEFAULT_SCAN_ROOT)
+    handle_scan_root = _root(args.handle_scan_root or DEFAULT_HANDLE_SCAN_ROOT)
 
     try:
         sites = collect(scan_root)
+        handle_sites = collect_handles(handle_scan_root)
     except LayerImportCheckError as exc:
         print(f"check_layer_imports: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
     violations, obsolete = classify(sites)
-    return report(sites, violations, obsolete, list_all=args.list_all, as_json=args.json)
+    return report(
+        sites,
+        violations,
+        obsolete,
+        list_all=args.list_all,
+        as_json=args.json,
+        handle_sites=handle_sites,
+    )
 
 
 if __name__ == "__main__":

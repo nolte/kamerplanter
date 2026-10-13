@@ -99,6 +99,11 @@ Favoriten sind persönliche Schnellzugriffe: Gefilterte Kataloge, Empfehlungen u
 
 Wenn du in Teil 4a Favoriten gesetzt hast, zeigt das System dir passende Nährstoffpläne für deine ausgewählten Pflanzen. Du kannst einen oder mehrere Pläne ebenfalls als Favoriten markieren.
 
+Passend heißt: Der Plan ist ausdrücklich einer deiner favorisierten Pflanzenarten zugeordnet. Jede Karte nennt unter **Passend für** die Arten, für die sie vorgeschlagen wird; Pläne, die zu mehreren deiner Arten passen, stehen oben. Ein Plan ohne zugeordnete Pflanzenart wird hier nie angeboten — auch dann nicht, wenn sein Name nach deiner Pflanze klingt.
+
+!!! info "Kein passender Plan?"
+    Mitgeliefert sind Vorlagen für rund 30 Arten, von Tomate und Basilikum über Cannabis bis zu Monstera. Findet der Wizard keinen Plan, zeigt er einen Hinweis — du kannst nach der Einrichtung eigene Pläne anlegen und ihnen im Tab **Bearbeiten** unter **Geeignet für Pflanzenarten** deine Arten zuordnen.
+
 !!! tip "Die Dünger-Kaskade"
     Wenn du einen Nährstoffplan als Favorit markierst, werden automatisch alle darin enthaltenen Düngerprodukte ebenfalls als Favoriten gespeichert. So ist deine persönliche Dünger-Übersicht von Anfang an auf die Produkte gefiltert, die du tatsächlich brauchst — ohne manuelles Durchklicken.
 

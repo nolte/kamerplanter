@@ -15,8 +15,10 @@ decision — the shared :func:`_authorize_tenant_owned_write` both entities call
 * the caller's *own* cultivar → the domain role gate: ``can_edit_resource`` for
   update (a viewer is refused), ``can_delete_resource`` for delete — lead-only,
   the REQ-049 §2.3 irreversibility boundary.
-* ``tenant_key is None`` (system context) → no gate at all, so the seeders, the
-  CSV import and the migration paths keep working unchanged (P5).
+* no tenant at all → the call does not run (``TypeError``, #2107). Until then
+  ``tenant_key=None`` was a "system context" with no gate (P5); measured, the
+  seeders, the CSV import and the migrations write cultivars through the
+  repository and never called these methods, so the escape served no caller.
 
 Plus the create-path leak C-3 handed over: ``create_cultivar`` resolved its parent
 species **unscoped**, so a POST under a *foreign* tenant's species answered 201 and
@@ -149,17 +151,22 @@ def test_update_own_cultivar_by_grower_proceeds(service, repo):
 
 
 def test_update_own_cultivar_by_lead_proceeds(service, repo):
-    service.update_cultivar("cv_own", _incoming(), tenant_key="t1", caller_role=TenantRole.LEAD)
+    service.update_cultivar(
+        "cv_own", _incoming(), tenant_key="t1", caller_role=TenantRole.LEAD, is_platform_admin=False
+    )
 
     assert repo.updated == ["cv_own"]
 
 
-def test_update_unscoped_none_keeps_internal_callers_working(service, repo):
-    # P5: the system-context update (no tenant argument) applies no ownership/role
-    # gate — the seeders and the CSV import rely on it.
-    service.update_cultivar("cv_foreign", _incoming())
+def test_an_update_without_a_tenant_does_not_run(service, repo):
+    # #2107: the system-context default (no tenant → no gate) is gone. Measured, the
+    # seeders and the CSV import write cultivars through the repository, so the only
+    # caller is the route — and an omitted tenant is now a TypeError, not an ungated
+    # write of a foreign row.
+    with pytest.raises(TypeError):
+        service.update_cultivar("cv_foreign", _incoming())  # type: ignore[call-arg]
 
-    assert repo.updated == ["cv_foreign"]
+    assert repo.updated == []
 
 
 def test_update_still_preserves_the_stored_owner(service, repo):
@@ -216,10 +223,11 @@ def test_delete_own_cultivar_by_lead_proceeds(service, repo):
     assert repo.deleted == ["cv_own"]
 
 
-def test_delete_unscoped_none_keeps_internal_callers_working(service, repo):
-    service.delete_cultivar("cv_foreign")
+def test_a_delete_without_a_tenant_does_not_run(service, repo):
+    with pytest.raises(TypeError):
+        service.delete_cultivar("cv_foreign")  # type: ignore[call-arg]
 
-    assert repo.deleted == ["cv_foreign"]
+    assert repo.deleted == []
 
 
 # ── the mutation gate is not an existence oracle ─────────────────────────────
@@ -229,9 +237,13 @@ def test_a_foreign_mutation_is_indistinguishable_from_an_absent_key(service):
     # No oracle: "not yours" and "not there" raise the same error type with the same
     # status. A ForbiddenError here would confirm the foreign key exists.
     with pytest.raises(NotFoundError) as absent:
-        service.update_cultivar("cv_nope", _incoming(), tenant_key="t1", caller_role=TenantRole.LEAD)
+        service.update_cultivar(
+            "cv_nope", _incoming(), tenant_key="t1", caller_role=TenantRole.LEAD, is_platform_admin=False
+        )
     with pytest.raises(NotFoundError) as foreign:
-        service.update_cultivar("cv_foreign", _incoming(), tenant_key="t1", caller_role=TenantRole.LEAD)
+        service.update_cultivar(
+            "cv_foreign", _incoming(), tenant_key="t1", caller_role=TenantRole.LEAD, is_platform_admin=False
+        )
 
     assert type(absent.value) is type(foreign.value)
     assert absent.value.status_code == foreign.value.status_code == 404
@@ -254,34 +266,56 @@ def test_create_under_a_foreign_species_is_a_404(service, repo):
     # edge to tenant t2's species — a cross-tenant existence oracle plus a write
     # into a foreign tenant's graph.
     with pytest.raises(NotFoundError):
-        service.create_cultivar(Cultivar(name="Sneaky", species_key="sp_foreign", tenant_key="t1"), tenant_key="t1")
+        service.create_cultivar(
+            Cultivar(name="Sneaky", species_key="sp_foreign", tenant_key="t1"),
+            tenant_key="t1",
+            caller_role=TenantRole.GROWER,
+            is_platform_admin=False,
+        )
 
     assert repo.created == []
 
 
 def test_create_under_a_global_species_is_allowed(service, repo):
     # The main use case: a tenant adds its own cultivar to a global seed species.
-    service.create_cultivar(Cultivar(name="My Genovese", species_key="sp_global", tenant_key="t1"), tenant_key="t1")
+    service.create_cultivar(
+        Cultivar(name="My Genovese", species_key="sp_global", tenant_key="t1"),
+        tenant_key="t1",
+        caller_role=TenantRole.GROWER,
+        is_platform_admin=False,
+    )
 
     assert [c.name for c in repo.created] == ["My Genovese"]
 
 
 def test_create_under_the_callers_own_species_is_allowed(service, repo):
-    service.create_cultivar(Cultivar(name="My Rose", species_key="sp_own", tenant_key="t1"), tenant_key="t1")
+    service.create_cultivar(
+        Cultivar(name="My Rose", species_key="sp_own", tenant_key="t1"),
+        tenant_key="t1",
+        caller_role=TenantRole.GROWER,
+        is_platform_admin=False,
+    )
 
     assert [c.name for c in repo.created] == ["My Rose"]
 
 
 def test_create_under_a_missing_species_is_still_a_404(service, repo):
     with pytest.raises(NotFoundError):
-        service.create_cultivar(Cultivar(name="Nowhere", species_key="sp_nope", tenant_key="t1"), tenant_key="t1")
+        service.create_cultivar(
+            Cultivar(name="Nowhere", species_key="sp_nope", tenant_key="t1"),
+            tenant_key="t1",
+            caller_role=TenantRole.GROWER,
+            is_platform_admin=False,
+        )
 
     assert repo.created == []
 
 
-def test_create_in_system_context_stays_unscoped(service, repo):
-    # P5: the seed loaders and the CSV import create cultivars for every species in
-    # the catalogue with no tenant context — they must not start 404-ing.
-    service.create_cultivar(Cultivar(name="Seeded", species_key="sp_foreign"))
+def test_a_create_without_a_tenant_does_not_run(service, repo):
+    # #2107: the seed loaders and the CSV import create cultivars through the
+    # repository (measured), so the unscoped service create is gone — under a foreign
+    # species it would have attached a cultivar to another tenant's row.
+    with pytest.raises(TypeError):
+        service.create_cultivar(Cultivar(name="Seeded", species_key="sp_foreign"))  # type: ignore[call-arg]
 
-    assert [c.name for c in repo.created] == ["Seeded"]
+    assert repo.created == []

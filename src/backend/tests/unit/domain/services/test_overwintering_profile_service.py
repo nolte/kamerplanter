@@ -53,6 +53,9 @@ class FakeOverwinteringRepo(IOverwinteringProfileRepository):
         items = [p for p in self.store.values() if p.tenant_key == tenant_key]
         return items[offset : offset + limit], len(items)
 
+    def list_by_tenant_window(self, offset=0, limit=50, *, tenant_key):
+        return self.list_by_tenant(tenant_key, offset, limit)[0]
+
     def create_subject_edge(self, profile_key, *, plant_key=None, planting_run_key=None):
         self.edges.append(("subject", profile_key, plant_key, planting_run_key))
 
@@ -81,7 +84,7 @@ def _profile(**overrides) -> OverwinteringProfile:
 
 class TestCreateD5:
     def test_valid_profile_created(self, service) -> None:
-        created = service.create_profile(_profile(), TENANT)
+        created = service.create_profile(_profile(), tenant_key=TENANT)
         assert created.key
         assert created.tenant_key == TENANT
 
@@ -89,30 +92,32 @@ class TestCreateD5:
         # path A rating (hardy) with a path B action (move_indoors) → 422
         bad = _profile(winter_action=WinterAction.MOVE_INDOORS)
         with pytest.raises(WinterPathViolationError):
-            service.create_profile(bad, TENANT)
+            service.create_profile(bad, tenant_key=TENANT)
 
     def test_requires_exactly_one_subject(self, service) -> None:
         with pytest.raises(ValidationError):
-            service.create_profile(_profile(plant_key=None, planting_run_key=None), TENANT)
+            service.create_profile(_profile(plant_key=None, planting_run_key=None), tenant_key=TENANT)
         with pytest.raises(ValidationError):
-            service.create_profile(_profile(plant_key="p1", planting_run_key="r1"), TENANT)
+            service.create_profile(_profile(plant_key="p1", planting_run_key="r1"), tenant_key=TENANT)
 
     def test_subject_edge_wired(self, service) -> None:
-        created = service.create_profile(_profile(), TENANT)
+        created = service.create_profile(_profile(), tenant_key=TENANT)
         repo = service._repo
         assert ("subject", created.key, "p1", None) in repo.edges
 
 
 class TestUpdateD5:
     def test_update_rejects_d5_contradiction(self, service) -> None:
-        created = service.create_profile(_profile(), TENANT)
+        created = service.create_profile(_profile(), tenant_key=TENANT)
         with pytest.raises(WinterPathViolationError):
-            service.update_profile(created.key, TENANT, {"winter_action": WinterAction.DIG_STORE})
+            service.update_profile(created.key, {"winter_action": WinterAction.DIG_STORE}, tenant_key=TENANT)
 
 
 class TestAutoGenerate:
     def test_red_species_relocated(self, service) -> None:
-        profile = service.auto_generate_profile(TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE)
+        profile = service.auto_generate_profile(
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE
+        )
         assert profile.auto_generated is True
         assert profile.hardiness_rating == HardinessRating.FROST_FREE
         assert profile.winter_action == WinterAction.MOVE_INDOORS
@@ -122,7 +127,11 @@ class TestAutoGenerate:
 
     def test_green_species_in_situ(self, service) -> None:
         profile = service.auto_generate_profile(
-            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.VERY_HARDY, species_zone="6a", site_zone="7a"
+            tenant_key=TENANT,
+            plant_key="p1",
+            frost_sensitivity=FrostTolerance.VERY_HARDY,
+            species_zone="6a",
+            site_zone="7a",
         )
         assert profile.hardiness_rating == HardinessRating.HARDY
         assert profile.winter_action == WinterAction.NONE
@@ -134,7 +143,7 @@ class TestAutoGenerate:
         """B3 — a frost-tender geophyte on the red path is dug up and stored, not
         relocated as a container, and gets the replant spring action."""
         profile = service.auto_generate_profile(
-            TENANT,
+            tenant_key=TENANT,
             plant_key="p1",
             frost_sensitivity=FrostTolerance.SENSITIVE,
             is_geophyte=True,
@@ -147,13 +156,15 @@ class TestAutoGenerate:
     def test_bed_yellow_stays_path_a(self, service) -> None:
         """AC-26 baseline — a bed (non-container) yellow plant overwinters in-situ."""
         # MODERATE frost + no zone gap → yellow (path A) when in a bed.
-        bed = service.auto_generate_profile(TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.MODERATE)
+        bed = service.auto_generate_profile(
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.MODERATE
+        )
         assert bed.winter_action == WinterAction.MULCH
 
     def test_container_flag_moves_indoors(self, service) -> None:
         """AC-26 — a potted (container) yellow plant is escalated to path B."""
         potted = service.auto_generate_profile(
-            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.MODERATE, is_container=True
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.MODERATE, is_container=True
         )
         assert potted.hardiness_rating == HardinessRating.FROST_FREE
         assert potted.winter_action == WinterAction.MOVE_INDOORS
@@ -161,7 +172,7 @@ class TestAutoGenerate:
     def test_container_does_not_touch_green(self, service) -> None:
         """A fully hardy (green) plant is never escalated by the container flag."""
         profile = service.auto_generate_profile(
-            TENANT,
+            tenant_key=TENANT,
             plant_key="p1",
             frost_sensitivity=FrostTolerance.VERY_HARDY,
             species_zone="6a",
@@ -174,9 +185,9 @@ class TestAutoGenerate:
 class TestDuplicateSubject:
     def test_second_profile_for_same_plant_rejected(self, service) -> None:
         """B4 — a second profile for the same subject is a 409, not a 500."""
-        service.create_profile(_profile(plant_key="p1"), TENANT)
+        service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         with pytest.raises(DuplicateError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
 
     def test_edge_failure_rolls_back_document(self) -> None:
         """B4 — if the unique subject-edge insert fails (race), the freshly created
@@ -189,7 +200,7 @@ class TestDuplicateSubject:
         repo = EdgeFailingRepo()
         service = OverwinteringProfileService(repo)
         with pytest.raises(DuplicateError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         assert repo.store == {}
 
 
@@ -213,7 +224,7 @@ class TestForeignKeyOwnership:
             winter_quarter_key="loc_foreign",
         )
         with pytest.raises(NotFoundError):
-            service.create_profile(profile, TENANT)
+            service.create_profile(profile, tenant_key=TENANT)
         assert repo.store == {}
         assert repo.edges == []
 
@@ -233,7 +244,7 @@ class TestForeignKeyOwnership:
 
         service = OverwinteringProfileService(repo, plant_repo=PlantRepoStub())
         with pytest.raises(NotFoundError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         assert repo.store == {}
 
 
@@ -267,48 +278,48 @@ class TestCreateSiteFrostGuard:
         site = SimpleNamespace(tenant_key=TENANT, type=SiteType.INDOOR)
         service = self._service(plant=_plant(), site=site)
         with pytest.raises(ValidationError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
 
     def test_plant_without_site_rejected(self) -> None:
         service = self._service(plant=_plant(site_key=None), site=None)
         with pytest.raises(ValidationError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
 
     def test_unresolvable_site_rejected(self) -> None:
         # A dangling site_key that the site repo cannot resolve is treated as
         # not-frost-exposed (fail-safe) rather than silently accepted.
         service = self._service(plant=_plant(), site=None)
         with pytest.raises(ValidationError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
 
     def test_foreign_site_rejected(self) -> None:
         site = SimpleNamespace(tenant_key="other_tenant", type=SiteType.OUTDOOR)
         service = self._service(plant=_plant(), site=site)
         with pytest.raises(ValidationError):
-            service.create_profile(_profile(plant_key="p1"), TENANT)
+            service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
 
     def test_outdoor_site_accepted(self) -> None:
         site = SimpleNamespace(tenant_key=TENANT, type=SiteType.OUTDOOR)
         service = self._service(plant=_plant(), site=site)
-        created = service.create_profile(_profile(plant_key="p1"), TENANT)
+        created = service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         assert created.key
 
     def test_balcony_site_accepted(self) -> None:
         site = SimpleNamespace(tenant_key=TENANT, type=SiteType.BALCONY)
         service = self._service(plant=_plant(), site=site)
-        created = service.create_profile(_profile(plant_key="p1"), TENANT)
+        created = service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         assert created.key
 
     def test_greenhouse_site_accepted(self) -> None:
         site = SimpleNamespace(tenant_key=TENANT, type=SiteType.GREENHOUSE)
         service = self._service(plant=_plant(), site=site)
-        created = service.create_profile(_profile(plant_key="p1"), TENANT)
+        created = service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         assert created.key
 
     def test_guard_skipped_without_repos(self, service) -> None:
         # No plant/site repos injected → the guard is skipped, so the legacy create
         # path (and its existing tests) keep working without a regression.
-        created = service.create_profile(_profile(plant_key="p1"), TENANT)
+        created = service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
         assert created.key
 
     def test_auto_generate_not_blocked_by_site_guard(self) -> None:
@@ -319,7 +330,9 @@ class TestCreateSiteFrostGuard:
             plant=_plant(),
             site=SimpleNamespace(tenant_key=TENANT, type=SiteType.INDOOR),
         )
-        profile = service.auto_generate_profile(TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE)
+        profile = service.auto_generate_profile(
+            tenant_key=TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE
+        )
         assert profile.key
         assert profile.auto_generated is True
 
@@ -344,7 +357,7 @@ class TestOverrideForeignWinterQuarter:
         service = OverwinteringProfileService(repo, site_repo=_ForeignSiteRepoStub())
 
         with pytest.raises(NotFoundError):
-            service.override_plant_profile("p1", TENANT, {"winter_quarter_key": "loc_foreign"})
+            service.override_plant_profile("p1", {"winter_quarter_key": "loc_foreign"}, tenant_key=TENANT)
 
     def test_reset_does_not_retain_foreign_winter_quarter(self) -> None:
         """A foreign reference already stored on the profile is rejected on reset,
@@ -418,7 +431,7 @@ class TestPlantHardinessStatus:
         )
         service = _status_service(profile=profile)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is True
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.will_materialize is False
@@ -427,22 +440,22 @@ class TestPlantHardinessStatus:
 
     def test_no_profile_yellow_will_materialize(self) -> None:
         # Fragaria-style: moderate frost sensitivity → half_hardy → yellow ampel.
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.site_overwinterable is True
         assert status.will_materialize is True
 
     def test_no_profile_green_will_not_materialize(self) -> None:
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.VERY_HARDY, hardiness_zones=["6a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.VERY_HARDY, hardiness_zones=["6a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.GREEN
         assert status.site_overwinterable is True
@@ -452,11 +465,11 @@ class TestPlantHardinessStatus:
         # Same yellow-ampel species as the outdoor case, but on an indoor site: it is
         # never materialised, so `will_materialize` must stay False and the site is
         # flagged non-overwinterable (drives the FE indoor hint).
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.INDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.site_overwinterable is False
@@ -465,11 +478,11 @@ class TestPlantHardinessStatus:
     def test_balcony_site_is_overwinterable_and_materializes_when_yellow(self) -> None:
         # REQ-047 §3.4 — a balcony is a frost-exposed outdoor location, so a yellow
         # plant there is overwinterable and will materialise just like outdoor.
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.BALCONY)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light == WinterHardinessLight.YELLOW
         assert status.site_overwinterable is True
@@ -481,18 +494,18 @@ class TestPlantHardinessStatus:
         site = SimpleNamespace(tenant_key=TENANT, climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=None, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light is None
         assert status.site_overwinterable is True
         assert status.will_materialize is False
 
     def test_foreign_site_is_unknown(self) -> None:
-        species = SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        species = SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
         site = SimpleNamespace(tenant_key="other_tenant", climate_zone="7a", type=SiteType.OUTDOOR)
         service = _status_service(plant=_plant(), species=species, site=site)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.hardiness_light is None
         # A foreign site is never treated as eligible (fail-safe tenant guard).
         assert status.site_overwinterable is False
@@ -511,7 +524,7 @@ class TestPlantHardinessStatus:
         )
         service = _status_service(profile=foreign, plant=None, species=None, site=None)
 
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light is None
         assert status.site_overwinterable is False
@@ -519,7 +532,7 @@ class TestPlantHardinessStatus:
 
     def test_missing_repos_is_unknown(self) -> None:
         service = OverwinteringProfileService(FakeOverwinteringRepo())
-        status = service.get_plant_hardiness_status("p1", TENANT)
+        status = service.get_plant_hardiness_status("p1", tenant_key=TENANT)
         assert status.has_profile is False
         assert status.hardiness_light is None
         assert status.site_overwinterable is False
@@ -528,24 +541,24 @@ class TestPlantHardinessStatus:
 
 class TestHardinessOverview:
     def test_aggregates_counts_and_red_list(self, service) -> None:
-        service.create_profile(_profile(plant_key="p1"), TENANT)  # green
+        service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)  # green
         service.create_profile(
             _profile(
                 plant_key="p2", hardiness_rating=HardinessRating.NEEDS_PROTECTION, winter_action=WinterAction.FLEECE
             ),
-            TENANT,
+            tenant_key=TENANT,
         )  # yellow
         service.create_profile(
             _profile(
                 plant_key="p3", hardiness_rating=HardinessRating.FROST_FREE, winter_action=WinterAction.MOVE_INDOORS
             ),
-            TENANT,
+            tenant_key=TENANT,
         )  # red
         service.create_profile(
             _profile(
                 plant_key="p4", hardiness_rating=HardinessRating.DIG_AND_STORE, winter_action=WinterAction.DIG_STORE
             ),
-            TENANT,
+            tenant_key=TENANT,
         )  # red
 
         overview = service.get_hardiness_overview(TENANT)
@@ -556,8 +569,8 @@ class TestHardinessOverview:
         assert {e.plant_key for e in overview.red_plants} == {"p3", "p4"}
 
     def test_overview_is_tenant_scoped(self, service) -> None:
-        service.create_profile(_profile(plant_key="p1"), TENANT)
-        service.create_profile(_profile(plant_key="p2"), "other_tenant")
+        service.create_profile(_profile(plant_key="p1"), tenant_key=TENANT)
+        service.create_profile(_profile(plant_key="p2"), tenant_key="other_tenant")
         overview = service.get_hardiness_overview(TENANT)
         assert overview.total == 1
 
@@ -593,7 +606,7 @@ class TestHardinessOverview:
 
         class _SpeciesRepo:
             def get_by_key(self, key):  # noqa: ANN001, ANN201
-                return SimpleNamespace(scientific_name="Solanum lycopersicum", common_names=["Tomate"])
+                return SimpleNamespace(tenant_key="", scientific_name="Solanum lycopersicum", common_names=["Tomate"])
 
         class _SiteRepo:
             """Stores what the write path stores: no ``tenant_key`` on the row.

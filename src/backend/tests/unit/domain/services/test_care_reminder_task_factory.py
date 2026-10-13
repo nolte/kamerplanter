@@ -101,7 +101,13 @@ class TestServicePathUsesFactory:
     """The synchronous service path constructs its tasks via the factory."""
 
     def _service(self, task_repo: MagicMock, care_repo: MagicMock) -> CareReminderService:
-        return CareReminderService(care_repo, CareReminderEngine(), task_repo)
+        # The plant of tenant-1 without a display name, so the label falls back to its key;
+        # the tenant predicate (#2107) needs the plant to be there.
+        plant_repo = MagicMock()
+        plant_repo.get_by_key.return_value = SimpleNamespace(
+            key="plant-1", tenant_key="tenant-1", plant_name=None, instance_id=None, current_phase_key=None
+        )
+        return CareReminderService(care_repo, CareReminderEngine(), task_repo, plant_repo=plant_repo)
 
     def test_ensure_next_watering_task_routes_through_factory(self) -> None:
         care_repo = MagicMock()
@@ -125,7 +131,7 @@ class TestServicePathUsesFactory:
 
         built = _record_factory()
         with patch(_FACTORY_PATH, side_effect=built) as spy:
-            result = service.ensure_next_watering_task(profile)
+            result = service.ensure_next_watering_task(profile, tenant_key="tenant-1")
 
         spy.assert_called_once()
         assert spy.call_args.kwargs["reminder_type"] == ReminderType.WATERING
@@ -177,6 +183,7 @@ class TestCeleryPathUsesFactory:
             "get_planting_run_repo",
             "get_season_state_repo",
             "get_task_repo",
+            "get_tenant_repo",
         ):
             setattr(mock_deps, getter, MagicMock())
         monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)

@@ -18,7 +18,7 @@ only exist once the dispatcher, the registry and the HTTP surface are in play:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -60,6 +60,8 @@ class _FakeIdemRepo:
         return self.records.get((sa, tenant_key, tool, idem))
 
     def store(self, record, *, ttl_hours=24):
+        # The production repository stamps ``expires_at`` on store, and a lookup honours it (#2144).
+        record.expires_at = record.expires_at or datetime.now(UTC) + timedelta(hours=ttl_hours)
         self.records[(record.service_account_key, record.tenant_key, record.tool_name, record.idempotency_key)] = record
         return record
 
@@ -68,7 +70,7 @@ class _FeedingService:
     def __init__(self) -> None:
         self.created: list[FeedingEvent] = []
 
-    def create_event(self, event: FeedingEvent) -> FeedingEvent:
+    def create_event(self, event: FeedingEvent, *, tenant_key: str) -> FeedingEvent:
         # ``timestamp`` is defaulted on write by the repository
         # (``default_now_fields``), and the trend keys on it — a fake that left it
         # unset would make the diagnostics assertions pass vacuously.
@@ -98,10 +100,16 @@ class _IpmService:
         self.created.append(stored)
         return stored
 
-    def get_inspections(self, plant_key, offset=0, limit=50):
+    # Mirrors IpmService's keyword-only, default-less ``tenant_key`` (#1619):
+    # a double that accepts an unscoped call certifies a call the real
+    # service would reject.
+    def get_inspections(self, plant_key, offset=0, limit=50, *, tenant_key):
         return list(self.created), len(self.created)
 
-    def check_harvest_safety(self, plant_key, planned_date=None):
+    def get_inspections_window(self, plant_key, offset=0, limit=50, *, tenant_key):
+        return list(self.created)
+
+    def check_harvest_safety(self, plant_key, planned_date=None, *, tenant_key):
         return True, []
 
 
@@ -119,7 +127,7 @@ class _NutrientPlanService:
             tags=["outdoor"],
         )
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         if key != "np-1":
             raise NotFoundError("NutrientPlan", key)
         return self._plan
@@ -127,7 +135,7 @@ class _NutrientPlanService:
     def get_plant_plan(self, plant_key, *, tenant_key):
         return self._plan if self.assignments else None
 
-    def get_phase_entries(self, plan_key):
+    def get_phase_entries(self, plan_key, *, tenant_key):
         return []
 
     def assign_to_plant(self, plant_key, plan_key, assigned_by="", *, tenant_key):

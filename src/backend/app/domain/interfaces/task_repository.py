@@ -1,4 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from datetime import datetime
+from typing import Any
 
 from app.common.enums import ReminderType
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
@@ -22,7 +25,22 @@ class ITaskRepository(ABC):
         limit: int = 50,
         species_key: str | None = None,
         target_entity_type: str | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[WorkflowTemplate], int]: ...
+
+    @abstractmethod
+    def list_workflow_templates_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        species_key: str | None = None,
+        target_entity_type: str | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[WorkflowTemplate]:
+        """The page of :meth:`get_all_workflow_templates` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None: ...
@@ -62,7 +80,7 @@ class ITaskRepository(ABC):
     def reorder_phases(self, phase_orders: list[dict]) -> list[WorkflowPhase]: ...
 
     @abstractmethod
-    def get_phase_suggestions(self) -> list[dict]: ...
+    def get_phase_suggestions(self, *, tenant_key: str) -> list[dict]: ...
 
     # ── TaskTemplate CRUD ──
     @abstractmethod
@@ -90,7 +108,35 @@ class ITaskRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
-    ) -> tuple[list[Task], int]: ...
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> tuple[list[Task], int]:
+        """Page the tenant's tasks, narrowed by every predicate given (#1503).
+
+        ``tenant_key`` is keyword-only and required (#1533): an omitted one used
+        to mean "every tenant", which is one dropped argument away from a
+        cross-tenant read, and two Celery beat tasks made exactly that drop.
+
+        ``origins`` is a set membership, not another ``filters`` entry: the
+        provenance filter is a partition ("machine-generated" is ``system`` and
+        ``pipeline``), and an empty sequence means "nothing matches" rather than
+        "no filter".
+        """
+        ...
+
+    @abstractmethod
+    def get_tasks_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """The page of :meth:`get_all_tasks` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_task_by_key(self, key: TaskKey) -> Task | None: ...
@@ -119,11 +165,34 @@ class ITaskRepository(ABC):
     def delete_task(self, key: TaskKey) -> bool: ...
 
     @abstractmethod
-    def get_tasks_for_plant(self, plant_key: str, status: str | None = None, *, tenant_key: str) -> list[Task]:
-        """Return a plant's tasks inside ``tenant_key`` (#927).
+    def clear_assignee(self, *, tenant_key: str, user_key: str) -> int:
+        """Unassign *user_key* from every task of *tenant_key*; returns how many tasks changed (#2114).
+
+        Run when a membership ends: an account that left (or was removed from) a tenant must not stay the
+        assignee of its tasks, or the care-reminder beat goes on notifying it. Both arguments are required and
+        keyword-only - another tenant's tasks of the same account are never touched. Only the assignee changes;
+        the tasks themselves (status, due date, history) stay.
+        """
+
+    @abstractmethod
+    def get_tasks_for_plant(
+        self,
+        plant_key: str,
+        status: str | None = None,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[Task]:
+        """Return a plant's tasks inside ``tenant_key`` (#927); a window when ``limit`` is set (MT-035).
 
         ``tenant_key`` is required and keyword-only; ``plant_key`` alone selects
-        across every tenant and arrives from the URL.
+        across every tenant and arrives from the URL. ``category``/``origins``
+        are the queue's optional narrowings (#1503) — declared on this branch as
+        well as on :meth:`get_pending_tasks` so a filter the page offers holds
+        whichever branch the active scope selects.
         """
         ...
 
@@ -139,13 +208,51 @@ class ITaskRepository(ABC):
         entity_key: str,
         tenant_key: str,
         status: str | None = None,
+        *,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> list[Task]: ...
 
     @abstractmethod
-    def get_pending_tasks(self, offset: int = 0, limit: int = 50, *, tenant_key: str) -> tuple[list[Task], int]: ...
+    def get_pending_tasks(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> tuple[list[Task], int]: ...
 
     @abstractmethod
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]: ...
+
+    @abstractmethod
+    def find_open_task_by_name(self, name: str, *, tenant_key: str) -> Task | None:
+        """The tenant's newest still-open task with exactly this ``name`` (#1533).
+
+        The idempotency question of the generators whose task names are
+        deterministic keys, answered in the store: tenant-scoped and with no page
+        cap for the match to fall off. See the ArangoDB implementation.
+        """
+        ...
+
+    @abstractmethod
+    def list_open_care_reminders_due(
+        self,
+        *,
+        tenant_key: str,
+        due_until: datetime,
+        due_from: datetime | None = None,
+    ) -> list[Task]:
+        """Open care reminders of one tenant due in ``[due_from, due_until]`` (MT-032, #2128).
+
+        Filtered in the store, so a notification beat never loads the tenant's
+        other tasks; ``due_from=None`` includes everything overdue.
+        """
+        ...
 
     @abstractmethod
     def find_open_care_task(
@@ -172,10 +279,12 @@ class ITaskRepository(ABC):
     def create_workflow_execution(self, execution: WorkflowExecution) -> WorkflowExecution: ...
 
     @abstractmethod
-    def get_workflow_execution_by_key(self, key: WorkflowExecutionKey) -> WorkflowExecution | None: ...
+    def get_workflow_execution_by_key(
+        self, key: WorkflowExecutionKey, *, tenant_key: str
+    ) -> WorkflowExecution | None: ...
 
     @abstractmethod
-    def get_workflow_execution_or_raise(self, key: WorkflowExecutionKey) -> WorkflowExecution: ...
+    def get_workflow_execution_or_raise(self, key: WorkflowExecutionKey, *, tenant_key: str) -> WorkflowExecution: ...
 
     @abstractmethod
     def update_workflow_execution(
@@ -241,10 +350,12 @@ class ITaskRepository(ABC):
     def delete_task_templates_for_workflow(self, wf_key: str) -> int: ...
 
     @abstractmethod
-    def get_workflow_usage_stats(self, wf_keys: list[str]) -> dict[str, dict]: ...
+    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]: ...
 
     @abstractmethod
-    def get_executions_for_template(self, template_key: str) -> list[dict]: ...
+    def get_executions_for_template(
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[dict]: ...
 
     # ── Batch ──
     @abstractmethod

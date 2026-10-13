@@ -3,13 +3,19 @@
 Every tag used by a router MUST be declared here with a description so the
 generated document carries a complete top-level ``tags`` list
 (spec/project/api-documentation/). ``scripts/export_openapi.py`` fails the
-export when a router uses a tag that is missing from this list.
+export when a router uses a tag that is missing from this list, and
+``tests/unit/guards/test_router_tags_are_declared.py`` enforces the same rule in
+the required guards lane (#2167).
 """
 
 OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "activities", "description": "Manual activity log entries for plants and locations."},
     {"name": "activity-plans", "description": "Generated activity plans and recurring activity templates."},
     {"name": "actuators", "description": "Actuator registration and rule-based environmental control (REQ-018)."},
+    {
+        "name": "admin-ha-entity-grants",
+        "description": "Platform administration of the per-tenant Home Assistant entity allowlist (REQ-005, REQ-018).",
+    },
     {"name": "admin-oidc", "description": "Platform administration of OIDC identity providers (REQ-023)."},
     {
         "name": "admin-harvest-indicators",
@@ -67,6 +73,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "locations", "description": "Locations within sites: beds, tents, shelves (REQ-002)."},
     {"name": "mcp", "description": "Model Context Protocol server endpoints."},
     {"name": "mode", "description": "Deployment mode information: light or full (REQ-027)."},
+    {
+        "name": "system",
+        "description": "Light-to-full upgrade: take-over of the light-mode data by the first account (REQ-027).",
+    },
     {"name": "notifications", "description": "User notifications and notification-channel settings."},
     {"name": "nutrient-calculations", "description": "Nutrient mix calculations: EC targets and dosing (REQ-004)."},
     {"name": "nutrient-plans", "description": "Nutrient plans per species and phase (REQ-004)."},
@@ -90,6 +100,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "propagation", "description": "Propagation and genetic lineage: clones, crosses, grafts (REQ-017)."},
     {"name": "recognition", "description": "Plant recognition service endpoints."},
     {"name": "season", "description": "Season and phenology information."},
+    {
+        "name": "service-accounts",
+        "description": "A tenant's service accounts: machine identities with tenant-scoped API keys (REQ-023 §5b).",
+    },
     {"name": "sites", "description": "Sites: gardens, rooms, greenhouses (REQ-002)."},
     {"name": "slots", "description": "Location slots for plant placement (REQ-002)."},
     {"name": "species", "description": "Species master data (REQ-001)."},

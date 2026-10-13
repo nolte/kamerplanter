@@ -10,17 +10,41 @@ from app.domain.engines.substrate_mix_engine import calculate_mix_properties
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
 from app.domain.services.catalogue_authorization import (
-    require_platform_admin_for_global_catalogue,
+    authorize_hybrid_catalogue_write,
     require_role_for_catalogue_create,
 )
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_slot
+
+#: Substrate fields ``PUT /substrates/{key}`` does not carry (``SubstrateCreate``
+#: lacks them), so :meth:`SubstrateService.update_substrate` takes them from the
+#: stored substrate. The route rebuilds the model from the body, which held
+#: ``is_mix=False`` and ``mix_components=[]``: every edit of a mix turned it into a
+#: plain substrate without components, which can then be used as a component of a
+#: new mix — the nesting :meth:`SubstrateService.create_mix` refuses. Only
+#: ``create_mix`` writes the two.
+SUBSTRATE_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = ("is_mix", "mix_components")
 
 
 class SubstrateService:
-    def __init__(self, substrate_repo: ISubstrateRepository) -> None:
+    def __init__(self, substrate_repo: ISubstrateRepository, slot_anchors: SiteAnchorSource | None = None) -> None:
         self._repo = substrate_repo
+        # The slot → location → site reads that decide whose a slot is (#1864).
+        # Optional so the many callers that never link a slot need not wire it;
+        # ``assign_batch_to_slot`` refuses without it rather than skip the check.
+        self._slot_anchors = slot_anchors
         self._lifecycle_mgr = SubstrateLifecycleManager(substrate_repo)
 
     # ── Substrate catalogue — hybrid, like species (#1195) ───────────────
+    #
+    # Every keyed write below takes ``tenant_key``, ``caller_role`` and
+    # ``is_platform_admin`` keyword-only **without** a default (#2107). They used to
+    # default to the system context (``None`` / no role), the escape the seed
+    # loaders were said to need — measured, they write through the repository, and
+    # the only callers of these methods are the substrate routes and the MCP mix
+    # tool. A default nobody passes on purpose is one a new caller passes by
+    # forgetting: an omitted tenant skipped the ownership gate and an omitted role
+    # skipped the batch role gate.
 
     def list_substrates(
         self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
@@ -89,9 +113,9 @@ class SubstrateService:
         key: SubstrateKey,
         substrate: Substrate,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Substrate:
         existing = self.get_substrate(key)
         self._authorize_write(
@@ -101,15 +125,16 @@ class SubstrateService:
         # explicit migration — a full-replace update must not be able to move a
         # tenant's mix into the global catalogue, nor claim a global medium.
         substrate.tenant_key = existing.tenant_key
+        keep_stored_fields(substrate, existing, SUBSTRATE_FIELDS_KEPT_ON_EDIT)
         return self._repo.update_substrate(key, substrate)
 
     def delete_substrate(
         self,
         key: SubstrateKey,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         existing = self.get_substrate(key)
         self._authorize_write(
@@ -139,9 +164,9 @@ class SubstrateService:
         self,
         batch: SubstrateBatch,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> SubstrateBatch:
         # The parent substrate is resolved in the caller's scope, so a batch can
         # never be hung off a foreign tenant's mix.
@@ -149,8 +174,7 @@ class SubstrateService:
         require_role_for_catalogue_create(
             plural_noun="substrates", caller_role=caller_role, is_platform_admin=is_platform_admin
         )
-        if tenant_key is not None:
-            batch.tenant_key = tenant_key
+        batch.tenant_key = tenant_key
         return self._repo.create_batch(batch)
 
     def update_batch(
@@ -158,12 +182,16 @@ class SubstrateService:
         key: BatchKey,
         batch: SubstrateBatch,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> SubstrateBatch:
         existing = self.get_batch(key, tenant_key=tenant_key)
         self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
+        # A re-pointed parent substrate in the caller's scope, as on create (#1872
+        # C15): update re-stamped only the tenant and stored the body's key.
+        if batch.substrate_key != existing.substrate_key:
+            self.get_substrate(batch.substrate_key, tenant_key=tenant_key)
         batch.tenant_key = existing.tenant_key
         return self._repo.update_batch(key, batch)
 
@@ -171,9 +199,9 @@ class SubstrateService:
         self,
         key: BatchKey,
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> bool:
         self.get_batch(key, tenant_key=tenant_key)
         self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_delete_resource)
@@ -190,21 +218,23 @@ class SubstrateService:
         is_platform_admin: bool,
         can_role_write: Callable[[TenantRole], bool],
     ) -> None:
-        """The hybrid-catalogue write gate, identical in shape to the species one.
+        """The hybrid-catalogue write gate, shared with the fertilizer service (#2100).
 
         Four arms: system context passes, a *foreign* mix is 404 (ownership
         hiding), the *global* base catalogue is platform-admin only (the #1120
-        rule), and an *own* mix needs a writing role.
+        rule), and an *own* mix needs a writing role. The decision lives in
+        :func:`~app.domain.services.catalogue_authorization.authorize_hybrid_catalogue_write`.
         """
-        if tenant_key is None:
-            return
-        if existing.tenant_key not in (tenant_key, ""):
-            raise NotFoundError("Substrate", key)
-        if existing.tenant_key == "":
-            require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="Substrate")
-            return
-        if not is_platform_admin and not (caller_role is not None and can_role_write(caller_role)):
-            raise ForbiddenError("Your role may not modify substrates in this tenant.")
+        authorize_hybrid_catalogue_write(
+            existing.tenant_key,
+            entity="Substrate",
+            plural_noun="substrates",
+            key=key,
+            tenant_key=tenant_key,
+            caller_role=caller_role,
+            is_platform_admin=is_platform_admin,
+            can_role_write=can_role_write,
+        )
 
     @staticmethod
     def _authorize_batch_write(
@@ -236,8 +266,21 @@ class SubstrateService:
         self.get_batch(batch_key, tenant_key=tenant_key)
         return self._lifecycle_mgr.check_reusability(batch_key)
 
-    def prepare_reuse(self, batch_key: BatchKey, *, tenant_key: str | None = None) -> dict:
+    def prepare_reuse(
+        self,
+        batch_key: BatchKey,
+        *,
+        tenant_key: str | None = None,
+        caller_role: TenantRole | None = None,
+        is_platform_admin: bool = False,
+    ) -> dict:
+        """Run the reuse preparation of a batch — a batch write, gated like one (MT-045.1, #2144).
+
+        Load-then-gate like :meth:`update_batch`: a foreign batch answers 404 before
+        the role is asked. Until #2144 the route dropped the role and a viewer ran it.
+        """
         batch = self.get_batch(batch_key, tenant_key=tenant_key)
+        self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
         self.get_substrate(batch.substrate_key)
         can_reuse, issues, prep_steps, prep_time, ready_date = self._lifecycle_mgr.check_reusability(batch_key)
         if not can_reuse:
@@ -256,8 +299,35 @@ class SubstrateService:
             "ready_date": ready_date,
         }
 
-    def assign_batch_to_slot(self, batch_key: BatchKey, slot_key: SlotKey) -> dict:
-        self.get_batch(batch_key)
+    def assign_batch_to_slot(
+        self,
+        batch_key: BatchKey,
+        slot_key: SlotKey,
+        *,
+        tenant_key: str,
+        caller_role: TenantRole | None,
+        is_platform_admin: bool,
+    ) -> dict:
+        """Link a batch to a slot — both must be the caller's tenant's (#1864).
+
+        Until #1864 this checked that the batch *existed* and wrote a
+        ``filled_with`` edge between any two keys, behind a route that resolved
+        no tenant. Now, in load-then-gate order like every batch write:
+
+        1. the batch is resolved under ``tenant_key`` (404 for a foreign one);
+        2. the slot is resolved through its location's site (a slot has no
+           usable ``tenant_key`` of its own, #1397) — 404 for a foreign or
+           unknown slot, the same answer, so neither key's existence leaks;
+        3. only then the role gate (grower or above).
+
+        ``tenant_key`` is keyword-only without a default so an unscoped call
+        does not type-check.
+        """
+        self.get_batch(batch_key, tenant_key=tenant_key)
+        if self._slot_anchors is None:
+            raise NotFoundError("Slot", slot_key)
+        resolve_owned_slot(self._slot_anchors, slot_key, tenant_key)
+        self._authorize_batch_write(caller_role, is_platform_admin, MembershipEngine.can_edit_resource)
         return self._repo.assign_batch_to_slot(batch_key, slot_key)
 
     def create_mix(
@@ -266,9 +336,9 @@ class SubstrateService:
         name_de: str = "",
         name_en: str = "",
         *,
-        tenant_key: str | None = None,
-        caller_role: TenantRole | None = None,
-        is_platform_admin: bool = False,
+        tenant_key: str,
+        caller_role: TenantRole,
+        is_platform_admin: bool,
     ) -> Substrate:
         """Create a substrate mix from multiple component substrates.
 
@@ -326,7 +396,7 @@ class SubstrateService:
             cec_meq_per_100cm3=props["cec_meq_per_100cm3"],
             bulk_density_g_per_l=props["bulk_density_g_per_l"],
             irrigation_strategy=props["irrigation_strategy"],
-            tenant_key=tenant_key or "",
+            tenant_key=tenant_key,
         )
         return self._repo.create_substrate(mix)
 

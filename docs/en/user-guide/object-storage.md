@@ -143,7 +143,7 @@ The migration runs as a Celery task with progress tracking and can be resumed af
 ## Frequently Asked Questions
 
 ??? question "What happens to attachments when a tenant is deleted?"
-    Kamerplanter deletes all binary data for the tenant via `delete_prefix("t/{tenant_key}/")` in the configured storage backend. This happens before ArangoDB entries are removed, so that metadata is still available for lookup. The result is documented in the audit log. For details, see [Privacy (GDPR) — Deleting Your Account](privacy.md#deleting-your-account-gdpr-art-17).
+    Kamerplanter first deletes all binary data for the tenant via `delete_prefix("t/{tenant_key}/")` in the configured storage backend. The associated metadata entries (including the attachment records) are then removed together with all of the tenant's other domain data in the same ArangoDB transaction. The result is documented in the deletion record. For details, see [Privacy (GDPR) — Tenant Deletion](privacy.md#tenant-deletion).
 
 ??? question "Can I use MinIO in-cluster as the S3 backend?"
     Yes. Set `STORAGE_S3_ENDPOINT_URL` to the internal MinIO address (e.g., `http://minio.kamerplanter.svc:9000`), set `STORAGE_S3_USE_PATH_STYLE=true`, and `STORAGE_S3_ALLOW_PRIVATE_ENDPOINT=true`. The latter variable permits the backend to connect to a private (not publicly reachable) endpoint. For details, see [Environment Variables — Object Storage](../reference/environment-variables.md#object-storage-nfr-013).

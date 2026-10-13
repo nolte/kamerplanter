@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Any
 
 from app.common.types import OidcProviderConfigKey
 from app.domain.models.oidc_config import OidcProviderConfig
@@ -16,6 +18,31 @@ class IOidcConfigRepository(ABC):
 
     @abstractmethod
     def update(self, key: OidcProviderConfigKey, config: OidcProviderConfig) -> OidcProviderConfig: ...
+
+    @abstractmethod
+    def update_fields(self, key: OidcProviderConfigKey, fields: dict[str, Any]) -> OidcProviderConfig:
+        """Merge only ``fields`` into the stored configuration (#1883 security review SEC-002/003).
+
+        A write of the whole model from a snapshot read earlier reverts whatever
+        changed meanwhile — including a step-up'd change of the issuer, the secret
+        or ``enabled``. Callers build ``fields`` from a validated model.
+        """
+
+    @abstractmethod
+    def update_discovery(
+        self,
+        key: OidcProviderConfigKey,
+        *,
+        issuer_url: str,
+        discovery_document: dict[str, Any],
+        refreshed_at: datetime,
+    ) -> bool:
+        """Store a fetched discovery document — only while the issuer is still ``issuer_url``.
+
+        The fetch is paced by the issuer and may take its whole timeout; an issuer
+        repointed (behind the step-up) in between must not receive the old
+        issuer's endpoints (/code-review of #1910). Returns whether it was stored.
+        """
 
     @abstractmethod
     def delete(self, key: OidcProviderConfigKey) -> bool: ...

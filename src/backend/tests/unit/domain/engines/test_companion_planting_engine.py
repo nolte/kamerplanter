@@ -21,7 +21,7 @@ class TestCompanionPlantingRecommendations:
             {"species": {"_key": "sp2", "scientific_name": "Basil"}, "score": 0.9},
         ]
 
-        result = self.engine.get_companion_recommendations("sp1")
+        result = self.engine.get_companion_recommendations("sp1", tenant_key="t1")
 
         assert result["match_level"] == "species"
         assert len(result["matches"]) == 1
@@ -44,7 +44,7 @@ class TestCompanionPlantingRecommendations:
             {"_key": "sp3", "scientific_name": "Bean"},
         ]
 
-        result = self.engine.get_companion_recommendations("sp1")
+        result = self.engine.get_companion_recommendations("sp1", tenant_key="t1")
 
         assert result["match_level"] == "family"
         assert len(result["matches"]) == 1
@@ -58,7 +58,7 @@ class TestCompanionPlantingRecommendations:
         self.species_repo.get_by_key.return_value = _make_species("sp1", "fam_a")
         self.graph_repo.get_family_compatible.return_value = []
 
-        result = self.engine.get_companion_recommendations("sp1")
+        result = self.engine.get_companion_recommendations("sp1", tenant_key="t1")
 
         assert result["matches"] == []
         assert result["match_level"] == "species"
@@ -75,7 +75,7 @@ class TestCompanionPlantingRecommendations:
             {"_key": "sp2", "scientific_name": "Other"},
         ]
 
-        result = self.engine.get_companion_recommendations("sp1")
+        result = self.engine.get_companion_recommendations("sp1", tenant_key="t1")
 
         assert len(result["matches"]) == 1
         assert result["matches"][0]["species_key"] == "sp2"
@@ -85,6 +85,6 @@ class TestCompanionPlantingRecommendations:
         self.graph_repo.get_compatible_species.return_value = []
         self.species_repo.get_by_key.return_value = _make_species("sp1", "")
 
-        result = self.engine.get_companion_recommendations("sp1")
+        result = self.engine.get_companion_recommendations("sp1", tenant_key="t1")
 
         assert result["matches"] == []

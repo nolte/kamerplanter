@@ -17,7 +17,7 @@ from app.api.v1.ha_publish.schemas import (
 )
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_ha_publish_service
-from app.core.permissions import Action
+from app.core.permissions import Action, ResourceType
 from app.domain.models.ha_publish_setting import HaPublishEntityType
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ha_publish_service import HaPublishService
@@ -54,14 +54,14 @@ def list_enabled_keys(
 @router.put("", response_model=list[HaPublishSettingResponse])
 def bulk_set(
     body: HaPublishBulkUpdate,
-    ctx: TenantContext = Depends(require_permission("ha-publish", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HA_PUBLISH, Action.UPDATE)),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
     """Set the publish flag for several entities of one type at once."""
     settings = service.bulk_set_published(
-        ctx.tenant_key,
         body.entity_type,
         {entry.entity_key: entry.enabled for entry in body.entries},
+        tenant_key=ctx.tenant_key,
     )
     return [_to_response(s.entity_type, s.entity_key, s.enabled) for s in settings]
 
@@ -83,9 +83,9 @@ def set_status(
     entity_type: Annotated[HaPublishEntityType, Path(description="Publishable entity type.")],
     entity_key: Annotated[str, Path(description="Document key of the entity.")],
     body: HaPublishSettingUpdate,
-    ctx: TenantContext = Depends(require_permission("ha-publish", Action.UPDATE)),
+    ctx: TenantContext = Depends(require_permission(ResourceType.HA_PUBLISH, Action.UPDATE)),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
     """Enable or disable publishing a single entity to Home Assistant."""
-    setting = service.set_published(ctx.tenant_key, entity_type, entity_key, body.enabled)
+    setting = service.set_published(entity_type, entity_key, body.enabled, tenant_key=ctx.tenant_key)
     return _to_response(setting.entity_type, setting.entity_key, setting.enabled)

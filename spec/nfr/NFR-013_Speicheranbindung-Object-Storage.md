@@ -7,7 +7,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Python 3.14+, FastAPI, Helm, Kubernetes 1.28+, S3-kompatibles Object Storage, ReadWriteMany-PVs
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.4 (Umsetzungsstand kategoriescharfes Keep-EXIF festgehalten)
+Version: 1.13 (Request-Body-Grenze und Spool-Budget vor dem Multipart-Parsen, Download-Caching an Token-Ablauf und Widerruf gebunden; #2254); 1.12 (O-03 beantwortet: Kontingente je Plan, REQ-056 §7 und NFR-012 §10.3; #2143); 1.11 (§7 Umsetzungsstand: kein Anhang-Backup im Chart; #2121); 1.10 (#2153: Backend und Worker per `podAffinity` auf dem Node des `ReadWriteOnce`-PVC); 1.9 (#2124: Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb — v1.7 #1834 Objekt-Rekonziliation); 1.8 (#2108/#2139: Pixelgrenze, HEIC/HEIF nicht mehr zulässig, Thumbnail-Auftrag je Fenster)
 Autor: Business Analyst - Agrotech
 Datum: 2026-04-27
 Tags: [storage, object-storage, s3, minio, local-fs, adapter, photos, attachments, dsgvo, multi-tenant]
@@ -21,6 +21,15 @@ Betroffene Module: [backend.app.adapters.storage, backend.app.services.attachmen
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.13 | 2026-10-11 | **#2254 Upload-Grenze vor dem Parsen, Download-Caching:** §5.1 Schritt 0 — FastAPI liest einen Multipart-Body vollständig (Dateiteile über 1 MiB nach `/tmp`), bevor Route oder Abhängigkeit laufen; die `Content-Length`-Prüfung der Upload-Routen kam erst danach (gemessen: 50 MiB Body bei 1 MiB Grenze bis zum letzten Byte gelesen, anonym ebenso). Jetzt begrenzt eine ASGI-Middleware (`app.common.body_limit`) jeden Body vorher: Multipart (mit Starlettes eigenem Parser erkannt) auf `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB wie der Frontend-nginx (#2144), jeden anderen Body auf 1 MiB; angegebene Länge darüber → 413 `REQUEST_BODY_TOO_LARGE` ohne ein gelesenes Byte, sonst Abbruch an der Grenze. Gleichzeitige Multipart-Bodys teilen ein Spool-Budget (`UPLOAD_SPOOL_BUDGET_MB`, Standard 52, mindestens eine volle Upload-Größe, sonst Startabbruch), gezählt in tatsächlich empfangenen Bytes; wer nach `UPLOAD_SPOOL_WAIT_SECONDS` (30) keinen Platz bekommt, erhält 503 `UPLOAD_CAPACITY_EXHAUSTED` mit `Retry-After`. §8.3 — Token-Download `no-store`; Sitzungs-Downloads (Original, Thumbnails) und freigegebene Schädlingsbilder `private, no-cache` mit `ETag` und 304 nach der Berechtigungsprüfung; das `ETag` ist nicht mehr der SHA-256 der hochgeladenen (noch nicht EXIF-bereinigten) Bytes. `private, max-age=86400` bzw. `public, max-age=86400` hielten eine Kopie 24 h ohne Rückfrage, ein Token gilt 15 min. Schädlingserkennung: zu große Bilder → 413 `PAYLOAD_TOO_LARGE` statt 422. |
+| 1.12 | 2026-10-11 | **#2143 (MT-050):** O-03 verwies auf eine Kontingent-Tabelle in NFR-012 §10, die es nicht gab. Beantwortet: Kontingente hängen nicht an der Skalierungsstufe, sondern am Plan eines Mandanten (REQ-056 §7); das Speicherkontingent (§5.1 Schritt 3) ist dort die Dimension `storage_mb` mit dem Instanzwert `STORAGE_TENANT_QUOTA_MB`, die Fotos je Pflanze `photos_per_instance`. Die Kapazitätswirkung je Stufe steht in NFR-012 §10.3. Verhalten unverändert; Pläne sind nicht implementiert (#2142). |
+| 1.11 | 2026-10-05 | **#2121 (MT-025):** §7 trägt einen Umsetzungsstand. Gemessen: Der Chart sichert Anhänge nicht (NFR-002 §8.0 nimmt sie ausdrücklich aus); PV-Snapshot, `rsync`-Job, Bucket-Versionierung, Replikation und `scripts/storage/migrate.py` (§7.3) liefert das Repository nicht — sie sind Betreiber-Aufgabe bzw. Zielbild. |
+| 1.10 | 2026-10-05 | **#2153 Rollout auf `ReadWriteOnce`:** Backend und Celery-Worker tragen das Label `kamerplanter.io/attachments-volume` und verlangen per `podAffinity` einen Pod mit diesem Label auf demselben Node, solange die Anhaenge auf einem `ReadWriteOnce`-PVC liegen; mit S3 oder `ReadWriteMany` keine Einschraenkung (`topologyKey` rendert auf `kubernetes.io/os`). Kein `Recreate`: das Rolling Update bleibt ohne Unterbrechung. |
+| 1.9 | 2026-10-04 | **Helm-`storage`-Block verdrahtet, S3 Pflicht fuer geteilten Betrieb (#2124, MT-028):** Der Block `storage` in `helm/kamerplanter/values.yaml` war bis hierher wirkungslos (das Chart las ihn nicht; `storage.backend: s3` lieferte `local-fs` mit PVC). Jetzt leitet das Chart daraus die `STORAGE_*`-Variablen von Backend und Celery-Worker, das PVC `backend-attachments` (nur bei `local-fs`) und dessen Mounts ab; die S3-Credentials kommen als zwei `secretKeyRef` aus `credentialsRef` (Default-Schluessel jetzt `STORAGE_S3_ACCESS_KEY_ID` / `STORAGE_S3_SECRET_ACCESS_KEY`, wie in der Betriebsdoku). Neuer §10.1: Das Chart verweigert das Rendern von mehr als einer Backend- oder Worker-Replica auf einem `ReadWriteOnce`-Anhang-Volume (Ausweg: S3, RWX oder `storage.localFs.singleNode: true`). Das PVC traegt `Prune=false,Delete=false` fuer ArgoCD. Render-Vertraege in `scripts/ci/assert_chart_contracts.sh`. |
+| 1.8 | 2026-10-04 | **#2108 Pixelgrenze und Thumbnail-Verstärkung (MT-011):** §5.1 Schritt 5a — jedes Bild wird vor dem Dekodieren an seiner Kopfzeile gegen **40 Megapixel** geprüft (`app.common.image_bounds`, HTTP 413 `IMAGE_PIXEL_LIMIT_EXCEEDED`); die Grenze gilt für jede Bild-Dekodierung des Backends, ein Guard hält jedes `Image.open` in diesem Modul. Die EXIF-Bereinigung kodiert das dekodierte Bild neu statt es aus Pixel-Tupeln aufzubauen (gemessen 80 Byte je Pixel). Die DSGVO-Bereinigung gespeicherter Objekte nimmt bis 80 MPx an und zählt größere als `skipped_over_limit`. §8.2 — die Thumbnail-Erzeugung wird je Anhang höchstens einmal in 300 s angestoßen (Valkey `SET NX EX`), endgültig gescheiterte Erzeugung setzt `renditions_failed`, der Abruf antwortet dann 404 statt 202. **#2139 HEIC/HEIF (MT-043):** §5.2 — nicht mehr in der Foto-Whitelist; solange `STORAGE_STRIP_EXIF` aktiv ist, lehnt Schritt 4 jeden Bildtyp ab, den die Bereinigung nicht neu kodieren kann, auch per Kategorie-Override. |
+| 1.7 | 2026-10-02 | **#1834 Objekt-Rekonziliation umgesetzt (§6.6, AC-12):** Task `app.tasks.storage_tasks.reconcile_orphaned_storage_objects` (Beat täglich 04:10) listet `t/` über beide Adapter seitenweise (local-fs paginiert jetzt wie S3, Token = letzter Key; je Lauf höchstens `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` Objekte, der Folgelauf setzt fort), bildet Renditionen über jede mögliche Original-Endung auf den haltenden Datensatz ab und meldet `found` / `young` / `eligible` / `would_delete` / `deleted` / `failed`. **Löschen ist per Default aus** (`STORAGE_RECONCILE_DELETE_ENABLED=false`, Betreiberentscheidung: erster Release nur Bericht); die Sicherheitsmarge ist `STORAGE_RECONCILE_MIN_AGE_HOURS` (Default 24, Untergrenze 1). Eine Notbremse (`STORAGE_RECONCILE_MAX_ORPHAN_FRACTION`, Default 0,5) verhindert das Löschen bei einem gültig, aber leer antwortenden Katalog. Bericht und Logzeilen des Laufs tragen nur Zählwerte, nie Mandant, Nutzer oder Objektpfad. Vier Pfade der Issue sind rot-zuerst gegen ArangoDB und den echten local-fs-Adapter belegt. |
+| 1.6 | 2026-09-26 | **Datenschutzplan-Entscheidung Q-O3 (Betreiberentscheidung, #1834):** Neuer §6.6 Objekt-Rekonziliation — ein periodischer Lauf listet Objekte im Storage, die kein `attachments`-Datensatz mehr hält, mit 24h-Sicherheitsmarge gegen den Schreib-vor-Datensatz-Zeitpunkt eines Uploads; für den ersten Release **nur Bericht, keine Löschung**. **AC-12** neu. |
+| 1.5 | 2026-09-25 | **Deduplizierung pro Hochlader (#1770):** Schritt 8 der Upload-Pipeline gibt einem zweiten Hochlader identischer Bytes nicht mehr den Datensatz des ersten zurück, sondern einen eigenen Datensatz über dasselbe gespeicherte Objekt; `storage_key` ist deshalb nicht mehr eindeutig (Migration v0062 entfernt den eindeutigen Index). Ein Objekt wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält; die Quota zählt es einmal. |
 | 1.4 | 2026-08-05 | **Umsetzungsstand `STORAGE_KEEP_EXIF_<CATEGORY>` festgehalten (Korrektur aus der REQ-050-Umsetzung, Issue #921):** §6.4 haelt jetzt ausdruecklich fest, dass die kategoriescharfe Keep-EXIF-Variante **spezifiziert, aber nicht implementiert** ist — es existiert ausschliesslich das globale `STORAGE_STRIP_EXIF`. §8.2 nennt entsprechend das tatsaechlich vorhandene Setting. Die Zusage „Renditions sind EXIF-frei" bleibt unveraendert gueltig und ist unabhaengig von der Konfiguration. Keine Aenderung am Adapter-Vertrag, an Kategorien oder am Pfadschema. |
 | 1.3 | 2026-08-04 | **Thumbnails sind normativ EXIF-frei (REQ-050):** §8.2 haelt jetzt ausdruecklich fest, dass Renditions keine EXIF-Daten uebernehmen — auch nicht bei `STORAGE_KEEP_EXIF_<CATEGORY>=true`, das ausschliesslich die Originaldatei betrifft. Bisher war das nur implizit ueber die Neukodierung angenommen. REQ-050 §4.4 liefert Renditions ueber MCP an externe KI-Agenten aus und stuetzt die Zulaessigkeit genau auf diese Eigenschaft; eine stillschweigende Annahme traegt das nicht. Kein Eingriff in den Adapter-Vertrag, keine Aenderung an Kategorien oder Pfadschema. |
 | 1.2 | 2026-06-19 | **category `plant` (REQ-034 Pflanzenfoto-Galerie):** `category`-Enum in §4.3 und Default-Mime-Whitelist in §5.2 um `plant` ergänzt (Foto-Whitelist `image/jpeg,png,webp,heic`, 25 MB). Storage-Key-Schema, Thumbnails, Pre-Sign, DSGVO-Erasure unverändert — REQ-034-Fotos hängen an der Pflanzeninstanz (REQ-013) und werden im Erasure als Scope `user_diary_attachments` klassifiziert. Kein Eingriff in den Adapter-Vertrag. |
@@ -314,14 +323,16 @@ Die Frontend-Anwendung kennt **nur** diese URI. Der Storage-Key ist eine impleme
 
 Pflicht-Reihenfolge fuer jeden Upload:
 
+0. **Body-Grenze vor dem Parsen** (v1.13, #2254) — FastAPI liest den Multipart-Body vollstaendig ein, bevor Authentifizierung oder Route laufen. Deshalb begrenzt die ASGI-Middleware `app.common.body_limit` jeden Request-Body vorher: ein Body, den Starlette als `multipart/form-data` parst (derselbe Parser, `parse_options_header`), auf `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB (gleiche Grenze wie Frontend-nginx und Ingress), jeder andere Body auf 1 MiB. Angegebene `Content-Length` darueber → 413 `REQUEST_BODY_TOO_LARGE`, ohne ein Byte zu lesen; ein Body ohne Laengenangabe wird beim Lesen gezaehlt und an der Grenze abgebrochen. Multipart-Bodys ziehen jedes empfangene Byte vom Spool-Budget `UPLOAD_SPOOL_BUDGET_MB` ab (Standard 52, unter dem 64-MiB-`/tmp` des Backend-Pods; muss mindestens `STORAGE_MAX_FILE_SIZE_MB` + 1 sein, sonst startet das Backend nicht) und geben es am Ende des Requests zurueck, auch bei Abbruch oder Verbindungsende. Ein Client, der eine Laenge ankuendigt und nichts sendet, haelt nichts. Bekommt ein Teil nach `UPLOAD_SPOOL_WAIT_SECONDS` keinen Platz → 503 `UPLOAD_CAPACITY_EXHAUSTED` mit `Retry-After` und `Connection: close`. Die Pruefungen in Schritt 6 bleiben als zweite Linie und halten die Grenze je Route.
 1. **Authentifizierung** (REQ-023) — gueltiges Access-Token
 2. **Autorisierung** (REQ-024) — `require_permission("attachment:create", scope=tenant)`
-3. **Quota-Pruefung** — pro-Tenant- und pro-Mandant-Limit
-4. **Mime-Type-Whitelist** — gegen `STORAGE_ALLOWED_MIME_TYPES`
+3. **Quota-Pruefung** — pro-Tenant- und pro-Mandant-Limit (wirksames Limit der Dimension `storage_mb` nach REQ-056 §7.3; heute `STORAGE_TENANT_QUOTA_MB`, Plaene nicht implementiert)
+4. **Mime-Type-Whitelist** — gegen `STORAGE_ALLOWED_MIME_TYPES`. Solange `STORAGE_STRIP_EXIF` aktiv ist, wird ein Bildtyp, dessen Metadaten die EXIF-Bereinigung nicht entfernen kann (HEIC/HEIF, GIF), auch dann mit 415 abgelehnt, wenn ein Kategorie-Override ihn zulaesst (v1.8, #2139).
 5. **Magic-Byte-Validierung** — der erste Block wird gegen den deklarierten Mime-Type geprueft (Schutz vor maskierten Uploads)
+5a. **Pixelgrenze (Bilder)** — Breite × Hoehe aus der Kopfzeile, **bevor** ein Pixel dekodiert wird; ueber 40 Megapixel HTTP 413 `IMAGE_PIXEL_LIMIT_EXCEEDED` (v1.8, #2108). Gilt auch bei abgeschaltetem EXIF-Strip, weil die Thumbnail-Erzeugung jedes Bild dekodiert.
 6. **Groessenlimit** — gegen `STORAGE_MAX_FILE_SIZE_MB`
 7. **Optional Virus-Scan** — wenn `STORAGE_VIRUS_SCAN_ENABLED=true`, ClamAV-Wrapper-Aufruf, Block auf Findings
-8. **SHA-256-Hash-Berechnung** — Deduplizierung pro Tenant, Integritaet in `attachments`-Metadaten
+8. **SHA-256-Hash-Berechnung** — Deduplizierung pro Tenant, Integritaet in `attachments`-Metadaten. Dedupliziert werden die **Bytes**, nicht der Datensatz (#1770): Hat derselbe Hochlader dieselben Bytes in derselben Kategorie schon hochgeladen, wird sein Datensatz zurückgegeben; sonst erhält er einen eigenen Datensatz, der auf das vorhandene Objekt zeigt. Ein Objekt samt Renditionen wird erst gelöscht, wenn kein Datensatz des Mandanten es mehr hält (Einzellöschung, Waisen-Bereinigung, DSGVO-Löschung nach REQ-025 AK-OS-08); die Quota zählt es einmal. Mandanten teilen nie.
 9. **Schreiben** ueber Adapter
 10. **Metadaten-Persistenz** in ArangoDB
 11. **Audit-Log-Eintrag** — `who`, `when`, `tenant_key`, `attachment_id`, `category`, `byte_size`
@@ -332,7 +343,7 @@ Fehlschlaegt einer der Schritte 4–7, wird der Upload **vor** dem Schreiben ins
 
 | Kategorie | Erlaubte Mime-Types | Max-Groesse (Default) |
 |-----------|---------------------|------------------------|
-| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` (server-seitige Konvertierung empfohlen) | 25 MB |
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp` — HEIC/HEIF seit v1.8 nicht mehr (#2139): ohne `pillow-heif` nicht neu kodierbar, wurde samt GPS gespeichert; die App-Clients wandeln vor dem Upload in JPEG um | 25 MB |
 | `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
 | `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
 | `tenant_export` | `application/zip` | 5 GB |
@@ -431,9 +442,66 @@ Fuer Backends mit Daten ausserhalb der EU/EWR (Google Drive, Dropbox-US, OneDriv
 - Im UI muss die Zielregion des konfigurierten Backends sichtbar sein
 - Auftragsverarbeitungsvertrag (DPA) mit dem Drittanbieter ist Voraussetzung — der Tenant-Admin bestaetigt das beim Konfigurieren
 
+### 6.6 Objekt-Rekonziliation (verwaiste Objekte, #1834)
+
+<!-- Quelle: Datenschutzplan Q-O3, #1834. Betreiberentscheidung 2026-09-26. -->
+Jeder Löschpfad im Backend entscheidet über ein gespeichertes Objekt, indem er den
+`attachments`-Katalog fragt (`storage_keys_held_elsewhere`, `find_by_user`). Kein Pfad
+durchsucht den Object Store selbst — ein Objekt, dessen letzter Datensatz ohne die Bytes
+verschwunden ist (fehlgeschlagener Storage-Aufruf nach committetem ArangoDB-Plan,
+Race zwischen Löschplan-Berechnung und -Commit, eine über den generischen Upload-Pfad
+erreichte Referenz in einem inzwischen verlassenen Mandanten), wird nie wieder gelöscht:
+Es zählt nicht zur Quota (`sum_bytes_by_tenant` zählt Datensätze) und ist für kein
+Art.-17-Löschverfahren mehr erreichbar.
+
+Beschlossen:
+
+- Ein **periodischer Rekonziliationslauf** listet die Objekte unter `t/{tenant}/` (beide
+  Adapter), bildet Original und Renditionen auf ihren Storage-Key ab und ermittelt, welche
+  kein `attachments`-Datensatz mehr hält.
+- **24-Stunden-Sicherheitsmarge:** Ein Objekt wird erst als Kandidat behandelt, wenn seine
+  Erstellung mindestens 24 Stunden zurückliegt — ein Upload schreibt das Objekt vor seinem
+  Datensatz, ein frisch hochgeladenes Objekt ohne (noch nicht committeten) Datensatz ist
+  also erwartungsgemäß kurzzeitig "verwaist" und kein Rekonziliationsfall.
+- **Erste Release-Stufe: nur Bericht, keine Löschung.** Der Lauf zählt und protokolliert
+  gefundene Kandidaten (analog `cleanup_orphaned_task_photos`, gefunden/gelöscht/fehlgeschlagen).
+  Löschen schaltet ausschließlich `STORAGE_RECONCILE_DELETE_ENABLED=true` ein; der Default ist
+  `false`, die Umschaltung ist Betreiberentscheidung nach dem Lesen eines Laufberichts
+  (`would_delete`). Mit eingeschaltetem Löschen entfernt der Lauf genau die Objekte ohne
+  Datensatz, die älter als die Marge sind — nie ein Objekt, das ein Datensatz hält, nie eine
+  Rendition eines gehaltenen Originals (jede mögliche Original-Endung wird gefragt), und er
+  fragt den Katalog unmittelbar vor dem Löschen noch einmal. Ein Datenbankfehler bricht den
+  Lauf ab (fail-closed), er gilt nie als „niemand hält das Objekt".
+- **Notbremse:** Fail-closed deckt nur eine fehlschlagende Katalogabfrage ab. Antwortet der Katalog
+  gültig, aber leer (falsche Datenbank über einem bestehenden Bucket, Restore älter als der Speicher,
+  zwei Installationen auf einem Bucket), erscheint jedes Objekt als verwaist. Ist auf einer Seite (ab
+  20 Objekten) mehr als `STORAGE_RECONCILE_MAX_ORPHAN_FRACTION` (Default 0,5) der Objekte ohne Datensatz,
+  löscht der Lauf dort nichts und meldet `brake_tripped`. Nur kanonische Schlüssel werden beurteilt
+  (kein Backslash, keine leeren oder Punkt-Segmente, keine Symlinks im local-fs-Listing).
+- **Marge:** `STORAGE_RECONCILE_MIN_AGE_HOURS`, Default 24, per `ge=1` nach unten begrenzt. Das
+  Fenster zwischen Schreiben des Objekts und Anlegen des Datensatzes ist ein Request (Quota →
+  Virenscan → EXIF → `put_object` → `create`) plus die drei Wiederholungen des Thumbnail-Tasks
+  im Minutenabstand; eine Stunde ist die Untergrenze darüber, 24 Stunden der ausgelieferte Wert.
+  Das Alter liest der Lauf aus dem Store (`last_modified`); ein Objekt ohne lesbares Alter wird
+  gezählt (`undated`) und behalten.
+- **Datenschutz des Berichts:** Der Bericht und die Logzeilen des Laufs enthalten ausschließlich Zahlen und
+  den Ausnahmetyp. (Die allgemeine Adapterzeile `storage_delete_object` trägt den Objektschlüssel, wie bei jedem
+  anderen Löschpfad; ihre Maskierung ist eigenes Thema.) Kein Mandantenschlüssel, Nutzerschlüssel oder Objektpfad (der Pfad trägt den
+  Mandanten) — auch kein Ausnahmetext, weil Dateisystem- und S3-Fehler den Pfad einbetten.
+- **Begrenzung:** Der Lauf liest Seiten zu je 1000 Schlüsseln, hält nie die gesamte Liste im
+  Speicher und stoppt nach `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` Objekten; der Listing-Token
+  liegt in Valkey (fail-open: ohne Token beginnt der nächste Lauf von vorn).
+- Nur der Namensraum `t/` wird beurteilt. Export-Bündel unter `privacy/exports/` haben eigenen
+  Lebenszyklus und eigenen Datensatz (`data_exports`).
+
+Refs #1770, REQ-025, NFR-013.
+
 ---
 
 ## 7. Backup, Replikation, RPO/RTO
+
+!!! warning "Noch nicht implementiert"
+    Stand v1.11 (#2121): Das Repository liefert **kein** Backup der Anhänge. Das Chart-Backup (NFR-002 §8.0, #2122) sichert nur ArangoDB; Anhänge sind dort ausdrücklich ausgenommen. Die Mechanismen in §7.1 (CSI-Snapshot, `rsync`-Job, Bucket-Versionierung, Replikation) richtet der Betreiber selbst ein; ein Skript `scripts/storage/migrate.py` (§7.3) existiert nicht. Die RPO/RTO-Spalten sind Zielwerte (NFR-012 §9.1, dort ebenfalls Zielbild).
 
 ### 7.1 Backend-spezifische Strategien
 
@@ -483,12 +551,15 @@ Migration laeuft als Celery-Task mit Wiederaufnahmen, Fortschrittsanzeige und Au
 
 - Beim Upload werden bis zu **3 Thumbnail-Varianten** asynchron via Celery erzeugt (`128`, `512`, `1280` px lange Kante)
 - Thumbnails werden im selben Storage-Backend abgelegt: `t/{tenant_key}/{category}/{yyyy}/{mm}/{ulid}_t{size}.webp`
-- Verloren gegangene Thumbnails werden lazy beim ersten Zugriff regeneriert
+- Verloren gegangene Thumbnails werden lazy beim ersten Zugriff regeneriert — **je Anhang hoechstens ein Auftrag in 300 s** (v1.8, #2108): ein atomarer Claim in Valkey (`SET NX EX`, bei Ausfall je Prozess) statt eines Auftrags je Abruf. Scheitert die Erzeugung endgueltig (Pixelgrenze, nicht dekodierbar, Metadaten-Leck, oder nach dem letzten Wiederholversuch), setzt der Task `renditions_failed` auf jedem Datensatz des Mandanten, der das Objekt haelt; ein Abruf antwortet dann 404 statt 202.
 - **Thumbnails tragen niemals EXIF-Daten.** Die Erzeugung schreibt ausschliesslich Bilddaten in die WebP-Rendition; Aufnahmeort, Geraetekennung und Aufnahmezeit werden **nicht** uebernommen — auch dann nicht, wenn der Upload-Strip abgeschaltet ist (`STORAGE_STRIP_EXIF=false`) und die Originaldatei ihre EXIF-Daten behaelt. Das Keep-EXIF-Setting aus §6.4 — global heute, kategoriescharf erst spezifiziert (siehe dort) — betrifft ausschliesslich die **Originaldatei**. Diese Trennung ist die Grundlage dafuer, dass Renditions an Dritte ausgeliefert werden duerfen, wo das Original es nicht darf (REQ-050 §4.4, REQ-033 AC-S7) — sie muss beim Erzeugen aktiv sichergestellt und getestet werden, nicht als Nebenwirkung der Neukodierung angenommen.
 
 ### 8.3 Caching
 
-- HTTP-Caching ueber `ETag` (= SHA-256) und `Cache-Control: private, max-age=86400` fuer Pre-Signed Downloads
+- **Sitzungs-Downloads** (`GET …/attachments/{id}`, `…/thumbnails/{size}`, Bearer-Token) und **freigegebene Schaedlingsbilder** (`GET /api/v1/ipm/pest-images/{id}`, `…/thumbnails/{size}`, angemeldeter Nutzer): `Cache-Control: private, no-cache` mit `ETag`. Der Browser darf die Bytes halten, fragt aber vor jeder Wiederverwendung; ein passendes `If-None-Match` antwortet 304 — **nach** der Berechtigungspruefung. Abmeldung, entzogene Mitgliedschaft, geloeschter Anhang oder zurueckgenommene Freigabe wirken so beim naechsten Abruf (v1.13, #2254; vorher `private, max-age=86400` bzw. `public, max-age=86400`: 24 h ohne Rueckfrage).
+- **ETag:** SHA-256 ueber Storage-Key und Inhalts-Hash (Original stark, Thumbnail schwach mit Groesse), nicht der Inhalts-Hash selbst. Der Inhalts-Hash gehoert zu den hochgeladenen Bytes vor der EXIF-Bereinigung; als ETag haette er jedem, der die Originaldatei hat, bestaetigt, dass sie dieser Upload ist. Der Storage-Key erscheint in keiner Antwort (AC-04).
+- **Token-Download** (`GET /api/v1/attachments/token/{token}`, local-fs): `Cache-Control: no-store`. Das Token ist eine Inhaber-Berechtigung mit `STORAGE_PRESIGN_TTL_SECONDS` (Standard 900 s), jede Ausstellung erzeugt eine neue URL; eine gespeicherte Kopie wuerde Ablauf und Loeschung ueberdauern (v1.13, #2254).
+- S3-Pre-Signed-URLs: Caching-Header setzt der Object Store; die 307-Weiterleitung selbst traegt `no-store` (Standard aller `/api/v1/`-Antworten, MT-044).
 - CDN-Anbindung optional — wenn aktiviert, wird die Pre-Signed-URL ueber den CDN-Distributor signiert (CloudFront, Cloud CDN)
 
 ### 8.4 Bandbreite und Egress-Kosten
@@ -558,9 +629,18 @@ storage:
     kmsKeyId: ""
     credentialsRef:
       secretName: storage-s3-credentials
-      accessKeyIdKey: AWS_ACCESS_KEY_ID
-      secretAccessKeyKey: AWS_SECRET_ACCESS_KEY
+      accessKeyIdKey: STORAGE_S3_ACCESS_KEY_ID
+      secretAccessKeyKey: STORAGE_S3_SECRET_ACCESS_KEY
 ```
+
+### 10.1 Umsetzung im Chart (#2124)
+
+Der Block ist im Chart **verdrahtet**, nicht nur Skizze: bjw-s common rendert seit 5.2 jeden String der Values als Template, und Backend, Celery-Worker sowie die Persistence `backend-attachments` lesen `storage.*` ueber `{{ .Values.storage.* }}`.
+
+- `local-fs`: PVC `backend-attachments` (`localFs.pvc.accessMode`/`size`/`storageClass`), gemountet unter `localFs.root` in Backend und Worker.
+- `s3`: kein PVC, kein Mount; `STORAGE_BACKEND=s3`, die `s3.*`-Parameter und genau die zwei Credential-Schluessel aus `credentialsRef` (`secretKeyRef`, `optional`, damit ein `local-fs`-Release ohne dieses Secret startet).
+- **Geteilter Betrieb erfordert S3.** Das PVC wird von Backend und Worker gemountet; ein `ReadWriteOnce`-Volume haengt an einem Node, ein zweiter Pod auf einem anderen Node startet nie (`Multi-Attach error`). Das Chart verweigert deshalb das Rendern von `controllers.backend.replicas > 1` oder `controllers.celery-worker.replicas > 1` bei `local-fs` ohne `ReadWriteMany`, ausser der Betreiber bestaetigt einen Cluster mit genau einem Node (`storage.localFs.singleNode: true`). Mit einer Replica halten Backend und Worker per `podAffinity` auf einem Label `kamerplanter.io/attachments-volume` denselben Node, solange das PVC `ReadWriteOnce` ist (#2153); ein Rolling Update startet den neuen Pod dort, statt mit `Multi-Attach error` haengenzubleiben.
+- Das PVC traegt `helm.sh/resource-policy: keep` und `argocd.argoproj.io/sync-options: Prune=false,Delete=false`, damit weder `helm uninstall` noch ein ArgoCD-Prune nach dem Wechsel auf S3 die Anhaenge loescht; vor dem Wechsel migriert §7.3.
 
 ---
 
@@ -579,6 +659,7 @@ storage:
 | **AC-09** | Existierende `photo_refs`-Felder (REQ-006/007/008/010/013) werden auf `attachment_id`-Listen migriert; eine vorhandene Migrations-Routine konvertiert Bestandsdaten. |
 | **AC-10** | Adapter-Vertrag (Abschnitt 4.2) ist als ABC implementiert und durch ein gemeinsames Test-Set verifiziert, das fuer jeden Adapter (Phase 1: `local-fs`, `s3`) gruen sein muss. |
 | **AC-11** | Dokumentation enthaelt Adapter-Roadmap (Phase 2: `azure-blob`, `gcs`, `webdav`, `gdrive`, `dropbox`, `onedrive`, `b2`) als Erweiterungspunkt. |
+| **AC-12** | Der Rekonziliationslauf (§6.6) findet ein Objekt, dessen einziger Datensatz seit über 24 Stunden entfernt ist, meldet es (gefunden/gelöscht/fehlgeschlagen-Zählung), löscht es in der ersten Release-Stufe aber nicht automatisch (`STORAGE_RECONCILE_DELETE_ENABLED` ist per Default aus; eingeschaltet löscht er genau diese Objekte samt Renditionen, nie ein gehaltenes Objekt oder die Rendition eines gehaltenen Originals); ein Objekt jünger als die Marge (24 Stunden) ohne Datensatz wird nicht gelöscht und als `young` gezählt. **Umgesetzt** (#1834): `tests/integration/test_storage_reconciliation.py` belegt die vier Pfade der Issue gegen ArangoDB und den echten local-fs-Adapter. |
 
 ---
 
@@ -588,7 +669,7 @@ storage:
 |-----|-------|-------------|
 | O-01 | Soll Phase 2 nach Stabilisierung von v1.0 anhand des Nutzerbedarfs (Befragung) priorisiert werden oder fix nach Roadmap? | Produkt |
 | O-02 | Wird ein eingebauter MinIO-Operator als Helm-Subchart fuer Self-Hosted ausgeliefert, oder bleibt MinIO eine externe Voraussetzung? | DevOps |
-| O-03 | Welche Quota-Defaults gelten pro Skalierungsstufe (Small/Medium/Large/Enterprise gemaess NFR-012 §10)? | Produkt + Finance |
+| O-03 | ~~Welche Quota-Defaults gelten pro Skalierungsstufe (Small/Medium/Large/Enterprise gemaess NFR-012 §10)?~~ **Beantwortet (v1.12, #2143):** Kontingente gelten je **Plan**, nicht je Skalierungsstufe — Dimensionen, Regeln und Ablehnungscodes in REQ-056 §7.2/§7.3, Default-Plan `standard` = heutige Instanzwerte (`STORAGE_TENANT_QUOTA_MB` 2048, `STORAGE_MAX_PHOTOS_PER_INSTANCE` 50); Kapazitätswirkung je Stufe in NFR-012 §10.3. Pläne sind noch nicht implementiert (#2142). | Produkt + Finance |
 | O-04 | Wird Application-Layer-Encryption (zusaetzlich zu Storage-Layer) fuer "Confidentiality-Mode"-Tenants angeboten? | Security |
 | O-05 | Sollen Phase-2-Backends in Privatnutzer-Konten (Google Drive, Dropbox) einer separaten Lizenz-/Tarif-Stufe vorbehalten sein? | Produkt |
 

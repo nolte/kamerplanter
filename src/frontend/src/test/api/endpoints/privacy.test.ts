@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
-import { listConsents, grantConsent, revokeConsent } from '@/api/endpoints/privacy';
+import {
+  listConsents,
+  grantConsent,
+  revokeConsent,
+  requestEmailChange,
+  confirmEmailChange,
+  revertEmailChange,
+} from '@/api/endpoints/privacy';
 
 /**
  * REQ-025 — privacy/consent self-service endpoint client tests.
@@ -53,5 +60,47 @@ describe('privacy endpoints', () => {
     const result = await revokeConsent('plant_identification');
     expect(revokedPurpose).toBe('plant_identification');
     expect(result.granted).toBe(false);
+  });
+
+  it('requests an e-mail change with the step-up fields as given (#1848)', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post('/api/v1/privacy/email-change', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(
+          {
+            key: 'ec-1',
+            new_email: 'new@example.org',
+            status: 'pending',
+            requested_at: null,
+            expires_at: '2026-09-27T00:00:00Z',
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    const result = await requestEmailChange({ new_email: 'new@example.org', step_up_token: 'tkn' });
+    expect(body).toEqual({ new_email: 'new@example.org', step_up_token: 'tkn' });
+    expect(result.status).toBe('pending');
+  });
+
+  it('posts the token to the confirm and revert routes (#1848)', async () => {
+    const seen: Array<{ path: string; body: unknown }> = [];
+    server.use(
+      http.post('/api/v1/privacy/email-change/confirm', async ({ request }) => {
+        seen.push({ path: 'confirm', body: await request.json() });
+        return HttpResponse.json({ message: 'updated' });
+      }),
+      http.post('/api/v1/privacy/email-change/revert', async ({ request }) => {
+        seen.push({ path: 'revert', body: await request.json() });
+        return HttpResponse.json({ message: 'restored' });
+      }),
+    );
+    expect((await confirmEmailChange('c-tok')).message).toBe('updated');
+    expect((await revertEmailChange('r-tok')).message).toBe('restored');
+    expect(seen).toEqual([
+      { path: 'confirm', body: { token: 'c-tok' } },
+      { path: 'revert', body: { token: 'r-tok' } },
+    ]);
   });
 });

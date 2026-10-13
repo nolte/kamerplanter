@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useId } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -13,6 +15,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import Alert from '@mui/material/Alert';
+import Link from '@mui/material/Link';
+import { Link as RouterLink } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -29,16 +34,20 @@ import FavoriteToggle from '@/components/common/FavoriteToggle';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
+import { useServerConsentGrant } from '@/hooks/useServerConsentGrant';
+import { isLightMode } from '@/config/mode';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
 import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
 import { contributeReferenceImage } from '@/api/endpoints/identification';
 import * as phaseApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
-import * as substrateApi from '@/api/endpoints/substrates';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Species, Cultivar, Substrate, SubstrateType, Site, Slot } from '@/api/types';
+import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
+
+/** REQ-025 / #2174 — the consent the "use as reference" switch grants. */
+const REFERENCE_CONSENT_PURPOSE = 'reference_contribution';
 
 const schema = z.object({
   instance_id: z.string().min(1),
@@ -95,6 +104,9 @@ interface Props {
    * Whether the self-hosted DINOv2 recognition path is active. Gates the
    * "use as recognition reference" toggle; the external Pl@ntNet path has no
    * local reference index, so the toggle is hidden when this is false.
+   *
+   * The Light mode hides the toggle regardless (the route answers 409 there);
+   * that is decided here, not by the callers, so no caller can forget it.
    */
   allowReferenceContribution?: boolean;
 }
@@ -115,10 +127,14 @@ export default function PlantInstanceCreateDialog({
   const { handleError } = useApiError();
   const { isFavorite, toggleFavorite } = useSowingFavorites();
   const [saving, setSaving] = useState(false);
-  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  // Both catalogues come from the shared reader (#1560). Each was read as one
+  // explicit page of 200 — live truncation at 207 seeded species — and both
+  // selects filter client-side, so the rows that never arrived were unpickable
+  // rather than merely off-screen.
+  const speciesCatalogue = useCatalogue('species', { enabled: open });
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
-  const [substratesList, setSubstratesList] = useState<Substrate[]>([]);
+  const substrateCatalogue = useCatalogue('substrates', { enabled: open });
   // Normalized start-phase options for the "Current Phase" select. The source
   // (PhaseSequence entries vs LifecycleConfig growth phases) is resolved the
   // same way the backend validates (issue #626), so the stored keys are always
@@ -130,7 +146,23 @@ export default function PlantInstanceCreateDialog({
   // ── Identification photo carry-over (issue #447) ─────────────────────
   const [saveAsGalleryPhoto, setSaveAsGalleryPhoto] = useState(true);
   const [useAsReference, setUseAsReference] = useState(false);
+  const [referenceConsentError, setReferenceConsentError] = useState<string | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  // The switch IS the consent (operator decision 2026-10-09): switching it on and
+  // saving grants `reference_contribution` on the server, before the photo is
+  // contributed. Hidden in the Light mode, which refuses the contribution (409)
+  // and has no server-side consent records.
+  const referenceToggleAvailable = allowReferenceContribution && !isLightMode;
+  const referenceConsent = useServerConsentGrant(REFERENCE_CONSENT_PURPOSE);
+  const referenceNoticeId = useId();
+  const referenceErrorRef = useRef<HTMLDivElement>(null);
+  // The failed grant is reported next to the switch, which on a phone (320 px)
+  // sits far above the submit button the user just pressed — bring it into view.
+  useEffect(() => {
+    if (referenceConsentError) {
+      referenceErrorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [referenceConsentError]);
 
   // Build (and revoke) a preview URL for the carried-over photo. The File is
   // owned by the caller; we only manage the object URL created here. This is a
@@ -154,8 +186,10 @@ export default function PlantInstanceCreateDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSaveAsGalleryPhoto(true);
       setUseAsReference(false);
+      setReferenceConsentError(null);
+      referenceConsent.reset();
     }
-  }, [open]);
+  }, [open, referenceConsent]);
 
   const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -183,8 +217,8 @@ export default function PlantInstanceCreateDialog({
   // any other species the cycle follows the species default, so the select is
   // hidden and an informative caption explains that.
   const selectedSpecies = useMemo(
-    () => speciesList.find((s) => s.key === speciesKey) ?? null,
-    [speciesList, speciesKey],
+    () => speciesCatalogue.items.find((s) => s.key === speciesKey) ?? null,
+    [speciesCatalogue.items, speciesKey],
   );
   const cultivationFlexible = selectedSpecies?.cultivation_flexible ?? false;
 
@@ -210,17 +244,7 @@ export default function PlantInstanceCreateDialog({
         location_key: null,
         slot_key: null,
       });
-      substrateApi.listSubstrates(0, 200).then(setSubstratesList).catch(() => setSubstratesList([]));
       sitesApi.listSites(0, 200).then(setSitesList).catch(() => setSitesList([]));
-      speciesApi.listSpecies(0, 200).then((r) => {
-        setSpeciesList(r.items);
-        if (effectiveSpeciesKey) {
-          const species = r.items.find((s) => s.key === effectiveSpeciesKey);
-          if (species) {
-            setValue('instance_id', generateInstanceId(species.scientific_name));
-          }
-        }
-      }).catch(() => {});
       // Resolve slot → location → site for duplicate
       if (duplicateFrom?.slot_key) {
         sitesApi.getSlot(duplicateFrom.slot_key).then(async (slot) => {
@@ -239,17 +263,24 @@ export default function PlantInstanceCreateDialog({
     }
   }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom]);
 
+  // The instance-id prefix for a preselected species used to be derived inside
+  // the species request's `.then`. It is not derived here at all now: the effect
+  // below already keys off `speciesKey` — which `reset()` has just set to the
+  // preselected species — and off the loaded rows, so it fires exactly once the
+  // catalogue arrives. It also carries the `PLANT-` guard the inline version
+  // lacked, so a prefix the user typed over is no longer overwritten when the
+  // rows change. Adding a second effect for the same field would have raced it.
   useEffect(() => {
     if (speciesKey) {
       const currentId = getValues('instance_id');
       if (currentId.startsWith('PLANT-')) {
-        const species = speciesList.find((s) => s.key === speciesKey);
+        const species = speciesCatalogue.items.find((s) => s.key === speciesKey);
         if (species) {
           setValue('instance_id', generateInstanceId(species.scientific_name));
         }
       }
     }
-  }, [speciesKey, speciesList, getValues, setValue]);
+  }, [speciesKey, speciesCatalogue.items, getValues, setValue]);
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
@@ -370,6 +401,23 @@ export default function PlantInstanceCreateDialog({
   }, [locationKey, setValue]);
 
   const onSubmit = async (data: FormData) => {
+    const contributeReference = !!identificationPhoto && referenceToggleAvailable && useAsReference;
+    if (contributeReference) {
+      // Granted BEFORE anything is created: a failed grant stops the whole save
+      // with a visible error instead of creating the plant and silently skipping
+      // the contribution. The user can retry or switch the reference off.
+      setSaving(true);
+      setReferenceConsentError(null);
+      try {
+        await referenceConsent.ensureGranted();
+      } catch {
+        const message = t('pages.plantInstances.identificationPhoto.referenceConsentFailed');
+        setReferenceConsentError(message);
+        notification.error(message);
+        setSaving(false);
+        return;
+      }
+    }
     try {
       setSaving(true);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -377,7 +425,9 @@ export default function PlantInstanceCreateDialog({
       // Type-only fallback keys start with '_type_' — don't send as substrate_key
       const isTypeOnly = rawSubstrateKey?.startsWith('_type_');
       const substrateKey = isTypeOnly ? null : (rawSubstrateKey || null);
-      const selectedSubstrate = substrateKey ? substratesList.find((s) => s.key === substrateKey) : null;
+      const selectedSubstrate = substrateKey
+        ? substrateCatalogue.items.find((s) => s.key === substrateKey)
+        : null;
       const typeOverride = isTypeOnly
         ? rawSubstrateKey!.replace('_type_', '') as SubstrateType
         : (selectedSubstrate?.type ?? null);
@@ -406,9 +456,9 @@ export default function PlantInstanceCreateDialog({
           notification.warning(t('pages.plantInstances.identificationPhoto.uploadFailed'));
         }
       }
-      if (identificationPhoto && allowReferenceContribution && useAsReference) {
+      if (identificationPhoto && contributeReference) {
         try {
-          const species = speciesList.find((s) => s.key === data.species_key);
+          const species = speciesCatalogue.items.find((s) => s.key === data.species_key);
           await contributeReferenceImage(
             data.species_key,
             species?.scientific_name ?? '',
@@ -442,8 +492,10 @@ export default function PlantInstanceCreateDialog({
                 label={t('entities.species')}
                 required
                 autoFocus
-                disabled={!!initialSpeciesKey || !!duplicateFrom}
-                species={speciesList}
+                disabled={
+                  !!initialSpeciesKey || !!duplicateFrom || speciesCatalogue.status !== 'ready'
+                }
+                species={speciesCatalogue.items}
               />
             </Box>
             {/* Mark the selected species as a favorite right here — reuses the
@@ -464,6 +516,21 @@ export default function PlantInstanceCreateDialog({
               />
             </Box>
           </Box>
+          {/*
+            A failed load is its own state, not an empty mandatory picker
+            (#1628). With a preset species the field is locked, so the failure
+            only costs the species' display name — no picker to return focus
+            to in that case.
+          */}
+          <CatalogueLoadError
+            reader={speciesCatalogue}
+            impact={initialSpeciesKey || duplicateFrom ? 'lookup' : 'picker'}
+            focusSelector={
+              initialSpeciesKey || duplicateFrom
+                ? undefined
+                : "[data-testid='form-field-species_key'] input"
+            }
+          />
           <FormRow>
             <FormSelectField
               name="cultivar_key"
@@ -535,20 +602,29 @@ export default function PlantInstanceCreateDialog({
                     {t('pages.plantInstances.identificationPhoto.saveToGalleryHelper')}
                   </Typography>
 
-                  {/* DINOv2-only: reuse as a few-shot recognition reference. */}
-                  {allowReferenceContribution && (
+                  {/* DINOv2-only, Full mode only: reuse as a few-shot recognition
+                      reference. Switching it on is the `reference_contribution` consent. */}
+                  {referenceToggleAvailable && (
                     <>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <FormControlLabel
                           control={
                             <Switch
                               checked={useAsReference}
-                              onChange={(e) => setUseAsReference(e.target.checked)}
+                              onChange={(e) => {
+                                setUseAsReference(e.target.checked);
+                                setReferenceConsentError(null);
+                              }}
                               slotProps={{
                                 input: {
                                   'aria-label': t(
                                     'pages.plantInstances.identificationPhoto.useAsReference',
                                   ),
+                                  // The notice is what the consent is given to; read
+                                  // it together with the switch.
+                                  'aria-describedby': useAsReference
+                                    ? referenceNoticeId
+                                    : undefined,
                                 },
                               }}
                               data-testid="toggle-use-as-reference"
@@ -586,6 +662,33 @@ export default function PlantInstanceCreateDialog({
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                         {t('pages.plantInstances.identificationPhoto.useAsReferenceHelper')}
                       </Typography>
+                      {useAsReference && (
+                        <Alert
+                          id={referenceNoticeId}
+                          severity="info"
+                          role="status"
+                          sx={{ mt: 1 }}
+                          data-testid="reference-consent-notice"
+                        >
+                          {t('pages.plantInstances.identificationPhoto.referenceConsentNotice')}{' '}
+                          {t('pages.plantInstances.identificationPhoto.referenceConsentRevoke')}{' '}
+                          <Link component={RouterLink} to="/privacy">
+                            {t(
+                              'pages.plantInstances.identificationPhoto.referenceConsentPrivacyLink',
+                            )}
+                          </Link>
+                        </Alert>
+                      )}
+                      {referenceConsentError && (
+                        <Alert
+                          ref={referenceErrorRef}
+                          severity="error"
+                          sx={{ mt: 1 }}
+                          data-testid="reference-consent-error"
+                        >
+                          {referenceConsentError}
+                        </Alert>
+                      )}
                     </>
                   )}
                 </Box>
@@ -644,7 +747,12 @@ export default function PlantInstanceCreateDialog({
             control={control}
             label={t('pages.plantInstances.substrate')}
             helperText={t('pages.plantInstances.substrateHelper')}
-            substrates={substratesList}
+            substrates={substrateCatalogue.items}
+            disabled={substrateCatalogue.status !== 'ready'}
+          />
+          <CatalogueLoadError
+            reader={substrateCatalogue}
+            focusSelector="[data-testid='form-field-substrate_key'] input"
           />
 
           <LocationAssignmentSection

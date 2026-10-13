@@ -23,7 +23,7 @@ from app.api.v1.plant_instances.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
-from app.common.pagination import PaginationParams, get_pagination
+from app.common.pagination import CursorPaginationParams, get_cursor_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
@@ -34,11 +34,11 @@ from app.domain.services.planting_run_service import PlantingRunService
 router = APIRouter(prefix="/plant-instances", tags=["plant-instances"], responses=NOT_FOUND_RESPONSE)
 
 
-def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantResponse:
+def _to_response(p: PlantInstance, service: PlantInstanceService, tenant_key: str) -> PlantResponse:
     """Convert PlantInstance to PlantResponse, resolving phase name and
     denormalized species/cultivar labels from their keys."""
     phase_name = service.resolve_phase_name(p.current_phase_key) if p.current_phase_key else ""
-    species = service.resolve_species(p.species_key)
+    species = service.resolve_species(p.species_key, tenant_key=tenant_key)
     cultivar = service.resolve_cultivar(p.cultivar_key)
     return to_response(
         p,
@@ -55,13 +55,15 @@ def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantRespon
 
 @router.get("", response_model=list[PlantResponse])
 def list_plants(
-    pagination: PaginationParams = Depends(get_pagination),
+    pagination: CursorPaginationParams = Depends(get_cursor_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    """List the tenant's plant instances (paginated)."""
-    items, _total = service.list_plants(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
-    return [_to_response(p, service) for p in items]
+    """List the tenant's plant instances (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    items = service.list_plants_window(
+        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+    )
+    return [_to_response(p, service, ctx.tenant_key) for p in items]
 
 
 @router.get("/survival-stats", response_model=SurvivalStatsResponse)
@@ -107,7 +109,7 @@ def get_plant(
 ):
     """Return a single plant instance by key."""
     p = service.get_plant(key, tenant_key=ctx.tenant_key)
-    return _to_response(p, service)
+    return _to_response(p, service, ctx.tenant_key)
 
 
 @router.post("", response_model=PlantResponse, status_code=201)
@@ -117,9 +119,9 @@ def create_plant(
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
     """Create a plant instance for the tenant."""
-    plant = PlantInstance(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_plant(plant)
-    return _to_response(created, service)
+    plant = PlantInstance(**body.model_dump())
+    created = service.create_plant(plant, tenant_key=ctx.tenant_key)
+    return _to_response(created, service, ctx.tenant_key)
 
 
 @router.put("/{key}", response_model=PlantResponse)
@@ -165,8 +167,8 @@ def update_plant(
     existing.substrate_type_override = update_data.get("substrate_type_override")
     # ADR-006 E1 — per-instance cultivation cycle override (None = same as the species).
     existing.cultivation_cycle_type = update_data.get("cultivation_cycle_type")
-    updated = service.update_plant(key, existing)
-    return _to_response(updated, service)
+    updated = service.update_plant(key, existing, tenant_key=ctx.tenant_key)
+    return _to_response(updated, service, ctx.tenant_key)
 
 
 @router.patch("/{key}", response_model=PlantResponse)
@@ -191,8 +193,8 @@ def patch_plant(
     existing = service.get_plant(key, tenant_key=ctx.tenant_key)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(existing, field, value)
-    updated = service.update_plant(key, existing)
-    return _to_response(updated, service)
+    updated = service.update_plant(key, existing, tenant_key=ctx.tenant_key)
+    return _to_response(updated, service, ctx.tenant_key)
 
 
 @router.post("/{key}/remove", response_model=PlantResponse)
@@ -209,7 +211,7 @@ def remove_plant(
         termination_cause=body.termination_cause if body else None,
         tenant_key=ctx.tenant_key,
     )
-    return _to_response(removed, service)
+    return _to_response(removed, service, ctx.tenant_key)
 
 
 @router.post("/slots/{slot_key}/validate-planting", response_model=ValidatePlantingResponse)
@@ -261,12 +263,10 @@ def get_nutrient_plan(
 def remove_nutrient_plan(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
-    plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     """Remove the nutrient plan assigned to a plant instance."""
-    plant_service.get_plant(key, tenant_key=ctx.tenant_key)
-    plan_service.remove_plant_plan(key)
+    plan_service.remove_plant_plan(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}/current-dosages")

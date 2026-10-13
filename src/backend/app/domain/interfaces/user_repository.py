@@ -12,7 +12,42 @@ class IUserRepository(ABC):
     def get_or_raise(self, key: UserKey) -> User: ...
 
     @abstractmethod
+    def move_email(self, key: UserKey, expected_email: str, fields: dict) -> User | None:
+        """Write *fields* only while the account still has *expected_email* (compare-and-set, #1848).
+
+        ``None`` when the address changed in between — the caller lost a race
+        against another e-mail change or revert and must not write. Raises
+        ``DuplicateError`` when the new address is taken (unique index).
+        """
+
+    @abstractmethod
     def get_by_email(self, email: str) -> User | None: ...
+
+    @abstractmethod
+    def get_by_email_verification_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this email-verification token digest, or ``None`` (#1556, #2158).
+
+        Takes the digest, never the raw token: the account stores only
+        ``TokenEngine.hash_token`` of what it mailed (#2158), so the hashing is
+        the caller's (Business Logic) and this layer matches stored values.
+
+        A lookup, not a check: expiry is a domain decision and stays in
+        ``AuthService.verify_email``. Existed only as hand-written AQL inside the
+        service until #1556, which is why ``IUserRepository`` was not the seam it
+        claimed to be — a test substituting this interface could not drive the
+        verification path at all without also faking an AQL cursor.
+
+        Not indexed on the token attribute, so this is a collection scan (a
+        property of user count, not of the caller).
+        """
+
+    @abstractmethod
+    def get_by_password_reset_token_hash(self, token_hash: str) -> User | None:
+        """The user carrying this password-reset token digest, or ``None`` (#1556, #2158).
+
+        The reset-path twin of :meth:`get_by_email_verification_token_hash`; expiry and
+        the service-account refusal stay in ``AuthService.reset_password``.
+        """
 
     @abstractmethod
     def create(self, user: User) -> User: ...
@@ -36,24 +71,24 @@ class IUserRepository(ABC):
 
     @abstractmethod
     def delete(self, key: UserKey) -> bool:
-        """Delete a user and cascade every artefact the account solely owns.
+        """Delete a user and the artefacts the account solely owns.
 
-        Removes the user's auth-provider docs + edges, refresh tokens, session
-        edges, API keys, preferences and onboarding state, then the user
-        document itself (#1019 folded the api-key/preference/onboarding removals
-        in from the platform-admin router, which had hand-written them as raw
-        AQL). Memberships are *not* removed here — they are a user↔tenant
-        relationship owned by the membership repository; the account-deletion
-        cascade removes them first, via ``delete_all_for_user``.
+        Runs the ``account_cascade`` slice of the declared erasure plan: the
+        user's auth-provider docs + edges, refresh tokens, session edges, API
+        keys + edges, preferences and onboarding state, then the user document.
+        Memberships and the anonymisation rules are *not* applied here — a full
+        account deletion goes through ``PrivacyService.erase_account``, which
+        runs the whole plan (#1664).
         """
 
     @abstractmethod
-    def list_all(self) -> list[User]:
-        """Every user, newest first (platform-admin listing, #1019)."""
+    def list_all(self, *, offset: int | None = None, limit: int | None = None) -> list[User]:
+        """Users, newest first (platform-admin listing, #1019); a window when ``limit`` is set (MT-035)."""
 
     @abstractmethod
     def count(self, *, active_only: bool = False) -> int:
         """Number of user documents; ``active_only`` counts ``is_active`` ones (#1019)."""
 
     @abstractmethod
-    def get_unverified_before(self, cutoff_iso: str) -> list[User]: ...
+    def get_unverified_before(self, cutoff_iso: str, *, include_local_registrations: bool = False) -> list[User]:
+        """R-02 candidates; ``include_local_registrations`` narrows the provider exclusion to federated ones (#2010)."""

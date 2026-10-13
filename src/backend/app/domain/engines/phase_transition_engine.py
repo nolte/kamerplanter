@@ -207,17 +207,19 @@ class PhaseTransitionEngine:
                 if plant.current_phase_started_at:
                     delta = now - plant.current_phase_started_at
                     duration = delta.days
-                updated = PhaseHistory(
-                    key=h.key,
-                    plant_instance_key=h.plant_instance_key,
-                    phase_key=h.phase_key,
-                    phase_name=h.phase_name,
-                    entered_at=h.entered_at,
-                    exited_at=now,
-                    actual_duration_days=duration,
-                    transition_reason=reason,
-                    cycle_number=h.cycle_number,
-                    is_premature=h.is_premature,
+                # ``model_copy`` and not a re-listed ``PhaseHistory(...)``: the
+                # re-listing carried ten of the model's twelve fields and had already
+                # drifted — ``performance_score`` was absent from it. That was harmless
+                # only while ``phase_histories`` merged every ``None`` away; since #1516
+                # the repository is full-replace, so an unmentioned field would be
+                # *erased* rather than silently preserved (see
+                # ``_PhaseHistoryRepository``).
+                updated = h.model_copy(
+                    update={
+                        "exited_at": now,
+                        "actual_duration_days": duration,
+                        "transition_reason": reason,
+                    }
                 )
                 self._phase_repo.update_phase_history(h.key or "", updated)
 
@@ -272,19 +274,16 @@ class PhaseTransitionEngine:
                 duration = None
                 if plant.current_phase_started_at:
                     duration = (now - plant.current_phase_started_at).days
+                # Same reason as in ``transition`` above: derive from the stored entry
+                # so no field can be dropped by a list that fell behind the model.
                 self._phase_repo.update_phase_history(
                     h.key or "",
-                    PhaseHistory(
-                        key=h.key,
-                        plant_instance_key=h.plant_instance_key,
-                        phase_key=h.phase_key,
-                        phase_name=h.phase_name,
-                        entered_at=h.entered_at,
-                        exited_at=now,
-                        actual_duration_days=duration,
-                        transition_reason=termination_type.value,
-                        cycle_number=h.cycle_number,
-                        is_premature=h.is_premature,
+                    h.model_copy(
+                        update={
+                            "exited_at": now,
+                            "actual_duration_days": duration,
+                            "transition_reason": termination_type.value,
+                        }
                     ),
                 )
 

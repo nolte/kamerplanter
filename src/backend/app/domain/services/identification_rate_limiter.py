@@ -14,6 +14,7 @@ behaviour depends on the call site:
 import structlog
 
 from app.common.exceptions import RateLimitError
+from app.common.log_privacy import loggable_error
 
 logger = structlog.get_logger()
 
@@ -62,7 +63,7 @@ class IdentificationRateLimiter:
         except Exception as exc:  # noqa: BLE001 - Redis failure handled per fail_closed
             logger.warning(
                 "identification_rate_limit_unavailable",
-                error=str(exc),
+                error=loggable_error(exc),
                 fail_closed=fail_closed,
             )
             if fail_closed:

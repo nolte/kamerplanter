@@ -8,7 +8,7 @@ from typing import Any
 
 import structlog
 
-from app.common.dependencies import get_fertilizer_repo, get_nutrient_plan_repo
+from app.common.dependencies import get_db, get_fertilizer_repo, get_nutrient_plan_repo
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import (
     DeliveryChannel,
@@ -35,8 +35,12 @@ def _build_fertilizer(data: dict[str, Any]) -> Fertilizer:
 
 
 def _build_nutrient_plan(data: dict[str, Any]) -> NutrientPlan:
-    """Construct a NutrientPlan model from YAML data (without phase_entries)."""
-    record = {k: v for k, v in data.items() if k != "phase_entries"}
+    """Construct a NutrientPlan model from YAML data (without phase_entries).
+
+    ``species_names`` is seed-file vocabulary, resolved to ``species_keys`` by the
+    caller (#1618); it is not a model field.
+    """
+    record = {k: v for k, v in data.items() if k not in ("phase_entries", "species_names")}
     return NutrientPlan.model_validate(record)
 
 
@@ -160,7 +164,14 @@ def _build_phase_entries(
 
 def run_seed_fertilizers() -> None:
     """Create fertilizer products and nutrient plans."""
-    from app.migrations.seed_upsert_helpers import upsert_fertilizers, upsert_nutrient_plan_with_entries
+    from app.migrations.seed_upsert_helpers import (
+        global_fertilizer_keys,
+        global_plan_map,
+        load_species_key_map,
+        resolve_plan_species_keys,
+        upsert_fertilizers,
+        upsert_nutrient_plan_with_entries,
+    )
 
     fert_repo = get_fertilizer_repo()
     plan_repo = get_nutrient_plan_repo()
@@ -172,23 +183,26 @@ def run_seed_fertilizers() -> None:
 
     # ── Resolve cross-file fertilizer references ──────────────────────────
     # Some nutrient plans reference products from other seed files (e.g.
-    # PK 13-14 from plagron.yaml).  Look up any existing fertilizers in
-    # the DB that are not yet in fert_keys so cross-file references
-    # resolve correctly.
-    all_existing, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
-    for fert in all_existing:
-        if fert.product_name not in fert_keys:
-            fert_keys[fert.product_name] = fert.key or ""
+    # PK 13-14 from plagron.yaml).  Fill in the global products not yet in
+    # fert_keys so cross-file references resolve — global rows only (#2000):
+    # a global plan must never point at a tenant's private product.
+    for product_name, key in global_fertilizer_keys(fert_repo).items():
+        fert_keys.setdefault(product_name, key)
 
     # ── Upsert nutrient plans ─────────────────────────────────────────────
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=100, all_tenants=True)  # seed: global catalog
-    existing_plan_map = {p.name: p for p in existing_plans}
+    # #1618: seeded plans are linked to the species their source names.
+    species_key_map = load_species_key_map(get_db())
+    # #1957: global rows only (never a tenant's same-named plan), whole catalogue, first row wins.
+    existing_plan_map = global_plan_map(plan_repo)
 
     plan_data_list = data["nutrient_plans"]
     for plan_data in plan_data_list:
         plan = _build_nutrient_plan(plan_data)
         entries = _build_phase_entries(plan_data, fert_keys)
-        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map)
+        species_keys = resolve_plan_species_keys(
+            plan_data.get("species_names", []), species_key_map, plan_name=plan.name
+        )
+        upsert_nutrient_plan_with_entries(plan_repo, plan, entries, existing_plan_map, species_keys=species_keys)
 
     logger.info(
         "seed_fertilizers_complete",

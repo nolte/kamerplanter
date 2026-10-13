@@ -294,7 +294,7 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Die wichtigsten:
 | `JWT_SECRET_KEY` | (kein Default!) | JWT-Signing-Key — in Produktion setzen! |
 | `CORS_ORIGINS` | `["http://localhost:3000"]` | Erlaubte CORS-Origins (JSON-Array) |
 | `DEBUG` | `false` | Debug-Modus (kein HSTS, farbige Logs) |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | E-Mail-Verifizierung erzwingen |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | E-Mail-Verifizierung erzwingen (ohne ausgehenden Mailversand: `false`) |
 | `PERENUAL_API_KEY` | `""` | API-Key für Perenual-Stammdatenanreicherung |
 
 !!! danger "JWT_SECRET_KEY in Produktion setzen"
@@ -308,6 +308,8 @@ Alle Konfiguration erfolgt über Umgebungsvariablen. Die wichtigsten:
 ## Renovate (Dependency-Updates)
 
 Dependency-Updates werden automatisch via [Renovate](https://github.com/renovatebot/renovate) als Pull Requests erstellt. Die Konfiguration liegt in `renovate.json5`.
+
+Renovate mergt diese Pull Requests selbst nach `develop`, sobald **alle** Checks auf dem Pull Request grün sind — nicht nur die Pflicht-Checks. Das gilt für jede Gruppe und jeden Update-Typ, auch für Major-Updates. Ein roter oder abgebrochener Check hält den Pull Request an, bis er neu gestartet oder behoben ist.
 
 ## Siehe auch
 

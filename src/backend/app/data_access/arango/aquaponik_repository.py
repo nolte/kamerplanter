@@ -11,8 +11,9 @@ values) and every tenant-scoped list query filters on ``tenant_key`` (SEC-B4).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -32,7 +33,6 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
 
     is_tenant_scoped = True
     _model_cls = AquaponicSystem
-    _entity_name = "AquaponicSystem"
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.AQUAPONIC_SYSTEMS)
@@ -57,8 +57,9 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
         if feed_type:
             extra.append(("feed_type", "==", feed_type))
         if not extra:
-            items, _ = self._species.get_all(offset=0, limit=500, all_tenants=True)
-            return items
+            # Bounded by construction (#2015): fish species come only from
+            # fish_species.yaml (8 rows); create_species has no API or service caller.
+            return self._species.list_window(offset=0, limit=500, all_tenants=True)
         first_field, first_op, first_value = extra[0]
         return self._species.find_by_field(first_field, first_value, extra_filters=extra[1:], sort="scientific_name")
 
@@ -125,21 +126,6 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
         query = f"FOR doc IN {col.FISH_STOCKS} FILTER doc.system_key == @key REMOVE doc IN {col.FISH_STOCKS}"
         self._db.aql.execute(query, bind_vars={"key": key})
         return self.delete(key)
-
-    def link_tank(self, system_key: str, tank_key: str, tank_role: str) -> None:
-        self.create_edge(
-            col.SYSTEM_HAS_TANK,
-            f"{col.AQUAPONIC_SYSTEMS}/{system_key}",
-            f"{col.TANKS}/{tank_key}",
-            {"tank_role": tank_role},
-        )
-
-    def link_growbed(self, system_key: str, slot_key: str) -> None:
-        self.create_edge(
-            col.SYSTEM_HAS_GROWBED,
-            f"{col.AQUAPONIC_SYSTEMS}/{system_key}",
-            f"{col.SLOTS}/{slot_key}",
-        )
 
     # ── FishStock ───────────────────────────────────────────────────────
 
@@ -223,6 +209,24 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
                 f"{col.FISH_STOCKS}/{feeding.stock_key}",
             )
         return created
+
+    def sum_feedings(self, system_key: str, *, tenant_key: str) -> tuple[int, float]:
+        """``(count, total amount_g)`` over every feeding of the system, in AQL (#2025).
+
+        The FCR analysis summed one page of 500 feedings and under-reported the feed
+        given past it.
+        """
+        query = f"""
+        FOR doc IN {col.FISH_FEEDING_EVENTS}
+          FILTER doc.system_key == @system_key AND doc.tenant_key == @tenant_key
+          COLLECT AGGREGATE feeding_count = COUNT(1), total_g = SUM(doc.amount_g)
+          RETURN {{ feeding_count, total_g }}
+        """
+        cursor = cast(
+            Cursor, self._db.aql.execute(query, bind_vars={"system_key": system_key, "tenant_key": tenant_key})
+        )
+        row = next(cursor, None) or {}
+        return int(row.get("feeding_count") or 0), float(row.get("total_g") or 0.0)
 
     def list_feedings(
         self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50

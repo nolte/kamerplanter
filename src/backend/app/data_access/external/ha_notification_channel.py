@@ -11,7 +11,17 @@ from __future__ import annotations
 
 import structlog
 
+from app.common.log_privacy import loggable_error
+from app.common.notification_targets import (
+    HA_DEFAULT_NOTIFY_SERVICE,
+    HA_DEFAULT_TTS_SERVICE,
+    ha_notify_grant_id,
+    ha_notify_service_slug,
+    ha_tts_entity_id,
+    ha_tts_service_slug,
+)
 from app.data_access.external.ha_client import HomeAssistantClient
+from app.domain.interfaces.ha_entity_gate import DenyAllHaEntityGate, HaEntityGate
 from app.domain.interfaces.notification_channel import INotificationChannel
 from app.domain.models.notification import (
     ChannelResult,
@@ -32,8 +42,12 @@ _URGENCY_TO_IMPORTANCE: dict[NotificationUrgency, str] = {
 class HomeAssistantNotificationChannel(INotificationChannel):
     """Delivers notifications through Home Assistant services."""
 
-    def __init__(self, ha_client: HomeAssistantClient) -> None:
+    def __init__(self, ha_client: HomeAssistantClient, ha_entity_grants: HaEntityGate | None = None) -> None:
         self._ha = ha_client
+        # MT-015 (#2112): a notify service or TTS entity of the operator's instance
+        # is dialled only when it is granted to the notification's tenant. Absent,
+        # nothing is granted (fail-closed).
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
 
     @property
     def channel_key(self) -> str:
@@ -146,7 +160,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"fire_event failed: {exc}"
-            logger.error("ha_fire_event_failed", error=str(exc), exc_info=True)
+            logger.error("ha_fire_event_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     async def _create_persistent(
@@ -167,7 +181,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"persistent_notification failed: {exc}"
-            logger.error("ha_persistent_notification_failed", error=str(exc), exc_info=True)
+            logger.error("ha_persistent_notification_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     async def _send_mobile_push(
@@ -176,7 +190,17 @@ class HomeAssistantNotificationChannel(INotificationChannel):
         channel_config: dict,
         errors: list[str],
     ) -> None:
-        notify_service = channel_config.get("notify_service", "notify")
+        # The service comes from a user-editable preference: re-checked here, so a
+        # row stored before the shape rule is never dialled (#1985).
+        notify_service = ha_notify_service_slug(channel_config.get("notify_service") or HA_DEFAULT_NOTIFY_SERVICE)
+        if notify_service is None:
+            logger.warning("ha_destination_refused_at_send", key="notify_service", refused_count=1)
+            errors.append("mobile_push refused: notify_service is not allowed")
+            return
+        if not self._ha_entity_gate.is_granted(notification.tenant_key, ha_notify_grant_id(notify_service)):
+            logger.warning("ha_destination_not_granted_at_send", key="notify_service", refused_count=1)
+            errors.append("mobile_push refused: notify_service is not released for this tenant")
+            return
         importance = _URGENCY_TO_IMPORTANCE.get(notification.urgency, "default")
         service_data: dict = {
             "title": notification.title,
@@ -205,7 +229,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"mobile_push failed: {exc}"
-            logger.error("ha_mobile_push_failed", error=str(exc), exc_info=True)
+            logger.error("ha_mobile_push_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     async def _send_tts(
@@ -214,8 +238,16 @@ class HomeAssistantNotificationChannel(INotificationChannel):
         channel_config: dict,
         errors: list[str],
     ) -> None:
-        entity_id = channel_config["tts_entity_id"]
-        tts_service = channel_config.get("tts_service", "speak")
+        entity_id = ha_tts_entity_id(channel_config["tts_entity_id"])
+        tts_service = ha_tts_service_slug(channel_config.get("tts_service") or HA_DEFAULT_TTS_SERVICE)
+        if entity_id is None or tts_service is None:
+            logger.warning("ha_destination_refused_at_send", key="tts", refused_count=1)
+            errors.append("tts refused: destination is not allowed")
+            return
+        if not self._ha_entity_gate.is_granted(notification.tenant_key, entity_id):
+            logger.warning("ha_destination_not_granted_at_send", key="tts", refused_count=1)
+            errors.append("tts refused: destination is not released for this tenant")
+            return
         service_data = {
             "entity_id": entity_id,
             "message": notification.body,
@@ -229,7 +261,7 @@ class HomeAssistantNotificationChannel(INotificationChannel):
             )
         except Exception as exc:
             msg = f"tts failed: {exc}"
-            logger.error("ha_tts_failed", error=str(exc), exc_info=True)
+            logger.error("ha_tts_failed", error=loggable_error(exc), exc_info=True)
             errors.append(msg)
 
     @staticmethod

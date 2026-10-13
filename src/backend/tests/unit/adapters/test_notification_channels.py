@@ -21,6 +21,7 @@ from app.domain.models.notification import (
     NotificationAction,
     NotificationUrgency,
 )
+from tests.support.ha_entity_grants import grant_service
 
 
 def _make_notification(**overrides) -> Notification:
@@ -145,7 +146,10 @@ class TestHomeAssistantNotificationChannel:
 
     @pytest.fixture
     def channel(self, mock_ha):
-        return HomeAssistantNotificationChannel(mock_ha)
+        # MT-015 (#2112): the destinations these tests address are granted to the
+        # notification's tenant; the allowlist itself is tested in test_ha_notification_grants.py.
+        grants = grant_service({"t1": {"notify.notify", "notify.mobile_app_phone", "media_player.kitchen"}})
+        return HomeAssistantNotificationChannel(mock_ha, ha_entity_grants=grants)
 
     def test_properties(self, channel):
         assert channel.channel_key == "home_assistant"

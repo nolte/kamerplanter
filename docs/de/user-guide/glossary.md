@@ -8,7 +8,9 @@ Das Fachbegriff-Glossar erklärt dir Begriffe wie VPD, EC oder Karenzzeit direkt
 
 - Der Betreiber deiner Instanz muss KI-Funktionen instanzweit aktiviert haben. Ist das nicht der Fall, ist die Glossar-Seite genauso wenig erreichbar wie der [KI-Assistent](ai-assistant.md) — Details unter [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
 - Eine Anmeldung ist **nicht** nötig: Das Glossar ist reine Wissensvermittlung ohne Bezug zu deinen konkreten Pflanzen und deshalb auch im anonymen [Light-Modus](light-mode.md) nutzbar.
-- Nutzt dein Garten (Mandant) einen Cloud-Provider statt eines lokalen Modells als Standard, ist zusätzlich deine Einwilligung „KI-Verarbeitung über Cloud-Provider" nötig — siehe [Einwilligung erteilen](ai-assistant.md#einwilligung-erteilen). Im Light-Modus entfällt das, da dort ausschließlich lokal verarbeitet wird.
+- Nutzt die Instanz als Standard einen Cloud-Provider statt eines lokalen Modells, brauchst du zum **Erzeugen** einer neuen Erklärung zusätzlich deine Einwilligung „KI-Verarbeitung über Cloud-Provider" — siehe [Einwilligung erteilen](ai-assistant.md#einwilligung-erteilen). Maßgeblich ist der Standard-Provider der Instanz, nicht der deines Gartens: Eine Erklärung wird einmal erzeugt und allen Gärten gezeigt. Das Lesen einer vorhandenen Erklärung braucht keine Einwilligung. Im Light-Modus entfällt das, da dort ausschließlich lokal verarbeitet wird.
+- Das Erzeugen einer neuen Erklärung zählt zu deinem täglichen Kontingent an KI-Anfragen, wie beim [KI-Assistenten](ai-assistant.md). <!-- #2110 -->
+- Zum **Erzeugen** einer neuen Erklärung muss außerdem dein Garten KI-Funktionen freigeschaltet haben — dieselbe Garten-Freischaltung wie für den [KI-Chat](ai-assistant.md#fuer-technische-nutzer-self-hoster). Ist sie aus, lehnt Kamerplanter das Erzeugen ab („Die KI-Funktionen sind für diesen Garten aktuell deaktiviert."). Begriffe und schon vorbereitete Erklärungen lesen kannst du trotzdem.
 
 ## Das Glossar durchsuchen
 
@@ -35,6 +37,19 @@ Die Erklärung, die du siehst, richtet sich nach deiner eingestellten [Erfahrung
 
 Nicht zu jedem Begriff findet die Wissensbasis einen ausreichend relevanten Treffer. In diesem Fall zeigt dir das Glossar ehrlich eine redaktionell gepflegte Kurzdefinition anstelle einer KI-generierten Antwort, gekennzeichnet mit dem Hinweis „Kurzdefinition (kein Wissensbasis-Treffer)". So bekommst du nie eine erfundene oder unsichere Antwort vorgegaukelt.
 
+## Ausführliche Erklärungen werden vorbereitet, nicht beim Lesen erzeugt
+
+Das Aufrufen eines Begriffs kostet nichts und stößt keine KI-Anfrage an: Das Glossar zeigt dir die **bereits vorbereitete** ausführliche Erklärung, und solange es für einen Begriff (in deiner Sprache und Erfahrungsstufe) noch keine gibt, siehst du die redaktionelle Kurzdefinition — dieselbe ehrliche Kennzeichnung wie oben.
+
+Vorbereitet werden die Erklärungen an zwei Stellen:
+
+- **automatisch**, nachdem der Betreiber die Wissensbasis neu eingelesen hat. Dabei wird der Zwischenspeicher geleert und im Hintergrund für den gesamten Begriffskatalog neu befüllt.
+- **auf Anforderung**, wenn jemand mit der Rolle Gärtner:in oder Leitung in einem Garten mit freigeschalteten KI-Funktionen eine Erklärung erzeugen lässt. Betrachter:innen, anonyme Besucher:innen und Gärten ohne KI-Freischaltung können das nicht auslösen.
+
+Das ist Absicht: Jede KI-Erklärung kostet den Betreiber der Installation Rechenzeit oder Geld. Vorher entschied der erste Mensch, der einen Begriff anklickte, wann diese Kosten anfielen — im anonymen Light-Modus also jemand ganz ohne Konto. <!-- #1460 -->
+
+Die Schaltfläche **Ausführliche Erklärung erzeugen** siehst du nur, solange die KI-Funktionen verfügbar sind. Lehnt Kamerplanter das Erzeugen ab, weil die KI-Funktionen für deinen Garten oder für die ganze Installation ausgeschaltet sind, verschwindet die Schaltfläche, auch bei den anderen Begriffen. An ihrer Stelle steht dann der Grund. Ein erneuter Versuch würde genauso abgelehnt. Andere Fehler, etwa ein aufgebrauchtes Tageskontingent, lassen die Schaltfläche stehen, damit du es später noch einmal versuchen kannst.
+
 ## Fragezeichen-Symbol an Ort und Stelle
 
 !!! note "Teilweise verfügbar: Fragezeichen-Symbole auf anderen Seiten"
@@ -50,11 +65,11 @@ Das Glossar ist eine der wenigen Funktionen, die vollständig ohne Benutzerkonto
 
 ## Für technische Nutzer / Self-Hoster {#fuer-technische-nutzer-self-hoster}
 
-Das Glossar nutzt dieselbe instanzweite KI-Freischaltung wie der [KI-Assistent](ai-assistant.md#fuer-technische-nutzer-self-hoster) (`AI_FEATURES_ENABLED=true`), aber **nicht** die zusätzliche Garten-Freischaltung (Stufe 2) — es braucht also keine mandantenseitige Aktivierung von KI-Funktionen, weil es keine Pflanzendaten verwendet. Details zur Umgebungsvariable stehen unter [Umgebungsvariablen — KI-Assistent](../reference/environment-variables.md#ki-assistent).
+Das Glossar nutzt dieselbe instanzweite KI-Freischaltung wie der [KI-Assistent](ai-assistant.md#fuer-technische-nutzer-self-hoster) (`AI_FEATURES_ENABLED=true`), Die zusätzliche Garten-Freischaltung (Stufe 2, `tenant.settings.ai_features_enabled`) prüft nur das **Erzeugen** (`POST /api/v1/t/{slug}/glossary/term/{slug}/generate`): Ist sie aus, antwortet die Route mit `403` (`AI_DISABLED_FOR_TENANT`), bevor Zwischenspeicher, Tageskontingent oder Sprachmodell berührt werden; ist schon die instanzweite Freischaltung aus, antwortet sie mit `404`. Lesen (Begriffsliste, einzelne Begriffe, öffentliche Routen) braucht keine Garten-Freischaltung, weil dabei keine KI-Anfrage entsteht. Details zur Umgebungsvariable stehen unter [Umgebungsvariablen — KI-Assistent](../reference/environment-variables.md#ki-assistent).
 
-Nutzt dein Garten (Mandant) einen Cloud-Provider als Standard-Provider, greift dennoch die reguläre Einwilligungsprüfung „KI-Verarbeitung über Cloud-Provider" (`ai_cloud_processing`), bevor eine Anfrage an den Cloud-Provider geht — siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster). Fehlt die Einwilligung oder lässt sich der zugehörige Nutzer nicht zweifelsfrei bestimmen, wird die Anfrage sicherheitshalber abgelehnt statt lokal umgeleitet.
+Ist der **System-Standard-Provider der Instanz** (Provider-Eintrag ohne Mandant) ein Cloud-Provider, greift beim Erzeugen die reguläre Einwilligungsprüfung „KI-Verarbeitung über Cloud-Provider" (`ai_cloud_processing`). Der Standard-Provider eines einzelnen Gartens spielt dafür keine Rolle, weil eine Erklärung einmal erzeugt und allen Gärten ausgeliefert wird; ihr Cloud-Hinweis steht am gespeicherten Eintrag. Welches Sprachmodell tatsächlich antwortet, legt der Knowledge Service über seine eigene Umgebung fest (`LLM_PROVIDER`) <!-- #2110 --> — siehe [Datenschutz & DSGVO](privacy.md#fuer-technische-nutzer-self-hoster). Fehlt die Einwilligung oder lässt sich der zugehörige Nutzer nicht zweifelsfrei bestimmen, wird die Anfrage sicherheitshalber abgelehnt statt lokal umgeleitet.
 
-Jeder Glossar-Aufruf wird — wie beim KI-Assistenten — protokolliert, ohne dass Pflanzen- oder Kontodaten in der Anfrage an die Wissensbasis enthalten sind.
+Protokolliert wird — wie beim KI-Assistenten — jede **KI-Anfrage an die Wissensbasis**, ohne dass Pflanzen- oder Kontodaten darin enthalten sind. Das reine Lesen eines bereits vorbereiteten Begriffs erzeugt keine solche Anfrage und damit auch keinen Protokolleintrag; früher schrieb jeder anonyme Aufruf einen. <!-- #1460 -->
 
 ---
 
@@ -67,7 +82,10 @@ Jeder Glossar-Aufruf wird — wie beim KI-Assistenten — protokolliert, ohne da
     Das bedeutet, dass die Wissensbasis zu diesem Begriff keinen ausreichend relevanten Treffer gefunden hat. Statt eine unsichere KI-Antwort zu erfinden, zeigt dir das Glossar dann eine kurze, redaktionell geprüfte Definition.
 
 ??? question "Warum ändert sich die Erklärung, wenn ich meine Erfahrungsstufe wechsle?"
-    Die Erklärung wird passend zu deiner eingestellten Erfahrungsstufe erzeugt — Anfänger bekommen Alltagssprache, Experten konkrete Wertebereiche. Nach einem Stufenwechsel gilt das für neu abgerufene Erklärungen.
+    Erklärungen werden je Erfahrungsstufe getrennt vorbereitet — Anfänger bekommen Alltagssprache, Experten konkrete Wertebereiche. Nach einem Stufenwechsel siehst du die Fassung deiner neuen Stufe; ist für sie noch keine vorbereitet, zunächst die redaktionelle Kurzdefinition.
+
+??? question "Warum sehe ich zu einem Begriff nur die Kurzdefinition, obwohl KI aktiviert ist?"
+    Dann wurde für diesen Begriff in deiner Sprache und Erfahrungsstufe noch keine ausführliche Erklärung vorbereitet. Das Lesen selbst erzeugt keine — wer in seinem Garten Gärtner:in oder Leitung ist, kann sie anfordern, und nach einem Neueinlesen der Wissensbasis füllt der Betreiber den Katalog im Hintergrund wieder auf.
 
 ??? question "Warum sehe ich das Fragezeichen-Symbol noch nicht neben Begriffen auf anderen Seiten?"
     Die Einbindung in bestehende Seiten (Pflanzen-Detailseite, Dashboard, Substrat-Editor und weitere) ist noch nicht abgeschlossen. Bis dahin findest du dieselben Erklärungen über die [Glossar-Übersicht](#das-glossar-durchsuchen).

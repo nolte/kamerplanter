@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import (
     LocationKey,
@@ -17,7 +18,21 @@ class ITankRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[Tank], int]: ...
+
+    @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Tank]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_by_key(self, key: TankKey) -> Tank | None: ...
@@ -119,6 +134,10 @@ class ITankRepository(ABC):
     def create_fill_event(self, event: TankFillEvent) -> TankFillEvent: ...
 
     @abstractmethod
+    def get_fill_event(self, key: str) -> TankFillEvent | None:
+        """One fill event by key, unscoped — resolve its tenant through its tank (#1872 C6)."""
+
+    @abstractmethod
     def get_fill_events(
         self,
         tank_key: TankKey,
@@ -141,9 +160,6 @@ class ITankRepository(ABC):
     ) -> dict: ...
 
     # ── Queries ────────────────────────────────────────────────────────
-
-    @abstractmethod
-    def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]: ...
 
     @abstractmethod
     def get_active_auto_create_schedules(self) -> list[MaintenanceSchedule]: ...

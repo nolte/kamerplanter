@@ -18,6 +18,7 @@ from typing import Any
 from pydantic import Field
 
 from app.common.enums import McpPermission, PhaseName, SubstrateType
+from app.data_access.arango.base_repository import read_all_pages
 from app.domain.engines.phase_role_map import ec_phase
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import TenantToolInput, ToolBase, mcp_tool
@@ -36,11 +37,14 @@ class ListFertilizers(ToolBase):
         limit: int = Field(default=50, ge=1, le=_MAX_LIMIT)
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
-        ferts, total = ctx.fertilizer_service.list_fertilizers(
-            offset=0,
-            limit=_MAX_LIMIT,
-            tenant_key=ctx.tenant_key,
+        # Every fertiliser in scope (global + the tenant's own), not the first 100: a
+        # product past the cap was silently missing from a filtered answer (#2025).
+        ferts = read_all_pages(
+            lambda offset, limit: ctx.fertilizer_service.list_fertilizers(
+                offset=offset, limit=limit, tenant_key=ctx.tenant_key
+            )
         )
+        total = len(ferts)
         selected = list(ferts)
         if args.organic_only:
             selected = [f for f in selected if f.is_organic]

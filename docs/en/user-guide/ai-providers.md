@@ -18,7 +18,7 @@ Kamerplanter supports multiple AI providers that can be chosen based on hardware
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | `anthropic`, `ollama`, or `openai_compatible` | `ollama` |
+| `LLM_PROVIDER` | `anthropic`, `ollama`, or `openai_compatible`. Any other value (for example the typo `openai-compatible`) stops the Knowledge Service from starting | `ollama` |
 | `LLM_API_URL` | Base URL of the provider (for Ollama/OpenAI-compatible) | `http://ollama:11434` |
 | `LLM_API_KEY` | API key (for Anthropic/OpenAI-compatible, if required) | empty |
 | `LLM_MODEL` | Model name | `gemma3:12b` |
@@ -86,7 +86,7 @@ Ollama is a program that runs language models locally on a machine or server. No
 
     ```bash
     docker run -d --name ollama \
-      -p 11434:11434 \
+      -p 127.0.0.1:11434:11434 \
       -v ollama_data:/root/.ollama \
       ollama/ollama
     ```
@@ -96,7 +96,7 @@ Ollama is a program that runs language models locally on a machine or server. No
     ```bash
     docker run -d --name ollama \
       --gpus all \
-      -p 11434:11434 \
+      -p 127.0.0.1:11434:11434 \
       -v ollama_data:/root/.ollama \
       ollama/ollama
     ```
@@ -134,6 +134,8 @@ LLM_MODEL=gemma3:4b
 
 !!! warning "Ollama on another host"
     If Ollama runs on a different machine (e.g. a NAS), `LLM_API_URL` must point to that machine's IP address or DNS name. Port 11434 must be reachable from the Knowledge Service's network.
+
+    The Docker commands above bind port 11434 to `127.0.0.1` only — Ollama has no authentication of its own, so this keeps everyone else on the network away from your model. If the Knowledge Service runs on another machine — or in a container or local Kubernetes cluster on this one, which reaches the host through the Docker bridge rather than through `127.0.0.1` — publish the port on the address it connects to instead, for example `-p 192.168.1.20:11434:11434` or `-p 172.17.0.1:11434:11434`, not on every interface. Simpler still: start Ollama on the same Docker network as the service and drop `-p` entirely.
 
 ---
 
@@ -261,7 +263,7 @@ LLM_MODEL=<model name>
 
 The Knowledge Service currently uses **exactly one** configured provider (`LLM_PROVIDER`) — there is no multi-provider configuration with automatic failover between several cloud/local providers.
 
-If no provider is reachable or `POST /api/v1/knowledge/ask` fails, the **rule-based fallback** for tip cards applies once that feature is available: the system generates tip cards based on master data and the current phase — without a language model.
+If no provider is reachable or the Knowledge Service does not answer, the **rule-based fallback** for tip cards applies once that feature is available: the system generates tip cards based on master data and the current phase — without a language model.
 
 ---
 

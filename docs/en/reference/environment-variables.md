@@ -16,6 +16,7 @@ All configuration parameters for the Kamerplanter backend are controlled via env
 |----------|---------|---------|-------------|
 | `ARANGODB_HOST` | `localhost` | Yes | Hostname or IP address of the ArangoDB instance |
 | `ARANGODB_PORT` | `8529` | No | TCP port of ArangoDB |
+| `ARANGODB_SCHEME` | `http` | No | `https` for an ArangoDB that serves TLS itself (external or managed instance); any other value refuses to start |
 | `ARANGODB_DATABASE` | `kamerplanter` | Yes | Name of the target database |
 | `ARANGODB_USERNAME` | `root` | Yes | Database user |
 | `ARANGODB_PASSWORD` | — | Yes | Password for the database user |
@@ -33,6 +34,7 @@ All configuration parameters for the Kamerplanter backend are controlled via env
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `REDIS_URL` | `redis://localhost:6379/0` | Yes | Connection URL for Redis or Valkey (Celery broker and backend cache) |
+| `WORKER_READY_FILE` | — | No | Celery worker only. Empty (the default, Docker Compose) changes nothing. Set — the Helm chart sets `/tmp/worker-ready` — the worker checks its ArangoDB login at start, keeps trying for up to 60 seconds and exits when it does not succeed; it then takes no task. Once its consumer runs it writes the file, on shutdown it removes it. The chart's startup and readiness probes test it. |
 
 **Format:** `redis://[user]:[password]@[host]:[port]/[db]`
 
@@ -54,10 +56,22 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | No | JWT access token validity in minutes |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | No | Refresh token validity in days |
 | `SESSION_TOKEN_EXPIRE_HOURS` | `24` | No | Validity of server-side session tokens, in hours. |
-| `FERNET_KEY` | — | Yes | Fernet key for encrypting OIDC provider secrets. **Required regardless of whether OIDC is used** — the startup gate refuses to start in production when this is empty (AP-4, INF-S5). Must be a valid Fernet key: 32 bytes, url-safe base64-encoded (44 characters) — generate e.g. with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | No | Require email verification at registration |
+| `FERNET_KEY` | — | Yes | Fernet key for encrypting OIDC provider secrets and integration tokens. **Required regardless of whether OIDC is used** — the startup gate refuses to start in production when this is empty (AP-4, INF-S5). Must be a valid Fernet key: 32 bytes, url-safe base64-encoded (44 characters) — generate e.g. with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. The celery worker now checks the same gate at start-up and also refuses to start with `DEBUG=false` when the value is missing or not a valid Fernet key — the backend and the celery worker must use the same key. Decrypting a stored value with a different key now fails loudly (`SecretKeyMismatchError`) instead of silently handing the ciphertext to the integration as its credential. The Home Assistant token, the Pl@ntNet key and users' Apprise URLs are encrypted too (#2113): after a key change they can no longer be read and must be entered again. |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | No | Require email verification at registration. An installation without outbound mail sets `false` explicitly |
+| `REGISTRATION_MODE` | `open` | No | Who may create an account (local and first OIDC sign-in): `open` (anybody), `invite_only` (only with a pending email invitation for the address), `closed` (nobody, not even with an invitation). Existing accounts sign in in every mode. An unknown value refuses startup |
+| `REGISTRATION_ALLOWED_DOMAINS` | — (empty) | No | Optional comma-separated email domains (e.g. `club.example,garden.example`), exact, no subdomains. Empty = any domain. An email invitation for the address is the exception; through OIDC only an address the provider verified counts |
+| `TENANT_MAX_MEMBERS_CEILING` | `50` | No | Platform ceiling of every tenant's member limit (at least `1`). The effective limit is `min(max_members, TENANT_MAX_MEMBERS_CEILING)`; a `max_members` above it is refused (`422`), a new organization created without one takes this value. A full tenant refuses further joins with `422 MEMBER_LIMIT_REACHED`. Lowering it removes nobody |
+| `TENANT_MAX_SERVICE_ACCOUNTS` | `20` | No | How many active service accounts a tenant may hold (at least `1`). Beyond it, creating one answers `422 SERVICE_ACCOUNT_LIMIT_REACHED`. A service account also takes a seat of the member limit. Lowering it removes none |
+| `TENANT_MAX_ORGANIZATIONS_PER_USER` | `10` | No | How many organizations one account may own, counted in every state but `deleted` (at least `0`). Beyond it, `POST /tenants` answers `422 ORGANIZATION_LIMIT_REACHED`. `0` means no account founds an organization itself. A limit of the account, not a plan quota |
+| `TENANT_INVITATION_EMAILS_PER_DAY` | `50` | No | How many email invitations one account may send in 24 hours, across all its tenants (at least `1`). Every email invitation goes to an address the inviter chooses freely; beyond it `POST /api/v1/tenants/{slug}/invitations/email` answers `429 RATE_LIMIT_EXCEEDED`, and nothing is created or sent. Counted from the stored invitations (issue #2162) |
+| `TENANT_EXPORTS_PER_DAY` | `3` | No | How many tenant exports one tenant may request in 24 hours, every state counted, failed ones too (at least `1`). Beyond it, `POST /api/v1/tenants/{slug}/exports` answers `429 RATE_LIMIT_EXCEEDED`. See [Exporting and importing a tenant](../deployment/tenant-export-import.md) (issue #2138) |
+| `TENANT_IMPORT_MAX_UPLOAD_MB` | `512` | No | Largest tenant archive in MiB that `POST /api/v1/admin/platform/tenant-imports` accepts (at least `1`); whatever it is set to, it may unpack to at most 1 GiB. Beyond it `413` (issue #2138). This route's own body limit (+ 1 MiB) — every other route keeps `STORAGE_MAX_FILE_SIZE_MB` + 1 MiB — and capped at `UPLOAD_SPOOL_BUDGET_MB`, because the upload is spooled to `/tmp` before the route runs; with the defaults about 51 MiB. Helm: `tenantExport.importMaxUploadMb`. Sizing: [Archive size and /tmp](../deployment/tenant-export-import.md#archive-size-and-tmp) |
+| `TENANT_EXPORT_SIGNING_SECRET` | — (empty) | No | Secret tenant archives are signed and checked with (HMAC-SHA256 over the manifest). Empty: derived from `JWT_SECRET_KEY` as before. Set: at least 32 characters (`openssl rand -hex 32`), otherwise the backend does not start; archives signed before import as unverified. Backend and Celery worker need the same value; Helm reads it optionally from `tenantExport.signingSecret` (default `kamerplanter-secrets`, key `TENANT_EXPORT_SIGNING_SECRET`). Never in `values.yaml` (issue #2138) |
+| `RATE_LIMIT_TENANT_IMPORT` | `10/hour` | No | Rate limit of `POST /api/v1/admin/platform/tenant-imports`, per account (issue #2138) |
 | `HIBP_ENABLED` | `false` | No | Enable "Have I Been Pwned" check on password change |
 | `COOKIE_SECURE` | `true` | No | Sets the `Secure` flag on the refresh-token cookie. Only set to `false` for plain-HTTP E2E test environments without TLS — **always** leave `true` in production. |
+
+With plans (issue #2142), `TENANT_MAX_MEMBERS_CEILING`, `TENANT_MAX_SERVICE_ACCOUNTS`, `STORAGE_TENANT_QUOTA_MB`, `STORAGE_MAX_PHOTOS_PER_INSTANCE` and the three `AI_BUDGET_*` are the value a plan with an empty quota takes — on the default plan `standard`, for every tenant. A plan may differ; only `TENANT_MAX_MEMBERS_CEILING` stays a hard ceiling. See [API reference: plans and quotas](api-reference.md#plaene-und-kontingente).
 
 !!! danger "Change JWT_SECRET_KEY in production"
     The default value `change-me-in-production-use-openssl-rand-hex-32` **must not** be used in production. Generate a secure value:
@@ -72,19 +86,47 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
 
-<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, log_pseudonym_salt, privacy_data_controller_name, privacy_data_controller_email, retention_soft_delete_retention_days, retention_unverified_account_days, retention_ip_anonymization_days, retention_export_file_retention_hours, retention_erasure_audit_retention_years, retention_email_change_retention_hours, retention_email_change_revert_days); src/backend/app/main.py (insecure_default_secrets); src/backend/app/tasks/__init__.py (_refuse_worker_start_without_log_pseudonym_salt) -->
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hashing, NFR-011 §4). **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hash, erasure request key and tenant slug digest, NFR-011 §4). This value must **never change once accounts have been erased**. **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `LOG_PSEUDONYM_SALT` | — | Yes | High-entropy secret (at least 32 characters) that keys only the log pseudonyms: the `subject=` references (`sub_…`) and the `email_sha256` digests on log lines, plus the `requested_by_subject` provenance field on erasure and tenant-erasure records (NFR-011 §3.4). Kept separate from `ERASURE_TOMBSTONE_SALT` because — unlike the tombstone salt — this value may be rotated. **The startup gate refuses to start in production** for both the backend **and** the Celery worker if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`; should differ from `ERASURE_TOMBSTONE_SALT` (not enforced). |
 | `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | No | Name of the data controller, shown in export and disclosure documents. |
 | `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | No | Contact email of the controller for GDPR requests. |
-| `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before automatic deletion. |
-| `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | No | Grace period before an account marked for deletion is permanently (hard-)deleted. |
-| `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | No | Validity of the confirmation link when changing an email address. |
+| `RETENTION_SOFT_DELETE_RETENTION_DAYS` | `90` | No | Grace period before an account marked for deletion (soft-deleted) is permanently (hard-)deleted (NFR-011 R-01). Minimum: `1`, maximum: `90`. The older name `PRIVACY_HARD_DELETE_AFTER_DAYS` is still accepted; if both are set, the new name wins. |
+| `RETENTION_UNVERIFIED_ACCOUNT_DAYS` | `7` | No | Number of days after registration after which a never-confirmed account is automatically deleted (NFR-011 R-02). Minimum: `1`, maximum: `7`. |
+| `RETENTION_UNVERIFIED_LOCAL_REAP_ENABLED` | `false` | No | Release switch for R-02: when `false` the cleanup only counts locally registered, never-confirmed accounts (dry run, `local_registrations_pending`); when `true` it deletes them too. Set it only after you have seen the counted number (NFR-011 R-02). |
+| `RETENTION_IP_ANONYMIZATION_DAYS` | `7` | No | Number of days after a session was issued after which its IP address is anonymized (IPv4: last octet → `0`; NFR-011 R-03). Minimum: `1`, maximum: `7`. Covers session IP addresses only, not the IP address of a consent record. |
+| `RETENTION_EXPORT_FILE_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before the file is automatically deleted (NFR-011 R-05). Minimum: `1`, maximum: `72`. The older name `PRIVACY_EXPORT_RETENTION_HOURS` is still accepted; if both are set, the new name wins. |
+| `RETENTION_ERASURE_AUDIT_RETENTION_YEARS` | `3` | No | Number of years a completed erasure request (`erasure_requests`, `status=completed`) is kept as the Art. 5(2) GDPR accountability proof before it is permanently deleted (NFR-011 R-06). Counted in calendar years. Minimum: `1`, maximum: `3`. |
+| `RETENTION_EMAIL_CHANGE_RETENTION_HOURS` | `24` | No | Validity of the confirmation link when changing an email address (NFR-011 R-07); after that the request is set to `expired`, no hard-delete happens. Minimum: `1`, maximum: `24`. The older name `PRIVACY_EMAIL_CHANGE_TTL_HOURS` is still accepted; if both are set, the new name wins. |
+| `RETENTION_EMAIL_CHANGE_REVERT_DAYS` | `7` | No | Validity of the undo link the previous address receives after a confirmed email change (NFR-011 R-07a). After that, the same hourly retention task as R-07 clears the `previous_email` field and the undo token's hash. Minimum: `1`, maximum: `7`. |
+| `RETENTION_CONSENT_RETENTION_YEARS` | `3` | No | Years after revocation after which a consent record is permanently deleted (NFR-011 R-04). Minimum: `1`, maximum: `3`. A higher value stops backend and worker from starting. |
+| `RETENTION_CONSENT_IP_ANONYMIZATION_DAYS` | `7` | No | Days after recording after which the IP address of a consent record is anonymized (NFR-011 R-04a). Minimum: `1`, maximum: `7`. A higher value stops backend and worker from starting. |
+| `RETENTION_INVITATION_RETENTION_DAYS` | `30` | No | Days after expiry after which an expired invitation is permanently deleted (NFR-011 R-12). Minimum: `1`, maximum: `30`. A higher value stops backend and worker from starting. |
+| `RETENTION_ERASURE_MEMBER_NOTICE_DAYS` | `7` | No | Days the final deletion of an account with a shared personal garden waits after the other members were notified, when they were notified only after the deletion request was scheduled (a request from before #1824, or a failed first email; NFR-011 R-01a). An administrator's immediate deletion never waits. Minimum: `1`, maximum: `7`. A higher value stops backend and worker from starting. |
+| `RETENTION_TENANT_ERASURE_GRACE_DAYS` | `90` | No | Days an accepted tenant deletion is postponed (NFR-011 R-01b). During this time the tenant is closed, its members have been told the date, and its management can cancel the deletion. `0` deletes at once (self-hosted, one household). Minimum: `0`, maximum: `90`. A higher value stops backend and worker from starting. |
+| `RETENTION_HARVEST_DATA_MIN_RETENTION_YEARS` | `5` | No | Number of years after `harvest_date` after which the harvest data a tenant deletion retained (harvest, quality assessment, yield metric) is permanently deleted (NFR-011 R-16). Minimum: `5` (statutory minimum under the CanG). |
+| `RETENTION_TREATMENT_MIN_RETENTION_YEARS` | `3` | No | The same for treatment applications, counted from `applied_at` (NFR-011 R-17). Minimum: `3` (PflSchG §11). |
+| `RETENTION_INSPECTION_MIN_RETENTION_YEARS` | `3` | No | The same for inspection records, counted from `inspected_at` (NFR-011 R-18). Minimum: `3` (PflSchG §11). |
 
-!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
-    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+A value above the maximum aborts API and worker start (the message names the variable and the limit, never the value). The maximum is the NFR-011 value: periods may be shortened for data minimisation but not lengthened. Setting an older `PRIVACY_*` name logs a warning; setting both names to different values logs an error (the `RETENTION_*` value wins).
+
+For `RETENTION_SOFT_DELETE_RETENTION_DAYS`, `RETENTION_EXPORT_FILE_RETENTION_HOURS` and
+`RETENTION_EMAIL_CHANGE_RETENTION_HOURS`, the older `PRIVACY_*` names were already
+documented but had no effect — the code used fixed values. They now actually work and
+remain valid as aliases in addition.
+
+!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production, must never change"
+    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. This salt keys the tombstone hash of erased accounts, the erasure request key and the tenant slug digest — **never** the log pseudonyms (that is `LOG_PSEUDONYM_SALT`'s job). It must **never change once accounts have been erased**, or existing tombstones become unreadable. The Celery worker also exits at start-up when the salt is missing or too short; give it the same value and the same `DEBUG` setting as the backend.
+
+    With `DEBUG=true` the backend starts without a valid value, for example in the local development stack. Account erasure still refuses every run before it touches anything: when a platform admin deletes an account, the backend answers `503`. An Art. 17 erasure request is still accepted, but the daily run does not carry it out; the request stays open as `partially_completed` until you set a valid salt. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+!!! danger "LOG_PSEUDONYM_SALT — a boot blocker in production, same value for backend and worker"
+    `LOG_PSEUDONYM_SALT` is also **not an optional feature flag**: both the backend **and** the Celery worker refuse to start in production (`DEBUG=false`) when this value is missing or shorter than 32 characters. It keys only the log pseudonyms — the `subject=` reference and the `email_sha256` digest on log lines, plus the `requested_by_subject` provenance field on erasure and tenant-erasure records. Give both processes the same value. With `DEBUG=true` both start without a valid value, but account and tenant erasure then refuse every run (`503`), because their proof would otherwise carry no reference to the account that triggered it.
+
+    **Rotation.** Unlike `ERASURE_TOMBSTONE_SALT`, this salt may be changed: set the new value in both the backend and the worker (Kubernetes secret `kamerplanter-secrets`, or `.env` for Docker Compose) and restart both. After that, log lines and `requested_by_subject` values from before the change no longer correlate with later ones — someone holding only the new salt cannot map old references to an account. Which admin account triggered a stored erasure can then only be recomputed with the old salt — keep it safely stored for as long as the erasure proof is kept (one year) if that attribution must stay verifiable. No lookup depends on the log salt, so rotation has no other side effects. The value should differ from `ERASURE_TOMBSTONE_SALT`; this is not enforced.
 
 ---
 
@@ -93,9 +135,10 @@ These variables control the legally mandated deletion/anonymization of personal 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `KAMERPLANTER_MODE` | `full` | No | Operating mode: `full` (auth + tenants) or `light` (no auth, local single-user) |
+| `APPRISE_ALLOW_PRIVATE_TARGETS` | depends on the mode: `false` in `full`, `true` in `light` | No | Whether Apprise targets (Gotify, Matrix, ntfy servers) may sit in private networks: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`. Checked when saving and when sending. Unset, `KAMERPLANTER_MODE` decides; `true` or `false` overrides it in either direction. In `full` mode a private target reaches the services in the cluster (API server, ArangoDB, Valkey), hence off. Unlike `HA_ALLOW_PRIVATE_ENDPOINT`, any user enters these addresses. `DEBUG` does not loosen the rule; loopback, link-local and cloud metadata stay refused in every case. See [Helm: egress for notification channels](../deployment/helm.md#egress-for-notification-channels-apprise). |
 | `DEBUG` | `false` | No | Enable debug logging (verbose — never use in production). Also disables the startup gate for production secrets — **never** set this in production. |
 | `FRONTEND_URL` | `http://localhost:5173` | No | Frontend URL (used for email links) |
-| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. |
+| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. Also forms the callback URL of the OAuth/OIDC sign-in and of the fresh sign-in that confirms a step-up (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`) — register this URL with the identity provider. Also forms the iCal feeds' subscription URL (`ical_url`, REQ-015, #2226); there an `http://` value is raised to `https://`, except for `localhost`, `127.0.0.1` and `::1`. The value should start with `http://` or `https://` and name a host; otherwise the backend logs the warning `app_base_url_not_absolute_http` at start, and only the subscription URL adds the scheme itself. |
 
 ### Light Mode (`KAMERPLANTER_MODE=light`)
 
@@ -103,6 +146,14 @@ In Light Mode, token authentication is disabled. The API is usable without login
 
 !!! danger "Do not expose Light Mode publicly"
     Light Mode disables all authentication layers. Never run it with a publicly accessible port.
+
+### Network exposure under Docker Compose
+
+This variable is read by Docker Compose (`docker-compose.yml` and `docker-compose.release.yml`) at start-up, not by the backend.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `KAMERPLANTER_BIND_ADDRESS` | `127.0.0.1` | No | Host address Compose binds the user interface (8080) and the API (8000) to. With `0.0.0.0`, other devices on the network reach both ports — see [Permanent operation — Accessing from other devices](../deployment/docker-dauerbetrieb.md#accessing-from-other-devices). The databases, Valkey and Ollama stay bound to `127.0.0.1` regardless. |
 
 ---
 
@@ -123,18 +174,42 @@ CORS_ORIGINS='["https://app.example.com","https://app2.example.com"]'
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `EMAIL_ADAPTER` | `console` | No | Email adapter: `console` (output to log), `smtp`, `resend` |
+| `EMAIL_ADAPTER` | `console` | No | Email adapter: `console` (output to log, link only with `DEBUG=true`), `smtp` or `resend`. Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently falling back to `console`. |
 | `SMTP_HOST` | `localhost` | No | SMTP server hostname |
 | `SMTP_PORT` | `587` | No | SMTP port |
 | `SMTP_USERNAME` | — | No | SMTP username |
 | `SMTP_PASSWORD` | — | No | SMTP password |
-| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails |
+| `SMTP_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails sent via SMTP |
 | `SMTP_USE_TLS` | `true` | No | Enable STARTTLS for SMTP |
+| `RESEND_API_KEY` | — | Conditional | API key for sending via [Resend](https://resend.com) (secret). **Required when `EMAIL_ADAPTER=resend` is set** — without it the application refuses to start. Provide it through the Kubernetes Secret `kamerplanter-secrets` or your `.env` file, never through a Helm values file. |
+| `RESEND_FROM_EMAIL` | `noreply@kamerplanter.example` | No | Sender address for system emails sent via Resend. This address's domain must be verified in the Resend account, otherwise sending fails. |
 
-In development mode (`EMAIL_ADAPTER=console`), emails are not sent but printed to the backend log.
+In development mode (`EMAIL_ADAPTER=console`), emails are not sent but printed to the
+backend log. That log line carries the verification or password-reset link only when
+`DEBUG=true` is also set — its token takes over the account otherwise. Without
+`DEBUG=true` the line only states that no email was delivered, with no token. If the API
+starts with `EMAIL_ADAPTER=console` and `DEBUG=false` — the case for a production
+install without SMTP or Resend configured, since the Helm chart sets no adapter by
+default — it writes a startup warning to the log
+(`email_adapter_console_in_production`). For a production install, configure either
+`EMAIL_ADAPTER=smtp` or `EMAIL_ADAPTER=resend`; otherwise registration and password
+reset cannot be completed. Email invitations into a tenant do not go out either: the
+invitation is created, the response reports `delivered: false`, and the UI shows the
+inviter the link to pass on (issue #2162). The link points at `FRONTEND_URL`.
+
+!!! info "Resend: hosted email delivery over an HTTP API"
+    `EMAIL_ADAPTER=resend` sends the same system emails (email verification,
+    password reset, the step-up confirmation code, notification emails) as the SMTP
+    adapter, but over Resend's HTTP API instead of an SMTP connection. In the logs, the
+    recipient address only ever appears as a salted digest, never in plain text; if a
+    send fails, the application logs only the error type and the HTTP status, never the
+    response body or the API key. Each send attempt has a 10-second timeout. <!-- #1821 -->
 
 !!! note "Also used by the notification system"
     These variables also configure the email channel of the [notification system](../user-guide/notifications.md#email) — there is no separate SMTP configuration for notifications.
+
+!!! info "Two different requirements for federated accounts"
+    An account without a local password with an OIDC-capable provider (Google, generic OIDC) confirms irreversible account actions and credential changes (account deletion, setting a first local password, tenant deletion, email change, and since version 1.19 also issuing an API key, device pairing, and removing a sign-in method) with a fresh sign-in at that provider — see [API Documentation: Authentication](../api/authentication.md#signing-in-again-to-confirm-oidc). That needs the provider to support `prompt=login`/`max_age` and the `auth_time` claim, not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple (neither can prove a fresh sign-in) uses the emailed confirmation code instead — see [Requesting a Confirmation Code by Email](../api/authentication.md#requesting-a-confirmation-code-by-email-fallback-for-githubapple). If the instance runs such an account with `EMAIL_ADAPTER=console` and `DEBUG=false`, the application reports that the confirmation code cannot be delivered (`503`) instead of letting it silently vanish — it still cannot delete itself, set a first local password, delete a tenant, change its email address, or issue an API key or pairing code until SMTP is configured. `EMAIL_ADAPTER=smtp` is therefore required for production operation with GitHub/Apple-only accounts, not just recommended.
 
 ---
 
@@ -157,15 +232,16 @@ These variables configure the optional cross-encoder re-ranker of the Knowledge 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `RERANKER_URL` | `` (empty) | No | HTTP URL of the reranker microservice, e.g. `http://reranker-service:8081`. Empty = re-ranking disabled. |
-| `RERANKER_INITIAL_K` | `20` | No | Number of chunks retrieved from the Hybrid Search step (over-retrieval). |
+| `RERANKER_INITIAL_K` | `15` | No | Number of candidates from the Hybrid Search step that are at most re-scored by the cross-encoder (a scoring cap, not a limit on the number of results — see [AI Architecture](../architecture/ai-architecture.md#fallback-reasons-and-time-budget)). |
+| `RERANKER_MAX_DOCUMENT_CHARS` | `500` | No | Maximum character count of `title\ncontent` per candidate chunk before it is sent to the reranker sidecar. The chunk handed to the LLM keeps its full text — only the reranker input is truncated. |
 | `RERANKER_TOP_K` | `5` | No | Number of chunks passed to the LLM context after re-ranking. |
 | `RERANKER_MODEL` | `bge-reranker-v2-m3` | No | ONNX model name in the reranker service container (directory under `/app/models/onnx/`). |
 
 !!! note "RERANKER_MODEL belongs to the reranker service, not the knowledge service"
-    `RERANKER_MODEL` is set as an environment variable on the `reranker-service` container — not on the `knowledge-service`. The other three variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_TOP_K`) belong to the Knowledge Service.
+    `RERANKER_MODEL` is set as an environment variable on the `reranker-service` container — not on the `knowledge-service`. The other four variables (`RERANKER_URL`, `RERANKER_INITIAL_K`, `RERANKER_MAX_DOCUMENT_CHARS`, `RERANKER_TOP_K`) belong to the Knowledge Service.
 
-!!! tip "Resource requirements"
-    The reranker service requires 1.5–4 GB RAM (depending on the model) and adds ~500ms latency per request. For Raspberry Pi and resource-constrained environments, it is recommended to leave `RERANKER_URL` empty.
+!!! tip "Resource requirements and time budget"
+    The reranker service requires 1.5–4 GB RAM (depending on the model) and adds latency per request. On `bge-reranker-v2-m3` at the Helm chart's 2-CPU limit, a (query, document) pair of 512 tokens costs about 3 seconds; the sidecar aborts a rerank request server-side after 25 seconds (fallback reason `deadline`, see [AI Architecture](../architecture/ai-architecture.md)). A real HTTP probe over all 100 benchmark questions shows: with the defaults `RERANKER_INITIAL_K=15` and `RERANKER_MAX_DOCUMENT_CHARS=500` (pair median 166 tokens, max 222), all 100 requests succeeded — p50 12.9 seconds, p90 15.0 seconds, max 16.0 seconds, within the 25-second budget. A CI guard checks, for the defaults and for every deployment file in the repository that sets either variable, that `RERANKER_INITIAL_K × RERANKER_MAX_DOCUMENT_CHARS ≤ 7,500` holds (`RERANK_SCORED_CHARS_BUDGET` in `config.py`) and that `RERANKER_INITIAL_K` is at most 50 (the sidecar's request bound). The defaults use up the budget exactly (15 × 500 = 7,500). The guard does not see values you set outside the repository. Raising either value past that product requires re-measuring latency first. For Raspberry Pi and resource-constrained environments, it is still recommended to leave `RERANKER_URL` empty.
 
 ---
 
@@ -182,7 +258,10 @@ These variables belong to the **Kamerplanter backend** and control the three-sta
 | `AI_CIRCUIT_BREAKER_THRESHOLD` | `3` | No | Number of consecutive failures after which the adapter marks the Knowledge Service unreachable. |
 | `AI_CIRCUIT_BREAKER_WINDOW_S` | `60` | No | Time window (seconds) over which failures are counted for `AI_CIRCUIT_BREAKER_THRESHOLD`. |
 | `AI_CIRCUIT_BREAKER_COOLDOWN_S` | `60` | No | Wait time (seconds) before the adapter allows requests to the Knowledge Service again after the circuit breaker trips. |
-| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | No | IP rate limit for the anonymous, Light-Mode-capable endpoint `POST /api/v1/public/ai/ask` (requests per minute). |
+| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | No | IP rate limit for the knowledge question `POST /api/v1/public/ai/ask` (requests per minute). The endpoint exists in Light Mode only and runs as the system user there. |
+| `AI_BUDGET_USER_CALLS_PER_DAY` | `50` | No | AI calls one account may start in one tenant per UTC day (tips, daily tip, "Why?", chat message, glossary generation, AI diagnosis together). Above that `429 AI_BUDGET_EXCEEDED` with `Retry-After` until the day ends. `0` switches the budget off. |
+| `AI_BUDGET_TENANT_CALLS_PER_DAY` | `500` | No | AI calls of all members of one tenant together per UTC day. A member refused at their own budget does not use up this one. `0` switches it off. |
+| `AI_BUDGET_TENANT_TOKENS_PER_DAY` | `2000000` | No | LLM tokens (prompt + completion, as the Knowledge Service reports them) one tenant may spend per UTC day. Checked before the next call; a single answer can overshoot it. `0` switches it off. The counters live in Valkey; when Valkey cannot be reached, no AI call runs (`503 AI_BUDGET_UNAVAILABLE`). |
 | `INTERNAL_SERVICE_TOKEN` | — | Conditional | Shared secret for cluster-internal M2M calls (including to the Knowledge Service). Required once `KNOWLEDGE_SERVICE_ENABLED=true` is set — without a token, the startup gate refuses to boot (AP-4). |
 
 !!! warning "Instance-wide activation alone isn't enough"
@@ -223,6 +302,15 @@ When a diary entry is created, Kamerplanter reads the sensor values covering the
     An unreachable Home Assistant, a missing TimescaleDB or an exhausted time budget produce an entry **without** (or with incomplete) environment values, never a rejected creation.
 
 ---
+
+## Metrics (Prometheus) {#metrics-prometheus}
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `METRICS_PORT` | `0` | No | Port on which the backend serves `/metrics` in the Prometheus format. `0` starts no listener. The Helm chart sets `9464` once `monitoring.enabled` is on. |
+| `METRICS_BIND_ADDRESS` | `0.0.0.0` | No | Address the metrics listener binds to. |
+
+The metrics run on a **port of their own**, never as a route of the API on port 8000. The path from outside (ingress → frontend nginx → backend :8000) therefore cannot reach them; inside the cluster the NetworkPolicy admits only the configured Prometheus. The series carry neither tenant nor person: `handler` is the route pattern (`/api/v1/t/{tenant_slug}/…`), never the requested path. Details: [Helm — metrics](../deployment/helm.md#metrics-prometheus).
 
 ## mDNS / Zeroconf Discovery
 
@@ -291,7 +379,7 @@ These variables enable the optional TimescaleDB connection for high-frequency se
 | `TIMESCALEDB_POOL_MAX_SIZE` | `10` | No | Maximum connection pool size. |
 
 !!! note "Docker Compose: dedicated profile"
-    In the local Docker Compose environment, TimescaleDB only starts with `docker-compose --profile timescaledb up -d`. In Kubernetes, the `timescaledb` controller is commented out in the chart by default — the operator adds it via `valuesObject` (see [Helm Charts](../deployment/helm.md)).
+    In the local Docker Compose environment, TimescaleDB only starts with `docker-compose --profile timescaledb up -d`. In Kubernetes you switch it on with `controllers.timescaledb.enabled: true`; the chart then sets `TIMESCALEDB_ENABLED`, `TIMESCALEDB_HOST` and the other values itself (see [Helm Charts](../deployment/helm.md#timescaledb)).
 
 ---
 
@@ -404,7 +492,7 @@ The unauthenticated endpoint `GET /api/health` can answer which build is current
 |----------|---------|---------|-------------|
 | `HEALTH_EXPOSE_BUILD_REVISION` | `false` (the Helm chart sets `true`) | No | Whether `GET /api/health` discloses the `build_revision` field at all. With `false` the key is absent from the response entirely. The **application** default stays `false` — `helm/kamerplanter/values.yaml` sets `true` for Kubernetes installations since #1236, so the delivery state is auditable. |
 | `BUILD_REVISION` | *(empty)* | No | The full Git commit the image was built from. It is baked in at container build time (`docker-publish.yml` passes it into the Dockerfile as a build argument); you only need to set it yourself when you build your own image. |
-| `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health`, per client IP. The Kubernetes probes point at `/api/v1/health/live` and `/api/v1/health/ready` and are **not** affected. |
+| `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health`, per client IP and process — counted in process memory only, so the endpoint never waits on Valkey, not even during an outage. The Kubernetes probes point at `/api/v1/health/live` and `/api/v1/health/ready` and are **not** affected. |
 
 !!! warning "Why the build identity is absent by default"
 
@@ -435,8 +523,15 @@ Before it is reported, the value is checked against `^[0-9a-f]{7,40}$` (after st
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `RATE_LIMIT_AUTH` | `20/minute` | No | Rate limit for authentication endpoints |
-| `TRUSTED_PROXY_HOPS` | `0` | **Yes, behind two proxies** | How many proxy addresses your infrastructure appends to `X-Forwarded-For`, counted from the right. `0` = client → nginx → backend (dev/e2e); `1` = client → Traefik → nginx → backend (the Helm chart sets this). Too low resolves every caller to the nearest proxy — the device-pairing lockout then locks all users at once and IP-allowlisted service accounts fail closed; too high reads entries a caller can forge. |
-| `RATE_LIMIT_GENERAL` | `100/minute` | No | Rate limit for general API endpoints |
+| `RATE_LIMIT_STORAGE_URL` | empty | No | Storage where the IP rate limits count (`redis://…`, `rediss://…`, `redis+unix://…` or `memory://`; any other scheme, a password with an unencoded `/`, `#` or `?`, or an `@` in path, query or fragment stops the start — here and in `REDIS_URL` — and the message does not name the value; an `@` in the password itself is accepted). Empty means the Valkey from `REDIS_URL`, so all replicas and worker processes count together. `memory://` counts per process and only fits when one process is the whole installation. If the storage fails with a Redis client error, each process keeps counting on its own (not open, no error, also not for requests waiting at that moment); a fresh window per process can apply, one per window, not one per outage. With a hanging storage only the request that notices the failure (and any request already waiting) waits, one socket timeout of 0.5 s per connection attempt and address (DNS, several addresses, connect plus handshake and the `NOSCRIPT` reload are not covered), and so does one check request per process at intervals of 1, 2, 4, 8, 16, 32 s and every 32 s after that; each process counts together again only with its own next check request. The mail budgets of the sign-in routes use the same client options and the same check schedule: while Valkey hangs, only the storage call that notices the failure, and one check request per process, waits at most 0.5 s — see [IP Rate Limits and Proxy Depth](../api/authentication.md#ip-rate-limits-and-proxy-depth). |
+| `TRUSTED_PROXY_HOPS` | `0` | **Yes, behind two proxies** | How many proxy addresses your infrastructure appends to `X-Forwarded-For`, counted from the right. `0` = client → nginx → backend (run without ingress, e.g. Docker Compose); `1` = client → ingress controller → nginx → backend (the Helm chart sets this; in the reference installation the ingress is Contour/Envoy). Too low resolves every caller to the nearest proxy — the device-pairing lockout then locks all users at once and IP-allowlisted service accounts fail closed; too high reads entries a caller can forge. At `0` with an `X-Forwarded-For` chain of more than one entry, the backend logs `forwarded_chain_deeper_than_trusted_proxy_hops` once per process: either a proxy that is not counted, or a caller sending the header itself (then `0` is correct); raise the value only if there really are more proxies — see [Login protection and IP limits](../api/authentication.md#ip-rate-limits-and-proxy-depth). |
+| `RATE_LIMIT_UPLOAD` | `30/minute` | No | Budget per account and route for file uploads: attachments, plant and task photos, pest images, CSV import (upload and confirmation). Above it `429` with `Retry-After`. Without a signed-in account the client IP counts. |
+| `RATE_LIMIT_INFERENCE` | `20/minute` | No | Budget per account and route for routes that run a model: CV diagnosis, pest detection, plant identification, reference contribution, and every route that calls an LLM (generating tips and the daily tip, "Why?", chat message, glossary generation, AI diagnosis, knowledge question `POST /api/v1/t/{slug}/ai/knowledge/ask`). The daily caps of identification and reference contribution and the daily AI budgets (`AI_BUDGET_*`) apply on top. |
+| `RATE_LIMIT_EXPORT` | `20/minute` | No | Budget per account and route for the PDF prints under `/print` (nutrient plan, care checklist, plant labels). |
+| `RATE_LIMIT_RESEND_VERIFICATION` | `10/hour` | No | Per-client-IP rate limit for `POST /api/v1/auth/resend-verification`. It bounds mail to caller-chosen addresses, hence far below `RATE_LIMIT_AUTH`. The additional per-address limit (3 requests, refilled after an hour without one) is fixed and not configurable. |
+| `RATE_LIMIT_CALENDAR_FEED` | `30/minute` | No | Per-client-IP rate limit for the public iCal fetch `GET /api/v1/calendar/feeds/{key}/feed.ics` (REQ-015 CF-004). Calendar apps poll a subscription every 15 minutes to every few hours; beyond the limit `429`. Refused fetches with a wrong token count too. |
+| `RATE_LIMIT_CALENDAR_FEED_PER_TOKEN` | `60/hour` | No | Additional rate limit per presented feed token on the same fetch (REQ-015 CF-004, #2226). Bounds a leaked subscription URL even when it is fetched from many addresses; a subscription on several devices (phone, laptop, Home Assistant) stays far below it. The bucket is keyed by a digest of the token — nobody without the token can spend its budget. |
+| `RATE_LIMIT_INVITATION_EMAIL` | `10/minute` | No | Per-account rate limit for `POST /api/v1/tenants/{slug}/invitations/email`: every call sends an email to a freely chosen address. The daily ceiling per account is `TENANT_INVITATION_EMAILS_PER_DAY` (issue #2162) |
 | `RATE_LIMIT_HEALTH` | `60/minute` | No | Rate limit for `GET /api/health` — see [Health endpoint and build identity](#health-endpoint) |
 
 **Format:** `[count]/[unit]` — units: `second`, `minute`, `hour`, `day`
@@ -466,9 +561,9 @@ These variables configure optional plant recognition by photo. If none of the AP
 | `PLANTNET_BASE_URL` | `https://my-api.plantnet.org/v2` | No | Pl@ntNet API base URL. Only change for self-hosting or test endpoints. |
 | `PLANT_ID_API_KEY` | — | No | API key for Plant.id (Kindwise) — an additional, purely operator-opt-in cloud adapter (never auto-primary, unlike Pl@ntNet). |
 | `PLANT_ID_BASE_URL` | `https://plant.id/api/v3` | No | Plant.id API base URL. |
-| `INFERENCE_SERVICE_ENABLED` | `false` | No | Enables the self-hosted DINOv2 recognition path (REQ-029-A). For the full setup (VectorDB, reference-index population, activation order) see [Setting Up Plant Identification](../deployment/inference-service.md). |
-| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | No | Internal URL of the inference service. |
-| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`, `local_embedding` (DINOv2, once `INFERENCE_SERVICE_ENABLED=true`). |
+| `INFERENCE_SERVICE_ENABLED` | `false` | No | Enables the self-hosted DINOv2 recognition path (REQ-029-A). **Must be set identically on the backend AND the celery-worker** once users can contribute their own reference images — the worker runs the scheduled Art. 17 erasure of those contributions (issue #1753); if the variable is missing there, the worker holds due erasures as a configuration error and a tenant deletion answers with HTTP 503. For the full setup (VectorDB, reference-index population, activation order) see [Setting Up Plant Identification](../deployment/inference-service.md). |
+| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | No | Internal URL of the inference service. Also set identically on the backend and the celery-worker (see above). |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`, `local_embedding` (DINOv2, once `INFERENCE_SERVICE_ENABLED=true`). Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently using another provider. |
 | `IDENTIFICATION_HTTP_TIMEOUT` | `60` | No | HTTP timeout (seconds) for the external identification call (Pl@ntNet's upload + server-side ML inference can exceed the previous 30-second default under load). |
 | `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | No | Confidence threshold (0–1) above which a suggestion is highlighted as "very certain". |
 | `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | No | Minimum confidence (0–1) required to show a suggestion. Results below this are filtered out. |
@@ -510,13 +605,13 @@ These variables configure the optional image-based pest detection feature. The f
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
-| `PEST_DETECTION_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. |
+| `PEST_DETECTION_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. **Must be set on the backend AND the celery-worker (`INFERENCE_SERVICE_ENABLED` also satisfies this)** once a platform admin has promoted a contributed pest photo into the recognition base — the worker runs the scheduled GDPR Art. 17 erasure of those contributions (issue #1759); if both are missing there, the worker holds due erasures as a configuration error and a tenant deletion answers with HTTP 503. Details: [Setting Up Plant Identification](../deployment/inference-service.md). |
 | `PEST_DETECTION_SYMPTOM_ENABLED` | `true` | No | Damage pattern / symptom detection (mode 2) on/off. Active when `PEST_DETECTION_ENABLED=true`. |
 | `PEST_DETECTION_DETECTOR_ENABLED` | `false` | No | Direct detector (mode 1, Phase 2) on/off. Requires a trained ONNX detector. |
 | `PEST_DETECTION_DEMO_ENABLED` | `false` | No | Demo adapter (no external service, no real model). Previews the full UI flow with clearly-labelled placeholder findings while the trained backend is externally blocked. Preview only — not for real decisions. Active when `PEST_DETECTION_ENABLED=true` is also set. |
 | `PEST_DETECTION_CLOUD_ENABLED` | `false` | No | Cloud adapter (Kindwise) on/off. Requires `PEST_DETECTION_CLOUD_API_KEY`. |
 | `PEST_DETECTION_CLOUD_API_KEY` | — | No | API key for Kindwise (cloud detection). Without a key the cloud adapter is disabled. |
-| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | No | Preferred adapter. Possible values: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise`. |
+| `PEST_DETECTION_PRIMARY_ADAPTER` | `local_pest_symptom` | No | Preferred adapter. Possible values: `local_pest_symptom`, `local_pest_detector` (Phase 2), `kindwise_pest`, `demo_pest`. Any other value — for example a typo — is rejected at startup: the API and the worker refuse to start rather than silently using another provider. |
 | `PEST_DETECTION_MAX_IMAGE_SIZE_MB` | `8` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 400. |
 
 !!! note "Self-hosted first"
@@ -636,7 +731,7 @@ These variables control the thresholds of the automatic season/overwintering det
 
 ## Error Tracking (optional)
 
-Reports runtime failures to a Sentry-protocol-compatible tracker (reference: GlitchTip). **With `SENTRY_DSN` empty nothing happens** — the SDK is never initialised and the frontend does not even download its SDK bundle. Full detail: [Error tracking](../deployment/fehler-tracking.md).
+Reports runtime failures to a Sentry-protocol-compatible tracker (reference: GlitchTip). **With `SENTRY_DSN` empty nothing happens** — the SDK is never initialised and the frontend does not even download its SDK bundle. With a DSN, the frontend loads it only once the person has consented to error analysis. Full detail: [Error tracking](../deployment/fehler-tracking.md).
 
 | Variable | Default | Required | Description |
 |----------|---------|----------|-------------|
@@ -664,11 +759,15 @@ ARANGODB_PASSWORD=secure-root-password
 # Cache / Queue
 REDIS_URL=redis://valkey:6379/0
 
-# Security (all three are mandatory secrets, startup gate in production)
+# Security (all four are mandatory secrets, startup gate in production)
 JWT_SECRET_KEY=generate-with-openssl-rand-hex-32
 FERNET_KEY=generate-with-Fernet.generate_key
 ERASURE_TOMBSTONE_SALT=generate-with-openssl-rand-hex-32
-REQUIRE_EMAIL_VERIFICATION=false
+LOG_PSEUDONYM_SALT=generate-with-openssl-rand-hex-32
+# Default true; set false only without outbound mail
+REQUIRE_EMAIL_VERIFICATION=true
+# Who may create an account: open | invite_only | closed (default open)
+REGISTRATION_MODE=open
 
 # CORS
 CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
@@ -691,7 +790,8 @@ HA_ACCESS_TOKEN=
 
 # Knowledge Service — Re-Ranking (empty = disabled)
 RERANKER_URL=
-RERANKER_INITIAL_K=20
+RERANKER_INITIAL_K=15
+RERANKER_MAX_DOCUMENT_CHARS=500
 RERANKER_TOP_K=5
 
 # AI Assistant (disabled instance-wide unless explicitly enabled)
@@ -721,23 +821,29 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `STORAGE_BACKEND` | `local-fs` | No | Active backend: `local-fs` or `s3` |
+| `STORAGE_BACKEND` | `local-fs` | No | Active backend: `local-fs` or `s3`. Any other value is rejected at startup. |
 | `STORAGE_MAX_FILE_SIZE_MB` | `25` | No | Maximum upload size in megabytes (applies to all categories, overridable per category) |
 | `STORAGE_PRESIGN_TTL_SECONDS` | `900` | No | Validity period of pre-signed URLs in seconds (max. 3600) |
+| `UPLOAD_SPOOL_BUDGET_MB` | `52` | No | How many MiB concurrent uploads may hold in `/tmp` together. It counts the bytes that actually arrived. Must be at least `STORAGE_MAX_FILE_SIZE_MB` + 1, otherwise the backend does not start. Keep it below the size of `/tmp` in the backend pod (64 MiB in the chart). The Helm chart sets it to 52 or, with a larger upload limit, to `storage.maxFileSizeMb` + 1. It also caps the tenant import's upload limit (`TENANT_IMPORT_MAX_UPLOAD_MB`): to import archives up to N MiB, raise it to at least N + 1 together with `/tmp` and the memory limit (issue #2138). |
+| `UPLOAD_SPOOL_WAIT_SECONDS` | `30` | No | How long an upload waits for free budget. After that the backend answers `503` (`UPLOAD_CAPACITY_EXHAUSTED`) with `Retry-After`. |
 | `STORAGE_ALLOWED_MIME_TYPES` | *(list)* | No | Comma-separated global whitelist of allowed MIME types |
 | `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(per category)* | No | Category-specific whitelist, e.g. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
 | `STORAGE_VIRUS_SCAN_ENABLED` | `false` | No | Enable virus scanning via ClamAV REST wrapper |
 | `STORAGE_VIRUS_SCAN_ENDPOINT` | *(empty)* | No | URL of the ClamAV REST wrapper |
-| `STORAGE_STRIP_EXIF` | `true` | No | Strips EXIF/GPS metadata from image uploads globally at save time (NFR-013 §5.1). There is **no** per-category override variable — unlike the MIME whitelists, this is a single global switch. |
+| `STORAGE_STRIP_EXIF` | `true` | No | Strips EXIF/GPS metadata from image uploads globally at save time (NFR-013 §5.1). There is **no** per-category override variable — unlike the MIME whitelists, this is a single global switch. While it is on, the upload refuses image types whose metadata the strip cannot remove (HEIC/HEIF, GIF), even when a MIME whitelist admits them. Images above 40 megapixels are refused with `413` regardless of this switch. |
 | `STORAGE_TENANT_QUOTA_MB` | `2048` | No | Storage quota per tenant, in megabytes. `0` disables the quota (unlimited). |
 | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | `50` | No | Maximum number of gallery photos per plant instance (REQ-034). `0` disables the limit. |
 | `STORAGE_TASK_PHOTO_ORPHAN_HOURS` | `0` | No | How long a task photo may sit unreferenced before the nightly sweep **deletes** it (#1393). `0` disables it, and is the shipped default: the job deletes data over a reference history spanning every client version and a manual migration, and does not go live in its first release. To switch it on, set a positive number of hours; every upload is briefly unreferenced (the attachment row is written before the form links it), so the value is a wide safety margin rather than a tuning knob — `48` is the figure this change was built and tested around. |
+| `STORAGE_RECONCILE_DELETE_ENABLED` | `false` | No | Switches the nightly object reconciliation from reporting to **deleting** (#1834). The task `reconcile_orphaned_storage_objects` (daily 04:10) lists the object store under `t/` and finds objects no attachment record holds any more: leftovers of a storage call that failed after a deletion, of a record created inside an account erasure's window, or of a pest reference in a tenant the user left. Shipped as `false`: the run **only reports**. Every run writes a `reconcile_orphaned_storage_objects_audit` line to the worker log with `scanned`, `found` (no record holds the object), `young` (younger than the safety margin, kept), `undated` (no readable age, kept), `eligible`, `would_delete`, `deleted`, `failed`, `freed_bytes` and `truncated`; it never contains a tenant key, user key or object path. Set `true` only once `would_delete` describes, over several runs, nothing but objects you expect; the run then deletes exactly those objects with their renditions and never one a record holds. |
+| `STORAGE_RECONCILE_MIN_AGE_HOURS` | `24` | No | Minimum age of an object without a record before the reconciliation judges it (#1834). An upload writes the object **before** its record, so a fresh unheld object is briefly normal. The floor is `1` (one request plus the thumbnail task's retries); smaller values are refused at startup. A safety margin, not a tuning knob. |
+| `STORAGE_RECONCILE_MAX_OBJECTS_PER_RUN` | `200000` | No | Most objects one reconciliation run examines (floor `1000`). A larger store is covered over several nights: the report shows `truncated: true` and the next run resumes at the remembered position (token kept in Valkey; without it the run starts over). |
+| `STORAGE_RECONCILE_MAX_ORPHAN_FRACTION` | `0.5` | No | Brake of the object reconciliation (#1834): when more than this share of a page's objects (from 20 objects up) have no record, the run deletes nothing there and reports `brake_tripped: true`. It catches a catalogue that answers validly but empty — a wrong database over an existing bucket, a restore older than the store, two installations on one bucket — where no query fails and every object would look orphaned. Range `0 < x <= 1`. When it trips, check the catalogue before leaving deletion on. |
 
 **Default MIME whitelist per category:**
 
 | Category | Allowed MIME types | Max size |
 |---------|--------------------|---------|
-| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp`, `image/heic` | 25 MB |
+| `diary`, `ipm`, `harvest`, `post_harvest`, `task`, `id_recognition`, `plant` | `image/jpeg`, `image/png`, `image/webp` | 25 MB |
 | `import` | `text/csv`, `application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 50 MB |
 | `export` | `application/pdf`, `text/csv`, `application/zip` | 200 MB |
 | `tenant_export` | `application/zip` | 5 GB |

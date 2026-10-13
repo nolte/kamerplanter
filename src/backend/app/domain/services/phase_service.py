@@ -1,12 +1,15 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 
 from app.common.enums import TransitionTrigger
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PhaseKey, PlantID
-from app.domain.engines.phase_key_resolver import PhaseKeyResolver
+from app.domain.engines.phase_key_resolver import PhaseKeyResolver, ResolvedPhase
 from app.domain.engines.phase_role_map import core_phase
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
@@ -16,8 +19,19 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
 
 logger = structlog.get_logger()
+
+#: Growth-phase fields ``PUT /growth-phases/{key}`` does not carry (``PhaseCreate``
+#: lacks them), so :meth:`PhaseService.update_phase` takes them from the stored
+#: phase. The route rebuilds the model from the body, which held
+#: ``is_recurring=False`` and ``kc_source=""``: every edit turned the recurring
+#: productive phase of an indeterminate species into a linear one and dropped the
+#: provenance of its crop coefficient (REQ-037). ``crop_coefficient_kc`` defaults
+#: to ``None`` and survived the merge-mode write; it is listed so the rule does not
+#: hang on that repository mode. The seeds write all three.
+GROWTH_PHASE_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = ("crop_coefficient_kc", "is_recurring", "kc_source")
 
 
 @dataclass(frozen=True)
@@ -144,7 +158,7 @@ class PhaseService:
     def get_lifecycle_by_species(self, species_key: str) -> LifecycleConfig:
         lc = self._repo.get_lifecycle_by_species(species_key)
         if lc is None:
-            raise NotFoundError("LifecycleConfig for species", species_key)
+            raise NotFoundError("LifecycleConfig", species_key)
         return lc
 
     def create_lifecycle(self, config: LifecycleConfig) -> LifecycleConfig:
@@ -227,7 +241,9 @@ class PhaseService:
         return self._repo.create_phase(phase)
 
     def update_phase(self, key: PhaseKey, phase: GrowthPhase) -> GrowthPhase:
-        self.get_phase(key)
+        """Rewrite a growth phase; the fields the edit body lacks keep their stored values."""
+        existing = self.get_phase(key)
+        keep_stored_fields(phase, existing, GROWTH_PHASE_FIELDS_KEPT_ON_EDIT)
         return self._repo.update_phase(key, phase)
 
     def delete_phase(self, key: PhaseKey) -> bool:
@@ -239,7 +255,7 @@ class PhaseService:
     def get_requirement_profile(self, phase_key: PhaseKey) -> RequirementProfile:
         profile = self._repo.get_requirement_profile(phase_key)
         if profile is None:
-            raise NotFoundError("RequirementProfile for phase", phase_key)
+            raise NotFoundError("RequirementProfile", phase_key)
         return profile
 
     def create_requirement_profile(self, profile: RequirementProfile) -> RequirementProfile:
@@ -251,7 +267,7 @@ class PhaseService:
     def get_nutrient_profile(self, phase_key: PhaseKey) -> NutrientProfile:
         profile = self._repo.get_nutrient_profile(phase_key)
         if profile is None:
-            raise NotFoundError("NutrientProfile for phase", phase_key)
+            raise NotFoundError("NutrientProfile", phase_key)
         return profile
 
     def create_nutrient_profile(self, profile: NutrientProfile) -> NutrientProfile:
@@ -285,14 +301,7 @@ class PhaseService:
         history = self._repo.get_phase_history(plant_key)
         active = next((h for h in history if h.exited_at is None), None)
 
-        phase_key = active.phase_key if active else plant.current_phase_key
-        phase_started_at = active.entered_at if active else plant.current_phase_started_at
-        cycle_number = active.cycle_number if active else 1
-
-        days_in_phase = 0
-        if phase_started_at:
-            delta = datetime.now(UTC) - phase_started_at
-            days_in_phase = delta.days
+        phase_key, days_in_phase, cycle_number = self._phase_position(plant, active)
 
         next_phase = None
         if phase_key:
@@ -361,6 +370,59 @@ class PhaseService:
             "source": current_source,
             "is_terminal": current_is_terminal,
         }
+
+    @staticmethod
+    def _phase_position(plant: PlantInstance, active: PhaseHistory | None) -> tuple[str | None, int, int]:
+        """``(phase_key, days_in_phase, cycle_number)`` of a plant.
+
+        The open phase-history entry is the source of truth for phase key, start time
+        and cycle; the plant's own ``current_phase_*`` fields stand in when it has none.
+        """
+        phase_key = active.phase_key if active else plant.current_phase_key
+        phase_started_at = active.entered_at if active else plant.current_phase_started_at
+        cycle_number = active.cycle_number if active else 1
+
+        days_in_phase = 0
+        if phase_started_at:
+            delta = datetime.now(UTC) - phase_started_at
+            days_in_phase = delta.days
+        return phase_key, days_in_phase, cycle_number
+
+    def get_current_phases(self, plants: Sequence[PlantInstance]) -> dict[PlantID, dict[str, Any]]:
+        """The phase position of a page of plants, without one read per plant (MT-032, #2128).
+
+        Returns, per plant key, the fields of :meth:`get_current_phase` the
+        auto-transition scan reads — ``phase``, ``phase_key``, ``days_in_phase``,
+        ``cycle_number``, ``source`` and ``is_terminal`` — computed exactly as there.
+        The cost is one history read for the whole page plus one phase resolution per
+        *distinct* phase key, so it does not grow with the number of plants that share
+        a phase. The display-only fields (``next_phase``, ``cycle_type``,
+        ``has_harvest_phase``) are not part of it.
+
+        The plants are taken as handed in (the scan read them a moment ago) rather
+        than re-read by key.
+        """
+        active_by_plant = self._repo.get_active_phase_histories([p.key for p in plants if p.key])
+        resolved: dict[str, ResolvedPhase | None] = {}
+        positions: dict[PlantID, dict[str, Any]] = {}
+        for plant in plants:
+            if not plant.key:
+                continue
+            phase_key, days_in_phase, cycle_number = self._phase_position(plant, active_by_plant.get(plant.key))
+            phase = None
+            if phase_key:
+                if phase_key not in resolved:
+                    resolved[phase_key] = self._resolver.resolve(phase_key)
+                phase = resolved[phase_key]
+            positions[plant.key] = {
+                "phase": phase.name if phase else "",
+                "phase_key": phase_key,
+                "days_in_phase": days_in_phase,
+                "cycle_number": cycle_number,
+                "source": phase.source if phase else None,
+                "is_terminal": phase.is_terminal if phase else False,
+            }
+        return positions
 
     def resolve_sequence_auto_target(
         self,
@@ -510,8 +572,21 @@ class PhaseService:
     def get_phase_history(self, plant_key: PlantID) -> list[PhaseHistory]:
         return self._repo.get_phase_history(plant_key)
 
-    def delete_phase_history(self, plant_key: PlantID, history_key: str) -> None:
+    def _owned_plant(self, plant_key: PlantID, *, tenant_key: str) -> PlantInstance:
+        """The plant ``plant_key`` of ``tenant_key``, or 404 (#2107).
+
+        The phase-history writes used to trust the router's ``require_owned_plant``
+        and load the plant unscoped. The router gate stays — it also covers the
+        reads and the transition on that router — but the write no longer depends on
+        it: a foreign plant, an absent one and an empty caller tenant all answer the
+        same 404 here.
+        """
         plant = self._plant_repo.get_or_raise(plant_key)
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+        return plant
+
+    def delete_phase_history(self, plant_key: PlantID, history_key: str, *, tenant_key: str) -> None:
+        plant = self._owned_plant(plant_key, tenant_key=tenant_key)
 
         all_history = self._repo.get_phase_history(plant_key)
         history = None
@@ -548,8 +623,10 @@ class PhaseService:
         history_key: str,
         entered_at: datetime | None = None,
         exited_at: datetime | None = None,
+        *,
+        tenant_key: str,
     ) -> PhaseHistory:
-        plant = self._plant_repo.get_or_raise(plant_key)
+        plant = self._owned_plant(plant_key, tenant_key=tenant_key)
 
         # Find the history entry
         all_history = self._repo.get_phase_history(plant_key)

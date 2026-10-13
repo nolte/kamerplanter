@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
@@ -30,6 +33,9 @@ class _FakeSuccessionRepo:
     def get_all(self, offset=0, limit=50, tenant_key=None, *, all_tenants=False):
         items = [p for p in self._store.values() if p.tenant_key == tenant_key]
         return items[offset : offset + limit], len(items)
+
+    def list_plans_window(self, offset=0, limit=50, *, tenant_key):
+        return self.get_all(offset, limit, tenant_key)[0]
 
     def get_by_key(self, key):
         return self._store.get(key)
@@ -69,7 +75,7 @@ class _FakeRunService:
     def __init__(self) -> None:
         self._seq = 0
 
-    def create_run(self, run: PlantingRun, entries=None) -> PlantingRun:
+    def create_run(self, run: PlantingRun, entries=None, *, tenant_key: str) -> PlantingRun:
         self._seq += 1
         return run.model_copy(update={"key": f"run{self._seq}"})
 
@@ -89,7 +95,14 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
 
 def _build() -> tuple[TestClient, _FakeSuccessionRepo]:
     repo = _FakeSuccessionRepo()
-    service = SuccessionPlanService(repo, _FakeRunService())
+    # The plan's location and species are the tenant's own (#1872 C13, and the
+    # location anchor refuses to guess without a site repository).
+    sites = MagicMock()
+    sites.get_location_by_key.side_effect = lambda key: SimpleNamespace(key=key, site_key="site_1")
+    sites.get_site_by_key.side_effect = lambda key: SimpleNamespace(key=key, tenant_key=_ctx().tenant_key)
+    service = SuccessionPlanService(
+        repo, _FakeRunService(), site_repo=sites, species_resolver=lambda key, *, tenant_key: None
+    )
 
     app = FastAPI()
     app.include_router(succession_router, prefix="/api/v1/t/{tenant_slug}")

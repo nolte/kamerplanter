@@ -256,15 +256,16 @@ class TestSiteGraphQueries:
     def test_the_callers_own_site_still_returns_its_locations(self):
         """Red against a ``v.tenant_key`` predicate — which is the whole point.
 
-        The location comes back *and* carries an empty ``tenant_key``: asserting
-        both together is what keeps a later "simplification" of the query from
-        passing. A predicate on the location itself returns ``[]`` here, i.e. the
-        site's hierarchy silently disappears from ``GET …/location-tree``.
+        The stored location carries an empty ``tenant_key`` (the legacy production
+        shape, see the fixture), so a predicate on the location itself returns
+        ``[]`` here, i.e. the site's hierarchy silently disappears from
+        ``GET …/location-tree``. Since #2107 the model no longer declares the field
+        at all — the site is the only owner.
         """
         tree = self._repo().get_location_tree(OWN_SITE, tenant_key=TENANT_KEY)
 
         assert [loc.key for loc in tree] == ["loc-a1"]
-        assert tree[0].tenant_key == ""
+        assert "tenant_key" not in type(tree[0]).model_fields
 
     def test_a_foreign_plants_slot_is_not_resolvable(self):
         assert self._repo().get_slot_for_plant(FOREIGN_PLANT, tenant_key=TENANT_KEY) is None
@@ -279,7 +280,7 @@ class TestSiteGraphQueries:
 
         assert slot is not None
         assert slot.key == OWN_SLOT
-        assert slot.tenant_key == ""
+        assert "tenant_key" not in type(slot).model_fields
 
     @pytest.mark.parametrize(("method", "anchor"), [("get_location_tree", OWN_SITE), ("get_slot_for_plant", OWN_PLANT)])
     def test_an_empty_tenant_key_is_rejected(self, method, anchor):

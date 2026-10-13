@@ -62,6 +62,9 @@ class _FakeRepo(IOverwinteringProfileRepository):
         items = [p for p in self.store.values() if p.tenant_key == tenant_key]
         return items[offset : offset + limit], len(items)
 
+    def list_by_tenant_window(self, offset=0, limit=50, *, tenant_key):
+        return self.list_by_tenant(tenant_key, offset, limit)[0]
+
     def create_subject_edge(self, profile_key, *, plant_key=None, planting_run_key=None):
         pass
 
@@ -84,7 +87,7 @@ class _PlantRepoStub:
 class _SpeciesRepoStub:
     def get_by_key(self, key):  # noqa: ANN001, ANN201
         # Moderate frost sensitivity → half_hardy → yellow ampel (Fragaria-style).
-        return SimpleNamespace(frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
+        return SimpleNamespace(tenant_key="", frost_sensitivity=FrostTolerance.MODERATE, hardiness_zones=["7a"])
 
 
 class _SiteRepoStub:

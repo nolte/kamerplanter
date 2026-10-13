@@ -1,3 +1,5 @@
+import itertools
+
 import structlog
 
 from app.tasks import celery_app
@@ -14,9 +16,10 @@ def generate_tank_maintenance_tasks() -> dict:
     """
     from datetime import UTC, datetime, timedelta
 
-    from app.common.dependencies import get_tank_repo, get_task_repo
+    from app.common.dependencies import get_tank_repo, get_task_repo, get_tenant_repo
     from app.common.enums import TaskCategory, TaskPriority, TaskStatus
     from app.domain.models.task import Task
+    from app.tasks.tenant_gate import ActiveTenants
 
     maintenance_to_task_priority = {
         "low": TaskPriority.LOW,
@@ -27,10 +30,18 @@ def generate_tank_maintenance_tasks() -> dict:
 
     tank_repo = get_tank_repo()
     task_repo = get_task_repo()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     schedules = tank_repo.get_active_auto_create_schedules()
     created_count = 0
+    #: Suppressed because the tenant already has this task open — the normal,
+    #: healthy outcome of a beat run.
     skipped_count = 0
+    #: Suppressed because the schedule could not be resolved to a tenant at all
+    #: (unknown tank, or a tank without a tenant). Maintenance for these tanks
+    #: never materialises, so it must not share a counter with "already there"
+    #: (#1573 review SCR-004).
+    skipped_unresolved_count = 0
     now = datetime.now(UTC)
 
     for schedule in schedules:
@@ -47,26 +58,46 @@ def generate_tank_maintenance_tasks() -> dict:
                 continue
         # No last log means never performed — create task
 
-        # Idempotency: check if pending/in_progress task already exists
-        task_name = f"maintenance:{schedule.maintenance_type}:{tank_key}"
-        existing, _ = task_repo.get_all_tasks(
-            0,
-            200,
-            {
-                "category": TaskCategory.MAINTENANCE.value,
-            },
-        )
-        already_exists = any(
-            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in existing
-        )
-        if already_exists:
+        # Resolve tank name and tenant BEFORE the idempotency question: that
+        # question belongs to one tenant, and the tenant is what answers it (#1533).
+        tank = tank_repo.get_by_key(tank_key)
+        if tank is None:
+            # An orphaned schedule: the tank it maintains is gone. Reported on its
+            # own event and counter rather than folded into "tenantless" — the two
+            # need different repairs (delete the schedule vs. stamp the tank), and
+            # a log line naming the wrong one sends the operator hunting the wrong
+            # thing (#1573 review SCR-004).
+            logger.warning("tank_maintenance_skipped_unknown_tank", tank_key=tank_key)
+            skipped_unresolved_count += 1
+            continue
+        tank_label = tank.name
+        tank_tenant_key = getattr(tank, "tenant_key", "")
+        if not tank_tenant_key:
+            # Fail closed, exactly as ``check_runoff_trends`` does for a tenantless
+            # plant: a tank without a tenant would force an unscoped idempotency
+            # read and stamp a tenantless task no tenant-scoped listing can show.
+            # Reachable: ``Tank.tenant_key`` defaults to `""` with no `min_length`.
+            logger.warning("tank_maintenance_skipped_tenantless_tank", tank_key=tank_key)
+            skipped_unresolved_count += 1
+            continue
+        if not tenant_is_active(tank_tenant_key):
+            # #2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody: no new task.
             skipped_count += 1
             continue
 
-        # Resolve tank name and tenant for instruction
-        tank = tank_repo.get_by_key(tank_key)
-        tank_label = tank.name if tank else tank_key
-        tank_tenant_key = tank.tenant_key if tank and hasattr(tank, "tenant_key") else ""
+        # Idempotency: is one of THIS tenant's tasks with this name still open?
+        #
+        # This used to be ``get_all_tasks(0, 200, {"category": MAINTENANCE})``
+        # narrowed by name and status in Python (#1533). That page carried no
+        # tenant (``get_all_tasks`` filtered by tenant only when given one), so one
+        # tenant's idempotency was decided from every tenant's rows; and the
+        # narrowing sat behind a 200-row cap, so past 200 maintenance tasks the
+        # match sorted out of the page and every beat run created a duplicate —
+        # the #1503 class one layer down. The whole predicate is in the query now.
+        task_name = f"maintenance:{schedule.maintenance_type}:{tank_key}"
+        if task_repo.find_open_task_by_name(task_name, tenant_key=tank_tenant_key) is not None:
+            skipped_count += 1
+            continue
 
         due_date = now
         if last_log and last_log.performed_at:
@@ -93,9 +124,14 @@ def generate_tank_maintenance_tasks() -> dict:
         "tank_maintenance_tasks_generated",
         created=created_count,
         skipped=skipped_count,
+        skipped_unresolved=skipped_unresolved_count,
         schedules_checked=len(schedules),
     )
-    return {"created": created_count, "skipped": skipped_count}
+    return {
+        "created": created_count,
+        "skipped": skipped_count,
+        "skipped_unresolved": skipped_unresolved_count,
+    }
 
 
 @celery_app.task(name="app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha")
@@ -108,7 +144,14 @@ def sync_tank_states_from_ha() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_ha_client, get_sensor_repo, get_tank_repo
+    from app.common.dependencies import (
+        get_ha_client,
+        get_ha_entity_grant_service,
+        get_sensor_repo,
+        get_tank_repo,
+        get_tenant_repo,
+    )
+    from app.common.enums import TenantStatus
     from app.domain.models.tank import TankState
 
     ha_client = get_ha_client()
@@ -117,13 +160,21 @@ def sync_tank_states_from_ha() -> dict:
 
     sensor_repo = get_sensor_repo()
     tank_repo = get_tank_repo()
+    # MT-015 (#2112): only entities granted to the tank's tenant are read; one
+    # read of every tenant's grants for the whole run.
+    grants = get_ha_entity_grant_service().snapshot()
+    # #2166 — a suspended, pending-deletion, orphaned or erased tenant resolves for nobody: its Home
+    # Assistant entities are not read and no state is written. MT-032 (#2128): only the active tenants'
+    # tanks are selected, in AQL, one page at a time. A tenantless tank is not selected (the grants
+    # admitted nothing for it anyway).
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    tanks, _total = tank_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
     updated = 0
     skipped = 0
+    not_granted = 0
     errors: list[dict] = []
 
-    for tank in tanks:
+    for tank in tank_repo.iter_for_tenants(active_tenants):
         if not tank.key:
             continue
 
@@ -132,8 +183,10 @@ def sync_tank_states_from_ha() -> dict:
             skipped += 1
             continue
 
-        # Only process sensors with HA entity IDs
-        ha_sensors = [s for s in sensors if s.ha_entity_id]
+        # Only process sensors with HA entity IDs granted to the tank's tenant
+        with_entity = [s for s in sensors if s.ha_entity_id]
+        ha_sensors = [s for s in with_entity if grants.is_granted(tank.tenant_key, s.ha_entity_id)]
+        not_granted += len(with_entity) - len(ha_sensors)
         if not ha_sensors:
             skipped += 1
             continue
@@ -173,9 +226,10 @@ def sync_tank_states_from_ha() -> dict:
         "tank_state_sync_completed",
         tanks_updated=updated,
         tanks_skipped=skipped,
+        sensors_not_granted=not_granted,
         errors=len(errors),
     )
-    return {"updated": updated, "skipped": skipped, "errors": len(errors)}
+    return {"updated": updated, "skipped": skipped, "errors": len(errors), "not_granted": not_granted}
 
 
 @celery_app.task(name="app.tasks.tank_maintenance_tasks.check_tank_alerts")
@@ -185,18 +239,23 @@ def check_tank_alerts() -> dict:
     Iterates all tanks, loads latest state + last fill event,
     runs the enhanced alert engine, and logs results.
     """
-    from app.common.dependencies import get_tank_repo
+    from app.common.dependencies import get_tank_repo, get_tenant_repo
+    from app.common.enums import TenantStatus
     from app.domain.engines.tank_engine import TankEngine
 
     tank_repo = get_tank_repo()
     engine = TankEngine()
+    # REQ-056 §5.2 — a tenant that is not ``active`` is left alone: its tanks are not checked and
+    # nothing about them is reported. MT-032 (#2128): the active tenants' tanks are selected in AQL and
+    # read one page at a time. A tenantless tank keeps the installation sweep, as before #2128
+    # (review W1): the check only reads and logs, it writes into no tenant.
+    active_tenants = get_tenant_repo().keys_in_status({TenantStatus.ACTIVE})
 
-    tanks, _total = tank_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
     tanks_checked = 0
     total_alerts = 0
     critical_count = 0
 
-    for tank in tanks:
+    for tank in itertools.chain(tank_repo.iter_for_tenants(active_tenants), tank_repo.iter_without_tenant()):
         if not tank.key:
             continue
 
@@ -243,12 +302,14 @@ def check_runoff_trends() -> dict:
     """
     from datetime import UTC, datetime
 
-    from app.common.dependencies import get_feeding_repo, get_task_repo
+    from app.common.dependencies import get_feeding_repo, get_task_repo, get_tenant_repo
     from app.common.enums import PhaseName, TaskCategory, TaskPriority, TaskStatus
     from app.domain.models.task import Task
+    from app.tasks.tenant_gate import ActiveTenants
 
     feeding_repo = get_feeding_repo()
     task_repo = get_task_repo()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # Get all active plant instances in vegetative or flowering phase.
     # Removed plants must not spawn flush tasks.
@@ -290,6 +351,10 @@ def check_runoff_trends() -> dict:
             logger.warning("runoff_trend_check_skipped_tenantless_plant", plant_key=plant_key)
             skipped += 1
             continue
+        if not tenant_is_active(plant_tenant_key):
+            # #2166 — a suspended, pending-deletion or orphaned tenant resolves for nobody: no flush task.
+            skipped += 1
+            continue
 
         events = feeding_repo.get_recent_runoff_events(plant_key, limit=5, tenant_key=plant_tenant_key)
         if len(events) < 3:
@@ -306,19 +371,12 @@ def check_runoff_trends() -> dict:
         if high_ratio_count < 3:
             continue
 
-        # Idempotency: check if flush task already exists
+        # Idempotency: is one of THIS plant's tenant's flush tasks still open?
+        # Same repair as in ``generate_tank_maintenance_tasks`` above (#1533): the
+        # tenant-less, 200-row page narrowed in Python is replaced by the predicate
+        # the query carries.
         task_name = f"flush:runoff_trend:{plant_key}"
-        existing, _ = task_repo.get_all_tasks(
-            0,
-            200,
-            {
-                "category": TaskCategory.MAINTENANCE.value,
-            },
-        )
-        already_exists = any(
-            t.name == task_name and t.status in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS) for t in existing
-        )
-        if already_exists:
+        if task_repo.find_open_task_by_name(task_name, tenant_key=plant_tenant_key) is not None:
             skipped += 1
             continue
 

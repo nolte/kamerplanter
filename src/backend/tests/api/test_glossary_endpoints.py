@@ -20,7 +20,7 @@ from app.api.v1.glossar.admin_router import router as admin_router
 from app.api.v1.glossar.public_router import router as public_router
 from app.api.v1.glossar.router import router as tenant_router
 from app.common.auth import get_current_tenant, require_platform_admin
-from app.common.dependencies import get_glossary_service, get_glossary_term_repo
+from app.common.dependencies import get_glossary_service, get_glossary_term_repo, get_tenant_repo
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, ValidationError
@@ -30,6 +30,7 @@ from app.domain.models.glossary_term import (
     GlossaryTermAnswer,
     GlossaryTermSummary,
 )
+from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 
 
@@ -57,7 +58,25 @@ def _answer(slug: str = "vpd", *, is_fallback: bool = False) -> GlossaryTermAnsw
     )
 
 
-def _build_app(service: MagicMock) -> FastAPI:
+class _TenantRepo:
+    """The one tenant lookup the REQ-031 stage-2 gate makes — the garden's KI switch."""
+
+    def __init__(self, *, ai_enabled: bool) -> None:
+        self._tenant = Tenant(
+            _key="home",
+            name="Home",
+            slug="home",
+            owner_user_key="anna",
+            settings={"ai_features_enabled": ai_enabled},
+        )
+        self.reads: list[str] = []
+
+    def get_by_key(self, key: str) -> Tenant | None:
+        self.reads.append(key)
+        return self._tenant if key == self._tenant.key else None
+
+
+def _build_app(service: MagicMock, *, tenant_ai_enabled: bool = True) -> FastAPI:
     app = FastAPI()
     app.state.limiter = limiter
     app.include_router(tenant_router, prefix="/api/v1/t/{tenant_slug}")
@@ -70,6 +89,9 @@ def _build_app(service: MagicMock) -> FastAPI:
     app.dependency_overrides[get_current_tenant] = _ctx
     app.dependency_overrides[require_platform_admin] = lambda: SimpleAdmin()
     app.dependency_overrides[get_glossary_service] = lambda: service
+    tenant_repo = _TenantRepo(ai_enabled=tenant_ai_enabled)
+    app.dependency_overrides[get_tenant_repo] = lambda: tenant_repo
+    app.state.tenant_repo = tenant_repo
     return app
 
 
@@ -81,7 +103,10 @@ class SimpleAdmin:
 def service() -> MagicMock:
     svc = MagicMock()
     svc.list_terms.return_value = [GlossaryTermSummary(slug="vpd", label="VPD", category="umwelt")]
-    svc.get_term = AsyncMock(return_value=_answer())
+    # Read and generation are two methods since #1460: the GET is synchronous
+    # and never reaches the Knowledge Service, the POST is the async one.
+    svc.get_term = MagicMock(return_value=_answer())
+    svc.generate_term = AsyncMock(return_value=_answer())
     svc.invalidate_cache.return_value = 3
     return svc
 
@@ -103,8 +128,88 @@ def test_tenant_get_term(service) -> None:
     body = resp.json()
     assert body["slug"] == "vpd"
     assert body["is_fallback"] is False
-    # The tenant path forwards the tenant context (cloud gate), context stays null.
-    assert service.get_term.await_args.kwargs["tenant_key"] == "home"
+    # A read: no tenant context is forwarded, because there is no cloud gate to
+    # evaluate without an LLM call (#1460). The generation route below is what
+    # carries it.
+    assert "tenant_key" not in service.get_term.call_args.kwargs
+    service.generate_term.assert_not_awaited()
+
+
+def test_tenant_generate_term_forwards_the_tenant_context(service) -> None:
+    """The write half: the cloud gate needs the principal it gates on (§6)."""
+    client = TestClient(_build_app(service))
+    resp = client.post("/api/v1/t/home/glossary/term/vpd/generate", params={"expertise": "beginner"})
+    assert resp.status_code == 200
+    assert service.generate_term.await_args.kwargs["tenant_key"] == "home"
+    # The principal the consent gate and the AI budget (#2110) are charged to.
+    assert service.generate_term.await_args.kwargs["user_key"]
+
+
+# ── Garden KI switch (REQ-031 §1.3 stage 2, operator decision 2026-10-09) ──
+
+
+def test_generate_with_the_garden_switch_off_answers_403_before_generating(service) -> None:
+    """A garden that turned KI off spends no LLM call, no budget, no cache lookup."""
+    app = _build_app(service, tenant_ai_enabled=False)
+
+    resp = TestClient(app).post("/api/v1/t/home/glossary/term/vpd/generate")
+
+    assert resp.status_code == 403
+    assert resp.json()["error_code"] == "AI_DISABLED_FOR_TENANT"
+    # The refusal is the garden switch answering, not something else refusing.
+    assert app.state.tenant_repo.reads == ["home"]
+    service.generate_term.assert_not_awaited()
+
+
+def test_generate_with_the_operator_flag_off_answers_404(service, monkeypatch) -> None:
+    """Stage 1 comes first: with KI off installation-wide the route looks non-existent."""
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+
+    resp = TestClient(_build_app(service)).post("/api/v1/t/home/glossary/term/vpd/generate")
+
+    assert resp.status_code == 404
+    service.generate_term.assert_not_awaited()
+
+
+def test_generate_with_the_garden_switch_on_generates(service) -> None:
+    """The control: the two refusals above would also hold for a route that refuses everything."""
+    resp = TestClient(_build_app(service, tenant_ai_enabled=True)).post("/api/v1/t/home/glossary/term/vpd/generate")
+
+    assert resp.status_code == 200
+    service.generate_term.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/t/home/glossary/terms", "/api/v1/t/home/glossary/term/vpd", "/api/v1/public/glossary/term/vpd"],
+    ids=["tenant-terms", "tenant-term", "public-term"],
+)
+def test_reads_stay_open_with_the_garden_switch_off(service, path) -> None:
+    """Only generate is behind stage 2; reading terms and cached explanations is not."""
+    app = _build_app(service, tenant_ai_enabled=False)
+
+    assert TestClient(app).get(path).status_code == 200
+    assert app.state.tenant_repo.reads == []
+
+
+def test_the_public_router_offers_no_generate_route(service) -> None:
+    """#1460 — the anonymous surface reads; it may not spend an LLM call.
+
+    Asserted against the mounted app rather than by reading the module, so
+    mounting the tenant router at a public prefix would be caught too. Read out of
+    the OpenAPI document rather than out of ``app.routes``: ``include_router``
+    leaves ``_IncludedRouter`` wrappers whose ``path`` is relative, so a flat walk
+    of ``app.routes`` finds none of these and the assertion would be vacuous —
+    which is exactly how the first version of this test failed.
+    """
+    paths = _build_app(service).openapi()["paths"]
+    public_paths = {path for path in paths if path.startswith("/api/v1/public/glossary")}
+
+    assert public_paths, "the public glossary router is not mounted; the assertion below is vacuous"
+    assert any(path.endswith("/generate") for path in paths), (
+        "no generate route is mounted anywhere; the assertion below would pass over an empty surface"
+    )
+    assert not any(path.endswith("/generate") for path in public_paths), sorted(public_paths)
 
 
 def test_tenant_get_term_invalid_expertise_returns_422(service) -> None:
@@ -114,7 +219,7 @@ def test_tenant_get_term_invalid_expertise_returns_422(service) -> None:
 
 
 def test_tenant_get_term_service_validation_error_maps_422(service) -> None:
-    service.get_term = AsyncMock(side_effect=ValidationError("bad slug"))
+    service.get_term = MagicMock(side_effect=ValidationError("bad slug"))
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/t/home/glossary/term/vpd")
     assert resp.status_code == 422
@@ -131,7 +236,9 @@ def test_public_get_term(service, monkeypatch) -> None:
     resp = client.get("/api/v1/public/glossary/term/vpd")
     assert resp.status_code == 200
     # Public path passes neither tenant nor user (local provider only, §6).
-    assert "tenant_key" not in service.get_term.await_args.kwargs
+    assert "tenant_key" not in service.get_term.call_args.kwargs
+    # And it never reaches the generating path at all (#1460).
+    service.generate_term.assert_not_awaited()
 
 
 def test_public_list_terms(service, monkeypatch) -> None:
@@ -149,15 +256,22 @@ def test_public_list_terms(service, monkeypatch) -> None:
 # fallback (``is_fallback=true``) inside the service instead of returning 404.
 
 
-def test_public_term_flag_off_serves_fallback(service, monkeypatch) -> None:
+def test_public_term_route_forwards_whatever_the_service_answers_with_the_flag_off(service, monkeypatch) -> None:
+    """Renamed for what it measures (review SCR-007).
+
+    The service is a double whose return value is already ``is_fallback=True``, so
+    this cannot say the *service* degrades correctly — it says the route does not
+    404 and forwards the body. The service-level claim, with a warm cache, is
+    ``tests/unit/test_glossary_read_does_not_generate.py::test_the_flag_off_serves_the_curated_text_over_a_warm_cache``.
+    """
     monkeypatch.setattr(limiter, "enabled", False)
     monkeypatch.setattr(settings, "ai_features_enabled", False)
-    service.get_term = AsyncMock(return_value=_answer(is_fallback=True))
+    service.get_term = MagicMock(return_value=_answer(is_fallback=True))
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/public/glossary/term/vpd")
     assert resp.status_code == 200
     assert resp.json()["is_fallback"] is True
-    service.get_term.assert_awaited()
+    service.get_term.assert_called_once()
 
 
 def test_public_terms_flag_off_still_listed(service, monkeypatch) -> None:
@@ -170,14 +284,15 @@ def test_public_terms_flag_off_still_listed(service, monkeypatch) -> None:
     service.list_terms.assert_called_once()
 
 
-def test_tenant_term_flag_off_serves_fallback(service, monkeypatch) -> None:
+def test_tenant_term_route_forwards_whatever_the_service_answers_with_the_flag_off(service, monkeypatch) -> None:
+    """The tenant sibling of the route test above (review SCR-007)."""
     monkeypatch.setattr(settings, "ai_features_enabled", False)
-    service.get_term = AsyncMock(return_value=_answer(is_fallback=True))
+    service.get_term = MagicMock(return_value=_answer(is_fallback=True))
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/t/home/glossary/term/vpd")
     assert resp.status_code == 200
     assert resp.json()["is_fallback"] is True
-    service.get_term.assert_awaited()
+    service.get_term.assert_called_once()
 
 
 def test_tenant_terms_flag_off_still_listed(service, monkeypatch) -> None:

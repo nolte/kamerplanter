@@ -1,11 +1,10 @@
-from datetime import UTC, datetime
 from typing import Any
 
 from arango.database import StandardDatabase
 
-from app.common.datetimes import today_utc
+from app.common.datetimes import replace_year, today_utc
 from app.common.enums import TaskStatus, TerminationType
-from app.common.types import PlantID, SlotKey, SpeciesKey
+from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -48,16 +47,15 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
     # ── Basic CRUD ────────────────────────────────────────────────────
 
-    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None:
-        """Look up a plant by its (globally unique) ``instance_id``.
+    def get_by_instance_id(self, instance_id: str, *, tenant_key: str) -> PlantInstance | None:
+        """Look up a plant by its ``instance_id`` within ``tenant_key``.
 
-        ``instance_id`` carries a unique index, so a bare lookup already returns at
-        most one document. When ``tenant_key`` is given the match is additionally
-        constrained to that tenant (SEC-001, defence in depth) so a caller can never
-        act on another tenant's instance even if an id were to collide.
+        ``instance_id`` is unique per tenant since #2065 (``(tenant_key,
+        instance_id)``): two tenants may hold the same id, so the tenant filter is
+        what makes the answer unique. An empty ``tenant_key`` matches only rows whose
+        tenant is empty, never another tenant's row.
         """
-        extra = [("tenant_key", "==", tenant_key)] if tenant_key else None
-        return self.find_one_by_field("instance_id", instance_id, extra_filters=extra)
+        return self.find_one_by_field("instance_id", instance_id, extra_filters=[("tenant_key", "==", tenant_key)])
 
     def create(self, plant: PlantInstance) -> PlantInstance:
         created = super().create(plant)
@@ -87,6 +85,19 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         """
         return super().update(key, plant)
 
+    def increment_chill_days(self, key: PlantID) -> int | None:
+        """One AQL statement: the liveness check and the increment cannot be interleaved (#1970)."""
+        query = (
+            "FOR doc IN @@collection FILTER doc._key == @key AND doc.removed_on == null "
+            "UPDATE doc WITH {chill_days_accumulated: (doc.chill_days_accumulated || 0) + 1, updated_at: @now} "
+            "IN @@collection RETURN NEW.chill_days_accumulated"
+        )
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": col.PLANT_INSTANCES, "key": key, "now": self._now()},
+        )
+        return next(iter(cursor), None)
+
     def delete(self, key: PlantID) -> bool:
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
         self.delete_edges(col.PLACED_IN, from_id=plant_id)
@@ -101,11 +112,6 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         return super().delete(key)
 
     # ── Slot-based queries ────────────────────────────────────────────
-
-    def get_by_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
-        slot_id = f"{col.SLOTS}/{slot_key}"
-        results = self.get_edges(col.PLACED_IN, slot_id, direction="inbound")
-        return [PlantInstance(**self._resolve_phase_name(self._from_doc(r["vertex"]))) for r in results]
 
     def get_active_by_slot(self, slot_key: SlotKey, *, tenant_key: str) -> list[PlantInstance]:
         """Plants currently occupying a slot, **inside one tenant** (#927).
@@ -138,8 +144,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         history, which says which botanical families were grown in that bed.
         """
         self._require_tenant_key(tenant_key, "get_history_by_slot")
-        cutoff = datetime.now(UTC).replace(year=datetime.now(UTC).year - years)
-        cutoff_iso = cutoff.isoformat()
+        # ``planted_on`` is a ``date`` stored as ``YYYY-MM-DD``: bind the cutoff as a
+        # date too. A datetime string (``…T00:00:00+00:00``) collates *after* the
+        # bare date of the same day, which dropped a planting made on the cutoff
+        # day from the rotation history (#1799).
+        today = today_utc()
+        cutoff_iso = replace_year(today, today.year - years).isoformat()
         query = """
         FOR v, e IN 1..1 INBOUND @slot_id GRAPH 'kamerplanter_graph'
           OPTIONS {edgeCollections: [@edge_col]}
@@ -156,11 +166,6 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantInstance(**self._resolve_phase_name(self._from_doc(doc))) for doc in cursor]
-
-    # ── Species-based query ───────────────────────────────────────────
-
-    def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
-        return self.find_by_field("species_key", species_key)
 
     # ── Genetic lineage (REQ-017 / REQ-003 D10) ───────────────────────
 
@@ -294,7 +299,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             AND p.removed_on == null
             AND p.current_phase_key != null
             AND p.current_phase_key IN phase_keys
-          SORT p.current_phase_started_at DESC, p._key ASC
+          SORT DATE_TIMESTAMP(p.current_phase_started_at) DESC, p._key ASC
           LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null

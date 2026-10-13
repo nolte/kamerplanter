@@ -43,7 +43,7 @@ describe('IdentificationConsentGate', () => {
     setup({ showPrivacyLink: true });
     expect(screen.getByTestId('identification-consent-gate')).toBeInTheDocument();
     // Full mode renders the revocation link to the privacy settings.
-    expect(screen.getByRole('link')).toHaveAttribute('href', '/settings#privacy');
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/privacy');
   });
 
   it('hides the privacy link in Light mode but keeps the transparency notice', () => {

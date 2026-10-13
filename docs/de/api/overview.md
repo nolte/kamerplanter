@@ -207,13 +207,30 @@ Alle Request-Bodies und Responses verwenden `application/json`. Eine explizite `
 
 ### Paginierung
 
-Listenendpunkte unterstützen `skip` und `limit` als Query-Parameter:
+Listenendpunkte antworten mit einem JSON-Array und lesen ein begrenztes Fenster über die Query-Parameter `offset` und `limit`:
 
 ```http
-GET /api/v1/species/?skip=0&limit=50
+GET /api/v1/t/mein-garten/plant-instances?offset=0&limit=50
 ```
 
-Standardwerte: `skip=0`, `limit=100` (je nach Endpunkt variierend).
+| Parameter | Standard | Bereich | Bedeutung |
+|---|---|---|---|
+| `offset` | `0` | ≥ 0 | Anzahl der Einträge, die übersprungen werden |
+| `limit` | `50` | 1–200 | Höchstzahl der Einträge pro Antwort; `limit=201` wird mit `422` abgelehnt |
+
+Die Antwort enthält keine Gesamtzahl. Du liest die nächste Seite, bis eine Seite kürzer als `limit` ist. Einen Parameter wie `include_total` gibt es deshalb nicht: Seit Issue #2131 zählt auch intern keine Liste mehr bei jeder Seite alle Einträge nach — weder die Wachstumslisten eines Gartens (Aufgaben, Tagebuch, Inspektionen, Behandlungen, Ernte, Vermehrung, Durchläufe, Importe) noch die Kataloge und Einstellungslisten (Standorte, Tanks, Dünger, Nährstoffpläne, Folgesaaten, Überwinterung, Bewurzelungsprotokolle, Workflow-Vorlagen, Tätigkeiten, Schädlinge, Krankheiten, Behandlungen, Erntemerkmale, Phasen).
+
+!!! warning "Ohne `limit` erhältst du nur die ersten 50 Einträge"
+    Seit Issue #2131 sind auch diese Listen begrenzt, die bisher **jeden** Eintrag lieferten: `GET /admin/platform/tenants`, `GET /admin/platform/users`, `GET /tenants/{slug}/invitations`, `GET /t/{slug}/ai/conversations`, `GET /t/{slug}/tasks/plants/{plant_key}`, `GET /t/{slug}/post-harvest/{key}/observations`, `GET /tenants/{slug}/members`, `GET /tenants/{slug}/assignments`, `GET /admin/platform/tenants/{tenant_key}/members`, `GET /t/{slug}/tasks/workflows/{key}/executions`, `GET /t/{slug}/inventree/references` und `GET /t/{slug}/propagation/stats/by-cultivar`. Ein Client, der dort kein `limit` schickt, bekommt jetzt die ersten 50 Einträge statt aller. Lies mehr Seiten mit `offset`.
+
+**Cursor statt `offset`.** Die Listen `GET /t/{slug}/plant-instances`, `/watering-logs`, `/watering-events` und `/feeding-events` sind nach `key` sortiert und nehmen zusätzlich `after` an: den `key` des letzten Eintrags der vorigen Seite.
+
+```http
+GET /api/v1/t/mein-garten/watering-logs?limit=200
+GET /api/v1/t/mein-garten/watering-logs?limit=200&after=<key des letzten Eintrags>
+```
+
+Eine leere Seite beendet die Liste. Eine Seite mit `after` kostet bei Eintrag 50 000 so viel wie die erste, eine Seite mit `offset=49950` liest dagegen alle Einträge davor. `after` und ein `offset` größer 0 zusammen lehnt die API mit `422` ab, ebenso einen `after`-Wert mit Zeichen, die in einem Schlüssel nicht vorkommen.
 
 ### Datumsformat
 
@@ -268,6 +285,6 @@ Jede API-Antwort enthält folgende Sicherheits-Header:
 
 - [Authentifizierung](authentication.md) — Token-Workflow und API-Keys
 - [Fehlerbehandlung](error-handling.md) — Fehlerstruktur und Fehlercodes
-- [Service Accounts](service-accounts.md) — M2M-Zugriff (geplant, noch nicht implementiert)
+- [Service Accounts](service-accounts.md) — M2M-Zugriff per API-Key, je Garten von der Leitung angelegt
 - [MCP-Server](mcp-server.md) — externe LLM-Clients als Kamerplanter-Werkzeug
 - [Lokale Entwicklungsumgebung](../development/local-setup.md) — Backend lokal starten

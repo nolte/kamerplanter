@@ -27,6 +27,17 @@ from app.domain.models.propagation import (
     RootingProtocol,
 )
 
+#: The rooting protocols one tenant may read — the global templates
+#: (``tenant_key == ""``) plus its own, narrowed by the optional filters. The one
+#: filter body the page and the count of ``list_protocols`` share, so the two
+#: cannot drift apart (review SEC-005 of #2272, MT-035 #2131).
+_ROOTING_PROTOCOLS_SELECTION = """
+        FOR p IN @@col
+          FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
+          FILTER @method == null OR p.method == @method
+          FILTER @is_template == null OR p.is_template == @is_template
+"""
+
 
 class _PropagationEventRepository(BaseArangoRepository[PropagationEvent]):
     """The events collection, as a class rather than a configured instance.
@@ -102,13 +113,41 @@ class PropagationRepository:
             sort_direction="DESC",
         )
 
+    def list_events_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationEvent]:
+        """The page of :meth:`list_events` without its count query (MT-035, #2131).
+
+        Refuses the empty tenant: ``tenant_key == ""`` would otherwise match every
+        row written without one instead of failing (review SEC-002 of #2272).
+        """
+        self._events._require_tenant_key(tenant_key, "list_events_window")
+        filters: list[tuple[str, str, Any]] = [("tenant_key", "==", tenant_key)]
+        if method:
+            filters.append(("method", "==", method))
+        if status:
+            filters.append(("status", "==", status))
+        return self._events.get_page_window(
+            offset=offset,
+            limit=limit,
+            filters=filters,
+            sort="created_at",
+            sort_direction="DESC",
+        )
+
     def list_events_for_plant(self, plant_key: str, tenant_key: str) -> list[PropagationEvent]:
         """Events where the plant is either a source (parent) or a result (child)."""
         query = """
         FOR e IN @@col
           FILTER e.tenant_key == @tenant_key
           FILTER @plant_key IN e.parent_plant_keys OR @plant_key IN e.child_plant_keys
-          SORT e.created_at DESC
+          SORT DATE_TIMESTAMP(e.created_at) DESC
           RETURN e
         """
         bind_vars = {"@col": col.PROPAGATION_EVENTS, "tenant_key": tenant_key, "plant_key": plant_key}
@@ -116,12 +155,14 @@ class PropagationRepository:
         return [PropagationEvent(**self._events._from_doc(doc)) for doc in cursor]
 
     def list_events_for_batch(self, batch_key: str, tenant_key: str) -> list[PropagationEvent]:
-        return self._events.get_page(
-            filters=[("tenant_key", "==", tenant_key), ("batch_key", "==", batch_key)],
+        """Every event of the batch, oldest first — not a first page of 500 (#2025)."""
+        return self._events.find_by_field(
+            "batch_key",
+            batch_key,
             sort="created_at",
             sort_direction="ASC",
-            limit=500,
-        )[0]
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     # ── Batches ──────────────────────────────────────────────────────────────
 
@@ -159,6 +200,33 @@ class PropagationRepository:
             sort_direction="DESC",
         )
 
+    def list_batches_window(
+        self,
+        *,
+        tenant_key: str,
+        status: str | None = None,
+        method: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> list[PropagationBatch]:
+        """The page of :meth:`list_batches` without its count query (MT-035, #2131).
+
+        Refuses the empty tenant, as :meth:`list_events_window` does (review SEC-002 of #2272).
+        """
+        self._batches._require_tenant_key(tenant_key, "list_batches_window")
+        filters: list[tuple[str, str, Any]] = [("tenant_key", "==", tenant_key)]
+        if status:
+            filters.append(("status", "==", status))
+        if method:
+            filters.append(("method", "==", method))
+        return self._batches.get_page_window(
+            offset=offset,
+            limit=limit,
+            filters=filters,
+            sort="created_at",
+            sort_direction="DESC",
+        )
+
     # ── Rooting protocols (global templates + tenant-owned) ──────────────────
 
     def create_protocol(self, protocol: RootingProtocol) -> RootingProtocol:
@@ -189,15 +257,45 @@ class PropagationRepository:
         limit: int = 100,
     ) -> tuple[list[RootingProtocol], int]:
         """Union of global templates (``tenant_key == ""``) and the tenant's own."""
-        query = """
-        FOR p IN @@col
-          FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
-          FILTER @method == null OR p.method == @method
-          FILTER @is_template == null OR p.is_template == @is_template
-          SORT p.name ASC
+        items, total = self._read_protocols(tenant_key, method, is_template, offset, limit, count=True)
+        return items, total or 0
+
+    def list_protocols_window(
+        self,
+        *,
+        tenant_key: str,
+        method: str | None = None,
+        is_template: bool | None = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[RootingProtocol]:
+        """The page of :meth:`list_protocols` without its count query (MT-035, #2131)."""
+        return self._read_protocols(tenant_key, method, is_template, offset, limit, count=False)[0]
+
+    def _read_protocols(
+        self,
+        tenant_key: str,
+        method: str | None,
+        is_template: bool | None,
+        offset: int,
+        limit: int,
+        *,
+        count: bool,
+    ) -> tuple[list[RootingProtocol], int | None]:
+        """One page and, with ``count``, the total of the protocols ``tenant_key`` may read.
+
+        ``name`` is not unique (a tenant's copy of a global template), so ``_key``
+        breaks the tie: offset paging over a partial order may show a row on two
+        pages or none (BACKEND.md §6.4, MT-035 #2131).
+        """
+        query = (
+            _ROOTING_PROTOCOLS_SELECTION
+            + """
+          SORT p.name ASC, p._key ASC
           LIMIT @offset, @limit
           RETURN p
         """
+        )
         bind_vars = {
             "@col": col.ROOTING_PROTOCOLS,
             "tenant_key": tenant_key,
@@ -208,24 +306,23 @@ class PropagationRepository:
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [RootingProtocol(**self._protocols._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
 
-        count_query = """
-        RETURN LENGTH(
-          FOR p IN @@col
-            FILTER p.tenant_key == "" OR p.tenant_key == @tenant_key
-            FILTER @method == null OR p.method == @method
-            FILTER @is_template == null OR p.is_template == @is_template
-            RETURN 1
-        )
+        count_query = (
+            _ROOTING_PROTOCOLS_SELECTION
+            + """
+          COLLECT WITH COUNT INTO total
+          RETURN total
         """
+        )
         count_vars = {
             "@col": col.ROOTING_PROTOCOLS,
             "tenant_key": tenant_key,
             "method": method,
             "is_template": is_template,
         }
-        total = next(self._db.aql.execute(count_query, bind_vars=count_vars), 0)
-        return items, total
+        return items, next(self._db.aql.execute(count_query, bind_vars=count_vars), 0)
 
     def protocol_in_use(self, protocol_key: str, tenant_key: str) -> bool:
         """Whether any of the tenant's events reference this protocol."""
@@ -244,12 +341,14 @@ class PropagationRepository:
         return self._phenotypes.create(note)
 
     def list_phenotypes_for_plant(self, plant_key: str, tenant_key: str) -> list[PhenotypeNote]:
-        return self._phenotypes.get_page(
-            filters=[("tenant_key", "==", tenant_key), ("plant_key", "==", plant_key)],
+        """Every phenotype note of the plant, newest first — not a first page of 500 (#2025)."""
+        return self._phenotypes.find_by_field(
+            "plant_key",
+            plant_key,
             sort="created_at",
             sort_direction="DESC",
-            limit=500,
-        )[0]
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     def get_phenotype(self, key: str, tenant_key: str) -> PhenotypeNote | None:
         note = self._phenotypes.get_by_key(key)
@@ -375,7 +474,7 @@ class PropagationRepository:
         query = """
         FOR p IN @@col
           FILTER p.tenant_key == @tenant_key AND p.is_mother == true
-          SORT p.created_at DESC
+          SORT DATE_TIMESTAMP(p.created_at) DESC
           LIMIT @offset, @limit
           RETURN p
         """
@@ -397,11 +496,18 @@ class PropagationRepository:
 
     # ── Statistics ───────────────────────────────────────────────────────────
 
-    def stats(self, tenant_key: str, group_by: str) -> list[dict[str, Any]]:
-        """Success-rate aggregation grouped by ``method`` / ``species`` / ``protocol``.
+    def stats(
+        self, tenant_key: str, group_by: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[dict[str, Any]]:
+        """Success-rate aggregation grouped by ``method`` / ``species`` / ``protocol`` / ``cultivar``.
 
         ``group_by`` is a code-level whitelist key, mapped to a document field
         here; it is never taken from client input verbatim.
+
+        ``offset``/``limit`` cut one window of the aggregated rows, ordered by the
+        group key (MT-035, #2131) — one row per cultivar grows with the tenant's
+        propagation history. Both ``None`` returns every group. The scan over the
+        tenant's events is the aggregation itself; the window bounds the answer.
         """
         field_map = {
             "method": "method",
@@ -410,20 +516,26 @@ class PropagationRepository:
             "cultivar": "cultivar_key",
         }
         field = field_map[group_by]
-        query = """
+        bind_vars: dict[str, Any] = {"@col": col.PROPAGATION_EVENTS, "tenant_key": tenant_key, "field": field}
+        window = ""
+        if offset is not None and limit is not None:
+            window = "SORT bucket ASC LIMIT @offset, @limit"
+            bind_vars["offset"] = offset
+            bind_vars["limit"] = limit
+        query = f"""
         FOR e IN @@col
           FILTER e.tenant_key == @tenant_key
           COLLECT bucket = e.@field INTO group
+          {window}
           LET total_qty = SUM(group[*].e.quantity)
           LET total_survived = SUM(group[*].e.survived_count)
-          RETURN {
+          RETURN {{
             key: bucket,
             event_count: LENGTH(group),
             total_quantity: total_qty,
             total_survived: total_survived,
             success_rate: total_qty > 0 ? (total_survived / total_qty) : null
-          }
+          }}
         """
-        bind_vars = {"@col": col.PROPAGATION_EVENTS, "tenant_key": tenant_key, "field": field}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)

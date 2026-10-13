@@ -1,0 +1,93 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
+# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
+#
+# Re-derived after #1786 (16667ac9a) changed data_export_engine.py: one import line was added (bundle_object_key
+# delegates to export_bundle_key), so the cited lines moved +1.
+# The declared content, order and count are unchanged; derived_from is now 16667ac9a, the
+# declaration's latest commit on develop. Observe step, targets and expectation unchanged.
+# Earlier:
+# Re-derived after #1721 (#1719): the manifest the export walk executes now has 38
+# collections and 7 edges (new: api_keys, onboarding_states, pest_detections,
+# user_favorites, user_preferences). location_assignments is declared with a
+# disclosure_gap (not collected per person, the bundle says why) and is therefore not
+# an expected member.
+id: inventory-export-manifest-sources-populated
+summary: sources of the executing export manifest whose seeded rows reach the subject's Art. 15 archive
+declaration:
+  source: inventory
+  path: src/backend/app/domain/engines/data_export_engine.py
+  location: DataExportEngine.USER_DATA_MANIFEST (L41)
+tier: T2
+expected:
+  kind: set
+  unit: manifest collections and edges disclosed with the subject's rows
+  values:
+  - collection/ai_audit_log
+  - collection/ai_conversations
+  - collection/ai_tip_cache
+  - collection/api_keys
+  - collection/attachments
+  - collection/auth_providers
+  - collection/calendar_feeds
+  - collection/consent_records
+  - collection/data_export_requests
+  - collection/email_change_requests
+  - collection/erasure_requests
+  - collection/harvest_batches
+  - collection/identification_requests
+  - collection/import_jobs
+  - collection/inspections
+  - collection/invitations
+  - collection/manual_overrides
+  - collection/mcp_audit_log
+  - collection/mcp_idempotency_record
+  - collection/memberships
+  - collection/notification_preferences
+  - collection/notifications
+  - collection/onboarding_states
+  - collection/pest_detections
+  - collection/pest_image_contributions
+  - collection/plant_diagnosis_requests
+  - collection/plant_diary_entries
+  - collection/processing_restrictions
+  - collection/quality_assessments
+  - collection/refresh_tokens
+  - collection/task_comments
+  - collection/tasks
+  - collection/tenants
+  - collection/treatment_applications
+  - collection/user_favorites
+  - collection/user_preferences
+  - collection/users
+  - collection/weather_source_configs
+  - edge/has_auth_provider
+  - edge/has_consent
+  - edge/has_restriction
+  - edge/has_session
+  - edge/requested_email_change
+  - edge/requested_erasure
+  - edge/requested_export
+derived_from: blob:7d44647ebcad3dd2b868327425031bbbc8268fd2
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:export:run-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_export_archive.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 300
+approval:
+  approved_at: '2026-10-04T12:35:32Z'
+  approved_by: nolte
+  observation_digest: 17281a965c090fdf0d4e4a3b73f6e4f4ab96d7690503b7c71280c6699879d8e4
+  mode: reconfirmed

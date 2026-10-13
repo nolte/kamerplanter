@@ -10,12 +10,12 @@ creates an IPM inspection *suggestion* only — never a treatment (§0), so the
 Karenz gate is not engaged. Cross-tenant access fails closed with 404 (no oracle).
 """
 
-import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tenant_scoped.cv_diagnosis.schemas import (
     ConfirmDiagnosisRequest,
     ConfirmDiagnosisResponse,
@@ -30,7 +30,9 @@ from app.common.exceptions import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.common.image_bounds import MAX_IMAGE_PIXELS, open_bounded_image
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.upload_bounds import declared_body_exceeds
 from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.cv_diagnosis_service import CvDiagnosisService
@@ -41,15 +43,8 @@ router = APIRouter(prefix="/cv-diagnosis", tags=["cv-diagnosis"], responses=NOT_
 _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB bounded-read chunk
 # SEC-004 decompression-bomb guard — reject implausibly large pixel counts even
-# when the encoded bytes are tiny.
-_MAX_IMAGE_PIXELS = 40_000_000  # ~6300 x 6300 px
-
-
-def _parse_content_length(request: Request) -> int | None:
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
+# when the encoded bytes are tiny. The ceiling is the shared one (#2108).
+_MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -75,14 +70,13 @@ def _validate_image_bytes(image_data: bytes, max_bytes: int) -> None:
     if len(image_data) > max_bytes:
         raise PayloadTooLargeError(max_bytes)
     if not is_supported_image(image_data):
-        raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"])
+        raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
     try:
-        with Image.open(io.BytesIO(image_data)) as img:
-            width, height = img.size
-            if width * height > _MAX_IMAGE_PIXELS:
-                raise PayloadTooLargeError(max_bytes)
+        # Above the ceiling ``open_bounded_image`` raises ImagePixelLimitError
+        # (413) from the header — before ``verify()`` reads anything.
+        with open_bounded_image(image_data, max_pixels=_MAX_IMAGE_PIXELS) as img:
             img.verify()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except (UnidentifiedImageError, OSError) as exc:
         raise ValidationError(
             "The uploaded image could not be decoded.",
             details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],
@@ -99,6 +93,7 @@ def cv_diagnosis_status(
 
 
 @router.post("/diagnose", response_model=CvDiagnosisResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def diagnose(
     request: Request,
     image: UploadFile,
@@ -115,11 +110,10 @@ async def diagnose(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     max_bytes = settings.cv_diagnosis_max_image_size_mb * 1024 * 1024
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise PayloadTooLargeError(max_bytes)
     image_data = await _read_upload_bounded(image, max_bytes)
     _validate_image_bytes(image_data, max_bytes)
@@ -149,6 +143,7 @@ def confirm_diagnosis(
         request_key,
         tenant_key=ctx.tenant_key,
         plant_key=body.plant_key,
+        user_key=ctx.user_key,
         confirmed_labels=body.confirmed_labels,
     )
     return ConfirmDiagnosisResponse(**result)

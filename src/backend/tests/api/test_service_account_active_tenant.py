@@ -130,7 +130,7 @@ def test_an_interactive_caller_still_falls_back_to_their_personal_tenant() -> No
     resolver that returned ``""`` for *every* header-less caller would pass the
     test above and break every single-tenant client.
     """
-    client = _client(account_type="user", personal=_MACHINE_PERSONAL)
+    client = _client(account_type="human", personal=_MACHINE_PERSONAL)
 
     assert client.get("/probe").json() == {"tenant_key": _MACHINE_PERSONAL.key}
 

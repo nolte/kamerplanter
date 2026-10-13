@@ -90,7 +90,10 @@ class TestEnsureNextWateringTaskUnderWriteConflict:
         ]
         task_repo.create_task.side_effect = WriteConflictError("tasks")
 
-        assert _service(task_repo).ensure_next_watering_task(CareProfile(plant_key="plant-1")) is None
+        assert (
+            _service(task_repo).ensure_next_watering_task(CareProfile(plant_key="plant-1"), tenant_key="tenant-a")
+            is None
+        )
         task_repo.create_task.assert_called_once()
         assert task_repo.find_open_care_task.call_count == 2
 
@@ -108,7 +111,7 @@ class TestEnsureNextWateringTaskUnderWriteConflict:
         task_repo.find_open_care_task.side_effect = [None, _task()]
         task_repo.create_task.side_effect = WriteConflictError("tasks")
 
-        _service(task_repo).ensure_next_watering_task(CareProfile(plant_key="plant-1"))
+        _service(task_repo).ensure_next_watering_task(CareProfile(plant_key="plant-1"), tenant_key="tenant-a")
 
         reread = task_repo.find_open_care_task.call_args_list[1]
         assert reread.kwargs["include_completed_today"] is False
@@ -127,7 +130,7 @@ class TestEnsureNextWateringTaskUnderWriteConflict:
         task_repo.create_task.side_effect = WriteConflictError("tasks")
 
         with pytest.raises(WriteConflictError):
-            _service(task_repo).ensure_next_watering_task(CareProfile(plant_key="plant-1"))
+            _service(task_repo).ensure_next_watering_task(CareProfile(plant_key="plant-1"), tenant_key="tenant-a")
 
 
 # ── the shared creator every care-task producer routes through ───────────────

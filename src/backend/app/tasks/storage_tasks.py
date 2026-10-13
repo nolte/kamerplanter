@@ -7,6 +7,14 @@ with the ``{ulid}_t{size}.webp`` key (NFR-013 §8.2).
 
 The task is idempotent — re-running it overwrites the existing renditions and
 also supports lazy regeneration when a download finds a missing rendition.
+
+**Every dispatch goes through** :func:`request_thumbnails` (#2108). It queues the
+task at most once per attachment and window (an atomic claim, see
+``app.domain.interfaces.rendition_dispatch_claims``) and never for an object
+whose renditions failed for good. Before #2108 every thumbnail GET that met a
+missing rendition queued a full decode; the guard
+``tests/unit/guards/test_thumbnail_dispatches_are_claimed.py`` keeps
+``generate_thumbnails.delay`` inside :func:`request_thumbnails`.
 """
 
 from __future__ import annotations
@@ -16,14 +24,20 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
 import structlog
+from PIL import UnidentifiedImageError
 
 from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.common.exceptions import ImagePixelLimitError
+from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
+    ThumbnailMetadataError,
     can_render,
     thumbnail_key,
 )
+from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
+from app.domain.models.attachment import Attachment
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -46,7 +60,7 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
 
     attachment = repo.get(attachment_id, tenant_key)
     if attachment is None:
-        logger.warning("thumbnail_attachment_missing", attachment_id=attachment_id, tenant_key=tenant_key)
+        logger.warning("thumbnail_attachment_missing", attachment_id=attachment_id, tenant=log_tenant(tenant_key))
         return {"attachment_id": attachment_id, "generated": 0, "reason": "attachment_not_found"}
 
     if not can_render(attachment.mime_type):
@@ -67,28 +81,118 @@ async def _generate(attachment_id: str, tenant_key: str) -> dict:
         )
         generated += 1
 
+    # #1760 — an erasure or delete that ran while the renditions were rendered
+    # removed the original and its renditions already; the ones just written
+    # would stay with nothing pointing at them. Undo them.
+    # The record outlives Phase 0 of an Art. 17 erasure (the ArangoDB plan runs
+    # after it), so the original's presence is checked too.
+    # #1770 — the renditions belong to the *object*, which other uploaders'
+    # records may share: this record being gone discards them only when no
+    # other record holds the object either.
+    if not await _object_exists(storage, attachment.storage_key) or (
+        repo.get(attachment_id, tenant_key) is None
+        and attachment.storage_key
+        not in repo.storage_keys_held_elsewhere(
+            tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[attachment_id]
+        )
+    ):
+        for thumb in renditions:
+            await storage.delete_object(thumbnail_key(attachment.storage_key, thumb.size))
+        logger.info("thumbnails_discarded_after_delete", tenant=log_tenant(tenant_key), attachment_id=attachment_id)
+        return {"attachment_id": attachment_id, "generated": 0, "reason": "attachment_deleted"}
+
     logger.info(
         "thumbnails_generated",
-        tenant_key=tenant_key,
+        tenant=log_tenant(tenant_key),
         attachment_id=attachment_id,
         generated=generated,
     )
     return {"attachment_id": attachment_id, "generated": generated}
 
 
+async def _object_exists(storage, key: str) -> bool:  # type: ignore[no-untyped-def]
+    from app.common.exceptions import NotFoundError
+
+    try:
+        await storage.head_object(key)
+    except NotFoundError:
+        return False
+    return True
+
+
+#: Failures a retry cannot cure: the same bytes fail the same way (#2108). The
+#: task gives up at once instead of decoding them three more times.
+_PERMANENT_FAILURES: tuple[type[BaseException], ...] = (
+    ImagePixelLimitError,
+    ThumbnailMetadataError,
+    UnidentifiedImageError,
+)
+
+
+def _mark_renditions_failed(attachment_id: str, tenant_key: str) -> None:
+    """Record on the attachment that no rendition will come, so its GETs answer 404 (#2108)."""
+    try:
+        repo = get_attachment_repo()
+        attachment = repo.get(attachment_id, tenant_key)
+        if attachment is not None:
+            repo.mark_renditions_failed(tenant_key, attachment.storage_key)
+    except Exception as exc:  # noqa: BLE001 — the marker is best effort; the claim window still bounds dispatches
+        logger.warning(
+            "thumbnail_failure_mark_failed",
+            attachment_id=attachment_id,
+            tenant=log_tenant(tenant_key),
+            error=loggable_error(exc),
+        )
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)  # type: ignore[misc]
 def generate_thumbnails(self, attachment_id: str, tenant_key: str) -> dict:  # type: ignore[no-untyped-def]
-    """Generate WEBP thumbnail renditions for an image attachment (NFR-013 §8.2)."""
+    """Generate WEBP thumbnail renditions for an image attachment (NFR-013 §8.2).
+
+    A permanent failure (#2108: above the pixel ceiling, undecodable, a rendition
+    that kept its metadata) and the last failed retry mark the attachment
+    ``renditions_failed`` instead of queueing yet another attempt.
+    """
     try:
         return asyncio.run(_generate(attachment_id, tenant_key))
+    except _PERMANENT_FAILURES as exc:
+        logger.warning(
+            "generate_thumbnails_failed_permanently",
+            attachment_id=attachment_id,
+            tenant=log_tenant(tenant_key),
+            error=loggable_error(exc),
+        )
+        _mark_renditions_failed(attachment_id, tenant_key)
+        return {"attachment_id": attachment_id, "generated": 0, "reason": "renditions_failed"}
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure
         logger.error(
             "generate_thumbnails_failed",
             attachment_id=attachment_id,
-            tenant_key=tenant_key,
-            error=str(exc),
+            tenant=log_tenant(tenant_key),
+            error=loggable_error(exc),
         )
+        if (self.request.retries or 0) >= self.max_retries:
+            _mark_renditions_failed(attachment_id, tenant_key)
+            return {"attachment_id": attachment_id, "generated": 0, "reason": "renditions_failed"}
         raise self.retry(exc=exc) from exc
+
+
+def request_thumbnails(attachment: Attachment, claims: IRenditionDispatchClaims) -> bool:
+    """Queue the renditions of *attachment* at most once per window (#2108).
+
+    The only place under ``app/`` that dispatches :func:`generate_thumbnails`.
+
+    Returns:
+        ``True`` when a rendition can still come — queued now, or by an earlier
+        caller inside the window (the caller answers 202). ``False`` when none
+        ever will: a type the generator does not render, or renditions that
+        failed for good (the caller answers 404).
+    """
+    if not attachment.key or attachment.renditions_failed or not can_render(attachment.mime_type):
+        return False
+    if claims.claim(attachment.key):
+        generate_thumbnails.delay(attachment.key, attachment.tenant_key)
+    return True
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=300)  # type: ignore[misc]
@@ -138,7 +242,7 @@ def migrate_storage(  # type: ignore[no-untyped-def]
             "storage_migrate_failed",
             backend_from=backend_from,
             backend_to=backend_to,
-            error=str(exc),
+            error=loggable_error(exc),
         )
         raise self.retry(exc=exc) from exc
 
@@ -166,7 +270,7 @@ def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[n
     try:
         report = run(dry_run=dry_run)
     except Exception as exc:  # noqa: BLE001 — retry on transient DB errors
-        logger.error("migrate_photo_refs_failed", error=str(exc))
+        logger.error("migrate_photo_refs_failed", error=loggable_error(exc))
         raise self.retry(exc=exc) from exc
 
     result = report.as_dict()
@@ -176,9 +280,11 @@ def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[n
 
 async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
     from app.common.dependencies import get_attachment_repo, get_attachment_service
+    from app.common.held_count import held_undated_count
 
     cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
-    orphans = get_attachment_repo().find_orphaned_task_photos(older_than=cutoff, limit=limit)
+    attachment_repo = get_attachment_repo()
+    orphans = attachment_repo.find_orphaned_task_photos(older_than=cutoff, limit=limit)
 
     service = get_attachment_service()
     deleted = 0
@@ -213,8 +319,8 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
             logger.warning(
                 "orphan_photo_delete_failed",
                 attachment_id=attachment.key,
-                tenant_key=attachment.tenant_key,
-                error=str(exc),
+                tenant=log_tenant(attachment.tenant_key),
+                error=loggable_error(exc),
             )
     return {
         "found": len(orphans),
@@ -222,6 +328,10 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
         "failed": failed,
         "skipped": skipped,
         "freed_bytes": freed_bytes,
+        # #1806 GDPR-003: orphans the age floor cannot judge (no readable ``created_at``).
+        "held_undated": held_undated_count(
+            attachment_repo.count_undated_orphaned_task_photos, task="cleanup_orphaned_task_photos"
+        ),
         "cutoff": cutoff.isoformat(),
     }
 
@@ -262,8 +372,90 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
     try:
         result = asyncio.run(_cleanup_orphaned_task_photos(hours, limit))
     except Exception as exc:  # noqa: BLE001 — retry on any transient failure
-        logger.error("cleanup_orphaned_task_photos_failed", error=str(exc))
+        logger.error("cleanup_orphaned_task_photos_failed", error=loggable_error(exc))
         raise self.retry(exc=exc) from exc
 
     logger.info("cleanup_orphaned_task_photos_audit", **result)
+    return result
+
+
+class _RedisCursorStore:
+    """The reconciliation's resume point, kept in Redis; fails open (a lost cursor restarts the walk)."""
+
+    _KEY = "storage:reconcile:cursor"
+    # Long enough to bridge a missed night, short because a local-fs token is an
+    # object key (it names a tenant) and Valkey is not covered by a retention rule.
+    _TTL_SECONDS = 2 * 24 * 3600
+
+    def __init__(self, client, backend: str) -> None:  # type: ignore[no-untyped-def]
+        self._client = client
+        # A token only means something to the backend that issued it: an S3
+        # continuation token handed to local-fs (or the reverse) after a migration
+        # would skip keys or fail every night.
+        self._prefix = f"{backend}\x1f"
+
+    def get(self) -> str | None:
+        try:
+            value = self._client.get(self._KEY)
+        except Exception as exc:  # noqa: BLE001 — an unreachable cursor means "start over"
+            logger.warning("storage_reconcile_cursor_unavailable", error_type=type(exc).__name__)
+            return None
+        if not value or not value.startswith(self._prefix):
+            return None
+        return value[len(self._prefix) :]
+
+    def set(self, token: str) -> None:
+        try:
+            self._client.set(self._KEY, self._prefix + token, ex=self._TTL_SECONDS)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("storage_reconcile_cursor_unavailable", error_type=type(exc).__name__)
+
+    def clear(self) -> None:
+        try:
+            self._client.delete(self._KEY)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("storage_reconcile_cursor_unavailable", error_type=type(exc).__name__)
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[misc]
+def reconcile_orphaned_storage_objects(self) -> dict:  # type: ignore[no-untyped-def]
+    """Find stored objects no attachment record holds any more (#1834).
+
+    Every deletion path decides from the ``attachments`` catalogue, so an object
+    whose last record went without its bytes was never looked at again: a storage
+    call that failed after its record was removed, a record created inside an
+    erasure's window, a pest reference uploaded in a tenant the user later left.
+    This walks ``t/`` through the storage adapter instead.
+
+    **Report-only unless ``STORAGE_RECONCILE_DELETE_ENABLED`` is true; false is the
+    shipped default.** A run returns ``found`` / ``eligible`` / ``would_delete`` /
+    ``deleted`` / ``failed`` counts and nothing that names a tenant, user or key (its
+    own log lines are the same; the storage adapter's generic ``storage_delete_object``
+    line, which every delete path emits, still carries the object key);
+    the operator reads a run's ``would_delete`` before arming deletion. Objects
+    younger than ``STORAGE_RECONCILE_MIN_AGE_HOURS`` (default 24, never below 1)
+    are left alone — an upload writes the object before its record.
+    """
+    from app.common.dependencies import _get_redis_client
+    from app.domain.services.storage_reconciliation_service import StorageReconciliationService
+
+    service = StorageReconciliationService(
+        storage=get_object_storage(),
+        attachment_repo=get_attachment_repo(),
+        min_age=timedelta(hours=settings.storage_reconcile_min_age_hours),
+        delete_enabled=settings.storage_reconcile_delete_enabled,
+        max_objects_per_run=settings.storage_reconcile_max_objects_per_run,
+        max_orphan_fraction=settings.storage_reconcile_max_orphan_fraction,
+        cursor_store=_RedisCursorStore(_get_redis_client(), settings.storage_backend),
+    )
+    try:
+        result = asyncio.run(service.run()).as_dict()
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("reconcile_orphaned_storage_objects_failed", error_type=type(exc).__name__)
+        # Retried under the exception *type* only: Celery logs the retried exception
+        # and stores it in the result backend, and a storage or catalogue error text
+        # can embed an object path (which embeds the tenant).
+        raise self.retry(exc=RuntimeError(f"reconciliation failed: {type(exc).__name__}")) from None
+
+    logger.info("reconcile_orphaned_storage_objects_audit", **result)
     return result

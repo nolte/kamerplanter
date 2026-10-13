@@ -1,7 +1,8 @@
 """Page object for the "Connect mobile device" QR pairing dialog (REQ-023, #1118).
 
 The dialog lives in the account-settings *Sessions* tab, which exists only in
-FULL mode. Opening it issues a short-lived one-time pairing code via
+FULL mode. Opening it asks for the current password (the step-up, #1847), then
+issues a short-lived one-time pairing code via
 ``POST /api/v1/auth/device-pairing`` and renders it as a ``<QRCodeSVG>``; a
 per-second countdown drives the code to an expired state whose refresh button
 re-requests a fresh code.
@@ -47,7 +48,14 @@ class ConnectDeviceDialogPage(BasePage):
     COUNTDOWN = (By.CSS_SELECTOR, "[data-testid='device-pairing-countdown']")
     EXPIRED = (By.CSS_SELECTOR, "[data-testid='device-pairing-expired']")
     REFRESH_BUTTON = (By.CSS_SELECTOR, "[data-testid='device-pairing-refresh']")
-    ERROR = (By.CSS_SELECTOR, "[data-testid='device-pairing-error']")
+
+    # ── Step-up in front of the code (#1847) ─────────────────────────────────
+    #: Full mode confirms the pairing with the current password first; the QR
+    #: dialog opens only once the backend accepted it. A refused confirmation is
+    #: shown inside this dialog — the QR dialog has no error state of its own.
+    STEP_UP_DIALOG = (By.CSS_SELECTOR, "[data-testid='connect-device-step-up-dialog']")
+    STEP_UP_PASSWORD = (By.CSS_SELECTOR, "[data-testid='connect-device-step-up-password'] input")
+    STEP_UP_CONFIRM = (By.CSS_SELECTOR, "[data-testid='connect-device-step-up-confirm']")
 
     #: The constant background square `qrcode.react` draws first; matching it lets
     #: :meth:`qr_data_signature` strip it out so only the payload-bearing path is
@@ -74,17 +82,29 @@ class ConnectDeviceDialogPage(BasePage):
         self.wait_for_element_clickable(self.CONNECT_BUTTON)
         return self
 
-    def open_dialog(self) -> ConnectDeviceDialogPage:
-        """Click "Connect mobile device" and wait for the dialog to be visible.
+    def open_dialog(self, password: str) -> ConnectDeviceDialogPage:
+        """Click "Connect mobile device", confirm with *password*, wait for the QR dialog.
 
-        Coordinate-free by construction: the click targets the button element
-        that carries ``connect-device-button`` directly, through the suite's
-        guarded ``scroll_and_click`` helper, never a container centre.
+        Since #1847 minting a pairing code passes the step-up: the button opens
+        the confirmation first, and the QR dialog appears only after the backend
+        accepted the current password. Coordinate-free by construction: every
+        click targets the element carrying its ``data-testid`` directly, through
+        the suite's guarded ``scroll_and_click`` helper, never a container centre.
         """
         button = self.wait_for_element_clickable(self.CONNECT_BUTTON)
         self.scroll_and_click(button)
+        self.confirm_step_up(password)
         self.wait_for_element_visible(self.DIALOG)
         return self
+
+    def confirm_step_up(self, password: str) -> None:
+        """Type the current password into the step-up dialog and confirm it (#1847)."""
+        self.wait_for_element_visible(self.STEP_UP_DIALOG)
+        field = self.wait_for_element_clickable(self.STEP_UP_PASSWORD)
+        field.clear()
+        field.send_keys(password)
+        self.scroll_and_click(self.wait_for_element_clickable(self.STEP_UP_CONFIRM))
+        self.wait_for_element_hidden(self.STEP_UP_DIALOG)
 
     def close_dialog(self) -> None:
         """Close the dialog and wait for it to leave the DOM/viewport."""

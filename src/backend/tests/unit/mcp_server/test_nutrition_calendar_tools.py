@@ -61,19 +61,22 @@ class _NutrientService:
         self._entries = entries or []
         self._plant_plan = plant_plan
         self.seen_tenant = None
+        self.seen_entries_tenant = None
 
     def list_plans(self, offset=0, limit=50, tenant_key=""):
         self.seen_tenant = tenant_key
         return self._plans, len(self._plans)
 
-    def get_plan(self, key, tenant_key="", *, for_write=False):
+    def get_plan(self, key, *, tenant_key, for_write=False):
         self.seen_tenant = tenant_key
         for p in self._plans:
             if p.key == key:
                 return p
         raise NotFoundError("NutrientPlan", key)
 
-    def get_phase_entries(self, plan_key):
+    def get_phase_entries(self, plan_key, *, tenant_key):
+        # Mirrors the real signature: required and keyword-only since #2104.
+        self.seen_entries_tenant = tenant_key
         return self._entries
 
     def get_plant_plan(self, plant_key, *, tenant_key):
@@ -124,6 +127,8 @@ async def test_get_nutrient_plan_returns_phases_in_sequence_order():
     resp = await GetNutrientPlan().run(_ctx(nutrient_plan_service=svc), GetNutrientPlan.Input(plan_key="np1"))
 
     assert [p["phase_name"] for p in resp.data["phases"]] == ["vegetative", "flowering"]
+    # The entries are read under the caller's tenant, not off a bare plan key (#2104).
+    assert svc.seen_entries_tenant == "home"
     first = resp.data["phases"][0]
     assert first["npk_ratio"] == [3.0, 1.0, 2.0]
     assert first["target_ec_ms"] == 1.2
@@ -191,21 +196,10 @@ class _CalendarService:
         self._entries = entries
         self.seen = None
 
-    def get_sowing_calendar(self, site_key, year):
+    def get_sowing_calendar(self, site_key, year, *, tenant_key):
         self.seen = (site_key, year)
-        return self._entries, _Frost()
-
-
-class _SiteService:
-    def __init__(self, allowed_key="site-1"):
-        self._allowed = allowed_key
-        self.seen_tenant = None
-
-    def get_site(self, key, tenant_key=""):
         self.seen_tenant = tenant_key
-        if key != self._allowed:
-            raise NotFoundError("Site", key)
-        return type("S", (), {"key": key})()
+        return self._entries, _Frost()
 
 
 @pytest.mark.asyncio
@@ -225,20 +219,18 @@ async def test_sowing_calendar_refuses_an_unfiltered_catalogue_dump():
 
 
 @pytest.mark.asyncio
-async def test_sowing_calendar_verifies_site_ownership_before_reading_runs():
-    # A site_key pulls in that site's planting runs, so a foreign key must never
-    # reach the engine.
+async def test_sowing_calendar_hands_the_acting_tenant_to_the_service():
+    # Since #1870 the site is resolved under the tenant inside
+    # ``CalendarService.get_sowing_calendar`` (one check for REST and MCP); the
+    # tool must hand it the acting tenant, never let the service guess.
     cal = _CalendarService([_CalEntry("sp1", "Solanum lycopersicum")])
-    sites = _SiteService(allowed_key="site-1")
-    ctx = _ctx(calendar_service=cal, site_service=sites)
+    ctx = _ctx(calendar_service=cal)
 
     ok = await GetSowingCalendar().run(ctx, GetSowingCalendar.Input(site_key="site-1", year=2026))
-    assert sites.seen_tenant == "home"
-    assert cal.seen == ("site-1", 2026)
-    assert ok.data["count"] == 1
 
-    with pytest.raises(NotFoundError):
-        await GetSowingCalendar().run(ctx, GetSowingCalendar.Input(site_key="site-of-someone-else", year=2026))
+    assert cal.seen == ("site-1", 2026)
+    assert cal.seen_tenant == "home"
+    assert ok.data["count"] == 1
 
 
 @pytest.mark.asyncio

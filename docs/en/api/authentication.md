@@ -18,6 +18,10 @@ The **access token** is a signed JSON Web Token (JWT) using the HMAC-SHA256 (HS2
 
 The **refresh token** is set as an HttpOnly cookie. It is not readable by JavaScript, protecting against Cross-Site Scripting (XSS) attacks. On every call to `/auth/refresh`, the token is rotated — the old token is invalidated and a new one issued.
 
+All refresh tokens that a single sign-in produces through rotation form a **token family**. Presenting an already rotated token again counts as reuse of a stolen token: the server ends the whole family (that one sign-in; other devices stay signed in) and answers `401 Unauthorized`. The exception is the 60-second **grace window** on the cookie path: when two tabs of the same browser renew at the same moment, the second one receives a new access token but no new cookie — the first tab has already set it. The grace window applies to the same client only (same `User-Agent`). <!-- #2116 -->
+
+An access token does not wait out its 15 minutes: **every revocation** — signing out, signing out all sessions, ending one session, a password change or reset, deactivating the account, a detected token reuse — makes every access token issued to the account until then invalid at once (`401 Unauthorized`). Devices whose session continues obtain a new one silently with their refresh token. <!-- #2116 -->
+
 ---
 
 ## Registration
@@ -52,7 +56,9 @@ Content-Type: application/json
 }
 ```
 
-After registration, a personal tenant is automatically created. If email verification is active (`REQUIRE_EMAIL_VERIFICATION=true`), the email address must be confirmed before the first login.
+**Registration mode (`REGISTRATION_MODE`).** Depending on the operator's setting the registration answers `403` (`REGISTRATION_NOT_ALLOWED`): always for `closed`, without a valid invitation token for `invite_only`, and for an address outside the list with `REGISTRATION_ALLOWED_DOMAINS`. The optional field `invitation_token` carries the token of a pending **email** invitation for exactly this address; it is the exception to `invite_only` and to the domain list (not to `closed`). The answer is the same for taken and free addresses. A client reads the mode from `GET /api/v1/mode` (`registration.mode`, `registration.domain_restricted`). A first OIDC sign-in the mode does not admit redirects to `/auth/callback?error=registration_not_allowed`. <!-- Issue #2132 -->
+
+After registration, a personal tenant is automatically created. If email verification is active (`REQUIRE_EMAIL_VERIFICATION=true`, the default), the email address must be confirmed before the first login. An installation without outbound mail sets the variable to `false` explicitly.
 
 ### Email Verification
 
@@ -64,6 +70,56 @@ Content-Type: application/json
   "token": "<token-from-email>"
 }
 ```
+
+A link is valid for 24 hours and only once. A wrong, expired or already used token yields `401 Unauthorized` (`INVALID_TOKEN`).
+
+### Requesting a New Verification Link
+
+For an account whose first link got lost or has expired. Signing in with the correct password sends a new link by itself (see [New link on a refused sign-in](#new-link-on-a-refused-sign-in)); this endpoint is the way without a password — for example from the error page of an expired link — and the fallback when nothing arrives through the sign-in.
+
+```http
+POST /api/v1/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "grower@example.com"
+}
+```
+
+**Response** `202 Accepted`, always with the same body:
+
+```json
+{
+  "message": "If this address belongs to an account that still needs verification, a new verification email is on its way."
+}
+```
+
+The answer is the same for **every** address — unknown, unverified, already verified, a service account or an account without a local password. The work before the response is the same for all of them too; the account lookup, the new token and the mail run only afterwards. So the endpoint reveals neither through its content nor through its response time whether an account exists.
+
+A mail goes out only when `REQUIRE_EMAIL_VERIFICATION` is on and the account is active, unverified, interactive (not a service account) and has a local password. Every send writes a **new** token valid for 24 hours; every link sent before it stops working.
+
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_RESEND_VERIFICATION`, default `10/hour` | `429 Too Many Requests` |
+| Per address | 3 requests; the budget refills once no request for the address has arrived for an hour | Still `202` — only no mail goes out |
+
+The per-address limit counts **every** submitted address alike, whether it has an account or not. That is why it answers silently: a `429` would reveal nothing, but a budget that counted only real accounts would.
+
+#### New Link on a Refused Sign-in
+
+When someone signs in to an unverified account with the **correct** password, `POST /api/v1/auth/login` answers `403 Forbidden` with `error_code` `EMAIL_NOT_VERIFIED` as before — and, after the response, sends a new verification link itself to the account's **stored** address (not to the spelling that was typed). The same rules as above apply to the link: a new token, valid for 24 hours, every earlier link stops working; only to active, interactive accounts with a local password, and only with `REQUIRE_EMAIL_VERIFICATION`.
+
+Only someone who knows the password reaches this refusal. That is why this path has a budget of its own **per account**, which anonymous requests to `resend-verification` cannot spend — someone who only knows the address can no longer keep the new link from the account owner.
+
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_AUTH` (applies to the whole sign-in) | `429 Too Many Requests` |
+| Per account | 3 links; the budget refills once no sign-in has been refused with `EMAIL_NOT_VERIFIED` for an hour — every such refusal counts, above the budget too, and extends the window | Still `403` `EMAIL_NOT_VERIFIED` — only no mail goes out |
+
+The answer does not tell whether a link was sent: status, body and headers are the same whether a mail went out, the budget was spent or the delivery failed. A wrong password still answers `401 Unauthorized` and sends nothing. Clients should therefore only promise the new link and offer `resend-verification` as the fallback.
+
+!!! note "Budget during a Valkey outage"
+    The budget lives in Valkey so that all replicas count together. When Valkey is unreachable, every process keeps counting on its own — never without a limit. This in-process tier has a fixed capacity: once it is exceeded, it evicts the oldest entry and with it that entry's spent budget. Here, though, the entries are accounts, not caller-chosen addresses; filling it takes the passwords of that many accounts. The budgets of `resend-verification` and the password reset, which count caller-chosen addresses, never evict (see [Password Reset](#password-reset)).
 
 ---
 
@@ -143,7 +199,7 @@ X-CSRF-Token: <csrf-token>
 }
 ```
 
-The old refresh token becomes invalid. The new refresh cookie is set automatically.
+The old refresh token becomes invalid. The new refresh cookie is set automatically. If the same old token arrives again from the same browser within 60 seconds (a second tab), the server answers with an access token and sets **no** cookie; later, or from another client, it counts as reuse and ends the session (see [Token Model](#token-model)).
 
 ---
 
@@ -156,7 +212,9 @@ POST /api/v1/auth/logout
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidates the current refresh token and deletes the cookie.
+Invalidates the session (the current refresh token and every one rotated from it) and deletes the cookie. The account's access tokens stop working at once; other signed-in devices renew theirs silently.
+
+On sign-out the web interface also removes everything it holds about your account in the browser: loaded data, the active garden and this device's browser push registration. On a shared device the next person sees none of it and receives no push messages for your account. <!-- #2117 -->
 
 ### Sign out all sessions
 
@@ -166,7 +224,7 @@ Authorization: Bearer <access-token>
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidates all refresh tokens for the user across all devices.
+Invalidates all refresh tokens for the user across all devices — and all access tokens: even an access token that has not expired yet is refused with `401 Unauthorized` from the next request on. <!-- #2116 -->
 
 ---
 
@@ -185,6 +243,17 @@ Content-Type: application/json
 
 For security reasons, this endpoint always returns the same success response regardless of whether the email address exists.
 
+| Limit | Value | Response when exceeded |
+|-------|-------|------------------------|
+| Per client IP | `RATE_LIMIT_AUTH`, default `20/minute` | `429 Too Many Requests` |
+| Per address and client IP | 3 requests; the budget refills once no request for the address has arrived from that IP for an hour | Still `200` with the same body — only no link goes out |
+| Per address overall | 10 links across all sources; the budget refills once no link has been sent for the address for an hour | Still `200` with the same body — only no link goes out |
+
+The per-address limits work like the one for the [verification link](#requesting-a-new-verification-link), with a budget of their own: it counts **every** submitted address alike, whether it has an account or not, and therefore answers silently. Case and surrounding whitespace do not matter — `Grower@Example.com` and `grower@example.com` share one budget. The link always goes to the address as stored in the account, not to the spelling that was typed. If you requested three links and none arrived, wait an hour without asking again; your current password stays valid until then. Someone asking for your address from another IP does not spend your budget: every source has three requests of its own, and only links actually sent count against the ten overall.
+
+!!! warning "Limits of this protection"
+    A single source can no longer lock someone else's address: its requests only spend its own budget for that address. Locking the owner out still works by exhausting the overall budget of ten links — that takes at least four different IPs per address, and every one of those links really lands in the owner's mailbox. While that goes on, the owner gets no new link; if they still know their current password, they sign in with it. There is no admin path that sets a password, triggers a reset link or clears the budget. When a budget is crossed, the backend logs `password_reset_budget_exhausted` once, with the stage (`address_source` or `address`) and a keyed digest of the address — never the address itself, never the IP. While Valkey is unreachable, each process counts on its own: up to 3 links per address, hour and worker process across all replicas. This count never evicts an entry, not even under a flood of invented addresses: once it is full (16,384 entries per process and budget; for the reset, a new address from a new source takes two), a new address gets no link until older entries have expired — silently, as above the budget. A flapping Valkey can release up to 3 more, because the counters of the two tiers are separate; that holds as long as Valkey keeps its keys — a restart that loses them releases another 3 per budget.
+
 ### Set a new password
 
 ```http
@@ -196,6 +265,199 @@ Content-Type: application/json
   "new_password": "new-password-2026"
 }
 ```
+
+---
+
+## Changing Your Password (Signed In)
+
+```http
+POST /api/v1/users/me/password
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "old-password-2026",
+  "new_password": "new-password-2026"
+}
+```
+
+`current_password` may be omitted only when the account has **no** local password yet (an SSO-only account setting one for the first time) — in that case, confirm instead with a fresh sign-in at the linked provider (next section) or, only if all of its providers cannot do that (GitHub, Apple), with the confirmation code from the section after that. If a local password already exists, it must be supplied correctly — it is a step-up (see below). On success, all of the user's active sessions are terminated.
+
+A request authenticated with an API key is refused with `403 Forbidden` — an API key cannot change its own account's password.
+
+In light mode (`KAMERPLANTER_MODE=light`) the route answers `403 Forbidden`. The instance's single account is used by every request without sign-in, so a password set there would prove nothing about who set it — and it would become a working sign-in once the instance switches to full mode.
+
+---
+
+## Signing In Again to Confirm (OIDC)
+
+An account without a local password has no secret of its own to answer the step-up confirmations two sections down. If at least one of its linked sign-in providers is an **OpenID Connect provider** (Google or a generic OIDC provider with the `openid` scope), it confirms instead with a **fresh** sign-in at exactly that provider — this is the normal case. Only an account whose linked providers are all unable to do that (exclusively GitHub and/or Apple, see the boundary below) falls back to the emailed code.
+
+```http
+POST /api/v1/users/me/step-up/oidc
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` names the act to confirm, same as for the code, and `target` its target, same as there (required for the targeted actions, see below). The optional `provider_key` (a linked provider's key from `GET /users/me/providers`) picks a specific provider when several OIDC-capable ones are linked; without it, the route takes the first matching one. The optional `client_nonce` (32 hex characters the client generates at random) comes back unchanged beside the token or the error — so the page that started the sign-in recognises its own result and discards a planted one.
+
+**Response (200 OK):**
+
+```json
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=kamerplanter&response_type=code&prompt=login&max_age=0&state=…&nonce=…&code_challenge_method=S256"
+}
+```
+
+Open `authorization_url` in the browser — the same login request as a normal sign-in, plus `prompt=login` and `max_age=0`: the provider must authenticate the person again (no silent answer from its own session) and report when it did. The provider then redirects to this server's existing callback, which signs nobody in and redirects straight on to `{frontend-url}/auth/step-up/callback`:
+
+- Success: `#step_up_token=<token>&action=<action>&client_nonce=<nonce>` in the URL **fragment** (never the query — a fragment reaches no server, no proxy, and no `Referer` header)
+- Error: `?error=step_up_failed` (general), `?error=step_up_stale` (the sign-in was older than five minutes — retry), or `?error=step_up_cancelled` (denied at the provider)
+
+The backend checks the ID token: `iss` is the expected issuer, `aud`/`azp` is this instance, `nonce` matches the request, `exp` has not passed, `sub` is a linked sign-in of **this** account made through **exactly this** provider configuration (the link records configuration and issuer; `iss` must match it), and `auth_time` is a finite number at most five minutes old (30 seconds' clock tolerance). An older link without a recorded configuration counts as re-authenticable only when exactly one enabled, capable configuration of its type exists — otherwise the account confirms with the emailed code. It does **not** check a JWKS signature: the ID token comes straight from the provider's token endpoint over TLS (the fresh sign-in is only offered for an `https` token endpoint), in an exchange this server authenticated with its own client secret — exactly the case OIDC Core 3.1.3.7 item 6 allows TLS protection to stand in for the signature check.
+
+The returned `step_up_token` is valid for five minutes, applies to exactly the requested action (and, for a targeted action, exactly the named target), is spent by the first action that presents it, and is otherwise used like the emailed code: as `step_up_token` in the confirmation body of the respective action (see the table below).
+
+`403 Forbidden` for a request authenticated with an API key, a service account, or a light-mode installation. `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED` when the account has a local password (it confirms with that); `STEP_UP_REAUTH_UNAVAILABLE` when none of its linked providers (or the one named by `provider_key`) supports a fresh sign-in — it then confirms with the emailed code —; a validation error when `action` is missing/unknown or `client_nonce` is malformed. `429 Too Many Requests` (`STEP_UP_LOCKED`) while the step-up is locked.
+
+!!! info "Operator requirement"
+    The linked identity provider must support `prompt=login`/`max_age` and the `auth_time` claim (Google and most generic OIDC providers do) and serve its token endpoint over `https`. The re-authentication's callback URL is built from `APP_BASE_URL` (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`), never from the request's Host header — set `APP_BASE_URL` to the public address and register exactly this callback URL with the provider.
+
+---
+
+## Requesting a Confirmation Code by Email (fallback for GitHub/Apple)
+
+**Boundary.** GitHub is plain OAuth2 and issues no ID token — so there is no sign-in time for the previous section to check. Apple does issue an ID token, but without `auth_time`. An account whose linked sign-in methods are **exclusively** GitHub and/or Apple therefore cannot be freshly re-authenticated and confirms instead with a one-time code mailed to its own address — the same proof a password reset relies on. An account with at least one OIDC-capable provider always uses the previous section; the route below refuses it the code (see below).
+
+```http
+POST /api/v1/users/me/step-up-code
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` names what the code is to confirm — one of the actions in the table below (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`, `tenant_erasure_cancel`, `service_account_change`). The code confirms **only** that one action — a code requested for a password change is refused for an erasure attempt, without being spent by the mismatch. The mailed message names the action in plain text, never the target.
+
+**The act's target (`target`).** When the act acts on something other than your own account, `target` names it — otherwise the route answers `422`; for an act on your own account a `target` is `422` as well: <!-- #1884 -->
+
+| Action | `target` |
+|---|---|
+| `admin_account_update`, `admin_account_erasure` | the other account's key |
+| `tenant_deletion`, `tenant_erasure_cancel` | the tenant's key |
+| `provider_unlink` | the provider link's key from `GET /users/me/providers` |
+| `oidc_provider_change` | the OIDC configuration's key; `new:<slug>` when creating one |
+| `admin_tenant_update` | the tenant's key |
+| `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | the membership's key (`membership_key`) |
+| `admin_membership_add` | tenant and account, separated by `\|`: `<tenant_key>\|<user_key>` (the membership does not exist yet) |
+| `service_account_change` | When creating, the tenant's key; when rotating and removing, `<tenant_key>\|<service_account_key>` <!-- Issue #2137 --> |
+
+The code and the `step_up_token` then hold for that target only: a code requested for account A is refused for account B, without being spent. The route checks the target when it issues the factor — it must exist and you must be allowed to act on it (`403` if not; `404` if it doesn't exist; `409` if the slug of a new OIDC configuration is taken).
+
+**Response (202 Accepted):**
+
+```json
+{
+  "expires_at": "2026-09-25T18:40:00Z",
+  "expires_in": 600
+}
+```
+
+The code is eight digits, valid for ten minutes, and spent by the first action that presents it; a new request replaces a still-valid code with a fresh one — with two exceptions: an **unspent** code younger than 60 seconds is not replaced (otherwise a request would void the code the person is currently typing), and at most **5 codes per account and hour** are sent. It is mailed only to the account's own address — never returned in this response or anywhere else.
+
+`403 Forbidden` for a request authenticated with an API key, a service account, or a light-mode installation (there is no personal account to confirm anything there). `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED` when the account already has a local password — it confirms with that, not with a code —; `STEP_UP_REAUTH_REQUIRED` **when at least one of the account's linked providers is OIDC-capable** (see above — the route then says to use the previous section); a validation error when `action` is missing or not one of the values above. `429 Too Many Requests` (`STEP_UP_LOCKED`, `details[0].retry_after_minutes`) while the account's step-up is locked, a still-valid code is younger than 60 seconds, or the hourly code budget is spent.
+
+`503 Service Unavailable` (`STEP_UP_CODE_UNDELIVERABLE`) when the code cannot be delivered by email — for example because the instance has no mail delivery configured, or the mail server reports a failure. Nothing is issued in that case: the code is withdrawn and its budget given back, so neither the 60-second wait nor the hourly budget blocks the next attempt once the operator fixes delivery.
+
+---
+
+## Step-up Confirmation for Irreversible Account Actions and Sign-In Credentials
+
+The following actions require re-confirmation by the signed-in person, in addition to a valid access token — since version 1.19 this also covers issuing or removing sign-in credentials and a platform admin raising another account's trust: <!-- #1847, #1857 -->
+
+| Action | Route(s) | Typed-back target (body field) | Password / Fresh sign-in / Code |
+|---|---|---|---|
+| Delete own account (GDPR Art. 17) | `DELETE /users/me`, `POST /privacy/erasure` | own email (`confirm_email`) | own password, if a local one exists — otherwise a `step_up_token` from a fresh sign-in, or, only for GitHub/Apple-only accounts, the emailed code (`step_up_code`) |
+| Delete another account (platform admin; `202`, the erasure runs in a worker, #1949) | `DELETE /admin/platform/users/{key}` | target's email (`confirm_email`) | the admin's own, otherwise their `step_up_token` or code |
+| Delete a tenant | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | slug (`confirm_slug`) | own password, otherwise a `step_up_token` or code |
+| Change email address | `POST /privacy/email-change` | — | own password, otherwise a `step_up_token` or code |
+| Change password | `POST /users/me/password` | — | current (`current_password`) — setting the **first** password on an account without one runs through a `step_up_token` or code instead |
+| Issue an API key | `POST /auth/api-keys` | — | own password, otherwise a `step_up_token` or code. **Light Mode:** no step-up — the instance has only the one system account |
+| Pair a device by QR code | `POST /auth/device-pairing` | — | own password, otherwise a `step_up_token` or code |
+| Remove a sign-in method (provider link) | `DELETE /users/me/providers/{provider_key}` | — | own password, otherwise a `step_up_token` or code |
+| Change another account's trust (platform admin) | `PATCH /admin/platform/users/{key}`, whenever `email_verified` or `is_active` changes (raising or lowering, #1992) | — | the admin's own, otherwise their `step_up_token` or code |
+| Create, change or delete an OIDC provider (platform admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — not for a `PUT` that only changes `display_name` or `icon_url` (switching it on or off needs it) | — | the admin's own, otherwise their `step_up_token` or code |
+| Create a service account, rotate its key, remove it (lead with the Technical scope) | `POST /t/{slug}/service-accounts`, `POST /t/{slug}/service-accounts/{sa_key}/rotate-key`, `DELETE /t/{slug}/service-accounts/{sa_key}` | — | own password, otherwise a `step_up_token` or code (`service_account_change`) <!-- Issue #2137 --> |
+
+!!! info "No automatic revocation of API keys"
+    Changing your password, resetting it, and `POST /auth/logout-all` revoke the account's refresh tokens — **not** its API keys. A key represents a deliberately set-up machine integration (Home Assistant, an MCP client); silently invalidating it on every password change would break those integrations without warning. Since this version, a key can only be minted behind this step-up — no longer from a merely stolen session or from another key. Keys are listed under `GET /auth/api-keys` with their creation and last-used timestamps, and each can be revoked individually via `DELETE /auth/api-keys/{key_id}`. <!-- #1847 -->
+
+A request authenticated with an API key, or one coming from a service account, cannot trigger any of these actions — including issuing another API key or a pairing code (see the check order below).
+
+Example body for account erasure (local account):
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "password": "current-password-2026"
+}
+```
+
+Example body after a fresh sign-in (OIDC-capable account):
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_token": "AqX7…"
+}
+```
+
+Example body for an account signed in exclusively through GitHub/Apple:
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_code": "48213907"
+}
+```
+
+**Check order:**
+
+1. A request authenticated with an API key or coming from a service account is refused with `403 Forbidden` — before anything is checked or counted.
+2. If the confirmation is locked (see below), the route immediately answers `429 Too Many Requests` without checking the secret.
+3. If the typed-back target doesn't match (email case-insensitively, slug exactly), the route answers `422 Unprocessable Entity`. A wrong echo does **not** count as a failed attempt. Changing the email and changing the password have no target to type back.
+4. If the affected account has a local password, the password field must be correct, otherwise `401 Unauthorized`. Otherwise — if the body carries a `step_up_token`, the route checks that (confirming nothing or expired: `401 Unauthorized`). Without `step_up_token`: if the account has an OIDC-capable linked provider, the route answers `401 Unauthorized` with the error code `STEP_UP_REAUTH_REQUIRED` — a hint to sign in again first. Otherwise (GitHub/Apple only), the route checks `step_up_code` instead; missing it answers `401 Unauthorized` with `STEP_UP_CODE_REQUIRED`.
+
+**Throttling:** After 5 wrong confirmations (password, code, or an invalid/expired fresh sign-in) for the same account-and-client-address combination, the system locks further confirmations for **15 minutes**; repeated failures double the wait time up to **4 hours**. An additional account-wide cap of 15 failed attempts applies across any number of client addresses. All nine actions — and requesting a code or a fresh sign-in — share the same failed-attempt budget per account; a successful step-up clears it.
+
+A locked confirmation responds with the error code `STEP_UP_LOCKED`:
+
+```json
+{
+  "error_code": "STEP_UP_LOCKED",
+  "message": "Too many failed confirmations. Try again in 15 minutes.",
+  "details": [
+    {
+      "field": "password",
+      "reason": "Too many failed confirmations.",
+      "code": "STEP_UP_LOCKED",
+      "retry_after_minutes": 15
+    }
+  ]
+}
+```
+
+!!! note "The login lockout is unaffected"
+    This lock only applies to the five confirmations above and has no effect on `POST /auth/login`. Anyone who locks one of these confirmations — for example, someone with a stolen session — can still sign in normally, end sessions in the **Sessions** tab, and reset the password by email.
+
+!!! info "For operators: two different requirements"
+    An account with an OIDC-capable provider (Google, generic OIDC) confirms via the fresh sign-in — that provider needs to support `prompt=login`/`max_age` and `auth_time` (see above), not SMTP. Only an account whose linked providers are exclusively GitHub and/or Apple needs the emailed code, and with it working mail delivery: if the instance runs the console email adapter without debug mode — the production default with no email delivery configured (SMTP or Resend) — the code is never delivered, and such an account then cannot delete itself, delete a tenant, set a first local password, or change its email address. See [Environment Variables](../reference/environment-variables.md#email) for configuration details.
 
 ---
 
@@ -228,17 +490,19 @@ GET /api/v1/auth/oauth/providers
 GET /api/v1/auth/oauth/{slug}
 ```
 
-The server responds with a `302` redirect to the provider's authorization URL. After a successful login at the provider, the user is redirected back to the callback endpoint.
+The server responds with a `302` redirect to the provider's authorization URL. After a successful login at the provider, the user is redirected back to the callback endpoint. The callback URL is `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` — built from `APP_BASE_URL`, never from the Host header — and it is exactly the URL you register with the provider. The server exchanges the code with the same URL the authorization request carried (RFC 6749 §4.1.3).
 
 ```
 GET /api/v1/auth/oauth/{slug}/callback?code=...&state=...
 ```
 
-The server sets the cookies and redirects to the frontend:
+The server sets the HttpOnly refresh cookie and redirects to the frontend — with no token in the URL; the frontend obtains the access token through `POST /api/v1/auth/refresh`:
 
 ```
-{frontend_url}/auth/callback?access_token=...&expires_in=900
+{frontend_url}/auth/callback
 ```
+
+Before the server signs anyone in, it checks the provider's ID token (OIDC Core 3.1.3.7): the **signature** against the keys (JWKS) the provider publishes (the configuration's `jwks_url`, otherwise the `jwks_uri` of its discovery document), `iss`, `aud`/`azp` (this instance), the request's `nonce`, and `exp`, `iat` (at most ten minutes old) and, if present, `nbf` (30 seconds of tolerance). The keys sit in the worker's cache for ten minutes per configuration; an unknown `kid` fetches them again at most once every ten seconds, and responses are limited to 256 KiB. When the provider delivers the identity through the userinfo endpoint, its `sub` must equal the ID token's `sub` (OIDC Core 5.3.2); an empty or missing `sub` refuses the sign-in. Every refusal looks the same to the browser (`?error=provider_error`, no session, no new account); the reason appears only as the log event `oauth_login_refused` with a `reason` field (`signature`, `iss`, `aud`, `azp`, `nonce`, `exp`, `iat`, `nbf`, `sub_missing`, `sub_mismatch`, `id_token_missing`, `jwks_unavailable`, `configuration_changed`) — never with values from the token. Providers without an ID token (GitHub, plain OAuth2) deliver an account `id` instead of a `sub`; there too a missing value refuses the sign-in. <!-- #1936, #1987 -->
 
 ---
 
@@ -255,9 +519,15 @@ Content-Type: application/json
 
 {
   "label": "Home Assistant Integration",
-  "tenant_scope": "my-garden"
+  "tenant_scope": "my-garden",
+  "current_password": "current-password-2026"
 }
 ```
+
+`tenant_scope` is optional and accepts either the tenant's slug or its key when creating the key. Either way, you must be an active member of the named tenant — otherwise the route answers `403 Forbidden` ("tenant_scope must name a tenant you are an active member of."), with the same message for an unknown tenant and for one you don't belong to.
+
+!!! info "Issuing a key is a step-up"
+    Instead of `current_password` you can send `step_up_token` (after a fresh sign-in, see [Signing In Again to Confirm](#signing-in-again-to-confirm-oidc)) or `step_up_code` (after [Requesting a Confirmation Code](#requesting-a-confirmation-code-by-email-fallback-for-githubapple)) — the same rules as in the [step-up table](#step-up-confirmation-for-irreversible-account-actions-and-sign-in-credentials) above. A request authenticated with an API key answers `403 Forbidden` before any password is even checked — a key cannot mint another key. **In Light Mode**, this route issues the instance's one MCP key without a step-up. <!-- #1847 -->
 
 **Response (201 Created):**
 
@@ -267,10 +537,12 @@ Content-Type: application/json
   "label": "Home Assistant Integration",
   "raw_key": "kp_sk_abc...xyz",
   "key_prefix": "kp_sk_abc",
-  "tenant_scope": "my-garden",
+  "tenant_scope": "t-a1b2c3d4",
   "created_at": "2026-03-17T10:00:00Z"
 }
 ```
+
+What is stored and returned is always the tenant's **key**, never the slug you entered at creation. That means renaming the tenant later (a new slug) leaves the scope unaffected, and deleting the tenant deletes the key along with it.
 
 !!! danger "Raw key visible only once"
     The `raw_key` field is only shown at creation and will not be returned again. Store the key immediately in a secure location.
@@ -283,6 +555,19 @@ Authorization: Bearer kp_sk_abc...xyz
 ```
 
 The API key is used in the same `Authorization` header as a JWT.
+
+A key created with `tenant_scope` acts only in that tenant. On every route under `/api/v1/t/{slug}/` and on every route that reads the `X-Active-Tenant` header, another tenant answers `403 Forbidden` — even if the key's owner is a member there — with the same response as a tenant the owner does not belong to. Without the header, a scoped key falls back to your personal tenant only if that is its scope; otherwise it sees the shared catalogue only. The match is always against the stored tenant key (see above).
+
+### IP allowlist and rate limit per key
+
+An API key can also carry a CIDR allowlist and its own per-minute request limit. Both restrictions apply identically to the REST API and to the [MCP server](mcp-server.md) — there is **one** shared budget per key, not a separate count per surface.
+
+- If the client address is outside the allowlist or cannot be resolved, the API answers `401 Unauthorized` ("Client IP is not permitted for this API key.") — the same message the MCP server gives for this case.
+- If the per-minute budget is spent, the API answers `429 Too Many Requests`. The same response applies if the counter store itself is unreachable — a counter-store outage is never treated as "no limit".
+
+### Account-level routes and a scoped key
+
+A key created with `tenant_scope` is restricted to exactly one tenant. On routes that resolve no tenant — your own account data (`PATCH`/`DELETE /users/me`, password, sessions, linked providers), the [privacy endpoints](../user-guide/privacy.md), managing API keys themselves, device pairing, `POST /auth/logout-all`, or creating/joining a new tenant — it therefore answers `403 Forbidden` ("This API key is restricted to one tenant and cannot act on the account."). It gives the same answer on the few routes under `/t/{slug}/` that change your **account-wide** settings despite the tenant in the path: notification settings and Web Push subscriptions, user preferences, the onboarding state, and removing a favourite. They apply to all your tenants, not only the scoped one. Still admitted: `GET /users/me` (your own identity lookup), `GET /tenants` (lists only the scoped tenant), and every other route that resolves a tenant (`/t/{slug}/`, `X-Active-Tenant`) — the scope still binds there. A key without `tenant_scope` is unaffected by this restriction.
 
 ### List API keys
 
@@ -313,7 +598,15 @@ The flow has three steps: a signed-in client requests a pairing code (1), the ap
 ```http
 POST /api/v1/auth/device-pairing
 Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "current-password-2026"
+}
 ```
+
+!!! info "Requesting a code is a step-up"
+    As with issuing an API key, you can send `step_up_token` or `step_up_code` instead of `current_password` (see the [step-up table](#step-up-confirmation-for-irreversible-account-actions-and-sign-in-credentials) above). A request authenticated with an API key answers `403 Forbidden` — a key cannot mint itself a full session this way. <!-- #1847 -->
 
 **Response (201 Created):**
 
@@ -427,6 +720,9 @@ If the `refresh_token` field is absent, `null`, or the whole body is empty, the 
 
 Rotation is cross-transport: a refresh token rotated via either the body or the cookie invalidates the previous token on **both** transports — there is one rotation, not separate bookkeeping per transport.
 
+!!! warning "No grace window on the body path"
+    An already rotated token presented again ends the device's session (token family, see [Token Model](#token-model)) — even when only the response to the first renewal was lost. A native client therefore stores the new token before using it and does not blindly retry a renewal with the old token. Once the session has ended, it pairs again. <!-- #2116 -->
+
 ### Ending a paired device's session
 
 !!! warning "Native clients cannot use `/auth/logout`"
@@ -494,6 +790,21 @@ After multiple failed login attempts, the account is temporarily locked. The API
 }
 ```
 
+### IP Rate Limits and Proxy Depth
+
+The IP limits on the sign-in routes (login, registration, password reset, device pairing) count in storage that all replicas and worker processes share. An installation with several replicas therefore has the same bound as one with a single process. <!-- REQ-023 -->
+
+!!! info "API only / operator configuration"
+    As an operator you choose the storage with `RATE_LIMIT_STORAGE_URL`. If it stays empty, the backend uses the Valkey from `REDIS_URL` — usually you do not need to set anything. Allowed are `redis://`, `rediss://`, `redis+unix://` and `memory://`; any other value stops the start. While `RATE_LIMIT_STORAGE_URL` stays empty, this applies to `REDIS_URL`: a `REDIS_URL` with `unix://`, `sentinel://` or `redis+socket://`, an empty value and a list of several hosts (`redis://h1:6379,h2:6379/0`) stop the start since the IP limits count across all processes. If your installation uses such a form, set `RATE_LIMIT_STORAGE_URL` to an allowed address when you upgrade (several hosts already fail the check of `REDIS_URL` itself). So does a URL — here or in `REDIS_URL` — whose password contains an unencoded `/`, `#` or `?`, or with an `@` in its path, query or fragment; encode these characters in the password (`%2F`, `%23`, `%3F`). An `@` in the password itself is accepted (`redis://:p@ss@host:6379/0` loads); encoded (`%40`) it is unambiguous. In both cases the message names only the variable and the allowed form, never the value. Use `memory://` only when a single process is the whole installation — without `DEBUG` the backend then logs `rate_limit_storage_counts_per_process` once at start-up.
+
+- **Storage fails:** Each process then keeps counting on its own. If the storage fails with a Redis client error (connection, timeout, error reply), requests are neither let through unchecked nor rejected with an error — not even those waiting on the storage at the moment it fails. Any other error is a defect and is not swallowed. The bound is softer during the outage: a fresh window can apply per process — one per window, not one per outage; a storage that drops out several times does not hand out new room.
+- **Wait time:** If the storage hangs instead of refusing the connection, the request that notices the failure waits one socket timeout of 0.5 s per connection attempt and address, without retry. Not covered by that are DNS resolution, several addresses for one name, connect and handshake together, and reloading the counting script after `NOSCRIPT`. Requests already waiting at that moment wait at the same time, not one after another. Every further request is counted by the limiter in the process, without waiting — it falls back per call and has a check schedule (next point). The check never runs on the process's event loop: on asynchronous routes as well (public AI question, export download, test notification) only the limited request itself waits, not every other request of the process. `GET /api/health` counts in process memory only and never asks the shared storage. The other Valkey clients on request paths — device pairing, API-key limits, OAuth sign-in state and MCP sessions — wait the same 0.5 s; before this change, redis-py's default of 5 s per socket operation applied to them. <!-- REQ-023 -->
+- **Mail budgets:** The budgets for the reset link, the verification link and the link of the login refusal, and the counter for unknown addresses at login, use the same client setting and the same check schedule as the limiter: the first storage call that notices a hanging Valkey waits at most one socket timeout of 0.5 s (with the same exceptions as above); after that every call of the process counts in the process without waiting, until a check request — at the same intervals as above — gets an answer again. The log shows `throttle_store_unavailable` and `throttle_store_recovered`.
+- **Recovery:** Each process checks the storage again on its own, at intervals of 1, 2, 4, 8, 16 and 32 s and every 32 s after that, each time with a single request, to which the same wait time applies. Once the storage answers, that process counts in the shared storage again from its check request on. So each process returns with its own next check request: up to about 32 s after the storage is back, and only when requests reach it. The log shows `rate_limit_storage_unavailable` and `rate_limit_storage_recovered`. If the storage has never answered since the process started — for example because of a wrong password or host in `REDIS_URL` — the log shows `rate_limit_storage_never_reached` at error level instead of the warning. If it stays away, `rate_limit_storage_still_unavailable` repeats the reminder on every tenth failed check, about every five minutes once it has settled. The pod's readiness is left alone: a Valkey outage should not take the whole backend out of service.
+- **Proxy depth:** The limit applies per client address and route — a different value in the path (another glossary term, export key or tenant) counts against the same counter. `TRUSTED_PROXY_HOPS` tells the backend how many proxies sit in front of it. The Helm chart sets exactly `1`: an ingress controller in front of nginx (Contour/Envoy in the reference installation). If your installation routes `/api` straight to the backend without nginx, set `0`. If the selected entry is not an IP address, the client address counts as unknown: the IP limit counts the request under the address of the direct peer, and an API key's IP allowlist refuses it. Different spellings of one IPv6 address count together.
+
+If you find the line `forwarded_chain_deeper_than_trusted_proxy_hops` in the backend log once per process, `TRUSTED_PROXY_HOPS` is `0` although the `X-Forwarded-For` chain has more than one entry. There are two causes. Either a proxy sits in front that the setting does not count: the backend then reads a proxy's address instead of the caller's, and all callers share one counter. Or a caller sent an `X-Forwarded-For` header itself, on an installation without ingress, where `0` is correct. Raise `TRUSTED_PROXY_HOPS` only if more than one proxy really sits in front, and then to the number of proxies after the first (behind ingress and nginx: `1`). A value that is too high makes every IP-based control forgeable: any caller can then pick their own address. The line carries neither the header value nor an IP address. A run without ingress, where the chain has a single entry, stays silent.
+
 ---
 
 ## Environment Variables (Authentication)
@@ -504,9 +815,10 @@ After multiple failed login attempts, the account is temporarily locked. The API
 | `JWT_ALGORITHM` | `HS256` | JWT signing algorithm (HS256 = HMAC-SHA256) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access token validity in minutes |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh token validity in days |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | Enforce email verification before first login |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | Enforce email verification before first login. Set it to `false` explicitly without outbound mail |
 | `KAMERPLANTER_MODE` | `full` | `light` disables all authentication |
 | `FERNET_KEY` | — | Encryption key for OIDC provider secrets |
+| `RATE_LIMIT_STORAGE_URL` | empty | Storage of the IP rate limits; empty = Valkey from `REDIS_URL` — see [IP Rate Limits and Proxy Depth](#ip-rate-limits-and-proxy-depth) |
 
 ---
 

@@ -86,20 +86,20 @@ class _FakePestRepo:
         self.created.append(detection)
         return detection
 
-    def get(self, key, tenant_key):
+    def get(self, key, *, tenant_key):
         for d in self.created:
             if d.key == key and d.tenant_key == tenant_key:
                 return d
         return None
 
-    def list_for_plant(self, tenant_key, plant_instance_key, limit=20):
+    def list_for_plant(self, *, tenant_key, plant_instance_key, limit=20):
         return [d for d in self.created if d.tenant_key == tenant_key and d.plant_instance_key == plant_instance_key]
 
     def link_suggested_inspection(self, detection_key, inspection_key):
         self.linked.append((detection_key, inspection_key))
 
     def add_feedback(self, key, tenant_key, feedback):
-        d = self.get(key, tenant_key)
+        d = self.get(key, tenant_key=tenant_key)
         if d:
             d.feedback.append(feedback)
         return d
@@ -277,13 +277,28 @@ class TestIpmBridgeNoTreatment:
         svc = _service(adapter, pest_repo=pest_repo, ipm_service=ipm)
         det = svc.detect_pests(_jpeg(), tenant_key="t1", user_key="u1", plant_instance_key="p1")
 
-        out = svc.create_inspection(det["key"], tenant_key="t1", plant_key="p1")
+        out = svc.create_inspection(det["key"], tenant_key="t1", plant_key="p1", user_key="u1")
         assert out["inspection_key"] == "insp_1"
         assert "pest_spider_mite" in out["detected_pest_keys"]
         # exactly one inspection, and the fake service exposes no treatment path
         assert len(ipm.inspections) == 1
+        # #1669: attributed to the confirming account, as a key; the display
+        # text stays empty (a machine-suggested inspection names nobody).
+        assert ipm.inspections[0].inspected_by_key == "u1"
+        assert ipm.inspections[0].inspector == ""
         assert not hasattr(ipm, "create_treatment_application")
         assert pest_repo.linked == [(det["key"], "insp_1")]
+
+    def test_an_inspection_cannot_be_created_without_an_account(self) -> None:
+        """#1669 — ``user_key`` is keyword-only without a default (the #948 shape)."""
+        adapter = _StubAdapter(findings=[_symptom("spider_mite", 0.7)])
+        ipm = _FakeIpmService()
+        svc = _service(adapter, pest_repo=_FakePestRepo(), ipm_service=ipm)
+        det = svc.detect_pests(_jpeg(), tenant_key="t1", user_key="u1", plant_instance_key="p1")
+
+        with pytest.raises(TypeError):
+            svc.create_inspection(det["key"], tenant_key="t1", plant_key="p1")  # type: ignore[call-arg]
+        assert ipm.inspections == []
 
 
 class TestHealthSignal:

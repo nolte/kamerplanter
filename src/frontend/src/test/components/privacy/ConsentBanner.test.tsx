@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ConsentBanner, { type ConsentState } from '@/components/privacy/ConsentBanner';
+import { readConsent, resetConsentStoreForTests } from '@/observability/consent';
 import { renderWithProviders } from '../../helpers';
 
 const PENDING_STATE: ConsentState = {
@@ -26,6 +28,7 @@ describe('UI-NFR-013 ConsentBanner', () => {
     } catch {
       /* private mode / mock store — ignore */
     }
+    resetConsentStoreForTests();
   });
 
   it('renders with three equal-prominence actions when no decision was made', () => {
@@ -74,5 +77,59 @@ describe('UI-NFR-013 ConsentBanner', () => {
     // the default INITIAL_STATE and the banner shows up.
     renderWithProviders(<ConsentBanner />);
     expect(screen.getByTestId('consent-banner')).toBeInTheDocument();
+  });
+
+  it('writes the decision to the shared consent store the error tracker reads (#2159)', () => {
+    renderWithProviders(<ConsentBanner />);
+    fireEvent.click(screen.getByTestId('consent-banner-accept-all'));
+    expect(readConsent().error_tracking).toBe(true);
+    expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
+  });
+
+  it('stays hidden on a later visit once a decision is stored (CB-006)', () => {
+    window.localStorage.setItem('kamerplanter:consent:v1', JSON.stringify(DECIDED_STATE));
+    renderWithProviders(<ConsentBanner />);
+    expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
+  });
+
+  it('lets the user choose per category under "Einstellungen" (CB-004)', () => {
+    const onChoice = vi.fn();
+    renderWithProviders(<ConsentBanner initialState={PENDING_STATE} onChoice={onChoice} />);
+    expect(screen.getByTestId('consent-banner-categories')).not.toBeVisible();
+
+    fireEvent.click(screen.getByTestId('consent-banner-settings'));
+    expect(screen.getByTestId('consent-banner-categories')).toBeVisible();
+    fireEvent.click(screen.getByRole('switch', { name: /Fehleranalyse|Error analysis/ }));
+    fireEvent.click(screen.getByTestId('consent-banner-save'));
+
+    const [state, choice] = onChoice.mock.calls[0]!;
+    expect(choice).toBe('custom');
+    expect(state.error_tracking).toBe(true);
+    expect(state.external_services).toBe(false);
+    expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
+  });
+
+  it('gives "Nur Notwendige" the same visual weight as "Alle akzeptieren" (CB-003)', () => {
+    renderWithProviders(<ConsentBanner initialState={PENDING_STATE} />);
+    const necessary = screen.getByTestId('consent-banner-necessary');
+    const acceptAll = screen.getByTestId('consent-banner-accept-all');
+    expect(necessary.className).toContain('MuiButton-contained');
+    expect(acceptAll.className).toContain('MuiButton-contained');
+  });
+
+  it('keeps focus on "Einstellungen" and announces the expanded state (review UI-W3)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ConsentBanner initialState={PENDING_STATE} />);
+    const settings = screen.getByTestId('consent-banner-settings');
+    expect(settings).toHaveAttribute('aria-expanded', 'false');
+    const controls = settings.getAttribute('aria-controls');
+    expect(controls).toBe(screen.getByTestId('consent-banner-categories').id);
+
+    await user.click(settings);
+
+    expect(settings).toBeInTheDocument();
+    expect(settings).toHaveFocus();
+    expect(settings).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('consent-banner-categories')).toBeVisible();
   });
 });

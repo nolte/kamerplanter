@@ -19,6 +19,20 @@ silently permitted. The same rule guards
 **Why here.** ``pytest tests/unit/`` from ``src/backend`` is a CI check, and the
 script lives outside the backend package, so it is loaded by path.
 
+**Rule 2 (#1556) is tested the same way**, in :class:`TestBusinessLogicHandles`.
+The rule it must satisfy is stronger than "does it catch the two sites the issue
+named": those two used one spelling (``self._user_repo._db``), and a guard
+written to that spelling would certify the tree clean while four modules holding
+their own ``StandardDatabase`` stood untouched. So the tests drive BOTH spellings
+against constructed trees, and one asserts that a module using the spelling the
+issue's own grep could not see is still caught.
+
+**Rule 2 has no allowlist since #1638.** The four modules it once recorded were
+moved behind repositories and the entry mechanism was removed, so
+:class:`TestRuleTwoCannotBeSatisfiedByListing` pins both halves: the mechanism is
+gone, and re-adding a handle to any of the four formerly-recorded modules — in a
+copy of the real ``app/domain`` — turns the gate red.
+
 Traces to the 2026-08-08 issue-pattern audit, measure P1.3 (no TC-ID: a
 source-tree gate is not a user-facing case).
 """
@@ -26,6 +40,7 @@ source-tree gate is not a user-facing case).
 from __future__ import annotations
 
 import json
+import shutil
 import textwrap
 from collections.abc import Callable
 from pathlib import Path
@@ -273,12 +288,203 @@ class TestProcessContract:
         assert "does not exist" in capsys.readouterr().err
 
 
+@pytest.fixture
+def build_domain(tmp_path: Path) -> Callable[..., Path]:
+    """Return a helper writing a miniature ``app/domain`` package into ``tmp_path``.
+
+    Returns the scan root (``app/domain``).
+    """
+
+    def _build(*, modules: dict[str, str]) -> Path:
+        domain = tmp_path / "app" / "domain"
+        for relative, source in modules.items():
+            path = domain / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(textwrap.dedent(source).lstrip(), encoding="utf-8")
+        return domain
+
+    return _build
+
+
+class TestBusinessLogicHandles:
+    """Rule 2: no module under ``app/domain`` holds or reaches a persistence handle."""
+
+    def test_the_reach_through_a_repository_spelling_is_caught(self, build_domain: Callable[..., Path]) -> None:
+        """``self._user_repo._db`` — the shape #1556 measured, and the only one it saw."""
+        root = build_domain(
+            modules={
+                "services/auth_service.py": """
+                class AuthService:
+                    def verify_email(self, token):
+                        db = self._user_repo._db  # type: ignore[attr-defined]
+                        return db.aql.execute("FOR d IN users RETURN d")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
+    def test_the_spelling_the_issue_grep_could_not_see_is_caught_too(self, build_domain: Callable[..., Path]) -> None:
+        """A service HANDED a ``StandardDatabase``.
+
+        This is the assertion that makes the guard a guard about the class. It
+        contains no ``_repo._db`` anywhere, so the ``_repo`` + ``_db`` grep — the
+        measurement #1556 concluded "only two" from — reports it as clean.
+        """
+        root = build_domain(
+            modules={
+                "services/favorites_service.py": """
+                from arango.database import StandardDatabase
+
+                class FavoritesService:
+                    def __init__(self, db: StandardDatabase) -> None:
+                        self._db = db
+                """
+            }
+        )
+        markers = sorted(site.marker for site in checker.collect_handles(root))
+        assert markers == ["handle", "import:arango.database"]
+
+    def test_an_engine_is_business_logic_too(self, build_domain: Callable[..., Path]) -> None:
+        """The scan root is ``app/domain``, not ``app/domain/services``.
+
+        NFR-001 puts engines on the business-logic side of the boundary as much
+        as services; scanning only ``services/`` would leave a door open one
+        directory across.
+        """
+        root = build_domain(
+            modules={
+                "engines/calendar_aggregation_engine.py": """
+                class CalendarAggregationEngine:
+                    def __init__(self, db) -> None:
+                        self._db = db
+                """
+            }
+        )
+        assert [site.relative() for site in checker.collect_handles(root)]
+
+    def test_the_plain_driver_import_spelling_is_caught(self, build_domain: Callable[..., Path]) -> None:
+        root = build_domain(modules={"services/s.py": "import arango\n"})
+        assert [site.marker for site in checker.collect_handles(root)] == ["import:arango"]
+
+    def test_a_clean_service_is_not_a_crossing(self, build_domain: Callable[..., Path]) -> None:
+        root = build_domain(
+            modules={
+                "services/clean_service.py": """
+                from app.domain.interfaces.user_repository import IUserRepository
+
+                class CleanService:
+                    def __init__(self, user_repo: IUserRepository) -> None:
+                        self._user_repo = user_repo
+
+                    def verify(self, token):
+                        return self._user_repo.get_by_email_verification_token_hash(token)
+                """
+            }
+        )
+        assert checker.collect_handles(root) == []
+
+    def test_a_similarly_named_attribute_is_not_matched(self, build_domain: Callable[..., Path]) -> None:
+        """``species_in_database`` and ``_dbg`` are not the handle."""
+        root = build_domain(
+            modules={
+                "engines/identification_engine.py": """
+                class IdentificationEngine:
+                    def run(self, m):
+                        self._dbg = m.species_in_database
+                        return self._dbg
+                """
+            }
+        )
+        assert checker.collect_handles(root) == []
+
+    def test_the_getattr_escape_is_caught(self, build_domain: Callable[..., Path]) -> None:
+        """``getattr(repo, "_db")`` spells the same break without the attribute node."""
+        root = build_domain(
+            modules={
+                "services/s.py": """
+                class S:
+                    def run(self, repo):
+                        return getattr(repo, "_db")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
+    def test_a_handle_stored_under_another_name_is_caught_by_its_use(self, build_domain: Callable[..., Path]) -> None:
+        """No ``_db`` anywhere, and no ``arango`` import — but it still runs AQL.
+
+        This is the assertion that stops the rule from being shaped like the
+        offenders that happen to exist today, which is the mistake #1556 made one
+        level up.
+        """
+        root = build_domain(
+            modules={
+                "services/s.py": """
+                class S:
+                    def __init__(self, database):
+                        self.database = database
+
+                    def run(self):
+                        return self.database.aql.execute("FOR d IN users RETURN d")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
+    def test_all_three_detections_collapse_into_one_marker(self, build_domain: Callable[..., Path]) -> None:
+        """One finding per module, so a recorded module cannot change spelling and pass."""
+        root = build_domain(
+            modules={
+                "services/s.py": """
+                class S:
+                    def __init__(self, db):
+                        self._db = db
+
+                    def run(self, repo):
+                        return getattr(repo, "_db").aql.execute("FOR d IN users RETURN d")
+                """
+            }
+        )
+        assert [site.marker for site in checker.collect_handles(root)] == [checker.HANDLE_MARKER]
+
+    def test_a_crossing_makes_the_process_exit_non_zero(
+        self,
+        build_domain: Callable[..., Path],
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = build_domain(modules={"services/s.py": "class S:\n    def __init__(self, db):\n        self._db = db\n"})
+        assert checker.main(["--handle-scan-root", str(root)]) == checker.EXIT_DEFECTS
+        out = capsys.readouterr().out
+        assert "hold or reach a persistence handle" in out
+        assert "services/s.py" in out
+
+    def test_a_missing_handle_root_is_a_usage_error_not_a_pass(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        assert checker.main(["--handle-scan-root", str(tmp_path / "nowhere")]) == checker.EXIT_USAGE
+        assert "does not exist" in capsys.readouterr().err
+
+
 class TestTheRealTree:
     """What the pre-commit hook asserts, asserted here too."""
 
     def test_the_api_layer_carries_no_unrecorded_crossing(self) -> None:
         """Running it from pytest as well means a backend-only change goes red here."""
         assert checker.main([]) == checker.EXIT_OK
+
+    def test_the_business_logic_carries_no_unrecorded_handle(self) -> None:
+        """Rule 2 on the real ``app/domain``; ``main([])`` runs both rules."""
+        assert checker.main([]) == checker.EXIT_OK
+
+    def test_the_business_logic_holds_no_handle_at_all(self) -> None:
+        """Not "no unrecorded one": rule 2 has nothing to record into (#1638).
+
+        #1556's two ``auth_service`` sites and #1638's four modules are all GONE,
+        which this asserts directly on the scan rather than through an allowlist
+        an entry could have satisfied.
+        """
+        sites = checker.collect_handles(checker.REPO_ROOT / checker.DEFAULT_HANDLE_SCAN_ROOT)
+        assert [f"{site.relative()}:{site.line}: {site.marker}" for site in sites] == []
 
     def test_every_allowlist_entry_names_a_reason_worth_reading(self) -> None:
         """A one-word reason is a rubber stamp, and the allowlist IS the review.
@@ -289,3 +495,46 @@ class TestTheRealTree:
         """
         thin = [f"{entry.path}: {entry.module}" for entry in checker.ALLOWED_IMPORTS if len(entry.reason) < 60]
         assert not thin, "allowlist entries with a reason too short to argue with:\n" + "\n".join(thin)
+
+
+#: The modules rule 2 recorded before #1638, with a handle spelling to re-add.
+_FORMERLY_RECORDED = {
+    "services/favorites_service.py": "from arango.database import StandardDatabase\n",
+    "services/starter_kit_service.py": "\n\ndef _probe(db):\n    return db.aql.execute('RETURN 1')\n",
+    "services/onboarding_service.py": "\n\nclass _Holder:\n    def __init__(self, db):\n        self._db = db\n",
+    "engines/calendar_aggregation_engine.py": "\n\ndef _reach(repo):\n    return getattr(repo, '_db')\n",
+}
+
+
+class TestRuleTwoCannotBeSatisfiedByListing:
+    """#1638 acceptance: the allowlist reached zero and the mechanism went with it."""
+
+    def test_there_is_no_handle_allowlist_to_add_an_entry_to(self) -> None:
+        leftovers = [
+            name for name in ("ALLOWED_HANDLES", "AllowedHandle", "classify_handles") if hasattr(checker, name)
+        ]
+        assert leftovers == [], f"the rule-2 entry mechanism is back: {leftovers}"
+
+    @pytest.mark.parametrize("relative", sorted(_FORMERLY_RECORDED))
+    def test_re_adding_a_handle_to_a_formerly_recorded_module_fails(
+        self, relative: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A copy of the REAL ``app/domain`` with one handle re-introduced goes red.
+
+        The real tree rather than a constructed one, so the test also proves the
+        rest of ``app/domain`` stays clean around the injected site — a green
+        baseline, then one line, then red.
+        """
+        real = checker.REPO_ROOT / checker.DEFAULT_HANDLE_SCAN_ROOT
+        domain = tmp_path / "app" / "domain"
+        shutil.copytree(real, domain, ignore=shutil.ignore_patterns("__pycache__"))
+        assert checker.main(["--handle-scan-root", str(domain)]) == checker.EXIT_OK
+        capsys.readouterr()
+
+        target = domain / relative
+        target.write_text(target.read_text(encoding="utf-8") + _FORMERLY_RECORDED[relative], encoding="utf-8")
+
+        assert checker.main(["--handle-scan-root", str(domain)]) == checker.EXIT_DEFECTS
+        out = capsys.readouterr().out
+        assert relative in out
+        assert "no allowlist" in out

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import StreamingResponse
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
 from app.api.v1.ki_assistent.schemas import (
     AiResponseSchema,
@@ -25,10 +26,14 @@ from app.api.v1.ki_assistent.schemas import (
     TipCardSchema,
     TipListResponse,
 )
-from app.common.auth import get_current_tenant, require_tenant_role
+from app.api.v1.knowledge.schemas import KnowledgeAskRequest, KnowledgeAskResponse, KnowledgeChunkResponse
+from app.common.auth import get_current_tenant, meets_tenant_role, require_tenant_role
 from app.common.dependencies import get_ai_assistant_service
 from app.common.enums import TenantRole
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
+from app.domain.interfaces.knowledge_service import QuestionContext
 from app.domain.models.ai_assistant import AiResponse, AiTenantSettings, AiTipCard
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_assistant_service import AiAssistantService
@@ -82,28 +87,51 @@ def _response_schema(response: AiResponse) -> AiResponseSchema:
 # ── Tips ────────────────────────────────────────────────────────────
 
 
+def _may_refresh(ctx: TenantContext) -> bool:
+    """Whether ``ctx`` passes the gate on the regeneration routes below.
+
+    Rank is the only axis left to report, and the precondition is what makes that
+    true: this is only ever evaluated inside a handler of **this router**, whose
+    `dependencies=[Depends(require_ai_tenant_enabled)]` has already answered both
+    other stages of the REQ-031 §1.3 toggle — 404 when the operator flag is off,
+    403 when the tenant has KI disabled. A caller who would fail either of them
+    never receives a body to read this flag out of. The consent stage is symmetric
+    for the same reason: `get_tips` requires `ai_tenant_data_access` itself, so a
+    caller without it gets a 403 on the read rather than a flag they cannot use.
+
+    Measured, not assumed — `tests/api/test_ai_tip_reads_are_gated.py` drives all
+    three refusals against the mounted router, because the dependency this leans
+    on is declared on the router and an edit to the handler signature would not
+    show it moving.
+
+    What remains is `require_tenant_role(GROWER)`, read out of the same predicate
+    the gate decides on rather than restated, so the flag on the response and the
+    gate on the ``POST`` cannot disagree.
+    """
+    return meets_tenant_role(ctx.role, TenantRole.GROWER)
+
+
 @router.get("/tips", response_model=TipListResponse)
 def get_tips(
     context_type: str = Query(..., description="Context entity type the tips relate to (e.g. plant, location)."),
     context_key: str = Query(..., description="Document key of the context entity."),
-    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
-    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipListResponse:
-    """Context tip cards (cache-first). Consent ``ai_tenant_data_access``."""
-    tips = service.get_tips(
-        ctx,
-        context_type=context_type,
-        context_key=context_key,
-        language=language,
-        allow_cloud=ai_settings.ai_allow_cloud_providers,
-    )
-    return TipListResponse(tips=[_tip_schema(t) for t in tips])
+    """Stored context tip cards. Consent ``ai_tenant_data_access``.
+
+    A **read**: it never generates and never writes (#1461). An empty ``tips``
+    with ``refresh_available: true`` is the answer for "nothing generated yet,
+    and you may ask for it" — the regeneration is ``POST /ai/tips/refresh``.
+    """
+    tips = service.get_tips(ctx, context_type=context_type, context_key=context_key)
+    return TipListResponse(tips=[_tip_schema(t) for t in tips], refresh_available=_may_refresh(ctx))
 
 
 @router.post("/tips/refresh", response_model=TipListResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 def refresh_tips(
+    request: Request,
     context_type: str = Query(..., description="Context entity type the tips relate to (e.g. plant, location)."),
     context_key: str = Query(..., description="Document key of the context entity."),
     language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
@@ -111,16 +139,15 @@ def refresh_tips(
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipListResponse:
-    """Force-regenerate tips for a context. Consent ``ai_tenant_data_access``."""
-    tips = service.get_tips(
+    """Generate tips for a context. Consent ``ai_tenant_data_access``."""
+    tips = service.refresh_tips(
         ctx,
         context_type=context_type,
         context_key=context_key,
         language=language,
-        force=True,
         allow_cloud=ai_settings.ai_allow_cloud_providers,
     )
-    return TipListResponse(tips=[_tip_schema(t) for t in tips])
+    return TipListResponse(tips=[_tip_schema(t) for t in tips], refresh_available=True)
 
 
 @router.post("/tips/{tip_key}/dismiss", status_code=204)
@@ -148,13 +175,34 @@ def acted_on_tip(
 
 @router.get("/daily-tip", response_model=TipCardSchema | None)
 def get_daily_tip(
-    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
+    service: AiAssistantService = Depends(get_ai_assistant_service),
+) -> TipCardSchema | None:
+    """Today's stored daily tip, or ``null``. Consent ``ai_tenant_data_access``.
+
+    A **read**: it never generates and never writes (#1461). ``null`` means
+    nothing has been generated for today; ``POST /ai/daily-tip/refresh`` is what
+    generates it.
+    """
+    tip = service.get_daily_tip(ctx)
+    return _tip_schema(tip) if tip else None
+
+
+@router.post("/daily-tip/refresh", response_model=TipCardSchema | None)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
+def refresh_daily_tip(
+    request: Request,
+    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipCardSchema | None:
-    """A single personalised daily tip. Consent ``ai_tenant_data_access``."""
-    tip = service.get_daily_tip(ctx, language=language, allow_cloud=ai_settings.ai_allow_cloud_providers)
+    """Generate today's daily tip. Consent ``ai_tenant_data_access``.
+
+    Idempotent for the day: an already-generated card is returned rather than
+    regenerated, so a second click is not a second LLM call.
+    """
+    tip = service.refresh_daily_tip(ctx, language=language, allow_cloud=ai_settings.ai_allow_cloud_providers)
     return _tip_schema(tip) if tip else None
 
 
@@ -171,7 +219,9 @@ def dismiss_daily_tip(
 
 
 @router.post("/explain", response_model=AiResponseSchema)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 def explain(
+    request: Request,
     body: ExplainRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
@@ -189,15 +239,62 @@ def explain(
     return _response_schema(response)
 
 
+# ── Knowledge ask ───────────────────────────────────────────────────
+
+
+@router.post("/knowledge/ask", response_model=KnowledgeAskResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
+def ask_knowledge(
+    request: Request,
+    body: KnowledgeAskRequest,
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
+    service: AiAssistantService = Depends(get_ai_assistant_service),
+) -> KnowledgeAskResponse:
+    """RAG question answering over the knowledge base. Consent ``ai_knowledge_question``.
+
+    A question with plant ``context`` additionally needs ``ai_tenant_data_access``.
+    One LLM call per request, admitted like every other generating route here
+    (#2175): rank grower, the stage 1/2 toggle, the consents and the daily AI
+    budget, all before the Knowledge Service is reached; the per-account
+    ``rate_limit_inference`` bounds the minute. Replaces the ungated
+    ``POST /api/v1/knowledge/ask``.
+    """
+    # Only values actually given count as plant context: ``context: {}`` is no
+    # context, and must not be audited as tenant data (I-3).
+    context_values = body.context.model_dump(exclude_none=True) if body.context else {}
+    context = QuestionContext(**context_values) if context_values else None
+    answer = service.ask_knowledge(
+        ctx,
+        question=body.question,
+        top_k=body.top_k,
+        doc_language=body.doc_language,
+        prompt_language=body.prompt_language,
+        context=context,
+        allow_cloud=ai_settings.ai_allow_cloud_providers,
+    )
+    result = answer.result
+    return KnowledgeAskResponse(
+        answer=result.answer,
+        question_type=result.question_type,
+        model=result.model_name,
+        usage=result.usage,
+        sources=[KnowledgeChunkResponse(**chunk.model_dump()) for chunk in result.sources],
+        provider_type=answer.provider_type,
+        uses_cloud_provider=answer.uses_cloud_provider,
+    )
+
+
 # ── Chat (SSE) ──────────────────────────────────────────────────────
 
 
 @router.get("/conversations", response_model=list[ConversationSummary])
 def list_conversations(
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> list[ConversationSummary]:
-    """List the current user's KI-Assistent conversations."""
+    """List the current user's KI-Assistent conversations, most recent first (paginated, MT-035)."""
     return [
         ConversationSummary(
             key=c.key,
@@ -207,7 +304,7 @@ def list_conversations(
             message_count=c.message_count,
             updated_at=c.updated_at,
         )
-        for c in service.list_conversations(ctx)
+        for c in service.list_conversations(ctx, offset=pagination.offset, limit=pagination.limit)
     ]
 
 
@@ -235,7 +332,9 @@ def create_conversation(
 
 
 @router.post("/conversations/{conversation_key}/messages")
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def send_message(
+    request: Request,
     conversation_key: Annotated[str, Path(description="Document key of the conversation.")],
     body: ChatMessageRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),

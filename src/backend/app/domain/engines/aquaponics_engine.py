@@ -40,7 +40,13 @@ from app.domain.models.aquaponik import (
     WaterTest,
 )
 
-Severity = Literal["ok", "info", "warning", "critical"]
+#: Grades a single water parameter can receive (REQ-026 §WaterQualityEvaluation).
+#: A parameter inside its optimal range yields no evaluation at all, so there is
+#: no ``ok`` grade: ``info`` is the mildest finding (temperature merely suboptimal).
+WaterQualitySeverity = Literal["info", "warning", "critical"]
+#: Fish-health alert levels (REQ-026 §HealthAlert). Every alert the monitor raises
+#: is at least a warning; there is no informational or all-clear alert.
+HealthAlertSeverity = Literal["warning", "critical"]
 
 #: Safe threshold for free (unionised) ammonia in mg/L (REQ-026 §1).
 FREE_AMMONIA_SAFE_MGL = 0.02
@@ -66,7 +72,7 @@ class WaterQualityEvaluation(BaseModel):
     parameter: str
     value: float
     limit: float
-    severity: Severity
+    severity: WaterQualitySeverity
     message_de: str
     message_en: str
 
@@ -158,7 +164,7 @@ class HealthAlert(BaseModel):
     """A fish-health alert derived from mortality / feeding / water quality."""
 
     alert_type: str
-    severity: Severity
+    severity: HealthAlertSeverity
     message_de: str
     message_en: str
     recommended_action: str
@@ -284,7 +290,7 @@ class NitrogenCycleEngine:
 
     def _evaluate_temperature(self, temp_c: float, species: FishSpecies) -> list[WaterQualityEvaluation]:
         if temp_c < species.temperature_lethal_low_c or temp_c > species.temperature_lethal_high_c:
-            severity: Severity = "critical"
+            severity: WaterQualitySeverity = "critical"
             de = f"Wassertemperatur {temp_c}°C ist letal für {species.common_name_de}."
             en = f"Water temperature {temp_c}°C is lethal for {species.common_name_en}."
         elif temp_c < species.temperature_min_c or temp_c > species.temperature_max_c:

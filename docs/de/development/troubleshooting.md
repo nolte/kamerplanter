@@ -108,7 +108,7 @@ Lösungen zu häufigen technischen Problemen bei Installation, Betrieb und Nutzu
     Prüfe:
 
     1. **Korrekte E-Mail und Passwort?** Demo-Account: `demo@kamerplanter.local` / `demo-passwort-2024`
-    2. **E-Mail-Verifikation erforderlich?** Wenn `REQUIRE_EMAIL_VERIFICATION=true` gesetzt ist, muss die E-Mail bestätigt sein. In der Entwicklungsumgebung auf `false` setzen.
+    2. **E-Mail-Verifikation erforderlich?** `REQUIRE_EMAIL_VERIFICATION` ist per Default `true` — dann muss die E-Mail bestätigt sein. In einer Entwicklungsumgebung ohne Mailversand setzt du die Variable auf `false`. Der Demo-Account ist bereits bestätigt.
     3. **JWT-Schlüssel geändert?** Alle aktiven Tokens verlieren ihre Gültigkeit. Neu anmelden.
 
 ??? question "Registrierung schlägt fehl — 'Email already registered'"

@@ -3,9 +3,17 @@
 from app.config import Settings
 from app.llm.interface import ILlmAdapter
 
+#: The values of ``LLM_PROVIDER`` this factory dispatches on (#2176).
+KNOWN_LLM_PROVIDERS: frozenset[str] = frozenset({"ollama", "openai_compatible", "anthropic"})
+
 
 def create_llm_adapter(settings: Settings) -> ILlmAdapter:
-    """Create the appropriate LLM adapter based on settings."""
+    """Create the appropriate LLM adapter based on settings.
+
+    Raises:
+        ValueError: ``LLM_PROVIDER`` names none of :data:`KNOWN_LLM_PROVIDERS`.
+            Called from the lifespan, so the service does not start.
+    """
     provider = settings.llm_provider
 
     if provider == "ollama":
@@ -23,10 +31,14 @@ def create_llm_adapter(settings: Settings) -> ILlmAdapter:
             api_key=settings.llm_api_key,
             model=settings.llm_model,
         )
-    else:
+    elif provider == "anthropic":
         from app.llm.anthropic import AnthropicLlmAdapter
 
         return AnthropicLlmAdapter(
             api_key=settings.llm_api_key,
             model=settings.llm_model,
         )
+    # #2176: an unknown value used to fall through to the Anthropic adapter, so a
+    # typo silently sent every question to a cloud API. Refuse to start instead.
+    msg = f"Unknown LLM_PROVIDER {provider!r}; expected one of {sorted(KNOWN_LLM_PROVIDERS)}."
+    raise ValueError(msg)

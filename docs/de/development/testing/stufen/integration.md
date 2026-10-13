@@ -31,7 +31,7 @@ Diese Stufe braucht eine Datenbank, und das Fehlen einer solchen wird **nicht** 
 # ArangoDB starten (Dev-Stack oder ein Wegwerf-Container)
 task dev:core
 # oder:
-docker run -d --rm --name kp-it-arango -p 8529:8529 \
+docker run -d --rm --name kp-it-arango -p 127.0.0.1:8529:8529 \
   -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
 
 # Nur Integrationstests — dieselbe Invocation wie in CI

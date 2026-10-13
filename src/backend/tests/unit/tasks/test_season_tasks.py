@@ -13,6 +13,7 @@ import pytest
 
 from app.common.enums import SeasonPhase, SeasonTriggerTier
 from app.domain.models.season_state import SeasonState
+from tests.support.tenant_walk import TenantRows, active
 
 
 @pytest.fixture
@@ -22,6 +23,8 @@ def task_module(monkeypatch):
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_quarter_climate_service = MagicMock()  # type: ignore[attr-defined]
+    # REQ-056 §5.2: every tenant here is active (a MagicMock tenant reads ``is_active``).
+    mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.season_tasks as module
@@ -166,9 +169,10 @@ class TestEvaluateQuarterClimate:
         module, deps = task_module
         monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
 
-        plant_repo = MagicMock()
-        plant_repo.get_all.return_value = ([_plant("p1"), _plant("p2"), _plant("p3", removed=True)], 3)
+        # MT-032 (#2128): the removed plant is filtered in the store, the tenant walk asks for t1 only.
+        plant_repo = TenantRows([_plant("p1"), _plant("p2"), _plant("p3", removed=True)])
         deps.get_plant_repo.return_value = plant_repo
+        deps.get_tenant_repo.return_value = active("t1")
 
         service = MagicMock()
         # p1 raises a warning task, p2 does not.
@@ -178,14 +182,16 @@ class TestEvaluateQuarterClimate:
         result = module.evaluate_quarter_climate()
 
         assert result == {"status": "ok", "evaluated": 2, "warnings": 1, "errors": 0}
+        assert plant_repo.walks == [(["t1"], [("removed_on", "==", None)])]
+        # #2107: each plant is evaluated under its own tenant, which the service verifies.
+        assert [c.kwargs["tenant_key"] for c in service.evaluate_plant.call_args_list] == ["t1", "t1"]
 
     def test_one_bad_plant_is_isolated(self, task_module, monkeypatch):
         module, deps = task_module
         monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
 
-        plant_repo = MagicMock()
-        plant_repo.get_all.return_value = ([_plant("p1"), _plant("p2")], 2)
-        deps.get_plant_repo.return_value = plant_repo
+        deps.get_plant_repo.return_value = TenantRows([_plant("p1"), _plant("p2")])
+        deps.get_tenant_repo.return_value = active("t1")
 
         service = MagicMock()
         service.evaluate_plant.side_effect = [RuntimeError("boom"), None]

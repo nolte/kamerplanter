@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -9,15 +10,67 @@ from app.common.validators import DisplayName
 # enforces the same bound for non-HTTP callers and a domain service may not
 # import an API schema (NFR-001). This boundary is where an over-long value
 # becomes a 422 instead of a 500 (BACKEND.md §5.4).
-from app.domain.models.auth import DEVICE_NAME_MAX_LENGTH
+from app.domain.models.auth import (
+    API_KEY_IP_ALLOWLIST_MAX_ENTRIES,
+    API_KEY_MAX_LIFETIME_DAYS,
+    API_KEY_RATE_LIMIT_MAX,
+    API_KEY_RATE_LIMIT_MIN,
+    DEVICE_NAME_MAX_LENGTH,
+)
 
 # ── Request schemas ────────────────────────────────────────────────
+
+
+class CredentialStepUp(BaseModel):
+    """The step-up a credential change carries in its body (#1847, #1857, REQ-023 §3.9).
+
+    Which field the account needs is the verifier's rule: ``current_password`` for
+    an account with a local password; for one without, ``step_up_token`` from a
+    fresh sign-in at its identity provider or — where no linked provider can do
+    that — ``step_up_code`` from ``POST /users/me/step-up-code``.
+    """
+
+    current_password: str | None = Field(
+        default=None,
+        max_length=128,
+        description="The requester's current password. Required when the requester's account has one.",
+    )
+    step_up_code: str | None = Field(
+        default=None,
+        max_length=32,
+        description=(
+            "The one-time code mailed by POST /users/me/step-up-code for this act. Required when the account has "
+            "no local password and no provider that can re-authenticate; 401 STEP_UP_CODE_REQUIRED without it."
+        ),
+    )
+    step_up_token: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "The one-time token of a fresh sign-in at the account's identity provider, from the fragment of "
+            "/auth/step-up/callback after POST /users/me/step-up/oidc. Required instead of step_up_code when the "
+            "account has no local password but a provider that can re-authenticate (401 STEP_UP_REAUTH_REQUIRED)."
+        ),
+    )
+
+
+#: The body fields of :class:`CredentialStepUp` — never part of a resource write.
+CREDENTIAL_STEP_UP_FIELDS = frozenset(CredentialStepUp.model_fields)
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
     display_name: DisplayName
+    #: The token of a pending e-mail invitation for ``email`` (#2132, REQ-023 §3.2d): required in
+    #: ``REGISTRATION_MODE=invite_only``, and admits an address outside the domain allowlist. A link
+    #: invitation unlocks no registration.
+    invitation_token: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=512,
+        description="Token of a pending e-mail invitation for this address; required when registration is invite-only.",
+    )
 
 
 class LoginRequest(BaseModel):
@@ -46,6 +99,14 @@ class VerifyEmailRequest(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     email: EmailStr
+
+
+class ResendVerificationRequest(BaseModel):
+    """The address a new verification link is asked for (#2037)."""
+
+    email: EmailStr
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"email": "grower@example.com"}]})
 
 
 class PasswordResetConfirm(BaseModel):
@@ -100,13 +161,82 @@ class RefreshRequest(BaseModel):
     )
 
 
-class ApiKeyCreateRequest(BaseModel):
+class ApiKeyControls(BaseModel):
+    """The network controls a key is minted with (#2137, MT-041, REQ-023 §5b).
+
+    Enforced on every key surface (REST and MCP) since #1850; the service checks
+    them before the step-up asks for a password (``api_key_control_errors``), so
+    an unusable value is a 422 and nothing is minted.
+    """
+
+    ip_allowlist: list[Annotated[str, Field(min_length=1, max_length=64)]] | None = Field(
+        default=None,
+        max_length=API_KEY_IP_ALLOWLIST_MAX_ENTRIES,
+        description=(
+            "CIDR ranges the key is accepted from (a bare address is its own /32 or /128). No host bits, nothing "
+            "wider than /8 (IPv4) or /32 (IPv6). Omitted or empty: every address."
+        ),
+    )
+    rate_limit_per_minute: int | None = Field(
+        default=None,
+        ge=API_KEY_RATE_LIMIT_MIN,
+        le=API_KEY_RATE_LIMIT_MAX,
+        description="Requests per minute the key may make, REST and MCP together (429 beyond). Omitted: no limit.",
+    )
+    expires_at: datetime | None = Field(
+        default=None,
+        description=(
+            f"When the key stops working; with a timezone, in the future, at most {API_KEY_MAX_LIFETIME_DAYS} days "
+            "ahead. Omitted: the key does not expire."
+        ),
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "ip_allowlist": ["192.168.1.0/24", "2001:db8::/48"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-04-01T00:00:00+02:00",
+                }
+            ]
+        }
+    )
+
+
+class ApiKeyCreateRequest(ApiKeyControls, CredentialStepUp):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "label": "Home Assistant",
+                    "tenant_scope": "community-garden",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-04-01T00:00:00+02:00",
+                    "current_password": "<your current password>",
+                }
+            ]
+        }
+    )
+
     label: str = Field(min_length=1, max_length=100)
-    tenant_scope: str | None = None
+    tenant_scope: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "Restrict the key to one tenant, named by its slug or key. It must be a tenant you are an "
+            "active member of (403 otherwise); the key stores and returns the tenant's key."
+        ),
+    )
 
 
 class SetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=10, max_length=128)
+
+
+class DevicePairingCreateRequest(CredentialStepUp):
+    """The step-up of minting a pairing code (#1847): the code redeems into a full session."""
 
 
 class DevicePairingRedeemRequest(BaseModel):
@@ -199,7 +329,11 @@ class TokenPairResponse(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4MjcxNjM0In0.sIgn4tur3",
+                    # Elided on purpose: a complete three-part JWT here, even an
+                    # unsigned sample, is what secret scanners are built to flag
+                    # (Trivy `jwt-token`, code-scanning alert #8). The header is
+                    # kept so the example still reads as a JWT.
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.…",
                     "token_type": "bearer",
                     "expires_in": 900,
                     "refresh_token": "hZ3JvdzogcmVmcmVzaCB0b2tlbiBmb3IgYSBwYWlyZWQgZGV2aWNl",
@@ -304,15 +438,55 @@ class OAuthProviderListItem(BaseModel):
 
 
 class ApiKeyCreatedResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "a7d2c1",
+                    "label": "Home Assistant",
+                    "raw_key": "kp_<shown once>",
+                    "key_prefix": "kp_Xy1aB",
+                    "tenant_scope": "t-garden",
+                    "created_at": "2026-10-05T10:00:00Z",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-03-31T22:00:00Z",
+                }
+            ]
+        }
+    )
+
     key: str
     label: str
     raw_key: str
     key_prefix: str
     tenant_scope: str | None
     created_at: datetime | None
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = None
+    expires_at: datetime | None = None
 
 
 class ApiKeySummaryResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "a7d2c1",
+                    "label": "Home Assistant",
+                    "key_prefix": "kp_Xy1aB",
+                    "tenant_scope": "t-garden",
+                    "revoked": False,
+                    "last_used_at": "2026-10-05T10:15:00Z",
+                    "created_at": "2026-10-05T10:00:00Z",
+                    "ip_allowlist": ["192.168.1.0/24"],
+                    "rate_limit_per_minute": 600,
+                    "expires_at": "2027-03-31T22:00:00Z",
+                }
+            ]
+        }
+    )
+
     key: str
     label: str
     key_prefix: str
@@ -320,6 +494,9 @@ class ApiKeySummaryResponse(BaseModel):
     revoked: bool
     last_used_at: datetime | None
     created_at: datetime | None
+    ip_allowlist: list[str] | None = None
+    rate_limit_per_minute: int | None = None
+    expires_at: datetime | None = None
 
 
 class MessageResponse(BaseModel):

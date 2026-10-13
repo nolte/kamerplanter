@@ -303,6 +303,82 @@ CARE_STYLE_PRESETS: dict[CareStyleType, dict] = {
         "humidity_check_enabled": False,
         "humidity_check_interval_days": 14,
     },
+    # REQ-022 §"FAMILY_CARE_MAP-Abdeckung aller geseedeten Familien" (#1505) — the
+    # two seeded families no existing preset fits. Every value below is the median
+    # of the `care_profiles.*` rows the seeded species' own Steckbriefe declare in
+    # `spec/knowledge/plants/*.md` §4.1; the source is named per field.
+    CareStyleType.BROMELIAD: {
+        # Funnel-watered epiphytes (Aechmea, Guzmania, Neoregelia, Vriesea,
+        # Tillandsia). Neither TROPICAL nor ORCHID fits: the water goes into the
+        # leaf funnel rather than the substrate, and the family is an extreme light
+        # feeder (botanical_families.yaml: "extreme Schwachzehrer"), so ORCHID's
+        # 14-day feeding would overfeed it.
+        # 7 d: median of 7/7/7/10/3 (guzmania, vriesea, aechmea, neoregelia,
+        #      tillandsia §4.1 "Giessintervall Sommer").
+        "watering_interval_days": 7,
+        # 1.5: guzmania_lingulata.md / neoregelia_carolinae.md / vriesea_splendens.md
+        #      (aechmea + tillandsia say 2.0).
+        "winter_watering_multiplier": 1.5,
+        # top_water "in Trichter" — 4 of 5 docs; only the rootless Tillandsia soaks.
+        "watering_method": WateringMethod.TOP_WATER,
+        # All five docs carry a lime-free hint; wording condensed from
+        # guzmania_lingulata.md §4.1 + its "Trichter-Giesskultur" instructions.
+        "water_quality_hint": (
+            "Lime-free water (rain or well-stood tap water) into the leaf funnel — hard water clogs the "
+            "trichomes. Swap the funnel water every 4-6 weeks and keep the substrate only slightly moist"
+        ),
+        # 28 d: median of 28/21/42/42/28.
+        "fertilizing_interval_days": 28,
+        # 4-9: aechmea/neoregelia/vriesea/tillandsia; guzmania starts in March.
+        "fertilizing_active_months": [4, 5, 6, 7, 8, 9],
+        # 24 months: guzmania/aechmea/neoregelia/vriesea (Tillandsia has no pot).
+        "repotting_interval_months": 24,
+        # 21 d: median of 21/14/21/14/21.
+        "pest_check_interval_days": 21,
+        # true in all five docs.
+        "humidity_check_enabled": True,
+        # 14 d: guzmania_lingulata.md §4.1.
+        "humidity_check_interval_days": 14,
+    },
+    CareStyleType.AQUATIC: {
+        # Pond plants rooted in a planting basket (Nymphaea). nymphaea_alba.md §4.1
+        # states outright: "`custom` (kein Standard-Preset passt fuer aquatische
+        # Pflanzen)" — this preset is that missing one, built from the same table.
+        # A water lily is never watered; the watering reminder is the weekly
+        # pond-level top-up the doc quantifies as "ca. 2-5 cm/Woche im Sommer".
+        "watering_interval_days": 7,
+        # The doc's overwintering table says winter watering is "none (aquatisch,
+        # steht im Wasser)" — 4.0 turns the weekly top-up into a monthly level check.
+        "winter_watering_multiplier": 4.0,
+        # "nicht anwendbar (Teich)" in the doc; TOP_WATER is the only enum member
+        # that does not misdescribe topping a pond up.
+        "watering_method": WateringMethod.TOP_WATER,
+        # Condensed from nymphaea_alba.md §3.1 and §4.1 "Wasserqualitaet-Hinweis".
+        "water_quality_hint": (
+            "Pond-level check, not a watering: top up 2-5 cm per week in summer. Tap water is fine at "
+            "pH 6.5-8.5. Feed with depot tablets pressed into the basket substrate only — liquid "
+            "fertiliser in the pond water causes an algae bloom"
+        ),
+        # "28-42 (alle 4-6 Wochen, Depot-Tabletten)" → 30.
+        "fertilizing_interval_days": 30,
+        # "4-8 (April bis August)"; the doc's care calendar names August as the last feed.
+        "fertilizing_active_months": [4, 5, 6, 7, 8],
+        # "36-60 (alle 3-5 Jahre Pflanzkorb erneuern und Rhizom teilen)" → 48.
+        "repotting_interval_months": 48,
+        # 14 d in the doc (water-lily aphid, water-lily leaf beetle).
+        "pest_check_interval_days": 14,
+        # "false (aquatisch)".
+        "humidity_check_enabled": False,
+        "humidity_check_interval_days": 30,
+        # The only preset that switches this off (review finding SCR-010). The
+        # reminder itself stays — a pond really does need topping up weekly in
+        # summer, and the hint above says what the job is — but completing a
+        # *watering task* writes a Gießprotokoll entry
+        # (`CareReminderService.record_care_task_completion`), and "watered the
+        # water lily with 2 litres" is a log entry about a plant that stands in a
+        # pond. The user can switch it on per profile.
+        "auto_create_watering_task": False,
+    },
     CareStyleType.CUSTOM: {
         "watering_interval_days": 7,
         "winter_watering_multiplier": 1.5,
@@ -318,7 +394,44 @@ CARE_STYLE_PRESETS: dict[CareStyleType, dict] = {
 
 # ── Botanical family → care style mapping ──────────────────────────────
 
+#: Botanical family **name** → the care-style preset a plant of that family gets
+#: when its species carries no ``WateringGuide`` (tier 2 of
+#: :meth:`CareReminderEngine.auto_generate_profile`).
+#:
+#: **Coverage (#1505).** Until 2026-09-18 this was a houseplant map: it knew 14 of
+#: the 63 families the seeds create, and a tomato, a cabbage and a rose fell to the
+#: tier-3 ``TROPICAL`` 7-day houseplant fallback. It now covers every seeded family;
+#: ``TROPICAL`` stays the last tier for a family no seed declares (a user-created
+#: species, an import).
+#:
+#: The issue measured "18 seeded families, 4 mapped" from
+#: ``botanical_families.yaml`` alone. Measured over *every* seed file
+#: (``plant_info_*.yaml``, ``adventskalender.yaml`` each carry a ``new_families``
+#: block, and six more families are named only by a species' ``family``): **63
+#: seeded, 14 mapped, 49 added here.** The guard in
+#: ``tests/unit/domain/engines/test_care_reminder_engine_family_map.py`` derives the
+#: population the same way, so the map cannot fall behind a new seed file again.
+#:
+#: **How each style was derived, in this order:**
+#:
+#: 1. The ``Pflege-Stil`` value the family's own Steckbriefe declare in
+#:    ``spec/knowledge/plants/<species>.md`` §4.1 ``care_profiles.care_style`` —
+#:    209 of the 210 documents carry one — taking the majority per family.
+#: 2. Where that majority is absent, tied, ``custom``, or not a ``CareStyleType``
+#:    member at all (two documents say ``temperate``, which no version of the enum
+#:    has ever had), the style whose preset matches the family's dominant
+#:    cultivation form in the seeds (``plant_category``, ``growth_habit``,
+#:    ``frost_sensitivity``). Every such deviation is named on its line.
+#: 3. ``CUSTOM`` is never a family default: as a *default* it is the ``TROPICAL``
+#:    numbers under a name that tells the user nothing.
+#:
+#: A family default is necessarily coarse — Rosaceae holds an apple tree and a
+#: strawberry, Asparagaceae a snake plant and asparagus. It is the *third* tier: a
+#: species with a ``WateringGuide`` overrides the watering fields (#1481), and the
+#: user can change the profile. The choice is "which preset is least wrong for the
+#: species this family actually seeds", not "which is right for all of them".
 FAMILY_CARE_MAP: dict[str, CareStyleType] = {
+    # ── Indoor / houseplant families ──────────────────────────────────
     "Araceae": CareStyleType.TROPICAL,
     "Marantaceae": CareStyleType.CALATHEA,
     "Orchidaceae": CareStyleType.ORCHID,
@@ -329,13 +442,131 @@ FAMILY_CARE_MAP: dict[str, CareStyleType] = {
     "Lamiaceae": CareStyleType.HERB_TROPICAL,
     "Oleaceae": CareStyleType.MEDITERRANEAN,
     "Moraceae": CareStyleType.TROPICAL,
-    # REQ-022 §"FAMILY_CARE_MAP-Erweiterung für Zierpflanzen" — annual outdoor
-    # ornamentals (pansy, primrose, geranium, lobelia, busy Lizzie).
+    # #1505 additions. Rule 1 unless the line says otherwise.
+    "Acanthaceae": CareStyleType.CALATHEA,  # aphelandra, fittonia: calathea 2/2
+    "Aizoaceae": CareStyleType.CACTUS,  # lithops_spp.md: cactus
+    "Apocynaceae": CareStyleType.TROPICAL,  # hoya, stephanotis 2/3 (ceropegia: succulent)
+    "Araliaceae": CareStyleType.MEDITERRANEAN,  # fatsia, hedera 2/3 — cool-tolerant, dries back
+    "Arecaceae": CareStyleType.TROPICAL,  # indoor palms 4/4
+    # Rule 2, and the full count (the first draft named only 6 of the 11 votes —
+    # review finding SCR-005): succulent 4 (aspidistra, d. angolensis,
+    # d. trifasciata, yucca), tropical 3 (chlorophytum, d. marginata x2),
+    # custom 1 (asparagus_officinalis), fern 1 (asparagus_setaceus), cactus 1
+    # (beaucarnea), temperate 1 (hosta — not a CareStyleType either). 4 of 11 is a
+    # plurality, not a majority, so this is a judgement and the family record agrees
+    # it has to be ("Artspezifische Pflegedaten beachten").
+    #
+    # SUCCULENT, and the price is named: **Hosta and Asparagus officinalis are
+    # outdoor perennials** and neither carries a WateringGuide (measured in the
+    # seeds), so tier 1 will not rescue them — they get 14 days, drench-and-drain
+    # and a 3.0 winter multiplier until a user edits the profile. It is still the
+    # lesser harm: 9 of the 11 seeded species are indoor, 4 of them store water in
+    # their leaves, and root rot from a 7-day rhythm kills where a dry fortnight
+    # makes a Hosta wilt. A species-level care-style override is the real fix and is
+    # filed as a follow-up.
+    "Asparagaceae": CareStyleType.SUCCULENT,
+    "Aspleniaceae": CareStyleType.FERN,  # asplenium_nidus.md: fern
+    "Begoniaceae": CareStyleType.TROPICAL,  # rule 2: calathea/tropical tie, generic wins
+    # **Deviation** from a real rule-1 majority (`tropical` 3/5: vriesea, neoregelia,
+    # aechmea; guzmania and tillandsia say `orchid`) — the first draft called this
+    # rule 2, which understated it (review finding SCR-004). Neither style fits: the
+    # water goes into the leaf funnel rather than the substrate, and the family
+    # record calls it an "extreme Schwachzehrer", which ORCHID's 14-day feeding
+    # contradicts. Hence the BROMELIAD preset, built from the five docs themselves.
+    "Bromeliaceae": CareStyleType.BROMELIAD,
+    "Commelinaceae": CareStyleType.TROPICAL,  # tradescantia_zebrina.md: tropical
+    "Euphorbiaceae": CareStyleType.TROPICAL,  # croton, poinsettia 2/2
+    "Gesneriaceae": CareStyleType.CALATHEA,  # streptocarpus 2/3 — bottom water, soft water
+    "Malvaceae": CareStyleType.TROPICAL,  # hibiscus, pachira 2/2
+    "Nephrolepidaceae": CareStyleType.FERN,  # nephrolepis_exaltata.md: fern
+    "Oxalidaceae": CareStyleType.TROPICAL,  # oxalis_triangularis.md: tropical
+    "Piperaceae": CareStyleType.SUCCULENT,  # peperomia_obtusifolia.md: succulent
+    "Pteridaceae": CareStyleType.FERN,  # adiantum_raddianum.md: fern
+    "Rubiaceae": CareStyleType.TROPICAL,  # rule 2: coffea/gardenia tie, both warm indoor
+    # Rule 2. strelitzia_reginae.md says `mediterranean`, which the seeds
+    # contradict: tropical_foliage, indoor_suitable=yes, frost sensitive. The
+    # MEDITERRANEAN preset's 10-day drench-and-drain is a winter-dry regime.
+    "Strelitziaceae": CareStyleType.TROPICAL,
+    "Urticaceae": CareStyleType.TROPICAL,  # rule 2: pilea/soleirolia tie, both warm indoor
+    # ── Outdoor edible families ───────────────────────────────────────
+    "Amaranthaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # beetroot, spinach
+    # Rule 2. Split docs (2 tropical for the indoor bulbs Clivia/Hippeastrum), but
+    # 4 of the 6 seeded species are kitchen-garden Alliums (onion, leek, garlic,
+    # chives).
+    "Amaryllidaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,
+    "Apiaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # carrot, celery, parsnip … 5/9
+    # Rule 2. mediterranean 3 / outdoor_annual_veg 3 / custom 2 (lactuca, dahlia);
+    # counting the two `custom` vegetables, the kitchen-garden reading is 5 of 10.
+    # Trade-off named: Tagetes and Dahlia thereby lose the deadheading reminder
+    # (DEADHEADING_CARE_STYLES), which a per-species override should restore.
+    "Asteraceae": CareStyleType.OUTDOOR_ANNUAL_VEG,
+    "Boraginaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # phacelia, green manure
+    "Brassicaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # 8/9
+    # Rule 2. humulus_lupulus.md (the only doc with a style) says `mediterranean`,
+    # but the family record says `typical_nutrient_demand: heavy` and the second
+    # seeded species is Cannabis sativa (indoor, heavy feeder) — a 30-day feeding
+    # interval contradicts both.
+    "Cannabaceae": CareStyleType.HERB_TROPICAL,
+    "Cucurbitaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # rule 2: 3/3 tie, all six are outdoor veg
+    "Fabaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # 6/8
+    "Poaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # cereals 6/6
+    "Solanaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # tomato, pepper, potato … 5/6
+    "Tropaeolaceae": CareStyleType.OUTDOOR_ANNUAL_VEG,  # tropaeolum_majus.md
+    # ── Outdoor ornamental, perennial and woody families ──────────────
     "Violaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
     "Primulaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
     "Geraniaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
-    "Campanulaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
     "Balsaminaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+    "Adoxaceae": CareStyleType.OUTDOOR_PERENNIAL,  # sambucus, viburnum 2/2
+    "Buxaceae": CareStyleType.MEDITERRANEAN,  # buxus_sempervirens.md
+    "Caprifoliaceae": CareStyleType.MEDITERRANEAN,  # weigela_florida.md
+    "Cornaceae": CareStyleType.MEDITERRANEAN,  # cornus_mas.md
+    # Rule 2/3. All three docs say `custom`. Vaccinium corymbosum *is* a berry
+    # shrub, and BERRY_SHRUB's numbers (7-day water, 30-day feed Mar-Jun) fit the
+    # ericaceous acid-soil, low-feed regime the Rhododendron docs describe too. The
+    # lime-free water the family needs has no home in a shared preset yet.
+    "Ericaceae": CareStyleType.BERRY_SHRUB,
+    # Rule 2/3. Both docs say `custom`; currant and gooseberry are literally the
+    # plants BERRY_SHRUB was written for.
+    "Grossulariaceae": CareStyleType.BERRY_SHRUB,
+    # Rule 2. hydrangea_macrophylla.md says `temperate`, which is not a
+    # CareStyleType. Hardy outdoor shrub with a high water demand → the 5-day
+    # OUTDOOR_PERENNIAL interval.
+    "Hydrangeaceae": CareStyleType.OUTDOOR_PERENNIAL,
+    # Rule 2. tigridia_pavonia.md says `mediterranean`; the seeds say
+    # plant_category=bulb_tuber, frost-sensitive geophyte — which is exactly what
+    # FROST_TENDER_TUBER ("dug up and stored frost-free") describes.
+    "Iridaceae": CareStyleType.FROST_TENDER_TUBER,
+    "Nymphaeaceae": CareStyleType.AQUATIC,  # rule 2: the doc asks for this preset by name
+    "Paeoniaceae": CareStyleType.OUTDOOR_PERENNIAL,  # paeonia_lactiflora.md
+    "Polemoniaceae": CareStyleType.OUTDOOR_PERENNIAL,  # phlox_paniculata.md
+    "Polygonaceae": CareStyleType.OUTDOOR_PERENNIAL,  # rule 3: rhubarb, hardy perennial vegetable
+    # Rule 2. mediterranean 2 (clematis, helleborus) / outdoor_perennial 1 / custom
+    # 1, but all four are hardy outdoor perennials and Clematis and Delphinium are
+    # thirsty — a 10-day drench-and-drain interval is the wrong direction.
+    "Ranunculaceae": CareStyleType.OUTDOOR_PERENNIAL,
+    # Rule 2/3. Six of eight docs say `custom`; four of the eight seeded species
+    # are the fruit trees FRUIT_TREE names ("Apple, pear, cherry, plum"). Rosa spp.
+    # and the Rubus berries deserve their own styles (ROSE, BERRY_SHRUB) — a
+    # family map cannot give them one.
+    "Rosaceae": CareStyleType.FRUIT_TREE,
+    "Saxifragaceae": CareStyleType.OUTDOOR_PERENNIAL,  # astilbe_chinensis.md
+    # Rule 2. The doc says `mediterranean`; the one seeded species, Verbena x
+    # hybrida, is a frost-tender balcony bedder — the use case
+    # OUTDOOR_ANNUAL_ORNAMENTAL was written for ("Pansy, primrose, geranium,
+    # lobelia").
+    "Verbenaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+    # Rule 2. The doc says `mediterranean`, whose 36-month repotting interval would
+    # put a repotting reminder on a grapevine in the ground; FRUIT_TREE caps it at
+    # 60 and feeds once in spring, which is how an established vine is handled.
+    "Vitaceae": CareStyleType.FRUIT_TREE,
+    # ── Entries naming no seeded family ───────────────────────────────
+    # Harmless: they cost one dict entry and serve a user-created or imported
+    # species. The issue counted 11 of these; measured over every seed file it is
+    # one — the other ten (Cactaceae, Crassulaceae, Marantaceae, Moraceae, Oleaceae,
+    # Orchidaceae, Polypodiaceae, Primulaceae, Asphodelaceae, Balsaminaceae) are
+    # seeded, just by a `plant_info_*.yaml` rather than by botanical_families.yaml.
+    "Campanulaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
 }
 
 

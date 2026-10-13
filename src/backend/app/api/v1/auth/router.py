@@ -1,12 +1,12 @@
 import math
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import urlencode
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Path, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.v1.auth.csrf import set_csrf_cookie, verify_csrf
@@ -14,6 +14,7 @@ from app.api.v1.auth.schemas import (
     ApiKeyCreatedResponse,
     ApiKeyCreateRequest,
     ApiKeySummaryResponse,
+    DevicePairingCreateRequest,
     DevicePairingCreateResponse,
     DevicePairingRedeemRequest,
     LoginRequest,
@@ -23,22 +24,33 @@ from app.api.v1.auth.schemas import (
     PasswordResetRequest,
     RefreshRequest,
     RegisterRequest,
+    ResendVerificationRequest,
     TokenPairResponse,
     TokenResponse,
     UserProfileResponse,
     VerifyEmailRequest,
 )
 from app.api.v1.mcp.deps import require_mcp_enabled
-from app.common.auth import get_current_user, get_refresh_token_from_cookie
+from app.common.auth import (
+    get_authenticated_with_api_key,
+    get_refresh_token_from_cookie,
+    require_account_principal,
+    resolved_principal_key,
+)
 from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
+from app.common.error_handlers import app_error_response
 from app.common.exceptions import (
+    EmailNotVerifiedError,
     InvalidTokenError,
     NotFoundError,
     OAuthAutoLinkRefusedError,
+    RegistrationNotAllowedError,
+    StepUpReauthFailedError,
     UnauthorizedError,
     ValidationError,
 )
-from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import CRUD_RESPONSES, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.rate_limit import build_process_memory_rate_limiter, build_rate_limiter
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import list_mcp_permissions
@@ -76,9 +88,12 @@ def _rate_limit_key(request: Request) -> str:
     out of reach.
 
     The one path that reading cannot cover is a request that never traverses our
-    proxies — the backend NetworkPolicy currently admits port 8000 without a
-    ``from`` selector (#1159). There the header is whatever its sender wrote, for
-    this limiter as for the lockout and the allowlist.
+    proxies. The chart closes it: the backend NetworkPolicy admits port 8000 only
+    from the frontend controller (#1159, closed), so nginx is the sole way in. A
+    deployment that routes ``/api`` straight to the backend Service re-opens it and
+    must also set ``TRUSTED_PROXY_HOPS`` to match the shorter chain
+    (``helm/kamerplanter/values.yaml``). There the header is whatever its sender
+    wrote, for this limiter as for the lockout and the allowlist.
 
     Falls back to the socket peer when no header is present, which is what a
     direct call (and every ``TestClient`` caller that sets no header) gets.
@@ -86,7 +101,33 @@ def _rate_limit_key(request: Request) -> str:
     return resolve_client_ip(request) or get_remote_address(request)
 
 
-limiter = Limiter(key_func=_rate_limit_key)
+def user_rate_limit_key(request: Request) -> str:
+    """Bucket a rate limit on the authenticated account, on the address only without one (#2109).
+
+    For the expensive authenticated routes (``settings.rate_limit_upload`` /
+    ``_inference`` / ``_export``): an address is shared by everyone behind one
+    NAT, while the cost these routes bound is spent by an account. slowapi runs
+    the check when the route function is called, after FastAPI resolved its
+    dependencies, so the principal ``get_current_user`` stored on the request is
+    there to read (:func:`app.common.auth.resolved_principal_key`). A request
+    whose route resolved no principal falls back to :func:`_rate_limit_key`. The
+    two key spaces are prefixed so an account key can never equal an address.
+    """
+    principal = resolved_principal_key(request)
+    if principal is not None:
+        return f"user:{principal}"
+    return f"ip:{_rate_limit_key(request)}"
+
+
+#: The one IP limiter every ``@limiter.limit`` in the API shares. Its counters live
+#: in the storage ``settings.rate_limit_storage_url`` / ``redis_url`` names, so
+#: the limits hold per deployment rather than per process (#2045).
+limiter = build_rate_limiter(_rate_limit_key)
+
+#: The limiter of ``GET /api/health`` alone: same client key, counted in process
+#: memory only, so the public health endpoint never waits on the shared storage
+#: (#2048). Every other limit uses :data:`limiter`.
+process_memory_limiter = build_process_memory_rate_limiter(_rate_limit_key)
 router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 #: API-key management, mounted in **both** deployment modes (REQ-027, REQ-033 §4.3).
@@ -116,8 +157,74 @@ _OAUTH_ERROR_CODES = frozenset(
     # `link_requires_password` is its own code rather than a flavour of
     # `provider_error` (#1403): the provider reported nothing wrong and retrying
     # cannot help, which is exactly what the generic message tells the user to do.
-    {"access_denied", "invalid_state", "provider_error", "account_disabled", "link_requires_password"},
+    # `registration_not_allowed` (#2132): a first sign-in the registration mode does not admit.
+    {
+        "access_denied",
+        "invalid_state",
+        "provider_error",
+        "account_disabled",
+        "link_requires_password",
+        "registration_not_allowed",
+    },
 )
+
+
+#: The step-up re-authentication's own error codes (#1815), shown on the frontend's
+#: step-up page rather than the sign-in page: ``step_up_stale`` — the provider
+#: sign-in was older than five minutes (retry); ``step_up_cancelled`` — the provider
+#: reported the request denied; ``step_up_failed`` — anything else.
+_STEP_UP_ERROR_CODES = frozenset({"step_up_failed", "step_up_stale", "step_up_cancelled"})
+
+#: Where the step-up callback lands in the frontend (#1815).
+_STEP_UP_CALLBACK_PATH = "/auth/step-up/callback"
+
+
+def oauth_callback_url(slug: str) -> str:
+    """The provider callback URL — the one spelling for the login and the step-up request.
+
+    Built from ``settings.app_base_url``, the public address the frontend and
+    ``/api`` are served under (REQ-032 QR codes and device pairing already use it),
+    never from ``request.base_url``: behind the Traefik ingress that resolves to a
+    cluster-internal address, and it follows the ``Host`` header (#1815 review
+    SEC-002, #1865). This is the URL an operator registers at the provider. The
+    service stores it in the OAuth state and the code exchange repeats it exactly
+    (RFC 6749 §4.1.3).
+    """
+    return f"{settings.app_base_url.rstrip('/')}/api/v1/auth/oauth/{slug}/callback"
+
+
+def _step_up_error_redirect(
+    frontend_url: str, reason: str, action: str | None, client_nonce: str | None = None
+) -> RedirectResponse:
+    """Redirect to the frontend step-up page with a whitelisted error code, plus the act and client nonce if known."""
+    code = f"step_up_{reason}" if f"step_up_{reason}" in _STEP_UP_ERROR_CODES else "step_up_failed"
+    query = urlencode(
+        {
+            "error": code,
+            **({"action": action} if action else {}),
+            **({"client_nonce": client_nonce} if client_nonce else {}),
+        }
+    )
+    return RedirectResponse(url=f"{frontend_url}{_STEP_UP_CALLBACK_PATH}?{query}", status_code=302)
+
+
+def _step_up_token_redirect(
+    frontend_url: str, token: str, action: str, client_nonce: str | None = None
+) -> RedirectResponse:
+    """Hand the one-time step-up token to the frontend — in the URL **fragment** (#1815).
+
+    AP-7 keeps the *session* out of every URL, because a session is a bearer
+    credential on its own. This token is not: it confirms one act (the one named
+    beside it) of one account, only together with a signed-in session of that same
+    account, once, within five minutes. It still goes into the fragment, never the
+    query: a fragment is not sent to any server, so it reaches neither this API's
+    access log, nor a proxy's, nor a ``Referer`` header — the frontend reads it and
+    removes it from the address bar.
+    """
+    fragment = urlencode(
+        {"step_up_token": token, "action": action, **({"client_nonce": client_nonce} if client_nonce else {})}
+    )
+    return RedirectResponse(url=f"{frontend_url}{_STEP_UP_CALLBACK_PATH}#{fragment}", status_code=302)
 
 
 def _oauth_error_redirect(frontend_url: str, error_code: str) -> RedirectResponse:
@@ -160,8 +267,10 @@ def _enqueue_duplicate_registration_notice(user_key: str) -> None:
       awaits ``response.background``, so no part of this — not the import, not
       the broker publish, not a broker that hangs — falls inside the window a
       caller with a stopwatch measures. That is what keeps the duplicate branch
-      indistinguishable from a genuine registration, which sends no mail at all
-      while ``require_email_verification`` is off.
+      indistinguishable from a genuine registration, which sends no mail inside
+      the request either: none at all with ``require_email_verification`` off,
+      and with it on (the default since #1948) its verification mail is a
+      background task of the same response (#1890).
     * **The import is lazy.** It keeps Celery and the whole task-module graph out
       of the API's import chain until something actually dispatches. Every other
       dispatch site in this codebase does the same.
@@ -198,6 +307,11 @@ def register(
             _enqueue_duplicate_registration_notice,
             user_key,
         ),
+        # The verification mail only the free address sends: after the response,
+        # and a failure never reaches it (#1890).
+        defer_mail=background_tasks.add_task,
+        # #2132 — the exception to ``invite_only`` and to the domain allowlist.
+        invitation_token=body.invitation_token,
     )
     return UserProfileResponse(**profile.model_dump())
 
@@ -208,6 +322,7 @@ def login(
     body: LoginRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     service: AuthService = Depends(get_auth_service),
 ):
     """Authenticate with email and password, issuing access and refresh tokens.
@@ -246,16 +361,30 @@ def login(
 
     ``remember_me`` still decides the refresh token's lifetime in both shapes; it
     is orthogonal to how the token is delivered.
+
+    **Unverified address (REQ-023 §3.2b, #2046).** A correct password for an
+    account whose address is not verified answers ``403 EMAIL_NOT_VERIFIED`` —
+    and, at most three times per account and hour, mails a fresh verification
+    link to the stored address after the response. The answer is the same
+    whether a link was mailed, the budget was spent or the delivery failed.
     """
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
-    token_pair, raw_refresh, is_persistent = service.login_local(
-        body.email,
-        body.password,
-        user_agent,
-        ip_address,
-        remember_me=body.remember_me,
-    )
+    try:
+        token_pair, raw_refresh, is_persistent = service.login_local(
+            body.email,
+            body.password,
+            user_agent,
+            ip_address,
+            remember_me=body.remember_me,
+            defer_mail=background_tasks.add_task,
+        )
+    except EmailNotVerifiedError as exc:
+        # Returned, not raised (#2046): the refusal of a correct password may
+        # have queued a fresh verification link, and FastAPI runs background
+        # tasks only for a response the handler returns. Built by the same
+        # function the exception handler uses, so the answer is unchanged.
+        return app_error_response(request, exc)
     if body.refresh_token_in_body:
         return TokenPairResponse(
             access_token=token_pair.access_token,
@@ -325,7 +454,11 @@ def refresh(
 
     body_token = body.refresh_token if body is not None else None
     if body_token:
+        # No grace window on this transport (#2116, REQ-023 §3.2a): the client holds
+        # exactly one token, so a rotated one presented again is a replay.
         token_pair, new_raw_refresh, _is_persistent = service.refresh_tokens(body_token, user_agent, ip_address)
+        if new_raw_refresh is None:  # unreachable without allow_grace; never answer a pair without its token
+            raise InvalidTokenError("refresh token")
         return TokenPairResponse(
             access_token=token_pair.access_token,
             token_type=token_pair.token_type,
@@ -341,8 +474,14 @@ def refresh(
     # every client this package exists for.
     raw_refresh = get_refresh_token_from_cookie(kp_refresh)
     verify_csrf(request)
-    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(raw_refresh, user_agent, ip_address)
-    _set_refresh_cookie(response, new_raw_refresh, is_persistent=is_persistent)
+    # Two tabs refreshing with the same cookie are the grace window's case (#2116): the
+    # loser gets an access token and no cookie, because the winner's ``Set-Cookie``
+    # already put the successor into the browser's shared jar.
+    token_pair, new_raw_refresh, is_persistent = service.refresh_tokens(
+        raw_refresh, user_agent, ip_address, allow_grace=True
+    )
+    if new_raw_refresh is not None:
+        _set_refresh_cookie(response, new_raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(response)
     return TokenResponse(
         access_token=token_pair.access_token,
@@ -382,7 +521,7 @@ def logout(
 def logout_all(
     response: Response,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """Revoke all of the current user's active sessions."""
@@ -402,15 +541,69 @@ def verify_email(
     return UserProfileResponse(**profile.model_dump())
 
 
+#: The one answer of ``/auth/resend-verification`` — for an unknown address, an
+#: unverified one, a verified one, a service account, an exhausted per-address
+#: budget and a deployment that does not require verification alike (#2037).
+_RESEND_VERIFICATION_MESSAGE = (
+    "If this address belongs to an account that still needs verification, a new verification email is on its way."
+)
+
+
+@router.post("/resend-verification", response_model=MessageResponse, status_code=202)
+@limiter.limit(settings.rate_limit_resend_verification)
+def resend_verification(
+    request: Request,
+    body: ResendVerificationRequest,
+    background_tasks: BackgroundTasks,
+    service: AuthService = Depends(get_auth_service),
+) -> MessageResponse:
+    """Ask for a new e-mail verification link (REQ-023 §3.2b, #2037).
+
+    For an account whose first link was lost or has expired — without it, such
+    an account could never sign in once ``REQUIRE_EMAIL_VERIFICATION`` is on.
+
+    **Enumeration-safe.** Always ``202`` with the same body, whatever the address:
+    unknown, unverified, already verified, a service or federated-only account,
+    or over its per-address budget. The request path does the same work for all
+    of them (one budget reservation); the account lookup, the new token and the
+    mail run after the response has been written (#1890), so neither the answer
+    nor its duration says which case was hit.
+
+    **Limits.** Per client IP ``settings.rate_limit_resend_verification``
+    (default 10/hour, answers 429 — a property of the source, never of the
+    address); per address three requests, refilled once the address has been
+    left alone for an hour — enforced silently, so the budget is no oracle.
+
+    Every mail carries a fresh single-use token valid for 24 hours; it replaces,
+    and so invalidates, any link sent before it.
+    """
+    service.resend_verification_email(body.email, defer_mail=background_tasks.add_task)
+    return MessageResponse(message=_RESEND_VERIFICATION_MESSAGE)
+
+
 @router.post("/password-reset/request", response_model=MessageResponse)
 @limiter.limit(settings.rate_limit_auth)
 def request_password_reset(
     request: Request,
     body: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
     service: AuthService = Depends(get_auth_service),
 ):
-    """Send a password-reset link if an account exists for the email."""
-    service.request_password_reset(body.email)
+    """Send a password-reset link if an account exists for the email.
+
+    The mail is sent after the response (#1890): its duration and a delivery
+    failure must not tell the caller whether the address has an account.
+
+    **Limits.** Per client IP ``settings.rate_limit_auth`` (answers 429 — a
+    property of the source, never of the address); per address and client IP
+    three requests, refilled once that source has left the address alone for an
+    hour (#2043, #2059); per address over all sources ten links an hour. Both
+    budgets are enforced silently and count unknown addresses alike: a request
+    over one answers exactly like an accepted one and only sends nothing.
+    """
+    service.request_password_reset(
+        body.email, client_ip=resolve_client_ip(request), defer_mail=background_tasks.add_task
+    )
     return MessageResponse(message="If the email exists, a reset link has been sent.")
 
 
@@ -441,13 +634,10 @@ def list_oauth_providers(
 @router.get("/oauth/{slug}")
 def initiate_oauth(
     slug: Annotated[str, Path(description="Slug of the configured OAuth/OIDC provider.")],
-    request: Request,
     service: AuthService = Depends(get_auth_service),
 ):
     """302 Redirect to the OAuth provider's authorization URL."""
-    # Build callback URL from request base
-    base_url = str(request.base_url).rstrip("/")
-    redirect_uri = f"{base_url}/api/v1/auth/oauth/{slug}/callback"
+    redirect_uri = oauth_callback_url(slug)
     oauth_redirect = service.initiate_oauth(slug, redirect_uri)
     return RedirectResponse(url=oauth_redirect.authorization_url, status_code=302)
 
@@ -474,6 +664,11 @@ def oauth_callback(
     # Provider-side denial (e.g. the user cancelled) arrives with an `error`
     # param and without a code — or a malformed callback lacks code/state.
     if error is not None:
+        abandoned = service.abandon_oauth_state(state)
+        if abandoned and abandoned.get("purpose") == "step_up":
+            return _step_up_error_redirect(
+                frontend_url, "cancelled", abandoned.get("action"), abandoned.get("client_nonce")
+            )
         return _oauth_error_redirect(frontend_url, "access_denied")
     if not code or not state:
         return _oauth_error_redirect(frontend_url, "provider_error")
@@ -482,36 +677,46 @@ def oauth_callback(
     ip_address = request.client.host if request.client else None
 
     try:
-        _token_pair, raw_refresh, is_persistent = service.complete_oauth(
-            slug,
-            code,
-            state,
-            user_agent,
-            ip_address,
-        )
+        outcome = service.handle_oauth_callback(slug, code, state, user_agent, ip_address)
+    except StepUpReauthFailedError as exc:
+        # #1815 — a step-up re-authentication that proved nothing. No session was
+        # created; the step-up page says why, in a whitelisted code.
+        return _step_up_error_redirect(frontend_url, exc.reason, exc.action, exc.client_nonce)
     except InvalidTokenError:
         return _oauth_error_redirect(frontend_url, "invalid_state")
     except UnauthorizedError:
         return _oauth_error_redirect(frontend_url, "account_disabled")
+    except RegistrationNotAllowedError:
+        # #2132 — the first sign-in of an address the registration mode does not admit. Nothing
+        # was created; logged by the service under the address digest only.
+        return _oauth_error_redirect(frontend_url, "registration_not_allowed")
     except OAuthAutoLinkRefusedError as exc:
         # Before its own code, this fell into the branch below and answered
         # `provider_error`. Since #1403 refuses the link whenever the provider
         # omits `email_verified` — the default for a GitHub provider without the
         # `user:email` scope — that would have been an ordinary path answering
         # with a message that is wrong in both halves.
-        logger.info("oauth_callback_link_requires_password", provider=slug, error=str(exc))
+        logger.info("oauth_callback_link_requires_password", provider=slug, error_type=type(exc).__name__)
         return _oauth_error_redirect(frontend_url, "link_requires_password")
     except (NotFoundError, ValidationError) as exc:
         # `as exc` keeps ruff-format from stripping the parens (which would turn
-        # this into the `except A, B:` Python-2 syntax error).
-        logger.info("oauth_callback_provider_error", provider=slug, error=str(exc))
+        # this into the `except A, B:` Python-2 syntax error). The type only: the
+        # text of a repository error on this path can name the account key
+        # (`NotFoundError("User", <key>)`, #1773 review).
+        logger.info("oauth_callback_provider_error", provider=slug, error_type=type(exc).__name__)
         return _oauth_error_redirect(frontend_url, "provider_error")
     except Exception:  # noqa: BLE001 — never surface a JSON 500 to the browser
         logger.exception("oauth_callback_failed", provider=slug)
         return _oauth_error_redirect(frontend_url, "provider_error")
 
+    if outcome.step_up_token is not None:
+        # #1815 — never a session from a step-up callback: no refresh cookie.
+        return _step_up_token_redirect(
+            frontend_url, outcome.step_up_token, outcome.step_up_action or "", outcome.step_up_client_nonce
+        )
+
     redirect = RedirectResponse(url=f"{frontend_url}/auth/callback", status_code=302)
-    _set_refresh_cookie(redirect, raw_refresh, is_persistent=is_persistent)
+    _set_refresh_cookie(redirect, outcome.raw_refresh or "", is_persistent=outcome.is_persistent)
     set_csrf_cookie(redirect)
     return redirect
 
@@ -540,11 +745,15 @@ def _remaining_seconds(expires_at: datetime) -> int:
     return max(0, math.ceil((expires_at - datetime.now(UTC)).total_seconds()))
 
 
-@router.post("/device-pairing", response_model=DevicePairingCreateResponse, status_code=201)
+@router.post(
+    "/device-pairing", response_model=DevicePairingCreateResponse, status_code=201, responses=STEP_UP_RESPONSES
+)
 @limiter.limit(settings.rate_limit_auth)
 def create_device_pairing(
     request: Request,
-    current_user: User = Depends(get_current_user),
+    body: DevicePairingCreateRequest | None = None,
+    current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
     service: AuthService = Depends(get_auth_service),
 ):
     """Mint a one-time QR pairing code for the authenticated user (#1118).
@@ -562,7 +771,13 @@ def create_device_pairing(
     cluster-internal address, so the QR would encode a URL the scanning phone
     cannot reach — and it would do so only in production, where nobody is
     running the test that would have caught it.
+
+    **Step-up (#1847):** the code redeems into a full session, so minting it
+    passes the shared step-up — the current password in the body (or, for an
+    account without one, ``step_up_token`` / ``step_up_code``); 401 without it,
+    403 from an API-key request, 429 ``STEP_UP_LOCKED``.
     """
+    step_up = body or DevicePairingCreateRequest()
     code, expires_at = service.create_device_pairing(
         current_user.key or "",
         # The proxy-aware helper, not ``request.client.host``: see the module
@@ -571,6 +786,10 @@ def create_device_pairing(
         # the direct peer is the proxy for *every* caller — which would collapse
         # a per-IP guard into a single shared bucket.
         resolve_client_ip(request),
+        current_password=step_up.current_password,
+        step_up_code=step_up.step_up_code,
+        step_up_token=step_up.step_up_token,
+        authenticated_with_api_key=via_api_key,
     )
     return DevicePairingCreateResponse(
         payload_version=_QR_PAYLOAD_VERSION,
@@ -627,20 +846,45 @@ def redeem_device_pairing(
 # ── M2M API Keys ───────────────────────────────────────────────────
 
 
-@api_keys_router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201)
+@api_keys_router.post("/api-keys", response_model=ApiKeyCreatedResponse, status_code=201, responses=STEP_UP_RESPONSES)
 def create_api_key(
     body: ApiKeyCreateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
+    via_api_key: bool = Depends(get_authenticated_with_api_key),
+    client_ip: str | None = Depends(resolve_client_ip),
     service: AuthService = Depends(get_auth_service),
 ):
-    """Create a new M2M API key for the current user."""
-    created = service.create_api_key(current_user.key or "", body.label, body.tenant_scope)
+    """Create a new M2M API key for the current user.
+
+    **Step-up (#1847):** a key survives a password change, so minting one is a
+    credential change — the current password in the body (or, for an account
+    without one, ``step_up_token`` / ``step_up_code``); 401 without it, 403 from
+    an API-key request (a key cannot mint a key), 429 ``STEP_UP_LOCKED``. Light
+    mode needs none: every request there already is the system account.
+
+    **Controls (#2137):** ``ip_allowlist``, ``rate_limit_per_minute`` and
+    ``expires_at`` bind the key on REST and MCP alike; an unusable value is a 422
+    before the password is asked for.
+    """
+    created = service.create_api_key(
+        current_user.key or "",
+        body.label,
+        body.tenant_scope,
+        current_password=body.current_password,
+        step_up_code=body.step_up_code,
+        step_up_token=body.step_up_token,
+        authenticated_with_api_key=via_api_key,
+        client_ip=client_ip,
+        ip_allowlist=body.ip_allowlist,
+        rate_limit_per_minute=body.rate_limit_per_minute,
+        expires_at=body.expires_at,
+    )
     return ApiKeyCreatedResponse(**created.model_dump())
 
 
 @api_keys_router.get("/api-keys", response_model=list[ApiKeySummaryResponse])
 def list_api_keys(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """List the current user's M2M API keys (metadata only)."""
@@ -651,7 +895,7 @@ def list_api_keys(
 @api_keys_router.delete("/api-keys/{key_id}", response_model=MessageResponse)
 def revoke_api_key(
     key_id: Annotated[str, Path(description="Identifier of the API key to revoke.")],
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_account_principal),
     service: AuthService = Depends(get_auth_service),
 ):
     """Revoke one of the current user's M2M API keys."""

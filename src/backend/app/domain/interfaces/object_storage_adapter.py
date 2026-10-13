@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import Any
 
-from app.domain.models.storage import ObjectMetadata, ObjectRef, StorageCapabilities
+from app.domain.models.storage import ObjectMetadata, ObjectRef, StorageCapabilities, StorageErasureResult
 
 
 class IObjectStorageAdapter(ABC):
@@ -93,11 +93,14 @@ class IObjectStorageAdapter(ABC):
         """Probe backend readiness. Returns a structured status dict."""
 
     @abstractmethod
-    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
-        """REQ-025 erasure hook — delete every object owned by a user within ``scope``.
+    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> StorageErasureResult:
+        """REQ-025 erasure hook — delete the objects of a user's records within ``scope``.
 
-        Walks the attachments index for ``tenant_key + created_by == user_key``
-        and deletes matching objects. Returns the number of objects deleted.
+        Walks the attachments index for ``tenant_key + created_by == user_key``.
+        An object another record still holds — deduplicated bytes of another
+        uploader, or of the user's own record in a retained category — is kept
+        (#1770); every other object goes with its renditions. The records
+        themselves are removed by the ArangoDB plan afterwards.
         """
 
     @abstractmethod

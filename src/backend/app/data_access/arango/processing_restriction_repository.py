@@ -58,7 +58,7 @@ class ArangoProcessingRestrictionRepository(
         query = """
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key
-          SORT doc.created_at DESC
+          SORT DATE_TIMESTAMP(doc.created_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(
@@ -74,7 +74,7 @@ class ArangoProcessingRestrictionRepository(
         query = """
         FOR doc IN @@collection
           FILTER doc.user_key == @user_key AND doc.lifted_at == null
-          SORT doc.created_at DESC
+          SORT DATE_TIMESTAMP(doc.created_at) DESC
           RETURN doc
         """
         cursor = self._db.aql.execute(

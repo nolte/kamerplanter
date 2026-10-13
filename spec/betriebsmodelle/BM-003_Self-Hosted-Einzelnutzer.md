@@ -64,7 +64,7 @@ Daraus folgt eine für dieses Modell zentrale Unterscheidung:
 | Ausgangslage | Weg nach BM-002 |
 |---|---|
 | BM-003 im **`full`-Modus** | **Nahtlos.** Weitere Mitglieder werden einfach eingeladen — ohne Umstellung, Migration oder Moduswechsel (REQ-049 P3). Nur die *rechtliche* Lage ändert sich (§6.1). |
-| BM-003 im **`light`-Modus** | **Bruch.** Es gibt kein echtes Nutzerkonto, nur den System-Nutzer. Der Weg führt über das Upgrade Light → Full (REQ-027 §1.1, Szenario 5–8), bei dem der erste registrierte Nutzer den System-Mandanten übernimmt. |
+| BM-003 im **`light`-Modus** | **Bruch.** Es gibt kein echtes Nutzerkonto, nur den System-Nutzer. Der Weg führt über das Upgrade Light → Full (REQ-027 §1.1, Szenario 5–8), bei dem der erste registrierte Nutzer den System-Mandanten übernimmt — **umgesetzt** für Szenario 5/6 (REQ-027 v1.9, #1855); der Downgrade (Szenario 7) ist teilweise umgesetzt. |
 
 Wer absehbar Mitglieder aufnehmen wird, wählt daher besser von Anfang an `full` —
 der `light`-Modus spart Bedienaufwand, erkauft ihn aber mit einem

@@ -71,6 +71,14 @@ class TipCardSchema(BaseModel):
 
 class TipListResponse(BaseModel):
     tips: list[TipCardSchema] = Field(default_factory=list)
+    #: Whether this caller may (re)generate the tips through
+    #: ``POST …/ai/tips/refresh``. Additive (#1461): the read no longer generates
+    #: on a cache miss, so an empty list now means "nothing generated yet" rather
+    #: than "the Knowledge Service had nothing to say". The UI needs to tell a
+    #: caller who can do something about that from one who cannot, and the
+    #: authority for that is the server's own role gate — not a second copy of
+    #: the rank rule in the client.
+    refresh_available: bool = False
 
 
 class ExplainRequest(BaseModel):

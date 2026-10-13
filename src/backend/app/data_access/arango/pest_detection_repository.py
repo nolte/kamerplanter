@@ -11,6 +11,9 @@ from app.domain.models.pest_detection import PestDetection, PestFeedback
 
 class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDetectionRepository):
     _model_cls = PestDetection
+    #: Every row belongs to exactly one tenant; a base list read without a
+    #: ``tenant_key`` (or an explicit ``all_tenants=True``) raises (MT-023, #2119).
+    is_tenant_scoped = True
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PEST_DETECTIONS)
@@ -53,7 +56,7 @@ class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDe
                 )
         return created
 
-    def get(self, key: str, tenant_key: str) -> PestDetection | None:
+    def get(self, key: str, *, tenant_key: str) -> PestDetection | None:
         detection = super().get_by_key(key)
         if detection is None or detection.tenant_key != tenant_key:
             return None
@@ -61,6 +64,7 @@ class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDe
 
     def list_for_plant(
         self,
+        *,
         tenant_key: str,
         plant_instance_key: str,
         limit: int = 20,
@@ -76,7 +80,7 @@ class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDe
         )
 
     def add_feedback(self, key: str, tenant_key: str, feedback: PestFeedback) -> PestDetection | None:
-        detection = self.get(key, tenant_key)
+        detection = self.get(key, tenant_key=tenant_key)
         if detection is None:
             return None
         detection.feedback.append(feedback)
@@ -90,7 +94,7 @@ class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDe
             self._db.aql.execute(update, bind_vars={"from": det_id})
         feedback_docs = [f.model_dump(mode="json") for f in detection.feedback]
         self.collection.update({"_key": key, "feedback": feedback_docs, "updated_at": self._now()})
-        return self.get(key, tenant_key)
+        return self.get(key, tenant_key=tenant_key)
 
     def link_suggested_inspection(self, detection_key: str, inspection_key: str) -> None:
         self.create_edge(

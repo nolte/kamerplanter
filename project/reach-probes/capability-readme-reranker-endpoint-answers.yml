@@ -1,0 +1,37 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the operator's standing pre-approval of the gate for the
+# autonomous #1680 run, relayed by the orchestrating session — not an interactive
+# batch answer. It records that the targets and the observe argv below run on the
+# operator's machine with their environment, as `task` in this repository does.
+#
+# Spec row "Ranking service never becomes ready" (T1). The container is built from
+# this working copy and started without waiting for /ready or the HEALTHCHECK;
+# the observation polls POST /rerank itself (up to 300 s, the image's own start
+# period) and prints 1 only when two queries over the same documents come back in
+# their opposite correct orders — a constant answer or a stub prints 0.
+id: capability-readme-reranker-endpoint-answers
+summary: the cross-encoder ranking endpoint answers two queries with their opposite correct orderings
+declaration:
+  source: capability
+  path: README.md
+  location: 'L64 service table: reranker-service, cross-encoder reranking'
+tier: T1
+expected:
+  kind: count
+  value: 1
+  unit: ranking endpoints answering
+derived_from: b32c0f7bca79785b1bc4850e56d590bea48a2ee1
+environment:
+- reach:ranking:up
+teardown:
+- reach:ranking:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_ranking_order.py
+  timeout_seconds: 420
+approval:
+  approved_at: '2026-09-24T04:46:06Z'
+  approved_by: nolte
+  observation_digest: 12c35d5d7bb7896f504b8d0d9df8b61872d6f443e8d8616c2463f57305527fd6

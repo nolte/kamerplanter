@@ -335,7 +335,7 @@ class TestGetSpeciesLifecycle:
         """``ENTITY_NOT_FOUND`` was itself the finding — it routes the resolver's fallback."""
 
         service = MagicMock()
-        service.get_lifecycle_by_species.side_effect = NotFoundError("LifecycleConfig for species", "11507159")
+        service.get_lifecycle_by_species.side_effect = NotFoundError("LifecycleConfig", "11507159")
         ctx = _ctx(phase_service=service)
 
         result = await GetSpeciesLifecycle().run(ctx, GetSpeciesLifecycle.Input(species_key="11507159"))
@@ -610,7 +610,12 @@ class TestAssignSpeciesPhaseSequence:
             "previous_sequence_key": bound.key if bound else None,
             "lifecycle_key": "lc-1",
         }
-        ctx = _ctx(phase_service=phase_service, phase_sequence_service=_sequence_service(bound=bound))
+        # The species must be a global one (#2103); the lookup succeeds for the fixture's species.
+        ctx = _ctx(
+            phase_service=phase_service,
+            phase_sequence_service=_sequence_service(bound=bound),
+            species_service=MagicMock(),
+        )
         return ctx, phase_service
 
     @pytest.mark.asyncio

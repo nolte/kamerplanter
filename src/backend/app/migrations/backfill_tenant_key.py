@@ -10,6 +10,7 @@ import logging
 
 from arango.database import StandardDatabase
 
+from app.common.log_privacy import log_tenant
 from app.data_access.arango import collections as col
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ def _resolve_default_tenant(db: StandardDatabase) -> str | None:
         FILTER m.role IN ["admin", "lead"]
         LET t = DOCUMENT(CONCAT('tenants/', m.tenant_key))
         FILTER t != null AND t.slug != "platform"
-        SORT t.created_at DESC
+        SORT DATE_TIMESTAMP(t.created_at) DESC
         LIMIT 1
         RETURN t._key
     """
@@ -110,7 +111,7 @@ def backfill_tenant_key(db: StandardDatabase) -> dict[str, int]:
         return stats
 
     stats["tenant_resolved"] = 1
-    logger.info("Using default tenant_key=%s for orphaned documents", default_tenant_key)
+    logger.info("Using default tenant_key=%s for orphaned documents", log_tenant(default_tenant_key))
 
     # Phase 1: Assign tenant_key to top-level collections
     for coll_name in TOP_LEVEL_COLLECTIONS:

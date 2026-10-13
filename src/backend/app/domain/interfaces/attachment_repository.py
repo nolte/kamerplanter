@@ -71,6 +71,15 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def mark_renditions_failed(self, tenant_key: str, storage_key: str) -> int:
+        """#2108 — record that no rendition can be produced for the object at ``storage_key``.
+
+        Sets ``renditions_failed`` on every record of ``tenant_key`` that holds
+        the object — renditions belong to the object, which several uploaders'
+        records may share (#1770). Returns the number of records marked.
+        """
+
+    @abstractmethod
     def find_by_user(
         self,
         tenant_key: str,
@@ -100,17 +109,48 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
-    def delete_all_for_tenant(self, tenant_key: str) -> int:
-        """REQ-024/-025 — delete every attachment metadata document of a tenant.
+    def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
+        """Return any attachment of *tenant_key* whose bytes hash to *sha256*.
 
-        Removes only the ArangoDB metadata; the binary objects are purged
-        separately via ``storage_adapter.delete_prefix`` (NFR-013 §6.1).
-        Returns the number of documents deleted.
+        The **byte** half of deduplication (#1770): the caller reuses the stored
+        object it points at, never the record itself. Tenant-scoped — identical
+        bytes are never shared across tenants.
         """
 
     @abstractmethod
-    def find_by_sha256(self, tenant_key: str, sha256: str) -> Attachment | None:
-        """Return an existing attachment with a matching content hash (dedup)."""
+    def find_own_by_sha256(
+        self, *, tenant_key: str, sha256: str, created_by: str, category: AttachmentCategory
+    ) -> Attachment | None:
+        """The uploader's own record for these bytes in this category, if they have one.
+
+        The **record** half of deduplication (#1770): re-uploading the same bytes
+        is idempotent per uploader and category, and only there. Another member,
+        or the same member in another category, gets a record of their own —
+        erasure and retention select by ``created_by`` and ``category``, so a
+        record shared across either would apply one owner's rule to another's
+        upload.
+        """
+
+    @abstractmethod
+    def storage_keys_held_elsewhere(
+        self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
+    ) -> set[str]:
+        """Which of *storage_keys* a record of *tenant_key* outside *excluding* still holds.
+
+        Deduplicated uploads share one stored object between several records
+        (#1770). Before deleting an object the caller asks whether any record
+        other than the ones it is removing still points at it; an object in the
+        returned set must be kept.
+        """
+
+    @abstractmethod
+    def held_storage_keys(self, storage_keys: list[str]) -> set[str]:
+        """Which of *storage_keys* any attachment record holds, in any tenant (#1834).
+
+        The reconciliation's question, and deliberately not tenant-filtered: a key
+        embeds its tenant, so a record of another tenant cannot hold it, and for a
+        job that deletes objects the broad answer is the safe one.
+        """
 
     @abstractmethod
     def count_by_tenant(self, tenant_key: str) -> int:
@@ -118,7 +158,11 @@ class IAttachmentRepository(ABC):
 
     @abstractmethod
     def sum_bytes_by_tenant(self, tenant_key: str) -> int:
-        """Return the total stored byte size of a tenant's attachments (quota)."""
+        """Return the total stored byte size of a tenant's attachments (quota).
+
+        Counts each stored object once: records that share deduplicated bytes
+        (#1770) do not multiply the quota.
+        """
 
     @abstractmethod
     def list_by_tenant(
@@ -155,9 +199,10 @@ class IAttachmentRepository(ABC):
         ``"task"`` (only the named task does), ``"staged"`` (nothing anywhere does) or
         ``"missing"``.
 
-        Implementations MUST check every carrier, not only tasks: ``upload``
-        deduplicates by sha256 across the whole tenant and across categories, so one
-        stored object can be referenced from a plant gallery or a diary entry as well.
+        Implementations MUST check every carrier, not only tasks: one record can be
+        referenced from a plant gallery or a diary entry as well — a re-upload hands
+        the uploader their own record back, and records written before #1770 were
+        shared across uploaders and categories.
 
         Answering all three in one query is the point — the caller runs inside an
         interactive request, and the reference scan has no index to lean on.

@@ -435,9 +435,17 @@ Ein Rezept verzweigt **nie** über `message`.
 | `tenant` unbekannt oder Schlüssel dort nicht Mitglied | `not_found` |
 | Rolle im aufgelösten Mandanten reicht für die Permission nicht | `permission.denied` |
 | `entry_key` existiert nicht oder liegt in einem anderen Mandanten | `not_found` |
+| Gleichzeitiger Schreibvorgang hielt denselben Schlüssel (Speicher-Konflikt) | `conflict.write` |
 
 Ein fremder Mandant und ein fremder Eintrag liefern beide `not_found` und **nie**
 `permission.denied` — sonst verriete die Fehlermeldung die Existenz fremder Daten (REQ-033).
+
+`conflict.write` ist additiv und ändert die Bedeutung keines bestehenden Codes. Es ist
+ausdrücklich von `conflict.duplicate` getrennt: `conflict.duplicate` sagt, dass ein
+gleichwertiger Datensatz existiert — ein Rezept muss seine Eingabe ändern; `conflict.write` sagt
+nur, dass eine gleichzeitige Transaktion den Schlüssel hielt — ein Rezept darf erneut lesen und
+denselben Aufruf wiederholen. Unter einem gemeinsamen Code wäre der wiederholbare Fall vom
+endgültigen nicht mehr zu unterscheiden.
 
 **Zeitangaben** sind durchgängig ISO-8601 in UTC mit `Z`-Suffix.
 

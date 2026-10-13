@@ -7,15 +7,25 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: Kubernetes 1.28+, ArangoDB 3.11+, TimescaleDB 2.13+, PostgreSQL 18, Valkey 8.0+, Traefik, Prometheus, Grafana
 Status: Genehmigt
 Prioritaet: Hoch
-Version: 1.0
+Version: 1.4 (§4.1/§10.2 Umsetzungsstand Worker-HPA nach Queue-Länge; #2128); 1.3 (§10.3 Umsetzungsstand: Pläne und Organisationslimit gebaut; #2142); 1.2 (§10.3 Kontingente je Mandant aus REQ-056; #2143); 1.1 (§9.1/§9.2 Umsetzungsstand: nur das nächtliche ArangoDB-Backup ist gebaut; #2121)
 Autor: Business Analyst - Agrotech
 Datum: 2026-03-31
 Tags: [cloud, enterprise, scaling, ha, dsgvo, backup, disaster-recovery, cost-estimation, sla]
-Abhaengigkeiten: [NFR-001, NFR-002, NFR-007, NFR-011, REQ-023, REQ-024, REQ-025]
+Abhaengigkeiten: [NFR-001, NFR-002, NFR-007, NFR-011, NFR-013, REQ-023, REQ-024, REQ-025, REQ-056]
 Betroffene Module: [ALL]
 ---
 
 # NFR-012: Cloud-Provider-Anforderungen & Enterprise-Skalierung
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.4 | 2026-10-13 | **#2128 (MT-032), #2127 (MT-031):** §4.1 und §10.2 tragen den Umsetzungsstand des Worker-HPA nach Queue-Länge: Opt-in im Chart über `celeryWorkers.queueAutoscaling` auf der External-Metrik `celery_queue_length` (Prometheus Adapter, Betreiberentscheidung 2026-10-12); Ziel je Pod statt fester Schwelle. |
+| 1.3 | 2026-10-11 | **#2142 (MT-049):** §10.3 trägt den Umsetzungsstand: Plan-Katalog (`plans`, Default `standard`), `Tenant.plan_key` (Migration `v0091`), `EntitlementService` als einzige Leserin der Kontingent-Settings und `TENANT_MAX_ORGANIZATIONS_PER_USER` sind gebaut; die Admin-Oberfläche für Pläne fehlt noch (REQ-056 AK-45). |
+| 1.2 | 2026-10-11 | **#2143 (MT-050):** Neuer §10.3 „Kontingente je Mandant“ — die Tabelle, auf die NFR-013 O-03 verwies und die es nicht gab. Kontingente hängen am **Plan** eines Mandanten (REQ-056 §7), nicht an der Skalierungsstufe; die Stufe bestimmt nur, wie viel Infrastruktur die Summe der Kontingente braucht. Der Default-Plan `standard` übernimmt die heutigen Instanzwerte. |
+| 1.1 | 2026-10-05 | **#2121 (MT-025):** §9.1/§9.2 tragen einen Umsetzungsstand. Gemessen: Der Chart liefert seit #2122 ein nächtliches `arangodump`-Backup nach S3 (Default aus, NFR-002 §8.0); Cluster-Replikation, WAL-Archivierung, pgvector-Snapshots, Cross-Region-Kopie und ein RPO von 1 h existieren nicht. Die Tabelle ist Zielbild für den Enterprise-Betrieb. |
+| 1.0 | 2026-03-31 | Erstfassung. |
 
 ## 1. Business Case
 
@@ -149,6 +159,8 @@ Diese NFR definiert die **Mindestanforderungen an einen Cloud-Provider** und die
 | **Embedding Service (ONNX)** | 1–3 | 2 CPU / 4 GB | HPA: Latenz P95 > 500ms |
 | **LLM Adapter** | 1–2 | 1 CPU / 2 GB | Optional GPU-Node |
 
+**Umsetzungsstand Celery Workers (#2128):** Der Chart bietet den Queue-Length-HPA als Opt-in (`celeryWorkers.queueAutoscaling`, Default aus): je Worker ein HPA auf der `External`-Metrik `celery_queue_length{queue}`, die das Backend exportiert und ein vom Betreiber installierter Prometheus Adapter bereitstellt (NFR-002 §4.1). Replica-Grenzen setzt die Installation; die Chart-Defaults sind 1–3 (`celery-worker`, `celery-worker-default`) und 1–2 (`celery-worker-bulk`), nicht die 2–8 dieser Tabelle. Nicht im Cluster gemessen.
+
 ### 4.2 GPU-Anforderungen (Optional)
 
 Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
@@ -248,9 +260,9 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | Maßnahme | Spezifikation | Referenz |
 |-----------|---------------|----------|
 | **IP-Anonymisierung** | IPv4 letztes Oktett → 0, IPv6 → /48-Präfix, nach 7 Tagen | NFR-011 R-03 |
-| **Retention Enforcement** | Celery Master-Task, tägliche Ausführung | NFR-011 §3 |
+| **Retention Enforcement** | Celery-Beat-Einzel-Tasks je Regel (täglich bzw. stündlich) | NFR-011 §3 |
 | **Sensordaten-Downsampling** | 90d raw → 2y hourly → 5y daily | NFR-011 §2.2 |
-| **Consent-Middleware** | Optionale Features nur mit aktiver Einwilligung | REQ-025 |
+| **Consent-Guard** (Service-Schicht, keine Middleware) | Optionale Features nur mit aktiver Einwilligung | REQ-025 |
 | **Betroffenenrechte** | Self-Service API /api/v1/privacy/ (Art. 15–21) | REQ-025 |
 
 ---
@@ -272,6 +284,9 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 ## 9. Backup & Disaster Recovery
 
 ### 9.1 RPO/RTO-Ziele
+
+!!! warning "Noch nicht implementiert"
+    Stand v1.1 (#2121): Die Tabelle ist das **Zielbild** für den Enterprise-Betrieb, nicht der ausgelieferte Zustand. Gebaut ist nur das ArangoDB-Backup im Chart (NFR-002 §8.0, #2122): `arangodump` nach S3, Schalter `backup.enabled` (Default **aus**), Zeitplan `backup.schedule` (Default täglich 02:15 UTC) — das RPO ist damit der Abstand der Läufe (Default 24 h), messbar über `<prefix>/LATEST`; Restore-Runbook `docs/de/deployment/backup-restore.md`, ein Drill am 2026-10-04. **Nicht** gebaut: Cluster-Replikation, TimescaleDB-Streaming/WAL-Archivierung (TimescaleDB ist in den Produktions-Values aus), pgvector-Snapshots, Anhänge (NFR-013 §7), Cross-Region-Kopie und Multi-AZ (§9.2). Die externen Datenbank-Schalter und die HA-Bausteine verfolgt #2127.
 
 | Kategorie | RPO | RTO | Backup-Methode |
 |-----------|-----|-----|----------------|
@@ -312,6 +327,30 @@ Für lokale LLM-Inferenz (Ollama/vLLM) statt Cloud-API:
 | ArangoDB Disk Usage | > 80% | Alert + Storage erweitern |
 | TimescaleDB Disk Usage | > 75% | Alert + Retention prüfen |
 | API Latenz P95 | > 500ms über 10 Minuten | HPA + Investigate |
+
+**Umsetzungsstand Queue Length (#2128):** Der HPA rechnet nicht mit einer festen Schwelle „> 100 → +1“, sondern mit einem Ziel je Pod (`target.type: AverageValue`, `targetPerReplica`; Default 20 für `critical`/`celery`, 5 für `bulk`): gewünschte Pods = wartende Aufgaben / Ziel, begrenzt durch `minReplicas`/`maxReplicas` und das Herunterskalier-Verhalten (10 min Stabilisierung, höchstens 1 Pod je 5 min).
+
+### 10.3 Kontingente je Mandant
+
+Kontingente sind **keine** Eigenschaft der Skalierungsstufe, sondern des **Plans**, dem ein Mandant zugeordnet ist (REQ-056 §7). Die Stufe aus §10.1 bestimmt, wie viel Infrastruktur die Summe aller Kontingente braucht. Normativ sind die Dimensionen, Regeln und Ablehnungscodes in REQ-056 §7.2/§7.3; diese Tabelle nennt die Werte des Default-Plans `standard` (alle Einträge `null` = Instanzwert) und ihre Kapazitätswirkung.
+
+| Dimension | Instanzwert (Setting) | Default | Kapazitätswirkung (Obergrenze) | Small | Medium | Large | Enterprise |
+|---|---|---|---|---|---|---|---|
+| Mitglieder je Mandant | `TENANT_MAX_MEMBERS_CEILING` | 50 | Konten ≤ Mandanten × 50 | ≤ 500 | ≤ 5.000 | ≤ 50.000 | ≥ 50.000 |
+| Dienstkonten je Mandant | `TENANT_MAX_SERVICE_ACCOUNTS` | 20 | API-Schlüssel-Last (Rate-Limit je Schlüssel) | — | — | — | — |
+| Speicher je Mandant | `STORAGE_TENANT_QUOTA_MB` | 2048 MB (`0` = unbegrenzt) | Object Storage ≤ Mandanten × 2 GB | ≤ 20 GB | ≤ 200 GB | ≤ 2 TB | ≥ 2 TB |
+| Fotos je Pflanze | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | 50 (`0` = unbegrenzt) | durch Speicher gedeckelt | — | — | — | — |
+| KI-Aufrufe je Konto und Tag | `AI_BUDGET_USER_CALLS_PER_DAY` | 50 | durch das Mandantenbudget gedeckelt | — | — | — | — |
+| KI-Aufrufe je Mandant und Tag | `AI_BUDGET_TENANT_CALLS_PER_DAY` | 500 | LLM-Aufrufe ≤ Mandanten × 500 / Tag | ≤ 5.000 | ≤ 50.000 | ≤ 500.000 | ≥ 500.000 |
+| LLM-Tokens je Mandant und Tag | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | 2 000 000 | Tokens ≤ Mandanten × 2 Mio. / Tag | ≤ 20 Mio. | ≤ 200 Mio. | ≤ 2 Mrd. | ≥ 2 Mrd. |
+| Organisationen je Konto | `TENANT_MAX_ORGANIZATIONS_PER_USER` (REQ-056 §6.2, Konto-Limit, keine Plan-Dimension) | 10 (`0` = keine Selbstgründung) | Mandantenzahl ≤ Konten × 11 (inkl. persönlichem) | — | — | — | — |
+
+Die Spalten Small … Enterprise nutzen die obere Tenant-Zahl aus §10.1 (10 / 100 / 1.000 / 1.000+) und sind **Worst-Case-Obergrenzen** für die Kapazitätsplanung, keine erwarteten Werte. Liegt die Summe der Kontingente über dem, was die Stufe bereitstellt (§3, §11.2), senkt der Betreiber die Instanzwerte oder ordnet Mandanten einem Plan mit niedrigeren Werten zu (REQ-056 §7.6). Ein Plan mit abweichenden Werten ändert die Zeile nur für seine Mandanten.
+
+**Umsetzungsstand (#2142):** Pläne, ihre Zuordnung durch den Plattform-Admin (API) und der `EntitlementService` sind gebaut; jeder Mandant steht nach Migration `v0091` auf `standard` und damit auf den Instanzwerten der Tabelle. `TENANT_MAX_ORGANIZATIONS_PER_USER` ist ein Setting.
+
+!!! warning "Noch nicht implementiert"
+    Eine Admin-Oberfläche für Pläne und die Verbrauchsanzeige in den Garten-Einstellungen gibt es noch nicht (REQ-056 §15, AK-45); Pläne werden bisher über `/api/v1/admin/platform/plans` gepflegt.
 
 ---
 

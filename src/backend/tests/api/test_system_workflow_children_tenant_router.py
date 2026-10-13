@@ -77,13 +77,17 @@ TASK_TEMPLATES: dict[str, dict[str, Any]] = {
         "_key": key,
         "_id": f"{col.TASK_TEMPLATES}/{key}",
         "name": "Giessen",
+        # A template's owner is its parent's: a seeded system template is global,
+        # every other one is stamped with its tenant (#2101: an owner-less template
+        # is shared and no longer writable by a tenant).
+        "tenant_key": owner,
         **({"workflow_template_key": parent} if parent else {}),
     }
-    for key, parent in (
-        (OWN_TEMPLATE, OWN_WORKFLOW),
-        (SYSTEM_TEMPLATE, SYSTEM_WORKFLOW),
-        (FOREIGN_TEMPLATE, FOREIGN_WORKFLOW),
-        (ORPHAN_TEMPLATE, None),
+    for key, parent, owner in (
+        (OWN_TEMPLATE, OWN_WORKFLOW, TENANT_KEY),
+        (SYSTEM_TEMPLATE, SYSTEM_WORKFLOW, ""),
+        (FOREIGN_TEMPLATE, FOREIGN_WORKFLOW, FOREIGN_TENANT_KEY),
+        (ORPHAN_TEMPLATE, None, TENANT_KEY),
     )
 }
 
@@ -275,14 +279,14 @@ class TestTheExistingTaskTemplatesOfASystemWorkflow:
         assert updated.status_code == 200, updated.text
         assert deleted.status_code == 204, deleted.text
 
-    def test_a_foreign_tenants_task_template_is_still_reachable(self):
-        """#965 item 1, deliberately still open — anchoring on the parent's
-        *tenant* needs the orphan-ownership field, not a guard on this path."""
+    def test_a_foreign_tenants_task_template_is_not_found(self):
+        """#965 item 1, closed: the template carries its own owner, so it is a 404."""
         fx = _Fixture()
 
         updated = fx.client.put(_url(f"/tasks/templates/{FOREIGN_TEMPLATE}"), json={"name": "Umbenannt"})
 
-        assert updated.status_code == 200, updated.text
+        assert updated.status_code == 404, updated.text
+        assert fx.templates.updated == []
 
 
 class TestPhaseChildrenOfASystemWorkflow:

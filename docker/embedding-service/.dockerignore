@@ -1,1 +1,3 @@
-# Exclude nothing — models/ needed for local COPY fallback
+# Exclude only the golden outputs the CI probe compares against (#1763) — test
+# data, not image content. models/ stays: it is needed for the local COPY fallback.
+golden/

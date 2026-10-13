@@ -27,14 +27,20 @@ from pathlib import Path
 
 HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
+#: Runtime flags that mount the complete router surface. Light mode drops the
+#: auth routers and the knowledge router is optional, so the export pins both to
+#: the superset. ``tests/unit/guards/test_router_tags_are_declared.py`` imports
+#: the same pin so the unit-tier guard sees exactly the surface this export sees.
+FULL_SURFACE_ENV: dict[str, str] = {
+    "KAMERPLANTER_MODE": "full",
+    "KNOWLEDGE_SERVICE_ENABLED": "true",
+}
+
 
 def build_document() -> dict:
-    # The mounted surface depends on runtime flags (light mode drops the auth
-    # routers, the knowledge router is optional). Pin the flags to the full
-    # surface BEFORE the app import so the snapshot is deterministic and
+    # Pin the flags BEFORE the app import so the snapshot is deterministic and
     # complete regardless of the local environment.
-    os.environ["KAMERPLANTER_MODE"] = "full"
-    os.environ["KNOWLEDGE_SERVICE_ENABLED"] = "true"
+    os.environ.update(FULL_SURFACE_ENV)
 
     # Route import-time structlog output to stderr so stdout stays a clean
     # JSON document (structlog's default PrintLogger writes to stdout).

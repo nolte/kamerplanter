@@ -7,7 +7,7 @@ Kategorie: KI & Schädlingsmanagement
 Fokus: Beides
 Technologie: Python 3.14+, PlantCV, ONNX, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.2 (Erfassungsverweis auf REQ-052 umgehängt)
+Version: 1.3 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.2 (Erfassungsverweis auf REQ-052 umgehängt)
 Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-010 (IPM), REQ-029 (Bilderkennung), REQ-029-A (Self-Hosted), REQ-036 (KI-Diagnose-Assistent), REQ-007 (Ernte), REQ-025 (DSGVO), REQ-031 (Knowledge-Service)
 ```
 
@@ -17,6 +17,7 @@ Abhängigkeit: REQ-052 v1.0 (Bilderfassung — Profil `recognition`), REQ-010 (I
 |---------|-------|----------|
 | 1.0 | 2026-06-19 | Initialer Entwurf — Integration von PlantVillage + PlantCV (awesome-agriculture) |
 | 1.1 | 2026-06-20 | G1-Entscheidung: PlantVillage fallengelassen (Lizenz ungeklärt); PlantDoc (CC-BY-4.0) als primäre Trainingsquelle; PlantCV-Modifikationsverbot ergänzt |
+| 1.3 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen (`require_tenant_role(GROWER)` auf Diagnose und Bestätigung, Lesen für jedes Mitglied, Einwilligung `plant_diagnosis` im Dienst). |
 
 ## 1. Business Case
 
@@ -713,6 +714,21 @@ backend:
 - **REQ-036 (Diagnose-Assistent):** Foto-Hypothese als Vorab-Kontext + Symptom-Slug-Vorbelegung
 - **REQ-007 (Ernte):** Phänotyp-Metriken als zusätzliche Reife-/Ertragsindikatoren
 - **REQ-031 (Knowledge-Service):** mögliche Co-Lokation des Klassifikator-Endpunkts
+
+## Autorisierung
+
+**Standardregel:** Alle Endpunkte dieses Dokuments erfordern Anmeldung und Mitgliedschaft im
+adressierten Mandanten, sofern nicht anders angegeben.
+
+> **Vokabular:** Schema aus **REQ-049 §3.3**, Werte nach **REQ-049 §3.1** (Alle Rollen / Ab Gärtner / Nur Leitung /
+> Technik / Verwaltung / Plattform-Admin). Ergänzt mit v1.3 (#2121, MT-025) und **gegen den Code gemessen**
+> (`develop` `b064e63b7`); wo das Zielbild abweicht, steht es in der Spalte Sonderaktionen.
+
+| Ressource | Lesen | Anlegen | Ändern | Löschen | Sonderaktionen |
+|-----------|-------|---------|--------|---------|----------------|
+| Diagnose-Status (`GET /cv-diagnosis/status`) | Alle Rollen | — | — | — | — |
+| Diagnose-Anfrage `plant_diagnosis_requests` (`POST /cv-diagnosis/diagnose`) | Alle Rollen (`GET /cv-diagnosis/history`) | Ab Gärtner | — | — (Mandanten- bzw. Kontolöschung) | Zusätzlich Einwilligung `plant_diagnosis` des Anfragenden (403 ohne, `CvDiagnosisService`) |
+| Bestätigung eines Befunds (`POST /cv-diagnosis/diagnose/{key}/confirm`) | — | Ab Gärtner | — | — | Bestätigen ist Dokumentieren, kein Einrichten |
 
 ## 7. Akzeptanzkriterien
 

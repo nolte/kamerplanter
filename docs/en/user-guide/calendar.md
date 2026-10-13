@@ -145,9 +145,12 @@ You can subscribe to your Kamerplanter calendar in external calendar apps. This 
 2. Click **Create Feed**.
 3. Give the feed a name (e.g. "My Main Calendar"). The feed adopts your currently enabled category filters at the time of creation.
 
-### Step 2: Copy the Feed URL
+### Step 2: Save the Subscription URL
 
-After saving, the feed appears in the list with its `webcal://` URL. Click **Copy URL**.
+After saving, Kamerplanter shows you the feed's subscription URL in a dialog of its own. Click **Copy URL** and add it to your calendar app right away (step 3). If your browser does not allow copying, Kamerplanter tells you so — then select the URL in the field and copy it yourself. A click beside the dialog does not close it; only **Close** (or the Escape key) discards the URL.
+
+!!! warning "You see the URL only once"
+    The subscription URL contains a secret token. Kamerplanter stores only an irreversible fingerprint (hash) of it — so nobody who reads the database or a backup can fetch your feeds. That is why Kamerplanter cannot show you the URL again once you close the dialog. If you lost it, regenerate the token (see below): you then get a new URL.
 
 ### Step 3: Subscribe in the External Calendar
 
@@ -156,14 +159,14 @@ After saving, the feed appears in the list with its `webcal://` URL. Click **Cop
     1. Open Google Calendar on a desktop browser.
     2. Under "Other calendars" on the left, click the plus icon.
     3. Select **From URL**.
-    4. Paste the `webcal://` URL.
+    4. Paste the subscription URL.
     5. Click **Add Calendar**.
 
 === "Apple Calendar (macOS)"
 
     1. Open Apple Calendar.
     2. Click **File → New Calendar Subscription**.
-    3. Paste the `webcal://` URL.
+    3. Paste the subscription URL.
     4. Click **Subscribe**.
 
 === "Thunderbird (Lightning)"
@@ -177,18 +180,27 @@ After saving, the feed appears in the list with its `webcal://` URL. Click **Cop
 === "Android (Standard Calendar)"
 
     1. Install an app such as **ICSx5** from the Play Store.
-    2. Add the `webcal://` URL as a new subscription.
+    2. Add the subscription URL as a new subscription.
 
 ### Regenerating the Feed Token
 
-Every feed has a secret token embedded in its URL. Use **Regenerate Token** to generate a new token and, with it, a new feed URL.
+Every feed has a secret token embedded in its URL. Use **Regenerate Token** (the arrow icon next to the feed) to generate a new token and, with it, a new subscription URL. Kamerplanter asks first and then shows you the new URL — as on creation — exactly once.
+
+This is also the way to go if you lost a feed's URL: the feed list no longer shows a URL, because Kamerplanter does not store it.
+
+The feed list shows only your own feeds, and only those can you open, change or regenerate — another member's feed can be touched by nobody but that member and the garden's lead. As the lead you see every feed of the garden through the technical API (`GET …/calendar/feeds?scope=all`); the UI does not offer this overall list yet.
+
+A feed reads the garden with its member's rights. When the member leaves the garden or is removed, Kamerplanter deletes their feeds in that garden, and the subscription URLs stop working at once. The same holds while their account or the garden is deactivated.
 
 !!! warning "The old link stops working immediately"
-    As soon as you regenerate the token, the previous `webcal://` URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you accidentally shared a feed link or want to revoke a former member's access.
+    As soon as you regenerate the token, the previous subscription URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you lost or accidentally shared a feed link. You don't need to end a former member's access yourself — their feeds end with their membership.
 
 ### Deleting a Feed
 
 Feeds can be deleted at any time under **iCal Feeds**. When deleted, the feed link becomes invalid — it must be removed from the external app as well.
+
+!!! warning "Note for operators: the subscription URL can end up in ingress logs"
+    Kamerplanter writes the subscription URL's token into none of its own log lines. An ingress or reverse proxy in front of it (e.g. Traefik) logs the full URL including `?token=…`, though, when its access log is on. Whoever can read those logs can fetch the feeds with them. Turn the access log off for the path `/api/v1/calendar/feeds/`, mask the query string, or treat the logs like credentials. Kamerplanter builds the subscription URL from `APP_BASE_URL` — set it to the public `https://` address in production.
 
 !!! info "Expiry only via the API"
     Kamerplanter internally supports an optional expiry date for feeds — once expired, the feed endpoint returns an error (HTTP 410 "Gone") instead of events. An expiry date cannot currently be set through the UI, only via the technical API.

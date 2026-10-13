@@ -71,7 +71,7 @@ def create_actuator(
 ):
     """Create an actuator attached to a location."""
     actuator = Actuator(**body.model_dump())
-    created = service.create_actuator(location_key, ctx.tenant_key, actuator)
+    created = service.create_actuator(location_key, actuator, tenant_key=ctx.tenant_key)
     return to_response(created, ActuatorResponse)
 
 
@@ -82,7 +82,7 @@ def list_location_actuators(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List the actuators attached to a location."""
-    actuators = service.list_for_location(location_key, ctx.tenant_key)
+    actuators = service.list_for_location(location_key, tenant_key=ctx.tenant_key)
     return [to_response(a, ActuatorResponse) for a in actuators]
 
 
@@ -95,7 +95,7 @@ def list_actuators(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List all of the tenant's actuators, optionally filtered."""
-    actuators = service.list_for_tenant(ctx.tenant_key, actuator_type, protocol, is_online)
+    actuators = service.list_for_tenant(actuator_type, protocol, is_online, tenant_key=ctx.tenant_key)
     return [to_response(a, ActuatorResponse) for a in actuators]
 
 
@@ -106,7 +106,7 @@ def get_actuator(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return a single actuator by key."""
-    return to_response(service.get_actuator(actuator_key, ctx.tenant_key), ActuatorResponse)
+    return to_response(service.get_actuator(actuator_key, tenant_key=ctx.tenant_key), ActuatorResponse)
 
 
 @router.put("/actuators/{actuator_key}", response_model=ActuatorResponse)
@@ -117,7 +117,7 @@ def update_actuator(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Update an actuator's configuration."""
-    updated = service.update_actuator(actuator_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_actuator(actuator_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
     return to_response(updated, ActuatorResponse)
 
 
@@ -128,7 +128,7 @@ def delete_actuator(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete an actuator."""
-    service.delete_actuator(actuator_key, ctx.tenant_key)
+    service.delete_actuator(actuator_key, tenant_key=ctx.tenant_key)
 
 
 # ── Command & override ───────────────────────────────────────────────────
@@ -142,7 +142,7 @@ def send_command(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Send a manual command to an actuator."""
-    event = service.send_command(actuator_key, ctx.tenant_key, body.command, body.value, user=ctx.user_key)
+    event = service.send_command(actuator_key, body.command, body.value, tenant_key=ctx.tenant_key, user=ctx.user_key)
     return to_response(event, ControlEventResponse)
 
 
@@ -164,7 +164,7 @@ def set_override(
         reason=body.reason,
         created_by=ctx.user_key,
     )
-    created = service.set_override(actuator_key, ctx.tenant_key, override, ctx.user_key)
+    created = service.set_override(actuator_key, override, ctx.user_key, tenant_key=ctx.tenant_key)
     return {"key": created.key, "expires_at": created.expires_at, "is_active": created.is_active}
 
 
@@ -175,7 +175,7 @@ def clear_override(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Clear an actuator's manual override."""
-    service.clear_override(actuator_key, ctx.tenant_key)
+    service.clear_override(actuator_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/actuators/{actuator_key}/state", response_model=ActuatorStateResponse)
@@ -185,7 +185,7 @@ def get_actuator_state(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return an actuator's current state snapshot."""
-    return service.get_state(actuator_key, ctx.tenant_key)
+    return service.get_state(actuator_key, tenant_key=ctx.tenant_key)
 
 
 # ── Schedules ────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ def create_schedule(
 ):
     """Create a control schedule for an actuator."""
     schedule = ControlSchedule(**body.model_dump())
-    created = service.create_schedule(actuator_key, ctx.tenant_key, schedule)
+    created = service.create_schedule(actuator_key, schedule, tenant_key=ctx.tenant_key)
     return to_response(created, ScheduleResponse)
 
 
@@ -211,7 +211,7 @@ def list_schedules(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List an actuator's control schedules."""
-    schedules = service.list_schedules(actuator_key, ctx.tenant_key)
+    schedules = service.list_schedules(actuator_key, tenant_key=ctx.tenant_key)
     return [to_response(s, ScheduleResponse) for s in schedules]
 
 
@@ -224,7 +224,9 @@ def update_schedule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Update a control schedule of an actuator."""
-    updated = service.update_schedule(actuator_key, schedule_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_schedule(
+        actuator_key, schedule_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key
+    )
     return to_response(updated, ScheduleResponse)
 
 
@@ -236,7 +238,7 @@ def delete_schedule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete a control schedule of an actuator."""
-    service.delete_schedule(actuator_key, schedule_key, ctx.tenant_key)
+    service.delete_schedule(actuator_key, schedule_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/actuators/{actuator_key}/schedules/{schedule_key}/toggle", response_model=ScheduleResponse)
@@ -247,7 +249,7 @@ def toggle_schedule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Toggle a control schedule's active state."""
-    return to_response(service.toggle_schedule(actuator_key, schedule_key, ctx.tenant_key), ScheduleResponse)
+    return to_response(service.toggle_schedule(actuator_key, schedule_key, tenant_key=ctx.tenant_key), ScheduleResponse)
 
 
 # ── Rules ────────────────────────────────────────────────────────────────
@@ -262,7 +264,7 @@ def create_rule(
 ):
     """Create a sensor-driven control rule for an actuator."""
     rule = ControlRule(**body.model_dump())
-    created = service.create_rule(actuator_key, ctx.tenant_key, rule)
+    created = service.create_rule(actuator_key, rule, tenant_key=ctx.tenant_key)
     return to_response(created, RuleResponse)
 
 
@@ -273,7 +275,7 @@ def list_actuator_rules(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List an actuator's control rules."""
-    rules = service.list_rules(actuator_key, ctx.tenant_key)
+    rules = service.list_rules(actuator_key, tenant_key=ctx.tenant_key)
     return [to_response(r, RuleResponse) for r in rules]
 
 
@@ -286,7 +288,7 @@ def list_rules(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List all of the tenant's control rules, optionally filtered."""
-    rules = service.list_rules_for_tenant(ctx.tenant_key, sensor_parameter, is_active, is_safety)
+    rules = service.list_rules_for_tenant(sensor_parameter, is_active, is_safety, tenant_key=ctx.tenant_key)
     return [to_response(r, RuleResponse) for r in rules]
 
 
@@ -299,7 +301,7 @@ def update_rule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Update a control rule of an actuator."""
-    updated = service.update_rule(actuator_key, rule_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_rule(actuator_key, rule_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
     return to_response(updated, RuleResponse)
 
 
@@ -311,7 +313,7 @@ def delete_rule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete a control rule of an actuator."""
-    service.delete_rule(actuator_key, rule_key, ctx.tenant_key)
+    service.delete_rule(actuator_key, rule_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/actuators/{actuator_key}/rules/{rule_key}/toggle", response_model=RuleResponse)
@@ -322,7 +324,7 @@ def toggle_rule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Toggle a control rule's active state."""
-    return to_response(service.toggle_rule(actuator_key, rule_key, ctx.tenant_key), RuleResponse)
+    return to_response(service.toggle_rule(actuator_key, rule_key, tenant_key=ctx.tenant_key), RuleResponse)
 
 
 @router.post("/rules/{rule_key}/test", response_model=RuleTestResponse, response_model_exclude_unset=True)
@@ -333,7 +335,7 @@ def test_rule(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Dry-run a control rule against supplied sensor readings, without side effects."""
-    return service.test_rule(rule_key, ctx.tenant_key, body.sensor_readings)
+    return service.test_rule(rule_key, body.sensor_readings, tenant_key=ctx.tenant_key)
 
 
 # ── Events & stats ───────────────────────────────────────────────────────
@@ -347,7 +349,7 @@ def list_events(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List an actuator's control events (paginated, newest first)."""
-    events = service.list_events(actuator_key, ctx.tenant_key, pagination.offset, pagination.limit)
+    events = service.list_events(actuator_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [to_response(e, ControlEventResponse) for e in events]
 
 
@@ -358,7 +360,7 @@ def get_event_stats(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return aggregated control-event statistics for an actuator."""
-    return service.get_event_stats(actuator_key, ctx.tenant_key)
+    return service.get_event_stats(actuator_key, tenant_key=ctx.tenant_key)
 
 
 @router.get("/locations/{location_key}/control-events", response_model=list[ControlEventResponse])
@@ -369,7 +371,7 @@ def list_location_events(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List control events across all actuators of a location (paginated)."""
-    events = service.list_location_events(location_key, ctx.tenant_key, pagination.offset, pagination.limit)
+    events = service.list_location_events(location_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [to_response(e, ControlEventResponse) for e in events]
 
 
@@ -380,7 +382,7 @@ def get_location_control_status(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return an actuator online/offline summary for a location."""
-    actuators = service.list_for_location(location_key, ctx.tenant_key)
+    actuators = service.list_for_location(location_key, tenant_key=ctx.tenant_key)
     return {
         "location_key": location_key,
         "actuator_count": len(actuators),
@@ -396,7 +398,7 @@ def get_location_energy(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return the estimated daily energy use for a location's actuators."""
-    return service.get_location_energy(location_key, ctx.tenant_key)
+    return service.get_location_energy(location_key, tenant_key=ctx.tenant_key)
 
 
 # ── Phase control profiles ───────────────────────────────────────────────
@@ -410,7 +412,7 @@ def create_profile(
 ):
     """Create a phase-control profile of environmental targets."""
     profile = PhaseControlProfile(**body.model_dump())
-    created = service.create_profile(ctx.tenant_key, profile)
+    created = service.create_profile(profile, tenant_key=ctx.tenant_key)
     return to_response(created, PhaseControlProfileResponse)
 
 
@@ -421,7 +423,7 @@ def list_profiles(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """List the tenant's phase-control profiles."""
-    profiles = service.list_profiles(ctx.tenant_key, is_template)
+    profiles = service.list_profiles(is_template, tenant_key=ctx.tenant_key)
     return [to_response(p, PhaseControlProfileResponse) for p in profiles]
 
 
@@ -432,7 +434,7 @@ def get_profile(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Return a single phase-control profile by key."""
-    return to_response(service.get_profile(profile_key, ctx.tenant_key), PhaseControlProfileResponse)
+    return to_response(service.get_profile(profile_key, tenant_key=ctx.tenant_key), PhaseControlProfileResponse)
 
 
 @router.put("/phase-control-profiles/{profile_key}", response_model=PhaseControlProfileResponse)
@@ -443,7 +445,7 @@ def update_profile(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Update a phase-control profile."""
-    updated = service.update_profile(profile_key, ctx.tenant_key, body.model_dump(exclude_none=True))
+    updated = service.update_profile(profile_key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
     return to_response(updated, PhaseControlProfileResponse)
 
 
@@ -454,7 +456,7 @@ def delete_profile(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Delete a phase-control profile."""
-    service.delete_profile(profile_key, ctx.tenant_key)
+    service.delete_profile(profile_key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/phase-control-profiles/{profile_key}/apply")
@@ -465,7 +467,7 @@ def apply_profile(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Apply a phase-control profile's targets to a location's actuators."""
-    return service.apply_profile(profile_key, ctx.tenant_key, body.location_key)
+    return service.apply_profile(profile_key, body.location_key, tenant_key=ctx.tenant_key)
 
 
 # ── Home Assistant integration (admin-gated) ─────────────────────────────
@@ -485,8 +487,8 @@ def ha_entities(
     ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     service: ActuatorService = Depends(get_actuator_service),
 ):
-    """List the controllable Home Assistant entities."""
-    return service.ha_entities()
+    """List the Home Assistant entities granted to the tenant (MT-015, #2112)."""
+    return service.ha_entities(tenant_key=ctx.tenant_key)
 
 
 @router.post("/integrations/home-assistant/test")
@@ -508,4 +510,4 @@ def emergency_stop(
     service: ActuatorService = Depends(get_actuator_service),
 ):
     """Switch off the actuators affected by a predefined emergency scenario."""
-    return service.emergency_stop(ctx.tenant_key, body.scenario.value, ctx.user_key)
+    return service.emergency_stop(body.scenario.value, ctx.user_key, tenant_key=ctx.tenant_key)

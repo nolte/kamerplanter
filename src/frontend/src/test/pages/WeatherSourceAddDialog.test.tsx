@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import WeatherSourceAddDialog from '@/pages/standorte/WeatherSourceAddDialog';
-import { renderWithProviders } from '../helpers';
+import { createStoreWithTenantRole, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 import type {
   AvailableSourcesResponse,
@@ -57,6 +57,8 @@ type MountProps = {
   existingApiKeySet?: boolean;
   onSave?: (entry: WeatherSourceEntryRequest) => void;
   onClose?: () => void;
+  /** Admin scopes of the acting member; the HA pickers need `technical` (MT-015, #2112). */
+  adminScopes?: string[];
 };
 
 function mount(props: MountProps = {}) {
@@ -73,6 +75,7 @@ function mount(props: MountProps = {}) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onSave={onSave as any}
     />,
+    { store: createStoreWithTenantRole('lead', props.adminScopes ?? ['technical']) },
   );
   return { ...utils, onSave, onClose };
 }
@@ -220,6 +223,30 @@ describe('WeatherSourceAddDialog', () => {
     await screen.findByTestId('weather-source-add-dialog');
     await user.click(screen.getByTestId('weather-kind-ha'));
     expect(await screen.findByTestId('ha-no-weather-entities-hint')).toBeInTheDocument();
+  });
+
+  it('explains the HA branch to a member without the technical scope and requests no entity list (MT-015)', async () => {
+    const user = userEvent.setup();
+    const requested: string[] = [];
+    server.use(
+      http.get('/api/v1/t/:tenant/ha/weather-entities', ({ request }) => {
+        requested.push(new URL(request.url).pathname);
+        return HttpResponse.json([], { status: 403 });
+      }),
+      http.get('/api/v1/t/:tenant/ha/sensor-entities', ({ request }) => {
+        requested.push(new URL(request.url).pathname);
+        return HttpResponse.json([], { status: 403 });
+      }),
+    );
+    mount({ adminScopes: [] });
+    await screen.findByTestId('weather-source-add-dialog');
+    await user.click(screen.getByTestId('weather-kind-ha'));
+    expect(await screen.findByTestId('ha-entities-technical-only-hint')).toHaveTextContent(
+      i18n.t('pages.weatherSource.haEntitiesTechnicalOnly'),
+    );
+    expect(screen.queryByTestId('ha-weather-entity-autocomplete')).not.toBeInTheDocument();
+    expect(screen.getByTestId('weather-source-add-confirm')).toBeDisabled();
+    expect(requested).toEqual([]);
   });
 
   it('renders the edit form with a locked kind switch and a Save label, and saves the existing public source', async () => {

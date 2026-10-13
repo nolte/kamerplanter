@@ -51,9 +51,21 @@ export default function EmailVerificationPage() {
               <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
               {/* Keep a way out of the dead end: an invalid/expired token page
                   must still lead back to the login (TC-023-043/044). */}
-              <Button component={RouterLink} to="/login" variant="outlined">
-                {t('pages.auth.loginButton')}
-              </Button>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'center' }}>
+                {/* An expired or used-up link is the common case here; the way to
+                    a fresh one sits next to the way back (#2037). */}
+                <Button
+                  component={RouterLink}
+                  to="/resend-verification"
+                  variant="contained"
+                  data-testid="request-new-verification-link"
+                >
+                  {t('pages.auth.requestNewVerificationLink')}
+                </Button>
+                <Button component={RouterLink} to="/login" variant="outlined">
+                  {t('pages.auth.loginButton')}
+                </Button>
+              </Box>
             </>
           )}
         </CardContent>

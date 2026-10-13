@@ -43,7 +43,13 @@ import {
 } from '@/api/endpoints/adminPlatform';
 import { isApiError, parseApiError } from '@/api/errors';
 import ErrorPage from '@/pages/ErrorPage';
-import type { AdminUser, AdminUserMembership, AdminTenant, TenantRole } from '@/api/types';
+import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
+import { useErasurePreview } from '@/hooks/useErasurePreview';
+import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
+import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
+import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
+import type { AdminUser, AdminUserMembership, AdminTenant, AdminUserUpdate, TenantRole } from '@/api/types';
+import { useStepUpResume } from '@/hooks/useStepUpReauth';
 
 const GRID_2COL = {
   display: 'grid',
@@ -67,8 +73,29 @@ export default function AdminEditUserPage() {
   const [isActive, setIsActive] = useState(true);
   const [emailVerified, setEmailVerified] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  // #1815 — back from the fresh sign-in at the identity provider: reopen the
+  // account-deletion dialog it was started from (it then sends the token).
+  const resumeDelete = useStepUpResume('delete-user');
+  const [confirmDelete, setConfirmDelete] = useState(resumeDelete);
+  // AK-FK-06 / #1961 — the personal tenants this deletion takes along, read for the target when the dialog opens.
+  const erasurePreview = useErasurePreview(confirmDelete && key !== undefined, key);
+  // #1857 — raising another account's trust (e-mail verified, reactivated)
+  // passes the admin's own step-up. The toggled switches do not survive the
+  // round trip to the identity provider, so the resume context is only consumed;
+  // the pending token is picked up when the admin saves again within its
+  // five minutes — for this account only (#1884: token and dialog are bound to
+  // the account's key, so a token obtained on another account's page stays unused).
+  useStepUpResume('update-user');
+  const [confirmTrustRaise, setConfirmTrustRaise] = useState(false);
+  // #2009 — removing the account from a tenant passes the admin's own step-up,
+  // bound to the membership (#1884); the resume context is only consumed, as above.
+  useStepUpResume('remove-membership');
+  // #2032 — changing the role in a tenant (demoting its last lead) passes it too.
+  useStepUpResume('change-membership-role');
+  // #2106 — adding the account to a tenant passes it too, bound to `<tenant>|<user>`.
+  useStepUpResume('add-membership');
+  const [roleChange, setRoleChange] = useState<{ membership: AdminUserMembership; role: TenantRole } | null>(null);
+  const [membershipToRemove, setMembershipToRemove] = useState<AdminUserMembership | null>(null);
 
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
@@ -77,7 +104,7 @@ export default function AdminEditUserPage() {
   const [showAddTenant, setShowAddTenant] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<AdminTenant | null>(null);
   const [selectedRole, setSelectedRole] = useState<TenantRole>('viewer');
-  const [adding, setAdding] = useState(false);
+  const [confirmAdd, setConfirmAdd] = useState(false);
 
   // Load user
   useEffect(() => {
@@ -147,15 +174,28 @@ export default function AdminEditUserPage() {
     (t) => t.is_active && !memberships.some((m) => m.tenant_key === t.key),
   );
 
+  const buildUpdate = (current: AdminUser): AdminUserUpdate => ({
+    display_name: displayName !== current.display_name ? displayName : undefined,
+    is_active: isActive !== current.is_active ? isActive : undefined,
+    email_verified: emailVerified !== current.email_verified ? emailVerified : undefined,
+  });
+
+  // The backend asks for the admin's step-up whenever the update CHANGES `email_verified` or
+  // `is_active` (#1857, #1992): raising either widens what the account is trusted with, lowering
+  // either can lead to its erasure (an unverified account is what the cleanup erases) or lock its
+  // owner out. Renaming saves as before.
+  const changesTrust = (current: AdminUser): boolean =>
+    emailVerified !== current.email_verified || isActive !== current.is_active;
+
   const handleSave = async () => {
     if (!user) return;
+    if (changesTrust(user)) {
+      setConfirmTrustRaise(true);
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await updateAdminUser(user.key, {
-        display_name: displayName !== user.display_name ? displayName : undefined,
-        is_active: isActive !== user.is_active ? isActive : undefined,
-        email_verified: emailVerified !== user.email_verified ? emailVerified : undefined,
-      });
+      const updated = await updateAdminUser(user.key, buildUpdate(user));
       setUser(updated);
       enqueueSnackbar(t('common.saved'), { variant: 'success' });
     } catch (err) {
@@ -165,57 +205,83 @@ export default function AdminEditUserPage() {
     }
   };
 
-  const handleDelete = async () => {
+  // The admin's OWN step-up (#1857). A rejection propagates to the dialog,
+  // which shows it inside itself and stays open.
+  const handleConfirmTrustRaise = async (credentials: StepUpConfirmation) => {
     if (!user) return;
-    setDeleting(true);
-    try {
-      await deleteAdminUser(user.key);
-      enqueueSnackbar(t('pages.auth.adminUserDeleted'), { variant: 'success' });
-      navigate('/settings#platform');
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    } finally {
-      setDeleting(false);
-    }
+    const updated = await updateAdminUser(user.key, {
+      ...buildUpdate(user),
+      ...toCredentialStepUpBody(credentials),
+    });
+    setUser(updated);
+    setConfirmTrustRaise(false);
+    enqueueSnackbar(t('common.saved'), { variant: 'success' });
   };
 
-  const handleAddToTenant = async () => {
+  // Erasing another account is a step-up (#1814): the TARGET's e-mail typed
+  // back and the admin's OWN current password. A rejection propagates to the
+  // dialog, which shows it inside itself and stays open.
+  const handleDelete = async ({ echo, ...credentials }: StepUpConfirmation) => {
+    if (!user) return;
+    await deleteAdminUser(user.key, { confirm_email: echo, ...toStepUpBody(credentials) });
+    setConfirmDelete(false);
+    enqueueSnackbar(t('pages.auth.adminUserDeletionAccepted'), { variant: 'success' });
+    navigate('/settings#platform');
+  };
+
+  // Adding only opens the confirmation (#2106): nothing is written until the admin's OWN step-up
+  // went through. A rejection propagates to the dialog, which shows it and stays open.
+  const handleAddToTenant = () => {
     if (!key || !selectedTenant) return;
-    setAdding(true);
-    try {
-      const m = await addUserToTenant(key, { tenant_key: selectedTenant.key, role: selectedRole });
-      setMemberships((prev) => [...prev, m]);
-      setSelectedTenant(null);
-      setSelectedRole('viewer');
-      setShowAddTenant(false);
-      enqueueSnackbar(t('pages.auth.adminMemberAdded'), { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    } finally {
-      setAdding(false);
-    }
+    setConfirmAdd(true);
   };
 
-  const handleRemoveFromTenant = async (m: AdminUserMembership) => {
-    if (!key) return;
-    try {
-      await removeUserFromTenant(key, m.membership_key);
-      setMemberships((prev) => prev.filter((x) => x.membership_key !== m.membership_key));
-      enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  const handleConfirmAddToTenant = async (credentials: StepUpConfirmation) => {
+    if (!key || !selectedTenant) return;
+    const m = await addUserToTenant(
+      key,
+      { tenant_key: selectedTenant.key, role: selectedRole },
+      toCredentialStepUpBody(credentials),
+    );
+    setMemberships((prev) => [...prev, m]);
+    setSelectedTenant(null);
+    setSelectedRole('viewer');
+    setShowAddTenant(false);
+    setConfirmAdd(false);
+    enqueueSnackbar(t('pages.auth.adminMemberAdded'), { variant: 'success' });
   };
 
-  const handleRoleChange = async (m: AdminUserMembership, newRole: TenantRole) => {
-    if (!key) return;
-    try {
-      const updated = await changeUserMembershipRole(key, m.membership_key, newRole);
-      setMemberships((prev) => prev.map((x) => (x.membership_key === m.membership_key ? updated : x)));
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
+  // The admin's OWN step-up (#2009); a rejection propagates to the dialog,
+  // which shows it inside itself and stays open.
+  const handleRemoveFromTenant = async (credentials: StepUpConfirmation) => {
+    if (!key || !membershipToRemove) return;
+    const removed = membershipToRemove;
+    await removeUserFromTenant(key, removed.membership_key, toCredentialStepUpBody(credentials));
+    setMemberships((prev) => prev.filter((x) => x.membership_key !== removed.membership_key));
+    setMembershipToRemove(null);
+    enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
+  };
+
+  // Choosing another role only opens the confirmation (#2032): the select keeps showing the
+  // stored role until the admin's OWN step-up went through.
+  const handleRoleChange = (m: AdminUserMembership, newRole: TenantRole) => {
+    if (newRole === m.role) return;
+    setRoleChange({ membership: m, role: newRole });
+  };
+
+  // A rejection propagates to the dialog, which shows it inside itself and stays open.
+  const handleConfirmRoleChange = async (credentials: StepUpConfirmation) => {
+    if (!key || !roleChange) return;
+    const { membership, role } = roleChange;
+    const updated = await changeUserMembershipRole(
+      key,
+      membership.membership_key,
+      role,
+      toCredentialStepUpBody(credentials),
+    );
+    setMemberships((prev) => prev.map((x) => (x.membership_key === membership.membership_key ? updated : x)));
+    setRoleChange(null);
+    enqueueSnackbar(t('common.saved'), { variant: 'success' });
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -303,30 +369,56 @@ export default function AdminEditUserPage() {
                 {t('common.save')}
               </Button>
             </Box>
+            <StepUpConfirmDialog
+              open={confirmTrustRaise}
+              title={t('pages.auth.adminUpdateUserStepUpTitle')}
+              description={t('pages.auth.adminUpdateUserStepUpDescription', {
+                name: user.display_name,
+                email: user.email,
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminUpdateUserStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="update-user"
+              stepUpAction="admin_account_update"
+              stepUpTarget={user.key}
+              onConfirm={handleConfirmTrustRaise}
+              onCancel={() => setConfirmTrustRaise(false)}
+            />
 
             {/* Danger zone */}
             <Divider sx={{ my: 3 }} />
             <Typography variant="subtitle2" color="error" gutterBottom>
               {t('pages.auth.dangerZone')}
             </Typography>
-            {!confirmDelete ? (
-              <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-user-btn">
-                {t('pages.auth.adminDeleteUser')}
-              </Button>
-            ) : (
-              <Alert severity="error">
-                <Typography variant="body2" sx={{ mb: 1 }}>
+            <Button variant="outlined" color="error" onClick={() => setConfirmDelete(true)} data-testid="delete-user-btn">
+              {t('pages.auth.adminDeleteUser')}
+            </Button>
+            <StepUpConfirmDialog
+              open={confirmDelete}
+              title={t('pages.auth.adminDeleteUserDialogTitle')}
+              description={
+                <>
                   {t('pages.auth.adminDeleteUserConfirm', { name: user.display_name, email: user.email })}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="contained" color="error" size="small" onClick={handleDelete} disabled={deleting}
-                    startIcon={deleting ? <CircularProgress size={14} /> : undefined} data-testid="confirm-delete-user-btn">
-                    {t('pages.auth.adminConfirmDelete')}
-                  </Button>
-                  <Button size="small" onClick={() => setConfirmDelete(false)}>{t('common.cancel')}</Button>
-                </Box>
-              </Alert>
-            )}
+                  <ErasurePreviewNotice preview={erasurePreview} testIdPrefix="delete-user-preview" audience="admin" />
+                </>
+              }
+              echoLabel={t('pages.auth.adminDeleteUserEmailLabel')}
+              echoHelper={t('pages.auth.adminDeleteUserEmailHelper', { email: user.email })}
+              expectedEcho={user.email}
+              echoMatch="caseInsensitive"
+              echoInputType="email"
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminConfirmDelete')}
+              testIdPrefix="delete-user"
+              stepUpAction="admin_account_erasure"
+              stepUpTarget={user.key}
+              testIds={{ echo: 'delete-user-email', confirm: 'confirm-delete-user-btn' }}
+              onConfirm={handleDelete}
+              onCancel={() => setConfirmDelete(false)}
+            />
           </CardContent>
         </Card>
 
@@ -353,7 +445,7 @@ export default function AdminEditUserPage() {
                   getOptionLabel={(opt) => `${opt.name} (${opt.slug})`}
                   value={selectedTenant}
                   onChange={(_, v) => setSelectedTenant(v)}
-                  renderInput={(params) => <TextField {...params} label={t('pages.auth.adminSelectOrg')} />}
+                  renderInput={(params) => <TextField {...params} label={t('pages.auth.adminSelectOrg')} data-testid="add-tenant-input" />}
                   sx={{ flex: 1, minWidth: 220 }}
                 />
                 <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -364,8 +456,8 @@ export default function AdminEditUserPage() {
                     <MenuItem value="viewer">{t('enums.tenantRole.viewer')}</MenuItem>
                   </Select>
                 </FormControl>
-                <Button variant="contained" size="small" onClick={handleAddToTenant} disabled={adding || !selectedTenant}
-                  startIcon={adding ? <CircularProgress size={14} /> : undefined} sx={{ mt: 0.25 }}>
+                <Button variant="contained" size="small" onClick={handleAddToTenant} disabled={!selectedTenant}
+                  sx={{ mt: 0.25 }} data-testid="add-membership-submit-btn">
                   {t('common.add')}
                 </Button>
                 <Button size="small" onClick={() => { setShowAddTenant(false); setSelectedTenant(null); }} sx={{ mt: 0.25 }}>
@@ -412,7 +504,7 @@ export default function AdminEditUserPage() {
                           </Select>
                         </TableCell>
                         <TableCell align="right">
-                          <IconButton size="small" onClick={() => handleRemoveFromTenant(m)} data-testid={`remove-membership-${m.tenant_key}`}>
+                          <IconButton size="small" onClick={() => setMembershipToRemove(m)} data-testid={`remove-membership-${m.tenant_key}`}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -431,6 +523,58 @@ export default function AdminEditUserPage() {
                 </Table>
               </TableContainer>
             )}
+            <StepUpConfirmDialog
+              open={confirmAdd && selectedTenant !== null}
+              title={t('pages.auth.adminAddMemberStepUpTitle')}
+              description={t('pages.auth.adminAddMemberStepUpDescription', {
+                name: user.display_name,
+                tenant: selectedTenant?.name ?? '',
+                role: t(`enums.tenantRole.${selectedRole}`),
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminAddMemberStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="add-membership"
+              stepUpAction="admin_membership_add"
+              stepUpTarget={selectedTenant ? `${selectedTenant.key}|${user.key}` : undefined}
+              onConfirm={handleConfirmAddToTenant}
+              onCancel={() => setConfirmAdd(false)}
+            />
+            <StepUpConfirmDialog
+              open={membershipToRemove !== null}
+              title={t('pages.auth.adminRemoveMemberStepUpTitle')}
+              description={t('pages.auth.adminRemoveMemberStepUpDescription', {
+                name: user.display_name,
+                tenant: membershipToRemove?.tenant_name ?? '',
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminRemoveMemberStepUpConfirm')}
+              testIdPrefix="remove-membership"
+              stepUpAction="admin_membership_removal"
+              stepUpTarget={membershipToRemove?.membership_key}
+              onConfirm={handleRemoveFromTenant}
+              onCancel={() => setMembershipToRemove(null)}
+            />
+            <StepUpConfirmDialog
+              open={roleChange !== null}
+              title={t('pages.auth.adminChangeRoleStepUpTitle')}
+              description={t('pages.auth.adminChangeRoleStepUpDescription', {
+                name: user.display_name,
+                tenant: roleChange?.membership.tenant_name ?? '',
+                role: roleChange ? t(`enums.tenantRole.${roleChange.role}`) : '',
+              })}
+              passwordLabel={t('pages.auth.adminDeleteUserPasswordLabel')}
+              passwordHelper={t('pages.auth.adminDeleteUserPasswordHelper')}
+              confirmLabel={t('pages.auth.adminChangeRoleStepUpConfirm')}
+              confirmColor="primary"
+              testIdPrefix="change-membership-role"
+              stepUpAction="admin_membership_role_change"
+              stepUpTarget={roleChange?.membership.membership_key}
+              onConfirm={handleConfirmRoleChange}
+              onCancel={() => setRoleChange(null)}
+            />
           </CardContent>
         </Card>
       </Box>

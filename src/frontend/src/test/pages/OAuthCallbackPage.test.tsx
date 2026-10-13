@@ -75,6 +75,17 @@ describe('OAuthCallbackPage', () => {
     expect(screen.getByRole('button', { name: /Anmeldung/i })).toBeTruthy();
   });
 
+  it('explains a first sign-in the registration mode refused (#2132)', async () => {
+    renderWithProviders(<OAuthCallbackPage />, {
+      store: callbackStore(),
+      route: '/auth/callback?error=registration_not_allowed',
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/nur mit einer Einladung oder gar nicht/i);
+    });
+  });
+
   it('never renders an unknown/attacker error param raw and falls back to the generic message', async () => {
     const attacker = '<script>alert(1)</script>';
     renderWithProviders(<OAuthCallbackPage />, {

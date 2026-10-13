@@ -66,7 +66,9 @@ def require_owned_site(
     which is usually the location or slot whose site this is — see the module
     docstring for why the message must not name the site.
     """
-    site = source.get_site_by_key(site_key) if site_key else None
+    site = source.get_site_by_key(site_key) if site_key and tenant_key else None
+    # An empty ``tenant_key`` is no tenant (#2107): it used to match a legacy site
+    # whose own ``tenant_key`` was ``""`` and hand out its tree.
     if site is None or site.tenant_key != tenant_key:
         raise NotFoundError(entity_name, entity_key)
     return site

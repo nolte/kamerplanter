@@ -59,12 +59,12 @@ class TestWorkflowTemplateWriteGuard:
         # a tenant from mutating a globally seeded system template.
         service, repo = _service(_wf("sys1", "", is_system=True))
         with pytest.raises(ValidationError):
-            service.update_workflow_template("sys1", {"name": "Hijacked"})
+            service.update_workflow_template("sys1", {"name": "Hijacked"}, tenant_key="tenant_a")
         repo.update_workflow_template.assert_not_called()
 
     def test_update_own_template_succeeds(self) -> None:
         service, repo = _service(_wf("a1", "tenant_a"))
-        updated = service.update_workflow_template("a1", {"name": "Renamed"})
+        updated = service.update_workflow_template("a1", {"name": "Renamed"}, tenant_key="tenant_a")
         assert updated.name == "Renamed"
         repo.update_workflow_template.assert_called_once()
 

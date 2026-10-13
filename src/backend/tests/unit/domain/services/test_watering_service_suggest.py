@@ -62,7 +62,7 @@ class _SensorService:
     def get_sensors_for_location(self, location_key):  # noqa: ARG002
         return [SimpleNamespace(metric_type=self._metric, is_active=True, ha_entity_id="sensor.soil")]
 
-    def get_live_state_for_sensors(self, sensors):  # noqa: ARG002
+    def get_live_state_for_sensors(self, sensors, *, tenant_key):  # noqa: ARG002
         if self._moisture is None:
             return {"values": {}, "source": "unavailable"}
         return {"values": {"soil_moisture": {"value": self._moisture}}, "source": "ha_live"}
@@ -87,7 +87,7 @@ def _plant(**kw):
 
 def _species(waterlogging_tolerance=None, vol_min=200, vol_max=400):
     guide = SimpleNamespace(volume_ml_min=vol_min, volume_ml_max=vol_max, seasonal_adjustments=None)
-    return SimpleNamespace(waterlogging_tolerance=waterlogging_tolerance, watering_guide=guide)
+    return SimpleNamespace(tenant_key="", waterlogging_tolerance=waterlogging_tolerance, watering_guide=guide)
 
 
 def _service(plant, species, *, location_key="loc1", sensor_service=None):

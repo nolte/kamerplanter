@@ -123,6 +123,8 @@ from app.domain.models.site import Site
 from app.domain.models.tenant import Tenant
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from tests.support.refresh_family_fakes import RefreshFamilyMemoryMixin
+from tests.support.step_up import PassedStepUpVerifier
 
 _ISSUE_PATH = "/api/v1/auth/device-pairing"
 _REDEEM_PATH = "/api/v1/auth/device-pairing/redeem"
@@ -209,7 +211,7 @@ class _ClockedCodeStore(IDevicePairingCodeStore):
         return code in self._records
 
 
-class _MemoryRefreshTokenRepository(IRefreshTokenRepository):
+class _MemoryRefreshTokenRepository(RefreshFamilyMemoryMixin, IRefreshTokenRepository):
     """A session store that actually forgets a revoked token.
 
     ``get_by_hash`` filtering revoked documents mirrors the AQL filter in
@@ -248,14 +250,22 @@ class _MemoryRefreshTokenRepository(IRefreshTokenRepository):
                 revoked += 1
         return revoked
 
-    def cleanup_expired(self) -> int:
+    def cleanup_expired(self, *, now: datetime | None = None) -> int:
         return 0
 
-    def list_active_for_user(self, user_key: UserKey) -> list[RefreshToken]:
-        now = datetime.now(UTC)
+    def list_active_for_user(self, user_key: UserKey, *, now: datetime | None = None) -> list[RefreshToken]:
+        moment = now or datetime.now(UTC)
         return [
-            doc for doc in self._docs.values() if doc.user_key == user_key and not doc.revoked and doc.expires_at > now
+            doc
+            for doc in self._docs.values()
+            if doc.user_key == user_key and not doc.revoked and doc.expires_at > moment
         ]
+
+    def list_unanonymized_ips_before(self, cutoff_iso: str) -> list[tuple[str, str]]:
+        return []
+
+    def mark_ip_anonymized(self, key: str, anonymized_ip: str, anonymized_at_iso: str) -> None:
+        return None
 
 
 class _FakeTenantService:
@@ -405,6 +415,7 @@ def _world(platform_leads: frozenset[str] = frozenset()) -> Iterator[_World]:
 
     sessions = _MemoryRefreshTokenRepository()
     service = AuthService(
+        step_up_verifier=PassedStepUpVerifier(),
         user_repo=user_repo,
         auth_provider_repo=MagicMock(),
         refresh_token_repo=sessions,
@@ -421,10 +432,10 @@ def _world(platform_leads: frozenset[str] = frozenset()) -> Iterator[_World]:
     )
 
     sites = MagicMock()
-    sites.list_sites.return_value = (
-        [Site(_key="site-owner", tenant_key=_OWNER_TENANT.key or "", name=_OWNER_SITE_NAME)],
-        1,
-    )
+    # The list route reads the count-free window (MT-035, #2131).
+    sites.list_sites_window.return_value = [
+        Site(_key="site-owner", tenant_key=_OWNER_TENANT.key or "", name=_OWNER_SITE_NAME)
+    ]
     sites.get_water_warnings.return_value = []
 
     # The real provider: every token this module asserts about is verified by
@@ -646,7 +657,7 @@ class TestTenantIntegrity:
 
         assert response.status_code == 200, response.text
         assert [site["name"] for site in response.json()] == [_OWNER_SITE_NAME]
-        assert world.sites.list_sites.call_args.kwargs["tenant_key"] == _OWNER_TENANT.key
+        assert world.sites.list_sites_window.call_args.kwargs["tenant_key"] == _OWNER_TENANT.key
 
     def test_a_paired_token_is_refused_by_a_tenant_its_user_is_no_member_of(self, world: _World) -> None:
         """The scope a paired phone carries is the issuing account's, and nothing
@@ -654,12 +665,12 @@ class TestTenantIntegrity:
         refusal that happened only inside the repository — i.e. one row-level
         filter away from a leak — would not pass for a gate."""
         pair = world.pair(_OWNER)
-        world.sites.list_sites.reset_mock()
+        world.sites.list_sites_window.reset_mock()
 
         response = world.read_sites(_STRANGER_TENANT.slug, pair["access_token"])
 
         assert response.status_code == 403, response.text
-        assert world.sites.list_sites.call_count == 0, "the tenant gate let the request through to the service"
+        assert world.sites.list_sites_window.call_count == 0, "the tenant gate let the request through to the service"
 
     def test_membership_is_resolved_per_request_not_frozen_into_the_paired_token(self, world: _World) -> None:
         """A paired device holds its access token for 15 minutes and its refresh

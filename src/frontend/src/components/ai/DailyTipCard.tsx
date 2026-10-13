@@ -6,8 +6,15 @@ import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import Button from '@mui/material/Button';
 import AIResponse from './AIResponse';
+import { resolveAiErrorMessage } from './aiErrorMessage';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { aiApi } from '@/api';
+import { apiLanguage } from '@/i18n/apiLanguage';
 import type { AiTipCard } from '@/api/types';
 
 const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
@@ -43,11 +50,33 @@ function persistDismissed(key: string): void {
  * `<AIResponse>`-Huelle und blendet sich nach dem Schliessen fuer den Rest des
  * Tages aus (Persistenz via API + Local-Storage). Ist die KI deaktiviert oder
  * der Knowledge-Service nicht erreichbar (`null`), rendert die Karte nichts.
+ *
+ * Seit #1461 erzeugt der `GET` den Tipp nicht mehr selbst — ein Lesezugriff darf
+ * nicht schreiben und keinen LLM-Aufruf kosten. `null` heisst darum auch „fuer
+ * heute noch nichts erzeugt"; einem Grower bietet die Karte dann ausdruecklich
+ * `POST /ai/daily-tip/refresh` an, statt unsichtbar zu bleiben.
  */
 export default function DailyTipCard() {
   const { t, i18n } = useTranslation();
   const dismissStorageKey = `${DISMISS_STORAGE_PREFIX}.${todayKey()}`;
   const [tip, setTip] = useState<AiTipCard | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  /**
+   * What the generation attempt is doing (review SCR-002).
+   *
+   * A tri-state, because the first version could not tell three outcomes apart:
+   * a refusal (`.catch(() => undefined)`), a success that legitimately produced
+   * no tip (`null`), and never having pressed the button all rendered the same
+   * empty card. `empty` is a *successful* call that produced nothing and gets its
+   * own sentence; `failed` carries the error for `resolveAiErrorMessage`.
+   */
+  const [generateState, setGenerateState] = useState<'idle' | 'generating' | 'failed' | 'empty'>(
+    'idle',
+  );
+  const [generateError, setGenerateError] = useState<unknown>(null);
+  // Generating is a write (`require_tenant_role(grower)`), so the invitation is
+  // absent for a viewer rather than present and refused.
+  const { canEdit } = useTenantPermissions();
   // Lazy init from storage so the "already dismissed today" state is set without
   // a cascading setState inside the effect (react-hooks/set-state-in-effect).
   const [dismissed, setDismissed] = useState(() => readDismissed(dismissStorageKey));
@@ -56,18 +85,23 @@ export default function DailyTipCard() {
     if (readDismissed(dismissStorageKey)) return;
     let active = true;
     aiApi
-      .getDailyTip(i18n.language.startsWith('en') ? 'en' : 'de')
+      .getDailyTip()
       .then((result) => {
-        if (active) setTip(result);
+        if (active) {
+          setTip(result);
+          setLoaded(true);
+        }
       })
       .catch(() => {
         // Online-only feature (UI-NFR-012): a failure hides the card silently.
+        // `loaded` stays false, so the "generate" invitation is not offered for
+        // what may be an outage rather than an empty day.
         if (active) setTip(null);
       });
     return () => {
       active = false;
     };
-  }, [dismissStorageKey, i18n.language]);
+  }, [dismissStorageKey]);
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
@@ -75,7 +109,80 @@ export default function DailyTipCard() {
     void aiApi.dismissDailyTip().catch(() => undefined);
   }, [dismissStorageKey]);
 
-  if (dismissed || !tip) return null;
+  const handleGenerate = useCallback(() => {
+    setGenerateState('generating');
+    setGenerateError(null);
+    aiApi
+      .refreshDailyTip(apiLanguage(i18n.language))
+      .then((result) => {
+        setTip(result);
+        // A successful call that produced no card is not the same as a refused
+        // one, and neither is the same as not having asked. Each gets its own
+        // state, and its own sentence below.
+        setGenerateState(result ? 'idle' : 'empty');
+      })
+      .catch((err: unknown) => {
+        setGenerateError(err);
+        setGenerateState('failed');
+      });
+  }, [i18n.language]);
+
+  if (dismissed) return null;
+
+  const generating = generateState === 'generating';
+
+  if (!tip) {
+    if (!loaded || !canEdit) return null;
+    return (
+      // The whole card is the live region: its content changes from an invitation
+      // to a tip, an error or an "produced nothing" note without the user moving,
+      // and a screen reader has to hear that (UI-NFR-002 R-011).
+      <Card variant="outlined" data-testid="daily-tip-empty" aria-live="polite">
+        <CardContent>
+          <Typography variant="overline" color="text.secondary">
+            {t('ai.dailyTip.heading')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('ai.dailyTip.empty')}
+          </Typography>
+          <Button
+            size="small"
+            startIcon={
+              generating ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeIcon />
+            }
+            onClick={handleGenerate}
+            disabled={generating}
+            aria-busy={generating}
+            sx={{ minHeight: 48 }}
+            data-testid="daily-tip-generate"
+          >
+            {t(generateState === 'failed' ? 'ai.errors.retry' : 'ai.dailyTip.generate')}
+          </Button>
+          {generateState === 'failed' && (
+            <Box sx={{ mt: 1 }} data-testid="daily-tip-generate-error">
+              <ErrorDisplay
+                error={resolveAiErrorMessage(
+                  generateError,
+                  t,
+                  t('ai.errors.dailyTipGenerateFailed'),
+                )}
+              />
+            </Box>
+          )}
+          {generateState === 'empty' && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 1 }}
+              data-testid="daily-tip-generate-empty"
+            >
+              {t('ai.errors.dailyTipGenerateEmpty')}
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card variant="outlined" data-testid="daily-tip-card">

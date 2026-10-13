@@ -8,12 +8,18 @@ by ``NotificationSettingsTab.tsx``.
 REQ-030 ships a fixed set of four channels (home_assistant, email, pwa,
 apprise).  The user does not "create" channels — they enable/disable them
 and fill in channel-specific configuration.  This page object therefore
-exposes ``toggle_channel(key)`` and ``set_email_address(...)`` helpers
-rather than a generic CRUD-list interface.
+exposes ``toggle_channel(key)`` and channel-specific readers rather than a
+generic CRUD-list interface.
+
+The email channel has no editable address (#1885, #1952): mail is only ever
+sent to the account's own address, which the tab shows read-only in the
+``email-recipient`` block together with either a helper text (verified
+address) or a warning (unverified address).
 """
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -61,9 +67,18 @@ class NotificationSettingsPage(BasePage):
         )
 
     # ── Channel-specific configuration fields ──────────────────────────
-    EMAIL_ADDRESS_INPUT = (
+    EMAIL_RECIPIENT = (By.CSS_SELECTOR, "[data-testid='email-recipient']")
+    EMAIL_RECIPIENT_ADDRESS = (
         By.CSS_SELECTOR,
-        "[data-testid='email-address'] input",
+        "[data-testid='email-recipient-address']",
+    )
+    EMAIL_RECIPIENT_HELPER = (
+        By.CSS_SELECTOR,
+        "[data-testid='email-recipient-helper']",
+    )
+    EMAIL_RECIPIENT_UNVERIFIED = (
+        By.CSS_SELECTOR,
+        "[data-testid='email-recipient-unverified']",
     )
     HA_PERSISTENT_TOGGLE = (
         By.CSS_SELECTOR,
@@ -157,21 +172,42 @@ class NotificationSettingsPage(BasePage):
         if self.is_channel_enabled(channel_key) != enabled:
             self.toggle_channel(channel_key)
 
-    def set_email_address(self, address: str) -> None:
-        """Fill in the email-channel address field.
+    def get_email_recipient_address(self, timeout: int = DEFAULT_TIMEOUT) -> str:
+        """Return the read-only recipient address of the email channel.
 
-        Requires the email channel to be enabled (the field is conditionally
-        rendered).
+        Requires the email channel to be enabled (the block is conditionally
+        rendered). The address comes from the signed-in account in the Redux
+        store, so the text node can mount empty for a frame before the user is
+        loaded; wait for non-empty text and return whatever is there once the
+        budget is spent, so a genuinely empty recipient still fails the caller.
         """
-        field = self.wait_for_element_visible(self.EMAIL_ADDRESS_INPUT)
-        self.clear_and_fill(field, address)
+        self.wait_for_element_visible(self.EMAIL_RECIPIENT_ADDRESS, timeout=timeout)
+        try:
+            self.poll(timeout).until(
+                lambda d: (d.find_element(*self.EMAIL_RECIPIENT_ADDRESS).text or "").strip()
+            )
+        except TimeoutException:
+            pass
+        return self.get_text_stable(self.EMAIL_RECIPIENT_ADDRESS, timeout=timeout).strip()
 
-    def get_email_address(self) -> str:
-        """Return the current value of the email-channel address field."""
-        elements = self.driver.find_elements(*self.EMAIL_ADDRESS_INPUT)
-        if not elements:
-            return ""
-        return elements[0].get_attribute("value") or ""
+    def get_email_recipient_verification(self, timeout: int = DEFAULT_TIMEOUT) -> str:
+        """Return ``"verified"`` or ``"unverified"`` for the recipient block.
+
+        The tab renders exactly one of two siblings under the address: the
+        helper text for a verified account address, or a warning alert for an
+        unverified one. The reached branch is reported by name so the caller
+        asserts the outcome it expects instead of accepting either.
+        """
+        state = self.wait_for_settled(
+            {
+                "verified": self.EMAIL_RECIPIENT_HELPER,
+                "unverified": self.EMAIL_RECIPIENT_UNVERIFIED,
+            },
+            "email channel recipient verification state",
+            timeout=timeout,
+            require_no_skeleton=False,
+        )
+        return state.branch
 
     # ── Save ────────────────────────────────────────────────────────────
 

@@ -21,7 +21,7 @@ repository's builders; it cannot prove four things this tier measures:
 
 Run with::
 
-    docker run -d --rm --name kp-it-1444 -p 8529:8529 \
+    docker run -d --rm --name kp-it-1444 -p 127.0.0.1:8529:8529 \
       -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
     pytest tests/integration/test_v0048_backfill_missing_care_profiles.py -v
 """
@@ -37,6 +37,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.arango_integration import run_database_name
+
 # The server probe lives in tests/integration/conftest.py (``arango_db``): one probe
 # for the tier, a loud failure under CI, a skip with the address locally. A private
 # ``ARANGO_AVAILABLE`` copy here would be the self-skip #1432 retired.
@@ -47,7 +49,7 @@ pytestmark = [
     ),
 ]
 
-_DB_NAME = "kamerplanter_v0048_migration_test"
+_DB_NAME = run_database_name("v0048_migration")
 _TENANT = "mein-garten"
 _FAMILY_NAME = "Cactaceae"
 _SCIENTIFIC_NAME = "Opuntia ficus-indica"
@@ -311,6 +313,10 @@ def test_the_backfilled_plant_receives_a_care_task_from_the_nightly_run(db, monk
     from app.tasks.care_tasks import generate_due_care_reminders
 
     monkeypatch.setattr(dependencies, "get_db", lambda: db)
+    # #2166 — the generator skips a tenant that is not stored as ``active`` (``tasks/tenant_gate.py``).
+    db.collection(col.TENANTS).insert(
+        {"_key": _TENANT, "name": _TENANT, "slug": _TENANT, "owner_user_key": "owner", "status": "active"}
+    )
     plant_key = _seed_unprofiled_plant(db)
 
     before = generate_due_care_reminders()

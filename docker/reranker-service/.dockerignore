@@ -10,3 +10,5 @@ build
 .env
 .env.local
 Dockerfile*
+# Golden outputs the CI probe compares against (#1763) — test data, not image content.
+golden/

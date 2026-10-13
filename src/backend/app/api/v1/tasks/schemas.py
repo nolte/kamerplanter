@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.attachments.schemas import ThumbnailUris
+from app.common.enums import WorkflowTargetType
 
 # ── Checklist ──
 
@@ -27,7 +28,10 @@ class WorkflowTemplateCreate(BaseModel):
     difficulty_level: str = "intermediate"
     category: str = "maintenance"
     tags: list[str] = Field(default_factory=list)
-    is_system: bool = False
+    # No ``is_system`` (#2027 review, SEC-B): only the seed writes a system template.
+    # Accepted from a tenant it locked the row against its owner (every write path
+    # refuses ``is_system``) and, until the #2027 follow-up, kept it through the tenant
+    # erasure. Held for every write body by tests/unit/guards/test_request_bodies_accept_no_system_flag.py.
     target_entity_types: list[str] = Field(default_factory=lambda: ["plant_instance"])
 
 
@@ -458,8 +462,16 @@ class WorkflowExecutionListItem(BaseModel):
 
 
 class WorkflowInstantiateRequest(BaseModel):
-    entity_key: str
-    entity_type: str
+    """Target of a workflow instantiation.
+
+    ``entity_type`` is the closed :class:`WorkflowTargetType` set (#1708): an
+    execution on any other type has no owner the execution list can resolve, so
+    it was accepted, stored, and then appeared nowhere. Rejected here as a 422
+    instead of reaching the domain model.
+    """
+
+    entity_key: str = Field(min_length=1, max_length=200)
+    entity_type: WorkflowTargetType
 
 
 class WorkflowExecutionResponse(BaseModel):

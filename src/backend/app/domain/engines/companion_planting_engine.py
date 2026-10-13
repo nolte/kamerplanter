@@ -40,10 +40,10 @@ class CompanionPlantingEngine:
         # Get adjacent slots
         adjacent = self._graph_repo.get_adjacent_slots(slot_key)
 
-        incompatible = self._graph_repo.get_incompatible_species(species_key)
+        incompatible = self._graph_repo.get_incompatible_species(species_key, tenant_key=tenant_key)
         incompatible_keys = {item["species"].get("_key", "") for item in incompatible}
 
-        compatible = self._graph_repo.get_compatible_species(species_key)
+        compatible = self._graph_repo.get_compatible_species(species_key, tenant_key=tenant_key)
         compatible_map = {item["species"].get("_key", ""): item.get("score", 0) for item in compatible}
 
         for adj in adjacent:
@@ -71,14 +71,15 @@ class CompanionPlantingEngine:
             raise CompanionConflictError(species_key, f"neighbors in slot {slot_key}")
         return benefits
 
-    def get_companion_recommendations(self, species_key: str) -> dict:
+    def get_companion_recommendations(self, species_key: str, *, tenant_key: str | None) -> dict:
         """Get companion planting recommendations with family-level fallback.
 
         Returns species-level matches first. If none found, falls back to
-        family-level compatibility with score * 0.8 discount.
+        family-level compatibility with score * 0.8 discount. Both levels list
+        only species ``tenant_key`` can see (MT-054); ``None`` is the system context.
         """
         # 1. Species-level matches
-        compatible = self._graph_repo.get_compatible_species(species_key)
+        compatible = self._graph_repo.get_compatible_species(species_key, tenant_key=tenant_key)
         if compatible:
             return {
                 "matches": [
@@ -102,7 +103,7 @@ class CompanionPlantingEngine:
         matches = []
         for fc in family_compat:
             fam_key = fc["family"].get("_key", "")
-            fam_species = self._graph_repo.get_species_by_family(fam_key)
+            fam_species = self._graph_repo.get_species_by_family(fam_key, tenant_key=tenant_key)
             for s in fam_species:
                 if s.get("_key") != species_key:
                     matches.append(

@@ -1,8 +1,10 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, miniSerializeError } from '@reduxjs/toolkit';
 import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
-import { parseApiError } from '@/api/errors';
+import { isApiError, parseApiError } from '@/api/errors';
+import { releasePushSubscription } from '@/lib/pushSubscription';
+import { forgetPendingInvitation } from '@/utils/pendingInvitation';
 
 interface AuthState {
   user: UserProfile | null;
@@ -27,19 +29,43 @@ const initialState: AuthState = {
   initialized: false,
 };
 
+/** The backend's `error_code` for a correct password on an unverified address (#2037). */
+export const EMAIL_NOT_VERIFIED = 'EMAIL_NOT_VERIFIED';
+
 export const loginLocal = createAsyncThunk(
   'auth/loginLocal',
   async (data: { email: string; password: string; remember_me?: boolean }) => {
     const response = await authApi.login(data);
     return response;
   },
+  {
+    // RTK's default serialisation keeps name/message/stack/`code` of the thrown
+    // error, and an `ApiError` carries the backend's code as `errorCode` — so it
+    // was dropped, and the login page could not tell "unverified" from any other
+    // refusal. Carried as `code`, which `SerializedError` already has (#2037).
+    serializeError: (error) => ({
+      ...miniSerializeError(error),
+      ...(isApiError(error) ? { code: error.errorCode } : {}),
+    }),
+  },
 );
+
+/** The backend's `error_code` for a registration the instance's registration mode refuses (#2132). */
+export const REGISTRATION_NOT_ALLOWED = 'REGISTRATION_NOT_ALLOWED';
 
 export const registerLocal = createAsyncThunk(
   'auth/registerLocal',
-  async (data: { email: string; password: string; display_name: string }) => {
+  async (data: { email: string; password: string; display_name: string; invitation_token?: string }) => {
     const profile = await authApi.register(data);
     return profile;
+  },
+  {
+    // The backend's code travels as `code` (as for `loginLocal`, #2037), so the
+    // register page can answer a refused registration in the user's language.
+    serializeError: (error) => ({
+      ...miniSerializeError(error),
+      ...(isApiError(error) ? { code: error.errorCode } : {}),
+    }),
   },
 );
 
@@ -48,7 +74,21 @@ export const fetchProfile = createAsyncThunk('auth/fetchProfile', async () => {
   return profile;
 });
 
+/**
+ * Sign out of this session (#2117).
+ *
+ * The device's push subscription is dropped first, on the server and in the
+ * browser, because removing the server copy needs the access token this request
+ * is about to end. The rest of the clean-up (every data slice, the active tenant)
+ * belongs to the session end itself and runs on this thunk's `fulfilled` **and**
+ * `rejected`: a logout request that fails (offline) still ends the session in
+ * the tab — the user asked to leave, and the refresh cookie dies at its expiry.
+ */
 export const logoutUser = createAsyncThunk('auth/logout', async () => {
+  // #2162 review S-2 — an invitation remembered across a sign-in belongs to the account that is
+  // leaving; the next account signing in in this tab must not be taken to it.
+  forgetPendingInvitation();
+  await releasePushSubscription({ notifyServer: true });
   await authApi.logout();
 });
 
@@ -149,12 +189,16 @@ const authSlice = createSlice({
       state.initialized = true;
     });
 
-    // Logout
-    builder.addCase(logoutUser.fulfilled, (state) => {
+    // Logout — a failed request still signs the tab out (#2117, see `logoutUser`).
+    const signedOut = (state: AuthState) => {
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
-    });
+      state.isLoading = false;
+      state.initialized = true;
+    };
+    builder.addCase(logoutUser.fulfilled, signedOut);
+    builder.addCase(logoutUser.rejected, signedOut);
 
     // Refresh
     builder.addCase(refreshAccessToken.fulfilled, (state, action) => {

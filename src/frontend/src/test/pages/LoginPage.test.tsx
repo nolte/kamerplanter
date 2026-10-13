@@ -169,9 +169,172 @@ describe('LoginPage', () => {
     }
   });
 
+  describe('unverified address (#2037)', () => {
+    function refuseAsUnverified() {
+      server.use(
+        http.post('/api/v1/auth/login', () =>
+          HttpResponse.json(
+            {
+              error_id: 'e',
+              error_code: 'EMAIL_NOT_VERIFIED',
+              message: 'Email address has not been verified.',
+              details: [],
+              timestamp: '',
+              path: '',
+              method: '',
+            },
+            { status: 403 },
+          ),
+        ),
+      );
+    }
+
+    async function signIn(user: ReturnType<typeof userEvent.setup>, email = 'pending@example.com') {
+      await user.type(await screen.findByLabelText(/E-Mail/), email);
+      await user.type(screen.getByLabelText(/Passwort/), 'correct-password');
+      await user.click(screen.getByRole('button', { name: 'Anmelden' }));
+    }
+
+    it('names the way out instead of the backend text and offers the resend', async () => {
+      refuseAsUnverified();
+      const user = userEvent.setup();
+      renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+      await signIn(user);
+
+      const hint = await screen.findByTestId('login-email-not-verified');
+      expect(hint).toHaveTextContent(/noch nicht bestätigt/);
+      expect(screen.queryByText('Email address has not been verified.')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeEnabled();
+    });
+
+    it('promises the link the refusal mails conditionally and never states it as sent (#2046)', async () => {
+      refuseAsUnverified();
+      const user = userEvent.setup();
+      renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+      await signIn(user);
+
+      const hint = await screen.findByTestId('login-email-not-verified');
+      // The refusal answers alike whether a link went out, the budget was spent or
+      // the delivery failed — so the text can only promise, conditionally.
+      expect(hint).toHaveTextContent(/Falls ein neuer Bestätigungslink fällig war, ist er jetzt an deine Adresse unterwegs/);
+      expect(hint).not.toHaveTextContent(/wurde (gesendet|verschickt)|haben wir (dir )?gesendet/);
+      // Announced as it appears, and the anonymous resend stays as the fallback.
+      expect(hint).toHaveAttribute('role', 'alert');
+      expect(screen.getByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeEnabled();
+      expect(screen.getByTestId('resend-verification-status')).toHaveAttribute('aria-live', 'polite');
+    });
+
+    it('requests a new link for the address that was refused and announces the neutral answer', async () => {
+      refuseAsUnverified();
+      const posted: unknown[] = [];
+      server.use(
+        http.post('/api/v1/auth/resend-verification', async ({ request }) => {
+          posted.push(await request.json());
+          return HttpResponse.json({ message: 'accepted' }, { status: 202 });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+      await signIn(user);
+
+      // Editing the field afterwards must not redirect the resend to another address.
+      await user.type(screen.getByLabelText(/E-Mail/), 'x');
+      await user.click(await screen.findByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent(/ist ein neuer Link unterwegs/);
+      });
+      expect(posted).toEqual([{ email: 'pending@example.com' }]);
+      expect(screen.getByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeDisabled();
+    });
+
+    it('tells the user to wait when the per-IP limit answers 429', async () => {
+      refuseAsUnverified();
+      server.use(
+        http.post('/api/v1/auth/resend-verification', () =>
+          HttpResponse.json({ error: 'Rate limit exceeded: 10 per 1 hour' }, { status: 429 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+      await signIn(user);
+
+      await user.click(await screen.findByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent(/Zu viele Anfragen/);
+      });
+      expect(screen.getByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeEnabled();
+    });
+
+    it('keeps the generic error for every other refusal', async () => {
+      server.use(
+        http.post('/api/v1/auth/login', () =>
+          HttpResponse.json(
+            { error_id: 'e', error_code: 'UNAUTHORIZED', message: 'Invalid email or password.', details: [], timestamp: '', path: '', method: '' },
+            { status: 401 },
+          ),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+      await signIn(user);
+
+      expect(await screen.findByText('Invalid email or password.')).toBeTruthy();
+      expect(screen.queryByTestId('login-email-not-verified')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeNull();
+    });
+  });
+
   it('offers a link to the registration page', async () => {
     renderWithProviders(<LoginPage />, { store: idleAuthStore() });
     const card = await screen.findByText('E-Mail');
-    expect(within(card.ownerDocument.body).getByText('Noch kein Konto? Registrieren')).toBeTruthy();
+    // The entry follows the registration mode, read from `GET /mode` (#2132) — so it appears once that answered.
+    expect(await within(card.ownerDocument.body).findByText('Noch kein Konto? Registrieren')).toBeTruthy();
+  });
+});
+
+describe('LoginPage registration entry (#2132)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  function registrationMode(mode: 'open' | 'invite_only' | 'closed') {
+    server.use(
+      http.get('/api/v1/mode', () =>
+        HttpResponse.json({
+          mode: 'full',
+          features: { auth: true, multi_tenant: true, privacy_consent: true },
+          registration: { mode, domain_restricted: false },
+        }),
+      ),
+    );
+  }
+
+  it('offers the registration link when registration is open', async () => {
+    registrationMode('open');
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    expect(await screen.findByTestId('login-register-link')).toHaveTextContent('Noch kein Konto? Registrieren');
+  });
+
+  it('labels the link as registration with an invitation when invite-only', async () => {
+    registrationMode('invite_only');
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-register-link')).toHaveTextContent(/Mit Einladung registrieren/);
+    });
+  });
+
+  it('hides the registration link and says so when registration is closed', async () => {
+    registrationMode('closed');
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    expect(await screen.findByTestId('login-registration-closed')).toBeTruthy();
+    expect(screen.queryByTestId('login-register-link')).toBeNull();
+    expect(screen.getByRole('link', { name: /Passwort vergessen/ })).toBeTruthy();
   });
 });

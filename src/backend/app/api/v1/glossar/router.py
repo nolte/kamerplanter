@@ -4,8 +4,8 @@ Mounted under ``/api/v1/t/{tenant_slug}/glossary``. The endpoints are reachable
 for any tenant member (viewer/grower/admin) via ``get_current_tenant``, but they
 use **no** tenant data: the Knowledge-Service call runs strictly with
 ``context=null`` (§3.1). The tenant context is only used to enforce the REQ-031
-cloud-processing consent gate when the tenant's default provider is a cloud LLM
-(§6).
+cloud-processing consent gate when the platform's default provider is a cloud LLM
+(§6, #2110) and to charge the caller's daily AI budget.
 
 The router is intentionally **not** gated by ``require_ai_feature_flag``: the
 term list and the editorial fallback text need no AI/RAG stack and must stay
@@ -14,16 +14,27 @@ explanation requires the operator flag, which is enforced inside
 :class:`~app.domain.services.glossary_service.GlossaryService` at the RAG-call
 boundary (#684). With the flag off, ``/term/{slug}`` degrades to the curated
 fallback text (``is_fallback=true``) instead of returning 404.
+
+The one route that spends an LLM call — ``POST …/generate`` — additionally sits
+behind the garden's own KI switch (REQ-031 §1.3 stage 2, operator decision
+2026-10-09): ``require_ai_tenant_enabled`` on that route only, never on the
+router, so reading terms and cached explanations stays open in a garden that
+has KI turned off.
 """
 
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.glossar.deps import get_glossary_service
-from app.common.auth import get_current_tenant
+from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
+from app.common.auth import get_current_tenant, require_permission
+from app.config.settings import settings
+from app.core.permissions import Action, ResourceType
+from app.domain.models.ai_assistant import AiTenantSettings
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
     GlossaryTermAnswer,
@@ -51,25 +62,56 @@ def list_terms(
 
 
 @router.get("/term/{slug}", response_model=GlossaryTermAnswer)
-async def get_term(
+def get_term(
     slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
     language: Language = Query("de", description="Language of the returned explanation (de or en)."),
-    ctx: TenantContext = Depends(get_current_tenant),
+    _ctx: TenantContext = Depends(get_current_tenant),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> GlossaryTermAnswer:
-    """Explain one term at the requested experience level (cache-first, §4.1).
+    """Explain one term at the requested experience level (§4.1) — a **read**.
+
+    The tenant-scoped sibling of the public route and the same answer: cached RAG
+    explanation, or the curated editorial short definition. It does not generate
+    and does not write (#1460); ``POST …/generate`` below is what does.
+    """
+    return service.get_term(slug, language=language, expertise_level=expertise)
+
+
+@router.post("/term/{slug}/generate", response_model=GlossaryTermAnswer)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
+async def generate_term(
+    request: Request,
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
+    expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
+    language: Language = Query("de", description="Language of the returned explanation (de or en)."),
+    ctx: TenantContext = Depends(require_permission(ResourceType.GLOSSARY, Action.CREATE)),
+    # Resolved after the role gate (signature order) and before the handler, so
+    # a garden with KI off answers 403 ``ai.disabled_for_tenant`` before any
+    # cache lookup, budget charge or LLM call; the operator flag off answers 404.
+    _ai: AiTenantSettings = Depends(require_ai_tenant_enabled),
+    service: GlossaryService = Depends(get_glossary_service),
+) -> GlossaryTermAnswer:
+    """Ask the Knowledge Service for this term's explanation and cache it (§4.1).
+
+    The write half of the pair above (#1460). Gated on the domain role because it
+    spends an LLM call on the installation's behalf, and on the garden's KI
+    switch (REQ-031 §1.3 stage 2) because a garden that turned KI off must not
+    trigger one; idempotent while a cached entry is still valid, so a second
+    request is not a second call.
 
     ``context=null`` at the Knowledge Service — no tenant data leaves the backend.
-    ``allow_cloud=True`` merely asks the service to *evaluate* the cloud gate: a
-    consent check only fires when the tenant actually has a cloud default provider
-    (§6).
+    The cached answer is shared by every tenant, so it is classified by the
+    platform's default provider, not this tenant's (#2110): a consent check only
+    fires when that provider is a cloud LLM (§6). That gate lives here rather than
+    on the read for the same reason the LLM call does — with no call there is no
+    cloud processing to consent to. A cache miss is charged to the caller's daily
+    AI budget (#2110).
     """
-    return await service.get_term(
+    return await service.generate_term(
         slug,
         language=language,
         expertise_level=expertise,
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,
-        allow_cloud=True,
     )

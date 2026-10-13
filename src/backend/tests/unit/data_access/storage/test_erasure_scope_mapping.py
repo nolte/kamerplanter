@@ -88,7 +88,7 @@ class TestUserPersonalIsSafe:
 
         deleted = await adapter.delete_for_user("t-1", "u-1", "user_personal")
 
-        assert deleted == 0
+        assert deleted.removed == 0 and deleted.retained_shared == 0
         assert repo.calls == []  # repo never queried for an empty scope
         # The documentation photo is untouched.
         result = await adapter.list_objects("t-1")

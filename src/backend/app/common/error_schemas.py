@@ -17,6 +17,14 @@ class ErrorDetail(BaseModel):
     reason: str
     code: str
     entity: str | None = None
+    #: Set by ``STEP_UP_LOCKED`` (429, #1816): the minutes until a locked step-up
+    #: confirmation may be tried again, as a decimal string, so a client can
+    #: render the wait in its own language instead of parsing ``message``.
+    retry_after_minutes: str | None = None
+    #: Set by ``CONSENT_REQUIRED`` (403): the key of the missing consent purpose
+    #: (``ConsentEngine.PURPOSES``), so a client can ask for exactly that consent
+    #: instead of parsing ``message``.
+    purpose: str | None = None
 
 
 class ErrorResponse(BaseModel):

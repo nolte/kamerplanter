@@ -19,10 +19,14 @@ router = APIRouter(prefix="/locations", tags=["locations"], responses=NOT_FOUND_
 
 
 def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) -> Location:
-    """Get a location and verify it belongs to a site owned by the tenant."""
-    loc = service.get_location(key)
-    service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
-    return loc
+    """The location ``key`` if its site is the tenant's, else 404 as ``Location`` (#1871 B13).
+
+    Resolved in one step through the parent site. The two-step form (location
+    unscoped, then its site) answered a foreign location with ``No Site with key
+    '<the other tenant's site>'`` and an unknown one with ``No Location`` — an
+    existence oracle that echoed the other tenant's site key.
+    """
+    return service.get_location(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("", response_model=list[LocationResponse])
@@ -37,9 +41,12 @@ def list_locations(
     """List a site's locations, or the children of a parent location."""
     service.get_site(site_key, tenant_key=ctx.tenant_key)
     if parent_location_key:
-        items = service.list_location_children(parent_location_key)
+        # The parent is resolved under the tenant too (#1871 B14): checking only
+        # the site listed the children of any tenant's location. The service does
+        # it itself since #2107.
+        items = service.list_location_children(parent_location_key, tenant_key=ctx.tenant_key)
     else:
-        items = service.list_locations(site_key)
+        items = service.list_locations(site_key, tenant_key=ctx.tenant_key)
     return [to_response(loc, LocationResponse) for loc in items]
 
 
@@ -61,8 +68,7 @@ def list_location_children(
     service: SiteService = Depends(get_site_service),
 ):
     """List the child locations of a location."""
-    _verify_location_tenant(key, ctx, service)
-    items = service.list_location_children(key)
+    items = service.list_location_children(key, tenant_key=ctx.tenant_key)
     return [to_response(loc, LocationResponse) for loc in items]
 
 
@@ -73,9 +79,8 @@ def create_location(
     service: SiteService = Depends(get_site_service),
 ):
     """Create a location within a site."""
-    service.get_site(body.site_key, tenant_key=ctx.tenant_key)
     location = Location(**body.model_dump())
-    created = service.create_location(location)
+    created = service.create_location(location, tenant_key=ctx.tenant_key)
     return to_response(created, LocationResponse)
 
 
@@ -87,10 +92,8 @@ def update_location(
     service: SiteService = Depends(get_site_service),
 ):
     """Update a location."""
-    _verify_location_tenant(key, ctx, service)
     location = Location(**body.model_dump())
-    service.get_site(location.site_key, tenant_key=ctx.tenant_key)
-    updated = service.update_location(key, location)
+    updated = service.update_location(key, location, tenant_key=ctx.tenant_key)
     return to_response(updated, LocationResponse)
 
 
@@ -101,8 +104,7 @@ def delete_location(
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a location."""
-    _verify_location_tenant(key, ctx, service)
-    service.delete_location(key)
+    service.delete_location(key, tenant_key=ctx.tenant_key)
 
 
 # ── Sensors ──────────────────────────────────────────────────────────
@@ -138,7 +140,7 @@ def create_location_sensor(
         mqtt_topic=body.mqtt_topic,
         location_key=key,
     )
-    created = sensor_service.create_sensor(sensor)
+    created = sensor_service.create_sensor(sensor, tenant_key=ctx.tenant_key)
     return to_response(created, SensorResponse)
 
 
@@ -168,6 +170,7 @@ def update_location_sensor(
         body.model_dump(exclude_unset=True),
         parent_field="location_key",
         parent_key=key,
+        tenant_key=ctx.tenant_key,
     )
     return to_response(updated, SensorResponse)
 
@@ -195,7 +198,7 @@ def get_location_sensors_live(
     """Return the latest live readings for a location's sensors."""
     _verify_location_tenant(key, ctx, service)
     sensors = sensor_service.get_sensors_for_location(key)
-    result = sensor_service.get_live_state_for_sensors(sensors)
+    result = sensor_service.get_live_state_for_sensors(sensors, tenant_key=ctx.tenant_key)
     return LiveStateResponse(**result)
 
 
@@ -220,5 +223,5 @@ def get_location_frost_warning(
     hot path.
     """
     _verify_location_tenant(key, ctx, service)
-    result = sensor_service.get_location_frost_warning(key)
+    result = sensor_service.get_location_frost_warning(key, tenant_key=ctx.tenant_key)
     return FrostWarningResponse(**result)

@@ -10,11 +10,17 @@ Upload pipeline order (NFR-013 §5.1) — every guard runs *before* any bytes ar
 written, so a rejected upload never leaves orphan objects:
 
   1. Quota check ............ StorageQuotaExceededError (409)
-  2. MIME whitelist ......... InvalidFileTypeError (415)
+  2. MIME whitelist ......... InvalidFileTypeError (415) — while EXIF
+                              stripping is on, also for an image type the
+                              strip cannot re-encode (HEIC/HEIF, GIF; #2139)
   3. Magic-byte validation .. InvalidFileTypeError (415)
+     Pixel ceiling (images) .. ImagePixelLimitError (413) — from the header,
+                               before anything is decoded (#2108)
   4. Size limit ............. FileTooLargeError (413)
   5. Optional virus scan .... VirusScanRejectedError (422)
-  6. SHA-256 + dedup ........ returns existing attachment (no re-write)
+  6. SHA-256 + dedup ........ the uploader's own record for these bytes is
+                              returned; another uploader gets a record of their
+                              own over the already-stored object (#1770)
   7. EXIF strip (images)
   8. Build key + put_object
   9. Persist metadata
@@ -33,27 +39,31 @@ from datetime import UTC, datetime
 import httpx
 import structlog
 
-from app.common.enums import AttachmentCategory, CaptureDevice
+from app.common.enums import AttachmentCategory, CaptureDevice, EntitlementDimension
 from app.common.exceptions import (
     FileTooLargeError,
     InvalidFileTypeError,
-    StorageQuotaExceededError,
     ValidationError,
     VirusScanRejectedError,
 )
+from app.common.image_bounds import image_dimensions
+from app.common.log_privacy import log_subject, log_tenant
 from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
-from app.domain.engines.storage.exif_stripper import ExifStripper
+from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format
 from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
     ThumbnailGenerator,
     can_render,
+    rendition_keys,
     thumbnail_key,
 )
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
 from app.domain.models.attachment import Attachment
+from app.domain.services.entitlement_service import EntitlementService
 
 logger = structlog.get_logger()
 
@@ -89,14 +99,29 @@ class AttachmentService:
         exif_stripper: ExifStripper | None = None,
         thumbnail_generator: ThumbnailGenerator | None = None,
         key_builder: StorageKeyBuilder | None = None,
+        rendition_claims: IRenditionDispatchClaims | None = None,
+        entitlements: EntitlementService | None = None,
     ) -> None:
         self._storage = storage
         self._repo = attachment_repo
         self._settings = settings
+        # REQ-056 §7.4 (#2142) — the tenant's storage quota comes from its plan (``null`` = the instance
+        # setting ``STORAGE_TENANT_QUOTA_MB``). ``get_attachment_service`` wires the plan resolution; a service
+        # built without one holds every tenant to the instance setting of ``settings``, as before #2142.
+        self._entitlements = entitlements or EntitlementService(plan_repo=None, tenant_repo=None, settings=settings)
         self._magic = magic_validator or MagicByteValidator()
         self._exif = exif_stripper or ExifStripper()
         self._thumbnails = thumbnail_generator or ThumbnailGenerator()
         self._keys = key_builder or StorageKeyBuilder()
+        # #2108 — the thumbnail-dispatch claim. Production passes the shared
+        # Valkey store (``get_attachment_service``); a service built without one
+        # still dispatches at most once per attachment and window for its own
+        # lifetime.
+        if rendition_claims is None:
+            from app.data_access.external.rendition_dispatch_claims import MemoryRenditionDispatchClaims
+
+            rendition_claims = MemoryRenditionDispatchClaims()
+        self._rendition_claims = rendition_claims
 
     # --- Upload ------------------------------------------------------
 
@@ -114,8 +139,16 @@ class AttachmentService:
         original_filename: str,
         category: AttachmentCategory,
         capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
+        reuse_own_record: bool = True,
     ) -> Attachment:
-        """Run the full upload pipeline and return the persisted attachment."""
+        """Run the full upload pipeline and return the persisted attachment.
+
+        ``reuse_own_record=False`` gives this upload a record of its own even when
+        the uploader already holds one for these bytes in this category — for a
+        caller whose record's lifetime is one carrier's (a pest-image
+        contribution deletes its attachment record when it is withdrawn, so two
+        contributions of one photo must not share one record, #1770).
+        """
         mime_type = (mime_type or "").lower().strip()
         max_bytes = self._settings.storage_max_file_size_mb * 1024 * 1024
 
@@ -124,6 +157,10 @@ class AttachmentService:
 
         # 2. MIME whitelist (category-resolved).
         allowed = self._settings.allowed_mime_types_for_category(category.value)
+        if self._settings.storage_strip_exif:
+            # #2139 — an image type the strip cannot re-encode would be stored
+            # with its EXIF/GPS block, whatever a per-category override admits.
+            allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
         if mime_type not in allowed:
             raise InvalidFileTypeError(mime_type, allowed)
 
@@ -133,6 +170,12 @@ class AttachmentService:
         if not self._magic.is_valid(data[:_SNIFF_LEN], mime_type):
             raise InvalidFileTypeError(mime_type, allowed)
 
+        #    Pixel ceiling (#2108): read from the header, before anything —
+        #    the EXIF strip, the thumbnail task — decodes the image. Also when
+        #    EXIF stripping is disabled: the thumbnail task decodes regardless.
+        if mime_type.startswith("image/"):
+            self._enforce_pixel_ceiling(data)
+
         # 4. Size limit.
         if len(data) > max_bytes:
             raise FileTooLargeError(max_bytes)
@@ -141,23 +184,45 @@ class AttachmentService:
         if self._settings.storage_virus_scan_enabled:
             await self._virus_scan(data)
 
-        # 6. SHA-256 + dedup.
+        # 6. SHA-256 + dedup (#1770). Two halves, because a record is an owner's
+        #    claim and the object is only bytes. Re-uploading returns the
+        #    uploader's own record for this category; anyone else — another
+        #    member, or the same member in a category with a different retention
+        #    rule — gets a record of their own that shares the stored object.
+        #    Erasure selects records by ``created_by`` and ``category``, and bytes
+        #    go only when the last record holding them does.
         sha256 = hashlib.sha256(data).hexdigest()
-        existing = self._repo.find_by_sha256(tenant_key, sha256)
-        if existing is not None:
+        own = (
+            self._repo.find_own_by_sha256(tenant_key=tenant_key, sha256=sha256, created_by=user_key, category=category)
+            if reuse_own_record
+            else None
+        )
+        if own is not None:
             logger.info(
                 "attachment_deduplicated",
-                tenant_key=tenant_key,
-                attachment_id=existing.key,
+                tenant=log_tenant(tenant_key),
+                attachment_id=own.key,
                 category=category.value,
-                byte_size=existing.byte_size,
+                byte_size=own.byte_size,
             )
-            return existing
+            return own
+        held = self._repo.find_by_sha256(tenant_key, sha256)
+        # Only an object stored under the type this upload was validated as: the
+        # linked record is served with the object's type, and the whitelist and
+        # magic-byte check above ran for *this* category and type.
+        if held is not None and held.mime_type == mime_type and await self._object_exists(held.storage_key):
+            return await self._link_to_stored_object(
+                held,
+                tenant_key=tenant_key,
+                user_key=user_key,
+                data=data,
+                original_filename=original_filename,
+                category=category,
+                capture_device=capture_device,
+            )
 
         # 7. EXIF strip for images (unless disabled).
-        body = data
-        if self._settings.storage_strip_exif and mime_type.startswith("image/"):
-            body = self._exif.strip(data, mime_type)
+        body = self._stored_body(data, mime_type)
 
         # 8. Build key + write bytes.
         created_at = datetime.now(UTC)
@@ -194,8 +259,8 @@ class AttachmentService:
         # 10. Audit log — never log bytes / presign URLs / filename (NFR-013 §9.2).
         logger.info(
             "attachment_uploaded",
-            tenant_key=tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(tenant_key),
+            subject=log_subject(user_key),
             attachment_id=created.key,
             category=category.value,
             byte_size=created.byte_size,
@@ -203,18 +268,114 @@ class AttachmentService:
 
         # 11. Trigger thumbnail generation (images only).
         if can_render(mime_type):
-            self._dispatch_thumbnails(created.key, tenant_key)
+            self._dispatch_thumbnails(created)
 
         return created
 
-    def _enforce_quota(self, tenant_key: str, *, incoming_bytes: int) -> None:
-        quota_mb = self._settings.storage_tenant_quota_mb
-        if quota_mb <= 0:
+    async def _link_to_stored_object(
+        self,
+        held: Attachment,
+        *,
+        tenant_key: str,
+        user_key: str,
+        data: bytes,
+        original_filename: str,
+        category: AttachmentCategory,
+        capture_device: CaptureDevice,
+    ) -> Attachment:
+        """Give *user_key* a record of their own over the object *held* points at (#1770).
+
+        Nothing of the other record is copied but the object's own properties —
+        its key, type and size. The filename, caption and provenance are this
+        uploader's, so neither learns the other's.
+
+        A delete of the last other record can race this: it checks for other
+        holders, finds none, and removes the object while this record is being
+        written. The object is therefore checked again after the record exists
+        and, if it is gone, written back from this upload's bytes — the same
+        bytes, hence the same object. What stays open is the delete that removes
+        the object *after* that second check; its window is the one between two
+        storage calls of the deleting request.
+        """
+        created_at = datetime.now(UTC)
+        created = self._repo.create(
+            Attachment(
+                tenant_key=tenant_key,
+                mime_type=held.mime_type,
+                byte_size=held.byte_size,
+                sha256=held.sha256,
+                original_filename=original_filename,
+                created_by=user_key,
+                category=category,
+                storage_key=held.storage_key,
+                capture_device=capture_device,
+                created_at=created_at,
+            )
+        )
+        restored = False
+        if not await self._object_exists(held.storage_key):
+            await self._storage.put_object(
+                held.storage_key,
+                _bytes_stream(self._stored_body(data, held.mime_type)),
+                held.mime_type,
+                metadata={"tenant_key": tenant_key, "category": category.value},
+            )
+            restored = True
+        logger.info(
+            "attachment_uploaded",
+            tenant=log_tenant(tenant_key),
+            subject=log_subject(user_key),
+            attachment_id=created.key,
+            category=category.value,
+            byte_size=created.byte_size,
+            shared_object=True,
+            restored_object=restored,
+        )
+        # The renditions belong to the object, which already has them (or whose
+        # first record's task is rendering them). Only a restored object needs
+        # new ones.
+        if restored and can_render(held.mime_type):
+            self._dispatch_thumbnails(created)
+        return created
+
+    @staticmethod
+    def _enforce_pixel_ceiling(data: bytes) -> None:
+        """Raise ``ImagePixelLimitError`` (413) for an image above the decode ceiling.
+
+        A header Pillow cannot read is left to the steps that follow: the EXIF
+        strip passes such bytes through unchanged, as it did before #2108.
+        """
+        try:
+            image_dimensions(data)
+        except OSError, ValueError:
             return
-        quota_bytes = quota_mb * 1024 * 1024
-        used = self._repo.sum_bytes_by_tenant(tenant_key)
-        if used + incoming_bytes > quota_bytes:
-            raise StorageQuotaExceededError(tenant_key, float(quota_mb))
+
+    def _stored_body(self, data: bytes, mime_type: str) -> bytes:
+        """The bytes the pipeline stores for *data*: EXIF-stripped images unless disabled."""
+        if self._settings.storage_strip_exif and mime_type.startswith("image/"):
+            return self._exif.strip(data, mime_type)
+        return data
+
+    async def _object_exists(self, storage_key: str) -> bool:
+        from app.common.exceptions import NotFoundError
+
+        try:
+            await self._storage.head_object(storage_key)
+        except NotFoundError:
+            return False
+        return True
+
+    def _enforce_quota(self, tenant_key: str, *, incoming_bytes: int) -> None:
+        """409 ``STORAGE_QUOTA_EXCEEDED`` when the upload would take the tenant past its storage quota.
+
+        The quota is the tenant's plan's (REQ-056 §7.2 ``storage_mb``); ``0`` = unlimited, and then no sum
+        is read. Counted before the write, as before #2142.
+        """
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.STORAGE_MB,
+            projected=lambda: self._repo.sum_bytes_by_tenant(tenant_key) + incoming_bytes,
+        )
 
     async def _virus_scan(self, data: bytes) -> None:
         """Scan ``data`` via the configured scanner — fail-closed (SEC-006).
@@ -263,14 +424,21 @@ class AttachmentService:
             finding = payload.get("finding", "malware detected") if isinstance(payload, dict) else "malware detected"
             raise VirusScanRejectedError(str(finding))
 
-    def _dispatch_thumbnails(self, attachment_id: str | None, tenant_key: str) -> None:
-        if not attachment_id:
-            return
+    def _dispatch_thumbnails(self, attachment: Attachment) -> None:
+        self.request_thumbnails(attachment)
+
+    def request_thumbnails(self, attachment: Attachment) -> bool:
+        """Queue the renditions of *attachment* at most once per window (#2108).
+
+        ``True`` when a rendition can still come (the caller answers 202),
+        ``False`` when none ever will (404) — see
+        :func:`app.tasks.storage_tasks.request_thumbnails`.
+        """
         # Lazy import avoids a hard import cycle (tasks import dependencies which
         # import services) and keeps Celery optional at service-construction time.
-        from app.tasks.storage_tasks import generate_thumbnails
+        from app.tasks.storage_tasks import request_thumbnails
 
-        generate_thumbnails.delay(attachment_id, tenant_key)
+        return request_thumbnails(attachment, self._rendition_claims)
 
     # --- Serve -------------------------------------------------------
 
@@ -283,13 +451,34 @@ class AttachmentService:
             raise AttachmentNotFoundError(attachment_id)
         return attachment
 
+    @staticmethod
+    def in_own_namespace(attachment: Attachment) -> bool:
+        """Whether the record's object lies under ``t/<its tenant>/`` (#2138 review SEC-004).
+
+        Every key the service builds does (:class:`StorageKeyBuilder`). A record whose key points
+        elsewhere — written by anything but this service, an import above all — must never serve,
+        sign or delete another tenant's object.
+        """
+        tenant_key = attachment.tenant_key
+        key = attachment.storage_key
+        prefix = f"t/{tenant_key}/"
+        return bool(tenant_key) and key.startswith(prefix) and ".." not in key[len(prefix) :].split("/")
+
+    def _require_own_namespace(self, attachment: Attachment) -> Attachment:
+        from app.common.exceptions import AttachmentNotFoundError
+
+        if not self.in_own_namespace(attachment):
+            logger.warning("attachment_outside_namespace", tenant=log_tenant(attachment.tenant_key))
+            raise AttachmentNotFoundError(attachment.key or "")
+        return attachment
+
     def get_download(self, attachment_id: str, tenant_key: str) -> DownloadTarget:
         """Resolve the serving strategy for a download.
 
         For presign-capable backends (S3) returns a ``redirect_url``; otherwise
         signals proxy-streaming (caller uses :meth:`open_stream`).
         """
-        attachment = self.get_attachment(attachment_id, tenant_key)
+        attachment = self._require_own_namespace(self.get_attachment(attachment_id, tenant_key))
         if self._storage.capabilities.supports_presigned_download:
             url = self._storage.presign_download_url(
                 attachment.storage_key,
@@ -303,7 +492,7 @@ class AttachmentService:
 
     def presign_download(self, attachment_id: str, tenant_key: str) -> str | None:
         """Return an explicit presign/token download URL, or ``None`` if unsupported."""
-        attachment = self.get_attachment(attachment_id, tenant_key)
+        attachment = self._require_own_namespace(self.get_attachment(attachment_id, tenant_key))
         # local-fs reports supports_presigned_download=False but still emits a
         # usable signed token URL — surface it so the FE has a direct link. The
         # token is bound to its tenant + attachment (SEC-001).
@@ -336,7 +525,8 @@ class AttachmentService:
         )
 
     async def open_stream(self, attachment: Attachment) -> AsyncIterator[bytes]:
-        """Return an async byte iterator for proxy-streaming the object."""
+        """Return an async byte iterator for proxy-streaming the object (only from the record's own namespace)."""
+        self._require_own_namespace(attachment)
         return await self._storage.get_object(attachment.storage_key)
 
     async def open_thumbnail_stream(self, attachment: Attachment, size: int) -> AsyncIterator[bytes]:
@@ -345,6 +535,7 @@ class AttachmentService:
         Raises ``NotFoundError`` (from the adapter) when the rendition does not
         exist yet — the API layer translates that into a lazy-regeneration 202.
         """
+        self._require_own_namespace(attachment)
         key = thumbnail_key(attachment.storage_key, size)
         return await self._storage.get_object(key)
 
@@ -355,27 +546,58 @@ class AttachmentService:
     # --- Delete ------------------------------------------------------
 
     async def delete(self, attachment_id: str, tenant_key: str) -> bool:
-        """Delete an attachment, its thumbnails, and its catalog record.
+        """Delete an attachment record, and its object and thumbnails when nothing else holds them.
+
+        Deduplicated uploads share one stored object between the records of
+        several uploaders (#1770). Deleting one record — a contribution withdrawn,
+        a staged task photo removed, an orphan swept — removes that record only
+        while another still points at the object; the object and its renditions
+        go with the last record. The object is deleted before the record, so a
+        failed storage call leaves the record for a retry.
 
         Idempotent: deleting an unknown id returns ``False`` without error.
         """
         attachment = self._repo.get(attachment_id, tenant_key)
         if attachment is None:
             return False
+        if not self.in_own_namespace(attachment):
+            # #2138 review SEC-004 — the record goes, an object outside its tenant's namespace stays.
+            logger.warning("attachment_outside_namespace", tenant=log_tenant(tenant_key))
+            return self._repo.delete(attachment_id, tenant_key)
 
-        await self._storage.delete_object(attachment.storage_key)
-        if can_render(attachment.mime_type):
-            for thumb in self._thumbnails.sizes:
-                await self._storage.delete_object(thumbnail_key(attachment.storage_key, thumb))
+        shared = attachment.storage_key in self._repo.storage_keys_held_elsewhere(
+            tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[attachment_id]
+        )
+        if not shared:
+            for key in self._object_keys(attachment):
+                await self._storage.delete_object(key)
 
         deleted = self._repo.delete(attachment_id, tenant_key)
+        if shared and attachment.storage_key not in self._repo.storage_keys_held_elsewhere(
+            tenant_key=tenant_key, storage_keys=[attachment.storage_key], excluding=[]
+        ):
+            # The other holder went meanwhile — two deletes of an object's last two
+            # records each saw the other one. Asked again once this record is gone,
+            # at least one of them sees no holder, so the object does not outlive
+            # every record (#1770 review SEC-001).
+            for key in self._object_keys(attachment):
+                await self._storage.delete_object(key)
+            shared = False
         logger.info(
             "attachment_deleted",
-            tenant_key=tenant_key,
+            tenant=log_tenant(tenant_key),
             attachment_id=attachment_id,
             category=attachment.category.value,
+            shared_object_retained=shared,
         )
         return deleted
+
+    def _object_keys(self, attachment: Attachment) -> list[str]:
+        """The stored object of *attachment* and its renditions."""
+        return [
+            attachment.storage_key,
+            *rendition_keys(attachment.storage_key, attachment.mime_type, self._thumbnails.sizes),
+        ]
 
     def deletable_from_task(
         self, attachment_id: str, task_key: str, tenant_key: str, *, actor_key: str, is_lead: bool
@@ -384,8 +606,9 @@ class AttachmentService:
 
         Two questions, because one does not cover both photos this route sees.
 
-        **Is it shared?** sha256 deduplication makes one stored object shared across
-        tasks, plant galleries and diary entries, so "it is a task photo and no
+        **Is it shared?** One record can be referenced from several tasks, plant
+        galleries and diary entries (a re-upload returns the uploader's own record;
+        records written before #1770 were shared across uploaders too), so "it is a task photo and no
         *task* links it" — which this route used to ask — cheerfully destroyed a
         gallery's cover. Anything referencing it other than the named task refuses.
 
@@ -414,13 +637,10 @@ class AttachmentService:
         the irreversible destruction of a record that REQ-024 §1a.1 reserves to leads,
         and the ``"task"`` branch above keeps that reservation exactly where it is.
 
-        One consequence is worth naming, because it reads like a bug and is not.
-        ``upload`` deduplicates by sha256, so a second member staging the *same
-        bytes* is handed the first member's row, ``created_by`` and all — and their
-        remove button then answers 404. That is the correct outcome: the object is
-        still staged by someone else and must survive. The client de-stages on 404,
-        so the photo leaves the second member's form, which is what they asked for;
-        only the bytes stay, for the member who also holds them.
+        A second member staging the *same bytes* gets a record of their own
+        (#1770), so their remove button removes their record; the stored object
+        stays for as long as the first member's record holds it
+        (:meth:`delete`).
         """
         # One repository call, not three. The two questions differ only in whether the
         # named task counts as a reference, and asking them separately re-ran the whole

@@ -1,13 +1,15 @@
 """REQ-015 v1.6 — VALARM, PRIORITY, STATUS in iCal output and HTTP 410 on expired feeds."""
 
+import hashlib
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.exceptions import FeedExpiredError, ValidationError
+from app.common.exceptions import FeedExpiredError, NotFoundError
 from app.domain.models.calendar import CalendarEvent, CalendarFeed, CalendarFeedFilters
 from app.domain.services.ical_generator import ICalGenerator
+from tests.support.calendar_feed_owner import every_owner_stands
 
 
 def _event(**overrides) -> CalendarEvent:
@@ -51,7 +53,7 @@ class TestFeedExpiry:
             key="feed-1",
             tenant_key="t-1",
             name="My feed",
-            token="tkn-abc",
+            token_hash=hashlib.sha256(b"tkn-abc").hexdigest(),
             user_key="u-1",
             filters=CalendarFeedFilters(),
             is_active=True,
@@ -63,11 +65,13 @@ class TestFeedExpiry:
 
         feed = self._feed(expires_at=datetime.now() - timedelta(hours=1))
         feed_repo = MagicMock()
-        feed_repo.get_by_token.return_value = feed
+        feed_repo.get_by_token_hash.return_value = feed
 
         svc = CalendarService(
             feed_repo=feed_repo,
             aggregation_engine=MagicMock(),
+            source_repo=MagicMock(),
+            **every_owner_stands(),
         )
 
         with pytest.raises(FeedExpiredError) as exc:
@@ -79,13 +83,15 @@ class TestFeedExpiry:
 
         feed = self._feed(expires_at=datetime.now() + timedelta(days=1))
         feed_repo = MagicMock()
-        feed_repo.get_by_token.return_value = feed
+        feed_repo.get_by_token_hash.return_value = feed
         engine = MagicMock()
-        engine.get_events.return_value = []
+        engine.aggregate.return_value = []
 
         svc = CalendarService(
             feed_repo=feed_repo,
             aggregation_engine=engine,
+            source_repo=MagicMock(),
+            **every_owner_stands(),
         )
 
         result = svc.generate_ical_for_feed("feed-1", "tkn-abc")
@@ -95,12 +101,13 @@ class TestFeedExpiry:
         from app.domain.services.calendar_service import CalendarService
 
         feed_repo = MagicMock()
-        feed_repo.get_by_token.return_value = None
+        feed_repo.get_by_token_hash.return_value = None
 
         svc = CalendarService(
             feed_repo=feed_repo,
             aggregation_engine=MagicMock(),
+            source_repo=MagicMock(),
         )
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(NotFoundError):
             svc.generate_ical_for_feed("feed-1", "wrong-token")

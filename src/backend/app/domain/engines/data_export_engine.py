@@ -1,6 +1,82 @@
 """Pure logic for REQ-025 data exports (Art. 15 / 20)."""
 
-from app.domain.models.privacy import DataExportRequest, DataSourceDefinition
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Any
+
+from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, export_config
+from app.domain.engines.storage.export_bundle_key import export_bundle_key
+from app.domain.models.privacy import (
+    DataExportRequest,
+    DataSourceDefinition,
+    DisclosureExclusion,
+    PersonalTenantHop,
+    PersonalTenantScope,
+    TimeSeriesScope,
+)
+
+#: Why the three legally-retained categories are only *partly* disclosable.
+#: Since #1669 every create path stores the caller's account in
+#: ``harvest_batches.harvested_by_key``, ``inspections.inspected_by_key`` and
+#: ``treatment_applications.applied_by_key``, and the walk keys on those. Rows
+#: written before that field existed carry ``null`` there (stamped by v0056):
+#: their only attribution is the free text (``harvester`` etc. — a typed-in
+#: name, or ``mcp:<account>``), which is deliberately **not** used to guess an
+#: owner. Those rows can never be matched to a subject, so the bundle says so
+#: beside the rows it does deliver rather than presenting the section as
+#: complete. (Before #1669 the whole category carried a ``disclosure_gap``.)
+_LEGACY_ATTRIBUTION_GAP = (
+    "Records of this kind created before the system started storing the acting "
+    "account (migration v0056) carry only a free-text name and are not attributed "
+    "to any account. Such records cannot be matched to you and are not "
+    "included here, even if the free text names you. They are retained under CanG / "
+    "PflSchG; the free-text reference is cleared on erasure only for records that "
+    "carry your account."
+)
+
+
+#: The same statement for ``quality_assessments``, whose account key arrived
+#: one migration later (#1663, v0057).
+_LEGACY_QUALITY_ATTRIBUTION_GAP = _LEGACY_ATTRIBUTION_GAP.replace("migration v0056", "migration v0057")
+
+#: #2135 (MT-039) — a source of the subject's own personal tenant, disclosed whole.
+_PERSONAL_TENANT = PersonalTenantScope()
+#: ``locations`` / ``slots`` reach their tenant through the site, like the tenant-erasure
+#: inventory does: their own ``tenant_key`` is filled by no write path (#1397).
+_VIA_SITE = PersonalTenantScope(via=(PersonalTenantHop(field="site_key", collection="sites"),))
+_VIA_LOCATION_AND_SITE = PersonalTenantScope(
+    via=(
+        PersonalTenantHop(field="location_key", collection="locations"),
+        PersonalTenantHop(field="site_key", collection="sites"),
+    )
+)
+#: #2165 — the tank log rows carry no ``tenant_key``; they hang off their tank, which does
+#: (the anchor ``TenantErasureEngine.INVENTORY`` uses for the same collections).
+_VIA_TANK = PersonalTenantScope(via=(PersonalTenantHop(field="tank_key", collection="tanks"),))
+#: #2165 — a sensor hangs off exactly one of a tank, a site or a location
+#: (``Sensor._at_most_one_parent``) and carries no ``tenant_key`` itself.
+_SENSOR_PARENTS = PersonalTenantScope(
+    via=(PersonalTenantHop(field="tank_key", collection="tanks"),),
+    or_via=(
+        (PersonalTenantHop(field="site_key", collection="sites"),),
+        (
+            PersonalTenantHop(field="location_key", collection="locations"),
+            PersonalTenantHop(field="site_key", collection="sites"),
+        ),
+    ),
+)
+
+#: #2165 — the columns of the two continuous aggregates (TimescaleDB migration 002).
+_AGGREGATE_FIELDS = ["bucket", "sensor_key", "sensor_type", "avg_value", "min_value", "max_value", "sample_count"]
+
+#: #2165 — why the pre-#2076 readings of a garden's sensor can only be matched while the
+#: sensor exists. The Home Assistant poll stored them without a tenant key.
+_LEGACY_READINGS_GAP = (
+    "Readings that the Home Assistant connection stored before 4 October 2026 carry no "
+    "garden reference. They are included here when they belong to a sensor that still "
+    "exists in your garden; readings of a sensor that was deleted before that date can no "
+    "longer be matched to your garden and are not included."
+)
 
 
 class DataExportEngine:
@@ -22,6 +98,7 @@ class DataExportEngine:
                 "locale",
                 "timezone",
                 "email_verified",
+                "email_confirmed_at",
                 "is_active",
                 "created_at",
                 "last_login_at",
@@ -41,7 +118,14 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="memberships",
-            edge_collection="membership_in",
+            # #1645 - this declared ``edge_collection="membership_in"``, an edge
+            # the named graph runs ``memberships -> tenants``: it never touches
+            # ``users``, so the declared route reached no document and the
+            # Art. 15 disclosure of a user's tenant memberships was empty
+            # without anything saying so. A membership carries ``user_key``
+            # directly (``ArangoMembershipRepository.list_by_user``), which is
+            # the route that exists.
+            filter_field="user_key",
             label="Tenant memberships",
             fields=["tenant_key", "role", "joined_at", "is_active"],
         ),
@@ -73,7 +157,16 @@ class DataExportEngine:
             collection="email_change_requests",
             edge_collection="requested_email_change",
             label="Email-change requests",
-            fields=["new_email", "status", "requested_at", "expires_at", "confirmed_at"],
+            fields=[
+                "new_email",
+                "status",
+                "requested_at",
+                "expires_at",
+                "confirmed_at",
+                "previous_email",
+                "revert_expires_at",
+                "reverted_at",
+            ],
         ),
         DataSourceDefinition(
             collection="data_export_requests",
@@ -98,6 +191,7 @@ class DataExportEngine:
         # manifest against the models for that reason.
         DataSourceDefinition(
             collection="tasks",
+            tenant_scoped=True,
             # ``assigned_to_user_key`` — the model has never had ``assigned_to``,
             # so this source used to match no document at all.
             filter_field="assigned_to_user_key",
@@ -107,7 +201,11 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="harvest_batches",
-            filter_field="harvester",
+            tenant_scoped=True,
+            # #1669 — server-set on every create path (REST + MCP); ``harvester``
+            # is the display name and never a key. Pre-#1669 rows carry ``null``.
+            filter_field="harvested_by_key",
+            attribution_gap=_LEGACY_ATTRIBUTION_GAP,
             label="Harvest records",
             # Previously ["name", "status", "started_at", "completed_at"] — not
             # one of those four exists on HarvestBatch.
@@ -122,8 +220,39 @@ class DataExportEngine:
             ],
         ),
         DataSourceDefinition(
+            collection="quality_assessments",
+            # #1663 — server-set on the one create path (REST); ``assessed_by``
+            # is the display name. Pre-#1663 rows carry ``null`` (v0057).
+            #
+            # Not ``tenant_scoped``: the model carries no ``tenant_key`` (the
+            # assessment hangs off its harvest batch), so a tenant clause would
+            # match nothing. The clause exists against *planting* a foreign key
+            # into a user-editable field (#1662 SCR-001); ``assessed_by_key`` is
+            # never read from a body and no route updates an assessment, so
+            # the value is always the account that created the row.
+            filter_field="assessed_by_key",
+            attribution_gap=_LEGACY_QUALITY_ATTRIBUTION_GAP,
+            label="Harvest quality assessments",
+            fields=[
+                "batch_key",
+                "assessed_at",
+                "appearance_score",
+                "aroma_score",
+                "color_score",
+                "defects",
+                "overall_score",
+                "grade",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
             collection="inspections",
-            filter_field="inspector",
+            tenant_scoped=True,
+            # #1669 — server-set on every create path (REST, MCP, the
+            # pest-detection and CV-diagnosis bridges); ``inspector`` is the
+            # display name. Pre-#1669 rows carry ``null``.
+            filter_field="inspected_by_key",
+            attribution_gap=_LEGACY_ATTRIBUTION_GAP,
             label="Inspection records",
             # ``inspected_at`` (not ``performed_at``); the "findings" of an
             # inspection are ``symptoms_observed`` + the detected keys.
@@ -138,14 +267,19 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="treatment_applications",
-            # ``applied_by`` — the model has never had ``applicator``.
-            filter_field="applied_by",
+            tenant_scoped=True,
+            # #1669 — server-set on the one create path (REST); ``applied_by``
+            # is the display name (the model never had ``applicator``).
+            # Pre-#1669 rows carry ``null``.
+            filter_field="applied_by_key",
+            attribution_gap=_LEGACY_ATTRIBUTION_GAP,
             label="Treatment applications",
             # ``dosage`` (not ``dose``).
             fields=["treatment_key", "plant_key", "applied_at", "dosage", "notes"],
         ),
         DataSourceDefinition(
             collection="plant_diary_entries",
+            tenant_scoped=True,
             filter_field="created_by",
             label="Plant diary entries",
             # ``text``/``created_at`` (not ``body``/``logged_at``): the export
@@ -167,6 +301,7 @@ class DataExportEngine:
         ),
         DataSourceDefinition(
             collection="identification_requests",
+            tenant_scoped=True,
             filter_field="user_key",
             label="Plant identification requests",
             # image_hash is an internal dedup/audit value, not user-facing data.
@@ -179,11 +314,875 @@ class DataExportEngine:
                 "created_at",
             ],
         ),
+        # ── #1700: categories the erasure inventory now reaches ──────────────
+        # Every collection #1700 added to the erasure inventory is disclosed
+        # here too. Each ``filter_field`` below is stamped server-side from the
+        # caller's account, never read from a request body, so the sources are
+        # not ``tenant_scoped`` (the argument ``quality_assessments`` makes):
+        # nobody can plant a row into another subject's disclosure through them,
+        # and a tenant the subject has left still discloses what they wrote there.
+        DataSourceDefinition(
+            collection="ai_conversations",
+            filter_field="user_key",
+            label="AI assistant conversations",
+            fields=["tenant_key", "title", "context_type", "language", "messages", "created_at", "expires_at"],
+        ),
+        DataSourceDefinition(
+            collection="ai_tip_cache",
+            filter_field="dismissed_by",
+            label="AI tips you dismissed",
+            fields=["tenant_key", "title", "dismissed_at", "acted_on_at"],
+        ),
+        DataSourceDefinition(
+            # REQ-031 section 7.6: hashed, without question/answer plain text.
+            collection="ai_audit_log",
+            filter_field="user_key",
+            label="AI assistant audit entries",
+            fields=["tenant_key", "endpoint", "question_hash", "model_name", "provider_type", "status"],
+        ),
+        DataSourceDefinition(
+            collection="notifications",
+            filter_field="user_key",
+            label="Notifications",
+            fields=["tenant_key", "notification_type", "title", "body", "status", "read_at", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="notification_preferences",
+            filter_field="user_key",
+            label="Notification preferences",
+            fields=["channels", "quiet_hours", "batching", "escalation", "type_overrides", "daily_summary"],
+        ),
+        DataSourceDefinition(
+            # ``token_hash`` is deliberately not exported: it is the stored form of a
+            # live credential (#2171; the token itself is not kept at all).
+            collection="calendar_feeds",
+            filter_field="user_key",
+            label="Calendar feeds",
+            fields=["tenant_key", "name", "filters", "is_active", "expires_at", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="plant_diagnosis_requests",
+            filter_field="user_key",
+            label="Plant diagnosis requests",
+            # #1719 — ``inspection_key``, ``harvest_observation_key`` and
+            # ``confirmed_labels`` are what the three ``cv_*`` edges below
+            # mirror; they are disclosed here so the edges need not be.
+            fields=[
+                "tenant_key",
+                "plant_instance_key",
+                "planting_run_key",
+                "inspection_key",
+                "harvest_observation_key",
+                "classifications",
+                "phenotype",
+                "confirmed_labels",
+                "adapter_key",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="task_comments",
+            filter_field="created_by",
+            label="Task comments",
+            fields=["task_key", "comment_text", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="invitations",
+            filter_field="invited_by_user_key",
+            label="Invitations you sent",
+            fields=["tenant_key", "invitation_type", "email", "role", "status", "expires_at", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="invitations",
+            filter_field="accepted_by_user_key",
+            label="Invitations you accepted",
+            fields=["tenant_key", "email", "role", "accepted_at"],
+        ),
+        DataSourceDefinition(
+            collection="location_assignments",
+            label="Location assignments",
+            fields=["tenant_key", "location_key", "can_edit", "notes"],
+            # The one #1700 category the walk cannot reach: an assignment carries
+            # the membership key, not the account key, and the walk follows a
+            # field or a single edge from ``users`` (two hops would be needed).
+            disclosure_gap=(
+                "Location assignments reference your tenant membership, not your account, and are "
+                "not collected per person. Your memberships are listed above; a tenant lead can show "
+                "you the locations assigned to them."
+            ),
+        ),
+        DataSourceDefinition(
+            collection="attachments",
+            filter_field="created_by",
+            label="Uploaded files (metadata)",
+            fields=["tenant_key", "category", "original_filename", "mime_type", "byte_size", "caption", "taken_on"],
+        ),
+        DataSourceDefinition(
+            collection="pest_image_contributions",
+            filter_field="contributed_by",
+            label="Pest reference images you contributed",
+            fields=["tenant_key", "pest_key", "caption", "status", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="pest_image_contributions",
+            filter_field="promoted_by",
+            label="Pest reference images you promoted",
+            fields=["pest_key", "status", "promoted_at"],
+        ),
+        DataSourceDefinition(
+            # REQ-056 §12.3 (#2138) — the tenant exports the subject requested (no archive content).
+            collection="tenant_export_requests",
+            filter_field="requested_by_user_key",
+            label="Garden exports you requested",
+            fields=["tenant_key", "origin", "status", "size_bytes", "requested_at", "completed_at", "expires_at"],
+        ),
+        DataSourceDefinition(
+            # REQ-056 §12.3 (#2138) — the tenant imports the subject (a platform admin) ran.
+            collection="tenant_import_requests",
+            filter_field="requested_by_user_key",
+            label="Garden imports you ran",
+            fields=["status", "target_tenant_key", "report", "requested_at", "completed_at"],
+        ),
+        DataSourceDefinition(
+            collection="import_jobs",
+            filter_field="uploaded_by",
+            label="Imports",
+            fields=["tenant_key", "entity_type", "status", "filename", "row_count", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="weather_source_configs",
+            filter_field="updated_by",
+            label="Weather-source settings you changed",
+            fields=["tenant_key", "site_key", "enabled", "updated_at"],
+        ),
+        DataSourceDefinition(
+            collection="manual_overrides",
+            filter_field="created_by",
+            label="Manual actuator overrides",
+            fields=["tenant_key", "actuator_key", "started_at", "expires_at", "reason", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="tenants",
+            filter_field="owner_user_key",
+            label="Tenants you own",
+            fields=["name", "slug", "tenant_type", "created_at"],
+        ),
+        # ── #2135 (MT-039): your personal garden, whole ──────────────────
+        #
+        # A personal tenant is named after its owner and its site coordinates are
+        # typically the home address; until #2135 none of it was in the bundle. These
+        # sources are bounded by the personal tenants the subject *owns*
+        # (``TenantService.personal_tenant_keys_of``), never by a membership: an
+        # organisation's garden belongs to the group (only the membership above is
+        # disclosed), somebody else's personal garden to its owner. Every row of the
+        # garden is disclosed, also rows another member wrote there; no source below
+        # carries another account's key (Art. 15(4), REQ-025 §3.1.2 rule 8). ``_key`` is
+        # included so the references between them (``site_key`` …) stay readable (Art. 20).
+        DataSourceDefinition(
+            collection="sites",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: sites",
+            # ``gps_coordinates`` explicitly: for a personal garden it is usually the home address.
+            fields=[
+                "_key",
+                "name",
+                "type",
+                "gps_coordinates",
+                "climate_zone",
+                "hardiness_zone",
+                "timezone",
+                "total_area_m2",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="locations",
+            personal_tenant_scope=_VIA_SITE,
+            label="Your personal garden: locations",
+            fields=["_key", "name", "site_key", "parent_location_key", "area_m2", "light_type", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="slots",
+            personal_tenant_scope=_VIA_LOCATION_AND_SITE,
+            label="Your personal garden: slots",
+            fields=["_key", "slot_id", "location_key", "position", "capacity_plants", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="plant_instances",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: plants",
+            fields=[
+                "_key",
+                "instance_id",
+                "plant_name",
+                "species_key",
+                "cultivar_key",
+                "site_key",
+                "location_key",
+                "slot_key",
+                "planted_on",
+                "removed_on",
+                "current_phase_key",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="planting_runs",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: planting runs",
+            fields=[
+                "_key",
+                "name",
+                "run_type",
+                "status",
+                "planned_quantity",
+                "actual_quantity",
+                "location_key",
+                "planned_start_date",
+                "started_at",
+                "completed_at",
+                "notes",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="tasks",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: tasks",
+            # Not ``assigned_to_user_key``: who a task in the garden is assigned to is another member's data.
+            fields=[
+                "_key",
+                "name",
+                "category",
+                "status",
+                "due_date",
+                "completed_at",
+                "completion_notes",
+                "planting_run_key",
+                "entity_key",
+                "entity_type",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="plant_diary_entries",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: diary",
+            # Not ``created_by``: the author of an entry another member wrote is that member's data.
+            fields=["_key", "plant_key", "entry_type", "title", "text", "tags", "measurements", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="attachments",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: photos and files (metadata)",
+            # Metadata only (the bytes are in the app); no ``created_by``, no ``storage_key``.
+            fields=[
+                "_key",
+                "category",
+                "original_filename",
+                "mime_type",
+                "byte_size",
+                "caption",
+                "taken_on",
+                "created_at",
+            ],
+        ),
+        # ── #2165: tanks, watering and feeding logs, sensors and their readings ──
+        #
+        # Same rule as above (personal tenants the subject owns, every row, no other
+        # account's key): ``performed_by`` on the logs names whoever performed the
+        # step, and stays out. ``channel_id`` is an internal delivery reference.
+        DataSourceDefinition(
+            collection="tanks",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: tanks",
+            fields=[
+                "_key",
+                "name",
+                "tank_type",
+                "volume_liters",
+                "material",
+                "location_key",
+                "installed_on",
+                "low_threshold_percent",
+                "notes",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="tank_states",
+            personal_tenant_scope=_VIA_TANK,
+            label="Your personal garden: tank readings",
+            fields=[
+                "_key",
+                "tank_key",
+                "recorded_at",
+                "fill_level_liters",
+                "fill_level_percent",
+                "ph",
+                "ec_ms",
+                "water_temp_celsius",
+                "tds_ppm",
+                "dissolved_oxygen_mgl",
+                "orp_mv",
+                "source",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="tank_fill_events",
+            personal_tenant_scope=_VIA_TANK,
+            label="Your personal garden: tank fills",
+            fields=[
+                "_key",
+                "tank_key",
+                "filled_at",
+                "fill_type",
+                "volume_liters",
+                "nutrient_plan_key",
+                "fertilizers_used",
+                "target_ec_ms",
+                "target_ph",
+                "measured_ec_ms",
+                "measured_ph",
+                "water_source",
+                "water_mix_ratio_ro_percent",
+                "base_water_ec_ms",
+                "is_organic_fertilizers",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="maintenance_logs",
+            personal_tenant_scope=_VIA_TANK,
+            label="Your personal garden: tank maintenance",
+            fields=[
+                "_key",
+                "tank_key",
+                "maintenance_type",
+                "performed_at",
+                "duration_minutes",
+                "products_used",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="watering_events",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: watering events",
+            fields=[
+                "_key",
+                "watered_at",
+                "application_method",
+                "is_supplemental",
+                "volume_liters",
+                "plant_keys",
+                "slot_keys",
+                "tank_fill_event_key",
+                "nutrient_plan_key",
+                "fertilizers_used",
+                "target_ec_ms",
+                "target_ph",
+                "measured_ec_ms",
+                "measured_ph",
+                "runoff_ec_ms",
+                "runoff_ph",
+                "water_source",
+                "task_key",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="watering_logs",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: watering log",
+            fields=[
+                "_key",
+                "logged_at",
+                "application_method",
+                "is_supplemental",
+                "volume_liters",
+                "fertilizers_used",
+                "plant_keys",
+                "slot_keys",
+                "tank_fill_event_key",
+                "nutrient_plan_key",
+                "task_key",
+                "water_source",
+                "ec_before",
+                "ec_after",
+                "ph_before",
+                "ph_after",
+                "runoff_ec",
+                "runoff_ph",
+                "runoff_volume_liters",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="feeding_events",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: feeding log",
+            fields=[
+                "_key",
+                "plant_key",
+                "timestamp",
+                "application_method",
+                "is_supplemental",
+                "volume_applied_liters",
+                "fertilizers_used",
+                "tank_fill_event_key",
+                "watering_event_key",
+                "measured_ec_before",
+                "measured_ec_after",
+                "measured_ph_before",
+                "measured_ph_after",
+                "runoff_ec",
+                "runoff_ph",
+                "runoff_volume_liters",
+                "notes",
+            ],
+        ),
+        DataSourceDefinition(
+            # Before the readings: their ``sensor_key`` refers to these rows, and the
+            # walk takes the garden's sensor keys from this section (``series_source``).
+            collection="sensors",
+            personal_tenant_scope=_SENSOR_PARENTS,
+            label="Your personal garden: sensors",
+            fields=[
+                "_key",
+                "name",
+                "metric_type",
+                "unit_of_measurement",
+                "ha_entity_id",
+                "mqtt_topic",
+                "tank_key",
+                "site_key",
+                "location_key",
+                "is_active",
+                "created_at",
+            ],
+        ),
+        # The readings live in TimescaleDB (REQ-005), in three tiers (NFR-011: 90 days raw,
+        # 2 years hourly, 5 years daily). Each tier is a section of its own; a section larger
+        # than ``TIME_SERIES_SECTION_MAX_ROWS`` carries the newest rows and states how many
+        # it leaves out.
+        DataSourceDefinition(
+            collection="sensor_readings",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            time_series=TimeSeriesScope(time_column="time"),
+            label="Your personal garden: sensor readings (last 90 days)",
+            attribution_gap=_LEGACY_READINGS_GAP,
+            fields=[
+                "time",
+                "sensor_key",
+                "sensor_type",
+                "value",
+                "unit",
+                "source",
+                "quality_score",
+                "raw_value",
+                "metadata",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="sensor_hourly",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            time_series=TimeSeriesScope(time_column="bucket"),
+            label="Your personal garden: hourly sensor averages (last 2 years)",
+            attribution_gap=_LEGACY_READINGS_GAP,
+            fields=list(_AGGREGATE_FIELDS),
+        ),
+        DataSourceDefinition(
+            collection="sensor_daily",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            time_series=TimeSeriesScope(time_column="bucket"),
+            label="Your personal garden: daily sensor averages (last 5 years)",
+            attribution_gap=_LEGACY_READINGS_GAP,
+            fields=list(_AGGREGATE_FIELDS),
+        ),
+        DataSourceDefinition(
+            collection="mcp_audit_log",
+            filter_field="service_account_key",
+            label="MCP tool calls (service accounts)",
+            # #2130: the correlation references of a call are about the caller too —
+            # which of its keys, from which (truncated) network, on which request,
+            # touching which records.
+            fields=[
+                "tenant_key",
+                "tool_name",
+                "status",
+                "created_at",
+                "api_key_ref",
+                "client_ip_ref",
+                "request_id",
+                "entity_keys",
+            ],
+        ),
+        # MT-014 (#2111): the security audit names up to two accounts per row. The rows about the
+        # subject's own memberships and account flags (target) and the rows of changes the subject
+        # made (actor) are disclosed; the *other* account's key is left out of each (Art. 15(4)).
+        DataSourceDefinition(
+            collection="security_audit_log",
+            filter_field="target_user_key",
+            label="Changes to your tenant memberships and account (security audit)",
+            fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="security_audit_log",
+            filter_field="actor_user_key",
+            label="Membership, account and tenant changes you made (security audit)",
+            fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
+        ),
+        DataSourceDefinition(
+            collection="mcp_idempotency_record",
+            filter_field="service_account_key",
+            label="MCP idempotency records (service accounts)",
+            fields=["tenant_key", "tool_name", "created_at", "expires_at"],
+        ),
+        # ── #1719: erased as the subject's data, and until now not disclosed ──
+        # Found by the reverse direction of R2 in
+        # ``scripts/check_privacy_inventory.py``: each collection below is
+        # deleted by ``ErasureEngine.DELETE_STEPS`` because it is the subject's,
+        # which is the proof that Art. 15 has to show it. Every ``filter_field``
+        # is stamped from the caller's account, never read from a body, so none
+        # is ``tenant_scoped``.
+        DataSourceDefinition(
+            # REQ-020: the edge row is the data (``_from`` = the subject,
+            # ``_to`` = the catalogue entry, when and how it was marked), not the
+            # catalogue entry at its other end — that is global or tenant data.
+            collection="user_favorites",
+            filter_field="_from",
+            label="Favourites",
+            fields=["_to", "target_type", "source", "cascade_from_key", "favorited_at"],
+        ),
+        DataSourceDefinition(
+            # ``key_hash`` is deliberately not exported: it is the stored form of
+            # a live credential (the ``calendar_feeds.token_hash`` argument).
+            collection="api_keys",
+            filter_field="user_key",
+            label="API keys (without the secret)",
+            fields=[
+                "label",
+                "key_prefix",
+                "tenant_scope",
+                "ip_allowlist",
+                "rate_limit_per_minute",
+                "revoked",
+                "last_used_at",
+                "expires_at",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="user_preferences",
+            filter_field="user_key",
+            label="Personal settings",
+            fields=[
+                "experience_level",
+                "onboarding_completed",
+                "locale",
+                "theme",
+                "temperature_unit",
+                "watering_can_liters",
+                "smart_home_enabled",
+                "kiosk_enabled",
+                "high_contrast",
+                "module_visibility",
+                "dashboard_layout",
+                "created_at",
+                "updated_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="onboarding_states",
+            filter_field="user_key",
+            label="Onboarding wizard progress",
+            fields=[
+                "completed",
+                "skipped",
+                "completed_at",
+                "selected_kit_id",
+                "selected_experience_level",
+                "wizard_step",
+                "created_entities",
+                "site_name",
+                "site_type",
+                "selected_site_key",
+                "plant_count",
+                "plant_configs",
+                "favorite_species_keys",
+                "favorite_nutrient_plan_keys",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            # REQ-044 section 8: the subject's own detection requests (no image
+            # is stored). ``image_hash`` is an internal dedup value, as for
+            # ``identification_requests``, and not exported.
+            collection="pest_detections",
+            filter_field="user_key",
+            label="Pest detection requests",
+            fields=[
+                "tenant_key",
+                "plant_instance_key",
+                "planting_run_key",
+                "source",
+                "adapter_key",
+                "trigger",
+                "capture_device",
+                "findings",
+                "suggested_next_step",
+                "llm_explanation",
+                "feedback",
+                "created_at",
+            ],
+        ),
     ]
+
+    #: Collections the erasure inventory removes that the bundle deliberately
+    #: does not carry as sections of their own (#1719). The rule is R2's reverse
+    #: direction in ``scripts/check_privacy_inventory.py``: an erasure target is
+    #: disclosed unless it is named here, with the reason, measured against its
+    #: write path. Every entry is a graph edge whose endpoints are disclosed
+    #: documents and whose attributes, where it has any, are a copy of a field a
+    #: disclosed source already delivers — the edge adds nothing the subject
+    #: does not already receive. An edge that carries information of its own
+    #: (``user_favorites``) is a manifest source instead.
+    EXCLUDED_FROM_DISCLOSURE: list[DisclosureExclusion] = [
+        DisclosureExclusion(
+            collection="has_api_key",
+            reason=(
+                "users -> api_keys, no attributes (api_key_repository.create); the api_keys rows are "
+                "disclosed by user_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="has_membership",
+            reason=(
+                "users -> memberships, no attributes (membership_repository.create); the memberships are "
+                "disclosed by user_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="membership_in",
+            reason=(
+                "memberships -> tenants, no attributes; the tenant of each disclosed membership is its tenant_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="assigned_to_location",
+            reason=(
+                "location_assignments -> locations, no attributes (location_assignment_repository.create); "
+                "the assignment's location_key is its own field, and the category is named in the bundle "
+                "with its disclosure_gap."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="assignment_for",
+            reason=(
+                "location_assignments -> memberships, no attributes; the membership is disclosed, the "
+                "assignment category is named with its disclosure_gap."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="assignment_in_tenant",
+            reason=(
+                "location_assignments -> tenants, no attributes; the assignment's tenant_key is its own "
+                "field, the category is named with its disclosure_gap."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="pest_detection_of",
+            reason=(
+                "pest_detections -> plant_instances / planting_runs, no attributes; mirrors the disclosed "
+                "plant_instance_key / planting_run_key of the detection."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="pest_detection_flagged",
+            reason=(
+                "pest_detections -> pests; confidence / mode / confirmed copy the disclosed findings and "
+                "feedback of the detection (pest_detection_repository.create / add_feedback)."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="pest_detection_suggested_inspection",
+            reason=(
+                "pest_detections -> inspections, no attributes (link_suggested_inspection); the inspection "
+                "is disclosed by inspected_by_key, which the detection bridge stamps from the caller."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="notification_for_run",
+            reason=(
+                "notifications -> planting_runs; declared in the graph, but no code path under app/ writes "
+                "it (measured 2026-09-24). The notifications themselves are disclosed by user_key."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_diagnosed_for",
+            reason=(
+                "plant_diagnosis_requests -> plant_instances / planting_runs, no attributes; mirrors the "
+                "disclosed plant_instance_key / planting_run_key of the request."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_diagnosis_found",
+            reason=(
+                "plant_diagnosis_requests -> diseases / pests; confidence / rank / category / confirmed copy "
+                "the disclosed classifications and confirmed_labels (plant_diagnosis_repository.create)."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_attached_to_inspection",
+            reason=(
+                "plant_diagnosis_requests -> inspections, no attributes; mirrors the disclosed inspection_key "
+                "of the request (plant_diagnosis_repository.mark_confirmed)."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="cv_phenotype_of",
+            reason=(
+                "plant_diagnosis_requests -> harvest_observations, no attributes; mirrors the disclosed "
+                "harvest_observation_key of the request."
+            ),
+        ),
+        DisclosureExclusion(
+            collection="has_invitation",
+            reason=(
+                "tenants -> invitations, no attributes (invitation_repository.create); the invitations are "
+                "disclosed by invited_by_user_key and accepted_by_user_key."
+            ),
+        ),
+    ]
+
+    #: Bumped when the bundle's shape changes, so a downloaded file stays
+    #: interpretable without guessing which version produced it (Art. 20
+    #: portability: the recipient is not necessarily this system).
+    #: 1.2 (#2165): every section states ``records_omitted`` / ``omission_note``.
+    BUNDLE_FORMAT_VERSION = "1.2"
+
+    #: #2165 — the most rows one time-series section carries. The bundle is built in
+    #: memory and stored as one object (both storage adapters buffer it), so an
+    #: unbounded section would size the worker's memory by the subject's sensor count.
+    #: 100 000 rows is about 3.8 sensors over the 90 raw days at the Home Assistant
+    #: poll interval of 5 minutes, or 5.7 sensors over 2 years of hourly buckets; the
+    #: three sections stay below roughly 100 MB of JSON together. A larger section
+    #: carries the newest rows and says how many older ones it leaves out — the hourly
+    #: and daily sections cover the same sensors over the longer periods.
+    TIME_SERIES_SECTION_MAX_ROWS = 100_000
 
     def build_export_manifest(self, user_key: str) -> list[DataSourceDefinition]:
         """Return the full export manifest for the given user."""
         return list(self.USER_DATA_MANIFEST)
+
+    @staticmethod
+    def omission_note(delivered: int, omitted: int) -> str | None:
+        """The statement a bounded section carries beside its rows (#2165); ``None`` when complete."""
+        if omitted <= 0:
+            return None
+        return (
+            f"This section holds {delivered + omitted} records; to keep the file to a size that can "
+            f"be produced and downloaded, it contains the {delivered} newest and leaves out "
+            f"{omitted} older ones. The hourly and daily sections cover the same sensors over "
+            f"longer periods. Contact the data controller if you need the omitted records."
+        )
+
+    def build_bundle(
+        self,
+        user_key: str,
+        generated_at: datetime,
+        sections: list[tuple[DataSourceDefinition, list[dict[str, Any]]]],
+        *,
+        controller_name: str,
+        controller_email: str,
+        omitted: Mapping[str, int] | None = None,
+    ) -> dict[str, Any]:
+        """Assemble the Art. 15 disclosure document from collected rows.
+
+        A section is kept even when it is empty: Art. 15(1) is a right to know
+        *which* categories are processed, and a silently omitted category is
+        indistinguishable from one the walk never reached. ``record_count``
+        makes that explicit for a reader who is not counting array entries. A
+        source with a ``disclosure_gap`` appears with ``disclosed: false`` and
+        the reason, so the reader learns *why* rather than seeing an empty list.
+        A source with an ``attribution_gap`` is disclosed, and the section says
+        which of its rows can never be in it (#1669: pre-attribution rows).
+
+        ``omitted`` maps a time-series source's collection to the number of its rows
+        the walk left out (#2165, :attr:`TIME_SERIES_SECTION_MAX_ROWS`). Every section
+        carries ``records_omitted``; a bounded one also the ``omission_note`` saying so.
+        Only a time-series source can be bounded, and each appears once in the manifest.
+        """
+        omitted = dict(omitted or {})
+        bounded = {source.collection for source, _records in sections if source.time_series is not None}
+        unknown = sorted(set(omitted) - bounded)
+        if unknown:
+            msg = f"only a time-series section can leave records out, not {unknown}"
+            raise ValueError(msg)
+        if any(count < 0 for count in omitted.values()):
+            msg = "an omitted-record count cannot be negative"
+            raise ValueError(msg)
+        return {
+            "format_version": self.BUNDLE_FORMAT_VERSION,
+            "generated_at": generated_at.isoformat(),
+            "user_key": user_key,
+            "data_controller": {"name": controller_name, "contact_email": controller_email},
+            "legal_basis": "GDPR Art. 15 (right of access) and Art. 20 (data portability).",
+            "sections": [
+                {
+                    "collection": source.collection,
+                    "label": source.label,
+                    "fields": list(source.fields),
+                    "disclosed": source.disclosure_gap is None,
+                    "not_disclosed_reason": source.disclosure_gap,
+                    "attribution_gap": source.attribution_gap,
+                    "record_count": len(records),
+                    "records_omitted": omitted.get(source.collection, 0) if source.time_series else 0,
+                    "omission_note": (
+                        self.omission_note(len(records), omitted.get(source.collection, 0))
+                        if source.time_series
+                        else None
+                    ),
+                    "records": [self.disclosable_record(source.collection, record) for record in records],
+                }
+                for source, records in sections
+            ],
+        }
+
+    @staticmethod
+    def disclosable_record(collection: str, record: dict[str, Any]) -> dict[str, Any]:
+        """The form of one collected row the bundle may carry (#2113).
+
+        A ``notification_preferences`` row carries the Apprise URLs — credentials,
+        stored as Fernet ciphertext (or, before migration v0083, in clear). The
+        bundle states how many are configured, never the value: the category and
+        its extent are disclosed (Art. 15(1)), and a leaked bundle is no
+        credential. Every other row is returned as collected; the input is never
+        mutated.
+        """
+        if collection != "notification_preferences":
+            return record
+        channels = record.get("channels")
+        if not isinstance(channels, dict):
+            return record
+        apprise = channels.get(APPRISE_CHANNEL)
+        if not isinstance(apprise, dict) or not isinstance(apprise.get("config"), dict):
+            return record
+        return {
+            **record,
+            "channels": {**channels, APPRISE_CHANNEL: {**apprise, "config": export_config(apprise["config"])}},
+        }
+
+    @staticmethod
+    def bundle_object_key(user_key: str, export_key: str) -> str:
+        """Storage key of one export bundle.
+
+        The shape lives in :mod:`app.domain.engines.storage.export_bundle_key`,
+        next to the redaction the storage adapters log it through (#1773), so
+        the builder and the redaction cannot drift apart.
+        """
+        return export_bundle_key(user_key, export_key)
 
     def validate_export_request(
         self,

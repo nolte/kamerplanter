@@ -14,6 +14,7 @@ the auto-transition path, not only exercised in unit tests.
 from __future__ import annotations
 
 import sys
+from collections.abc import Collection
 from datetime import UTC, datetime, timedelta
 from types import ModuleType, SimpleNamespace
 
@@ -25,6 +26,7 @@ from app.domain.models.phase import PhaseHistory
 from app.domain.models.phase_sequence import PhaseDefinition, PhaseSequence, PhaseSequenceEntry
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.phase_service import PhaseService
+from tests.support.tenant_walk import TenantRows, active
 
 # ── Sequence blueprints (mirror seed_data/phase_sequences.yaml) ────────────────
 
@@ -127,6 +129,15 @@ class _FakePhaseRepo:
     def get_phase_history(self, plant_key: str) -> list[PhaseHistory]:
         return [h for h in self._histories if h.plant_instance_key == plant_key]
 
+    def get_active_phase_histories(self, plant_keys: Collection[str]) -> dict[str, PhaseHistory]:
+        """The batched read the scan uses (MT-032, #2128): the earliest open entry per plant."""
+        active: dict[str, PhaseHistory] = {}
+        for key in plant_keys:
+            open_entries = [h for h in self.get_phase_history(key) if h.exited_at is None]
+            if open_entries:
+                active[key] = min(open_entries, key=lambda h: h.entered_at)
+        return active
+
     def create_phase_history(self, history: PhaseHistory) -> PhaseHistory:
         self._seq += 1
         history.key = f"h-{self._seq}"
@@ -175,9 +186,11 @@ class _FakePlantRepo:
         self._plants[key] = plant
         return plant
 
-    def get_all(self, offset: int = 0, limit: int = 1000, all_tenants: bool = False):
-        plants = list(self._plants.values())
-        return plants, len(plants)
+    def iter_for_tenants(self, tenant_keys, *, filters=None, page_size: int = 1000):  # noqa: ANN001, ANN201
+        """The tenant walk the task reads through (MT-032, #2128)."""
+        return TenantRows(list(self._plants.values())).iter_for_tenants(
+            tenant_keys, filters=filters, page_size=page_size
+        )
 
 
 class _FakeLifecycleRepo:
@@ -271,6 +284,7 @@ def _task_env(monkeypatch):
     mock_deps.get_plant_repo = lambda: plant_repo  # type: ignore[attr-defined]
     mock_deps.get_lifecycle_repo = lambda: lifecycle_repo  # type: ignore[attr-defined]
     mock_deps.get_site_repo = lambda: SimpleNamespace()  # type: ignore[attr-defined]
+    mock_deps.get_tenant_repo = lambda: active("t1")  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.phase_transitions as task_module
@@ -279,6 +293,7 @@ def _task_env(monkeypatch):
     monkeypatch.setattr(task_module, "get_plant_repo", mock_deps.get_plant_repo)
     monkeypatch.setattr(task_module, "get_lifecycle_repo", mock_deps.get_lifecycle_repo)
     monkeypatch.setattr(task_module, "get_site_repo", mock_deps.get_site_repo)
+    monkeypatch.setattr(task_module, "get_tenant_repo", mock_deps.get_tenant_repo)
 
     return SimpleNamespace(
         task=task_module,

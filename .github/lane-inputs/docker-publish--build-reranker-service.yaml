@@ -1,0 +1,40 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: docker-publish.yml
+job: build-reranker-service
+gate:
+  kind: paths-filter
+  filter: reranker-service
+status: derived
+measured_on: '2026-10-13'
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 1
+job_spec_sha256: 841fa9f41e17eebdd87244783111baf4e2c2b76c7c37b613f11e98ff236fbb03
+invocations:
+- command: derive-docker --context docker/reranker-service --dockerfile docker/reranker-service/Dockerfile
+  cwd: .
+  recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
+    COPY/ADD sources
+  copy_sources:
+  - pyproject.toml
+  - uv.lock
+  - pyproject.toml
+  - uv.lock
+  - main.py
+  - limits.py
+  context_files_after_dockerignore: 5
+subprocesses: []
+accepted_gaps: []
+reads:
+- docker/reranker-service/.dockerignore
+- docker/reranker-service/Dockerfile
+- docker/reranker-service/limits.py
+- docker/reranker-service/main.py
+- docker/reranker-service/pyproject.toml
+- docker/reranker-service/uv.lock
+test_modules: []
+readers: {}

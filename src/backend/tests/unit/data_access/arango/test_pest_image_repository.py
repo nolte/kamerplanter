@@ -87,14 +87,3 @@ class TestSetStatus:
     def test_missing_returns_none(self, repo, mock_db):
         mock_db.collection.return_value.get.return_value = None
         assert repo.set_status("missing", PestImageStatus.PROMOTED, "admin1") is None
-
-
-class TestDeleteForTenant:
-    def test_returns_removed_count(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([4])
-        assert repo.delete_for_tenant("t1") == 4
-        assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "t1"
-
-    def test_zero_when_empty(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([0])
-        assert repo.delete_for_tenant("t1") == 0

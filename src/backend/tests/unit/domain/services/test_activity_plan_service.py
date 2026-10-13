@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -6,6 +7,8 @@ from app.common.enums import ActivityCategory, SkillLevel, StressLevel, StressTo
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.models.activity import Activity
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.planting_run import PlantingRun
 from app.domain.models.task import TaskTemplate, WorkflowTemplate
 from app.domain.services.activity_plan_service import ActivityPlanService
 from tests.conftest import wire_or_raise
@@ -17,6 +20,8 @@ def _make_species():
     m.common_names = ["Tomato"]
     m.scientific_name = "Solanum lycopersicum"
     m.family_key = None
+    # A global seed species (#1871 B10 generates a shared plan only for those).
+    m.tenant_key = ""
     return m
 
 
@@ -87,6 +92,13 @@ def service():
     species_repo = MagicMock()
     wire_or_raise(species_repo, "Species")
     wire_or_raise(run_repo, "PlantingRun")
+    # Every plant the apply tests name is the caller's (tenant-a); the foreign
+    # cases live in tests/api/test_activity_plan_apply_tenant_scope.py.
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.side_effect = lambda key: PlantInstance(
+        _key=key, instance_id=key, species_key="sp1", planted_on=date(2026, 1, 1), tenant_key="tenant-a"
+    )
+    wire_or_raise(plant_repo, "PlantInstance")
     wire_or_raise(
         task_repo,
         "WorkflowTemplate",
@@ -101,6 +113,7 @@ def service():
         task_repo=task_repo,
         planting_run_repo=run_repo,
         species_repo=species_repo,
+        plant_repo=plant_repo,
     )
 
 
@@ -115,7 +128,7 @@ class TestGeneratePlan:
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        wt = service.generate_plan("sp1")
+        wt = service.generate_plan("sp1", tenant_key="")
         assert wt.name == "Test WF"
         service._task_repo.create_workflow_template.assert_called_once()
         # Should create at least one task template
@@ -143,7 +156,7 @@ class TestGeneratePlan:
         service._activity_repo.get_all.return_value = ([generic], 1)
         service._task_repo.create_workflow_template.return_value = _make_workflow_template()
 
-        service.generate_plan("sp1")
+        service.generate_plan("sp1", tenant_key="")
 
         assert service._task_repo.create_task_template.call_count == 1
         persisted = service._task_repo.create_task_template.call_args.args[0]
@@ -152,13 +165,15 @@ class TestGeneratePlan:
     def test_uses_explicit_lifecycle_key(self, service):
         species = _make_species()
         service._species_repo.get_by_key.return_value = species
+        # The explicit key must be one of the species' own lifecycles (review of #1876, SEC-001).
+        service._phase_repo.get_lifecycle_by_species.return_value = LifecycleConfig(_key="lc_custom", species_key="sp1")
         service._phase_repo.get_phases_by_lifecycle.return_value = [_make_phase()]
         service._activity_repo.get_all.return_value = ([_make_activity()], 1)
 
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        service.generate_plan("sp1", lifecycle_key="lc_custom")
+        service.generate_plan("sp1", lifecycle_key="lc_custom", tenant_key="")
         service._phase_repo.get_phases_by_lifecycle.assert_called_with("lc_custom")
 
 
@@ -167,7 +182,7 @@ class TestGetOrGenerateForSpecies:
         existing_wt = _make_workflow_template()
         service._task_repo.get_auto_generated_workflow_for_species.return_value = existing_wt
 
-        result = service.get_or_generate_for_species("sp1")
+        result = service.get_or_generate_for_species("sp1", tenant_key="")
         assert result.key == "wt1"
         # Should not call generate
         service._task_repo.create_workflow_template.assert_not_called()
@@ -183,7 +198,7 @@ class TestGetOrGenerateForSpecies:
         wt_mock = _make_workflow_template()
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        service.get_or_generate_for_species("sp1")
+        service.get_or_generate_for_species("sp1", tenant_key="")
         service._task_repo.create_workflow_template.assert_called_once()
 
 
@@ -200,7 +215,7 @@ class TestRegenerateForSpecies:
         wt_mock = _make_workflow_template(key="wt2")
         service._task_repo.create_workflow_template.return_value = wt_mock
 
-        service.regenerate_for_species("sp1")
+        service.regenerate_for_species("sp1", tenant_key="")
         service._task_repo.delete_task_templates_for_workflow.assert_called_once_with("wt1")
         service._task_repo.delete_workflow_template.assert_called_once_with("wt1")
         service._task_repo.create_workflow_template.assert_called_once()
@@ -282,7 +297,7 @@ class TestApplyPlanToPlant:
         created_task.key = "t1"
         service._task_repo.create_task.return_value = created_task
 
-        result = service.apply_plan_to_plant("wt1", "plant1")
+        result = service.apply_plan_to_plant("wt1", "plant1", tenant_key="tenant-a")
 
         # Only 1 enabled template
         assert result["created_count"] == 1
@@ -298,7 +313,7 @@ class TestApplyPlanToPlant:
         created_task.key = "t1"
         service._task_repo.create_task.return_value = created_task
 
-        service.apply_plan_to_plant("wt1", "plant1")
+        service.apply_plan_to_plant("wt1", "plant1", tenant_key="tenant-a")
 
         service._task_repo.create_task_activity_edge.assert_called_once_with("t1", "act1")
 
@@ -310,7 +325,7 @@ class TestApplyPlanToPlant:
             _make_task_template(key="tt2", enabled=False),
         ]
 
-        result = service.apply_plan_to_plant("wt1", "plant1")
+        result = service.apply_plan_to_plant("wt1", "plant1", tenant_key="tenant-a")
         assert result["created_count"] == 0
         assert service._task_repo.create_task.call_count == 0
 
@@ -323,8 +338,7 @@ class TestApplyPlanToRun:
             _make_task_template(key="tt1", enabled=True),
         ]
 
-        run = MagicMock()
-        run.key = "run1"
+        run = PlantingRun(_key="run1", tenant_key="tenant-a", name="Run", run_type="monoculture")
         service._run_repo.get_by_key.return_value = run
         service._run_repo.get_run_plants.return_value = [
             {"key": "p1"},
@@ -334,6 +348,6 @@ class TestApplyPlanToRun:
         created_task.key = "t1"
         service._task_repo.create_task.return_value = created_task
 
-        result = service.apply_plan_to_run("wt1", "run1")
+        result = service.apply_plan_to_run("wt1", "run1", tenant_key="tenant-a")
         assert result["plant_count"] == 2
         assert result["total_tasks"] == 2  # 1 enabled x 2 plants

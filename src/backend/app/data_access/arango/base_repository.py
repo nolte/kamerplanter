@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Iterator
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
 
@@ -11,6 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
+from app.data_access.arango.collection_entity_names import entity_name_for_collection
 from app.data_access.arango.query_builder import AQLBuilder
 
 logger = structlog.get_logger(__name__)
@@ -27,6 +28,111 @@ type SortDirection = Literal["ASC", "DESC"]
 #: ``_from``/``_to`` would re-point an edge. Stripped in
 #: :meth:`BaseArangoRepository._update_doc_fields`.
 _RESERVED_DOC_ATTRIBUTES: frozenset[str] = frozenset({"_key", "_id", "_rev", "_from", "_to"})
+
+
+#: Rows per ``get_all`` call made by :func:`get_all_pages`.
+DEFAULT_PAGE_SIZE = 1000
+
+#: Hard ceiling on the pages :func:`get_all_pages` reads (``DEFAULT_PAGE_SIZE`` x this
+#: = one million rows). A repository that never reports a consistent ``total`` would
+#: otherwise loop forever inside a beat task.
+MAX_PAGES = 1000
+
+
+class PagingCeilingError(RuntimeError):
+    """:func:`get_all_pages` hit its page ceiling before the collection ended."""
+
+
+def get_all_pages(
+    repo: Any,
+    *,
+    tenant_key: str | None = None,
+    all_tenants: bool = False,
+    filters: dict[str, Any] | None = None,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    max_pages: int = MAX_PAGES,
+) -> list[Any]:
+    """Every row ``repo.get_all`` can return, not just the first page (#2012).
+
+    ``get_all`` is paged and sorted by ``_key``; a beat task that asked for
+    ``get_all(offset=0, limit=1000, all_tenants=True)`` once and iterated the result
+    silently ignored row 1001 onwards. This reads page after page until the offset
+    reaches the reported ``total`` (or a page comes back empty).
+
+    **Returns a list, not a generator, on purpose.** All pages are read *before* the
+    caller touches a row. A task that mutates rows while iterating (moves a plant out
+    of the filter it reads on, deletes a task) would otherwise shift the offset
+    window of the pages still to come and skip rows. Reading first removes that
+    class; the cost is holding the rows in memory, which the single-page reads this
+    replaces already did for their first ``limit`` rows.
+
+    ``repo`` is anything with ``get_all(offset, limit, tenant_key, *, all_tenants)``
+    (the repositories and the test doubles that page like them). A platform beat
+    task passes ``all_tenants=True`` by design; the helper does not widen or narrow
+    tenant scope, it forwards what the caller states.
+
+    ``filters`` is forwarded as the ``filters=`` keyword for the repositories whose
+    ``get_all`` takes one (fertilizers, tanks, activities, #2015) and is omitted
+    otherwise; the base ``get_all`` has no filter, so a caller of a repository
+    without one still reads the whole collection and filters in Python. Paging is
+    only sound over a total order: a repository must sort on a unique key (or break
+    ties on ``_key``), otherwise rows with equal sort values may swap between pages.
+
+    Limits: rows *deleted by someone else* while the pages are being read shift the
+    window of the pages still to come and can skip a row; the read is a snapshot only
+    from the first page on, as the single page it replaces was.
+
+    Raises :class:`PagingCeilingError` (logged first) instead of looping past
+    ``max_pages`` pages.
+    """
+
+    def fetch(offset: int, limit: int) -> tuple[list[Any], int]:
+        kwargs: dict[str, Any] = {"offset": offset, "limit": limit}
+        if tenant_key is not None:
+            kwargs["tenant_key"] = tenant_key
+        if all_tenants:
+            kwargs["all_tenants"] = True
+        if filters is not None:
+            kwargs["filters"] = filters
+        page, total = repo.get_all(**kwargs)
+        return page, total
+
+    return read_all_pages(fetch, page_size=page_size, max_pages=max_pages)
+
+
+def read_all_pages[T](
+    fetch: Callable[[int, int], tuple[list[T], int]],
+    *,
+    page_size: int = DEFAULT_PAGE_SIZE,
+    max_pages: int = MAX_PAGES,
+) -> list[T]:
+    """Every row a paged ``(offset, limit) -> (rows, total)`` read can return (#2025).
+
+    The list-method counterpart of :func:`get_all_pages` for reads that are not
+    spelled ``get_all``: ``get_all_pests``, ``get_all_sequences``,
+    ``get_all_indicators``, ``list_by_tenant`` and the like. ``fetch`` receives the
+    offset and limit and returns one page plus the collection's ``total``, e.g.
+    ``lambda offset, limit: repo.list_by_tenant(tenant_key, offset=offset, limit=limit)``.
+    Scope (tenant, filters) is whatever the closure binds; the helper adds none.
+
+    Same contract as :func:`get_all_pages` (which delegates here): every page is read
+    before the caller sees a row, paging stops once the offset reaches ``total`` or a
+    page comes back empty, the read must be ordered by a total order (a unique key or
+    a ``_key`` tie-break), and :class:`PagingCeilingError` is raised (logged first)
+    instead of reading past ``max_pages`` pages.
+    """
+    if page_size < 1:
+        raise ValueError("page_size must be >= 1")
+    rows: list[T] = []
+    offset = 0
+    for _ in range(max_pages):
+        page, total = fetch(offset, page_size)
+        rows.extend(page)
+        offset += len(page)
+        if not page or offset >= total:
+            return rows
+    logger.error("get_all_pages_ceiling", max_pages=max_pages, page_size=page_size, rows_read=len(rows))
+    raise PagingCeilingError(f"paged read hit {max_pages} pages of {page_size} rows without reaching the end")
 
 
 class BaseArangoRepository[TModel: BaseModel]:
@@ -87,6 +193,14 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: returning documents of *all* tenants (SEC-B4 cross-tenant leak guard).
     is_tenant_scoped: bool = False
 
+    #: Why a repository whose model declares ``tenant_key`` deliberately leaves
+    #: :attr:`is_tenant_scoped` off (MT-023, #2119). A tenant-bearing repository
+    #: either sets the flag or states its reason here; leaving both unset is a
+    #: finding of ``tests/unit/guards/test_tenant_bearing_repositories_declare_their_scope.py``,
+    #: and so is setting both. This attribute is the registry: the guard pins the
+    #: set of exempt classes, so a new exemption is a reviewed change, never a default.
+    tenant_scope_exempt_reason: ClassVar[str | None] = None
+
     #: Caller-supplied foreign references this repository's documents carry, as
     #: ``{model field: target collection}``. Every declared field is
     #: ownership-verified against the row's own ``tenant_key`` before the
@@ -127,6 +241,17 @@ class BaseArangoRepository[TModel: BaseModel]:
     #: timestamp. Under the default mode ``exclude_none=True`` already drops it,
     #: and a model that carries one writes back the value it was read with.
     _update_is_full_replace: ClassVar[bool] = False
+
+    #: How :meth:`update_fields` writes a field whose value is an object.
+    #:
+    #: ``True`` (default, the ArangoDB ``mergeObjects`` default) - the object is
+    #: merged into the stored one, so a sub-key the stored object carries and the
+    #: new one does not survives. ``False`` - the object named in ``fields``
+    #: replaces the stored one whole; fields ``fields`` does not name are still
+    #: left alone (the update stays partial at the top level). A repository whose
+    #: objects are value types - a filter set, where a sub-key nobody wrote any
+    #: more must go - sets ``False`` (#2226 re-review SEC-S1).
+    _update_fields_merges_objects: ClassVar[bool] = True
 
     def __init__(
         self,
@@ -199,7 +324,9 @@ class BaseArangoRepository[TModel: BaseModel]:
         model_cls = self._resolve_model_cls()
         if model_cls is not None:
             return model_cls.__name__
-        return self._collection_name
+        # A raw, model-less repository still must not publish its collection
+        # name as ``details[0].entity`` (#1465).
+        return entity_name_for_collection(self._collection_name)
 
     # ── Helpers (unchanged) ──────────────────────────────────────────────────
 
@@ -250,9 +377,19 @@ class BaseArangoRepository[TModel: BaseModel]:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
-    #: Matches the indexed field name in an ArangoDB unique-constraint message,
-    #: e.g. ``... over '["batch_id"]' ...`` or the older ``... over 'batch_id' ...``.
-    _UNIQUE_INDEX_FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"over\s+'?\[?\"?(?P<field>[A-Za-z_][A-Za-z0-9_.]*)")
+    #: Matches the indexed field list in an ArangoDB unique-constraint message:
+    #: ``... over '["batch_id"]' ...``, the older ``... over 'batch_id' ...``, a
+    #: compound ``... over 'tenant_key, name'; ...`` (3.12) or a bare ``over [...]``.
+    _UNIQUE_INDEX_FIELDS_RE: ClassVar[re.Pattern[str]] = re.compile(
+        r"over\s+(?:'(?P<quoted>[^']*)'|(?P<bracketed>\[[^\]]*\])|(?P<bare>[A-Za-z_][A-Za-z0-9_.]*))"
+    )
+    _FIELD_NAME_RE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+
+    #: The scope of a compound unique index: the tenant, or the owning location of a
+    #: slot (``(location_key, slot_id)``, #2065). It bounds the constraint and is
+    #: never what the caller collided on; naming it would tell the caller an internal
+    #: key and point the client at no form field (#2029).
+    _UNIQUE_SCOPE_FIELDS: ClassVar[frozenset[str]] = frozenset({"tenant_key", "location_key"})
 
     @classmethod
     def _extract_unique_field(cls, error_message: str | None) -> str | None:
@@ -263,13 +400,21 @@ class BaseArangoRepository[TModel: BaseModel]:
             unique constraint violated - in index 42 of type persistent
             over '["batch_id"]'; conflicting key: '...'
 
-        Returns the first indexed field name, or ``None`` when the message does
-        not follow the recognised shape (so callers can fall back gracefully).
+        Returns the first indexed field that is not a scope
+        (:attr:`_UNIQUE_SCOPE_FIELDS`) — for ``(tenant_key, name)`` that is ``name`` — or
+        the first field when every field is a scope. ``None`` when the message
+        does not follow the recognised shape (so callers can fall back gracefully).
         """
         if not error_message:
             return None
-        match = cls._UNIQUE_INDEX_FIELD_RE.search(error_message)
-        return match.group("field") if match else None
+        match = cls._UNIQUE_INDEX_FIELDS_RE.search(error_message)
+        if match is None:
+            return None
+        listed = match.group("quoted") or match.group("bracketed") or match.group("bare") or ""
+        names: list[str] = cls._FIELD_NAME_RE.findall(listed)
+        if not names:
+            return None
+        return next((name for name in names if name not in cls._UNIQUE_SCOPE_FIELDS), names[0])
 
     @classmethod
     def _describe_unique_conflict(
@@ -584,6 +729,30 @@ class BaseArangoRepository[TModel: BaseModel]:
             return None
         return self._from_doc(doc)
 
+    def _list_builder(
+        self,
+        offset: int,
+        limit: int,
+        tenant_key: str | None,
+        *,
+        all_tenants: bool,
+        after: str | None = None,
+    ) -> AQLBuilder:
+        """The tenant-bound, ``_key``-ordered window both list primitives read.
+
+        ``after`` is the keyset cursor (MT-035, #2131): ``FILTER doc._key > @after``
+        on the same ``_key`` order the page is sorted by, so the next page starts
+        behind the last row the caller saw without counting off ``offset`` rows.
+        """
+        self._enforce_tenant_scope(tenant_key, all_tenants)
+        builder = AQLBuilder(self._collection_name)
+        if tenant_key:
+            builder.filter("tenant_key", "==", tenant_key)
+        if after is not None:
+            builder.filter("_key", ">", after)
+        builder.sort("_key").paginate(offset, limit)
+        return builder
+
     def _list_docs(
         self,
         offset: int = 0,
@@ -592,21 +761,29 @@ class BaseArangoRepository[TModel: BaseModel]:
         *,
         all_tenants: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
-        self._enforce_tenant_scope(tenant_key, all_tenants)
-        builder = AQLBuilder(self._collection_name)
-        if tenant_key:
-            builder.filter("tenant_key", "==", tenant_key)
-        builder.sort("_key").paginate(offset, limit)
+        items = self._window_docs(offset, limit, tenant_key, all_tenants=all_tenants)
 
-        query, bind_vars = builder.build_list()
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [self._from_doc(doc) for doc in cursor]
-
-        count_query, count_vars = builder.build_count()
+        # The second scan MT-035 (#2131) names: every row the filter matches is
+        # counted again on every page. :meth:`list_window` is the same page without it.
+        count_query, count_vars = self._list_builder(offset, limit, tenant_key, all_tenants=all_tenants).build_count()
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
 
         return items, total
+
+    def _window_docs(
+        self,
+        offset: int,
+        limit: int,
+        tenant_key: str | None,
+        *,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[dict[str, Any]]:
+        builder = self._list_builder(offset, limit, tenant_key, all_tenants=all_tenants, after=after)
+        query, bind_vars = builder.build_list()
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [self._from_doc(doc) for doc in cursor]
 
     def _insert_payload(
         self,
@@ -631,6 +808,25 @@ class BaseArangoRepository[TModel: BaseModel]:
             if not data.get(field):
                 data[field] = self._now()
         return data
+
+    def insert_payload(
+        self,
+        model: BaseModel,
+        *,
+        default_now_fields: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        """The document :meth:`create` would insert, for a transactional writer in a *sibling* repository.
+
+        :meth:`_insert_payload` is protected on purpose - a repository writes its own collection. A writer
+        that must put documents of two collections into one stream transaction (#2118: a tenant and its
+        lead membership) needs the other repository's validate-and-stamp preamble without a second copy of
+        it, so the preamble has this public face. It performs no write.
+        """
+        return self._insert_payload(model, default_now_fields=default_now_fields)
+
+    def wrap_document(self, doc: dict[str, Any]) -> Any:
+        """A raw document of this repository as its bound model (the sibling-writer face of :meth:`_wrap`)."""
+        return self._wrap(self._from_doc(doc))
 
     def _insert_doc(
         self,
@@ -673,6 +869,22 @@ class BaseArangoRepository[TModel: BaseModel]:
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
+            if e.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # The sibling of the mapping :meth:`_insert_doc` (#1436) and
+                # :meth:`create_edge` (#1292) already perform, and the one this path
+                # never inherited (#1458). An update races the same way an insert
+                # does — two writers reaching the same document key, or the same
+                # unique-index entry through a changed field — and the server answers
+                # 1200 when it could not serialize this write against the other
+                # transaction. Unmapped it left the driver exception raw, and every
+                # caller above turned it into a 500.
+                #
+                # Not a variant of 1210: it says a concurrent transaction HELD the
+                # entry, never that that transaction committed, so it can never be
+                # read as "the record already exists". The driver's message is
+                # deliberately not forwarded — it names the index and a document key,
+                # and this error's ``details`` are client-visible.
+                raise WriteConflictError(self._collection_name) from e
             raise
         return self._from_doc(result["new"])
 
@@ -696,8 +908,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         """
         data = {field: value for field, value in fields.items() if field not in _RESERVED_DOC_ATTRIBUTES}
         data["updated_at"] = self._now()
+        # ``merge`` is passed only to switch merging off: every merging repository
+        # keeps the exact call it made before ``_update_fields_merges_objects``.
+        options: dict[str, Any] = {"return_new": True, "keep_none": True}
+        if not self._update_fields_merges_objects:
+            options["merge"] = False
         try:
-            result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
+            result = self.collection.update({**data, "_key": key}, **options)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 # The entity, not the collection: ``details[0].entity`` is a contract
@@ -707,6 +924,11 @@ class BaseArangoRepository[TModel: BaseModel]:
             if e.error_code == 1210:  # unique constraint violated
                 field, value = self._describe_unique_conflict(e, data)
                 raise DuplicateError(self._collection_name, field, value) from e
+            if e.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
+                # Same reasoning as :meth:`_update_doc` above (#1458). A partial
+                # update merges disjoint keys, but two writers touching the SAME key
+                # still serialize, and the loser gets 1200 rather than 1210.
+                raise WriteConflictError(self._collection_name) from e
             raise
         return self._from_doc(result["new"])
 
@@ -725,12 +947,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         sort_direction: SortDirection = "ASC",
         offset: int | None = None,
         limit: int | None = None,
+        tiebreak_key: bool = False,
     ) -> list[dict[str, Any]]:
         builder = AQLBuilder(self._collection_name)
         for field, op, value in filters:
             builder.filter(field, op, value)
         if sort:
-            builder.sort(sort, sort_direction)
+            builder.sort(sort, sort_direction, tiebreak_key=tiebreak_key)
         if offset is not None and limit is not None:
             builder.paginate(offset, limit)
         query, bind_vars = builder.build_list()
@@ -785,6 +1008,29 @@ class BaseArangoRepository[TModel: BaseModel]:
         items, total = self._list_docs(offset, limit, tenant_key, all_tenants=all_tenants)
         return self._wrap_many(items), total
 
+    def list_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
+        all_tenants: bool = False,
+        after: str | None = None,
+    ) -> list[TModel]:
+        """One ``_key``-ordered page **without** the count query (MT-035, #2131).
+
+        :meth:`get_all` answers ``(rows, total)`` and pays for ``total`` with a
+        second scan of every row the filter matches — on every page. The list
+        routes answer a bare array and threw that number away. This is the same
+        window without the count: ``include_total=false`` as a method.
+
+        ``after`` is the keyset cursor (the ``key`` of the last row of the
+        previous page); ``offset`` should be ``0`` with it — the route dependency
+        :func:`app.common.pagination.get_cursor_pagination` refuses the
+        combination. Tenant scope is enforced exactly as in :meth:`get_all`.
+        """
+        return self._wrap_many(self._window_docs(offset, limit, tenant_key, all_tenants=all_tenants, after=after))
+
     def get_page(
         self,
         *,
@@ -798,21 +1044,160 @@ class BaseArangoRepository[TModel: BaseModel]:
 
         Generalises :meth:`get_all` for the hand-written ``FILTER … SORT …
         LIMIT`` list queries in the multi-collection repositories.
+        :meth:`get_page_window` is the same page without the count.
         """
-        builder = AQLBuilder(self._collection_name)
-        for field, op, value in filters or []:
-            builder.filter(field, op, value)
-        builder.sort(sort, sort_direction).paginate(offset, limit)
+        items = self.get_page_window(
+            offset=offset, limit=limit, filters=filters, sort=sort, sort_direction=sort_direction
+        )
 
-        query, bind_vars = builder.build_list()
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        items = [self._from_doc(doc) for doc in cursor]
-
+        builder = self._page_builder(offset, limit, filters, sort, sort_direction)
         count_query, count_vars = builder.build_count()
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
         total = next(count_cursor, 0)
 
-        return self._wrap_many(items), total
+        return items, total
+
+    def get_page_window(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        filters: list[FilterTriple] | None = None,
+        sort: str = "_key",
+        sort_direction: SortDirection = "ASC",
+    ) -> list[TModel]:
+        """The page :meth:`get_page` reads, **without** the count query (MT-035, #2131).
+
+        :meth:`get_page` pays for its ``total`` with a second scan of every row
+        the filters match, on every page. A list route answers a bare array and
+        never reads that number; this is the same window (same filters, order
+        and ``LIMIT``) without the scan: ``include_total=false`` as a method.
+        """
+        return self._wrap_many(self._page_docs(offset, limit, filters, sort, sort_direction))
+
+    def _page_docs(
+        self,
+        offset: int,
+        limit: int,
+        filters: list[FilterTriple] | None,
+        sort: str,
+        sort_direction: SortDirection,
+    ) -> list[dict[str, Any]]:
+        """The normalised documents of one :meth:`_page_builder` window (no count)."""
+        query, bind_vars = self._page_builder(offset, limit, filters, sort, sort_direction).build_list()
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [self._from_doc(doc) for doc in cursor]
+
+    def iter_for_tenants(
+        self,
+        tenant_keys: Collection[str],
+        *,
+        filters: list[FilterTriple] | None = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        max_pages: int = MAX_PAGES,
+    ) -> Iterator[TModel]:
+        """The rows of exactly ``tenant_keys``, one keyset page at a time (MT-032, #2128).
+
+        A beat task used to read every tenant's rows into one list
+        (``get_all_pages(repo, all_tenants=True)``) and drop the rows of a closed
+        tenant in Python, so the worker's memory grew with the installation and the
+        rows it threw away were loaded first. This filters the tenant (and any
+        ``filters``) in AQL and hands out one ``page_size`` window at a time: the
+        worker holds a page, never the collection.
+
+        Paging is a keyset cursor on ``_key`` (``FILTER doc._key > @after``), not an
+        offset, so a caller that writes the rows it is iterating (a field update, a
+        delete) cannot shift a later window and skip a row. No count query is paid.
+
+        An empty ``tenant_keys`` (or one holding only empty keys) reads nothing: a
+        row without a tenant is never selected, so the method cannot widen into an
+        unscoped read (SEC-B4).
+
+        A document that fails model validation is skipped and logged (its ``_key`` and
+        the failing field names, never a value) instead of ending the walk: one bad row
+        must not hide every row behind it — for the control loop, the safe state of every
+        later tenant's device (SEC-003).
+
+        Raises :class:`PagingCeilingError` (logged first) when more rows exist after
+        ``max_pages`` full pages; exactly ``max_pages * page_size`` rows is not an error.
+        """
+        keys = sorted({key for key in tenant_keys if key})
+        if not keys:
+            if page_size < 1:
+                raise ValueError("page_size must be >= 1")
+            return
+        yield from self._keyset_walk(("tenant_key", "IN", keys), filters, page_size, max_pages)
+
+    def iter_without_tenant(
+        self,
+        *,
+        filters: list[FilterTriple] | None = None,
+        page_size: int = DEFAULT_PAGE_SIZE,
+        max_pages: int = MAX_PAGES,
+    ) -> Iterator[TModel]:
+        """The rows that carry no tenant (``tenant_key`` empty or missing), walked like :meth:`iter_for_tenants`.
+
+        The counterpart a beat asks deliberately when a row nobody owns still needs the
+        installation sweep — the control loop drives such a device to a safe state
+        (MT-032, #2128). It never selects a row that belongs to a tenant.
+        """
+        yield from self._keyset_walk(("tenant_key", "IN", [None, ""]), filters, page_size, max_pages)
+
+    def _keyset_walk(
+        self,
+        scope: FilterTriple,
+        filters: list[FilterTriple] | None,
+        page_size: int,
+        max_pages: int,
+    ) -> Iterator[TModel]:
+        if page_size < 1:
+            raise ValueError("page_size must be >= 1")
+        base: list[FilterTriple] = [scope, *(filters or [])]
+        after: str | None = None
+        for _ in range(max_pages):
+            page_filters = base if after is None else [*base, ("_key", ">", after)]
+            docs = self._page_docs(0, page_size, page_filters, "_key", "ASC")
+            yield from self._wrap_each_or_skip(docs)
+            if len(docs) < page_size:
+                return
+            after = str(docs[-1]["_key"])
+        # ``max_pages`` full pages: the collection may end exactly here. One row more decides.
+        if not self._page_docs(0, 1, [*base, ("_key", ">", after)], "_key", "ASC"):
+            return
+        logger.error("iter_for_tenants_ceiling", collection=self._collection_name, max_pages=max_pages)
+        raise PagingCeilingError(f"tenant walk hit {max_pages} pages of {page_size} rows without reaching the end")
+
+    def _wrap_each_or_skip(self, docs: list[dict[str, Any]]) -> Iterator[TModel]:
+        """Wrap document by document; one that fails validation is logged and skipped."""
+        for doc in docs:
+            try:
+                row = self._wrap(doc)
+            except PydanticValidationError as exc:
+                logger.warning(
+                    "tenant_walk_skipped_invalid_document",
+                    collection=self._collection_name,
+                    key=doc.get("_key"),
+                    fields=sorted({".".join(str(part) for part in error["loc"]) for error in exc.errors()}),
+                )
+                continue
+            yield row
+
+    def _page_builder(
+        self,
+        offset: int,
+        limit: int,
+        filters: list[FilterTriple] | None,
+        sort: str,
+        sort_direction: SortDirection,
+    ) -> AQLBuilder:
+        # A non-unique sort value (``created_at``) gets ``_key`` as the second
+        # criterion, so a pager walks a total order and no row lands on two
+        # pages or on none (MT-035, #2131).
+        builder = AQLBuilder(self._collection_name)
+        for field, op, value in filters or []:
+            builder.filter(field, op, value)
+        builder.sort(sort, sort_direction, tiebreak_key=sort != "_key").paginate(offset, limit)
+        return builder
 
     def create(
         self,
@@ -899,6 +1284,7 @@ class BaseArangoRepository[TModel: BaseModel]:
         offset: int | None = None,
         limit: int | None = None,
         extra_filters: list[FilterTriple] | None = None,
+        tiebreak_key: bool = False,
     ) -> list[TModel]:
         """Find documents where ``field == value`` (plus optional extras).
 
@@ -916,6 +1302,7 @@ class BaseArangoRepository[TModel: BaseModel]:
             sort_direction=sort_direction,
             offset=offset,
             limit=limit,
+            tiebreak_key=tiebreak_key,
         )
         return self._wrap_many(docs)
 
@@ -972,6 +1359,49 @@ class BaseArangoRepository[TModel: BaseModel]:
                 raise mapped from exc
             raise
         return result["new"]
+
+    def create_edge_if_absent(
+        self,
+        edge_collection: str,
+        from_id: str,
+        to_id: str,
+        data: dict[str, Any] | None = None,
+    ) -> bool:
+        """Create the edge unless ``from_id -> to_id`` already exists; ``True`` when created.
+
+        For relations whose identity is the vertex pair alone, written by code that
+        runs more than once (a seed on every boot). :meth:`create_edge` never
+        rejects a second edge between the same vertices on a collection without a
+        unique index on the pair, so a caller that wrapped it in ``try/except`` to mean
+        "this exists already" was writing the whole set again on every run (#1956).
+
+        The look-before-write alone holds only sequentially: two replicas booting at
+        once both read "absent" and both insert (#2001). Where the collection carries
+        a unique index on the vertex pair (``collections.UNIQUE_PAIR_EDGE_COLLECTIONS``)
+        the storage layer refuses the loser, and that refusal is read here as "exists"
+        — ``DuplicateError`` always, ``WriteConflictError`` only once a re-read shows
+        the winner's edge (a conflict says the other writer *held* the entry, never
+        that it committed).
+        """
+        if self._edge_exists(edge_collection, from_id, to_id):
+            return False
+        try:
+            self.create_edge(edge_collection, from_id, to_id, data)
+        except DuplicateError:
+            return False
+        except WriteConflictError:
+            if self._edge_exists(edge_collection, from_id, to_id):
+                return False
+            raise
+        return True
+
+    def _edge_exists(self, edge_collection: str, from_id: str, to_id: str) -> bool:
+        """Whether an edge ``from_id -> to_id`` exists in ``edge_collection``."""
+        cursor = self._db.aql.execute(
+            "FOR e IN @@edge_col FILTER e._from == @from_id AND e._to == @to_id LIMIT 1 RETURN 1",
+            bind_vars={"@edge_col": edge_collection, "from_id": from_id, "to_id": to_id},
+        )
+        return next(iter(cursor), None) is not None
 
     def get_edges(self, edge_collection: str, vertex_id: str, direction: str = "outbound") -> list[dict[str, Any]]:
         query = f"""

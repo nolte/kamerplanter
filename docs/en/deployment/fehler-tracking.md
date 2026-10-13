@@ -66,8 +66,11 @@ Error events can contain personal data, so filtering happens at the SDK boundary
 
 - **Request bodies and cookies** are dropped wholesale. A request body is the richest source of personal data this application has — plant notes, harvest records, invitations.
 - **Headers** follow an allow-list (`Content-Type`, `User-Agent` and a few more). A header some future proxy adds is therefore withheld by default, instead of leaking until someone remembers to block it.
-- **Query parameters, stack-frame locals and context fields** are redacted by *name* (`token`, `password`, `email`, `secret`, …). The key stays visible, the value does not — so a reader can tell a credential was present there.
-- **Of the user**, only `id` and tenant survive. They make an issue actionable; name, email and IP address do not.
+- **The request address** is the route pattern, never the requested path: the event URL and transaction name read `/api/v1/t/{tenant_slug}/attachments/{key}/…`, not the path with tenant slug and download token (the token *is* the authorisation). When the framework supplied no pattern (a 404, an error before routing), the backend reduces the path to fixed route segments as in its access logs. Method, host and status code stay.
+- **Query parameters** keep only their name, every value is redacted — also the raw query of outbound requests in breadcrumbs (`http.query`). **Context fields** are redacted by *name* (`token`, `password`, `email`, `secret`, …), in nested structures too. The key stays visible, the value does not — so a reader can tell a credential was present there.
+- **Stack-frame locals** are not sent. A variable's name does not say what it holds — `url` or `html` in a mail adapter hold the password-reset link. An event therefore shows files, functions and lines, but no runtime values.
+- **Exception texts and log messages** go through the same cleanup as the log lines, in the backend and the Celery worker: an error message from the application's own domain logic appears only as its error code, email addresses become digests, query strings and credentials in URLs (in the path too, such as a Telegram bot token) become `<redacted>`. The same holds for breadcrumbs. The two side services (inference-service, knowledge-service) apply a simpler cleanup that recognises shapes only: credentials and query strings in URLs, a Telegram-style token in a path, email addresses (as `<email>`). Free text such as a search question has no shape and is not hidden there. Uncaught tracebacks that these services print to stderr go through the same cleanup, and dictionary keys, tags and contexts of an event are cleaned like values.
+- **Of the user**, the backend sends pseudonyms only, and only with that person's `error_tracking` consent (privacy settings): `user.id` is the account reference `sub_…`, `user.tenant` the tenant reference `ten_…` of the request — the same values as in the log lines, never the keys. Without consent, or when it cannot be read, the event leaves without a user block. They make an issue actionable and attributable to a tenant; name, email and IP address do not. Whatever the SDK or an integration writes into the user block itself is dropped. Events of the Celery worker and of the side services carry no user block.
 - **Input breadcrumbs** (`ui.input`) are discarded entirely in the browser.
 
 The rules run in **every** environment, including locally. A filter that is only switched on at go-live is an untested filter.
@@ -85,9 +88,20 @@ A log sink. Only errors and deliberately captured events belong there; INFO and 
 | Backend (FastAPI) | Uncaught exceptions in any request, plus startup failures |
 | Celery worker and beat | Failed background jobs — the least visible failure class there is, because nobody is waiting on a response |
 | Inference and knowledge service | The same, each with its own `component` tag |
-| Frontend | Uncaught errors, rejected promises, and every render failure an error boundary catches |
+| Frontend | Uncaught errors, rejected promises, and every render failure an error boundary catches — only once the person in the browser has consented to error analysis (see below) |
 
 The frontend's error boundaries report explicitly: a boundary that renders a fallback has, from every global handler's point of view, made the error disappear — the user sees a tidy card and nobody is told the widget is broken.
+
+## Consent in the frontend
+
+In the browser the DSN alone is not enough: the frontend loads and starts its SDK only once the person has consented to **error analysis** (`error_tracking`). As long as they have not decided, or have declined, the browser does not download the SDK bundle and no error report leaves it.
+
+- **Where it is asked:** with a DSN set, a consent banner appears at the bottom on the first visit, offering "Accept all", "Necessary only" and "Settings" — already on the login page. Without a DSN there is no banner, because then there is nothing in the browser to consent to.
+- **Light mode:** no banner appears here (the GDPR household exemption), and in Light mode the frontend reports no errors — not even when the browser still holds a consent from before the switch to Light mode. The backend keeps reporting.
+- **Revoking:** under **Privacy → Consents** there is the switch "Allow error analysis". Turning it off stops reporting at once, without a reload, also in other open tabs of the same browser. Turning it on starts it the same way.
+- **Per browser:** the decision lives in the browser's `localStorage` (`kamerplanter:consent:v1`) and applies there only. It is not yet reconciled with the server-side consent the backend reads for the user block; that is an open follow-up.
+
+For you as the operator this means: after setting the DSN, frontend errors only arrive from people who consented. A quiet frontend area in the tracker can therefore also mean "nobody consented".
 
 ## Verifying it works
 
@@ -95,5 +109,5 @@ There is no test button. The reliable path:
 
 1. Set `SENTRY_DSN` and restart the containers.
 2. Backend: the logs contain `error_tracking: enabled for backend (environment=…, release=…)`.
-3. Frontend: the browser's network tab shows an additional JavaScript bundle — that is the lazily loaded SDK. If it does not appear, the DSN never reached `runtime-config.js`.
+3. Frontend: open the application in a private window. The consent banner appears — if it does not, the DSN never reached `runtime-config.js`. Click "Accept all": only now does the browser's network tab show an additional JavaScript bundle, the lazily loaded SDK.
 4. Provoke a failure and check that it arrives. If it does not, look at the NetworkPolicy first (backend) or the Content-Security-Policy (frontend, visible as a CSP violation in the browser console).

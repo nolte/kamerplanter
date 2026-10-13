@@ -1,5 +1,12 @@
 import { tenantClient as client } from '../client';
-import type { CalendarEventsResponse, CalendarFeed, SowingCalendarResponse, SeasonOverviewResponse } from '../types';
+import type {
+  CalendarEventsResponse,
+  CalendarFeed,
+  CalendarFeedFilters,
+  CalendarFeedIssued,
+  SowingCalendarResponse,
+  SeasonOverviewResponse,
+} from '../types';
 
 export async function getCalendarEvents(
   start: string,
@@ -16,9 +23,9 @@ export async function getCalendarEvents(
 
 export async function createCalendarFeed(
   name: string,
-  filters: { categories: string[]; site_key: string | null },
-): Promise<CalendarFeed> {
-  const response = await client.post<CalendarFeed>('/calendar/feeds', { name, filters });
+  filters: CalendarFeedFilters,
+): Promise<CalendarFeedIssued> {
+  const response = await client.post<CalendarFeedIssued>('/calendar/feeds', { name, filters });
   return response.data;
 }
 
@@ -40,7 +47,7 @@ export async function getCalendarFeed(key: string): Promise<CalendarFeed> {
 
 export async function updateCalendarFeed(
   key: string,
-  body: { name: string; filters: { categories: string[]; site_key: string | null }; is_active: boolean },
+  body: { name: string; filters: CalendarFeedFilters; is_active: boolean },
 ): Promise<CalendarFeed> {
   const response = await client.put<CalendarFeed>(`/calendar/feeds/${key}`, body);
   return response.data;
@@ -50,8 +57,8 @@ export async function deleteCalendarFeed(key: string): Promise<void> {
   await client.delete(`/calendar/feeds/${key}`);
 }
 
-export async function regenerateCalendarFeedToken(key: string): Promise<CalendarFeed> {
-  const response = await client.post<CalendarFeed>(`/calendar/feeds/${key}/regenerate-token`);
+export async function regenerateCalendarFeedToken(key: string): Promise<CalendarFeedIssued> {
+  const response = await client.post<CalendarFeedIssued>(`/calendar/feeds/${key}/regenerate-token`);
   return response.data;
 }
 

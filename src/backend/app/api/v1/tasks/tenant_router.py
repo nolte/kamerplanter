@@ -40,8 +40,8 @@ from app.api.v1.tasks.schemas import (
     WorkflowTemplateUpdate,
 )
 from app.common.auth import get_current_tenant, get_current_user, require_permission
-from app.common.dependencies import get_task_entity_guard, get_task_service
-from app.common.enums import TaskOrigin
+from app.common.dependencies import get_species_service, get_task_entity_guard, get_task_service
+from app.common.enums import TaskCategory, TaskOrigin, TaskStatus
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
@@ -50,6 +50,7 @@ from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
+from app.domain.services.species_service import SpeciesService
 from app.domain.services.task_entity_guard import TaskEntityGuard
 from app.domain.services.task_service import TaskService
 
@@ -101,7 +102,7 @@ def list_workflows(
     service: TaskService = Depends(get_task_service),
 ):
     """List the tenant's workflow templates with usage stats (paginated)."""
-    templates, _ = service.list_workflow_templates(
+    templates = service.list_workflow_templates_window(
         pagination.offset,
         pagination.limit,
         species_key=species_key,
@@ -109,7 +110,7 @@ def list_workflows(
         target_entity_type=target_entity_type,
     )
     wf_keys = [wt.key for wt in templates if wt.key]
-    usage_map = service.get_workflow_usage_stats(wf_keys) if wf_keys else {}
+    usage_map = service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key) if wf_keys else {}
     result = []
     for wt in templates:
         resp = _wf_response(wt)
@@ -125,8 +126,13 @@ def create_workflow(
     body: WorkflowTemplateCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    species_service: SpeciesService = Depends(get_species_service),
 ):
     """Create a workflow template for the tenant."""
+    # The species the template is bound to must be one the tenant may read —
+    # global, own or granted (#1871 B10); it used to be stored as given.
+    if body.species_key:
+        species_service.get_species(body.species_key, tenant_key=ctx.tenant_key)
     wt = WorkflowTemplate(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_workflow_template(wt)
     return _wf_response(created)
@@ -152,7 +158,7 @@ def update_workflow(
     """Update a workflow template."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_workflow_template(key, data)
+    updated = service.update_workflow_template(key, data, tenant_key=ctx.tenant_key)
     return _wf_response(updated)
 
 
@@ -164,7 +170,7 @@ def delete_workflow(
 ):
     """Delete a workflow template."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    service.delete_workflow_template(key)
+    service.delete_workflow_template(key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 
@@ -176,7 +182,6 @@ def duplicate_workflow(
     service: TaskService = Depends(get_task_service),
 ):
     """Duplicate a workflow template under a new name."""
-    service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     duplicated = service.duplicate_workflow_template(key, name, tenant_key=ctx.tenant_key)
     return _wf_response(duplicated)
 
@@ -184,12 +189,15 @@ def duplicate_workflow(
 @router.get("/workflows/{key}/executions", response_model=list[WorkflowExecutionListItem])
 def list_workflow_executions(
     key: Annotated[str, Path(description="Document key of the workflow template.")],
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List a workflow template's executions with enriched entity info."""
+    """List a workflow template's executions, newest first, with enriched entity info (paginated, MT-035)."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    return service.get_executions_for_template(key)
+    return service.get_executions_for_template(
+        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+    )
 
 
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)
@@ -198,13 +206,22 @@ def instantiate_workflow(
     body: WorkflowInstantiateRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    entity_guard: TaskEntityGuard = Depends(get_task_entity_guard),
 ):
-    """Instantiate a workflow template for a target entity."""
+    """Instantiate a workflow template for a target entity.
+
+    The target is anchored in the caller's tenant before anything is written
+    (#1708), exactly as ``POST /tasks`` anchors its binding (#1102): a foreign
+    entity key is a 404, so an execution — and tasks that would then surface in
+    the *other* tenant's views — can no longer be attached to it.
+    """
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
+    entity_guard.verify(body.entity_type, body.entity_key, tenant_key=ctx.tenant_key)
     execution = service.instantiate_workflow(
         key,
         entity_key=body.entity_key,
         entity_type=body.entity_type,
+        tenant_key=ctx.tenant_key,
     )
     return _we_response(execution)
 
@@ -231,9 +248,8 @@ def create_workflow_phase(
     service: TaskService = Depends(get_task_service),
 ):
     """Create a phase within a workflow template."""
-    service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
     phase = WorkflowPhase(**body.model_dump(), workflow_template_key=wf_key)
-    return _phase_response(service.create_workflow_phase(phase))
+    return _phase_response(service.create_workflow_phase(phase, tenant_key=ctx.tenant_key))
 
 
 @router.get("/phases/suggestions", response_model=list[WorkflowPhaseSuggestion])
@@ -242,7 +258,7 @@ def list_phase_suggestions(
     service: TaskService = Depends(get_task_service),
 ):
     """List suggested workflow phases for building templates."""
-    return service.get_phase_suggestions()
+    return service.get_phase_suggestions(tenant_key=ctx.tenant_key)
 
 
 @router.put("/phases/reorder", response_model=list[WorkflowPhaseResponse])
@@ -264,9 +280,9 @@ def update_workflow_phase(
     service: TaskService = Depends(get_task_service),
 ):
     """Update a workflow phase."""
-    phase = service.get_workflow_phase(key)
-    service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
-    return _phase_response(service.update_workflow_phase(key, body.model_dump(exclude_none=True)))
+    return _phase_response(
+        service.update_workflow_phase(key, body.model_dump(exclude_none=True), tenant_key=ctx.tenant_key)
+    )
 
 
 @router.delete("/phases/{key}", status_code=204)
@@ -276,9 +292,7 @@ def delete_workflow_phase(
     service: TaskService = Depends(get_task_service),
 ):
     """Delete a workflow phase."""
-    phase = service.get_workflow_phase(key)
-    service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
-    service.delete_workflow_phase(key)
+    service.delete_workflow_phase(key, tenant_key=ctx.tenant_key)
     return Response(status_code=204)
 
 
@@ -353,14 +367,32 @@ def delete_task_template(
 @router.get("", response_model=list[TaskResponse])
 def list_tasks(
     pagination: PaginationParams = Depends(get_pagination),
-    status: str | None = Query(default=None, description="Filter by task status."),
-    category: str | None = Query(default=None, description="Filter by task category."),
+    status: TaskStatus | None = Query(default=None, description="Filter by task status."),
+    category: TaskCategory | None = Query(default=None, description="Filter by task category."),
     entity_type: str | None = Query(default=None, description="Filter by linked entity type."),
     entity_key: str | None = Query(default=None, description="Filter by linked entity key."),
+    origin: list[TaskOrigin] | None = Query(
+        default=None,
+        description=(
+            "Filter by task provenance (repeatable). "
+            "The UI's machine-generated selection is `origin=system&origin=pipeline`."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List the tenant's tasks (paginated), optionally filtered."""
+    """List the tenant's tasks (paginated), optionally filtered.
+
+    ``origin`` was the one narrowing the completed-task list still had to do over
+    the answer, and this list is capped too (the page asks for 100 rows), so the
+    same #1503 argument applies: the predicate belongs in the query.
+
+    ``status`` and ``category`` are typed as their enums for the reason REQ-006
+    gives for the new parameters: a value the store cannot hold is rejected at the
+    boundary. As free strings they answered **200 with an empty list**, so a typo
+    (``complete`` for ``completed``) was indistinguishable from "no such tasks" —
+    the failure mode the whole #1503 class is about, one layer up.
+    """
     filters: dict[str, str] = {}
     if status:
         filters["status"] = status
@@ -370,7 +402,13 @@ def list_tasks(
         filters["entity_type"] = entity_type
     if entity_key:
         filters["entity_key"] = entity_key
-    tasks, _ = service.list_tasks(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    tasks = service.list_tasks_window(
+        pagination.offset,
+        pagination.limit,
+        filters or None,
+        tenant_key=ctx.tenant_key,
+        origins=origin,
+    )
     return [_task_response(t) for t in tasks]
 
 
@@ -380,7 +418,7 @@ def _resolve_task_provenance(body: TaskCreate, user: User) -> tuple[TaskOrigin, 
     ``origin`` is NEVER trusted from the request body (#1000-class spoofing); it is
     derived from the caller's ``account_type`` (REQ-023 M2M):
 
-    * **Interactive user** (``account_type == "user"``) → ``origin`` forced to
+    * **Interactive user** (``account_type == "human"``) → ``origin`` forced to
       ``USER`` and the machine-provenance fields (``source`` / ``source_run_ref`` /
       ``external_ref``) cleared. A human's task carries no producer identity, and a
       human must not be able to write into the ``(tenant, source, external_ref)``
@@ -465,11 +503,34 @@ def create_task(
 @router.get("/queue", response_model=list[TaskResponse])
 def get_task_queue(
     plant_key: str | None = Query(default=None, description="Restrict the queue to a single plant instance."),
+    category: TaskCategory | None = Query(default=None, description="Restrict the queue to one task category."),
+    origin: list[TaskOrigin] | None = Query(
+        default=None,
+        description=(
+            "Restrict the queue to these provenances (repeatable). "
+            "The UI's machine-generated selection is `origin=system&origin=pipeline`."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """Return the prioritized task queue, optionally scoped to one plant."""
-    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key)
+    """Return the prioritized task queue, optionally scoped and narrowed.
+
+    All three parameters are *scopes of the query*, not descriptions of what the
+    caller intends to keep. The unscoped queue answers at most
+    :data:`~app.domain.services.task_service.QUEUE_LIMIT` rows, so a caller that
+    fetched the page and narrowed it afterwards saw only what the cap had already
+    let through — a matching task sorting past the cut was never in the payload
+    (#1503, the shape #1484 closed for ``plant_key``).
+
+    ``origin`` is repeatable because the provenance filter is a **partition**:
+    "machine-generated" is ``system`` *and* ``pipeline``, and answering it must
+    not cost the caller two requests whose union it then assembles — which would
+    reintroduce the cap problem once each half is capped. Both parameters are
+    typed as their enums, so a value the store cannot hold is a 422 at the
+    boundary rather than a silently empty list.
+    """
+    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key, category=category, origins=origin)
     return [_task_response(t) for t in tasks]
 
 
@@ -513,15 +574,18 @@ def get_overdue_tasks(
 def get_tasks_for_plant(
     plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     status: str | None = Query(default=None, description="Filter by task status."),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """List the tasks of a plant instance, optionally filtered by status.
+    """List the tasks of a plant instance by due date, optionally filtered by status (paginated, MT-035).
 
     A ``plant_key`` belonging to another tenant yields an empty list — the tenant
     scope is enforced in the repository query (#927).
     """
-    tasks = service.get_tasks_for_plant(plant_key, status, tenant_key=ctx.tenant_key)
+    tasks = service.get_tasks_for_plant(
+        plant_key, status, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+    )
     return [_task_response(t) for t in tasks]
 
 
@@ -675,8 +739,20 @@ def clone_task(
     body: TaskCloneRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
     service: TaskService = Depends(get_task_service),
+    entity_guard: TaskEntityGuard = Depends(get_task_entity_guard),
 ):
     """Clone a task, optionally onto another entity and with a due-date offset."""
+    # SEC-I01 applies to a clone as to a create (#1864 sweep): a retargeted clone
+    # binds a caller-supplied entity and writes a `has_task` edge from it. The
+    # pair the clone will carry — target, or the source's for what the body
+    # leaves out — is verified before the task is built.
+    if body.target_entity_key or body.target_entity_type:
+        source = service.get_task(key, tenant_key=ctx.tenant_key)
+        entity_guard.verify(
+            body.target_entity_type or source.entity_type,
+            body.target_entity_key or source.entity_key,
+            tenant_key=ctx.tenant_key,
+        )
     cloned = service.clone_task(
         key,
         due_date_offset_days=body.due_date_offset_days,
@@ -767,8 +843,12 @@ def get_workflow_execution(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
-    """Return a single workflow execution by key."""
-    return _we_response(service.get_workflow_execution(key))
+    """Return one of the tenant's workflow executions by key.
+
+    The execution belongs to the owner of the entity it runs on (#1714); a
+    foreign or orphaned execution answers the same 404 as an unknown key.
+    """
+    return _we_response(service.get_workflow_execution(key, tenant_key=ctx.tenant_key))
 
 
 @router.post("/executions/{key}/tasks", response_model=TaskResponse, status_code=201)
@@ -778,7 +858,10 @@ def add_task_to_workflow(
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Add an ad-hoc task to a running workflow execution."""
+    """Add an ad-hoc task to one of the tenant's running workflow executions.
+
+    A foreign or orphaned execution is a 404 and nothing is written (#1714).
+    """
     task = Task(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.add_task_to_workflow_execution(key, task)
+    created = service.add_task_to_workflow_execution(key, task, tenant_key=ctx.tenant_key)
     return _task_response(created)

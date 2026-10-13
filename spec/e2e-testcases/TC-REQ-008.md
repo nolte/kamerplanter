@@ -1852,7 +1852,7 @@ REQ-008 setzt REQ-007 (Ernte) voraus: Post-Harvest beginnt mit einem Batch, der 
 2. Nutzer klickt im Seitennavigationsmenue auf "Dashboard"
 
 **Erwartete Ergebnisse**:
-- Ein Browser-Dialog oder ein MUI-Bestaedigungsdialog erscheint: "Sie haben ungespeicherte Aenderungen. Moechten Sie die Seite wirklich verlassen?"
+- Ein Browser-Dialog oder ein MUI-Bestaedigungsdialog erscheint: "Du hast ungespeicherte Aenderungen. Moechtest du die Seite wirklich verlassen?"
 - Nutzer klickt "Abbrechen" → verbleibt auf der aktuellen Seite, Formulardaten bleiben erhalten
 - Nutzer klickt "Verlassen" → Navigation wird ausgefuehrt, Formulardaten werden verworfen
 

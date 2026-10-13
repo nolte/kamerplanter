@@ -16,11 +16,12 @@ router = APIRouter(prefix="/slots", tags=["slots"], responses=NOT_FOUND_RESPONSE
 
 
 def _verify_slot_tenant(key: str, ctx: TenantContext, service: SiteService) -> Slot:
-    """Get a slot and verify it belongs to a location whose site is owned by the tenant."""
-    slot = service.get_slot(key)
-    loc = service.get_location(slot.location_key)
-    service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
-    return slot
+    """The slot ``key`` if its location's site is the tenant's, else 404 as ``Slot`` (#1871 B13).
+
+    One step through the anchor, so a foreign and an unknown slot give the same
+    answer and no other tenant's site key is echoed.
+    """
+    return service.get_slot(key, tenant_key=ctx.tenant_key)
 
 
 @router.get("", response_model=list[SlotResponse])
@@ -30,9 +31,7 @@ def list_slots(
     service: SiteService = Depends(get_site_service),
 ):
     """List the slots of a location."""
-    loc = service.get_location(location_key)
-    service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
-    items = service.list_slots(location_key)
+    items = service.list_slots(location_key, tenant_key=ctx.tenant_key)
     return [to_response(s, SlotResponse) for s in items]
 
 
@@ -54,10 +53,8 @@ def create_slot(
     service: SiteService = Depends(get_site_service),
 ):
     """Create a slot within a location."""
-    loc = service.get_location(body.location_key)
-    service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
     slot = Slot(**body.model_dump())
-    created = service.create_slot(slot)
+    created = service.create_slot(slot, tenant_key=ctx.tenant_key)
     return to_response(created, SlotResponse)
 
 
@@ -69,9 +66,11 @@ def update_slot(
     service: SiteService = Depends(get_site_service),
 ):
     """Update a slot."""
-    _verify_slot_tenant(key, ctx, service)
+    # The slot and the body's location are both resolved under the tenant in the
+    # service (#1871 B1, #2107): storing the location as given re-parented the slot
+    # into another tenant's location.
     slot = Slot(**body.model_dump())
-    updated = service.update_slot(key, slot)
+    updated = service.update_slot(key, slot, tenant_key=ctx.tenant_key)
     return to_response(updated, SlotResponse)
 
 
@@ -82,5 +81,4 @@ def delete_slot(
     service: SiteService = Depends(get_site_service),
 ):
     """Delete a slot."""
-    _verify_slot_tenant(key, ctx, service)
-    service.delete_slot(key)
+    service.delete_slot(key, tenant_key=ctx.tenant_key)

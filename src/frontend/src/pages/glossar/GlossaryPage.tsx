@@ -5,13 +5,22 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { glossaryApi } from '@/api';
 import type { GlossaryExpertiseLevel, GlossaryTermSummary } from '@/api/types';
 import AIResponse from '@/components/ai/AIResponse';
+import {
+  aiUnavailableMessage,
+  aiUnavailableReason,
+  resolveAiErrorMessage,
+  type AiUnavailableReason,
+} from '@/components/ai/aiErrorMessage';
+import { apiLanguage } from '@/i18n/apiLanguage';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -19,6 +28,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import { kamiGlossar } from '@/assets/brand/illustrations';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useGlossaryTerm } from '@/hooks/useGlossaryTerm';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useAppSelector } from '@/store/hooks';
 
 /**
  * REQ-035 §5.2 — `<GlossaryPage>` term browser.
@@ -33,7 +44,7 @@ export default function GlossaryPage() {
   const { level } = useExpertiseLevel();
 
   const language = useMemo<'de' | 'en'>(
-    () => (i18n.language.startsWith('en') ? 'en' : 'de'),
+    () => apiLanguage(i18n.language),
     [i18n.language],
   );
   const expertise = level as GlossaryExpertiseLevel;
@@ -76,6 +87,45 @@ export default function GlossaryPage() {
   }, [terms]);
 
   const detail = useGlossaryTerm(selectedSlug, language, expertise);
+  const { canEdit } = useTenantPermissions();
+
+  // #2175 follow-up — generating sits behind the garden's AI switch (stage 2,
+  // `403 AI_DISABLED_FOR_TENANT`) and the operator flag (stage 1, `404`). There
+  // is no frontend source for the garden switch, so a refusal for either reason
+  // is remembered for the page's lifetime (the hook forgets its failure when
+  // another term opens) and the control is withdrawn instead of offering a retry
+  // that is refused the same way. The operator flag is also known up front from
+  // the availability probe. Adjusted during render, not in an effect: it is
+  // derived from the hook's state and must not lag a frame behind it.
+  const aiAvailable = useAppSelector((s) => s.aiStatus.available);
+  const [refusedReason, setRefusedReason] = useState<AiUnavailableReason | null>(null);
+  const failureReason =
+    detail.generateStatus === 'failed' ? aiUnavailableReason(detail.generateError) : null;
+  if (failureReason !== null && refusedReason === null) {
+    setRefusedReason(failureReason);
+  }
+  const generateUnavailable: AiUnavailableReason | null =
+    aiAvailable === false ? 'instance' : refusedReason;
+  // The pressed button unmounts when the refusal withdraws it; focus moves onto
+  // the reason that replaced it instead of falling to <body>.
+  const generateReasonRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (failureReason !== null) generateReasonRef.current?.focus();
+  }, [failureReason]);
+
+  // Review SCR-010 — a successful generate unmounts the button the user just
+  // pressed (the answer stops being a fallback), so keyboard focus would fall
+  // back to <body> and a screen-reader user would lose their place. Move it onto
+  // the answer heading, which is what they asked to have regenerated.
+  const answerHeadingRef = useRef<HTMLHeadingElement>(null);
+  const wasFallback = useRef(false);
+  useEffect(() => {
+    const isFallback = detail.answer?.is_fallback === true;
+    if (wasFallback.current && !isFallback && detail.answer) {
+      answerHeadingRef.current?.focus();
+    }
+    wasFallback.current = isFallback;
+  }, [detail.answer]);
 
   const handleBack = useCallback(() => setSelectedSlug(null), []);
 
@@ -129,7 +179,14 @@ export default function GlossaryPage() {
             )}
             {detail.answer && !detail.loading && !detail.error && (
               <Card sx={{ p: 3 }}>
-                <Typography variant="h5" component="h2" gutterBottom>
+                <Typography
+                  variant="h5"
+                  component="h2"
+                  gutterBottom
+                  ref={answerHeadingRef}
+                  tabIndex={-1}
+                  data-testid="glossary-detail-heading"
+                >
                   {detail.answer.long_label}
                 </Typography>
                 <AIResponse
@@ -158,6 +215,75 @@ export default function GlossaryPage() {
                       </Typography>
                     </Stack>
                   )}
+                  {/* #1460 — reading a term no longer generates its detailed
+                      explanation, so a fallback answer stays a fallback until
+                      somebody asks. Producing one is a write on the server
+                      (`require_permission(glossary, create)`), so the control is
+                      absent for a viewer rather than present and refused. */}
+                  {detail.answer.is_fallback && canEdit && generateUnavailable === null && (
+                    <Button
+                      size="small"
+                      startIcon={
+                        detail.generating ? (
+                          <CircularProgress size={16} color="inherit" />
+                        ) : (
+                          <AutoAwesomeIcon />
+                        )
+                      }
+                      onClick={() => void detail.generate()}
+                      disabled={detail.generating}
+                      aria-busy={detail.generating}
+                      sx={{ mt: 1, minHeight: 48 }}
+                      data-testid="glossary-detail-generate"
+                    >
+                      {t(
+                        detail.generateStatus === 'failed'
+                          ? 'ai.errors.retry'
+                          : 'pages.glossary.tooltip.generate',
+                      )}
+                    </Button>
+                  )}
+                  {/* Review SCR-001 — a refusal used to end in an empty `catch`,
+                      so a 403 (viewer, KI disabled, missing consent), a 429 or a
+                      502 all looked like "the button does nothing". The message
+                      lands inside the `aria-live` region above, so it is
+                      announced, and the control above turns into "try again". */}
+                  {detail.generateStatus === 'failed' && (
+                    <Box
+                      sx={{ mt: 1 }}
+                      ref={generateReasonRef}
+                      tabIndex={-1}
+                      data-testid="glossary-detail-generate-error"
+                    >
+                      <ErrorDisplay
+                        error={
+                          failureReason !== null
+                            ? aiUnavailableMessage(failureReason, t)
+                            : resolveAiErrorMessage(
+                                detail.generateError,
+                                t,
+                                t('ai.errors.generateFailed'),
+                              )
+                        }
+                      />
+                    </Box>
+                  )}
+                  {/* Why the control is missing, once the page knows it cannot work
+                      here — a grower would otherwise look for a button that is gone. */}
+                  {detail.answer.is_fallback &&
+                    canEdit &&
+                    generateUnavailable !== null &&
+                    detail.generateStatus !== 'failed' && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mt: 1 }}
+                        role="status"
+                        data-testid="glossary-detail-generate-unavailable"
+                      >
+                        {aiUnavailableMessage(generateUnavailable, t)}
+                      </Typography>
+                    )}
                   {detail.answer.related_terms.length > 0 && (
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mt: 2 }}>
                       {detail.answer.related_terms.map((related) => (

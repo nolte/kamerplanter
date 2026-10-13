@@ -73,6 +73,3 @@ class ArangoWeatherForecastRepository(BaseArangoRepository[WeatherForecast], IWe
             },
         )
         return [WeatherForecast(**self._from_doc(doc)) for doc in cursor]
-
-    def get(self, key: str) -> WeatherForecast | None:
-        return self.get_by_key(key)

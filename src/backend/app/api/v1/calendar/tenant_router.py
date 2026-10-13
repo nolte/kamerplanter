@@ -1,15 +1,19 @@
-from datetime import date
-from typing import Annotated
+import re
+from typing import Annotated, Literal
+from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 
-from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi import APIRouter, Depends, Path, Query
 
+from app.api.v1.calendar.feed_router import FEED_ICS_PATH
 from app.api.v1.calendar.schemas import (
     CalendarEventSchema,
     CalendarEventsResponse,
     CalendarFeedCreateRequest,
     CalendarFeedFiltersSchema,
+    CalendarFeedIssuedResponse,
     CalendarFeedResponse,
     CalendarFeedUpdateRequest,
+    CalendarQueryParams,
     FrostConfigSchema,
     MonthSummarySchema,
     SeasonOverviewResponse,
@@ -20,13 +24,14 @@ from app.api.v1.calendar.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.datetimes import today_utc
 from app.common.dependencies import get_calendar_service
-from app.common.enums import CalendarEventCategory
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.calendar import (
     CalendarEventsQuery,
     CalendarFeed,
     CalendarFeedFilters,
+    CalendarFeedIssued,
 )
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.calendar_service import CalendarService
@@ -59,47 +64,88 @@ def _default_calendar_year() -> int:
     return today_utc().year
 
 
-def _feed_response(
-    feed: CalendarFeed,
-    request: Request,
-) -> CalendarFeedResponse:
-    base_url = str(request.base_url).rstrip("/")
-    ical_url = f"{base_url}/api/v1/calendar/feeds/{feed.key}/feed.ics?token={feed.token}"
+def _feed_response(feed: CalendarFeed) -> CalendarFeedResponse:
+    """A feed for a read: names nothing secret, since the token is not kept (#2171)."""
     return CalendarFeedResponse(
         key=feed.key or "",
         name=feed.name,
-        token=feed.token,
         user_key=feed.user_key,
         filters=CalendarFeedFiltersSchema(
             categories=[c.value for c in feed.filters.categories],
-            site_key=feed.filters.site_key,
         ),
         is_active=feed.is_active,
-        ical_url=ical_url,
         created_at=feed.created_at,
         updated_at=feed.updated_at,
     )
 
 
+def feed_subscription_url(base_url: str, feed_key: str, token: str) -> str:
+    """The subscription URL of a feed: the public ``feed.ics`` route with the token (#2226).
+
+    Built from that route's own template (``FEED_ICS_PATH``) under the ``/api/v1``
+    mount, so the URL handed out here and the route that answers it cannot drift
+    apart again - the route was deleted in March 2026 while this one kept issuing
+    URLs to it. Both values are percent-encoded; neither is expected to need it.
+    """
+    path = FEED_ICS_PATH.format(key=quote(feed_key, safe=""))
+    return f"{public_base_url(base_url)}/api/v1{path}?{urlencode({'token': token})}"
+
+
+#: Hosts a subscription URL may name over plain ``http``: a developer's own machine.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+#: A configured base that already names ``http://`` or ``https://``.
+_HTTP_SCHEME = re.compile(r"https?://", re.IGNORECASE)
+
+
+def public_base_url(configured: str) -> str:
+    """The base of an issued subscription URL: the configured public URL, ``https`` unless loopback.
+
+    The URL carries a bearer secret (the feed token) and is pasted into
+    third-party calendar apps, so it is built from the operator's configured
+    public address (``APP_BASE_URL``, which already bases the OAuth callback),
+    never from the request's ``Host`` header (#2226 review SEC-004): a forged
+    ``Host`` or an internal hop's address would otherwise end up in the URL the
+    member copies. A plain ``http`` base is raised to ``https`` - a token sent
+    over ``http`` is readable on the way - except for ``localhost`` and the
+    loopback addresses a development stack runs on.
+
+    A value without an ``http(s)://`` scheme (``garden.example``) is not refused at
+    start (#2226 re-review I3: the settings only warn); it is read as a bare
+    authority and gets ``https`` - or ``http`` for loopback - instead of yielding a
+    relative URL that no calendar app can subscribe to.
+    """
+    value = configured.strip()
+    if not _HTTP_SCHEME.match(value):
+        value = "//" + value.split("://", 1)[-1].lstrip("/")
+    parts = urlsplit(value)
+    scheme = "http" if (parts.hostname or "") in _LOOPBACK_HOSTS else "https"
+    if parts.scheme.lower() == "https":
+        scheme = "https"
+    return urlunsplit((scheme, parts.netloc, parts.path.rstrip("/"), "", ""))
+
+
+def _issued_feed_response(issued: CalendarFeedIssued) -> CalendarFeedIssuedResponse:
+    """The create / rotate response: the one place the raw token and its URL appear (#2171)."""
+    feed = issued.feed
+    return CalendarFeedIssuedResponse(
+        **_feed_response(feed).model_dump(),
+        token=issued.token,
+        ical_url=feed_subscription_url(settings.app_base_url, feed.key or "", issued.token),
+    )
+
+
 @router.get("/events")
 def get_calendar_events(
-    start: date = Query(..., description="Inclusive start date of the query window."),
-    end: date = Query(..., description="Inclusive end date of the query window."),
-    category: str | None = Query(default=None, description="Comma-separated list of event categories to include."),
+    params: Annotated[CalendarQueryParams, Query()],
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarEventsResponse:
     """Return calendar events for the tenant within a date window."""
     svc: CalendarService = get_calendar_service()
-    categories: list[CalendarEventCategory] = []
-    if category:
-        for c in category.split(","):
-            c = c.strip()
-            if c:
-                categories.append(CalendarEventCategory(c))
     query = CalendarEventsQuery(
-        start_date=start,
-        end_date=end,
-        categories=categories,
+        start_date=params.start,
+        end_date=params.end,
+        categories=params.category,
         tenant_key=ctx.tenant_key,
     )
     events = svc.get_events(query)
@@ -136,7 +182,7 @@ def get_sowing_calendar(
     """Return the sowing calendar with per-species phase bars for a year."""
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _default_calendar_year()
-    entries, frost_config = svc.get_sowing_calendar(site_id, effective_year)
+    entries, frost_config = svc.get_sowing_calendar(site_id, effective_year, tenant_key=ctx.tenant_key)
     return SowingCalendarResponse(
         entries=[
             SowingCalendarEntrySchema(
@@ -176,7 +222,7 @@ def get_season_overview(
     """Return a month-by-month season overview with activity counts."""
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _default_calendar_year()
-    overview = svc.get_season_overview(site_id, effective_year)
+    overview = svc.get_season_overview(site_id, effective_year, tenant_key=ctx.tenant_key)
     return SeasonOverviewResponse(
         site_key=overview.site_key,
         site_name=overview.site_name,
@@ -200,63 +246,64 @@ def get_season_overview(
 @router.post("/feeds", status_code=201)
 def create_feed(
     body: CalendarFeedCreateRequest,
-    request: Request,
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.CREATE)),
-) -> CalendarFeedResponse:
-    """Create a subscribable iCal feed for the tenant's calendar."""
+) -> CalendarFeedIssuedResponse:
+    """Create a subscribable iCal feed; the response carries its token and URL, once."""
     svc: CalendarService = get_calendar_service()
-    cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
         name=body.name,
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,
-        filters=CalendarFeedFilters(categories=cats, site_key=body.filters.site_key),
+        filters=CalendarFeedFilters(categories=body.filters.categories),
     )
-    created = svc.create_feed(feed)
-    return _feed_response(created, request)
+    return _issued_feed_response(svc.create_feed(feed))
 
 
 @router.get("/feeds")
 def list_feeds(
-    request: Request,
+    scope: Annotated[
+        Literal["own", "all"],
+        Query(
+            description="`own` (default): the caller's feeds. `all`: every feed of the tenant - lead only, else 403."
+        ),
+    ] = "own",
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> list[CalendarFeedResponse]:
-    """List the tenant's calendar feeds."""
+    """List the caller's calendar feeds, or with ``?scope=all`` every feed of the tenant (lead, #2226)."""
     svc: CalendarService = get_calendar_service()
-    feeds = svc.list_feeds(ctx.user_key, ctx.tenant_key)
-    return [_feed_response(f, request) for f in feeds]
+    if scope == "all":
+        feeds = svc.list_tenant_feeds(tenant_key=ctx.tenant_key, role=ctx.role)
+    else:
+        feeds = svc.list_feeds(ctx.user_key, ctx.tenant_key)
+    return [_feed_response(f) for f in feeds]
 
 
 @router.get("/feeds/{key}")
 def get_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
-    request: Request,
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarFeedResponse:
-    """Return a single calendar feed by key."""
+    """Return one calendar feed (own feed; a lead: any), without its token, which is not kept."""
     svc: CalendarService = get_calendar_service()
-    feed = svc.get_feed(key, tenant_key=ctx.tenant_key)
-    return _feed_response(feed, request)
+    feed = svc.get_feed(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    return _feed_response(feed)
 
 
 @router.put("/feeds/{key}")
 def update_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
     body: CalendarFeedUpdateRequest,
-    request: Request,
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.UPDATE)),
 ) -> CalendarFeedResponse:
-    """Update a calendar feed's name, filters or active state."""
+    """Update a calendar feed's name, filters or active state (own feed; a lead: any)."""
     svc: CalendarService = get_calendar_service()
-    svc.get_feed(key, tenant_key=ctx.tenant_key)
-    cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
         name=body.name,
         is_active=body.is_active,
-        filters=CalendarFeedFilters(categories=cats, site_key=body.filters.site_key),
+        filters=CalendarFeedFilters(categories=body.filters.categories),
     )
-    updated = svc.update_feed(key, feed)
-    return _feed_response(updated, request)
+    updated = svc.update_feed(key, feed, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    return _feed_response(updated)
 
 
 @router.delete("/feeds/{key}", status_code=204)
@@ -264,20 +311,18 @@ def delete_feed(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.DELETE)),
 ) -> None:
-    """Delete a calendar feed."""
+    """Delete a calendar feed (lead only, by the permission gate)."""
     svc: CalendarService = get_calendar_service()
-    svc.get_feed(key, tenant_key=ctx.tenant_key)
-    svc.delete_feed(key)
+    svc.delete_feed(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
 
 
 @router.post("/feeds/{key}/regenerate-token")
 def regenerate_token(
     key: Annotated[str, Path(description="Document key of the calendar feed.")],
-    request: Request,
     ctx: TenantContext = Depends(require_permission(ResourceType.CALENDAR_FEED, Action.UPDATE)),
-) -> CalendarFeedResponse:
-    """Rotate a calendar feed's access token, invalidating the old iCal URL."""
+) -> CalendarFeedIssuedResponse:
+    """Rotate a feed's token (own feed; a lead: any): the old URL stops working, the new one is shown once."""
     svc: CalendarService = get_calendar_service()
-    svc.get_feed(key, tenant_key=ctx.tenant_key)
-    feed = svc.regenerate_token(key)
-    return _feed_response(feed, request)
+    return _issued_feed_response(
+        svc.regenerate_token(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    )

@@ -9,12 +9,18 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+import { createElement, type ReactNode } from 'react';
+import { Provider } from 'react-redux';
+
 import * as favoritesApi from '@/api/endpoints/favorites';
 import { carryOverLegacyFavorites, useServerFavorites } from '@/hooks/useServerFavorites';
+import { authState, createTestStore } from '@/test/helpers';
 
 vi.mock('@/api/endpoints/favorites');
 
 const KEY = 'kamerplanter-substrate-favorites';
+const OWNER = 'u-owner';
+const OWNER_KEY = 'kp_local_data_owner';
 
 // jsdom in this environment ships no native localStorage; the map-backed mock
 // mirrors what the other storage tests install.
@@ -39,11 +45,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+function signedInAs(userKey: string) {
+  const store = createTestStore({
+    auth: { ...(authState().auth as object), user: { key: userKey } },
+  });
+  return ({ children }: { children: ReactNode }) => createElement(Provider, { store, children });
+}
+
 describe('carryOverLegacyFavorites', () => {
   it('posts every stored key the server does not already have', async () => {
     storageMap.set(KEY, JSON.stringify(['a', 'b']));
 
-    const carried = await carryOverLegacyFavorites(KEY, new Set());
+    const carried = await carryOverLegacyFavorites(KEY, new Set(), OWNER);
 
     expect(vi.mocked(favoritesApi.addFavorite).mock.calls.map((c) => c[0])).toEqual(['a', 'b']);
     expect(carried).toEqual(new Set(['a', 'b']));
@@ -52,7 +65,7 @@ describe('carryOverLegacyFavorites', () => {
   it('skips keys the server already knows', async () => {
     storageMap.set(KEY, JSON.stringify(['a', 'b']));
 
-    await carryOverLegacyFavorites(KEY, new Set(['a']));
+    await carryOverLegacyFavorites(KEY, new Set(['a']), OWNER);
 
     expect(vi.mocked(favoritesApi.addFavorite).mock.calls.map((c) => c[0])).toEqual(['b']);
   });
@@ -60,7 +73,7 @@ describe('carryOverLegacyFavorites', () => {
   it('clears the storage key once every post succeeded', async () => {
     storageMap.set(KEY, JSON.stringify(['a']));
 
-    await carryOverLegacyFavorites(KEY, new Set());
+    await carryOverLegacyFavorites(KEY, new Set(), OWNER);
 
     expect(storageMap.has(KEY)).toBe(false);
   });
@@ -73,7 +86,7 @@ describe('carryOverLegacyFavorites', () => {
       .mockResolvedValueOnce({} as never)
       .mockRejectedValueOnce(new Error('offline'));
 
-    const carried = await carryOverLegacyFavorites(KEY, new Set());
+    const carried = await carryOverLegacyFavorites(KEY, new Set(), OWNER);
 
     expect(storageMap.get(KEY)).toBe(JSON.stringify(['a', 'b']));
     expect(carried).toEqual(new Set(['a']));
@@ -82,14 +95,14 @@ describe('carryOverLegacyFavorites', () => {
   it('clears the key when everything stored is already on the server', async () => {
     storageMap.set(KEY, JSON.stringify(['a']));
 
-    await carryOverLegacyFavorites(KEY, new Set(['a']));
+    await carryOverLegacyFavorites(KEY, new Set(['a']), OWNER);
 
     expect(favoritesApi.addFavorite).not.toHaveBeenCalled();
     expect(storageMap.has(KEY)).toBe(false);
   });
 
   it('does nothing when there is no stored key', async () => {
-    const carried = await carryOverLegacyFavorites(KEY, new Set());
+    const carried = await carryOverLegacyFavorites(KEY, new Set(), OWNER);
 
     expect(carried).toEqual(new Set());
     expect(favoritesApi.addFavorite).not.toHaveBeenCalled();
@@ -98,7 +111,7 @@ describe('carryOverLegacyFavorites', () => {
   it('drops an unparseable value instead of retrying it forever', async () => {
     storageMap.set(KEY, 'not json at all');
 
-    const carried = await carryOverLegacyFavorites(KEY, new Set());
+    const carried = await carryOverLegacyFavorites(KEY, new Set(), OWNER);
 
     expect(carried).toEqual(new Set());
   });
@@ -106,7 +119,7 @@ describe('carryOverLegacyFavorites', () => {
   it('discards a stored value that is not an array', async () => {
     storageMap.set(KEY, JSON.stringify({ a: true }));
 
-    await carryOverLegacyFavorites(KEY, new Set());
+    await carryOverLegacyFavorites(KEY, new Set(), OWNER);
 
     expect(favoritesApi.addFavorite).not.toHaveBeenCalled();
     expect(storageMap.has(KEY)).toBe(false);
@@ -123,7 +136,7 @@ describe('useServerFavorites', () => {
   it('surfaces carried-over favorites without a reload', async () => {
     storageMap.set(KEY, JSON.stringify(['a']));
 
-    const { result } = renderHook(() => useServerFavorites('substrates', KEY));
+    const { result } = renderHook(() => useServerFavorites('substrates', KEY), { wrapper: signedInAs(OWNER) });
 
     await waitFor(() => expect(result.current.isFavorite('a')).toBe(true));
     expect(result.current.hasFavorites).toBe(true);
@@ -156,5 +169,36 @@ describe('useServerFavorites', () => {
 
     await waitFor(() => expect(favoritesApi.listFavorites).toHaveBeenCalled());
     expect(result.current.hasFavorites).toBe(false);
+  });
+});
+
+describe('another account on the same browser (#2117)', () => {
+  it('leaves the leftovers of the account that owns them alone', async () => {
+    storageMap.set(OWNER_KEY, 'u-first');
+    storageMap.set(KEY, JSON.stringify(['a', 'b']));
+
+    const carried = await carryOverLegacyFavorites(KEY, new Set(), 'u-second');
+
+    expect(favoritesApi.addFavorite).not.toHaveBeenCalled();
+    expect(carried).toEqual(new Set());
+    expect(storageMap.get(KEY)).toBe(JSON.stringify(['a', 'b']));
+  });
+
+  it('the first account to adopt leftovers becomes their owner', async () => {
+    storageMap.set(KEY, JSON.stringify(['a']));
+
+    await carryOverLegacyFavorites(KEY, new Set(), 'u-first');
+
+    expect(storageMap.get(OWNER_KEY)).toBe('u-first');
+    expect(favoritesApi.addFavorite).toHaveBeenCalledWith('a', 'manual');
+  });
+
+  it('adopts nothing while nobody is signed in', async () => {
+    storageMap.set(KEY, JSON.stringify(['a']));
+
+    await carryOverLegacyFavorites(KEY, new Set(), undefined);
+
+    expect(favoritesApi.addFavorite).not.toHaveBeenCalled();
+    expect(storageMap.has(OWNER_KEY)).toBe(false);
   });
 });

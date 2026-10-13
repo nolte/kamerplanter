@@ -23,6 +23,12 @@ class _NoopAql:
 
 
 class _NoopCollection:
+    def all(self):
+        return iter(())
+
+    def count(self) -> int:
+        return 0
+
     def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
         raise AssertionError("no document should be written on an empty database")
 
@@ -81,14 +87,25 @@ class _NoopCollection:
                 "unique": True,
             },
             {"type": "persistent", "fields": ["expires_at"], "unique": False},
+            # v0082 (#2111) security_audit_log: (tenant_key, created_at) and created_at are listed
+            # above; the two account lookups are bootstrapped on a fresh volume too.
+            {"type": "persistent", "fields": ["target_user_key"], "unique": False},
+            {"type": "persistent", "fields": ["actor_user_key"], "unique": False},
+            # v0084 (#2112) tenant_ha_entity_grants: one row per (tenant, entity), bootstrapped too.
+            {"type": "persistent", "fields": ["tenant_key", "entity_id"], "unique": True},
             # v0018 propagation indexes
             {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
+            # also v0092 (#1534): tasks.(tenant_key, status) is bootstrapped on a fresh volume
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
             # v0019 actuators (tenant_key, name) lookup index
             {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
+            # v0075 (#2029): tanks.(tenant_key, name) is bootstrapped unique on a fresh
+            # volume, so the cutover finds its replacement present and nothing to drop.
+            # v0076 / v0077 (#2027): the same shape on activities and workflow_templates.
+            {"type": "persistent", "fields": col.TANK_NAME_INDEX_FIELDS, "unique": True},
             # v0026 (#624): the *legacy global* species dedup index. Still listed
             # because that migration is shipped and looks for exactly these fields;
             # without it here it would create the index and this fixture's "no index
@@ -106,6 +123,13 @@ class _NoopCollection:
             # v0030 (#740): harvest_batches.batch_id is bootstrapped unique+sparse on a
             # fresh volume, so the promotion migration finds it present → no-op.
             {"type": "persistent", "fields": ["batch_id"], "unique": True, "sparse": True},
+            # v0079 (#2065): instance_id, batch_id and slot_id are bootstrapped scoped to
+            # their owner on a fresh volume, so the cutover finds every replacement present.
+            # The collection-wide shapes above stay listed for the shipped migrations
+            # that look for them (the v0026/v0041 reasoning).
+            {"type": "persistent", "fields": col.PLANT_INSTANCE_ID_INDEX_FIELDS, "unique": True},
+            {"type": "persistent", "fields": col.HARVEST_BATCH_ID_INDEX_FIELDS, "unique": True, "sparse": True},
+            {"type": "persistent", "fields": col.SLOT_ID_INDEX_FIELDS, "unique": True},
             # v0031: user_preferences/onboarding_states.user_key is bootstrapped
             # unique+sparse on a fresh volume, so the dedup+promotion migration finds
             # it present → no-op.
@@ -121,6 +145,20 @@ class _NoopCollection:
                 "fields": ["tenant_key", "analysis_state", "analysis_requested_at"],
                 "unique": False,
             },
+            # v0062 (#1770): attachments.storage_key is bootstrapped non-unique on a
+            # fresh volume, so the migration finds it present and drops nothing.
+            {"type": "persistent", "fields": ["storage_key"], "unique": False},
+            # v0069 (#2000): fertilizers.(tenant_key, product_name, brand) is bootstrapped
+            # unique on a fresh volume and the legacy (product_name, brand) index is
+            # absent, so the index swap finds nothing to do.
+            {"type": "persistent", "fields": col.FERTILIZER_IDENTITY_INDEX_FIELDS, "unique": True},
+            # v0070 (#2001): the seed-identity indexes are bootstrapped on a fresh volume
+            # (harvest_indicators sparse; the IPM edges' vertex pair), so it creates none.
+            {"type": "persistent", "fields": col.HARVEST_INDICATOR_IDENTITY_FIELDS, "unique": True, "sparse": True},
+            {"type": "persistent", "fields": col.EDGE_PAIR_FIELDS, "unique": True},
+            # v0090 (#2171): calendar_feeds.token_hash is bootstrapped unique+sparse on a
+            # fresh volume and the legacy token index is absent, so it creates and drops nothing.
+            {"type": "persistent", "fields": col.CALENDAR_FEED_TOKEN_HASH_INDEX_FIELDS, "unique": True, "sparse": True},
             # v0045 (#1301): tasks.care_dedup_key is bootstrapped unique+sparse on a
             # fresh volume, so the dedup+constraint migration finds it present → no-op.
             {

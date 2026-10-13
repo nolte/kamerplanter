@@ -14,8 +14,11 @@ Security notes:
   Celery re-validation) — tracked as follow-up work. Until then proxy upload is
   the only path.
 * Uploads are read in bounded chunks with an early ``Content-Length`` reject so
-  an oversized body never gets fully buffered into RAM (SEC-005).
-* Download responses are hardened against MIME-sniffing / drive-by (SEC-009).
+  an oversized body never gets fully buffered into RAM (SEC-005). Both run only
+  after FastAPI has parsed the multipart body; the bound *before* the parse is
+  the ASGI body ceiling and spool budget in ``app.common.body_limit`` (#2254).
+* Download responses are hardened against MIME-sniffing / drive-by (SEC-009)
+  and revalidated on every reuse (``private, no-cache`` + ETag, #2254).
 """
 
 from __future__ import annotations
@@ -26,7 +29,13 @@ from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, Up
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.api.v1.attachments.permissions import require_attachment_permission
-from app.api.v1.attachments.response_headers import harden_download_headers
+from app.api.v1.attachments.response_headers import (
+    SESSION_DOWNLOAD_CACHE_CONTROL,
+    harden_download_headers,
+    if_none_match_hits,
+    object_etag,
+    rendition_etag,
+)
 from app.api.v1.attachments.schemas import (
     AttachmentListResponse,
     AttachmentResponse,
@@ -35,11 +44,14 @@ from app.api.v1.attachments.schemas import (
     PresignUploadResponse,
     ThumbnailUris,
 )
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.common.dependencies import get_attachment_service
 from app.common.enums import AttachmentCategory, CaptureDevice
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, KamerplanterError, ValidationError
 from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
+from app.common.upload_bounds import declared_body_exceeds
+from app.config.settings import settings
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.models.attachment import Attachment
@@ -50,14 +62,6 @@ router = APIRouter(prefix="/attachments", tags=["attachments"], responses=CRUD_R
 
 # Chunk size for the bounded streaming upload read (1 MiB).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
-def _parse_content_length(request: Request) -> int | None:
-    """Return the request ``Content-Length`` as an int, or ``None`` if absent/invalid."""
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -119,6 +123,7 @@ def _parse_category(value: str) -> AttachmentCategory:
 
 
 @router.post("", response_model=AttachmentResponse, status_code=201)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_attachment(
     request: Request,
     file: UploadFile,
@@ -143,8 +148,7 @@ async def upload_attachment(
 
     # SEC-005 — reject oversized uploads before reading the body into memory.
     max_bytes = service.max_upload_bytes()
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise FileTooLargeError(max_bytes)
     # Defense in depth: stream the body in bounded chunks so a missing/forged
     # Content-Length cannot force the whole file into RAM before the size check.
@@ -205,6 +209,7 @@ def list_attachments(
 
 @router.get("/{attachment_id}")
 async def download_attachment(
+    request: Request,
     attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
@@ -212,17 +217,23 @@ async def download_attachment(
     """Serve the original object.
 
     Presign-capable backends (S3) 307-redirect to a short-lived signed URL;
-    otherwise the object is proxy-streamed with a private cache header and an
-    ETag (= content SHA-256).
+    otherwise the object is proxy-streamed with an ETag (see ``object_etag``) and
+    ``private, no-cache``: the browser revalidates every reuse, and a matching
+    ``If-None-Match`` answers 304 — after the permission check, so a revoked
+    access is never served from cache (#2254).
     """
     target = service.get_download(attachment_id, ctx.tenant_key)
     if target.redirect_url is not None:
         return RedirectResponse(url=target.redirect_url, status_code=307)
 
+    etag = object_etag(target.attachment.storage_key, target.attachment.sha256)
+    if if_none_match_hits(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
+
     stream = await service.open_stream(target.attachment)
     headers = {
-        "Cache-Control": "private, max-age=86400",
-        "ETag": f'"{target.attachment.sha256}"',
+        "Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL,
+        "ETag": etag,
     }
     # SEC-009 — nosniff always; non-image MIME types are forced to download.
     headers = harden_download_headers(headers, mime_type=target.attachment.mime_type)
@@ -242,12 +253,21 @@ def presign_download(
 
 @router.get("/{attachment_id}/thumbnails/{size}")
 async def download_thumbnail(
+    request: Request,
     attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     size: Annotated[int, Path(description="Thumbnail edge size in pixels.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
 ):
-    """Serve a thumbnail rendition; lazily regenerates a missing rendition."""
+    """Serve a thumbnail rendition; lazily regenerates a missing rendition.
+
+    A missing rendition answers 202 and queues its generation at most once per
+    attachment and window; one that can never come (a type without renditions,
+    or a generation that failed for good) answers 404 (#2108).
+
+    Cached like the original (``private, no-cache``, #2254) under a weak ETag
+    (``rendition_etag``): a re-rendered thumbnail is equivalent, not byte-identical.
+    """
     from app.common.exceptions import NotFoundError
 
     if size not in THUMBNAIL_SIZES:
@@ -256,16 +276,17 @@ async def download_thumbnail(
             details=[{"field": "size", "reason": "Unknown thumbnail size.", "code": "INVALID_THUMBNAIL_SIZE"}],
         )
     attachment = service.get_attachment(attachment_id, ctx.tenant_key)
+    etag = rendition_etag(attachment.storage_key, attachment.sha256, size)
+    if if_none_match_hits(request.headers.get("if-none-match"), etag):
+        return Response(status_code=304, headers={"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag})
     try:
         stream = await service.open_thumbnail_stream(attachment, size)
     except NotFoundError:
-        # Lazy regeneration (NFR-013 §8.2): re-trigger the task and 202 the caller.
-        if can_render(attachment.mime_type):
-            from app.tasks.storage_tasks import generate_thumbnails
-
-            generate_thumbnails.delay(attachment_id, ctx.tenant_key)
+        # Lazy regeneration (NFR-013 §8.2), claimed once per window (#2108).
+        if not service.request_thumbnails(attachment):
+            raise NotFoundError("storage object", f"{attachment_id}/{size}") from None
         return Response(status_code=202)
-    headers = {"Cache-Control": "private, max-age=86400"}
+    headers = {"Cache-Control": SESSION_DOWNLOAD_CACHE_CONTROL, "ETag": etag}
     # Thumbnails are always image/webp — nosniff, inline allowed (SEC-009).
     headers = harden_download_headers(headers, mime_type="image/webp")
     return StreamingResponse(stream, media_type="image/webp", headers=headers)

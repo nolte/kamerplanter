@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCatalogue } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTabUrl } from '@/hooks/useTabUrl';
+import TipCardsPanel from '@/components/ai/TipCardsPanel';
+import { isLightMode } from '@/config/mode';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -98,9 +102,8 @@ import * as wateringLogApi from '@/api/endpoints/watering-logs';
 import * as sitesApi from '@/api/endpoints/sites';
 import * as careApi from '@/api/endpoints/careReminders';
 import * as taskApi from '@/api/endpoints/tasks';
-import * as substrateApi from '@/api/endpoints/substrates';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
-import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, WateringLog, GrowthPhase, Species, Site, Location as SiteLocation, Slot, CareConfirmation, Substrate, SubstrateType, TaskItem } from '@/api/types';
+import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, WateringLog, GrowthPhase, Species, Site, Location as SiteLocation, Slot, CareConfirmation, SubstrateType, TaskItem } from '@/api/types';
 import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
@@ -224,7 +227,12 @@ export default function PlantInstanceDetailPage() {
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
 
   // Substrate selector state
-  const [substratesList, setSubstratesList] = useState<Substrate[]>([]);
+  // The complete substrate catalogue through the shared reader (#1560), loaded
+  // with the Edit tab rather than with the page. The explicit page of 200 is the
+  // same spelling that lost seven species at 207, and the substrate select
+  // filters client-side, so a row that never arrived is unpickable rather than
+  // merely off-screen.
+  const substrateCatalogue = useCatalogue('substrates', { enabled: tab === 7 });
 
   // Assigned location display (info tab)
   const [assignedSlot, setAssignedSlot] = useState<Slot | null>(null);
@@ -421,7 +429,10 @@ export default function PlantInstanceDetailPage() {
       if (ap) {
         const [pe, f] = await Promise.all([
           planApi.fetchPhaseEntries(ap.key),
-          fertApi.fetchFertilizers(0, 200),
+          // The complete catalogue (#1560). Left as a direct loader call rather
+          // than the shared reader because it is one leg of an imperative
+          // sequence that already owns the surrounding loading and error state.
+          fertApi.fetchAllFertilizers(),
         ]);
         setPlanEntries(pe);
         setFertilizers(f);
@@ -492,7 +503,6 @@ export default function PlantInstanceDetailPage() {
   useEffect(() => {
     if (tab === 7) {
       sitesApi.listSites(0, 200).then(setSitesList).catch(() => setSitesList([]));
-      substrateApi.listSubstrates(0, 200).then(setSubstratesList).catch(() => setSubstratesList([]));
     }
   }, [tab]);
 
@@ -645,7 +655,9 @@ export default function PlantInstanceDetailPage() {
       // Type-only fallback keys start with '_type_' — don't send as substrate_key
       const isTypeOnly = rawSubstrateKey?.startsWith('_type_');
       const substrateKey = isTypeOnly ? null : (rawSubstrateKey || null);
-      const selectedSubstrate = substrateKey ? substratesList.find((s) => s.key === substrateKey) : null;
+      const selectedSubstrate = substrateKey
+        ? substrateCatalogue.items.find((s) => s.key === substrateKey)
+        : null;
       const typeOverride = isTypeOnly
         ? rawSubstrateKey!.replace('_type_', '') as SubstrateType
         : (selectedSubstrate?.type ?? null);
@@ -1951,6 +1963,20 @@ export default function PlantInstanceDetailPage() {
               </CardContent>
             </Card>
           )}
+          {/* REQ-031 §6.2 — the context tip cards, on the page the requirement's
+              own user story names: "auf der Detailseite meiner Pflanze". The
+              component was built and tested in v1.0 and mounted nowhere, so the
+              cards had never reached a user (review SCR-004).
+
+              Hidden in light mode because the panel needs a tenant context
+              (REQ-031 §REQ-027 row), and self-hiding when the tenant has KI off:
+              the read answers 403, the panel catches it and renders nothing —
+              "kein leerer Container", as §6.2 requires. */}
+          {plant && key && !isLightMode && (
+            <Box sx={{ mb: 2 }}>
+              <TipCardsPanel contextType="plant_instance" contextKey={key} />
+            </Box>
+          )}
         </>
       )}
 
@@ -2755,9 +2781,15 @@ export default function PlantInstanceDetailPage() {
                     control={control}
                     label={t('pages.plantInstances.substrate')}
                     helperText={t('pages.plantInstances.substrateHelper')}
-                    substrates={substratesList}
+                    substrates={substrateCatalogue.items}
+                    disabled={substrateCatalogue.status !== 'ready'}
                   />
                 </FormRow>
+                {/* A failed load is its own state, not an empty picker (#1628). */}
+                <CatalogueLoadError
+                  reader={substrateCatalogue}
+                  focusSelector="[data-testid='form-field-substrate_key'] input"
+                />
                 <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
               </CardContent>
             </Card>

@@ -32,6 +32,7 @@ from app.common.enums import (
     TaskPriority,
 )
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.data_access.arango.actuator_repository import ArangoActuatorRepository
 from app.domain.engines.actuator_control_engine import (
@@ -51,6 +52,12 @@ from app.domain.models.actuator import (
     PhaseControlProfile,
 )
 from app.domain.models.task import Task
+from app.domain.services.ha_entity_grant_service import (
+    DenyAllHaEntityGate,
+    HaEntityGate,
+    only_granted,
+    require_granted,
+)
 from app.domain.services.location_ownership import require_owned_site
 
 logger = structlog.get_logger(__name__)
@@ -67,8 +74,13 @@ class ActuatorService:
         engine: ControlEngine | None = None,
         mapper: HomeAssistantCommandMapper | None = None,
         site_repo: ISiteRepository | None = None,
+        ha_entity_grants: HaEntityGate | None = None,
     ) -> None:
         self._repo = repo
+        # MT-015 (#2112): an actuator binds and switches only a Home Assistant
+        # entity granted to its tenant. Absent, nothing is granted — an actuator
+        # acts on the physical world, so "cannot tell" refuses.
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
         # A location's tenant lives on its parent site, and the actuator
         # repository reads locations but not sites (#1397). Optional so the
         # service stays constructible in pure-domain contexts; when it is absent
@@ -87,38 +99,42 @@ class ActuatorService:
 
     def list_for_tenant(
         self,
-        tenant_key: str,
         actuator_type: str | None = None,
         protocol: str | None = None,
         is_online: bool | None = None,
+        *,
+        tenant_key: str,
     ) -> list[Actuator]:
         return self._repo.list_for_tenant(tenant_key, actuator_type, protocol, is_online)
 
-    def list_for_location(self, location_key: str, tenant_key: str) -> list[Actuator]:
-        self._verify_location(location_key, tenant_key)
+    def list_for_location(self, location_key: str, *, tenant_key: str) -> list[Actuator]:
+        self._verify_location(location_key, tenant_key=tenant_key)
         return self._repo.list_for_location(location_key, tenant_key)
 
-    def get_actuator(self, key: str, tenant_key: str) -> Actuator:
+    def get_actuator(self, key: str, *, tenant_key: str) -> Actuator:
         actuator = self._repo.get_or_raise(key)
         verify_tenant_ownership(actuator, tenant_key, "Actuator")
         return actuator
 
-    def create_actuator(self, location_key: str, tenant_key: str, actuator: Actuator) -> Actuator:
-        self._verify_location(location_key, tenant_key)
+    def create_actuator(self, location_key: str, actuator: Actuator, *, tenant_key: str) -> Actuator:
+        self._verify_location(location_key, tenant_key=tenant_key)
+        require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": actuator.ha_entity_id})
         actuator.location_key = location_key
         actuator.tenant_key = tenant_key
         return self._repo.create_actuator(actuator)
 
-    def update_actuator(self, key: str, tenant_key: str, data: dict[str, Any]) -> Actuator:
-        actuator = self.get_actuator(key, tenant_key)
+    def update_actuator(self, key: str, data: dict[str, Any], *, tenant_key: str) -> Actuator:
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
+        if data.get("ha_entity_id") and data["ha_entity_id"] != actuator.ha_entity_id:
+            require_granted(self._ha_entity_gate, tenant_key, {"ha_entity_id": data["ha_entity_id"]})
         updated = actuator.model_copy(update=data)
         return self._repo.update_actuator(key, updated)
 
-    def delete_actuator(self, key: str, tenant_key: str) -> None:
-        self.get_actuator(key, tenant_key)
+    def delete_actuator(self, key: str, *, tenant_key: str) -> None:
+        self.get_actuator(key, tenant_key=tenant_key)
         self._repo.delete_actuator(key)
 
-    def _verify_location(self, location_key: str, tenant_key: str) -> None:
+    def _verify_location(self, location_key: str, *, tenant_key: str) -> None:
         """Require ``location_key`` to belong to ``tenant_key``.
 
         Anchored on the parent site (#1397). Written as
@@ -142,15 +158,15 @@ class ActuatorService:
     def send_command(
         self,
         key: str,
-        tenant_key: str,
         command: str,
         value: float | None = None,
         *,
+        tenant_key: str,
         source: ControlEventSource = ControlEventSource.MANUAL,
         user: str | None = None,
     ) -> ControlEvent:
         """Send a direct command to an actuator and log the resulting event."""
-        actuator = self.get_actuator(key, tenant_key)
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         return self._dispatch(actuator, command, value, source, triggered_by_user=user)
 
     def _dispatch(
@@ -165,6 +181,7 @@ class ActuatorService:
         triggered_by_user: str | None = None,
         sensor_reading: float | None = None,
         on_unsafe_value: Literal["raise", "skip"] = "raise",
+        fallback_task: bool = True,
     ) -> ControlEvent | None:
         # SEC (REQ-018): single chokepoint for every command path (direct, rule,
         # schedule, override, emergency). The safety invariant enforced here is:
@@ -208,8 +225,9 @@ class ActuatorService:
             effective_source = ControlEventSource.FALLBACK_TASK
         elif actuator.protocol == ActuatorProtocol.HOME_ASSISTANT:
             success, error_message = self._dispatch_home_assistant(actuator, command, value)
-            if not success:
-                # Graceful degradation: HA unreachable -> manual task (§6 scenario 6).
+            if not success and fallback_task:
+                # Graceful degradation: HA unreachable -> manual task (§6 scenario 6). Not for a closed
+                # tenant (REQ-056 SEC-003): nobody can open the task; the failed event records the attempt.
                 self._create_fallback_task(actuator, command, value, reason="ha_unreachable")
                 effective_source = ControlEventSource.FALLBACK_TASK
         elif actuator.protocol == ActuatorProtocol.MQTT:
@@ -295,6 +313,12 @@ class ActuatorService:
         client = self._ha_client_factory()
         if client is None:
             return False, "Home Assistant is not configured"
+        if not self._ha_entity_gate.is_granted(actuator.tenant_key, actuator.ha_entity_id):
+            # MT-015 (#2112): stored before the allowlist, or its grant was
+            # withdrawn — the operator's instance is not switched on the tenant's
+            # behalf. The caller degrades to a manual fallback task, as on an outage.
+            logger.warning("actuator_ha_entity_not_granted", actuator=actuator.key)
+            return False, "Home Assistant entity is not released for this tenant"
         domain, service, data = self._mapper.map_command(
             actuator.actuator_type.value, actuator.ha_entity_id or "", command, value
         )
@@ -306,7 +330,7 @@ class ActuatorService:
                 "actuator_ha_call_failed",
                 actuator=actuator.key,
                 entity=actuator.ha_entity_id,
-                error=str(exc),
+                error=loggable_error(exc),
             )
             return False, f"Home Assistant call failed: {exc}"
 
@@ -337,12 +361,12 @@ class ActuatorService:
         try:
             self._task_repo.create_task(task)
         except Exception as exc:  # noqa: BLE001 — a failed fallback task must not break dispatch
-            logger.warning("actuator_fallback_task_failed", actuator=actuator.key, error=str(exc))
+            logger.warning("actuator_fallback_task_failed", actuator=actuator.key, error=loggable_error(exc))
 
     # ── Manual override ──────────────────────────────────────────────────
 
-    def set_override(self, key: str, tenant_key: str, override: ManualOverride, user: str) -> ManualOverride:
-        actuator = self.get_actuator(key, tenant_key)
+    def set_override(self, key: str, override: ManualOverride, user: str, *, tenant_key: str) -> ManualOverride:
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         # SEC (REQ-018): reject an override that is already expired. The model only
         # guarantees expires_at > started_at, so a caller can still submit a cap
         # whose window lies entirely in the past; applying it would drive the
@@ -371,12 +395,12 @@ class ActuatorService:
         )
         return created
 
-    def clear_override(self, key: str, tenant_key: str) -> None:
-        self.get_actuator(key, tenant_key)
+    def clear_override(self, key: str, *, tenant_key: str) -> None:
+        self.get_actuator(key, tenant_key=tenant_key)
         self._repo.deactivate_overrides_for_actuator(key)
 
-    def get_state(self, key: str, tenant_key: str) -> dict[str, Any]:
-        actuator = self.get_actuator(key, tenant_key)
+    def get_state(self, key: str, *, tenant_key: str) -> dict[str, Any]:
+        actuator = self.get_actuator(key, tenant_key=tenant_key)
         override = self._repo.get_active_override(key)
         return {
             "actuator_key": actuator.key,
@@ -389,34 +413,34 @@ class ActuatorService:
 
     # ── Schedules ────────────────────────────────────────────────────────
 
-    def create_schedule(self, actuator_key: str, tenant_key: str, schedule: ControlSchedule) -> ControlSchedule:
-        self.get_actuator(actuator_key, tenant_key)
+    def create_schedule(self, actuator_key: str, schedule: ControlSchedule, *, tenant_key: str) -> ControlSchedule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         schedule.actuator_key = actuator_key
         schedule.tenant_key = tenant_key
         return self._repo.create_schedule(schedule)
 
-    def list_schedules(self, actuator_key: str, tenant_key: str) -> list[ControlSchedule]:
-        self.get_actuator(actuator_key, tenant_key)
+    def list_schedules(self, actuator_key: str, *, tenant_key: str) -> list[ControlSchedule]:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         return self._repo.list_schedules(actuator_key, tenant_key)
 
     def update_schedule(
-        self, actuator_key: str, schedule_key: str, tenant_key: str, data: dict[str, Any]
+        self, actuator_key: str, schedule_key: str, data: dict[str, Any], *, tenant_key: str
     ) -> ControlSchedule:
-        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key)
+        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key=tenant_key)
         updated = schedule.model_copy(update=data)
         return self._repo.update_schedule(schedule_key, updated)
 
-    def delete_schedule(self, actuator_key: str, schedule_key: str, tenant_key: str) -> None:
-        self._get_schedule(actuator_key, schedule_key, tenant_key)
+    def delete_schedule(self, actuator_key: str, schedule_key: str, *, tenant_key: str) -> None:
+        self._get_schedule(actuator_key, schedule_key, tenant_key=tenant_key)
         self._repo.delete_schedule(schedule_key)
 
-    def toggle_schedule(self, actuator_key: str, schedule_key: str, tenant_key: str) -> ControlSchedule:
-        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key)
+    def toggle_schedule(self, actuator_key: str, schedule_key: str, *, tenant_key: str) -> ControlSchedule:
+        schedule = self._get_schedule(actuator_key, schedule_key, tenant_key=tenant_key)
         updated = schedule.model_copy(update={"is_active": not schedule.is_active})
         return self._repo.update_schedule(schedule_key, updated)
 
-    def _get_schedule(self, actuator_key: str, schedule_key: str, tenant_key: str) -> ControlSchedule:
-        self.get_actuator(actuator_key, tenant_key)
+    def _get_schedule(self, actuator_key: str, schedule_key: str, *, tenant_key: str) -> ControlSchedule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         schedule = self._repo.get_schedule_or_raise(schedule_key)
         verify_tenant_ownership(schedule, tenant_key, "ControlSchedule")
         if schedule.actuator_key != actuator_key:
@@ -425,48 +449,56 @@ class ActuatorService:
 
     # ── Rules ────────────────────────────────────────────────────────────
 
-    def create_rule(self, actuator_key: str, tenant_key: str, rule: ControlRule) -> ControlRule:
-        self.get_actuator(actuator_key, tenant_key)
+    def create_rule(self, actuator_key: str, rule: ControlRule, *, tenant_key: str) -> ControlRule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
+        # The location whose sensors drive the rule, under the tenant (#1872 C5):
+        # it was stored as given.
+        if rule.sensor_location_key:
+            self._verify_location(rule.sensor_location_key, tenant_key=tenant_key)
         rule.actuator_key = actuator_key
         rule.tenant_key = tenant_key
         return self._repo.create_rule(rule)
 
-    def list_rules(self, actuator_key: str, tenant_key: str) -> list[ControlRule]:
-        self.get_actuator(actuator_key, tenant_key)
+    def list_rules(self, actuator_key: str, *, tenant_key: str) -> list[ControlRule]:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         return self._repo.list_rules(actuator_key, tenant_key)
 
     def list_rules_for_tenant(
         self,
-        tenant_key: str,
         sensor_parameter: str | None = None,
         is_active: bool | None = None,
         is_safety: bool | None = None,
+        *,
+        tenant_key: str,
     ) -> list[ControlRule]:
         return self._repo.list_rules_for_tenant(tenant_key, sensor_parameter, is_active, is_safety)
 
-    def update_rule(self, actuator_key: str, rule_key: str, tenant_key: str, data: dict[str, Any]) -> ControlRule:
-        rule = self._get_rule(actuator_key, rule_key, tenant_key)
+    def update_rule(self, actuator_key: str, rule_key: str, data: dict[str, Any], *, tenant_key: str) -> ControlRule:
+        rule = self._get_rule(actuator_key, rule_key, tenant_key=tenant_key)
+        new_location = data.get("sensor_location_key")
+        if new_location and new_location != rule.sensor_location_key:
+            self._verify_location(new_location, tenant_key=tenant_key)
         updated = rule.model_copy(update=data)
         return self._repo.update_rule(rule_key, updated)
 
-    def delete_rule(self, actuator_key: str, rule_key: str, tenant_key: str) -> None:
-        self._get_rule(actuator_key, rule_key, tenant_key)
+    def delete_rule(self, actuator_key: str, rule_key: str, *, tenant_key: str) -> None:
+        self._get_rule(actuator_key, rule_key, tenant_key=tenant_key)
         self._repo.delete_rule(rule_key)
 
-    def toggle_rule(self, actuator_key: str, rule_key: str, tenant_key: str) -> ControlRule:
-        rule = self._get_rule(actuator_key, rule_key, tenant_key)
+    def toggle_rule(self, actuator_key: str, rule_key: str, *, tenant_key: str) -> ControlRule:
+        rule = self._get_rule(actuator_key, rule_key, tenant_key=tenant_key)
         updated = rule.model_copy(update={"is_active": not rule.is_active})
         return self._repo.update_rule(rule_key, updated)
 
-    def test_rule(self, rule_key: str, tenant_key: str, sensor_readings: dict[str, float]) -> dict[str, Any]:
+    def test_rule(self, rule_key: str, sensor_readings: dict[str, float], *, tenant_key: str) -> dict[str, Any]:
         """Dry-run a rule against supplied sensor readings — no side effects."""
         rule = self._repo.get_rule_or_raise(rule_key)
         verify_tenant_ownership(rule, tenant_key, "ControlRule")
-        actuator = self.get_actuator(rule.actuator_key, tenant_key)
+        actuator = self.get_actuator(rule.actuator_key, tenant_key=tenant_key)
         return self._engine.test_rule(rule, actuator, sensor_readings, self._now())
 
-    def _get_rule(self, actuator_key: str, rule_key: str, tenant_key: str) -> ControlRule:
-        self.get_actuator(actuator_key, tenant_key)
+    def _get_rule(self, actuator_key: str, rule_key: str, *, tenant_key: str) -> ControlRule:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         rule = self._repo.get_rule_or_raise(rule_key)
         verify_tenant_ownership(rule, tenant_key, "ControlRule")
         if rule.actuator_key != actuator_key:
@@ -500,34 +532,86 @@ class ActuatorService:
             on_unsafe_value="skip",
         )
 
+    def drive_to_safe_state(self, actuator: Actuator, sensor_readings: dict[str, float]) -> ControlEvent | None:
+        """Leave the device of a closed tenant in a safe state, never latched (REQ-056 §5.2, SEC-003).
+
+        A suspended, pending-deletion or orphaned tenant gets no schedule, no override and no
+        sensor rule any more — but its hardware still exists, and the last command (a valve
+        opened, a heater switched on) would otherwise stay in force. Each tick:
+
+        1. A firing **safety** rule decides (``winning_safety_state``); dispatched only when the
+           device is not already in that state. Then nothing else is done; neither while a safety
+           rule *holds* its device on (``a_safety_rule_holds`` — rules are edge-triggered).
+        2. Otherwise a device whose type an emergency scenario switches off
+           (:data:`CLOSED_TENANT_OFF_TYPES`; a type a scenario forces on — the exhaust fan —
+           is left as it is) gets one ``turn_off``: only when its state is not ``off`` and the
+           newest event of the device is no ``turn_off`` already (idempotent — an unreachable
+           Home Assistant is not asked again every 30 s). ``fail_safe_state`` of the device
+           overrides the type: ``off`` switches it off, ``on`` leaves it alone.
+
+        A manual actuator is skipped (it can only be switched by a person, through a task in a
+        tenant nobody can open), and no fallback task is written into the closed tenant.
+        """
+        if actuator.protocol == ActuatorProtocol.MANUAL:
+            return None
+        rules = [rule for rule in self._repo.list_active_rules(actuator.key or "") if rule.is_safety_rule]
+        safety = self._engine.winning_safety_state(actuator, rules, sensor_readings, self._now())
+        if safety is not None:
+            if self._engine.is_same_state(actuator, safety):
+                return None
+            return self._dispatch(
+                actuator,
+                safety.command,
+                safety.value,
+                ControlEventSource.SAFETY,
+                triggered_by_rule_key=safety.source_key,
+                sensor_reading=safety.sensor_reading,
+                on_unsafe_value="skip",
+                fallback_task=False,
+            )
+        if self._engine.a_safety_rule_holds(actuator, rules, sensor_readings):
+            return None  # a safety rule switched it on and the reading still calls for it
+        if actuator.fail_safe_state == "on":
+            return None
+        switches_off = actuator.fail_safe_state == "off" or actuator.actuator_type.value in CLOSED_TENANT_OFF_TYPES
+        if not switches_off or actuator.current_state == "off":
+            return None
+        newest = self._repo.list_events(actuator.key or "", actuator.tenant_key, 0, 1)
+        if newest and newest[0].command == "turn_off":
+            return None  # the off was sent (and, if it failed, recorded); not again every tick
+        return self._dispatch(
+            actuator, "turn_off", None, ControlEventSource.SAFETY, on_unsafe_value="skip", fallback_task=False
+        )
+
     # ── Events & stats ───────────────────────────────────────────────────
 
-    def list_events(self, actuator_key: str, tenant_key: str, offset: int = 0, limit: int = 50) -> list[ControlEvent]:
-        self.get_actuator(actuator_key, tenant_key)
+    def list_events(
+        self, actuator_key: str, offset: int = 0, limit: int = 50, *, tenant_key: str
+    ) -> list[ControlEvent]:
+        self.get_actuator(actuator_key, tenant_key=tenant_key)
         return self._repo.list_events(actuator_key, tenant_key, offset, limit)
 
     def list_location_events(
-        self, location_key: str, tenant_key: str, offset: int = 0, limit: int = 50
+        self, location_key: str, offset: int = 0, limit: int = 50, *, tenant_key: str
     ) -> list[ControlEvent]:
-        self._verify_location(location_key, tenant_key)
+        self._verify_location(location_key, tenant_key=tenant_key)
         return self._repo.list_events_for_location(location_key, tenant_key, offset, limit)
 
-    def get_event_stats(self, actuator_key: str, tenant_key: str) -> dict[str, Any]:
-        actuator = self.get_actuator(actuator_key, tenant_key)
-        events = self._repo.list_events(actuator_key, tenant_key, offset=0, limit=500)
-        switch_cycles = sum(1 for e in events if e.previous_state != e.new_state)
-        failures = sum(1 for e in events if not e.success)
+    def get_event_stats(self, actuator_key: str, *, tenant_key: str) -> dict[str, Any]:
+        actuator = self.get_actuator(actuator_key, tenant_key=tenant_key)
+        # Over the whole event history, not the newest 500 events (#2025).
+        counts = self._repo.count_events(actuator_key, tenant_key=tenant_key)
         return {
             "actuator_key": actuator.key,
-            "total_events": len(events),
-            "switch_cycles": switch_cycles,
-            "failures": failures,
+            "total_events": counts["total"],
+            "switch_cycles": counts["switch_cycles"],
+            "failures": counts["failures"],
             "power_watts": actuator.power_watts,
         }
 
-    def get_location_energy(self, location_key: str, tenant_key: str, hours_per_day: float = 24.0) -> dict[str, Any]:
+    def get_location_energy(self, location_key: str, hours_per_day: float = 24.0, *, tenant_key: str) -> dict[str, Any]:
         """Rough kWh estimate from rated power and assumed daily on-time."""
-        self._verify_location(location_key, tenant_key)
+        self._verify_location(location_key, tenant_key=tenant_key)
         actuators = self._repo.list_for_location(location_key, tenant_key)
         breakdown: list[dict[str, Any]] = []
         total_kwh = 0.0
@@ -549,30 +633,30 @@ class ActuatorService:
 
     # ── Phase control profiles ───────────────────────────────────────────
 
-    def create_profile(self, tenant_key: str, profile: PhaseControlProfile) -> PhaseControlProfile:
+    def create_profile(self, profile: PhaseControlProfile, *, tenant_key: str) -> PhaseControlProfile:
         profile.tenant_key = tenant_key
         return self._repo.create_profile(profile)
 
-    def list_profiles(self, tenant_key: str, is_template: bool | None = None) -> list[PhaseControlProfile]:
+    def list_profiles(self, is_template: bool | None = None, *, tenant_key: str) -> list[PhaseControlProfile]:
         return self._repo.list_profiles(tenant_key, is_template)
 
-    def get_profile(self, key: str, tenant_key: str) -> PhaseControlProfile:
+    def get_profile(self, key: str, *, tenant_key: str) -> PhaseControlProfile:
         profile = self._repo.get_profile_or_raise(key)
         verify_tenant_ownership(profile, tenant_key, "PhaseControlProfile")
         return profile
 
-    def update_profile(self, key: str, tenant_key: str, data: dict[str, Any]) -> PhaseControlProfile:
-        profile = self.get_profile(key, tenant_key)
+    def update_profile(self, key: str, data: dict[str, Any], *, tenant_key: str) -> PhaseControlProfile:
+        profile = self.get_profile(key, tenant_key=tenant_key)
         updated = profile.model_copy(update=data)
         return self._repo.update_profile(key, updated)
 
-    def delete_profile(self, key: str, tenant_key: str) -> None:
-        self.get_profile(key, tenant_key)
+    def delete_profile(self, key: str, *, tenant_key: str) -> None:
+        self.get_profile(key, tenant_key=tenant_key)
         self._repo.delete_profile(key)
 
-    def apply_profile(self, key: str, tenant_key: str, location_key: str) -> dict[str, Any]:
-        self.get_profile(key, tenant_key)
-        self._verify_location(location_key, tenant_key)
+    def apply_profile(self, key: str, location_key: str, *, tenant_key: str) -> dict[str, Any]:
+        self.get_profile(key, tenant_key=tenant_key)
+        self._verify_location(location_key, tenant_key=tenant_key)
         self._repo.apply_profile_to_location(key, location_key)
         return {"profile_key": key, "location_key": location_key, "applied": True}
 
@@ -589,25 +673,29 @@ class ActuatorService:
             client.list_sensor_entities()
             return {"configured": True, "reachable": True}
         except Exception as exc:  # noqa: BLE001 — status endpoint must never 500 on HA outage
-            logger.warning("actuator_ha_status_failed", error=str(exc))
+            logger.warning("actuator_ha_status_failed", error=loggable_error(exc))
             return {"configured": True, "reachable": False, "reason": "unreachable"}
 
-    def ha_entities(self) -> list[dict[str, Any]]:
-        """List HA entities available for actuator mapping (empty on outage)."""
+    def ha_entities(self, *, tenant_key: str) -> list[dict[str, Any]]:
+        """List the HA entities granted to ``tenant_key`` for actuator mapping (empty on outage).
+
+        Filtered to the tenant's grants (MT-015, #2112): the instance is the
+        operator's, and its inventory is not the tenant's to see.
+        """
         if self._ha_client_factory is None:
             return []
         client = self._ha_client_factory()
         if client is None:
             return []
         try:
-            return client.list_sensor_entities()
+            return only_granted(self._ha_entity_gate, tenant_key, client.list_sensor_entities())
         except Exception as exc:  # noqa: BLE001 — degrade to empty list on HA outage
-            logger.warning("actuator_ha_entities_failed", error=str(exc))
+            logger.warning("actuator_ha_entities_failed", error=loggable_error(exc))
             return []
 
     # ── Emergency stop ───────────────────────────────────────────────────
 
-    def emergency_stop(self, tenant_key: str, scenario: str, user: str) -> dict[str, Any]:
+    def emergency_stop(self, scenario: str, user: str, *, tenant_key: str) -> dict[str, Any]:
         """Switch off the actuators affected by a predefined emergency scenario."""
         affected_types = _EMERGENCY_SCENARIOS.get(scenario)
         if affected_types is None:
@@ -659,7 +747,7 @@ class ActuatorService:
                     "actuator_emergency_stop_failed",
                     actuator=actuator.key,
                     scenario=scenario,
-                    error=str(exc),
+                    error=loggable_error(exc, user_key=user),
                 )
                 failed.append(actuator.key or "")
         return {"scenario": scenario, "stopped": stopped, "forced_on": forced_on, "failed": failed}
@@ -689,3 +777,9 @@ _EMERGENCY_SCENARIOS: dict[str, dict[str, tuple[str, ...]]] = {
         )
     },
 }
+
+#: The device types a closed tenant's hardware is switched off to (REQ-056 §5.2, SEC-003): every type an
+#: emergency scenario switches off, minus every type a scenario forces on (ventilation keeps running).
+CLOSED_TENANT_OFF_TYPES: frozenset[str] = frozenset(
+    kind for scenario in _EMERGENCY_SCENARIOS.values() for kind in scenario.get("off", ())
+) - frozenset(kind for scenario in _EMERGENCY_SCENARIOS.values() for kind in scenario.get("on", ()))

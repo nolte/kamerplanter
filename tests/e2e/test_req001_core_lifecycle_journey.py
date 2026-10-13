@@ -90,7 +90,12 @@ class TestCoreJourneySpeciesAndCultivar:
             "Species create dialog with scientific name filled",
         )
         species_list.submit_form()
-        species_list.wait_for_loading_complete()
+        # Not `wait_for_loading_complete()`: it is satisfied by a skeleton the
+        # dialog never renders and returns at once, so the `open()` below (a
+        # navigation) could cancel the still-in-flight create POST (#1728,
+        # same mechanism as `_journey_helpers.create_care_task`). The dialog
+        # closes only once the create resolved 2xx.
+        species_list.wait_for_create_dialog_closed()
 
         # Locate the new species and open its detail page.
         species_list.open()

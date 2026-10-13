@@ -18,6 +18,7 @@ def _mock_dependencies(monkeypatch):
     mock_deps = ModuleType("app.common.dependencies")
     mock_deps.get_privacy_service = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_data_export_repo = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_tenant_export_service = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     yield mock_deps
@@ -34,7 +35,8 @@ class TestProcessDataExport:
         result = process_data_export("export_1")
 
         assert result == {"export_key": "export_1", "status": "completed"}
-        service.process_data_export.assert_awaited_once_with("export_1")
+        # A first, direct call is attempt 1 of 6: not final, not a retry (#1666).
+        service.process_data_export.assert_awaited_once_with("export_1", final_attempt=False, is_retry=False)
 
     def test_handles_none_result(self, _mock_dependencies):
         service = MagicMock()
@@ -94,17 +96,123 @@ class TestExpireEmailChangeRequests:
         assert result == {"expired": 2}
 
 
+class TestPurgeExpiredConsentRecords:
+    """NFR-011 R-04 (#1800): the beat task delegates to the service, no AQL of its own (NFR-001)."""
+
+    def test_returns_purged_count(self, _mock_dependencies):
+        service = MagicMock()
+        service.purge_expired_consent_records = AsyncMock(return_value=4)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import purge_expired_consent_records
+
+        result = purge_expired_consent_records()
+
+        assert result == {"purged": 4}
+
+    def test_the_task_is_registered_on_the_daily_beat(self):
+        from app.tasks import celery_app
+
+        entries = [
+            e for e in celery_app.conf.beat_schedule.values() if e["task"] == "retention.purge_expired_consent_records"
+        ]
+        assert len(entries) == 1
+
+
+class TestAnonymizeConsentIps:
+    """NFR-011 R-04a (#1800): the R-03 analogue for consent-record IPs."""
+
+    def test_returns_anonymized_count(self, _mock_dependencies):
+        service = MagicMock()
+        service.anonymize_consent_ips = AsyncMock(return_value=3)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import anonymize_consent_ips
+
+        result = anonymize_consent_ips()
+
+        assert result == {"anonymized": 3}
+
+    def test_the_task_is_registered_on_the_daily_beat(self):
+        from app.tasks import celery_app
+
+        entries = [e for e in celery_app.conf.beat_schedule.values() if e["task"] == "retention.anonymize_consent_ips"]
+        assert len(entries) == 1
+
+    def test_the_task_does_not_double_log_the_service_s_own_event(self, _mock_dependencies):
+        """#1800 /code-review — the service already logs the completion event; the task must not repeat it."""
+        import structlog.testing
+
+        service = MagicMock()
+        service.anonymize_consent_ips = AsyncMock(return_value=2)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import anonymize_consent_ips
+
+        with structlog.testing.capture_logs() as logs:
+            anonymize_consent_ips()
+
+        completed = [e for e in logs if e["event"] == "retention.anonymize_consent_ips.completed"]
+        assert completed == [], "the task must not log this event itself — the service (mocked here) already does"
+
+
+class TestPurgeExpiredLegalRetentionRows:
+    """NFR-011 R-16/R-17/R-18 (#1789): the beat task delegates to the service, no AQL of its own."""
+
+    def test_returns_the_per_rule_counts(self, _mock_dependencies):
+        counts = {"R-16": {"rows": 1, "children": 2, "edges": 3}}
+        service = MagicMock()
+        service.purge_expired_legal_retention_rows = AsyncMock(return_value=counts)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import purge_expired_legal_retention_rows
+
+        assert purge_expired_legal_retention_rows() == {"purged": counts}
+        service.purge_expired_legal_retention_rows.assert_awaited_once()
+
+    def test_the_task_is_registered_on_the_daily_beat_before_the_record_purge(self):
+        from app.tasks import celery_app
+
+        schedule = celery_app.conf.beat_schedule.values()
+        rows = [e for e in schedule if e["task"] == "retention.purge_expired_legal_retention_rows"]
+        records = [e for e in schedule if e["task"] == "retention.purge_expired_tenant_erasure_records"]
+        assert len(rows) == 1
+        assert len(records) == 1
+        # R-06a follows the rows: a record goes once the rows it kept are gone.
+        row_at = (min(rows[0]["schedule"].hour), min(rows[0]["schedule"].minute))
+        record_at = (min(records[0]["schedule"].hour), min(records[0]["schedule"].minute))
+        assert row_at < record_at
+
+
+class TestPurgeExpiredTenantErasureRecords:
+    """NFR-011 R-06a (#1793)."""
+
+    def test_returns_purged_count(self, _mock_dependencies):
+        service = MagicMock()
+        service.purge_expired_tenant_erasure_records = AsyncMock(return_value=2)
+        _mock_dependencies.get_privacy_service.return_value = service
+
+        from app.tasks.retention_tasks import purge_expired_tenant_erasure_records
+
+        assert purge_expired_tenant_erasure_records() == {"purged": 2}
+
+
 class TestExpireDataExports:
     def test_returns_expired_count(self, _mock_dependencies):
         service = MagicMock()
         service.expire_data_exports = AsyncMock(return_value=1)
         _mock_dependencies.get_privacy_service.return_value = service
+        # #2138 — the same beat expires the tenant archives (NFR-011 R-05).
+        tenant_exports = MagicMock()
+        tenant_exports.expire = AsyncMock(return_value={"expired": 2, "stale": 0, "purged": 0})
+        _mock_dependencies.get_tenant_export_service.return_value = tenant_exports
 
         from app.tasks.retention_tasks import expire_data_exports
 
         result = expire_data_exports()
 
-        assert result == {"expired": 1}
+        assert result == {"expired": 1, "tenant_exports": {"expired": 2, "stale": 0, "purged": 0}}
+        tenant_exports.expire.assert_awaited_once()
 
 
 class TestRedispatchStalePendingExports:
@@ -174,6 +282,11 @@ class TestRetryHardening:
             "expire_email_change_requests",
             "expire_data_exports",
             "redispatch_stale_pending_exports",
+            "purge_expired_erasure_records",
+            "purge_expired_consent_records",
+            "anonymize_consent_ips",
+            "purge_expired_legal_retention_rows",
+            "purge_expired_tenant_erasure_records",
         ],
     )
     def test_beat_tasks_retry_on_transient_transport_errors(self, task_name):

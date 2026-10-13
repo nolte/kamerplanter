@@ -12,7 +12,11 @@ Coverage:
 * upsert is called with ``source="user_contributed"`` + contribution provenance,
   and the EXIF-stripped bytes from the attachment stream;
 * retract deactivates via the provenance-matched prototype;
-* the task wrapper swallows unexpected failures into a warning (admin flow safe).
+* the task wrapper swallows unexpected failures into a warning (admin flow safe);
+* REQ-044 §3.4 — indexing needs the contributor's ``pest_reference_contribution``
+  consent (granted → indexed; never asked / revoked / unknown person / Light
+  mode → clean no-op, no marker, no inference call). A grant of the plant
+  gallery's ``reference_contribution`` alone does NOT open the pest index.
 """
 
 from __future__ import annotations
@@ -20,17 +24,26 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+import pytest
+
 import app.tasks.pest_image_tasks as task_mod
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import NotFoundError
+from app.domain.engines.consent_engine import (
+    PEST_REFERENCE_CONTRIBUTION,
+    REFERENCE_CONTRIBUTION,
+    ConsentEngine,
+)
 from app.domain.models.attachment import Attachment
 from app.domain.models.ipm import Pest
 from app.domain.models.pest_image import PestImageContribution
+from tests.support.fake_consent_repo import FakeConsentRepo
 
 CONTRIB = "pic1"
 TENANT = "tenant_anna"
 PEST = "pest_spider_mite"
 ATT = "att1"
+CONTRIBUTOR = "user_anna"
 
 
 def _contribution() -> PestImageContribution:
@@ -39,7 +52,7 @@ def _contribution() -> PestImageContribution:
         tenant_key=TENANT,
         pest_key=PEST,
         attachment_id=ATT,
-        contributed_by="user_anna",
+        contributed_by=CONTRIBUTOR,
         status=PestImageStatus.PROMOTED,
         created_at=datetime.now(UTC),
     )
@@ -77,10 +90,21 @@ def _wire(
     pest: Pest | None = None,
     pest_missing: bool = False,
     detection_slug: str | None = "spider_mite",
+    consent: bool | None = True,
+    mode: str = "full",
 ):
     settings = MagicMock()
     settings.pest_detection_enabled = enabled
+    settings.kamerplanter_mode = mode
     monkeypatch.setattr(task_mod, "settings", settings)
+
+    # REQ-044 §3.4 — the contributor's pest_reference_contribution opt-in: True =
+    # granted, False = revoked (revoked_at stamped), None = never asked.
+    consents = FakeConsentRepo()
+    if consent is not None:
+        consents.set(CONTRIBUTOR, PEST_REFERENCE_CONTRIBUTION, granted=consent)
+    monkeypatch.setattr(task_mod, "get_consent_repo", lambda: consents)
+    monkeypatch.setattr(task_mod, "get_consent_engine", ConsentEngine)
 
     repo = MagicMock()
     repo.get_by_key.return_value = contribution
@@ -109,6 +133,17 @@ def _wire(
     client.upsert_prototype.return_value = {"status": "ok"}
     client.retract_prototype.return_value = 1
     monkeypatch.setattr(task_mod, "get_pest_inference_client", lambda: client)
+
+    # #1759 — the pest-prototype marker; shares a parent mock with the client so
+    # a test can read the order of the marker write and the upsert.
+    order = MagicMock()
+    order.attach_mock(client.upsert_prototype, "upsert_prototype")
+    marker = MagicMock()
+    order.attach_mock(marker.record_pest_prototype_contributions, "record_pest_prototype_contributions")
+    monkeypatch.setattr(task_mod, "get_system_settings_repo", lambda: marker)
+    client.order = order
+    client.marker = marker
+    client.consents = consents
 
     return repo, ipm, attachment_service, client
 
@@ -180,6 +215,167 @@ class TestIndexPromoted:
         assert kwargs["source_record_id"] == CONTRIB
         assert TENANT in kwargs["source_url"]
         assert CONTRIB in kwargs["source_url"]
+
+
+class TestIndexPromotedRecordsTheMarker:
+    """#1759 — the marker is written before the prototype, and gates it."""
+
+    def test_the_marker_is_recorded_before_the_upsert(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+
+        task_mod._index_promoted(CONTRIB)
+
+        names = [call[0] for call in client.order.mock_calls]
+        assert names == ["record_pest_prototype_contributions", "upsert_prototype"]
+
+    def test_a_failed_marker_write_prevents_the_upsert(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+        client.marker.record_pest_prototype_contributions.side_effect = RuntimeError("arango down")
+
+        with pytest.raises(RuntimeError):
+            task_mod._index_promoted(CONTRIB)
+        client.upsert_prototype.assert_not_called()
+
+    def test_a_contribution_deleted_during_the_upsert_is_erased_again(self, monkeypatch):
+        """#1759 review SEC-001 — a delete between the read and the upsert must not leave a prototype."""
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        repo.get_by_key.side_effect = [_contribution(), None]
+        client.erase_contributions.return_value = 1
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "retracted_after_delete"
+        client.upsert_prototype.assert_called_once()
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_a_contribution_demoted_during_the_upsert_is_erased_again(self, monkeypatch):
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        demoted = _contribution()
+        demoted.status = PestImageStatus.PRIVATE
+        repo.get_by_key.side_effect = [_contribution(), demoted]
+
+        assert task_mod._index_promoted(CONTRIB)["status"] == "retracted_after_delete"
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_a_failed_undo_is_handed_to_a_retrying_task(self, monkeypatch):
+        """#1766 review — the key is the only handle on the row; the undo must not be dropped."""
+        repo, _ipm, _att, client = _wire(monkeypatch)
+        repo.get_by_key.side_effect = [_contribution(), None]
+        client.erase_contributions.side_effect = ConnectionError("inference down")
+        queued: list[str] = []
+        monkeypatch.setattr(task_mod.erase_pest_prototype_task, "delay", queued.append)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "retract_after_delete_queued"
+        assert queued == [CONTRIB]
+
+    def test_the_retrying_task_erases_by_key(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+        client.erase_contributions.return_value = 1
+
+        assert task_mod.erase_pest_prototype_task.run(CONTRIB) == {"status": "erased", "deleted": 1}
+        client.erase_contributions.assert_called_once_with([CONTRIB])
+
+    def test_the_retrying_task_retries_on_failure(self):
+        task = task_mod.erase_pest_prototype_task
+        assert Exception in task.autoretry_for and task.max_retries >= 10
+
+    def test_a_contribution_still_present_is_not_erased(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch)
+
+        assert task_mod._index_promoted(CONTRIB)["status"] == "indexed"
+        client.erase_contributions.assert_not_called()
+
+    def test_a_guard_miss_records_no_marker(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch, detection_slug=None)
+
+        task_mod._index_promoted(CONTRIB)
+
+        client.marker.record_pest_prototype_contributions.assert_not_called()
+
+
+class TestIndexPromotedRequiresContributorConsent:
+    """REQ-044 §3.4 — the few-shot data set is built from user images *with consent*."""
+
+    def test_granted_consent_indexes_once(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch, consent=True)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome["status"] == "indexed"
+        client.upsert_prototype.assert_called_once()
+        # The contributor of the stored document is the one asked.
+        assert client.consents.reads == [(CONTRIBUTOR, PEST_REFERENCE_CONTRIBUTION)]
+
+    def test_the_plant_gallery_purpose_alone_does_not_open_the_pest_index(self, monkeypatch):
+        # Operator decision 2026-10-09: ``reference_contribution`` names only plant
+        # gallery photos, so an earlier grant of it must not carry over.
+        _repo, _ipm, attachments, client = _wire(monkeypatch, consent=None)
+        client.consents.set(CONTRIBUTOR, REFERENCE_CONTRIBUTION, granted=True)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome == {"status": "noop", "reason": "no_consent"}
+        assert client.consents.reads == [(CONTRIBUTOR, PEST_REFERENCE_CONTRIBUTION)]
+        client.upsert_prototype.assert_not_called()
+        client.marker.record_pest_prototype_contributions.assert_not_called()
+        attachments.get_attachment.assert_not_called()
+
+    def test_the_pest_purpose_is_a_registered_optional_purpose(self):
+        purpose = ConsentEngine().find_purpose(PEST_REFERENCE_CONTRIBUTION)
+
+        assert purpose is not None
+        assert purpose.required is False
+        assert purpose.legal_basis.startswith("Art. 6(1)(a)")
+
+    @pytest.mark.parametrize("consent", [None, False], ids=["never_asked", "revoked"])
+    def test_without_consent_nothing_reaches_the_index(self, monkeypatch, consent):
+        _repo, _ipm, attachments, client = _wire(monkeypatch, consent=consent)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome == {"status": "noop", "reason": "no_consent"}
+        client.upsert_prototype.assert_not_called()
+        client.marker.record_pest_prototype_contributions.assert_not_called()
+        attachments.get_attachment.assert_not_called()
+
+    def test_an_unknown_contributor_is_refused(self, monkeypatch):
+        # Consent is held by someone else; the document names a person with no record.
+        stranger = _contribution()
+        stranger.contributed_by = "user_gone"
+        _repo, _ipm, _att, client = _wire(monkeypatch, contribution=stranger, consent=True)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome == {"status": "noop", "reason": "no_consent"}
+        assert client.consents.reads == [("user_gone", PEST_REFERENCE_CONTRIBUTION)]
+        client.upsert_prototype.assert_not_called()
+
+    def test_light_mode_is_noop_without_a_consent_read(self, monkeypatch):
+        repo, _ipm, _att, client = _wire(monkeypatch, mode="light", consent=True)
+
+        outcome = task_mod._index_promoted(CONTRIB)
+
+        assert outcome == {"status": "noop", "reason": "light_mode"}
+        repo.get_by_key.assert_not_called()
+        assert client.consents.reads == []
+        client.upsert_prototype.assert_not_called()
+
+    def test_the_task_returns_the_noop_instead_of_raising(self, monkeypatch):
+        _repo, _ipm, _att, client = _wire(monkeypatch, consent=False)
+
+        outcome = task_mod.index_promoted_pest_image_task.run(CONTRIB)
+
+        assert outcome == {"status": "noop", "reason": "no_consent"}
+        client.upsert_prototype.assert_not_called()
+
+    def test_demotion_retracts_regardless_of_consent(self, monkeypatch):
+        # A retract only removes; it must never be blocked by a missing opt-in.
+        _repo, _ipm, _att, client = _wire(monkeypatch, consent=False)
+
+        assert task_mod._retract_promoted(CONTRIB)["status"] == "retracted"
+        client.retract_prototype.assert_called_once()
 
 
 class TestRetractPromoted:

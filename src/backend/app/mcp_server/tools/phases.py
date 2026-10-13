@@ -59,6 +59,7 @@ from app.common.enums import McpPermission
 from app.common.exceptions import NotFoundError
 from app.domain.models.mcp import McpToolResponse
 from app.mcp_server.base import (
+    CatalogueToolInput,
     GlobalWriteToolInput,
     McpToolError,
     TenantToolInput,
@@ -267,9 +268,14 @@ class ListPhaseSequences(ToolBase):
 
 @mcp_tool(name="list_species_by_phase_sequence", permission=McpPermission.READ)
 class ListSpeciesByPhaseSequence(ToolBase):
-    """List every species bound to one phase sequence — the reverse lookup."""
+    """List the species bound to one phase sequence — the reverse lookup.
 
-    class Input(ToolInput):
+    Hybrid-catalogue read: the shared species by default, plus the named tenant's
+    own and granted ones when ``tenant`` is given — never another tenant's private
+    species (#2102).
+    """
+
+    class Input(CatalogueToolInput):
         sequence_key: str = Field(
             description="Key of the phase sequence. Resolve it with list_phase_sequences "
             "or get_species_phase_sequence.",
@@ -279,7 +285,9 @@ class ListSpeciesByPhaseSequence(ToolBase):
 
     async def run(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         sequence = ctx.phase_sequence_service.get_sequence(args.sequence_key)
-        species = ctx.phase_sequence_service.get_species_for_sequence(args.sequence_key)
+        species = ctx.phase_sequence_service.get_species_for_sequence(
+            args.sequence_key, tenant_key=ctx.catalogue_tenant_key(args.tenant)
+        )
         page = species[args.offset : args.offset + args.limit]
         return self._response(
             # The count is the finding: a sequence carrying a mixed cohort is how a
@@ -689,6 +697,11 @@ class AssignSpeciesPhaseSequence(WriteToolBase):
         write would refuse with a 404.
         """
 
+        # The species must be a global one: this tool has no tenant, and a tenant-owned
+        # species belongs to its owner, who binds it through their own catalogue — a
+        # platform admin acting here must not rebind another tenant's private species
+        # (#2103). ``tenant_key=""`` is the hybrid read check collapsed to global-only.
+        ctx.species_service.get_species(args.species_key, tenant_key="")
         target = ctx.phase_sequence_service.get_sequence(args.sequence_key)
         current = ctx.phase_sequence_service.get_sequence_by_species(args.species_key)
         return target, current

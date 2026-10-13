@@ -24,6 +24,7 @@ import time
 import httpx
 import structlog
 
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.interfaces.knowledge_service import (
     AskResult,
@@ -226,7 +227,7 @@ class HttpKnowledgeServiceAdapter(IKnowledgeService):
         # ``as exc`` is required: bare ``except (A, B):`` is miscompiled by
         # ``ruff format`` into invalid ``except A, B:`` syntax (project ruff bug).
         except (httpx.TransportError, httpx.TimeoutException) as exc:
-            logger.debug("knowledge_service_health_unreachable", error=str(exc))
+            logger.debug("knowledge_service_health_unreachable", error=loggable_error(exc))
             return False
         finally:
             if owns_client:

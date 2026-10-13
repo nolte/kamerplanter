@@ -6,6 +6,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Link from '@mui/material/Link';
+import { Link as RouterLink } from 'react-router-dom';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
@@ -121,7 +122,7 @@ export default function IdentificationConsentGate({
         {showPrivacyLink ? (
           <>
             {t('pages.plantIdentification.consentRevoke')}{' '}
-            <Link href="/settings#privacy" variant="caption">
+            <Link component={RouterLink} to="/privacy" variant="caption">
               {t('pages.plantIdentification.consentPrivacyLink')}
             </Link>
           </>

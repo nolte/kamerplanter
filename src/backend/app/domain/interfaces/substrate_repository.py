@@ -7,7 +7,7 @@ from app.domain.models.substrate import Substrate, SubstrateBatch
 class ISubstrateRepository(ABC):
     @abstractmethod
     def get_all_substrates(
-        self, offset: int = 0, limit: int = 50, query: str | None = None
+        self, offset: int = 0, limit: int = 50, query: str | None = None, *, tenant_key: str | None = None
     ) -> tuple[list[Substrate], int]: ...
 
     @abstractmethod
@@ -32,7 +32,9 @@ class ISubstrateRepository(ABC):
     def get_batch_or_raise(self, key: BatchKey) -> SubstrateBatch: ...
 
     @abstractmethod
-    def get_batches_by_substrate(self, substrate_key: SubstrateKey) -> list[SubstrateBatch]: ...
+    def get_batches_by_substrate(
+        self, substrate_key: SubstrateKey, *, tenant_key: str | None
+    ) -> list[SubstrateBatch]: ...
 
     @abstractmethod
     def create_batch(self, batch: SubstrateBatch) -> SubstrateBatch: ...

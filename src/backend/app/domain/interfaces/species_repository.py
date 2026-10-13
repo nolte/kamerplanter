@@ -18,6 +18,15 @@ class ISpeciesRepository(ABC):
     def get_or_raise(self, key: SpeciesKey) -> Species: ...
 
     @abstractmethod
+    def list_visible_keys(self, *, tenant_key: str) -> set[str] | None:
+        """Keys of every species ``tenant_key`` can see: own ∪ global ∪ granted.
+
+        ``None`` only when the ``species`` collection does not exist; an empty set
+        is a real answer. Other datastore errors propagate.
+        """
+        ...
+
+    @abstractmethod
     def get_by_scientific_name(self, name: str) -> Species | None: ...
 
     @abstractmethod
@@ -25,6 +34,10 @@ class ISpeciesRepository(ABC):
 
     @abstractmethod
     def get_by_normalized_scientific_name_for_tenant(self, name: str, tenant_key: str) -> Species | None: ...
+
+    @abstractmethod
+    def find_visible_by_normalized_scientific_name(self, name: str, tenant_key: str) -> Species | None:
+        """The species with this dedup key the tenant can see — own or global (#1162, MT-045.7)."""
 
     @abstractmethod
     def upsert_by_normalized_scientific_name(self, species: Species) -> Species: ...
@@ -59,7 +72,7 @@ class ISpeciesRepository(ABC):
     def is_cultivar_granted_to(self, cultivar_key: str, tenant_key: str) -> bool: ...
 
     @abstractmethod
-    def find_synonym_match_candidates(self, species: Species) -> list[Species]: ...
+    def find_synonym_match_candidates(self, species: Species, *, tenant_key: str) -> list[Species]: ...
 
     @abstractmethod
     def list_all_species(self) -> list[Species]: ...

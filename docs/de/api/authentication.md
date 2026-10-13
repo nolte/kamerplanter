@@ -18,6 +18,10 @@ Das **Access Token** ist ein signiertes JWT (HS256). Es enthält die Nutzer-ID u
 
 Das **Refresh Token** wird als HttpOnly-Cookie gesetzt. Es ist für JavaScript nicht lesbar und schützt damit vor XSS-Angriffen. Bei jedem Aufruf von `/auth/refresh` wird das Token rotiert — das alte Token wird ungültig, ein neues ausgestellt.
 
+Alle Refresh-Tokens, die aus einer Anmeldung durch Rotation entstehen, bilden eine **Token-Familie**. Wird ein bereits rotiertes Token erneut vorgelegt, gilt das als Wiederverwendung eines gestohlenen Tokens: Der Server beendet die ganze Familie (diese eine Anmeldung, andere Geräte bleiben angemeldet) und antwortet mit `401 Unauthorized`. Ausnahme ist das **Gnadenfenster** von 60 Sekunden für den Cookie-Weg: Erneuern zwei Tabs desselben Browsers gleichzeitig, erhält der zweite ein neues Access Token, aber keinen neuen Cookie — den hat der erste Tab bereits gesetzt. Das Gnadenfenster gilt nur für denselben Client (gleicher `User-Agent`). <!-- #2116 -->
+
+Ein Access Token endet nicht erst nach seinen 15 Minuten: **Jeder Widerruf** — Abmelden, alle Sitzungen abmelden, eine einzelne Sitzung beenden, Passwortänderung oder -Reset, die Deaktivierung des Kontos, eine erkannte Token-Wiederverwendung — macht alle bis dahin ausgestellten Access Tokens des Kontos sofort ungültig (`401 Unauthorized`). Geräte, deren Sitzung weiterläuft, holen sich mit ihrem Refresh Token unbemerkt ein neues. <!-- #2116 -->
+
 ---
 
 ## Registrierung
@@ -52,7 +56,9 @@ Content-Type: application/json
 }
 ```
 
-Nach der Registrierung wird ein persönlicher Mandant automatisch angelegt. Wenn E-Mail-Verifikation aktiv ist (`REQUIRE_EMAIL_VERIFICATION=true`), muss die E-Mail-Adresse vor dem ersten Login bestätigt werden.
+**Registrierungsmodus (`REGISTRATION_MODE`).** Je nach Einstellung des Betreibers antwortet die Registrierung mit `403` (`REGISTRATION_NOT_ALLOWED`): bei `closed` immer, bei `invite_only` ohne gültiges Einladungs-Token, mit `REGISTRATION_ALLOWED_DOMAINS` für eine Adresse außerhalb der Liste. Das optionale Feld `invitation_token` trägt das Token einer offenen **E-Mail**-Einladung für genau diese Adresse; es ist die Ausnahme von `invite_only` und von der Domain-Liste (nicht von `closed`). Die Antwort ist für vergebene und freie Adressen gleich. Welcher Modus gilt, liest ein Client aus `GET /api/v1/mode` (`registration.mode`, `registration.domain_restricted`). Eine erste Anmeldung über OIDC, die der Modus nicht zulässt, leitet auf `/auth/callback?error=registration_not_allowed` zurück. <!-- Issue #2132 -->
+
+Nach der Registrierung wird ein persönlicher Mandant automatisch angelegt. Ist die E-Mail-Verifikation aktiv (`REQUIRE_EMAIL_VERIFICATION=true`, der Default), muss die E-Mail-Adresse vor dem ersten Login bestätigt werden. Eine Installation ohne ausgehenden Mailversand setzt die Variable ausdrücklich auf `false`.
 
 ### E-Mail-Verifizierung
 
@@ -64,6 +70,56 @@ Content-Type: application/json
   "token": "<token-aus-der-e-mail>"
 }
 ```
+
+Ein Link gilt 24 Stunden und nur einmal. Ein falscher, abgelaufener oder schon benutzter Token ergibt `401 Unauthorized` (`INVALID_TOKEN`).
+
+### Bestätigungslink erneut anfordern
+
+Für ein Konto, dessen erster Link verloren gegangen oder abgelaufen ist. Die Anmeldung mit dem richtigen Passwort verschickt einen neuen Link selbst (siehe [Neuer Link bei der abgelehnten Anmeldung](#neuer-link-bei-der-abgelehnten-anmeldung)); dieser Endpunkt ist der Weg ohne Passwort — etwa von der Fehlerseite eines abgelaufenen Links — und der Rückfall, wenn über die Anmeldung nichts ankommt.
+
+```http
+POST /api/v1/auth/resend-verification
+Content-Type: application/json
+
+{
+  "email": "gartner@example.com"
+}
+```
+
+**Antwort** `202 Accepted`, immer mit demselben Body:
+
+```json
+{
+  "message": "If this address belongs to an account that still needs verification, a new verification email is on its way."
+}
+```
+
+Die Antwort ist für **jede** Adresse gleich — unbekannt, unbestätigt, schon bestätigt, Service-Account oder ein Konto ohne lokales Passwort. Auch die Arbeit vor der Antwort ist für alle gleich; Kontosuche, neuer Token und Versand laufen erst danach. So verrät der Endpunkt weder über den Inhalt noch über die Antwortzeit, ob es ein Konto gibt.
+
+Eine E-Mail geht nur raus, wenn `REQUIRE_EMAIL_VERIFICATION` aktiv ist und das Konto aktiv, unbestätigt, interaktiv (kein Service-Account) und mit lokalem Passwort angelegt ist. Jeder Versand schreibt einen **neuen** Token mit 24 Stunden Gültigkeit; alle vorher verschickten Links werden damit ungültig.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_RESEND_VERIFICATION`, Default `10/hour` | `429 Too Many Requests` |
+| Je Adresse | 3 Anfragen; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `202` — es geht nur keine E-Mail mehr raus |
+
+Die Grenze je Adresse zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht. Darum antwortet sie stumm: ein `429` würde nichts verraten, aber ein Budget, das nur echte Konten zählt, würde es.
+
+#### Neuer Link bei der abgelehnten Anmeldung
+
+Meldet sich jemand mit dem **richtigen** Passwort an einem unbestätigten Konto an, antwortet `POST /api/v1/auth/login` wie bisher `403 Forbidden` mit `error_code` `EMAIL_NOT_VERIFIED` — und verschickt nach der Antwort selbst einen neuen Bestätigungslink an die **gespeicherte** Adresse des Kontos (nicht an die Schreibweise, die eingetippt wurde). Für den Link gelten dieselben Regeln wie oben: neuer Token, 24 Stunden gültig, alle früheren Links werden ungültig; nur an aktive, interaktive Konten mit lokalem Passwort und nur mit `REQUIRE_EMAIL_VERIFICATION`.
+
+Diese Ablehnung erreicht nur, wer das Passwort kennt. Deshalb hat dieser Weg ein eigenes Budget **je Konto**, das anonyme Anfragen an `resend-verification` nicht aufbrauchen können — wer nur die Adresse kennt, kann dem Kontoinhaber den neuen Link so nicht mehr vorenthalten.
+
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_AUTH` (gilt für den ganzen Login) | `429 Too Many Requests` |
+| Je Konto | 3 Links; das Budget füllt sich wieder auf, sobald eine Stunde lang keine Anmeldung mit `EMAIL_NOT_VERIFIED` abgelehnt wurde — jede solche Ablehnung zählt, auch über dem Budget, und verlängert das Fenster | Unverändert `403` `EMAIL_NOT_VERIFIED` — es geht nur keine E-Mail raus |
+
+Die Antwort sagt nicht, ob ein Link verschickt wurde: Status, Body und Header sind dieselben, ob eine E-Mail rausging, das Budget aufgebraucht war oder die Zustellung scheiterte. Ein falsches Passwort antwortet unverändert `401 Unauthorized` und verschickt nichts. Clients stellen den neuen Link deshalb nur in Aussicht und bieten `resend-verification` als Rückfall an.
+
+!!! note "Budget bei Valkey-Ausfall"
+    Das Budget liegt in Valkey, damit alle Replikas gemeinsam zählen. Ist Valkey nicht erreichbar, zählt jeder Prozess für sich weiter — nie ohne Grenze. Diese In-Process-Stufe hat eine feste Kapazität: Wird sie überschritten, verdrängt sie den ältesten Eintrag und mit ihm dessen verbrauchtes Budget. Hier zählen allerdings Konten, nicht frei gewählte Adressen; sie zu füllen, braucht die Passwörter entsprechend vieler Konten. Die Budgets von `resend-verification` und Passwort-Reset, die frei gewählte Adressen zählen, verdrängen dagegen nie (siehe [Passwort zurücksetzen](#passwort-zurucksetzen)).
 
 ---
 
@@ -143,7 +199,7 @@ X-CSRF-Token: <csrf-token>
 }
 ```
 
-Das alte Refresh-Token wird ungültig. Der neue Refresh-Cookie wird automatisch gesetzt.
+Das alte Refresh-Token wird ungültig. Der neue Refresh-Cookie wird automatisch gesetzt. Kommt dasselbe alte Token innerhalb von 60 Sekunden aus demselben Browser noch einmal (zweiter Tab), antwortet der Server mit einem Access Token und setzt **keinen** Cookie; später oder von einem anderen Client gilt es als Wiederverwendung und beendet die Sitzung (siehe [Token-Modell](#token-modell)).
 
 ---
 
@@ -156,7 +212,9 @@ POST /api/v1/auth/logout
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidiert das aktuelle Refresh-Token und löscht den Cookie.
+Invalidiert die Sitzung (das aktuelle Refresh-Token und alle aus ihr rotierten) und löscht den Cookie. Access Tokens des Kontos werden sofort ungültig; andere angemeldete Geräte erneuern ihres unbemerkt.
+
+Die Web-Oberfläche entfernt beim Abmelden außerdem alles, was sie im Browser über dein Konto hält: geladene Daten, den aktiven Garten und die Browser-Push-Registrierung dieses Geräts. Auf einem gemeinsam genutzten Gerät sieht die nächste Person nichts davon und erhält keine Push-Nachrichten für dein Konto. <!-- #2117 -->
 
 ### Alle Sitzungen abmelden
 
@@ -166,7 +224,7 @@ Authorization: Bearer <access-token>
 X-CSRF-Token: <csrf-token>
 ```
 
-Invalidiert alle Refresh-Tokens des Nutzers auf allen Geräten.
+Invalidiert alle Refresh-Tokens des Nutzers auf allen Geräten — und alle Access Tokens: Auch ein noch nicht abgelaufenes Access Token wird ab der nächsten Anfrage mit `401 Unauthorized` abgelehnt. <!-- #2116 -->
 
 ---
 
@@ -185,6 +243,17 @@ Content-Type: application/json
 
 Aus Sicherheitsgründen gibt dieser Endpunkt immer dieselbe Erfolgsantwort zurück, unabhängig davon, ob die E-Mail-Adresse existiert.
 
+| Grenze | Wert | Antwort bei Überschreitung |
+|--------|------|----------------------------|
+| Je Client-IP | `RATE_LIMIT_AUTH`, Default `20/minute` | `429 Too Many Requests` |
+| Je Adresse und Client-IP | 3 Anfragen; das Budget füllt sich wieder auf, sobald von dieser IP eine Stunde lang keine Anfrage für die Adresse kam | Unverändert `200` mit demselben Body — es geht nur kein Link mehr raus |
+| Je Adresse insgesamt | 10 Links über alle Quellen; das Budget füllt sich wieder auf, sobald eine Stunde lang kein Link für die Adresse verschickt wurde | Unverändert `200` mit demselben Body — es geht nur kein Link mehr raus |
+
+Die Grenzen je Adresse funktionieren wie beim [Bestätigungslink](#bestatigungslink-erneut-anfordern), haben aber ihr eigenes Budget: Sie zählt **jede** eingegebene Adresse gleich, ob es ein Konto gibt oder nicht, und antwortet deshalb stumm. Groß-/Kleinschreibung und Leerzeichen um die Adresse spielen keine Rolle — `Gartner@Example.com` und `gartner@example.com` teilen sich ein Budget. Der Link geht immer an die Adresse, wie sie im Konto gespeichert ist, nicht an die eingegebene Schreibweise. Hast du drei Links angefordert und keiner kam an, warte eine Stunde, ohne erneut anzufragen; dein bisheriges Passwort bleibt bis dahin gültig. Fragt jemand anderes von einer anderen IP aus nach deiner Adresse, verbraucht das dein Budget nicht: Jede Quelle hat ihre eigenen drei Anfragen, und nur verschickte Links zählen gegen die zehn insgesamt.
+
+!!! warning "Grenzen dieses Schutzes"
+    Eine einzelne Quelle kann eine fremde Adresse nicht mehr sperren: Ihre Anfragen verbrauchen nur ihr eigenes Budget für diese Adresse. Wer die Inhaberin trotzdem aussperren will, muss das Gesamtbudget von zehn Links ausschöpfen — dafür braucht es mindestens vier verschiedene IPs je Adresse, und jeder dieser Links landet tatsächlich im Postfach der Inhaberin. Solange das gelingt, bekommt sie keinen neuen Link; kennt sie ihr bisheriges Passwort noch, meldet sie sich damit an. Einen Admin-Weg, der ein Passwort setzt, einen Reset-Link auslöst oder das Budget leert, gibt es nicht. Wird ein Budget überschritten, schreibt das Backend einmal `password_reset_budget_exhausted` mit der Stufe (`address_source` oder `address`) und einem mit Schlüssel gebildeten Hash der Adresse ins Log — nie die Adresse selbst, nie die IP. Ist Valkey nicht erreichbar, zählt jeder Prozess für sich: bis zu 3 Links je Adresse, Stunde und Worker-Prozess über alle Replikas. Diese Zählung verdrängt keinen Eintrag, auch nicht bei einer Flut erfundener Adressen: Ist sie voll (16 384 Einträge je Prozess und Budget; beim Reset belegt eine neue Adresse aus einer neuen Quelle zwei), bekommt eine neue Adresse keinen Link, bis ältere Einträge abgelaufen sind — stumm, wie über dem Budget. Ein flatternder Valkey kann bis zu 3 weitere freigeben, weil die Zähler beider Stufen getrennt sind; das gilt, solange Valkey seine Schlüssel behält — ein Neustart, der sie verliert, gibt je Budget weitere 3 frei.
+
 ### Neues Passwort setzen
 
 ```http
@@ -196,6 +265,199 @@ Content-Type: application/json
   "new_password": "neues-passwort-2026"
 }
 ```
+
+---
+
+## Passwort ändern (angemeldet)
+
+```http
+POST /api/v1/users/me/password
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "altes-passwort-2026",
+  "new_password": "neues-passwort-2026"
+}
+```
+
+`current_password` entfällt nur, wenn das Konto noch **kein** lokales Passwort hat (ein reines SSO-Konto, das erstmals eines setzt) — in diesem Fall bestätigst du stattdessen mit einer frischen Anmeldung beim verknüpften Anbieter (nächster Abschnitt) oder, nur wenn all deine Anbieter das nicht unterstützen (GitHub, Apple), mit dem Bestätigungscode aus dem übernächsten Abschnitt. Existiert bereits ein lokales Passwort, muss es korrekt mitgeschickt werden — es ist ein Step-up (siehe unten). Bei Erfolg werden alle aktiven Sitzungen des Nutzers beendet.
+
+Eine mit API-Key authentifizierte Anfrage wird mit `403 Forbidden` abgelehnt — ein API-Key kann das eigene Passwort nicht ändern.
+
+Im Light-Modus (`KAMERPLANTER_MODE=light`) antwortet die Route mit `403 Forbidden`. Das einzige Konto der Instanz wird von jeder Anfrage ohne Anmeldung benutzt; ein dort gesetztes Passwort sagt nichts darüber, wer es gesetzt hat — und es würde nach dem Wechsel in den Full-Modus zur gültigen Anmeldung.
+
+---
+
+## Erneut anmelden zur Bestätigung (OIDC)
+
+Ein Konto ohne lokales Passwort hat kein eigenes Geheimnis, mit dem es die Step-up-Bestätigungen im übernächsten Abschnitt beantworten könnte. Ist mindestens einer seiner verknüpften Anmeldeanbieter ein **OpenID-Connect-Anbieter** (Google oder ein generischer OIDC-Provider mit dem `openid`-Scope), bestätigt es stattdessen mit einer **frischen** Anmeldung genau bei diesem Anbieter — das ist der Regelfall. Nur ein Konto, dessen sämtliche verknüpfte Anbieter das nicht können (ausschließlich GitHub und/oder Apple, siehe Abgrenzung unten), weicht auf den per E-Mail zugeschickten Code aus.
+
+```http
+POST /api/v1/users/me/step-up/oidc
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` benennt wie beim Code die zu bestätigende Aktion, `target` wie dort ihr Ziel (Pflicht für die zielgebundenen Aktionen, siehe unten). Optional `provider_key` (Schlüssel eines verknüpften Anbieters aus `GET /users/me/providers`) wählt einen bestimmten Anbieter, wenn mehrere OIDC-fähige verknüpft sind; ohne Angabe nimmt die Route den ersten passenden. Optional `client_nonce` (32 Hex-Zeichen, vom Client zufällig erzeugt) kommt unverändert neben dem Token bzw. dem Fehler zurück — so erkennt die Seite, die die Anmeldung gestartet hat, ihr eigenes Ergebnis und verwirft ein untergeschobenes.
+
+**Antwort (200 OK):**
+
+```json
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=kamerplanter&response_type=code&prompt=login&max_age=0&state=…&nonce=…&code_challenge_method=S256"
+}
+```
+
+Öffne `authorization_url` im Browser — dieselbe Login-Anfrage wie beim normalen Anmelden, zusätzlich mit `prompt=login` und `max_age=0`: Der Anbieter muss die Person erneut anmelden lassen (keine stille Antwort aus dessen eigener Sitzung) und den Anmeldezeitpunkt zurückmelden. Der Anbieter leitet danach an den bestehenden Callback dieses Servers weiter; der meldet niemanden an, sondern leitet ohne Umweg über eine JSON-Antwort direkt zu `{frontend-url}/auth/step-up/callback` weiter:
+
+- Erfolg: `#step_up_token=<Token>&action=<Aktion>&client_nonce=<Nonce>` im URL-**Fragment** (nie in der Query — ein Fragment erreicht keinen Server, keinen Proxy und keinen `Referer`-Header)
+- Fehler: `?error=step_up_failed` (allgemein), `?error=step_up_stale` (die Anmeldung war älter als fünf Minuten — erneut versuchen), oder `?error=step_up_cancelled` (am Anbieter abgebrochen)
+
+Das Backend prüft dabei am ID-Token: `iss` ist der erwartete Aussteller, `aud`/`azp` ist diese Instanz, `nonce` stimmt mit der Anfrage überein, `exp` ist nicht abgelaufen, `sub` gehört zu einer verknüpften Anmeldung **dieses** Kontos, die über **genau diese** Anbieter-Konfiguration entstanden ist (die Verknüpfung speichert Konfiguration und Aussteller; `iss` muss dazu passen), und `auth_time` ist eine endliche Zahl und höchstens fünf Minuten alt (30 Sekunden Uhrtoleranz). Eine ältere Verknüpfung ohne gespeicherte Konfiguration gilt nur dann als re-authentifizierbar, wenn genau eine aktive, fähige Konfiguration dieses Typs existiert — sonst bestätigt das Konto mit dem E-Mail-Code. Es prüft **keine** JWKS-Signatur: Das ID-Token kommt direkt vom Token-Endpunkt des Anbieters über TLS (die frische Anmeldung wird nur bei einem `https`-Token-Endpunkt angeboten), in einem Austausch, den dieser Server mit seinem eigenen Client-Secret authentifiziert hat — genau der Fall, für den OIDC Core 3.1.3.7 Nr. 6 die TLS-Absicherung als Ersatz für die Signaturprüfung vorsieht.
+
+Der zurückgegebene `step_up_token` ist fünf Minuten gültig, gilt für genau die angeforderte Aktion (und bei einer zielgebundenen Aktion genau für das angegebene Ziel), wird durch die erste Aktion verbraucht, die ihn vorlegt, und ist ansonsten wie der E-Mail-Code zu verwenden: als `step_up_token` im Bestätigungs-Body der jeweiligen Aktion (siehe Tabelle unten).
+
+`403 Forbidden` für eine mit API-Key authentifizierte Anfrage, einen Service Account oder eine Light-Modus-Installation. `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED`, wenn das Konto ein lokales Passwort hat (es bestätigt damit); `STEP_UP_REAUTH_UNAVAILABLE`, wenn keiner seiner verknüpften Anbieter (bzw. der über `provider_key` gewählte) eine frische Anmeldung unterstützt — dann bestätigt es mit dem E-Mail-Code —; ein Validierungsfehler, wenn `action` fehlt/unbekannt oder `client_nonce` falsch geformt ist. `429 Too Many Requests` (`STEP_UP_LOCKED`), solange der Step-up gesperrt ist.
+
+!!! info "Betreiber-Voraussetzung"
+    Der verknüpfte Identity-Provider muss `prompt=login`/`max_age` sowie den Claim `auth_time` unterstützen (Google und die meisten generischen OIDC-Provider tun das) und seinen Token-Endpunkt über `https` anbieten. Die Rückruf-URL der erneuten Anmeldung wird aus `APP_BASE_URL` gebildet (`{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback`), nie aus dem Host-Header der Anfrage — setze `APP_BASE_URL` auf die öffentliche Adresse und hinterlege genau diese Rückruf-URL beim Provider.
+
+---
+
+## Bestätigungscode per E-Mail anfordern (Ausweichweg für GitHub/Apple)
+
+**Abgrenzung.** GitHub ist reines OAuth2 und stellt kein ID-Token aus — es gibt also keinen Anmeldezeitpunkt, den der vorige Abschnitt prüfen könnte. Apple stellt zwar ein ID-Token aus, aber ohne `auth_time`. Ein Konto, dessen verknüpfte Anmeldewege **ausschließlich** aus GitHub und/oder Apple bestehen, kann sich deshalb nicht frisch erneut anmelden lassen und bestätigt stattdessen mit einem Einmalcode, der an die eigene E-Mail-Adresse geschickt wird — derselbe Nachweis, auf den sich ein Passwort-Reset stützt. Ein Konto mit mindestens einem OIDC-fähigen Anbieter (Google, generisches OIDC) nutzt immer den vorigen Abschnitt; die Route unten verweigert ihm den Code (siehe unten).
+
+```http
+POST /api/v1/users/me/step-up-code
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "action": "account_erasure"
+}
+```
+
+`action` benennt, wofür der Code gelten soll — eine der Aktionen aus der Tabelle unten (`account_erasure`, `admin_account_erasure`, `tenant_deletion`, `password_change`, `email_change`, `api_key_creation`, `device_pairing`, `provider_unlink`, `admin_account_update`, `oidc_provider_change`, `admin_tenant_update`, `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change`, `admin_membership_add`, `tenant_erasure_cancel`, `service_account_change`). Der Code bestätigt **ausschließlich** diese eine Aktion — ein für die Passwortänderung angeforderter Code wird bei einem Löschversuch abgelehnt, ohne dabei verbraucht zu werden. Die zugeschickte E-Mail nennt in Klartext, wofür der Code gilt, aber nie das Ziel.
+
+**Ziel der Aktion (`target`).** Wirkt die Aktion auf etwas anderes als dein eigenes Konto, nennt `target` dieses Ziel — sonst antwortet die Route mit `422`; bei einer Aktion auf das eigene Konto führt ein `target` ebenfalls zu `422`: <!-- #1884 -->
+
+| Aktion | `target` |
+|---|---|
+| `admin_account_update`, `admin_account_erasure` | Schlüssel des anderen Kontos |
+| `tenant_deletion`, `tenant_erasure_cancel` | Schlüssel des Mandanten |
+| `provider_unlink` | Schlüssel der Anbieter-Verknüpfung aus `GET /users/me/providers` |
+| `oidc_provider_change` | Schlüssel der OIDC-Konfiguration, beim Anlegen `new:<slug>` |
+| `admin_tenant_update` | Schlüssel des Mandanten |
+| `admin_membership_removal`, `admin_membership_role_change`, `tenant_member_removal`, `tenant_member_role_change` | Schlüssel der Mitgliedschaft (`membership_key`) |
+| `admin_membership_add` | Mandant und Konto, getrennt durch `\|`: `<tenant_key>\|<user_key>` (die Mitgliedschaft gibt es noch nicht) |
+| `service_account_change` | Beim Anlegen der Schlüssel des Mandanten; beim Rotieren und Entfernen `<tenant_key>\|<service_account_key>` <!-- Issue #2137 --> |
+
+Code und `step_up_token` gelten dann nur für dieses Ziel: Ein für Konto A angeforderter Code wird bei Konto B abgelehnt und dabei nicht verbraucht. Die Route prüft das Ziel schon beim Ausstellen — es muss existieren, und du musst darauf handeln dürfen (`403`, wenn nicht; `404`, wenn es nicht existiert; `409`, wenn der Slug beim Anlegen einer OIDC-Konfiguration schon vergeben ist).
+
+**Antwort (202 Accepted):**
+
+```json
+{
+  "expires_at": "2026-09-25T18:40:00Z",
+  "expires_in": 600
+}
+```
+
+Der Code besteht aus acht Ziffern, ist zehn Minuten gültig und wird durch die erste Aktion verbraucht, die ihn vorlegt; ein erneuter Aufruf ersetzt einen noch gültigen Code durch einen neuen — mit zwei Ausnahmegrenzen: Ein **noch nicht verbrauchter** Code jünger als 60 Sekunden wird nicht ersetzt (sonst würde eine erneute Anfrage den Code entwerten, den die Person gerade abtippt), und es werden höchstens **5 Codes pro Stunde und Konto** verschickt. Der Code wird ausschließlich an die E-Mail-Adresse des eigenen Kontos verschickt — niemals in dieser Antwort oder anderswo zurückgegeben.
+
+`403 Forbidden` für eine mit API-Key authentifizierte Anfrage, einen Service Account oder eine Light-Modus-Installation (dort gibt es kein persönliches Konto, das etwas bestätigen könnte). `422 Unprocessable Entity`: `STEP_UP_PASSWORD_REQUIRED`, wenn das Konto bereits ein lokales Passwort hat — es bestätigt damit, nicht mit einem Code —; `STEP_UP_REAUTH_REQUIRED`, **wenn mindestens ein verknüpfter Anbieter des Kontos OIDC-fähig ist** (siehe oben — die Route sagt dann, den vorigen Abschnitt zu nutzen); ein Validierungsfehler, wenn `action` fehlt oder keiner der oben genannten Werte ist. `429 Too Many Requests` (`STEP_UP_LOCKED`, `details[0].retry_after_minutes`), solange der Step-up des Kontos gesperrt ist, ein noch gültiger Code jünger als 60 Sekunden ist, oder das Stundenbudget an Codes ausgeschöpft ist.
+
+`503 Service Unavailable` (`STEP_UP_CODE_UNDELIVERABLE`), wenn der Code nicht per E-Mail zugestellt werden kann — zum Beispiel, weil die Instanz ohne konfigurierten E-Mail-Versand läuft, oder der Mailserver einen Fehler meldet. In diesem Fall wird nichts ausgegeben: Der Code wird verworfen und sein Kontingent zurückgegeben, sodass weder die 60-Sekunden-Wartezeit noch das Stundenbudget den nächsten Versuch blockieren, sobald der Betreiber den Versand behoben hat.
+
+---
+
+## Step-up-Bestätigung für unumkehrbare Kontoaktionen und Anmeldemittel
+
+Die folgenden Aktionen verlangen zusätzlich zum gültigen Access Token eine erneute Bestätigung durch die angemeldete Person — seit Version 1.19 auch das Ausstellen bzw. Entfernen von Anmeldemitteln und eine Vertrauensanhebung durch Plattform-Admins: <!-- #1847, #1857 -->
+
+| Aktion | Route(n) | Zurückgetipptes Ziel (Body-Feld) | Passwort / Erneute Anmeldung / Code |
+|---|---|---|---|
+| Eigenes Konto löschen (Art. 17 DSGVO) | `DELETE /users/me`, `POST /privacy/erasure` | eigene E-Mail (`confirm_email`) | eigenes Passwort, sofern lokal vorhanden — sonst `step_up_token` einer frischen Anmeldung, nur bei rein GitHub/Apple der per E-Mail zugeschickte Code (`step_up_code`) |
+| Anderes Konto löschen (Plattform-Admin; `202`, die Löschung läuft in einem Worker, #1949) | `DELETE /admin/platform/users/{key}` | E-Mail des Zielkontos (`confirm_email`) | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| Mandant löschen | `DELETE /tenants/{slug}`, `DELETE /admin/platform/tenants/{key}` | Slug (`confirm_slug`) | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| E-Mail-Adresse ändern | `POST /privacy/email-change` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| Passwort ändern | `POST /users/me/password` | — | aktuelles (`current_password`) — die **erste** Passwortvergabe eines Kontos ohne eines läuft stattdessen über `step_up_token` bzw. Code |
+| API-Key ausstellen | `POST /auth/api-keys` | — | eigenes Passwort, sonst `step_up_token` bzw. Code. **Light-Modus:** kein Step-up — die Instanz hat nur das eine Systemkonto |
+| Gerät per QR-Code koppeln | `POST /auth/device-pairing` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| Anmeldeweg (Provider-Verknüpfung) entfernen | `DELETE /users/me/providers/{provider_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code |
+| Vertrauen eines anderen Kontos ändern (Plattform-Admin) | `PATCH /admin/platform/users/{key}`, sobald sich `email_verified` oder `is_active` ändert (anheben oder senken, #1992) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| OIDC-Provider anlegen, ändern, löschen (Plattform-Admin) | `POST /admin/oidc-providers`, `PUT`/`DELETE /admin/oidc-providers/{key}` — beim `PUT` nicht, wenn sich nur `display_name` oder `icon_url` ändert (Ein- und Abschalten verlangen ihn) | — | das des Admins, sonst dessen `step_up_token` bzw. Code |
+| Service Account anlegen, Key rotieren, Service Account entfernen (Leitung mit Zusatzberechtigung Technik) | `POST /t/{slug}/service-accounts`, `POST /t/{slug}/service-accounts/{sa_key}/rotate-key`, `DELETE /t/{slug}/service-accounts/{sa_key}` | — | eigenes Passwort, sonst `step_up_token` bzw. Code (`service_account_change`) <!-- Issue #2137 --> |
+
+!!! info "Kein automatischer Widerruf von API-Keys"
+    Passwortänderung, Passwort-Reset und `POST /auth/logout-all` widerrufen die Refresh-Token des Kontos — **nicht** dessen API-Keys. Ein Key steht für eine bewusst eingerichtete Maschinen-Integration (Home Assistant, MCP-Client); ihn bei jeder Passwortänderung stillschweigend zu entwerten, würde diese Integrationen ohne Vorwarnung brechen. Ein Key kann seit dieser Version nur noch hinter diesem Step-up entstehen — also nicht mehr aus einer bloß gestohlenen Sitzung oder aus einem anderen Key. Keys sind unter `GET /auth/api-keys` mit Erstellungs- und letztem Nutzungszeitpunkt gelistet und einzeln über `DELETE /auth/api-keys/{key_id}` widerrufbar. <!-- #1847 -->
+
+Eine mit einem API-Key authentifizierte Anfrage oder eine Anfrage eines Service Accounts kann keine dieser Aktionen auslösen — auch nicht das Ausstellen eines weiteren API-Keys oder eines Kopplungscodes (siehe Prüfreihenfolge unten).
+
+Beispiel-Body für die Kontolöschung (lokales Konto):
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "password": "aktuelles-passwort-2026"
+}
+```
+
+Beispiel-Body nach einer frischen Anmeldung (OIDC-fähiges Konto):
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_token": "AqX7…"
+}
+```
+
+Beispiel-Body für ein Konto, das ausschließlich über GitHub/Apple angemeldet ist:
+
+```json
+{
+  "confirm_email": "gartner@example.com",
+  "step_up_code": "48213907"
+}
+```
+
+**Prüfreihenfolge:**
+
+1. Eine Anfrage mit API-Key oder von einem Service Account wird mit `403 Forbidden` abgelehnt — bevor irgendetwas geprüft oder gezählt wird.
+2. Ist die Bestätigung gesperrt (siehe unten), antwortet die Route sofort `429 Too Many Requests`, ohne das Geheimnis zu prüfen.
+3. Stimmt das zurückgetippte Ziel nicht (E-Mail ohne Groß-/Kleinschreibung, Slug exakt), antwortet die Route `422 Unprocessable Entity`. Ein falsches Echo zählt **nicht** als Fehlversuch. Die E-Mail-Änderung und die Passwortänderung haben kein Ziel zum Zurücktippen.
+4. Hat das betroffene Konto ein lokales Passwort, muss das Passwortfeld korrekt gesetzt sein, sonst `401 Unauthorized`. Sonst — trägt der Body ein `step_up_token`, prüft die Route dieses (bestätigt es nichts oder ist es abgelaufen: `401 Unauthorized`). Fehlt `step_up_token`: Hat das Konto einen OIDC-fähigen verknüpften Anbieter, antwortet die Route `401 Unauthorized` mit dem Fehlercode `STEP_UP_REAUTH_REQUIRED` — ein Hinweis, sich zuerst erneut anzumelden. Andernfalls (nur GitHub/Apple verknüpft) prüft die Route stattdessen `step_up_code`; fehlt der, antwortet sie `401 Unauthorized` mit `STEP_UP_CODE_REQUIRED`.
+
+**Drosselung:** Nach 5 falschen Bestätigungen (Passwort, Code oder eine ungültige/abgelaufene erneute Anmeldung) derselben Kombination aus Konto und Client-Adresse sperrt das System weitere Bestätigungen für **15 Minuten**; bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis auf **4 Stunden**. Zusätzlich gilt eine kontoweite Obergrenze von 15 Fehlversuchen über beliebig viele Client-Adressen hinweg. Alle fünf Aktionen — und das Anfordern eines Codes oder einer erneuten Anmeldung — teilen sich dasselbe Fehlversuchs-Budget je Konto; ein erfolgreicher Step-up leert es wieder.
+
+Eine gesperrte Bestätigung antwortet mit dem Fehlercode `STEP_UP_LOCKED`:
+
+```json
+{
+  "error_code": "STEP_UP_LOCKED",
+  "message": "Too many failed confirmations. Try again in 15 minutes.",
+  "details": [
+    {
+      "field": "password",
+      "reason": "Too many failed confirmations.",
+      "code": "STEP_UP_LOCKED",
+      "retry_after_minutes": 15
+    }
+  ]
+}
+```
+
+!!! note "Die Login-Sperre bleibt unberührt"
+    Diese Sperre betrifft ausschließlich die fünf oben genannten Bestätigungen und wirkt sich nicht auf `POST /auth/login` aus. Wer eine dieser Bestätigungen sperrt — etwa jemand mit einer gestohlenen Sitzung —, kann sich trotzdem weiterhin anmelden, Sitzungen im Tab **Sitzungen** beenden und das Passwort per E-Mail zurücksetzen.
+
+!!! info "Für Betreiber: zwei verschiedene Voraussetzungen"
+    Ein Konto mit einem OIDC-fähigen Anbieter (Google, generisches OIDC) bestätigt über die erneute Anmeldung — dafür muss dieser Anbieter `prompt=login`/`max_age` und `auth_time` unterstützen (siehe oben), nicht SMTP. Nur ein Konto, dessen verknüpfte Anbieter ausschließlich GitHub und/oder Apple sind, braucht den per E-Mail zugeschickten Code und damit funktionierenden Mail-Versand: Läuft die Instanz mit dem Konsolen-E-Mail-Adapter und ohne Debug-Modus — die produktive Voreinstellung ohne konfigurierten E-Mail-Versand (SMTP oder Resend) —, wird der Code nirgends zugestellt und ein solches Konto kann sich dann nicht löschen, keinen Mandanten löschen, kein erstes lokales Passwort setzen und die E-Mail-Adresse nicht ändern. Details zur Konfiguration unter [Umgebungsvariablen](../reference/environment-variables.md#e-mail).
 
 ---
 
@@ -228,17 +490,19 @@ GET /api/v1/auth/oauth/providers
 GET /api/v1/auth/oauth/{slug}
 ```
 
-Der Server antwortet mit einem `302`-Redirect zur Autorisierungs-URL des Providers. Nach erfolgreichem Login beim Provider wird der Nutzer zum Callback-Endpunkt zurückgeleitet.
+Der Server antwortet mit einem `302`-Redirect zur Autorisierungs-URL des Providers. Nach erfolgreichem Login beim Provider wird der Nutzer zum Callback-Endpunkt zurückgeleitet. Die Rückruf-URL ist `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` — gebildet aus `APP_BASE_URL`, nie aus dem Host-Header — und genau diese URL hinterlegst du beim Provider. Der Server tauscht den Code mit derselben URL, die im Autorisierungs-Request stand (RFC 6749 §4.1.3).
 
 ```
 GET /api/v1/auth/oauth/{slug}/callback?code=...&state=...
 ```
 
-Der Server setzt die Cookies und leitet zum Frontend weiter:
+Der Server setzt das HttpOnly-Refresh-Cookie und leitet zum Frontend weiter — ohne Token in der URL; das Frontend holt das Access Token über `POST /api/v1/auth/refresh`:
 
 ```
-{frontend_url}/auth/callback?access_token=...&expires_in=900
+{frontend_url}/auth/callback
 ```
+
+Bevor der Server jemanden anmeldet, prüft er das ID-Token des Anbieters (OIDC Core 3.1.3.7): die **Signatur** gegen die Schlüssel (JWKS), die der Anbieter veröffentlicht (`jwks_url` der Konfiguration, sonst `jwks_uri` des Discovery-Dokuments), `iss`, `aud`/`azp` (diese Instanz), die `nonce` der Anfrage sowie `exp`, `iat` (höchstens zehn Minuten alt) und, wenn vorhanden, `nbf` (30 Sekunden Toleranz). Die Schlüssel stehen je Konfiguration zehn Minuten im Zwischenspeicher des Workers; ein unbekanntes `kid` holt sie höchstens alle zehn Sekunden einmal neu, Antworten sind auf 256 KiB begrenzt. Liefert der Anbieter die Identität über den Userinfo-Endpunkt, muss dessen `sub` mit dem `sub` des ID-Tokens übereinstimmen (OIDC Core 5.3.2); ein leeres oder fehlendes `sub` verweigert die Anmeldung. Jede Verweigerung sieht für den Browser gleich aus (`?error=provider_error`, keine Sitzung, kein neues Konto); der Grund steht nur als Log-Ereignis `oauth_login_refused` mit dem Feld `reason` (`signature`, `iss`, `aud`, `azp`, `nonce`, `exp`, `iat`, `nbf`, `sub_missing`, `sub_mismatch`, `id_token_missing`, `jwks_unavailable`, `configuration_changed`) — nie mit Werten aus dem Token. Anbieter ohne ID-Token (GitHub, reines OAuth2) liefern ein Konto-`id` statt eines `sub`; auch hier verweigert ein fehlender Wert die Anmeldung. <!-- #1936, #1987 -->
 
 ---
 
@@ -255,9 +519,15 @@ Content-Type: application/json
 
 {
   "label": "Home Assistant Integration",
-  "tenant_scope": "mein-garten"
+  "tenant_scope": "mein-garten",
+  "current_password": "aktuelles-passwort-2026"
 }
 ```
+
+`tenant_scope` ist optional und nimmt beim Anlegen den Slug **oder** den Key des Tenants entgegen. In beiden Fällen musst du im genannten Tenant aktives Mitglied sein — sonst antwortet die Route mit `403 Forbidden` ("tenant_scope must name a tenant you are an active member of."), und zwar mit derselben Meldung für einen unbekannten wie für einen fremden Tenant.
+
+!!! info "Ausstellen ist ein Step-up"
+    Statt `current_password` kannst du auch `step_up_token` (nach einer frischen Anmeldung, siehe [Erneut anmelden zur Bestätigung](#erneut-anmelden-zur-bestatigung-oidc)) oder `step_up_code` (nach [Bestätigungscode anfordern](#bestatigungscode-per-e-mail-anfordern-ausweichweg-fur-githubapple)) mitschicken — dieselben Regeln wie in der [Step-up-Tabelle](#step-up-bestatigung-fur-unumkehrbare-kontoaktionen-und-anmeldemittel) oben. Eine mit einem API-Key authentifizierte Anfrage antwortet `403 Forbidden`, bevor überhaupt ein Passwort geprüft wird — ein Key kann sich also nicht selbst vermehren. **Im Light-Modus** stellt diese Route den einen MCP-Key der Instanz ohne Step-up aus. <!-- #1847 -->
 
 **Antwort (201 Created):**
 
@@ -267,10 +537,12 @@ Content-Type: application/json
   "label": "Home Assistant Integration",
   "raw_key": "kp_sk_abc...xyz",
   "key_prefix": "kp_sk_abc",
-  "tenant_scope": "mein-garten",
+  "tenant_scope": "t-a1b2c3d4",
   "created_at": "2026-03-17T10:00:00Z"
 }
 ```
+
+Gespeichert und zurückgegeben wird immer der **Key** des Tenants, nicht der beim Anlegen eingegebene Slug. Dadurch ändert ein späteres Umbenennen des Tenants (neuer Slug) nichts am Scope, und ein Löschen des Tenants löscht den Key gleich mit.
 
 !!! danger "Raw Key nur einmal sichtbar"
     Das Feld `raw_key` wird nur bei der Erstellung angezeigt und danach nicht mehr ausgegeben. Speichern Sie den Key sofort an einem sicheren Ort.
@@ -283,6 +555,19 @@ Authorization: Bearer kp_sk_abc...xyz
 ```
 
 Der API-Key wird im selben `Authorization`-Header wie ein JWT verwendet.
+
+Ein Key mit `tenant_scope` handelt nur in diesem Tenant. Auf jeder Route unter `/api/v1/t/{slug}/` und auf jeder Route, die den Header `X-Active-Tenant` liest, antwortet ein anderer Tenant mit `403 Forbidden` — auch wenn der Besitzer des Keys dort Mitglied ist — und zwar mit derselben Antwort wie ein Tenant, in dem der Besitzer nicht Mitglied ist. Ohne den Header fällt ein begrenzter Key nur dann auf deinen persönlichen Tenant zurück, wenn dieser sein Scope ist; sonst sieht er nur den gemeinsamen Katalog. Der Abgleich erfolgt dabei ausschließlich über den gespeicherten Tenant-Key (siehe oben).
+
+### IP-Allowlist und Rate Limit je Key
+
+Ein API-Key kann zusätzlich eine CIDR-Allowlist und ein eigenes Anfragen-Limit pro Minute tragen. Beide Einschränkungen gelten identisch für die REST-API und für den [MCP-Server](mcp-server.md) — es gibt **ein** gemeinsames Budget je Key, keine getrennte Zählung je Schnittstelle.
+
+- Liegt die Client-Adresse außerhalb der Allowlist oder lässt sie sich nicht auflösen, antwortet die API mit `401 Unauthorized` ("Client IP is not permitted for this API key.") — derselben Meldung, die auch der MCP-Server dafür gibt.
+- Ist das Minutenbudget aufgebraucht, antwortet die API mit `429 Too Many Requests`. Dieselbe Antwort gibt es, wenn der Zähler-Speicher selbst nicht erreichbar ist — ein Ausfall des Zähler-Speichers wird nie als "kein Limit" gewertet.
+
+### Kontoweite Routen und ein begrenzter Key
+
+Ein Key mit `tenant_scope` ist auf genau einen Tenant beschränkt. Auf Routen, die keinen Tenant auflösen — etwa die eigenen Kontodaten (`PATCH`/`DELETE /users/me`, Passwort, Sitzungen, verknüpfte Provider), die [Datenschutz-Endpunkte](../user-guide/privacy.md), die Verwaltung der API-Keys selbst, die Gerätekopplung, `POST /auth/logout-all` oder das Anlegen bzw. Beitreten eines neuen Tenants — antwortet er deshalb mit `403 Forbidden` ("This API key is restricted to one tenant and cannot act on the account."). Dieselbe Antwort gibt es auf den wenigen Routen unter `/t/{slug}/`, die trotz Tenant im Pfad deine **kontoweiten** Einstellungen ändern: Benachrichtigungs-Einstellungen und Web-Push-Abos, Benutzer-Einstellungen, der Onboarding-Status und das Entfernen eines Favoriten. Sie gelten für alle deine Tenants, nicht nur für den des Scopes. Zugelassen bleiben: `GET /users/me` (die eigene Identitätsabfrage), `GET /tenants` (zeigt dann nur den einen Tenant des Scopes) sowie alle übrigen Routen, die einen Tenant auflösen (`/t/{slug}/`, `X-Active-Tenant`) — dort bindet weiterhin der Scope. Ein Key ohne `tenant_scope` ist von dieser Einschränkung nicht betroffen.
 
 ### API-Keys auflisten
 
@@ -313,7 +598,15 @@ Der Ablauf hat drei Schritte: Ein angemeldeter Client fordert einen Kopplungscod
 ```http
 POST /api/v1/auth/device-pairing
 Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "current_password": "aktuelles-passwort-2026"
+}
 ```
+
+!!! info "Anfordern ist ein Step-up"
+    Wie beim Ausstellen eines API-Keys kannst du statt `current_password` auch `step_up_token` oder `step_up_code` mitschicken (siehe [Step-up-Tabelle](#step-up-bestatigung-fur-unumkehrbare-kontoaktionen-und-anmeldemittel) oben). Eine mit einem API-Key authentifizierte Anfrage antwortet `403 Forbidden` — ein Key kann sich damit keine vollständige Sitzung selbst ausstellen. <!-- #1847 -->
 
 **Antwort (201 Created):**
 
@@ -427,6 +720,9 @@ Fehlt das Feld `refresh_token` im Body, ist es `null`, oder ist der gesamte Body
 
 Die Rotation ist transportübergreifend: Ein per Body oder per Cookie erneuertes Refresh Token macht das jeweils vorherige Token auf **beiden** Transportwegen ungültig — es gibt nur eine Rotation, keine getrennte Buchführung je Transportweg.
 
+!!! warning "Kein Gnadenfenster auf dem Body-Weg"
+    Ein bereits rotiertes Token, das erneut vorgelegt wird, beendet die Sitzung des Geräts (Token-Familie, siehe [Token-Modell](#token-modell)) — auch dann, wenn nur die Antwort auf die erste Erneuerung verloren ging. Ein nativer Client speichert das neue Token deshalb, bevor er es benutzt, und wiederholt eine Erneuerung nicht blind mit dem alten Token. Ist die Sitzung beendet, koppelt er sich neu. <!-- #2116 -->
+
 ### Sitzung eines gekoppelten Geräts beenden
 
 !!! warning "Native Clients können `/auth/logout` nicht verwenden"
@@ -494,6 +790,21 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 }
 ```
 
+### IP-Rate-Limits und Proxy-Tiefe
+
+Die IP-Limits der Anmelderouten (Login, Registrierung, Passwort-Reset, Gerätekopplung) zählen in einem Speicher, den alle Replikas und Worker-Prozesse gemeinsam nutzen. Eine Installation mit mehreren Replikas hat damit dieselbe Grenze wie eine mit einem Prozess. <!-- REQ-023 -->
+
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Als Betreiber legst du den Speicher mit `RATE_LIMIT_STORAGE_URL` fest. Bleibt der Wert leer, nutzt das Backend den Valkey aus `REDIS_URL` — in der Regel musst du nichts setzen. Erlaubt sind `redis://`, `rediss://`, `redis+unix://` und `memory://`; jeder andere Wert verhindert den Start. Bleibt `RATE_LIMIT_STORAGE_URL` leer, gilt das für `REDIS_URL`: Ein `REDIS_URL` mit `unix://`, `sentinel://` oder `redis+socket://`, ein leerer Wert und eine Liste mehrerer Hosts (`redis://h1:6379,h2:6379/0`) verhindern den Start, seit die IP-Limits über alle Prozesse zählen. Nutzt deine Installation eine solche Form, setze beim Upgrade `RATE_LIMIT_STORAGE_URL` auf eine erlaubte Adresse (Mehrfach-Hosts scheitern schon an der Prüfung von `REDIS_URL` selbst). Ebenso eine URL — hier oder in `REDIS_URL` —, deren Passwort ein unkodiertes `/`, `#` oder `?` enthält, oder in deren Pfad, Query oder Fragment ein `@` steht; kodiere diese Zeichen im Passwort (`%2F`, `%23`, `%3F`). Ein `@` im Passwort selbst ist zulässig (`redis://:p@ss@host:6379/0` lädt), kodiert (`%40`) ist es eindeutiger. Die Meldung nennt in beiden Fällen nur die Variable und die erlaubte Form, nie den Wert. Setze `memory://` nur, wenn ein einziger Prozess die ganze Installation ist — ohne `DEBUG` loggt das Backend dann beim Start einmal `rate_limit_storage_counts_per_process`.
+
+- **Speicher fällt aus:** Jeder Prozess zählt dann für sich weiter. Scheitert der Speicher mit einem Fehler des Redis-Clients (Verbindung, Timeout, Antwortfehler), werden die Anfragen weder offen durchgelassen noch mit einem Fehler abgelehnt — auch die nicht, die beim Ausfall gerade auf den Speicher warten. Ein anderer Fehler ist ein Defekt und wird nicht verschluckt. Die Grenze ist während des Ausfalls weicher: Je Prozess kann ein frisches Zeitfenster gelten — eines je Fenster, nicht eines je Ausfall; ein Speicher, der mehrmals kurz ausfällt, gibt keinen neuen Spielraum.
+- **Wartezeit:** Hängt der Speicher, statt die Verbindung abzulehnen, wartet die Anfrage, die den Ausfall bemerkt, einen Socket-Timeout von 0,5 s je Verbindungsversuch und Adresse, ohne Wiederholung. Nicht darin enthalten sind die Namensauflösung (DNS), mehrere Adressen eines Namens, Verbindungsaufbau und Handshake zusammen sowie das erneute Laden des Zähl-Skripts nach `NOSCRIPT`. Anfragen, die in diesem Moment schon warten, warten gleichzeitig, nicht nacheinander. Alle weiteren Anfragen zählt der Limiter ohne Wartezeit im Prozess — er fällt je Aufruf zurück und hat einen Prüfplan (nächster Punkt). Die Prüfung läuft dabei nie auf der Ereignisschleife des Prozesses: Auch auf asynchronen Routen (öffentliche KI-Frage, Export-Download, Testbenachrichtigung) wartet nur die begrenzte Anfrage selbst, nicht jede andere Anfrage des Prozesses. `GET /api/health` zählt nur im Prozessspeicher und fragt den gemeinsamen Speicher nie. Die übrigen Valkey-Clients der Anfragepfade — Gerätekopplung, API-Key-Limits, OAuth-Anmeldestatus und MCP-Sitzungen — warten ebenso höchstens 0,5 s; vorher galt für sie die redis-py-Vorgabe von 5 s je Socket-Operation. <!-- REQ-023 -->
+- **Mail-Budgets:** Die Budgets für Reset-Link, Bestätigungslink und den Link der Login-Ablehnung sowie der Zähler für unbekannte Adressen beim Login nutzen dieselbe Client-Einstellung und denselben Prüfplan wie der Limiter: Der erste Speicheraufruf, der einen hängenden Valkey bemerkt, wartet höchstens einen Socket-Timeout von 0,5 s (mit denselben Ausnahmen wie oben); danach zählen alle Aufrufe des Prozesses ohne Wartezeit im Prozess, bis eine Prüfanfrage — in denselben Abständen wie oben — wieder eine Antwort bekommt. Im Log stehen `throttle_store_unavailable` und `throttle_store_recovered`.
+- **Rückkehr:** Jeder Prozess prüft den Speicher für sich erneut, in Abständen von 1, 2, 4, 8, 16 und 32 s und danach alle 32 s, jeweils mit einer einzigen Anfrage, für die dieselbe Wartezeit gilt. Antwortet er, zählt dieser Prozess ab seiner Prüfanfrage wieder im gemeinsamen Speicher. Jeder Prozess kehrt also mit seiner eigenen nächsten Prüfanfrage zurück: bis zu rund 32 s, nachdem der Speicher wieder da ist, und nur, wenn bei ihm Anfragen eintreffen. Im Log stehen `rate_limit_storage_unavailable` und `rate_limit_storage_recovered`. Hat der Speicher seit dem Start des Prozesses noch nie geantwortet — etwa wegen eines falschen Passworts oder Hosts in `REDIS_URL` —, steht dort statt der Warnung `rate_limit_storage_never_reached` auf Fehler-Level. Bleibt er weg, erinnert `rate_limit_storage_still_unavailable` bei jeder zehnten fehlgeschlagenen Prüfung daran, im Dauerzustand etwa alle fünf Minuten. Die Readiness des Pods bleibt davon unberührt: Ein Valkey-Ausfall soll nicht das ganze Backend aus dem Verkehr ziehen.
+- **Proxy-Tiefe:** Das Limit gilt je Client-Adresse und Route — ein anderer Wert im Pfad (ein anderer Glossar-Begriff, Export-Schlüssel oder Tenant) zählt in denselben Zähler. Wie viele Proxys davor stehen, sagt `TRUSTED_PROXY_HOPS`. Das Helm-Chart setzt genau `1`: Ingress-Controller vor nginx (in der Referenz-Installation Contour/Envoy). Leitet deine Installation `/api` ohne nginx direkt zum Backend, setze `0`. Ist der gewählte Eintrag keine IP-Adresse, gilt die Client-Adresse als nicht ermittelbar: Das IP-Limit zählt die Anfrage unter der Adresse des direkten Gegenübers, eine IP-Allowlist eines API-Schlüssels lehnt sie ab. Verschiedene Schreibweisen derselben IPv6-Adresse zählen zusammen.
+
+Findest du im Backend-Log einmal je Prozess die Zeile `forwarded_chain_deeper_than_trusted_proxy_hops`, steht `TRUSTED_PROXY_HOPS` auf `0`, obwohl die `X-Forwarded-For`-Kette mehr als einen Eintrag hat. Dafür gibt es zwei Ursachen. Entweder steht ein Proxy davor, den die Einstellung nicht zählt: Dann liest das Backend die Adresse eines Proxys statt die des Aufrufers, und alle Aufrufer teilen sich einen Zähler. Oder ein Aufrufer hat selbst einen `X-Forwarded-For`-Header geschickt, auf einer Installation ohne Ingress, für die `0` richtig ist. Erhöhe `TRUSTED_PROXY_HOPS` nur, wenn wirklich mehr als ein Proxy davor steht, und dann auf die Zahl der Proxys nach dem ersten (hinter Ingress und nginx: `1`). Ein zu hoher Wert macht jede IP-basierte Kontrolle fälschbar: Jeder Aufrufer kann sich dann seine Adresse aussuchen. Die Zeile enthält weder den Header-Wert noch eine IP-Adresse. Ein Lauf ohne Ingress, bei dem die Kette nur einen Eintrag hat, bleibt still.
+
 ---
 
 ## Umgebungsvariablen (Authentifizierung)
@@ -504,9 +815,10 @@ Nach mehreren fehlgeschlagenen Login-Versuchen wird das Konto temporär gesperrt
 | `JWT_ALGORITHM` | `HS256` | Signierungsalgorithmus |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Gültigkeitsdauer des Access Tokens in Minuten |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Gültigkeitsdauer des Refresh Tokens in Tagen |
-| `REQUIRE_EMAIL_VERIFICATION` | `false` | E-Mail-Verifikation vor erstem Login erzwingen |
+| `REQUIRE_EMAIL_VERIFICATION` | `true` | E-Mail-Verifikation vor erstem Login erzwingen. Ohne ausgehenden Mailversand ausdrücklich auf `false` setzen |
 | `KAMERPLANTER_MODE` | `full` | `light` deaktiviert die gesamte Authentifizierung |
 | `FERNET_KEY` | — | Verschlüsselungsschlüssel für OIDC-Provider-Secrets |
+| `RATE_LIMIT_STORAGE_URL` | leer | Speicher der IP-Rate-Limits; leer = Valkey aus `REDIS_URL` — siehe [IP-Rate-Limits und Proxy-Tiefe](#ip-rate-limits-und-proxy-tiefe) |
 
 ---
 

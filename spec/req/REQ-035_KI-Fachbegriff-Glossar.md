@@ -7,7 +7,7 @@ Kategorie: KI & Beratung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Redis, React 19, TypeScript 5.9, MUI 7
 Status: Entwurf
-Version: 1.1 (Rechte-Vokabular auf REQ-049 §3.1/§3.4 umgestellt)
+Version: 1.4 (`POST …/generate` hinter dem KI-Schalter des Gartens, REQ-031 §1.3 Stufe 2; Betreiberentscheidung 2026-10-09); 1.3 (Light-Modus-Szenario nennt das LLM des Knowledge Service statt `AI_PUBLIC_PROVIDER_KEY`, #2176); 1.2 (Glossar-Cache plattformseitig klassifiziert, KI-Budget, #2110)
 Abhängigkeit: REQ-021 v1.0 (Erfahrungsstufen), REQ-024 v1.4 (Mandantenverwaltung — fuer optionalen Tenant-Kontext), REQ-027 v1.2 (Light-Modus), REQ-031 v2.0 (KI-Assistent / Knowledge Service)
 Wird benoetigt von: —
 ```
@@ -17,6 +17,9 @@ Wird benoetigt von: —
 | Version | Datum | Aenderung |
 |---------|-------|-----------|
 | 1.0 | 2026-04-25 | Initialer Entwurf — auf Basis Knowledge-Service-Realität (REQ-031 v2.0) |
+| 1.2 | 2026-10-05 | **#2110 (MT-013):** Der Glossar-Cache ist Plattform-Output und wird vom **System-Default-Provider** der Plattform klassifiziert, nicht vom Default des zuerst anfragenden Mandanten (§6). Der Cache-Eintrag trägt `uses_cloud_provider` (§2.2); jeder Leser sieht dieses Label. Ein Cache-Miss auf dem Tenant-Pfad belastet das KI-Budget des Aufrufers (REQ-031 §3.4) und trägt das Minutenbudget `RATE_LIMIT_INFERENCE`. Die frühere Aussage „geht auch der Glossar-Aufruf an den Cloud-Provider des Tenants“ war unzutreffend: Der Knowledge Service antwortet immer mit seinem eigenen, per Umgebung konfigurierten LLM; die `/ask`-Anfrage nennt keinen Provider. Der in §6 genannte Schalter `AI_PUBLIC_PROVIDER_KEY` existiert im Code nicht. |
+| 1.4 | 2026-10-09 | **Consent-Gates (PR #2208), Betreiberentscheidung 2026-10-09:** Nur `POST /t/{slug}/glossary/term/{slug}/generate` verlangt zusätzlich den **KI-Schalter des Gartens** (REQ-031 §1.3 Stufe 2, `ai_features_enabled` in den Mandanten-Einstellungen): ausgeschaltet → `403 ai.disabled_for_tenant`, bevor Cache, Budget oder LLM berührt werden; mit abgeschaltetem Betreiber-Flag (Stufe 1) antwortet die Route `404` statt der kuratierten Kurzdefinition. Lesen (`GET /terms`, `GET /term/{slug}`, öffentliche und Admin-Routen) bleibt unverändert offen (§3.1, §6). |
+| 1.3 | 2026-10-09 | **#2176:** Szenario 3 (Light-Modus, §8) setzte voraus, dass `AI_PUBLIC_PROVIDER_KEY` auf ein lokales Ollama zeigt — diesen Schalter gibt es nicht, und REQ-027 v1.7 führt ihn nicht ein. Die Vorbedingung lautet jetzt: der Knowledge Service nutzt ein lokales LLM (`LLM_PROVIDER=ollama`). |
 
 ## 1. Business Case
 
@@ -115,6 +118,7 @@ Cache-Schicht fuer LLM-Antworten pro Begriff/Sprache/Erfahrungsstufe (analog `ai
   "provider_type": "ollama",
   "kb_version": "ks-1.4.2-idx-20260420",
   "is_fallback": false,
+  "uses_cloud_provider": false,
   "generated_at": "2026-04-25T10:00:00Z",
   "valid_until": "2026-05-02T10:00:00Z"
 }
@@ -147,8 +151,45 @@ Begriffsliste wird in `spec/knowledge/glossary/seed_terms.yaml` versioniert und 
 
 | Methode | Pfad | Beschreibung | Berechtigung | Consent |
 |---------|------|-------------|--------------|---------|
-| `GET` | `/term/{slug}` | Erklaerung zu einem Begriff. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Alle Rollen | — (kein Tenant-Daten-Zugriff) |
+| `GET` | `/term/{slug}` | Vorbereitete Erklaerung **lesen**. Query: `?expertise=beginner|intermediate|expert&language=de|en` | Alle Rollen | — (kein Tenant-Daten-Zugriff) |
+| `POST` | `/term/{slug}/generate` | Erklaerung **erzeugen** und zwischenspeichern. Gleiche Query-Parameter | Ab Gärtner (`glossary`/`create`) **und** KI-Schalter des Gartens an (REQ-031 §1.3 Stufe 2; sonst `403 ai.disabled_for_tenant`, Betreiber-Flag aus → `404`) | `ai_cloud_processing`, wenn der **System-Default-Provider der Plattform** ein Cloud-Provider ist (#2110) |
 | `GET` | `/terms` | Liste aller aktiven Begriffe (slug + label + category). Query: `?category=&language=` | Alle Rollen | — |
+
+<!-- #1460 -->
+**Kein `GET` erzeugt eine Erklärung.** Beide `/term/{slug}`-Routen liefern den
+Cache-Eintrag, wenn es einen gibt, und sonst die kuratierte redaktionelle
+Kurzdefinition (`is_fallback=true`) — dieselbe Antwort, die der Pfad mit
+abgeschaltetem `AI_FEATURES_ENABLED` schon immer gegeben hat. `404` nur, wenn
+der Slug nicht im kuratierten Katalog steht.
+
+Vorher rief der Lesepfad bei einem Cache-Miss den Knowledge Service, schrieb den
+Cache-Eintrag (ArangoDB + Redis) und einen KI-Audit-Datensatz. Auf der
+**anonymen** Route aus §3.2 entschied damit ein Aufrufer ohne Konto, wann die
+Installation einen LLM-Aufruf bezahlt; Rate-Limit und kuratierter Katalog
+begrenzten Häufigkeit und Zeilenzahl, aber keines davon ist ein Grund, warum eine
+sichere HTTP-Methode schreiben dürfte. Erzeugt wird jetzt über
+`POST …/generate` (ab Gärtner) und über den Warm-up-Task aus §4.3.
+
+Zwei Folgen, die ausdrücklich so gewollt sind:
+
+- **Der Cloud-Gate sitzt auf dem `POST`, nicht auf dem `GET`.** Ohne LLM-Aufruf
+  gibt es keine Cloud-Verarbeitung, in die eingewilligt werden müsste. Die
+  Prüfung (`ai_cloud_processing`, §6) ist unverändert — sie läuft nur dort, wo
+  sie etwas gatet.
+- **Der Lesepfad schreibt keinen Audit-Datensatz mehr.** Der KI-Audit-Trail hält
+  einen *KI-Aufruf* fest (REQ-031 §4.3, NFR-007); eine aus dem Cache oder aus dem
+  redaktionellen Text beantwortete Anfrage ist keiner. Die Erzeugungspfade
+  protokollieren genau wie zuvor.
+
+<!-- Betreiberentscheidung 2026-10-09, PR #2208 -->
+**Nur das Erzeugen hängt am KI-Schalter des Gartens.** `POST …/generate` gibt
+einen LLM-Aufruf in Auftrag; ein Garten, der KI ausgeschaltet hat, soll das nicht
+können. Die Route prüft deshalb dieselben beiden Stufen wie die KI-Routen
+(REQ-031 §1.3): Betreiber-Flag aus → `404`, Garten-Schalter aus →
+`403 ai.disabled_for_tenant` — beides vor Cache-Lookup, Budget-Belastung und
+LLM-Aufruf. Rolle, Rate-Limit und Budget bleiben wie beschrieben. Die
+Lese-Routen bleiben bewusst ohne diesen Gate: eine kuratierte Kurzdefinition
+oder eine bereits erzeugte Erklärung zu lesen, löst keinen KI-Aufruf aus.
 
 Diese Endpunkte sind unter Tenant-Pfad erreichbar fuer einheitliches Routing, aber sie nutzen KEINE Tenant-Daten — der Knowledge-Service-Aufruf erfolgt strikt mit `context = null`.
 
@@ -158,6 +199,9 @@ Diese Endpunkte sind unter Tenant-Pfad erreichbar fuer einheitliches Routing, ab
 |---------|------|-------------|------|------------|
 | `GET` | `/term/{slug}` | wie 3.1, ohne Auth | keine | 30/min pro IP |
 | `GET` | `/terms` | wie 3.1, ohne Auth | keine | 10/min pro IP |
+
+Der Light-Modus hat **kein** Gegenstück zu `POST /term/{slug}/generate`: Erzeugen
+ist ein Schreibvorgang mit Kosten und bleibt an eine Rolle gebunden (#1460).
 
 Im Light-Modus wird Default-Expertise `beginner` angenommen, Default-Language aus `Accept-Language`-Header (de oder en).
 
@@ -240,7 +284,27 @@ Im Light-Modus wird Default-Expertise `beginner` angenommen, Default-Language au
 | Task | Schedule | Zweck |
 |------|----------|-------|
 | `glossary.cleanup_expired_cache` | taeglich 02:45 UTC | Loescht `glossary_term_cache` mit `valid_until < now()` |
-| `glossary.invalidate_after_reingest` | nach `ai.knowledge_service_ingest` (chained) | Invalidates kompletten Glossar-Cache; nachfolgende Anfragen regenerieren mit neuem KB-Index |
+| `glossary.invalidate_after_reingest` | nach `ai.knowledge_service_ingest` (chained) | Invalidiert den kompletten Glossar-Cache und stellt anschliessend `glossary.warm_cache` ein |
+| `glossary.warm_cache` | nach `glossary.invalidate_after_reingest` (eingestellt) | Erzeugt die Erklaerung jedes kuratierten Begriffs neu — je Sprache (de, en) und Erfahrungsstufe (beginner, intermediate, expert) |
+
+<!-- #1460 -->
+**Der Warm-up ist das, was die Invalidierung überlebensfähig macht.** Bis #1460
+füllte sich der Cache aus dem *Lesepfad* nach: Der erste Mensch, der nach einem
+Reingest einen Begriff aufrief, bezahlte den LLM-Aufruf — auf der anonymen Route
+ein Aufrufer ohne Konto. Da kein `GET` mehr erzeugt, muss ein Task es tun, und
+zwar dort, wo die Invalidierung ohnehin steht.
+
+Er wird **eingestellt, nicht aufgerufen**: er läuft lange (ein LLM-Aufruf je
+Begriff und Variante), und sein Scheitern darf eine bereits erfolgte
+Invalidierung nicht zurückrollen. Ein einzelner fehlgeschlagener Begriff bricht
+den Lauf nicht ab — die übrigen werden gewärmt, der fehlgeschlagene bleibt auf
+seiner redaktionellen Kurzdefinition, und die Zählwerte kommen für den Betreiber
+zurück. Bei abgeschaltetem `AI_FEATURES_ENABLED` tut der Task nichts: es gibt
+keinen RAG-Stack zu fragen, und die Kurzdefinition beantwortet jeden Lesezugriff.
+
+Alle Varianten werden gewärmt, nicht nur `de`/`beginner`: Eine ausgelassene
+Variante wäre für dieses Publikum dauerhaft die redaktionelle Kurzdefinition,
+weil nichts anderes mehr erzeugt.
 
 ## 5. Frontend-Komponenten (React/MUI)
 
@@ -288,7 +352,10 @@ Die Migration der bestehenden Tooltips ist nicht Teil von REQ-035 (separate UX-A
 - **Keine PII:** Glossar-Aufrufe enthalten weder Tenant- noch User-Daten.
 - **Audit-Log:** Aufrufe werden in `ai_audit_log` mit `endpoint=glossary`, `uses_tenant_data=false`, `uses_cloud_provider=false` (im lokalen Default) erfasst. Retention 30 Tage (NFR-011).
 - **Rate-Limit Light-Modus:** 30 GET/min pro IP fuer `/term/{slug}`, 10 GET/min fuer `/terms`. Token-Bucket via Redis. Bei Ueberschreitung HTTP 429 mit `Retry-After`-Header.
-- **Cloud-Provider-Hinweis:** Wenn ein Tenant einen Cloud-Provider als Default hat, geht auch der Glossar-Aufruf an den Cloud-Provider — daher ist im Light-Modus AUSSCHLIESSLICH der lokale Default-Provider verwendbar (Konfiguration: `AI_PUBLIC_PROVIDER_KEY` zeigt auf einen lokalen System-Default-Provider).
+- **Plattform-Klassifikation (#2110):** Ein Glossar-Eintrag wird einmal erzeugt und allen Mandanten ausgeliefert. Ob seine Erzeugung als Cloud-Verarbeitung gilt, entscheidet daher der **System-Default-Provider** der Plattform (`ai_provider_configs` mit `tenant_key == null`), nicht der Default des zuerst anfragenden Mandanten. Das Ergebnis steht am Eintrag (`uses_cloud_provider`, §2.2) und wird jedem Leser so ausgeliefert. Löst ein Mitglied eine Cloud-Generierung aus, braucht es den Consent `ai_cloud_processing` (fail-closed ohne Prinzipal oder ohne verdrahteten Guard); der Warm-up-Task (§4.3) ist die Generierung der Plattform selbst und fragt niemanden. Der Mandanten-Schalter `ai_allow_cloud_providers` wird hier nicht ausgewertet: Er hält *Mandantendaten* von einem Cloud-LLM fern, und der Glossar-Prompt enthält keine — nur ein kuratiertes Label und eine Erfahrungsstufe.
+- **Welches Modell antwortet:** Der Knowledge Service antwortet mit seinem eigenen, per Umgebung konfigurierten LLM (`LLM_PROVIDER`); die `/ask`-Anfrage des Backends nennt keinen Provider. Die Provider-Datensätze klassifizieren den Aufruf, sie wählen ihn nicht aus (Audit-Lücke G-4).
+- **KI-Schalter des Gartens (Betreiberentscheidung 2026-10-09):** `POST …/generate` verlangt neben der Rolle den Mandanten-Schalter `ai_features_enabled` (REQ-031 §1.3 Stufe 2); ausgeschaltet → `403 ai.disabled_for_tenant` ohne LLM-Aufruf und ohne Budget-Belastung. Die Lese-Routen sind davon ausgenommen.
+- **KI-Budget (#2110):** Ein Cache-Miss auf `POST …/generate` belastet das Tagesbudget des Aufrufers (REQ-031 §3.4) und trägt das Konto-Minutenbudget `RATE_LIMIT_INFERENCE`; ein Cache-Treffer belastet nichts.
 - **Prompt-Injection-Schutz (NFR-007):** Slug ist eine kontrollierte Whitelist; freier User-Input fliesst NICHT in den LLM-Prompt. Damit ist Prompt-Injection ueber den Glossar-Endpoint nicht moeglich.
 
 ## 7. Multilingual
@@ -359,7 +426,7 @@ THEN:
 **Szenario 3: Light-Modus (anonymer Aufruf)**
 ```
 GIVEN: KAMERPLANTER_MODE=light
-  AND: AI_PUBLIC_PROVIDER_KEY zeigt auf lokales Ollama
+  AND: der Knowledge Service nutzt ein lokales LLM (LLM_PROVIDER=ollama; REQ-027 §6.1.1)
 WHEN: GET /api/v1/public/knowledge/term/vpd  (kein Auth-Header)
 THEN:
   - HTTP 200, Antwort wie Szenario 1

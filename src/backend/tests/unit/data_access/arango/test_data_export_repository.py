@@ -91,12 +91,40 @@ class TestDelete:
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"] == {"export_id": "data_export_requests/de1"}
 
 
-class TestExpireOld:
-    def test_counts_expired(self, repo, mock_db):
-        mock_db.aql.execute.return_value = iter([1])
+class TestListExpiryDue:
+    def test_returns_the_due_records_and_writes_nothing(self, repo, mock_db):
+        """#1767 GDPR-005 — selection only; ``expired`` is written after the delete.
 
-        assert repo.expire_old("2026-06-14T00:00:00Z") == 1
+        The query also re-selects ``expired`` records that still point at a
+        bundle (left by the pre-#1767 order). The filter's reach is measured in
+        ``tests/integration/test_erasure_claim_and_export_expiry.py``.
+        """
+        mock_db.aql.execute.return_value = iter([_doc(), _doc(_key="de2")])
+
+        due = repo.list_expiry_due("2026-06-14T00:00:00Z")
+
+        assert [export.key for export in due] == ["de1", "de2"]
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "UPDATE" not in query
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["now"] == "2026-06-14T00:00:00Z"
+
+    def test_a_completed_export_with_no_expires_at_is_due(self, repo, mock_db):
+        """#1806 GDPR-005 — a completed export written without ``expires_at`` is treated as already due.
+
+        Until #1806 the ``completed`` arm required ``DATE_TIMESTAMP(expires_at)
+        != null``, so such a record was excluded and stayed downloadable
+        (``PrivacyService.prepare_export_download``'s own expiry check is
+        likewise skipped for a ``None`` ``expires_at``) and never cleaned up —
+        the write paths always stamp it today, this is the defensive floor
+        every other ``expires_at`` selector in this system already carries.
+        """
+        mock_db.aql.execute.return_value = iter([_doc(status="completed", expires_at=None)])
+
+        due = repo.list_expiry_due("2026-06-14T00:00:00Z")
+
+        assert [export.key for export in due] == ["de1"]
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "DATE_TIMESTAMP(doc.expires_at) == null" in query
 
 
 class TestListStalePending:
@@ -115,5 +143,5 @@ class TestListStalePending:
 
         query = mock_db.aql.execute.call_args.args[0]
         assert 'doc.status == "pending"' in query
-        assert "doc.requested_at < @cutoff" in query
+        assert "DATE_TIMESTAMP(doc.requested_at) < DATE_TIMESTAMP(@cutoff)" in query
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["cutoff"] == "2026-06-14T00:00:00Z"

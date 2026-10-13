@@ -12,8 +12,8 @@ from app.common.exceptions import ForbiddenError, RateLimitError, UnauthorizedEr
 from app.core.permissions import has_mcp_permission, list_mcp_permissions
 from app.domain.models.auth import ApiKey
 from app.domain.models.user import User
+from app.domain.services.api_key_controls import ApiKeyRateLimiter
 from app.mcp_server.auth import McpAuthenticator
-from app.mcp_server.rate_limit import McpRateLimiter
 
 
 # ── permission-matrix binding (§4.4) ───────────────────────────────────────────
@@ -65,12 +65,24 @@ class _TenantWithRole:
         self.role = role
 
 
+class _Membership:
+    def __init__(self, role: TenantRole) -> None:
+        self.role = role
+        self.is_active = True
+
+
 class _FakeTenantService:
-    def __init__(self, tenants):
+    def __init__(self, tenants, platform_role: TenantRole | None = None):
         self._tenants = tenants
+        self._platform_role = platform_role
 
     def list_my_tenants(self, user_key: str):
         return self._tenants
+
+    def get_membership(self, user_key: str, tenant_slug: str):
+        # Only the technical ``platform`` tenant is asked about (the platform-admin check).
+        assert tenant_slug == "platform"
+        return _Membership(self._platform_role) if self._platform_role else None
 
 
 _RAW = "kp_secretkey"
@@ -82,7 +94,7 @@ def _personal_user() -> User:
         key="u-1",
         email="gardener@example.org",
         display_name="Gardener",
-        account_type="user",
+        account_type="human",
         is_active=True,
     )
 
@@ -103,11 +115,11 @@ def _api_key(**overrides) -> ApiKey:
     return ApiKey(**base)
 
 
-def _authenticator(api_key, user, tenants, rate_limiter=None):
+def _authenticator(api_key, user, tenants, rate_limiter=None, platform_role=None):
     return McpAuthenticator(
         _FakeApiKeyRepo(api_key),
         _FakeUserRepo(user),
-        _FakeTenantService(tenants),
+        _FakeTenantService(tenants, platform_role),
         rate_limiter=rate_limiter,
     )
 
@@ -122,7 +134,7 @@ class _FakeRedis:
         self.counters[key] = self.counters.get(key, 0) + 1
         return self.counters[key]
 
-    def expire(self, key: str, seconds: int) -> None:  # pragma: no cover - trivial
+    def expire(self, key: str, seconds: int, nx: bool = False) -> None:  # pragma: no cover - trivial
         pass
 
     def ttl(self, key: str) -> int:  # pragma: no cover - trivial
@@ -218,7 +230,7 @@ def test_authenticate_keeps_every_membership_when_key_is_unscoped():
 
 def test_authenticate_uses_tenant_scope_to_narrow_to_one_tenant():
     auth = _authenticator(
-        _api_key(tenant_scope="garden"),
+        _api_key(tenant_scope="garden-key"),
         _service_user(),
         [
             _TenantWithRole("home", "home", TenantRole.LEAD),
@@ -301,7 +313,7 @@ def test_authenticate_ignores_empty_allowlist():
 # ── SEC-004: service-account per-minute rate limit ──────────────────────────────
 def test_authenticate_enforces_rate_limit_over_the_minute():
     redis = _FakeRedis()
-    limiter = McpRateLimiter(redis)
+    limiter = ApiKeyRateLimiter(redis)
     auth = _authenticator(
         _api_key(rate_limit_per_minute=2),
         _service_user(),
@@ -321,8 +333,37 @@ def test_authenticate_no_rate_limit_when_field_unset():
         _api_key(),  # rate_limit_per_minute defaults to None
         _service_user(),
         [_TenantWithRole("home", "home", TenantRole.GROWER)],
-        rate_limiter=McpRateLimiter(redis),
+        rate_limiter=ApiKeyRateLimiter(redis),
     )
     for _ in range(5):
         auth.authenticate(_RAW, client_ip="10.0.0.1")
     assert redis.counters == {}  # limiter never consulted
+
+
+# ── #2103: the platform-admin bit that admits a tenant-less write tool ─────────
+def test_a_personal_tenant_lead_is_not_a_platform_admin(monkeypatch):
+    monkeypatch.setattr("app.common.auth.settings.kamerplanter_mode", "full")
+    auth = _authenticator(_api_key(), _personal_user(), [_TenantWithRole("home", "home", TenantRole.LEAD)])
+    assert auth.authenticate(_RAW).is_platform_admin is False
+
+
+def test_a_lead_of_the_platform_tenant_is_a_platform_admin(monkeypatch):
+    monkeypatch.setattr("app.common.auth.settings.kamerplanter_mode", "full")
+    auth = _authenticator(
+        _api_key(),
+        _personal_user(),
+        [_TenantWithRole("home", "home", TenantRole.LEAD)],
+        platform_role=TenantRole.LEAD,
+    )
+    assert auth.authenticate(_RAW).is_platform_admin is True
+
+
+def test_a_key_restricted_to_one_tenant_is_never_a_platform_admin(monkeypatch):
+    monkeypatch.setattr("app.common.auth.settings.kamerplanter_mode", "full")
+    auth = _authenticator(
+        _api_key(tenant_scope="home"),
+        _personal_user(),
+        [_TenantWithRole("home", "home", TenantRole.LEAD)],
+        platform_role=TenantRole.LEAD,
+    )
+    assert auth.authenticate(_RAW).is_platform_admin is False

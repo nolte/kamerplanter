@@ -2,14 +2,14 @@
 req_id: REQ-024
 title: Mandantenverwaltung & Gemeinschaftsgärten
 category: Plattform & Kollaboration
-test_count: 93
+test_count: 97
 coverage_areas:
   - Tenant-Erstellung (TenantCreatePage — /tenants/create)
   - Tenant-Einstellungen (TenantSettingsPage — /t/{slug}/settings)
   - Tenant-Switcher in der App-Bar (TenantSwitcher-Komponente)
   - Mitgliederverwaltung (Tab "Mitglieder" in TenantSettingsPage)
   - Einladungssystem — E-Mail-Einladung und Einladungslink
-  - Einladung annehmen (InvitationAcceptPage — /invitations/accept/:token)
+  - Einladung annehmen (InvitationAcceptPage — /invitations/accept?token=…)
   - RBAC-Rollensystem (Admin, Gärtner, Beobachter) — UI-seitige Berechtigungssteuerung
   - Standort-Zuweisungen (AssignmentListPage — /t/{slug}/assignments)
   - Zuweisungsbasierte Write-Kontrolle (sichtbare Bearbeitungs-Buttons je Rolle)
@@ -437,9 +437,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 **Testschritte**:
 1. Lisa klickt auf das Rollen-Dropdown neben Max
 2. Lisa wählt "Admin" aus dem Dropdown
-3. Änderung wird gespeichert (ggf. Bestätigungs-Dialog)
+3. Ein Bestätigungs-Dialog verlangt Lisas **eigenes** Passwort (Step-up, REQ-024 AK-57); Lisa gibt es ein und bestätigt
+4. Änderung wird gespeichert
 
 **Erwartete Ergebnisse**:
+- Ohne das Passwort wird die Rolle nicht geändert
 - Max' Rollen-Chip ändert sich zu "Admin" (rote Farbe)
 - Eine Erfolgs-Snackbar erscheint (oder visuelle Bestätigung der Änderung)
 - Max kann nun Admin-Funktionen ausführen (Tab "Einladungen" sichtbar bei nächster Anmeldung)
@@ -462,7 +464,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Testschritte**:
 1. Max klickt auf sein eigenes Rollen-Dropdown
-2. Max versucht, seine Rolle auf "Gärtner" zu ändern
+2. Max versucht, seine Rolle auf "Gärtner" zu ändern (bestätigt den Step-up-Dialog mit seinem eigenen Passwort)
 
 **Erwartete Ergebnisse**:
 - Aktion wird abgelehnt: Eine Fehlermeldung erscheint (z.B. Snackbar "Der letzte Admin kann nicht degradiert werden" o.ä.)
@@ -487,11 +489,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Testschritte**:
 1. Lisa klickt auf den Löschen-Button (Papierkorb-Icon) neben Anna
-2. Ein Bestätigungs-Dialog erscheint ("Mitglied entfernen" o.ä.)
-3. Lisa bestätigt die Aktion
+2. Ein Bestätigungs-Dialog erscheint ("Mitglied entfernen" o.ä.) und verlangt Lisas **eigenes** Passwort (Step-up, REQ-024 AK-57)
+3. Lisa gibt ihr Passwort ein und bestätigt die Aktion
 
 **Erwartete Ergebnisse**:
-- Bestätigungs-Dialog erscheint mit Annas Namen vor der Aktion
+- Bestätigungs-Dialog erscheint mit Annas Namen vor der Aktion; ohne gültiges Passwort wird Anna nicht entfernt
 - Nach Bestätigung: Snackbar "Mitglied entfernt" erscheint
 - Annas Zeile verschwindet aus der Mitgliederliste
 - Mitgliederzahl im Tenant-Switcher reduziert sich um 1
@@ -513,7 +515,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 - Keine anderen Admins vorhanden
 
 **Testschritte**:
-1. Nutzer (Admin) klickt auf Löschen-Button neben seinem eigenen Eintrag
+1. Nutzer (Admin) klickt auf Löschen-Button neben seinem eigenen Eintrag und bestätigt den Step-up-Dialog mit seinem eigenen Passwort
 
 **Erwartete Ergebnisse**:
 - Aktion wird abgelehnt: Fehlermeldung erscheint ("Letzter Admin kann nicht entfernt werden" o.ä.)
@@ -670,9 +672,10 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 3. Nutzer klickt "Einladung annehmen" (o.ä.)
 
 **Erwartete Ergebnisse**:
-- Erfolgs-Meldung erscheint: "Einladung angenommen! Sie sind jetzt Mitglied."
+- Erfolgs-Meldung erscheint: "Einladung angenommen! Du bist jetzt Mitglied."
 - Nutzer wird zum Dashboard des Tenants "Gemeinschaftsgarten Sonnenschein" weitergeleitet
 - Im Tenant-Switcher erscheint "Gemeinschaftsgarten Sonnenschein" als neuer Tenant
+- Das annehmende Konto trägt die **eingeladene, bestätigte** E-Mail-Adresse (REQ-024 AK-61); ein anderes Konto — oder dasselbe mit unbestätigter Adresse — bekommt `403`, die Einladung bleibt offen, es entsteht keine Mitgliedschaft
 
 **Nachbedingungen**:
 - Nutzer ist Mitglied im Tenant mit der vordefinierten Rolle (z.B. "viewer")
@@ -1123,6 +1126,8 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ### TC-024-043: Platform-Viewer kann Tenant-Übersicht nur lesen
 
+> **Blockiert:** Der Plattform-Viewer ist nicht implementiert (REQ-024 v1.26 §1a.4, #2179); eine `viewer`-Mitgliedschaft im Platform-Tenant gewährt heute keinen Admin-Zugriff.
+
 **Requirement**: REQ-024 §1a.4 (Platform-Viewer: Tenant-Übersicht read-only), AK-38, AK-39
 **Priority**: High
 **Category**: Berechtigungsprüfung
@@ -1346,6 +1351,8 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 ---
 
 ### TC-024-052: Platform-Viewer kann keine Stammdaten ändern
+
+> **Blockiert:** Der Plattform-Viewer ist nicht implementiert (REQ-024 v1.26 §1a.4, #2179).
 
 **Requirement**: REQ-024 §1a.4 (Platform-Viewer: Globale Species nur lesen), AK-40
 **Priority**: High
@@ -1847,6 +1854,105 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 ---
 
+### TC-024-094: Deep-Link auf eine Pflanze eines fremden Tenants zeigt „nicht gefunden"
+
+**Requirement**: REQ-024 §1 Kernkonzepte, AK-14; Audit MT-024 (#2120)
+**Priority**: Critical
+**Category**: Berechtigungsprüfung (Cross-Tenant-Negativprobe)
+**Preconditions**:
+- Tenant „Garten Anna" (Nutzerin Anna, Rolle Gärtner) und Tenant „Garten Bernd" (Nutzer Bernd) existieren, Anna ist **nicht** Mitglied in „Garten Bernd"
+- Bernd hat die Pflanze „Bernds Tomate" angelegt; ihr Schlüssel ist dem Testlauf bekannt (aus Bernds Pflanzendetail-URL)
+
+**Testschritte**:
+1. Anna ist angemeldet, aktiver Tenant „Garten Anna"
+2. Anna ruft die Pflanzendetailseite **in ihrem eigenen Tenant** mit Bernds Pflanzenschlüssel direkt über die Adresszeile auf (`/t/garten-anna/pflanzen/plant-instances/<Schlüssel von Bernds Tomate>`)
+3. Anna ruft dieselbe Seite mit einem frei erfundenen, nicht existierenden Schlüssel auf
+
+**Erwartete Ergebnisse**:
+- Schritt 2 zeigt die „Nicht gefunden"-Ansicht; der Name „Bernds Tomate" erscheint nirgends auf der Seite
+- Schritt 3 zeigt **dieselbe** „Nicht gefunden"-Ansicht wie Schritt 2 — fremd und nicht vorhanden sind für Anna nicht unterscheidbar
+- Annas eigene Pflanzenliste ist unverändert
+
+**Nachbedingungen**:
+- Bernds Pflanze ist unverändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-024, deep-link, kritisch, sicherheit]
+
+---
+
+### TC-024-095: Bearbeiten über einen Deep-Link mit fremdem Schlüssel ändert nichts
+
+**Requirement**: REQ-024 §1a.1, AK-14; Audit MT-010/MT-024 (#2107, #2120)
+**Priority**: Critical
+**Category**: Berechtigungsprüfung (Cross-Tenant-Negativprobe, Schreibpfad)
+**Preconditions**:
+- Wie TC-024-094; Bernd hat zusätzlich den Standort „Bernds Gewächshaus" und den Tank „Bernds Tank" angelegt
+
+**Testschritte**:
+1. Anna öffnet in ihrem Tenant die Detailansicht des Standorts mit dem Schlüssel von „Bernds Gewächshaus" über die Adresszeile (`/t/garten-anna/standorte/locations/<Schlüssel>`)
+2. Anna öffnet die Detailansicht des Tanks mit dem Schlüssel von „Bernds Tank" über die Adresszeile (`/t/garten-anna/standorte/tanks/<Schlüssel>`)
+3. Bernd meldet sich an und öffnet beide Objekte
+
+**Erwartete Ergebnisse**:
+- Schritte 1 und 2 zeigen die „Nicht gefunden"-Ansicht; es erscheint kein ausgefülltes Formular und kein Speichern-Button
+- In Schritt 3 sieht Bernd Namen und Werte beider Objekte unverändert
+
+**Nachbedingungen**:
+- Keine Daten in „Garten Bernd" geändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-010, mt-024, deep-link, schreibpfad, kritisch, sicherheit]
+
+---
+
+### TC-024-096: Globaler Seed-Dünger ist für einen Gärtner nicht änderbar
+
+**Requirement**: REQ-024 §2 Stammdaten-Scoping; REQ-049 §2.3; Audit MT-002/MT-024 (#2100, #2120)
+**Priority**: High
+**Category**: Berechtigungsprüfung (Hybrid-Katalog, Schreibpfad)
+**Preconditions**:
+- Anna ist Gärtnerin in „Garten Anna" und **kein** Platform-Admin
+- Der mitgelieferte Seed-Dünger „CalMag" ist im Düngerkatalog sichtbar
+
+**Testschritte**:
+1. Anna öffnet die Düngerdetailseite von „CalMag"
+2. Anna versucht, den Produktnamen zu ändern und zu speichern
+
+**Erwartete Ergebnisse**:
+- Entweder ist kein Bearbeiten-Button sichtbar, oder das Speichern endet mit einer verständlichen Meldung, dass nur Platform-Admins den gemeinsamen Katalog ändern dürfen
+- Nach dem Neuladen zeigt „CalMag" den ursprünglichen Namen — auch in „Garten Bernd"
+
+**Nachbedingungen**:
+- Der Seed-Dünger ist für alle Tenants unverändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-002, mt-024, hybrid-katalog, kritisch]
+
+---
+
+### TC-024-097: Nährstoffplan eines fremden Tenants ist nicht druckbar
+
+**Requirement**: REQ-024 §1 Kernkonzepte, AK-14; Audit MT-024 §5 (#2120)
+**Priority**: High
+**Category**: Berechtigungsprüfung (Export/Druck)
+**Preconditions**:
+- Bernd hat den privaten Nährstoffplan „Bernds Geheimrezept" angelegt; sein Schlüssel ist dem Testlauf bekannt
+
+**Testschritte**:
+1. Anna ruft in ihrem Tenant die Detailseite des Nährstoffplans mit Bernds Planschlüssel über die Adresszeile auf (`/t/garten-anna/duengung/plans/<Schlüssel>`)
+2. Anna sucht auf der Seite den Button „Als PDF herunterladen"
+
+**Erwartete Ergebnisse**:
+- Anna sieht die „Nicht gefunden"-Ansicht; es gibt keinen Export-Button und es wird kein PDF heruntergeladen
+- Der Planname „Bernds Geheimrezept" erscheint nirgends
+
+**Nachbedingungen**:
+- Kein Status geändert
+
+**Tags**: [req-024, cross-tenant-isolation, mt-024, druck, export, kritisch]
+
+> **Automatisierungsstand (2026-10-10):** TC-024-094 bis TC-024-097 sind als Browser-Test automatisiert in `tests/e2e/test_req024_cross_tenant_probe.py` (#2120). Jeder Test registriert seine eigenen Konten Anna und Bernd und legt Bernds Datensätze über die API an; er prüft zusätzlich die API-Antwort derselben Probe (404, beim globalen Seed-Dünger 403) und eine Positivkontrolle mit Bernds eigenem Schlüssel. Er braucht zwei Konten und läuft deshalb nur im Full-Modus (Nightly-Profile `full` und `full-mobile`); im Light-Modus überspringt ihn der Marker `requires_auth`. Die SPA-Routen tragen keinen Tenant-Slug: Der Deep-Link `/t/garten-anna/pflanzen/…` der Testfälle entspricht `/pflanzen/plant-instances/<Schlüssel>` bei aktivem Tenant von Anna. Beim globalen Seed-Dünger sendet der Schreibversuch den gespeicherten Namen unverändert, damit ein defektes Gate den gemeinsamen Katalog nicht verändert. Die API-Schicht derselben Probe deckt `tests/integration/test_cross_tenant_equipment_actuators_print.py` sowie die Boundary-Tests aus #2148 (`test_fertilizer_catalogue_write_gate.py`, `test_shared_workflow_template_write_gate.py`) ab.
+
+---
+
 ## 16. Mobile-Ansicht (MobileCard)
 
 ### TC-024-072: Mitgliederliste auf mobilen Geräten als MobileCard dargestellt
@@ -2020,8 +2126,9 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 **Priority**: Medium
 **Category**: Happy Path
 **Preconditions**:
-- OIDC-Provider "keycloak-anbauverein" ist konfiguriert mit `default_tenant_key` = Tenant "Cannabis Social Club Berlin" und `default_role: 'grower'`
+- OIDC-Provider "keycloak-anbauverein" ist konfiguriert mit `default_tenant_key` = Tenant "Cannabis Social Club Berlin" (eine Rolle je Provider, `default_role`, ist nicht implementiert: der Beitritt ist immer "Beobachter", REQ-024 v1.34)
 - Nutzer "Anna" hat noch keinen Kamerplanter-Account
+- Der Provider ist vom Typ "OIDC" (bei Google, GitHub und Apple lässt sich kein Standard-Mandant setzen) und meldet Annas E-Mail-Adresse als bestätigt (`email_verified: true`); ohne Bestätigung wird der Beitritt übersprungen, die Anmeldung gelingt (#2182 Review SEC-001)
 
 **Testschritte**:
 1. Anna öffnet die Kamerplanter-Loginseite
@@ -2031,11 +2138,11 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 
 **Erwartete Ergebnisse**:
 - Anna ist jetzt eingeloggt in Kamerplanter
-- Im Tenant-Switcher erscheint "Cannabis Social Club Berlin" mit Rolle "Gärtner"
+- Im Tenant-Switcher erscheint "Cannabis Social Club Berlin" mit Rolle "Beobachter"
 - Anna wird automatisch auf das Tenant-Dashboard weitergeleitet
 
 **Nachbedingungen**:
-- Anna hat Membership mit Rolle "grower" im "Cannabis Social Club Berlin"-Tenant
+- Anna hat Membership mit Rolle "viewer" im "Cannabis Social Club Berlin"-Tenant
 
 **Tags**: [req-024, oidc-auto-join, ak-09, szenario-4, happy-path]
 
@@ -2463,7 +2570,7 @@ REQ-024 definiert Kamerplanter als Multi-Tenant-Plattform: Jeder Nutzer gehört 
 | Gießdienst-Rotation — Erweiterte Szenarien | TC-024-083 – TC-024-086 |
 | Pinnwand — Erweiterte Szenarien | TC-024-087 – TC-024-090 |
 | Gemeinsame Einkaufsliste — Erweiterte Szenarien | TC-024-091 – TC-024-093 |
-| Cross-Tenant-Isolation | TC-024-070, TC-024-071 |
+| Cross-Tenant-Isolation | TC-024-070, TC-024-071, TC-024-094 – TC-024-097 |
 | Leere Zustände (Empty States) | TC-024-073, TC-024-074 |
 | Mobile-Ansicht | TC-024-072 |
 | Grenzwerte & Edge Cases | TC-024-075 – TC-024-081 |

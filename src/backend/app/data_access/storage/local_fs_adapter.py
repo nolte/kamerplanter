@@ -24,27 +24,33 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import functools
 import hashlib
 import hmac
 import json
+import os
 import shutil
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 import structlog
 
 from app.common.exceptions import NotFoundError
+from app.common.log_privacy import log_tenant
 from app.domain.engines.storage.exif_stripper import (
     is_unsupported_photo_format,
-    strip_exif,
+    strip_exif_of_stored_object,
 )
+from app.domain.engines.storage.export_bundle_key import loggable_storage_key
+from app.domain.engines.storage.thumbnail_generator import rendition_keys
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.models.storage import (
     ObjectMetadata,
     ObjectRef,
     StorageCapabilities,
+    StorageErasureResult,
     local_fs_capabilities,
 )
 
@@ -54,6 +60,9 @@ BACKEND_KEY = "local-fs"
 
 # Stream chunk size for get_object (256 KiB).
 _CHUNK_SIZE = 256 * 1024
+
+# Keys per ``list_objects`` page — the S3 default, so both adapters page alike.
+LIST_PAGE_SIZE = 1000
 
 
 def _require_tenant_scoped_prefix(prefix: str) -> str:
@@ -205,23 +214,50 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
                 count += 1
         return count
 
-    def _list_sync(self, prefix: str) -> list[str]:
+    def _iter_keys_sorted(self, directory: Path, rel: str, prefix_rel: str, after: str | None) -> Iterator[str]:
+        """Yield the keys under *directory* in lexicographic key order, lazily.
+
+        Entries are ordered by ``name`` (``name/`` for a directory) so the merged
+        stream is the same order a bucket listing has — a plain per-directory sort
+        would put ``a0`` after ``a/b``. Subtrees that cannot contain a key past
+        *after* or under *prefix_rel* are not entered, so resuming a listing does
+        not re-walk what it already returned.
+        """
+        try:
+            entries = [(e.name + "/" if e.is_dir(follow_symlinks=False) else e.name, e) for e in os.scandir(directory)]
+        except OSError:
+            return
+        entries.sort(key=lambda pair: pair[0])
+        for ordered_name, entry in entries:
+            key = f"{rel}{ordered_name}"
+            if ordered_name.endswith("/"):
+                if after is not None and key < after and not after.startswith(key):
+                    continue  # every key in here sorts before the resume point
+                if prefix_rel and not key.startswith(prefix_rel) and not prefix_rel.startswith(key):
+                    continue
+                yield from self._iter_keys_sorted(Path(entry.path), key, prefix_rel, after)
+            elif (
+                not entry.is_symlink()  # a link would be unlinked *through*, deleting its target
+                and not entry.name.endswith(".meta.json")
+                and (not prefix_rel or key.startswith(prefix_rel))
+            ):
+                if after is None or key > after:
+                    yield key
+
+    def _list_page_sync(self, prefix: str, page_token: str | None, limit: int) -> dict[str, Any]:
         prefix_rel = prefix.replace("\\", "/").strip("/")
         keys: list[str] = []
         if not self._root.exists():
-            return keys
-        for p in self._root.rglob("*"):
-            if not p.is_file() or p.name.endswith(".meta.json"):
-                continue
-            rel = p.relative_to(self._root).as_posix()
-            if not prefix_rel or rel.startswith(prefix_rel):
-                keys.append(rel)
-        keys.sort()
-        return keys
+            return {"keys": keys, "next_page_token": None}
+        for key in self._iter_keys_sorted(self._root, "", prefix_rel, page_token):
+            if len(keys) == limit:
+                return {"keys": keys, "next_page_token": keys[-1]}
+            keys.append(key)
+        return {"keys": keys, "next_page_token": None}
 
     def _copy_sync(self, src: Path, dst: Path) -> None:
         if not src.exists():
-            raise NotFoundError("object", str(src))
+            raise NotFoundError("storage object", str(src))
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, dst)
         src_meta = self._meta_path_for(src)
@@ -243,25 +279,37 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             chunks.append(chunk)
         data = b"".join(chunks)
         ref = await asyncio.to_thread(self._write_sync, path, data, mime_type, metadata or {})
-        logger.info("storage_put_object", backend=BACKEND_KEY, key=key, size_bytes=ref.size_bytes)
+        logger.info("storage_put_object", backend=BACKEND_KEY, key=loggable_storage_key(key), size_bytes=ref.size_bytes)
         return ObjectRef(key=key, etag=ref.etag, size_bytes=ref.size_bytes)
 
     async def get_object(self, key: str) -> AsyncIterator[bytes]:
+        """Stream the object from disk, ``_CHUNK_SIZE`` bytes per read (#1666).
+
+        The file is opened before returning, so a missing object raises
+        ``NotFoundError`` here rather than mid-stream; each chunk is then read
+        only when the consumer asks for it. The previous version read the whole
+        file and sliced the in-memory copy — an iterator in the signature, a
+        full buffer underneath.
+        """
         path = self._path_for(key)
-        if not await asyncio.to_thread(path.exists):
-            raise NotFoundError("object", key)
-        data = await asyncio.to_thread(self._read_sync, path)
+        try:
+            handle = await asyncio.to_thread(path.open, "rb")
+        except FileNotFoundError as exc:
+            raise NotFoundError("storage object", key) from exc
 
         async def _iter() -> AsyncIterator[bytes]:
-            for i in range(0, len(data), _CHUNK_SIZE):
-                yield data[i : i + _CHUNK_SIZE]
+            try:
+                while chunk := await asyncio.to_thread(handle.read, _CHUNK_SIZE):
+                    yield chunk
+            finally:
+                handle.close()
 
         return _iter()
 
     async def delete_object(self, key: str) -> None:
         path = self._path_for(key)
         await asyncio.to_thread(self._delete_sync, path)
-        logger.info("storage_delete_object", backend=BACKEND_KEY, key=key)
+        logger.info("storage_delete_object", backend=BACKEND_KEY, key=loggable_storage_key(key))
 
     async def delete_prefix(self, prefix: str) -> int:
         # SEC-004 — block over-broad prefixes (empty key ⇒ ``t//`` ⇒ all tenants)
@@ -272,18 +320,19 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         if self._root != prefix_path and self._root not in prefix_path.parents:
             raise ValueError(f"Resolved prefix escapes storage root: {prefix!r}")
         count = await asyncio.to_thread(self._delete_prefix_sync, prefix_path, prefix_rel)
-        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=prefix, deleted=count)
+        logger.info("storage_delete_prefix", backend=BACKEND_KEY, prefix=loggable_storage_key(prefix), deleted=count)
         return count
 
     async def list_objects(self, prefix: str, page_token: str | None = None) -> dict[str, Any]:
-        keys = await asyncio.to_thread(self._list_sync, prefix)
-        # local-fs returns the full listing in one page (no native pagination).
-        return {"keys": keys, "next_page_token": None}
+        # Paged like a bucket listing (#1834): the token is the last key returned, a
+        # page holds at most ``LIST_PAGE_SIZE`` keys, and nothing here materialises
+        # the whole tree — a reconciliation walks every object of every tenant.
+        return await asyncio.to_thread(self._list_page_sync, prefix, page_token, LIST_PAGE_SIZE)
 
     async def head_object(self, key: str) -> ObjectMetadata:
         path = self._path_for(key)
         if not await asyncio.to_thread(path.exists):
-            raise NotFoundError("object", key)
+            raise NotFoundError("storage object", key)
         stat = await asyncio.to_thread(path.stat)
         meta = await asyncio.to_thread(self._read_meta_sync, path)
         return ObjectMetadata(
@@ -339,7 +388,12 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         src = self._path_for(src_key)
         dst = self._path_for(dst_key)
         await asyncio.to_thread(self._copy_sync, src, dst)
-        logger.info("storage_copy_object", backend=BACKEND_KEY, src=src_key, dst=dst_key)
+        logger.info(
+            "storage_copy_object",
+            backend=BACKEND_KEY,
+            src=loggable_storage_key(src_key),
+            dst=loggable_storage_key(dst_key),
+        )
 
     async def health_check(self) -> dict[str, Any]:
         def _probe() -> tuple[bool, str | None]:
@@ -362,35 +416,24 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             result["reason"] = reason
         return result
 
-    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
-        """REQ-025 erasure hook — delete every stored object owned by a user.
+    async def delete_for_user(self, tenant_key: str, user_key: str, scope: str) -> StorageErasureResult:
+        """REQ-025 erasure hook — delete the objects of a user's records.
 
-        Walks the attachments catalog for ``tenant_key + created_by`` and
-        deletes each backing object. Returns the number of objects deleted.
-        Without a wired attachment repository this returns 0 (Lauf 2 wires it
-        through the DI provider).
+        Each object goes together with its WebP renditions (#1760), unless another
+        record still holds it (#1770, :func:`erase_user_objects`). Without a wired
+        attachment repository nothing is reached (Lauf 2 wires it through the DI
+        provider).
         """
-        if self._attachment_repo is None:
-            return 0
-        categories = _scope_to_categories(scope)
-        if categories is not None and not categories:
-            # Empty category set ⇒ scope matches no category (e.g. user_personal
-            # before profile/user_notes categories exist). Touch nothing.
-            return 0
-        attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
-        deleted = 0
-        for att in attachments:
-            await self.delete_object(att.storage_key)
-            deleted += 1
+        result = await erase_user_objects(self, self._attachment_repo, tenant_key, user_key, scope)
         logger.info(
             "storage_delete_for_user",
             backend=BACKEND_KEY,
-            tenant_key=tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(tenant_key),
             scope=scope,
-            deleted=deleted,
+            deleted=result.removed,
+            retained_shared=result.retained_shared,
         )
-        return deleted
+        return result
 
     async def strip_exif_for_user(self, tenant_key: str, user_key: str, scope: str) -> int:
         """REQ-025 erasure hook — strip EXIF from a user's images.
@@ -410,6 +453,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         attachments = await asyncio.to_thread(self._attachment_repo.find_by_user, tenant_key, user_key, categories)
         rewritten = 0
         skipped_unsupported = 0
+        skipped_over_limit = 0
         for att in attachments:
             if not (att.mime_type or "").startswith("image/"):
                 continue
@@ -418,8 +462,7 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
                 logger.warning(
                     "exif_strip_unsupported_format",
                     backend=BACKEND_KEY,
-                    tenant_key=tenant_key,
-                    user_key=user_key,
+                    tenant=log_tenant(tenant_key),
                     mime_type=att.mime_type,
                 )
                 continue
@@ -427,17 +470,28 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
             if not await asyncio.to_thread(path.exists):
                 continue
             data = await asyncio.to_thread(self._read_sync, path)
-            stripped = await asyncio.to_thread(strip_exif, data, att.mime_type)
+            stripped = await asyncio.to_thread(strip_exif_of_stored_object, data, att.mime_type)
+            if stripped is None:
+                # #2108 — above the stored-object pixel ceiling: left as it is,
+                # counted and logged so the audit shows the residual metadata.
+                skipped_over_limit += 1
+                logger.warning(
+                    "exif_strip_over_pixel_limit",
+                    backend=BACKEND_KEY,
+                    tenant=log_tenant(tenant_key),
+                    mime_type=att.mime_type,
+                )
+                continue
             await asyncio.to_thread(self._write_sync, path, stripped, att.mime_type, {})
             rewritten += 1
         logger.info(
             "storage_strip_exif_for_user",
             backend=BACKEND_KEY,
-            tenant_key=tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(tenant_key),
             scope=scope,
             rewritten=rewritten,
             skipped_unsupported=skipped_unsupported,
+            skipped_over_limit=skipped_over_limit,
         )
         return rewritten
 
@@ -456,6 +510,58 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
         the signature in constant time and enforces the embedded expiry.
         """
         return verify_token(token, self._signing_secret)
+
+
+async def erase_user_objects(
+    adapter: IObjectStorageAdapter, attachment_repo: Any, tenant_key: str, user_key: str, scope: str
+) -> StorageErasureResult:
+    """The hard-delete half of an erasure scope, shared by both adapters (#1770).
+
+    Deduplicated uploads give every uploader a record of their own over one
+    stored object. The subject's records in *scope* are the ones this erasure
+    removes (the ArangoDB plan deletes them afterwards); an object any **other**
+    record of the tenant still points at stays — another member's upload of the
+    same bytes, or the subject's own record in a category the erasure retains.
+    Everything else goes with its renditions (#1760).
+
+    One lookup decides for the whole set, excluding every record being removed,
+    so two of the subject's own records over one object do not keep each other's
+    bytes alive.
+    """
+    if attachment_repo is None:
+        return StorageErasureResult()
+    categories = _scope_to_categories(scope)
+    if categories is not None and not categories:
+        # Empty category set ⇒ scope matches no category (e.g. user_personal
+        # before profile/user_notes categories exist). Touch nothing.
+        return StorageErasureResult()
+    attachments = await asyncio.to_thread(attachment_repo.find_by_user, tenant_key, user_key, categories)
+    if not attachments:
+        return StorageErasureResult()
+    held_elsewhere = await asyncio.to_thread(
+        functools.partial(
+            attachment_repo.storage_keys_held_elsewhere,
+            tenant_key=tenant_key,
+            storage_keys=sorted({att.storage_key for att in attachments}),
+            excluding=[att.key for att in attachments if att.key is not None],
+        )
+    )
+    removed = 0
+    retained = 0
+    deleted_objects: set[str] = set()
+    for att in attachments:
+        if att.storage_key in held_elsewhere:
+            retained += 1
+            continue
+        if att.storage_key not in deleted_objects:
+            await adapter.delete_object(att.storage_key)
+            # #1760 — the renditions go with the original; once the ArangoDB
+            # plan removes the attachment record nothing points at them.
+            for rendition in rendition_keys(att.storage_key, att.mime_type):
+                await adapter.delete_object(rendition)
+            deleted_objects.add(att.storage_key)
+        removed += 1
+    return StorageErasureResult(removed=removed, retained_shared=retained)
 
 
 def _erasure_scope_categories():  # type: ignore[no-untyped-def]

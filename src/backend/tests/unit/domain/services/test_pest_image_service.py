@@ -24,6 +24,7 @@ import pytest
 
 from app.common.enums import AttachmentCategory, PestImageStatus
 from app.common.exceptions import NotFoundError
+from app.data_access.vectordb.pest_prototype_stores import NoopPestPrototypeStore
 from app.domain.models.attachment import Attachment
 from app.domain.models.ipm import Pest
 from app.domain.models.pest_image import PestImageContribution
@@ -46,14 +47,14 @@ class _FakePestImageRepo:
         self.store[key] = stored
         return stored
 
-    def get(self, key: str, tenant_key: str) -> PestImageContribution | None:
+    def get(self, key: str, *, tenant_key: str) -> PestImageContribution | None:
         c = self.store.get(key)
         if c is None or c.tenant_key != tenant_key:
             return None
         return c
 
     def list_for_pest(
-        self, tenant_key: str, pest_key: str, *, include_inactive: bool = False
+        self, *, tenant_key: str, pest_key: str, include_inactive: bool = False
     ) -> list[PestImageContribution]:
         return [
             c
@@ -61,7 +62,7 @@ class _FakePestImageRepo:
             if c.tenant_key == tenant_key and c.pest_key == pest_key and (include_inactive or c.is_active)
         ]
 
-    def list_for_tenant(self, tenant_key: str) -> list[PestImageContribution]:
+    def list_for_tenant(self, *, tenant_key: str) -> list[PestImageContribution]:
         return [c for c in self.store.values() if c.tenant_key == tenant_key]
 
     def list_for_user(self, user_key: str) -> list[PestImageContribution]:
@@ -108,12 +109,6 @@ class _FakePestImageRepo:
         del self.store[key]
         return True
 
-    def delete_for_tenant(self, tenant_key: str) -> int:
-        keys = [k for k, c in self.store.items() if c.tenant_key == tenant_key]
-        for k in keys:
-            del self.store[k]
-        return len(keys)
-
 
 class _FakeAttachmentService:
     """Mimics the slice of AttachmentService the PestImageService uses."""
@@ -136,6 +131,7 @@ class _FakeAttachmentService:
         mime_type: str,
         original_filename: str,
         category: AttachmentCategory,
+        reuse_own_record: bool = True,
     ) -> Attachment:
         self.upload_calls.append(
             {
@@ -144,6 +140,7 @@ class _FakeAttachmentService:
                 "category": category,
                 "mime_type": mime_type,
                 "filename": original_filename,
+                "reuse_own_record": reuse_own_record,
             }
         )
         self._seq += 1
@@ -258,7 +255,15 @@ def _service(
     repo = _FakePestImageRepo()
     attachments = _FakeAttachmentService()
     ipm = _FakeIpmService(known_pests if known_pests is not None else {"p1"}, detection_slugs)
-    service = PestImageService(repo, attachments, ipm, inference_client)  # type: ignore[arg-type]
+    # #1759 — a delete erases the recognition prototype; the no-op binding
+    # without a marker stands for "nothing was ever indexed".
+    service = PestImageService(
+        repo,  # type: ignore[arg-type]
+        attachments,  # type: ignore[arg-type]
+        ipm,  # type: ignore[arg-type]
+        inference_client,  # type: ignore[arg-type]
+        prototype_store=NoopPestPrototypeStore(),
+    )
     return service, repo, attachments, ipm
 
 
@@ -283,6 +288,10 @@ class TestContribute:
         assert len(attachments.upload_calls) == 1
         assert attachments.upload_calls[0]["category"] == AttachmentCategory.PEST_REFERENCE
         assert attachments.upload_calls[0]["tenant_key"] == "t1"
+        # #1770 — one attachment record per contribution: withdrawing one
+        # contribution deletes its record, so two contributions of one photo must
+        # not share one.
+        assert attachments.upload_calls[0]["reuse_own_record"] is False
         # Contribution persisted and linked to the attachment.
         assert len(repo.store) == 1
         contribution = view.contribution
@@ -746,41 +755,6 @@ class TestCombinedListForPest:
         assert matching[0].is_own is True
 
 
-class TestErasure:
-    @pytest.mark.asyncio
-    async def test_delete_all_for_tenant_removes_docs_and_attachments(self):
-        service, repo, attachments, _ipm = _service()
-        a = await _contribute(service, tenant_key="t1", user_key="u1")
-        b = await _contribute(service, tenant_key="t1", user_key="u2")
-        other = await _contribute(service, tenant_key="t2", user_key="u3")
-
-        removed = await service.delete_all_for_tenant("t1")
-
-        assert removed == 2
-        assert a.contribution.key not in repo.store
-        assert b.contribution.key not in repo.store
-        assert other.contribution.key in repo.store  # foreign tenant untouched
-        assert (a.contribution.attachment_id, "t1") in attachments.deleted
-
-    @pytest.mark.asyncio
-    async def test_delete_all_for_user_removes_across_tenants(self):
-        service, repo, attachments, _ipm = _service()
-        # Same user contributes in two tenants.
-        a = await _contribute(service, tenant_key="t1", user_key="u1")
-        b = await _contribute(service, tenant_key="t2", user_key="u1")
-        other = await _contribute(service, tenant_key="t1", user_key="u2")
-
-        removed = await service.delete_all_for_user("u1")
-
-        assert removed == 2
-        assert a.contribution.key not in repo.store
-        assert b.contribution.key not in repo.store
-        assert other.contribution.key in repo.store
-        # Each attachment deleted against its own tenant.
-        assert (a.contribution.attachment_id, "t1") in attachments.deleted
-        assert (b.contribution.attachment_id, "t2") in attachments.deleted
-
-
 class TestListInspectionImagesForPest:
     """REQ-010 — read-only inspection photos surfaced in the pest detail gallery."""
 
@@ -881,6 +855,30 @@ class TestListRecognitionImagesForPest:
         assert views[0].attribution == "Jane Doe / iNaturalist"
         assert views[0].license == "CC-BY 4.0"
         assert isinstance(views[0], PestRecognitionImageView)
+
+    def test_a_contribution_provenance_is_never_surfaced(self, monkeypatch):
+        """#1759 review — ``contribution://<tenant>/<key>`` names another tenant; it is no image URL."""
+        from app.config.settings import settings
+
+        monkeypatch.setattr(settings, "pest_detection_enabled", True)
+        rows = [
+            *self._ROWS,
+            {
+                "id": 9,
+                "source_url": "contribution://t-other/c-42",
+                "source": "user_contributed",
+                "is_active": True,
+            },
+        ]
+        service, _repo, _attachments, _ipm = _service(
+            detection_slugs={"p1": "spider_mites"},
+            inference_client=_FakeInferenceClient(images=rows),
+        )
+
+        views = service.list_recognition_images_for_pest("p1")
+
+        assert [v.prototype_id for v in views] == [7, 8]
+        assert all("t-other" not in v.source_url for v in views)
 
     def test_empty_when_pest_has_no_detection_slug(self, monkeypatch):
         from app.config.settings import settings

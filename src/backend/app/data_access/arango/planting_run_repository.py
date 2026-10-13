@@ -6,6 +6,7 @@ from arango.database import StandardDatabase
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 
@@ -65,27 +66,73 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
     ) -> tuple[list[PlantingRun], int]:
         self._enforce_tenant_scope(tenant_key, all_tenants)
         if filters:
+            items = self._runs_page(offset, limit, filters, tenant_key=tenant_key, all_tenants=all_tenants)
             query = f"FOR doc IN {col.PLANTING_RUNS}"
-            bind_vars: dict[str, Any] = {}
-            filter_clauses = []
-            if tenant_key:
-                bind_vars["tenant_key"] = tenant_key
-                filter_clauses.append("doc.tenant_key == @tenant_key")
-            for i, (field, value) in enumerate(filters.items()):
-                bind_vars[f"val{i}"] = value
-                filter_clauses.append(f"doc.{field} == @val{i}")
-            query += " FILTER " + " AND ".join(filter_clauses)
-            count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            count_vars = dict(bind_vars)
-            bind_vars["offset"] = offset
-            bind_vars["limit"] = limit
-            query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
-            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-            items = [PlantingRun(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+            selection, count_vars = self._filtered_runs(filters, tenant_key)
+            query += selection
+            count_cursor = self._db.aql.execute(
+                query + " COLLECT WITH COUNT INTO total RETURN total", bind_vars=count_vars
+            )
             total = next(count_cursor, 0)
             return items, total
         return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
+
+    def get_runs_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[PlantingRun]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131).
+
+        A request read: ``tenant_key`` is required and the empty sentinel refused;
+        no ``all_tenants`` escape (review INFO-1 of #2272 — no caller needs one).
+        Same predicates, ``_key`` order and ``LIMIT`` as :meth:`get_all`.
+        """
+        self._require_tenant_key(tenant_key, "get_runs_window")
+        return self._runs_page(offset, limit, filters, tenant_key=tenant_key, all_tenants=False)
+
+    def _runs_page(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        *,
+        tenant_key: str | None,
+        all_tenants: bool,
+    ) -> list[PlantingRun]:
+        """The page :meth:`get_all` counts and :meth:`get_runs_window` reads alone."""
+        self._enforce_tenant_scope(tenant_key, all_tenants)
+        if not filters:
+            return self.list_window(offset=offset, limit=limit, tenant_key=tenant_key, all_tenants=all_tenants)
+        query = f"FOR doc IN {col.PLANTING_RUNS}"
+        selection, bind_vars = self._filtered_runs(filters, tenant_key)
+        query += selection
+        query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
+        page_vars: dict[str, Any] = {**bind_vars, "offset": offset, "limit": limit}
+        cursor = self._db.aql.execute(query, bind_vars=page_vars)
+        return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
+
+    @staticmethod
+    def _filtered_runs(filters: dict[str, Any], tenant_key: str | None) -> tuple[str, dict[str, Any]]:
+        """The ``FILTER`` clause (after ``FOR doc IN planting_runs``) the filtered count and window share.
+
+        The ``FOR`` head stays at the call sites as a literal so the AQL guards can
+        read which collection each query walks.
+        """
+        query = ""
+        bind_vars: dict[str, Any] = {}
+        filter_clauses = []
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append("doc.tenant_key == @tenant_key")
+        for i, (field, value) in enumerate(filters.items()):
+            bind_vars[f"val{i}"] = value
+            filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
+        query += " FILTER " + " AND ".join(filter_clauses)
+        return query, bind_vars
 
     def create(self, run: PlantingRun) -> PlantingRun:
         created = super().create(run)
@@ -111,6 +158,15 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         return super().delete(key)
 
     # ── Entry CRUD ────────────────────────────────────────────────────
+
+    def verify_entry_references(self, entry: PlantingRunEntry) -> None:
+        """Run the entry's owned-reference check without writing (#1874 review).
+
+        ``create_run`` checks every entry *before* the run is stored, so a
+        foreign ``cultivar_key`` refuses the whole create instead of leaving a
+        stored run with a partial set of entries behind.
+        """
+        self._entries._verify_owned_references(entry)
 
     def create_entry(self, entry: PlantingRunEntry) -> PlantingRunEntry:
         created = self._entries.create(entry)
@@ -255,24 +311,31 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
           FILTER e._to == @plant_id
           LET run = DOCUMENT(e._from)
           FILTER run != null
-          SORT run.started_at DESC
+          SORT DATE_TIMESTAMP(run.started_at) DESC
           RETURN run
         """
         bind_vars = {"plant_id": f"{col.PLANT_INSTANCES}/{plant_key}"}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
 
-    def get_runs_at_site(self, site_key: str) -> list[PlantingRun]:
+    def get_runs_at_site(self, site_key: str, *, tenant_key: str) -> list[PlantingRun]:
+        """Runs at a site's locations, **of one tenant** (#1870).
+
+        Keyword-only without a default: the calendar passed a caller-chosen site
+        key and read every tenant's runs there. The irrigation task passes the
+        site's own tenant.
+        """
         query = f"""
         FOR run IN {col.PLANTING_RUNS}
+          FILTER run.tenant_key == @tenant_key
           FILTER run.location_key != null
           FILTER run.status IN ['active', 'harvesting', 'completed']
           LET loc = DOCUMENT(CONCAT('{col.LOCATIONS}/', run.location_key))
           FILTER loc != null AND loc.site_key == @site_key
-          SORT run.started_at DESC
+          SORT DATE_TIMESTAMP(run.started_at) DESC
           RETURN run
         """
-        cursor = self._db.aql.execute(query, bind_vars={"site_key": site_key})
+        cursor = self._db.aql.execute(query, bind_vars={"site_key": site_key, "tenant_key": tenant_key})
         return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
 
     # ── Nutrient plan assignment ───────────────────────────────────────

@@ -32,8 +32,9 @@ from app.api.v1.tanks.schemas import (
     TankStateResponse,
     TankUpdate,
 )
-from app.common.auth import get_current_tenant, require_permission
+from app.common.auth import get_current_tenant, require_admin_scope, require_permission
 from app.common.dependencies import get_sensor_service, get_tank_service
+from app.common.enums import AdminScope
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
@@ -83,7 +84,7 @@ def list_tanks(
     filters: dict[str, str] = {}
     if tank_type:
         filters["tank_type"] = tank_type
-    items, _total = service.list_tanks(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
+    items = service.list_tanks_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_tank_response(t) for t in items]
 
 
@@ -95,17 +96,22 @@ def create_tank(
 ):
     """Create a tank for the tenant."""
     tank = Tank(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_tank(tank)
+    created = service.create_tank(tank, tenant_key=ctx.tenant_key)
     return _tank_response(created)
 
 
 @router.get("/ha-entities", response_model=list[HAEntitySuggestion])
 def list_ha_entities(
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_admin_scope(AdminScope.TECHNICAL)),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
-    """List Home Assistant entities suggested for tank sensors."""
-    return sensor_service.get_ha_entities()
+    """List the Home Assistant entities granted to the tenant, as tank-sensor suggestions.
+
+    TECHNICAL scope only, like the actuator entity listing (MT-015, #2112): the
+    Home Assistant instance is the operator's, and only the entities the platform
+    admin granted to this tenant are listed.
+    """
+    return sensor_service.get_ha_entities(tenant_key=ctx.tenant_key)
 
 
 @router.get("/{key}", response_model=TankResponse)
@@ -127,9 +133,8 @@ def update_tank(
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's configuration."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_tank(key, data)
+    updated = service.update_tank(key, data, tenant_key=ctx.tenant_key)
     return _tank_response(updated)
 
 
@@ -140,8 +145,7 @@ def delete_tank(
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.delete_tank(key)
+    service.delete_tank(key, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/states", response_model=TankStateResponse, status_code=201)
@@ -152,9 +156,8 @@ def record_state(
     service: TankService = Depends(get_tank_service),
 ):
     """Record a measured state snapshot for a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     state = TankState(**body.model_dump())
-    created = service.record_state(key, state)
+    created = service.record_state(key, state, tenant_key=ctx.tenant_key)
     return to_response(created, TankStateResponse)
 
 
@@ -205,9 +208,8 @@ def log_maintenance(
     service: TankService = Depends(get_tank_service),
 ):
     """Log a completed maintenance action for a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     log = MaintenanceLog(**body.model_dump())
-    created = service.log_maintenance(key, log)
+    created = service.log_maintenance(key, log, tenant_key=ctx.tenant_key)
     return to_response(created, MaintenanceLogResponse)
 
 
@@ -244,9 +246,8 @@ def create_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Create a maintenance schedule for a tank."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     schedule = MaintenanceSchedule(**body.model_dump())
-    created = service.create_schedule(key, schedule)
+    created = service.create_schedule(key, schedule, tenant_key=ctx.tenant_key)
     return to_response(created, MaintenanceScheduleResponse)
 
 
@@ -271,9 +272,8 @@ def update_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Update a tank's maintenance schedule."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
-    updated = service.update_schedule(skey, data)
+    updated = service.update_schedule(key, skey, data, tenant_key=ctx.tenant_key)
     return to_response(updated, MaintenanceScheduleResponse)
 
 
@@ -285,8 +285,7 @@ def delete_schedule(
     service: TankService = Depends(get_tank_service),
 ):
     """Delete a tank's maintenance schedule."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.delete_schedule(skey)
+    service.delete_schedule(key, skey, tenant_key=ctx.tenant_key)
 
 
 @router.post("/{key}/fills", response_model=FillEventResultResponse, status_code=201)
@@ -297,10 +296,9 @@ def record_fill_event(
     service: TankService = Depends(get_tank_service),
 ):
     """Record a tank fill event and return the resulting state and warnings."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
     ferts = [FertilizerSnapshot(**f.model_dump()) for f in body.fertilizers_used]
     event = TankFillEvent(**body.model_dump(exclude={"fertilizers_used"}), fertilizers_used=ferts)
-    result = service.record_fill_event(key, event)
+    result = service.record_fill_event(key, event, tenant_key=ctx.tenant_key)
     return FillEventResultResponse(
         fill_event=_fill_event_response(result["fill_event"]),
         tank_state=(to_response(result["tank_state"], TankStateResponse) if result["tank_state"] else None),
@@ -340,7 +338,13 @@ def get_latest_fill(
 def get_fill_stats(
     key: Annotated[str, Path(description="Document key of the tank.")],
     start_date: str | None = Query(default=None, description="Inclusive start date (ISO 8601) of the stats window."),
-    end_date: str | None = Query(default=None, description="Inclusive end date (ISO 8601) of the stats window."),
+    end_date: str | None = Query(
+        default=None,
+        description=(
+            "Inclusive end of the stats window (ISO 8601). A date (YYYY-MM-DD) includes every fill on that "
+            "day; a full timestamp includes fills up to and at that instant."
+        ),
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
@@ -386,8 +390,7 @@ def link_feeds_from(
     service: TankService = Depends(get_tank_service),
 ):
     """Link a tank to the source tank it is fed from."""
-    service.get_tank(key, tenant_key=ctx.tenant_key)
-    service.link_feeds_from(key, body.source_tank_key)
+    service.link_feeds_from(key, body.source_tank_key, tenant_key=ctx.tenant_key)
     return {"status": "linked"}
 
 
@@ -400,7 +403,7 @@ def get_live_state(
 ):
     """Return a tank's live sensor readings."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
-    result = sensor_service.get_live_state(key)
+    result = sensor_service.get_live_state(key, tenant_key=ctx.tenant_key)
     return LiveStateResponse(**result)
 
 
@@ -428,7 +431,7 @@ def create_sensor(
     """Attach a sensor to a tank."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     sensor = Sensor(**body.model_dump(exclude={"tank_key"}), tank_key=key)
-    created = sensor_service.create_sensor(sensor)
+    created = sensor_service.create_sensor(sensor, tenant_key=ctx.tenant_key)
     return to_response(created, SensorResponse)
 
 
@@ -457,6 +460,7 @@ def update_sensor(
         body.model_dump(exclude_unset=True),
         parent_field="tank_key",
         parent_key=key,
+        tenant_key=ctx.tenant_key,
     )
     return to_response(updated, SensorResponse)
 

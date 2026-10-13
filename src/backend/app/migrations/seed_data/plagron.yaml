@@ -163,6 +163,9 @@ nutrient_plans:
   # Based on: https://plagron.com/downloads/en/grow-schedule-100-terra
   #           https://pevgrow.com/blog/en/plagron-chart-for-cannabis-growing/
   - name: "Plagron 100% Terra — Cannabis"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Vollständiges Düngeprogramm für Cannabis in Erde mit der Plagron
       100% Terra-Serie. Enthält Terra Grow/Bloom als Basisdünger,
@@ -341,6 +344,9 @@ nutrient_plans:
   # ── Plagron 100% Coco — Cannabis ─────────────────────────────────────
   # Based on: https://plagron.com/downloads/en/grow-schedule-100-coco
   - name: "Plagron 100% Coco — Cannabis"
+    # #1618 species relation — the plan name targets Cannabis, and the catalogue holds
+    # exactly one Cannabis species (species.yaml: "Cannabis sativa").
+    species_names: ["Cannabis sativa"]
     description: >-
       Vollständiges Düngeprogramm für Cannabis auf Coco mit der Plagron
       100% Coco-Serie. Enthält Cocos A+B als 2-Komponenten-Basisdünger,
@@ -526,6 +532,8 @@ nutrient_plans:
 
   # ── Erdbeere (einmaltragend) — Plagron Terra ───────────────────────────
   - name: "Erdbeere (einmaltragend) — Plagron Terra"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/erdbeere_einmaltragend_plagron_terra.md ("Pflanze:")
+    species_names: ["Fragaria x ananassa"]
     description: >-
       Jahresplan für einmaltragende Erdbeeren im Topf/Kübel.
       Plagron Terra-Linie mit 5 Produkten. Saisonaler Zyklus:
@@ -753,6 +761,8 @@ nutrient_plans:
 
   # ── Basilikum (Sweet Basil) — Plagron Terra ───────────────────────────
   - name: "Basilikum (Sweet Basil) — Plagron Terra"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/basilikum_plagron_terra.md ("Pflanze:")
+    species_names: ["Ocimum basilicum"]
     description: >-
       Minimalistischer Nährstoffplan für Basilikum (Schwachzehrer).
       Nur 2 Produkte: Terra Grow + Pure Zym. Bewusst niedrige Dosierung —
@@ -889,6 +899,8 @@ nutrient_plans:
 
   # ── Stiefmütterchen (Frühjahrsaussaat) — Plagron Terra ────────────────
   - name: "Stiefmütterchen (Frühjahrsaussaat) — Plagron Terra"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/stiefmuetterchen_plagron_terra.md ("Pflanze:")
+    species_names: ["Viola x wittrockiana"]
     description: >-
       Saisonplan für Stiefmütterchen (Viola x wittrockiana). Plagron Terra-Linie
       mit 3 Produkten. Indoor-Aussaat Feb/März, Hauptblüte Mai–Juli.
@@ -1027,6 +1039,8 @@ nutrient_plans:
 
   # ── Sonnenblume — Plagron Terra ────────────────────────────────────────
   - name: "Sonnenblume — Plagron Terra"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/sonnenblume_plagron_terra.md ("Pflanze:")
+    species_names: ["Helianthus annuus"]
     description: >-
       Saisonplan für Sonnenblumen (Helianthus annuus) im Freiland.
       Plagron Terra-Linie mit 6 Produkten inkl. Green Sensation.
@@ -1184,6 +1198,8 @@ nutrient_plans:
 
   # ── Tomate — Plagron Terra + PK 13-14 ─────────────────────────────────
   - name: "Tomate — Plagron Terra + PK 13-14"
+    # #1618 species relation — source: spec/knowledge/nutrient-plans/tomate_plagron_terra.md ("Pflanze:")
+    species_names: ["Solanum lycopersicum"]
     description: >-
       Saisonplan für Tomaten (indeterminiert) mit Indoor-Vorkultur ab März.
       Plagron Terra-Linie mit 6 Produkten inkl. PK 13-14 Blütebooster.

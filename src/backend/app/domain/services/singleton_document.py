@@ -21,6 +21,8 @@ from typing import Any
 
 import structlog
 
+from app.common.log_privacy import log_subject
+
 logger = structlog.get_logger()
 
 
@@ -37,7 +39,7 @@ def pick_singleton(docs: list[dict[str, Any]], *, collection: str, user_key: str
         logger.warning(
             "duplicate_singleton_docs",
             collection=collection,
-            user_key=user_key,
+            subject=log_subject(user_key),
             count=len(docs),
             keys=keys,
         )

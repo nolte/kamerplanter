@@ -1,10 +1,16 @@
 """Pure logic for REQ-025 erasure orchestration (Art. 17)."""
 
 import hashlib
+import hmac
+import re
 
+from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH
 from app.domain.models.privacy import (
     AnonymizationRule,
+    ErasureExclusion,
+    ErasureExecutor,
     ErasurePlan,
+    ErasureStep,
     PseudonymizationRule,
     ReferenceIndexCleanupRule,
     StorageCleanupRule,
@@ -17,42 +23,130 @@ from app.domain.models.privacy import (
 #: free of a data-access import (NFR-001).
 ANONYMIZED_MARKER = "_anonymized"
 
+#: Prefix of the value an :class:`AnonymizationRule` writes into its
+#: ``rename_fields`` (#1700): ``<prefix>`` + :meth:`ErasureEngine.anonymized_rename_value`.
+#: The namespace is reserved — ``TenantEngine.generate_slug`` never produces a
+#: slug inside it — so a registration cannot occupy the value first.
+ANONYMIZED_KEY_PREFIX = "anonymized-"
+
+#: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
+_TOMBSTONE_PATTERN = re.compile(r"anon_[0-9a-f]{16}")
+
+#: :data:`_TOMBSTONE_PATTERN` anchored for an AQL ``REGEX_TEST`` (which searches,
+#: not full-matches). Derived, so the repository cannot spell the shape differently.
+TOMBSTONE_FULLMATCH_REGEX = f"^{_TOMBSTONE_PATTERN.pattern}$"
+
+#: Prefix of :meth:`ErasureEngine.log_subject` — deliberately not ``anon_``, so a
+#: log reference can never be mistaken for (or tested as) a tombstone.
+LOG_SUBJECT_PREFIX = "sub_"
+
+#: What :meth:`ErasureEngine.log_subject` returns when no usable salt is
+#: configured — a constant, never the plaintext key it stands in for.
+UNAVAILABLE_LOG_SUBJECT = "anon_unavailable"
+
+#: Prefix of :meth:`ErasureEngine.log_tenant`, and its constant for an unusable salt (#1928).
+LOG_TENANT_PREFIX = "ten_"
+UNAVAILABLE_LOG_TENANT = "ten_unavailable"
+LOG_API_KEY_PREFIX = "key_"
+UNAVAILABLE_LOG_API_KEY = "key_unavailable"
+
 
 class ErasureEngine:
     """Defines the deletion order, anonymisation rules and storage-cleanup steps.
 
-    Pure-logic engine. No I/O. The Celery task that executes the plan walks
-    the steps in declared order: storage cleanup -> edges -> documents ->
-    audit-log pseudonymisation -> user document.
+    Pure-logic engine. No I/O. ``PrivacyService.erase_account`` executes the
+    plan in declared order: storage cleanup -> edges -> documents ->
+    anonymisation -> audit-log pseudonymisation -> user document. The ArangoDB
+    part runs in ``ArangoErasureExecutor`` (#1664).
     """
+
+    #: Names of the two ArangoDB phase steps in :attr:`DELETE_STEPS`. The
+    #: executor recognises a phase by these names; the inventory spells them as
+    #: literals because ``scripts/check_privacy_inventory.py`` reads it without
+    #: importing it, and ``test_privacy_engines.py`` pins that both agree.
+    ANONYMIZE_PHASE = "_anonymize_collections"
+    PSEUDONYMIZE_AUDIT_PHASE = "_pseudonymize_audit_collections"
 
     # Collections whose user references must be retained — either for legal
     # compliance (CanG, PflSchG) or because the document belongs to a record of
     # a possibly shared tenant. The user reference is replaced with an anonymous
     # marker; the document itself survives. A collection may appear more than
     # once when it carries several user references (see ``plant_diary_entries``).
+    #
+    # The four retention rules key on the server-set ``*_by_key`` fields (#1669;
+    # ``quality_assessments.assessed_by_key`` since #1663). Until then they
+    # keyed on ``harvester`` / ``applied_by`` / ``inspector`` — free text typed
+    # by the user — and were inert: a rule that matches "whatever was typed"
+    # never finds the account being erased (measured on #1662, recorded on
+    # #1663). Those rules are **replaced**, not kept beside these, so no reader
+    # can mistake the old shape for a second path. Rows written before #1669
+    # (#1663 for quality assessments) carry ``null`` in the key field and are
+    # not reached by design — guessing an owner from the free text is exactly
+    # the backfill the issue forbids.
     ANONYMIZE_COLLECTIONS: list[AnonymizationRule] = [
         AnonymizationRule(
             collection="harvest_batches",
-            user_field="harvester",
-            anonymized_value="[deleted]",
-            reason="CanG: 5-year retention for harvest documentation.",
+            user_field="harvested_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["harvester"],
+            reason=(
+                "CanG: 5-year retention for harvest documentation. The account key becomes a "
+                "tombstone hash so the erased user's harvests stay linkable to each other for "
+                "the audit; the free-text harvester name is cleared."
+            ),
+        ),
+        AnonymizationRule(
+            # #1663 — the assessment belongs to the harvest record (NFR-011
+            # R-16 lists ``quality_assessments`` beside ``harvest_batches``).
+            # ``yield_metrics`` is R-16 too but carries no user field at all
+            # (``models/harvest.py::YieldMetric``), so it needs no rule.
+            collection="quality_assessments",
+            user_field="assessed_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["assessed_by"],
+            reason=(
+                "NFR-011 R-16 / CanG: 5-year retention for harvest documentation, including the "
+                "quality assessment. Key pseudonymised, free-text assessor name cleared."
+            ),
         ),
         AnonymizationRule(
             # ``applied_by`` — NOT ``applicator``. The model
             # (``domain/models/ipm.py::TreatmentApplication``) has never carried
-            # an ``applicator`` field, so this rule addressed a field that does
-            # not exist and would have left the real user reference in place.
+            # an ``applicator`` field, so an earlier rule addressed a field that
+            # does not exist and would have left the real user reference in place.
             collection="treatment_applications",
-            user_field="applied_by",
-            anonymized_value="[deleted]",
-            reason="PflSchG section 11: 3-year retention for treatment records.",
+            user_field="applied_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["applied_by"],
+            reason=(
+                "PflSchG section 11: 3-year retention for treatment records. Key pseudonymised, "
+                "free-text applicator name cleared."
+            ),
+        ),
+        AnonymizationRule(
+            # #1622 — ``tasks`` was declared personal data by the *export*
+            # manifest (``assigned_to_user_key``) and appeared in no erasure
+            # enumeration at all: neither the plan nor the executing cascade.
+            # The task document belongs to the tenant's plan of work, which may
+            # be a shared garden, so it is retained and the assignee reference
+            # is removed — the same argument as ``plant_diary_entries`` below.
+            collection="tasks",
+            user_field="assigned_to_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-024: the task belongs to the work plan of a possibly shared tenant "
+                "and is retained; only the assignee reference is removed."
+            ),
         ),
         AnonymizationRule(
             collection="inspections",
-            user_field="inspector",
-            anonymized_value="[deleted]",
-            reason="PflSchG section 11: 3-year retention for inspection records.",
+            user_field="inspected_by_key",
+            replacement_strategy="tombstone_hash",
+            clear_fields=["inspector"],
+            reason=(
+                "PflSchG section 11: 3-year retention for inspection records. Key pseudonymised, "
+                "free-text inspector name cleared."
+            ),
         ),
         # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
         # Until now only the *attachments* of a diary entry were anonymised
@@ -86,6 +180,168 @@ class ErasureEngine:
             reason=(
                 "REQ-050 section 7.3/7.4: the claiming worker id may carry the user's "
                 "device or account name and is anonymised together with the entry."
+            ),
+        ),
+        # ── #1700: user references that were in neither inventory ──────────
+        # Each was found by R6 of ``scripts/check_privacy_inventory.py``, which
+        # anchors on the model fields rather than on the two lists.
+        AnonymizationRule(
+            # ``tasks/tenant_router.py`` stamps ``created_by=ctx.user_key``. The
+            # comment belongs to the task of a possibly shared tenant — the same
+            # argument as ``tasks.assigned_to_user_key`` (NFR-011 R-22) and the
+            # diary entry (REQ-050 section 7.4): text kept, author removed.
+            collection="task_comments",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-024: a task comment belongs to the work plan of a possibly shared tenant "
+                "and is retained; only the author reference is removed (as NFR-011 R-22 for tasks)."
+            ),
+        ),
+        AnonymizationRule(
+            # A pending invitation the subject sent is the tenant's, not theirs:
+            # it stays valid for the invitee. Accepted invitations *to* the
+            # subject are removed by the ``invitations`` delete step instead.
+            collection="invitations",
+            user_field="invited_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-024: an invitation belongs to the inviting tenant; NFR-011 R-12 governs its "
+                "expiry. The inviter reference is removed, the invitation keeps working."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-010 promotion audit: the key of the *platform admin* who
+            # released someone else's contribution. The contribution is its
+            # contributor's and is deleted with *their* account, not the admin's.
+            collection="pest_image_contributions",
+            user_field="promoted_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-010: a promoted reference image belongs to its contributor; erasing the "
+                "promoting admin removes the admin reference and keeps the promotion."
+            ),
+        ),
+        AnonymizationRule(
+            # Runs after the storage phase and after the ``pest_reference``
+            # delete step: what is left are documentation photos of the tenant
+            # (diary, ipm, harvest, task, plant — already anonymised by the
+            # storage phase, a no-op here) plus the categories no storage scope
+            # names (import, export, id_recognition, tenant_export). Same marker
+            # as the storage phase (REQ-025 AK-OS-02).
+            collection="attachments",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "NFR-013 section 6.2 / REQ-025 AK-OS-02: attachments of a tenant record are "
+                "retained with the uploader reference replaced; bytes follow their own storage rule."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-031 section 7.5 prescribes exactly this: "user_key -> null,
+            # hashes stay". The marker is the executor's null; the entry keeps
+            # its question hash for the 30-day audit window.
+            collection="ai_audit_log",
+            user_field="user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-031 section 7.5: AI audit entries are retained for their 30-day window "
+                "(section 7.4) with the user reference removed; the hashes stay."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-056 §12.3 (#2138) — the requester of a tenant export. The request documents what left
+            # the installation and stays for NFR-011 R-40; its archive is no longer downloadable by anyone.
+            collection="tenant_export_requests",
+            user_field="requested_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-056 section 12.3: an export request of a tenant is the tenant's record (R-40, 30 days); "
+                "the requester reference is removed, and with it the only account that could download the archive."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-056 §12.3 (#2138) — the platform admin who imported an archive.
+            collection="tenant_import_requests",
+            user_field="requested_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-056 section 12.3: an import request documents which tenant an archive founded (R-40, "
+                "30 days); the admin reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # ``imports/router.py`` stamps ``uploaded_by=ctx.user_key``. The
+            # import job records what entered the tenant's master data.
+            collection="import_jobs",
+            user_field="uploaded_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-012: an import job documents what entered the tenant's data and is "
+                "retained; only the uploader reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # ``weather_source_service`` stamps ``updated_by=user_key`` on the
+            # per-site configuration (1:1 per site, a tenant setting).
+            collection="weather_source_configs",
+            user_field="updated_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-046: the weather-source configuration belongs to the tenant's site and "
+                "is retained; only the last-editor reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-031 section 7.5. A tip card is the tenant's, not the member's:
+            # ``AiAssistantService.dismiss_daily_tip`` hides it for the whole
+            # tenant. Deleting the subject's dismissed rows (the first #1700
+            # draft) re-showed the tip to every other member of a shared tenant;
+            # only the dismisser reference goes, ``dismissed_at`` stays.
+            collection="ai_tip_cache",
+            user_field="dismissed_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-031 section 7.5: a dismissed tip stays dismissed for the tenant; only the "
+                "reference to the member who dismissed it is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # ``actuators/tenant_router.py`` stamps ``created_by=ctx.user_key``.
+            collection="manual_overrides",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-018 / NFR-011 R-15: manual overrides are part of the tenant's actuator "
+                "history and are retained; only the operator reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # Covers the tenants that outlive the account: the account erasure
+            # erases the subject's *personal* tenant through the tenant-erasure
+            # inventory before this plan, whoever else is a member (erasure
+            # together, REQ-025 §3.1.3, #1824). Left here: an organisation tenant
+            # the subject founded (keeps its name, the group's and not the
+            # subject's, and loses only the owner reference) and a personal
+            # tenant that a member who joined after the freeze keeps (AK-IE-07).
+            # That one carries the subject as owner and takes ``name``/``slug``
+            # from the display name; deleting it would cascade into records a
+            # retention obligation keeps (CanG, NFR-011 R-16), so owner, name and
+            # slug become ``anonymized_rename_value(tombstone, key)``: unique per
+            # row (``slug`` has a unique index), derived from the salted
+            # tombstone so nobody can register it first (``anonymized-<key>``
+            # aborted the transaction on that index until #1700).
+            # ``owner_user_key`` confers no permission (REQ-049), so there is
+            # nothing to transfer.
+            collection="tenants",
+            user_field="owner_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            rename_fields=["name", "slug"],
+            rename_when={"tenant_type": "personal"},
+            reason=(
+                "REQ-024 / NFR-011 R-16: a tenant may hold records under a retention obligation, "
+                "so it is retained; the owner reference is removed and a personal tenant's "
+                "display-name-derived name and slug are replaced."
             ),
         ),
     ]
@@ -149,44 +405,311 @@ class ErasureEngine:
         ),
     ]
 
-    # Deletion order. The list is informational — actual deletion is split
-    # into edge-collections, document-collections and the user-collection step
-    # by the executor. The order encodes the legal/architectural dependency:
-    # delete edges and child documents before the user document so that no
-    # orphan edges remain.
-    DELETE_ORDER: list[str] = [
-        "_storage_cleanup",
-        "_reference_index_cleanup",
-        "requested_export",
-        "has_consent",
-        "has_restriction",
-        "requested_erasure",
-        "requested_email_change",
-        "has_auth_provider",
-        "has_session",
-        "membership_in",
-        "data_export_requests",
-        "consent_records",
-        "processing_restrictions",
-        "email_change_requests",
-        "auth_providers",
-        "refresh_tokens",
-        "identification_requests",
+    # ── The single declared inventory of a user's personal data in ArangoDB ──
+    #
+    # Before #1622 this was ``DELETE_ORDER``, a bare list of names that nothing
+    # read, while :meth:`ArangoUserRepository.delete` hand-wrote its own eight
+    # collections. Measured against each other the two enumerations differed by
+    # 23 entries. Two lists that must agree and are never compared drift, and
+    # these had: four collections the cascade removes (``api_keys``,
+    # ``user_preferences``, ``onboarding_states``, ``memberships``) were named
+    # in neither the plan nor the export manifest, so the documented inventory
+    # understated what the system holds.
+    #
+    # There is now one list, and every entry says who removes it. Every
+    # ArangoDB entry — whatever its attribution — is executed by
+    # ``ArangoErasureExecutor`` whenever ``PrivacyService.erase_account`` runs,
+    # and both account-deletion paths run it: the platform-admin delete (#1664)
+    # and the scheduled self-service Art. 17 erasure,
+    # ``PrivacyService._finalize_erasure`` (#1645). The attribution says which
+    # *further* reader a step has: ``account_cascade`` is also run by
+    # ``ArangoUserRepository.delete`` (unverified-account cleanup),
+    # ``pest_image_cleanup`` by the REQ-010 pest-image cleanup; ``account_erasure``
+    # has no reader but ``erase_account``. See ``ErasureExecutor`` for the set.
+    #
+    # Order is load-bearing: phases first, then edges, then documents, then the
+    # user document, so no orphan edge survives its endpoint.
+    DELETE_STEPS: list[ErasureStep] = [
+        ErasureStep(collection="_storage_cleanup", kind="phase", executor="storage_cleanup"),
+        ErasureStep(
+            collection="_reference_index_cleanup",
+            kind="phase",
+            executor="reference_index_cleanup",
+        ),
+        # Every edge below that has no ``via`` runs ``users -> <document>``: the
+        # graph definition in ``collections.py`` declares ``USERS`` as its only
+        # ``from`` collection and each repository inserts it with the user id as
+        # ``_from`` (e.g. ``data_export_repository.py`` ``create_edge(REQUESTED_EXPORT,
+        # user_id, export_id)``). ``test_privacy_engines.py`` pins every endpoint
+        # against the graph definition rather than trusting this comment.
+        ErasureStep(collection="requested_export", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(collection="has_consent", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(collection="has_restriction", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(collection="requested_erasure", kind="edge", executor="account_erasure", user_field="_from"),
+        ErasureStep(
+            collection="requested_email_change",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+        ),
+        ErasureStep(
+            # #1663 — written by ``FavoritesService`` (``_from`` = the user,
+            # ``_to`` = species / nutrient plan / fertilizer) and named in no
+            # erasure enumeration until now.
+            collection="user_favorites",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+        ),
+        ErasureStep(collection="has_auth_provider", kind="edge", executor="account_cascade", user_field="_from"),
+        ErasureStep(collection="has_session", kind="edge", executor="account_cascade", user_field="_from"),
+        ErasureStep(
+            # #1663 — ``api_key_repository.create`` writes this edge beside every
+            # key; the cascade removed the ``api_keys`` documents and left the
+            # edges pointing at nothing.
+            collection="has_api_key",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+        ),
+        # #1700 — the membership block is ``account_cascade``: registration
+        # creates a membership (in the personal tenant) before the address is
+        # verified, and the unverified-account cleanup left it, and every
+        # location assignment hanging off it, behind a deleted user.
+        ErasureStep(
+            # #1663 — ``users -> memberships``; ``delete_all_for_user`` has always
+            # removed it, the inventory never named it.
+            collection="has_membership",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+        ),
+        # #1700 — REQ-024 assignment-based write control. An assignment carries
+        # no account key, only ``membership_key`` (``models/location_assignment.py``),
+        # so it is reached ``via`` the subject's memberships; its three edges
+        # start at the assignment (``location_assignment_repository.create``).
+        # Removing a membership one by one always removed its assignments
+        # (``membership_repository.delete``); the bulk erasure did not.
+        ErasureStep(
+            collection="assigned_to_location",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="location_assignments",
+        ),
+        ErasureStep(
+            collection="assignment_for",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="location_assignments",
+        ),
+        ErasureStep(
+            collection="assignment_in_tenant",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="location_assignments",
+        ),
+        ErasureStep(
+            collection="location_assignments",
+            kind="document",
+            executor="account_cascade",
+            user_field="membership_key",
+            via="memberships",
+            note="No account key on the model; matched on the _key of the subject's memberships.",
+        ),
+        ErasureStep(
+            collection="membership_in",
+            kind="edge",
+            executor="account_cascade",
+            user_field="_from",
+            via="memberships",
+            note="memberships -> tenants; never touches users (membership_repository.create).",
+        ),
+        ErasureStep(collection="memberships", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(
+            collection="data_export_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            collection="processing_restrictions",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            collection="email_change_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(collection="auth_providers", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="refresh_tokens", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="api_keys", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="user_preferences", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(collection="onboarding_states", kind="document", executor="account_cascade", user_field="user_key"),
+        ErasureStep(
+            collection="identification_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
         # REQ-044 §8 — pest detections are deleted (no legal retention basis);
         # edges first, then the document. ``beneficials`` is global reference
-        # data, not personal, and is intentionally left untouched.
-        "pest_detection_of",
-        "pest_detection_flagged",
-        "pest_detection_suggested_inspection",
-        "pest_detections",
+        # data, not personal, and is intentionally left untouched. The three
+        # edges start at the detection, not at the user, so they are reached
+        # ``via`` the subject's ``pest_detections`` (pest_detection_repository.create).
+        ErasureStep(
+            collection="pest_detection_of",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="pest_detections",
+        ),
+        ErasureStep(
+            collection="pest_detection_flagged",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="pest_detections",
+        ),
+        ErasureStep(
+            collection="pest_detection_suggested_inspection",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="pest_detections",
+        ),
+        ErasureStep(collection="pest_detections", kind="document", executor="account_erasure", user_field="user_key"),
         # REQ-010 §8 — user-contributed pest reference images are deleted (no
         # legal retention basis). Their attachment bytes are hard-deleted by the
         # ``user_pest_reference_images`` storage-cleanup rule (Phase 0); this
         # removes the link documents. A *promoted* contribution is still deleted
         # on erasure — global visibility does not create a retention basis.
-        "pest_image_contributions",
-        "_pseudonymize_audit_collections",
-        "users",
+        ErasureStep(
+            collection="pest_image_contributions",
+            kind="document",
+            executor="pest_image_cleanup",
+            user_field="contributed_by",
+            note="Not user_key: the model has none (pest_image_repository.list_for_user).",
+        ),
+        # ── #1700: personal rows that were in neither inventory ──────────────
+        # None of these carries a retention obligation in NFR-011; each is the
+        # subject's own (inbox, settings, feeds, AI chats, CV requests).
+        ErasureStep(
+            # REQ-031 section 7.5: the erasure "cascades to all ai_conversations".
+            collection="ai_conversations",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            collection="notification_for_run",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="notifications",
+        ),
+        ErasureStep(collection="notifications", kind="document", executor="account_erasure", user_field="user_key"),
+        ErasureStep(
+            collection="notification_preferences",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        ErasureStep(
+            # REQ-015: the feed row holds the digest of the token the iCal endpoint
+            # serves (``calendar_feed_repository.get_by_token_hash``, #2171);
+            # removing the row is what makes the token stop serving.
+            collection="calendar_feeds",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        # REQ-038 CV diagnosis requests: the subject's own analysis requests, the
+        # same category as ``identification_requests``. The inspection a request
+        # may be attached to is retained and anonymised by its own rule.
+        ErasureStep(
+            collection="cv_diagnosed_for",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="cv_diagnosis_found",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="cv_attached_to_inspection",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="cv_phenotype_of",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_from",
+            via="plant_diagnosis_requests",
+        ),
+        ErasureStep(
+            collection="plant_diagnosis_requests",
+            kind="document",
+            executor="account_erasure",
+            user_field="user_key",
+        ),
+        # An invitation the subject *accepted* has served its purpose and names
+        # the subject twice (``accepted_by_user_key`` and the ``email`` it was
+        # sent to). The tenant -> invitation edge goes with it.
+        ErasureStep(
+            collection="has_invitation",
+            kind="edge",
+            executor="account_erasure",
+            user_field="_to",
+            via="invitations",
+        ),
+        ErasureStep(
+            collection="invitations",
+            kind="document",
+            executor="account_erasure",
+            user_field="accepted_by_user_key",
+        ),
+        ErasureStep(
+            # The attachment documents whose bytes the storage phase hard-deleted
+            # (``user_pest_reference_images``). Before #1700 the document stayed,
+            # pointing at nothing and still naming the uploader.
+            collection="attachments",
+            kind="document",
+            executor="account_erasure",
+            user_field="created_by",
+            where={"category": "pest_reference"},
+        ),
+        ErasureStep(
+            # REQ-033 replay cache (TTL); keyed by the service account that called.
+            collection="mcp_idempotency_record",
+            kind="document",
+            executor="account_erasure",
+            user_field="service_account_key",
+        ),
+        ErasureStep(
+            collection="_anonymize_collections",
+            kind="phase",
+            executor="account_erasure",
+        ),
+        ErasureStep(
+            collection="_pseudonymize_audit_collections",
+            kind="phase",
+            executor="account_erasure",
+        ),
+        ErasureStep(collection="users", kind="user", executor="account_cascade"),
     ]
 
     # Audit-log pseudonymisation (W-002). NFR-011 R-06 requires the erasure
@@ -205,6 +728,118 @@ class ErasureEngine:
                 "(Art. 5(1)(e) storage limitation)."
             ),
         ),
+        PseudonymizationRule(
+            # #1700 — REQ-033: the MCP audit log is an audit record with its own
+            # retention (``MCP_AUDIT_RETENTION_DAYS``); the calling service
+            # account's key becomes the tombstone hash, like the erasure audit.
+            collection="mcp_audit_log",
+            user_field="service_account_key",
+            replacement_strategy="tombstone_hash",
+            reason=(
+                "REQ-033 / NFR-011: MCP tool-call audit entries are retained for their audit "
+                "window; the service-account key is pseudonymised so the entries stay linkable."
+            ),
+        ),
+        PseudonymizationRule(
+            # MT-014 (#2111) — the security audit is a retained proof (NFR-011 R-38, two years)
+            # that names up to two accounts: who acted and whose membership or trust flag changed. Both keys become
+            # the tombstone hash, so a retained row stays linkable without naming anybody.
+            collection="security_audit_log",
+            user_field="actor_user_key",
+            replacement_strategy="tombstone_hash",
+            reason=(
+                "NFR-011 R-38: the security audit is retained for its window; the acting account's key is "
+                "pseudonymised at erasure so the entry stays linkable."
+            ),
+        ),
+        PseudonymizationRule(
+            collection="security_audit_log",
+            user_field="target_user_key",
+            replacement_strategy="tombstone_hash",
+            reason=(
+                "NFR-011 R-38: the account whose membership or trust flag changed is pseudonymised at erasure, "
+                "the same way as the acting one."
+            ),
+        ),
+        PseudonymizationRule(
+            # NFR-011 R-04 / REQ-025 §3.1.3 rule 3 (#1800, Q-R5): a consent record has
+            # its own retention independent of the account (3 years after
+            # ``revoked_at``). Until #1800 this collection was a plain document
+            # *delete* step (removed the moment the account was erased), which cut
+            # the R-04 proof short whenever erasure ran before the 3-year window had
+            # elapsed. Pseudonymising instead lets ``retention.
+            # purge_expired_consent_records`` apply the same age check regardless of
+            # whether the account still exists.
+            collection="consent_records",
+            user_field="user_key",
+            replacement_strategy="tombstone_hash",
+            # #1800 security review (SEC-001 follow-up): user_agent is free-text
+            # captured from the request and personal data on its own (like
+            # harvester/inspector on the AnonymizationRule side); it must not
+            # outlive the account under the tombstone the way clear_fields
+            # already empties a free-text companion there.
+            clear_fields=["user_agent"],
+            reason=(
+                "NFR-011 R-04 / REQ-025 §3.1.3 rule 3: a consent record is retained 3 years "
+                "after revocation, independent of the account. The key is pseudonymised at "
+                "erasure so the retained record stays linkable without naming the subject, "
+                "and the free-text user_agent is cleared with it; "
+                "retention.purge_expired_consent_records hard-deletes it once revoked_at is "
+                "old enough, whether or not the account was ever erased."
+            ),
+        ),
+    ]
+
+    # ── Stored user-reference fields the erasure deliberately leaves (#1700) ──
+    #
+    # ``scripts/check_privacy_inventory.py`` R6 requires every persisted model
+    # field shaped like an account key to be reached above or named here with
+    # the reason. Each reason below was measured against the write path.
+    EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
+        ErasureExclusion(
+            collection="watering_events",
+            user_field="performed_by",
+            reason=(
+                "Free text typed by the caller (watering_events/schemas.py), never an account key; "
+                "matching on it erases whatever was typed (the class #1663 measured)."
+            ),
+        ),
+        ErasureExclusion(
+            collection="watering_logs",
+            user_field="performed_by",
+            reason="Free text typed by the caller (watering_logs/schemas.py, e.g. 'Lisa'), never an account key.",
+        ),
+        ErasureExclusion(
+            collection="maintenance_logs",
+            user_field="performed_by",
+            reason="Free text typed by the caller (tanks/schemas.py), never an account key.",
+        ),
+        ErasureExclusion(
+            collection="tank_fill_events",
+            user_field="performed_by",
+            reason="Free text typed by the caller (tanks/schemas.py), never an account key.",
+        ),
+        ErasureExclusion(
+            collection="workflow_templates",
+            user_field="created_by",
+            reason=(
+                "Free text from the request body (tasks/schemas.py WorkflowTemplateCreate.created_by), "
+                "never stamped from the caller's account."
+            ),
+        ),
+        ErasureExclusion(
+            collection="task_audit_entries",
+            user_field="changed_by",
+            reason=(
+                "Written only by TaskService._record_audit, which no code path calls with an account "
+                "key; every stored value is its default 'system'."
+            ),
+        ),
+        ErasureExclusion(
+            collection="sync_runs",
+            user_field="triggered_by",
+            reason="A SyncTrigger enum value (manual / scheduled), not a person.",
+        ),
     ]
 
     HARD_DELETE_AFTER_DAYS: int = 90
@@ -221,10 +856,42 @@ class ErasureEngine:
             reference_index_cleanup=list(self.REFERENCE_INDEX_CLEANUP_RULES),
             anonymize=list(self.ANONYMIZE_COLLECTIONS),
             pseudonymize_audit=list(self.PSEUDONYMIZE_AUDIT_COLLECTIONS),
-            delete=list(self.DELETE_ORDER),
+            steps=list(self.DELETE_STEPS),
+            delete=self.delete_order(),
             soft_delete_immediate=True,
             hard_delete_after_days=self.HARD_DELETE_AFTER_DAYS,
         )
+
+    @classmethod
+    def delete_order(cls) -> list[str]:
+        """The bare name sequence of :attr:`DELETE_STEPS`, in declared order.
+
+        Derived, never maintained: a reader that only needs the order (the
+        ``ErasurePlan.delete`` field, the REQ-010 wiring test) gets it from the
+        one inventory rather than from a second list beside it.
+        """
+        return [step.collection for step in cls.DELETE_STEPS]
+
+    @classmethod
+    def steps_for(cls, executor: ErasureExecutor) -> list[ErasureStep]:
+        """The inventory entries *executor* is responsible for, in declared order.
+
+        This is how an executing path obtains its collection names. It must not
+        write them down again: a second copy is precisely the split #1622
+        measured, and ``scripts/check_privacy_inventory.py`` refuses one.
+        """
+        return [step for step in cls.DELETE_STEPS if step.executor == executor]
+
+    def deleted_collection_names(self) -> list[str]:
+        """Collections whose rows of the subject are removed outright, in declared order.
+
+        The other half of the REQ-025 AK-08a confirmation beside
+        :meth:`anonymized_collection_names`: the *document* and *user* steps of
+        :attr:`DELETE_STEPS`. Edges are the graph's plumbing between those
+        documents, not a category of data a user would recognise, and phases are
+        not collections.
+        """
+        return [step.collection for step in self.DELETE_STEPS if step.kind in ("document", "user")]
 
     def anonymized_collection_names(self) -> list[str]:
         """Collection names touched by :attr:`ANONYMIZE_COLLECTIONS`, each once.
@@ -240,6 +907,82 @@ class ErasureEngine:
             if rule.collection not in names:
                 names.append(rule.collection)
         return names
+
+    def pseudonymized_collection_names(self) -> list[str]:
+        """Collection names touched by :attr:`PSEUDONYMIZE_AUDIT_COLLECTIONS`, each once.
+
+        The third category of the REQ-025 AK-08a confirmation, beside
+        :meth:`deleted_collection_names` and :meth:`anonymized_collection_names`
+        (#1800): a record retained under its own, account-independent period
+        (R-04, R-06) rather than deleted or anonymised outright. Without this a
+        collection moved out of :attr:`DELETE_STEPS` into
+        :attr:`PSEUDONYMIZE_AUDIT_COLLECTIONS` would silently drop out of the
+        confirmation instead of moving to a different category of it.
+        """
+        names: list[str] = []
+        for rule in self.PSEUDONYMIZE_AUDIT_COLLECTIONS:
+            if rule.collection not in names:
+                names.append(rule.collection)
+        return names
+
+    @staticmethod
+    def is_tombstone(value: str) -> bool:
+        """True when *value* has the exact shape of a :meth:`compute_tombstone_hash` result.
+
+        The audit pseudonymisation writes this hash into ``erasure_requests.user_key``
+        inside the same ArangoDB transaction that removes the user document, so an
+        erasure request carrying one has had its ArangoDB plan committed. Running
+        the plan again with the hash as the "user key" would match nothing but the
+        audit rows themselves and rewrite them to a hash of the hash, breaking the
+        linkability NFR-011 R-06 keeps the hash for.
+        """
+        return _TOMBSTONE_PATTERN.fullmatch(value) is not None
+
+    @staticmethod
+    def anonymized_rename_value(tombstone: str, row_key: str) -> str:
+        """The value a ``rename_fields`` rule writes into row *row_key* (#1700).
+
+        ``anonymized-`` + the first 16 hex chars of ``sha256(tombstone + ":" + row_key)``.
+        ``ArangoErasureExecutor`` computes the same expression in AQL for every
+        matched row; this is its specification and the tests' oracle.
+
+        Why the erased **user's** tombstone and not ``compute_tombstone_hash`` of
+        the tenant key: the tombstone is the only salted value the executor is
+        handed — the salt itself never leaves ``PrivacyService`` — and it is
+        already non-guessable without the salt, so a squatter cannot predict the
+        slug. The row key is mixed in so two renamed rows of one subject never
+        share a value under a unique index.
+
+        Raises:
+            ValueError: *tombstone* is not a tombstone hash — a rename keyed on
+                anything guessable reopens the squatting hole.
+        """
+        if not ErasureEngine.is_tombstone(tombstone):
+            msg = "a rename value must be derived from a tombstone hash"
+            raise ValueError(msg)
+        digest = hashlib.sha256(f"{tombstone}:{row_key}".encode()).hexdigest()
+        return f"{ANONYMIZED_KEY_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def compute_request_key(user_key: str, salt: str) -> str:
+        """The document key of an immediate erasure request for *user_key* (#1767).
+
+        Format: ``erq_`` + 32 hex chars of an HMAC-SHA256 over the user key,
+        keyed with the tombstone salt and a purpose label. Deterministic, so two
+        concurrent immediate erasures of one account collide on the key instead
+        of creating two requests; domain-separated from
+        :meth:`compute_tombstone_hash`, so knowing a request key (it reaches the
+        admin who triggered it) does not link the subject to its pseudonymised
+        audit rows or to :meth:`anonymized_rename_value`.
+
+        Raises:
+          ValueError: if salt is empty or shorter than 32 characters.
+        """
+        if not salt or len(salt) < 32:
+            msg = "ERASURE_TOMBSTONE_SALT must be at least 32 characters (see NFR-011 section 4)."
+            raise ValueError(msg)
+        digest = hmac.new(salt.encode(), f"erasure-request-key:{user_key}".encode(), hashlib.sha256).hexdigest()
+        return f"erq_{digest[:32]}"
 
     @staticmethod
     def compute_tombstone_hash(user_key: str, salt: str) -> str:
@@ -263,3 +1006,89 @@ class ErasureEngine:
             raise ValueError(msg)
         digest = hashlib.sha256((user_key + salt).encode("utf-8")).hexdigest()
         return f"anon_{digest[:16]}"
+
+    @staticmethod
+    def log_subject(user_key: str, salt: str) -> str:
+        """The reference a log line carries instead of a data subject's account key (#1700, #1773).
+
+        A log stream has no retention rule of its own (NFR-011): whatever it
+        receives outlives the account it names, the erasure that removed the
+        account, and the erasure record that proves it (R-06). Log lines on the
+        privacy, auth, retention and storage paths therefore name the subject by
+        this reference: ``sub_`` + 16 hex chars of an HMAC-SHA256 over the
+        account key, keyed with the salt the caller passes — ``LOG_PSEUDONYM_SALT``
+        since #1812, a rotatable salt of its own — and the purpose label
+        ``log-subject``. The lines of one subject stay correlatable with each
+        other, and name nobody.
+
+        **Purpose-separated from** :meth:`compute_tombstone_hash` (#1773 review
+        GDPR-003). The tombstone is what the pseudonymised rows keep after an
+        erasure (``erasure_requests.user_key``, the CanG/PflSchG harvest and
+        treatment rows). A log reference equal to it would let anyone holding
+        the log stream join those retained rows to a live account's lines — and
+        through an e-mail digest or an IP on such a line, to a person — without
+        knowing the salt. Distinct from :meth:`compute_request_key` as well. An
+        operator who holds the salt can still compute the reference for a given
+        account key.
+
+        A missing or short salt (the configuration ``erase_account`` refuses)
+        must not turn a log line into an error, and must not fall back to the
+        plaintext key either: it yields the constant ``anon_unavailable``.
+        """
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+            return UNAVAILABLE_LOG_SUBJECT
+        digest = hmac.new(salt.encode(), f"log-subject:{user_key}".encode(), hashlib.sha256).hexdigest()
+        return f"{LOG_SUBJECT_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def log_tenant(tenant_key: str, salt: str) -> str:
+        """The reference a log line carries instead of a tenant key (#1928).
+
+        A tenant key sits on the pseudonymised retention rows (the erasure
+        records, the CanG/PflSchG harvest and treatment rows), and for a
+        personal tenant it identifies its owner. A log line that carries it
+        beside ``subject=`` joins the pseudonym back to that tenant, and the
+        tenant's rows to the subject. This is the tenant counterpart of
+        :meth:`log_subject`: ``ten_`` + 16 hex chars of an HMAC-SHA256 over the
+        tenant key under the log salt, with its own purpose label
+        (``log-tenant``) so it equals neither the subject reference nor the
+        slug digest of the deletion step-up. Lines of one tenant stay
+        correlatable with each other; a missing or short salt yields the
+        constant ``ten_unavailable``, never the key.
+        """
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+            return UNAVAILABLE_LOG_TENANT
+        digest = hmac.new(salt.encode(), f"log-tenant:{tenant_key}".encode(), hashlib.sha256).hexdigest()
+        return f"{LOG_TENANT_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def log_api_key(api_key_key: str, salt: str) -> str:
+        """The reference an audit row or log line carries instead of an API key's document key (#2130).
+
+        ``key_`` + 16 hex chars of an HMAC-SHA256 over the ``api_keys`` document
+        key (never the secret, which nothing but the authenticator ever holds),
+        under the log salt with its own purpose label (``log-api-key``). Calls of
+        one key stay correlatable — which tells two keys of one service account
+        apart when one is compromised — and an operator holding the salt can map
+        a reference back to a key that still exists. Once the key document is
+        deleted (revocation cleanup, account erasure) the reference names nothing.
+        A missing or short salt yields ``key_unavailable``.
+        """
+        if not salt or len(salt) < MIN_LOG_PSEUDONYM_SALT_LENGTH:
+            return UNAVAILABLE_LOG_API_KEY
+        digest = hmac.new(salt.encode(), f"log-api-key:{api_key_key}".encode(), hashlib.sha256).hexdigest()
+        return f"{LOG_API_KEY_PREFIX}{digest[:16]}"
+
+    @staticmethod
+    def redact_subject(text: str, user_key: str, salt: str) -> str:
+        """*text* with every occurrence of *user_key* replaced by :meth:`log_subject`.
+
+        For free text that reaches a log line or a record outliving the account —
+        an exception message can name the subject (``NotFoundError("User",
+        <key>)``) or a storage key embedding it (``privacy/exports/<key>/…``).
+        An empty key redacts nothing: ``str.replace("", …)`` would splice the
+        reference between every character.
+        """
+        if not user_key:
+            return text
+        return text.replace(user_key, ErasureEngine.log_subject(user_key, salt))

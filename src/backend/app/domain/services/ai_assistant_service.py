@@ -12,10 +12,11 @@ from __future__ import annotations
 import time
 from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any, get_args
 
 import structlog
 
-from app.common.exceptions import AiDisabledError
+from app.common.exceptions import AiDisabledError, ExternalSourceError, NotFoundError, ValidationError
 from app.data_access.arango.ai_repository import (
     ArangoAiConversationRepository,
     ArangoAiProviderRepository,
@@ -24,7 +25,12 @@ from app.data_access.arango.ai_repository import (
 from app.data_access.external.knowledge_service_adapter import KnowledgeServiceUnavailableError
 from app.domain.engines.ai_explain_engine import ExplainEngine
 from app.domain.engines.ai_tip_engine import TipEngine
-from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, AI_TENANT_DATA_ACCESS, ConsentGuard
+from app.domain.guards.consent_guard import (
+    AI_CLOUD_PROCESSING,
+    AI_KNOWLEDGE_QUESTION,
+    AI_TENANT_DATA_ACCESS,
+    ConsentGuard,
+)
 from app.domain.interfaces.knowledge_service import (
     ConfidenceLevel,
     IKnowledgeService,
@@ -34,11 +40,14 @@ from app.domain.models.ai_assistant import (
     AiConversation,
     AiResponse,
     AiTipCard,
+    ContextType,
     ConversationMessage,
+    KnowledgeAnswer,
     SourceReference,
 )
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_audit_logger import AiAuditLogger
+from app.domain.services.ai_call_budget import AiCallBudget
 
 logger = structlog.get_logger(__name__)
 
@@ -57,6 +66,7 @@ class AiAssistantService:
     def __init__(
         self,
         *,
+        call_budget: AiCallBudget,
         knowledge_adapter: IKnowledgeService,
         consent_guard: ConsentGuard,
         audit_logger: AiAuditLogger,
@@ -66,7 +76,23 @@ class AiAssistantService:
         context_resolver: ContextResolver | None = None,
         tip_engine: TipEngine | None = None,
         explain_engine: ExplainEngine | None = None,
+        plant_repo: Any | None = None,
+        planting_run_repo: Any | None = None,
+        task_lookup: Callable[[str], Any] | None = None,
+        feeding_event_lookup: Callable[[str], Any] | None = None,
     ) -> None:
+        # #1872 C9: a plant / run context key is resolved under the tenant before
+        # anything stores it (tip cards, conversations, audit) or a resolver reads it.
+        self._context_owners: dict[str, tuple[str, Callable[[str], Any] | None]] = {
+            "plant_instance": ("PlantInstance", plant_repo.get_by_key if plant_repo is not None else None),
+            "planting_run": ("PlantingRun", planting_run_repo.get_by_key if planting_run_repo is not None else None),
+            # explain() subjects that name an entity (security review of #1872, S2).
+            "task": ("Task", task_lookup),
+            "feeding_event": ("FeedingEvent", feeding_event_lookup),
+        }
+        # #2110 (MT-013): required, not optional — a service built without it
+        # would make every LLM call of this class unbounded again, silently.
+        self._budget = call_budget
         self._ks = knowledge_adapter
         self._consent = consent_guard
         self._audit = audit_logger
@@ -76,6 +102,23 @@ class AiAssistantService:
         self._resolve_context = context_resolver or (lambda _t, _ct, _ck: QuestionContext())
         self._tips = tip_engine or TipEngine()
         self._explain = explain_engine or ExplainEngine()
+
+    def _require_owned_context(self, tenant_key: str, context_type: str, context_key: str | None) -> None:
+        """404 unless a plant / run context key belongs to *tenant_key* (#1872 C9).
+
+        The key was stored on tip cards, conversations and the audit log as given,
+        and handed to the context resolver. Inert while production wires no
+        resolver — the check keeps it that way once one is wired. Other context
+        types (``general``, ``daily``, ``term``, ``explain``) name no entity.
+        Fails closed without the repository.
+        """
+        owner = self._context_owners.get(context_type)
+        if owner is None or not context_key:
+            return
+        name, lookup = owner
+        entity = lookup(context_key) if lookup is not None else None
+        if entity is None or getattr(entity, "tenant_key", None) != tenant_key:
+            raise NotFoundError(name, context_key)
 
     # ── Provider helpers ───────────────────────────────────────────────
 
@@ -121,6 +164,28 @@ class AiAssistantService:
 
         return (provider.key or "", provider.provider_type, uses_cloud)
 
+    def _platform_provider(self) -> tuple[str, bool]:
+        """``(provider_type, uses_cloud)`` of the platform's system default provider.
+
+        The label of an answer whose model the Knowledge Service picks itself —
+        the same rule the glossary cache classifies by (REQ-035 §6, #2110):
+        system rows only, ``ollama`` without ``requires_consent`` is local, and
+        no system provider at all counts as local Ollama.
+        """
+        provider = self._providers.get_system_default()
+        if provider is None:
+            return ("ollama", False)
+        return (provider.provider_type, bool(provider.provider_type != "ollama" or provider.requires_consent))
+
+    def _charge(self, ctx: TenantContext) -> None:
+        """Count one LLM call against the daily budgets, or refuse it (#2110).
+
+        Called after every gate that can refuse for another reason (consent,
+        context ownership, provider) and right before the call, so a request
+        that would have been refused anyway does not use up the day.
+        """
+        self._budget.charge(tenant_key=ctx.tenant_key, user_key=ctx.user_key)
+
     def _local_provider(self, tenant_key: str):
         """Return the first local Ollama provider for a tenant, or ``None``."""
         for provider in self._providers.list_for_tenant(tenant_key):
@@ -130,35 +195,55 @@ class AiAssistantService:
 
     # ── Tips ───────────────────────────────────────────────────────────
 
-    def get_tips(
+    def get_tips(self, ctx: TenantContext, *, context_type: str, context_key: str) -> list[AiTipCard]:
+        """Return the stored tip cards for a plant/run context — **read-only**.
+
+        Requires ``ai_tenant_data_access``. An empty list is a legitimate answer:
+        nothing has been generated for this context yet, or everything that was
+        has expired or been dismissed.
+
+        Generation used to happen right here, on a cache miss, which made
+        ``GET /t/{slug}/ai/tips`` persist a tip card and an audit record while
+        answering — entry 6 of the #1443 detector inventory, filed as #1461 — and
+        made a read of a plant's detail page cost an LLM call. It lives in
+        :meth:`refresh_tips` now, behind the ``POST`` that existed for it all
+        along.
+        """
+        self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        return self._tip_cache.find_valid(ctx.tenant_key, context_type, context_key)
+
+    def refresh_tips(
         self,
         ctx: TenantContext,
         *,
         context_type: str,
         context_key: str,
         language: str = "de",
-        force: bool = False,
         allow_cloud: bool = False,
     ) -> list[AiTipCard]:
-        """Return tip cards for a plant/run context (cache-first, §4.4).
+        """Generate and persist the tip cards for a context (§4.4) — the write path.
 
         Requires ``ai_tenant_data_access``. On a Knowledge-Service outage returns
         rule-based fallback tips (HTTP 200) and audits ``knowledge_service_error``.
         ``allow_cloud`` mirrors the tenant ``ai_allow_cloud_providers`` flag and
         gates cloud provider use (SEC-001).
+
+        Always regenerates: this is what the caller asked for by choosing the
+        ``POST``. The previous cache-first behaviour belonged to the read half,
+        which is now :meth:`get_tips`.
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
-
-        if force:
-            self._tip_cache.invalidate_context(ctx.tenant_key, context_type, context_key)
-        else:
-            cached = self._tip_cache.find_valid(ctx.tenant_key, context_type, context_key)
-            if cached:
-                return cached
+        # A tip card is stored under its context: only the known context types
+        # (security review of #1872, S2) — an unknown one stored any key unchecked.
+        if context_type not in get_args(ContextType):
+            raise ValidationError(f"Unknown tip context type '{context_type}'.")
+        self._require_owned_context(ctx.tenant_key, context_type, context_key)
+        self._tip_cache.invalidate_context(ctx.tenant_key, context_type, context_key)
 
         question_context = self._resolve_context(ctx.tenant_key, context_type, context_key)
         question = self._tips.build_question(question_context, language)
         provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
         started = time.monotonic()
 
         try:
@@ -206,6 +291,7 @@ class AiAssistantService:
             valid_until=datetime.now(UTC) + _TIP_TTL,
         )
         persisted = self._tip_cache.create(card)
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -220,11 +306,39 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return [persisted]
 
-    def get_daily_tip(self, ctx: TenantContext, *, language: str = "de", allow_cloud: bool = False) -> AiTipCard | None:
-        """Return a single daily tip for the dashboard (cache until midnight)."""
+    def get_daily_tip(self, ctx: TenantContext) -> AiTipCard | None:
+        """Return today's stored daily tip, or ``None`` — **read-only**.
+
+        ``None`` means nothing has been generated for today yet (or it was
+        dismissed). Generation used to happen here on a miss, which made
+        ``GET /t/{slug}/ai/daily-tip`` — a route the dashboard calls on every
+        load — persist a tip card and an audit record and pay for an LLM call:
+        entry 5 of the #1443 detector inventory, filed as #1461. It lives in
+        :meth:`refresh_daily_tip` now.
+        """
+        self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        today = datetime.now(UTC).date().isoformat()
+        cached = self._tip_cache.find_valid(ctx.tenant_key, "daily", today)
+        return cached[0] if cached else None
+
+    def refresh_daily_tip(
+        self, ctx: TenantContext, *, language: str = "de", allow_cloud: bool = False
+    ) -> AiTipCard | None:
+        """Generate and persist today's daily tip (§4.4) — the write path.
+
+        Returns the stored card when there already is one for today, so a second
+        request on the same day is idempotent rather than a second LLM call; the
+        dashboard reaches this through ``POST …/ai/daily-tip/refresh`` (grower).
+
+        A ``POST …/ai/tips/refresh?context_type=daily`` would not do: it builds a
+        ``care``/``medium`` card valid for 24 hours, whereas the daily tip is an
+        ``optimization``/``low`` card that expires at midnight. Reusing it would
+        have changed what the daily tip *is*.
+        """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
         today = datetime.now(UTC).date().isoformat()
         cached = self._tip_cache.find_valid(ctx.tenant_key, "daily", today)
@@ -234,6 +348,7 @@ class AiAssistantService:
         question_context = self._resolve_context(ctx.tenant_key, "daily", today)
         question = self._tips.build_question(question_context, language)
         provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
         started = time.monotonic()
         try:
             result = self._run_ask(question, question_context, language)
@@ -272,6 +387,7 @@ class AiAssistantService:
             valid_until=midnight,
         )
         persisted = self._tip_cache.create(card)
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -284,6 +400,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return persisted
 
@@ -326,6 +443,7 @@ class AiAssistantService:
     ) -> AiResponse:
         """Generate a "why?" answer for a concrete recommendation (§4.5)."""
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        self._require_owned_context(ctx.tenant_key, subject_type, subject_key)
         question = self._explain.build_question(question_template_id, language, slots or {})
         if question is None:
             # Unknown template — deterministic message, no KS call.
@@ -343,6 +461,7 @@ class AiAssistantService:
 
         question_context = self._resolve_context(ctx.tenant_key, subject_type, subject_key)
         provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
+        self._charge(ctx)
         started = time.monotonic()
         try:
             result = self._run_ask(question, question_context, language)
@@ -374,6 +493,7 @@ class AiAssistantService:
                 generated_at=datetime.now(UTC),
             )
 
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -388,6 +508,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return self._to_response(
             result,
@@ -397,6 +518,112 @@ class AiAssistantService:
             confidence=question_context.confidence,
             provider_type=provider_type,
         )
+
+    # ── Knowledge ask (tenant-scoped) ───────────────────────────────────
+
+    def ask_knowledge(
+        self,
+        ctx: TenantContext,
+        *,
+        question: str,
+        top_k: int = 5,
+        doc_language: str | None = None,
+        prompt_language: str | None = None,
+        context: QuestionContext | None = None,
+        allow_cloud: bool = False,
+    ) -> KnowledgeAnswer:
+        """Answer a free-form question through the Knowledge Service (#2175).
+
+        The tenant-scoped successor of the former ``POST /api/v1/knowledge/ask``,
+        which reached the LLM with no toggle, no consent and no budget. The
+        caller's free-text question leaves the installation, so it needs its own
+        consent ``ai_knowledge_question``; when ``context`` carries any plant
+        value, those values leave too and ``ai_tenant_data_access`` is required
+        in addition — tenant data never leaves under the question-only consent.
+        Then the provider gate and one charge against the daily AI budget — all
+        before the Knowledge Service is called. The router adds the rank and the
+        stage 1/2 toggle.
+
+        **The provider gate reads the provider that actually answers.** The
+        ``/ask`` request names no provider; the Knowledge Service answers with
+        its own model, whose classification is the platform's system default
+        provider (:meth:`_platform_provider`, the glossary rule of REQ-035 §6).
+        The garden's own provider records play no part in this call, so they
+        neither demand nor waive anything. When the platform model is a cloud
+        LLM, the garden must allow cloud providers (``ai_allow_cloud_providers``,
+        else ``AiDisabledError`` — the refusal ``_resolve_provider`` gives when
+        it has no local provider to fall back to; here there never is one) and
+        the caller must hold ``ai_cloud_processing``. Audit and answer carry the
+        same classification.
+
+        Unlike the tip and "why?" paths there is no rule-based answer to fall
+        back on, so an unreachable Knowledge Service is a ``502`` here, audited
+        as ``knowledge_service_error``.
+        """
+        self._consent.require_consent(ctx.user_key, AI_KNOWLEDGE_QUESTION)
+        # Decided on what would actually be sent: ``to_ks_payload`` drops unset
+        # fields, so ``QuestionContext()`` carries no plant value and needs no
+        # second consent — any value that would reach the KS does.
+        carries_plant_values = context is not None and bool(context.to_ks_payload())
+        if carries_plant_values:
+            self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        else:
+            context = None
+        provider_type, uses_cloud = self._platform_provider()
+        if uses_cloud:
+            if not allow_cloud:
+                # No local model to fall back to: the KS model is the platform's.
+                raise AiDisabledError()
+            self._consent.require_consent(ctx.user_key, AI_CLOUD_PROCESSING)
+        self._charge(ctx)
+        started = time.monotonic()
+        try:
+            result = _run_sync(
+                self._ks.ask(
+                    question,
+                    top_k=top_k,
+                    context=context,
+                    doc_language=doc_language,
+                    prompt_language=prompt_language,
+                )
+            )
+        except KnowledgeServiceUnavailableError:
+            self._audit.record(
+                tenant_key=ctx.tenant_key,
+                user_key=ctx.user_key,
+                endpoint="knowledge.ask",
+                question=question,
+                answer_length=0,
+                provider_type=provider_type,
+                language=prompt_language or "de",
+                uses_tenant_data=context is not None,
+                uses_cloud_provider=uses_cloud,
+                latency_ms=int((time.monotonic() - started) * 1000),
+                status="knowledge_service_error",
+                error_class="knowledge_service_unavailable",
+            )
+            # ``from None``: the adapter's cause may be an httpx error that still
+            # holds the request and its service-token header (SEC-004).
+            raise ExternalSourceError("knowledge-service", "unavailable") from None
+
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
+        self._audit.record(
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            endpoint="knowledge.ask",
+            question=question,
+            answer_length=len(result.answer),
+            model_name=result.model_name,
+            provider_type=provider_type,
+            kb_version=result.kb_version,
+            language=prompt_language or "de",
+            uses_tenant_data=context is not None,
+            uses_cloud_provider=uses_cloud,
+            latency_ms=int((time.monotonic() - started) * 1000),
+            status="ok",
+            usage=result.usage,
+        )
+        return KnowledgeAnswer(result=result, provider_type=provider_type, uses_cloud_provider=uses_cloud)
 
     # ── Public / Light-mode ask ─────────────────────────────────────────
 
@@ -449,6 +676,7 @@ class AiAssistantService:
             uses_tenant_data=False,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         return self._to_response(
             result,
@@ -465,8 +693,11 @@ class AiAssistantService:
 
     # ── Conversations / Chat (SSE) ──────────────────────────────────────
 
-    def list_conversations(self, ctx: TenantContext) -> list[AiConversation]:
-        return self._conversations.list_for_user(ctx.tenant_key, ctx.user_key)
+    def list_conversations(
+        self, ctx: TenantContext, *, offset: int | None = None, limit: int | None = None
+    ) -> list[AiConversation]:
+        """The caller's conversations; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._conversations.list_for_user(ctx.tenant_key, ctx.user_key, offset=offset, limit=limit)
 
     def get_conversation(self, ctx: TenantContext, key: str) -> AiConversation | None:
         conv = self._conversations.get_by_key(key)
@@ -486,6 +717,7 @@ class AiAssistantService:
         language: str = "de",
     ) -> AiConversation:
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
+        self._require_owned_context(ctx.tenant_key, context_type, context_key)
         now = datetime.now(UTC)
         conv = AiConversation(
             tenant_key=ctx.tenant_key,
@@ -505,7 +737,7 @@ class AiAssistantService:
             return False
         return self._conversations.delete(key)
 
-    async def stream_chat(
+    def stream_chat(
         self,
         ctx: TenantContext,
         *,
@@ -514,22 +746,53 @@ class AiAssistantService:
         language: str = "de",
         allow_cloud: bool = False,
     ) -> AsyncIterator[str]:
-        """Yield the assistant answer token-wise as SSE ``data:`` frames (§5.4).
+        """Admit a chat message, then return the SSE frames of its answer (§5.4).
 
-        The Knowledge Service answers in one shot; the backend streams the answer
+        Every gate runs **here, eagerly**, before a single frame exists: the
+        consent, the provider gate and the AI budget (#2110). The caller hands
+        the returned iterator to a ``StreamingResponse``, whose ``200`` is on the
+        wire before the first frame is produced — a refusal raised inside the
+        stream used to arrive as a broken connection instead of a 403/429 the
+        client can show.
+
+        The Knowledge Service answers in one shot; the stream sends the answer
         word-by-word so the client renders progressively. A trailing ``event:
         done`` frame carries the metadata for the ``<AIResponse>`` envelope.
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
         conv = self.get_conversation(ctx, conversation_key)
         if conv is None:
-            yield _sse_event("error", '{"detail":"conversation_not_found"}')
-            return
+            return _frames(_sse_event("error", '{"detail":"conversation_not_found"}'))
 
         question_context = self._resolve_context(ctx.tenant_key, conv.context_type, conv.context_key or "")
         provider_key, provider_type, uses_cloud = self._resolve_provider(
             ctx, conv.provider_key or None, allow_cloud=allow_cloud
         )
+        self._charge(ctx)
+        return self._stream_answer(
+            ctx,
+            conv,
+            message=message,
+            language=language,
+            question_context=question_context,
+            provider_key=provider_key,
+            provider_type=provider_type,
+            uses_cloud=uses_cloud,
+        )
+
+    async def _stream_answer(
+        self,
+        ctx: TenantContext,
+        conv: AiConversation,
+        *,
+        message: str,
+        language: str,
+        question_context: QuestionContext,
+        provider_key: str,
+        provider_type: str,
+        uses_cloud: bool,
+    ) -> AsyncIterator[str]:
+        """The admitted half of :meth:`stream_chat`: one LLM call, streamed."""
         started = time.monotonic()
         try:
             result = await self._ks.ask(
@@ -571,6 +834,7 @@ class AiAssistantService:
             for c in result.sources
         ]
         self._persist_turn(conv, message, result.answer, sources, result.model_name, provider_key)
+        self._budget.record_usage(tenant_key=ctx.tenant_key, usage=result.usage)
         self._audit.record(
             tenant_key=ctx.tenant_key,
             user_key=ctx.user_key,
@@ -585,6 +849,7 @@ class AiAssistantService:
             uses_cloud_provider=uses_cloud,
             latency_ms=int((time.monotonic() - started) * 1000),
             status="ok",
+            usage=result.usage,
         )
         response = self._to_response(
             result,
@@ -684,6 +949,12 @@ class AiAssistantService:
 def _sse_event(event: str, data: str) -> str:
     """Format a single Server-Sent-Event frame."""
     return f"event: {event}\ndata: {data}\n\n"
+
+
+async def _frames(*frames: str) -> AsyncIterator[str]:
+    """A stream of fixed frames (an answer that needs no LLM call)."""
+    for frame in frames:
+        yield frame
 
 
 def _run_sync(coro):

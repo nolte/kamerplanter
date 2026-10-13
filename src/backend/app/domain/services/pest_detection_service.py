@@ -20,6 +20,7 @@ from app.common.exceptions import (
     ConsentRequiredError,
     FeatureNotConfiguredError,
     NotFoundError,
+    PayloadTooLargeError,
     ValidationError,
 )
 from app.config.settings import settings
@@ -127,7 +128,12 @@ class PestDetectionService:
     # ── History / feedback (§6) ──
 
     def get_history(self, *, tenant_key: str, plant_instance_key: str, limit: int = 20) -> list[dict]:
-        return [self._to_response(d) for d in self._repo.list_for_plant(tenant_key, plant_instance_key, limit)]
+        return [
+            self._to_response(d)
+            for d in self._repo.list_for_plant(
+                tenant_key=tenant_key, plant_instance_key=plant_instance_key, limit=limit
+            )
+        ]
 
     def submit_feedback(
         self,
@@ -152,8 +158,14 @@ class PestDetectionService:
 
     # ── IPM bridge (§4.1 / REQ-010) — inspection only, never a treatment ──
 
-    def create_inspection(self, detection_key: str, *, tenant_key: str, plant_key: str) -> dict:
-        detection = self._repo.get(detection_key, tenant_key)
+    def create_inspection(self, detection_key: str, *, tenant_key: str, plant_key: str, user_key: str) -> dict:
+        """Turn a confirmed detection into a REQ-010 inspection.
+
+        ``user_key`` is the account that confirmed the detection and becomes
+        ``inspected_by_key`` (#1669) — keyword-only and without a default, so a
+        caller cannot create an inspection nobody is attributed to.
+        """
+        detection = self._repo.get(detection_key, tenant_key=tenant_key)
         if detection is None:
             raise NotFoundError("PestDetection", detection_key)
 
@@ -171,6 +183,7 @@ class PestDetectionService:
             tenant_key=tenant_key,
             plant_key=plant_key,
             inspector="",
+            inspected_by_key=user_key,
             pressure_level=self._pressure_from_confidence(max_conf),
             detected_pest_keys=pest_keys,
             symptoms_observed=symptoms,
@@ -191,7 +204,7 @@ class PestDetectionService:
         Schädlings-Bild-Signal in the shape the fusion will consume — a confirmed
         finding must strengthen the IPM/infestation signal (§9.1).
         """
-        detections = self._repo.list_for_plant(tenant_key, plant_instance_key, limit=10)
+        detections = self._repo.list_for_plant(tenant_key=tenant_key, plant_instance_key=plant_instance_key, limit=10)
         confirmed_pests: set[str] = set()
         max_conf = 0.0
         for d in detections:
@@ -236,7 +249,8 @@ class PestDetectionService:
     def _validate_size(image_data: bytes) -> None:
         max_bytes = settings.pest_detection_max_image_size_mb * 1024 * 1024
         if len(image_data) > max_bytes:
-            raise ValidationError(f"Image exceeds {settings.pest_detection_max_image_size_mb} MB limit.")
+            # 413 like every other upload limit, not 422 (#2254).
+            raise PayloadTooLargeError(max_bytes)
         if not image_data:
             raise ValidationError("Empty image upload.")
 

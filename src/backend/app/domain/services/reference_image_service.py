@@ -14,13 +14,25 @@ For a given species this service:
 Runs synchronously (invoked from a Celery task, WS-4).
 """
 
-import io
+import hashlib
 
 import structlog
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
-from app.common.exceptions import ValidationError
+from app.common.datetimes import now_utc
+from app.common.exceptions import (
+    AdapterNotAvailableError,
+    ConsentRequiredError,
+    ImagePixelLimitError,
+    NotFoundError,
+    ValidationError,
+)
+from app.common.image_bounds import image_dimensions
+from app.common.log_privacy import log_subject, log_tenant, loggable_error
 from app.config.settings import settings
+from app.domain.engines.consent_engine import REFERENCE_CONTRIBUTION, ConsentEngine
+from app.domain.interfaces.consent_repository import IConsentRepository
+from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.reference_image import (
     AcquisitionResult,
     MediaCandidate,
@@ -28,6 +40,7 @@ from app.domain.models.reference_image import (
 )
 from app.domain.services.image_processing import strip_exif
 from app.domain.services.reference_image_license import is_acceptable
+from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
@@ -45,6 +58,9 @@ class ReferenceImageService:
         species_repo=None,
         rate_limiter=None,
         identification_engine=None,
+        contribution_marker: IReferenceContributionMarker | None = None,
+        consent_repo: IConsentRepository | None = None,
+        consent_engine: ConsentEngine | None = None,
     ) -> None:
         self._gbif = gbif_adapter
         self._media = media_client
@@ -56,6 +72,13 @@ class ReferenceImageService:
         # license-clean acquisition pipeline (WS-4) does not need them.
         self._rate_limiter = rate_limiter
         self._identification_engine = identification_engine
+        # #1753 — recorded before every contribution so a process that cannot
+        # reach the index refuses to erase instead of skipping the vectors.
+        self._contribution_marker = contribution_marker
+        # #2174 — the ``reference_contribution`` opt-in the interactive path
+        # must read before it touches anything (REQ-034 §4.1 Guard 3).
+        self._consent_repo = consent_repo
+        self._consent_engine = consent_engine
 
     def acquire_for_species(
         self,
@@ -82,7 +105,7 @@ class ReferenceImageService:
                     license=result.representative_license,
                 )
             except Exception as exc:  # noqa: BLE001 — indexing succeeded; thumbnail is best-effort
-                logger.info("reference_set_representative_failed", species_key=species_key, error=str(exc))
+                logger.info("reference_set_representative_failed", species_key=species_key, error=loggable_error(exc))
 
         return self._persist(result)
 
@@ -105,13 +128,13 @@ class ReferenceImageService:
             else:
                 logger.info("reference_acquire_no_taxon", scientific_name=scientific_name)
         except Exception as exc:  # noqa: BLE001 — one source must not abort the run
-            logger.info("reference_gbif_failed", scientific_name=scientific_name, error=str(exc))
+            logger.info("reference_gbif_failed", scientific_name=scientific_name, error=loggable_error(exc))
 
         if self._wikimedia is not None:
             try:
                 candidates.extend(self._wikimedia.list_media(scientific_name, limit=limit))
             except Exception as exc:  # noqa: BLE001
-                logger.info("reference_wikimedia_failed", scientific_name=scientific_name, error=str(exc))
+                logger.info("reference_wikimedia_failed", scientific_name=scientific_name, error=loggable_error(exc))
 
         seen: set[str] = set()
         deduped: list[MediaCandidate] = []
@@ -142,7 +165,7 @@ class ReferenceImageService:
         try:
             image_data = self._download(candidate)
         except Exception as exc:  # noqa: BLE001 — one bad image must not abort the run
-            logger.info("reference_download_failed", url=candidate.url, error=str(exc))
+            logger.info("reference_download_failed", url=candidate.url, error=loggable_error(exc))
             result.rejected_error += 1
             return
 
@@ -165,7 +188,7 @@ class ReferenceImageService:
                 embedding=embedding,
             )
         except Exception as exc:  # noqa: BLE001 — keep acquiring the rest
-            logger.info("reference_embed_failed", url=candidate.url, error=str(exc))
+            logger.info("reference_embed_failed", url=candidate.url, error=loggable_error(exc))
             result.rejected_error += 1
             return
 
@@ -195,11 +218,16 @@ class ReferenceImageService:
         * SEC-003 — ``species_key`` is resolved against the master data and the
           authoritative ``scientific_name`` is taken from that record; any
           client-supplied name is ignored. An unknown species raises 404 before
-          any embedding is computed.
+          any embedding is computed. The lookup is scoped to ``tenant_key``
+          (global, own or granted — ``readable_species``, as the gallery hook
+          resolves it): another tenant's private species is the same 404, so the
+          route is neither a write into nor an existence probe of a foreign
+          catalogue.
         * SEC-002 — the per-user daily contribution quota is enforced (Redis),
-          and the SHA-256 of the normalised image is used as the dedup key
-          (``source_record_id``) so re-submitting the same photo collapses onto
-          one index row instead of poisoning the index with duplicates.
+          and a key derived from the SHA-256 of the normalised image and the
+          contributor is used as the dedup key (``source_record_id``) so
+          re-submitting the same photo collapses onto one index row instead of
+          poisoning the index with duplicates — one row per contributor (#1770).
         * SEC-001 — the reference is written **quarantined** (``is_active=False``,
           ``source="user_contributed"``): it does NOT enter the active global
           recognition index until a platform admin activates it via the existing
@@ -207,6 +235,10 @@ class ReferenceImageService:
           router enforces the grower role).
         * SEC-005 — the contributor (``user_key``) and ``tenant_key`` are stored
           as provenance so the contribution can be attributed and GDPR-erased.
+        * #2174 — the contributor's ``reference_contribution`` consent (REQ-025)
+          is checked FIRST, and Light mode refuses outright (REQ-034 §4.1
+          Guard 2, AC-16): a refused request resolves no species, consumes no
+          quota, records no contribution marker and embeds nothing.
 
         The photo is EXIF-stripped and embedded locally via the self-hosted
         inference-service; only the embedding + provenance are upserted into
@@ -214,14 +246,27 @@ class ReferenceImageService:
         third-party egress happens here.
 
         Raises:
+            AdapterNotAvailableError: Light mode — the contribution is disabled (409).
+            ConsentRequiredError: ``reference_contribution`` is missing or
+                revoked (403).
             NotFoundError: the species does not exist (404).
             ValidationError: the image cannot be decoded (422, SEC-006).
             RateLimitError: the per-user daily quota is exhausted (429).
             httpx.HTTPError: the inference-service call failed.
         """
+        if self._contribution_marker is None:
+            raise RuntimeError(
+                "ReferenceImageService.contribute_user_reference requires a contribution_marker; "
+                "an unrecorded contribution could outlive an erasure (#1753)."
+            )
+        # #2174 — Light mode and the opt-in are checked before anything else, so
+        # a refused request consumes no quota and records no contribution.
+        self._require_contribution_allowed(user_key)
         # SEC-003 — resolve the species server-side; derive the scientific name
         # from the record and discard any client-supplied value.
-        species = self._species_repo.get_or_raise(species_key)
+        species = readable_species(self._species_repo, species_key, tenant_key)
+        if species is None:
+            raise NotFoundError("Species", species_key)
         scientific_name = species.scientific_name
 
         # SEC-002 — per-user daily quota. Local, self-hosted path → fail open on
@@ -239,17 +284,29 @@ class ReferenceImageService:
                 details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],
             ) from exc
 
-        # SEC-002 — SHA-256 of the normalised image is the dedup key. The index'
-        # UNIQUE (species_key, source, source_record_id) makes a repeat upsert of
-        # the same photo idempotent (one row), never a new poisoning entry.
-        image_hash = self._identification_engine.compute_image_hash(clean)
+        # SEC-002 — the dedup key is derived from the SHA-256 of the normalised
+        # image. The index' UNIQUE (species_key, source, source_record_id) makes a
+        # repeat upsert of the same photo idempotent (one row), never a new
+        # poisoning entry.
+        # #1770 SEC-007 — and it is per contributor: the index keeps the first
+        # row's provenance on conflict, so a key shared by every contributor of an
+        # identical photo attributed all of them — across tenants — to the first,
+        # and only the first one's erasure reached it.
+        record_id = self.contribution_record_id(
+            self._identification_engine.compute_image_hash(clean), tenant_key=tenant_key, user_key=user_key
+        )
+
+        # #1753 (GDPR-001/002) — record that contributions exist BEFORE writing
+        # one: a process that later erases without reaching the index must see
+        # it and refuse. A failed record raises and nothing is written.
+        self._contribution_marker.record_reference_contributions(now_utc())
 
         embedding = self._inference.embed(clean)
         response = self._inference.upsert_reference(
             species_key=species_key,
             scientific_name=scientific_name,
             source="user_contributed",
-            source_record_id=image_hash,
+            source_record_id=record_id,
             embedding=embedding,
             is_active=False,
             contributed_by=user_key,
@@ -258,8 +315,8 @@ class ReferenceImageService:
         logger.info(
             "reference_user_contribution_quarantined",
             species_key=species_key,
-            tenant_key=tenant_key,
-            contributed_by=user_key,
+            tenant=log_tenant(tenant_key),
+            contributed_by=log_subject(user_key),
             dim=response.get("dim"),
         )
         return {
@@ -267,15 +324,51 @@ class ReferenceImageService:
             "pending_review": True,
             "species_key": species_key,
             "dim": response.get("dim"),
-            "source_record_id": image_hash,
+            "source_record_id": record_id,
         }
+
+    def _require_contribution_allowed(self, user_key: str) -> None:
+        """Refuse a contribution in Light mode or without the user's opt-in (#2174).
+
+        Unlike the identification/diagnosis gates this is NOT skipped in Light
+        mode: REQ-034 §4.1 Guard 2 / AC-16 disable the reference hook there
+        altogether (no consent subsystem exists, so no opt-in could be on
+        record) — the same abort the automatic gallery hook performs.
+        """
+        if settings.kamerplanter_mode == "light":
+            raise AdapterNotAvailableError(
+                "local_embedding",
+                "contributing reference images is disabled in light mode",
+            )
+        if self._consent_repo is None or self._consent_engine is None:
+            raise RuntimeError(
+                "ReferenceImageService.contribute_user_reference requires consent_repo and consent_engine; "
+                "a contribution must not happen without the reference_contribution opt-in (#2174)."
+            )
+        record = self._consent_repo.get_by_user_and_purpose(user_key, REFERENCE_CONTRIBUTION)
+        if not self._consent_engine.is_processing_allowed(REFERENCE_CONTRIBUTION, record):
+            raise ConsentRequiredError(REFERENCE_CONTRIBUTION)
+
+    @staticmethod
+    def contribution_record_id(image_hash: str, *, tenant_key: str, user_key: str) -> str:
+        """The index record id of one contributor's contribution of one image (#1770).
+
+        Deterministic per (tenant, contributor, image), so a re-submission still
+        collapses onto its row (SEC-002), and distinct for anyone else, so no two
+        contributors share a row — nor learn from the id whether someone in
+        another tenant contributed the same photo. The parts are joined with a
+        separator no key contains, under a version label, before hashing.
+        """
+        digest = hashlib.sha256(
+            "\x00".join(("kamerplanter/reference-contribution/v1", tenant_key, user_key, image_hash)).encode("utf-8")
+        ).hexdigest()
+        return f"sha256:{digest[:32]}"
 
     def _passes_quality(self, image_data: bytes) -> bool:
         """Reject images below the minimum resolution or with extreme aspect."""
         try:
-            with Image.open(io.BytesIO(image_data)) as img:
-                width, height = img.size
-        except (UnidentifiedImageError, OSError):  # fmt: skip
+            width, height = image_dimensions(image_data)
+        except (UnidentifiedImageError, OSError, ImagePixelLimitError):  # fmt: skip
             return False
         if min(width, height) < settings.reference_image_min_dimension:
             return False

@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
+Version: 3.4 (Enum-Werte an das Modell angeglichen: `WorkflowTemplate.category`/`TaskTemplate.category` = `TaskCategory` (16 Werte, kein `custom`), `TaskTemplate.trigger_type` mit `gdd_threshold`, #2183); 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
 ```
 
 ## 1. Business Case
@@ -168,7 +168,7 @@ Die maschinelle Herkunft wird als **orthogonales Feld** modelliert, nicht als we
 **Herkunfts-Vertrauensregel (server-entschieden, #1000):**
 `origin` wird **niemals** aus dem Request-Body übernommen, sondern aus dem authentifizierten Prinzipal abgeleitet (`account_type`, REQ-023):
 
-- **Interaktiver Nutzer** (`account_type == "user"`): `origin` wird auf `user` erzwungen und die Provenienzfelder (`source`/`source_run_ref`/`external_ref`) werden verworfen. Ein Mensch kann so weder eine Pipeline-Herkunft vortäuschen noch in den Idempotenz-Namensraum `(tenant, source, external_ref)` schreiben.
+- **Interaktiver Nutzer** (`account_type == "human"`): `origin` wird auf `user` erzwungen und die Provenienzfelder (`source`/`source_run_ref`/`external_ref`) werden verworfen. Ein Mensch kann so weder eine Pipeline-Herkunft vortäuschen noch in den Idempotenz-Namensraum `(tenant, source, external_ref)` schreiben.
 - **Service Account** (`account_type == "service"`, M2M): maschineller Produzent. Die Body-`origin` wird übernommen, aber auf eine Maschinen-Herkunft (`system`/`pipeline`) eingeschränkt, Default `pipeline`; die Provenienzfelder stammen aus dem Body.
 
 **Idempotente maschinelle Erstellung (HTTP 200 statt Duplikat):**
@@ -198,6 +198,26 @@ Ein Analyse-Lauf über einen Tagebuch-Eintrag kann Bilder nachfordern, wenn die 
 - **Einmaligkeit** gilt wie für jeden Producer-Pfad: keine Wiederholung, die Recurrence-Felder bleiben leer.
 
 Was der Nutzer beim Öffnen des Auftrags sieht, steht in REQ-051 §6.6; REQ-006 sagt nur, dass es eine gewöhnliche Aufgabe ist.
+
+### Filter der Aufgaben-Queue: serverseitige Einschränkungen
+
+<!-- Quelle: Issues #1484, #1503 -->
+
+Die Aufgaben-Queue (`GET /api/v1/t/{tenant_slug}/tasks/queue`) beantwortet höchstens **200 Zeilen**; die Liste der erledigten Aufgaben (`GET .../tasks`) wird von der Oberfläche mit 100 Zeilen abgefragt. Jede Einschränkung, die erst **auf die Antwort** angewandt wird, kann deshalb nur sehen, was die Kappung ohnehin durchgelassen hat: Eine Aufgabe, die zum gewählten Filter passt, aber hinter der Schnittkante einsortiert ist, liegt nicht in der Nutzlast — die Oberfläche meldet dann „keine Aufgaben zu diesem Filter" für einen Filter, der Treffer hat.
+
+**Regel:** Jeder Filter der Queue ist eine Einschränkung der **Abfrage**, nicht ihrer Antwort. Die Route nimmt dafür drei optionale, additive Parameter:
+
+| Parameter | Werte | Wirkung |
+|---|---|---|
+| `plant_key` | Dokumentschlüssel einer Pflanzeninstanz | Beschränkt die Queue auf diese Instanz (ungekappter Zweig). |
+| `category` | `TaskCategory` | Beschränkt auf eine fachliche Kategorie. |
+| `origin` | `TaskOrigin`, **wiederholbar** | Beschränkt auf die genannten Herkünfte. |
+
+`origin` ist wiederholbar, weil die Herkunftsauswahl der Oberfläche eine **Partition** ist: „maschinell erzeugt" bedeutet `system` **und** `pipeline` (siehe FreeStyle oben). Eine Auswahl darf nicht zwei Anfragen kosten, deren Vereinigung der Client bildet — jede Hälfte wäre erneut gekappt. Ein Wert, den der Speicher nicht tragen kann, wird an der Grenze mit **422** abgelehnt, nicht mit einer stillen Leermenge beantwortet. Alle drei Parameter gelten für **beide** Zweige der Queue (mit und ohne `plant_key`), damit ein angebotener Filter nicht davon abhängt, welcher Zweig gerade gewählt ist. `origin` steht aus demselben Grund auch an der Aufgabenliste.
+
+**Quellenübergreifende Wirkung der Auswahl:** Die Queue führt Aufgaben und Pflege-Erinnerungen in einer Liste. Eine Pflege-Erinnerung trägt weder Kategorie noch Herkunft, deshalb blendet jede Herkunftsauswahl ungleich „alle" und jede Kategorieauswahl ungleich `care_reminder` diese Quelle aus. Das ist keine Nebenwirkung, sondern die Bedeutung der Auswahl: Wer „IPM" wählt, fragt nach Aufgaben dieser Kategorie. Zusätzlich ist es technisch erforderlich — die Oberfläche entdoppelt eine Erinnerung gegen die `care_reminder`-Aufgabe, die sie bereits abdeckt, und bildet diesen Abgleich aus der Queue-Antwort; unter einer fremden Kategorie enthält die Antwort keine `care_reminder`-Zeilen mehr, die Erinnerung erschiene sonst ein zweites Mal.
+
+**Bewusste Asymmetrie — das Pflege-Dashboard:** `GET .../care-reminders/dashboard` nimmt weiterhin nur `hemisphere`; seine Einträge werden in der Queue-Oberfläche clientseitig eingeschränkt. Das ist kein übersehener Fall: Das Dashboard ist keine gekappte *Seite* von Erinnerungen, sondern eine Projektion über höchstens **500 Pflanzen** der Mandantschaft. Die Einschränkung verliert damit erst etwas, wenn eine Mandantschaft mehr als 500 Pflanzen führt — eine deutlich weitere Grenze als die 200 Zeilen der Queue. Wird diese Grenze relevant, ist der Weg derselbe wie oben: ein Parameter an der Route, keine Einschränkung der Antwort.
 
 ### Phasengebundene Workflow-Gestaltung
 
@@ -417,7 +437,7 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `growth_system: Literal['soil', 'hydro', 'coco', 'any']`
     - `difficulty_level: Literal['beginner', 'intermediate', 'advanced']`
     - `estimated_total_hours: float`
-    - `category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']`
+    - `category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']` (Enum `TaskCategory` — dieselbe Liste wie `TaskTemplate.category`; einen Wert `custom` kennt das Modell nicht, #2183)
     - `tags: list[str]`
     - `usage_count: int` (Wie oft verwendet)
     - `average_rating: Optional[float]`
@@ -975,8 +995,8 @@ class TaskTemplate(BaseModel):
     task_template_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10, max_length=2000)
-    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological']
-    trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'seasonal_month', 'phenological']
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']  # Enum TaskCategory (#2183)
+    trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']  # Enum TaskTriggerType (#2183)
     trigger_phase: Optional[str] = None
     days_offset: Optional[int] = Field(None, ge=0, le=365)
     conditional_expression: Optional[str] = None
@@ -1137,7 +1157,7 @@ class WorkflowTemplate(BaseModel):
     growth_system: Literal['soil', 'hydro', 'coco', 'any'] = 'any'
     difficulty_level: Literal['beginner', 'intermediate', 'advanced']
     estimated_total_hours: float = Field(ge=0, le=1000)
-    category: Literal['training', 'maintenance', 'harvest', 'seasonal', 'custom']
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']  # Enum TaskCategory (#2183)
     tags: List[str] = Field(default_factory=list)
 
     @field_validator('version')
@@ -2445,6 +2465,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Task-Zuweisung | Alle Rollen | Nur Leitung | Nur Leitung | — | `assigned_to` setzen ist Leitung (REQ-024 §1a.1); die Zuweisung schließt niemanden vom Erledigen aus (§3.5) |
 | Recurring-Tasks | Alle Rollen | Ab Gärtner | Ab Gärtner | Nur Leitung | Fachdaten: „(eigene)" entfernt |
 | WorkflowTemplates | Alle Rollen | Nur Leitung | Nur Leitung | Nur Leitung | Vorlagen pflegen ist Leitung (REQ-049 §2.3) |
+| WorkflowTemplates (geteilt, `tenant_key == ""`, kein System-Seed) | Alle Rollen | — | Ab Gärtner — **als eigene Kopie**: die erste Änderung legt dem Mandanten einen Fork an, die geteilte Vorlage bleibt unverändert | Nie | Phasen und Task-Templates einer geteilten Vorlage sind ebenfalls nie schreibbar (403); „Duplizieren" liefert die editierbare Kopie (#2101) |
 | Workflow-Instanziierung | — | Ab Gärtner | Ab Gärtner | — | — |
 | Workflow-Task-Hinzufügen | — | Ab Gärtner | Ab Gärtner | — | „(eigene Execution)" entfernt, §3.5 |
 

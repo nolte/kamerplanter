@@ -19,12 +19,47 @@ on:
   # src/backend/app/migrations/seed_data/** needs no entry: it is inside
   # src/backend/**. Said out loud because the 2026-08-08 audit listed the seed
   # files as a CI blind spot, and the blind spot was the knowledge side.
+  #
+  # The entries after '.gitignore' come from the CI recording of this workflow's
+  # unit suite (.github/lane-inputs/backend--lint-test.yaml, #1683): tests
+  # OUTSIDE tests/unit/guards and tests/unit/api read them, so the required
+  # unfiltered guards lane does not stand in for this one there. The TC
+  # documents are read by test_e2e_tc_id_scope.py; scripts/check_*.py and the
+  # other scripts by their own unit tests; the explain templates by
+  # test_ai_explain_engine.py. Every other read of this suite outside the filter
+  # is read by backend-guards.yml/guards too, and the manifest delegates it there
+  # under accepted_gaps.
+  #
+  # src/frontend/** and tests/e2e/*.py are NOT here any more (#1741). From #1706
+  # until #1741 they were, because a handful of tests in this suite read them —
+  # and every frontend-only pull request therefore paid the whole backend suite
+  # (~13 min) for about fifteen seconds of tests. Measured with an audit hook
+  # over the suite on 2026-09-24, the readers are exactly:
+  # test_seed_catalogue_page_size_check.py, tests/unit/entrypoints/,
+  # test_route_role_guards_check.py, domain/services/test_oauth_auto_link_claim.py,
+  # the four e2e-helper tests (test_e2e_a11y_helpers.py,
+  # test_e2e_seed_log_redaction.py, test_e2e_tc_id_scope.py,
+  # test_gherkin_line_classification.py), three contract tests
+  # (test_plant_property_enum_sync.py, test_dashboard_widgets_contract.py,
+  # test_notification_channels_contract.py) and tests/api/test_notification_act_role_gate.py.
+  # The required `Write-route and tree guards` lane (backend-guards.yml, no
+  # filter, `--max-skipped 0`) names each of them in its own invocation, so a
+  # frontend change still runs them — in a required check, which this lane is
+  # not. test_lane_filters_cover_measured_inputs.py holds each such read
+  # against the guards lane's recorded manifest by path AND by reader (#1749):
+  # the recorder attributes every read to the test module that made it
+  # (`readers`), and a module reading a delegated path that the guards lane does
+  # not run (`test_modules`) is a finding — also when another guards-lane test
+  # reads the same file. A NEW such test still has to be added to the guards
+  # invocation (or its path to this filter); the lane-inputs recording says so.
   push:
     branches: [develop]
     paths:
       - 'src/backend/**'
       - 'spec/knowledge/plants/**'
       - 'scripts/check_schema_examples.py'
+      # Run by the `mypy ratchet` step and by tests/unit/test_mypy_ratchet_check.py (#2169).
+      - 'scripts/check_mypy_ratchet.py'
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
@@ -67,14 +102,69 @@ on:
       # the lock, #903/#1296), or that rewires the include, triggers no backend
       # job at all: the gate's own definition was the one input the gate did
       # not watch.
-      - '.taskfiles/backend.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
+      # `ruff check .` honours the root .gitignore (respect-gitignore is the default), so an
+      # ignore rule decides which files the lint step sees — measured 2026-09-23 with
+      # scripts/ci/lane_inputs.py (#1596): two opens of it per `task lint:backend`.
+      - '.gitignore'
+      - 'scripts/check_*.py'
+      - 'scripts/extract_overwintering_templates.py'
+      - 'scripts/kami/render.py'
+      # The capability-reach observation helpers (#1715/#1723) are loaded by path from
+      # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
+      # guards lane lists the directory but reads none of its files (#1730).
+      - 'scripts/reach/**'
+      # The reach-audit job verdict (reach-audit.yml) is loaded by path from
+      # tests/unit/test_reach_report_verdict.py, which only this suite runs.
+      - 'scripts/ci/reach_report_verdict.py'
+      # The embedding sidecar's feed builder (#1724) is loaded by path from
+      # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
+      # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
+      - 'docker/embedding-service/feed.py'
+      # The reference-index seed's column set is held against the inference-service's
+      # own INSERT by tests/unit/test_reach_storage_and_index_helpers.py (#1745), which
+      # only this suite runs; the guards lane lists the directory but not this file.
+      - 'src/inference-service/app/vectordb/repository.py'
+      - 'scripts/route_consumer_exemptions.yaml'
+      - 'spec/e2e-testcases/**'
+      - 'spec/knowledge/explain-templates/**'
+      # #1749: the lane-inputs recorder attributes every read to the test MODULE
+      # that made it, and a read delegated to the guards lane counts as covered
+      # only when that module runs there. The paths below are read by unit tests
+      # the required guards lane does NOT run (measured, lane-inputs run
+      # 36094119498) — the workflow, action and manifest checks
+      # (test_workflow_gate_integrity_check.py, test_workflow_path_filter_coverage_check.py,
+      # test_untrusted_checkout_permissions_check.py, test_lane_inputs_recorder.py,
+      # test_delivery_run_alert_workflow.py, test_build_revision_wiring.py,
+      # test_determine_chart_version.py), migrations/test_e2e_admin_env_containment.py
+      # (the compose files, helm/, .env.example), test_route_consumers_check.py
+      # (the frontend endpoint modules), test_embedding_service_feed.py, and three
+      # modules the import system lists scripts/ for (a sys.path entry an earlier
+      # test inserted; attribution is first-touch, see scripts/ci/lane_inputs.py).
+      # Until #1749 each was held "covered" because some OTHER guards-lane test
+      # read the same path — which judges that test, not these. Moving them into
+      # the required lane instead would cost ~2 min on a lane whose rollback
+      # trigger is a 200 s median (.github/settings.yml).
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/lane-inputs/**'
+      - '.env.example'
+      - 'docker-compose*.yml'
+      - 'helm/**'
+      - 'docker/embedding-service/**'
+      - 'src/frontend/src/api/endpoints/**'
+      - 'scripts/*'
   pull_request:
     branches: [develop]
     paths:
       - 'src/backend/**'
       - 'spec/knowledge/plants/**'
       - 'scripts/check_schema_examples.py'
+      # Run by the `mypy ratchet` step and by tests/unit/test_mypy_ratchet_check.py (#2169).
+      - 'scripts/check_mypy_ratchet.py'
       - 'scripts/check_boundary_validation.py'
       - 'scripts/check_seed_catalogue_page_size.py'
       - 'scripts/check_seed_harvest_integrity.py'
@@ -117,8 +207,61 @@ on:
       # the lock, #903/#1296), or that rewires the include, triggers no backend
       # job at all: the gate's own definition was the one input the gate did
       # not watch.
-      - '.taskfiles/backend.yaml'
+      # `task` parses EVERY included Taskfile, not only the one that defines the target it runs
+      # (measured 2026-09-23 with scripts/ci/lane_inputs.py, #1596): a parse error in any of them fails the lane.
+      - '.taskfiles/**'
       - 'Taskfile.yaml'
+      # `ruff check .` honours the root .gitignore (respect-gitignore is the default), so an
+      # ignore rule decides which files the lint step sees — measured 2026-09-23 with
+      # scripts/ci/lane_inputs.py (#1596): two opens of it per `task lint:backend`.
+      - '.gitignore'
+      - 'scripts/check_*.py'
+      - 'scripts/extract_overwintering_templates.py'
+      - 'scripts/kami/render.py'
+      # The capability-reach observation helpers (#1715/#1723) are loaded by path from
+      # tests/unit/test_reach_observation_helpers.py, which only this suite runs — the
+      # guards lane lists the directory but reads none of its files (#1730).
+      - 'scripts/reach/**'
+      # The reach-audit job verdict (reach-audit.yml) is loaded by path from
+      # tests/unit/test_reach_report_verdict.py, which only this suite runs.
+      - 'scripts/ci/reach_report_verdict.py'
+      # The embedding sidecar's feed builder (#1724) is loaded by path from
+      # tests/unit/test_embedding_service_feed.py, which only this suite runs; the
+      # guards lane reads the sidecars' limits.py but not this file (lane-inputs).
+      - 'docker/embedding-service/feed.py'
+      # The reference-index seed's column set is held against the inference-service's
+      # own INSERT by tests/unit/test_reach_storage_and_index_helpers.py (#1745), which
+      # only this suite runs; the guards lane lists the directory but not this file.
+      - 'src/inference-service/app/vectordb/repository.py'
+      - 'scripts/route_consumer_exemptions.yaml'
+      - 'spec/e2e-testcases/**'
+      - 'spec/knowledge/explain-templates/**'
+      # #1749: the lane-inputs recorder attributes every read to the test MODULE
+      # that made it, and a read delegated to the guards lane counts as covered
+      # only when that module runs there. The paths below are read by unit tests
+      # the required guards lane does NOT run (measured, lane-inputs run
+      # 36094119498) — the workflow, action and manifest checks
+      # (test_workflow_gate_integrity_check.py, test_workflow_path_filter_coverage_check.py,
+      # test_untrusted_checkout_permissions_check.py, test_lane_inputs_recorder.py,
+      # test_delivery_run_alert_workflow.py, test_build_revision_wiring.py,
+      # test_determine_chart_version.py), migrations/test_e2e_admin_env_containment.py
+      # (the compose files, helm/, .env.example), test_route_consumers_check.py
+      # (the frontend endpoint modules), test_embedding_service_feed.py, and three
+      # modules the import system lists scripts/ for (a sys.path entry an earlier
+      # test inserted; attribution is first-touch, see scripts/ci/lane_inputs.py).
+      # Until #1749 each was held "covered" because some OTHER guards-lane test
+      # read the same path — which judges that test, not these. Moving them into
+      # the required lane instead would cost ~2 min on a lane whose rollback
+      # trigger is a 200 s median (.github/settings.yml).
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '.github/lane-inputs/**'
+      - '.env.example'
+      - 'docker-compose*.yml'
+      - 'helm/**'
+      - 'docker/embedding-service/**'
+      - 'src/frontend/src/api/endpoints/**'
+      - 'scripts/*'
   schedule:
     # Weekly dependency CVE audit (NFR-009 §4.1) — runs the pip-audit job below
     # even when no backend change lands. Mondays 05:17 UTC.
@@ -187,7 +330,7 @@ jobs:
         # The cache key is src/backend/uv.lock rather than the action's default
         # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
         # five locks, and four of them have nothing to do with this job.
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -223,6 +366,19 @@ jobs:
       - name: Ruff format check
         run: task format:backend
 
+      - name: mypy ratchet (#2169)
+        # `strict = true` in pyproject.toml was never run by any gate; the
+        # `[call-arg]` at the six retention-task call sites of #2150 was in
+        # mypy's report for three months. This holds the findings per (file,
+        # error code) against src/backend/mypy-ratchet-baseline.json: a new
+        # finding is red, and for call-arg / name-defined / attr-defined /
+        # call-overload a fixed one whose entry was not lowered is red too
+        # (NFR-018 §2.5). The script refuses to read a missing or disagreeing
+        # mypy summary as "no findings" (NFR-018 §2); its negative controls are
+        # tests/unit/test_mypy_ratchet_check.py. This lane is advisory — the
+        # gate blocks a merge only once the job is a required context.
+        run: task typecheck:backend
+
       - name: Steckbrief ↔ seed consistency (#680)
         # Fail the build on any non-allowlisted drift of a lifecycle-driving
         # attribute (growth_habit / photoperiod_type / photosynthesis_type /
@@ -240,7 +396,26 @@ jobs:
         # in .taskfiles/backend.yaml, so this lane and a contributor's local run
         # enforce the identical contract — which is the reason these steps call
         # the target rather than inlining pytest.
-        run: task test:backend:unit
+        #
+        # COVERAGE IS MEASURED HERE, NOT IN A SECOND RUN (#1741). Until #1741 a
+        # separate `Coverage / Python Coverage` job (gh-plumbing's reusable
+        # workflow) ran the same 12 579 tests a second time: measured on #1726,
+        # 12m52 here and 13m20 there, 761 s instrumented against 733 s
+        # uninstrumented (+4 %). It was also the WEAKER run of the two — a shallow
+        # clone and no skip floor, so it reported 10 skips where this job allows
+        # 1. `-rs` on a depth-1 clone names them: 4 in
+        # test_applied_migration_sources_are_frozen.py (no vX.Y.Z tag in the
+        # clone), 4 in test_model_field_renames_have_migrations.py (shallow
+        # history), 1 in test_audit_oauth_links.py (the named commit is not in
+        # the clone) — all nine history-dependent — plus the one skip this job
+        # allows as well (test_e2e_admin_env_containment.py, the file that is
+        # allowed to set the variables). With `fetch-depth: 0` the nine run.
+        #
+        # The three tiers each add to one `.coverage` data file (`--cov-append`
+        # on the second and third), and the `Coverage floor` step below reports
+        # and floors the union — the same number the old job measured, from a run
+        # that also carries the skip floors.
+        run: task test:backend:unit -- --cov=app --cov-report=
 
       - name: Contract tests
         # Enforce the plant-property contract gates that previously never ran in
@@ -248,7 +423,7 @@ jobs:
         # frontend/src/api/types.ts) and the de/en i18n completeness of those
         # enums (tests/contracts/test_plant_property_enum_sync.py). These guard
         # exactly the drift class the plant-property data-model plan addresses.
-        run: task test:backend:contracts
+        run: task test:backend:contracts -- --cov=app --cov-append --cov-report=
 
       - name: API tests
         # The router tier, which ran in no gate at all until 2026-08-05 although
@@ -273,10 +448,54 @@ jobs:
         # because without a server it self-skipped and would have reported green
         # having tested almost nothing. The Taskfile comment above these targets
         # carries the full tier map.
-        run: task test:backend:api
+        run: task test:backend:api -- --cov=app --cov-append --cov-report=
 
-  lock-staleness:
-    name: Lock staleness
+      - name: Coverage summary
+        # What `Coverage / Python Coverage` rendered into its job summary, from
+        # the union of the three tiers above (#1741).
+        run: |
+          {
+            echo "## Test coverage"
+            echo
+            coverage report --format=markdown
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coverage floor
+        # The floor the retired coverage job enforced (`fail-under: 60`); the
+        # measured total on #1726 was 83 %. Raising it is a separate decision on
+        # measured history, not a side effect of moving the measurement (#1741).
+        run: coverage report --fail-under=60
+
+  dependency-gates:
+    name: Lock, CVE and licence gates
+    # ONE JOB, THREE GATES — `lock-staleness`, `pip-audit` and `pip-licenses`
+    # until #1583.
+    #
+    # WHY. Measured 2026-09-19 over the last 300 pull-request runs: the three
+    # ran 18 s, 37 s and 12 s and each waited a MEDIAN OF 21–23 MINUTES for a
+    # runner slot. The concurrent-job allotment is account-wide across every
+    # repository of the account, so a *job* — not a CPU-second — is what is
+    # scarce here: 66 % of this repository's jobs finish under a minute and
+    # carry 7 % of its total job-seconds. Three jobs also paid the identical
+    # checkout + Python + uv preamble three times, and `uv sync --locked` twice.
+    #
+    # THE TRADE, STATED: what ran in parallel now runs in sequence, so the wall
+    # clock of the work itself goes from max(18, 37, 12) to their sum. That is a
+    # bad trade on an idle pool and an overwhelming win at a 21-minute queue. If
+    # the pool ever stops being the constraint, re-measure — do not re-split by
+    # reflex.
+    #
+    # WHY THESE THREE AND NOT THE ADVISORY LANES: all three are gates that are
+    # GREEN when the repository is healthy. A permanently-red lane must never be
+    # merged into a gate — it would carry its red into the gate's verdict and
+    # destroy the signal. `frontend.yml`'s `deadcode` is exactly that case and
+    # is deliberately left standing alone.
+    #
+    # Every step carries `if: ${{ !cancelled() }}`: a failing gate must not hide
+    # the two behind it, which is the one thing three separate jobs did give.
+    # The step names keep the old check names so `NFR-009` §4.1/§4.3 and
+    # `project/requirements/renovate-config-rework.md` R1/R7 still name
+    # something that exists.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -298,12 +517,13 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
           cache-dependency-glob: src/backend/uv.lock
-      - name: Check the lock against pyproject.toml
+      - name: Lock staleness — check the lock against pyproject.toml
+        if: ${{ !cancelled() }}
         # `task deps:check` is the first half of this gate: `uv lock --check`
         # fails when src/backend/uv.lock does not satisfy pyproject.toml,
         # without touching the file. The Taskfile is the only copy of the
@@ -319,7 +539,8 @@ jobs:
             echo "::error::src/backend/uv.lock is stale. Run 'task deps:compile' and commit the result." >&2
             exit 1
           fi
-      - name: Verify every artifact hash the lock records
+      - name: Lock staleness — verify every artifact hash the lock records
+        if: ${{ !cancelled() }}
         # The second half. `uv lock --check` compares the lock against
         # pyproject.toml and nothing else — measured with uv 0.12.12: a lock
         # with every hash line altered still passes it. The old gate diffed a
@@ -329,7 +550,8 @@ jobs:
         # image ships, and `--locked` refuses to re-resolve.
         run: uv sync --locked --no-install-project
 
-      - name: Falsify the hash claim this job just made
+      - name: Lock staleness — falsify the hash claim this job just made
+        if: ${{ !cancelled() }}
         # The step above verifies THIS lock. It cannot tell you whether the
         # verification works at all — a `uv sync` that stopped checking hashes
         # would keep exiting 0 here forever, and the first hash-tamper test
@@ -360,34 +582,15 @@ jobs:
         # (`task deps:verify`) cannot drift apart.
         run: task deps:verify
 
-  pip-audit:
-    name: Dependency CVE audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-          allow-prereleases: true
-
-      - name: Install uv
-        # One pin, read from `[tool.uv].required-version` — see the long note on
-        # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          version-file: src/backend/pyproject.toml
-          enable-cache: true
-          cache-dependency-glob: src/backend/uv.lock
-
-      - name: Install pip-audit
+      - name: Dependency CVE audit — install pip-audit
+        if: ${{ !cancelled() }}
         # Pinned. An unpinned scanner is a floating input: the same commit can
         # pass today and fail tomorrow because the tool changed, which makes a
         # red run unattributable (continuous-integration §C). uv is pinned the
         # same way, one step above, via the version file.
         run: python -m pip install 'pip-audit==2.10.1'
-      - name: Export the locks in the format pip-audit reads
+      - name: Dependency CVE audit — export the locks in the format pip-audit reads
+        if: ${{ !cancelled() }}
         # pip-audit has no uv.lock reader, so the lock is exported — versions and
         # hashes verbatim, the project itself omitted — into requirements files
         # that exist only for the length of this job. `--locked` refuses to
@@ -396,7 +599,8 @@ jobs:
           uv export --locked --no-emit-project --format requirements.txt -o /tmp/requirements.txt
           uv export --locked --no-emit-project --extra dev --format requirements.txt -o /tmp/requirements-dev.txt
 
-      - name: Audit pinned dependencies for known CVEs
+      - name: Dependency CVE audit — audit pinned dependencies for known CVEs
+        if: ${{ !cancelled() }}
         # Audits the exact committed lock that ships (NFR-009 §4.1). Runs on every
         # PR, every push to develop, and weekly via the schedule trigger above.
         # --strict fails (instead of silently skipping) if any package cannot be
@@ -405,38 +609,20 @@ jobs:
         # from PyPI, so the audit matches what the image ships. PR-blocking.
         run: pip-audit --strict --desc --no-deps --requirement /tmp/requirements.txt
 
-      - name: Audit dev-tool dependencies for known CVEs (weekly)
+      - name: Dependency CVE audit — audit dev-tool dependencies for known CVEs (weekly)
+        # `!cancelled()` composed with the step's own schedule gate — two `if:`
+        # keys on one step is a duplicate mapping key, not two conditions.
+        if: ${{ !cancelled() && github.event_name == 'schedule' }}
         # Dev tooling (pytest/mypy/moto/black/ruff and their transitive deps) is
         # never shipped but should still be scanned. This runs only on the weekly
         # schedule, so it never blocks a PR merge while still surfacing dev-tool
         # CVEs on the nightly/weekly signal (NFR-009 §4.1). No continue-on-error:
         # a scheduled run is not a PR check, so a real finding fails the scheduled
         # workflow (visible) without gating any pull request.
-        if: github.event_name == 'schedule'
         run: pip-audit --strict --desc --no-deps --requirement /tmp/requirements-dev.txt
 
-  pip-licenses:
-    name: License allowlist gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-          allow-prereleases: true
-
-      - name: Install uv
-        # One pin, read from `[tool.uv].required-version` — see the long note on
-        # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          version-file: src/backend/pyproject.toml
-          enable-cache: true
-          cache-dependency-glob: src/backend/uv.lock
-
-      - name: Install dependencies and pip-licenses
+      - name: License allowlist gate — install dependencies and pip-licenses
+        if: ${{ !cancelled() }}
         # The license scanner reads installed package metadata, so the pinned set
         # must be installed first (NFR-009 §4.3).
         run: |
@@ -444,7 +630,8 @@ jobs:
           uv pip install 'pip-licenses==5.5.5'
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Enforce license allowlist
+      - name: License allowlist gate — enforce license allowlist
+        if: ${{ !cancelled() }}
         # Fail the build on any dependency whose license is outside the allowlist
         # (NFR-009 §4.3). The allowlist enumerates the license strings actually
         # present in the current lock — all permissive or weak-copyleft (LGPL/MPL),
@@ -462,56 +649,13 @@ jobs:
         #                        the proprietary classifier is a known metadata artifact)
         #   * pyphen          — GPLv2+ / LGPLv2+ / MPL-1.1 tri-license, used under the
         #                        permissive MPL-1.1 / LGPL option (weasyprint hyphenation)
+        #
+        # 'Apache-2.0 AND BSD-2-Clause' (#2129) is prometheus-client's SPDX
+        # expression: Apache-2.0 for the client, BSD-2-Clause for the bundled
+        # `decorator` 4.0.10 (its NOTICE). Both terms are already on the list alone;
+        # the conjunction is listed because pip-licenses matches the whole string.
         run: |
           pip-licenses \
             --from=mixed \
             --ignore-packages python-dateutil uvloop qrcode pyphen \
-            --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'
-
-  coverage:
-    name: Coverage
-    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@3fccbb333146cd2a65902afd7394db870ae6a978 # v2.1.0
-    with:
-      python-version: '3.14'
-      working-directory: src/backend
-      # Same install as lint-test above, minus the action. `$GITHUB_PATH`
-      # persists across the steps of the reusable job, so the bare `pytest` and
-      # `coverage` it runs afterwards resolve to the synced project environment.
-      #
-      # This is the ONE place that still installs uv with pip, and it cannot be
-      # an `astral-sh/setup-uv` step: the steps of this job belong to
-      # `nolte/gh-plumbing`'s reusable workflow and a caller can only hand it a
-      # shell command. So the command READS the pin instead of repeating it —
-      # `[tool.uv].required-version` is already the exact specifier `==<version>`
-      # and is appended to the package name verbatim. No workflow file therefore
-      # carries a literal uv version any more — the absence guard
-      # tests/unit/guards/test_uv_pin_is_single.py asserts exactly that — and
-      # this lane stays on the same uv as every other one without a second
-      # literal to maintain. A uv mode for the reusable workflow is a gh-plumbing change
-      # (repository boundary) and deliberately out of scope here.
-      #
-      # Failure mode to expect: a typo in this expression breaks the COVERAGE
-      # lane, not the backend lane — visible, but in a different place.
-      #
-      # The `case` is the one thing this expression cannot read from the guard:
-      # appending the specifier verbatim is only correct while it IS an exact
-      # `==` pin. Loosened to a floor, `pip install "uv>=x.y.z"` resolves to the
-      # newest release of the day and this lane silently leaves the pinned
-      # toolchain — so it refuses instead. The same condition is a red test in
-      # tests/unit/guards/test_uv_pin_is_single.py and
-      # tests/unit/guards/test_lock_hash_verification.py; this is the third
-      # reader saying so at the point of use.
-      install-command: UV_SPEC="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["tool"]["uv"]["required-version"])')" && case "$UV_SPEC" in "=="*) ;; *) echo "::error::[tool.uv].required-version is $UV_SPEC, which is not an exact == pin, so this lane would install the newest uv of the day instead of the pinned one" >&2; exit 1;; esac && python -m pip install "uv$UV_SPEC" && uv sync --locked --extra dev && echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-      coverage-source: app
-      # This lane runs the WHOLE of testpaths (`tests`) and has no ArangoDB, so
-      # it must say out loud which tier it does not run. Before #1432 it did not
-      # have to: tests/integration/ self-skipped here and contributed nothing to
-      # the number anyway. Now a missing database is a failure whenever `CI` is
-      # set — correctly, for the gate — which would have turned this lane red for
-      # a reason that is not about coverage. The tier's own gate is the
-      # `Integration tests (ArangoDB)` job in `backend-guards.yml`, with a
-      # service container; the
-      # measured coverage is unchanged by this line, because skipped tests cover
-      # nothing either.
-      pytest-args: --ignore=tests/integration
-      fail-under: 60
+            --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 AND BSD-2-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'

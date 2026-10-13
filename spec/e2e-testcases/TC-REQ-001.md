@@ -146,7 +146,7 @@ version: "4.1"
 1. Nutzer gibt in das Suchfeld einen Begriff ein, der keiner Familie entspricht, z.B. "xyzNotExisting"
 
 **Expected Results**:
-- Tabelle zeigt die Meldung "Keine Ergebnisse für Ihre Suche gefunden" (data-testid="no-search-results")
+- Tabelle zeigt die Meldung "Keine Ergebnisse für deine Suche gefunden" (data-testid="no-search-results")
 - Kein Fehler-Banner erscheint
 
 **Postconditions**:
@@ -428,7 +428,7 @@ version: "4.1"
 2. Nutzer klickt auf einen Navigationslink (z.B. "Botanische Familien" in der Breadcrumb)
 
 **Expected Results**:
-- Browser-nativer Bestätigungsdialog erscheint: "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Browser-nativer Bestätigungsdialog erscheint: "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Bei Bestätigung: Navigation erfolgt, Änderungen werden verworfen
 - Bei Ablehnen: Nutzer bleibt auf der Detailseite
 
@@ -1604,7 +1604,7 @@ version: "4.1"
 2. Nutzer versucht, den Browser-Tab oder eine externe Seite zu öffnen
 
 **Expected Results**:
-- Browser-nativer Bestätigungsdialog erscheint: "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Browser-nativer Bestätigungsdialog erscheint: "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Bei Ablehnen: Nutzer bleibt auf der Seite
 
 **Postconditions**:

@@ -57,13 +57,13 @@ curl http://localhost:8090/modelinfo
 
 ### Step 2: Populate the Reference Index
 
-The reference index contains embedding vectors for all plant species from the master data. It is populated by a Celery task that fetches reference images from GBIF and Wikimedia Commons (CC0/CC-BY licences only), embeds them, and stores the vectors in pgvector. **Original images are not stored.**
+The reference index contains embedding vectors for all global plant species from the master data. Species a garden created itself are not indexed: the index is the same for every garden, and a match only names species the asking garden may see. It is populated by a Celery task that fetches reference images from GBIF and Wikimedia Commons (CC0/CC-BY licences only), embeds them, and stores the vectors in pgvector. **Original images are not stored.**
 
 !!! info "This step also populates the UI images in the species view"
     After the task completes, thumbnails appear in the **species list** and a full **reference image gallery** appears on each **species detail page**. Before the first acquisition run, both views show a placeholder notice. Licence attribution (CC-BY) is stored automatically in the metadata and displayed in the UI. For more information: [Reference Images in the Species View](../user-guide/plant-management.md#reference-images-in-the-species-view).
 
 ```bash
-# Start the Celery task for all species (one-time run; takes several hours):
+# Start the Celery task for all global species (one-time run; takes several hours):
 kubectl exec -it deploy/kamerplanter-backend -n default -- \
   celery -A app.tasks call \
   app.tasks.reference_image_tasks.acquire_all_reference_images_task
@@ -107,23 +107,29 @@ The response shows per species how many reference images were accepted and wheth
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/v1/admin/reference-images/acquire` | Start an acquisition run for all species |
-| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Start or repeat the acquisition run for a single species |
+| `POST` | `/api/v1/admin/reference-images/acquire` | Start an acquisition run for all global species |
+| `POST` | `/api/v1/admin/reference-images/acquire/{species_key}` | Start or repeat the acquisition run for a single global species (a garden's species: `404`) |
 | `GET` | `/api/v1/admin/reference-images/coverage` | Coverage report: identifiable species, species below threshold |
 
 All three endpoints require a valid admin token (`Authorization: Bearer <admin-token>`). They are accessible via the regular backend ingress — no separate port-forward is needed.
 
 ### Step 3: Enable the Local Path
 
-Set the environment variable in the backend:
+Set the environment variable **on both the backend AND the celery-worker**:
 
 ```bash
-# Backend env (values-dev.yaml) or environment variable:
+# Backend env AND celery-worker env (values-dev.yaml) or environment variable:
 INFERENCE_SERVICE_ENABLED=true
+INFERENCE_SERVICE_URL=http://kamerplanter-recognition:8000
 ```
 
 !!! danger "Only enable once the index is populated"
     If `INFERENCE_SERVICE_ENABLED=true` is set and the reference index is empty, the system falls back to Pl@ntNet — but **only if a Pl@ntNet key is configured and consent has been granted**. If neither is the case, identification returns no results.
+
+!!! warning "Both processes need the same configuration (GDPR erasure, internal reference: issue #1753)"
+    Users can contribute their own photos as reference images to the recognition base (see [Assigning the Photo to the New Plant](../user-guide/plant-identification.md#assigning-the-photo-to-the-new-plant)). The scheduled Art. 17 erasure of these contributed reference vectors runs **in the celery-worker**, not the backend. If `INFERENCE_SERVICE_ENABLED`/`INFERENCE_SERVICE_URL` is set only on the backend, the worker holds due erasures as a configuration error (`partially_completed`, no attempt spent), and a tenant deletion answers with HTTP 503. Once a contribution has been written, it is recorded permanently — switching the variable off after that first contribution therefore holds every future erasure until it is set again on both processes.
+
+    The same applies to contributed pest-recognition vectors (issue #1759): once a platform admin has promoted a user's pest photo into the recognition base, the celery-worker needs `PEST_DETECTION_ENABLED` **or** `INFERENCE_SERVICE_ENABLED` together with `INFERENCE_SERVICE_URL` to run the scheduled erasure — regardless of whether the promotion is still active. If both are missing on the worker, the same hold applies; deleting a single own pest photo additionally fails with HTTP 502 and the photo stays in place while the inference-service is unreachable.
 
 ---
 
@@ -174,6 +180,12 @@ controllers:
         env:
           INFERENCE_SERVICE_ENABLED: "true"
           INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
+  celery-worker:
+    containers:
+      main:
+        env:
+          INFERENCE_SERVICE_ENABLED: "true"
+          INFERENCE_SERVICE_URL: "http://kamerplanter-inference-service:8000"
 service:
   vectordb:
     enabled: true
@@ -188,6 +200,9 @@ networkpolicies:
   inference-service:
     enabled: true
 ```
+
+!!! warning "`INFERENCE_SERVICE_ENABLED`/`-URL` belongs on BOTH controllers"
+    The backend writes user contributions to the reference index; the celery-worker runs the scheduled Art. 17 erasure of those contributions (issue #1753) — both controllers therefore need the same value. If the `celery-worker` is missing this configuration, the worker holds due erasures as a configuration error, and a tenant deletion answers with HTTP 503 while contributions are already on the index. The same applies to promoted, contributed pest-recognition vectors (issue #1759) — `PEST_DETECTION_ENABLED` on both controllers satisfies this too.
 
 Resources and security context (chart defaults — do not override unless necessary):
 
@@ -208,7 +223,7 @@ In-cluster service hostnames (release name `kamerplanter`):
 
 1. Deploy the ArgoCD Application with the `valuesObject` fields shown above (without `INFERENCE_SERVICE_ENABLED: "true"`). Wait until `kamerplanter-vectordb` and `kamerplanter-inference-service` are `Ready`.
 2. Populate the reference index (identical to Step 2 in the development path above — the `kubectl exec` target is `deploy/kamerplanter-backend`).
-3. Add `INFERENCE_SERVICE_ENABLED: "true"` to the `valuesObject` and synchronise the Application.
+3. Add `INFERENCE_SERVICE_ENABLED: "true"` (and `INFERENCE_SERVICE_URL`) **under both `controllers.backend` and `controllers.celery-worker`** in the `valuesObject` and synchronise the Application.
 
 ### Resource Requirements
 
@@ -235,11 +250,11 @@ In-cluster service hostnames (release name `kamerplanter`):
 | `CONFIDENCE_AUTO_ACCEPT` | No | `0.85` | Confidence threshold for direct acceptance |
 | `CONFIDENCE_SHOW_RESULTS` | No | `0.10` | Minimum confidence to appear in the list |
 
-| Variable (Backend) | Required | Default | Description |
+| Variable (Backend AND Celery-Worker) | Required | Default | Description |
 |--------------------|:--------:|---------|-------------|
-| `INFERENCE_SERVICE_ENABLED` | No | `false` | Enable the local inference path |
-| `INFERENCE_SERVICE_URL` | No | `http://kamerplanter-recognition:8000` | Internal URL of the inference service |
-| `PLANTNET_API_KEY` | No | — | Pl@ntNet API key for fallback (optional) |
+| `INFERENCE_SERVICE_ENABLED` | No | `false` | Enable the local inference path. **Must be set identically on the backend and the celery-worker** — the worker runs the scheduled GDPR erasure of contributed reference vectors (issue #1753) and contributed pest-recognition vectors (issue #1759, `PEST_DETECTION_ENABLED` also satisfies this) and needs the same access as the backend that writes them. |
+| `INFERENCE_SERVICE_URL` | No | `http://kamerplanter-recognition:8000` | Internal URL of the inference service. Also set identically on both processes. |
+| `PLANTNET_API_KEY` | No | — | Pl@ntNet API key for fallback (optional, backend only) |
 
 ---
 
@@ -255,9 +270,16 @@ These endpoints are only reachable within the cluster and are not exposed via th
 | `POST` | `/reference` | Store embedding + provenance in pgvector |
 | `GET` | `/reference/{species_key}` | Retrieve the indexed references for a species |
 | `DELETE` | `/reference/{species_key}` | Delete references for a species (re-index) |
+| `POST` | `/reference/contributions/erase-by-contributor` | GDPR erasure (Art. 17): removes every reference vector contributed by the named user (`source = user_contributed`), optionally scoped to one tenant. Curated references are untouched. Called by the celery-worker. |
+| `POST` | `/reference/contributions/erase-by-tenant` | Tenant deletion: removes every reference vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
+| `POST` | `/pest/reference/contributions/erase` | GDPR erasure (Art. 17, issue #1759): removes the given contributed pest-recognition vectors (`source = user_contributed`) by their contribution keys — regardless of whether the contribution was promoted or demoted. Called by the celery-worker and when a single own pest photo is deleted. |
+| `POST` | `/pest/reference/contributions/erase-by-tenant` | Tenant deletion (issue #1759): removes every pest-recognition vector contributed by a tenant (`source = user_contributed`). Called by the backend during tenant deletion. |
+| `POST` | `/pest/reference/contributions/keys` | Orphan-prototype sweep (issue #1771): returns one page of the contribution keys held in the index (`source = user_contributed`), ascending, cursor in the body (`after`, `limit` 1–1000, default 1000) rather than the URL. Called by the celery-worker to find keys without a matching `pest_image_contributions` document — see [Sweep: Orphaned Pest-Recognition Prototypes](../guides/data-retention.md). |
 | `GET` | `/health` | Liveness probe |
 | `GET` | `/ready` | Readiness probe (model loaded?) |
 | `GET` | `/modelinfo` | Model name, dimensions, input size, licence, checksum |
+
+Like every non-probe endpoint, all four erasure endpoints require the shared `INTERNAL_SERVICE_TOKEN` (`Authorization: Bearer <token>`) — without a valid token they answer `401`. A blank key in the request body is rejected with `422` (the response names only the affected field, never the value).
 
 ---
 
@@ -289,6 +311,12 @@ These endpoints are only reachable within the cluster and are not exposed via th
 
 ??? question "How do I update the reference index for a single species?"
     Use the admin endpoint `POST /api/v1/admin/reference-images/acquire/{species_key}` — it triggers the `acquire_reference_images_task` Celery task for that species internally.
+
+??? question "An account or tenant deletion is stuck even though INFERENCE_SERVICE_ENABLED is set"
+    Check whether the variable is set identically on **both** processes: backend AND celery-worker. A deletion affected by contributed reference vectors stays open as a configuration error (`partially_completed`), or a tenant deletion answers with HTTP 503, as long as the celery-worker is missing the variable (issue #1753). The same applies to contributed pest-recognition vectors when the celery-worker is missing both `PEST_DETECTION_ENABLED` and `INFERENCE_SERVICE_ENABLED` (issue #1759). Once you add it, the deletion runs automatically on the next daily run.
+
+??? question "A pest-photo contribution deleted before issue #1766 still has a prototype in the index — how is it removed?"
+    A daily sweep (`pest_image.sweep_orphaned_prototypes`, 04:30 UTC) finds and deletes such orphaned prototypes automatically. Details, log events, and the manual trigger command: [Sweep: Orphaned Pest-Recognition Prototypes](../guides/data-retention.md).
 
 ---
 

@@ -1,0 +1,299 @@
+"""Doubles for the tenant deletion (#1769) — shaped like the real ones, refusing what they refuse.
+
+:class:`FakeTenantErasureRepository` mirrors ``ArangoTenantErasureRepository``:
+``create_with_key`` refuses a second record for the same key (the real insert
+fails on the primary key), ``claim_for_run`` applies the same filter as the AQL
+``UPDATE`` (never a completed record, never a fresh ``in_progress`` one that was
+already claimed), and ``update_fields`` merges like ``collection.update`` does.
+Values are round-tripped through the model, so a field the real record cannot
+hold is refused here too.
+
+:class:`RecordingTenantErasureExecutor` records the plan it was handed and calls
+``pseudonymize`` for each account key it is told to find, so a test sees the
+value the service's salt produces.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+from datetime import datetime
+from typing import Any
+from unittest.mock import MagicMock
+
+from app.common.enums import AdminScope, TenantRole
+from app.common.exceptions import DuplicateError
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
+from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
+from app.domain.models.membership import Membership
+from app.domain.models.tenant import Tenant
+from app.domain.models.tenant_erasure import (
+    TenantDeletionConfirmation,
+    TenantErasureOrigin,
+    TenantErasurePlan,
+    TenantErasureRecord,
+    TenantErasureReport,
+)
+from app.domain.models.user import User
+from app.domain.services.tenant_service import TenantService
+
+#: NFR-011 §4 wants >= 32 characters. Synthetic, test-only.
+SALT = "unit-tenant-erasure-salt-0123456789abcdef"
+
+#: The requester every deletion test that is *not* about authorisation uses: a
+#: federated account (no password to verify — bcrypt is slow and beside the
+#: point there) holding lead + management in every tenant it is asked about, and
+#: the platform-admin membership (#1791). The authorisation itself is pinned
+#: through the routes in ``tests/unit/api/test_tenant_delete_authorization.py``.
+AUTHORIZED_REQUESTER = User.model_validate(
+    {"_key": "requester-1", "email": "requester@example.org", "display_name": "Requester"}
+)
+
+
+def authorized(
+    slug: str = "t-1", *, origin: TenantErasureOrigin = "tenant_management", tenant_key: str | None = None
+) -> dict[str, Any]:
+    """Keyword arguments of an authorised ``delete_tenant`` call for the tenant slugged *slug*.
+
+    The federated requester confirms with the one-time code mailed to it (#1815),
+    issued here into the process-wide code tier every unwired ``TenantService``
+    verifies against (``default_step_up_verifier``) — the tier
+    ``POST /users/me/step-up-code`` writes to in an unwired deployment. The code is
+    bound to the tenant's key (#1884): *tenant_key*, or *slug* where the two are the
+    same string, as every caller here passes them.
+    """
+    from app.domain.services.step_up_service import default_step_up_verifier
+    from tests.support.step_up import AdmitEveryTarget
+
+    code, _expires_at = default_step_up_verifier(target_policy=AdmitEveryTarget()).issue_code(
+        AUTHORIZED_REQUESTER,
+        action="tenant_deletion",
+        target=tenant_key or slug,
+        authenticated_with_api_key=False,
+        client_ip="203.0.113.10",
+    )
+    return {
+        "requester": AUTHORIZED_REQUESTER,
+        "authenticated_with_api_key": False,
+        "confirmation": TenantDeletionConfirmation(confirm_slug=slug, step_up_code=code),
+        "origin": origin,
+        "client_ip": "203.0.113.10",
+    }
+
+
+def authorizing_membership_repo() -> MagicMock:
+    """A membership repo granting :data:`AUTHORIZED_REQUESTER` lead + management everywhere."""
+    repo = MagicMock()
+    repo.get_by_user_and_tenant.side_effect = lambda user_key, tenant_key: (
+        Membership(
+            user_key=user_key,
+            tenant_key=tenant_key,
+            role=TenantRole.LEAD,
+            admin_scopes=[AdminScope.MANAGEMENT],
+        )
+        if user_key == AUTHORIZED_REQUESTER.key
+        else None
+    )
+    return repo
+
+
+class FakeTenantErasureRepository(ITenantErasureRepository):
+    def __init__(self) -> None:
+        self.records: dict[str, dict[str, Any]] = {}
+
+    def _model(self, key: str) -> TenantErasureRecord:
+        return TenantErasureRecord.model_validate({**self.records[key], "_key": key})
+
+    def get(self, key: str) -> TenantErasureRecord | None:
+        return self._model(key) if key in self.records else None
+
+    def create_with_key(self, record: TenantErasureRecord, key: str) -> TenantErasureRecord:
+        if key in self.records:
+            raise DuplicateError("tenant_erasure_records", "_key", key)
+        self.records[key] = record.model_dump(mode="json", exclude={"key"})
+        return self._model(key)
+
+    def claim_for_run(self, key: str, *, now_iso: str, stale_before_iso: str) -> TenantErasureRecord | None:
+        doc = self.records.get(key)
+        if doc is None or doc["status"] == "completed":
+            return None
+        claimed_fresh = (
+            doc["status"] == "in_progress"
+            and doc.get("last_attempt_at") is not None
+            and doc.get("updated_at") is not None
+            and doc["updated_at"] > stale_before_iso
+        )
+        if claimed_fresh:
+            return None
+        doc.update(status="in_progress", last_attempt_at=now_iso, updated_at=now_iso)
+        return self._model(key)
+
+    def heartbeat(
+        self, key: str, *, claimed_at_iso: str, now_iso: str, parent_keys: dict[str, list[str]] | None = None
+    ) -> bool:
+        """The real conditional refresh: only the run whose claim stamp is still on the record."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "in_progress" or doc.get("last_attempt_at") != claimed_at_iso:
+            return False
+        doc["updated_at"] = now_iso
+        if parent_keys is not None:
+            doc["parent_keys"] = parent_keys
+        return True
+
+    def update_fields_while_claimed(
+        self, key: str, *, claimed_at_iso: str, fields: dict[str, Any]
+    ) -> TenantErasureRecord | None:
+        """The real conditional merge: only the run whose claim stamp is still on the record."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "in_progress" or doc.get("last_attempt_at") != claimed_at_iso:
+            return None
+        merged = {**doc, **fields}
+        TenantErasureRecord.model_validate({**merged, "_key": key})  # the real store holds only valid records
+        self.records[key] = merged
+        return self._model(key)
+
+    def delete_unclaimed(self, key: str) -> bool:
+        """The real conditional remove: only a record no run ever claimed."""
+        doc = self.records.get(key)
+        if (
+            doc is None
+            or doc["origin"] != "account_erasure"
+            or doc["status"] != "in_progress"
+            or doc.get("last_attempt_at") is not None
+            or doc.get("attempt_count")
+        ):
+            return False
+        del self.records[key]
+        return True
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> TenantErasureRecord | None:
+        merged = {**self.records[key], **fields}
+        TenantErasureRecord.model_validate({**merged, "_key": key})  # the real store holds only valid records
+        self.records[key] = merged
+        return self._model(key)
+
+    def delete_scheduled(self, key: str) -> bool:
+        """The real conditional remove: only a record still ``scheduled`` and never claimed (#2123)."""
+        doc = self.records.get(key)
+        if doc is None or doc["status"] != "scheduled" or doc.get("last_attempt_at") is not None:
+            return False
+        del self.records[key]
+        return True
+
+    def list_due(
+        self, *, stale_before_iso: str, scheduled_due_before_iso: str | None = None
+    ) -> list[TenantErasureRecord]:
+        def due(doc: dict[str, Any]) -> bool:
+            if doc["status"] == "scheduled":
+                scheduled_for = doc.get("scheduled_for")
+                return (
+                    scheduled_due_before_iso is not None
+                    and scheduled_for is not None
+                    and datetime.fromisoformat(scheduled_for) <= datetime.fromisoformat(scheduled_due_before_iso)
+                )
+            return doc["status"] == "partially_completed" or (
+                doc["status"] == "in_progress" and (doc.get("updated_at") or "") <= stale_before_iso
+            )
+
+        return [self._model(key) for key, doc in self.records.items() if due(doc)]
+
+
+class RecordingTenantErasureExecutor(ITenantErasureExecutor):
+    def __init__(
+        self,
+        *,
+        unreached: list[str] | None = None,
+        account_keys: list[str] | None = None,
+        raises: BaseException | None = None,
+        on_run: Callable[[], None] | None = None,
+    ) -> None:
+        self.plans: list[TenantErasurePlan] = []
+        self.pseudonyms: dict[str, str] = {}
+        self._unreached = unreached or []
+        self._account_keys = account_keys or []
+        self._raises = raises
+        self._on_run = on_run
+
+    def run_tenant_erasure(
+        self,
+        plan: TenantErasurePlan,
+        *,
+        pseudonymize: Callable[[str], str],
+        on_progress: Callable[[dict[str, list[str]]], None] | None = None,
+    ) -> TenantErasureReport:
+        if self._on_run is not None:
+            self._on_run()
+        self.plans.append(plan)
+        if self._raises is not None:
+            raise self._raises
+        self.pseudonyms = {key: pseudonymize(key) for key in self._account_keys}
+        return TenantErasureReport(tenant_document_removed=True, unreached=list(self._unreached))
+
+
+def tenant(key: str = "t-1", *, is_platform: bool = False, tenant_type: str = "organization") -> Tenant:
+    return Tenant.model_validate(
+        {
+            "_key": key,
+            "name": f"Garden {key}",
+            "slug": key,
+            "tenant_type": tenant_type,
+            "owner_user_key": "owner-1",
+            "is_platform": is_platform,
+        }
+    )
+
+
+def tenant_service_for_deletion(
+    *,
+    existing: Tenant | None = None,
+    executor: ITenantErasureExecutor | None = None,
+    record_repo: ITenantErasureRepository | None = None,
+    salt: str = SALT,
+    **overrides: Any,
+) -> TenantService:
+    """A ``TenantService`` wired for deletion the way ``get_tenant_service`` wires it."""
+    tenant_repo = MagicMock()
+    tenant_repo.get_by_key.return_value = existing if existing is not None else tenant()
+    kwargs: dict[str, Any] = {
+        "tenant_repo": tenant_repo,
+        "membership_repo": authorizing_membership_repo(),
+        "invitation_repo": MagicMock(),
+        "assignment_repo": MagicMock(),
+        "tenant_engine": MagicMock(),
+        "membership_engine": MagicMock(),
+        "invitation_engine": MagicMock(),
+        "tenant_erasure_executor": executor if executor is not None else RecordingTenantErasureExecutor(),
+        "tenant_erasure_repo": record_repo if record_repo is not None else FakeTenantErasureRepository(),
+        "tombstone_salt": salt,
+        "observation_repo": MagicMock(**{"delete_by_tenant.return_value": 0}),
+        # The immediate erasure of #1792 — what these deletion tests drive. The grace of #2123
+        # (``RETENTION_TENANT_ERASURE_GRACE_DAYS``) is driven in test_tenant_erasure_grace.py.
+        "tenant_erasure_grace_days": 0,
+    }
+    kwargs.update(overrides)
+    service = TenantService(**kwargs)
+    # ``delete_tenant`` hands the run to a Celery task (#1792); no unit test has a
+    # broker, so the dispatch is recorded and the test runs the task body itself
+    # (``delete_and_run``). The real dispatch is pinned in test_tenant_erasure_async.py.
+    dispatched: list[str] = []
+    service._dispatch_tenant_erasure = dispatched.append  # type: ignore[method-assign]
+    service.dispatched = dispatched  # type: ignore[attr-defined]
+    return service
+
+
+def delete_and_run(
+    service: TenantService, tenant_key: str, *, now: datetime | None = None, **request: Any
+) -> TenantErasureRecord:
+    """A deletion as the product runs it: the request accepts it, the worker erases (#1792).
+
+    ``delete_tenant`` records and freezes and returns at once; the task body
+    (:meth:`TenantService.run_tenant_erasure_task`) then claims and runs. Returns
+    the record as the worker left it.
+    """
+    accepted = service.delete_tenant(tenant_key, now=now, **request)
+    assert accepted.status in {"in_progress", "partially_completed"}  # the 202 answer, never "completed"
+    record_key = TenantErasureEngine.record_key(tenant_key)
+    service.run_tenant_erasure_task(record_key, now)
+    finished = service._require_tenant_erasure_repo().get(record_key)
+    assert finished is not None
+    return finished

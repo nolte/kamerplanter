@@ -900,15 +900,17 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 | HTTP-Status | Bedeutung |
 |-------------|----------|
 | `403` | Aktive Mandanten-Rolle unterhalb **grower** (z. B. **viewer**) |
+| `403` | Einwilligung `reference_contribution` fehlt oder wurde widerrufen (`CONSENT_REQUIRED`) |
 | `404` | `species_key` verweist auf keine bekannte Art |
 | `409` | Selbst-gehostete Erkennung ist nicht aktiviert (`INFERENCE_SERVICE_ENABLED=false`) |
+| `409` | Im Light-Modus ist der Beitrag abgeschaltet (REQ-034 §4.1) |
 | `413` | Bild überschreitet `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
 | `415` | `Content-Type` ist weder `image/jpeg` noch `image/png` |
 | `422` | Bild lässt sich nicht dekodieren (beschädigt oder kein gültiges Bildformat) |
 | `429` | Tages-Kontingent für Beiträge (`REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY`) ausgeschöpft |
 
 !!! note "Sicherheitsmodell (Quarantäne, Provenienz, Dedup)"
-    Jeder Beitrag wird mit `source="user_contributed"`, `is_active=false` sowie beitragendem Nutzer und Mandant als Provenienz gespeichert — er beeinflusst die Erkennung anderer Mandanten daher nicht, bevor ein Platform-Admin ihn geprüft hat. Ein erneuter Beitrag desselben Fotos (SHA-256-Hash des normalisierten Bilds) aktualisiert den bestehenden Eintrag statt einen weiteren anzulegen. Das Originalbild selbst wird nie persistiert — nur das Embedding.
+    Jeder Beitrag wird mit `source="user_contributed"`, `is_active=false` sowie beitragendem Nutzer und Mandant als Provenienz gespeichert — er beeinflusst die Erkennung anderer Mandanten daher nicht, bevor ein Platform-Admin ihn geprüft hat. Der Dedup-Schlüssel (`source_record_id`) wird aus Mandant, beitragendem Nutzer und dem SHA-256-Hash des normalisierten Bilds gebildet: Reichst du dasselbe Foto erneut ein, aktualisiert das deinen eigenen Eintrag statt einen weiteren anzulegen. Trägt eine andere Person dasselbe Bild bei — auch mandantenübergreifend —, bekommt sie seit Issue #1770 eine eigene Zeile; davor führte ein reiner Bild-Hash als Schlüssel dazu, dass ein solcher Beitrag auf der Zeile der zuerst beitragenden Person landete, wodurch deren Löschung auch den fremden Beitrag entfernte und die Löschung der zweiten Person ins Leere lief. Das Originalbild selbst wird nie persistiert — nur das Embedding.
 
 ### Siehe auch
 
@@ -926,9 +928,12 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 
 Alle Endpunkte antworten mit `404 Not Found`, wenn der Plattformbetreiber KI-Funktionen instanzweit deaktiviert hat (`AI_FEATURES_ENABLED=false`) — die KI-API existiert dann faktisch nicht. Details zur dreistufigen Freischaltung: [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md#so-ist-der-ki-assistent-aufgebaut-drei-stufen-freischaltung).
 
-### Öffentliche Wissensfrage (Light-Modus-fähig)
+### Wissensfrage im Light-Modus
 
-Kein Login nötig, IP-ratenbegrenzt (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, Standard 10/Minute). Es wird **kein** Mandanten- oder Nutzerkontext an die Wissensbasis übergeben.
+!!! warning "Nur im Light-Modus"
+    `/api/v1/public/ai/ask` und `/api/v1/public/ai/health` gibt es nur bei `KAMERPLANTER_MODE=light`. Im Full-Modus antworten beide Pfade mit `404`; die Wissensfrage ist dort `POST /api/v1/t/{tenant_slug}/ai/knowledge/ask` (siehe [Mandantenbezogene Endpunkte](#mandantenbezogene-endpunkte)).
+
+Die Routen verlangen einen angemeldeten Principal (`get_current_user`); im Light-Modus ist das ohne Login immer der System-User, die Light-Oberfläche braucht also keine Anmeldung. IP-ratenbegrenzt (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, Standard 10/Minute). Es wird **kein** Mandanten- oder Pflanzenkontext an die Wissensbasis übergeben.
 
 ```
 POST /api/v1/public/ai/ask
@@ -973,7 +978,7 @@ GET /api/v1/public/ai/health
 
 ### Mandantenbezogene Endpunkte
 
-Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erfordern ein gültiges JWT-Token sowie eine aktive Mandanten-Mitgliedschaft. Eine rollenspezifische Einschränkung (Beobachter/Grower/Admin) ist in dieser Version noch **nicht** implementiert — jedes aktive Mitglied darf alle Endpunkte aufrufen.
+Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erfordern ein gültiges JWT-Token sowie eine aktive Mandanten-Mitgliedschaft. Lesen (`GET`) und das Anlegen oder Löschen eigener Unterhaltungen darf jedes Mitglied; Tipps erneuern, verwerfen und als umgesetzt markieren, `/explain` und das Senden einer Nachricht verlangen mindestens die Rolle Gärtner (`grower`).
 
 | Methode | Pfad | Beschreibung |
 |---------|------|-------------|
@@ -989,6 +994,7 @@ Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erforder
 | `POST` | `/ai/conversations/{conversation_key}/messages` | Nachricht senden — Antwort als SSE-Stream |
 | `DELETE` | `/ai/conversations/{conversation_key}` | Konversation sofort löschen (DSGVO Art. 17) |
 | `GET` | `/ai/providers` | Verfügbare Provider auflisten (nur lesend) |
+| `POST` | `/ai/knowledge/ask` | Freie Wissensfrage (ab Gärtner); Einwilligung `ai_knowledge_question`, mit Pflanzenwerten im `context` zusätzlich `ai_tenant_data_access`. Antwort `{ answer, question_type, model, usage, sources[], provider_type, uses_cloud_provider }` — die Cloud-Kennzeichnung stammt vom System-Standard-Provider der Plattform, weil der Knowledge Service mit seinem eigenen Modell antwortet. Ist dieses Modell ein Cloud-Modell, verlangt die Route zusätzlich `ai_cloud_processing` und `ai_allow_cloud_providers` des Gartens (sonst `403 AI_DISABLED_FOR_TENANT`); der Provider des Gartens zählt hier nicht |
 
 !!! info "Nur über API / Betreiber-Konfiguration: Tenant-Freischaltung"
     Jeder dieser Endpunkte erfordert zusätzlich `tenant.settings.ai_features_enabled=true` — dafür gibt es aktuell weder eine Oberfläche noch einen eigenen `GET`/`PUT`-Endpunkt; das Feld lässt sich nur direkt am Mandanten-Dokument setzen. Ohne diese Freischaltung antworten alle mandantenbezogenen Endpunkte mit `403` und `{ "detail": "ai.disabled_for_tenant" }` (Fehlercode `AI_DISABLED_FOR_TENANT`).
@@ -1010,7 +1016,7 @@ Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erforder
 |-------------|-----------|----------|
 | `404` | — | KI-Funktionen instanzweit deaktiviert (Stufe 1) |
 | `403` | `AI_DISABLED_FOR_TENANT` | KI-Funktionen für diesen Mandanten deaktiviert (Stufe 2) |
-| `403` | `CONSENT_REQUIRED` | Erforderliche Einwilligung fehlt (Stufe 3, `consent_purpose` im Body: `ai_tenant_data_access` oder `ai_cloud_processing`) |
+| `403` | `CONSENT_REQUIRED` | Erforderliche Einwilligung fehlt (Stufe 3; der fehlende Zweck steht maschinenlesbar in `details[0].purpose`: `ai_knowledge_question`, `ai_tenant_data_access` oder `ai_cloud_processing`) |
 
 ### Globale Endpunkte (Platform-Admin)
 
@@ -1449,3 +1455,74 @@ Erfordert ein gültiges JWT-Token und eine aktive Mandanten-Mitgliedschaft; jede
 - [Wachstumsphasen — Benutzerhandbuch: Detailansicht einer Phasendefinition](../user-guide/growth-phases.md#phasendefinition-detailansicht)
 - [Stammdaten: Pflanzenarten — Benutzerhandbuch](../user-guide/plant-management.md)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Pläne und Kontingente eines Mandanten <!-- REQ-056 §7 / Issue #2142 --> {#plaene-und-kontingente}
+
+Jeder Mandant verweist mit `plan_key` auf genau einen Plan. Ein Plan setzt je Kontingent eine Grenze oder lässt sie leer (`null` = die Server-Einstellung). Der geseedete Plan `standard` lässt alles leer und ist der Plan jedes Mandanten, dem nichts anderes zugeordnet ist. Die Antworten `GET /api/v1/tenants/{slug}` und `GET /api/v1/admin/platform/tenants` tragen zusätzlich das Feld `plan_key`.
+
+| Kontingent (`dimension`) | Server-Einstellung bei `null` | `0` bedeutet | Ablehnung |
+|---|---|---|---|
+| `members` | `TENANT_MAX_MEMBERS_CEILING` (nie darüber) | — (mindestens `1`) | `422 MEMBER_LIMIT_REACHED` |
+| `service_accounts` | `TENANT_MAX_SERVICE_ACCOUNTS` | — (mindestens `1`) | `422 SERVICE_ACCOUNT_LIMIT_REACHED` |
+| `storage_mb` | `STORAGE_TENANT_QUOTA_MB` | unbegrenzt | `409 STORAGE_QUOTA_EXCEEDED` |
+| `photos_per_instance` | `STORAGE_MAX_PHOTOS_PER_INSTANCE` | unbegrenzt | `409 PHOTO_QUOTA_EXCEEDED` |
+| `ai_calls_per_user_day` | `AI_BUDGET_USER_CALLS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
+| `ai_calls_per_tenant_day` | `AI_BUDGET_TENANT_CALLS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
+| `ai_tokens_per_tenant_day` | `AI_BUDGET_TENANT_TOKENS_PER_DAY` | Budget aus | `429 AI_BUDGET_EXCEEDED` |
+
+!!! warning "`0` heißt unbegrenzt, nicht „nichts erlaubt“"
+    Bei `storage_mb` und `photos_per_instance` hebt `0` die Grenze ganz auf, bei den drei KI-Budgets schaltet `0` das Budget ab — auch dann gibt es keine Grenze. Ein Plan kann diese Dimensionen also nicht auf „gar nichts“ setzen. Die Plan-Antwort listet solche Dimensionen im Feld `unlimited`, und das Sicherheitsprotokoll markiert eine Änderung auf `0` als `to_unlimited`.
+
+Jedes Kontingent hat eine Obergrenze (z. B. `storage_mb` höchstens 10 000 000, `ai_tokens_per_tenant_day` höchstens 10¹²); darüber antwortet die API mit `422`. Wirksam für Mitglieder ist `min(max_members, plan.members ?? Obergrenze, TENANT_MAX_MEMBERS_CEILING)`. Der Plattform-Mandant folgt immer den Server-Einstellungen und nimmt keinen Plan an (`422`). Fehlt das Plan-Dokument eines Mandanten oder ist es beschädigt, gilt der Standardplan und danach die Server-Einstellung, nie „unbegrenzt“; ein beschädigter Plan fehlt außerdem in der Plan-Liste.
+
+### Plan und Verbrauch eines Mandanten lesen
+
+`GET /api/v1/tenants/{slug}/entitlements` — jedes Mitglied. `ai_calls_per_user_day.used` ist der eigene Verbrauch; `service_accounts` und `ai_tokens_per_tenant_day` erscheinen nur für Leitung. `limit: null` = unbegrenzt, `used: null` = je Pflanze gezählt oder gerade nicht lesbar.
+
+```json
+{
+  "plan": {"key": "standard", "name": "Standard"},
+  "limits": [
+    {"dimension": "members", "limit": 50, "used": 12},
+    {"dimension": "storage_mb", "limit": 2048, "used": 731},
+    {"dimension": "photos_per_instance", "limit": 50, "used": null},
+    {"dimension": "ai_calls_per_user_day", "limit": 50, "used": 3},
+    {"dimension": "ai_calls_per_tenant_day", "limit": 500, "used": 41}
+  ]
+}
+```
+
+### Pläne verwalten (Plattform-Admin)
+
+| Methode | Pfad | Wirkung |
+|---|---|---|
+| `GET` | `/api/v1/admin/platform/plans` | alle Pläne mit `tenant_count` |
+| `POST` | `/api/v1/admin/platform/plans` | Plan anlegen (`201`; `409` bei vergebenem `key`; `422` außerhalb der Wertebereiche oder `members` über der Obergrenze) |
+| `PATCH` | `/api/v1/admin/platform/plans/{plan_key}` | Name, Beschreibung, einzelne Kontingente ändern (`name: null` ist `422`); `is_default: true` macht ihn zum Standard für neue Mandanten |
+| `DELETE` | `/api/v1/admin/platform/plans/{plan_key}` | löschen (`204`); `409 RESOURCE_IN_USE`, solange ein Mandant ihn nutzt oder er der Standard ist |
+| `PATCH` | `/api/v1/admin/platform/tenants/{key}` mit `plan_key` | Plan zuordnen (`422` bei unbekanntem Plan, Mandant in Löschung oder Plattform-Mandant; `409 WRITE_CONFLICT`, wenn der Plan im selben Moment gelöscht wird) |
+| `GET` | `/api/v1/admin/platform/tenants/{key}` | Mandant mit `entitlements` über alle Kontingente |
+
+`key` folgt `^[a-z][a-z0-9_-]{1,39}$` und ist unveränderlich. Keine der Aktionen verlangt eine Passwort-Bestätigung; jede schreibt einen Eintrag ins Sicherheitsprotokoll (`plan_created`, `plan_changed` mit `changed_fields` und — für Kontingente — `limit_changes` mit altem und neuem Wert, `plan_deleted`, `tenant_plan_changed` mit `old_plan_key` und `plan_key`). Im Light-Modus gibt es diese Routen nicht.
+
+### Mandanten exportieren und importieren <!-- REQ-056 §8 / Issue #2138 --> {#mandanten-export-import}
+
+Ablauf, Inhalt des Archivs und Ablehnungen beschreibt das Runbook [Mandanten exportieren und importieren](../deployment/tenant-export-import.md). Alle Routen gibt es nur im Full-Modus; keine nimmt einen API-Schlüssel oder einen Service Account an (`403`).
+
+| Methode | Pfad | Wer | Wirkung |
+|---|---|---|---|
+| `POST` | `/api/v1/tenants/{slug}/exports` | Leitung ∧ Verwaltung + Bestätigung (`tenant_export`) | Export anfordern (`202`); in `active` und `pending_deletion`. `409 EXPORT_ALREADY_RUNNING`, solange einer läuft; `429` ab dem `TENANT_EXPORTS_PER_DAY`+1-ten in 24 h; unbekannter Kurzname und fehlende Berechtigung dieselbe `403` |
+| `GET` | `/api/v1/tenants/{slug}/exports` | Leitung ∧ Verwaltung | eigene Exporte, neueste zuerst (paginiert) |
+| `GET` | `/api/v1/tenants/{slug}/exports/{export_key}/download` | wer ihn angefordert hat | Archiv als ZIP; `404` nach Ablauf (`RETENTION_EXPORT_FILE_RETENTION_HOURS`) |
+| `POST` | `/api/v1/admin/platform/tenants/{key}/exports` | Plattform-Admin + Bestätigung | Export in jedem Zustand außer `deleted` |
+| `GET` | `/api/v1/admin/platform/tenants/{key}/exports` (`…/{export_key}/download`) | Plattform-Admin | eigene Exporte bzw. Archiv |
+| `POST` | `/api/v1/admin/platform/tenant-imports` | Plattform-Admin + Bestätigung (`tenant_import`, Ziel `archive:<die ersten 32 Hex-Zeichen des SHA-256 der Datei>`, geprüft bevor die Datei gelesen wird) | Archiv als `multipart/form-data` (`archive`, optional `member_mapping` als JSON `{"<alter user_key>": {"email": "…", "role": "lead\|grower\|viewer", "admin_scopes": […]}}`, `plan_key`, Bestätigungsfelder); `202`, `verified` sagt, ob diese Installation das Archiv signiert hat. Ablehnung vor jedem Schreiben mit `422` und den Codes `IMPORT_FORMAT_UNSUPPORTED`, `IMPORT_CHECKSUM_MISMATCH`, `IMPORT_UNDECLARED_REFERENCE`, `IMPORT_MISSING_CATALOG_ENTRIES` (Liste in `details`), `IMPORT_MEMBER_NOT_FOUND`; `413` über `TENANT_IMPORT_MAX_UPLOAD_MB` |
+| `GET` | `/api/v1/admin/platform/tenant-imports/{import_key}` | Plattform-Admin | Zustand und Bericht (`report`: Anzahl je Collection), `target_tenant_key`, `verified` |
+
+Die Bestätigung trägt der Body wie beim Löschen (`current_password`, `step_up_code` oder `step_up_token`). Ein Export-Antrag (`status`: `pending` → `running` → `completed` / `failed` mit `failure_reason` `too_large`, `internal_error`, `storage_unavailable`, `tenant_not_exportable` → `expired`) nennt Größe (`size_bytes`), Zeilen je Archivteil (`counts`) und `expires_at`. Sicherheitsprotokoll: `tenant_export_requested`, `tenant_export_downloaded` (jeder Download), `tenant_import_requested`, `tenant_imported`. Ein importierter Mandant steht bis zum letzten geschriebenen Datensatz im Zustand `importing` und ist für niemanden erreichbar.
+
+### Organisationen je Konto
+
+`POST /api/v1/tenants` lehnt ab, sobald das Konto `TENANT_MAX_ORGANIZATIONS_PER_USER` Organisationen besitzt (gezählt in jedem Zustand außer `deleted`): `422 ORGANIZATION_LIMIT_REACHED` (bisher `422 VALIDATION_ERROR`). Das ist eine Grenze des Kontos, kein Plan-Kontingent.

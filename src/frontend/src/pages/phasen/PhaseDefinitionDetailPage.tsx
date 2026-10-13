@@ -15,6 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LoopIcon from '@mui/icons-material/Loop';
+import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import PageTitle from '@/components/layout/PageTitle';
 import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -159,7 +160,14 @@ export default function PhaseDefinitionDetailPage() {
     reload();
   };
 
+  // #1501 — a phase definition is INSTALLATION-WIDE (no tenant_key on the model),
+  // so the backend gates edit and delete on `require_platform_admin`. The three
+  // conditions that were already here answer "may this ROW be deleted"; this one
+  // answers "may this CALLER delete", and both have to hold.
+  const canCurate = useCanEditInstallationCatalogue();
+
   const canDelete =
+    canCurate &&
     definition != null &&
     !definition.is_system &&
     definition.usage_count === 0;
@@ -351,16 +359,20 @@ export default function PhaseDefinitionDetailPage() {
         }
         action={
           <PageHeaderActions
-            primary={{
-              label: t('pages.phaseSequences.editDefinition'),
-              icon: <EditIcon />,
-              variant: 'outlined',
-              disabled: definition.is_system,
-              testId: 'edit-definition-button',
-              onClick: () => setEditOpen(true),
-            }}
+            primary={
+              canCurate
+                ? {
+                    label: t('pages.phaseSequences.editDefinition'),
+                    icon: <EditIcon />,
+                    variant: 'outlined',
+                    disabled: definition.is_system,
+                    testId: 'edit-definition-button',
+                    onClick: () => setEditOpen(true),
+                  }
+                : undefined
+            }
             secondary={[
-              {
+              canCurate ? {
                 label: t('common.delete'),
                 icon: <DeleteIcon />,
                 variant: 'outlined',
@@ -375,7 +387,7 @@ export default function PhaseDefinitionDetailPage() {
                     : t('common.delete'),
                 testId: 'delete-definition-button',
                 onClick: () => setDeleteOpen(true),
-              },
+              } : null,
             ]}
           />
         }

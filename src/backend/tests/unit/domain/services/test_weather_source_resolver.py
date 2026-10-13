@@ -276,3 +276,35 @@ class TestResolveDaily:
 
         assert captured["base_url"] == "https://weather.internal/v1"
         assert captured["timeout_s"] == 15.0
+
+
+class TestKeyMismatchFallsThrough:
+    """#1859 review: a per-site key encrypted with another FERNET_KEY skips that source only."""
+
+    @pytest.mark.asyncio
+    async def test_a_key_mismatch_moves_on_to_the_next_source(self, registry_guard):
+        from app.domain.engines.encryption_engine import SecretKeyMismatchError
+
+        class OwmStub(_StubAdapter):
+            source_name = "openweathermap"
+            result = [_forecast("openweathermap")]
+
+            def __init__(self, api_key=None, **kwargs):
+                raise AssertionError("must not be built with an undecryptable key")
+
+        WeatherAdapterRegistry.register(OwmStub)
+        _register("open-meteo", result=[_forecast("open-meteo")])
+        encryption = MagicMock()
+        encryption.decrypt.side_effect = SecretKeyMismatchError("mismatch")
+        resolver = WeatherSourceResolver(encryption, lambda: None)
+        cfg = WeatherSourceConfig(
+            site_key="s1",
+            sources=[
+                _entry("openweathermap", config=WeatherSourcePublicConfig(api_key_ref="cipher")),
+                _entry("open-meteo"),
+            ],
+        )
+
+        records = await resolver.resolve_daily(_site(), cfg)
+
+        assert [r.source for r in records] == ["open-meteo"]

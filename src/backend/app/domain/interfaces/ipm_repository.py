@@ -21,6 +21,11 @@ class IIpmRepository(ABC):
     def get_all_pests(self, offset: int = 0, limit: int = 50) -> tuple[list[Pest], int]: ...
 
     @abstractmethod
+    def list_pests_window(self, offset: int = 0, limit: int = 50) -> list[Pest]:
+        """The page of :meth:`get_all_pests` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_pest_by_key(self, key: PestKey) -> Pest | None: ...
 
     @abstractmethod
@@ -41,6 +46,11 @@ class IIpmRepository(ABC):
     # ── Disease CRUD ──
     @abstractmethod
     def get_all_diseases(self, offset: int = 0, limit: int = 50) -> tuple[list[Disease], int]: ...
+
+    @abstractmethod
+    def list_diseases_window(self, offset: int = 0, limit: int = 50) -> list[Disease]:
+        """The page of :meth:`get_all_diseases` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_disease_by_key(self, key: DiseaseKey) -> Disease | None: ...
@@ -65,6 +75,11 @@ class IIpmRepository(ABC):
     def get_all_treatments(self, offset: int = 0, limit: int = 50) -> tuple[list[Treatment], int]: ...
 
     @abstractmethod
+    def list_treatments_window(self, offset: int = 0, limit: int = 50) -> list[Treatment]:
+        """The page of :meth:`get_all_treatments` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_treatment_by_key(self, key: TreatmentKey) -> Treatment | None: ...
 
     @abstractmethod
@@ -79,6 +94,26 @@ class IIpmRepository(ABC):
     @abstractmethod
     def delete_treatment(self, key: TreatmentKey) -> bool: ...
 
+    # ── Plant ownership (the anchor every plant-scoped read hangs on) ──
+    @abstractmethod
+    def verify_plant_ownership(self, plant_key: str, tenant_key: str) -> None:
+        """Fail closed (404) unless ``plant_key`` names a plant of ``tenant_key``.
+
+        The anchor is ``PlantInstance.tenant_key``, not the observation records:
+        an ``Inspection`` or ``TreatmentApplication`` is only ever created after
+        the write path has verified the same ownership (#517), so the plant is
+        the one document that decides. Unlike ``Location`` and ``Slot`` (#1397),
+        every ``PlantInstance`` carries a real ``tenant_key``, so hanging the
+        predicate here is not a proxy for something else.
+
+        Raises:
+            ValueError: ``tenant_key`` is empty — an unscoped caller cannot be
+                ownership-verified and must not be waved through.
+            NotFoundError: the plant is absent or belongs to another tenant.
+                404, never 403, so a foreign key's existence is not disclosed.
+        """
+        ...
+
     # ── Inspection CRUD ──
     @abstractmethod
     def create_inspection(self, inspection: Inspection) -> Inspection: ...
@@ -90,6 +125,11 @@ class IIpmRepository(ABC):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[Inspection], int]: ...
+
+    @abstractmethod
+    def get_inspections_for_plant_window(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[Inspection]:
+        """The page of :meth:`get_inspections_for_plant` without its count query (MT-035, #2131)."""
+        ...
 
     @abstractmethod
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: PestKey) -> list[str]:
@@ -114,6 +154,13 @@ class IIpmRepository(ABC):
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[TreatmentApplication], int]: ...
+
+    @abstractmethod
+    def get_applications_for_plant_window(
+        self, plant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[TreatmentApplication]:
+        """The page of :meth:`get_applications_for_plant` without its count query (MT-035, #2131)."""
+        ...
 
     # ── Edges ──
     @abstractmethod

@@ -17,6 +17,7 @@
 *.p12
 *.pfx
 secrets/
+.e2e-secrets/
 
 # Python caches / virtualenvs / build artifacts
 **/__pycache__

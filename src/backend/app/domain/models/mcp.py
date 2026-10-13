@@ -42,6 +42,14 @@ class McpAuditLog(BaseModel):
     status: McpToolStatus
     error_class: str | None = None
     created_at: datetime | None = None
+    #: Correlation references (#2130, MT-034) — each a reference, never the datum:
+    #: ``log_api_key`` of the authenticating key, the R-03-truncated client
+    #: address, the request id of the HTTP call, and the record keys the typed
+    #: tool input named (``*_key``/``*_keys`` fields of key shape; never free text).
+    api_key_ref: str | None = None
+    client_ip_ref: str | None = None
+    request_id: str | None = None
+    entity_keys: dict[str, list[str]] | None = None
 
     model_config = {"populate_by_name": True, "use_enum_values": True}
 

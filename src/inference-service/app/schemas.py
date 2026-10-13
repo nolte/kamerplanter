@@ -55,6 +55,32 @@ class DeleteReferenceResponse(BaseModel):
     deleted: int
 
 
+class EraseContributorContributionsRequest(BaseModel):
+    """Body of ``POST /reference/contributions/erase-by-contributor`` (#1753).
+
+    The keys travel in the body, never in the path: a path lands in the access
+    log of every hop (uvicorn here, httpx in the backend). Both fields are
+    optional *types* so that a missing or blank value is refused by the handler
+    with a message that does not echo the body.
+    """
+
+    contributed_by: str | None = None
+    tenant_key: str | None = None
+
+
+class EraseTenantContributionsRequest(BaseModel):
+    """Body of ``POST /reference/contributions/erase-by-tenant`` (#1753)."""
+
+    tenant_key: str | None = None
+
+
+class DeleteContributionsResponse(BaseModel):
+    """Result of erasing user-contributed reference embeddings (REQ-025 AK-OS-05)."""
+
+    status: str
+    deleted: int
+
+
 class ReferenceImageItem(BaseModel):
     """Provenance of one stored reference image (no embedding).
 
@@ -193,6 +219,42 @@ class PestCoverageResponse(BaseModel):
     """Few-shot index coverage across classes."""
 
     classes: list[PestCoverageItem]
+
+
+class ErasePestContributionsRequest(BaseModel):
+    """Body of ``POST /pest/reference/contributions/erase`` (#1759).
+
+    The keys travel in the body, never in the path (#1700). An optional *type*
+    so that a missing list is refused by the handler without echoing the body.
+    """
+
+    contribution_keys: list[str] | None = None
+
+
+class ErasePestTenantContributionsRequest(BaseModel):
+    """Body of ``POST /pest/reference/contributions/erase-by-tenant`` (#1759)."""
+
+    tenant_key: str | None = None
+
+
+class ListPestContributionKeysRequest(BaseModel):
+    """Body of ``POST /pest/reference/contributions/keys`` (#1771).
+
+    POST and not GET: the cursor is a contribution key, and a query string is
+    written to the access log (#1700). Optional types so that a malformed body
+    is refused by the handler without echoing it.
+    """
+
+    after: str | None = None
+    limit: int | None = None
+
+
+class PestContributionKeysResponse(BaseModel):
+    """One page of the contribution keys that have a prototype in ``pest_embeddings``."""
+
+    contribution_keys: list[str]
+    #: Cursor for the next page (the last key of this one), ``None`` on the last page.
+    next_after: str | None = None
 
 
 class PestSetActiveRequest(BaseModel):

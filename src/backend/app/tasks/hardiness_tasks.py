@@ -17,6 +17,7 @@ import structlog
 
 from app.common.enums import WEATHER_RELEVANT_SITE_TYPES
 from app.common.exceptions import ValidationError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -29,13 +30,16 @@ def refresh_site_hardiness_zones(self) -> dict:  # noqa: ANN001 — Celery bound
     if not settings.hardiness_zone_refresh_enabled:
         return {"status": "skipped", "reason": "hardiness_zone_refresh_disabled"}
 
-    from app.common.dependencies import get_db, get_hardiness_zone_service, get_site_repo
+    from app.common.dependencies import get_db, get_hardiness_zone_service, get_site_repo, get_tenant_repo
     from app.data_access.arango import collections as col
     from app.domain.models.site import Site
+    from app.tasks.tenant_gate import ActiveTenants
 
     service = get_hardiness_zone_service()
     site_repo = get_site_repo()
     db = get_db()
+    # REQ-056 §5.2 — the zone of a site whose tenant is not ``active`` is not rewritten.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # A freshly created site defaults to ``hardiness_zone_source == "manual"`` with
     # ``hardiness_zone == null`` (no override yet), so a plain ``!= 'manual'`` filter
@@ -60,14 +64,17 @@ def refresh_site_hardiness_zones(self) -> dict:  # noqa: ANN001 — Celery bound
         if not site.key:
             skipped += 1
             continue
+        if site.tenant_key and not tenant_is_active(site.tenant_key):
+            skipped += 1
+            continue
         try:
-            service.resolve_for_site(site.key, site.tenant_key)
+            service.resolve_for_site(site.key, tenant_key=site.tenant_key)
             resolved += 1
         except ValidationError:
             # No usable climate normals yet — retried on the next beat.
             skipped += 1
         except Exception as exc:  # noqa: BLE001 — per-site isolation: one failure never aborts the run
-            logger.warning("hardiness_zone_site_failed", site_key=site.key, error=str(exc))
+            logger.warning("hardiness_zone_site_failed", site_key=site.key, error=loggable_error(exc))
             errors.append({"site_key": site.key, "error": str(exc)})
             continue
 

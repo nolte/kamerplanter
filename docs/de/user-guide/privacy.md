@@ -1,7 +1,7 @@
 # Datenschutz & DSGVO
 
 !!! note "Teilweise verfügbar"
-    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ist jetzt ebenfalls verfügbar — erreichbar über das Benutzermenü (Klick auf dein Profilbild oder deine Initialen) > **Datenschutz**, nur im Voll-Modus (nicht im anonymen [Light-Modus](light-mode.md)). Sie deckt die wichtigsten Klickstrecken ab: Datenexport anfordern, Konto löschen, Verarbeitungseinschränkung anlegen, Einwilligungen einsehen. Einzelne Teilschritte (z. B. Einwilligung per Klick widerrufen, E-Mail-Adresse ändern) sind aktuell nur über die API möglich — an der jeweiligen Stelle dieser Seite markiert (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). <!-- REQ-025 -->
+    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ist jetzt ebenfalls verfügbar — erreichbar über das Benutzermenü (Klick auf dein Profilbild oder deine Initialen) > **Datenschutz**, nur im Voll-Modus (nicht im anonymen [Light-Modus](light-mode.md)). Sie deckt die wichtigsten Klickstrecken ab: Datenexport anfordern, Konto löschen, E-Mail-Adresse ändern (in den Kontoeinstellungen), Verarbeitungseinschränkung anlegen, Einwilligungen einsehen und widerrufen. Einzelne Teilschritte (z. B. eine Einschränkung wieder aufheben) sind aktuell nur über die API möglich — an der jeweiligen Stelle dieser Seite markiert (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). <!-- REQ-025 -->
 
 Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle über deine persönlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder löschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen erreichbar.
 
@@ -9,7 +9,7 @@ Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Priva
 
 ## Für technische Nutzer / Self-Hoster {#fuer-technische-nutzer-self-hoster}
 
-Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten beschriebenen DSGVO-Funktionen stehen als REST-Endpunkte unter `/api/v1/privacy/` zur Verfügung. Ein Teil davon ist zusätzlich direkt in der grafischen Oberfläche nutzbar (siehe die jeweiligen Abschnitte weiter unten); einige Endpunkte — E-Mail-Änderung, Widerspruch, Einwilligung per Klick erteilen/widerrufen, Einschränkung aufheben, Export-Status/-Download — sind aktuell ausschließlich über die API erreichbar. Eine angemeldete Sitzung (Bearer-Token) ist erforderlich, außer bei `GET /api/v1/privacy/policy`.
+Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten beschriebenen DSGVO-Funktionen stehen als REST-Endpunkte unter `/api/v1/privacy/` zur Verfügung. Ein Teil davon ist zusätzlich direkt in der grafischen Oberfläche nutzbar (siehe die jeweiligen Abschnitte weiter unten); einige Endpunkte — Widerspruch, Einwilligung per Klick erteilen/widerrufen, Einschränkung aufheben, Export-Status/-Download — sind aktuell ausschließlich über die API erreichbar. Eine angemeldete Sitzung (Bearer-Token) ist erforderlich, außer bei `GET /api/v1/privacy/policy` und den beiden E-Mail-Änderungs-Endpunkten, die per Token bestätigen (`confirm`, `revert`).
 
 !!! info "Nur über API / Betreiber-Konfiguration"
     Am einfachsten lassen sich die Endpunkte über die interaktive API-Dokumentation unter `/docs` (OpenAPI/Swagger) ausprobieren — dort können Anfragen direkt im Browser ausgeführt werden. Alternativ per `curl`, z.B. für den Datenexport:
@@ -23,9 +23,10 @@ Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten b
 | `POST /api/v1/privacy/export` | Datenexport anfordern (Art. 15/20) |
 | `GET /api/v1/privacy/export/{export_key}` | Export-Status abfragen |
 | `GET /api/v1/privacy/export/{export_key}/download` | Export herunterladen |
-| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) |
-| `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen |
-| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) |
+| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) — Step-up-Body `{password}`, `{step_up_code}` bzw. `{step_up_token}`, siehe unten |
+| `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen — Body `{token}`, kein Login nötig |
+| `POST /api/v1/privacy/email-change/revert` | Eine bestätigte E-Mail-Änderung rückgängig machen — Body `{token}`, öffentlich, gedrosselt, nur innerhalb des Rückgängig-Fensters (siehe unten) |
+| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) — Body `{confirm_email, password?}`, siehe unten |
 | `GET /api/v1/privacy/erasure/{erasure_key}` | Löschstatus abfragen |
 | `POST /api/v1/privacy/restrict` | Verarbeitung einschränken (Art. 18) |
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Einschränkung aufheben |
@@ -66,29 +67,78 @@ Der Export läuft danach asynchron im Hintergrund (dauert je nach Datenmenge 1�
 !!! info "Nur über API: Status prüfen & Datei herunterladen"
     Den Fortschritt einer laufenden Export-Anfrage abzufragen und die fertige Datei herunterzuladen ist in der Oberfläche noch nicht verdrahtet — dafür aktuell nur über die API: `GET /api/v1/privacy/export/{export_key}` liefert den Status, `GET /api/v1/privacy/export/{export_key}/download` liefert die Download-Metadaten (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
-Der Export enthält alle Daten, die dem System über dich bekannt sind:
-- Profildaten (Name, E-Mail, Einstellungen)
-- Alle angelegten Pflanzen, Standorte, Aufgaben und Ernten
-- Pflegeerinnerungen und Bestätigungshistorie
-- Sensordaten (wenn du welche hast)
-- Einwilligungshistorie
+Der Export enthält die Daten, die Kamerplanter dir als Person zuordnet:
+
+- dein Konto: Profil, Anmeldeverfahren, Sitzungen, API-Schlüssel (ohne den geheimen Schlüssel selbst), persönliche Einstellungen, Einrichtungsstand, Favoriten
+- deine Mitgliedschaften in Gärten, Einladungen und deinen persönlichen Garten
+- deine Datenschutz-Vorgänge: Einwilligungen, Einschränkungen, Lösch-, Export- und E-Mail-Änderungsanfragen
+- was du erfasst hast: Aufgaben und Kommentare, Tagebucheinträge, Ernten und Qualitätsbewertungen, Inspektionen und Behandlungen, Pflanzenbestimmungen und Diagnosen, Schädlingserkennungen, Anhänge und beigetragene Referenzbilder, Importe
+- deine Gespräche mit dem KI-Assistenten, ausgeblendete Tipps und die zugehörigen Protokolle
+- Benachrichtigungen und deren Einstellungen, Kalender-Feeds, Wetterquellen und manuelle Eingriffe in Geräte
+- **dein persönlicher Garten**: Standorte mit ihren GPS-Koordinaten, Beete und Stellplätze, Pflanzen, Pflanzdurchläufe, alle Aufgaben, das Tagebuch und die Angaben zu Fotos und Dateien (ohne die Dateien selbst) — auch Einträge, die andere Mitglieder in deinem persönlichen Garten angelegt haben, aber ohne deren Kontokennungen. <!-- Issue #2135 -->
+- **Messwerte und Protokolle deines persönlichen Gartens**: Tanks mit ihren Messungen, Befüllungen und Wartungen, Gieß- und Düngeprotokolle, deine Sensoren und ihre Messwerte — die einzelnen Werte der letzten 90 Tage, Stundenmittel der letzten 2 Jahre und Tagesmittel der letzten 5 Jahre. Hat ein Abschnitt mehr als 100.000 Messwerte, enthält er die neuesten und nennt die Zahl der ausgelassenen älteren; die Stunden- und Tagesmittel decken denselben Sensor über den längeren Zeitraum ab. Messwerte, die die Home-Assistant-Anbindung vor dem 4. Oktober 2026 gespeichert hat, kommen mit, solange der Sensor noch in deinem Garten existiert. Notizen und Zusatzangaben, die eingeladene Mitglieder an diesen Einträgen hinterlassen haben, stehen unverändert darin — du siehst sie in der App ohnehin; wer sie geschrieben hat, nennt der Export nicht. <!-- Issue #2165 -->
+
+Aus einer **Organisation** (Gemeinschaftsgarten) gehören Pflanzen, Standorte und Sensordaten der Gruppe, nicht einer einzelnen Person. Sie sind deshalb nicht im persönlichen Export enthalten — nur deine Mitgliedschaft und das, was du selbst erfasst hast. Die Standort-Zuweisungen hängen an deiner Mitgliedschaft; welche Standorte dir zugewiesen sind, kann dir die Leitung deines Gartens zeigen.
 
 !!! tip "Datenportabilität"
     Die JSON-Export-Datei entspricht DSGVO Art. 20 (Datenportabilität). Du kannst sie nutzen, um deine Daten in ein anderes System zu übertragen.
 
 ---
 
-## E-Mail-Adresse ändern (Art. 16 DSGVO)
+## E-Mail-Adresse ändern (Art. 16 DSGVO) {#e-mail-adresse-andern-art-16-dsgvo}
 
 Du hast das Recht, deine Daten berichtigen zu lassen.
 
-!!! info "Nur über API: E-Mail-Adresse ändern"
-    Die Kontoeinstellungen zeigen deine E-Mail-Adresse aktuell nur schreibgeschützt an — ändern lässt sie sich bislang ausschließlich über die API: `POST /api/v1/privacy/email-change` initiiert die Änderung und sendet einen **Verifikationslink an die neue Adresse**, `POST /api/v1/privacy/email-change/confirm` bestätigt sie per Token (kein Login nötig). Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
+### Ablauf der Änderung
 
-Die neue E-Mail ist nach der Bestätigung aktiv — alle aktiven Sitzungen werden beendet.
+1. In den Kontoeinstellungen zum Tab **Profil** navigieren und im Abschnitt **E-Mail-Adresse ändern** die neue Adresse eintragen
+2. Auf **Änderung anfordern** klicken und dich im Dialog bestätigen — mit deinem aktuellen Passwort, sofern dein Konto eines hat, sonst über eine frische Anmeldung beim verknüpften Anbieter oder, nur bei ausschließlich GitHub/Apple, über den per E-Mail zugeschickten Code
+3. Die Oberfläche bestätigt, dass ein Bestätigungslink an die neue Adresse geschickt wurde
+4. Den Link in der Mail an der **neuen** Adresse öffnen und dort auf **Neue Adresse bestätigen** klicken
+
+Details zum Formular findest du unter [Konto & Anmeldung — E-Mail-Adresse ändern](account.md#e-mail-adresse-andern).
+
+Wie bei der Kontolöschung verlangt die Anfrage einen Step-up: dein aktuelles Passwort, sofern dein Konto eines hat — sonst eine frische Anmeldung beim verknüpften Anbieter, oder, nur wenn du dich ausschließlich über GitHub/Apple anmeldest, der Bestätigungscode (siehe [API-Dokumentation](../api/authentication.md#erneut-anmelden-zur-bestatigung-oidc)). Deine **aktuelle** E-Mail-Adresse erhält bereits bei der Anfrage eine Benachrichtigung, dass eine Änderung angestoßen wurde.
+
+Die neue Adresse ist erst nach dem expliziten Klick auf **Neue Adresse bestätigen** aktiv — das bloße Öffnen der Mail bestätigt nichts. Danach ist sie deine Anmeldeadresse, und alle aktiven Sitzungen werden beendet.
 
 !!! note "Sicherheitshinweis"
-    Nach der Bestätigung der neuen E-Mail werden alle offenen Sitzungen (Browser, App) beendet. Du musst dich neu anmelden. Deine alte E-Mail erhält eine Informations-Mail über die Änderung.
+    Nach der Bestätigung der neuen E-Mail werden alle offenen Sitzungen (Browser, App) beendet. Du musst dich neu anmelden. Deine alte E-Mail erhält eine Informations-Mail über die Änderung — mit dem Rückgängig-Link aus dem nächsten Abschnitt.
+
+!!! warning "Ein Passwort-Reset oder eine Passwortänderung bricht eine offene Änderung ab"
+    Setzt du dein Passwort zurück, änderst du es in den Kontoeinstellungen, oder meldest du dich überall ab, wird eine noch nicht bestätigte E-Mail-Änderung automatisch verworfen — der Link in der Verifikations-Mail funktioniert danach nicht mehr. Das schützt dich, falls jemand anderes in deinem Namen eine Änderung angestoßen hat.
+
+!!! info "Auch über die API möglich"
+    Dieselbe Änderung lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/email-change` (Step-up-Body) und `POST /api/v1/privacy/email-change/confirm` (`{token}`, kein Login nötig). Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
+
+### Änderung rückgängig machen
+
+War die Änderung nicht von dir, oder möchtest du sie zurücknehmen: Deine **vorherige** Adresse erhält nach der Bestätigung eine Mail mit einem Rückgängig-Link. Er ist **7 Tage** gültig (Standardwert, vom Betreiber über `RETENTION_EMAIL_CHANGE_REVERT_DAYS` konfigurierbar) und **einmalig** nutzbar.
+
+Beim Öffnen des Links zeigt die Seite, was passiert, und verlangt einen expliziten Klick auf **Bisherige Adresse wiederherstellen** — auch hier bestätigt das bloße Öffnen der Mail nichts. Danach:
+
+- Deine vorherige Adresse ist wieder deine Anmeldeadresse — sofern in der Zwischenzeit kein anderes Konto sie übernommen hat
+- Alle Sitzungen des Kontos werden abgemeldet, auch auf fremden Geräten
+- Ein Passwort-Reset-Link, der an die neue (jetzt verworfene) Adresse verschickt wurde, wird ungültig
+- Eine noch offene E-Mail-Änderung wird ebenfalls widerrufen
+- Anmeldeanbieter wie Google, GitHub oder Apple, die **seit der Anfrage der Änderung** neu mit deinem Konto verknüpft wurden, werden wieder getrennt — dein lokales Passwort bleibt davon unberührt
+- API-Schlüssel, die **seit der Anfrage der Änderung** angelegt wurden, werden widerrufen — ältere API-Schlüssel bleiben aktiv
+- Wurde die Änderung inzwischen erneut durchgeführt und danach bestätigt, wird deren eigener Rückgängig-Link ungültig — ein späterer Rückgängig-Vorgang kann diese Wiederherstellung nicht mehr überschreiben
+- Die Adresse, die das Konto durch diese Wiederherstellung gerade wieder verlässt, erhält eine Mail mit festem Text darüber
+
+!!! danger "Setze danach dein Passwort zurück"
+    Ist die Änderung nicht von dir ausgegangen, kennt womöglich jemand anderes dein Passwort. Setze es nach der Wiederherstellung über **Passwort vergessen?** zurück (siehe [Passwort vergessen und zurücksetzen](account.md#passwort-vergessen-und-zurucksetzen)).
+
+!!! warning "Ältere API-Schlüssel prüfen"
+    Nur API-Schlüssel, die seit der Anfrage der E-Mail-Änderung angelegt wurden, werden automatisch widerrufen (siehe oben). Ältere, bereits vorher bestehende Schlüssel bleiben aktiv. Wurde dein Konto kompromittiert, prüfe sie im Tab **API-Schlüssel** der Kontoeinstellungen und widerrufe unbekannte Schlüssel manuell (siehe [API-Dokumentation](../api/authentication.md)).
+
+!!! warning "Restrisiko: Wer die vorherige Adresse mitlesen kann"
+    Der Rückgängig-Link beweist nur den Zugriff auf die vorherige Adresse — nicht zwingend deine Identität. Wer diese Adresse innerhalb der 7 Tage mitlesen kann, kann das Konto damit zurückholen; die dann aktuelle (neue) Adresse wird darüber informiert.
+
+Nach Ablauf des Rückgängig-Fensters funktioniert der Link nicht mehr — die vorherige Adresse wird dann aus dem Änderungs-Datensatz entfernt (siehe [Datenaufbewahrung — Rückgängig-Fenster](../guides/data-retention.md#ruckgangig-fenster-einer-bestatigten-e-mail-anderung-r-07a)). Übernimmt in der Zwischenzeit ein anderes Konto die vorherige Adresse, meldet die Seite das (`422`) statt die Wiederherstellung durchzuführen. Ist das Konto inzwischen geschlossen und zur Löschung vorgemerkt, meldet die Seite das ebenfalls (Fehler, kein Erfolg) — der Link selbst bleibt gültig und unverbraucht; wende dich in diesem Fall an den Betreiber der Instanz.
+
+!!! info "Auch über die API möglich"
+    `POST /api/v1/privacy/email-change/revert` mit `{token}` — öffentlich, gedrosselt, `401` bei ungültigem/bereits verwendetem/abgelaufenem Token, `422` wenn die vorherige Adresse inzwischen einem anderen Konto gehört, `409` (`ACCOUNT_BEING_ERASED`) wenn das Konto geschlossen und zur Löschung vorgemerkt ist — der Token bleibt in diesem Fall unverbraucht. Details siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster).
 
 ---
 
@@ -116,23 +166,32 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | Zweck | Typ | Widerrufbar |
 |-------|-----|:-----------:|
 | **Grundfunktionen** (Pflanzenverwaltung, Erinnerungen) | Pflicht | Nein |
-| **Fehler-Tracking (Sentry)** | Optional | Ja |
-| **HaveIBeenPwned Passwort-Check** | Optional | Ja |
-| **Externe Stammdatenanreicherung** (GBIF, Perenual) | Optional | Ja |
+| **Fehlerberichte meinem Konto zuordnen** (Sentry) | Optional | Ja |
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
-| **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
+| **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos, `reference_contribution`) | Optional | Ja |
+| **Foto-Beitrag zur Schädlingserkennung** (freigegebene Schädlingsfotos, `pest_reference_contribution`) | Optional | Ja |
+| **KI-Wissensfrage an die Wissensbasis** (`ai_knowledge_question`) | Optional | Ja |
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
 | **Tagebuch-Einträge zur KI-Analyse freigeben** (`diary_ai_analysis`) | Optional | Ja |
+
+!!! info "Was die Fehlerbericht-Zuordnung bewirkt"
+    Hat der Betreiber Fehler-Tracking eingeschaltet und tritt bei einer deiner Anfragen ein Fehler auf, geht ein Fehlerbericht an den Tracker — ohne Anfrage-Inhalte, ohne IP-Adresse und ohne den aufgerufenen Pfad. Mit deiner Einwilligung trägt er zusätzlich ein Pseudonym deines Kontos und deines Gartens, nie Name oder E-Mail. So lässt sich ein Fehler, der dich betrifft, gezielt nachverfolgen. Widerrufst du, gilt das ab deiner nächsten Anfrage.
+
+**Fehlerberichte aus dem Browser** fragt Kamerplanter getrennt davon ab: Hat der Betreiber Fehler-Tracking eingeschaltet, erscheint beim ersten Besuch unten ein Hinweis mit **Alle akzeptieren**, **Nur Notwendige** und **Einstellungen**. Erst wenn du der Fehleranalyse zustimmst, meldet dein Browser Abstürze an den Tracker — ohne Formularinhalte, Cookies oder E-Mail-Adresse. Die Entscheidung gilt für diesen Browser. Ändern kannst du sie im Tab **Einwilligungen** mit dem Schalter **Fehleranalyse erlauben**; sie wirkt sofort, ohne Neuladen. Im Light-Modus erscheint der Hinweis nicht, und dein Browser meldet keine Fehler.
+
+Eine Passwort-Prüfung gegen bekannte Datenlecks und eine Einwilligung für die externe Stammdatenanreicherung gibt es nicht mehr in der Liste: Die Passwort-Prüfung existiert nicht, und die Anreicherung von Arten-Stammdaten (GBIF, Perenual) überträgt nur Artnamen, keine Daten über dich. Hattest du eine der beiden erteilt, bleibt der Eintrag in deinem Datenexport sichtbar und wird mit deinem Konto gelöscht.
 
 ### Einwilligung widerrufen
 
 Der Tab **Einwilligungen** im Datenschutz-Bereich zeigt eine Übersicht aller Verarbeitungszwecke mit deinem aktuellen Status (**Erteilt** / **Nicht erteilt**) und, bei Pflicht-Einwilligungen, der Kennzeichnung **Pflicht**.
 
-!!! info "Nur über API: Erteilen und Widerrufen per Klick"
-    Der Tab ist aktuell **nur lesend** — einen Schalter zum direkten Erteilen oder Widerrufen einer Einwilligung gibt es in der Oberfläche noch nicht. Bis dahin funktioniert das nur über die API: `POST /api/v1/privacy/consents` erteilt eine Einwilligung, `DELETE /api/v1/privacy/consents/{purpose}` widerruft sie mit Zeitstempel, ab sofort wirksam. `GET /api/v1/privacy/consents` liefert dieselben Daten, die auch der Tab anzeigt (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
+Bei jeder erteilten optionalen Einwilligung steht die Schaltfläche **Widerrufen**. Ein Klick widerruft sie sofort; der Status wechselt auf **Nicht erteilt**. Pflicht-Einwilligungen haben keine solche Schaltfläche.
+
+!!! info "Erteilen geschieht dort, wo du die Funktion nutzt"
+    Im Tab selbst erteilst du keine Einwilligung. Das passiert an der Stelle, an der die Funktion sie braucht: beim ersten Foto der [Pflanzenerkennung](plant-identification.md), bei der ersten Frage auf der Seite [KI-Assistent](ai-assistant.md) oder mit dem Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen). Für Einwilligungen ohne eine solche Stelle bleibt die API: `POST /api/v1/privacy/consents` erteilt, `DELETE /api/v1/privacy/consents/{purpose}` widerruft mit Zeitstempel. `GET /api/v1/privacy/consents` liefert dieselben Daten, die auch der Tab anzeigt (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
 !!! warning "Auswirkungen eines Widerrufs"
     Wenn du die Einwilligung für externe Stammdatenanreicherung widerrufst, werden keine neuen Daten mehr von GBIF oder Perenual abgerufen. Bestehende angereicherte Daten bleiben erhalten.
@@ -142,7 +201,7 @@ Der Tab **Einwilligungen** im Datenschutz-Bereich zeigt eine Übersicht aller Ve
 Die [Pflanzenerkennung per Foto](plant-identification.md) sendet dein Bild zur Analyse an Pl@ntNet (CIRAD/INRIA, Frankreich/EU). Die Einwilligung ist erforderlich, weil das Foto die Kamerplanter-Instanz kurzzeitig verlässt.
 
 !!! note "Einwilligungs-Verhalten je Modus"
-    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten) und bleibt über Browser und Geräte hinweg erhalten. Der Einwilligungen-Tab der Datenschutz-Oberfläche zeigt den aktuellen Status an; widerrufen lässt sie sich aktuell nur über die API: `DELETE /api/v1/privacy/consents/plant_identification` (siehe [Einwilligung widerrufen](#einwilligung-widerrufen)).
+    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten) und bleibt über Browser und Geräte hinweg erhalten. Der Einwilligungen-Tab der Datenschutz-Oberfläche zeigt den aktuellen Status an; dort widerrufst du sie mit **Widerrufen** (siehe [Einwilligung widerrufen](#einwilligung-widerrufen)).
 
     **Light-Modus:** Das Consent-Subsystem steht im [Light-Modus](light-mode.md) nicht zur Verfügung. Die Einwilligung wird stattdessen **clientseitig im Browser** (localStorage) eingeholt und gespeichert. Der Einwilligungs-Dialog erscheint beim ersten Upload in der jeweiligen Browser-Sitzung. Dieselben Transparenzinformationen (Foto geht an Pl@ntNet/Frankreich, EXIF-Daten werden entfernt, keine dauerhafte Speicherung) werden in beiden Modi angezeigt.
 
@@ -168,9 +227,31 @@ Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordi
 
 Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je nach Betreiber-Konfiguration — entweder an eine self-hosted Erkennung (keine Einwilligung nötig) oder an den Cloud-Dienst Kindwise plant.health. Diese Einwilligung ist nur erforderlich, wenn der Cloud-Adapter aktiv ist. Wie bei der Pflanzenidentifikation wird das Foto vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert.
 
+### Foto-Beitrag zur Pflanzenerkennung (reference_contribution)
+
+Der Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen) ist diese Einwilligung: Schaltest du ihn ein und speicherst, erteilt Kamerplanter sie, bevor das Foto beigetragen wird. Ein Zahlenabdruck (Embedding) des Fotos kommt nach Prüfung durch die Administration in den gemeinsamen Erkennungsindex der Installation; das Foto selbst wird nicht gespeichert und verlässt die Installation nicht. Widerrufen kannst du sie hier im Tab **Einwilligungen**. Lässt sie sich nicht speichern, legt Kamerplanter die Pflanze nicht an und zeigt einen Fehler. Im Light-Modus erscheint der Schalter nicht. <!-- #2174 -->
+
+### Foto-Beitrag zur Schädlingserkennung (pest_reference_contribution)
+
+Ein Schädlingsfoto, das du auf der [Schädlings-Detailseite](pest-detail.md) beiträgst, bleibt zunächst privat in deinem Garten. Gibt eine Administratorin oder ein Administrator es für alle sichtbar frei, kann es zusätzlich als Referenz in den gemeinsamen Schädlings-Erkennungsindex der Installation einfließen — **aber nur mit dieser Einwilligung**. Gespeichert werden dann ein Zahlenabdruck (Embedding) des Fotos und seine Herkunft (welcher Beitrag, welcher Garten); das Foto selbst verlässt die Installation nicht. Ohne Einwilligung bleibt die Freigabe in der Galerie bestehen, das Foto fließt aber nicht in die Erkennung ein. Im Light-Modus wird nie indexiert.
+
+Diese Einwilligung ist ein eigener Zweck und keine Erweiterung von „Foto-Beitrag zur Pflanzenerkennung“ (`reference_contribution`): Wer früher Referenzfotos seiner Pflanzen freigegeben hat, hat damit nicht dem Schädlingsindex zugestimmt und muss hierfür neu einwilligen. Eine eigene Stelle zum Erteilen gibt es in der Oberfläche noch nicht; erteilen kannst du sie über `POST /api/v1/privacy/consents` mit `purpose: pest_reference_contribution`, widerrufen im Tab **Einwilligungen**.
+
+!!! note "Widerruf"
+    Der Widerruf wirkt ab der nächsten Freigabe: Danach fließt kein weiteres deiner Schädlingsfotos in den Index. Einen schon erzeugten Zahlenabdruck entfernt der Widerruf nicht — das tut das Löschen deines Beitrags oder deines Kontos.
+
+### KI-Wissensfrage an die Wissensbasis (ai_knowledge_question)
+
+Stellst du im [KI-Assistenten](ai-assistant.md) in deinem Garten eine frei formulierte Wissensfrage, geht dein Text — deinem Konto zugeordnet — an die Wissensbasis und das dort angebundene Sprachmodell. Dafür ist diese Einwilligung nötig. Übermittelt wird der Text, den du selbst eingibst. Pflanzenwerte (Art, Phase, Substrat, EC/pH) gehen nur mit, wenn du sie selbst zur Frage angibst — dann ist zusätzlich die Einwilligung „KI-Zugriff auf deine Pflanzendaten“ (unten) nötig. Im Light-Modus gibt es keine Einwilligungen; die Wissensfrage funktioniert dort ohne.
+
+Diese Einwilligung ist ein eigener Zweck und keine Erweiterung von `ai_tenant_data_access`: Wer früher „KI-Zugriff auf deine Pflanzendaten“ erteilt hat, hat damit nicht der Wissensfrage zugestimmt.
+
+!!! note "Widerruf"
+    Nach einem Widerruf lehnt Kamerplanter deine nächste Wissensfrage ab, bevor sie die Instanz verlässt. Tipp-Karten, „Warum?"-Erklärungen und der Chat hängen nicht an dieser Einwilligung.
+
 ### KI-Zugriff auf deine Pflanzendaten (ai_tenant_data_access)
 
-Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese Einwilligung. Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages und den „Warum?"-Erklärungen — ist diese Einwilligung erforderlich.
+Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages, den „Warum?"-Erklärungen und bei einer Wissensfrage, zu der du selbst Pflanzenwerte angibst — ist diese Einwilligung erforderlich. Für die Wissensfrage ohne Pflanzenwerte reicht `ai_knowledge_question` (oben).
 
 Übermittelt werden ausschließlich Stammwerte: wissenschaftlicher Pflanzenname, aktuelle Phase, Substrat, EC-/pH-Messwerte sowie aggregierte Kennzahlen (z. B. „3 überfällige Aufgaben"). Dein Name, deine E-Mail-Adresse und Freitext aus deinem Pflanztagebuch werden **nie** übermittelt.
 
@@ -180,6 +261,8 @@ Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese E
 ### KI-Verarbeitung über Cloud-Provider (ai_cloud_processing)
 
 Zusätzlich zur vorherigen Einwilligung erforderlich, wenn deine Instanz einen externen Cloud-Provider (z. B. Anthropic, OpenAI) statt eines lokal betriebenen Modells (Ollama) für den KI-Assistenten einsetzt — das legt der Plattformbetreiber fest. Cloud-Provider können eine Drittland-Datenübermittlung bedeuten. Lokale Provider benötigen diese Einwilligung nicht.
+
+Für die Wissensfrage zählt das Modell, mit dem die Wissensbasis antwortet — also das, was der Plattformbetreiber eingestellt hat, nicht der Provider deines Gartens. Ist das ein Cloud-Modell, brauchst du diese Einwilligung zusätzlich zu `ai_knowledge_question`, und dein Garten muss Cloud-Provider erlauben; sonst wird die Frage abgelehnt, bevor sie die Instanz verlässt.
 
 ### Tagebuch-Einträge zur KI-Analyse freigeben (diary_ai_analysis)
 
@@ -225,14 +308,17 @@ Du hast das Recht auf Löschung deiner Daten.
 ### Ablauf der Löschung
 
 1. Zu **Datenschutz** > Tab **Konto löschen** navigieren
-2. Auf **Konto löschen** klicken
-3. Bei Konten mit **lokalem Passwort-Login** im Bestätigungsdialog das **aktuelle Passwort** eingeben (zur Autorisierung der Löschung). Bei Konten, die ausschließlich über einen externen Anbieter (Google, GitHub, Apple …) angemeldet sind, entfällt dieser Schritt.
+2. Auf **Konto löschen** klicken — schon im Tab und noch einmal im Dialog siehst du, welche persönlichen Gärten mit deinem Konto gelöscht werden und wie viele weitere Mitglieder das betrifft
+3. Im Bestätigungsdialog deine **eigene E-Mail-Adresse** erneut eintippen. Hat dein Konto ein **lokales Passwort**, zusätzlich dein **aktuelles Passwort** eingeben (zur Autorisierung der Löschung). Meldest du dich über Google oder einen generischen OIDC-Anbieter an, klickst du stattdessen auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein.
 4. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
 
-!!! info "Passwortbestätigung"
-    Für Konten mit lokalem Passwort ist die Eingabe des aktuellen Passworts verpflichtend. Ist das Passwort falsch, bleibt der Dialog geöffnet und zeigt einen Fehlerhinweis — das Konto wird dann **nicht** gelöscht.
+!!! info "Bestätigung per E-Mail und Passwort"
+    Stimmt die eingetippte E-Mail-Adresse nicht mit deiner eigenen überein, meldet der Dialog einen Fehler. Für Konten mit lokalem Passwort ist zusätzlich die Eingabe des aktuellen Passworts verpflichtend — ist es falsch, bleibt der Dialog offen und zeigt einen Fehlerhinweis. In beiden Fällen wird das Konto **nicht** gelöscht.
 
-Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` startet die Löschung (bei lokalen Konten mit dem Feld `password`), `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
+!!! warning "Nach zu vielen Fehlversuchen gesperrt"
+    Nach mehreren falschen Passworteingaben sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt die verbleibende Wartezeit an. Diese Sperre gilt kontoweit für alle Bestätigungen dieser Art (Konto löschen, Mandant löschen, Passwort ändern) gemeinsam, betrifft aber **nicht** die Anmeldung: Du kannst dich weiterhin normal anmelden, im Tab **Sitzungen** (siehe [Konto & Anmeldung](account.md#aktive-sitzungen-einsehen-und-beenden)) einzelne Sitzungen beenden oder dein Passwort per E-Mail zurücksetzen.
+
+Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` erwartet denselben Anfragekörper wie `DELETE /api/v1/users/me` (siehe [Konto löschen](account.md#konto-loschen)) — `{"confirm_email": "...", "password": "..."}`, wobei `password` nur bei lokalem Passwort nötig ist. `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
 Was dann passiert:
 
@@ -241,6 +327,14 @@ Sofort:
 - Soft-Delete des Accounts (status: deleted)
 - Alle aktiven Sitzungen werden beendet
 - Du kannst dich nicht mehr anmelden
+- Offene Einladungen in deinen persoenlichen Garten
+  (E-Mail- und Link-Einladungen) werden widerrufen, neue lassen
+  sich waehrend der 90 Tage nicht mehr anlegen oder einloesen;
+  niemand kann ihm waehrend der 90 Tage mehr beitreten
+- Warst du in einer Organisation die letzte Person mit
+  Verwaltungsrecht, uebernimmt jetzt die dienstaelteste Leitung,
+  oder die Organisation verwaist (Loeschung nach der Frist);
+  die Mitglieder bekommen sofort eine E-Mail
 
 Persoenliche Daten (Art. 17 DSGVO):
 - Werden sofort anonymisiert oder nach 90 Tagen geloescht
@@ -256,6 +350,12 @@ Nach 90 Tagen:
 
 !!! note "Warum werden Erntedaten nicht vollständig gelöscht?"
     Das Cannabisgesetz (CanG) und das Pflanzenschutzmittelgesetz (PflSchG) schreiben vor, dass Ernte- und Behandlungsdaten für Prüf- und Nachweiszwecke aufbewahrt werden müssen. Dein Name und deine Kontaktdaten werden entfernt, die Mengen- und Behandlungsdaten bleiben als anonymisierte Einträge erhalten. Dies ist rechtlich durch Art. 17 Abs. 3 lit. b DSGVO gedeckt.
+
+!!! danger "Dein persönlicher Garten geht mit"
+    Dein persönlicher Garten wird mit allem, was darin ist, unwiderruflich gelöscht — auch wenn weitere Mitglieder darin sind; ihre Einträge gehen dann mit. Diese Mitglieder bekommen eine E-Mail, sobald du die Löschung beantragst, und können bis zur endgültigen Löschung ihre Daten sichern. Die E-Mail nennt weder deinen Namen noch deine Adresse. Nur wenn nach deinem Antrag noch jemand neu beitritt, bleibt der Garten für diese Person erhalten, ohne deinen Namen. Details dazu: [Datenaufbewahrung — Was mit deinem persönlichen Garten passiert](../guides/data-retention.md#was-mit-deinem-personlichen-garten-passiert).
+
+!!! info "Organisationen, die du verwaltest"
+    Bist du in einer Organisation die letzte Person mit Verwaltungsrecht, wird das schon geregelt, wenn du die Löschung beantragst — nicht erst nach 90 Tagen: Die dienstälteste verbleibende Leitung übernimmt die Verwaltung, oder die Organisation verwaist, wenn keine Leitung mehr da ist, und wird nach der Frist der Mandantenlöschung gelöscht. Die Mitglieder bekommen dazu sofort eine E-Mail; sie nennt deinen Namen nicht. Welche Organisationen das betrifft, zeigt dir der Dialog vor der Bestätigung. Ein Löschantrag lässt sich nicht zurücknehmen, deshalb wird auch diese Übergabe nicht zurückgenommen. <!-- Issue #2166 -->
 
 ---
 
@@ -279,17 +379,32 @@ Wenn du deinen Account löschst, unterscheidet das System zwischen zwei Foto-Typ
 
 | Foto-Typ | Was passiert |
 |----------|-------------|
-| **Persönliche Fotos** (Profilbild, private Notizen) | Hart gelöscht — sowohl die Datei im Storage als auch der Metadateneintrag werden entfernt |
+| **Persönliche Fotos** (Profilbild, private Notizen) | Hart gelöscht — die Originaldatei, ihre erzeugten Vorschaubilder (WebP, 128/512/1280 px) und der Metadateneintrag werden entfernt |
 | **Dokumentierende Fotos** (Tagebucheinträge, IPM-Inspektionen, Erntefotos, Pflanzenfotos) | Bleiben erhalten, werden aber von deinem Account entkoppelt — `erstellt von` wird auf `_anonymized` gesetzt. Sind EXIF-Daten vorhanden, werden sie in diesem Schritt ebenfalls entfernt. |
 
 Die Dateien verbleiben, weil sie zum Pflanzendatensatz gehören und ggf. gesetzlichen Aufbewahrungspflichten (CanG, PflSchG) unterliegen. Dein Name ist nach der Anonymisierung nicht mehr mit den Fotos verknüpft.
 
+!!! note "Wenn ein anderes Mitglied dieselbe Datei hochgeladen hat"
+    Lädt ein anderes Mitglied deines Gartens exakt dieselbe Datei hoch (identischer Byte-Inhalt), bekommt jede Person einen eigenen Eintrag — gespeichert wird die Datei aber nur einmal und geteilt. Löschst du deinen Account, geht nur dein eigener Eintrag: Die gespeicherte Datei samt Vorschaubildern bleibt erhalten, solange noch mindestens ein Eintrag eines anderen Mitglieds darauf zeigt, und wird erst entfernt, wenn der letzte darauf zeigende Eintrag gelöscht wird. Deine eigenen Einträge erreicht die Account-Löschung dabei immer — unabhängig davon, wer die Datei zuerst hochgeladen hat.
+
 !!! note "Reihenfolge der Löschung"
     Die Storage-Bereinigung (Schritt 0) erfolgt vor der Datenbankbereinigung. Nur so kann das System die Metadaten noch abrufen, die für die Zuordnung Datei ↔ Nutzer nötig sind.
 
+Hast du eigene Fotos als [Referenzbild zur Bilderkennung beigetragen](plant-identification.md#foto-der-neuen-pflanze-zuordnen), werden auch diese Beiträge bei der Account-Löschung entfernt: Das System löscht den daraus berechneten Merkmalsvektor aus der Erkennungsbasis. Kuratierte Referenzbilder anderer Nutzer bleiben davon unberührt.
+
+Dasselbe gilt für eigene [Schädlingsfotos, die du beigetragen hast](pest-detail.md#eigene-fotos-beitragen): Wurde ein solches Foto jemals von einem Platform-Admin für die Schädlingserkennung freigegeben, entfernt die Account-Löschung den daraus berechneten Erkennungsvektor — unabhängig davon, ob die Freigabe zum Zeitpunkt der Löschung noch aktiv war oder bereits zurückgenommen wurde.
+
 ### Mandantenlöschung
 
-Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder auf Anfrage), werden alle Binärdaten des Mandanten vollständig aus dem Storage entfernt — unabhängig vom verwendeten Backend (local-fs oder S3). Das geschieht durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/`. Das Ergebnis wird im Audit-Log dokumentiert.
+Wenn ein Mandant gelöscht wird (durch den Platform-Admin oder durch ein Mitglied mit der Zusatzberechtigung Verwaltung), legt das System zuerst einen Löschungs-Datensatz an und deaktiviert sofort alle Mitgliedschaften — niemand hat danach noch Zugriff auf den Mandanten — und antwortet mit `202 Accepted`. Die eigentliche Löschung führt danach ein Hintergrund-Worker aus (Issue #1792), nicht mehr die Anfrage selbst. Dort werden alle von Mitgliedern dieses Mandanten beigetragenen Referenzbild- und Schädlingsbild-Vektoren aus der Erkennungsbasis entfernt, danach alle Binärdaten des Mandanten vollständig aus dem Storage — unabhängig vom verwendeten Backend (local-fs oder S3) — durch Löschen aller Objekte mit dem Präfix `t/{tenant_key}/` — sowie alle Sensor-Messwerte des Mandanten aus der Zeitreihen-Datenbank.
+
+Danach entfernen mehrere kleine Datenbank-Transaktionen (höchstens 1000 Datensätze je Transaktion, pro Collection nacheinander) sämtliche fachlichen Daten des Mandanten: Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren, Dünge- und Gießprotokolle, Benachrichtigungen, Kalender-Feeds, eigene Stammdaten-Einträge (z. B. selbst angelegte Pflanzenarten, Dünger, Nährstoffpläne), Mitgliedschaften, Einladungen, Standort-Zuweisungen und auf den Mandanten beschränkte API-Schlüssel — zusammen mit jeder Verknüpfung zu einem gelöschten Datensatz — und zuletzt der Mandanten-Datensatz selbst.
+
+Eine Ausnahme gilt für Ernte- und Behandlungsdokumentation (Erntechargen, Qualitätsbewertungen, Behandlungen, Inspektionen): Diese muss aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden (siehe [Gesetzliche Mindestaufbewahrungsfristen](../guides/data-retention.md#gesetzliche-mindestaufbewahrungsfristen)). Auf diesen Datensätzen wird die Kontenreferenz jedes Mitglieds durch denselben Tombstone-Hash ersetzt, den auch die Konto-Löschung verwendet, und Namensfelder (Ernter, Anwender, Inspektor, Bewerter) werden geleert — die Datensätze selbst bleiben bestehen. Ebenfalls erhalten bleiben das KI-Aufruf-Protokoll und das MCP-Aufruf-Protokoll, bis ihre eigene Aufbewahrungsfrist abläuft.
+
+Der Worker meldet zwischen den Stapeln ein Lebenszeichen am Löschungs-Datensatz; ein Worker, der abstürzt, wird nach sechs Stunden ohne Lebenszeichen vom täglichen Lauf abgelöst, ein langsamer, aber lebender nicht. Nach dem letzten Stapel prüft das System, ob wirklich nichts mehr auf den Mandanten verweist. Konnte nicht alles entfernt werden oder ist ein Schritt fehlgeschlagen (z. B. weil ein externer Dienst nicht erreichbar war), bleibt die Löschung vorgemerkt und wird automatisch täglich mit wachsendem Abstand erneut versucht, bis sie vollständig abgeschlossen ist; schon der dritte erfolglose Versuch löst einen Betreiber-Alarm aus (Log-Ereignis `tenant_erasure.escalated`, Zeitstempel `escalated_at` am Datensatz). Das Ergebnis wird im Löschungs-Datensatz dokumentiert.
+
+Nicht betroffen sind die Konten der Mitglieder selbst — sie behalten ihr Konto und ihre Mitgliedschaften in anderen Mandanten. Der persönliche Mandant eines Mitglieds wird durch eine Mandantenlöschung nicht entfernt.
 
 ### Datenportabilität (Art. 20 DSGVO)
 

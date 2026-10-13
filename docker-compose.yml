@@ -16,16 +16,22 @@
 ## All credentials are read from .env (not hardcoded here).
 ## See .env.example for required variables.
 ##
+## Network exposure (#1750): every published port binds to 127.0.0.1, so
+## only this machine reaches it. To open the web UI (8080) and the API
+## (8000) to other devices, set KAMERPLANTER_BIND_ADDRESS=0.0.0.0 in .env.
+## The databases, Valkey and Ollama always stay on 127.0.0.1.
+##
 version: "3.8"
 
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:39bbca489179ea03f2b24b7ea4e4c4cb5258f6474f8c1c4d9bd65f7cd6d211a5
+    image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
     environment:
       ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "8529:8529"
+      - "127.0.0.1:8529:8529"
     volumes:
       - arangodb_data:/var/lib/arangodb3
     healthcheck:
@@ -36,9 +42,10 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine@sha256:a0dbf4c1d5708782907c10e2c72deff317518518b5288a58416981d9db95d30b
+    image: valkey/valkey:9-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - valkey_data:/data
     healthcheck:
@@ -56,8 +63,9 @@ services:
       POSTGRES_DB: ${VECTORDB_DATABASE:-kamerplanter_vectors}
       POSTGRES_USER: ${VECTORDB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - vectordb_data:/var/lib/postgresql/data
     healthcheck:
@@ -68,15 +76,16 @@ services:
 
   # ── Ollama (optional — local LLM inference for AI assistant) ──
   ollama:
-    image: ollama/ollama:latest@sha256:0c0a83210471fb50226bcdc2d6611d20ab13ae87e024cc304c94a6a5765c5e65
+    image: ollama/ollama:latest@sha256:adca95a12c2b386a8f9a995e7fa0600e187e3323b5e5522f5a6c3b1ec73eff99
     profiles: ["ollama"]
     environment:
       OLLAMA_MODELS: /models
       OLLAMA_HOST: "0.0.0.0:11434"
       OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_MAX_LOADED_MODELS: "1"
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "11434:11434"
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_models:/models
     healthcheck:
@@ -87,14 +96,15 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.30.0-pg16@sha256:75d58b53f3337a6babd3a1cce5e503f2300bdede62dd7d743651deb1a95b6d76
+    image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
       POSTGRES_USER: ${TIMESCALEDB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${TIMESCALEDB_PASSWORD:-changeme}
+    # Loopback only (#1750): tools on this machine reach it, other hosts do not.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - timescaledb_data:/var/lib/postgresql/data
     healthcheck:
@@ -110,13 +120,38 @@ services:
       dockerfile: Dockerfile
       target: bge-reranker-v2-m3
     profiles: ["vectordb"]
+    # LOCALHOST ONLY (#1725). The reranker has no authentication: in the chart
+    # a NetworkPolicy admits only the knowledge-service, and Compose has no
+    # equivalent, so a bare "8081:8081" published it on every interface of the
+    # host — to the whole LAN. Nothing in this file calls it: the
+    # knowledge-service, its only client, is not a Compose service (it runs in
+    # the `kamerplanter-ki` Helm release). A client added to this network would
+    # reach it as `http://reranker-service:8081`, never through this mapping,
+    # so the mapping only serves probing from the host itself.
     ports:
-      - "8081:8081"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8081/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 10
+      - "127.0.0.1:8081:8081"
+    # THE SAME RUNTIME SHAPE AS THE CHART AND THE CI PROBE (#1725): read-only
+    # root filesystem, a small non-executable /tmp, no capabilities, no
+    # privilege escalation, UID 1000 — the flags `HARDENED_RUN` in
+    # scripts/ci/probe_model_service_contract.py starts the image with, so the
+    # image is proven to serve under exactly these.
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    # NO `healthcheck:` OVERRIDE HERE, DELIBERATELY (#1609).
+    #
+    # The override that used to sit here was wrong twice over. It probed
+    # `/health`, which answers 200 whether or not the model loaded — the lie
+    # #1609 is named after — and it ran `curl`, which this image (python-slim)
+    # does not contain, so the check could only ever have reported unhealthy.
+    # Both mistakes are avoided by using none: Compose then honours the image's
+    # own HEALTHCHECK, which asserts `/ready` with the interpreter the image
+    # definitely has.
 
   # ── Backend (FastAPI) ─────────────────────────────────────
   backend:
@@ -131,7 +166,13 @@ services:
       REDIS_URL: ${REDIS_URL}
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
       DEBUG: ${DEBUG}
-      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
+      # NFR-011 §4: >= 32 chars; the API refuses to start without it when DEBUG
+      # is false. MUST equal the celery-worker's value.
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
+      # NFR-011 §3.4 (#1812): >= 32 chars, keys the log pseudonyms; same gate,
+      # same value as the celery-worker's. Rotatable.
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT:-}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-true}
       KAMERPLANTER_MODE: light
       # #777 — optional error tracking. Unset by default: no DSN, no SDK
       # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
@@ -153,8 +194,13 @@ services:
       VECTORDB_PASSWORD: ${VECTORDB_PASSWORD:-changeme}
     volumes:
       - ./spec/knowledge/rag:/app/knowledge:ro
+    # LOOPBACK BY DEFAULT (#1750). The API is one of the two front doors:
+    # set KAMERPLANTER_BIND_ADDRESS=0.0.0.0 in .env to reach it from other
+    # devices (a Home Assistant host addresses this port). The data stores
+    # never follow that variable. Allow-listed, with this reason, in
+    # src/backend/tests/unit/guards/test_published_ports_bind_loopback.py.
     ports:
-      - "8000:8000"
+      - "${KAMERPLANTER_BIND_ADDRESS:-127.0.0.1}:8000:8000"
     depends_on:
       - arangodb
       - valkey
@@ -176,6 +222,13 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #1781 — same DEBUG and salt as the backend: the worker refuses to start
+      # without a >= 32-char ERASURE_TOMBSTONE_SALT when DEBUG is false, like
+      # the API does, and pseudonymises log subjects with the same salt.
+      DEBUG: ${DEBUG}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT:-}
+      # #1812 — the log pseudonym salt, same gate and same value as the backend.
+      LOG_PSEUDONYM_SALT: ${LOG_PSEUDONYM_SALT:-}
       # #777 — optional error tracking. Unset by default: no DSN, no SDK
       # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
       SENTRY_DSN: ${SENTRY_DSN:-}
@@ -248,8 +301,13 @@ services:
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
       SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
+    # LOOPBACK BY DEFAULT (#1750). The web UI is one of the two front doors:
+    # set KAMERPLANTER_BIND_ADDRESS=0.0.0.0 in .env to reach it from other
+    # devices (phones and tablets on the home network). The data stores
+    # never follow that variable. Allow-listed, with this reason, in
+    # src/backend/tests/unit/guards/test_published_ports_bind_loopback.py.
     ports:
-      - "8080:8080"
+      - "${KAMERPLANTER_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       - backend
     healthcheck:

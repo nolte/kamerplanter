@@ -44,8 +44,9 @@ def _active_connections():
 
 
 def _run_per_connection(operation: str) -> dict:
-    from app.common.dependencies import _get_redis_client, get_encryption_engine, get_inventree_repo
+    from app.common.dependencies import _get_redis_client, get_encryption_engine, get_inventree_repo, get_tenant_repo
     from app.domain.services.inventree_service import InvenTreeService
+    from app.tasks.tenant_gate import ActiveTenants
 
     repo = get_inventree_repo()
     # Inject the shared Valkey/Redis client (same factory as the HTTP path in
@@ -56,11 +57,17 @@ def _run_per_connection(operation: str) -> dict:
     # for the scheduler-driven sync/push.
     service = InvenTreeService(repo, get_encryption_engine(), redis_client=_get_redis_client())
 
+    # REQ-056 §5.2 — the connection of a tenant that is not ``active`` is neither read nor written.
+    tenant_is_active = ActiveTenants(get_tenant_repo())
     totals = {"connections": 0, "ok": 0, "errors": 0}
+    closed_tenant = 0
     for tenant_key, connection in _active_connections():
+        if not tenant_is_active(tenant_key):
+            closed_tenant += 1
+            continue
         totals["connections"] += 1
         try:
-            engine = service._sync_engine_for(connection, tenant_key)  # noqa: SLF001
+            engine = service._sync_engine_for(connection, tenant_key=tenant_key)  # noqa: SLF001
             if operation == "sync":
                 asyncio.run(engine.sync_stock_levels())
             else:
@@ -74,6 +81,8 @@ def _run_per_connection(operation: str) -> dict:
                 connection_key=connection.key,
                 error=type(exc).__name__,
             )
+    if closed_tenant:
+        logger.info("inventree_task_closed_tenants_skipped", operation=operation, connections=closed_tenant)
     return totals
 
 

@@ -870,6 +870,33 @@
       "personal": "Personal",
       "organization": "Organization"
     },
+    "tenantStatus": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "pending_deletion": "Deletion scheduled",
+      "orphaned": "Orphaned",
+      "deleted": "Being deleted",
+      "importing": "Being imported"
+    },
+    "tenantExportStatus": {
+      "pending": "Requested",
+      "running": "Being created",
+      "completed": "Ready",
+      "failed": "Failed",
+      "expired": "Expired"
+    },
+    "tenantImportStatus": {
+      "pending": "Requested",
+      "validating": "Checking",
+      "running": "Importing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cleanup_pending": "Clean-up pending"
+    },
+    "invitationType": {
+      "email": "Email",
+      "link": "Link"
+    },
     "invitationStatus": {
       "pending": "Pending",
       "accepted": "Accepted",
@@ -891,6 +918,18 @@
       "mediterranean": "Mediterranean",
       "fern": "Fern",
       "cactus": "Cactus",
+      "outdoor_annual_veg": "Outdoor Vegetable (annual)",
+      "outdoor_annual_ornamental": "Outdoor Ornamental (annual)",
+      "outdoor_perennial": "Outdoor Perennial",
+      "fruit_tree": "Fruit Tree",
+      "berry_shrub": "Berry Shrub",
+      "rose": "Rose",
+      "frost_tender_tuber": "Frost-tender Tuber",
+      "frost_tender_container": "Frost-tender Container Plant",
+      "winter_vegetable": "Winter Vegetable",
+      "spring_bulb": "Spring Bulb",
+      "bromeliad": "Bromeliad",
+      "aquatic": "Aquatic Plant",
       "custom": "Custom"
     },
     "reminderType": {
@@ -1028,6 +1067,15 @@
       "moderate": "moderately certain",
       "high": "rather likely",
       "veryHigh": "very likely"
+    },
+    "entitlementDimension": {
+      "members": "Members",
+      "service_accounts": "Service accounts",
+      "storage_mb": "Storage",
+      "photos_per_instance": "Photos per plant",
+      "ai_calls_per_user_day": "AI calls per account and day",
+      "ai_calls_per_tenant_day": "AI calls of the garden per day",
+      "ai_tokens_per_tenant_day": "AI tokens of the garden per day"
     }
   }
 }

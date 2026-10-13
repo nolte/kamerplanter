@@ -1,7 +1,10 @@
+from typing import Literal
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from app.api.v1.activities.router import router as activities_router
+from app.api.v1.admin.ha_entity_grants.router import router as ha_entity_grants_admin_router
 from app.api.v1.admin.harvest_indicators.router import router as harvest_indicators_admin_router
 from app.api.v1.admin.pests.router import router as pests_admin_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
@@ -11,11 +14,11 @@ from app.api.v1.admin.weather_providers.router import router as weather_provider
 from app.api.v1.attachments.token_router import router as attachment_token_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
+from app.api.v1.calendar.feed_router import router as calendar_feed_router
 from app.api.v1.care_reminders.router import router as care_reminders_router
 from app.api.v1.companion_planting.router import router as companion_router
 from app.api.v1.crop_rotation.router import router as rotation_router
 from app.api.v1.cultivars.router import router as cultivars_router
-from app.api.v1.dashboard.router import router as dashboard_router
 from app.api.v1.enrichment.router import router as enrichment_router
 from app.api.v1.family_relationships.router import router as family_relationships_router
 from app.api.v1.fish_species.router import router as fish_species_router
@@ -41,6 +44,7 @@ from app.api.v1.tenants.router import router as tenants_router
 from app.api.v1.users.router import router as users_router
 from app.common.openapi_responses import VALIDATION_RESPONSE
 from app.config.settings import settings
+from app.domain.engines.registration_engine import parse_domain_allowlist
 
 # The 422 envelope is documented globally: every operation is behind the same
 # RequestValidationError handler, and the envelope replaces FastAPI's default
@@ -60,16 +64,29 @@ class ModeFeatures(BaseModel):
     privacy_consent: bool
 
 
+class RegistrationInfo(BaseModel):
+    """Who may create an account (REQ-023 §3.2d, #2132) — what the auth pages offer."""
+
+    mode: Literal["open", "invite_only", "closed"]
+    #: Whether an e-mail domain allowlist applies; the list itself is not published.
+    domain_restricted: bool
+
+
 class ModeResponse(BaseModel):
-    """Current deployment mode and its feature flags (REQ-027)."""
+    """Current deployment mode, its feature flags and the registration mode (REQ-027, #2132)."""
 
     mode: str
     features: ModeFeatures
+    registration: RegistrationInfo
 
 
 @mode_router.get("/mode", response_model=ModeResponse)
 def get_mode():
-    """Return current deployment mode and feature flags."""
+    """Return current deployment mode, feature flags and the registration mode.
+
+    ``registration`` (#2132) tells the frontend whether to offer the registration entry. Light mode
+    mounts no ``/auth`` routes — nobody can register there — so it reports ``closed``.
+    """
     is_full = settings.kamerplanter_mode == "full"
     return {
         "mode": settings.kamerplanter_mode,
@@ -77,6 +94,10 @@ def get_mode():
             "auth": is_full,
             "multi_tenant": is_full,
             "privacy_consent": is_full,
+        },
+        "registration": {
+            "mode": settings.registration_mode if is_full else "closed",
+            "domain_restricted": is_full and bool(parse_domain_allowlist(settings.registration_allowed_domains)),
         },
     }
 
@@ -92,6 +113,9 @@ api_router.include_router(admin_settings_router)
 # (light-mode-aware, like admin/settings/storage), so it is mode-agnostic and
 # registered once for both light and full mode.
 api_router.include_router(weather_providers_admin_router)
+# MT-015 (#2112) — per-tenant Home Assistant entity allowlist, platform-admin-gated
+# (light-mode-aware), registered once for both modes.
+api_router.include_router(ha_entity_grants_admin_router)
 # Recognition admin, available in both light and full mode (the inference feature
 # itself is optional). Platform-admin-gated on both its operations since #1401,
 # matching the pests router mounted below.
@@ -137,11 +161,19 @@ if settings.kamerplanter_mode == "full":
     from app.api.v1.admin.platform.router import router as platform_admin_router
     from app.api.v1.auth.router import router as auth_router
     from app.api.v1.privacy.router import router as privacy_router
+    from app.api.v1.system.router import router as system_router
+    from app.api.v1.tenant_exports.router import admin_router as tenant_export_admin_router
+    from app.api.v1.tenant_exports.router import tenant_router as tenant_export_router
 
     api_router.include_router(auth_router)
     api_router.include_router(oidc_providers_router)
     api_router.include_router(platform_admin_router)
     api_router.include_router(privacy_router)
+    # REQ-056 §8 (#2138) — tenant export and import; full mode only (§14, AK-43).
+    api_router.include_router(tenant_export_router)
+    api_router.include_router(tenant_export_admin_router)
+    # REQ-027 §7a (#1855) — the take-over of a former light-mode installation's data.
+    api_router.include_router(system_router)
 
 api_router.include_router(users_router)
 api_router.include_router(health_router)
@@ -160,6 +192,10 @@ api_router.include_router(species_router)
 api_router.include_router(substrates_router)
 api_router.include_router(enrichment_router)
 api_router.include_router(family_relationships_router)
+# REQ-015 §4.2 / CF-007 — the public iCal subscription route (#2226). No login and
+# no tenant slug: the feed token in the query is the authorisation, in both modes.
+# Mounted before the tenant-scoped router like the other token routes below.
+api_router.include_router(calendar_feed_router)
 # REQ-026 Aquaponics — global fish-species catalog (not tenant-scoped)
 api_router.include_router(fish_species_router)
 api_router.include_router(ipm_router)
@@ -176,7 +212,6 @@ api_router.include_router(tenants_router)
 api_router.include_router(attachment_token_router)
 api_router.include_router(tenant_scoped_router)
 api_router.include_router(care_reminders_router)
-api_router.include_router(dashboard_router)
 api_router.include_router(starter_kits_router)
 api_router.include_router(imports_router)
 api_router.include_router(activities_router)
@@ -193,18 +228,32 @@ if settings.knowledge_service_enabled:
 
     api_router.include_router(knowledge_router)
 
-# ── REQ-031 KI-Assistent — public (light-mode) + global (platform-admin) ──
-# Always mounted; the operator flag (AI_FEATURES_ENABLED) is enforced in-router
-# and returns 404 when off, so the endpoints appear non-existent (§1.3 stage 1).
-# The tenant-scoped /ai/* routes live under the tenant_scoped_router.
+# ── REQ-031 KI-Assistent — light-mode knowledge + global (platform-admin) ──
+# The operator flag (AI_FEATURES_ENABLED) is enforced in-router and returns 404
+# when off, so the endpoints appear non-existent (§1.3 stage 1). The
+# tenant-scoped /ai/* routes live under the tenant_scoped_router.
 from app.api.v1.ki_assistent.global_router import router as ai_global_router  # noqa: E402
 from app.api.v1.ki_assistent.public_router import router as ai_public_router  # noqa: E402
 from app.api.v1.ki_assistent.status_router import router as ai_status_router  # noqa: E402
 
+#: Routers mounted ONLY when ``KAMERPLANTER_MODE=light``, below ``api_router``.
+#: The single source for the mount below and for every route walk that has to see
+#: them although the app it imports was built in full mode (the backend route
+#: guards via ``tests/support/light_mode_routes.py``,
+#: ``scripts/check_frontend_calls_served.py``).
+#:
+#: ``/public/ai/*`` (REQ-027, REQ-031 §5.3): light mode has no consent subsystem
+#: and ``get_current_user`` resolves the system user there. In full mode it would
+#: be an anonymous LLM call past consent and budget; the knowledge question there
+#: is ``POST /t/{slug}/ai/knowledge/ask`` (§5.1).
+LIGHT_ONLY_ROUTERS: tuple[APIRouter, ...] = (ai_public_router,)
+
 # Issue #685 — public availability probe. Ungated by the operator flag (it
 # reports it) and mounted in both modes so the frontend can hide the nav entry.
 api_router.include_router(ai_status_router)
-api_router.include_router(ai_public_router)
+if settings.kamerplanter_mode == "light":
+    for light_only_router in LIGHT_ONLY_ROUTERS:
+        api_router.include_router(light_only_router)
 if settings.kamerplanter_mode == "full":
     api_router.include_router(ai_global_router)
 

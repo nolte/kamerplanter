@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -311,15 +312,40 @@ class ExpertiseLevelPage(BasePage):
 
         return None
 
-    def click_show_all_fields(self) -> None:
-        """Click the ShowAllFieldsToggle button."""
-        import time
+    def click_show_all_fields(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Click the ShowAllFieldsToggle and return only once its state has flipped (#1902).
 
+        The toggle is a disclosure button: ``aria-expanded`` flips with the global
+        ``showAllFieldsOverride`` flag, in the same commit that shows or hides the
+        gated fields. The click used to be followed by ``time.sleep(0.5)`` and a
+        return, whatever had happened. It now reads the state before the click and
+        waits for it to change, so a click that did not land fails *here*, naming
+        the state, instead of a later field assertion failing with no reason.
+
+        The toggle is re-found on every poll: the dialog re-renders on the flip.
+        """
         btn = self.find_show_all_fields_button()
         if btn is None:
             raise ValueError("ShowAllFieldsToggle button not found in the dialog")
+        before = btn.get_attribute("aria-expanded")
+        if before not in ("true", "false"):
+            raise AssertionError(
+                f"ShowAllFieldsToggle exposes no aria-expanded state (got {before!r}); "
+                "its effect cannot be waited for"
+            )
         self.scroll_and_click(btn)
-        time.sleep(0.5)  # Wait for React state update and re-render
+
+        def _flipped(_driver: WebDriver) -> bool:
+            current = self.find_show_all_fields_button()
+            return current is not None and current.get_attribute("aria-expanded") != before
+
+        try:
+            self.poll(timeout).until(_flipped)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"ShowAllFieldsToggle did not change state within {timeout}s "
+                f"(aria-expanded stayed {before!r})"
+            ) from exc
 
     def get_show_all_fields_text(self) -> str:
         """Return the current text of the ShowAllFieldsToggle button."""

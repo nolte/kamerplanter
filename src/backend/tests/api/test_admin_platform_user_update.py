@@ -47,7 +47,7 @@ def _user_doc() -> dict[str, Any]:
         "password_hash": "hash",
         "email_verified": True,
         "is_active": True,
-        "account_type": "user",
+        "account_type": "human",
         "locale": "de",
         "timezone": "Europe/Berlin",
         "last_login_at": None,
@@ -122,7 +122,6 @@ def client(
 
     service = UserService(
         ArangoUserRepository(service_db),  # type: ignore[arg-type]
-        MagicMock(),
     )
 
     # #1019: the roles block now routes through TenantService; no memberships are
@@ -175,18 +174,18 @@ class TestRoutesThroughTheServiceLayer:
 
 class TestExistingBehaviourIsPreserved:
     def test_updates_display_name_and_flags(self, client, store):
+        # Re-sending the current trust values changes nothing, so it needs no step-up (#1992).
         response = _patch(
             client,
-            {"display_name": "Alice Renamed", "is_active": False, "email_verified": False},
+            {"display_name": "Alice Renamed", "is_active": True, "email_verified": True},
         )
 
         assert response.status_code == 200
         body = response.json()
         assert body["display_name"] == "Alice Renamed"
-        assert body["is_active"] is False
-        assert body["email_verified"] is False
+        assert body["is_active"] is True
+        assert body["email_verified"] is True
         assert store[USER_KEY]["display_name"] == "Alice Renamed"
-        assert store[USER_KEY]["is_active"] is False
 
     def test_empty_payload_leaves_the_user_untouched(self, client, store, writes):
         response = _patch(client, {})
@@ -246,3 +245,20 @@ class TestRejectsWhitespaceOnlyDisplayName:
 
         assert response.status_code == 200
         assert store[USER_KEY]["display_name"] == "Bob Smith"
+
+
+def test_an_admin_cannot_deactivate_their_own_account(
+    store: dict[str, dict[str, Any]], writes: list[str], client: TestClient
+) -> None:
+    """MT-045.4 (#2144): refused before the step-up asks for a password — nothing is written."""
+    from app.domain.models.user import User
+
+    me = User(_key=USER_KEY, email=ORIGINAL_EMAIL, display_name=ORIGINAL_NAME)
+    client.app.dependency_overrides[require_platform_admin] = lambda: me  # type: ignore[attr-defined]
+
+    response = client.patch(f"/api/v1/admin/platform/users/{USER_KEY}", json={"is_active": False})
+
+    assert response.status_code == 422, response.text
+    assert "own account" in response.json()["message"]
+    assert store[USER_KEY]["is_active"] is True
+    assert writes == []

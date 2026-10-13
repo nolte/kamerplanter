@@ -43,7 +43,7 @@ Rollenbezeichnungen nach dem zweiachsigen Modell aus
 |---|---|---|---|
 | **Anbieter/Betreiber** | Organisation mit IT-Betrieb | außerhalb der App | Verfügbarkeit, Sicherheit, Backups, Updates, Rechtskonformität |
 | **Plattform-Administrator** | Angestellte des Anbieters | Plattform-Rolle `platform_admin` | Globaler Stammdaten-Katalog, global konfigurierte externe Dienste samt Schlüsseln, Mandanten sperren/reaktivieren, Missbrauchsbearbeitung |
-| **Plattform-Betrachter** | Support-Mitarbeitende | `platform_viewer` (REQ-024 §1a.4, nur lesend) | Support 1st Level ohne Änderungsrechte |
+| **Plattform-Betrachter** | Support-Mitarbeitende | `platform_viewer` (REQ-024 §1a.4, nur lesend; **nicht implementiert**, #2179) | Support 1st Level ohne Änderungsrechte |
 | **Mandanten-Leitung** | Der Endkunde selbst | Leitung + Verwaltung (+ Technik) in *seinem* Mandanten | Eigene Mitglieder, eigene Daten, eigene Integrationen |
 | **Endnutzer** | Registrierte Person | Gärtner oder Beobachter im jeweiligen Mandanten | Eigene Pflanzen und Beete |
 

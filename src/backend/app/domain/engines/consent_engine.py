@@ -6,6 +6,38 @@ from app.domain.models.privacy import ConsentPurpose, ConsentRecord
 #: own AI agent. Exported as a constant so the enforcement path and the
 #: dependency wiring refer to the same string as the registry below.
 DIARY_AI_ANALYSIS = "diary_ai_analysis"
+#: #2136 (MT-040) — whether an error event may name the person and their tenant
+#: (pseudonymously). Read by ``app.observability.event_user`` at capture time.
+ERROR_TRACKING = "error_tracking"
+#: REQ-034 §4 / #2174 — whether a user's photo may become a quarantined DINOv2
+#: recognition reference. Read by both contribution paths: the automatic gallery
+#: hook (``app.tasks.reference_contribution_tasks``) and the interactive
+#: ``POST /identification/reference`` (``ReferenceImageService``).
+REFERENCE_CONTRIBUTION = "reference_contribution"
+#: REQ-044 §3.4 / REQ-010 / PR #2208 — whether a pest photo the user contributed
+#: may, once a platform admin promotes it to global visibility, become an
+#: embedding in the shared pest-recognition index. Its own purpose, not a reuse of
+#: ``reference_contribution``: that text names only gallery photos of plants, and
+#: ``consent_version`` is read nowhere, so earlier grants would silently have
+#: covered the new processing. Read by ``app.tasks.pest_image_tasks``.
+PEST_REFERENCE_CONTRIBUTION = "pest_reference_contribution"
+#: REQ-031 §5.1 / #2175 — whether the user's freely formulated knowledge question
+#: (``POST /t/{slug}/ai/knowledge/ask``) may be sent to the knowledge base and its
+#: language model. Its own purpose, not a re-worded ``ai_tenant_data_access``:
+#: ``consent_version`` is read nowhere, so changing an existing purpose's text
+#: would have let earlier grants silently cover the new processing. Read by
+#: ``AiAssistantService.ask_knowledge``; a question with plant context needs
+#: ``ai_tenant_data_access`` in addition.
+AI_KNOWLEDGE_QUESTION = "ai_knowledge_question"
+
+# Retired in #2136 (MT-040, REQ-025 §3.6), because no code ever read them:
+# ``hibp_check`` — no HaveIBeenPwned check exists; ``external_enrichment`` — the
+# GBIF/Perenual sync is a platform-admin and scheduled catalogue job that sends
+# species names, no personal data, and has no user whose consent it could ask.
+# A purpose comes back with the feature that reads it. Stored records for the two
+# stay as they are (Art. 15 export, erasure and the R-04 purge are generic over
+# ``consent_records``); they are no longer listed and can no longer be granted or
+# revoked — there is no processing left that either would switch.
 
 
 class ConsentEngine:
@@ -26,29 +58,23 @@ class ConsentEngine:
             required=True,
         ),
         ConsentPurpose(
-            key="error_tracking",
-            label_de="Fehler-Tracking (Sentry)",
-            label_en="Error tracking (Sentry)",
-            description_de=("Automatische Erfassung von Fehlern zur Verbesserung der Software-Qualitaet."),
-            description_en=("Automatic error capture to improve software quality."),
-            legal_basis="Art. 6(1)(a) GDPR — consent",
-            required=False,
-        ),
-        ConsentPurpose(
-            key="hibp_check",
-            label_de="Passwort-Sicherheitscheck (HaveIBeenPwned)",
-            label_en="Password security check (HaveIBeenPwned)",
-            description_de=("Pruefung ob Passwort in bekannten Datenlecks vorkommt (k-Anonymity, SHA-1-Praefix)."),
-            description_en=("Check whether password appears in known breaches (k-anonymity, SHA-1 prefix)."),
-            legal_basis="Art. 6(1)(a) GDPR — consent",
-            required=False,
-        ),
-        ConsentPurpose(
-            key="external_enrichment",
-            label_de="Externe Stammdatenanreicherung",
-            label_en="External master-data enrichment",
-            description_de=("Abfrage botanischer Daten bei GBIF, Perenual und anderen externen Diensten."),
-            description_en=("Querying botanical data from GBIF, Perenual and other external services."),
+            key=ERROR_TRACKING,
+            label_de="Fehlerberichte meinem Konto zuordnen (Sentry)",
+            label_en="Attribute error reports to my account (Sentry)",
+            description_de=(
+                "Wenn bei einer deiner Anfragen ein Fehler auftritt und der Betreiber Fehler-Tracking "
+                "eingeschaltet hat, trägt der Fehlerbericht ein Pseudonym deines Kontos und deines Gartens "
+                "(nie Name, E-Mail oder IP-Adresse). So lässt sich ein Fehler, der dich betrifft, gezielt "
+                "nachverfolgen. Ohne Einwilligung wird der Bericht ohne diese Zuordnung übermittelt. "
+                "Jederzeit widerrufbar; der Widerruf wirkt ab der nächsten Anfrage."
+            ),
+            description_en=(
+                "When an error occurs in one of your requests and the operator has switched error tracking on, "
+                "the error report carries a pseudonym of your account and your garden (never name, e-mail or IP "
+                "address). This lets an error that affects you be traced specifically. Without consent the "
+                "report is sent without this attribution. Revocable at any time; revocation applies from the "
+                "next request."
+            ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
         ),
@@ -108,6 +134,29 @@ class ConsentEngine:
                 "transmitted (NFR-007). Releasing individual diary entries including photos for "
                 "analysis is a separate path with its own consent (see “diary_ai_analysis”, "
                 "REQ-050). Revocable at any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key=AI_KNOWLEDGE_QUESTION,
+            label_de="KI-Wissensfrage an die Wissensbasis",
+            label_en="AI knowledge question to the knowledge base",
+            description_de=(
+                "Erlaubt, deine frei formulierte Wissensfrage im KI-Assistenten an die Wissensbasis "
+                "und das dort angebundene Sprachmodell zu senden, um sie zu beantworten. Übermittelt "
+                "wird der Text, den du selbst eingibst. Pflanzenwerte (Art, Phase, Substrat, EC/pH) "
+                "gehen nur mit, wenn du sie selbst zur Frage angibst — dafür ist zusätzlich die "
+                "Einwilligung „KI-Zugriff auf deine Pflanzendaten“ nötig. Jederzeit widerrufbar; "
+                "der Widerruf wirkt ab der nächsten Frage."
+            ),
+            description_en=(
+                "Allows your freely formulated knowledge question in the AI assistant to be sent to "
+                "the knowledge base and the language model connected to it, so it can be answered. "
+                "The text you type yourself is transmitted. Plant values (species, phase, substrate, "
+                "EC/pH) are only included if you add them to the question yourself — that "
+                "additionally requires the consent “AI access to your plant data”. Revocable at any "
+                "time; revocation applies from the next question."
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
@@ -178,7 +227,7 @@ class ConsentEngine:
             required=False,
         ),
         ConsentPurpose(
-            key="reference_contribution",
+            key=REFERENCE_CONTRIBUTION,
             label_de="Foto-Beitrag zur Pflanzenerkennung",
             label_en="Photo contribution to plant recognition",
             description_de=(
@@ -192,6 +241,34 @@ class ConsentEngine:
                 "as an additional reference for the self-hosted image recognition (REQ-034 §4). "
                 "Only the embedding vector is stored — no image leaves the instance; revocable at "
                 "any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key=PEST_REFERENCE_CONTRIBUTION,
+            label_de="Foto-Beitrag zur Schädlingserkennung",
+            label_en="Photo contribution to pest recognition",
+            description_de=(
+                "Optional: Ein Schädlingsfoto, das du selbst beigetragen hast, wird — sobald eine "
+                "Administratorin oder ein Administrator es für alle sichtbar freigibt — in einen "
+                "Embedding-Vektor für den gemeinsamen Schädlings-Erkennungsindex umgewandelt "
+                "(REQ-044, REQ-010). Gespeichert werden nur dieser Vektor und seine Herkunft "
+                "(Beitrag und Garten) — das Bild verlässt die Installation nicht. Ohne diese "
+                "Einwilligung bleibt eine Freigabe in der Galerie bestehen, das Foto fließt aber "
+                "nicht in die Erkennung ein. Jederzeit widerrufbar; der Widerruf wirkt ab der "
+                "nächsten Freigabe. Einen schon erzeugten Vektor entfernt das Löschen deines "
+                "Beitrags oder deines Kontos."
+            ),
+            description_en=(
+                "Optional: a pest photo you contributed yourself is — once an administrator makes it "
+                "visible to everyone — turned into an embedding vector for the shared pest "
+                "recognition index (REQ-044, REQ-010). Only this vector and its provenance "
+                "(contribution and garden) are stored — the image does not leave the installation. "
+                "Without this consent a promotion stays in the gallery, but the photo does not "
+                "enter the recognition. Revocable at any time; revocation applies from the next "
+                "promotion. A vector already created is removed by deleting your contribution or "
+                "your account."
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,

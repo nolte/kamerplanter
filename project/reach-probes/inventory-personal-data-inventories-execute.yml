@@ -1,0 +1,53 @@
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
+# Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
+# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
+# orchestrating session — not an interactive batch answer. It records that the targets and the
+# observe argv below run on the operator's machine with their environment, as `task` in this
+# repository does.
+#
+# Re-derived after #1786 (16667ac9a) changed data_export_engine.py: one import line was added (bundle_object_key
+# delegates to export_bundle_key), so the cited lines moved +1.
+# The declared content, order and count are unchanged; derived_from is now 16667ac9a, the
+# declaration's latest commit on develop. Observe step, targets and expectation unchanged.
+# Earlier:
+# Spec row "Two personal-data inventories, one executing" (T2), re-derived after #1721
+# changed its single-path anchor; content unchanged. The enumeration the code actually
+# runs is observed in ArangoDB's query log while the real export and the real erasure
+# execute (disclosure reads, resp. writes, between marker queries), and each declared
+# inventory is listed only when every collection it declares was used. A change
+# confined to erasure_engine.py is not detected as a declaration change of this probe
+# (single-path anchor), but it is of inventory-erasure-plan-reaches-rows.
+id: inventory-personal-data-inventories-execute
+summary: declared personal-data inventories that the executing export and erasure actually enumerate
+declaration:
+  source: inventory
+  path: src/backend/app/domain/engines/data_export_engine.py
+  location: DataExportEngine.USER_DATA_MANIFEST (L41) and ErasureEngine.build_erasure_plan (#1622)
+tier: T2
+expected:
+  kind: set
+  unit: declared inventories the executing paths enumerate
+  values:
+  - export-manifest
+  - erasure-plan
+derived_from: blob:7d44647ebcad3dd2b868327425031bbbc8268fd2
+environment:
+- reach:stack:up
+- reach:seed:privacy-subject
+- reach:export:run-for-subject
+- reach:erasure:finalise-for-subject
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_executing_inventory.py
+  - --subject
+  - reach-subject
+  timeout_seconds: 300
+approval:
+  approved_at: '2026-10-04T12:35:32Z'
+  approved_by: nolte
+  observation_digest: 38c1d41959f0f33b1c9090366a04800fe2915708cf664d44001ab7b93b4fcc87
+  mode: reconfirmed

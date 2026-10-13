@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
@@ -13,10 +14,28 @@ class IFertilizerRepository(ABC):
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str | None = None,
     ) -> tuple[list[Fertilizer], int]: ...
 
     @abstractmethod
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Fertilizer]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131)."""
+        ...
+
+    @abstractmethod
     def get_by_key(self, key: FertilizerKey) -> Fertilizer | None: ...
+
+    @abstractmethod
+    def list_visible_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
+        """The subset of ``keys`` naming fertilizers ``tenant_key`` may see (own ∪ global, #1713)."""
 
     @abstractmethod
     def get_or_raise(self, key: FertilizerKey) -> Fertilizer: ...
@@ -36,7 +55,7 @@ class IFertilizerRepository(ABC):
     def create_stock(self, stock: FertilizerStock) -> FertilizerStock: ...
 
     @abstractmethod
-    def get_stocks(self, fertilizer_key: FertilizerKey) -> list[FertilizerStock]: ...
+    def get_stocks(self, fertilizer_key: FertilizerKey, *, tenant_key: str) -> list[FertilizerStock]: ...
 
     @abstractmethod
     def update_stock(self, key: FertilizerStockKey, stock: FertilizerStock) -> FertilizerStock: ...
@@ -56,7 +75,7 @@ class IFertilizerRepository(ABC):
     ) -> dict: ...
 
     @abstractmethod
-    def get_incompatibilities(self, key: FertilizerKey) -> list[dict]: ...
+    def get_incompatibilities(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]: ...
 
     @abstractmethod
     def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool: ...
@@ -64,4 +83,4 @@ class IFertilizerRepository(ABC):
     # ── Reverse lookup ─────────────────────────────────────────────────
 
     @abstractmethod
-    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]: ...
+    def get_nutrient_plan_usage(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]: ...

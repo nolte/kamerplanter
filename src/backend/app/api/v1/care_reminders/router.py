@@ -10,16 +10,17 @@ from app.api.v1.care_reminders.schemas import (
     ConfirmRequest,
     SnoozeRequest,
 )
-from app.common.auth import get_current_user, require_active_tenant_role
+from app.common.auth import get_active_tenant_context, get_current_user, require_active_tenant_role
 from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType, TenantRole
 from app.common.openapi_responses import (
     FORBIDDEN_RESPONSE,
     NOT_FOUND_RESPONSE,
     UNAUTHORIZED_RESPONSE,
+    VALIDATION_RESPONSE,
 )
 from app.common.plant_ownership import require_owned_plant
-from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
 from app.domain.services.care_reminder_service import CareReminderService
 
@@ -41,6 +42,11 @@ router = APIRouter(
     # Every route under this prefix carries `{plant_key}`, so the router-level
     # dependency binds on all six. See `app/common/plant_ownership.py` for why it
     # is here rather than in six signatures.
+    #
+    # Since #2107 (MT-010) the gate is no longer the only check: every service
+    # method below takes the caller's `tenant_key` keyword-only without a default
+    # and verifies the plant itself, so another caller of the service (MCP, a task
+    # bridge) cannot skip it. The router gate stays as the early 404.
     dependencies=[Depends(get_current_user), Depends(require_owned_plant)],
     responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE},
 )
@@ -67,6 +73,7 @@ def get_or_create_profile(
             ),
         ),
     ] = None,
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Return the plant's care profile, generating presets if absent — without storing them.
@@ -90,7 +97,7 @@ def get_or_create_profile(
     # viewer opening the care tab of an already-profiled plant got a 403 and the
     # frontend a permanently spinning skeleton. The gate belonged on the write, and
     # the write is now simply not performed.
-    profile = service.get_or_create_profile(plant_key, may_create=False)
+    profile = service.get_or_create_profile(plant_key, may_create=False, tenant_key=ctx.tenant_key)
     return _profile_to_response(profile)
 
 
@@ -98,17 +105,38 @@ def get_or_create_profile(
     "/plants/{plant_key}/profile",
     response_model=CareProfileResponse,
     dependencies=[Depends(require_active_tenant_role(TenantRole.GROWER))],
-    responses=FORBIDDEN_RESPONSE,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
 )
 def update_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: CareProfileUpdate,
     user: User = Depends(get_current_user),
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
-    """Update the plant's care profile with the supplied fields."""
-    updates = body.model_dump(exclude_none=True)
-    updated = service.update_profile(plant_key, updates, user_key=user.key or "")
+    """Update the plant's care profile with the supplied fields.
+
+    **A field the body omits is left unchanged; a field the body sends as `null` is
+    cleared** (#1506). The two are different requests, and only `notes` and
+    `water_quality_hint` may be cleared — they are the profile's only nullable
+    fields. `null` for any other field is answered with `422`, because the profile
+    has no `null` to store for it; omit the field instead.
+
+    Editing a watering, fertilising, pest-check, humidity or repotting interval also
+    reschedules the plant's matching **pending** care task and resets the matching
+    adaptive-learned interval (#622).
+    """
+    # `exclude_unset`, not `exclude_none` (#1506). Every field of `CareProfileUpdate`
+    # defaults to `None` for "not supplied", so `exclude_none` collapsed the two cases
+    # a PATCH has to distinguish: a field the body omitted and a field the body sent as
+    # `null`. The second is a clear — the care form sends `notes: null` the moment the
+    # user empties the box — and it was dropped here, one layer above the merge-mode
+    # repository that would have dropped it again. `model_fields_set` (what
+    # `exclude_unset` reads) is the only thing that knows the difference; a `null` for a
+    # field the profile cannot hold as one is refused by the schema with 422, so nothing
+    # unwritable reaches the service.
+    updates = body.model_dump(exclude_unset=True)
+    updated = service.update_profile(plant_key, updates, tenant_key=ctx.tenant_key, user_key=user.key or "")
     return _profile_to_response(updated)
 
 
@@ -123,15 +151,7 @@ def confirm_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: ConfirmRequest,
     user: User = Depends(get_current_user),
-    # Taken into the signature rather than left to the router-level gate alone.
-    # `CareReminderService.confirm_reminder` carries its own SEC-001 ownership
-    # re-check, guarded by `if tenant_key and ...` — and this, its only REST
-    # caller, passed no `tenant_key`, so that check ran for the MCP path and never
-    # here: a guard present in the service and inert on the route it was written
-    # beside (the #1042 shape this issue exists to end). FastAPI caches the
-    # dependency per request, so the plant is already resolved and this costs no
-    # second lookup.
-    plant: PlantInstance = Depends(require_owned_plant),
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Confirm a due care reminder and record the performed care."""
@@ -144,7 +164,7 @@ def confirm_reminder(
         fertilizers_used=fertilizers,
         measured_ec=body.measured_ec,
         measured_ph=body.measured_ph,
-        tenant_key=plant.tenant_key,
+        tenant_key=ctx.tenant_key,
         user_key=user.key or "",
     )
     return _confirmation_to_response(confirmation)
@@ -160,10 +180,11 @@ def confirm_reminder(
 def snooze_reminder(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: SnoozeRequest,
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Snooze a due care reminder for the requested number of days."""
-    confirmation = service.snooze_reminder(plant_key, body.reminder_type, body.snooze_days)
+    confirmation = service.snooze_reminder(plant_key, body.reminder_type, body.snooze_days, tenant_key=ctx.tenant_key)
     return _confirmation_to_response(confirmation)
 
 
@@ -187,6 +208,7 @@ def get_confirmation_history(
 )
 def reset_profile(
     plant_key: Annotated[str, Path(description="Document key of the plant.")],
+    ctx: TenantContext = Depends(get_active_tenant_context),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     """Reset the plant's care profile back to its preset defaults.
@@ -197,5 +219,5 @@ def reset_profile(
     `TROPICAL` fallback that made them look wrong. The service resolves the
     plant's species and family itself.
     """
-    profile = service.reset_profile(plant_key)
+    profile = service.reset_profile(plant_key, tenant_key=ctx.tenant_key)
     return _profile_to_response(profile)

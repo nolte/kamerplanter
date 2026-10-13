@@ -53,12 +53,15 @@ from fastapi import APIRouter, Depends, Path, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.schemas import ThumbnailUris
-from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
+from app.api.v1.attachments.tenant_router import _read_upload_bounded
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tasks.schemas import TaskPhotoResponse
 from app.common.dependencies import get_attachment_service, get_task_service
 from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import AttachmentNotFoundError, FileTooLargeError, InvalidFileTypeError
 from app.common.openapi_responses import CRUD_RESPONSES
+from app.common.upload_bounds import declared_body_exceeds
+from app.config.settings import settings
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.models.attachment import Attachment
@@ -91,6 +94,7 @@ def _photo_response(attachment: Attachment, tenant_slug: str) -> TaskPhotoRespon
 
 
 @router.post("", response_model=TaskPhotoResponse, status_code=201)
+@limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_task_photo(
     key: Annotated[str, Path(description="Document key of the task.")],
     request: Request,
@@ -113,8 +117,7 @@ async def upload_task_photo(
 
     # SEC-005 — reject an oversized upload before buffering the body.
     max_bytes = attachment_service.max_upload_bytes()
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise FileTooLargeError(max_bytes)
     data = await _read_upload_bounded(file, max_bytes)
 

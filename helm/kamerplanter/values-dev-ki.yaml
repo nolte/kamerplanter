@@ -8,7 +8,10 @@
 #   kamerplanter-ki-embedding-service
 #   kamerplanter-ki-vectordb
 
-# -- Dev overrides: relax readOnlyRootFilesystem for hot-reload (SEC-M-004)
+# -- Dev overrides: relax runAsNonRoot for hot-reload (SEC-M-004). The
+# knowledge-service and the vectordb relax readOnlyRootFilesystem per container
+# below; the reranker- and embedding-service do NOT — they run read-only with an
+# emptyDir /tmp (#1725).
 defaultPodOptions:
   securityContext:
     runAsNonRoot: false
@@ -73,7 +76,10 @@ controllers:
           LLM_MAX_TOKENS: "2048"
           LLM_TEMPERATURE: "0.1"
           RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
-          RERANKER_INITIAL_K: "20"
+          # 15 x 500 chars fit the sidecar's 25 s deadline (#1751); product capped by
+          # RERANK_SCORED_CHARS_BUDGET in src/knowledge-service/app/config.py.
+          RERANKER_INITIAL_K: "15"
+          RERANKER_MAX_DOCUMENT_CHARS: "500"
           RERANKER_TOP_K: "5"
           ANSWER_VERIFICATION: "false"
           KNOWLEDGE_PATH: "/app/knowledge"
@@ -113,19 +119,31 @@ controllers:
     strategy: Recreate
     pod:
       # No hot-reload/sync and no writable /app needed — the image already ships
-      # USER 1000 and reads only the 1000-owned model files. No reason for root.
+      # USER 1000 and only READS its code and model, which are root-owned (#1725).
+      # No reason for root. seccomp repeated from defaultPodOptions: a
+      # pod.securityContext here replaces it (bjw-s does not deep-merge).
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
           repository: kamerplanter-reranker-service
           tag: latest
           pullPolicy: IfNotPresent
+        # Read-only root filesystem (#1725): the image writes nothing at runtime
+        # (root-owned files, PYTHONDONTWRITEBYTECODE=1, HF_HUB_OFFLINE=1); /tmp
+        # is the memory-backed `reranker-tmp` emptyDir below, for any
+        # library that insists on a scratch file. CI starts the image the same
+        # way (scripts/ci/smoke_model_image.sh).
         securityContext:
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         env:
           RERANKER_MODEL: "bge-reranker-v2-m3"
         probes:
@@ -164,19 +182,31 @@ controllers:
     strategy: Recreate
     pod:
       # No hot-reload/sync and no writable /app needed — the image already ships
-      # USER 1000 and reads only the 1000-owned model files. No reason for root.
+      # USER 1000 and only READS its code and model, which are root-owned (#1725).
+      # No reason for root. seccomp repeated from defaultPodOptions: a
+      # pod.securityContext here replaces it (bjw-s does not deep-merge).
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
           repository: kamerplanter-embedding-service
           tag: latest
           pullPolicy: IfNotPresent
+        # Read-only root filesystem (#1725): the image writes nothing at runtime
+        # (root-owned files, PYTHONDONTWRITEBYTECODE=1, HF_HUB_OFFLINE=1); /tmp
+        # is the memory-backed `embedding-tmp` emptyDir below, for any
+        # library that insists on a scratch file. CI starts the image the same
+        # way (scripts/ci/smoke_model_image.sh).
         securityContext:
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         env:
           EMBEDDING_MODEL: "multilingual-e5-large"
         probes:
@@ -332,6 +362,28 @@ persistence:
   arangodb-apps:
     enabled: false
 
+  # /tmp of the two ONNX sidecars, whose root filesystem is read-only (#1725).
+  # Same shape as `backend-tmp` in values.yaml.
+  reranker-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      reranker-service:
+        main:
+          - path: /tmp
+
+  embedding-tmp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 64Mi
+    advancedMounts:
+      embedding-service:
+        main:
+          - path: /tmp
+
   knowledge:
     enabled: true
     type: emptyDir
@@ -359,6 +411,10 @@ networkpolicies:
   frontend:
     enabled: false
   backend:
+    enabled: false
+  # #2129 — off with ``monitoring.enabled`` (the default) anyway; named so this
+  # overlay's "no KP policy" stays true if monitoring is switched on.
+  backend-metrics:
     enabled: false
   celery-worker:
     enabled: false
@@ -506,3 +562,10 @@ valkey:
 
 ollama:
   enabled: false
+
+# -- #2129: this release runs no backend, so there is no metrics port to scrape.
+# Pinned off so ``monitoring.enabled`` in a shared values source cannot render a
+# ServiceMonitor for a Service this release does not have.
+serviceMonitor:
+  backend:
+    enabled: false

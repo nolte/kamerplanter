@@ -2,10 +2,11 @@
 
 Keeps the tenant-scoped router thin. Owns:
 
-* **Site ownership** — every site-bound operation loads the site through the
-  site repository and rejects a site that is missing (``404``) or belongs to a
-  different tenant (``403``), so a caller can never touch a foreign site's
-  weather config (AC-11).
+* **Site ownership** — every site-bound operation resolves the site through
+  :func:`require_owned_site` and refuses a site that is missing *or* belongs to
+  a different tenant with the same ``404`` (AC-11, #1871 B8), so a caller can
+  never touch a foreign site's weather config and cannot tell a foreign site
+  from an absent one.
 * **Secret handling (D1, AC-8)** — a *new* plaintext OpenWeatherMap key is
   Fernet-encrypted via :class:`EncryptionEngine` and stored as ciphertext in
   ``WeatherSourcePublicConfig.api_key_ref``. An empty / masked key means
@@ -30,7 +31,7 @@ import httpx
 import structlog
 from pydantic import BaseModel, Field
 
-from app.common.exceptions import ForbiddenError, NotFoundError
+from app.common.log_privacy import loggable_error
 from app.config.settings import settings
 from app.domain.models.weather import (
     HaSensorMapping,
@@ -40,6 +41,13 @@ from app.domain.models.weather import (
     WeatherSourceHaConfig,
     WeatherSourcePublicConfig,
 )
+from app.domain.services.ha_entity_grant_service import (
+    DenyAllHaEntityGate,
+    HaEntityGate,
+    only_granted,
+    require_granted,
+)
+from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
 
 if TYPE_CHECKING:
@@ -58,7 +66,6 @@ if TYPE_CHECKING:
     from app.domain.models.site import Site
     from app.domain.models.weather import ClimateNormal
     from app.domain.services.weather_settings_service import EffectiveWeatherSettings
-    from app.domain.services.weather_source_resolver import WeatherSourceResolver
 
 logger = structlog.get_logger(__name__)
 
@@ -106,18 +113,17 @@ class WeatherSourceService:
         weather_source_config_repo: ArangoWeatherSourceConfigRepository,
         site_repo: ArangoSiteRepository,
         encryption_engine: EncryptionEngine,
-        resolver: WeatherSourceResolver,
         ha_client_factory: Callable[[], HomeAssistantClient | None],
         weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
         climate_normal_repo: IClimateNormalRepository | None = None,
+        ha_entity_grants: HaEntityGate | None = None,
     ) -> None:
         self._config_repo = weather_source_config_repo
+        # MT-015 (#2112): the Home Assistant entities a weather source names must
+        # be granted to the site's tenant. Absent, nothing is granted (fail-closed).
+        self._ha_entity_gate: HaEntityGate = ha_entity_grants or DenyAllHaEntityGate()
         self._site_repo = site_repo
         self._encryption = encryption_engine
-        # The resolver is injected for parity with the fetch pipeline; the test
-        # endpoint deliberately builds adapters from the unsaved body instead of
-        # decrypting stored config, so it is not used here yet.
-        self._resolver = resolver
         self._ha_client_factory = ha_client_factory
         # DB-backed effective provider config; when absent, the enable flags fall
         # back to the raw env kill-switches (``settings.<p>_enabled``).
@@ -129,20 +135,23 @@ class WeatherSourceService:
     # ── Site ownership ────────────────────────────────────────────────
 
     def _load_owned_site(self, site_key: str, tenant_key: str) -> Site:
-        site = self._site_repo.get_site_by_key(site_key)
-        if site is None:
-            raise NotFoundError("Site", site_key)
-        if site.tenant_key != tenant_key:
-            raise ForbiddenError("This site belongs to a different tenant.")
-        return site
+        """The tenant's site behind ``site_key``, or ``NotFoundError``.
+
+        An unknown site and a site of another tenant raise the **same** error —
+        status, code, message and details — after the same single read (REQ-046
+        AC-11, operator decision #1871 B8 of 2026-10-03). The 403 this answered
+        for a foreign site until then was an existence oracle for other tenants'
+        site keys.
+        """
+        return require_owned_site(self._site_repo, site_key, tenant_key, "Site", site_key)
 
     def verify_site_owned(self, site_key: str, tenant_key: str) -> None:
         """Public ownership guard for read endpoints needing defense-in-depth.
 
-        Raises :class:`NotFoundError` (unknown site) / :class:`ForbiddenError`
-        (foreign site) exactly like the write-path check, so read routes can
-        enforce site ownership at the API layer consistently with the sibling
-        weather-source endpoints instead of relying solely on a service filter.
+        Raises :class:`NotFoundError` for an unknown and for a foreign site alike,
+        exactly like the write-path check, so read routes can enforce site
+        ownership at the API layer consistently with the sibling weather-source
+        endpoints instead of relying solely on a service filter.
         """
         self._load_owned_site(site_key, tenant_key)
 
@@ -157,7 +166,7 @@ class WeatherSourceService:
     def get_climate_normals(self, site_key: str, tenant_key: str) -> list[ClimateNormal]:
         """REQ-041 — the site's long-term climate normals (one per source).
 
-        Enforces site ownership first (``404`` unknown / ``403`` foreign) so a
+        Enforces site ownership first (``404`` for unknown and foreign alike) so a
         caller can never read a foreign site's normals, then returns the
         tenant-scoped records. Returns ``[]`` when the collection has not been
         populated yet (fetch beat has not run for this site) — never a ``500``.
@@ -177,6 +186,9 @@ class WeatherSourceService:
         request: WeatherSourceConfigRequest,
     ) -> WeatherSourceConfig:
         site = self._load_owned_site(site_key, tenant_key)
+        for req_entry in request.sources:
+            if req_entry.kind == "home_assistant":
+                self._require_granted_ha_entities(tenant_key, req_entry.ha_config)
         existing = self._config_repo.get_by_site(site_key, tenant_key)
         existing_key_refs = self._existing_key_refs(existing)
 
@@ -248,6 +260,16 @@ class WeatherSourceService:
             return self._encryption.encrypt(new_plaintext)
         return existing_key_refs.get(source_name)
 
+    def _require_granted_ha_entities(self, tenant_key: str, ha_request: WeatherSourceHaConfigRequest | None) -> None:
+        """Refuse a Home Assistant weather configuration naming an ungranted entity (422)."""
+        if ha_request is None:
+            return
+        references: dict[str, str | None] = {"weather_entity_id": ha_request.weather_entity_id}
+        if ha_request.sensor_mapping is not None:
+            for field, entity_id in ha_request.sensor_mapping.model_dump().items():
+                references[f"sensor_mapping.{field}"] = entity_id
+        require_granted(self._ha_entity_gate, tenant_key, references)
+
     @staticmethod
     def _to_stored_ha_config(
         ha_request: WeatherSourceHaConfigRequest | None,
@@ -309,9 +331,22 @@ class WeatherSourceService:
         adapter_cls = WeatherAdapterRegistry.get(entry.source_name)
         if adapter_cls is None:
             return WeatherTestResult(reachable=False, error=f"Unknown weather source '{entry.source_name}'.")
+        # The constructor below is chosen by ``entry.kind``, the class by
+        # ``entry.source_name``; nothing upstream ties the two together. A
+        # mismatch (``dwd`` sent as ``home_assistant``) built an adapter with the
+        # wrong arguments and raised TypeError outside the try below — a 500.
+        # Found by the mypy ratchet's call-arg class (#2169).
+        if adapter_cls.kind != entry.kind:
+            return WeatherTestResult(
+                reachable=False,
+                error=f"Weather source '{entry.source_name}' is not a {entry.kind} source.",
+            )
 
         config: object | None = None
         if entry.kind == "home_assistant":
+            # An unsaved configuration reads Home Assistant just like a saved one,
+            # so it is held to the same allowlist (MT-015, #2112).
+            self._require_granted_ha_entities(tenant_key, entry.ha_config)
             ha_client = self._ha_client_factory()
             if ha_client is None:
                 return WeatherTestResult(
@@ -332,7 +367,7 @@ class WeatherSourceService:
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
             return WeatherTestResult(reachable=False, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — the test endpoint must never surface a 500
-            logger.warning("weather_source_test_failed", source=entry.source_name, error=str(exc))
+            logger.warning("weather_source_test_failed", source=entry.source_name, error=loggable_error(exc))
             return WeatherTestResult(reachable=False, error=str(exc))
 
         if not reachable:
@@ -347,19 +382,23 @@ class WeatherSourceService:
             except (httpx.HTTPError, httpx.TimeoutException) as exc:
                 return WeatherTestResult(reachable=False, error=str(exc))
             except Exception as exc:  # noqa: BLE001 — preview failure must never surface a 500
-                logger.warning("weather_source_preview_failed", source=entry.source_name, error=str(exc))
+                logger.warning("weather_source_preview_failed", source=entry.source_name, error=loggable_error(exc))
                 return WeatherTestResult(reachable=False, error=str(exc))
         return WeatherTestResult(reachable=True, preview=preview)
 
     # ── HA entity pickers ─────────────────────────────────────────────
 
-    def list_ha_weather_entities(self) -> list[dict]:
-        """HA ``weather.*`` entities (mode A). Empty list when HA is unavailable."""
-        return self._ha_entities(lambda client: client.list_weather_entities())
+    def list_ha_weather_entities(self, *, tenant_key: str) -> list[dict]:
+        """The tenant's granted HA ``weather.*`` entities (mode A). Empty when HA is unavailable."""
+        return only_granted(
+            self._ha_entity_gate, tenant_key, self._ha_entities(lambda client: client.list_weather_entities())
+        )
 
-    def list_ha_sensor_entities(self) -> list[dict]:
-        """HA ``sensor.*`` entities (mode B). Empty list when HA is unavailable."""
-        return self._ha_entities(lambda client: client.list_sensor_entities())
+    def list_ha_sensor_entities(self, *, tenant_key: str) -> list[dict]:
+        """The tenant's granted HA ``sensor.*`` entities (mode B). Empty when HA is unavailable."""
+        return only_granted(
+            self._ha_entity_gate, tenant_key, self._ha_entities(lambda client: client.list_sensor_entities())
+        )
 
     def _ha_entities(self, reader: Callable[[HomeAssistantClient], list[dict]]) -> list[dict]:
         ha_client = self._ha_client_factory()
@@ -368,5 +407,5 @@ class WeatherSourceService:
         try:
             return reader(ha_client)
         except (httpx.HTTPError, httpx.TimeoutException) as exc:
-            logger.warning("ha_weather_entities_failed", error=str(exc))
+            logger.warning("ha_weather_entities_failed", error=loggable_error(exc))
             return []

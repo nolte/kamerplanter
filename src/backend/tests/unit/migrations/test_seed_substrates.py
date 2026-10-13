@@ -35,9 +35,9 @@ class _FakeSubstrateRepo:
     def __init__(self) -> None:
         self.stored: list[Substrate] = []
 
-    def get_all_substrates(self, offset: int = 0, limit: int = 50) -> tuple[list[Substrate], int]:
-        window = self.stored[offset : offset + limit]
-        return window, len(self.stored)
+    def get_global_substrates(self) -> list[Substrate]:
+        """Global rows only, as the real read filters them (``tenant_key`` empty, #2027)."""
+        return [s for s in self.stored if not s.tenant_key]
 
     def create_substrate(self, substrate: Substrate) -> Substrate:
         self.stored.append(substrate)
@@ -97,6 +97,19 @@ def test_run_seed_substrates_is_idempotent() -> None:
 
     assert count_after_first == len(_raw_entries())
     assert count_after_second == count_after_first, "second run must not duplicate substrates"
+
+
+def test_a_tenant_mix_with_a_seed_identity_does_not_count_as_the_seed() -> None:
+    """#2027: only a global row stands for a seed; the real-DB proof is
+    ``tests/integration/test_seed_catalogue_loaders_ownership.py``."""
+    first = Substrate.model_validate(_raw_entries()[0])
+    repo = _FakeSubstrateRepo()
+    repo.stored.append(first.model_copy(update={"tenant_key": "t-grower"}))
+    with patch("app.migrations.seed_substrates.get_substrate_repo", return_value=repo):
+        run_seed_substrates()
+
+    same_identity = [s for s in repo.stored if (s.type, s.name_de) == (first.type, first.name_de)]
+    assert sorted(s.tenant_key for s in same_identity) == ["", "t-grower"]
 
 
 # ── Registry wiring ───────────────────────────────────────────────────────

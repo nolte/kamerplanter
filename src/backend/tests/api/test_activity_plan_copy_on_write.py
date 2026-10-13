@@ -174,12 +174,17 @@ class _Fixture:
         )
         self.repo = ArangoTaskRepository(ReplayingDatabase(self.aql, collections))
         self.task_service = TaskService(self.repo, MagicMock(), MagicMock())
+        # A global species: the service refuses a tenant request it cannot place
+        # without a species repository (review of #1876, SEC-004).
+        species_repo = MagicMock()
+        species_repo.get_or_raise.return_value = MagicMock(tenant_key="", common_names=["Tomato"], family_key=None)
         self.plan_service = ActivityPlanService(
             engine=MagicMock(),
             activity_repo=MagicMock(),
             phase_repo=MagicMock(),
             task_repo=self.repo,
             planting_run_repo=MagicMock(),
+            species_repo=species_repo,
         )
 
     # ── AQL handlers ──

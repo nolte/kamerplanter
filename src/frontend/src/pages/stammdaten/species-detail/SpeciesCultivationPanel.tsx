@@ -10,6 +10,8 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormRow from '@/components/form/FormRow';
 import type { NutrientPlan } from '@/api/types';
+import type { CatalogueReader } from '@/hooks/useCatalogue';
+import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import {
   HARVEST_PATTERNS,
   HARVESTED_PARTS,
@@ -19,7 +21,8 @@ import {
 
 interface SpeciesCultivationPanelProps {
   control: Control<SpeciesFormData>;
-  nutrientPlans: NutrientPlan[];
+  /** Nutrient-plan catalogue reader; its failure is rendered below the field (#1628). */
+  nutrientPlanCatalogue: CatalogueReader<NutrientPlan>;
 }
 
 /**
@@ -30,7 +33,7 @@ interface SpeciesCultivationPanelProps {
  */
 export default function SpeciesCultivationPanel({
   control,
-  nutrientPlans,
+  nutrientPlanCatalogue,
 }: SpeciesCultivationPanelProps) {
   const { t } = useTranslation();
 
@@ -90,15 +93,21 @@ export default function SpeciesCultivationPanel({
             control={control}
             label={t('pages.species.defaultNutrientPlan')}
             helperText={t('pages.species.defaultNutrientPlanHelper')}
+            disabled={nutrientPlanCatalogue.status !== 'ready'}
             options={[
               { value: '', label: '—' },
-              ...nutrientPlans.map((p) => ({
+              ...nutrientPlanCatalogue.items.map((p) => ({
                 value: p.key,
                 label: `${p.name}${p.is_template ? ` (${t('pages.nutrientPlans.isTemplate')})` : ''}`,
               })),
             ]}
           />
         </FormRow>
+        {/* A failed load is its own state, not an empty picker (#1628). */}
+        <CatalogueLoadError
+          reader={nutrientPlanCatalogue}
+          focusSelector="[data-testid='form-field-default_nutrient_plan_key'] [role='combobox']"
+        />
         {/* Phase A harvest properties (REQ-007/008). intermediate: pattern + part;
           expert: climacteric ripening class. Empty select → null on submit. */}
         <FormRow>

@@ -1,9 +1,12 @@
+from typing import Any
+
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import ForbiddenError, ValidationError
 from app.common.types import ActivityKey
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
+from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 
 
 class ActivityService:
@@ -15,17 +18,44 @@ class ActivityService:
         offset: int = 0,
         limit: int = 50,
         filters: dict | None = None,
+        *,
+        tenant_key: str,
     ) -> tuple[list[Activity], int]:
-        return self._repo.get_all(offset, limit, filters)
+        """The activities ``tenant_key`` may read: its own plus the global catalogue (#2119)."""
+        return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
+
+    def list_activities_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Activity]:
+        """One page of :meth:`list_activities` without the count query (MT-035, #2131)."""
+        return self._repo.get_all_window(offset, limit, filters, tenant_key=tenant_key)
+
+    def get_readable_activity(self, key: ActivityKey, *, tenant_key: str) -> Activity:
+        """One activity for a reader: its own row or a global one, else 404 (#2119)."""
+        return self._repo.get_readable_or_raise(key, tenant_key=tenant_key)
 
     def get_activity(self, key: ActivityKey) -> Activity:
+        """Any activity by key — the platform admin's write paths load through this."""
         activity = self._repo.get_or_raise(key)
         return activity
 
     def create_activity(self, activity: Activity) -> Activity:
         return self._repo.create(activity)
 
-    def update_activity(self, key: ActivityKey, data: dict) -> Activity:
+    def update_activity(self, key: ActivityKey, data: dict, *, is_platform_admin: bool) -> Activity:
+        """Rewrite a catalogue activity — a platform admin's write, decided here (#2120).
+
+        Every activity row is global today (#2119 owns tenant rows), so the rule is
+        the global-catalogue one. It used to live only in the route's
+        ``require_platform_admin`` dependency: a second caller (an MCP tool, a job)
+        would have written the shared catalogue without it.
+        """
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="activity")
         existing = self.get_activity(key)
         allowed_fields = {
             "name",
@@ -62,14 +92,16 @@ class ActivityService:
             ) from exc
         return self._repo.update(key, validated)
 
-    def delete_activity(self, key: ActivityKey) -> bool:
+    def delete_activity(self, key: ActivityKey, *, is_platform_admin: bool) -> bool:
+        """Delete a catalogue activity — a platform admin's write, decided here (#2120)."""
+        require_platform_admin_for_global_catalogue(is_platform_admin=is_platform_admin, entity="activity")
         activity = self.get_activity(key)
         if activity.is_system:
             raise ForbiddenError("System activities cannot be deleted.")
         return self._repo.delete(key)
 
-    def get_system_activities(self) -> list[Activity]:
-        return self._repo.get_system_activities()
+    def get_system_activities(self, *, tenant_key: str) -> list[Activity]:
+        return self._repo.get_system_activities(tenant_key=tenant_key)
 
-    def get_by_category(self, category: str) -> list[Activity]:
-        return self._repo.get_by_category(category)
+    def get_by_category(self, category: str, *, tenant_key: str) -> list[Activity]:
+        return self._repo.get_by_category(category, tenant_key=tenant_key)

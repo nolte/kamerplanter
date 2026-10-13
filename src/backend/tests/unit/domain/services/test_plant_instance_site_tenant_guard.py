@@ -78,7 +78,7 @@ def _service(sites: dict[str, Site]) -> tuple[PlantInstanceService, MagicMock]:
 def test_create_with_own_site_succeeds_and_persists() -> None:
     service, plant_repo = _service({"site-own": _site("site-own")})
 
-    created = service.create_plant(_plant("site-own"))
+    created = service.create_plant(_plant("site-own"), tenant_key=TENANT)
 
     assert created.site_key == "site-own"
     plant_repo.create.assert_called_once()
@@ -88,7 +88,7 @@ def test_create_with_foreign_site_raises_and_does_not_persist() -> None:
     service, plant_repo = _service({"site-foreign": _site("site-foreign", tenant=FOREIGN)})
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant("site-foreign"))
+        service.create_plant(_plant("site-foreign"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -97,7 +97,7 @@ def test_create_with_unknown_site_raises_and_does_not_persist() -> None:
     service, plant_repo = _service({})
 
     with pytest.raises(NotFoundError):
-        service.create_plant(_plant("site-ghost"))
+        service.create_plant(_plant("site-ghost"), tenant_key=TENANT)
 
     plant_repo.create.assert_not_called()
 
@@ -105,20 +105,35 @@ def test_create_with_unknown_site_raises_and_does_not_persist() -> None:
 def test_create_without_site_key_skips_guard() -> None:
     service, plant_repo = _service({})
 
-    created = service.create_plant(_plant(None))
+    created = service.create_plant(_plant(None), tenant_key=TENANT)
 
     assert created.site_key is None
     plant_repo.create.assert_called_once()
 
 
-def test_create_without_tenant_key_skips_guard() -> None:
-    # Internal callers / tests without a tenant context bypass the guard (mirrors
-    # the ``if tenant_key`` gate on get_plant/remove_plant).
+def test_create_without_a_tenant_is_refused_instead_of_skipping_the_guard() -> None:
+    """#2107: an empty tenant used to skip the site check; it now fails closed.
+
+    The skip existed for "internal callers / tests without a tenant context". The
+    measured callers of ``create_plant`` are the tenant route and the onboarding
+    wizard, both with a tenant, so the escape protected nothing and left a write
+    that checked no site.
+    """
     service, plant_repo = _service({})
 
-    created = service.create_plant(_plant("site-anything", tenant=""))
+    with pytest.raises(ValueError, match="tenant_key"):
+        service.create_plant(_plant("site-anything", tenant=""), tenant_key="")
 
-    assert created.site_key == "site-anything"
+    plant_repo.create.assert_not_called()
+
+
+def test_create_stamps_the_callers_tenant_over_the_models() -> None:
+    """#2107: the argument, not a field of the model, is the tenant the plant is created in."""
+    service, plant_repo = _service({"site-own": _site("site-own")})
+
+    created = service.create_plant(_plant("site-own", tenant=FOREIGN), tenant_key=TENANT)
+
+    assert created.tenant_key == TENANT
     plant_repo.create.assert_called_once()
 
 
@@ -129,7 +144,7 @@ def test_update_keeping_own_site_succeeds() -> None:
     service, plant_repo = _service({"site-own": _site("site-own")})
     plant_repo.get_or_raise.return_value = _plant("site-own", key="plant-1")
 
-    updated = service.update_plant("plant-1", _plant("site-own", key="plant-1"))
+    updated = service.update_plant("plant-1", _plant("site-own", key="plant-1"), tenant_key=TENANT)
 
     assert updated.site_key == "site-own"
     plant_repo.update.assert_called_once()
@@ -144,7 +159,7 @@ def test_update_moving_between_own_sites_succeeds() -> None:
     )
     plant_repo.get_or_raise.return_value = _plant("site-a", key="plant-1")
 
-    updated = service.update_plant("plant-1", _plant("site-b", key="plant-1"))
+    updated = service.update_plant("plant-1", _plant("site-b", key="plant-1"), tenant_key=TENANT)
 
     assert updated.site_key == "site-b"
     plant_repo.update.assert_called_once()
@@ -160,7 +175,7 @@ def test_update_moving_to_foreign_site_raises_and_does_not_persist() -> None:
     plant_repo.get_or_raise.return_value = _plant("site-a", key="plant-1")
 
     with pytest.raises(NotFoundError):
-        service.update_plant("plant-1", _plant("site-foreign", key="plant-1"))
+        service.update_plant("plant-1", _plant("site-foreign", key="plant-1"), tenant_key=TENANT)
 
     plant_repo.update.assert_not_called()
 
@@ -170,6 +185,32 @@ def test_update_moving_to_unknown_site_raises_and_does_not_persist() -> None:
     plant_repo.get_or_raise.return_value = _plant("site-a", key="plant-1")
 
     with pytest.raises(NotFoundError):
-        service.update_plant("plant-1", _plant("site-ghost", key="plant-1"))
+        service.update_plant("plant-1", _plant("site-ghost", key="plant-1"), tenant_key=TENANT)
+
+    plant_repo.update.assert_not_called()
+
+
+# ── #2107: the stored plant is verified in the service, not only by the route ──
+
+
+def test_update_of_a_foreign_tenants_plant_is_refused_and_does_not_persist() -> None:
+    """``update_plant`` re-read the stored plant without a tenant; the route's pre-read was the only check."""
+    # No site on the plant, so the site check (#719) cannot be what refuses it — only the ownership check can.
+    service, plant_repo = _service({})
+    plant_repo.get_or_raise.return_value = _plant(None, key="plant-1", tenant=FOREIGN)
+
+    with pytest.raises(NotFoundError):
+        service.update_plant("plant-1", _plant(None, key="plant-1", tenant=FOREIGN), tenant_key=TENANT)
+
+    plant_repo.update.assert_not_called()
+
+
+def test_remove_of_a_foreign_tenants_plant_is_refused_and_does_not_persist() -> None:
+    """``remove_plant``'s ``tenant_key=""`` default skipped the ownership check for a caller that left it out."""
+    service, plant_repo = _service({})
+    plant_repo.get_or_raise.return_value = _plant(None, key="plant-1", tenant=FOREIGN)
+
+    with pytest.raises(NotFoundError):
+        service.remove_plant("plant-1", tenant_key=TENANT)
 
     plant_repo.update.assert_not_called()

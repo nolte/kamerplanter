@@ -1,0 +1,63 @@
+# Recorded by scripts/ci/lane_inputs.py — what this job READS, so its relevance
+# filter can be held against it (#1596). Do not edit `reads` by hand: the CI lane
+# .github/workflows/lane-inputs.yml replays the `invocations` below and fails when
+# its recording differs from this file (#1683). The guard is
+# src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py.
+schema: 2
+workflow: docker-publish.yml
+job: build-knowledge-service
+gate:
+  kind: paths-filter
+  filter: knowledge-service
+status: derived
+measured_on: '2026-10-13'
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 1
+job_spec_sha256: a033c9b855103c9c15bef2d2f73df4e4ac78bffc245b34a2eb554a27b5fd8029
+invocations:
+- command: derive-docker --context src/knowledge-service --dockerfile src/knowledge-service/Dockerfile
+  cwd: .
+  recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
+    COPY/ADD sources
+  copy_sources:
+  - pyproject.toml
+  - uv.lock
+  - app/
+  - app/
+  context_files_after_dockerignore: 31
+subprocesses: []
+accepted_gaps: []
+reads:
+- src/knowledge-service/.dockerignore
+- src/knowledge-service/Dockerfile
+- src/knowledge-service/app/__init__.py
+- src/knowledge-service/app/access_log.py
+- src/knowledge-service/app/auth.py
+- src/knowledge-service/app/config.py
+- src/knowledge-service/app/embedding.py
+- src/knowledge-service/app/ingestor.py
+- src/knowledge-service/app/llm/__init__.py
+- src/knowledge-service/app/llm/anthropic.py
+- src/knowledge-service/app/llm/interface.py
+- src/knowledge-service/app/llm/ollama.py
+- src/knowledge-service/app/llm/openai_compatible.py
+- src/knowledge-service/app/main.py
+- src/knowledge-service/app/observability/__init__.py
+- src/knowledge-service/app/observability/error_tracking.py
+- src/knowledge-service/app/prompt_engine.py
+- src/knowledge-service/app/reranker.py
+- src/knowledge-service/app/schemas.py
+- src/knowledge-service/app/service.py
+- src/knowledge-service/app/vectordb/__init__.py
+- src/knowledge-service/app/vectordb/config.py
+- src/knowledge-service/app/vectordb/connection.py
+- src/knowledge-service/app/vectordb/migrations/001_pgvector_ai_chunks.sql
+- src/knowledge-service/app/vectordb/migrations/002_upgrade_vector_1024_hybrid.sql
+- src/knowledge-service/app/vectordb/migrations/003_add_language_column.sql
+- src/knowledge-service/app/vectordb/migrations/004_upgrade_vector_1024_e5_large.sql
+- src/knowledge-service/app/vectordb/repository.py
+- src/knowledge-service/app/vectordb/schema.py
+- src/knowledge-service/pyproject.toml
+- src/knowledge-service/uv.lock
+test_modules: []
+readers: {}

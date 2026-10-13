@@ -1,45 +1,112 @@
 from __future__ import annotations
 
+import contextlib
+import hashlib
+import hmac
+import html
 import re
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+import secrets
+from collections.abc import Callable, Collection
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal
 
 import structlog
 
+from app.common.datetimes import ensure_aware_utc
+from app.common.decoys import email_digest
 from app.common.enums import (
     AdminScope,
+    EntitlementDimension,
     InvitationStatus,
     InvitationType,
+    SecurityAuditAction,
+    SecurityAuditVia,
     TenantRole,
+    TenantStatus,
     TenantType,
 )
 from app.common.exceptions import (
     DuplicateError,
+    FeatureNotConfiguredError,
     ForbiddenError,
+    InvalidStatusTransitionError,
+    MemberLimitReachedError,
     NotFoundError,
+    OrganizationLimitReachedError,
+    RateLimitError,
+    TenantErasureClaimLostError,
+    TenantErasureIncompleteError,
     ValidationError,
+    WriteConflictError,
 )
+from app.common.log_privacy import log_subject, log_tenant, log_tenant_record_key
+from app.domain.engines.erasure_engine import ANONYMIZED_MARKER, UNAVAILABLE_LOG_SUBJECT, ErasureEngine
 from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.password_engine import PasswordEngine
 from app.domain.engines.tenant_engine import TenantEngine
-from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
+from app.domain.interfaces.api_key_repository import IApiKeyRepository
+from app.domain.interfaces.calendar_feed_repository import ICalendarFeedRepository
+from app.domain.interfaces.email_service import EmailUndeliverableError, IEmailService
+from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.invitation_repository import IInvitationRepository
-from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.interfaces.location_assignment_repository import (
     ILocationAssignmentRepository,
 )
 from app.domain.interfaces.membership_repository import IMembershipRepository
+from app.domain.interfaces.mode_switch_repository import IModeSwitchRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.interfaces.pest_image_repository import IPestImageRepository
+from app.domain.interfaces.pest_prototype_store import IPestPrototypeStore
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
+from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.interfaces.tenant_erasure_executor import ITenantErasureExecutor
+from app.domain.interfaces.tenant_erasure_repository import ITenantErasureRepository
 from app.domain.interfaces.tenant_repository import ITenantRepository
+from app.domain.interfaces.user_repository import IUserRepository
+from app.domain.models.auth import (
+    ApiKey,
+    ApiKeyCreated,
+    ApiKeySummary,
+    api_key_control_errors,
+    api_key_scope_admits,
+    new_api_key_secret,
+    successor_api_key,
+)
 from app.domain.models.invitation import Invitation, InvitationLink
 from app.domain.models.location_assignment import LocationAssignment
 from app.domain.models.membership import MemberInfo, Membership, UserMembershipInfo
+from app.domain.models.mode_switch import TakeoverClaimLostError, TakeoverReceipt
+from app.domain.models.privacy import (
+    OrganisationErasurePreview,
+    OrganisationSettlement,
+    PersonalTenantErasure,
+    PersonalTenantErasurePreview,
+)
+from app.domain.models.security_audit import SecurityAuditEntry
+from app.domain.models.service_account import (
+    MAX_ROTATION_OVERLAP_MINUTES,
+    SERVICE_ACCOUNT_EMAIL_DOMAIN,
+    SERVICE_ACCOUNT_ROLES,
+    ServiceAccountCreated,
+    ServiceAccountInfo,
+    ServiceAccountKeyRotated,
+)
 from app.domain.models.tenant import Tenant, TenantWithRole
-
-if TYPE_CHECKING:
-    from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
+from app.domain.models.tenant_erasure import (
+    TenantDeletionConfirmation,
+    TenantDeletionStepUp,
+    TenantErasureCancelConfirmation,
+    TenantErasureOrigin,
+    TenantErasureRecord,
+)
+from app.domain.models.user import User, allows_interactive_auth
+from app.domain.services.entitlement_service import EntitlementService
+from app.domain.services.location_ownership import SiteAnchorSource, resolve_owned_location
+from app.domain.services.security_audit_service import SecurityAuditService
+from app.domain.services.step_up_service import StepUpVerifier, default_step_up_verifier, echo_matches
 
 logger = structlog.get_logger()
 
@@ -48,6 +115,32 @@ logger = structlog.get_logger()
 # so a malformed/empty key can never widen the delete prefix to ``t//`` (which
 # would otherwise collapse to ``t`` and match *every* tenant).
 _TENANT_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:@()=;$!*',+%-]+$")
+
+#: Absorbs the daily beat's own jitter so a one-day backoff does not miss the
+#: next run by seconds (the account erasure's ``ERASURE_RETRY_SLACK``).
+_TENANT_ERASURE_RETRY_SLACK = timedelta(hours=1)
+
+#: Key of the technical tenant whose ``lead`` members are platform admins
+#: (REQ-049 §2.5; the same lookup ``app.common.auth.is_platform_admin`` makes).
+_PLATFORM_TENANT_KEY = "platform"
+
+#: The states a platform admin's ``is_active`` toggle moves between (REQ-024 AK-56).
+#: A tenant whose deletion is scheduled, running or that was orphaned leaves its state
+#: only through the erasure itself or :meth:`TenantService.cancel_tenant_erasure` (#2123).
+_TOGGLEABLE_STATUSES = frozenset({TenantStatus.ACTIVE, TenantStatus.SUSPENDED})
+
+#: The states of a tenant whose deletion is scheduled and still inside its grace
+#: (#2123, #2134). ``list_my_tenants(include_scheduled_deletion=True)`` lists them so
+#: their members see the deletion date and their management can cancel a
+#: ``pending_deletion`` one (#2166); an ``orphaned`` one is listed, not cancellable.
+_SCHEDULED_DELETION_STATUSES = frozenset({TenantStatus.PENDING_DELETION, TenantStatus.ORPHANED})
+
+#: Fields of the tenant document no partial update may write: the lifecycle state
+#: moves only through the step-up paths that own it (#2009, #2123).
+_LIFECYCLE_FIELDS = frozenset({"is_active", "status", "deletion_scheduled_at", "status_before_deletion"})
+
+#: REQ-056 §7.6 (#2142) — the tenant's plan; assigned only on the platform-admin path, never by its management.
+_PLAN_FIELD = "plan_key"
 
 
 class TenantService:
@@ -61,12 +154,94 @@ class TenantService:
         membership_engine: MembershipEngine,
         invitation_engine: InvitationEngine,
         storage_adapter: IObjectStorageAdapter | None = None,
-        attachment_repo: IAttachmentRepository | None = None,
         reference_index_store: IReferenceIndexStore | None = None,
         pest_image_repo: IPestImageRepository | None = None,
-        ipm_repo: IIpmRepository | None = None,
-        pest_inference_client: PestDetectionInferenceClient | None = None,
+        pest_prototype_store: IPestPrototypeStore | None = None,
+        observation_repo: IObservationRepository | None = None,
+        tenant_erasure_executor: ITenantErasureExecutor | None = None,
+        tenant_erasure_repo: ITenantErasureRepository | None = None,
+        tombstone_salt: str = "",
+        light_mode: bool = False,
+        password_engine: PasswordEngine | None = None,
+        step_up_verifier: StepUpVerifier | None = None,
+        site_anchors: SiteAnchorSource | None = None,
+        erasure_repo: IErasureRepository | None = None,
+        security_audit: SecurityAuditService | None = None,
+        task_repo: ITaskRepository | None = None,
+        tenant_erasure_grace_days: int | None = None,
+        email_service: IEmailService | None = None,
+        user_repo: IUserRepository | None = None,
+        max_members_ceiling: int | None = None,
+        api_key_repo: IApiKeyRepository | None = None,
+        max_service_accounts: int | None = None,
+        frontend_url: str = "",
+        invitation_emails_per_day: int = 50,
+        calendar_feed_repo: ICalendarFeedRepository | None = None,
+        entitlements: EntitlementService | None = None,
+        max_organizations_per_user: int = 10,
+        takeover_repo: IModeSwitchRepository | None = None,
     ) -> None:
+        # #1855 R3 W-4 — an open light-to-full take-over whose undo failed keeps the light-mode tenant out of
+        # an account erasure's personal tenants; ``get_tenant_service`` wires it.
+        self._takeover_repo = takeover_repo
+        # #2226 review SEC-001 — the iCal feeds a membership that ends takes with it. ``None`` only where no
+        # membership is ever ended (doubles); ``get_tenant_service`` wires it. The public feed route checks the
+        # owner's membership itself, so a leftover feed answers 404 - this delete is the tidy-up.
+        self._calendar_feed_repo = calendar_feed_repo
+        # #2137 (MT-041, REQ-023 §5b) — the keys of the tenant's service accounts; ``get_tenant_service``
+        # wires them. How many such accounts a tenant may hold is a plan dimension (below).
+        self._api_key_repo = api_key_repo
+        # REQ-056 §7.4 (#2142) — the member limit (REQ-024 AK-64, #2133) and the service-account quota
+        # (#2137) are decided by the tenant's plan: ``get_tenant_service`` wires the plan resolution, and
+        # ``test_quota_checks_reach_the_entitlement_service`` holds that every check asks it. Built without
+        # one, every tenant gets the instance settings - with ``max_members_ceiling`` /
+        # ``max_service_accounts`` replacing them when given (a test double's explicit limit).
+        self._entitlements = entitlements or self._instance_entitlements(
+            tenant_repo, max_members_ceiling=max_members_ceiling, max_service_accounts=max_service_accounts
+        )
+        # REQ-056 §6.2 (#2142) — how many organisations one account may own (``TENANT_MAX_ORGANIZATIONS_PER_USER``).
+        if max_organizations_per_user < 0:
+            raise ValueError("max_organizations_per_user must not be negative")
+        self._max_organizations_per_user = max_organizations_per_user
+        # #2162 review W-1 — e-mail invitations one account may issue per 24 h (``TENANT_INVITATION_EMAILS_PER_DAY``).
+        if invitation_emails_per_day < 1:
+            raise ValueError("invitation_emails_per_day must be at least 1")
+        self._invitation_emails_per_day = invitation_emails_per_day
+        # #2123 (MT-027, REQ-024 AK-52) — how long an accepted tenant deletion stays
+        # cancellable. ``None`` reads ``RETENTION_TENANT_ERASURE_GRACE_DAYS`` (default 90):
+        # an unwired construction schedules rather than erases at once. ``0`` keeps the
+        # immediate erasure of #1792 (self-hosted floor).
+        if tenant_erasure_grace_days is None:
+            from app.config.settings import settings as _settings
+
+            tenant_erasure_grace_days = _settings.retention_tenant_erasure_grace_days
+        if tenant_erasure_grace_days < 0:
+            raise ValueError("tenant_erasure_grace_days must not be negative")
+        self._tenant_erasure_grace = timedelta(days=tenant_erasure_grace_days)
+        # #2123 — the members of a tenant whose deletion is scheduled are told the date
+        # (Art. 20 export window). Best effort: ``None`` (doubles, light mode) skips the mail.
+        self._email_service = email_service
+        self._user_repo = user_repo
+        # #2162 — the base of an invitation's accept link (``settings.frontend_url``, as the account mails).
+        self._frontend_url = frontend_url
+        # The tasks a membership that ends takes its assignee off (#2114). ``None`` only where no membership
+        # is ever ended (doubles); ``get_tenant_service`` always wires it, and the class guard holds that every
+        # method that deletes a membership calls :meth:`_end_membership` (which clears them).
+        self._task_repo = task_repo
+        # The persistent security audit of every membership, role and scope change
+        # (MT-014, #2111). ``None`` only where no membership is ever changed (read-only
+        # call sites, doubles); ``get_tenant_service`` always wires it, and
+        # ``test_membership_mutations_write_the_security_audit`` holds that every
+        # mutating method calls :meth:`_audit_membership`.
+        self._security_audit = security_audit
+        # The location → site reads a location assignment is checked through
+        # (#1871 B3). Without them an assignment is refused, never stored unchecked.
+        self._site_anchors = site_anchors
+        # The account-erasure requests (REQ-025 AK-IE-06, #1924): who has asked to be
+        # erased decides whether anybody may still be invited into their personal
+        # tenant. Optional so non-invitation call sites stay unaffected; without it
+        # the invitation gate does not apply.
+        self._erasure_repo = erasure_repo
         self._tenant_repo = tenant_repo
         self._membership_repo = membership_repo
         self._invitation_repo = invitation_repo
@@ -78,7 +253,6 @@ class TenantService:
         # binary data (object storage) and its contributed reference-index
         # vectors. Optional so non-deletion call sites stay unaffected.
         self._storage_adapter = storage_adapter
-        self._attachment_repo = attachment_repo
         self._reference_index_store = reference_index_store
         # REQ-010 — pest-image link documents are a separate ArangoDB collection
         # (not covered by the object-storage prefix sweep). They are dropped on
@@ -88,8 +262,44 @@ class TenantService:
         # recognition index; it is retracted on tenant deletion. Both optional so
         # non-deletion callers stay unaffected; the retract is a no-op when either
         # is unwired (it cannot resolve a label without the IPM repo).
-        self._ipm_repo = ipm_repo
-        self._pest_inference_client = pest_inference_client
+        self._pest_prototype_store = pest_prototype_store
+        # #1769 — the declared tenant-erasure inventory, its executor and the
+        # persisted proof. The salt pseudonymises the account keys on retained
+        # harvest/treatment/inspection rows; it never leaves this service.
+        # #1769 review GDPR-001 — the tenant's raw sensor readings live in
+        # TimescaleDB, outside the ArangoDB transaction; removed in the external
+        # phase. ``None`` only where no deletion runs (other callers).
+        self._observation_repo = observation_repo
+        self._tenant_erasure_engine = TenantErasureEngine()
+        self._tenant_erasure_executor = tenant_erasure_executor
+        self._tenant_erasure_repo = tenant_erasure_repo
+        self._tombstone_salt = tombstone_salt
+        self._light_mode = light_mode
+        # #1791 — the password step-up of a tenant deletion. Stateless (bcrypt).
+        self._password_engine = password_engine or PasswordEngine()
+        # #1816 — the one throttled step-up every irreversible account action passes.
+        self._step_up_verifier = step_up_verifier or default_step_up_verifier(self._password_engine)
+
+    @staticmethod
+    def _instance_entitlements(
+        tenant_repo: ITenantRepository, *, max_members_ceiling: int | None, max_service_accounts: int | None
+    ) -> EntitlementService:
+        """The quota resolution of a service built without the plan catalogue: the instance settings."""
+        overrides: dict[EntitlementDimension, int] = {}
+        if max_members_ceiling is not None:
+            if max_members_ceiling < 1:
+                raise ValueError("max_members_ceiling must be at least 1")
+            overrides[EntitlementDimension.MEMBERS] = max_members_ceiling
+        if max_service_accounts is not None:
+            if max_service_accounts < 1:
+                raise ValueError("max_service_accounts must be at least 1")
+            overrides[EntitlementDimension.SERVICE_ACCOUNTS] = max_service_accounts
+        return EntitlementService(plan_repo=None, tenant_repo=tenant_repo, instance_overrides=overrides)
+
+    @property
+    def entitlements(self) -> EntitlementService:
+        """The quota resolution this service decides its member and service-account limits with."""
+        return self._entitlements
 
     # --- Tenant CRUD ---
 
@@ -104,36 +314,41 @@ class TenantService:
             tenant_type=TenantType.PERSONAL,
             owner_user_key=user_key,
             max_members=1,
+            # REQ-056 §6.1 / §7.1 (#2142) — a new tenant gets the plan currently marked default.
+            plan_key=self._entitlements.default_plan_key(),
         )
-        tenant = self._tenant_repo.create(tenant)
+        tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.REGISTRATION)
 
-        membership = Membership(
-            user_key=user_key,
-            tenant_key=tenant.key,
-            # REQ-049 §6: the founder gets the top domain role and both
-            # administrative scopes — a tenant whose creator could not invite
-            # anyone would be stranded from the first second.
-            role=TenantRole.LEAD,
-            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
-            is_active=True,
-            joined_at=datetime.now(UTC).isoformat(),
-        )
-        self._membership_repo.create(membership)
-
-        logger.info("personal_tenant_created", user_key=user_key, tenant_key=tenant.key)
+        logger.info("personal_tenant_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
         return tenant
 
     def create_organization(
-        self, user_key: str, name: str, description: str | None = None, max_members: int = 50
+        self, founder: User, name: str, description: str | None = None, max_members: int | None = None
     ) -> Tenant:
-        """Create an organization tenant."""
+        """Create an organization tenant.
+
+        ``max_members`` is at most the platform ceiling (REQ-024 AK-65, 422 above it); omitted, the
+        organisation takes the ceiling.
+
+        **Not by a service account (#2137, MT-041 / audit ID-14):** founding a tenant makes the founder its
+        ``lead`` with both administrative scopes — a person's choice. A machine identity (REQ-023 §5b) is
+        placed in a tenant by that tenant's lead and founds none (403, nothing written). The account, not
+        its key, is passed in so the gate cannot be skipped by handing over a bare key.
+        """
+        self._refuse_service_account(founder, "A service account cannot found a tenant.")
+        user_key = founder.key or ""
         errors = self._tenant_engine.validate_tenant_name(name)
         if errors:
             raise ValidationError(errors[0])
+        member_limit = self._entitlements.members_ceiling() if max_members is None else max_members
+        self._refuse_limit_above_ceiling(member_limit)
 
+        # REQ-056 §6.2 (#2142) — an account limit (``TENANT_MAX_ORGANIZATIONS_PER_USER``), counted over the
+        # organisations it owns in every state but ``deleted``; ``0`` = no self-service founding at all.
         org_count = self._tenant_repo.count_organizations_by_owner(user_key)
-        if not self._tenant_engine.can_create_organization(org_count):
-            raise ValidationError("Maximum number of organizations reached")
+        if not self._tenant_engine.can_create_organization(org_count, max_orgs=self._max_organizations_per_user):
+            logger.info("organization_limit_reached", subject=log_subject(user_key))
+            raise OrganizationLimitReachedError(self._max_organizations_per_user)
 
         slug = self._tenant_engine.generate_slug(name)
         slug = self._ensure_unique_slug(slug)
@@ -144,30 +359,252 @@ class TenantService:
             tenant_type=TenantType.ORGANIZATION,
             description=description,
             owner_user_key=user_key,
-            max_members=max_members,
+            max_members=member_limit,
+            plan_key=self._entitlements.default_plan_key(),
         )
-        tenant = self._tenant_repo.create(tenant)
+        tenant = self._found_tenant(tenant, user_key, via=SecurityAuditVia.TENANT_CREATION)
 
+        logger.info("organization_created", subject=log_subject(user_key), tenant=log_tenant(tenant.key))
+        return tenant
+
+    def found_imported_tenant(
+        self,
+        *,
+        actor_user_key: str,
+        name: str,
+        slug_hint: str,
+        description: str | None,
+        settings: dict[str, Any],
+        plan_key: str,
+        owner_user_key: str,
+        members: list[Membership],
+        founder_scopes: list[AdminScope] | None = None,
+        tenant_key: str | None = None,
+    ) -> Tenant:
+        """Found the new tenant of an import (REQ-056 §8.4 step 2 and 4, #2138) — always a new one.
+
+        Called by :class:`~app.domain.services.tenant_export_service.TenantExportService` only, behind
+        the platform admin's step-up. An import never merges into an existing tenant: the slug of the
+        archive is taken when free, otherwise suffixed. The tenant is always an **organisation** — a
+        personal tenant belongs to exactly one account, which already has its own in the target
+        installation. The owner gets the founder's lead membership with *founder_scopes* — the scopes the
+        admin confirmed for that member (SEC-R2-02); ``None`` (the fallback where the acting admin becomes
+        the owner because no mapped member was confirmed as lead + management) gives both scopes, like
+        every founding. Every other mapped member gets the role and scopes **the admin confirmed** (never
+        the archive's, SEC-003). Each membership, the founder's included, is audited
+        (``membership_added`` via ``platform_admin``) with the acting admin as the actor, like a membership
+        a platform admin adds by hand.
+
+        *tenant_key* is the key the tenant is written under: the import records it on its request before
+        this call, so no moment exists in which the tenant exists and the request does not name it (a run
+        that dies right after the founding is still swept). The tenant and the owner's membership are one
+        transaction; every further membership is its own write, so a failure part-way leaves an
+        ``importing`` tenant — the caller calls this inside its rollback, and a request never lets go of a
+        tenant still ``importing`` (R3-01).
+
+        The target plan's member limit is checked once the tenant exists, against every mapped account
+        (``422 MEMBER_LIMIT_REACHED``): the memberships are written inactive, and the join-time check
+        counts active ones only, so it would admit any number of them (I3 of review round 3).
+
+        The tenant is founded ``importing`` and every membership inactive (SEC-007): nobody reaches it
+        until :meth:`activate_imported_tenant` runs after the last row is written.
+        """
+        ceiling = self._entitlements.members_ceiling()
+        if len({member.user_key for member in members} | {owner_user_key}) > ceiling:
+            raise MemberLimitReachedError(ceiling)
+        errors = self._tenant_engine.validate_tenant_name(name)
+        if errors:
+            raise ValidationError(errors[0])
+        slug = self._ensure_unique_slug(self._tenant_engine.generate_slug(slug_hint or name))
+        tenant = Tenant(
+            name=name,
+            slug=slug,
+            tenant_type=TenantType.ORGANIZATION,
+            description=description,
+            owner_user_key=owner_user_key,
+            max_members=ceiling,
+            plan_key=plan_key,
+            settings=settings,
+            status=TenantStatus.IMPORTING,
+        )
+        founded = self._found_tenant(
+            tenant,
+            owner_user_key,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            founder_active=False,
+            founder_scopes=founder_scopes,
+            actor_user_key=actor_user_key,
+            tenant_key=tenant_key,
+        )
+        tenant_key = founded.key or ""
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.MEMBERS,
+            projected=len({member.user_key for member in members} | {owner_user_key}),
+        )
+        for member in members:
+            if member.user_key == owner_user_key:
+                continue
+            created = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=member.user_key,
+                    tenant_key=tenant_key,
+                    role=member.role,
+                    admin_scopes=member.admin_scopes,
+                    is_active=False,
+                    joined_at=member.joined_at,
+                )
+            )
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=actor_user_key,
+                target_user_key=member.user_key,
+                tenant_key=tenant_key,
+                membership=created,
+            )
+        logger.info("tenant_import.tenant_founded", tenant=log_tenant(tenant_key), members=len(members))
+        return founded
+
+    def activate_imported_tenant(self, tenant_key: str) -> Tenant:
+        """Open an imported tenant once every row is written: memberships active, then ``importing`` → ``active``.
+
+        Both writes are conditional on the tenant still being ``importing``: a tenant the stale
+        sweep has meanwhile taken for erasure is not reopened (409).
+        """
+        self._membership_repo.activate_all_for_importing_tenant(tenant_key)
+        moved = self._transition_tenant_status(
+            tenant_key,
+            expected=frozenset({TenantStatus.IMPORTING}),
+            status=TenantStatus.ACTIVE,
+            deletion_scheduled_at="keep",
+            previous="keep",
+        )
+        assert moved is not None  # conflict_ok is False: a conflict raised
+        logger.info("tenant_import.tenant_activated", tenant=log_tenant(tenant_key))
+        return moved
+
+    def erase_abandoned_import(self, tenant_key: str, *, now: datetime) -> bool:
+        """Erase the half tenant of an import whose run died (REQ-056 §8.4 step 5, #2138 SEC-007).
+
+        Only a tenant that is still ``importing``: nobody ever reached it, so there is no grace and
+        no notice. It runs through the tenant-erasure inventory, the record and the residue check
+        like every other deletion (``origin: abandoned_import``); a partial run is retried by
+        :meth:`resume_tenant_erasures`. ``False`` when the tenant is not (or no longer) importing.
+        """
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None or tenant.status != TenantStatus.IMPORTING:
+            return False
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            # Nothing changes: the tenant stays ``importing`` (unreachable) and the next sweep tries again.
+            logger.error("tenant_import.abandoned_tenant_not_erasable", tenant=log_tenant(tenant_key))
+            return False
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        # An earlier sweep may have opened the record already: claim and retry it below.
+        with contextlib.suppress(DuplicateError, WriteConflictError):
+            self._require_tenant_erasure_repo().create_with_key(
+                TenantErasureRecord(
+                    tenant_key=tenant_key,
+                    tenant_type=str(tenant.tenant_type),
+                    origin="abandoned_import",
+                    step_up="abandoned_import_no_interactive_step_up",
+                    requested_at=now,
+                ),
+                record_key,
+            )
+        claimed = self._claim_tenant_erasure(record_key, now)
+        if claimed is None:
+            return False
+        self._transition_tenant_status(
+            tenant_key,
+            expected=frozenset({TenantStatus.IMPORTING}),
+            status=TenantStatus.DELETED,
+            deletion_scheduled_at="keep",
+            previous="keep",
+            conflict_ok=True,
+        )
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        self._run_tenant_erasure(claimed, now, raise_on_failure=False)
+        logger.warning("tenant_import.abandoned_tenant_erased", tenant=log_tenant(tenant_key))
+        return True
+
+    @staticmethod
+    def _refuse_service_account(account: User, message: str) -> None:
+        """403 for a service account on a door meant for a person (#2137, REQ-023 §5b).
+
+        The rule is :func:`~app.domain.models.user.allows_interactive_auth`, the predicate the credential
+        gates already decide on — not a restated ``account_type`` comparison.
+        """
+        if not allows_interactive_auth(account):
+            raise ForbiddenError(message)
+
+    def _found_tenant(
+        self,
+        tenant: Tenant,
+        user_key: str,
+        *,
+        via: SecurityAuditVia,
+        founder_active: bool = True,
+        founder_scopes: list[AdminScope] | None = None,
+        actor_user_key: str | None = None,
+        tenant_key: str | None = None,
+    ) -> Tenant:
+        """Write a new tenant, its founder's lead membership, both edges and the audit row atomically (#2118).
+
+        REQ-049 §6: the founder gets the top domain role and both administrative scopes - a tenant whose
+        creator could not invite anyone would be stranded from the first second. The four writes (and the
+        security-audit row of #2111) are one transaction in :meth:`ITenantRepository.create_with_lead_membership`:
+        written one by one, a failure between two of them left a tenant nobody could reach or delete, its
+        slug taken. The one gate of the audit for a founding (the class guard
+        ``test_membership_mutations_write_the_security_audit`` holds that every membership-creating method
+        reaches it).
+
+        An import (#2138) passes the scopes the admin confirmed for the owner (*founder_scopes*), the acting
+        admin as the audit's actor (*actor_user_key*; otherwise the founder founds their own tenant) and the
+        key it already recorded (*tenant_key*).
+        """
         membership = Membership(
             user_key=user_key,
-            tenant_key=tenant.key,
-            # REQ-049 §6: the founder gets the top domain role and both
-            # administrative scopes — a tenant whose creator could not invite
-            # anyone would be stranded from the first second.
+            tenant_key="",  # the tenant's own key, set by the repository once the tenant exists
             role=TenantRole.LEAD,
-            admin_scopes=[AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
-            is_active=True,
+            admin_scopes=list(founder_scopes)
+            if founder_scopes is not None
+            else [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+            is_active=founder_active,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        self._membership_repo.create(membership)
+        written: list[SecurityAuditEntry] = []
+        audit = self._security_audit
 
-        logger.info("organization_created", user_key=user_key, tenant_key=tenant.key)
-        return tenant
+        def build_audit_row(stored_tenant: Tenant, stored_membership: Membership) -> SecurityAuditEntry:
+            assert audit is not None  # only handed to the repository when it is wired
+            entry = audit.membership_entry(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=via,
+                actor_user_key=actor_user_key or user_key,
+                target_user_key=user_key,
+                tenant_key=stored_tenant.key or "",
+                membership_key=stored_membership.key,
+                new_role=str(stored_membership.role),
+                new_scopes=[str(scope) for scope in stored_membership.admin_scopes],
+            )
+            written.append(entry)
+            return entry
+
+        # Only an import names the key; every other founding leaves it to the database.
+        preset: dict[str, str] = {"tenant_key": tenant_key} if tenant_key else {}
+        stored_tenant, _founder = self._tenant_repo.create_with_lead_membership(
+            tenant, membership, audit=build_audit_row if audit is not None else None, **preset
+        )
+        for entry in written:
+            audit.announce(entry)  # type: ignore[union-attr]  # ``written`` is only filled when audit is wired
+        return stored_tenant
 
     def get_tenant(self, tenant_key: str) -> Tenant:
         tenant = self._tenant_repo.get_by_key(tenant_key)
         if not tenant:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
         return tenant
 
     def get_personal_tenant(self, user_key: str) -> Tenant | None:
@@ -198,7 +635,7 @@ class TenantService:
     def get_tenant_by_slug(self, slug: str) -> Tenant:
         tenant = self._tenant_repo.get_by_slug(slug)
         if not tenant:
-            raise NotFoundError("tenants", slug)
+            raise NotFoundError("Tenant", slug)
         return tenant
 
     def update_tenant(self, tenant_key: str, data: dict) -> Tenant:
@@ -209,40 +646,201 @@ class TenantService:
         allow-list**: build it from a closed request schema's ``model_dump()``
         or from named fields, never from a raw request body.
 
-        Two endpoints reach this, and both do the former:
+        The tenant-scoped ``PATCH /t/{slug}`` reaches this with
+        ``TenantUpdateRequest`` (``name``, ``description``, ``max_members``).
+        Neither that schema nor ``AdminTenantUpdate`` sets ``extra="allow"``, and
+        that closedness is the only thing keeping ``owner_user_key``,
+        ``is_platform``, ``tenant_type``, ``slug`` and ``settings`` out of the
+        payload: ``update_fields`` applies ``data`` through
+        ``model_copy(update=...)``, which does not validate. ``slug`` is derived
+        here, from ``name``, and never accepted from a caller.
 
-        * ``PATCH /t/{slug}`` with ``TenantUpdateRequest`` (``name``,
-          ``description``, ``max_members``);
-        * ``PATCH /admin/platform/tenants/{key}`` with ``AdminTenantUpdate``
-          (the same three plus ``is_active``, which only a platform admin may
-          set) — routed here by #997, which ended a router that wrote to the
-          tenants collection itself.
-
-        Neither schema sets ``extra="allow"``, and that closedness is the only
-        thing keeping ``owner_user_key``, ``is_platform``, ``tenant_type``,
-        ``slug`` and ``settings`` out of the payload: ``update_fields`` applies
-        ``data`` through ``model_copy(update=...)``, which does not validate.
-        ``slug`` is derived here, from ``name``, and never accepted from a
-        caller.
-
-        **The platform tenant cannot be deactivated (#1021).** ``delete_tenant``
-        already refuses the platform tenant (``is_platform`` → 403) from the
-        router; deactivating it via ``{"is_active": False}`` slipped through
-        because this path had no such guard. The check lives here, not on the
-        router, so both entry points are covered — the platform-admin
-        ``PATCH /admin/platform/tenants/{key}`` and the tenant-scoped
-        ``PATCH /t/{slug}`` (which does not carry ``is_active`` today, but would
-        be guarded if it ever did). It refuses with the same
-        :class:`ForbiddenError` (403) shape ``delete_tenant`` uses, and is scoped
-        to deactivation only — renaming or re-describing the platform tenant
-        still works.
+        **``is_active`` is refused here (#2009).** Deactivating a tenant locks every
+        member out of it; it is a step-up act and goes through
+        :meth:`admin_update_tenant`, which verifies the platform admin's step-up
+        before it writes. A payload carrying ``is_active`` on this path is a
+        programming error (no request schema of this path has the field), so it
+        fails loudly instead of writing the flag past the step-up.
         """
-        if data.get("is_active") is False:
-            tenant = self._tenant_repo.get_by_key(tenant_key)
-            if not tenant:
-                raise NotFoundError("tenants", tenant_key)
-            if tenant.is_platform:
-                raise ForbiddenError("The platform tenant cannot be deactivated.")
+        if _LIFECYCLE_FIELDS & set(data):
+            raise ValueError(
+                "lifecycle changes go through admin_update_tenant / delete_tenant / cancel_tenant_erasure, "
+                "which verify the step-up (#2009, #2123)"
+            )
+        if _PLAN_FIELD in data:
+            # REQ-056 §7.6 (#2142) — a tenant's management never chooses its own plan.
+            raise ValueError("a tenant's plan is assigned by a platform admin through admin_update_tenant (#2142)")
+        return self._apply_tenant_update(tenant_key, data)
+
+    def admin_update_tenant(
+        self,
+        tenant_key: str,
+        data: dict,
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> Tenant:
+        """Apply a partial platform-admin update to one tenant (#997, #2009).
+
+        ``PATCH /admin/platform/tenants/{key}`` with ``AdminTenantUpdate`` — the
+        fields of the tenant-scoped update plus ``is_active``, which only a platform
+        admin may set. Routed here by #997, which ended a router that wrote to the
+        tenants collection itself.
+
+        **Step-up when ``is_active`` changes (#2009, REQ-024 AK-56).** Deactivating a
+        tenant locks every member out of it with one request. The rule of #1992 — "a
+        change that can lead to erasure or lockout of another account is a step-up
+        act" — therefore applies: any actual change of ``is_active`` passes the
+        admin's *own* step-up (``requester`` — the password, the fresh
+        re-authentication or the mailed code; an API key is 403, 429 when locked),
+        bound to this tenant (#1884). Reactivating is gated as well, as it is for an
+        account (#1857): it restores access a deliberate deactivation took away. A
+        rename, a description or a re-send of the current value needs none, so the
+        edit form stays one click — and a re-sent value is not written back, so it
+        cannot undo a concurrent change (#1992 review SEC-003).
+
+        The platform tenant is refused (403, #1021) before any step-up is asked for.
+        Without a valid step-up nothing is written. An actual change of ``is_active``
+        writes the security-audit row ``tenant_suspended`` / ``tenant_reactivated``
+        (MT-014, #2111) after the store; a rename or a member-limit edit writes none
+        (no account gains or loses access through it).
+
+        **Plan assignment (REQ-056 §7.6, #2142).** ``plan_key`` gives the tenant another plan:
+        an unknown plan is 422, a tenant in ``deleted`` is 422, a suspended one may be
+        assigned. No step-up (REQ-056 E-07: it locks nobody out and deletes nothing - a lower
+        limit removes nothing, §7.5); an actual change writes ``tenant_plan_changed`` with the
+        previous and the new plan key. A re-sent current plan writes nothing.
+        """
+        current = self._tenant_repo.get_by_key(tenant_key)
+        if current is None:
+            raise NotFoundError("Tenant", tenant_key)
+        if (_LIFECYCLE_FIELDS - {"is_active"}) & set(data):
+            raise ValueError("status changes go through delete_tenant / cancel_tenant_erasure (#2123)")
+        wanted_plan = data.get(_PLAN_FIELD)
+        changes_plan = wanted_plan is not None and wanted_plan != current.plan_key
+        if changes_plan:
+            self._refuse_plan_assignment(current, str(wanted_plan))
+        data = {k: v for k, v in data.items() if k != _PLAN_FIELD}
+        wanted = data.get("is_active")
+        changes_active = wanted is not None and bool(wanted) != bool(current.is_active)
+        if changes_active and not wanted and current.is_platform:
+            raise ForbiddenError("The platform tenant cannot be deactivated.")
+        if changes_active and current.status not in _TOGGLEABLE_STATUSES:
+            # #2123 — reactivating a tenant whose deletion is scheduled would hand it back to
+            # its members while the beat still erases it at the end of the grace; a running
+            # (``deleted``) one cannot be stopped at all. Cancel the deletion instead.
+            raise InvalidStatusTransitionError(
+                str(current.status), str(TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED)
+            )
+        if changes_active:
+            self._step_up_verifier.verify(
+                requester,
+                action="admin_tenant_update",
+                # #1884 — a factor obtained to deactivate this tenant confirms this one only.
+                target=tenant_key,
+                echo_ok=None,
+                password=current_password,
+                code=step_up_code,
+                reauth_token=step_up_token,
+                authenticated_with_api_key=authenticated_with_api_key,
+                client_ip=client_ip,
+            )
+        data = {k: v for k, v in data.items() if k != "is_active"}
+        if not data and not changes_active and not changes_plan:
+            return current
+        # Validate the other fields before anything is written, so a refused rename moves nothing.
+        data = self._validated_tenant_update(tenant_key, data) if data else {}
+        if changes_plan and not self._entitlements.assign_plan(tenant_key, str(wanted_plan)):
+            # SEC-004 — one statement that writes only while the plan exists: a plan deleted after the
+            # check above (or a tenant whose erasure started meanwhile) is 422 and nothing is written.
+            raise ValidationError(
+                "The plan cannot be assigned: it no longer exists or the tenant is being erased.",
+                details=[{"field": _PLAN_FIELD, "reason": "Plan gone or tenant erased.", "code": "unknown_plan"}],
+            )
+        if changes_plan:
+            # REQ-056 §7.6 / §11 (#2142) — what was booked when: the hook a future billing module reads.
+            # Written right after the assignment, so a later refusal of another field of the same request
+            # (a 409 of the state switch below included) cannot leave a plan change without its row.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_PLAN_CHANGED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+                old_plan_key=current.plan_key,
+                plan_key=str(wanted_plan),
+            )
+            logger.info("tenant_plan_changed", tenant=log_tenant(tenant_key), plan_key=wanted_plan)
+        updated: Tenant | None = current
+        if changes_active:
+            # #2123 — the bool of the request is the admin's suspension switch on the status model.
+            # REQ-056 SEC-002 — compare-and-set from the state this request read: a concurrent
+            # deletion, cancellation or second switch moved it, and this write is refused (409).
+            updated = self._transition_tenant_status(
+                tenant_key,
+                expected={current.status},
+                status=TenantStatus.ACTIVE if wanted else TenantStatus.SUSPENDED,
+                deletion_scheduled_at="keep",
+                previous="keep",
+            )
+        if data:
+            updated = self._write_tenant_update(tenant_key, data)
+        elif changes_plan and not changes_active:
+            updated = self._tenant_repo.get_by_key(tenant_key)
+        if updated is None:
+            raise NotFoundError("Tenant", tenant_key)
+        if changes_active:
+            # MT-014 (#2111) — a suspension locks every member out with one request; written after the store.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_REACTIVATED if wanted else SecurityAuditAction.TENANT_SUSPENDED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
+        return updated
+
+    def _refuse_plan_assignment(self, tenant: Tenant, plan_key: str) -> None:
+        """422 for a plan that does not exist, a tenant whose erasure is running or the platform tenant.
+
+        The platform tenant stays on its plan (SEC-006): its quotas are the instance settings whatever plan
+        it names (``EntitlementService.plan_of``), so a plan on it would only be a stored value that lies.
+        """
+        if tenant.is_platform:
+            raise ValidationError(
+                "The platform tenant is held to the instance settings and takes no plan.",
+                details=[{"field": _PLAN_FIELD, "reason": "Platform tenant.", "code": "platform_tenant"}],
+            )
+        if tenant.status == TenantStatus.DELETED:
+            raise ValidationError(
+                "The plan of a tenant that is being erased cannot be changed.",
+                details=[{"field": _PLAN_FIELD, "reason": "The tenant is being erased.", "code": "tenant_deleted"}],
+            )
+        if self._entitlements.get_plan(plan_key) is None:
+            raise ValidationError(
+                "Unknown plan.",
+                details=[{"field": _PLAN_FIELD, "reason": "No plan has this key.", "code": "unknown_plan"}],
+            )
+
+    def _apply_tenant_update(self, tenant_key: str, data: dict) -> Tenant:
+        """The non-lifecycle write of the tenant update path: the checks, the slug on rename, the store.
+
+        The lifecycle state never passes here (``update_tenant`` refuses every
+        :data:`_LIFECYCLE_FIELDS` key). **The platform tenant cannot be deactivated
+        (#1021)**: ``admin_update_tenant`` refuses it (403) before its compare-and-set
+        of the state, as ``delete_tenant`` refuses deleting it.
+        """
+        return self._write_tenant_update(tenant_key, self._validated_tenant_update(tenant_key, data))
+
+    def _validated_tenant_update(self, tenant_key: str, data: dict[str, Any]) -> dict[str, Any]:
+        """Check a non-lifecycle tenant update and derive the slug of a rename; writes nothing."""
+        data = dict(data)
+        if "max_members" in data:
+            # REQ-024 AK-64 (#2133): set to at most the ceiling, by a tenant manager and a platform admin
+            # alike. Lowering it below the current member count removes nobody; it stops the next join.
+            self._refuse_limit_above_ceiling(data["max_members"])
 
         if "name" in data:
             errors = self._tenant_engine.validate_tenant_name(data["name"])
@@ -250,36 +848,1764 @@ class TenantService:
                 raise ValidationError(errors[0])
             data["slug"] = self._tenant_engine.generate_slug(data["name"])
             data["slug"] = self._ensure_unique_slug(data["slug"], exclude_key=tenant_key)
+        return data
 
+    def _write_tenant_update(self, tenant_key: str, data: dict[str, Any]) -> Tenant:
+        """Store a validated non-lifecycle tenant update (the state moves through ``transition_status``)."""
         tenant = self._tenant_repo.update_fields(tenant_key, data)
         if not tenant:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
         return tenant
 
-    def delete_tenant(self, tenant_key: str) -> bool:
-        # NFR-013 §6.1 / REQ-025 — purge the tenant's binary data and its
-        # contributed reference-index vectors before removing the tenant record.
-        # Storage cleanup runs first so that, on a mid-delete failure, the
-        # tenant record still exists and the operation is fully retryable.
-        self._purge_tenant_storage(tenant_key)
+    # --- Tenant deletion (REQ-024 / REQ-025 / NFR-011, #1769) ---
 
-        self._assignment_repo.delete_all_for_tenant(tenant_key)
-        self._invitation_repo.delete_all_for_tenant(tenant_key)
-        self._membership_repo.delete_all_for_tenant(tenant_key)
-        deleted = self._tenant_repo.delete(tenant_key)
-        if not deleted:
-            raise NotFoundError("tenants", tenant_key)
-        logger.info("tenant_deleted", tenant_key=tenant_key)
+    def delete_tenant(
+        self,
+        tenant_key: str,
+        *,
+        requester: User,
+        authenticated_with_api_key: bool,
+        confirmation: TenantDeletionConfirmation,
+        origin: TenantErasureOrigin,
+        client_ip: str | None,
+        now: datetime | None = None,
+    ) -> TenantErasureRecord:
+        """Erase the tenant and everything it holds, and persist the proof.
+
+        What goes and what stays is :attr:`TenantErasureEngine.INVENTORY`, not
+        this method: the external phase (contributed reference vectors and pest
+        prototypes, attachment metadata, pest-image links, the ``t/{key}/``
+        storage prefix) runs first, then one ArangoDB transaction deletes every
+        ``delete`` entry and every edge touching it, pseudonymises the retention
+        rows (CanG / PflSchG) and removes the tenant document.
+
+        **Who may (#1791).** Checked here, not only at the routers, so both entry
+        points share it and neither can drift (``requester``, ``confirmation``
+        and ``origin`` are keyword-only without a default for that reason):
+
+        * ``origin="tenant_management"`` — the requester holds an *active*
+          membership in the tenant with the lead role **and** the ``management``
+          scope (:meth:`MembershipEngine.can_delete_tenant`, REQ-024 §1a.2);
+        * ``origin="platform_admin"`` — the requester is a platform admin (an
+          active ``lead`` membership in the ``platform`` tenant, REQ-049 §2.5);
+        * never a service account, and never a request authenticated with an API
+          key — even one a human account issued (#1791 review SEC-001): a key
+          is a stored M2M credential, not a person who can re-authenticate;
+        * both: the step-up in *confirmation* — the tenant's slug typed back, and
+          the current password when the account has one, the one-time code
+          mailed to it when it has none (a federated account, #1815; before, the
+          slug echo alone confirmed it). Checked by the shared
+          :class:`~app.domain.services.step_up_service.StepUpVerifier`, which
+          also throttles the password per account and ``client_ip`` (#1816):
+          a locked step-up is 429 before the password is tested.
+
+        ``origin`` is set by the router, never by the client, and it only picks
+        *which* membership is proven — claiming ``platform_admin`` without the
+        platform membership is refused like any other caller.
+
+        Order of effects:
+
+        1. Refuse a requester without the right (403), the platform tenant (403),
+           a wrong slug echo (422), a missing or wrong password (401) and a
+           deployment that cannot erase (503) — before anything changes.
+        2. Persist the record (one per tenant, so a concurrent second deletion
+           collides, 409). **With a grace (#2123, REQ-024 AK-52)** the record is
+           ``scheduled`` until ``now + RETENTION_TENANT_ERASURE_GRACE_DAYS``, the tenant
+           becomes ``pending_deletion`` (it resolves for nobody, its memberships stay
+           as they are so :meth:`cancel_tenant_erasure` restores them unchanged), the
+           members are told the date, and the request returns. A repeated request
+           inside the grace re-asserts the state and returns the same record.
+           The request that created the record writes the security-audit row
+           ``tenant_deletion_requested`` (MT-014, #2111) after its effects; a
+           repeat writes none.
+        3. After the grace (or at once with a grace of ``0``) the tenant becomes
+           ``deleted``, every membership is deactivated and the erasure runs:
+           ``completed`` only when the executor found nothing left; otherwise
+           ``partially_completed`` with a backoff that :meth:`resume_tenant_erasures`
+           (daily beat) retries.
+
+        Raises:
+            NotFoundError: no such tenant (and no open record for it).
+            ForbiddenError: the requester may not delete this tenant, or the
+                platform tenant / the light-mode tenant.
+            ValidationError: the echoed slug is not the tenant's (HTTP 422).
+            UnauthorizedError: the password or code is missing or wrong (HTTP 401;
+                ``STEP_UP_CODE_REQUIRED`` when a federated account sent no code).
+            FeatureNotConfiguredError: the deployment cannot erase (HTTP 503).
+            WriteConflictError: another run holds the deletion (HTTP 409).
+            TenantErasureIncompleteError: something still holds the tenant; the
+                record stays open and is retried (HTTP 500).
+            Exception: whatever the run raised, after the failed attempt was
+                recorded.
+        """
+        now = now or datetime.now(UTC)
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        self._authorize_tenant_deletion(
+            tenant_key, requester=requester, authenticated_with_api_key=authenticated_with_api_key, origin=origin
+        )
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        record = self._require_tenant_erasure_repo().get(record_key)
+        if tenant is None and (record is None or record.status == "completed"):
+            raise NotFoundError("Tenant", tenant_key)
+        if tenant is not None and tenant.is_platform:
+            raise ForbiddenError("The platform tenant cannot be deleted.")
+        if tenant is not None and self._light_mode:
+            # #1769 review SEC-002 — in light mode the single system tenant IS the
+            # installation, and the light-mode seed does not re-create it.
+            raise ForbiddenError("The tenant of a light-mode installation cannot be deleted.")
+        if tenant is not None and tenant.status == TenantStatus.SUSPENDED and origin != "platform_admin":
+            # REQ-056 §5.5 — only a platform admin schedules the deletion of a suspended tenant. The
+            # management's route sits behind the resolver, which refuses a suspended tenant already;
+            # this holds the rule for every entry point, with the message of any other refusal.
+            raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
+        # A tenant whose document an earlier attempt already removed has no slug
+        # left to read. The open record keeps a salted digest of it, so the slug
+        # the caller saw still confirms; the key does too (a record written
+        # before the digest existed, or a caller who only has the key).
+        step_up = self._verify_tenant_deletion_step_up(
+            tenant.slug if tenant is not None else None,
+            tenant_key=tenant_key,
+            slug_digest=record.slug_digest if record is not None else None,
+            requester=requester,
+            confirmation=confirmation,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+        accepted_here = False
+        requested_by_ref = log_subject(requester.key)
+        logger.info(
+            "tenant_erasure.authorized",
+            tenant=log_tenant(tenant_key),
+            origin=origin,
+            step_up=step_up,
+            subject=requested_by_ref,
+        )
+
+        if record is None:
+            # #2123 (MT-027) — a tenant that still exists is scheduled, not erased: the
+            # grace is the window in which the management can cancel and every member can
+            # export what is theirs (Art. 20). ``0`` keeps the immediate erasure.
+            scheduled_for = now + self._tenant_erasure_grace if tenant is not None else None
+            if scheduled_for is not None and scheduled_for <= now:
+                scheduled_for = None
+            try:
+                record = self._require_tenant_erasure_repo().create_with_key(
+                    TenantErasureRecord(
+                        tenant_key=tenant_key,
+                        tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
+                        origin=origin,
+                        requested_by_subject=requested_by_ref,
+                        step_up=step_up,
+                        slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
+                        status="scheduled" if scheduled_for is not None else "in_progress",
+                        requested_at=now,
+                        scheduled_for=scheduled_for,
+                    ),
+                    record_key,
+                )
+            except (DuplicateError, WriteConflictError) as exc:
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+            if scheduled_for is not None and tenant is not None:
+                if not self._schedule_tenant_erasure(
+                    tenant,
+                    scheduled_for,
+                    requester_key=requester.key,
+                    expected=self._schedulable_states(origin),
+                ):
+                    # REQ-056 SEC-002 — the tenant left the state this request read (a concurrent
+                    # suspension of a tenant its management deletes, a claim, a settlement): withdraw
+                    # the record this request just wrote and refuse (409).
+                    self._require_tenant_erasure_repo().delete_scheduled(record_key)
+                    raise WriteConflictError("Tenant", "the tenant's state changed concurrently")
+                self._audit_tenant(
+                    SecurityAuditAction.TENANT_DELETION_REQUESTED,
+                    via=self._audit_via_of(origin),
+                    actor_user_key=requester.key or "",
+                    tenant_key=tenant_key,
+                )
+                return record
+            accepted_here = True
+
+        elif record.status == "scheduled":
+            # #2123 — a repeated request inside the grace changes nothing but re-asserts the
+            # freeze (a first request whose status write failed left the record only); the
+            # date stays the one the members were told. Only a tenant still in the state the
+            # first request found is frozen again: re-writing an already frozen one would
+            # overwrite the remembered state with ``pending_deletion`` (REQ-056 §4.3), and an
+            # ``orphaned`` organisation would become cancellable (#2134).
+            if tenant is not None and record.scheduled_for is not None:
+                # Compare-and-set: matches nothing when the tenant is already frozen, which is the
+                # common case and changes nothing.
+                self._transition_tenant_status(
+                    tenant_key,
+                    expected=self._schedulable_states(origin),
+                    status=TenantStatus.PENDING_DELETION,
+                    deletion_scheduled_at=record.scheduled_for,
+                    previous="remember",
+                    conflict_ok=True,
+                )
+            return record
+
+        elif self._is_held_by_a_live_run(record, now):
+            # An earlier request's run is working on it right now (its heartbeat is
+            # fresh): refuse as before, do not queue a second one. A record a failed run left
+            # ``partially_completed`` is re-dispatched at once instead of waiting for its
+            # backoff — an authorised caller asking again is an operator retry (as it was
+            # before #1792, when the repeated request re-ran the erasure inline).
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+
+        # Freeze, then hand the work to a Celery task (#1792). The task claims the
+        # record atomically; a request that repeats an open deletion only
+        # re-dispatches it, and of two tasks the claim lets one run.
+        self._mark_tenant_erasing(tenant_key)
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        self._dispatch_tenant_erasure(record_key)
+        if accepted_here:
+            # MT-014 (#2111) — the request that created the record is the one recorded; a repeat that only
+            # re-dispatches an open deletion changed nothing that was not recorded before.
+            self._audit_tenant(
+                SecurityAuditAction.TENANT_DELETION_REQUESTED,
+                via=self._audit_via_of(origin),
+                actor_user_key=requester.key or "",
+                tenant_key=tenant_key,
+            )
+        return record
+
+    @staticmethod
+    def _audit_via_of(origin: TenantErasureOrigin) -> SecurityAuditVia:
+        """The audit door of a person's tenant-deletion entry: the platform panel or the tenant's own management."""
+        return SecurityAuditVia.PLATFORM_ADMIN if origin == "platform_admin" else SecurityAuditVia.TENANT_ADMIN
+
+    def _audit_tenant(
+        self,
+        action: SecurityAuditAction,
+        *,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        tenant_key: str,
+        old_plan_key: str | None = None,
+        plan_key: str | None = None,
+    ) -> None:
+        """Write the persistent security-audit row of one change of a tenant's lifecycle (MT-014, #2111).
+
+        The one place a suspension, a reactivation, an accepted or a withdrawn deletion is handed to
+        (``test_account_and_tenant_mutations_write_the_security_audit`` holds that). Called **after** the
+        change succeeded, like :meth:`_audit_membership`; a failing audit write raises.
+        """
+        if self._security_audit is None:
+            return
+        self._security_audit.record_tenant_change(
+            action=action,
+            via=via,
+            actor_user_key=actor_user_key,
+            tenant_key=tenant_key,
+            old_plan_key=old_plan_key,
+            plan_key=plan_key,
+        )
+
+    # --- Tenant lifecycle: grace and cancellation (REQ-024 AK-52, MT-027 #2123) ---
+
+    @staticmethod
+    def _schedulable_states(origin: TenantErasureOrigin) -> frozenset[TenantStatus]:
+        """The states a deletion of *origin* may freeze: a suspended tenant only by a platform admin (REQ-056 §5.5)."""
+        if origin == "platform_admin":
+            return _TOGGLEABLE_STATUSES
+        return frozenset({TenantStatus.ACTIVE})
+
+    def _transition_tenant_status(
+        self,
+        tenant_key: str,
+        *,
+        expected: Collection[TenantStatus],
+        status: TenantStatus | None,
+        deletion_scheduled_at: datetime | None | Literal["keep"],
+        previous: Literal["remember", "clear", "keep"],
+        restore_fallback: TenantStatus | None = None,
+        conflict_ok: bool = False,
+    ) -> Tenant | None:
+        """Compare-and-set the lifecycle state (REQ-056 SEC-002); 409 when it left *expected*.
+
+        The one write path of ``status``, ``deletion_scheduled_at`` and
+        ``status_before_deletion``: :meth:`ITenantRepository.transition_status` changes all
+        three in one conditional statement. ``conflict_ok`` turns the 409 into ``None``
+        for the callers whose no-match is the normal case (a re-assertion, the move to
+        ``deleted`` of a tenant already there).
+        """
+        moved = self._tenant_repo.transition_status(
+            tenant_key,
+            expected=expected,
+            status=status,
+            deletion_scheduled_at=deletion_scheduled_at,
+            previous=previous,
+            restore_fallback=restore_fallback,
+        )
+        if moved is None and not conflict_ok:
+            logger.warning(
+                "tenant_lifecycle.transition_conflict",
+                tenant=log_tenant(tenant_key),
+                expected=sorted(str(state) for state in expected),
+                target=str(status) if status is not None else "restore",
+            )
+            raise WriteConflictError("Tenant", "the tenant's state changed concurrently")
+        return moved
+
+    def _mark_tenant_erasing(self, tenant_key: str) -> None:
+        """The grace is over and a run holds the deletion: the tenant is ``deleted``, no longer cancellable.
+
+        Called after every claim (and on the immediate path of a zero grace). The tenant
+        already resolved for nobody while ``pending_deletion``; the state now tells the
+        admin panel and :meth:`cancel_tenant_erasure` that nothing can be taken back.
+        """
+        self._transition_tenant_status(
+            tenant_key,
+            expected=_TOGGLEABLE_STATUSES | _SCHEDULED_DELETION_STATUSES,
+            status=TenantStatus.DELETED,
+            deletion_scheduled_at="keep",
+            previous="keep",
+            conflict_ok=True,  # already ``deleted``, or the document is gone
+        )
+
+    def _schedule_tenant_erasure(
+        self,
+        tenant: Tenant,
+        scheduled_for: datetime,
+        *,
+        requester_key: str | None,
+        expected: frozenset[TenantStatus],
+        orphaned: bool = False,
+    ) -> bool:
+        """Freeze *tenant* for the grace and tell its members the date (#2123).
+
+        The freeze is the state, not the memberships: a ``pending_deletion`` (or
+        ``orphaned``) tenant resolves for nobody (``Tenant.is_active``, #2105), while
+        every membership stays as it is — so a cancellation restores each member's
+        access unchanged, and the management that may cancel is still provable from the
+        stored membership. The memberships are deactivated when the grace is over and a
+        run claims the deletion (:meth:`_mark_tenant_erasing`).
+        """
+        tenant_key = tenant.key or ""
+        status = TenantStatus.ORPHANED if orphaned else TenantStatus.PENDING_DELETION
+        # REQ-056 §4.3 — remember what the deletion froze, so a cancellation restores it (a
+        # suspended tenant stays suspended). Compare-and-set (SEC-002): the remembered state is
+        # the stored one at the moment of the write, not this request's read; a tenant already
+        # frozen keeps what it remembered. ``False`` when the tenant left *expected*.
+        if (
+            self._transition_tenant_status(
+                tenant_key,
+                expected=expected,
+                status=status,
+                deletion_scheduled_at=scheduled_for,
+                previous="remember",
+                conflict_ok=True,
+            )
+            is None
+        ):
+            return False
+        logger.info(
+            "tenant_erasure.scheduled",
+            tenant=log_tenant(tenant_key),
+            status=status.value,
+            scheduled_for=scheduled_for.isoformat(),
+        )
+        self._notify_members_of_scheduled_erasure(tenant, scheduled_for, skip_user_key=requester_key, orphaned=orphaned)
         return True
 
-    def _purge_tenant_storage(self, tenant_key: str) -> None:
-        """NFR-013 §6.1 — delete the tenant's object-storage prefix + ref index.
+    def _notify_members_of_scheduled_erasure(
+        self, tenant: Tenant, scheduled_for: datetime, *, skip_user_key: str | None, orphaned: bool = False
+    ) -> int:
+        """Mail every active member the deletion date and how to keep what is theirs (Art. 20); best effort.
+
+        Never raises: the deletion is accepted whatever a mailbox does. Organisations are
+        named (their members know them by that name); a personal tenant is not — its name
+        is its owner's display name (the rule of the account-erasure notice, #1824).
+        Returns how many members were mailed.
+        """
+        if self._email_service is None or self._user_repo is None:
+            logger.warning("tenant_erasure.members_not_notified", tenant=log_tenant(tenant.key), reason="no_mailer")
+            return 0
+        body = self._scheduled_erasure_notice_body(tenant, scheduled_for, orphaned=orphaned)
+        sent = 0
+        try:
+            member_keys = self._membership_repo.active_member_user_keys(tenant_key=tenant.key or "")
+        except Exception as exc:  # noqa: BLE001 - the deletion stands; the notice is best effort
+            logger.error(
+                "tenant_erasure.members_notice_failed", tenant=log_tenant(tenant.key), error_type=type(exc).__name__
+            )
+            return 0
+        for member_key in member_keys:
+            if member_key == skip_user_key:
+                continue
+            try:
+                member = self._user_repo.get_by_key(member_key)
+                if member is None or not member.email:
+                    continue
+                self._email_service.send_notification_email(
+                    to_email=member.email,
+                    subject="Kamerplanter — a garden you are a member of will be deleted",
+                    html_body=body,
+                )
+            except Exception as exc:  # noqa: BLE001 - one mailbox must not stop the others
+                logger.warning(
+                    "tenant_erasure.member_notice_failed", member=log_subject(member_key), error_type=type(exc).__name__
+                )
+                continue
+            sent += 1
+        logger.info("tenant_erasure.members_notified", tenant=log_tenant(tenant.key), notified=sent)
+        return sent
+
+    @staticmethod
+    def _scheduled_erasure_notice_body(tenant: Tenant, scheduled_for: datetime, *, orphaned: bool = False) -> str:
+        due = html.escape(scheduled_for.strftime("%Y-%m-%d"))
+        if tenant.tenant_type == TenantType.ORGANIZATION:
+            which = f"The organisation <strong>{html.escape(tenant.name)}</strong>"
+        else:
+            which = "A personal garden you are a member of"
+        if orphaned:
+            # #2134 — nobody is left who could administer it, so nobody can cancel.
+            who_can_stop = (
+                "Nobody is left who can administer it: its last person with the management right "
+                "asked to delete their account."
+            )
+        else:
+            who_can_stop = "The garden's management can cancel the deletion until then."
+        return (
+            "<h2>A garden you are a member of will be deleted</h2>"
+            f"<p>{which} is scheduled for deletion on {due} (UTC), including its sites, plants, diary entries, "
+            "tasks and photos. Until then it is closed for everybody.</p>"
+            "<p>What you entered there yourself is part of your personal data export: download it under "
+            f"<em>Settings &rarr; Privacy</em> before that date if you want to keep it. {who_can_stop}</p>"
+            "<p>Your own account is not affected.</p>"
+        )
+
+    def _is_due(self, record: TenantErasureRecord, now: datetime) -> bool:
+        """Whether *record* may be run now: not ``scheduled``, or its grace has ended (#2123)."""
+        if record.status != "scheduled":
+            return True
+        due_at = ensure_aware_utc(record.scheduled_for)
+        return due_at is None or due_at <= now
+
+    def cancel_tenant_erasure(
+        self,
+        tenant_key: str,
+        *,
+        requester: User,
+        authenticated_with_api_key: bool,
+        confirmation: TenantErasureCancelConfirmation,
+        origin: TenantErasureOrigin,
+        client_ip: str | None,
+    ) -> Tenant:
+        """Withdraw a scheduled tenant deletion inside its grace and restore the prior state (#2123, REQ-056 §4.3).
+
+        **Who may** is the rule of :meth:`delete_tenant`, proven from the stored
+        membership: ``tenant_management`` — the requester's active membership holds the
+        lead role **and** the ``management`` scope; ``platform_admin`` — an active
+        ``lead`` membership in the platform tenant. Never a service account, never an
+        API key. Then the requester's own step-up (``tenant_erasure_cancel``, bound to
+        the tenant's key). Nothing changes before both pass.
+
+        The record is removed only while it is still ``scheduled``
+        (:meth:`ITenantErasureRepository.delete_scheduled`): of a cancellation and the
+        beat's claim exactly one wins, and a deletion a run already holds cannot be
+        taken back (422, ``deleted``). The tenant returns to the state the deletion
+        froze (``status_before_deletion``, REQ-056 §4.3): ``active``, or ``suspended``
+        when a platform admin scheduled the deletion of a suspended tenant — the
+        management may withdraw the deletion (and so prevent the data loss) but never
+        lift a suspension that way. A pending document stored before the field existed
+        cannot tell; only a platform admin cancels it (to ``active``), the management is
+        refused (403, SEC-001). Every membership is as it was — the grace never touched
+        them. An ``orphaned``
+        organisation (#2134) is not cancellable (422): nobody is left who could
+        administer it, so it runs out its grace and is erased (REQ-024 AK-65).
+
+        Raises:
+            ForbiddenError: the requester may not, or authenticated with an API key.
+            NotFoundError: no such tenant.
+            InvalidStatusTransitionError: nothing is scheduled (HTTP 422).
+            UnauthorizedError / StepUpLockedError: the step-up failed (401 / 429).
+            WriteConflictError: the state moved between this request's read and its write (409).
+        """
+        self._authorize_tenant_deletion(
+            tenant_key, requester=requester, authenticated_with_api_key=authenticated_with_api_key, origin=origin
+        )
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None:
+            raise NotFoundError("Tenant", tenant_key)
+        if tenant.status != TenantStatus.PENDING_DELETION:
+            # #2134 — an ``orphaned`` organisation has nobody left who could administer it; handing it
+            # back would recreate the stranded tenant the settlement exists to end (REQ-023 §5a.5 dropped).
+            raise InvalidStatusTransitionError(str(tenant.status), str(TenantStatus.ACTIVE))
+        if tenant.status_before_deletion not in _TOGGLEABLE_STATUSES and origin != "platform_admin":
+            # REQ-056 SEC-001 — fail closed: a deletion scheduled before the state it froze was recorded
+            # cannot tell whether it froze a suspension. Only a platform admin cancels it (it returns to
+            # ``active``, the platform admin's own call). The requester already proved the management of
+            # this tenant, so naming the reason is no existence oracle.
+            raise ForbiddenError("Only a platform admin can cancel this deletion.")
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_erasure_cancel",
+            # #1884 — a factor obtained to cancel this tenant's deletion confirms this one only.
+            target=tenant_key,
+            echo_ok=None,
+            password=confirmation.password,
+            code=confirmation.step_up_code,
+            reauth_token=confirmation.step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        # REQ-056 §4.3 (E-02) — the state before the deletion, not ``active``: a suspended tenant whose
+        # deletion a platform admin scheduled stays suspended; only a platform admin lifts a suspension
+        # (``admin_update_tenant``). SEC-002 — one compare-and-set from ``pending_deletion``: the restored
+        # state is read from the stored document inside the write; a document without it returns to
+        # ``active`` for a platform admin only (SEC-001), so a management cancel matches nothing.
+        restored = self._transition_tenant_status(
+            tenant_key,
+            expected={TenantStatus.PENDING_DELETION},
+            status=None,
+            deletion_scheduled_at=None,
+            previous="clear",
+            restore_fallback=TenantStatus.ACTIVE if origin == "platform_admin" else None,
+        )
+        if restored is None:  # pragma: no cover - _transition_tenant_status raises instead
+            raise WriteConflictError("Tenant", "the tenant's state changed concurrently")
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        if not self._require_tenant_erasure_repo().delete_scheduled(record_key):
+            # A run claimed it between the read above and now (or nothing was recorded): freeze the tenant
+            # again (compare-and-set from the state just restored) — the run marks it ``deleted`` next.
+            self._transition_tenant_status(
+                tenant_key,
+                expected={restored.status},
+                status=TenantStatus.PENDING_DELETION,
+                deletion_scheduled_at=tenant.deletion_scheduled_at,
+                previous="remember",
+                conflict_ok=True,
+            )
+            raise InvalidStatusTransitionError(str(TenantStatus.DELETED), str(TenantStatus.ACTIVE))
+        # MT-014 (#2111) — the withdrawal removed the erasure record, so this row is what is left of the request.
+        self._audit_tenant(
+            SecurityAuditAction.TENANT_DELETION_CANCELLED,
+            via=self._audit_via_of(origin),
+            actor_user_key=requester.key or "",
+            tenant_key=tenant_key,
+        )
+        logger.info(
+            "tenant_erasure.cancelled", tenant=log_tenant(tenant_key), origin=origin, subject=log_subject(requester.key)
+        )
+        return restored
+
+    def cancel_tenant_erasure_by_slug(self, slug: str, **kwargs: Any) -> Tenant:
+        """:meth:`cancel_tenant_erasure` for the tenant-scoped route, which knows the slug only (#2123).
+
+        A ``pending_deletion`` tenant resolves for nobody (#2105), so the route cannot go
+        through :func:`~app.common.auth.get_current_tenant`. An unknown slug answers like
+        a tenant the requester may not administer (403, one message): the route is no
+        existence oracle.
+        """
+        tenant = self._tenant_repo.get_by_slug(slug)
+        if tenant is None or not tenant.key:
+            raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
+        return self.cancel_tenant_erasure(tenant.key, **kwargs)
+
+    def _is_held_by_a_live_run(self, record: TenantErasureRecord, now: datetime) -> bool:
+        """Whether a run claimed *record* and its heartbeat is still inside the stale window."""
+        if record.status != "in_progress" or record.last_attempt_at is None or record.updated_at is None:
+            return False
+        return record.updated_at > now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+
+    def _dispatch_tenant_erasure(self, record_key: str) -> None:
+        """Enqueue the worker that runs the deletion of *record_key* (#1792).
+
+        Lazy import — the task module imports the dependency wiring that imports
+        this service. A broker outage must not undo the freeze or fail the request:
+        the record stays open and the daily ``resume_tenant_erasures`` beat claims it
+        once its ``updated_at`` is stale (the same recovery as a crashed worker).
+        """
+        try:
+            from app.tasks.tenant_tasks import run_tenant_erasure
+
+            # A short, bounded publish retry: an unreachable broker must not hold the request thread
+            # (kombu's default retries for a long time); the beat is the safety net.
+            run_tenant_erasure.apply_async(
+                (record_key,), retry=True, retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1}
+            )
+            logger.info("tenant_erasure.dispatched", record_key=log_tenant_record_key(record_key))
+        except Exception as exc:  # noqa: BLE001 — broker outage is survivable, the beat retries
+            logger.error(
+                "tenant_erasure.dispatch_failed",
+                record_key=log_tenant_record_key(record_key),
+                error_type=type(exc).__name__,
+            )
+
+    def run_tenant_erasure_task(self, record_key: str, now: datetime | None = None) -> dict[str, object]:
+        """Run the deletion *record_key* names, as the Celery worker (#1792).
+
+        Claims the record atomically — a second dispatch, the daily beat, or a run
+        that is still alive finds it held and does nothing — then runs the same
+        batched, heartbeat-refreshing erasure as every other path. Never raises for
+        a failed run: the failure is recorded on the record (backoff, escalation)
+        and the beat retries it.
+
+        The returned ``record_key`` is the log form (``ter_ten_…``, #2020): the worker
+        logs a task's return value on its ``succeeded in …`` line, and the result is
+        read by nobody (no result backend, the caller ``apply_async``s and moves on).
+        """
+        now = now or datetime.now(UTC)
+        repo = self._require_tenant_erasure_repo()
+        record = repo.get(record_key)
+        if record is None or record.status == "completed":
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "nothing_to_do"}
+        if not self._is_due(record, now):
+            # #2123 — inside its grace a deletion is the beat's to start, never a stray dispatch's.
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "scheduled"}
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            logger.error(
+                "tenant_erasure.run_not_configured",
+                record_key=log_tenant_record_key(record_key),
+                reason=configuration_error,
+            )
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "held"}
+        claimed = self._claim_tenant_erasure(record_key, now)
+        if claimed is None:
+            return {"record_key": log_tenant_record_key(record_key), "outcome": "not_claimed"}
+        self._mark_tenant_erasing(claimed.tenant_key)
+        self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
+        finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
+        return {"record_key": log_tenant_record_key(record_key), "outcome": finished.status}
+
+    def _authorize_tenant_deletion(
+        self, tenant_key: str, *, requester: User, authenticated_with_api_key: bool, origin: TenantErasureOrigin
+    ) -> None:
+        """Refuse a requester who may not erase *tenant_key* (403, #1791).
+
+        Proven from the stored membership, not from the request context the
+        router resolved: the service is the one place both routes pass, and it
+        must not trust a caller-supplied role.
+        """
+        if not allows_interactive_auth(requester) or authenticated_with_api_key:
+            raise ForbiddenError("A tenant can only be deleted from a signed-in session, not with an API key.")
+        user_key = requester.key or ""
+        if origin == "platform_admin":
+            membership = self._membership_repo.get_by_user_and_tenant(user_key, _PLATFORM_TENANT_KEY)
+            allowed = bool(membership and membership.is_active and membership.role == TenantRole.LEAD)
+        else:
+            membership = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
+            allowed = bool(
+                membership
+                and membership.is_active
+                and MembershipEngine.can_delete_tenant(membership.role, membership.admin_scopes)
+            )
+        if not allowed:
+            raise ForbiddenError("Deleting a tenant requires the lead role and the management scope.")
+
+    def _tenant_slug_digest(self, slug: str) -> str:
+        """Salted HMAC of a tenant slug, purpose-separated from every other use of the salt (#1791)."""
+        return hmac.new(
+            self._tombstone_salt.encode(), f"tenant-deletion-slug:{slug}".encode(), hashlib.sha256
+        ).hexdigest()
+
+    def _verify_tenant_deletion_step_up(
+        self,
+        expected_slug: str | None,
+        *,
+        tenant_key: str,
+        slug_digest: str | None,
+        requester: User,
+        confirmation: TenantDeletionConfirmation,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> TenantDeletionStepUp:
+        """Check the step-up of a tenant deletion; return how it was confirmed (#1791, #1816).
+
+        The slug echo is this act's own part — which spellings name the tenant.
+        Everything else (who may re-authenticate, the throttle, the password of a
+        local account, the mailed one-time code of a federated one, #1815) is the
+        shared :class:`StepUpVerifier`, the same rule account erasure runs. Its
+        result (``password`` / ``email_code``) is what the record stores.
+        """
+        echoed = confirmation.confirm_slug
+        if expected_slug is not None:
+            matches = echo_matches(echoed, expected_slug)
+        else:
+            matches = echo_matches(echoed, tenant_key) or (
+                slug_digest is not None and hmac.compare_digest(self._tenant_slug_digest(echoed.strip()), slug_digest)
+            )
+        return self._step_up_verifier.verify(
+            requester,
+            action="tenant_deletion",
+            # #1884 — a factor obtained to delete this tenant confirms this one only.
+            target=tenant_key,
+            echo_ok=matches,
+            password=confirmation.password,
+            code=confirmation.step_up_code,
+            reauth_token=confirmation.step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+    def resume_tenant_erasures(self, now: datetime) -> dict[str, int]:
+        """Retry every open tenant deletion whose backoff has passed (daily beat).
+
+        A deployment that cannot erase holds every record untouched — one error
+        line, no attempt spent — so the first run after the fix executes them all
+        (#1666). A record still inside its backoff is skipped with an info line.
+        """
+        repo = self._require_tenant_erasure_repo()
+        stale_before = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+        # #2123 — a scheduled deletion is due once its grace has ended.
+        candidates = repo.list_due(stale_before_iso=stale_before.isoformat(), scheduled_due_before_iso=now.isoformat())
+        result = {"candidates": len(candidates), "completed": 0, "open": 0, "deferred": 0, "held": 0, "escalated": 0}
+        if not candidates:
+            return result
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            result["held"] = len(candidates)
+            logger.error("tenant_erasure.retry_not_configured", reason=configuration_error, held=len(candidates))
+            return result
+        for record in candidates:
+            if not self._is_due(record, now):
+                result["deferred"] += 1
+                continue
+            if record.next_attempt_at is not None and record.next_attempt_at > now + _TENANT_ERASURE_RETRY_SLACK:
+                result["deferred"] += 1
+                logger.info(
+                    "tenant_erasure.deferred",
+                    record_key=log_tenant_record_key(record.key),
+                    attempt_count=record.attempt_count,
+                    next_attempt_at=record.next_attempt_at.isoformat(),
+                )
+                continue
+            if self._is_unclaimed_account_erasure(record):
+                # REQ-025 AK-IE-07 (#1825 SEC-003): an account erasure stopped
+                # between inserting this record and its second membership read.
+                # Its own retry (the open erasure request) re-reads before it
+                # claims; the beat must not deactivate a late joiner blind.
+                result["deferred"] += 1
+                logger.info("tenant_erasure.awaiting_account_erasure", record_key=log_tenant_record_key(record.key))
+                continue
+            claimed = self._claim_tenant_erasure(record.key or "", now)
+            if claimed is None:
+                continue
+            self._mark_tenant_erasing(claimed.tenant_key)
+            self._membership_repo.deactivate_all_for_tenant(claimed.tenant_key)
+            finished = self._run_tenant_erasure(claimed, now, raise_on_failure=False)
+            result["completed" if finished.status == "completed" else "open"] += 1
+            if finished.status != "completed" and finished.attempt_count >= TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS:
+                result["escalated"] += 1
+        logger.info("tenant_erasure.retry_completed", **result)
+        return result
+
+    # --- Organisations of an erased account (REQ-025 §3.1.3, MT-038 #2134) ---
+
+    def _organisations_of(self, user_key: str) -> list[tuple[Tenant, Membership]]:
+        """The organisations *user_key* holds an active membership in whose lifecycle is still open.
+
+        Personal tenants go with the account (#1788) and the platform tenant is never
+        settled here (its leads are the platform admins, REQ-049 §2.5); a tenant whose
+        deletion is already scheduled, running or orphaned needs no second decision.
+        """
+        found: list[tuple[Tenant, Membership]] = []
+        for membership in self._membership_repo.list_by_user(user_key):
+            if not membership.is_active:
+                continue
+            tenant = self._tenant_repo.get_by_key(membership.tenant_key)
+            if (
+                tenant is None
+                or tenant.tenant_type != TenantType.ORGANIZATION
+                or tenant.is_platform
+                or tenant.status not in _TOGGLEABLE_STATUSES
+            ):
+                continue
+            found.append((tenant, membership))
+        return found
+
+    def _remaining_members(self, tenant_key: str, leaving_user_key: str) -> list[Membership]:
+        return [
+            member
+            for member in self._membership_repo.active_memberships_of(tenant_key=tenant_key)
+            if member.user_key != leaving_user_key
+        ]
+
+    def _service_account_user_keys(self, tenant_key: str) -> frozenset[str]:
+        """The tenant's active service accounts — never heirs of ``management`` (#2166, ``allows_interactive_auth``)."""
+        return frozenset(
+            member.user_key
+            for member in self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)
+        )
+
+    def organisation_erasure_preview(self, user_key: str) -> list[OrganisationErasurePreview]:
+        """The organisations an erasure of *user_key* would change, before it is confirmed (#2134).
+
+        Read-only and caller-scoped (the route passes the authenticated account). Names
+        the organisation and the outcome — never who takes over or who remains.
+        """
+        preview: list[OrganisationErasurePreview] = []
+        for tenant, membership in self._organisations_of(user_key):
+            outcome, _heir = self._membership_engine.departure_settlement(
+                membership,
+                self._remaining_members(tenant.key or "", user_key),
+                non_interactive_user_keys=self._service_account_user_keys(tenant.key or ""),
+            )
+            if outcome != "unaffected":
+                preview.append(OrganisationErasurePreview(name=tenant.name, outcome=outcome))
+        return preview
+
+    def settle_organisations_of_erased_account(
+        self, user_key: str, *, now: datetime | None = None
+    ) -> list[OrganisationSettlement]:
+        """Keep every organisation of an erased account administrable, or schedule it for deletion (#2134).
+
+        Called when the account erasure is **requested** (#2166 — the account is closed
+        then, so waiting for the hard delete left the organisation without management for
+        the whole grace) and again by the hard delete before its ArangoDB plan removes the
+        subject's memberships — the cascade that bypassed INV-1 (MT-038). Per organisation
+        (:meth:`MembershipEngine.departure_settlement`):
+
+        * ``management_passes_to_lead`` — the longest-serving remaining ``lead``
+          receives the ``management`` scope (security audit ``via=account_erasure``)
+          and every remaining member is told;
+        * ``orphaned`` — nobody left who can administer it: the tenant becomes
+          ``orphaned`` and its deletion is scheduled with the grace of #2123
+          (origin ``orphaned_organisation``); the remaining members and the platform
+          admins are told;
+        * ``unaffected`` — another ``management`` holder remains.
+
+        Idempotent: a retry finds the heir holding ``management`` (unaffected) or the
+        tenant already ``orphaned`` (skipped). Raises what a failed write raises — the
+        account erasure is retried as a whole.
+        """
+        now = now or datetime.now(UTC)
+        settled: list[OrganisationSettlement] = []
+        for tenant, membership in self._organisations_of(user_key):
+            tenant_key = tenant.key or ""
+            remaining = self._remaining_members(tenant_key, user_key)
+            outcome, heir = self._membership_engine.departure_settlement(
+                membership, remaining, non_interactive_user_keys=self._service_account_user_keys(tenant_key)
+            )
+            if outcome == "management_passes_to_lead" and heir is not None:
+                self._hand_management_to(heir, tenant, subject_user_key=user_key, remaining=remaining)
+            elif outcome == "orphaned":
+                self._orphan_organisation(tenant, subject_user_key=user_key, now=now)
+            settled.append(OrganisationSettlement(tenant_key=tenant_key, outcome=outcome))
+        if settled:
+            logger.info(
+                "account_erasure.organisations_settled",
+                subject=log_subject(user_key),
+                outcomes=[item.outcome for item in settled],
+            )
+        return settled
+
+    def _hand_management_to(
+        self, heir: Membership, tenant: Tenant, *, subject_user_key: str, remaining: list[Membership]
+    ) -> None:
+        """Give *heir* the ``management`` scope the erased account held last (INV-1, #2134); audited and told."""
+        # REQ-049 INV-2: duplicate-free, in declaration order — the order the model normalises to.
+        scopes = [scope for scope in AdminScope if scope in heir.admin_scopes or scope == AdminScope.MANAGEMENT]
+        result = self._membership_repo.update_fields(heir.key or "", {"admin_scopes": scopes})
+        if not result:
+            raise NotFoundError("Membership", heir.key or "")
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+            via=SecurityAuditVia.ACCOUNT_ERASURE,
+            actor_user_key=subject_user_key,
+            target_user_key=heir.user_key,
+            tenant_key=tenant.key or "",
+            membership=result,
+            old_scopes=heir.admin_scopes,
+        )
+        logger.info(
+            "account_erasure.management_handed_over", tenant=log_tenant(tenant.key), heir=log_subject(heir.user_key)
+        )
+        name = html.escape(tenant.name)
+        body = (
+            "<h2>The management of your organisation has passed on</h2>"
+            # #2166 — sent when the erasure is requested: the account is closed, not yet erased.
+            f"<p>The last person with the management right in <strong>{name}</strong> has asked Kamerplanter "
+            "to delete their account. "
+            "The longest-serving lead of the organisation now holds the management right, "
+            "so members can still be invited and the organisation administered.</p>"
+            "<p>Nothing else changes for you.</p>"
+        )
+        self._mail_accounts(
+            [member.user_key for member in remaining],
+            subject="Kamerplanter — the management of your organisation has passed on",
+            body=body,
+            event="account_erasure.handover_notice",
+        )
+
+    def _orphan_organisation(self, tenant: Tenant, *, subject_user_key: str, now: datetime) -> None:
+        """Schedule the deletion of an organisation nobody can administer any more (#2134, #2123 grace)."""
+        tenant_key = tenant.key or ""
+        scheduled_for = now + self._tenant_erasure_grace
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        repo = self._require_tenant_erasure_repo()
+        if repo.get(record_key) is None:
+            try:
+                repo.create_with_key(
+                    TenantErasureRecord(
+                        tenant_key=tenant_key,
+                        tenant_type=str(tenant.tenant_type),
+                        origin="orphaned_organisation",
+                        requested_by_subject=log_subject(subject_user_key),
+                        step_up="account_erasure_no_interactive_step_up",
+                        slug_digest=self._tenant_slug_digest(tenant.slug),
+                        status="scheduled",
+                        requested_at=now,
+                        scheduled_for=scheduled_for,
+                    ),
+                    record_key,
+                )
+            except (DuplicateError, WriteConflictError) as exc:
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+        if not self._schedule_tenant_erasure(
+            tenant,
+            scheduled_for,
+            requester_key=subject_user_key,
+            # Every state but ``deleted``: a settlement repeated after a failed one re-asserts it (#2166).
+            expected=_TOGGLEABLE_STATUSES | _SCHEDULED_DELETION_STATUSES,
+            orphaned=True,
+        ):
+            logger.warning("account_erasure.orphan_state_moved", tenant=log_tenant(tenant_key))
+            return
+        due = html.escape(scheduled_for.strftime("%Y-%m-%d"))
+        name = html.escape(tenant.name)
+        body = (
+            "<h2>An organisation was orphaned by an account deletion</h2>"
+            f"<p>After an account deletion request nobody can administer the organisation <strong>{name}</strong> "
+            "any more. "
+            f"It is shown as orphaned in the admin area and will be deleted with all its data on {due} (UTC).</p>"
+        )
+        platform_leads = [
+            member.user_key
+            for member in self._membership_repo.active_memberships_of(tenant_key=_PLATFORM_TENANT_KEY)
+            if member.role == TenantRole.LEAD
+        ]
+        self._mail_accounts(
+            platform_leads,
+            subject="Kamerplanter — an organisation was orphaned",
+            body=body,
+            event="account_erasure.orphan_notice",
+        )
+
+    def _mail_accounts(self, user_keys: list[str], *, subject: str, body: str, event: str) -> int:
+        """Mail each account once; best effort — a failing mailbox never stops the erasure (#2134)."""
+        if self._email_service is None or self._user_repo is None:
+            logger.warning(f"{event}_not_sent", reason="no_mailer")
+            return 0
+        sent = 0
+        for user_key in dict.fromkeys(user_keys):
+            try:
+                account = self._user_repo.get_by_key(user_key)
+                if account is None or not account.email:
+                    continue
+                self._email_service.send_notification_email(to_email=account.email, subject=subject, html_body=body)
+            except Exception as exc:  # noqa: BLE001 - one mailbox must not stop the others
+                logger.warning(f"{event}_failed", member=log_subject(user_key), error_type=type(exc).__name__)
+                continue
+            sent += 1
+        logger.info(event, notified=sent)
+        return sent
+
+    # --- Personal tenants of an erased account (REQ-025 Art. 17, #1788) ---
+
+    def tenant_erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase a tenant, or ``None`` (#1788).
+
+        The account erasure holds on it before touching anything: it erases the
+        subject's personal tenant through the tenant-erasure inventory, so a deployment
+        that cannot erase a tenant cannot finish an account erasure either.
+        """
+        return self._tenant_erasure_configuration_error()
+
+    def personal_tenant_keys_of(self, user_key: str) -> list[str]:
+        """Every ``PERSONAL`` tenant *user_key* owns — normally the one of registration.
+
+        By owner and type, like :meth:`get_personal_tenant`, but all of them, not
+        the newest: an account erasure must not leave a second one behind.
+        """
+        keys = self._tenant_repo.personal_tenant_keys_by_owner(user_key)
+        pending = self._takeover_repo.get_pending_takeover() if self._takeover_repo is not None else None
+        if pending is not None and pending.receipt is not None and pending.system_tenant_key in keys:
+            # #1855 R3 W-4: a failed take-over left the light-mode garden named after the account - it is
+            # not the account's garden until a decision stands; the stored receipt gives it back first.
+            logger.warning("light_mode_tenant_kept_from_account_erasure", tenant=log_tenant(pending.system_tenant_key))
+            keys = [key for key in keys if key != pending.system_tenant_key]
+        return keys
+
+    def revoke_invitations_into_personal_tenants_of(self, user_key: str) -> int:
+        """Revoke every pending invitation into every personal tenant of *user_key* (REQ-025 AK-IE-06).
+
+        Called when an erasure of the account is **requested** — by
+        :meth:`PrivacyService.request_erasure` and
+        :meth:`PrivacyService.erase_account_now` alike — and once more by
+        :meth:`erase_personal_tenant_of` right before the membership decision.
+        Until #1825 an invitation (a link invitation is bound to no address)
+        stayed acceptable for the whole R-01 grace: whoever held the token
+        could join, keep the tenant from being erased and read the subject's
+        garden.
+
+        E-mail and link invitations alike, ``tenant_type: personal`` only —
+        invitations into an organisation the subject owns are not the
+        subject's personal data decision. A revoked invitation is refused by
+        :meth:`accept_invitation` (``Invitation is no longer pending``).
+        Idempotent; returns how many invitations were revoked.
+        """
+        revoked = sum(
+            self._invitation_repo.revoke_pending_for_tenant(tenant_key)
+            for tenant_key in self._tenant_repo.personal_tenant_keys_by_owner(user_key)
+        )
+        if revoked:
+            logger.info(
+                "tenant_erasure.personal_tenant_invitations_revoked", subject=log_subject(user_key), revoked=revoked
+            )
+        return revoked
+
+    def erase_personal_tenant_of(
+        self,
+        user_key: str,
+        tenant_key: str,
+        *,
+        now: datetime | None = None,
+        requested_at: datetime | None = None,
+    ) -> PersonalTenantErasure:
+        """Erase *tenant_key*, a personal tenant of the erased account *user_key*, unless someone else uses it.
+
+        The account erasure calls this for every personal tenant of the subject
+        before its own ArangoDB plan runs (#1788). Until #1788 that plan only
+        replaced the owner reference and renamed the tenant, and the tenant's
+        sites, plants, diary, tasks … outlived the account — the subject's own
+        data, kept without purpose (Art. 5(1)(e), Art. 17).
+
+        * A deletion already ``completed`` for it → ``erased`` (a retry after the
+          tenant went, or a deletion someone else finished).
+        * Neither tenant nor deletion record → ``absent``.
+        * No deletion open yet → the tenant goes, **whoever else is a member**
+          (erasure together, REQ-025 §3.1.3 / NFR-011 AK-PT-03, #1824): the
+          members are notified when the erasure is requested
+          (:meth:`PrivacyService.request_erasure`), not here. The one exception
+          is a member who joined *after* the first read — see below —
+          → ``retained_late_joiner``: the tenant is kept and only the owner
+          reference is removed (REQ-025 AK-IE-07).
+        * Otherwise — nobody joined late, or a deletion of it
+          is already running (its memberships are frozen then) — the tenant-erasure
+          inventory runs with origin ``account_erasure``
+          (:meth:`_erase_tenant_for_account_erasure`): same inventory, same
+          persisted record, same retry as :meth:`delete_tenant`.
+
+        The membership is read **twice** (REQ-025 AK-IE-07, #1825 SEC-003): once
+        before the deletion record is inserted — who is a member *now* — and
+        again right after; with ``requested_at`` — when the account erasure was
+        asked for — a member whose membership began after it also counts as late,
+        because the notice (REQ-025 §3.1.3) went to those who were members at
+        that moment. The record is the freeze :meth:`_refuse_while_erasing`
+        keys on, so a join that slipped between the first read and the insert is
+        seen by the second as someone the first did not list. Such a tenant is
+        kept, the record withdrawn — and the members read once more after the
+        withdrawal, so a joiner the freeze took back meanwhile does not keep it
+        for nobody (:meth:`_decide_retention_under_freeze`, #1924); before #1825
+        the joiner was silently deactivated and the tenant erased. A record an earlier attempt left
+        unclaimed has no first read to compare with; there a member whose
+        membership began at or after the record's ``requested_at`` — or whose
+        start is not recorded — counts as late. The decision is
+        :meth:`_personal_tenant_retention`, the one place that decides whether
+        a membership keeps the tenant.
+
+        Raises what a failed tenant deletion raises (the record stays open and
+        the daily tenant beat retries it too), :class:`TenantErasureIncompleteError`
+        when it did not complete, and :class:`ValidationError` when the tenant is
+        no longer a personal tenant of *user_key* — a state no write path
+        produces, so it stops the account erasure instead of erasing a tenant
+        that is not the subject's.
+        """
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        record = self._require_tenant_erasure_repo().get(record_key)
+        if record is not None and record.status == "completed":
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None and record is None:
+            return PersonalTenantErasure(tenant_key=tenant_key, outcome="absent")
+        if (
+            record is None
+            and tenant is not None
+            and tenant.tenant_type == TenantType.PERSONAL
+            and tenant.owner_user_key == ANONYMIZED_MARKER
+        ):
+            # #1788 code review — a recorded key whose tenant the account plan
+            # already handed over (owner replaced) was retained on an earlier
+            # attempt; a retry must not fail on it and block the Art. 17 duty.
+            return PersonalTenantErasure(
+                tenant_key=tenant_key,
+                outcome="retained_late_joiner",
+                reason="Kept on an earlier attempt of this erasure; its owner reference is already removed.",
+            )
+        if tenant is not None and (tenant.owner_user_key != user_key or tenant.tenant_type != TenantType.PERSONAL):
+            raise ValidationError("The tenant recorded for this account erasure is not the subject's personal tenant.")
+        now = now or datetime.now(UTC)
+        # A record no run ever claimed was inserted by an attempt that stopped
+        # before its re-check (or before its claim): nothing is deactivated yet,
+        # so the membership still says who uses the tenant.
+        never_started = record is not None and self._is_unclaimed_account_erasure(record)
+        known_members: frozenset[str] | None = None
+        if record is None:
+            # AK-IE-06 backstop — revoked at request time already; an invitation
+            # issued since (or a request-time revocation that failed) goes here,
+            # before the membership is read.
+            self._invitation_repo.revoke_pending_for_tenant(tenant_key)
+            # #1824 — the first read no longer decides anything: whoever is a
+            # member now goes with the tenant. It only records who they are, so
+            # the read after the freeze can tell a late joiner from them.
+            known_members = self._other_active_members(tenant_key, user_key)
+            self._open_account_erasure_record(tenant_key, tenant, subject_user_key=user_key, now=now)
+        if record is None or never_started:
+            retained = self._decide_retention_under_freeze(
+                tenant_key,
+                tenant,
+                user_key,
+                known_members=known_members,
+                frozen_at=record.requested_at if record is not None else None,
+                requested_at=requested_at,
+                now=now,
+            )
+            if retained is not None:
+                return retained
+        finished = self._erase_tenant_for_account_erasure(tenant_key, tenant, now=now)
+        if finished.status != "completed":
+            raise TenantErasureIncompleteError(list(finished.unreached) or [TenantErasureEngine.TENANT_COLLECTION])
+        return PersonalTenantErasure(tenant_key=tenant_key, outcome="erased", tenant_erasure_record_key=record_key)
+
+    #: How often the retention decision re-freezes the tenant after a joiner it
+    #: counted was taken back by the freeze (see :meth:`_decide_retention_under_freeze`).
+    _RETENTION_ROUNDS = 3
+
+    def _decide_retention_under_freeze(
+        self,
+        tenant_key: str,
+        tenant: Tenant | None,
+        subject_user_key: str,
+        *,
+        known_members: frozenset[str] | None,
+        frozen_at: datetime | None,
+        requested_at: datetime | None,
+        now: datetime,
+    ) -> PersonalTenantErasure | None:
+        """The retained outcome — or ``None`` when the tenant is to be erased — with the freeze in place (#1924).
+
+        AK-IE-07 — the record is in place, so every later join is refused or
+        rolls itself back (:meth:`_create_membership_unless_erasing`); whoever
+        is an active member now and was not in the first read joined late.
+
+        Two decisions meet on a join that landed between the freeze and the
+        read below: this one counts the joiner and keeps the tenant, the joiner's
+        own re-check finds the freeze and takes the membership back. Before #1924
+        both could fire for the same joiner and the tenant stayed with nobody in
+        it. The record's withdrawal is therefore **part of the decision**, not
+        what follows it: the record is withdrawn first, and the members are read
+        again. The joiner's rollback is atomic against the withdrawal
+        (:meth:`IMembershipRepository.delete_while_tenant_frozen`), so a joiner
+        counted here is one the rollback can no longer take — it either committed
+        before the withdrawal and the re-read does not list it, or it finds no
+        record and the membership stands. A re-read that lists nobody means the
+        joiner was taken back: the tenant is frozen again and the decision is
+        repeated, at most :attr:`_RETENTION_ROUNDS` times; then the run stops
+        with a write conflict and the daily retry picks the open record up.
+        """
+        erasure_repo = self._require_tenant_erasure_repo()
+        record_key = TenantErasureEngine.record_key(tenant_key)
+
+        def late_member() -> PersonalTenantErasure | None:
+            return self._personal_tenant_retention(
+                tenant_key,
+                subject_user_key,
+                known_members=known_members,
+                frozen_at=frozen_at,
+                requested_at=requested_at,
+            )
+
+        for _round in range(self._RETENTION_ROUNDS):
+            if late_member() is None:
+                return None
+            if not erasure_repo.delete_unclaimed(record_key):
+                # A run claimed the record in between; it decides, and the
+                # account erasure is retried against what it leaves.
+                raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+            retained = late_member()
+            if retained is not None:
+                return retained
+            # The joiner this decision counted was taken back by the freeze it
+            # raced with: nobody keeps the tenant — freeze it again and decide anew.
+            self._open_account_erasure_record(tenant_key, tenant, subject_user_key=subject_user_key, now=now)
+        raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+
+    @staticmethod
+    def _is_unclaimed_account_erasure(record: TenantErasureRecord) -> bool:
+        """Whether *record* was opened by an account erasure and no run has claimed it yet."""
+        return (
+            record.origin == "account_erasure"
+            and record.status == "in_progress"
+            and record.last_attempt_at is None
+            and record.attempt_count == 0
+        )
+
+    def _other_active_members(self, tenant_key: str, subject_user_key: str) -> frozenset[str]:
+        """The active accounts other than the subject that use *tenant_key* (#1788)."""
+        return frozenset(
+            key
+            for key in self._membership_repo.active_member_user_keys(tenant_key=tenant_key)
+            if key != subject_user_key
+        )
+
+    def _personal_tenant_retention(
+        self,
+        tenant_key: str,
+        subject_user_key: str,
+        *,
+        known_members: frozenset[str] | None,
+        frozen_at: datetime | None,
+        requested_at: datetime | None = None,
+    ) -> PersonalTenantErasure | None:
+        """The retained outcome when a *late* member keeps the subject's personal tenant, else ``None``.
+
+        Erasure together (#1824): another active member no longer keeps the
+        tenant — only one who joined after the erasure froze it does
+        (REQ-025 AK-IE-07). Called with the freeze in place.
+
+        * ``known_members`` — the members the read before the freeze listed:
+          whoever is active now and is not among them joined late.
+        * ``None`` — a retried record no run claimed has no such read; a member
+          is late when the membership began at or after ``frozen_at`` (the
+          record's ``requested_at``). A start that is not recorded does not make
+          a member late: every production path stamps ``joined_at``, so only a
+          membership from before the field existed (seeds) lacks it.
+        * ``requested_at`` — when the **account erasure** was requested. Whoever
+          joined after it was not among the members the notice went to (an
+          invitation created during the grace, an administrator adding a
+          member) and is late whichever read lists them.
+
+        """
+        current = self._other_active_members(tenant_key, subject_user_key)
+        joined = (
+            self._membership_repo.active_member_joined_at(tenant_key=tenant_key)
+            if known_members is None or requested_at is not None
+            else {}
+        )
+        late: set[str] = set()
+        if known_members is not None:
+            late |= current - known_members
+        else:
+            cutoff = ensure_aware_utc(frozen_at)
+            for key in current:
+                began = ensure_aware_utc(joined.get(key))
+                if cutoff is None or (began is not None and began >= cutoff):
+                    late.add(key)
+        if requested_at is not None:
+            asked = ensure_aware_utc(requested_at)
+            for key in current:
+                began = ensure_aware_utc(joined.get(key))
+                if began is not None and asked is not None and began > asked:
+                    late.add(key)
+        if not late:
+            return None
+        # #1788 review GDPR-05 — no tenant key beside the subject digest: the key
+        # is on the pseudonymised retention rows, and joining a log line to them
+        # is what the salted ``log_subject`` prevents.
+        logger.info(
+            "tenant_erasure.personal_tenant_retained",
+            subject=log_subject(subject_user_key),
+            late_members=len(late),
+        )
+        reason = (
+            f"{len(late)} member(s) joined this tenant after its deletion was requested "
+            "(REQ-025 AK-IE-07); it is kept for them and only the owner reference is removed."
+        )
+        return PersonalTenantErasure(tenant_key=tenant_key, outcome="retained_late_joiner", reason=reason)
+
+    def other_active_members_of_personal_tenants_of(self, user_key: str) -> list[str]:
+        """The distinct accounts, other than *user_key*, that use one of its personal tenants (#1824).
+
+        Who has to be told before an erasure takes the tenant with it. An
+        account whose own erasure is pending is not among them (it is already
+        inactive, #1788 review GDPR-01).
+        """
+        members: dict[str, None] = {}
+        for tenant_key in self._tenant_repo.personal_tenant_keys_by_owner(user_key):
+            for key in sorted(self._other_active_members(tenant_key, user_key)):
+                members.setdefault(key)
+        return list(members)
+
+    def personal_tenant_erasure_preview(self, user_key: str) -> list[PersonalTenantErasurePreview]:
+        """What an account erasure would take with it, per personal tenant, before it is confirmed (AK-FK-06, #1824).
+
+        The subject's own tenant name and a *count* of the others — nothing
+        about who they are. Read-only and caller-scoped: the keys are those the
+        subject owns.
+        """
+        preview: list[PersonalTenantErasurePreview] = []
+        for tenant_key in self._tenant_repo.personal_tenant_keys_by_owner(user_key):
+            tenant = self._tenant_repo.get_by_key(tenant_key)
+            if tenant is None:
+                continue
+            preview.append(
+                PersonalTenantErasurePreview(
+                    name=tenant.name, other_member_count=len(self._other_active_members(tenant_key, user_key))
+                )
+            )
+        return preview
+
+    def _guard_account_erasure_of_tenant(self, tenant: Tenant | None) -> None:
+        """Refuse before anything is written: a tenant that cannot be deleted, a deployment that cannot erase."""
+        if tenant is not None and (tenant.is_platform or self._light_mode):
+            raise ForbiddenError("This tenant cannot be deleted.")
+        configuration_error = self._tenant_erasure_configuration_error()
+        if configuration_error is not None:
+            raise FeatureNotConfiguredError("tenant_deletion", configuration_error)
+
+    def _open_account_erasure_record(
+        self, tenant_key: str, tenant: Tenant | None, *, subject_user_key: str, now: datetime
+    ) -> None:
+        """Insert the one-per-tenant deletion record — the membership freeze — for an account erasure."""
+        self._guard_account_erasure_of_tenant(tenant)
+        try:
+            self._require_tenant_erasure_repo().create_with_key(
+                TenantErasureRecord(
+                    tenant_key=tenant_key,
+                    tenant_type=str(tenant.tenant_type) if tenant is not None else "unknown",
+                    origin="account_erasure",
+                    # #1791 provenance fields: the erased account as the salted
+                    # log reference (never its key), and an explicit statement
+                    # that no interactive step-up belongs to this deletion.
+                    requested_by_subject=log_subject(subject_user_key),
+                    step_up="account_erasure_no_interactive_step_up",
+                    slug_digest=self._tenant_slug_digest(tenant.slug) if tenant is not None else None,
+                    requested_at=now,
+                ),
+                TenantErasureEngine.record_key(tenant_key),
+            )
+        except (DuplicateError, WriteConflictError) as exc:
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION) from exc
+
+    def _erase_tenant_for_account_erasure(
+        self,
+        tenant_key: str,
+        tenant: Tenant | None,
+        *,
+        now: datetime,
+    ) -> TenantErasureRecord:
+        """Claim and run a deletion the account erasure decided and recorded (#1788).
+
+        The record exists by now — inserted by :meth:`_open_account_erasure_record`
+        and confirmed by the second membership read, or left open by an earlier
+        attempt.
+
+        Not :meth:`delete_tenant` itself: that is the entry of a *person* deleting
+        a tenant, and #1791 puts the requester's authorisation and step-up there.
+        Here nobody is asking — the account erasure (itself authorised by the
+        subject's re-authenticated request, a platform admin or the unverified
+        cleanup) decided the tenant goes. Everything that makes the deletion
+        provable is the same: the configuration hold, the one-per-tenant record
+        (``origin: account_erasure``), the atomic claim, the membership freeze
+        and :meth:`_run_tenant_erasure` with its residue check and backoff; the
+        daily :meth:`resume_tenant_erasures` retries the record like any other.
+        """
+        self._guard_account_erasure_of_tenant(tenant)
+        record_key = TenantErasureEngine.record_key(tenant_key)
+        claimed = self._claim_tenant_erasure(record_key, now)
+        if claimed is None:
+            raise WriteConflictError(TenantErasureEngine.RECORD_COLLECTION)
+        # #2123 — a deletion scheduled by the tenant's management does not wait out its grace
+        # here: the account erasure decided this personal tenant goes with its owner.
+        self._mark_tenant_erasing(tenant_key)
+        self._membership_repo.deactivate_all_for_tenant(tenant_key)
+        return self._run_tenant_erasure(claimed, now, raise_on_failure=True)
+
+    def _refuse_while_erasing(self, tenant_key: str) -> None:
+        """No new membership in a tenant whose deletion is open (#1769 review SEC-006).
+
+        The deletion deactivates every membership before it runs; a membership
+        created afterwards would grant access to a tenant being erased until the
+        transaction commits.
+        """
+        if self._tenant_erasure_repo is None:
+            return
+        record = self._tenant_erasure_repo.get(TenantErasureEngine.record_key(tenant_key))
+        if record is not None and record.status != "completed":
+            raise ForbiddenError("This tenant is being deleted.")
+
+    def _refuse_invitation_while_owner_erasing(self, *, tenant_key: str) -> None:
+        """No invitation into a personal tenant whose owner has an open erasure request (REQ-025 AK-IE-06, #1924).
+
+        AK-IE-06 revokes the invitations that exist when the erasure is
+        requested; this is the other half — one created *during* the grace (a
+        member with the ``MANAGEMENT`` scope can still create one) or accepted
+        in it would let somebody join the subject's garden after the subject
+        asked for it to go. Every way in — both invitation types, creation and
+        acceptance — asks here, so the predicate is written once. Only a
+        ``PERSONAL`` tenant is the subject's own data decision; an organisation
+        the subject owns keeps inviting. The refusal does not say why: whoever holds
+        a token is not one of the members the erasure notice went to.
+        """
+        if self._erasure_repo is None:
+            return
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        if tenant is None or tenant.tenant_type != TenantType.PERSONAL:
+            return
+        if self._erasure_repo.find_active_for_user(tenant.owner_user_key) is not None:
+            raise ForbiddenError("No new members can be invited into this tenant.")
+
+    def _create_membership_unless_erasing(self, membership: Membership) -> Membership:
+        """Insert a membership into an existing tenant, and take it back if the tenant froze meanwhile.
+
+        REQ-025 AK-IE-07 (#1825 SEC-003 b). The caller's
+        :meth:`_refuse_while_erasing` and this insert are two writes: a deletion
+        record inserted between them froze the tenant while the membership was
+        on its way in. Checked again once the membership exists
+        (:meth:`_settle_join_against_freeze`), so no active membership stays in
+        a tenant that is being erased — the counterpart of the second membership
+        read in :meth:`erase_personal_tenant_of`. Every path that joins an
+        account to an existing tenant goes through here.
+
+        **The member limit (REQ-024 AK-65, #2133)** is decided here too, for the same
+        reason: it is the one door every join passes (the class guards in
+        ``tests/unit/guards/`` hold that). Counted before the insert and again after
+        it - two concurrent joins can both pass the first count, and the one that
+        finds the tenant over its limit afterwards takes itself back
+        (:meth:`_settle_join_against_member_limit`).
+        """
+        limit = self._refuse_beyond_member_limit(membership.tenant_key)
+        created = self._membership_repo.create(membership)
+        self._settle_join_against_freeze(created)
+        self._settle_join_against_member_limit(created, limit)
+        return created
+
+    def _refuse_limit_above_ceiling(self, max_members: int) -> None:
+        """422 for a ``max_members`` above the platform ceiling (REQ-024 AK-65, #2133)."""
+        ceiling = self._entitlements.members_ceiling()
+        if max_members > ceiling:
+            raise ValidationError(
+                f"max_members may not exceed the platform ceiling of {ceiling}.",
+                details=[
+                    {
+                        "field": "max_members",
+                        "reason": f"At most {ceiling}.",
+                        "code": "max_members_above_ceiling",
+                    }
+                ],
+            )
+
+    def _refuse_beyond_member_limit(self, tenant_key: str) -> int:
+        """422 ``MEMBER_LIMIT_REACHED`` when the tenant's active memberships reached its limit; else the limit.
+
+        REQ-024 AK-64 (#2133). Counts *active* memberships against the effective limit -
+        ``min(max_members, plan.members ?? ceiling, ceiling)``, decided by the tenant's plan
+        (REQ-056 §7.3, #2142). Applies to a new membership only: a tenant that already
+        holds more members than its limit - written before the limit was enforced, or
+        after it was lowered (also by a plan change, REQ-056 §7.5) - keeps all of them and
+        refuses the next join. An unknown tenant is 404.
+        """
+        limit = self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.MEMBERS,
+            projected=self._membership_repo.count_active_members(tenant_key=tenant_key) + 1,
+        )
+        assert limit is not None  # the member dimension is always bounded by the platform ceiling
+        return limit
+
+    def _settle_join_against_member_limit(self, created: Membership, limit: int) -> None:
+        """Take a join back that a concurrent join pushed over the limit after the first count (#2133).
+
+        The count before the insert and the insert are two statements: two joins can both
+        see one free seat. Re-counted once the membership exists, an overshoot is undone
+        and refused - both racing joins may be refused then, never both kept.
+        """
+        if self._membership_repo.count_active_members(tenant_key=created.tenant_key) <= limit:
+            return
+        if created.key:
+            self._membership_repo.delete(created.key)
+        logger.info("member_limit_join_taken_back", tenant=log_tenant(created.tenant_key), limit=limit)
+        raise MemberLimitReachedError(limit)
+
+    def _settle_join_against_freeze(self, created: Membership) -> None:
+        """The re-check of a join after its insert: raises ``ForbiddenError`` when the membership was taken back.
+
+        The take-back is atomic against the erasure's withdrawal of the record
+        (:meth:`IMembershipRepository.delete_while_tenant_frozen`, #1924): a
+        membership the erasure counted as a late joiner and kept the tenant for
+        is not removed after the fact, and one removed first is not counted. A
+        withdrawn record means the erasure decided to keep the tenant — the
+        membership stands.
+        """
+        try:
+            self._refuse_while_erasing(created.tenant_key)
+        except ForbiddenError:
+            if not created.key:
+                raise
+            try:
+                taken_back = self._membership_repo.delete_while_tenant_frozen(created.key, created.tenant_key)
+            except WriteConflictError:
+                # The record kept conflicting. Refusing a join is always safe
+                # for the subject's erasure; keeping an unchecked one is not.
+                self._membership_repo.delete(created.key)
+                raise
+            if taken_back:
+                raise
+
+    def _require_tenant_erasure_repo(self) -> ITenantErasureRepository:
+        if self._tenant_erasure_repo is None:
+            raise FeatureNotConfiguredError("tenant_deletion", "No tenant-erasure record store is wired.")
+        return self._tenant_erasure_repo
+
+    def _claim_tenant_erasure(self, record_key: str, now: datetime) -> TenantErasureRecord | None:
+        stale_before: datetime = now - timedelta(hours=TenantErasureEngine.STALE_AFTER_HOURS)
+        return self._require_tenant_erasure_repo().claim_for_run(
+            record_key, now_iso=now.isoformat(), stale_before_iso=stale_before.isoformat()
+        )
+
+    def _tenant_erasure_wiring_error(self) -> str | None:
+        """Executor, stores and salts — the process-independent part of the tenant-erasure configuration."""
+        if self._tenant_erasure_executor is None or self._tenant_erasure_repo is None:
+            return "No tenant-erasure executor or record store is wired on this deployment."
+        if self._observation_repo is None:
+            return "No sensor-reading store is wired, so the tenant's time-series data cannot be erased."
+        try:
+            ErasureEngine.compute_tombstone_hash("configuration-probe", self._tombstone_salt)
+        except ValueError:
+            return "Set ERASURE_TOMBSTONE_SALT to a secret of at least 32 characters."
+        # #1812 review SEC-001: the record's ``requested_by_subject`` (and the
+        # redacted error texts it keeps) are log pseudonyms. Without the log salt
+        # they would be persisted as the constant ``anon_unavailable`` — a proof
+        # that no longer says who asked for the erasure. Refused like the
+        # tombstone salt, before anything changes (the start gate does not run
+        # with DEBUG=true).
+        if log_subject("configuration-probe") == UNAVAILABLE_LOG_SUBJECT:
+            return "Set LOG_PSEUDONYM_SALT to a secret of at least 32 characters."
+        return None
+
+    def tenant_erasure_wiring_error(self) -> str | None:
+        """The deployment-wide half of :meth:`tenant_erasure_configuration_error` (#1843).
+
+        Executor, record store, sensor store and salts — the same in every
+        process. The derived-store checks (reference index, pest prototypes)
+        depend on the process that runs the erasure and are left to it: a
+        self-service request filed in the API process is executed by the
+        worker's beat, which holds it if *its* process cannot reach them.
+        """
+        return self._tenant_erasure_wiring_error()
+
+    def _tenant_erasure_configuration_error(self) -> str | None:
+        """Why this deployment cannot erase a tenant, or ``None`` when it can (#1666 shape).
+
+        Checked before anything changes: a configuration fault is not a property
+        of one tenant and would fail every attempt identically.
+        """
+        wiring_error = self._tenant_erasure_wiring_error()
+        if wiring_error is not None:
+            return wiring_error
+        if self._reference_index_store is not None:
+            reference_error = self._reference_index_store.configuration_error()
+            if reference_error is not None:
+                return reference_error
+        if self._pest_image_repo is not None and self._pest_prototype_store is None:
+            return "No pest-prototype store is wired, so contributed pest-recognition prototypes cannot be erased."
+        if self._pest_prototype_store is not None:
+            return self._pest_prototype_store.configuration_error()
+        return None
+
+    def _run_tenant_erasure(
+        self, record: TenantErasureRecord, now: datetime, *, raise_on_failure: bool
+    ) -> TenantErasureRecord:
+        """External phase, then the ArangoDB inventory; the record says what happened.
+
+        *now* is the instant the caller's claim stamped on the record
+        (``last_attempt_at``): it is the claim's identity, and every heartbeat of
+        this run is conditional on it still standing (#1792). The heartbeat is
+        refreshed after the external phase, after every ArangoDB batch and before
+        the time-series purge, so a long run is not claimed a second time while a
+        crashed one — whose heartbeat stops — is.
+        """
+        record_key = record.key or TenantErasureEngine.record_key(record.tenant_key)
+        repo = self._require_tenant_erasure_repo()
+        executor = self._tenant_erasure_executor
+        assert executor is not None  # checked by _tenant_erasure_configuration_error
+        salt = self._tombstone_salt
+        claimed_at_iso = now.isoformat()
+        persisted_parent_keys: dict[str, list[str]] = dict(record.parent_keys)
+
+        def heartbeat(parent_keys: dict[str, list[str]] | None = None) -> None:
+            nonlocal persisted_parent_keys
+            changed = parent_keys is not None and parent_keys != persisted_parent_keys
+            if not repo.heartbeat(
+                record_key,
+                claimed_at_iso=claimed_at_iso,
+                now_iso=datetime.now(UTC).isoformat(),
+                parent_keys=parent_keys if changed else None,
+            ):
+                raise TenantErasureClaimLostError
+            if changed and parent_keys is not None:
+                persisted_parent_keys = {name: list(keys) for name, keys in parent_keys.items()}
+
+        def conclude(fields: dict[str, object]) -> TenantErasureRecord:
+            """Write the run's outcome, only while its own claim stands (#1792 review SEC-001)."""
+            written = repo.update_fields_while_claimed(record_key, claimed_at_iso=claimed_at_iso, fields=fields)
+            if written is None:
+                raise TenantErasureClaimLostError
+            return written
+
+        try:
+            external = self._purge_tenant_storage(record.tenant_key, on_step=heartbeat)
+            heartbeat()
+            report = executor.run_tenant_erasure(
+                self._tenant_erasure_engine.build_plan(record.tenant_key, known_parent_keys=record.parent_keys),
+                pseudonymize=lambda user_key: ErasureEngine.compute_tombstone_hash(user_key, salt),
+                on_progress=heartbeat,
+            )
+            heartbeat()
+            external.update(self._purge_tenant_readings(record.tenant_key))
+        except TenantErasureClaimLostError:
+            # The record is another run's now; writing a failure onto it would
+            # clobber that run's state. Stop quietly.
+            logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
+            if raise_on_failure:
+                raise
+            return record
+        except Exception as exc:
+            attempt = record.attempt_count + 1
+            next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
+            logger.error(
+                "tenant_erasure.attempt_failed",
+                record_key=log_tenant_record_key(record_key),
+                attempt=attempt,
+                error_type=type(exc).__name__,
+                next_attempt_at=next_attempt_at.isoformat(),
+            )
+            try:
+                conclude(
+                    {
+                        "status": "partially_completed",
+                        "attempt_count": attempt,
+                        "next_attempt_at": next_attempt_at.isoformat(),
+                        "error_message": (
+                            f"Attempt {attempt} failed ({type(exc).__name__}); "
+                            f"the next one is due after {next_attempt_at.date()}."
+                        ),
+                        **self._escalation_fields(record, attempt, now),
+                    }
+                )
+            except TenantErasureClaimLostError:
+                # The record is another run's now: its state is not ours to overwrite.
+                logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
+                if raise_on_failure:
+                    raise
+                return record
+            if raise_on_failure:
+                raise
+            return record.model_copy(update={"status": "partially_completed", "attempt_count": attempt})
+
+        fields: dict[str, object] = {
+            **external,
+            "outcomes": [outcome.model_dump() for outcome in report.outcomes],
+            "edges_removed": report.edges_removed,
+            "unreached": list(report.unreached),
+            "parent_keys": report.parent_keys,
+        }
+        if report.unreached:
+            attempt = record.attempt_count + 1
+            next_attempt_at = TenantErasureEngine.next_attempt_at(attempt, now)
+            fields.update(
+                {
+                    "status": "partially_completed",
+                    "attempt_count": attempt,
+                    "next_attempt_at": next_attempt_at.isoformat(),
+                    "error_message": (
+                        f"Still holding the tenant after attempt {attempt}: {', '.join(report.unreached)}."
+                    ),
+                    **self._escalation_fields(record, attempt, now),
+                }
+            )
+            logger.error(
+                "tenant_erasure.unreached",
+                record_key=log_tenant_record_key(record_key),
+                attempt=attempt,
+                unreached=report.unreached,
+            )
+            try:
+                updated = conclude(fields)
+            except TenantErasureClaimLostError:
+                logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
+                if raise_on_failure:
+                    raise
+                return record
+            if raise_on_failure:
+                raise TenantErasureIncompleteError(list(report.unreached))
+            return updated
+        fields.update(
+            {
+                "status": "completed",
+                "completed_at": now.isoformat(),
+                "next_attempt_at": None,
+                "error_message": None,
+            }
+        )
+        try:
+            updated = conclude(fields)
+        except TenantErasureClaimLostError:
+            logger.warning("tenant_erasure.claim_lost", record_key=log_tenant_record_key(record_key))
+            if raise_on_failure:
+                raise
+            return record
+        logger.info(
+            "tenant_deleted", tenant=log_tenant(record.tenant_key), record_key=log_tenant_record_key(record_key)
+        )
+        return updated
+
+    @staticmethod
+    def _escalation_fields(record: TenantErasureRecord, attempt: int, now: datetime) -> dict[str, object]:
+        """Escalate a deletion that failed ``ESCALATE_AFTER_ATTEMPTS`` times: one alert event per failing attempt.
+
+        #1792 — a deterministic failure (a batch the server refuses every time)
+        used to repeat at the backoff, one error line among many. From the n-th
+        failed attempt on, each failing run also emits ``tenant_erasure.escalated``
+        (the event an operator alert keys on) and the record carries ``escalated_at``
+        from the first one. Retries continue at the existing backoff: a person fixes
+        the cause, the beat then finishes the deletion.
+        """
+        if attempt < TenantErasureEngine.ESCALATE_AFTER_ATTEMPTS:
+            return {}
+        logger.error("tenant_erasure.escalated", record_key=log_tenant_record_key(record.key), attempt=attempt)
+        if record.escalated_at is not None:
+            return {}
+        return {"escalated_at": now.isoformat()}
+
+    def _purge_tenant_readings(self, tenant_key: str) -> dict[str, object]:
+        """#1769 review GDPR-001 — the tenant's raw sensor readings (TimescaleDB).
+
+        Runs **after** the ArangoDB transaction committed (#1769 code review): the
+        sensors are gone by then, so ingestion — which does not depend on a
+        membership and is not stopped by the freeze — has nothing left to write
+        readings for. A failure here leaves the record open like any other step,
+        and the retry repeats it. A deployment without TimescaleDB wires the null
+        repository (0 rows).
+        """
+        if self._observation_repo is None:
+            return {}
+        removed = self._observation_repo.delete_by_tenant(tenant_key)
+        logger.info("tenant_sensor_readings_deleted", tenant=log_tenant(tenant_key), removed=removed)
+        return {"timeseries_rows_removed": removed}
+
+    def _purge_tenant_storage(self, tenant_key: str, on_step: Callable[[], None] | None = None) -> dict[str, object]:
+        """NFR-013 §6.1 — the phase outside ArangoDB.
 
         Steps (with audit logs):
-          1. Delete all ``attachments`` metadata for the tenant.
-          2. Drop the tenant's ``pest_image_contributions`` link documents.
+          1. Remove the tenant's user-contributed reference-index vectors
+             (inference-service; fails loud, #1753).
+          2. Remove the tenant's contributed pest prototypes (#1759).
           3. ``delete_prefix("t/{tenant_key}/")`` — every binary object.
-          4. Remove the tenant's user-contributed reference-index vectors.
+
+        Any step that raises stops the purge before the ArangoDB inventory runs,
+        so the tenant document still exists and the retry starts from the same
+        state. Every step is idempotent. Returns what each step reported, for the
+        record.
 
         ``delete_prefix`` / reference-index calls are async; this method is
         invoked from a synchronous request handler, so it bridges via
@@ -295,77 +2621,79 @@ class TenantService:
         if not tenant_key or not _TENANT_KEY_PATTERN.match(tenant_key):
             raise ValidationError(f"Refusing to purge storage for an invalid tenant key: {tenant_key!r}")
 
-        if self._attachment_repo is not None:
-            removed_meta = self._attachment_repo.delete_all_for_tenant(tenant_key)
+        reported: dict[str, object] = {}
+        # REQ-024 / REQ-025 AK-OS-05 — the tenant's contributed reference vectors
+        # go first: they live in a separate service, and when that delete fails
+        # (ExternalSourceError, HTTP 502) nothing else has been removed yet, so
+        # a retry starts from the same state (#1753).
+        if self._reference_index_store is not None:
+            removed_vectors = run_async(self._reference_index_store.delete_tenant_contributions(tenant_key))
+            reported["reference_index_binding"] = self._reference_index_store.binding
+            reported["reference_index_removed"] = removed_vectors
             logger.info(
-                "tenant_storage_metadata_deleted",
-                tenant_key=tenant_key,
-                removed=removed_meta,
+                "tenant_reference_index_cleanup",
+                tenant=log_tenant(tenant_key),
+                binding=self._reference_index_store.binding,
+                removed=removed_vectors,
             )
+            if on_step is not None:
+                on_step()  # a slow external service must not let the claim go stale (#1792)
 
-        # REQ-010 — drop the pest-image link documents. The attachment bytes are
-        # removed by the prefix sweep below; this removes the dangling catalog of
-        # contributions so a re-created tenant key never inherits stale rows.
-        if self._pest_image_repo is not None:
-            # SEC-001 — retract every *promoted* contribution's DINOv2 embedding
-            # from the recognition index BEFORE the link documents are dropped
-            # (the provenance label is resolved from each contribution's pest,
-            # which is no longer reachable once the documents are gone).
-            contributions = self._pest_image_repo.list_for_tenant(tenant_key)
-            self._retract_promoted_pest_image_embeddings(contributions)
-            removed_pest_images = self._pest_image_repo.delete_for_tenant(tenant_key)
+        # #1759 — the tenant's contributed pest-recognition prototypes, by tenant
+        # rather than by contribution key, so a prototype whose contribution
+        # document is already gone is reached too. A missing store is refused by
+        # the configuration check before anything changes.
+        if self._pest_prototype_store is not None:
+            removed_prototypes = run_async(self._pest_prototype_store.delete_tenant_contributions(tenant_key))
+            reported["pest_prototype_binding"] = self._pest_prototype_store.binding
+            reported["pest_prototypes_removed"] = removed_prototypes
             logger.info(
-                "tenant_pest_images_deleted",
-                tenant_key=tenant_key,
-                removed=removed_pest_images,
+                "tenant_pest_prototype_cleanup",
+                tenant=log_tenant(tenant_key),
+                binding=self._pest_prototype_store.binding,
+                removed=removed_prototypes,
             )
+            if on_step is not None:
+                on_step()
 
+        # The ``attachments`` metadata and the ``pest_image_contributions`` link
+        # documents are ArangoDB rows of the tenant: the inventory removes them in
+        # the transaction below, not this phase (#1769 — one path per row).
         if self._storage_adapter is not None:
             prefix = f"t/{tenant_key}/"
             deleted_objects = run_async(self._storage_adapter.delete_prefix(prefix))
+            reported["storage_objects_removed"] = deleted_objects
             logger.info(
                 "tenant_storage_prefix_deleted",
-                tenant_key=tenant_key,
-                prefix=prefix,
+                tenant=log_tenant(tenant_key),
                 deleted=deleted_objects,
             )
+        return reported
 
-        if self._reference_index_store is not None:
-            removed_vectors = run_async(self._reference_index_store.delete_tenant_contributions(tenant_key))
-            logger.info(
-                "tenant_reference_index_cleanup",
-                tenant_key=tenant_key,
-                removed=removed_vectors,
-            )
+    def list_my_tenants(self, user_key: str, *, include_scheduled_deletion: bool = False) -> list[TenantWithRole]:
+        """The tenants *user_key* is an active member of, with the member's role and scopes.
 
-    def _retract_promoted_pest_image_embeddings(self, contributions) -> None:  # type: ignore[no-untyped-def]
-        """SEC-001 — retract promoted contributions' recognition-index embeddings.
+        By default only tenants that resolve (``tenant.is_active``): this is the list
+        the tenant switcher, ``GET /tenants`` and the MCP authenticator stand on, so a
+        tenant that resolves for nobody must not appear as one to act in (#2105).
 
-        No-op when the inference client or IPM repo are not wired (the retract
-        cannot resolve a label without the pest record). Best-effort — an
-        inference-service error never aborts the tenant deletion.
+        ``include_scheduled_deletion`` adds the tenants whose deletion is scheduled
+        (``pending_deletion``, ``orphaned``) with their ``status`` and
+        ``deletion_scheduled_at`` (#2166): they resolve for nobody, so without this
+        listing their management had no surface from which to cancel the deletion.
+        A listed tenant is information, never an authorization context — the cancel
+        route proves lead + ``management`` from the stored membership itself.
+        Suspended and deleted tenants stay out either way.
         """
-        if self._pest_inference_client is None or self._ipm_repo is None:
-            return
-        from app.domain.services.pest_image_recognition_cleanup import (
-            retract_promoted_contributions,
-        )
-
-        retract_promoted_contributions(
-            list(contributions),
-            inference_client=self._pest_inference_client,
-            ipm_repo=self._ipm_repo,
-            erasure_scope="tenant",
-        )
-
-    def list_my_tenants(self, user_key: str) -> list[TenantWithRole]:
         memberships = self._membership_repo.list_by_user(user_key)
         result: list[TenantWithRole] = []
         for m in memberships:
             if not m.is_active:
                 continue
             tenant = self._tenant_repo.get_by_key(m.tenant_key)
-            if tenant and tenant.is_active:
+            if tenant is None:
+                continue
+            if tenant.is_active or (include_scheduled_deletion and tenant.status in _SCHEDULED_DELETION_STATUSES):
                 result.append(
                     TenantWithRole(
                         key=tenant.key,
@@ -376,25 +2704,37 @@ class TenantService:
                         role=m.role,
                         admin_scopes=m.admin_scopes,
                         is_active=tenant.is_active,
+                        status=tenant.status,
+                        deletion_scheduled_at=tenant.deletion_scheduled_at,
                     )
                 )
         return result
 
     # --- Platform-admin catalogue reads (#1019) ---
 
-    def list_all_tenants(self) -> list[Tenant]:
+    def list_all_tenants(self, *, offset: int | None = None, limit: int | None = None) -> list[Tenant]:
         """Every tenant, newest first — the platform-admin cross-tenant listing.
 
         Distinct from :meth:`list_my_tenants`, which is scoped to one user's
         memberships. This is a system-context read the platform-admin panel used
         to hand-write as raw AQL in the router (#1019); the per-tenant member
-        count is derived by the caller from :meth:`list_members`.
+        count is derived by the caller from :meth:`count_active_members`. ``offset``/``limit``
+        read one window (MT-035, #2131); both ``None`` reads every tenant.
         """
-        return self._tenant_repo.list_all()
+        return self._tenant_repo.list_all(offset=offset, limit=limit)
 
     def count_tenants(self, *, active_only: bool = False) -> int:
         """Number of tenants; ``active_only`` counts only ``is_active`` ones (#1019)."""
         return self._tenant_repo.count(active_only=active_only)
+
+    def count_active_members(self, tenant_key: str) -> int:
+        """Active memberships of one tenant, counted in the database (``is_active != false``).
+
+        The platform-admin tenant views show this number. They used to read every
+        member joined to its user and count ``is_active`` in Python — a full list per
+        tenant per row of the admin table (#2131). Same seats the member limit counts.
+        """
+        return self._membership_repo.count_active_members(tenant_key=tenant_key)
 
     def count_memberships(self) -> int:
         """Total number of membership documents (platform-admin statistics, #1019)."""
@@ -412,8 +2752,12 @@ class TenantService:
 
     # --- Member Management ---
 
-    def list_members(self, tenant_key: str) -> list[MemberInfo]:
-        return self._membership_repo.list_by_tenant(tenant_key)
+    def list_members(self, tenant_key: str, *, offset: int | None = None, limit: int | None = None) -> list[MemberInfo]:
+        """A tenant's members, oldest first; ``offset``/``limit`` read one window (MT-035, #2131).
+
+        Both ``None`` reads every member.
+        """
+        return self._membership_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     # --- Platform-admin membership writes (#1019) ---
     #
@@ -427,13 +2771,38 @@ class TenantService:
     # tenant-scoped ``change_member_role`` / ``remove_member`` enforce — so these
     # deliberately do not take ``actor_scopes``.
 
-    def admin_add_membership(self, tenant_key: str, user_key: str, role: TenantRole) -> Membership:
+    def admin_add_membership(
+        self,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> Membership:
         """Add a user to a tenant on the platform-admin path.
 
         Single implementation behind both ``POST .../tenants/{tk}/members`` and
         ``POST .../users/{uk}/memberships``. The membership row and its two graph
         edges are created by :meth:`IMembershipRepository.create`, so the edge
         management the two router copies duplicated now lives in one place.
+
+        **Step-up (#2106, REQ-024 AK-59).** Giving an account access to a tenant - in the
+        ``platform`` tenant with ``lead``, the platform-admin role - is as consequential as taking
+        it away, so it passes the admin's *own* step-up (``requester``: the password, the fresh
+        re-authentication or the mailed code; an API key is 403, 429 when locked), bound to the pair
+        ``<tenant_key>|<user_key>`` (#1884). It lives here, not on the routes, so both views pass the
+        same check; the step-up arguments are keyword-only without a default, so a new caller cannot
+        forget them. What cannot succeed is refused first and is not asked for a password: an unknown
+        tenant (404), a platform admin adding themselves to the platform tenant (422), a ``lead`` in
+        the platform tenant by someone who does not hold it (403, :meth:`_refuse_role_grant`), a tenant
+        being erased (403), an account that is already a member (409), a tenant at its member limit (422
+        ``MEMBER_LIMIT_REACHED``, #2133). Without a valid step-up nothing is written; the written membership
+        is recorded in the security audit (#2111).
 
         Raises :class:`NotFoundError` when the tenant is unknown and
         :class:`DuplicateError` when the user is already a member. The *user's*
@@ -442,11 +2811,38 @@ class TenantService:
         """
         tenant = self._tenant_repo.get_by_key(tenant_key)
         if not tenant:
-            raise NotFoundError("tenants", tenant_key)
+            raise NotFoundError("Tenant", tenant_key)
 
+        if tenant.is_platform and user_key == requester.key:
+            raise ValidationError("A platform administrator cannot add themselves to the platform tenant.")
+        # Behind the route's ``require_platform_admin``, the same rule the tenant-scoped grants meet (#2078):
+        # ``lead`` in the platform tenant is handed out only by someone who holds it.
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=requester.key or "",
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
+        self._refuse_while_erasing(tenant_key)
         existing = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if existing:
             raise DuplicateError("memberships", "user_key+tenant_key", "already a member")
+        # #2133 - a full tenant cannot succeed, so it is refused before the step-up asks for a password.
+        self._refuse_beyond_member_limit(tenant_key)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="admin_membership_add",
+            # #1884 - a factor obtained to add this account to this tenant confirms this pair only.
+            target=f"{tenant_key}|{user_key}",
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
 
         membership = Membership(
             user_key=user_key,
@@ -455,7 +2851,519 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        return self._membership_repo.create(membership)
+        created = self._create_membership_unless_erasing(membership)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=user_key,
+            tenant_key=tenant_key,
+            membership=created,
+        )
+        return created
+
+    def join_provider_default_tenant(self, *, user_key: str, tenant_key: str, provider_slug: str) -> Membership | None:
+        """Place a just-created federated account in its provider's default tenant (REQ-024 AK-09, #2182).
+
+        The consumer of ``OidcProviderConfig.default_tenant_key``: the platform admin who set it
+        (behind the step-up, #1883) decided that every **new** account of that provider joins that
+        tenant. Nothing joins unless the field is set; an existing account that signs in or links the
+        provider never joins (only :meth:`AuthService._register_oauth_user` calls this).
+
+        **Always as ``viewer``, never with an administrative scope.** The configuration names no
+        role, and the lowest one is the only one a configuration nobody in the tenant confirmed may
+        hand out; the tenant's management raises it afterwards (the rank rule applies there).
+
+        **Refused, never raised** - the sign-in itself must not fail over a convenience. ``None``
+        and a log line (no address, no key of the account) when the tenant is unknown, not
+        ``active``, a ``personal`` tenant (somebody's own garden), the ``platform`` tenant (a seat
+        there is the platform role, REQ-049 §2.5), being erased, full (AK-64) or already the
+        account's. The join itself goes through the one door every join passes
+        (:meth:`_create_membership_unless_erasing`) and is recorded in the security audit.
+
+        **Every failure, not only the expected ones (#2182 review I-1).** A tenant deleted between
+        the read and the insert answers ``NotFoundError`` from the member-limit count; a database
+        error answers whatever the driver raises. Both cost the account the join, logged with the
+        exception, never the sign-in. A join whose audit row cannot be written is **taken back**:
+        no membership stands that the security audit does not show (MT-014).
+        """
+        try:
+            tenant = self._tenant_repo.get_by_key(tenant_key)
+            reason: str | None = None
+            if tenant is None:
+                reason = "unknown_tenant"
+            elif tenant.is_platform:
+                reason = "platform_tenant"
+            elif tenant.tenant_type == TenantType.PERSONAL:
+                reason = "personal_tenant"
+            elif not tenant.is_active:
+                # Derived from ``status``: suspended, pending deletion, orphaned and deleted tenants admit nobody.
+                reason = "tenant_not_active"
+            elif self._membership_repo.get_by_user_and_tenant(user_key, tenant_key) is not None:
+                reason = "already_member"
+            if reason is not None:
+                logger.warning(
+                    "oidc_auto_join_refused", provider=provider_slug, tenant=log_tenant(tenant_key), reason=reason
+                )
+                return None
+            membership = Membership(
+                user_key=user_key,
+                tenant_key=tenant_key,
+                role=TenantRole.VIEWER,
+                is_active=True,
+                joined_at=datetime.now(UTC).isoformat(),
+            )
+            self._refuse_while_erasing(tenant_key)
+            created = self._create_membership_unless_erasing(membership)
+        except (ForbiddenError, MemberLimitReachedError, NotFoundError) as exc:
+            logger.warning(
+                "oidc_auto_join_refused",
+                provider=provider_slug,
+                tenant=log_tenant(tenant_key),
+                reason=type(exc).__name__,
+            )
+            return None
+        except Exception:  # noqa: BLE001 - the sign-in must not fail over the join (#2182 review I-1)
+            logger.exception("oidc_auto_join_failed", provider=provider_slug, tenant=log_tenant(tenant_key))
+            return None
+        try:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.OIDC_AUTO_JOIN,
+                actor_user_key=user_key,
+                target_user_key=user_key,
+                tenant_key=tenant_key,
+                membership=created,
+            )
+        except Exception:  # noqa: BLE001 - an unaudited join is taken back, the sign-in goes on
+            logger.exception("oidc_auto_join_unaudited", provider=provider_slug, tenant=log_tenant(tenant_key))
+            try:
+                if created.key:
+                    self._membership_repo.delete(created.key)
+            except Exception:  # noqa: BLE001 - logged; the error above already names the join
+                logger.exception(
+                    "oidc_auto_join_take_back_failed", provider=provider_slug, tenant=log_tenant(tenant_key)
+                )
+            return None
+        logger.info(
+            "oidc_auto_join", provider=provider_slug, tenant=log_tenant(tenant_key), subject=log_subject(user_key)
+        )
+        return created
+
+    # --- Service accounts (REQ-023 §5b, #2137) ---
+
+    def create_service_account(
+        self,
+        *,
+        tenant_key: str,
+        name: str,
+        role: TenantRole,
+        ip_allowlist: list[str] | None,
+        rate_limit_per_minute: int | None,
+        expires_at: datetime | None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> ServiceAccountCreated:
+        """Create a service account in the tenant, with its membership and its first API key (#2137, MT-041).
+
+        Until #2137 nothing wrote ``account_type == "service"``: REQ-023 §5b was a model scaffold and
+        the M2M integrations ran on a person's key. Now a tenant's **lead holding the technical scope**
+        (:meth:`MembershipEngine.can_manage_service_accounts`, read from the stored membership, never the
+        request) creates one:
+
+        * a ``User`` with ``account_type="service"``, no password, no personal tenant, an undeliverable
+          random address (:data:`SERVICE_ACCOUNT_EMAIL_DOMAIN`) — it can neither sign in nor be mailed;
+        * one membership in this tenant with ``viewer`` or ``grower`` (§5b.3, never ``lead``) and no
+          administrative scope, through the one join door (:meth:`_create_membership_unless_erasing`:
+          the member limit and the erasure freeze apply — a service account takes a seat);
+        * one API key whose ``tenant_scope`` is this tenant, **always** (the key can reach no other tenant
+          and no account-level route, #1851), carrying the requested controls.
+
+        What cannot succeed is refused before the step-up asks for a password: the actor's standing (403),
+        the role (422), the controls (422), a tenant being erased (403), the per-tenant quota (422
+        ``SERVICE_ACCOUNT_LIMIT_REACHED``, ``TENANT_MAX_SERVICE_ACCOUNTS``), a full tenant (422
+        ``MEMBER_LIMIT_REACHED``). The step-up (``service_account_change``, bound to the tenant, #1884)
+        refuses an API-key request and a service account (403). The new membership is written to the
+        security audit (#2111). A failed join takes the account back, so no account stands without its
+        membership.
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None and self._user_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        if role not in SERVICE_ACCOUNT_ROLES:
+            raise ValidationError(
+                "A service account is a viewer or a grower.",
+                details=[{"field": "role", "reason": "viewer or grower", "code": "service_account_role"}],
+            )
+        canonical_allowlist, errors = api_key_control_errors(
+            ip_allowlist=ip_allowlist,
+            rate_limit_per_minute=rate_limit_per_minute,
+            expires_at=expires_at,
+            now=datetime.now(UTC),
+        )
+        if errors:
+            raise ValidationError(errors[0]["reason"], details=errors)
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=requester.key or "",
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
+        self._refuse_while_erasing(tenant_key)
+        # REQ-056 §7.2 (#2142) — the tenant's plan decides the quota (``null`` = TENANT_MAX_SERVICE_ACCOUNTS).
+        self._entitlements.require(
+            tenant_key,
+            EntitlementDimension.SERVICE_ACCOUNTS,
+            projected=len(self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)) + 1,
+        )
+        self._refuse_beyond_member_limit(tenant_key)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="service_account_change",
+            # #1884 - a factor obtained to create a service account in this tenant confirms this tenant only.
+            target=tenant_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        account = self._user_repo.create(
+            User(
+                email=f"sa-{secrets.token_hex(8)}@{SERVICE_ACCOUNT_EMAIL_DOMAIN}",
+                display_name=name,
+                account_type="service",
+                password_hash=None,
+                email_verified=False,
+            )
+        )
+        account_key = account.key or ""
+        try:
+            membership = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=account_key,
+                    tenant_key=tenant_key,
+                    role=role,
+                    is_active=True,
+                    joined_at=datetime.now(UTC).isoformat(),
+                )
+            )
+        except BaseException:
+            # The join did not stand (a freeze or a full tenant meanwhile): no account without its membership.
+            self._user_repo.delete(account_key)
+            raise
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=account_key,
+            tenant_key=tenant_key,
+            membership=membership,
+        )
+        raw_key, key_hash, key_prefix = new_api_key_secret()
+        created_key = self._api_key_repo.create(
+            ApiKey(
+                user_key=account_key,
+                label=name,
+                key_hash=key_hash,
+                key_prefix=key_prefix,
+                tenant_scope=tenant_key,
+                ip_allowlist=canonical_allowlist,
+                rate_limit_per_minute=rate_limit_per_minute,
+                expires_at=expires_at,
+            )
+        )
+        logger.info(
+            "service_account_created",
+            tenant=log_tenant(tenant_key),
+            actor=log_subject(requester.key),
+            subject=log_subject(account_key),
+            api_key_id=created_key.key,
+        )
+        return ServiceAccountCreated(
+            key=account_key,
+            display_name=account.display_name,
+            role=role,
+            membership_key=membership.key or "",
+            api_key=ApiKeyCreated.minted(created_key, raw_key),
+        )
+
+    def list_service_accounts(self, *, tenant_key: str, requester: User) -> list[ServiceAccountInfo]:
+        """The tenant's active service accounts and the keys each holds in it (#2137), for its lead ∧ technical.
+
+        Only keys scoped to this tenant are listed: a key of the account scoped elsewhere (a platform
+        admin may add a service account to a second tenant) is not this tenant's to see.
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None and self._user_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        memberships = self._membership_repo.active_service_account_memberships(tenant_key=tenant_key)
+        return [
+            ServiceAccountInfo(
+                key=membership.user_key,
+                display_name=account.display_name,
+                role=membership.role,
+                membership_key=membership.key or "",
+                joined_at=membership.joined_at,
+                api_keys=[
+                    ApiKeySummary.of(k)
+                    for k in self._api_key_repo.list_by_user(membership.user_key)
+                    if api_key_scope_admits(k.tenant_scope, tenant_key=tenant_key)
+                ],
+            )
+            for membership in memberships
+            if (account := self._user_repo.get_by_key(membership.user_key)) is not None
+        ]
+
+    def rotate_service_account_key(
+        self,
+        service_account_key: str,
+        *,
+        tenant_key: str,
+        overlap_minutes: int,
+        expires_at: datetime | None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> ServiceAccountKeyRotated:
+        """Mint a new key for the service account; the previous keys stop at once or after an overlap (#2137).
+
+        REQ-023 §5b AK-36. The new key carries the newest previous key's allowlist and rate limit
+        (:func:`~app.domain.models.auth.successor_api_key` — a rotation must not widen what the key
+        admits) and the requested expiry. Every live key of the account in this tenant is then
+
+        * **revoked** when ``overlap_minutes`` is ``0`` (the default: the compromised-key case, §5b.9
+          Szenario 10), or
+        * given ``expires_at = now + overlap`` (never later than it already ends), so an integration can
+          switch keys without a gap. The end is enforced where every key is checked — both surfaces
+          refuse an expired key on its next use — so no task has to run when the window closes.
+
+        Refused before the step-up: the actor's standing (403), an unknown account or one that is not a
+        service account of this tenant (404), an overlap outside 0..1440 or an unusable expiry (422). The
+        step-up is bound to ``<tenant_key>|<service_account_key>``. The rotation is written to the
+        security audit (``service_account_key_rotated``).
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        membership = self._service_account_membership(tenant_key, service_account_key)
+        if not 0 <= overlap_minutes <= MAX_ROTATION_OVERLAP_MINUTES:
+            raise ValidationError(
+                f"overlap_minutes is between 0 and {MAX_ROTATION_OVERLAP_MINUTES}.",
+                details=[
+                    {
+                        "field": "overlap_minutes",
+                        "reason": f"0..{MAX_ROTATION_OVERLAP_MINUTES}",
+                        "code": "overlap_out_of_bounds",
+                    }
+                ],
+            )
+        now = datetime.now(UTC)
+        _, errors = api_key_control_errors(
+            ip_allowlist=None, rate_limit_per_minute=None, expires_at=expires_at, now=now
+        )
+        if errors:
+            raise ValidationError(errors[0]["reason"], details=errors)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="service_account_change",
+            # #1884 - a factor obtained to re-key this account confirms this account in this tenant only.
+            target=f"{tenant_key}|{service_account_key}",
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        own = [
+            k
+            for k in self._api_key_repo.list_by_user(service_account_key)
+            if api_key_scope_admits(k.tenant_scope, tenant_key=tenant_key)
+        ]
+        newest = max(own, key=lambda k: ensure_aware_utc(k.created_at) or now, default=None)
+        live = [k for k in own if not k.revoked and not self._api_key_ended(k, now)]
+        raw_key, key_hash, key_prefix = new_api_key_secret()
+        created_key = self._api_key_repo.create(
+            successor_api_key(
+                newest,
+                user_key=service_account_key,
+                tenant_scope=tenant_key,
+                label=newest.label if newest else "rotated",
+                key_hash=key_hash,
+                key_prefix=key_prefix,
+                expires_at=expires_at,
+            )
+        )
+        ends_at = now + timedelta(minutes=overlap_minutes) if overlap_minutes else None
+        for previous in live:
+            if not previous.key:
+                continue
+            if ends_at is None:
+                self._api_key_repo.revoke(previous.key)
+            else:
+                self._api_key_repo.expire_no_later_than(previous.key, ends_at)
+        self._audit_membership(
+            action=SecurityAuditAction.SERVICE_ACCOUNT_KEY_ROTATED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=service_account_key,
+            tenant_key=tenant_key,
+            membership=membership,
+        )
+        logger.info(
+            "service_account_key_rotated",
+            tenant=log_tenant(tenant_key),
+            actor=log_subject(requester.key),
+            subject=log_subject(service_account_key),
+            api_key_id=created_key.key,
+            replaced=len(live),
+            overlap_minutes=overlap_minutes,
+        )
+        return ServiceAccountKeyRotated(
+            api_key=ApiKeyCreated.minted(created_key, raw_key),
+            previous_keys_end_at=ends_at,
+            replaced_key_count=len(live),
+        )
+
+    def remove_service_account(
+        self,
+        service_account_key: str,
+        *,
+        tenant_key: str,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> None:
+        """Remove a service account from the tenant: its keys here are revoked, its membership ends (#2137).
+
+        REQ-023 §5b.5 "Gelöscht": every key the account holds **in this tenant** is revoked at once, the
+        membership is removed (security audit ``membership_removed``, task assignments end, #2114) and the
+        account is deactivated once it holds no other active membership — it stays as the author of what
+        it wrote (attribution), but nothing can authenticate as it. A service account a platform admin
+        also placed in another tenant keeps that membership and its keys there.
+
+        Same refusals and step-up target as :meth:`rotate_service_account_key`.
+        """
+        self._require_service_account_stores()
+        assert self._api_key_repo is not None and self._user_repo is not None  # checked just above
+        self._require_service_account_manager(tenant_key, requester)
+        membership = self._service_account_membership(tenant_key, service_account_key)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="service_account_change",
+            # #1884 - a factor obtained to remove this account confirms this account in this tenant only.
+            target=f"{tenant_key}|{service_account_key}",
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+
+        # The keys first: from here on nothing authenticates in this tenant as the account, even if a
+        # later write fails.
+        for api_key in self._api_key_repo.list_by_user(service_account_key):
+            reaches_tenant = api_key_scope_admits(api_key.tenant_scope, tenant_key=tenant_key)
+            if api_key.key and reaches_tenant and not api_key.revoked:
+                self._api_key_repo.revoke(api_key.key)
+        removed = self._membership_repo.delete(membership.key or "")
+        if removed:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.TENANT_ADMIN,
+                actor_user_key=requester.key or "",
+                target_user_key=service_account_key,
+                tenant_key=tenant_key,
+                membership=membership,
+            )
+            self._end_membership(tenant_key, service_account_key)
+        if not any(m.is_active for m in self._membership_repo.list_by_user(service_account_key)):
+            self._user_repo.update_fields(service_account_key, {"is_active": False})
+        logger.info(
+            "service_account_removed",
+            tenant=log_tenant(tenant_key),
+            actor=log_subject(requester.key),
+            subject=log_subject(service_account_key),
+        )
+
+    @staticmethod
+    def _api_key_ended(api_key: ApiKey, now: datetime) -> bool:
+        """Whether the key's expiry has passed — the check both key surfaces make on every use."""
+        ends_at = ensure_aware_utc(api_key.expires_at)
+        return ends_at is not None and ends_at <= now
+
+    def _refuse_lead_for_service_account(self, user_key: str, role: TenantRole) -> None:
+        """403 for ``lead`` on a service account through the tenant's own member administration (#2137).
+
+        REQ-023 §5b.3: a tenant gives a machine identity at most ``grower``. The creation route holds that
+        (:data:`SERVICE_ACCOUNT_ROLES`); without this the member list's role change would raise the account
+        to the irreversibility boundary one request later. The platform-admin path stays open (§5b.3 AK-29).
+        """
+        if role != TenantRole.LEAD or self._user_repo is None:
+            return
+        account = self._user_repo.get_by_key(user_key)
+        if account is not None and not allows_interactive_auth(account):
+            raise ForbiddenError("A service account of a tenant is at most a grower.")
+
+    def _require_service_account_stores(self) -> None:
+        if self._light_mode:
+            # A light-mode installation has one account, reached without authenticating (REQ-027): a
+            # credential minted there proves nothing about who asked for it (#1844).
+            raise ForbiddenError("Service accounts are not available in light mode.")
+        if self._api_key_repo is None or self._user_repo is None:
+            raise FeatureNotConfiguredError("service_accounts", "No API-key or account store is wired.")
+
+    def _require_service_account_manager(self, tenant_key: str, requester: User) -> None:
+        """403 unless the requester holds the lead role and the technical scope in the tenant (#2137).
+
+        Read from the stored, active membership — the routes' scope gate is the earlier of two checks,
+        never the only one (the shape of :meth:`_authorize_tenant_deletion`).
+        """
+        actor = self._membership_repo.get_by_user_and_tenant(requester.key or "", tenant_key)
+        if not (
+            actor
+            and actor.is_active
+            and self._membership_engine.can_manage_service_accounts(actor.role, actor.admin_scopes)
+        ):
+            raise ForbiddenError("Managing service accounts requires the lead role and the technical scope.")
+
+    def _service_account_membership(self, tenant_key: str, service_account_key: str) -> Membership:
+        """The active membership of a service account in the tenant; 404 for anything else.
+
+        An unknown account, a person's account and a service account of another tenant are one answer, so
+        the route is no account-existence oracle.
+        """
+        assert self._user_repo is not None  # checked by _require_service_account_stores
+        account = self._user_repo.get_by_key(service_account_key)
+        membership = self._membership_repo.get_by_user_and_tenant(service_account_key, tenant_key)
+        if (
+            account is None
+            or allows_interactive_auth(account)
+            or membership is None
+            or not membership.is_active
+            or not membership.key
+        ):
+            raise NotFoundError("User", service_account_key)
+        return membership
 
     def admin_change_membership_role(
         self,
@@ -464,6 +3372,12 @@ class TenantService:
         *,
         tenant_key: str | None = None,
         user_key: str | None = None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Change a membership's domain role on the platform-admin path.
 
@@ -475,11 +3389,46 @@ class TenantService:
         parent. The write goes through
         :meth:`IMembershipRepository.update_fields`, which re-validates the merged
         model (#968).
+
+        **Step-up when the role changes (#2032, REQ-024 AK-57).** Demoting a tenant's
+        last ``lead`` — or promoting someone to it — changes who may delete in the
+        tenant and who may lock others out, so an actual change of the role passes
+        the admin's *own* step-up (``requester``: the password, the fresh
+        re-authentication or the mailed code; an API key is 403, 429 when locked),
+        bound to this membership (#1884). It lives here, not on the routes, so both
+        views pass the same check; the step-up arguments are keyword-only without a
+        default, so a new caller cannot forget them. A role re-sent unchanged (the
+        edit form re-sends what it loaded) needs none and writes nothing. The
+        membership is resolved first (404 for an unknown one or one under another
+        parent); without a valid step-up nothing is written.
         """
-        self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        membership = self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        if membership.role == new_role:
+            return membership
+        self._step_up_verifier.verify(
+            requester,
+            action="admin_membership_role_change",
+            # #1884 — a factor obtained to change this membership's role confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+            via=SecurityAuditVia.PLATFORM_ADMIN,
+            actor_user_key=requester.key or "",
+            target_user_key=membership.user_key,
+            tenant_key=membership.tenant_key,
+            membership=result,
+            old_role=membership.role,
+        )
         return result
 
     def admin_remove_membership(
@@ -488,6 +3437,12 @@ class TenantService:
         *,
         tenant_key: str | None = None,
         user_key: str | None = None,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> bool:
         """Remove a membership on the platform-admin path.
 
@@ -496,9 +3451,42 @@ class TenantService:
         drops the ``has_membership`` / ``membership_in`` edges **and** any
         location assignments for the membership — the latter was orphaned by the
         pre-#1019 router, which deleted only the two edges.
+
+        **Step-up (#2009, REQ-024 AK-56).** Removing a member — also a tenant's last
+        ``lead`` — locks that person out of the tenant, so it passes the admin's
+        *own* step-up (``requester``: the password, the fresh re-authentication or
+        the mailed code; an API key is 403, 429 when locked), bound to this
+        membership (#1884). It lives here, not on the routes, so both views pass
+        the same check; the step-up arguments are keyword-only without a default,
+        so a new caller cannot forget them. The membership is resolved first (404
+        for an unknown one or one under another parent); without a valid step-up
+        nothing is removed.
         """
-        self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
-        return self._membership_repo.delete(membership_key)
+        membership = self._resolve_admin_membership(membership_key, tenant_key=tenant_key, user_key=user_key)
+        self._step_up_verifier.verify(
+            requester,
+            action="admin_membership_removal",
+            # #1884 — a factor obtained to remove this membership confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        removed = self._membership_repo.delete(membership_key)
+        if removed:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.PLATFORM_ADMIN,
+                actor_user_key=requester.key or "",
+                target_user_key=membership.user_key,
+                tenant_key=membership.tenant_key,
+                membership=membership,
+            )
+            self._end_membership(membership.tenant_key, membership.user_key)
+        return removed
 
     def _resolve_admin_membership(
         self,
@@ -516,11 +3504,11 @@ class TenantService:
         """
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         if tenant_key is not None and membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         if user_key is not None and membership.user_key != user_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
         return membership
 
     def change_member_role(
@@ -529,12 +3517,33 @@ class TenantService:
         membership_key: str,
         new_role: TenantRole,
         actor_scopes: list[AdminScope],
+        *,
+        actor_user_key: str,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Change a member's domain role (REQ-049 axis 1).
 
         Gated on the actor's ``MANAGEMENT`` scope, not on their own rank:
         handing out a role is member management, and the secretary who does it
         need not be a gardener.
+
+        **Step-up when the role changes (#2032, REQ-024 AK-57).** The same rule as
+        :meth:`admin_change_membership_role`, for the tenant's own member
+        administrator: an actual change passes the actor's step-up
+        (``tenant_member_role_change``, bound to the membership — #1884); a role
+        re-sent unchanged needs none and writes nothing. The scope gate and the
+        tenant-ownership 404 come first.
+
+        **Escalation (#2078, REQ-024 AK-58).** The step-up proves who is asking, not that
+        they may be given the role: before it, :meth:`_refuse_role_grant` refuses a member
+        raising their *own* role (``actor_user_key`` is the acting account, compared with the
+        membership's owner) and a non-lead granting ``lead`` in the platform tenant, where it
+        is the platform role (403, nothing written, no password asked for).
         """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
@@ -544,12 +3553,93 @@ class TenantService:
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
 
+        if membership.role == new_role:
+            return membership
+
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=actor_user_key,
+            target_role=new_role,
+            current_role=membership.role,
+            is_own_membership=membership.user_key == actor_user_key,
+        )
+        self._refuse_lead_for_service_account(membership.user_key, new_role)
+
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_member_role_change",
+            # #1884 — a factor obtained to change this membership's role confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         result = self._membership_repo.update_fields(membership_key, {"role": new_role})
         if not result:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=actor_user_key,
+            target_user_key=membership.user_key,
+            tenant_key=tenant_key,
+            membership=result,
+            old_role=membership.role,
+        )
         return result
+
+    def _refuse_role_grant(
+        self,
+        *,
+        tenant_key: str,
+        actor_user_key: str,
+        target_role: TenantRole,
+        current_role: TenantRole | None,
+        is_own_membership: bool,
+    ) -> None:
+        """Raise :class:`ForbiddenError` when this role grant may not stand (#2078, REQ-024 AK-58).
+
+        The one place the escalation rule of :meth:`MembershipEngine.role_grant_refusal` meets
+        stored state: the actor's role comes from their stored, *active* membership in the
+        tenant, and whether the tenant is the platform tenant from the tenant row - never from
+        the request. Every service function that hands out a membership role through the
+        tenant-scoped routes (:meth:`change_member_role`, the two invitations, and since #2180
+        :meth:`accept_invitation` with the issuer as actor) calls it; the class guard
+        ``test_membership_role_grants_check_for_escalation`` holds that.
+        """
+        # The rule only bites on a self-raise or on ``lead``; skip the two reads otherwise.
+        if not is_own_membership and target_role != TenantRole.LEAD:
+            return
+        actor = self._membership_repo.get_by_user_and_tenant(actor_user_key, tenant_key)
+        tenant = self._tenant_repo.get_by_key(tenant_key)
+        reason = self._membership_engine.role_grant_refusal(
+            target_role=target_role,
+            current_role=current_role,
+            is_own_membership=is_own_membership,
+            tenant_is_platform=self._is_platform_tenant(tenant_key, tenant),
+            actor_role=actor.role if actor and actor.is_active else None,
+        )
+        if reason:
+            raise ForbiddenError(reason)
+
+    @staticmethod
+    def _is_platform_tenant(tenant_key: str, tenant: Tenant | None) -> bool:
+        """Whether *tenant_key* is the tenant whose ``lead`` is the platform role (#2180 review W-2).
+
+        Two spellings exist and both count. ``is_platform_admin`` reads a membership in the literal key
+        ``platform`` (:data:`_PLATFORM_TENANT_KEY`) - but the seed cannot give the tenant row that key:
+        ``BaseArangoRepository._to_doc`` drops ``_key`` on insert, so the seeded row carries a generated
+        key and ``is_platform: true`` while the admin membership names ``platform`` (measured on ArangoDB
+        3.12 through ``seed_auth._ensure_platform_admin``). A rule that asked only the flag would miss an
+        invitation or membership addressed to the literal key; one that asked only the key would miss
+        the flagged row. The rank rule asks both, as migration ``v0089`` does.
+        """
+        return tenant_key == _PLATFORM_TENANT_KEY or bool(tenant and tenant.is_platform)
 
     def change_member_scopes(
         self,
@@ -557,62 +3647,278 @@ class TenantService:
         membership_key: str,
         new_scopes: list[AdminScope],
         actor_scopes: list[AdminScope],
+        *,
+        actor_user_key: str,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
     ) -> Membership:
         """Change a member's administrative scopes (REQ-049 axis 2).
 
         Enforces INV-1: the last membership carrying ``MANAGEMENT`` cannot drop
         it. Losing it would strand the tenant — nobody left could invite anyone,
         not even the people still in it.
+
+        **Step-up when the scopes change (MT-045.2, #2144).** Dropping a co-manager's
+        ``management`` scope locks them out of member administration exactly as a
+        demotion does, so an actual change passes the same step-up as
+        :meth:`change_member_role` — the act ``tenant_member_role_change``, bound to the
+        membership (#1884): both axes of a membership are one act of member
+        management on one target. A scope set re-sent unchanged (in any order) needs
+        none and writes nothing. The scope gate, the tenant-ownership 404 and INV-1
+        come first, so a refusal never asks for a password.
         """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
+
+        if set(membership.admin_scopes) == set(new_scopes):
+            return membership
 
         losing_management = membership.has_management and AdminScope.MANAGEMENT not in new_scopes
         if losing_management:
             self._guard_last_manager(
-                tenant_key,
+                membership,
                 "Cannot remove the management scope from the last member who has it",
             )
 
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_member_role_change",
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
         result = self._membership_repo.update_fields(membership_key, {"admin_scopes": list(new_scopes)})
         if not result:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+            via=SecurityAuditVia.TENANT_ADMIN,
+            actor_user_key=actor_user_key,
+            target_user_key=membership.user_key,
+            tenant_key=tenant_key,
+            membership=result,
+            old_scopes=membership.admin_scopes,
+        )
         return result
 
-    def remove_member(self, tenant_key: str, membership_key: str, actor_scopes: list[AdminScope]) -> bool:
+    def remove_member(
+        self,
+        tenant_key: str,
+        membership_key: str,
+        actor_scopes: list[AdminScope],
+        *,
+        requester: User,
+        current_password: str | None,
+        step_up_code: str | None,
+        step_up_token: str | None,
+        authenticated_with_api_key: bool,
+        client_ip: str | None,
+    ) -> bool:
+        """Remove a member from the tenant (the tenant's own member administrator).
+
+        **Step-up (#2032, REQ-024 AK-57).** Removing a member — also the tenant's last
+        ``lead`` — locks that person out, so it passes the actor's *own* step-up
+        (``tenant_member_removal``, bound to the membership — #1884), as the
+        platform-admin removal does (#2009). The scope gate, the tenant-ownership 404
+        and INV-1 (the last ``management`` holder stays, 422) come first: a request that
+        cannot succeed is not asked for a password. The step-up arguments are
+        keyword-only without a default, so a new caller cannot forget them.
+        """
         if not self._membership_engine.can_manage_members(actor_scopes):
             raise ForbiddenError("Requires the management administrative scope")
 
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
 
         if membership.has_management:
-            self._guard_last_manager(tenant_key, "Cannot remove the last member with the management scope")
+            self._guard_last_manager(membership, "Cannot remove the last member with the management scope")
 
-        return self._membership_repo.delete(membership_key)
+        self._step_up_verifier.verify(
+            requester,
+            action="tenant_member_removal",
+            # #1884 — a factor obtained to remove this membership confirms this one only.
+            target=membership_key,
+            echo_ok=None,
+            password=current_password,
+            code=step_up_code,
+            reauth_token=step_up_token,
+            authenticated_with_api_key=authenticated_with_api_key,
+            client_ip=client_ip,
+        )
+        removed = self._membership_repo.delete(membership_key)
+        if removed:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.TENANT_ADMIN,
+                actor_user_key=requester.key or "",
+                target_user_key=membership.user_key,
+                tenant_key=tenant_key,
+                membership=membership,
+            )
+            self._end_membership(tenant_key, membership.user_key)
+        return removed
 
     def leave_tenant(self, tenant_key: str, user_key: str) -> bool:
         membership = self._membership_repo.get_by_user_and_tenant(user_key, tenant_key)
         if not membership:
-            raise NotFoundError("memberships", f"user={user_key}")
+            raise NotFoundError("Membership", f"user={user_key}")
 
         if membership.has_management:
             self._guard_last_manager(
-                tenant_key,
+                membership,
                 "Cannot leave as the last member with the management scope. Hand it over first.",
             )
 
-        return self._membership_repo.delete(membership.key)
+        left = self._membership_repo.delete(membership.key)
+        if left:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_LEFT,
+                via=SecurityAuditVia.SELF,
+                actor_user_key=user_key,
+                target_user_key=user_key,
+                tenant_key=tenant_key,
+                membership=membership,
+            )
+            self._end_membership(tenant_key, user_key)
+        return left
 
-    def _guard_last_manager(self, tenant_key: str, message: str) -> None:
-        """Raise unless the tenant keeps at least one ``MANAGEMENT`` membership (INV-1)."""
-        manager_count = self._membership_repo.count_managers(tenant_key)
-        if not self._membership_engine.validate_not_last_manager(manager_count, True):
+    def _end_membership(self, tenant_key: str, user_key: str) -> None:
+        """What ending *user_key*'s membership in *tenant_key* takes with it, after the delete succeeded.
+
+        The member's task assignments in the tenant (#2114) and their iCal feeds in it (#2226 review
+        SEC-001). Every method that deletes a membership calls this - held by
+        ``test_membership_mutations_write_the_security_audit``.
+        """
+        self._end_task_assignments(tenant_key, user_key)
+        self._end_calendar_feeds(tenant_key, user_key)
+
+    def _end_calendar_feeds(self, tenant_key: str, user_key: str) -> None:
+        """Delete *user_key*'s calendar feeds in *tenant_key* after its membership ended (#2226 review SEC-001).
+
+        A feed is a standing read of the tenant by URL; it must not outlive the membership it was issued
+        under. A failing delete does not undo the removal and is not raised: the feed route asks the stored
+        membership before it serves (``CalendarService.generate_ical_for_feed``), so a leftover feed answers
+        404 - the delete is the tidy-up, the route's check the barrier. Logged pseudonymised.
+        """
+        if self._calendar_feed_repo is None:
+            return
+        try:
+            deleted = self._calendar_feed_repo.delete_by_user(user_key, tenant_key=tenant_key)
+        except Exception as exc:  # noqa: BLE001 - see the docstring: the removal stands, the route checks membership
+            logger.warning(
+                "calendar_feeds_not_deleted",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+            return
+        if deleted:
+            logger.info(
+                "calendar_feeds_deleted",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                feeds=int(deleted),
+            )
+
+    def _end_task_assignments(self, tenant_key: str, user_key: str) -> None:
+        """Take *user_key* off the assignee of *tenant_key*'s tasks after its membership ended (#2114).
+
+        Called after the membership delete succeeded. A failing clear does not undo the removal and is
+        not raised: the membership is gone, and the care-reminder beat asks the stored membership before it
+        notifies (``notification_tasks``), so a leftover assignment reaches nobody - the clear is the tidy-up,
+        the beat's check the barrier. The failure is logged (pseudonymised, no key, no exception text).
+        """
+        if self._task_repo is None:
+            return
+        try:
+            cleared = self._task_repo.clear_assignee(tenant_key=tenant_key, user_key=user_key)
+        except Exception as exc:  # noqa: BLE001 - see the docstring: the removal stands, the beat checks membership
+            logger.warning(
+                "task_assignments_not_cleared",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                error_type=type(exc).__name__,
+            )
+            return
+        if cleared:
+            logger.info(
+                "task_assignments_cleared",
+                tenant=log_tenant(tenant_key),
+                subject=log_subject(user_key),
+                tasks=int(cleared),
+            )
+
+    def _audit_membership(
+        self,
+        *,
+        action: SecurityAuditAction,
+        via: SecurityAuditVia,
+        actor_user_key: str,
+        target_user_key: str,
+        tenant_key: str,
+        membership: Membership,
+        old_role: str | None = None,
+        old_scopes: list[AdminScope] | None = None,
+    ) -> None:
+        """Write the persistent security-audit row of one membership change (MT-014, #2111).
+
+        The one place every mutating method of this service hands its change to
+        (``test_membership_mutations_write_the_security_audit`` holds that). Called
+        **after** the change succeeded; a failing audit write raises, so the change
+        never goes unrecorded without somebody seeing the error. The roles and scopes
+        recorded are the stored membership's, never a request's claim.
+        """
+        if self._security_audit is None:
+            return
+        now_role, now_scopes = str(membership.role), [str(x) for x in membership.admin_scopes]
+        before_scopes = [str(x) for x in old_scopes] if old_scopes is not None else None
+        # What each action says about "before" and "after": a grant has only an after, a
+        # removal only a before, a change both.
+        fields: dict[str, Any]
+        if action in (SecurityAuditAction.MEMBERSHIP_REMOVED, SecurityAuditAction.MEMBERSHIP_LEFT):
+            fields = {"old_role": now_role, "old_scopes": now_scopes}
+        elif action == SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED:
+            fields = {"old_role": None if old_role is None else str(old_role), "new_role": now_role}
+        elif action == SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED:
+            fields = {"old_scopes": before_scopes, "new_scopes": now_scopes}
+        else:
+            fields = {"new_role": now_role, "new_scopes": now_scopes}
+        self._security_audit.record_membership_change(
+            action=action,
+            via=via,
+            actor_user_key=actor_user_key,
+            target_user_key=target_user_key,
+            tenant_key=tenant_key,
+            membership_key=membership.key,
+            **fields,
+        )
+
+    def _guard_last_manager(self, membership: Membership, message: str) -> None:
+        """Raise unless another live person account keeps the ``MANAGEMENT`` scope in the tenant (INV-1).
+
+        *membership* holds ``MANAGEMENT`` and is about to lose it (removal, leave, demotion).
+        The others are counted among **live** accounts only (#2166): a holder whose account
+        asked for its erasure or was deactivated cannot administer anything, so counting it
+        let the last live holder strand the tenant; a service account's ``MANAGEMENT`` does not
+        count either, it passes no step-up (re-review W-1). *membership* itself is counted in by the
+        engine's contract ("the target included") whatever its account's state, so removing
+        a closed account's membership is not blocked while one live holder remains.
+        """
+        others = self._membership_repo.count_managers(membership.tenant_key, other_than_user_key=membership.user_key)
+        if not self._membership_engine.validate_not_last_manager(others + 1, True):
             raise ValidationError(message)
 
     # --- Invitations ---
@@ -624,6 +3930,15 @@ class TenantService:
         email: str,
         role: TenantRole = TenantRole.VIEWER,
     ) -> InvitationLink:
+        self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=invited_by_user_key,
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
+        self._refuse_beyond_invitation_mail_budget(invited_by_user_key)
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
@@ -638,19 +3953,83 @@ class TenantService:
         )
         invitation = self._invitation_repo.create(invitation)
 
-        logger.info("email_invitation_created", tenant_key=tenant_key, email=email)
+        logger.info("email_invitation_created", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
+        delivered = self._send_invitation_mail(tenant_key=tenant_key, email=email, raw_token=raw_token)
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
+            accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
+            delivered=delivered,
         )
+
+    def _refuse_beyond_invitation_mail_budget(self, invited_by_user_key: str) -> None:
+        """429 once *invited_by_user_key* issued the day's e-mail invitations (#2162 review W-1).
+
+        Every e-mail invitation mails an address the inviter names; any account holds ``management`` in
+        a tenant it founds, so without a ceiling the route relays mail for anyone. Counted from the stored
+        invitations (any tenant, any status) over the last 24 hours - durable across replicas and
+        restarts - and asked before anything is stored or mailed.
+        """
+        day_ago: datetime = datetime.now(UTC) - timedelta(days=1)
+        since = day_ago.isoformat()
+        issued = int(self._invitation_repo.count_email_invitations_issued_since(invited_by_user_key, since))
+        if issued >= self._invitation_emails_per_day:
+            logger.warning("email_invitation_budget_exhausted", subject=log_subject(invited_by_user_key))
+            raise RateLimitError("invitation_email", retry_after=3600)
+
+    def _send_invitation_mail(self, *, tenant_key: str, email: str, raw_token: str) -> bool:
+        """Mail the accept link of a stored e-mail invitation; whether it left (#2162).
+
+        Until #2162 nothing was sent and the UI said "sent": an e-mail invitation reached nobody.
+        The invitation is stored before the send and stays whatever the send does - the inviter
+        is the one who can still hand the link over, so a failure is **reported** (``False``, the
+        route's ``delivered``) rather than raised or swallowed. What counts as "did not leave" is
+        the step-up code's set (#1862): the adapter refused (:class:`EmailUndeliverableError` - the
+        console adapter outside debug, a refusing Resend), it cannot send this kind of mail
+        (``NotImplementedError``), or the transport failed (``OSError``: SMTP errors, connection
+        failures; ``UnicodeError``: SMTP refuses a non-ASCII recipient). Logged by type only:
+        ``SMTPRecipientsRefused`` names the address in its text.
+        """
+        if self._email_service is None:
+            logger.warning("email_invitation_not_sent", tenant=log_tenant(tenant_key), reason="no_mailer")
+            return False
+        try:
+            self._email_service.send_invitation_email(to_email=email, token=raw_token, frontend_url=self._frontend_url)
+        except (EmailUndeliverableError, NotImplementedError, OSError, UnicodeError) as exc:
+            # UnicodeError (review S-1): smtplib refuses a non-ASCII recipient before any byte leaves.
+            logger.warning(
+                "email_invitation_not_sent",
+                tenant=log_tenant(tenant_key),
+                email_sha256=email_digest(email),
+                error_type=type(exc).__name__,
+            )
+            return False
+        logger.info("email_invitation_sent", tenant=log_tenant(tenant_key), email_sha256=email_digest(email))
+        return True
 
     def create_link_invitation(
         self,
         tenant_key: str,
         invited_by_user_key: str,
         role: TenantRole = TenantRole.VIEWER,
+        max_uses: int = 1,
     ) -> InvitationLink:
+        """Create a shareable invitation link that admits up to *max_uses* accounts (REQ-024 AK-07, #2182).
+
+        Every use is one join and meets everything a join meets at acceptance - the rank rule against
+        the issuer, the erasure freeze and the tenant's member limit (AK-64) - so a link with more uses
+        than free seats admits only as many as fit. ``max_uses`` outside ``1..INVITATION_MAX_USES_LIMIT``
+        is refused by the model (422 at the route).
+        """
+        self._refuse_invitation_while_owner_erasing(tenant_key=tenant_key)
+        self._refuse_role_grant(
+            tenant_key=tenant_key,
+            actor_user_key=invited_by_user_key,
+            target_role=role,
+            current_role=None,
+            is_own_membership=False,
+        )
         raw_token, token_hash = self._invitation_engine.create_invitation_token()
         expires_at = self._invitation_engine.calculate_expiry(days=7)
 
@@ -661,37 +4040,128 @@ class TenantService:
             role=role,
             token_hash=token_hash,
             expires_at=expires_at.isoformat(),
+            max_uses=max_uses,
         )
         invitation = self._invitation_repo.create(invitation)
 
-        logger.info("link_invitation_created", tenant_key=tenant_key)
+        logger.info("link_invitation_created", tenant=log_tenant(tenant_key), max_uses=invitation.max_uses)
         return InvitationLink(
             invitation_key=invitation.key,
             token=raw_token,
             expires_at=expires_at,
+            accept_url=self._invitation_engine.accept_url(self._frontend_url, raw_token),
+            max_uses=invitation.max_uses,
         )
 
-    def list_invitations(self, tenant_key: str) -> list[Invitation]:
-        return self._invitation_repo.list_by_tenant(tenant_key)
+    def email_invitation_admits(self, *, email: str, token: str) -> bool:
+        """Whether *token* names an e-mail invitation that admits creating an account for *email* (#2132).
+
+        REQ-023 §3.2d: the exception to ``invite_only`` and to the domain allowlist on a **local**
+        registration. The token proves that its holder received the invitation; the invitation must be
+        of type ``email``, pending, unexpired and issued for *email* (case-insensitive). A link
+        invitation admits nobody: it is meant to be shared, and one leaked link would reopen the
+        installation to everybody holding it.
+        """
+        invitation = self._invitation_repo.get_by_token_hash(self._invitation_engine.hash_token(token))
+        return invitation is not None and self._invitation_admits_address(invitation, email)
+
+    def email_invitation_pending_for(self, *, email: str) -> bool:
+        """Whether a pending, unexpired e-mail invitation was issued for *email* (#2132).
+
+        The exception on the **first OIDC sign-in**, which carries no token: the caller asks only for an
+        address its identity provider asserted as verified, which is the proof the token is locally.
+        """
+        return any(
+            self._invitation_admits_address(invitation, email)
+            for invitation in self._invitation_repo.list_pending_email_invitations(email)
+        )
+
+    def _invitation_admits_address(self, invitation: Invitation, email: str) -> bool:
+        address = email.strip().lower()
+        return (
+            bool(address)
+            and invitation.invitation_type == InvitationType.EMAIL
+            and invitation.status == InvitationStatus.PENDING
+            and (invitation.email or "").strip().lower() == address
+            and not self._invitation_engine.is_expired(invitation.expires_at)
+            and self._rank_rule_admits(invitation)
+        )
+
+    def _rank_rule_admits(self, invitation: Invitation) -> bool:
+        """Whether :meth:`accept_invitation` would let *invitation* pass the rank rule now (#2162 review S-3).
+
+        The registration exception (REQ-023 §3.2d) asks the same question acceptance asks: an
+        invitation that can no longer be accepted - a platform ``lead`` invitation whose issuer is
+        not (or no longer) its lead, #2180 - opens no account past ``invite_only`` or the domain list.
+        """
+        try:
+            self._refuse_role_grant(
+                tenant_key=invitation.tenant_key,
+                actor_user_key=invitation.invited_by_user_key,
+                target_role=invitation.role,
+                current_role=None,
+                is_own_membership=False,
+            )
+        except ForbiddenError:
+            return False
+        return True
+
+    def list_invitations(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[Invitation]:
+        """A tenant's invitations, newest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._invitation_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     def revoke_invitation(self, tenant_key: str, invitation_key: str) -> Invitation:
         invitation = self._invitation_repo.get_by_key(invitation_key)
         if not invitation or invitation.tenant_key != tenant_key:
-            raise NotFoundError("invitations", invitation_key)
+            raise NotFoundError("Invitation", invitation_key)
 
         result = self._invitation_repo.update_fields(invitation_key, {"status": InvitationStatus.REVOKED})
         if not result:
-            raise NotFoundError("invitations", invitation_key)
+            raise NotFoundError("Invitation", invitation_key)
         return result
 
-    def accept_invitation(self, token: str, user_key: str) -> Membership:
+    def accept_invitation(self, token: str, account: User) -> Membership:
+        """Accept an invitation with the signed-in *account* (REQ-024 §1a.2).
+
+        **An e-mail invitation belongs to the address it was sent to (#2115, REQ-024 AK-61).**
+        The token alone used to be enough: a forwarded or intercepted link granted a membership,
+        up to ``lead``, to whoever opened it signed in. For an invitation of type ``email`` the
+        accepting account must carry the invited address **and** have proven it
+        (:attr:`User.address_proven` - the verified flag alone proves nothing, #1948); otherwise
+        403, before anything about the invitation (status, tenant, role) is told and with nothing
+        written. A link invitation is meant to be shared and stays open to any account.
+
+        **The rank rule is asked again here (#2180, REQ-024 AK-58).** :meth:`_refuse_role_grant`
+        with the issuer as actor: ``lead`` in the platform tenant is the platform role, and an
+        invitation whose issuer is not (or no longer) the platform tenant's active lead does not
+        hand it out - neither one created before the rule existed (#2084) nor one whose issuer was
+        demoted since. 403, nothing written, the invitation stays pending.
+
+        **Only into an active tenant (#2182 review I-4, REQ-024 AK-65).** A suspended, orphaned or
+        pending-deletion tenant resolves for nobody (#2105); an invitation into it used to be accepted
+        all the same and wrote a membership the tenant's suspension was meant to stop. 422, nothing
+        written, the invitation stays pending - a reactivated tenant's invitations work again, which
+        is why suspending does not revoke them (only an erasure does, ``revoke_pending_for_tenant``).
+        Asked after the address check and the rank rule, so the refusal tells a stranger holding a
+        forwarded token nothing about the tenant and the platform key's 403 stays what it is.
+        """
+        # #2137 (MT-041 / audit ID-14) — joining a tenant is a person's act; a machine identity is placed in
+        # its one tenant by the service-account route and accepts no invitation. Before the token is looked
+        # up, so the refusal says nothing about the invitation.
+        self._refuse_service_account(account, "A service account cannot accept an invitation.")
+        user_key = account.key or ""
         token_hash = self._invitation_engine.hash_token(token)
         invitation = self._invitation_repo.get_by_token_hash(token_hash)
         if not invitation:
-            raise NotFoundError("invitations", "token")
+            raise NotFoundError("Invitation", "token")
+        self._require_invited_account(invitation, account)
 
         is_expired = self._invitation_engine.is_expired(invitation.expires_at)
         is_pending = invitation.status == InvitationStatus.PENDING
+        self._refuse_while_erasing(invitation.tenant_key)
+        self._refuse_invitation_while_owner_erasing(tenant_key=invitation.tenant_key)
         existing = self._membership_repo.get_by_user_and_tenant(user_key, invitation.tenant_key)
 
         can_accept, reason = self._invitation_engine.can_accept(
@@ -701,8 +4171,38 @@ class TenantService:
         )
         if not can_accept:
             raise ValidationError(reason)
+        # #2180 (REQ-024 AK-58) - the rank rule is asked again at acceptance, against the issuer's role
+        # *now*: an invitation created before #2084 never met it at issuance, and a lead invitation into
+        # the platform tenant must not outlive its issuer's own demotion. Refused with nothing written;
+        # the invitation stays pending until it expires or is revoked.
+        self._refuse_role_grant(
+            tenant_key=invitation.tenant_key,
+            actor_user_key=invitation.invited_by_user_key,
+            target_role=invitation.role,
+            current_role=None,
+            is_own_membership=False,
+        )
+        # #2182 review I-4 - only into an active tenant; after the rank rule, whose 403 for the literal
+        # platform key holds whatever the tenant row says (#2180), and before anything is written.
+        tenant = self._tenant_repo.get_by_key(invitation.tenant_key)
+        if tenant is None or not tenant.is_active:
+            raise ValidationError("This invitation cannot be accepted: the tenant is not active.")
+        # #2133 - a full tenant is refused before the invitation is touched; it stays pending.
+        self._refuse_beyond_member_limit(invitation.tenant_key)
 
-        # Create membership
+        # A use is consumed first, and only while still pending with a use left (#1825 SEC-001 and PR
+        # review, #2182): a revocation that landed after the status read above — the
+        # request-time revocation of an account erasure — wins before any
+        # membership exists, so no erasure decision can count a member that is
+        # about to be taken back, and a failing write leaves no membership. Two
+        # accounts racing for a link's last use cannot both take it.
+        consumed = self._invitation_repo.consume_use_if_pending(
+            invitation.key or "",
+            {"accepted_by_user_key": user_key, "accepted_at": datetime.now(UTC).isoformat()},
+        )
+        if consumed is None:
+            raise ValidationError("Invitation is no longer pending")
+
         membership = Membership(
             user_key=user_key,
             tenant_key=invitation.tenant_key,
@@ -710,29 +4210,79 @@ class TenantService:
             is_active=True,
             joined_at=datetime.now(UTC).isoformat(),
         )
-        membership = self._membership_repo.create(membership)
+        try:
+            # Refused and taken back if the tenant froze meanwhile.
+            membership = self._create_membership_unless_erasing(membership)
+        except Exception:
+            # The join failed: the use is handed back (#2182) - only when the membership provably
+            # does not stand (review I-2). An invitation the use had set ``accepted`` is pending
+            # again, one revoked meanwhile stays revoked.
+            self._release_use_unless_joined(invitation, user_key)
+            raise
 
-        # Mark invitation as accepted
-        self._invitation_repo.update_fields(
-            invitation.key,
-            {
-                "status": InvitationStatus.ACCEPTED,
-                "accepted_by_user_key": user_key,
-                "accepted_at": datetime.now(UTC).isoformat(),
-            },
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.INVITATION,
+            actor_user_key=user_key,
+            target_user_key=user_key,
+            tenant_key=invitation.tenant_key,
+            membership=membership,
         )
-
         logger.info(
             "invitation_accepted",
-            tenant_key=invitation.tenant_key,
-            user_key=user_key,
+            tenant=log_tenant(invitation.tenant_key),
+            subject=log_subject(user_key),
         )
         return membership
 
+    def _release_use_unless_joined(self, invitation: Invitation, user_key: str) -> None:
+        """Hand back the use of a failed acceptance - only when the membership provably does not exist.
+
+        #2182 review I-2. An exception out of :meth:`_create_membership_unless_erasing` does not say
+        whether the membership stands: the insert may have committed before a later step failed (a
+        driver timeout on the reply, a take-back that failed itself). Handing the use back then
+        would admit one more account than ``max_uses``. So the membership is read again first;
+        the use goes back only when that read says there is none. When the read fails too the state
+        is unknown and the use stays consumed - one use too few is a harmless error, one too many is
+        not. Never raises: the caller re-raises the acceptance's own error.
+        """
+        try:
+            joined = self._membership_repo.get_by_user_and_tenant(user_key, invitation.tenant_key)
+        except Exception:  # noqa: BLE001 - unknown state: keep the use consumed, re-raise the original
+            logger.exception("invitation_use_kept_unknown_join", tenant=log_tenant(invitation.tenant_key))
+            return
+        if joined is not None:
+            logger.warning("invitation_use_kept_member_exists", tenant=log_tenant(invitation.tenant_key))
+            return
+        try:
+            self._invitation_repo.release_use(invitation.key or "", user_key)
+        except Exception:  # noqa: BLE001 - one use lost at worst; the original error is what the caller sees
+            logger.exception("invitation_use_release_failed", tenant=log_tenant(invitation.tenant_key))
+
+    @staticmethod
+    def _require_invited_account(invitation: Invitation, account: User) -> None:
+        """403 unless *account* may use *invitation* (#2115): an e-mail invitation needs its proven address.
+
+        One answer for "another address", "address not proven" and "an e-mail invitation that names no
+        address" (a malformed row is never admitted): whoever holds the token learns nothing about
+        which of the three applies, nor the invited address.
+        """
+        if invitation.invitation_type != InvitationType.EMAIL:
+            return
+        invited = (invitation.email or "").strip().lower()
+        if invited and account.email.strip().lower() == invited and account.address_proven:
+            return
+        raise ForbiddenError(
+            "This invitation was issued for another address, or the address of your account is not confirmed."
+        )
+
     # --- Location Assignments ---
 
-    def list_assignments(self, tenant_key: str) -> list[LocationAssignment]:
-        return self._assignment_repo.list_by_tenant(tenant_key)
+    def list_assignments(
+        self, tenant_key: str, *, offset: int | None = None, limit: int | None = None
+    ) -> list[LocationAssignment]:
+        """A tenant's location assignments, oldest first; ``offset``/``limit`` read one window (MT-035, #2131)."""
+        return self._assignment_repo.list_by_tenant(tenant_key, offset=offset, limit=limit)
 
     def create_assignment(
         self,
@@ -745,7 +4295,14 @@ class TenantService:
         # Verify membership belongs to tenant
         membership = self._membership_repo.get_by_key(membership_key)
         if not membership or membership.tenant_key != tenant_key:
-            raise NotFoundError("memberships", membership_key)
+            raise NotFoundError("Membership", membership_key)
+
+        # The location is resolved through its site under the tenant (#1871 B3):
+        # it used to be taken as given, even an unknown one, and an
+        # ASSIGNED_TO_LOCATION edge written to it.
+        if self._site_anchors is None:
+            raise NotFoundError("Location", location_key)
+        resolve_owned_location(self._site_anchors, location_key, tenant_key)
 
         # Check for duplicate
         existing = self._assignment_repo.get_by_membership_and_location(membership_key, location_key)
@@ -774,18 +4331,395 @@ class TenantService:
         """
         assignment = self._assignment_repo.get_by_key(assignment_key)
         if not assignment or assignment.tenant_key != tenant_key:
-            raise NotFoundError("location_assignments", assignment_key)
+            raise NotFoundError("LocationAssignment", assignment_key)
 
         result = self._assignment_repo.update_fields(assignment_key, data)
         if not result:
-            raise NotFoundError("location_assignments", assignment_key)
+            raise NotFoundError("LocationAssignment", assignment_key)
         return result
 
     def delete_assignment(self, tenant_key: str, assignment_key: str) -> bool:
         assignment = self._assignment_repo.get_by_key(assignment_key)
         if not assignment or assignment.tenant_key != tenant_key:
-            raise NotFoundError("location_assignments", assignment_key)
+            raise NotFoundError("LocationAssignment", assignment_key)
         return self._assignment_repo.delete(assignment_key)
+
+    # --- Light-to-full take-over (REQ-027 §7a.2, #1855) ---
+
+    def take_over_light_mode_tenant(
+        self, *, tenant_key: str, system_user_key: str, new_owner: User, receipt: TakeoverReceipt
+    ) -> TakeoverReceipt:
+        """Hand the light-mode tenant to *new_owner* in place: no resource document is rewritten.
+
+        Every resource of the light-mode installation carries ``tenant_key = tenant_key``; access to
+        it is decided by the membership, so the take-over is three writes, not a data migration
+        (measured: no read path keys a tenant resource on the system account):
+
+        1. the system account's membership is ended - kept with ``is_active = false`` so a later
+           switch back to light mode can restore it (REQ-027 Szenario 7);
+        2. *new_owner* becomes ``lead`` with both administrative scopes (REQ-049 §6), through the one
+           join door (:meth:`_create_membership_unless_erasing`), or, already a member (a second
+           upgrade after a roundtrip, Szenario 8), is raised to that;
+        3. the tenant names *new_owner* as its owner and carries their display name. The slug stays,
+           so links and bookmarks into the garden keep working.
+
+        Authorisation and the step-up are the caller's (``ModeSwitchService.decide_takeover``: a claimed
+        pending take-over, the ``light_mode_takeover`` step-up, a platform admin or the earliest eligible
+        account). Refused before anything is written: a service account (403), an unknown tenant (404),
+        a tenant that is not active or is being erased (422/403).
+
+        *receipt* is the caller's (#1855 R2-001): every write is entered into it as it happens - an
+        intended state change before the write, a created key right after it - so when any step here
+        (a write or its audit row) raises, the caller holds the record of everything written before and
+        undoes it once (:meth:`undo_light_mode_takeover`). This method does not undo on its own.
+        """
+        self._refuse_service_account(new_owner, "A service account cannot take over the light-mode data.")
+        owner_key = new_owner.key or ""
+        tenant = self.get_tenant(tenant_key)
+        if not tenant.is_active:
+            raise ValidationError("The light-mode tenant is not active and cannot be taken over.")
+        self._refuse_while_erasing(tenant_key)
+        receipt.tenant_slug = tenant.slug
+        receipt.previous_owner_key = tenant.owner_user_key
+        receipt.previous_name = tenant.name
+
+        system_membership = self._membership_repo.get_by_user_and_tenant(system_user_key, tenant_key)
+        ended: Membership | None = None
+        if system_membership is not None and system_membership.is_active and system_membership.key:
+            receipt.ended_system_membership_key = system_membership.key
+            ended = self._membership_repo.update_fields(system_membership.key, {"is_active": False})
+
+        lead_scopes = [AdminScope.MANAGEMENT, AdminScope.TECHNICAL]
+        existing = self._membership_repo.get_by_user_and_tenant(owner_key, tenant_key)
+        if existing is None or not existing.key:
+            # R3 W-1: the intent first - a check after the insert can fail before the key is returned.
+            receipt.lead_membership_intended = True
+            granted = self._create_membership_unless_erasing(
+                Membership(
+                    user_key=owner_key,
+                    tenant_key=tenant_key,
+                    role=TenantRole.LEAD,
+                    admin_scopes=lead_scopes,
+                    is_active=True,
+                    joined_at=datetime.now(UTC).isoformat(),
+                )
+            )
+            receipt.created_membership_key = granted.key
+            receipt.lead_membership_intended = False
+        else:
+            receipt.raised_membership_key = existing.key
+            receipt.raised_previous_role = str(existing.role)
+            receipt.raised_previous_scopes = [str(scope) for scope in existing.admin_scopes]
+            receipt.raised_previous_active = existing.is_active
+            granted = (
+                self._membership_repo.update_fields(
+                    existing.key, {"role": TenantRole.LEAD, "admin_scopes": lead_scopes, "is_active": True}
+                )
+                or existing
+            )
+
+        if ended is not None:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=owner_key,
+                target_user_key=system_user_key,
+                tenant_key=tenant_key,
+                membership=ended,
+            )
+        if existing is None or not existing.key:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=owner_key,
+                target_user_key=owner_key,
+                tenant_key=tenant_key,
+                membership=granted,
+            )
+        else:
+            self._audit_raised_membership(existing, granted, actor_user_key=owner_key)
+
+        fields: dict[str, Any] = {"owner_user_key": owner_key}
+        if not self._tenant_engine.validate_tenant_name(new_owner.display_name):
+            fields["name"] = new_owner.display_name
+        receipt.tenant_changed = True
+        if self._tenant_repo.update_fields(tenant_key, fields) is None:
+            raise NotFoundError("Tenant", tenant_key)
+        self._audit_tenant(
+            SecurityAuditAction.TENANT_TAKEN_OVER,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=owner_key,
+            tenant_key=tenant_key,
+        )
+        logger.info("light_mode_tenant_taken_over", subject=log_subject(owner_key), tenant=log_tenant(tenant_key))
+        return receipt
+
+    def undo_light_mode_takeover(
+        self,
+        receipt: TakeoverReceipt,
+        *,
+        actor_user_key: str,
+        still_holds: Callable[[], bool] | None = None,
+    ) -> None:
+        """Take back exactly what the take-over decision wrote, as recorded in *receipt* (#1855 SEC-004, R2-001).
+
+        First the intended-but-unconfirmed inserts are resolved to their keys (R3 W-1; by account and tenant,
+        only while the deciding account is known - in memory). Then, in reverse order: the ``platform``
+        membership the first-admin grant created is removed (or a raised one set back), the new owner's created
+        membership removed (or a raised one set back to its previous role, scopes and state), the system
+        account's membership reactivated, the tenant's owner and name restored - a tenant gone meanwhile has
+        nothing left to restore (R3 W-4, logged as critical). Each step clears its entry in *receipt* once it
+        stood, so a receipt that raises midway names only what is left (R2-002).
+
+        *still_holds* is asked before every step (R3 W-2): ``False`` raises :class:`TakeoverClaimLostError`
+        before writing - another decision may own the tenant now. The audit rows name *actor_user_key*, the
+        account whose decision runs the undo (or the system account on a light-mode start), never a key from a
+        stored receipt (W-3).
+        """
+        actor = actor_user_key
+        undone = False
+
+        def step() -> None:
+            if still_holds is not None and not still_holds():
+                raise TakeoverClaimLostError
+
+        # R3 W-1: an insert whose key never came back, looked up by the deciding account.
+        for intended, slot, tenant_key in (
+            ("platform_membership_intended", "platform_created_membership_key", _PLATFORM_TENANT_KEY),
+            ("lead_membership_intended", "created_membership_key", receipt.tenant_key),
+        ):
+            if not getattr(receipt, intended):
+                continue
+            step()
+            if receipt.new_owner_key:
+                inserted = self._membership_repo.get_by_user_and_tenant(receipt.new_owner_key, tenant_key)
+                if inserted is not None and inserted.key and not getattr(receipt, slot):
+                    setattr(receipt, slot, inserted.key)
+            else:
+                logger.critical("light_mode_takeover_intent_unresolvable", tenant=log_tenant(tenant_key))
+            setattr(receipt, intended, False)
+        # The created memberships: the platform grant's first, then the take-over's.
+        for slot in ("platform_created_membership_key", "created_membership_key"):
+            created_key = getattr(receipt, slot)
+            if not created_key:
+                continue
+            step()
+            created = self._membership_repo.get_by_key(created_key)
+            if created is not None and self._membership_repo.delete(created_key):
+                self._end_membership(created.tenant_key, created.user_key)
+                self._audit_membership(
+                    action=SecurityAuditAction.MEMBERSHIP_REMOVED,
+                    via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                    actor_user_key=actor,
+                    target_user_key=created.user_key,
+                    tenant_key=created.tenant_key,
+                    membership=created,
+                )
+            setattr(receipt, slot, None)
+            undone = True
+        # The raised memberships, set back to their previous role, scopes and state.
+        for prefix in ("platform_", ""):
+            raised_key = getattr(receipt, f"{prefix}raised_membership_key")
+            if not raised_key:
+                continue
+            step()
+            previous_role = getattr(receipt, f"{prefix}raised_previous_role")
+            previous_scopes = getattr(receipt, f"{prefix}raised_previous_scopes")
+            before = self._membership_repo.get_by_key(raised_key)
+            restored = self._membership_repo.update_fields(
+                raised_key,
+                {
+                    "role": TenantRole(previous_role or TenantRole.VIEWER),
+                    "admin_scopes": [AdminScope(scope) for scope in previous_scopes or []],
+                    "is_active": bool(getattr(receipt, f"{prefix}raised_previous_active")),
+                },
+            )
+            if before is not None and restored is not None:
+                self._audit_membership(
+                    action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+                    via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                    actor_user_key=actor,
+                    target_user_key=restored.user_key,
+                    tenant_key=restored.tenant_key,
+                    membership=restored,
+                    old_role=str(before.role),
+                )
+            setattr(receipt, f"{prefix}raised_membership_key", None)
+            undone = True
+        if receipt.ended_system_membership_key:
+            step()
+            current = self._membership_repo.get_by_key(receipt.ended_system_membership_key)
+            if current is not None and not current.is_active:
+                reactivated = self._membership_repo.update_fields(
+                    receipt.ended_system_membership_key, {"is_active": True}
+                )
+                if reactivated is not None:
+                    self._audit_membership(
+                        action=SecurityAuditAction.MEMBERSHIP_ADDED,
+                        via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                        actor_user_key=actor,
+                        target_user_key=receipt.system_user_key,
+                        tenant_key=receipt.tenant_key,
+                        membership=reactivated,
+                    )
+            receipt.ended_system_membership_key = None
+            undone = True
+        if receipt.tenant_changed:
+            step()
+            restored_tenant: dict[str, Any] = {"owner_user_key": receipt.previous_owner_key}
+            if receipt.previous_name is not None:
+                restored_tenant["name"] = receipt.previous_name
+            if self._tenant_repo.update_fields(receipt.tenant_key, restored_tenant) is None:
+                # R3 W-4: the tenant is gone - nothing left to give back; not a reason to keep the take-over stuck.
+                logger.critical("light_mode_takeover_tenant_gone", tenant=log_tenant(receipt.tenant_key))
+            receipt.tenant_changed = False
+            undone = True
+        if not undone:
+            return
+        self._audit_tenant(
+            SecurityAuditAction.TAKEOVER_REVERTED,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=actor,
+            tenant_key=receipt.tenant_key,
+        )
+        logger.warning("light_mode_takeover_undone", subject=log_subject(actor), tenant=log_tenant(receipt.tenant_key))
+
+    def _audit_raised_membership(self, before: Membership, after: Membership, *, actor_user_key: str) -> None:
+        """The audit rows of an existing membership the take-over raised to ``lead`` with both scopes."""
+        if before.role != after.role or not before.is_active:
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_ROLE_CHANGED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=after.user_key,
+                tenant_key=after.tenant_key,
+                membership=after,
+                old_role=str(before.role),
+            )
+        if list(before.admin_scopes) != list(after.admin_scopes):
+            self._audit_membership(
+                action=SecurityAuditAction.MEMBERSHIP_SCOPES_CHANGED,
+                via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+                actor_user_key=actor_user_key,
+                target_user_key=after.user_key,
+                tenant_key=after.tenant_key,
+                membership=after,
+                old_scopes=list(before.admin_scopes),
+            )
+
+    def has_platform_admin(self) -> bool:
+        """Whether any active account holds the platform role (an active ``lead`` membership in ``platform``)."""
+        return any(
+            membership.role == TenantRole.LEAD
+            for membership in self._membership_repo.active_memberships_of(tenant_key=_PLATFORM_TENANT_KEY)
+        )
+
+    def grant_first_platform_admin(self, account: User, *, receipt: TakeoverReceipt) -> bool:
+        """Make *account* the platform administrator of an instance that has none (REQ-027 §7a.2, #1855).
+
+        A light-mode installation has no platform tenant: its system account is the operator because
+        ``is_platform_admin`` is always true there (REQ-027 AK-12). After the switch to full mode the
+        instance has no administrator at all until the first account decides the pending take-over;
+        that decision - accepted or declined (Szenario 5 step 7e, Szenario 6 step 9) - hands it the role.
+
+        Returns ``False`` without writing when an active platform administrator exists already: the role
+        is never handed out by this path beside one. Creates the platform tenant (resolved by slug, as
+        ``seed_auth`` does - the stored row cannot carry the literal key) when it is missing. The new
+        membership is recorded in the security audit.
+
+        The membership write is entered into the caller's *receipt* (#1855 R2-001) - a raised one with its
+        previous values before the write, a created one right after - so a failing audit row (or a later
+        step of the decision) is undone by :meth:`undo_light_mode_takeover` together with the take-over.
+        """
+        self._refuse_service_account(account, "A service account cannot become the platform administrator.")
+        if self.has_platform_admin():
+            return False
+        account_key = account.key or ""
+        if self._tenant_repo.get_by_slug(_PLATFORM_TENANT_KEY) is None:
+            self._tenant_repo.create(
+                Tenant(
+                    name="Kamerplanter Platform",
+                    slug=_PLATFORM_TENANT_KEY,
+                    tenant_type=TenantType.ORGANIZATION,
+                    owner_user_key=account_key,
+                    is_platform=True,
+                    max_members=self._entitlements.members_ceiling(),
+                )
+            )
+            logger.info("platform_tenant_created", subject=log_subject(account_key))
+        lead_scopes = [AdminScope.MANAGEMENT, AdminScope.TECHNICAL]
+        existing = self._membership_repo.get_by_user_and_tenant(account_key, _PLATFORM_TENANT_KEY)
+        if existing is not None and existing.key:
+            receipt.platform_raised_membership_key = existing.key
+            receipt.platform_raised_previous_role = str(existing.role)
+            receipt.platform_raised_previous_scopes = [str(scope) for scope in existing.admin_scopes]
+            receipt.platform_raised_previous_active = existing.is_active
+            raised = (
+                self._membership_repo.update_fields(
+                    existing.key, {"role": TenantRole.LEAD, "admin_scopes": lead_scopes, "is_active": True}
+                )
+                or existing
+            )
+            self._audit_raised_membership(existing, raised, actor_user_key=account_key)
+            return True
+        receipt.platform_membership_intended = True  # R3 W-1: before the insert
+        created = self._membership_repo.create(
+            Membership(
+                user_key=account_key,
+                tenant_key=_PLATFORM_TENANT_KEY,
+                role=TenantRole.LEAD,
+                admin_scopes=lead_scopes,
+                is_active=True,
+                joined_at=datetime.now(UTC).isoformat(),
+            )
+        )
+        receipt.platform_created_membership_key = created.key
+        receipt.platform_membership_intended = False
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.LIGHT_MODE_TAKEOVER,
+            actor_user_key=account_key,
+            target_user_key=account_key,
+            tenant_key=_PLATFORM_TENANT_KEY,
+            membership=created,
+        )
+        logger.info("first_platform_admin_granted", subject=log_subject(account_key))
+        return True
+
+    def restore_light_mode_membership(self, *, tenant_key: str, system_user_key: str) -> bool:
+        """Reactivate the system account's membership a take-over ended (REQ-027 Szenario 7, #1855).
+
+        Called by the start that finds the instance back in light mode. The membership is raised back to
+        ``lead`` with both scopes - light mode resolves every request to the system account, which has to
+        be able to manage its tenant. ``False`` when there was nothing to restore (active already, or no
+        membership - the light-mode seed writes it together with the account). Recorded in the audit.
+        """
+        membership = self._membership_repo.get_by_user_and_tenant(system_user_key, tenant_key)
+        if membership is None or not membership.key:
+            logger.warning("light_mode_system_membership_missing", tenant=log_tenant(tenant_key))
+            return False
+        if membership.is_active:
+            return False
+        restored = (
+            self._membership_repo.update_fields(
+                membership.key,
+                {
+                    "role": TenantRole.LEAD,
+                    "admin_scopes": [AdminScope.MANAGEMENT, AdminScope.TECHNICAL],
+                    "is_active": True,
+                },
+            )
+            or membership
+        )
+        self._audit_membership(
+            action=SecurityAuditAction.MEMBERSHIP_ADDED,
+            via=SecurityAuditVia.MODE_SWITCH,
+            actor_user_key=system_user_key,
+            target_user_key=system_user_key,
+            tenant_key=tenant_key,
+            membership=restored,
+        )
+        return True
 
     # --- Helpers ---
 

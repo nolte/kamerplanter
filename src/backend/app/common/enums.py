@@ -1010,6 +1010,26 @@ class AuthProviderType(StrEnum):
     OIDC = "oidc"
 
 
+class OidcProviderType(StrEnum):
+    """The provider kinds ``/admin/oidc-providers`` accepts (#1497).
+
+    The single source for the spelling: ``_PROVIDER_ENDPOINTS`` is keyed from it
+    and ``OAuthEngine.extract_user_info`` dispatches on its members, so a value
+    outside it is served by the generic OIDC branch — no well-known endpoints, no
+    GitHub address-list request, and no complaint anywhere. That is why the
+    request schemas validate against this enum rather than against ``str``.
+
+    Deliberately NOT ``AuthProviderType``, which carries ``LOCAL``: a federated
+    provider registered as ``local`` would take the generic branch while naming
+    the one authentication kind that has no federation at all.
+    """
+
+    GOOGLE = "google"
+    GITHUB = "github"
+    APPLE = "apple"
+    OIDC = "oidc"
+
+
 class EmailVerificationStatus(StrEnum):
     PENDING = "pending"
     VERIFIED = "verified"
@@ -1021,6 +1041,66 @@ class EmailVerificationStatus(StrEnum):
 class TenantType(StrEnum):
     PERSONAL = "personal"
     ORGANIZATION = "organization"
+
+
+class TenantStatus(StrEnum):
+    """Lifecycle state of a tenant (REQ-024 AK-65, AK-52, MT-027 #2123).
+
+    Replaces the ``is_active`` bool (migration v0085). Only ``ACTIVE`` resolves
+    into an authorization context; every other state answers like a slug that
+    names no tenant (#2105) — ``Tenant.is_active`` is derived from this value.
+
+    * ``ACTIVE`` — in use.
+    * ``SUSPENDED`` — a platform admin switched it off (REQ-024 AK-56); reversible
+      by the same admin, nothing is scheduled.
+    * ``PENDING_DELETION`` — its management (or a platform admin) asked for the
+      deletion; the erasure runs once ``deletion_scheduled_at`` has passed
+      (``RETENTION_TENANT_ERASURE_GRACE_DAYS``) and can be cancelled until then.
+    * ``ORPHANED`` — the account erasure of its last member (or of its last
+      ``management`` holder with no ``lead`` left to take over) left nobody who
+      can administer it (MT-038 #2134); it runs into the same deletion grace.
+    * ``DELETED`` — the grace has passed and the erasure has claimed it; no
+      longer cancellable. The tenant document itself is removed by the erasure,
+      so the state is seen only while the inventory runs (or is retried).
+    * ``IMPORTING`` — founded by a tenant import (REQ-056 §8.4, #2138) and still being
+      written; resolves for nobody and its memberships are inactive until the import
+      activates it. An import whose run died is erased by the hourly sweep.
+    """
+
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    PENDING_DELETION = "pending_deletion"
+    ORPHANED = "orphaned"
+    DELETED = "deleted"
+    IMPORTING = "importing"
+
+
+class EntitlementDimension(StrEnum):
+    """A quota a plan can set for a tenant (REQ-056 §7.2, #2142).
+
+    Every dimension is decided by :class:`~app.domain.services.entitlement_service.EntitlementService`
+    and nothing else (REQ-056 AK-19). A plan's ``null`` for a dimension means "the instance setting".
+    Each dimension keeps the refusal it had before plans existed (code and status, REQ-056 E-06).
+
+    * ``MEMBERS`` — active memberships of a tenant, service accounts included (``TENANT_MAX_MEMBERS_CEILING``,
+      ``422 MEMBER_LIMIT_REACHED``); also bounded by the tenant's own ``max_members`` and the ceiling.
+    * ``SERVICE_ACCOUNTS`` — active service accounts of a tenant (``TENANT_MAX_SERVICE_ACCOUNTS``,
+      ``422 SERVICE_ACCOUNT_LIMIT_REACHED``).
+    * ``STORAGE_MB`` — attachment bytes of a tenant (``STORAGE_TENANT_QUOTA_MB``, ``0`` = unlimited,
+      ``409 STORAGE_QUOTA_EXCEEDED``).
+    * ``PHOTOS_PER_INSTANCE`` — gallery photos of one plant (``STORAGE_MAX_PHOTOS_PER_INSTANCE``,
+      ``0`` = unlimited, ``409 PHOTO_QUOTA_EXCEEDED``).
+    * ``AI_CALLS_PER_USER_DAY`` / ``AI_CALLS_PER_TENANT_DAY`` / ``AI_TOKENS_PER_TENANT_DAY`` — the daily
+      KI budgets of REQ-031 §3 (``AI_BUDGET_*``, ``0`` = budget off, ``429 AI_BUDGET_EXCEEDED``).
+    """
+
+    MEMBERS = "members"
+    SERVICE_ACCOUNTS = "service_accounts"
+    STORAGE_MB = "storage_mb"
+    PHOTOS_PER_INSTANCE = "photos_per_instance"
+    AI_CALLS_PER_USER_DAY = "ai_calls_per_user_day"
+    AI_CALLS_PER_TENANT_DAY = "ai_calls_per_tenant_day"
+    AI_TOKENS_PER_TENANT_DAY = "ai_tokens_per_tenant_day"
 
 
 class TenantRole(StrEnum):
@@ -1058,6 +1138,19 @@ class AdminScope(StrEnum):
     TECHNICAL = "technical"
 
 
+class RegistrationMode(StrEnum):
+    """Who may create an account on an installation (REQ-023 §3.2d, #2132; ``REGISTRATION_MODE``).
+
+    ``open`` - anybody (the default; with ``REGISTRATION_ALLOWED_DOMAINS``, the listed domains);
+    ``invite_only`` - only an address a pending e-mail invitation was issued for;
+    ``closed`` - nobody, an invitation included. Existing accounts sign in in every mode.
+    """
+
+    OPEN = "open"
+    INVITE_ONLY = "invite_only"
+    CLOSED = "closed"
+
+
 class InvitationStatus(StrEnum):
     PENDING = "pending"
     ACCEPTED = "accepted"
@@ -1093,6 +1186,9 @@ class CareStyleType(StrEnum):
     FROST_TENDER_CONTAINER = "frost_tender_container"
     WINTER_VEGETABLE = "winter_vegetable"
     SPRING_BULB = "spring_bulb"
+    # Presets for the two seeded families no houseplant/outdoor preset fits (#1505)
+    BROMELIAD = "bromeliad"
+    AQUATIC = "aquatic"
     CUSTOM = "custom"
 
 
@@ -1722,6 +1818,82 @@ class McpToolStatus(StrEnum):
     DENIED = "denied"
     ERROR = "error"
     DRY_RUN = "dry_run"
+
+
+class SecurityAuditAction(StrEnum):
+    """What a persistent security-audit row records (MT-014, #2111, NFR-011 R-38)."""
+
+    MEMBERSHIP_ADDED = "membership_added"
+    MEMBERSHIP_ROLE_CHANGED = "membership_role_changed"
+    MEMBERSHIP_SCOPES_CHANGED = "membership_scopes_changed"
+    MEMBERSHIP_REMOVED = "membership_removed"
+    MEMBERSHIP_LEFT = "membership_left"
+    #: #2137 — a service account's API key was replaced; the previous keys were revoked or given an end.
+    SERVICE_ACCOUNT_KEY_ROTATED = "service_account_key_rotated"
+    # #2111 — a platform admin changed a trust flag of an account (``UserService.admin_update_user``).
+    # One row per flag that really changed; the row names the account, no tenant.
+    ACCOUNT_DEACTIVATED = "account_deactivated"
+    ACCOUNT_REACTIVATED = "account_reactivated"
+    ACCOUNT_EMAIL_VERIFIED = "account_email_verified"
+    ACCOUNT_EMAIL_UNVERIFIED = "account_email_unverified"
+    # #2111 — the lifecycle of a whole tenant: suspended or reactivated by a platform admin
+    # (``TenantService.admin_update_tenant``), its deletion accepted or withdrawn
+    # (``TenantService.delete_tenant`` / ``cancel_tenant_erasure``). The row names the tenant, no target account.
+    TENANT_SUSPENDED = "tenant_suspended"
+    TENANT_REACTIVATED = "tenant_reactivated"
+    TENANT_DELETION_REQUESTED = "tenant_deletion_requested"
+    TENANT_DELETION_CANCELLED = "tenant_deletion_cancelled"
+    # REQ-056 §7.6 (#2142) — the plan catalogue: a tenant was given another plan (``old_plan_key`` →
+    # ``plan_key``), or a plan was created, changed (``changed_fields`` names what, never the values of
+    # other fields) or deleted. A plan row names no tenant; a tenant's plan row names no target account.
+    TENANT_PLAN_CHANGED = "tenant_plan_changed"
+    PLAN_CREATED = "plan_created"
+    PLAN_CHANGED = "plan_changed"
+    PLAN_DELETED = "plan_deleted"
+    # REQ-056 §8 / §12.4 (#2138) — a tenant export was requested (by its management or a platform admin)
+    # and a platform admin imported an archive as a new tenant. The rows name the tenant, no target account.
+    TENANT_EXPORT_REQUESTED = "tenant_export_requested"
+    TENANT_EXPORT_DOWNLOADED = "tenant_export_downloaded"
+    TENANT_IMPORT_REQUESTED = "tenant_import_requested"
+    TENANT_IMPORTED = "tenant_imported"
+    # REQ-027 §7a.2 (#1855) — after the switch from light to full mode an account took the light-mode
+    # system tenant over: the row names the tenant and the account that now owns it.
+    TENANT_TAKEN_OVER = "tenant_taken_over"
+    # #1855 SEC-005 — the decision itself: who accepted or declined the take-over of which tenant and whether
+    # it made them the first platform admin (``platform_admin_granted``); a decision undone after a failure.
+    TAKEOVER_ACCEPTED = "takeover_accepted"
+    TAKEOVER_DECLINED = "takeover_declined"
+    TAKEOVER_REVERTED = "takeover_reverted"
+    # #1855 R2 review — a refused decision (API key, not eligible, nothing open, claimed by another) and a
+    # failed decision whose writes could not be undone (``reason``; the receipt is kept on the take-over).
+    TAKEOVER_REFUSED = "takeover_refused"
+    TAKEOVER_UNDO_FAILED = "takeover_undo_failed"
+    # #1855 SEC-005 — one aggregate row per start that sealed the light-mode system account in full mode:
+    # how many API keys, sessions and calendar feeds it revoked (``revoked_counts``).
+    SYSTEM_ACCOUNT_SEALED = "system_account_sealed"
+
+
+class SecurityAuditVia(StrEnum):
+    """The door a recorded change came through - who acted in what capacity."""
+
+    PLATFORM_ADMIN = "platform_admin"
+    TENANT_ADMIN = "tenant_admin"
+    INVITATION = "invitation"
+    SELF = "self"
+    REGISTRATION = "registration"
+    TENANT_CREATION = "tenant_creation"
+    #: The account erasure of a tenant's last ``management`` holder handed the scope to the
+    #: longest-serving remaining ``lead`` (MT-038, #2134).
+    ACCOUNT_ERASURE = "account_erasure"
+    #: A new account's first sign-in through an OIDC provider with ``default_tenant_key`` placed
+    #: it in that tenant (REQ-024 AK-09, #2182). The platform admin who configured it is the decision.
+    OIDC_AUTO_JOIN = "oidc_auto_join"
+    #: REQ-027 §7a (#1855): the backend start found the deployment mode switched and sealed or restored
+    #: the light-mode system account. No person acted; the row names the system account as actor.
+    MODE_SWITCH = "mode_switch"
+    #: REQ-027 §7a.2 (#1855): the first account of a full-mode instance took the light-mode data over
+    #: (or declined it) through ``POST /system/takeover``.
+    LIGHT_MODE_TAKEOVER = "light_mode_takeover"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {

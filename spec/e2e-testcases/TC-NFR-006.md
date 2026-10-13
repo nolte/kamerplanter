@@ -76,7 +76,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 4. Nutzer klickt auf "Speichern".
 
 **Erwartetes Ergebnis**:
-- Die Snackbar erscheint mit der Meldung: **"Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung."**
+- Die Snackbar erscheint mit der Meldung: **"Netzwerkfehler. Bitte überprüfe deine Verbindung."**
 - Die Snackbar hat Fehler-Schweregrad (rot / `error`-Severity in MUI).
 - Der Dialog bleibt offen — die eingegebenen Daten gehen nicht verloren.
 - Kein Stack-Trace, keine URL, keine internen Bezeichner sind sichtbar.
@@ -106,7 +106,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 
 **Erwartetes Ergebnis**:
 - Die UI zeigt entweder:
-  - Eine `ApiErrorDisplay`-Komponente mit der Meldung `"Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung."`, oder
+  - Eine `ApiErrorDisplay`-Komponente mit der Meldung `"Netzwerkfehler. Bitte überprüfe deine Verbindung."`, oder
   - Eine Snackbar mit demselben Text.
 - Ein "Erneut versuchen"-Button ist vorhanden und klickbar.
 - Keine technischen Details (IP-Adressen, Ports, DNS-Fehlermeldungen) sind sichtbar.
@@ -136,7 +136,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 - Auf der Seite erscheint die `ErrorPage`-Komponente (`data-testid="error-page"`).
 - Die Statuscode-Zahl **"408"** ist sichtbar.
 - Titel: **"Zeitüberschreitung"**
-- Meldung: **"Die Anfrage hat zu lange gedauert. Bitte versuchen Sie es erneut."**
+- Meldung: **"Die Anfrage hat zu lange gedauert. Bitte versuche es erneut."**
 - Button **"Zurück zum Dashboard"** ist vorhanden (`data-testid="error-go-home"`).
 
 **Nachbedingungen**:
@@ -168,7 +168,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 - Die `ErrorPage`-Komponente (`data-testid="error-page"`) erscheint.
 - Statuscode **"401"** ist sichtbar.
 - Titel: **"Nicht autorisiert"**
-- Meldung: **"Sie müssen sich anmelden, um auf diese Seite zugreifen zu können."**
+- Meldung: **"Du musst dich anmelden, um auf diese Seite zugreifen zu können."**
 - Button **"Zurück zum Dashboard"** vorhanden.
 - Kein technischer Text (Token-Details, JWT-Payload, interne Fehlermeldung) sichtbar.
 
@@ -196,7 +196,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 
 **Erwartetes Ergebnis**:
 - Falls der Button ausgeblendet ist (bevorzugtes UI-Verhalten): Der "Löschen"-Button ist für Viewer nicht vorhanden — kein Fehler entsteht.
-- Falls der API-Aufruf trotzdem ausgelöst wird (Direktaufruf per URL-Manipulation): Die Seite zeigt `ErrorPage` mit Statuscode **"403"**, Titel **"Zugriff verweigert"**, Meldung **"Sie haben keine Berechtigung, auf diese Ressource zuzugreifen."**
+- Falls der API-Aufruf trotzdem ausgelöst wird (Direktaufruf per URL-Manipulation): Die Seite zeigt `ErrorPage` mit Statuscode **"403"**, Titel **"Zugriff verweigert"**, Meldung **"Du hast keine Berechtigung, auf diese Ressource zuzugreifen."**
 - Kein Stack-Trace, keine RBAC-Details, keine internen Rollen-Bezeichner sichtbar.
 
 **Nachbedingungen**:
@@ -520,7 +520,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 
 **Erwartetes Ergebnis**:
 - Das Formularfeld "Name" zeigt einen Inline-Fehlertext (z.B. "Pflichtfeld" oder der vom Backend gelieferte Grund).
-- Die Snackbar erscheint mit: **"Bitte überprüfen Sie Ihre Eingaben."**
+- Die Snackbar erscheint mit: **"Bitte überprüfe deine Eingaben."**
 - Kein technischer Text (`body.name`, `Field required`, Pydantic-Klassen-Name) ist direkt in der UI sichtbar.
 - Der Dialog bleibt offen.
 
@@ -550,7 +550,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 
 **Erwartetes Ergebnis**:
 - Das Feld "Nährstoffbedarf" zeigt einen Inline-Fehlertext.
-- Snackbar: **"Bitte überprüfen Sie Ihre Eingaben."**
+- Snackbar: **"Bitte überprüfe deine Eingaben."**
 - Der `code: "enum"` Pydantic-interne Typ wird **nicht** direkt in der UI angezeigt.
 - Kein Text `Input should be...` in Pydantic-Rohformat sichtbar (der Hook bereinigt dies).
 
@@ -579,7 +579,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 
 **Erwartetes Ergebnis**:
 - Sowohl das Feld "Name" als auch das Feld "Nährstoffbedarf" zeigen Inline-Fehlertexte.
-- Snackbar: **"Bitte überprüfen Sie Ihre Eingaben."** (nur einmal, nicht mehrfach).
+- Snackbar: **"Bitte überprüfe deine Eingaben."** (nur einmal, nicht mehrfach).
 - Der Dialog bleibt offen.
 
 **Nachbedingungen**:
@@ -847,7 +847,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 - `ErrorPage`-Komponente erscheint (`data-testid="error-page"`).
 - Statuscode **"429"** sichtbar.
 - Titel: **"Zu viele Anfragen"**
-- Meldung: **"Sie haben zu viele Anfragen gesendet. Bitte warten Sie einen Moment."**
+- Meldung: **"Du hast zu viele Anfragen gesendet. Bitte warte einen Moment."**
 - Button **"Zurück zum Dashboard"** vorhanden.
 - Kein technischer Text (Rate-Limit-Konfiguration, IP-Adresse, X-RateLimit-Header als Rohtext) sichtbar.
 
@@ -937,7 +937,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 2. Nutzer klickt auf "Speichern".
 
 **Erwartetes Ergebnis**:
-- Snackbar erscheint mit der Meldung: **"Serverfehler. Bitte versuchen Sie es später erneut."**
+- Snackbar erscheint mit der Meldung: **"Serverfehler. Bitte versuche es später erneut."**
 - Der Dialog bleibt offen.
 - Kein Stack-Trace, kein ArangoDB-Text, kein Python-Pfad sichtbar.
 - (Optional, je nach Implementierungsstand) Die `error_id` ist als Referenz sichtbar für den Support.
@@ -1030,7 +1030,7 @@ Grundlage für Selenium-/Playwright-E2E-Tests. Der Tester sitzt vor dem Browser 
 **Erwartetes Ergebnis**:
 - `ErrorPage`-Komponente erscheint mit Statuscode **"503"**.
 - Titel: **"Wartungsarbeiten"**
-- Meldung: **"Der Dienst wird gerade gewartet. Bitte versuchen Sie es in Kürze erneut."**
+- Meldung: **"Der Dienst wird gerade gewartet. Bitte versuche es in Kürze erneut."**
 - Button **"Zurück zum Dashboard"** vorhanden.
 - Kein technischer Text (Service-Namen, Kubernetes-Pod-Namen, interne IPs) sichtbar.
 

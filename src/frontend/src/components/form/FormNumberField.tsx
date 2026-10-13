@@ -19,6 +19,8 @@ interface FormNumberFieldProps<T extends FieldValues> {
   endAdornment?: ReactNode;
   autoFocus?: boolean;
   inputMode?: 'numeric' | 'decimal';
+  /** Shown while the field is empty — use for what an empty value means, never as a label. */
+  placeholder?: string;
 }
 
 export default function FormNumberField<T extends FieldValues>({
@@ -35,6 +37,7 @@ export default function FormNumberField<T extends FieldValues>({
   endAdornment,
   autoFocus,
   inputMode,
+  placeholder,
 }: FormNumberFieldProps<T>) {
   const adornment = endAdornment ?? (suffix ? (
     <InputAdornment position="end">{suffix}</InputAdornment>
@@ -85,6 +88,7 @@ export default function FormNumberField<T extends FieldValues>({
               ...(max !== undefined ? { max } : {}),
               step: step ?? 'any',
               inputMode: inputMode ?? 'decimal',
+              ...(placeholder ? { placeholder } : {}),
             },
             ...(adornment ? { input: { endAdornment: adornment } } : {}),
           }}

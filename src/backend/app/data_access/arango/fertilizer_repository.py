@@ -5,9 +5,35 @@ from arango.database import StandardDatabase
 from app.common.types import FertilizerKey, FertilizerStockKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
+
+
+def visible_fertilizer_labels(
+    db: StandardDatabase, keys: list[str], *, tenant_key: str
+) -> dict[str, tuple[str | None, str | None]]:
+    """``{key: (product_name, brand)}`` for the fertilizers ``tenant_key`` may see (#1708).
+
+    The one place a caller-supplied list of fertilizer keys is turned into
+    display labels. A key reaches such a lookup from a document the caller owns —
+    a watering log's ``fertilizers_used``, a nutrient plan entry — but nothing
+    verifies it on write, so resolving it unscoped disclosed a foreign tenant's
+    *private* product name and brand (the #952 shape). The catalogue's own ∪
+    global union applies; a key it rejects is simply absent, and the caller shows
+    the key instead. An empty ``tenant_key`` collapses to global-only.
+    """
+    if not keys:
+        return {}
+    predicate, predicate_vars = tenant_union_predicate(tenant_key, doc_var="f")
+    query = f"""
+    FOR f IN {col.FERTILIZERS}
+      FILTER f._key IN @keys AND {predicate}
+      RETURN {{ key: f._key, product_name: f.product_name, brand: f.brand }}
+    """
+    cursor = db.aql.execute(query, bind_vars={"keys": list(keys), **predicate_vars})
+    return {row["key"]: (row["product_name"], row["brand"]) for row in cursor}
 
 
 class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRepository):
@@ -19,6 +45,28 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         self._stocks = BaseArangoRepository[FertilizerStock](db, col.FERTILIZER_STOCKS, FertilizerStock)
 
     # ── Fertilizer CRUD ──────────────────────────────────────────────
+
+    def get_global_fertilizers(self) -> list[Fertilizer]:
+        """Every global (system) fertilizer, the whole catalogue, no row limit (#2000).
+
+        The fertilizer seed loaders match a seed product to its row through this and
+        nothing wider — the twin of ``ArangoNutrientPlanRepository.get_global_plans``
+        (#1957). A row is global when its ``tenant_key`` is empty or absent, so a
+        tenant's own product that carries a seed's ``(product_name, brand)`` is never
+        returned and can never be rewritten from the seed as global. Deliberately not
+        :meth:`get_all`: that is paged, and ``get_all(offset=0, limit=1000)`` treated
+        row 1001 onwards as missing. Ordered by ``_key`` so that a lookup by name
+        resolves the same way on every boot.
+        """
+        cursor = self._db.aql.execute(
+            f"""
+            FOR doc IN {col.FERTILIZERS}
+                FILTER doc.tenant_key == "" OR doc.tenant_key == null
+                SORT doc._key
+                RETURN doc
+            """
+        )
+        return [Fertilizer(**self._from_doc(doc)) for doc in cursor]
 
     def get_all(
         self,
@@ -35,6 +83,40 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         # missing tenant_key must therefore be an explicit system-context opt-in
         # (all_tenants=True) rather than a silent all-tenant read (SEC-B4).
         self._enforce_tenant_scope(tenant_key, all_tenants)
+        items, total = self._read(offset, limit, filters, tenant_key, count=True)
+        return items, total or 0
+
+    def get_all_window(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filters: dict[str, Any] | None = None,
+        *,
+        tenant_key: str,
+    ) -> list[Fertilizer]:
+        """The page of :meth:`get_all` without its count query (MT-035, #2131).
+
+        Request reads only: ``tenant_key`` is required (no ``all_tenants`` escape),
+        the union with the global rows is the same as in :meth:`get_all`.
+        """
+        self._enforce_tenant_scope(tenant_key, False)
+        return self._read(offset, limit, filters, tenant_key, count=False)[0]
+
+    def _read(
+        self,
+        offset: int,
+        limit: int,
+        filters: dict[str, Any] | None,
+        tenant_key: str | None,
+        *,
+        count: bool,
+    ) -> tuple[list[Fertilizer], int | None]:
+        """One page and, with ``count``, the total of :meth:`get_all` — callers enforce the scope.
+
+        One body for the counted and the count-free read, so the window issues exactly
+        the page query the counted method pays a count for (MT-035, #2131); the query
+        text stays in the function that executes it, where the catalogue guard reads it.
+        """
         query = f"FOR doc IN {col.FERTILIZERS}"
         bind_vars: dict[str, Any] = {}
         filter_clauses = []
@@ -48,21 +130,35 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
                 if field == "brand":
-                    filter_clauses.append(f"CONTAINS(LOWER(doc.{field}), LOWER(@val{i}))")
+                    filter_clauses.append(f"CONTAINS(LOWER(doc.{aql_field(field)}), LOWER(@val{i}))")
                 else:
-                    filter_clauses.append(f"doc.{field} == @val{i}")
+                    filter_clauses.append(f"doc.{aql_field(field)} == @val{i}")
         if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
         count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        query += " SORT doc.product_name LIMIT @offset, @limit RETURN doc"
+        # ``product_name`` is not unique (one name, several brands; a tenant's copy of
+        # a global product), so ``_key`` breaks the tie: offset paging over a partial
+        # order may swap equal-named rows between pages (get_all_pages, #2015).
+        query += " SORT doc.product_name, doc._key LIMIT @offset, @limit RETURN doc"
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         items = [Fertilizer(**self._from_doc(doc)) for doc in cursor]
+        if not count:
+            return items, None
         count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-        total = next(count_cursor, 0)
-        return items, total
+        return items, next(count_cursor, 0)
+
+    def list_visible_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
+        """The subset of ``keys`` naming fertilizers ``tenant_key`` may see (#1713).
+
+        The write-side twin of the #1708 read filter and deliberately the *same*
+        query: :func:`visible_fertilizer_labels`, the catalogue's own ∪ global
+        union. A write that stores a fertilizer reference asks this, so what a
+        tenant may reference and what it may later read back cannot drift apart.
+        """
+        return set(visible_fertilizer_labels(self._db, keys, tenant_key=tenant_key))
 
     def delete(self, key: FertilizerKey) -> bool:
         fert_id = f"{col.FERTILIZERS}/{key}"
@@ -141,13 +237,20 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
         edge_data = {"reason": reason, "severity": severity}
         return self.create_edge(col.FERT_INCOMPATIBLE, from_id, to_id, edge_data)
 
-    def get_incompatibilities(self, key: FertilizerKey) -> list[dict]:
+    def get_incompatibilities(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        """The product's incompatibilities whose partner the caller may see (bundle A review, K1).
+
+        A global product's edges include the ones other tenants declared from
+        their private products; the partner is filtered with the hybrid rule
+        (global or ``tenant_key``'s) so their names and reasons stay theirs.
+        """
         fert_id = f"{col.FERTILIZERS}/{key}"
         query = f"""
         FOR e IN {col.FERT_INCOMPATIBLE}
           FILTER e._from == @fid OR e._to == @fid
           LET other_id = e._from == @fid ? e._to : e._from
           LET other = DOCUMENT(other_id)
+          FILTER other != null AND (other.tenant_key == null OR other.tenant_key IN ["", @tenant_key])
           RETURN {{
             fertilizer_key: PARSE_IDENTIFIER(other_id).key,
             product_name: other.product_name,
@@ -155,7 +258,7 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
             severity: e.severity
           }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"fid": fert_id})
+        cursor = self._db.aql.execute(query, bind_vars={"fid": fert_id, "tenant_key": tenant_key})
         return list(cursor)
 
     def remove_incompatibility(self, key_a: FertilizerKey, key_b: FertilizerKey) -> bool:
@@ -171,7 +274,14 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
 
     # ── Reverse lookup ─────────────────────────────────────────────────
 
-    def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
+    def get_nutrient_plan_usage(self, key: FertilizerKey, *, tenant_key: str) -> list[dict]:
+        """Plans that dose this fertilizer, restricted to the caller's own and the global ones (#2099).
+
+        The entries carry no tenant of their own, so the plan decides: a global
+        fertilizer is dosed by plans of every tenant, and only the plan's
+        ``tenant_key`` says whose they are.
+        """
+        plan_scope, scope_bind = tenant_union_predicate(tenant_key, doc_var="plan")
         query = f"""
         FOR entry IN {col.NUTRIENT_PLAN_PHASE_ENTRIES}
           LET matched_channels = (
@@ -191,7 +301,7 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
           )
           FILTER LENGTH(matched_channels) > 0
           LET plan = DOCUMENT(CONCAT("{col.NUTRIENT_PLANS}/", entry.plan_key))
-          FILTER plan != null
+          FILTER plan != null AND {plan_scope}
           COLLECT plan_key = entry.plan_key,
                   plan_name = plan.name
           INTO groups
@@ -206,5 +316,5 @@ class ArangoFertilizerRepository(BaseArangoRepository[Fertilizer], IFertilizerRe
           )
           RETURN {{ key: plan_key, name: plan_name, phase_entries: phase_data }}
         """
-        cursor = self._db.aql.execute(query, bind_vars={"fert_key": key})
+        cursor = self._db.aql.execute(query, bind_vars={"fert_key": key, **scope_bind})
         return list(cursor)

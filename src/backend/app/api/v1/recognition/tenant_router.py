@@ -15,19 +15,22 @@ REQ-052 §9 already draws between opening the capture dialog and looking at
 images that exist.
 
 The role check does not replace the consent check and is not replaced by it.
-``/identify`` additionally enforces ``plant_identification`` inside the service
-(REQ-029-A §0.1.1 point 2) before any photo leaves the instance. The two answer
-different questions — may this person write in this tenant, and may this image
-leave the installation — so a grower without consent is refused, and an observer
-with consent is refused too.
+Two writes process a photo under a consent purpose, each checked inside its
+service before the photo is used: ``/identify`` enforces ``plant_identification``
+(REQ-029-A §0.1.1 point 2) before any photo leaves the instance, and
+``/reference`` enforces ``reference_contribution`` (REQ-034 §4.1, #2174) before
+the photo is embedded into the recognition index — and refuses in Light mode.
+The two checks answer different questions — may this person write in this
+tenant, and may this image be processed for that purpose — so a grower without
+consent is refused, and an observer with consent is refused too.
 """
 
-import io
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
-from PIL import Image, UnidentifiedImageError
+from PIL import UnidentifiedImageError
 
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.recognition.schemas import (
     HistoryEntryResponse,
     IdentifyResponse,
@@ -46,7 +49,9 @@ from app.common.exceptions import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.common.image_bounds import MAX_IMAGE_PIXELS, open_bounded_image
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.upload_bounds import declared_body_exceeds
 from app.config.settings import settings
 from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 from app.domain.models.tenant_context import TenantContext
@@ -61,24 +66,16 @@ _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 # Chunk size for the bounded streaming upload read (1 MiB).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
 
-# SEC-004 — decompression-bomb guard: reject images whose pixel count is
-# implausible for a plant photo even when the encoded bytes are tiny.
-_MAX_IMAGE_PIXELS = 40_000_000  # ~6300 x 6300 px
+# SEC-004 decompression-bomb guard — reject implausibly large pixel counts even
+# when the encoded bytes are tiny. The ceiling is the shared one (#2108).
+_MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 def _parse_organ(value: str) -> PlantOrgan:
     try:
         return PlantOrgan(value)
     except ValueError as exc:
-        raise UnsupportedMediaTypeError(value, [o.value for o in PlantOrgan]) from exc
-
-
-def _parse_content_length(request: Request) -> int | None:
-    """Return the request ``Content-Length`` as an int, or ``None`` if absent/invalid."""
-    raw = request.headers.get("content-length")
-    if raw is None or not raw.strip().isdigit():
-        return None
-    return int(raw)
+        raise UnsupportedMediaTypeError([o.value for o in PlantOrgan]) from exc
 
 
 async def _read_upload_bounded(file: UploadFile, max_bytes: int) -> bytes:
@@ -110,14 +107,13 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
     if len(image_data) > max_bytes:
         raise PayloadTooLargeError(max_bytes)
     if not is_supported_image(image_data):
-        raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"])
+        raise UnsupportedMediaTypeError(["image/jpeg", "image/png"])
     try:
-        with Image.open(io.BytesIO(image_data)) as img:
-            width, height = img.size
-            if width * height > _MAX_IMAGE_PIXELS:
-                raise PayloadTooLargeError(max_bytes)
+        # Above the ceiling ``open_bounded_image`` raises ImagePixelLimitError
+        # (413) from the header — before ``verify()`` reads anything.
+        with open_bounded_image(image_data, max_pixels=_MAX_IMAGE_PIXELS) as img:
             img.verify()
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+    except (UnidentifiedImageError, OSError) as exc:
         raise ValidationError(
             "The uploaded image could not be decoded.",
             details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],
@@ -125,7 +121,9 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
 
 
 @router.post("/identify", response_model=IdentifyResponse)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def identify_plant(
+    request: Request,
     image: UploadFile,
     organ: str = Form("auto", description="leaf, flower, fruit, bark, habit, auto"),
     language: str = Form("de", description="Preferred language for the returned suggestions (ISO code)."),
@@ -146,9 +144,10 @@ async def identify_plant(
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
-    image_data = await image.read()
+    # #2254 — at most one byte past the limit is read; the engine refuses it.
+    image_data = await image.read(settings.identification_max_image_size_mb * 1024 * 1024 + 1)
     parsed_organ = _parse_organ(organ)
 
     result = service.identify_plant(
@@ -162,6 +161,7 @@ async def identify_plant(
 
 
 @router.post("/reference", response_model=ReferenceContributionResponse, status_code=202)
+@limiter.limit(settings.rate_limit_inference, key_func=user_rate_limit_key)
 async def contribute_reference(
     request: Request,
     image: UploadFile,
@@ -184,6 +184,11 @@ async def contribute_reference(
       image curation view. A cross-tenant contribution therefore cannot silently
       change what other tenants' identifications return.
     * At least the ``grower`` role is required — a ``viewer`` cannot contribute.
+    * The contributor's ``reference_contribution`` consent is required (403
+      ``CONSENT_REQUIRED`` when missing or revoked), and Light mode refuses
+      (409, REQ-034 §4.1 Guard 2). Both are checked in the service before the
+      species lookup, the quota, the contribution marker and the embedding
+      (#2174).
     * ``species_key`` is validated server-side and the scientific name is derived
       from the master record (any client-supplied name is ignored). A per-user
       daily quota, image dedup, upload size/type/decode/bomb validation and
@@ -201,13 +206,12 @@ async def contribute_reference(
 
     content_type = (image.content_type or "").lower().strip()
     if content_type not in _ALLOWED_CONTENT_TYPES:
-        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+        raise UnsupportedMediaTypeError(sorted(_ALLOWED_CONTENT_TYPES))
 
     # SEC-004 — reject oversized uploads before buffering, then bound the read
     # and fully validate the bytes (magic/decode/bomb) before any embedding.
     max_bytes = settings.identification_max_image_size_mb * 1024 * 1024
-    content_length = _parse_content_length(request)
-    if content_length is not None and content_length > max_bytes:
+    if declared_body_exceeds(request, max_bytes):
         raise PayloadTooLargeError(max_bytes)
     image_data = await _read_upload_bounded(image, max_bytes)
     _validate_reference_image(image_data, max_bytes)

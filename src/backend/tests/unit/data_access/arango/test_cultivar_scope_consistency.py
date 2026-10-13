@@ -210,6 +210,12 @@ _DECLARED_CULTIVAR_SURFACE: dict[str, _Surface] = {
 _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
     "data_access/arango/collections.py": "Declares the collection and its graph edges — the definition, not a read.",
     "data_access/arango/species_repository.py": "Owns the one narrowing read path plus the cultivar CRUD.",
+    "data_access/arango/collection_entity_names.py": (
+        "Names the collection as a *key* in the collection→model table that gives "
+        "``details[0].entity`` its published name (#1465). It opens no query and "
+        "reads no document — the collection appears as a dict key next to "
+        "``Cultivar``, nothing more."
+    ),
     "data_access/arango/tenant_ownership.py": (
         "Write-path reference guard: ``cultivars`` is on the ownership-verifiable "
         "allowlist so ``plant_instance.cultivar_key`` cannot point at a foreign row "
@@ -242,8 +248,9 @@ _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
         "Same write-path reference guard on ``PropagationEvent.cultivar_key`` "
         "(SEC-006, #1112), for the same reason and with the same single-key shape."
     ),
-    "domain/engines/calendar_aggregation_engine.py": (
-        "Same ``DOCUMENT()`` dereference of an already-anchored ``cultivar_key``, system context by the same decision."
+    "data_access/arango/calendar_source_repository.py": (
+        "Same ``DOCUMENT()`` dereference of an already-anchored ``cultivar_key``, system context by the same "
+        "decision. Moved here verbatim from ``domain/engines/calendar_aggregation_engine.py`` (#1638)."
     ),
 }
 

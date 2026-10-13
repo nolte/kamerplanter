@@ -1,6 +1,7 @@
 import structlog
 
 from app.common.datetimes import today_utc
+from app.common.log_privacy import log_tenant
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -44,9 +45,11 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         get_planting_run_repo,
         get_season_state_repo,
         get_task_repo,
+        get_tenant_repo,
     )
     from app.common.enums import ReminderType, TaskPriority
     from app.domain.services.care_reminder_service import build_care_reminder_task, create_care_reminder_task
+    from app.tasks.tenant_gate import ActiveTenants
 
     care_service = get_care_reminder_service()
     task_repo = get_task_repo()
@@ -56,6 +59,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     lifecycle_repo = get_lifecycle_repo()
     phase_seq_repo = get_phase_sequence_repo()
     season_repo = get_season_state_repo()
+    tenant_is_active = ActiveTenants(get_tenant_repo())
 
     # UTC (#812): the stamped `due_date` carries a UTC label, and the dedup
     # rule that reads it back moved to UTC in #772 — a local date here made
@@ -63,6 +67,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     today = today_utc()
     created_count = 0
     skipped_count = 0
+    closed_tenant_count = 0
 
     # Get plant keys with active watering schedules (Gießplan-Guard)
     plants_with_schedule = run_repo.get_plant_keys_with_active_schedule()
@@ -91,20 +96,20 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
     try:
         unprofiled_plants = care_service._repo.count_plants_without_profile(tenant_key=tenant_key)
     except Exception:  # noqa: BLE001 — never fail a generation run over diagnostics
-        logger.error("care_profile_gap_count_failed", tenant_key=tenant_key, exc_info=True)
+        logger.error("care_profile_gap_count_failed", tenant=log_tenant(tenant_key), exc_info=True)
     else:
         if unprofiled_plants:
             logger.warning(
                 "plants_without_care_profile",
                 count=unprofiled_plants,
-                tenant_key=tenant_key,
+                tenant=log_tenant(tenant_key),
                 scope="tenant" if tenant_key is not None else "installation",
                 impact="these plants receive no REQ-022 reminder and are absent from created/skipped",
                 remedy="run scripts/audit_care_profiles.py, then the #1444 backfill migration",
             )
 
     # Per-run caches for the winter-reminder context (REQ-022 §3.2, B1).
-    species_cache: dict = {}
+    species_cache: dict[tuple[str, str], object] = {}
     cultivar_cache: dict = {}
     # Per-site SeasonState phase cache (REQ-047 §3.2, C2): a site with a SeasonState
     # drives its winter reminders by phase, so the month-based path here is only the
@@ -137,6 +142,13 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         if tenant_key is not None and plant.tenant_key != tenant_key:
             continue
 
+        # #2166 — a tenant that is suspended, scheduled for deletion, orphaned or gone gets no
+        # new care task: it resolves for nobody, while its memberships stay active on purpose.
+        # Not counted as "skipped" either, for the reason above. A tenantless plant keeps the sweep.
+        if plant.tenant_key and not tenant_is_active(plant.tenant_key):
+            closed_tenant_count += 1
+            continue
+
         has_plan = plant_key in plants_with_schedule
         # Tenant-scoped since #927; the plant document is the authority on its own
         # tenant. A tenantless plant answers ``False`` instead of forcing an
@@ -149,7 +161,7 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         # overwintering profile + frost sensitivity the engine suppresses every
         # winter-protection reminder, so they would never spawn a task.
         overwintering_profile = care_service.resolve_overwintering_profile(plant_key)
-        species = care_service._resolve_species(plant.species_key, species_cache)
+        species = care_service._resolve_species(plant.species_key, species_cache, plant.tenant_key)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = care_service._resolve_cultivar_traits(plant.cultivar_key, cultivar_cache)
         season_phase = _season_phase_for(plant)
@@ -173,9 +185,12 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
                     phase = lifecycle_repo.get_phase_by_key(plant.current_phase_key)
                     if phase and phase.watering_interval_days:
                         phase_interval = phase.watering_interval_days
+            # The tenant of the plant this iteration loaded and gated above (#2107):
+            # the sweep spans tenants, each plant is processed for its own.
             task = care_service.ensure_next_watering_task(
                 profile,
                 phase_watering_interval=phase_interval,
+                tenant_key=plant.tenant_key,
             )
             if task is not None:
                 created_count += 1
@@ -246,5 +261,6 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
         "care_reminders_generated",
         created=created_count,
         skipped=skipped_count,
+        closed_tenant_profiles=closed_tenant_count,
     )
     return {"created": created_count, "skipped": skipped_count}

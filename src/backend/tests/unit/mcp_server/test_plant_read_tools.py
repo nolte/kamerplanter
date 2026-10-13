@@ -131,7 +131,9 @@ async def test_list_plants_hides_archived_unless_asked():
 async def test_get_plant_returns_master_data_and_resolves_the_species_name():
     svc = _PlantService([_Plant("p1", "Tomate")])
     species = type("S", (), {"scientific_name": "Solanum lycopersicum", "common_names": ["Tomate"]})()
-    ctx = _ctx(plant_instance_service=svc, species_service=type("X", (), {"get_species": lambda self, k: species})())
+    ctx = _ctx(
+        plant_instance_service=svc, species_service=type("X", (), {"get_species": lambda self, k, **_: species})()
+    )
     tool = GetPlant()
 
     resp = await tool.run(ctx, tool.Input(plant_key="p1"))
@@ -146,7 +148,7 @@ async def test_get_plant_survives_a_missing_catalogue_entry():
     svc = _PlantService([_Plant("p1", "Tomate")])
 
     class _Broken:
-        def get_species(self, key):
+        def get_species(self, key, **_):
             raise RuntimeError("catalogue unavailable")
 
     resp = await GetPlant().run(
@@ -168,7 +170,7 @@ async def test_get_plant_survives_a_missing_catalogue_entry():
 
 
 class _SpeciesStub:
-    def get_species(self, key):
+    def get_species(self, key, **_):
         return type("S", (), {"scientific_name": "Solanum lycopersicum", "common_names": []})()
 
 

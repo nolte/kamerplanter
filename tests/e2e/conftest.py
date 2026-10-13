@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import time
+import warnings
 from collections.abc import Callable, Generator
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ except ImportError:
     GeckoDriverManager = None  # type: ignore[assignment,misc]
 
 from ._gherkin import iter_tags as _iter_gherkin_tags
+from ._session_health import SESSION_LOST_PROPERTY, quit_driver, run_if_session_alive
 from .pages.plant_instance_detail_page import PlantInstanceDetailPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.watering_log_list_page import WateringLogListPage
@@ -1225,7 +1227,17 @@ def browser(
         _browser_login(driver, url)
 
     yield driver
-    driver.quit()
+    # A session that died under the test must not add a second traceback that
+    # hides the first (#1903); it is recorded on the test result instead.
+    lost = quit_driver(driver)
+    if lost:
+        _record_session_lost(request.node, lost)
+
+
+def _record_session_lost(item: pytest.Item, note: str) -> None:
+    """Put the dead-session fact on the test result (junit property + warning)."""
+    item.user_properties.append((SESSION_LOST_PROPERTY, note))
+    warnings.warn(f"{item.nodeid}: {note}", RuntimeWarning, stacklevel=2)
 
 
 def _browser_login(
@@ -1737,16 +1749,25 @@ def screenshot(
     report = getattr(request.node, "_report", None)
     if report is not None:
         test_name = request.node.name.replace("[", "_").replace("]", "_")
+        lost: str | None = None
         if report.failed:
-            _capture(
-                f"FAILURE_{test_name}",
-                f"Automatischer Screenshot nach Fehler in {test_name}",
+            lost = run_if_session_alive(
+                lambda: _capture(
+                    f"FAILURE_{test_name}",
+                    f"Automatischer Screenshot nach Fehler in {test_name}",
+                ),
+                "failure screenshot",
             )
         elif report.skipped and getattr(report, "wasxfail", None) is not None:
-            _capture(
-                f"XFAIL_{test_name}",
-                f"Automatischer Screenshot nach erwartetem Fehlschlag in {test_name}",
+            lost = run_if_session_alive(
+                lambda: _capture(
+                    f"XFAIL_{test_name}",
+                    f"Automatischer Screenshot nach erwartetem Fehlschlag in {test_name}",
+                ),
+                "xfail screenshot",
             )
+        if lost:
+            _record_session_lost(request.node, lost)
 
 
 # ── Shared page-object fixtures ───────────────────────────────────────────

@@ -304,7 +304,7 @@ PlantInstance, GrowthPhase
 
 **Expected Results**:
 - `data-testid="no-search-results"` ist sichtbar
-- Die Meldung lautet sinngemäß: „Keine Ergebnisse für Ihre Suche gefunden" (oder entsprechende i18n-Übersetzung)
+- Die Meldung lautet sinngemäß: „Keine Ergebnisse für deine Suche gefunden" (oder entsprechende i18n-Übersetzung)
 - `data-testid="empty-state"` ist NICHT sichtbar (dies ist ein Suchergebnis, kein echter Leerzustand)
 - `data-testid="showing-count"` zeigt „0 von N Einträgen"
 
@@ -398,7 +398,7 @@ PlantInstance, GrowthPhase
 
 **Expected Results**:
 - Ein Create-Dialog öffnet sich (Modal)
-- Ein Einleitungstext ist sichtbar (z.B. „Legen Sie eine neue Botanische Familie an. Familien gruppieren Pflanzenarten mit ähnlichem Nährstoffbedarf.")
+- Ein Einleitungstext ist sichtbar (z.B. „Lege eine neue Botanische Familie an. Familien gruppieren Pflanzenarten mit ähnlichem Nährstoffbedarf.")
 - Pflichtfelder sind mit einem Asterisk `*` im Label gekennzeichnet
 - Das erste Pflichtfeld hat den Fokus (Barrierefreiheit: Fokus-Management)
 - Der Speichern-Button (`data-testid="form-submit-button"`) ist deaktiviert, da noch keine Eingabe vorgenommen wurde
@@ -680,7 +680,7 @@ PlantInstance, GrowthPhase
 
 **Expected Results**:
 - Edit-Formular wird geöffnet (entweder Inline-Modus auf der Detail-Seite oder Weiterleitung zur Edit-Seite)
-- Ein Einleitungstext erscheint oberhalb des Formulars (z.B. „Bearbeiten Sie die Eigenschaften dieser Botanischen Familie. Änderungen wirken sich auf alle zugeordneten Arten aus.")
+- Ein Einleitungstext erscheint oberhalb des Formulars (z.B. „Bearbeite die Eigenschaften dieser Botanischen Familie. Änderungen wirken sich auf alle zugeordneten Arten aus.")
 - Feld „Name" (`data-testid="form-field-name"`) enthält den aktuellen Wert „Solanaceae"
 - Feld „Typischer Nährstoffbedarf" enthält den aktuellen Wert „Mittel"
 - Alle anderen Felder sind mit den gespeicherten Werten vorbelegt
@@ -768,7 +768,7 @@ PlantInstance, GrowthPhase
 2. Nutzer klickt auf einen Breadcrumb-Link (Navigation weg von der Seite)
 
 **Expected Results**:
-- Ein Bestätigungsdialog erscheint: „Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?"
+- Ein Bestätigungsdialog erscheint: „Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?"
 - Zwei Buttons sind sichtbar: „Abbrechen" und „Verlassen" (oder ähnliche Beschriftung)
 
 **Test Steps (Fortsetzung)**:

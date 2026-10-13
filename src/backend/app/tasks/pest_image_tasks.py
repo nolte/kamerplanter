@@ -19,9 +19,22 @@ inference service (REQ-044 §8, Default-Privacy). Provenance is recorded as
 Hard guards (a routine miss is a clean no-op, never an exception into Celery):
 
   Guard 1  ``settings.pest_detection_enabled``        → else no-op (Default-Privacy)
-  Guard 2  contribution exists                        → else no-op
-  Guard 3  the pest carries a ``detection_slug``      → else no-op (no class ⇒
+  Guard 2  NOT light mode (REQ-027)                   → else no-op (no consent
+           subsystem exists there, so no contributor can have opted in)
+  Guard 3  contribution exists                        → else no-op
+  Guard 4  the contributor (``contributed_by``) holds the
+           ``pest_reference_contribution`` consent (REQ-025, REQ-044 §3.4
+           "mit Consent")                             → else no-op
+  Guard 5  the pest carries a ``detection_slug``      → else no-op (no class ⇒
            no embedding target; the gallery image stays untouched)
+
+Guard 4 is evaluated at index time, not at promotion time: the promotion is an
+admin's curation decision and stays in force without the consent (the image
+remains globally visible in the gallery); only the training/recognition use of
+the contributor's image needs the contributor's own opt-in. The contributor is
+read from the stored contribution rather than threaded through ``.delay(...)``
+— the task reloads the document anyway, and an in-flight message must not be
+able to name a different person than the document does.
 
 The recognition label is the pest's ``detection_slug``, which maps 1:1 to a
 :class:`PestTaxon.slug` (the recognition class). Without it the image cannot be
@@ -31,16 +44,25 @@ clear no-op rather than guessing a class.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import structlog
 
 from app.common.async_bridge import run_async
 from app.common.dependencies import (
     get_attachment_service,
+    get_consent_engine,
+    get_consent_repo,
     get_ipm_service,
     get_pest_image_repo,
     get_pest_inference_client,
+    get_pest_prototype_orphan_sweep_service,
+    get_system_settings_repo,
 )
+from app.common.enums import PestImageStatus
+from app.common.exceptions import KamerplanterError
 from app.config.settings import settings
+from app.domain.engines.consent_engine import PEST_REFERENCE_CONTRIBUTION
 from app.domain.models.pest_taxonomy import get_taxon
 from app.tasks import celery_app
 
@@ -89,14 +111,39 @@ def _resolve_label_and_category(pest_key: str) -> tuple[str, str] | None:
     return taxon.slug, taxon.category.value
 
 
+def _contributor_consented(contributor_key: str) -> bool:
+    """Whether the contributing person opted in to ``pest_reference_contribution`` (REQ-025).
+
+    Deliberately not ``reference_contribution``: that purpose's text names only
+    gallery photos of plants, so a grant of it does not cover the pest index.
+    A missing record (never asked, or an unknown / erased person) and a revoked
+    record (``granted=False`` + ``revoked_at``) both refuse.
+    """
+    if not contributor_key.strip():
+        return False
+    record = get_consent_repo().get_by_user_and_purpose(contributor_key, PEST_REFERENCE_CONTRIBUTION)
+    return get_consent_engine().is_processing_allowed(PEST_REFERENCE_CONTRIBUTION, record)
+
+
 def _index_promoted(contribution_key: str) -> dict:
     """Upsert a promoted contribution's image as a user-contributed prototype."""
     if not settings.pest_detection_enabled:
         return {"status": "noop", "reason": "pest_detection_disabled"}
 
+    # REQ-027 — Light mode has no consent subsystem, so no contributor can have
+    # opted in; the image may be promoted but is never indexed there.
+    if settings.kamerplanter_mode == "light":
+        return {"status": "noop", "reason": "light_mode"}
+
     contribution = get_pest_image_repo().get_by_key(contribution_key)
     if contribution is None:
         return {"status": "noop", "reason": "contribution_not_found"}
+
+    # REQ-044 §3.4 — the data set is built from user images "mit Consent": the
+    # contributor's own ``pest_reference_contribution`` opt-in, checked before any
+    # byte is read, the marker is written or the inference service is called.
+    if not _contributor_consented(contribution.contributed_by):
+        return {"status": "noop", "reason": "no_consent"}
 
     resolved = _resolve_label_and_category(contribution.pest_key)
     if resolved is None:
@@ -107,6 +154,10 @@ def _index_promoted(contribution_key: str) -> dict:
     attachment = attachment_service.get_attachment(contribution.attachment_id, contribution.tenant_key)
     image_data = run_async(_read_attachment_bytes(attachment_service, attachment))
 
+    # #1759 — record that a contributed prototype may now exist before writing
+    # it, so a process that cannot reach the index refuses to report an erasure
+    # as complete. A failed marker write fails the index attempt.
+    get_system_settings_repo().record_pest_prototype_contributions(datetime.now(UTC))
     get_pest_inference_client().upsert_prototype(
         image_data,
         label=label,
@@ -115,6 +166,21 @@ def _index_promoted(contribution_key: str) -> dict:
         source_record_id=contribution_key,
         source_url=f"contribution://{contribution.tenant_key}/{contribution_key}",
     )
+    # #1759 — a deletion (single, Art. 17 or tenant) that ran between the read
+    # above and the upsert has already erased the prototype, so the upsert just
+    # re-created it with nothing left to find it by. Re-check and undo.
+    # A demotion in the same window already ran its retract; the row just
+    # written would be an active prototype of a private image.
+    current = get_pest_image_repo().get_by_key(contribution_key)
+    if current is None or current.status != PestImageStatus.PROMOTED:
+        try:
+            get_pest_inference_client().erase_contributions([contribution_key])
+        except Exception:  # noqa: BLE001 — handed to a retrying task, never dropped
+            # Nothing else can find this row once the document is gone, so the
+            # undo must not die with this attempt (code review of #1766).
+            erase_pest_prototype_task.delay(contribution_key)
+            return {"status": "retract_after_delete_queued", "label": label, "contribution_key": contribution_key}
+        return {"status": "retracted_after_delete", "label": label, "contribution_key": contribution_key}
     return {"status": "indexed", "label": label, "contribution_key": contribution_key}
 
 
@@ -183,8 +249,9 @@ def index_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type
 def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # type: ignore[no-untyped-def]
     """REQ-010 P2 — retract a demoted user pest image from the few-shot index.
 
-    The inference-service has no delete-by-provenance route, so the retract
-    deactivates the matching prototype(s) (curation gate). Same best-effort
+    Demotion is a curation decision, not an erasure: the retract deactivates
+    the matching prototype(s) (curation gate); deletion by provenance is the
+    erasure's job (#1759). Same best-effort
     semantics as :func:`index_promoted_pest_image_task`.
     """
     try:
@@ -202,3 +269,49 @@ def retract_promoted_pest_image_task(self, contribution_key: str) -> dict:  # ty
 
     logger.info("retract_promoted_pest_image", contribution_key=contribution_key, **_logsafe(outcome))
     return outcome
+
+
+@celery_app.task(  # type: ignore[misc]
+    bind=True,
+    max_retries=12,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=6 * 3600,
+    retry_jitter=True,
+)
+def erase_pest_prototype_task(self, contribution_key: str) -> dict:  # type: ignore[no-untyped-def]
+    """#1759 — delete a contributed prototype whose contribution is already gone.
+
+    Queued when the promotion index task re-created a prototype that a
+    concurrent delete had just erased and could not undo it inline. Retries
+    with backoff for about three days; the key is the only handle on the row.
+    """
+    deleted = get_pest_inference_client().erase_contributions([contribution_key])
+    logger.info("pest_prototype_erased_after_delete", contribution_key=contribution_key, deleted=deleted)
+    return {"status": "erased", "deleted": deleted}
+
+
+@celery_app.task(name="pest_image.sweep_orphaned_prototypes")  # type: ignore[misc]
+def sweep_orphaned_pest_prototypes_task() -> dict[str, object]:
+    """#1771 — delete contributed pest prototypes whose contribution document is gone.
+
+    Daily on the retention beat, after the scheduled erasures. Idempotent: a run
+    that finds no orphan removes nothing. Fails loud — an unreachable index or a
+    refusing configuration raises (the task is recorded as failed, the next beat
+    tries again) and nothing is recorded as done. Counts only, never a key.
+    """
+    try:
+        result = run_async(get_pest_prototype_orphan_sweep_service().run())
+    except Exception as exc:
+        # Our own errors carry an operator hint and never a key (#1700); any
+        # other error's text is not ours to vouch for, so only its class is logged.
+        reason = str(exc) if isinstance(exc, KamerplanterError) else None
+        logger.error("pest_prototype_orphan_sweep_failed", error=type(exc).__name__, reason=reason)
+        raise
+    return {
+        "status": result.status,
+        "examined": result.examined,
+        "orphaned": result.orphaned,
+        "removed": result.removed,
+        "binding": result.binding,
+    }

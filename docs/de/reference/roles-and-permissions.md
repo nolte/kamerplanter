@@ -49,8 +49,8 @@ Diese erhältst du **zusätzlich** zur fachlichen Rolle — keine, eine oder bei
 
 | Zusatzberechtigung | Umfasst | Gedacht für |
 |--------------------|---------|-------------|
-| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Dienstkonten, Garten löschen | Vorstand, Lehrkraft, Inhaberin |
-| **Technik** | Home Assistant und andere Integrationen anbinden, Sensoren und Aktoren einrichten, Import ausführen, Anreicherungsquellen | Technikwart, betreuender Dienstleister |
+| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Garten löschen (nur zusammen mit der Rolle Leitung — Verwaltung allein reicht dafür nicht) | Vorstand, Lehrkraft, Inhaberin |
+| **Technik** | Home Assistant und andere Integrationen anbinden, Sensoren und Aktoren einrichten, Import ausführen, Anreicherungsquellen, Dienstkonten (nur zusammen mit der Rolle Leitung) | Technikwart, betreuender Dienstleister |
 
 Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vorstand verwaltet Mitglieder, ohne die Sensorik anzufassen. Das technikaffine Mitglied bindet Home Assistant an, ohne die Mitgliederliste zu sehen. Und ein Schüler dokumentiert Messwerte, ohne versehentlich ein Beet löschen zu können.
 
@@ -95,11 +95,13 @@ Der praktische Gewinn: Rechte werden **einzeln** vergeben statt im Paket. Der Vo
 | Mitglieder einladen, Rollen ändern, entfernen | Nein | Nein | Nein | **Ja** | Nein |
 | Garteneinstellungen ändern | Nein | Nein | Nein | **Ja** | Nein |
 | Standort-Zuweisungen verwalten | Nein | Nein | Nein | **Ja** | Nein |
-| Garten löschen | Nein | Nein | Nein | **Ja** | Nein |
+| Garten löschen§ | Nein | Nein | Nein | Nein | Nein |
 | Mitgliederliste einsehen (Name und Rolle) | Ja | Ja | Ja | — | — |
 | Den Garten selbst verlassen | Ja | Ja | Ja | Ja* | Ja |
 
 *Als einziges Mitglied mit **Verwaltung** kannst du den Garten nicht verlassen, ohne die Berechtigung vorher weiterzugeben — sonst bliebe der Garten ohne jemanden zurück, der noch jemanden einladen könnte.
+
+§Anders als die übrigen Zeilen dieser Tabelle genügt hier keine einzelne Spalte: Den ganzen Garten löschen darf nur, wer **gleichzeitig** die Rolle Leitung und die Zusatzberechtigung Verwaltung hat — eine Leitung ohne Verwaltung nicht, und die Schriftführerin mit Verwaltung aus dem Beispiel oben auch nicht. Ein Dienstkonto darf das nie, selbst mit passender Rolle — ebenso wenig eine Anmeldung mit einem persönlichen API-Schlüssel, auch wenn er zu einem berechtigten Nutzerkonto gehört: Nötig ist eine angemeldete Sitzung. Zusätzlich verlangt das System eine erneute Bestätigung: den Kurznamen des Gartens sowie, sofern das Konto ein lokales Passwort hat, dieses Passwort — ohne lokales Passwort stattdessen eine frische Anmeldung beim verknüpften Anbieter (Google, generisches OIDC) bzw., nur bei ausschließlich GitHub/Apple, einen per E-Mail zugeschickten Bestätigungscode. Nach fünf falschen Bestätigungen sperrt das System diese Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; die Anmeldung selbst bleibt davon unberührt. Dasselbe Bestätigungsverfahren und dieselbe Sperre gelten auch für die eigene Konto-Löschung, die E-Mail-Änderung und die Passwortänderung (Kontoeinstellungen). <!-- Issue #1791, #1813, #1814, #1816, #1815, #1841 -->
 
 ‡Anders als die übrigen Zeilen dieser Tabelle ist das Markieren zur KI-Analyse zusätzlich an die **Autorschaft** gebunden: Ein Gärtner darf ausschließlich Einträge markieren, die er selbst verfasst hat. Nur die Rolle Leitung darf auch Einträge anderer Mitglieder markieren. Details unter [Tagebuch](../user-guide/plant-diary.md).
 
@@ -172,7 +174,7 @@ Diese Daten sind an einen Garten gebunden. Wer im Garten Mitglied ist, sieht sie
 - Pflegeprofile und Überwinterungsprofile
 - Dashboard-Kennzahlen und Kalender
 
-Das heißt konkret: In einem Gemeinschaftsgarten sehen **alle Mitglieder alle Parzellen** — auch die, die ihnen nicht zugewiesen sind. Die Zuweisung von Standorten regelt das Bearbeiten, nicht das Lesen. Ein Gemeinschaftsgarten ist bewusst transparent aufgebaut: Wer den Kompost umsetzt oder wann in Parzelle 7 zuletzt gegossen wurde, soll für alle nachvollziehbar sein.
+Das heißt konkret: In einem Gemeinschaftsgarten sehen **alle Mitglieder alle Parzellen** — auch die, die ihnen nicht zugewiesen sind. Die Zuweisung von Standorten hält nur fest, wer sich kümmert — sie regelt weder das Lesen noch das Bearbeiten. Ein Gemeinschaftsgarten ist bewusst transparent aufgebaut: Wer den Kompost umsetzt oder wann in Parzelle 7 zuletzt gegossen wurde, soll für alle nachvollziehbar sein.
 
 ### Was dir persönlich gehört — über alle Gärten hinweg
 
@@ -274,14 +276,14 @@ Neben den Rollen innerhalb der Gärten gibt es eine Ebene darüber: die Verwaltu
 |-------|--------------|
 | **Plattform-Administrator** | Globalen Stammdaten-Katalog pflegen; festlegen, welche globalen Arten ein Garten sieht; Übersicht über alle Gärten und Nutzerkonten; Anmeldeanbieter konfigurieren; Bilderkennung aktivieren; Garten-eigene Arten und Sorten in den globalen Katalog übernehmen; Gärten und Konten sperren oder wieder freischalten |
 
-Ein Plattform-Administrator ist damit die einzige Rolle, die über Gartengrenzen hinweg blicken kann — allerdings nur auf **Verwaltungsdaten**: Er sieht, dass ein Garten existiert, wie er heißt und wer Mitglied ist. Er erhält dadurch nicht automatisch Lesezugriff auf die Pflanzen und Ernten eines fremden Gartens; dafür müsste ihn ein Admin dieses Gartens regulär als Mitglied aufnehmen.
+Ein Plattform-Administrator ist damit die einzige Rolle, die über Gartengrenzen hinweg blicken kann — allerdings nur auf **Verwaltungsdaten**: Er sieht, dass ein Garten existiert, wie er heißt und wer Mitglied ist. Er erhält dadurch nicht automatisch Lesezugriff auf die Pflanzen und Ernten eines fremden Gartens; dafür müsste ihn jemand mit der Zusatzberechtigung Verwaltung in diesem Garten regulär als Mitglied aufnehmen.
 
-Die Rolle ist unabhängig von den Garten-Rollen: Ein Plattform-Administrator ist in deinem privaten Garten trotzdem kein Mitglied. Umgekehrt macht Admin-Sein in einem Gemeinschaftsgarten niemanden zum Plattform-Administrator.
+Die Rolle ist unabhängig von den Garten-Rollen: Ein Plattform-Administrator ist in deinem privaten Garten trotzdem kein Mitglied. Umgekehrt macht Leitung oder Verwaltung in einem Gemeinschaftsgarten niemanden zum Plattform-Administrator.
 
 Was der Plattform-Bereich im Detail bietet, steht unter [Plattform-Admin](../user-guide/admin.md).
 
 !!! warning "Noch nicht implementiert"
-    Eine reine Lese-Rolle für den Plattform-Bereich ist geplant — gedacht für Monitoring und Prüfungen, ohne Schreibrechte auf globale Daten. Sie wird es ermöglichen, den Verwaltungsbereich einzusehen, ohne etwas ändern zu können. Derzeit gibt es nur den vollen Plattform-Administrator. <!-- REQ-024 §1a.4 Platform-Viewer -->
+    Eine reine Lese-Rolle für den Plattform-Bereich ist geplant — gedacht für Monitoring und Prüfungen, ohne Schreibrechte auf globale Daten. Sie wird es ermöglichen, den Verwaltungsbereich einzusehen, ohne etwas ändern zu können. Derzeit gibt es nur den vollen Plattform-Administrator. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ---
 
@@ -293,7 +295,7 @@ Neben Konten für Menschen gibt es **Dienstkonten** für die Anbindung anderer S
 
 Ein Dienstkonto ist technisch ein normales Konto mit zwei Besonderheiten: Es hat kein Passwort und kann sich nicht über die Oberfläche anmelden — es authentifiziert sich ausschließlich über einen Schlüssel. Und es erhält **dieselben Rollen wie ein Mensch**: Ein Dienstkonto mit der Gärtner-Rolle in deinem Garten darf genau das, was ein menschlicher Gärtner dort darf, und nicht mehr.
 
-Daraus folgt die praktische Regel für die Einrichtung: Gib einem Dienstkonto die niedrigste Rolle, die für seine Aufgabe reicht. Ein Anzeige-Dashboard braucht **Beobachter**. Ein Automatisierungsdienst, der Gießvorgänge protokolliert, braucht **Gärtner**. **Leitung** braucht ein Dienstkonto nur, wenn es Standorte anlegen soll; für die Mitgliederverwaltung bräuchte es zusätzlich die Zusatzberechtigung Verwaltung — beides ist selten der Fall.
+Daraus folgt die praktische Regel für die Einrichtung: Gib einem Dienstkonto die niedrigste Rolle, die für seine Aufgabe reicht. Ein Anzeige-Dashboard braucht **Beobachter**. Ein Automatisierungsdienst, der Gießvorgänge protokolliert, braucht **Gärtner**. **Leitung** bekommt ein Dienstkonto in deinem Garten nicht: Mehr als Gärtner vergibt der Garten an eine Maschine nicht, auch nicht nachträglich über die Mitgliederverwaltung. Ein Dienstkonto anlegen, seinen Schlüssel erneuern oder es entfernen darf, wer im Garten Leitung ist **und** die Zusatzberechtigung Technik hat. <!-- Issue #2137 -->
 
 Bei KI-Assistenten, die über die Werkzeug-Schnittstelle angebunden sind, wirkt dieselbe Rangfolge: Ein Beobachter-Konto darf ausschließlich abfragen, ein Gärtner-Konto darf zusätzlich dokumentieren, und einrichtende Eingriffe wie das Anlegen von Standorten bleiben Konten mit der Rolle Leitung vorbehalten.
 
@@ -308,10 +310,12 @@ Kamerplanter kann ohne Anmeldung betrieben werden — als lokale Einzelinstallat
 <!-- Quelle: src/backend/app/common/auth.py is_platform_admin -->
 
 - Es gibt genau ein Konto, und es ist automatisch angemeldet.
-- Dieses Konto ist Admin in seinem Garten **und** Plattform-Administrator.
+- Dieses Konto hat in seinem Garten die Rolle Leitung mit beiden Zusatzberechtigungen **und** ist Plattform-Administrator.
 - Es gibt keine Mitgliederverwaltung, keine Einladungen und keine Rollenwahl — es ist niemand da, dem man eine Rolle geben könnte.
 
-Alles auf dieser Seite Beschriebene wird erst relevant, wenn die Installation mit Anmeldung betrieben wird. Der Wechsel ist möglich: Beim Umstieg wird das erste registrierte Konto zum Admin des bestehenden Gartens und zum Plattform-Administrator. Details unter [Light-Modus](../user-guide/light-mode.md).
+Alles auf dieser Seite Beschriebene wird erst relevant, wenn die Installation mit Anmeldung betrieben wird. Details unter [Light-Modus](../user-guide/light-mode.md).
+
+Beim Wechsel vom Light-Modus auf den Betrieb mit Anmeldung sperrt Kamerplanter das bisherige Einzelkonto. Das erste registrierte Konto kann den bestehenden Garten in einem Dialog übernehmen: Es wird seine Leitung mit beiden Verwaltungsrechten und, solange es noch keinen gibt, Plattform-Admin. Details unter [Light-Modus](../user-guide/light-mode.md#upgrade-light-full). <!-- REQ-027 §7a, #1855 -->
 
 ---
 
@@ -331,13 +335,17 @@ Drei Einschränkungen sind für den Betrieb wichtig, weil die Spezifikation hier
 
 - **Die Beobachter-Rolle ist noch keine belastbare Schranke.** Ein erheblicher Teil der schreibenden Endpunkte prüft derzeit nur die Mitgliedschaft im Garten, nicht die Mindestrolle. Wer die Schnittstelle direkt anspricht, kann als Beobachter deshalb Daten anlegen und ändern, obwohl die Oberfläche das nicht anbietet. Vergib die Beobachter-Rolle daher als organisatorische Festlegung, nicht als Sicherheitsgrenze gegenüber einem Mitglied, dem du nicht vertraust. Vollständig durchgesetzt ist die Rangfolge unter anderem bei Aktorik, Vermehrung, Aquaponik, Nachernte, Inventar und Mitgliederverwaltung.
 - **Benachrichtigungen erreichen bisher nur eine Person.** Nach dem Zielbild wird jede fällige Aufgabe allen Gärtnern des Gartens zugestellt. Umgesetzt ist derzeit ein einzelner Empfänger — wer die Aufgabe angelegt oder zuletzt bearbeitet hat, ersatzweise die zugewiesene Person. Entsteht eine Pflegeaufgabe automatisch und ist niemand zugewiesen, wird derzeit **niemand** benachrichtigt.
-- **Einige Nebenpfade rund um die Pflanze liegen außerhalb der Gartenprüfung.** Die eigentlichen Pflanzen-Endpunkte prüfen die Zugehörigkeit zum Garten bei jedem Zugriff sauber. Drei ältere Pfade sind jedoch nicht garten-, sondern nur anmeldegebunden: die Wachstumsphasen einer Pflanze, ihre Pflegeerinnerungen und eine ältere Dashboard-Zusammenfassung. Wer den Schlüssel einer fremden Pflanze kennt, kann darüber Phasen- und Pflegedaten lesen und ändern. Ebenso sind die schreibenden Zugriffe auf den globalen Stammdaten-Katalog (Arten, Lebenszyklen, Phasenprofile) noch nicht auf die Plattform-Rolle beschränkt.
+- **Einige Nebenpfade rund um die Pflanze liegen außerhalb der Gartenprüfung.** Die eigentlichen Pflanzen-Endpunkte prüfen die Zugehörigkeit zum Garten bei jedem Zugriff sauber. Drei ältere Pfade sind jedoch nicht garten-, sondern nur anmeldegebunden: die Wachstumsphasen einer Pflanze, ihre Pflegeerinnerungen und eine ältere Dashboard-Zusammenfassung. Wer den Schlüssel einer fremden Pflanze kennt, kann darüber Phasen- und Pflegedaten lesen und ändern. Der schreibende Zugriff auf den globalen Stammdaten-Katalog ist inzwischen auf die Plattform-Rolle beschränkt: Arten und Sorten seit der Einführung der geteilten Katalog-Regel, Phasenprofile, Phasenabläufe und der Pflanzenschutz-Katalog (Schädlinge, Krankheiten, Behandlungsmittel) zuletzt nachgezogen. Für Düngemittel gilt dieselbe Regel (Issue #2100): Ein globales Düngemittel ändern oder löschen darf nur der Plattform-Administrator — vorher konnte jeder Gärtner jedes Gartens die Werte eines geteilten Düngemittels überschreiben. Ein Düngemittel eines anderen Gartens antwortet auf Ändern und Löschen mit „nicht gefunden“, das eigene verlangt Gärtner (Löschen: Leitung). Auch geteilte Arbeitsablauf-Vorlagen (etwa der generierte Aktivitätsplan einer Art) gehören keinem einzelnen Garten (Issue #2101): Ändern legt deinem Garten eine eigene Kopie an, Löschen und das Schreiben ihrer Phasen oder Aufgaben-Vorlagen ist nicht möglich — dupliziere die Vorlage zuerst. Lesen bleibt für jedes Mitglied offen — ein Katalog, den niemand lesen darf, wäre so unbrauchbar wie einer, den jeder ändern darf.
+
+Auch der CSV-Import ist jetzt gartengebunden: Ein hochgeladener Import gehört dem Garten, der aktiv war, als er hochgeladen wurde. Andere Gärten sehen ihn nicht und können ihn nicht übernehmen oder löschen; innerhalb des eigenen Gartens darf ab Gärtner hochgeladen und übernommen werden, gelöscht nur von der Leitung. Importe, die vor dieser Änderung hochgeladen wurden, tragen keinen Garten. Sie sind damit für niemanden mehr erreichbar — auch nicht für Konten ohne eigenen Garten — und werden beim nächsten Start durch eine Datenbank-Migration entfernt; ein noch nicht bestätigter Import muss danach erneut hochgeladen werden.
+
+Eine Folge betrifft die Phasenabläufe: Ein Ablauf, den jemand aus einem System-Ablauf dupliziert hat, war nie gartenbezogen — das Datenmodell kennt dort keinen Garten-Schlüssel, die Kopie landet also im selben installationsweiten Katalog wie die Vorlage und ist für alle sichtbar. Sie kann deshalb ab sofort ebenfalls nur noch vom Plattform-Administrator bearbeitet, dupliziert oder gelöscht werden. Auf der Entwicklungs-Installation gemessen (2026-09-18): 21 Phasenabläufe, davon **0** duplizierte — die Einschränkung trifft dort niemanden, auf einer Installation mit eigenen Kopien aber sehr wohl.
 
 Die ersten beiden Punkte betreffen nur die Abstufung **innerhalb** eines Gartens. Der dritte betrifft die Trennung **zwischen** Gärten: Für die Kernressourcen — Pflanzenliste, Standorte, Aufgaben, Ernten, Fotos — ist sie in allen Abfragen durchgesetzt; für die genannten Nebenpfade ist sie es noch nicht. Betreibe eine Instanz mit mehreren, einander unbekannten Parteien daher vorerst nur mit vertrauenswürdigen Konten.
 
 ### Standort-Zuweisungen über die API
 
-Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verwaltet; sämtliche schreibenden Aufrufe dort setzen die Zusatzberechtigung Verwaltung voraus. Eine Zuweisung verbindet eine Mitgliedschaft mit einem Standort und trägt ein Kennzeichen für den Bearbeitungswunsch sowie ein freies Notizfeld. Die zugehörigen Aufrufe stehen im Frontend bereits als Schnittstellenfunktionen bereit, sind aber noch an keine Seite angebunden.
+Zuweisungen werden unter dem Pfad `/api/v1/tenants/{garten-kurzname}/assignments` verwaltet; sämtliche schreibenden Aufrufe dort setzen die Zusatzberechtigung Verwaltung voraus. Eine Zuweisung verbindet eine Mitgliedschaft mit einem Standort und trägt ein Kennzeichen für den Bearbeitungswunsch sowie ein freies Notizfeld. Die zugehörigen Aufrufe stehen im Frontend bereits als Schnittstellenfunktionen bereit, sind aber noch an keine Seite angebunden.
 
 ---
 
@@ -350,7 +358,7 @@ Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verw
     Nein. Deine Zimmerpflanzen liegen in deinem persönlichen Garten, der von allen anderen Gärten vollständig getrennt ist. Vereinsmitglieder sehen in der Mitgliederliste nur deinen Anzeigenamen und deine Rolle im Verein.
 
 ??? question "Sehen andere Vereinsmitglieder meine Parzelle im Verein?"
-    Ja. Innerhalb eines Gartens dürfen alle Mitglieder alles lesen — auch fremde Parzellen. Die Zuweisung von Standorten ist dafür gedacht, das *Bearbeiten* zu regeln, nicht das Lesen. Wenn du etwas wirklich privat halten willst, gehört es in deinen persönlichen Garten.
+    Ja. Innerhalb eines Gartens dürfen alle Mitglieder alles lesen — auch fremde Parzellen. Die Zuweisung von Standorten zeigt nur an, wer sich um eine Parzelle kümmert — sie schränkt weder Lesen noch Bearbeiten ein. Wenn du etwas wirklich privat halten willst, gehört es in deinen persönlichen Garten.
 
 ??? question "Kann die Vereinsverwaltung meine Rolle ändern, ohne mich zu fragen?"
     Ja, innerhalb seines Gartens. Er kann dich dort zum Beobachter machen oder ganz entfernen. Auf deinen persönlichen Garten und deine anderen Mitgliedschaften hat er keinen Zugriff.
@@ -362,10 +370,10 @@ Zuweisungen werden unter dem Pfad `/api/v1/t/{garten-kurzname}/assignments` verw
     Nein. Du siehst immer genau einen Garten. Benachrichtigungen sind die Ausnahme: Sie erreichen dich unabhängig davon, welcher Garten gerade geöffnet ist.
 
 ??? question "Wie bekomme ich Rechte für den Plattform-Bereich?"
-    Über eine Admin-Mitgliedschaft im technischen Plattform-Mandanten — die vergibt ein bestehender Plattform-Administrator. Bei einer eigenen Installation erhält das erste registrierte Konto diese Rolle automatisch.
+    Über eine Mitgliedschaft mit der Rolle Leitung im technischen Plattform-Mandanten — die vergibt ein bestehender Plattform-Administrator, mit seinem Passwort bestätigt. Niemand kann sich die Rolle selbst geben. Bei einer eigenen Installation richtest du das erste Plattform-Admin-Konto auf dem Server ein (`python -m app.migrations.add_platform_admin <e-mail>`); ein erstes registriertes Konto wird nicht automatisch Plattform-Administrator.
 
 ??? question "Braucht Home Assistant ein Konto mit Zusatzberechtigungen?"
-    Nein. Ein Dienstkonto mit der Gärtner-Rolle genügt zum Lesen und Dokumentieren. Nur zum Anlegen von Standorten wäre die Rolle Leitung nötig, und zum *Einrichten* der Home-Assistant-Anbindung selbst die Zusatzberechtigung Technik.
+    Nein. Ein Dienstkonto mit der Gärtner-Rolle genügt zum Lesen und Dokumentieren. Standorte legt eine Person mit der Rolle Leitung an; das Dienstkonto selbst richtet ein, wer Leitung ist und die Zusatzberechtigung Technik hat.
 
 ---
 

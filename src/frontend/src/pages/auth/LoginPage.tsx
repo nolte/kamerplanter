@@ -15,10 +15,13 @@ import CircularProgress from '@mui/material/CircularProgress';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Tooltip from '@mui/material/Tooltip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { loginLocal, clearError } from '@/store/slices/authSlice';
+import { loginLocal, clearError, EMAIL_NOT_VERIFIED } from '@/store/slices/authSlice';
 import { getOAuthProviders } from '@/api/endpoints/auth';
+import ResendVerificationAction from '@/pages/auth/ResendVerificationAction';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
+import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -29,12 +32,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  // #2037 — the address of the last sign-in the backend refused as unverified.
+  // Kept apart from the typed field so a later edit of the field does not move
+  // the resend to an address nobody signed in with.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   // AP-12 (FE-L3): load the optional OAuth providers with explicit error state
   // instead of a silent `.catch(() => {})`, so a failed load surfaces a hint
   // rather than looking identical to "no providers configured".
   const loadOAuthProviders = useCallback(() => getOAuthProviders(), []);
   const { options: oauthProviders, error: oauthError } = useAsyncOptions(loadOAuthProviders);
+  // #2132 — a closed instance offers no registration entry; an invite-only one
+  // says that registering needs an invitation.
+  const registration = useRegistrationMode();
+  // #2162 — the invitation an unauthenticated visitor opened: said on the page, and handed to the
+  // registration so an invite-only instance admits the invited address.
+  const [invitationToken, setInvitationToken] = useState(pendingInvitationToken);
 
   useEffect(() => {
     dispatch(clearError());
@@ -42,13 +55,22 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      // #2162 — back to the invitation the visitor opened before signing in, if any.
+      navigate(postLoginPath(), { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(loginLocal({ email, password, remember_me: rememberMe }));
+    setUnverifiedEmail(null);
+    try {
+      await dispatch(loginLocal({ email, password, remember_me: rememberMe })).unwrap();
+    } catch (rejection) {
+      // Every other refusal is shown from the store's `error`, as before.
+      if ((rejection as { code?: string } | null)?.code === EMAIL_NOT_VERIFIED) {
+        setUnverifiedEmail(email);
+      }
+    }
   };
 
   return (
@@ -59,7 +81,36 @@ export default function LoginPage() {
             {t('pages.auth.login')}
           </Typography>
 
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {/* An unverified address gets its own message and the way out instead of
+              the backend's English refusal text (#2037). The refusal of a correct
+              password mails a fresh link itself when one is due (#2046), so the
+              message promises it conditionally — the answer never says whether a
+              mail went out. The anonymous resend stays as the fallback. */}
+          {unverifiedEmail ? (
+            <Box sx={{ mb: 2 }}>
+              <Alert severity="warning" data-testid="login-email-not-verified">
+                {t('pages.auth.emailNotVerified')}
+              </Alert>
+              <ResendVerificationAction email={unverifiedEmail} />
+            </Box>
+          ) : (
+            error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+          )}
+
+          {invitationToken && (
+            <Alert
+              severity="info"
+              sx={{ mb: 2 }}
+              data-testid="login-pending-invitation"
+              // #2162 review W2 — a visitor who does not want to (or cannot) use the invitation drops it.
+              onClose={() => {
+                forgetPendingInvitation();
+                setInvitationToken(null);
+              }}
+            >
+              {t('pages.auth.pendingInvitation')}
+            </Alert>
+          )}
 
           <Form onSubmit={handleSubmit}>
             <TextField
@@ -135,10 +186,21 @@ export default function LoginPage() {
             </Button>
           </Form>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Link component={RouterLink} to="/register" variant="body2">
-              {t('pages.auth.registerLink')}
-            </Link>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            {/* Shown while the mode loads (open is the default); hidden only once
+                the instance said it is closed. */}
+            {registration.mode !== 'closed' && (
+              <Link
+                component={RouterLink}
+                to={invitationToken ? `/register?invitation=${encodeURIComponent(invitationToken)}` : '/register'}
+                variant="body2"
+                data-testid="login-register-link"
+              >
+                {registration.mode === 'invite_only' || invitationToken
+                  ? t('pages.auth.registerWithInvitationLink')
+                  : t('pages.auth.registerLink')}
+              </Link>
+            )}
             <Link component={RouterLink} to="/password-reset" variant="body2">
               {t('pages.auth.forgotPassword')}
             </Link>
@@ -161,6 +223,12 @@ export default function LoginPage() {
                 </Button>
               ))}
             </>
+          )}
+
+          {registration.mode === 'closed' && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }} data-testid="login-registration-closed">
+              {t('pages.auth.registrationClosedHint')}
+            </Typography>
           )}
 
           {oauthError && (

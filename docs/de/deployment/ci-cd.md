@@ -43,6 +43,8 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `release-cd-refresh-master.yml` | Veröffentlichtes Release | `main`-Branch auf den Release-Stand aktualisieren |
 | `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
 | `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht |
+| `lane-inputs.yml` | wöchentlich auf `develop`, manuell | Misst, welche Dateien die gefilterten Jobs lesen, vergleicht mit `.github/lane-inputs/` und schlägt Abweichungen als Bot-Pull-Request vor ([Details](#lane-inputs)) |
+| `reach-audit.yml` | wöchentlich (sonntags 02:43 UTC), manuell | Führt die Capability-Reach-Audit einschließlich der T2-Proben mit vollem Stack auf einem Runner aus; beratend, kein Merge-Gate ([Details](#reach-audit)) |
 
 ---
 
@@ -55,6 +57,7 @@ Der Backend-CI-Workflow läuft bei jedem Push auf `develop` und bei Pull Request
 1. **Ruff Lint** — prüft den Python-Code auf Stil- und Qualitätsprobleme (`ruff check .`)
 2. **Ruff Format** — stellt sicher, dass der Code korrekt formatiert ist (`ruff format --check .`)
 3. **Unit-Tests** — führt alle Tests unter `tests/unit/` mit pytest aus
+4. **Testabdeckung** — misst die Abdeckung im selben Testlauf (kein zweiter Lauf) und lässt den Job unter 60 % fehlschlagen
 
 ```yaml title=".github/workflows/backend.yml (vereinfacht)"
 jobs:
@@ -171,7 +174,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v4
         with:
-          node-version: 22    # (1)!
+          node-version: 25    # (1)!
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -182,7 +185,7 @@ jobs:
       - run: npm run build
 ```
 
-1. Nur der `lint-test-build`-Job nutzt Node 22. Die `bundle-budget`- und `lighthouse`-Jobs im selben Workflow laufen auf Node 24 — passend zum Frontend-Dockerfile, das mit `node:24-alpine` baut (siehe [Frontend-Image](#frontend-image) unten).
+1. Alle Frontend-Jobs laufen auf Node 26, wie die lokale Entwicklung. Der Check heißt aus historischen Gründen weiter `lint-test-build (22)`, weil er der required Context in `.github/settings.yml` ist. Das Frontend-Dockerfile baut ebenfalls mit `node:26-alpine` (siehe [Frontend-Image](#frontend-image) unten).
 
 !!! tip "Lokale Prüfung vor dem Push"
     ```bash
@@ -209,7 +212,7 @@ Zusätzlich zu `lint-test-build` laufen im selben Workflow zwei eigenständige J
 | Initiales CSS-Bundle | 50 KB | unter Budget |
 | `/dashboard`-Route-Chunk | 12 KB | unter Budget |
 
-Eine Überschreitung lässt den Job fehlschlagen; der Bundle-Analyzer-Report (Treemap via `rollup-plugin-visualizer`) wird als Artefakt `bundle-stats` hochgeladen. Möglich wird dieses Budget durch eine `manualChunks`-Vendor-Strategie in `vite.config.ts`: React, MUI-Core, Redux Toolkit und react-i18next werden eager in stabile, langlebige Vendor-Chunks gruppiert, während schwere routen-gebundene Bibliotheken (`recharts`, `@mui/x-*`, `react-grid-layout`) lazy bleiben.
+Der Job läuft nur bei Pull Requests, die das Frontend ändern (dieselbe Erkennung wie `lint-test-build`), sowie bei jedem Push auf `develop`. Eine Überschreitung lässt den Job fehlschlagen; der Bundle-Analyzer-Report (Treemap via `rollup-plugin-visualizer`) wird als Artefakt `bundle-stats` hochgeladen. Möglich wird dieses Budget durch eine `manualChunks`-Vendor-Strategie in `vite.config.ts`: React, MUI-Core, Redux Toolkit und react-i18next werden eager in stabile, langlebige Vendor-Chunks gruppiert, während schwere routen-gebundene Bibliotheken (`recharts`, `@mui/x-*`, `react-grid-layout`) lazy bleiben.
 
 !!! note "300-KB-Ziel noch nicht erreicht"
     UI-NFR-003 formuliert für das initiale JavaScript-Bundle einen Zielwert von 300 KB gzip. Das aktuelle Budget von 490 KB sichert lediglich den gemessenen Ist-Stand gegen unbemerktes weiteres Wachstum ab, erreicht das Ziel aber noch nicht. Haupttreiber ist das eager geladene i18n-Übersetzungsbundle (~160 KB gzip). Das Erreichen des 300-KB-Ziels erfordert Lazy-Loading der Übersetzungen und ist als offener Folgeschritt vorgesehen. <!-- UI-NFR-003 R-013 -->
@@ -245,6 +248,9 @@ helm/**         →  publish-helm-charts
 
 Bei einem `v*`-Tag oder manuellem Auslösen wird das Filtern übersprungen — es werden immer alle Komponenten gebaut.
 
+!!! info "Woran ein Filter gemessen wird"
+    Jeder Pfadfilter — ob an `on:` eines Workflows oder als `dorny/paths-filter`-Schritt — wird nicht an dem geprüft, was der Workflow-Text *erwähnt*, sondern an dem, was der Job tatsächlich *liest*. `scripts/ci/lane_inputs.py` zeichnet die Lesemenge eines Jobs unter `strace` auf (Subprozesse eingeschlossen) und legt sie als Manifest unter `.github/lane-inputs/` ab; der Guard `test_lane_filters_cover_measured_inputs.py` hält jeden Filter dagegen und wird rot, wenn ein gefilterter Job kein Manifest hat, das Manifest älter ist als der Job oder ein gelesener Pfad außerhalb des Filters liegt. Die Regel steht in NFR-018 §4.3. Diese Prüfungen brauchen eine frische Messung, sobald sich ein Job ändert. Deshalb laufen sie nur im wöchentlichen Lauf von `lane-inputs.yml` auf `develop` und in keinem Pull-Request-Check; eine Abweichung behebt dort ein Bot-Pull-Request ([Details](#lane-inputs)).
+
 ### Backend-Image
 
 Das Backend-Image basiert auf `python:3.14-slim` und nutzt ein Multi-Stage-Dockerfile mit einer gemeinsamen `base`-Stage sowie getrennten `dev`- und `prod`-Zielen (`docker build .` ohne `--target` baut standardmäßig `prod`, da es die letzte Stage ist). Die `dev`-Stage läuft als root für Skaffold-Hot-Reload; die `prod`-Stage läuft als nicht-root Nutzer (UID 1000):
@@ -273,7 +279,7 @@ Das Image wird nach `ghcr.io/nolte/kamerplanter-backend` gepusht. Abhängigkeite
 Das Frontend-Image verwendet ebenfalls ein Multi-Stage-Dockerfile: Zuerst wird die React-App mit Node.js 24 gebaut, dann werden die statischen Dateien in ein schlankes, **unprivilegiertes** nginx-Image kopiert (läuft nicht als root, kompatibel mit `runAsNonRoot`):
 
 ```dockerfile title="src/frontend/Dockerfile (vereinfacht)"
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -458,8 +464,78 @@ Dieser Workflow läuft bei Pull Requests auf `develop`, wenn `skaffold.yaml`, He
 4. **`skaffold diagnose`** — validiert die Skaffold-Konfiguration
 5. **`skaffold render`** — erzeugt gerenderte Manifeste und lädt sie als Artefakt hoch
 
+Der Workflow baut keine Images: Er installiert nur das `skaffold`-Binary und prüft, ob Konfiguration und Chart zusammenpassen. Ob die `dev`-Stages der Dockerfiles bauen, zeigt sich beim ersten `skaffold dev` auf deinem Rechner.
+
 !!! note "Skaffold ist nur für die lokale Entwicklung"
     Skaffold wird ausschließlich für die lokale Entwicklungsumgebung (Kind-Cluster) verwendet. Produktions-Deployments laufen nicht über Skaffold, sondern über den `docker-publish`-Workflow in Kombination mit dem Helm-Chart.
+
+---
+
+## Gemessene Eingaben der Pfadfilter (`lane-inputs.yml`) {#lane-inputs}
+
+Viele Workflows laufen nur, wenn ein Pull Request bestimmte Pfade ändert. Ein solcher Pfadfilter ist eine Behauptung: „Eine Änderung außerhalb dieser Pfade kann das Ergebnis des Jobs nicht ändern.“ Ob das stimmt, hängt davon ab, welche Dateien der Job tatsächlich **liest** — nicht davon, welche Pfade im Workflow erwähnt werden.
+
+Deshalb gibt es unter `.github/lane-inputs/` pro gefiltertem Job ein Manifest mit seiner gemessenen Lesemenge. Der Guard `src/backend/tests/unit/guards/test_lane_filters_cover_measured_inputs.py` hält jeden Pfadfilter gegen diese Menge: Liest ein Job eine Datei, die sein Filter nicht auswählt, schlägt der Guard an. Dann wird der **Filter** erweitert. Nur wenn eine Datei für das Ergebnis des Jobs wirklich keine Rolle spielt oder ein anderer, ungefilterter Pflicht-Job sie ohnehin prüft, steht sie mit konkreter Begründung unter `accepted_gaps` (mit `covered_by`, wenn ein anderer Job einspringt — der Guard prüft dann, dass dieser Job die Datei laut seinem eigenen Manifest auch liest).
+
+### Was der Workflow tut
+
+Der Workflow `lane-inputs.yml` misst die Lesemengen dort, wo die Jobs selbst laufen — auf einem GitHub-Runner:
+
+1. **plan** liest alle Manifeste und erzeugt pro Manifest einen Matrix-Eintrag. Eine zweite Liste der Jobs gibt es nicht.
+2. **record** führt die im Manifest festgehaltenen Befehle unter `strace` erneut aus und schreibt ein frisches Manifest. Die Umgebung des echten Jobs wird aus dessen Workflow abgeleitet (zum Beispiel ein per `$GITHUB_PATH` eingehängtes `.venv/bin`). Fehlt ein Werkzeug oder schlägt ein Befehl fehl, wird kein kürzeres Manifest geschrieben, sondern der Eintrag schlägt fehl.
+3. **compare** vergleicht die eingecheckten Manifeste mit der Messung (Lesemenge, Job-Hash, Status, Befehle) und schlägt bei jeder Abweichung an.
+4. **guard** lässt die Regeln des Guards laufen, die eingecheckte Manifeste gegen die aktuellen Workflows halten — einmal gegen den Stand auf `develop` und einmal mit der frischen Messung darübergelegt.
+5. **propose** öffnet bei einer Abweichung einen Bot-Pull-Request auf dem Branch `bot/lane-inputs-refresh`, der genau die Messung enthält. Ist der Guard mit der Messung grün, trägt er das Label `automerge` und wird gemergt, sobald die Pflicht-Checks grün sind. Gibt es keine Abweichung, öffnet er nichts und schließt einen noch offenen Bot-Pull-Request.
+
+Er läuft wöchentlich auf `develop` und auf Abruf, **nicht** bei Pull Requests. Ein Pull Request, der einen Workflow-Job oder die Eingaben eines gefilterten Jobs ändert, braucht also keine Messung: Die Regeln, die dafür eine Messung bräuchten, laufen in keinem Pull-Request-Check. Die Abweichung zeigt der nächste Lauf auf `develop`, und der Bot-Pull-Request behebt sie. Workflow und Guard sind **nicht verpflichtend** (advisory); über eine Hochstufung wird anhand ihrer gemessenen Historie entschieden (NFR-018 §4).
+
+!!! note "Warum der wöchentliche Lauf auch ohne eigenen Fehler rot werden kann"
+    Viele Jobs listen Verzeichnisse auf. Kommt dort eine Datei hinzu, wächst ihre Lesemenge — das eingecheckte Manifest ist dann veraltet, obwohl niemand etwas falsch gemacht hat. Genau das soll der wöchentliche Lauf sichtbar machen; der Bot-Pull-Request bringt die Manifeste danach wieder auf den gemessenen Stand.
+
+### Wenn der Bot-Pull-Request nicht automatisch gemergt wird
+
+`reads:` wird nie von Hand bearbeitet. Trägt der Bot-Pull-Request kein `automerge`, reicht die Messung allein nicht: Der Job liest einen Pfad, den sein Filter nicht auswählt. Dann erweiterst du auf dem Bot-Branch den Pfadfilter im Workflow — oder begründest die Lücke unter `accepted_gaps`. Der Body des Bot-Pull-Requests nennt die Pfade. Ändert sich dabei die Job-Definition (nicht nur die Filtermuster, die im Job-Hash nicht enthalten sind), stößt du danach einen neuen Lauf an:
+
+```bash
+gh workflow run lane-inputs.yml --ref develop
+```
+
+Den Guard mit diesen Regeln startest du lokal so (aus `src/backend`):
+
+```bash
+python -m pytest -q tests/unit/guards/test_lane_filters_cover_measured_inputs.py tests/unit/test_lane_inputs_recorder.py --lane-inputs-drift -m lane_inputs_drift
+```
+
+Ein Lauf auf einem anderen Branch als `develop` misst diesen Branch und meldet nur, was er vorschlagen würde; einen Pull Request öffnet er nicht.
+
+---
+
+## Capability-Reach-Audit (`reach-audit.yml`) {#reach-audit}
+
+Die Reach-Audit fragt bei jeder deklarierten Fähigkeit, ob sie wirklich erreicht, was sie verspricht: Sie führt die freigegebenen Proben unter `project/reach-probes/` aus und stuft jede Fähigkeit als *reached*, *partially reached*, *not reached* oder *not probed* ein. Die **T2**-Proben brauchen den vollen Stack mit Seed-Daten (einen Docker-Compose-Stack und den Bau des Reranker-Images). Dieser Workflow führt sie auf einem GitHub-Runner aus, damit du den Stack nicht auf deinem Rechner starten musst.
+
+Der Workflow ist **beratend**: Er läuft wöchentlich und auf Abruf, nie bei Pull Requests, und er ist kein Pflicht-Check.
+
+### Starten
+
+```bash
+gh workflow run reach-audit.yml                       # T0, T1 und T2
+gh workflow run reach-audit.yml -f include_t2=false   # nur T0 und T1
+```
+
+Ein kalter Lauf baut zwei Images (den Backend-Stack und den Reranker mit Modell-Download) und kann deutlich über eine Stunde dauern; ein warmer Lauf braucht rund 15 Minuten.
+
+### Was das Ergebnis bedeutet
+
+Der Job schreibt den Bericht `.audits/capability-reach/<Datum>.md` und lädt ihn als Artefakt `capability-reach-report` hoch; die Job-Zusammenfassung nennt, was Aufmerksamkeit braucht.
+
+- **Der Job ist rot**, wenn eine Probe *not reached* gemessen hat, wenn eine Umgebung (Stack, Seed, Reranker) nicht hochkam, wenn eine Probe *weakened* oder ungültig ist oder wenn der Runner selbst scheiterte.
+- **Der Job bleibt grün und nennt eine Warnung** bei einer *veralteten* Probe (ihre Deklaration hat sich nach der Ableitung geändert), bei einer Fähigkeit, für die sich keine Probe bauen ließ (*not constructible*), und bei *partially reached*. Das sind Abdeckungslücken, keine Defekte. Eine veraltete Probe bearbeitest du nicht von Hand: Du bestätigst sie neu oder leitest sie mit dem Skill `capability-reach-audit` neu ab.
+
+Die Überschrift des Berichts zählt die Einträge, die **nicht geprüft** wurden. Lies diese Zahl zuerst: Sie sagt, wie viel der deklarierten Fläche die Audit nicht gemessen hat.
+
+!!! note "Der Runner gehört nicht zu diesem Repository"
+    `reach_audit.py` stammt aus `nolte/claude-shared` und wird im Workflow auf einem festen Commit ausgecheckt. Den Commit zu ändern ist eine bewusste Ein-Zeilen-Änderung in `reach-audit.yml`.
 
 ---
 
@@ -631,6 +707,13 @@ Ein Rollback ist ein Commit im **GitOps-Repository**: `targetRevision` zurück a
     für das eine Release-Tag, bei dem diese Annahme nicht hielt. `0.1.0` steht
     oben, weil es noch seinen ursprünglichen Release-Zeitstempel trägt; im
     Zweifel den Manifest-Digest pinnen statt einer bloßen Versionsnummer.
+
+!!! warning "Kein Rollback unter eine Migration, die einen Index zurückgezogen hat"
+
+    Ein älteres Backend-Image legt beim Start die eindeutigen Indizes wieder an,
+    die eine spätere Migration entfernt hat; die Migration läuft danach nie
+    wieder. Welche Versionen deshalb als Rollback-Ziel ausscheiden, steht im
+    [Changelog](../changelog/unreleased.md) unter „Betrieb (Rollback)“.
 
 ArgoCD zieht die ältere Chart-Version — mitsamt der Digests, die diese Version pinnt — und die Pods rollen zurück. Prüfe das Ergebnis **im laufenden Pod**, nicht in der Values-Datei und nicht am Controller-Status:
 

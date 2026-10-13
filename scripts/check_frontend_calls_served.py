@@ -72,6 +72,14 @@ that exists but rejects the body, or returns a shape the client mis-reads, passe
 here — which is exactly what happened *around* #1334, whose response fields did
 not match either. It rules out the one failure a browser is otherwise needed to
 see: a call that cannot reach any handler at all.
+
+**Light-only routes count as served.** The app it imports is built in full mode.
+A router mounted only under ``KAMERPLANTER_MODE=light`` (``LIGHT_ONLY_ROUTERS`` in
+``app/api/v1/router.py`` — ``/public/ai/*`` since PR #2208) is added to the route
+side by :func:`collect_light_only_routes`, because the frontend calls it from a
+light-mode-only path. The join cannot see a call site's mode guard, so a
+full-mode call to a light-only path passes here; that half is owned by the
+light-mode tests of the route itself.
 """
 
 from __future__ import annotations
@@ -333,7 +341,7 @@ def unresolved_call_sites(endpoint_dir: Path) -> list[UnresolvedSite]:
     return sorted(unresolved)
 
 
-def collect_mounted_routes(app: Any) -> set[tuple[str, str]]:
+def collect_mounted_routes(app: Any, prefix: str = "") -> set[tuple[str, str]]:
     """Every ``(method, path)`` the app serves, **with its mount prefixes**.
 
     ``include_router`` does not flatten: read ``app.routes`` and you find six
@@ -347,6 +355,7 @@ def collect_mounted_routes(app: Any) -> set[tuple[str, str]]:
 
     Args:
         app: The mounted FastAPI application (or any router-shaped object).
+        prefix: The mount prefix *app* sits under, for a router walked on its own.
 
     Returns:
         The mounted operations as ``(METHOD, path)`` pairs.
@@ -369,7 +378,21 @@ def collect_mounted_routes(app: Any) -> set[tuple[str, str]]:
             if sub is not None and hasattr(sub, "routes"):
                 walk(sub, path)
 
-    walk(app)
+    walk(app, prefix)
+    return found
+
+
+def collect_light_only_routes() -> set[tuple[str, str]]:
+    """Every ``(method, path)`` mounted only when ``KAMERPLANTER_MODE=light``.
+
+    Read from ``LIGHT_ONLY_ROUTERS``, the tuple the mount itself iterates; needs
+    the backend importable, like :func:`load_app` (call that first).
+    """
+    from app.api.v1.router import LIGHT_ONLY_ROUTERS, api_router
+
+    found: set[tuple[str, str]] = set()
+    for router in LIGHT_ONLY_ROUTERS:
+        found |= collect_mounted_routes(router, api_router.prefix)
     return found
 
 
@@ -518,7 +541,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         calls = collect_frontend_calls(endpoint_dir)
         unresolved = unresolved_call_sites(endpoint_dir)
-        mounted = collect_mounted_routes(load_app(backend_dir))
+        mounted = (
+            collect_mounted_routes(load_app(backend_dir)) | collect_light_only_routes()
+        )
     except FrontendCallCheckError as exc:
         print(f"check_frontend_calls_served: {exc}", file=sys.stderr)
         return EXIT_USAGE

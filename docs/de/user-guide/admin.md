@@ -33,11 +33,84 @@ Im Bereich **Admin > Mandanten** kannst du:
 
 - Alle Mandanten der Plattform einsehen (Name, Slug, Mitgliederzahl, Erstellungsdatum)
 - Einzelne Mandanten deaktivieren oder löschen
-- Mandanten-Kontingente und Limits einsehen
 - Mitglieder eines Mandanten stellvertretend verwalten
 
-!!! danger "Mandanten löschen ist irreversibel"
-    Das Löschen eines Mandanten entfernt alle zugehörigen Daten (Pflanzen, Durchläufe, Protokolle). Diese Aktion kann nicht rückgängig gemacht werden. Erstelle vorher einen Daten-Export für den betroffenen Mandanten.
+### Pläne und Kontingente
+
+Jeder Mandant hat einen **Plan**. Ein Plan legt fest, wie viel ein Mandant nutzen darf: aktive Mitglieder, Service Accounts, Speicherplatz in MB, Fotos je Pflanze und die drei KI-Tagesbudgets (Anfragen je Konto, Anfragen des ganzen Mandanten, Tokens des Mandanten). Ein leeres Kontingent bedeutet „wie die Server-Einstellung“ — es gilt dann der Wert, den der Betreiber per Umgebungsvariable setzt.
+
+- Jeder Mandant startet mit dem Plan **Standard**. Bei ihm sind alle Kontingente leer, er verhält sich also genau wie eine Installation ohne Pläne. Du kannst ihn umbenennen und ändern, aber nicht löschen.
+- Weitere Pläne legst nur du als Plattform-Admin an, und nur du ordnest einem Mandanten einen Plan zu. Die Verwaltung eines Mandanten kann ihren Plan nicht selbst wählen.
+- Ein niedrigeres Kontingent entfernt nichts: Ein Mandant über seiner neuen Grenze behält Mitglieder, Dateien und Fotos; erst die nächste Anlage wird abgelehnt. Ein Planwechsel wirkt ab der nächsten Prüfung.
+- Das Mitgliederkontingent bleibt durch `TENANT_MAX_MEMBERS_CEILING` gedeckelt; alle anderen Kontingente dürfen über der Server-Einstellung liegen.
+- **Vorsicht mit `0`:** Bei Speicher und Fotos je Pflanze heißt `0` „unbegrenzt“, bei den KI-Budgets „Budget aus“ — in beiden Fällen gibt es dann keine Grenze, nicht etwa „nichts erlaubt“.
+- Der Mandant `platform` folgt immer den Server-Einstellungen und bekommt keinen Plan zugeordnet, damit du jederzeit weitere Plattform-Admins hinzufügen kannst.
+- Zuordnen und Ändern brauchen keine Passwort-Bestätigung, landen aber im Sicherheitsprotokoll (`tenant_plan_changed`, `plan_created`, `plan_changed`, `plan_deleted`).
+- Jedes Mitglied sieht Plan und Verbrauch seines Mandanten über `GET /api/v1/tenants/{slug}/entitlements`; Service Accounts und Token-Verbrauch sieht nur, wer Leitung ist.
+
+Wie viele Organisationen ein Konto selbst gründen darf, ist kein Plan-Kontingent, sondern die Server-Einstellung `TENANT_MAX_ORGANIZATIONS_PER_USER` (Standard `10`; `0` heißt: Organisationen legt nur der Betreiber an).
+
+#### Pläne in der Oberfläche pflegen
+
+Unter **Einstellungen > Plattform-Modus** öffnest du mit **Pläne verwalten** die Seite **Pläne**. <!-- REQ-056 AK-45 -->
+
+- Die Liste zeigt jeden Plan mit Schlüssel, ausgewählten Kontingenten und der Zahl der Mandanten, die ihn nutzen. Der Standard-Plan trägt die Markierung **Standard**. Ein leerer Wert steht dort als **wie Instanz-Einstellung**, ein `0` als **unbegrenzt** bzw. **Budget aus** — nie als „0“.
+- Mit **Plan anlegen** vergibst du Schlüssel (Kleinbuchstaben, Ziffern, `_` oder `-`, später nicht änderbar), Name, optional eine Beschreibung und die Kontingente. Lass ein Feld leer, damit die Server-Einstellung gilt. Unter jedem Feld steht, wie Kamerplanter den Wert anwenden wird.
+- Beim Bearbeiten speicherst du nur, was du geändert hast. Mit **Als Standard-Plan festlegen** bekommen neue Mandanten diesen Plan; der bisherige Standard verliert die Markierung. Einen neuen Plan legst du erst an und markierst ihn danach.
+- Löschen geht nur bei einem Plan, den kein Mandant nutzt und der nicht der Standard ist. Sonst ist der Papierkorb gesperrt, und der Hinweis daran sagt dir, warum.
+
+Auf der Seite eines Mandanten (**Organisation bearbeiten**) zeigt die Karte **Plan und Verbrauch** den aktuellen Plan und je Kontingent Grenze und Verbrauch als Balken. Wähle dort einen anderen Plan und bestätige mit **Plan zuordnen** — auch bei einem gesperrten Mandanten. Für den Mandanten `platform` und einen Mandanten, der gerade gelöscht wird, gibt es keine Auswahl; die Karte sagt dir, warum. Die Zeile „KI-Aufrufe je Konto und Tag“ zeigt deinen eigenen Verbrauch in diesem Mandanten, nicht den eines Mitglieds. Über dem Plan siehst du außerdem, welchem Konto der Mandant gehört.
+
+Die Felder und Codes der API beschreibt die [API-Referenz](../reference/api-reference.md#plaene-und-kontingente). <!-- Issue #2142 -->
+
+!!! warning "Noch nicht implementiert"
+    Den Billing-Kontakt und einen Sperrgrund zeigt die Mandantenseite noch nicht an; beides gibt es auch in der API noch nicht (interne Referenz: REQ-056 §5.3, §9.2).
+
+!!! info "Ein deaktivierter Mandant sperrt alle Mitglieder aus"
+    Deaktivierst du einen Mandanten, erreicht ihn kein Mitglied mehr — weder in der App noch über einen API-Schlüssel oder einen MCP-Client. Für die Mitglieder sieht er dann aus wie ein Mandant, den es nicht gibt. War es ihr persönlicher Garten, sehen sie nur noch den gemeinsamen Pflanzenkatalog. Die Mitgliedschaften und alle Daten bleiben erhalten: Reaktivierst du den Mandanten, haben alle Mitglieder sofort wieder ihren bisherigen Zugriff mit derselben Rolle. Du selbst verwaltest einen deaktivierten Mandanten weiterhin hier im Admin-Bereich. Solange er gesperrt ist, ruhen auch seine Hintergrundjobs: Es entstehen keine neuen Aufgaben und Erinnerungen, Home Assistant, Wetter-, Klima- und InvenTree-Daten werden für ihn nicht abgerufen, seine Aktoren folgen keinen Zeitplänen und Regeln mehr, sondern werden in einen sicheren Zustand gefahren (Sicherheitsregeln greifen weiter; Ventile, Pumpen, Heizung und Licht werden ausgeschaltet, der Abluftventilator läuft weiter), und der E-Mail-Tagesbericht seiner Mitglieder enthält nichts über ihn. Aufbewahrungsfristen und Löschungen laufen dagegen weiter. <!-- Issue #2105, #2166, REQ-056 §5.2 -->
+
+!!! warning "Mandanten löschen: erst nach einer Frist, bis dahin abbrechbar"
+    Löschst du einen Mandanten, wird die Löschung zunächst nur **geplant**: Der Mandant zeigt den Zustand **Löschung geplant** mit dem Löschdatum, ist ab sofort für alle Mitglieder gesperrt, und alle Mitglieder bekommen eine E-Mail mit dem Datum — bis dahin können sie ihre eigenen Daten über den Datenexport sichern. Die Frist beträgt `RETENTION_TENANT_ERASURE_GRACE_DAYS` Tage (Standard 90). Bis zum Löschdatum kannst du hier mit **Löschung abbrechen** und deinem Passwort alles rückgängig machen: Der Mandant ist danach wieder in dem Zustand wie vor der Löschung, alle Mitgliedschaften sind unverändert. Hattest du ihn vorher deaktiviert, bleibt er auch nach dem Abbruch deaktiviert — das gilt ebenso, wenn seine eigene Verwaltung die Löschung abbricht; aufheben kannst nur du die Sperre, mit dem Aktiv-Schalter. Die Löschung eines deaktivierten Mandanten kannst nur du planen, nicht seine Verwaltung. Eine Löschung, die vor dieser Regel geplant wurde, kannst nur du abbrechen; danach ist der Mandant aktiv. Der Aktiv-Schalter und das erneute Löschen sind währenddessen gesperrt. Erst nach Ablauf der Frist wechselt der Zustand auf **Wird gelöscht**, und die eigentliche Löschung beginnt — ab dann ist nichts mehr rückgängig zu machen. Mit `RETENTION_TENANT_ERASURE_GRACE_DAYS=0` löscht die Instanz wie früher sofort. <!-- Issue #2123 -->
+
+    Eine Organisation im Zustand **Verwaist** hat niemanden mehr, der sie verwalten kann: Die letzte Person mit Verwaltungsrecht hat die Löschung ihres Kontos beantragt, und es gab keine Leitung, die übernehmen konnte. Der Zustand entsteht schon beim Antrag, nicht erst beim endgültigen Löschen des Kontos. Die Organisation läuft in dieselbe Frist und wird danach gelöscht; abbrechen lässt sich das nicht. Du wirst per E-Mail informiert, wenn eine Organisation verwaist. <!-- Issue #2134, #2166 -->
+
+!!! danger "Nach Ablauf der Frist ist die Löschung irreversibel"
+    Nach Ablauf der Frist deaktiviert die Löschung zuerst alle Mitgliedschaften und entfernt dann die dazu beigetragenen Erkennungsvektoren, den Dateispeicher (Fotos, Anhänge) und sämtliche fachlichen Daten des Mandanten — Standorte, Pflanzen, Pflanzdurchläufe, Tagebucheinträge, Aufgaben, Tanks, Sensoren und alle weiteren Standort-gebundenen Daten — sowie zuletzt den Mandanten-Datensatz selbst. Ausgenommen ist Ernte- und Behandlungsdokumentation, die aus gesetzlichen Gründen (CanG, Pflanzenschutzgesetz) einige Jahre aufbewahrt werden muss: Diese Datensätze bleiben erhalten, werden aber pseudonymisiert. Diese Aktion kann nicht rückgängig gemacht werden. Vorher kannst du den ganzen Mandanten als Archiv sichern — auch während der Frist (siehe [Mandanten exportieren und importieren](../deployment/tenant-export-import.md)); jedes Mitglied sichert seine eigenen Daten zusätzlich über den persönlichen Datenexport. <!-- Issue #1769, #2123, #2138 -->
+
+    Ein Bestätigungsdialog verlangt zusätzlich eine erneute Bestätigung, bevor die Löschung ausgeführt wird: Trage den Kurznamen (Slug) des Mandanten ein und, sofern dein Konto ein lokales Passwort hat, dein aktuelles Passwort — hast du keines und meldest dich über Google oder einen generischen OIDC-Anbieter an, klickst du stattdessen auf **Erneut anmelden**; nur bei ausschließlich GitHub/Apple klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein. Stimmt der eingegebene Kurzname nicht, meldet die Aktion `422`; fehlt das Passwort, die erneute Anmeldung oder der Code oder ist er falsch, meldet sie `401` — in allen Fällen bleibt der Mandant unverändert. Ein Dienstkonto kann diese Aktion nicht ausführen, ebenso wenig eine Anmeldung mit einem persönlichen API-Schlüssel statt einer angemeldeten Sitzung. Nach fünf falschen Bestätigungen sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden (`429`, Meldung nennt die Wartezeit); dasselbe Budget gilt kontoweit auch für die Bestätigung einer Konto-Löschung, einer E-Mail-Änderung und einer Passwortänderung. <!-- Issue #1791, #1813, #1814, #1816, #1815, #1841 -->
+
+    Die Aktion antwortet mit `202 Accepted` (zuvor `200` bzw. `204`): Sie nimmt die Löschung nur an und legt den Löschungs-Datensatz an; die Oberfläche meldet „Löschung geplant für den …“. Nach Ablauf der Frist deaktiviert der tägliche Lauf alle Mitgliedschaften — die eigentliche Löschung läuft danach im Hintergrund in einem Worker, in kleinen Stapeln mit fortlaufendem Lebenszeichen. Beim Antworten ist also noch nichts gelöscht; die Oberfläche meldet „Löschung angenommen“. Scheitert ein Schritt oder bleibt etwas übrig, siehst du das nicht mehr als Fehler (`500`/`502`) an der Aktion: Der Löschvorgang bleibt vorgemerkt, der tägliche Wiederholungs-Lauf setzt ihn automatisch fort, und nach dem dritten erfolglosen Versuch löst das System einen Betreiber-Alarm aus (Log-Ereignis `tenant_erasure.escalated`). Läuft für den Mandanten bereits eine Löschung, meldet ein zweiter Versuch einen Konflikt (`409`). <!-- Issue #1792 --> Ist die Instanz für Mandanten-Löschungen nicht korrekt konfiguriert, meldet sie das mit `503` — in diesem Fall wurde noch nichts geändert.
+
+### Mandanten exportieren und importieren
+
+Einen einzelnen Mandanten sicherst du als Archiv und spielst ihn als **neuen** Mandanten wieder ein — in dieser oder einer anderen Installation. Exportieren darf die Leitung mit Verwaltung des Mandanten oder du als Plattform-Admin (auch für einen gesperrten oder verwaisten Mandanten); importieren darfst nur du. Das Archiv enthält keine E-Mail-Adressen, keine Anmeldedaten und keine Zugangsdaten von Integrationen. Wie das geht, beschreibt das Runbook [Mandanten exportieren und importieren](../deployment/tenant-export-import.md). <!-- REQ-056 §8 / Issue #2138 -->
+
+!!! warning "Noch nicht implementiert"
+    Eine Schaltfläche „Garten exportieren“ und eine Seite „Importe“ wird es im Admin-Bereich geben (interne Referenz: REQ-056 §15); bis dahin nutzt du die API.
+
+---
+
+## Home-Assistant-Entitäten freigeben {#home-assistant-entitaeten-freigeben}
+
+Kamerplanter ist mit genau **einer** Home-Assistant-Instanz verbunden — deiner, mit deinem Token — und nutzt sie für alle Mandanten. Damit ein Mandant nicht auf Türkontakte, Anwesenheitssensoren oder Schalter deines Haushalts zugreifen kann, gibst du jedem Mandanten nur die Entitäten frei, die er nutzen soll: als Sensor, Aktor, Wetterquelle oder Benachrichtigungsziel. <!-- Issue #2112 -->
+
+1. Öffne **Admin > Mandanten** und wähle den Mandanten.
+2. Im Abschnitt **Home-Assistant-Entitäten** siehst du alle Entitäten deiner Instanz mit ihrem Freigabestand. Über die Suche und den Schalter **Nur freigegebene** grenzt du die Liste ein.
+3. Mit dem Schalter neben einer Entität gibst du sie frei oder ziehst die Freigabe zurück.
+4. Benachrichtigungsdienste (zum Beispiel `notify.mobile_app_handy`) stehen nicht in der Liste. Trag sie unten unter **Entität per ID freigeben** ein.
+
+Was die Freigabe bewirkt:
+
+- Mitglieder sehen in den Auswahllisten nur freigegebene Entitäten — und nur, wenn sie im Mandanten das Recht **Technik** haben.
+- Wer eine nicht freigegebene Entität eintragen will, bekommt eine Fehlermeldung; gespeichert wird nichts.
+- Ziehst du eine Freigabe zurück, bleiben Sensoren und Aktoren bestehen, Kamerplanter liest und schaltet die Entität für diesen Mandanten aber nicht mehr. Ein Aktor fällt dann auf die manuelle Aufgabe zurück, wie bei einem Home-Assistant-Ausfall.
+- Eine Entität, die Home Assistant nicht mehr meldet, bleibt mit dem Hinweis „nicht mehr in Home Assistant" in der Liste, bis du die Freigabe zurückziehst.
+
+!!! info "Bestehende Zuordnungen bleiben nach dem Update gültig"
+    Beim Update auf diese Version gibt Kamerplanter jede Entität, die ein Mandant schon nutzt, diesem Mandanten automatisch frei. Diese Freigaben siehst und änderst du hier wie jede andere. Ein Benachrichtigungsziel, das ein Nutzer in seinen Einstellungen eingetragen hat, gilt dabei für alle Mandanten, in denen er Mitglied ist — prüfe diese Freigaben, wenn du mehrere Mandanten betreibst.
+
+!!! warning "Eine Instanz für alle Mandanten"
+    Diese Freigaben begrenzen, was ein Mandant nutzen kann. Sie machen aus einer Instanz keine getrennten Instanzen: Ereignisse und Hinweise, die Kamerplanter an Home Assistant schickt, landen weiterhin alle in deiner Instanz. Für einen Betrieb mit fremden Mandanten ist eine eigene Home-Assistant-Verbindung je Mandant nötig; die gibt es noch nicht.
 
 ---
 
@@ -47,12 +120,39 @@ Im Bereich **Admin > Nutzer** kannst du:
 
 - Alle Nutzerkonten der Plattform einsehen
 - Nutzerkonten sperren oder deaktivieren
-- Plattform-Rollen zuweisen (`admin`, `viewer`)
+- Die Plattform-Rolle **admin** vergeben (Mitgliedschaft mit Rolle Leitung im Mandanten `platform`)
 - Passwort-Reset für Nutzer auslösen
 - DSGVO-Anfragen (Datenlöschung, Datenauskunft) bearbeiten
 
 !!! note "DSGVO-Anfragen"
     Betroffenenrechte nach Art. 15–21 DSGVO stehen Nutzern über die Self-Service-API unter `/api/v1/privacy/` zur Verfügung. Als Platform-Admin kannst du Anfragen im Admin-Bereich einsehen und bearbeiten. Weitere Informationen: [Datenschutz (DSGVO)](privacy.md).
+
+!!! note "E-Mail bestätigen oder Konto reaktivieren verlangt deine eigene Bestätigung"
+    Änderst du im Bearbeitungsdialog eines Nutzers, ob dessen E-Mail-Adresse als bestätigt gilt oder ob das Konto aktiv ist (bestätigen, die Bestätigung zurücknehmen, wieder aktivieren oder deaktivieren), bestätigst du das zusätzlich mit deinem **eigenen** aktuellen Passwort — hast du keines, meldest du dich stattdessen frisch bei deinem Anmeldeanbieter an, oder lässt dir, nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, einen Code per E-Mail schicken. Grund: Eine bestätigte E-Mail-Adresse erlaubt es, Anmeldedienste automatisch mit diesem Konto zu verknüpfen (siehe [Konto & Anmeldung](account.md#mit-google-github-oder-einem-anderen-anbieter-anmelden)) — eine gekaperte Admin-Sitzung könnte sonst ein fremdes Konto unter der Adresse einer anderen Person als verifiziert markieren. Auch die Rücknahme der Bestätigung ist heikel: Ein unbestätigtes Konto räumt der tägliche Aufräumlauf ab, und ein deaktiviertes kann sich nicht anmelden — deshalb sind diese Änderungen ebenfalls Step-up-Handlungen, und ein API-Schlüssel wird abgewiesen (`403`). Ein Konto, dessen Bestätigung ein Administrator zurückgenommen hat, entfernt der Aufräumlauf für unbestätigte Konten **nie**. Umbenennen und das erneute Speichern unveränderter Werte verlangen keine zusätzliche Bestätigung. Nach zu vielen Fehlversuchen gilt dieselbe Sperre wie unten bei der Kontolöschung beschrieben (15 Minuten, verdoppelnd bis 4 Stunden, `429`). <!-- Issue #1857, #1992 -->
+
+!!! note "Mandant deaktivieren, Rolle ändern und Mitglied entfernen verlangen deine eigene Bestätigung"
+    Deaktivierst oder reaktivierst du einen Mandanten, änderst du die Rolle eines Mitglieds (auch beim Mandanten-Admin-Bereich eines Nutzers) oder entfernst du ein Mitglied, bestätigst du das mit deinem **eigenen** aktuellen Passwort — hast du keines, meldest du dich stattdessen frisch bei deinem Anmeldeanbieter an, oder lässt dir, nur wenn du dich ausschließlich über GitHub oder Apple anmeldest, einen Code per E-Mail schicken. Grund: Jede dieser Aktionen kann Mitglieder aus einem Mandanten aussperren oder ihnen die Leitung nehmen. Das Umbenennen und ein unverändert erneut gesendeter Wert brauchen keine Bestätigung.
+
+!!! note "Einen Nutzer einem Mandanten hinzufügen verlangt deine eigene Bestätigung"
+    Fügst du einen Nutzer einem Mandanten hinzu — in der Mandanten- wie in der Nutzeransicht —, bestätigst du das mit deinem **eigenen** aktuellen Passwort (ohne lokales Passwort: frische Anmeldung bei deinem Anbieter, oder nur bei GitHub/Apple ein Code per E-Mail). Grund: Wer im Mandanten `platform` die Rolle Leitung erhält, ist Plattform-Admin; auch in jedem anderen Mandanten verleiht die Mitgliedschaft Zugriff auf dessen Fachdaten. Dich selbst kannst du dem Mandanten `platform` nicht hinzufügen. Jedes Hinzufügen steht im Sicherheits-Audit (`GET /api/v1/admin/platform/security-audit`; Aufbewahrung zwei Jahre) — dort auch jede Rollen-, Scope- und Entfernen-Änderung, jede Deaktivierung, Reaktivierung und Änderung der E-Mail-Bestätigung eines Kontos sowie jede Sperre, Reaktivierung, Löschung und jeder Löschabbruch eines Mandanten. <!-- Issue #2106, #2111 -->
+
+!!! note "Wer sich registrieren darf"
+    Ob sich jeder registrieren kann, nur mit Einladung oder niemand, legst du als Betreiber mit `REGISTRATION_MODE` fest (`open` ist der Standard; siehe [Umgebungsvariablen](../reference/environment-variables.md)); `REGISTRATION_ALLOWED_DOMAINS` beschränkt die Registrierung zusätzlich auf bestimmte E-Mail-Domains. Eine offene E-Mail-Einladung für genau die Adresse öffnet die Registrierung bei `invite_only` und trotz Domain-Liste — bei `closed` nicht. Bestehende Konten melden sich in jedem Modus an. <!-- Issue #2132 -->
+
+!!! note "Mitgliederlimit und Plattform-Obergrenze"
+    Jeder Mandant hat ein Mitgliederlimit (`max_members`). Es kann höchstens so hoch sein wie die Plattform-Obergrenze `TENANT_MAX_MEMBERS_CEILING` (Standard 50, siehe [Umgebungsvariablen](../reference/environment-variables.md)) — auch für dich als Plattform-Admin. Ist ein Mandant voll, wird das Hinzufügen abgelehnt, bevor du nach deiner Bestätigung gefragt wirst. Senkst du die Obergrenze, behalten Mandanten mit mehr Mitgliedern alle; nur neue Beitritte werden verweigert. Der Plattform-Mandant ist davon nicht ausgenommen. <!-- Issue #2133 -->
+
+!!! warning "Plattform-Leitungen aus ungeprüften Einladungen sichten"
+    Bis #2084 prüfte niemand, wer eine Leitungs-Einladung in den Mandanten `platform` ausstellte; bis #2180 prüfte auch die Annahme das nicht. Die Migration `v0089` widerruft nur **offene** Einladungen — wer eine solche Einladung schon **angenommen** hat, ist weiterhin Plattform-Admin. So findest du diese Konten: (1) Rufe `GET /api/v1/admin/platform/security-audit?tenant_key=platform&limit=500` auf (zusätzlich mit dem Schlüssel der Plattform-Zeile, falls sie einen anderen hat) und suche Zeilen mit `action: membership_added`, `via: invitation` und `new_role: lead`; `target_user_key` ist das beigetretene Konto. Das Audit gibt es erst seit #2111 (Migration `v0082`). (2) Für ältere Beitritte lies die angenommenen Einladungen direkt aus der Datenbank: `FOR t IN tenants FILTER t._key == "platform" OR t.is_platform == true FOR i IN invitations FILTER i.tenant_key IN [t._key, "platform"] AND i.role == "lead" AND i.status == "accepted" RETURN DISTINCT {account: i.accepted_by_user_key, issuer: i.invited_by_user_key, accepted_at: i.accepted_at}`. (3) Prüfe für jedes Konto, ob der Aussteller damals selbst Plattform-Leitung war; wenn nicht, stufe die Mitgliedschaft im Admin-Bereich herab oder entferne sie (mit deiner Bestätigung, steht im Audit). Kamerplanter ändert solche Mitgliedschaften nicht automatisch. <!-- Issue #2180 -->
+
+!!! danger "Nutzerkonto löschen ist sofort und vollständig"
+    Ein Bestätigungsdialog verlangt vor der Löschung eine erneute Bestätigung: Trage die **E-Mail-Adresse des Zielkontos** ein und gib **dein eigenes** aktuelles Passwort ein, sofern dein Admin-Konto ein lokales Passwort hat — hat es keines und meldest du dich über Google oder einen generischen OIDC-Anbieter an, klickst du stattdessen auf **Erneut anmelden**; nur bei ausschließlich GitHub/Apple klickst du auf **Code per E-Mail senden** und gibst deinen eigenen Bestätigungscode ein; in keinem Fall das Passwort des zu löschenden Kontos. Stimmt die eingegebene E-Mail-Adresse nicht, meldet die Aktion `422`; fehlt dein Passwort, deine erneute Anmeldung oder dein Code oder ist er falsch, meldet sie `401`. Dein eigenes Konto kannst du auf diesem Weg nicht löschen (`403`). Nach fünf falschen Bestätigungen sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden (`429`, Meldung nennt die Wartezeit); dasselbe Budget gilt kontoweit auch für Mandantenlöschung, E-Mail-Änderung und Passwortänderung. <!-- Issue #1813, #1814, #1816, #1815, #1841 -->
+
+    Bestätigst du erfolgreich, antwortet die Aktion mit `202 Accepted` (zuvor `204`): Die Löschung ist angenommen, das Nutzerkonto wird sofort deaktiviert, alle Sitzungen werden beendet, die anderen Mitglieder seiner persönlichen Gärten werden sofort benachrichtigt (ohne Karenzzeit), und die vollständige Konto-Löschung läuft danach im Hintergrund in einem Worker (siehe [Datenaufbewahrung & Anonymisierung](../guides/data-retention.md)). Wenn die Antwort eintrifft, ist noch nichts gelöscht; der Body nennt den Löschantrag (`erasure_key`), dessen Status du über `GET /api/v1/admin/platform/erasures/{erasure_key}` liest (`completed`, sobald alles erledigt ist). <!-- Issue #1949 --> Ein Löschantrag wird dabei als Nachweis gespeichert — genau wie bei einer Löschung, die ein Nutzer selbst über sein Konto anstößt; er hält zusätzlich eine gesalzene Referenz auf dich als bestätigenden Admin, nie deinen Kontoschlüssel im Klartext.
+
+    Konnte die Löschung nicht vollständig abgeschlossen werden — oder ein einzelner externer Dienst nicht erreicht werden —, zeigt der Löschantrag `partially_completed` und wird vom täglichen Wiederholungs-Lauf automatisch fortgesetzt; du musst nichts manuell nachholen (die Aktion antwortet dafür nicht mehr mit `500` oder `502`). Ein zweiter Löschversuch für dasselbe Konto stößt die Fortsetzung des offenen Antrags sofort an, statt auf den nächsten Lauf zu warten, und antwortet wieder mit `202`; solange noch ein Lauf daran arbeitet, antwortet die Aktion mit `409`.
+
+    Läuft für das Konto bereits eine Löschung (z. B. durch den täglichen Aufräumlauf für nie bestätigte Konten), meldet die Aktion einen Konflikt (`409`). Ist die Instanz für Konto-Löschungen nicht korrekt konfiguriert, meldet sie das mit `503` — in diesem Fall wurde noch nichts geändert.
 
 ---
 
@@ -69,7 +169,66 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 ## OIDC-Provider
 
-Unter **Admin > OIDC-Provider** konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
+Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
+
+Du verwaltest sie auf einer eigenen Seite: Öffne **Einstellungen > Plattform-Modus** und klicke in der Karte „Anmelde-Provider (OIDC)“ auf **OIDC-Provider verwalten** (Adresse `/admin/oidc-providers`). Die Karte erscheint nur für Plattform-Admins. Auf der Seite kannst du:
+
+- jeden Provider mit Typ, Aussteller-URL, Client-ID, Scopes, Status (aktiv oder abgeschaltet) und dem Zeitpunkt des letzten Discovery-Abrufs sehen
+- einen Provider **hinzufügen** (**Provider hinzufügen**)
+- einen Provider **bearbeiten** (Stift-Symbol)
+- einen Provider **testen** (**Testen**): Der Test ruft das Discovery-Dokument ab und meldet vier Befunde — Scopes, Provider-Typ, Signaturschlüssel und Aussteller — je als „In Ordnung“, „Fehlgeschlagen“ oder „Nicht anwendbar“, mit der Begründung des Servers. Der Test braucht keine Bestätigung.
+- einen Provider **löschen** (Papierkorb-Symbol)
+
+Ein neuer Provider startet **abgeschaltet**. Er erscheint erst auf der Anmeldeseite, wenn du ihn aktivierst.
+
+!!! warning "Alles, was beeinflusst, wer sich anmelden darf, verlangt deine erneute Bestätigung"
+    Ein Provider entscheidet, wem eine Anmeldung zugeordnet wird: Wer einen Provider auf einen eigenen Server umstellen kann, kann sich als jedes Konto anmelden, dessen Adresse dieser Server behauptet. Deshalb verlangen Hinzufügen, Löschen und jede Änderung außer Anzeigename und Icon eine Bestätigung mit deinem eigenen Zugang: dein aktuelles Passwort — oder, ohne lokales Passwort, eine frische Anmeldung bei deinem Provider bzw. den Bestätigungscode, der per E-Mail kommt. Beim Löschen tippst du zusätzlich den Kurznamen des Providers ein. Auch das Ein- **und** Abschalten eines Providers verlangt die Bestätigung: Ein abgeschalteter Provider kann niemanden mehr frisch anmelden, und die Konten, die nur über ihn verknüpft sind, würden dann auf den schwächeren E-Mail-Code ausweichen. Das Formular sagt dir vor dem Absenden, ob deine Änderung die Bestätigung braucht. Eine Sitzung mit einem persönlichen API-Key kann Provider gar nicht ändern.
+
+    Bekannter Randfall: Meldest du dich **nur** über genau den Provider an, den du reparieren willst, und funktioniert der gerade nicht, kannst du dich dort nicht erneut anmelden. Setze dir vorher ein lokales Passwort. <!-- #1883, #1906 -->
+
+!!! info "Das Client-Secret ist nur beschreibbar"
+    Das Client-Secret wird verschlüsselt gespeichert und nie wieder angezeigt — weder in der Liste noch im Bearbeiten-Formular. Beim Bearbeiten lässt du **Neues Client-Secret** leer, um das gespeicherte zu behalten; ein neues Secret verlangt deine Bestätigung. <!-- #1906 -->
+
+!!! info "Feste Endpunkte und Standard-Mandant setzt du beim Hinzufügen"
+    Unter **Erweitert** im Formular zum Hinzufügen gibst du feste Adressen für Autorisierung, Token, Userinfo und Schlüsselverzeichnis an, dazu den Standard-Mandanten, dem neue föderierte Konten beitreten (siehe unten) — das Feld erscheint nur beim Typ **OIDC**. Beim Bearbeiten zeigt die Oberfläche diese Angaben nicht an; zum späteren Ändern nutzt du die REST-Schnittstelle unter `/api/v1/admin/oidc-providers` (`PUT`). Den Standard-Mandanten liefert sie in der Antwort mit, und mit `"default_tenant_key": null` (oder `""`) entfernst du ihn wieder. Auch den Kurznamen (Slug) kannst du nach dem Hinzufügen nicht mehr ändern: Er steckt in der Rückruf-URL. <!-- #1906 -->
+
+!!! info "Was der Standard-Mandant bewirkt"
+    Ist beim Anbieter ein Standard-Mandant (`default_tenant_key`) hinterlegt, tritt jedes Konto, das beim **ersten** Anmelden über diesen Anbieter **neu angelegt** wird, dem Mandanten als **Beobachter** bei — zusätzlich zu seinem persönlichen Garten. Bestehende Konten, die den Anbieter nur verknüpfen, treten nicht bei. Einen Standard-Mandanten kannst du nur bei einem Anbieter vom Typ **OIDC** hinterlegen, also deinem eigenen Identity Provider: Bei Google, GitHub und Apple kann sich jede Person ein Konto anlegen, damit käme jede in deinen Garten — Kamerplanter lehnt das beim Speichern ab. Auch einen unbekannten Mandanten, den Mandanten `platform` und persönliche Gärten lehnt Kamerplanter beim Speichern ab. Beitreten kann nur ein Konto, dessen E-Mail-Adresse der Anbieter als bestätigt meldet. Ist der Mandant beim Anmelden nicht aktiv, in Löschung oder voll, oder hat der Anbieter die Adresse nicht bestätigt, überspringt Kamerplanter den Beitritt (Protokollzeile `oidc_auto_join_refused`), die Anmeldung gelingt trotzdem. Jeder Beitritt steht im Sicherheitsprotokoll. Den Standard-Mandanten zu setzen oder zu ändern verlangt deine Bestätigung, weil er bestimmt, wer automatisch Zugang zu einem Garten bekommt. <!-- Issue #2182, REQ-024 AK-09 -->
+
+!!! info "Rückruf-URL beim Provider hinterlegen"
+    Trage beim Provider als Rückruf-URL (Redirect URI) genau `{APP_BASE_URL}/api/v1/auth/oauth/{slug}/callback` ein — mit der öffentlichen Adresse aus `APP_BASE_URL` und dem Kurznamen (Slug) des Providers, z.B. `https://garten.example/api/v1/auth/oauth/google/callback`. Anmeldung und erneute Anmeldung zur Bestätigung nutzen dieselbe URL. Steht `APP_BASE_URL` noch auf der Voreinstellung `http://localhost:5173`, lehnt der Provider die Anmeldung ab. <!-- #1865 -->
+
+!!! info "Zwei Provider, dieselbe Kennung"
+    Eine Verknüpfung gehört zu genau dem Provider, über den sie entstand. Meldet ein anderer Provider dieselbe Nutzerkennung (`sub`), ist das eine andere Person — sie wird nie in das verknüpfte Konto angemeldet. Ältere Verknüpfungen hat das Update dem Provider zugeordnet, wenn es genau einen ihres Typs gab. Waren zu dem Zeitpunkt schon zwei generische OIDC-Provider eingerichtet, ist die Zuordnung offen: Die Betroffenen melden sich einmal über ihre bestätigte E-Mail-Adresse neu an (oder mit ihrem Passwort). <!-- #1869 -->
+
+!!! info "Provider löschen, neu anlegen, auf einen anderen Aussteller umstellen"
+    Beim **Löschen** eines Providers werden auch alle Verknüpfungen gelöscht, die über ihn entstanden sind (samt der verschlüsselten Provider-Token) — sonst würde ein später unter demselben Kurznamen (Slug) angelegter Provider, womöglich bei einem anderen Identity-Provider, sie erben. Die betroffenen Konten behalten ihre übrigen Anmeldewege; wer nur über diesen Provider angemeldet war, meldet sich nach dem Neuanlegen einmal über die bestätigte E-Mail-Adresse neu an (oder mit dem Passwort). Das Log-Ereignis `oidc_provider.deleted` nennt die Anzahl (`links_deleted`), keine Konten. Auch das **Anlegen** räumt Verknüpfungen weg, die ein früheres Löschen unter diesem Slug zurückgelassen hat. Beim **Umstellen** von `issuer_url` oder `provider_type` wird das gespeicherte Discovery-Dokument im selben Schritt gelöscht: Es gehörte dem alten Aussteller. Bis zum nächsten Abruf (alle 6 Stunden oder `POST /api/v1/admin/oidc-providers/{key}/test`) sind die Endpunkte des neuen Ausstellers unbekannt — hinterlegst du sie nicht selbst, rufe den Test gleich nach dem Umstellen auf. Ein abgerufenes Discovery-Dokument wird nur angenommen, wenn sein `issuer` der konfigurierte Aussteller ist und `authorization_endpoint`, `token_endpoint` und `jwks_uri` enthält. <!-- #1935, #1969 -->
+
+!!! info "Anmeldung prüft das ID-Token"
+    Die Anmeldung über einen Provider mit ID-Token prüft Signatur (Schlüssel aus `jwks_url` bzw. dem Discovery-Dokument), Aussteller, Zielgruppe (`aud`), `nonce` und Gültigkeit, und das `sub` darf nicht leer sein und muss zum Userinfo-Ergebnis passen. Scheitert die Anmeldung eines bisher funktionierenden Providers danach mit `provider_error`, suche im Log nach dem Ereignis `oauth_login_refused` — das Feld `reason` sagt, welche Prüfung scheiterte (`signature` oder `jwks_unavailable`: Schlüssel nicht erreichbar bzw. falsch; `iss`: `issuer_url` stimmt nicht mit dem `iss` des Providers überein; `sub_mismatch`: Userinfo und ID-Token nennen verschiedene Personen). Das Schlüsselverzeichnis muss über `https` erreichbar sein. <!-- #1936 -->
+
+!!! info "Nur `https`-Adressen; Schlüsselabruf mit Zwischenspeicher und Grenzen"
+    `issuer_url`, `authorization_url`, `token_url`, `userinfo_url` und `jwks_url` (optional: pinnt den Schlüsselendpunkt des Providers) nehmen das Formular und die API nur als `https`-Adresse an — sonst antwortet sie mit `422`. Nur mit `DEBUG=true` ist `http` zu `localhost`, `127.0.0.1` oder `::1` erlaubt (lokale Entwicklung gegen einen Provider auf demselben Rechner). Eine Konfiguration, die du vor dieser Regel mit `http` gespeichert hast, bleibt gespeichert, wird aber bei der Anmeldung nicht mehr angesprochen: Die Anmeldung endet mit `provider_error`, bis du die Adresse auf `https` änderst — der Test (`POST /api/v1/admin/oidc-providers/{key}/test`) nennt den Grund. Schickt eine Änderung das alte `http`-Feld unverändert mit, antwortet sie ebenfalls mit `422`.
+
+    Die Schlüssel des Providers ruft der Server nicht bei jeder Anmeldung ab: Er behält sie je Provider zehn Minuten im Arbeitsspeicher des jeweiligen Workers und holt sie neu, wenn ein ID-Token einen unbekannten Schlüssel (`kid`) nennt — höchstens einmal alle zehn Sekunden je Provider. Ein Abruffehler gilt nur 30 Sekunden; danach versucht der Server es wieder. Antworten über 256 KiB werden verworfen, ein einzelner unbrauchbarer Schlüssel im Verzeichnis wird übersprungen. Nennt das Discovery-Dokument des Providers ein `jwks_uri` auf eine interne Adresse (Metadaten-Dienst, privates Netz), ruft der Server es nicht ab; ein Provider im eigenen Netz darf sein Schlüsselverzeichnis nur auf seinem eigenen Host veröffentlichen — andernfalls trage es selbst als `jwks_url` ein. Zusätzlich verweigert die Anmeldung ein ID-Token, das noch nicht gültig ist (`nbf`, 30 Sekunden Toleranz, Grund `nbf`) oder vor mehr als zehn Minuten ausgestellt wurde (`iat`). <!-- #1987 -->
+
+    Dieselbe Regel gilt für den Token- und den Userinfo-Endpunkt, die das Client-Secret, den Autorisierungscode bzw. das Access-Token erhalten: Stammen sie aus dem Discovery-Dokument, ruft der Server sie nie auf einer Metadaten- oder Link-Local-Adresse und auf einer privaten Adresse nur auf dem Host des Ausstellers selbst auf; trägst du `token_url` oder `userinfo_url` selbst ein, ist eine private Adresse deine Wahl, die Metadaten-Adresse nie. Auch die Adresse von `issuer_url` wird vor dem Abruf des Discovery-Dokuments so geprüft. Ihre Antworten sind wie das Schlüsselverzeichnis auf 256 KiB begrenzt. Eine verweigerte Anmeldung erscheint im Log als `oauth_endpoint_refused` (Grund etwa `The token endpoint resolves to a blocked address.`), der Browser sieht `provider_error`. <!-- #2007 -->
+
+!!! info "Test meldet Schlüssel und Aussteller"
+    `POST /api/v1/admin/oidc-providers/{key}/test` liefert neben `scope_check` und `provider_type_check` zwei weitere Befunde, damit du eine scheiternde Anmeldeprüfung siehst, bevor Nutzer sie treffen: `jwks_check` (`ok`, `jwks_url`, `key_count`, `skipped_key_count`, `key_ids`, `detail`) ruft das Schlüsselverzeichnis wie die Anmeldung ab und sagt, ob das gelang; `issuer_check` (`ok`, `configured_issuer`, `accepted_issuers`, `discovery_issuer`, `detail`) sagt, ob der `iss`, den der Provider ankündigt, der ist, den die Anmeldung akzeptiert. Weicht er ab, nennt `detail` den angekündigten Wert, den du als `issuer_url` setzen musst. Beide Befunde haben `applicable: false`, wenn der Provider kein ID-Token ausstellt (GitHub oder ein Provider ohne `openid`-Scope). Der Test füllt den Zwischenspeicher der Anmeldung nicht. Beim **Umstellen** von `issuer_url` löscht die API außerdem die gespeicherten Adressen `authorization_url`, `token_url`, `userinfo_url` und `jwks_url`, die die Anfrage nicht neu nennt — sie gehörten dem alten Aussteller. <!-- #1987 -->
+
+!!! info "Gleichzeitiges Löschen und Neuanlegen"
+    Eine Anmeldung, die läuft, während du einen Provider löschst und unter demselben Slug neu anlegst, schreibt keine Verknüpfung und kein Konto mehr in den neuen Provider: Die Anmeldung endet mit `provider_error` (`reason=configuration_changed`). Verknüpfungen tragen jetzt zusätzlich den Schlüssel ihrer Konfiguration; ältere ohne Schlüssel gelten wie bisher über den Slug. Das Anlegen erzeugt die Konfiguration zuerst deaktiviert, entfernt die Waisen des Slugs und schaltet sie dann ein; legen zwei Admins gleichzeitig denselben Slug an, scheitert der zweite mit `409`, ohne Verknüpfungen des ersten zu löschen. <!-- #1987 -->
+
+
+!!! warning "Der Provider-Typ ist auf vier Werte festgelegt"
+    Gültig sind ausschließlich `google`, `github`, `apple` und `oidc` — kleingeschrieben. Alles andere, auch `GitHub` oder `GITHUB`, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
+
+    Grund: Die Anmeldung wertet den Typ zeichengenau aus. Ein als `GitHub` eingetragener Provider wurde bisher gespeichert und danach vom **generischen OIDC-Zweig** bedient — die bekannten Endpunkte von GitHub wurden nicht eingesetzt, der GitHub-Adressabruf unterblieb, und nichts hat sich beschwert.
+
+    `oidc` ist der richtige Wert für jeden Provider ohne eigene Sonderbehandlung (Keycloak, Authentik, Azure AD, Okta); die Endpunkte kommen dann aus dem Discovery-Dokument.
+
+    Für Provider, die vor dieser Prüfung gespeichert wurden, meldet `POST /api/v1/admin/oidc-providers/{key}/test` den Befund im Feld `provider_type_check` (`ok`, `provider_type`, `known_provider_types`, `detail`). Bestehende Einträge werden **nicht** automatisch umgeschrieben — korrigiere sie im Bearbeiten-Formular (oder per `PUT`).
 
 !!! warning "GitHub braucht den Scope `user:email`"
     Ein Provider vom Typ `github`, dessen Scope-Liste weder `user:email` noch den übergeordneten Scope `user` enthält, wird beim Anlegen und beim Ändern mit `422` abgelehnt.
@@ -119,6 +278,9 @@ Der Key wird maskiert gespeichert (nie im Klartext in Antworten oder Logs sichtb
 **Optional: Key sofort prüfen**
 
 Nach dem Speichern kannst du auf **Verbindung prüfen** klicken. Das Backend sendet eine Testanfrage an Pl@ntNet und meldet, ob der Key gültig ist und wie viele Anfragen heute noch verfügbar sind.
+
+!!! info "Verschlüsselt gespeichert"
+    Den Pl@ntNet-Key und den Home-Assistant-Token speichert Kamerplanter verschlüsselt mit dem `FERNET_KEY` der Instanz; die Oberfläche zeigt nur die letzten vier Zeichen. Ohne `FERNET_KEY` — das geht nur mit `DEBUG=true` — bleiben sie im Klartext, und das Log meldet `encryption_disabled`. <!-- #2113 -->
 
 **Optional: Key entfernen**
 
@@ -404,20 +566,23 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
     Wenn die [Schädlingserkennung](#schaedlingserkennung-aktivieren) aktiv ist (`PEST_DETECTION_ENABLED=true`), wird ein freigegebenes Bild zusätzlich als Few-Shot-Referenz (`source=user_contributed`) in den Erkennungs-Index aufgenommen — sofern der Schädling eine Erkennungsklasse (`detection_slug`) hat. Es wird nur das Embedding samt Herkunft gespeichert, **kein Originalbild**. Das Zurücknehmen deaktiviert die Referenz wieder.
 
 !!! warning "Datenschutz"
-    Beigesteuerte Bilder werden beim Löschen eines Nutzers oder Mandanten vollständig entfernt (Dokument **und** Bilddatei). Standortdaten (EXIF) werden bereits beim Hochladen entfernt.
+    Beigesteuerte Bilder werden beim Löschen eines Nutzers oder Mandanten vollständig entfernt (Dokument, Bilddatei samt Vorschaubildern). Standortdaten (EXIF) werden bereits beim Hochladen entfernt. Wurde ein Bild jemals freigegeben, entfernt dieselbe Löschung auch den daraus berechneten Erkennungsvektor aus der Erkennungsbasis — unabhängig davon, ob die Freigabe zum Zeitpunkt der Löschung noch aktiv oder bereits zurückgenommen war. Ist der Inferenz-Service dabei nicht erreichbar oder auf dem Celery-Worker nicht konfiguriert, bleibt die Löschung offen bzw. eine Mandantenlöschung wird abgelehnt, statt Vektoren zurückzulassen — siehe [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md).
 
 ---
 
 ## Häufige Fragen
 
 ??? question "Wer kann die Plattform-Admin-Rolle vergeben?"
-    Die Plattform-Admin-Rolle kann nur von einem bestehenden Platform-Admin vergeben werden — direkt über die API oder im Admin-Bereich. Beim ersten Setup wird der erste registrierte Nutzer automatisch als Platform-Admin konfiguriert.
+    Die Plattform-Admin-Rolle kann nur von einem bestehenden Platform-Admin vergeben werden — direkt über die API oder im Admin-Bereich, jeweils mit seinem Passwort bestätigt. Beim ersten Setup richtest du das erste Plattform-Admin-Konto auf dem Server ein (`python -m app.migrations.add_platform_admin <e-mail>`); der erste registrierte Nutzer wird **nicht** automatisch Platform-Admin.
 
 ??? question "Kann ein Platform-Admin auch Tenant-Daten einsehen?"
-    Ja. Platform-Admins haben Lesezugriff auf alle mandantengebundenen Daten. Diese Berechtigung sollte auf vertrauenswürdige Personen beschränkt und mit einem Audit-Log versehen sein. <!-- REQ-024 -->
+    Nein, nicht die Fachdaten. Ein Platform-Admin sieht Verwaltungsdaten über alle Mandanten hinweg — dass ein Mandant existiert, wie er heißt, wer Mitglied ist — aber keine Pflanzen, Ernten oder Tagebücher eines fremden Mandanten. Dafür müsste er dort regulär als Mitglied aufgenommen werden. <!-- REQ-049 §2.5 -->
 
 ??? question "Gibt es eine Viewer-Rolle für den Admin-Bereich?"
-    Ja. Die Plattform-Rolle `viewer` bietet Lesezugriff auf alle Admin-Statistiken und Mandanten-Übersichten, jedoch keine Schreibberechtigungen.
+    Noch nicht. Es gibt nur die volle Plattform-Rolle **admin**. Eine Mitgliedschaft als Beobachter im Mandanten `platform` öffnet den Admin-Bereich nicht — auch nicht lesend.
+
+    !!! warning "Noch nicht implementiert"
+        Eine reine Lese-Rolle für den Admin-Bereich (Statistiken und Mandanten-Übersichten ansehen, nichts ändern) ist geplant, aber nicht umgesetzt. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ??? question "Wo genau in der UI finde ich die Einstellung für den Pl@ntNet-Key?"
     Öffne **Konto-Einstellungen** (Klick auf dein Profilbild oben rechts) → Tab **Integrationen** → Abschnitt **Pflanzenerkennung**. Dort kannst du den Key eintragen, prüfen und entfernen. Die Einstellung ist nur für Nutzer mit der Plattform-Rolle **admin** sichtbar.

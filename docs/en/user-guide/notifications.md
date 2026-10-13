@@ -83,6 +83,9 @@ Available options:
 - **Mobile Push (Companion App)** — sends to all companion app devices registered in Home Assistant (default: on)
 - **Text-to-Speech (TTS)** — reads the message aloud through a selected speaker entity (e.g. `media_player.kitchen`); disabled by default and requires specifying the entity ID
 
+!!! info "Allowed targets"
+    The text-to-speech entity ID must be a `media_player.*` or `tts.*` entity. Kamerplanter only calls services in the `notify` and `tts` domains of Home Assistant; any other value is rejected when you save. An invalid value saved earlier is no longer sent — correct it so the settings can be saved again.
+
 Additionally, Kamerplanter fires a Home Assistant event for every notification (e.g. `kamerplanter_care_due`), which you can use to trigger your own HA automations — for example, opening an irrigation valve on a watering reminder.
 
 !!! tip "Multiple reminders are bundled"
@@ -90,12 +93,14 @@ Additionally, Kamerplanter fires a Home Assistant event for every notification (
 
 ### Email
 
-Enter your email address and choose the delivery mode:
+The email channel sends notifications to the **confirmed email address of your account**. You cannot enter a different address here; to use another one, change it in your account settings under “Change email address” and confirm it through the link. While your address is unconfirmed, Kamerplanter sends no emails, and the settings show a notice.
+
+Choose the delivery mode:
 
 - **Immediate** — every notification is sent as a separate email
 - **Daily digest** — all of the day's notifications are bundled into a single email
 
-Delivery uses the SMTP server (mail-sending server) configured by your operator (see [Environment Variables — Email](../reference/environment-variables.md#email)). If no SMTP connection is configured, development mode only prints emails to the backend log.
+Delivery uses the email channel configured by your operator — either an SMTP server (mail-sending server) or the Resend service (see [Environment Variables — Email](../reference/environment-variables.md#email)). If neither is configured, development mode only prints emails to the backend log.
 
 ### Browser Push (PWA)
 
@@ -105,6 +110,8 @@ Enables Web Push notifications directly in the browser or in the app when instal
     Browser push only works once your operator has provisioned a VAPID key pair (the cryptographic key for web push). If the channel shows **Not configured**, this has not happened yet — see [Setting Up Browser Push](../guides/browser-push-setup.md).
 
 If the channel is not supported in this browser (e.g. an older browser) or you previously blocked notifications, the page shows an explanatory message instead of the enable button. Use **Disable** to remove this device's push registration.
+
+A push registration always belongs to exactly one account: if someone else turns on push in the same browser, your account no longer receives messages through that device. **Logging out** removes this device's registration; after your next sign-in, turn push on there again if you want it. <!-- #2117 -->
 
 ### Apprise
 
@@ -116,7 +123,13 @@ slack://<token-a>/<token-b>/<channel>
 gotify://<hostname>/<token>
 ```
 
-You can find the exact URL syntax for your desired service in the [Apprise documentation](https://github.com/caronc/apprise/wiki). Kamerplanter itself requires no additional operator configuration for this channel — you manage the target URLs entirely yourself in your notification settings.
+You can find the exact URL syntax for your desired service in the [Apprise documentation](https://github.com/caronc/apprise/wiki). Kamerplanter itself requires no additional operator configuration for this channel — you manage the target URLs entirely yourself in your notification settings. The one exception: a server in a private network (see below).
+
+!!! info "Allowed services"
+    For security, Kamerplanter only accepts Apprise URLs for Telegram (`tgram://`, `telegram://`), Slack, Discord, ntfy (`ntfy://`, `ntfys://`), Gotify (`gotify://`, `gotifys://`), Pushover (`pover://`, `pushover://`) and Matrix (`matrix://`, `matrixs://`). Other schemes such as `mailto://`, `json://` or `https://` are rejected when you save, as are several URLs on one line and addresses such as `localhost` or `169.254.x.x`. For Gotify and Matrix (and ntfy with your own server), Kamerplanter resolves the host name and rejects the URL if it points at such an address or cannot be resolved; addresses in private networks (such as your home network, `192.168.x.x`, `10.x.x.x`) are allowed in the single-user installation without sign-in; on a server with sign-in and several users only if the operator has allowed them. Otherwise Kamerplanter refuses them when you save and when it sends. A URL that was stored before this rule and is not allowed is no longer sent; remove it so the settings can be saved again.
+
+!!! info "Saved URLs are shown masked"
+    An Apprise URL contains the service's access key (for example the Telegram bot token). Kamerplanter therefore stores the URLs encrypted and, once saved, shows them only as placeholders, for example `tgram://****#1` — the service and the position, not the URL itself. Keep a masked line to keep that URL; delete it to remove the URL; enter a new URL on its own line. To change a saved URL, delete its line and enter the new one in full. Your data export likewise states only how many URLs are configured. <!-- #2113 -->
 
 !!! warning "Operator prerequisite: install the Apprise package"
     The Apprise channel is active on the server by default, but requires the `apprise` Python package, which is not shipped automatically with the backend image. If it is not installed, the channel shows **Not configured** and test messages fail with "apprise package is not installed". The operator needs to add the package to the backend image (`pip install apprise`).
@@ -127,7 +140,7 @@ You can find the exact URL syntax for your desired service in the [Apprise docum
 
 After enabling a channel, you can verify it directly in the notification settings:
 
-1. Enable the desired channel and save any related details (email address, Apprise URLs, …).
+1. Enable the desired channel and save any related details (Apprise URLs, Home Assistant options, …).
 2. Click **Send test** for that channel.
 3. A success or error message appears as a brief notification (snackbar) at the bottom of the screen.
 

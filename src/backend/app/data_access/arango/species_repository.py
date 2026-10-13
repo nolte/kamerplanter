@@ -17,6 +17,13 @@ from app.domain.models.species import Cultivar, Species
 
 class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository):
     _model_cls = Species
+    tenant_scope_exempt_reason = (
+        "hybrid catalogue (global seeds with tenant_key '' plus tenant rows): get_all overrides the base "
+        "list read with the own-or-global-or-granted union for a tenant, and tenant_key=None is the "
+        "documented system-context read of the seeders, enrichment and reference-image tasks; strict mode "
+        "would make that read raise and the base strict filter would hide the global seeds (#324, P4 in "
+        "test_species_repository_cultivar_tenant_scope.py)"
+    )
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SPECIES)
@@ -148,6 +155,37 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         return self._is_granted(col.SPECIES, species_key, tenant_key)
 
+    def list_visible_keys(self, *, tenant_key: str) -> set[str] | None:
+        """Species keys this tenant can see: global ∪ own ∪ granted (#1178, #1638).
+
+        One query rather than a lookup per key, and deliberately the *same* three
+        arms the species reads use — a fourth notion of "visible" is how two reads
+        would drift into disagreeing about which rows a tenant has. Moved verbatim
+        from ``StarterKitService._visible_species_keys``.
+
+        Returns ``None`` only when the species collection does not exist.
+        """
+        if not self._db.has_collection("species"):
+            return None
+        cursor = self._db.aql.execute(
+            """
+            FOR doc IN species
+                FILTER doc.tenant_key == @tenant_key
+                    OR doc.tenant_key == ""
+                    OR doc.tenant_key == null
+                    OR LENGTH(
+                        FOR edge IN tenant_has_access
+                            FILTER edge._from == CONCAT("tenants/", @tenant_key)
+                            FILTER edge._to == doc._id
+                            LIMIT 1
+                            RETURN 1
+                    ) > 0
+                RETURN doc._key
+            """,
+            bind_vars={"tenant_key": tenant_key},
+        )
+        return set(cursor)
+
     def grant_cultivar_access(self, cultivar_key: str, to_tenant_key: str) -> None:
         """Share one cultivar with another tenant. See :meth:`grant_access`."""
         self._grant(col.CULTIVARS, cultivar_key, to_tenant_key)
@@ -261,8 +299,19 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         )
         return Species(**self._from_doc(next(cursor)))
 
-    def find_synonym_match_candidates(self, species: Species) -> list[Species]:
-        """Find existing records synonym-linked to ``species`` (REQ-048, #975).
+    def find_synonym_match_candidates(self, species: Species, *, tenant_key: str) -> list[Species]:
+        """Find existing records synonym-linked to ``species`` that ``tenant_key`` may read (REQ-048, #975).
+
+        **Scoped since #1708.** The service copies every unset field of the best
+        candidate into the record it creates, so the candidate set is a read: an
+        unscoped one let a tenant list another tenant's *private* species among
+        its synonyms and receive that tenant's field values in its own row. The
+        set is what the creating tenant can see anyway — own ∪ global ∪ granted
+        (:func:`~app.data_access.arango.tenant_scope.tenant_union_with_grants_predicate`,
+        the predicate :meth:`get_all` and :meth:`search` use). A global create
+        (``tenant_key == ""``) sees the global catalogue only, which also keeps a
+        tenant's private content from being copied *into* a shared row.
+
 
         Returns every stored species that is a *synonym shadow* of the incoming
         one — the exact case (same normalized name) is deliberately excluded, as
@@ -287,8 +336,10 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         new_norm = species.scientific_name_normalized
         new_syn_norms = sorted({n for raw in species.synonyms if (n := normalize_scientific_name(raw))})
+        predicate, predicate_vars = tenant_union_with_grants_predicate(tenant_key, doc_var="s")
         query = f"""
         FOR s IN {col.SPECIES}
+          FILTER {predicate}
           FILTER s.scientific_name_normalized != @new_norm
           FILTER (
             s.scientific_name_normalized IN @new_syn_norms
@@ -301,7 +352,7 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         """
         cursor = self._db.aql.execute(
             query,
-            bind_vars={"new_norm": new_norm, "new_syn_norms": new_syn_norms},
+            bind_vars={"new_norm": new_norm, "new_syn_norms": new_syn_norms, **predicate_vars},
         )
         return [Species(**self._from_doc(doc)) for doc in cursor]
 

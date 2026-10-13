@@ -3,10 +3,39 @@ from app.domain.engines.token_engine import TokenEngine
 from app.domain.interfaces.auth_provider import IAuthProvider
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.auth import TokenPayload
+from app.domain.models.mode_switch import system_account_refused
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 
 _API_KEY_PREFIX = "kp_"
+
+#: This provider is the full-mode one: the light-mode system account never resolves through it (#1855 SEC-006).
+_MODE = "full"
+
+
+def is_api_key_authorization(authorization: str | None) -> bool:
+    """Whether *authorization* (the raw header value) carries an API key, not a session token.
+
+    The one place outside :meth:`FullAuthProvider.resolve_user` that tells the two
+    apart, for an action that must refuse a key even when it belongs to a human
+    account (#1791 review SEC-001): an API key is a long-lived M2M credential
+    that cannot re-authenticate, whoever owns it.
+    """
+    return bool(authorization) and authorization.startswith(f"Bearer {_API_KEY_PREFIX}")
+
+
+def access_token_is_current(payload: TokenPayload, user: User) -> bool:
+    """Whether no revocation happened since *payload* was minted (#2116, REQ-023 AK-14).
+
+    The token carries the account's ``access_token_generation`` of its minting
+    (``gen``); every revocation — one session, all of them, a password reset or
+    change, a deactivation, a detected refresh replay — moves the account's
+    counter, so the token stops resolving on the next request instead of living
+    out its 15 minutes. Compared on the account the resolver reads anyway: no extra
+    round trip. A generation is compared, not a timestamp, so a replica whose clock
+    is a second behind can neither revive a revoked token nor refuse a fresh one.
+    """
+    return payload.gen == user.access_token_generation
 
 
 class FullAuthProvider(IAuthProvider):
@@ -20,15 +49,15 @@ class FullAuthProvider(IAuthProvider):
         self._user_repo = user_repo
         self._auth_service = auth_service
 
-    def resolve_user(self, authorization: str | None) -> User:
+    def resolve_user(self, authorization: str | None, *, client_ip: str | None) -> User:
         if not authorization or not authorization.startswith("Bearer "):
             raise UnauthorizedError("Missing or invalid authorization header.")
 
         token = authorization[7:]
 
         if token.startswith(_API_KEY_PREFIX):
-            user = self._auth_service.authenticate_api_key(token)
-            if user is None:
+            user = self._auth_service.authenticate_api_key(token, client_ip=client_ip)
+            if user is None or system_account_refused(user.key, mode=_MODE):
                 raise UnauthorizedError("Invalid or revoked API key.")
             return user
 
@@ -38,19 +67,22 @@ class FullAuthProvider(IAuthProvider):
             raise UnauthorizedError(str(e)) from e
 
         user = self._user_repo.get_by_key(payload.sub)
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or system_account_refused(user.key, mode=_MODE):
             raise UnauthorizedError("User not found or inactive.")
+        if not access_token_is_current(payload, user):
+            raise UnauthorizedError("Token has been revoked.")
 
         return user
 
-    def resolve_user_optional(self, authorization: str | None) -> User | None:
+    def resolve_user_optional(self, authorization: str | None, *, client_ip: str | None) -> User | None:
         if not authorization or not authorization.startswith("Bearer "):
             return None
 
         token = authorization[7:]
 
         if token.startswith(_API_KEY_PREFIX):
-            return self._auth_service.authenticate_api_key(token)
+            keyed = self._auth_service.authenticate_api_key(token, client_ip=client_ip)
+            return None if keyed is None or system_account_refused(keyed.key, mode=_MODE) else keyed
 
         try:
             payload: TokenPayload = self._token_engine.decode_access_token(token)
@@ -58,7 +90,9 @@ class FullAuthProvider(IAuthProvider):
             return None
 
         user = self._user_repo.get_by_key(payload.sub)
-        if user is None or not user.is_active:
+        if user is None or not user.is_active or not access_token_is_current(payload, user):
+            return None
+        if system_account_refused(user.key, mode=_MODE):
             return None
         return user
 

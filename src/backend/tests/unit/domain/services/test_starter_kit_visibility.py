@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.domain.services.starter_kit_service import StarterKitService
 
 _GLOBAL_SPECIES = "sp_tomato"
@@ -93,8 +94,11 @@ class _Db:
 
 
 def _service(visible: set[str] | None, *, has_species: bool = True) -> StarterKitService:
+    # The real species repository over the driver double: since #1638 the
+    # visibility query lives in `ArangoSpeciesRepository.list_visible_keys`, and
+    # the service reaches it only through that repository.
     service = StarterKitService.__new__(StarterKitService)
-    service._db = _Db(visible, has_species=has_species)
+    service._species_repo = ArangoSpeciesRepository(_Db(visible, has_species=has_species))  # type: ignore[arg-type]
     service.list_kits = lambda difficulty=None: [_Kit(**k) for k in _KITS]  # type: ignore[method-assign]
     return service
 
@@ -198,8 +202,37 @@ def test_the_visibility_query_carries_all_three_arms() -> None:
     service = _service({_GLOBAL_SPECIES})
     service.list_kits_for_tenant("t1")
 
-    query = service._db.queries[0]
+    query = service._species_repo._db.queries[0]
 
     assert "doc.tenant_key == @tenant_key" in query, "own rows"
     assert 'doc.tenant_key == ""' in query, "the global seed catalogue — its absence is #1178"
     assert "tenant_has_access" in query, "explicit grants — their absence undoes #1092"
+
+
+# ── the detail route (#1638) ─────────────────────────────────────────────────
+
+
+def test_the_kit_detail_flags_each_species_by_visibility() -> None:
+    """`get_kit_detail_for_tenant` called `_get_accessible_species_keys`, a helper
+    #1201 renamed to `_visible_species_keys` — so `GET /t/{slug}/starter-kits/{id}`
+    raised AttributeError on every request. Pinned by calling it, both arms."""
+    service = _service({_GLOBAL_SPECIES})
+    service.get_kit_by_id = lambda kit_id: _Kit(  # type: ignore[method-assign]
+        kit_id="mixed", species_keys=[_GLOBAL_SPECIES, _FOREIGN_SPECIES]
+    )
+
+    detail = service.get_kit_detail_for_tenant("mixed", "t1")
+
+    assert detail["species_availability"] == [
+        {"species_key": _GLOBAL_SPECIES, "available": True},
+        {"species_key": _FOREIGN_SPECIES, "available": False},
+    ]
+
+
+def test_the_kit_detail_degrades_to_available_when_species_are_unreachable() -> None:
+    service = _service(None)
+    service.get_kit_by_id = lambda kit_id: _Kit(kit_id="k", species_keys=[_FOREIGN_SPECIES])  # type: ignore[method-assign]
+
+    detail = service.get_kit_detail_for_tenant("k", "t1")
+
+    assert detail["species_availability"] == [{"species_key": _FOREIGN_SPECIES, "available": True}]

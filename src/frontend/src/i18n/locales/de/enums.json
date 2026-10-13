@@ -870,6 +870,33 @@
       "personal": "Persönlich",
       "organization": "Organisation"
     },
+    "tenantStatus": {
+      "active": "Aktiv",
+      "suspended": "Gesperrt",
+      "pending_deletion": "Löschung geplant",
+      "orphaned": "Verwaist",
+      "deleted": "Wird gelöscht",
+      "importing": "Wird importiert"
+    },
+    "tenantExportStatus": {
+      "pending": "Angefordert",
+      "running": "Wird erstellt",
+      "completed": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "expired": "Abgelaufen"
+    },
+    "tenantImportStatus": {
+      "pending": "Angefordert",
+      "validating": "Wird geprüft",
+      "running": "Wird importiert",
+      "completed": "Abgeschlossen",
+      "failed": "Gescheitert",
+      "cleanup_pending": "Aufräumen ausstehend"
+    },
+    "invitationType": {
+      "email": "E-Mail",
+      "link": "Link"
+    },
     "invitationStatus": {
       "pending": "Ausstehend",
       "accepted": "Angenommen",
@@ -891,6 +918,18 @@
       "mediterranean": "Mediterran",
       "fern": "Farn",
       "cactus": "Kaktus",
+      "outdoor_annual_veg": "Freiland-Gemüse (einjährig)",
+      "outdoor_annual_ornamental": "Freiland-Zierpflanze (einjährig)",
+      "outdoor_perennial": "Freiland-Staude",
+      "fruit_tree": "Obstbaum",
+      "berry_shrub": "Beerenstrauch",
+      "rose": "Rose",
+      "frost_tender_tuber": "Frostempfindliche Knolle",
+      "frost_tender_container": "Frostempfindliche Kübelpflanze",
+      "winter_vegetable": "Wintergemüse",
+      "spring_bulb": "Frühjahrs-Blumenzwiebel",
+      "bromeliad": "Bromelie",
+      "aquatic": "Wasserpflanze",
       "custom": "Benutzerdefiniert"
     },
     "reminderType": {
@@ -1028,6 +1067,15 @@
       "moderate": "mittel sicher",
       "high": "eher wahrscheinlich",
       "veryHigh": "sehr wahrscheinlich"
+    },
+    "entitlementDimension": {
+      "members": "Mitglieder",
+      "service_accounts": "Dienstkonten",
+      "storage_mb": "Speicherplatz",
+      "photos_per_instance": "Fotos je Pflanze",
+      "ai_calls_per_user_day": "KI-Aufrufe je Konto und Tag",
+      "ai_calls_per_tenant_day": "KI-Aufrufe des Gartens je Tag",
+      "ai_tokens_per_tenant_day": "KI-Tokens des Gartens je Tag"
     }
   }
 }
