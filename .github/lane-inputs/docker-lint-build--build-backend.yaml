@@ -11,8 +11,8 @@ gate:
   filter: backend
 status: derived
 measured_on: '2026-10-13'
-measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
-replay_seconds: 1
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 3
 job_spec_sha256: 287cceb7bb3262e0a5126d97c6e3bba6ce46d0d2f72cdc5e6a75cc09d3071417
 invocations:
 - command: derive-docker --context src/backend --dockerfile src/backend/Dockerfile
@@ -24,7 +24,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 2671
+  context_files_after_dockerignore: 2672
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -1756,6 +1756,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_lifecycle_active_phase_histories.py
 - src/backend/tests/unit/data_access/arango/test_lifecycle_delete_phase_edges.py
 - src/backend/tests/unit/data_access/arango/test_location_label_anchor.py
+- src/backend/tests/unit/data_access/arango/test_membership_bulk_update_write_conflict.py
 - src/backend/tests/unit/data_access/arango/test_notification_preference_repository.py
 - src/backend/tests/unit/data_access/arango/test_notification_repository.py
 - src/backend/tests/unit/data_access/arango/test_nutrient_plan_repository_catalog_union.py

@@ -11,7 +11,7 @@ gate:
   filter: inference-service
 status: derived
 measured_on: '2026-10-13'
-measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
 replay_seconds: 1
 job_spec_sha256: 9fd8040c9e934935486e4cc0b577682d8083f0e9b46471b54ea891114a24cd15
 invocations:

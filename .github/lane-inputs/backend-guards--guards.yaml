@@ -10,8 +10,8 @@ gate:
   kind: unfiltered
 status: measured
 measured_on: '2026-10-13'
-measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
-replay_seconds: 1466
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 2098
 job_spec_sha256: 079b62f95bb1a2e26010d80a1d3095ada5fb15d7704f5a19b87d80aaea6b2733
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
@@ -24,7 +24,7 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 6896
+  untracked_reads_dropped: 6894
 subprocesses:
 - awk
 - bash
@@ -3491,6 +3491,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_lifecycle_active_phase_histories.py
 - src/backend/tests/unit/data_access/arango/test_lifecycle_delete_phase_edges.py
 - src/backend/tests/unit/data_access/arango/test_location_label_anchor.py
+- src/backend/tests/unit/data_access/arango/test_membership_bulk_update_write_conflict.py
 - src/backend/tests/unit/data_access/arango/test_notification_preference_repository.py
 - src/backend/tests/unit/data_access/arango/test_notification_repository.py
 - src/backend/tests/unit/data_access/arango/test_nutrient_plan_repository_catalog_union.py

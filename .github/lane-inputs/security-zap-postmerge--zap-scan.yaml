@@ -10,8 +10,8 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-10-13'
-measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
-replay_seconds: 10
+measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+replay_seconds: 5
 job_spec_sha256: fea0fd594fd977eb144f7505fb22c6326f7d75a0150c36fa209aa79ec284d955
 invocations:
 - command: docker compose -f docker-compose.e2e.yml -f docker-compose.security.override.yml config --quiet
@@ -31,7 +31,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 2671
+  context_files_after_dockerignore: 2672
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -1812,6 +1812,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_lifecycle_active_phase_histories.py
 - src/backend/tests/unit/data_access/arango/test_lifecycle_delete_phase_edges.py
 - src/backend/tests/unit/data_access/arango/test_location_label_anchor.py
+- src/backend/tests/unit/data_access/arango/test_membership_bulk_update_write_conflict.py
 - src/backend/tests/unit/data_access/arango/test_notification_preference_repository.py
 - src/backend/tests/unit/data_access/arango/test_notification_repository.py
 - src/backend/tests/unit/data_access/arango/test_nutrient_plan_repository_catalog_union.py
