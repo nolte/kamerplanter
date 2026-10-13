@@ -127,7 +127,7 @@ def test_watering_interval_change_reschedules_pending_task(
     mock_care_repo.get_last_confirmation.return_value = _confirmation(ReminderType.WATERING)
     mock_task_repo.find_open_care_task.return_value = _pending_task()
 
-    service.update_profile("plant-1", {"watering_interval_days": 3})
+    service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     # Only pending tasks are considered — completed/skipped are excluded.
     _args, kwargs = mock_task_repo.find_open_care_task.call_args
@@ -151,7 +151,7 @@ def test_lengthening_watering_interval_pushes_due_date_out(
     mock_care_repo.get_last_confirmation.return_value = _confirmation(ReminderType.WATERING)
     mock_task_repo.find_open_care_task.return_value = _pending_task()
 
-    service.update_profile("plant-1", {"watering_interval_days": 14})
+    service.update_profile("plant-1", {"watering_interval_days": 14}, tenant_key="tenant-A")
 
     updated_task = mock_task_repo.update_task.call_args[0][1]
     # 14 days after March 5 = March 19.
@@ -167,7 +167,7 @@ def test_unchanged_interval_is_noop(
     """Writing the same interval value must not touch any task."""
     mock_care_repo.get_profile_by_plant_key.return_value = _profile(watering_interval_days=7)
 
-    service.update_profile("plant-1", {"watering_interval_days": 7})
+    service.update_profile("plant-1", {"watering_interval_days": 7}, tenant_key="tenant-A")
 
     mock_task_repo.find_open_care_task.assert_not_called()
     mock_task_repo.update_task.assert_not_called()
@@ -187,7 +187,7 @@ def test_no_pending_task_creates_when_watering_autocreate_on(
     mock_task_repo.find_open_care_task.return_value = None
     mock_task_repo.create_task.side_effect = lambda task: task
 
-    service.update_profile("plant-1", {"watering_interval_days": 3})
+    service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     mock_task_repo.update_task.assert_not_called()
     mock_task_repo.create_task.assert_called_once()
@@ -202,7 +202,7 @@ def test_no_pending_task_respects_watering_autocreate_off(
     mock_care_repo.get_profile_by_plant_key.return_value = _profile(auto_create_watering_task=False)
     mock_task_repo.find_open_care_task.return_value = None
 
-    service.update_profile("plant-1", {"watering_interval_days": 3})
+    service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     mock_task_repo.update_task.assert_not_called()
     mock_task_repo.create_task.assert_not_called()
@@ -217,7 +217,7 @@ def test_in_progress_task_is_not_rescheduled(
     mock_care_repo.get_profile_by_plant_key.return_value = _profile()
     mock_task_repo.find_open_care_task.return_value = _pending_task(status=TaskStatus.IN_PROGRESS)
 
-    service.update_profile("plant-1", {"watering_interval_days": 3})
+    service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     mock_task_repo.update_task.assert_not_called()
     mock_task_repo.create_task.assert_not_called()
@@ -232,7 +232,7 @@ def test_completed_history_is_not_revived_for_non_watering(
     mock_care_repo.get_profile_by_plant_key.return_value = _profile(pest_check_interval_days=14)
     mock_task_repo.find_open_care_task.return_value = None
 
-    service.update_profile("plant-1", {"pest_check_interval_days": 7})
+    service.update_profile("plant-1", {"pest_check_interval_days": 7}, tenant_key="tenant-A")
 
     mock_task_repo.update_task.assert_not_called()
     mock_task_repo.create_task.assert_not_called()
@@ -251,7 +251,7 @@ def test_explicit_edit_resets_learned_interval_and_drives_schedule(
     mock_care_repo.get_last_confirmation.return_value = _confirmation(ReminderType.WATERING)
     mock_task_repo.find_open_care_task.return_value = _pending_task()
 
-    service.update_profile("plant-1", {"watering_interval_days": 3})
+    service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     # The persisted profile drops the stale learned value.
     saved_profile = mock_care_repo.update_profile.call_args[0][1]
@@ -277,6 +277,7 @@ def test_caller_supplied_learned_value_is_preserved(
     service.update_profile(
         "plant-1",
         {"watering_interval_days": 3, "watering_interval_learned": 4},
+        tenant_key="tenant-A",
     )
 
     saved_profile = mock_care_repo.update_profile.call_args[0][1]
@@ -296,7 +297,7 @@ def test_fertilizing_interval_change_reschedules_pending_task(
         instruction="Fertilize Dahlie according to care profile.",
     )
 
-    service.update_profile("plant-1", {"fertilizing_interval_days": 10})
+    service.update_profile("plant-1", {"fertilizing_interval_days": 10}, tenant_key="tenant-A")
 
     args, _kwargs = mock_task_repo.find_open_care_task.call_args
     assert args[1] == ReminderType.FERTILIZING
@@ -319,7 +320,7 @@ def test_pest_check_interval_change_reschedules_pending_task(
         instruction="Inspect Dahlie for pests and diseases.",
     )
 
-    service.update_profile("plant-1", {"pest_check_interval_days": 7})
+    service.update_profile("plant-1", {"pest_check_interval_days": 7}, tenant_key="tenant-A")
 
     args, _kwargs = mock_task_repo.find_open_care_task.call_args
     assert args[1] == ReminderType.PEST_CHECK
@@ -338,7 +339,7 @@ def test_reschedule_lookup_is_tenant_scoped(
     mock_care_repo.get_last_confirmation.return_value = _confirmation(ReminderType.WATERING)
     mock_task_repo.find_open_care_task.return_value = _pending_task()
 
-    service.update_profile("plant-1", {"watering_interval_days": 3})
+    service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     args, _kwargs = mock_task_repo.find_open_care_task.call_args
     assert args[0] == "plant-1"
@@ -354,6 +355,6 @@ def test_no_task_repo_is_safe(
     mock_care_repo.get_profile_by_plant_key.return_value = _profile()
     service = CareReminderService(mock_care_repo, engine, task_repo=None, plant_repo=mock_plant_repo)
 
-    result = service.update_profile("plant-1", {"watering_interval_days": 3})
+    result = service.update_profile("plant-1", {"watering_interval_days": 3}, tenant_key="tenant-A")
 
     assert result.watering_interval_days == 3

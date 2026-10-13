@@ -212,7 +212,7 @@ def _race_get_or_create(plant_key: str) -> tuple[list[BaseException], list[str]]
         try:
             service = _make_service(db)
             barrier.wait(timeout=30)
-            profile = service.get_or_create_profile(plant_key, may_create=True)
+            profile = service.get_or_create_profile(plant_key, may_create=True, tenant_key=_TENANT_KEY)
             with lock:
                 keys.append(profile.key or "")
         except BaseException as exc:  # noqa: BLE001 — recorded and asserted on by the caller
@@ -397,7 +397,9 @@ def test_a_second_connection_never_sees_a_profile_before_its_edge(db, plant, mon
     def write() -> None:
         conn, writer_db = _connect()
         try:
-            writer_result.append(_make_service(writer_db).get_or_create_profile(plant, may_create=True))
+            writer_result.append(
+                _make_service(writer_db).get_or_create_profile(plant, may_create=True, tenant_key=_TENANT_KEY)
+            )
         except BaseException as exc:  # noqa: BLE001 — asserted on by the caller
             writer_result.append(exc)
         finally:

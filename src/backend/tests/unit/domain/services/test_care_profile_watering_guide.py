@@ -102,7 +102,7 @@ class TestTheGuideReachesTheEngine:
         family preset stood even for a species that documents four days."""
         service, _repo = _service(_species(watering_guide=_guide()))
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.watering_interval_days == 4
         assert profile.watering_method == WateringMethod.BOTTOM_WATER
@@ -114,7 +114,7 @@ class TestTheGuideReachesTheEngine:
         repotting and pest intervals stay the family's (engine tiers 1 over 2)."""
         service, _repo = _service(_species(watering_guide=_guide()))
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.care_style == CareStyleType.CACTUS
         assert profile.fertilizing_interval_days == 30, "the CACTUS preset is untouched by the guide"
@@ -124,7 +124,7 @@ class TestTheGuideReachesTheEngine:
         and give every plant the same values again — from the other end."""
         service, _repo = _service(_species())
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.watering_interval_days == 21, "the CACTUS family preset"
         assert profile.notes is None
@@ -136,7 +136,7 @@ class TestTheGuideReachesTheEngine:
             cultivar=Cultivar(name="Nana", species_key="sp-1", watering_guide_override=_guide(interval_days=9)),
         )
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.watering_interval_days == 9
 
@@ -146,14 +146,14 @@ class TestTheGuideReachesTheEngine:
             cultivar=Cultivar(name="Nana", species_key="sp-1"),
         )
 
-        profile = service.get_or_create_profile("p1", may_create=True)
+        profile = service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a")
 
         assert profile.watering_interval_days == 4
 
     def test_the_read_path_shows_what_the_write_path_would_store(self) -> None:
         service, repo = _service(_species(watering_guide=_guide()))
 
-        profile = service.get_or_create_profile("p1", may_create=False)
+        profile = service.get_or_create_profile("p1", may_create=False, tenant_key="tenant-a")
 
         assert profile.watering_interval_days == 4
         repo.create_linked_profile.assert_not_called()
@@ -161,7 +161,7 @@ class TestTheGuideReachesTheEngine:
     def test_reset_re_seeds_from_the_guide(self) -> None:
         service, _repo = _service(_species(watering_guide=_guide()))
 
-        assert service.reset_profile("p1").watering_interval_days == 4
+        assert service.reset_profile("p1", tenant_key="tenant-a").watering_interval_days == 4
 
     def test_the_winter_multiplier_comes_from_the_guide(self) -> None:
         """The engine derives it from the winter seasonal adjustment; without a
@@ -177,7 +177,10 @@ class TestTheGuideReachesTheEngine:
             )
         )
 
-        assert service.get_or_create_profile("p1", may_create=True).winter_watering_multiplier == 2.0
+        assert (
+            service.get_or_create_profile("p1", may_create=True, tenant_key="tenant-a").winter_watering_multiplier
+            == 2.0
+        )
 
 
 class TestTheResolverCarriesIt:

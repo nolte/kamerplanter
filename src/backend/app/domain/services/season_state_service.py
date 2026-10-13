@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import TYPE_CHECKING
 
 import structlog
@@ -188,14 +189,15 @@ class SeasonStateService:
         task. Both go through the idempotent care-reminder task path.
         """
         to_phase = transition.to_phase
+        # The site's own tenant: `_active_plants` lists only that tenant's plants, and
+        # the care service verifies each one against it again (#2107).
+        seasonal_tasks = partial(self._care_service.ensure_seasonal_winter_tasks, tenant_key=site.tenant_key)
         if to_phase == SeasonPhase.PRE_WINTER:
             for plant in self._active_plants(site):
                 # Materialise first so the freshly derived profile is available to
                 # the winter-reminder gate that follows.
                 self._safe(self._materializer.materialize, plant, site, plant_key=plant.key)
-                self._safe(
-                    self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
-                )
+                self._safe(seasonal_tasks, plant.key or "", to_phase, plant_key=plant.key)
         elif to_phase == SeasonPhase.WINTER_DORMANCY:
             for plant in self._active_plants(site):
                 self._safe(self._enter_dormancy, plant.key, plant_key=plant.key)
@@ -210,9 +212,7 @@ class SeasonStateService:
                 # with the season's spring reactivation (not two decoupled cycles).
                 if self._phase_coupler is not None:
                     self._safe(self._phase_coupler.restart_cycle, plant, plant_key=plant.key)
-                self._safe(
-                    self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
-                )
+                self._safe(seasonal_tasks, plant.key or "", to_phase, plant_key=plant.key)
         elif to_phase == SeasonPhase.GROWING:
             for plant in self._active_plants(site):
                 self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)

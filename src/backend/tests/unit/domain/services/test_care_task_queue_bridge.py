@@ -20,6 +20,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.common.enums import ConfirmAction, ReminderType, TaskCategory, TaskStatus
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
@@ -201,8 +203,11 @@ def test_bridge_ignores_non_care_and_non_plant_tasks() -> None:
     task_repo = FakeTaskRepo()
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
 
-    assert service.record_care_task_completion(_queue_completed_task(category=TaskCategory.MAINTENANCE)) is None
-    assert service.record_care_task_completion(_queue_completed_task(entity_type="location")) is None
+    assert (
+        service.record_care_task_completion(_queue_completed_task(category=TaskCategory.MAINTENANCE), tenant_key=TENANT)
+        is None
+    )
+    assert service.record_care_task_completion(_queue_completed_task(entity_type="location"), tenant_key=TENANT) is None
 
     care_repo.get_profile_by_plant_key.assert_not_called()
     care_repo.create_confirmation.assert_not_called()
@@ -328,5 +333,26 @@ def test_bridge_ignores_a_care_task_without_a_reminder_type_suffix() -> None:
     assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
 
     care_repo.create_confirmation.assert_not_called()
+    log_repo.create.assert_not_called()
+    assert task_repo.created == []
+
+
+@pytest.mark.parametrize("bridge", ["record_care_task_completion", "record_care_task_skip"])
+def test_an_empty_tenant_writes_no_care_state(bridge: str) -> None:
+    """#2107 — ``""`` is "no tenant", never "every tenant".
+
+    Red without the service predicate: the old ``tenant_key: str = ""`` default and
+    its ``if tenant_key`` checks waved a tenant-less task on a tenant-less plant
+    straight through to the confirmation, the log and the follow-up.
+    """
+    task = _queue_completed_task()
+    task.tenant_key = ""
+    task_repo = FakeTaskRepo([task])
+    service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile(), plant_tenant="")
+
+    assert getattr(service, bridge)(task, tenant_key="") is None
+
+    care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_edges.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []

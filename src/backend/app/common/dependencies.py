@@ -500,7 +500,9 @@ def _bootstrap_care_profile(plant) -> None:  # type: ignore[no-untyped-def]
     if not plant.key:
         return
 
-    get_care_reminder_service().get_or_create_profile(plant.key, may_create=True)
+    # The plant was just stored under the creating request's tenant, so its own
+    # ``tenant_key`` is that tenant; the service verifies it all the same (#2107).
+    get_care_reminder_service().get_or_create_profile(plant.key, may_create=True, tenant_key=plant.tenant_key)
 
 
 def _cascade_plant_photo_cleanup(plant) -> None:  # type: ignore[no-untyped-def]

@@ -18,6 +18,7 @@ the paths that must not write would inherit the permissive answer by saying noth
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock
 
 import pytest
@@ -25,6 +26,8 @@ import pytest
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareProfile
 from app.domain.services.care_reminder_service import CareReminderService
+
+TENANT = "tenant-1"
 
 
 def _service(existing: CareProfile | None):
@@ -45,7 +48,11 @@ def _service(existing: CareProfile | None):
     # #1489. `None` is the shape the constructor allows for each of them (every one
     # is optional), and it is the shape that makes the resolution answer "no species,
     # no family" — which is what these cases are about: the *write*, not the presets.
-    service._plant_repo = None
+    # The plant itself is there, owned by TENANT: since #2107 the public method runs
+    # the tenant predicate first, and these cases are about what happens after it.
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.return_value = SimpleNamespace(key="p1", tenant_key=TENANT)
+    service._plant_repo = plant_repo
     service._species_repo = None
     service._family_name_resolver = None
     service._family_name_cache = {}
@@ -56,7 +63,7 @@ def test_a_read_of_an_absent_profile_stores_nothing():
     """The fix. The presets are returned; the database is untouched."""
     service, repo = _service(existing=None)
 
-    profile = service.get_or_create_profile("p1", may_create=False)
+    profile = service.get_or_create_profile("p1", may_create=False, tenant_key=TENANT)
 
     assert profile is not None, "the caller still gets presets to render"
     repo.create_linked_profile.assert_not_called()
@@ -66,7 +73,7 @@ def test_a_write_path_still_stores_it():
     """The control. Without it, `may_create` could be ignored entirely and pass above."""
     service, repo = _service(existing=None)
 
-    service.get_or_create_profile("p1", may_create=True)
+    service.get_or_create_profile("p1", may_create=True, tenant_key=TENANT)
 
     repo.create_linked_profile.assert_called_once_with(ANY, "p1")
 
@@ -82,7 +89,7 @@ def test_an_existing_profile_is_returned_untouched_either_way():
     for may_create in (True, False):
         service, repo = _service(existing=existing)
 
-        assert service.get_or_create_profile("p1", may_create=may_create) is existing
+        assert service.get_or_create_profile("p1", may_create=may_create, tenant_key=TENANT) is existing
         repo.create_linked_profile.assert_not_called()
 
 
@@ -96,4 +103,4 @@ def test_may_create_has_no_default():
     service, _repo = _service(existing=None)
 
     with pytest.raises(TypeError):
-        service.get_or_create_profile("p1")  # type: ignore[call-arg]
+        service.get_or_create_profile("p1", tenant_key=TENANT)  # type: ignore[call-arg]

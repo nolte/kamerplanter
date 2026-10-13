@@ -283,8 +283,11 @@ _CARE_PROFILE_SINKS = frozenset(
 
 _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
     "care_reminders.router.get_or_create_profile": ("get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
-    "care_reminders.tenant_router.get_care_dashboard": ("get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
-    "print.tenant_router.export_care_checklist_pdf": ("get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
+    # The two dashboard reads reach the private body directly (#2107): the public
+    # method runs the tenant predicate, the dashboard has already listed the
+    # tenant's plants (or verified each caller-supplied one) before it gets there.
+    "care_reminders.tenant_router.get_care_dashboard": ("_get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
+    "print.tenant_router.export_care_checklist_pdf": ("_get_or_create_profile", "may_create", _CARE_PROFILE_SINKS),
 }
 
 

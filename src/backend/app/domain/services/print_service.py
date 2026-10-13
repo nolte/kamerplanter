@@ -190,7 +190,7 @@ class PrintService:
             )
 
         # Get care dashboard entries
-        entries = self._care_reminder_service.get_care_dashboard(plant_data, hemisphere="north")
+        entries = self._care_reminder_service.get_care_dashboard(plant_data, hemisphere="north", tenant_key=tenant_key)
 
         # Filter by date if provided
         if date:

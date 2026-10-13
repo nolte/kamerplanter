@@ -119,7 +119,7 @@ class TestEnsureSeasonalWinterTasks:
     def test_pre_winter_creates_winter_protection_regardless_of_month(self) -> None:
         service, task_repo = _build_service(owp=_owp())
 
-        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER)
+        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER, tenant_key="tenant-1")
 
         assert task_repo.create_task.called
         names = [t.name for t in created]
@@ -131,7 +131,7 @@ class TestEnsureSeasonalWinterTasks:
             owp=_owp(hardiness_rating=HardinessRating.DIG_AND_STORE, winter_action=WinterAction.DIG_STORE)
         )
 
-        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER)
+        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER, tenant_key="tenant-1")
 
         names = [t.name for t in created]
         assert any(n.endswith("— winter_protection") for n in names)
@@ -140,7 +140,7 @@ class TestEnsureSeasonalWinterTasks:
     def test_pre_spring_creates_spring_uncover(self) -> None:
         service, _ = _build_service(owp=_owp())
 
-        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_SPRING)
+        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_SPRING, tenant_key="tenant-1")
 
         names = [t.name for t in created]
         assert any(n.endswith("— spring_uncover") for n in names)
@@ -148,7 +148,7 @@ class TestEnsureSeasonalWinterTasks:
     def test_hardy_plant_without_profile_gets_no_task(self) -> None:
         service, task_repo = _build_service(owp=None)
 
-        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER)
+        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER, tenant_key="tenant-1")
 
         assert created == []
         task_repo.create_task.assert_not_called()
@@ -171,7 +171,7 @@ class TestEnsureSeasonalWinterTasks:
         ]
         service, task_repo = _build_service(owp=_owp(), existing_tasks=existing)
 
-        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER)
+        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.PRE_WINTER, tenant_key="tenant-1")
 
         assert all(not t.name.endswith("— winter_protection") for t in created)
         for call in task_repo.create_task.call_args_list:
@@ -180,7 +180,7 @@ class TestEnsureSeasonalWinterTasks:
     def test_growing_phase_creates_nothing(self) -> None:
         service, task_repo = _build_service(owp=_owp())
 
-        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.GROWING)
+        created = service.ensure_seasonal_winter_tasks("plant-1", SeasonPhase.GROWING, tenant_key="tenant-1")
 
         assert created == []
         task_repo.create_task.assert_not_called()
@@ -198,7 +198,24 @@ def test_removed_plant_gets_no_task(phase: SeasonPhase) -> None:
         removed_on=date(2026, 6, 1),
     )
 
-    created = service.ensure_seasonal_winter_tasks("plant-1", phase)
+    created = service.ensure_seasonal_winter_tasks("plant-1", phase, tenant_key="tenant-1")
 
     assert created == []
     task_repo.create_task.assert_not_called()
+
+
+@pytest.mark.parametrize("caller_tenant", ["tenant-2", ""])
+@pytest.mark.parametrize("phase", [SeasonPhase.PRE_WINTER, SeasonPhase.PRE_SPRING])
+def test_a_plant_of_another_tenant_gets_no_seasonal_task(phase: SeasonPhase, caller_tenant: str) -> None:
+    """#2107 — the season beat passes the site's tenant; a plant it does not own gets nothing.
+
+    Red without the predicate: the plant was loaded by key alone and its own tenant
+    stamped onto the task, whoever asked.
+    """
+    service, task_repo = _build_service(owp=_owp())
+
+    created = service.ensure_seasonal_winter_tasks("plant-1", phase, tenant_key=caller_tenant)
+
+    assert created == []
+    task_repo.create_task.assert_not_called()
+    service._repo.create_linked_profile.assert_not_called()
