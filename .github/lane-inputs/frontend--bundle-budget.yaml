@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
-replay_seconds: 24
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+replay_seconds: 39
 job_spec_sha256: a7543034721e7bd0eb2bd948f96b43211cce8533cfa47559633649ac9d0244d2
 invocations:
 - command: npm run build
@@ -20,7 +20,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 5509
+  untracked_reads_dropped: 5521
 - command: npm run bundle:check
   cwd: src/frontend
   recorder: strace -ff -y -z
@@ -62,6 +62,7 @@ reads:
 - src/frontend/src/api/endpoints/adminPlatform.ts
 - src/frontend/src/api/endpoints/adminReferenceImages.ts
 - src/frontend/src/api/endpoints/adminSettings.ts
+- src/frontend/src/api/endpoints/adminTenantImports.ts
 - src/frontend/src/api/endpoints/adminWeatherProviders.ts
 - src/frontend/src/api/endpoints/ai.ts
 - src/frontend/src/api/endpoints/aquaponik.ts
@@ -201,6 +202,7 @@ reads:
 - src/frontend/src/components/admin/PestRecognitionAdminCard.tsx
 - src/frontend/src/components/admin/PlanFormDialog.tsx
 - src/frontend/src/components/admin/RecognitionStatusCard.tsx
+- src/frontend/src/components/admin/TenantImportStatusCard.tsx
 - src/frontend/src/components/admin/TenantPlanCard.tsx
 - src/frontend/src/components/ai/
 - src/frontend/src/components/ai/AIResponse.tsx
@@ -330,6 +332,7 @@ reads:
 - src/frontend/src/components/tenants/LightModeTakeoverDialog.tsx
 - src/frontend/src/components/tenants/ScheduledTenantDeletionsCard.tsx
 - src/frontend/src/components/tenants/TenantDeleteDialog.tsx
+- src/frontend/src/components/tenants/TenantExportCard.tsx
 - src/frontend/src/components/tenants/TenantQuotaCard.tsx
 - src/frontend/src/components/tenants/TenantStatusChip.tsx
 - src/frontend/src/components/water/
@@ -446,6 +449,7 @@ reads:
 - src/frontend/src/pages/admin/AdminEditUserPage.tsx
 - src/frontend/src/pages/admin/AdminOidcProvidersPage.tsx
 - src/frontend/src/pages/admin/AdminPlansPage.tsx
+- src/frontend/src/pages/admin/AdminTenantImportsPage.tsx
 - src/frontend/src/pages/aquaponik/
 - src/frontend/src/pages/aquaponik/AquaponicSystemDialog.tsx
 - src/frontend/src/pages/aquaponik/AquaponikPage.tsx
@@ -795,6 +799,7 @@ reads:
 - src/frontend/src/utils/plantDisplay.ts
 - src/frontend/src/utils/stepUp.ts
 - src/frontend/src/utils/stepUpReauth.ts
+- src/frontend/src/utils/tenantImport.ts
 - src/frontend/src/utils/weekCalculation.ts
 - src/frontend/src/validation/
 - src/frontend/src/validation/zodErrorMap.ts
