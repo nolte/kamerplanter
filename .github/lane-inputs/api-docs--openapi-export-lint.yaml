@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
-replay_seconds: 55
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+replay_seconds: 52
 job_spec_sha256: 2f1bff7392a716c560eae9f1f5f5609f163c03d53b2487ffac5fe2ecd62284d4
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2896
+  untracked_reads_dropped: 3121
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -940,6 +940,10 @@ reads:
 - src/backend/app/observability/error_tracking.py
 - src/backend/app/observability/event_user.py
 - src/backend/app/observability/metrics.py
+- src/backend/app/observability/queue_metrics.py
+- src/backend/app/tasks/
+- src/backend/app/tasks/__init__.py
+- src/backend/app/tasks/routing.py
 - src/backend/scripts/
 - src/backend/scripts/__init__.py
 - src/backend/scripts/export_openapi.py

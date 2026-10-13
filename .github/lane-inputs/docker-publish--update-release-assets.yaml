@@ -9,8 +9,8 @@ job: update-release-assets
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
 replay_seconds: 1
 job_spec_sha256: fb788497fc80674eb8c2ed056871164c8ad65c3e971fad292abc77266e3593de
 invocations:
@@ -20,6 +20,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env:
+  - REGISTRY=ghcr.io
   - VERSION=v0.0.0
   untracked_reads_dropped: 0
 subprocesses:

@@ -9,58 +9,66 @@ job: changes
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
 replay_seconds: 2
-job_spec_sha256: ab7f29760f5cfde940c27fd89ac7864605ded02544a4af0f8e7953df9e1cd413
+job_spec_sha256: 8601892c2f41d278f6aea87c7d8d6eae1a2f69a8510bce5d3f9ec84c8583960f
 invocations:
 - command: hadolint src/backend/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint src/frontend/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint docker/vectordb/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint docker/knowledge/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint docker/embedding-service/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint docker/reranker-service/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint src/knowledge-service/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 - command: hadolint src/inference-service/Dockerfile
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
-  env: []
+  env:
+  - HADOLINT_IMAGE=ghcr.io/hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   untracked_reads_dropped: 0
 subprocesses:
 - hadolint

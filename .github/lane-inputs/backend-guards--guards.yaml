@@ -9,9 +9,9 @@ job: guards
 gate:
   kind: unfiltered
 status: measured
-measured_on: '2026-10-12'
-measured_at_commit: b7ce8a83cf9c42280f4ecc22430b87f385dabf2f
-replay_seconds: 1605
+measured_on: '2026-10-13'
+measured_at_commit: 6e5271d9d40444b6e93b28d5d9fd410ad3b860b9
+replay_seconds: 1466
 job_spec_sha256: 079b62f95bb1a2e26010d80a1d3095ada5fb15d7704f5a19b87d80aaea6b2733
 invocations:
 - command: pytest tests/unit/api tests/unit/guards tests/unit/test_seed_catalogue_page_size_check.py tests/unit/entrypoints
@@ -24,7 +24,7 @@ invocations:
   exit_code: 0
   env:
   - KAMERPLANTER_MODE=full
-  untracked_reads_dropped: 6886
+  untracked_reads_dropped: 6896
 subprocesses:
 - awk
 - bash
@@ -722,6 +722,7 @@ reads:
 - helm/kamerplanter/Chart.yaml
 - helm/kamerplanter/templates/
 - helm/kamerplanter/templates/_celery_workers.tpl
+- helm/kamerplanter/templates/_tenant_import_ingress.tpl
 - helm/kamerplanter/templates/common.yaml
 - helm/kamerplanter/values-dev-ki.yaml
 - helm/kamerplanter/values-dev-recognition.yaml
@@ -969,6 +970,7 @@ reads:
 - spec/analysis/seed-pipeline-agent-review.md
 - spec/analysis/tabellen-analyse-report.md
 - spec/analysis/target-audience-analysis.md
+- spec/analysis/task-queue-index-measurement-2026-10.md
 - spec/analysis/tasks-vs-care-reminders-audit.md
 - spec/analysis/ui-component-review-pflege-ha-card.md
 - spec/betriebsmodelle/
@@ -2869,12 +2871,14 @@ reads:
 - src/backend/app/migrations/versions/v0089_revoke_unchecked_platform_lead_invitations.py
 - src/backend/app/migrations/versions/v0090_hash_calendar_feed_tokens.py
 - src/backend/app/migrations/versions/v0091_tenant_plan_key.py
+- src/backend/app/migrations/versions/v0092_task_tenant_status_index.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
 - src/backend/app/observability/error_tracking.py
 - src/backend/app/observability/event_user.py
 - src/backend/app/observability/metrics.py
+- src/backend/app/observability/queue_metrics.py
 - src/backend/app/tasks/
 - src/backend/app/tasks/__init__.py
 - src/backend/app/tasks/actuator_tasks.py
@@ -2923,6 +2927,7 @@ reads:
 - src/backend/scripts/audit_care_profiles.py
 - src/backend/scripts/audit_oauth_links.py
 - src/backend/scripts/export_openapi.py
+- src/backend/scripts/measure_task_queue_indexes.py
 - src/backend/scripts/storage/
 - src/backend/scripts/storage/__init__.py
 - src/backend/scripts/storage/migrate.py
@@ -3111,6 +3116,7 @@ reads:
 - src/backend/tests/api/test_task_template_write_tenant_router.py
 - src/backend/tests/api/test_tenant_email_invitation_rate_limit.py
 - src/backend/tests/api/test_tenant_export_routes.py
+- src/backend/tests/api/test_tenant_import_body_ceiling.py
 - src/backend/tests/api/test_user_preferences_dashboard_layout.py
 - src/backend/tests/api/test_user_preferences_kiosk.py
 - src/backend/tests/api/test_user_preferences_module_visibility.py
@@ -3126,6 +3132,7 @@ reads:
 - src/backend/tests/integration/__init__.py
 - src/backend/tests/integration/conftest.py
 - src/backend/tests/integration/test_account_erasure_reach.py
+- src/backend/tests/integration/test_active_phase_histories_query.py
 - src/backend/tests/integration/test_admin_tenant_step_up_reach.py
 - src/backend/tests/integration/test_ai_provider_system_default_reach.py
 - src/backend/tests/integration/test_aql_reference_normalisation.py
@@ -3236,10 +3243,12 @@ reads:
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
 - src/backend/tests/integration/test_task_photo_delete_state.py
+- src/backend/tests/integration/test_task_queue_tenant_status_index.py
 - src/backend/tests/integration/test_tenant_erasure_batches.py
 - src/backend/tests/integration/test_tenant_erasure_cancel_keeps_suspension.py
 - src/backend/tests/integration/test_tenant_erasure_reach.py
 - src/backend/tests/integration/test_tenant_erasure_system_flag.py
+- src/backend/tests/integration/test_tenant_export_readings_timescale.py
 - src/backend/tests/integration/test_tenant_export_roundtrip.py
 - src/backend/tests/integration/test_tenant_founding_atomicity_reach.py
 - src/backend/tests/integration/test_tenant_walk_query.py
@@ -3441,6 +3450,7 @@ reads:
 - src/backend/tests/unit/config/
 - src/backend/tests/unit/config/test_adapter_selectors_refuse_unknown_keys.py
 - src/backend/tests/unit/config/test_app_base_url.py
+- src/backend/tests/unit/config/test_arangodb_scheme.py
 - src/backend/tests/unit/config/test_rate_limit_storage_url.py
 - src/backend/tests/unit/config/test_retention_ceilings.py
 - src/backend/tests/unit/conftest.py
@@ -3478,6 +3488,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_invitation_repository.py
 - src/backend/tests/unit/data_access/arango/test_ipm_repository_ownership.py
 - src/backend/tests/unit/data_access/arango/test_iter_for_tenants.py
+- src/backend/tests/unit/data_access/arango/test_lifecycle_active_phase_histories.py
 - src/backend/tests/unit/data_access/arango/test_lifecycle_delete_phase_edges.py
 - src/backend/tests/unit/data_access/arango/test_location_label_anchor.py
 - src/backend/tests/unit/data_access/arango/test_notification_preference_repository.py
@@ -3774,6 +3785,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_care_task_dedup_tenant.py
 - src/backend/tests/unit/domain/services/test_care_task_followup_after_completion.py
 - src/backend/tests/unit/domain/services/test_care_task_queue_bridge.py
+- src/backend/tests/unit/domain/services/test_catalogue_and_phase_history_writes_take_the_tenant.py
 - src/backend/tests/unit/domain/services/test_catalogue_create_role_gate.py
 - src/backend/tests/unit/domain/services/test_child_keys_are_scoped_to_their_parent.py
 - src/backend/tests/unit/domain/services/test_climate_normal_fetcher.py
@@ -3957,6 +3969,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_tenant_erasure_grace.py
 - src/backend/tests/unit/domain/services/test_tenant_erasure_service.py
 - src/backend/tests/unit/domain/services/test_tenant_export_service.py
+- src/backend/tests/unit/domain/services/test_tenant_export_wiring.py
 - src/backend/tests/unit/domain/services/test_tenant_logs_name_no_raw_tenant_key.py
 - src/backend/tests/unit/domain/services/test_tenant_quotas_follow_the_plan.py
 - src/backend/tests/unit/domain/services/test_tombstone_email_domain_is_reserved.py
@@ -4098,6 +4111,7 @@ reads:
 - src/backend/tests/unit/guards/test_rate_limit_settings_are_read.py
 - src/backend/tests/unit/guards/test_reach_audit_workflow.py
 - src/backend/tests/unit/guards/test_readings_are_inserted_through_the_settled_path.py
+- src/backend/tests/unit/guards/test_record_legs_provide_the_measured_jobs_environment.py
 - src/backend/tests/unit/guards/test_redis_clients_are_bounded.py
 - src/backend/tests/unit/guards/test_renovate_automerge_policy.py
 - src/backend/tests/unit/guards/test_renovate_dashboard_parser.py
@@ -4106,6 +4120,7 @@ reads:
 - src/backend/tests/unit/guards/test_retention_settings_are_read_and_counts_fail_safe.py
 - src/backend/tests/unit/guards/test_retired_indexes_are_catalogued.py
 - src/backend/tests/unit/guards/test_router_tags_are_declared.py
+- src/backend/tests/unit/guards/test_scan_stack_rate_limits.py
 - src/backend/tests/unit/guards/test_scoped_keys_on_routes_without_a_tenant.py
 - src/backend/tests/unit/guards/test_secret_model_fields_are_encrypted.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
@@ -4119,6 +4134,7 @@ reads:
 - src/backend/tests/unit/guards/test_tenant_bearing_repositories_declare_their_scope.py
 - src/backend/tests/unit/guards/test_tenant_erasure_inventory_is_complete.py
 - src/backend/tests/unit/guards/test_tenant_export_covers_the_inventory.py
+- src/backend/tests/unit/guards/test_tenant_import_body_ceiling_names_the_route.py
 - src/backend/tests/unit/guards/test_tenant_lookups_read_is_active.py
 - src/backend/tests/unit/guards/test_tenant_reference_keys_are_resolved.py
 - src/backend/tests/unit/guards/test_tenant_resolvers_bind_the_request_tenant.py
@@ -4284,6 +4300,7 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0081_null_foreign_reference_fields.py
 - src/backend/tests/unit/migrations/versions/test_v0082_security_audit_log_collection.py
 - src/backend/tests/unit/migrations/versions/test_v0083_encrypt_integration_secrets.py
+- src/backend/tests/unit/migrations/versions/test_v0092_task_tenant_status_index.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -4296,12 +4313,14 @@ reads:
 - src/backend/tests/unit/observability/test_error_tracking_redacts_texts.py
 - src/backend/tests/unit/observability/test_error_tracking_shape_redactor.py
 - src/backend/tests/unit/observability/test_metrics_exposition.py
+- src/backend/tests/unit/observability/test_queue_length_metrics.py
 - src/backend/tests/unit/observability/test_request_correlation.py
 - src/backend/tests/unit/support/
 - src/backend/tests/unit/support/__init__.py
 - src/backend/tests/unit/support/test_tenant_replay_predicates.py
 - src/backend/tests/unit/tasks/
 - src/backend/tests/unit/tasks/__init__.py
+- src/backend/tests/unit/tasks/test_auto_transitions_reads_per_page.py
 - src/backend/tests/unit/tasks/test_beat_tasks_visit_every_row.py
 - src/backend/tests/unit/tasks/test_beats_skip_inactive_tenants.py
 - src/backend/tests/unit/tasks/test_care_beats_skip_closed_tenants.py
@@ -4484,6 +4503,7 @@ reads:
 - src/frontend/src/api/endpoints/adminPlatform.ts
 - src/frontend/src/api/endpoints/adminReferenceImages.ts
 - src/frontend/src/api/endpoints/adminSettings.ts
+- src/frontend/src/api/endpoints/adminTenantImports.ts
 - src/frontend/src/api/endpoints/adminWeatherProviders.ts
 - src/frontend/src/api/endpoints/ai.ts
 - src/frontend/src/api/endpoints/aquaponik.ts
@@ -4623,6 +4643,7 @@ reads:
 - src/frontend/src/components/admin/PestRecognitionAdminCard.tsx
 - src/frontend/src/components/admin/PlanFormDialog.tsx
 - src/frontend/src/components/admin/RecognitionStatusCard.tsx
+- src/frontend/src/components/admin/TenantImportStatusCard.tsx
 - src/frontend/src/components/admin/TenantPlanCard.tsx
 - src/frontend/src/components/ai/
 - src/frontend/src/components/ai/AIResponse.tsx
@@ -4752,6 +4773,7 @@ reads:
 - src/frontend/src/components/tenants/LightModeTakeoverDialog.tsx
 - src/frontend/src/components/tenants/ScheduledTenantDeletionsCard.tsx
 - src/frontend/src/components/tenants/TenantDeleteDialog.tsx
+- src/frontend/src/components/tenants/TenantExportCard.tsx
 - src/frontend/src/components/tenants/TenantQuotaCard.tsx
 - src/frontend/src/components/tenants/TenantStatusChip.tsx
 - src/frontend/src/components/water/
@@ -4870,6 +4892,7 @@ reads:
 - src/frontend/src/pages/admin/AdminEditUserPage.tsx
 - src/frontend/src/pages/admin/AdminOidcProvidersPage.tsx
 - src/frontend/src/pages/admin/AdminPlansPage.tsx
+- src/frontend/src/pages/admin/AdminTenantImportsPage.tsx
 - src/frontend/src/pages/aquaponik/
 - src/frontend/src/pages/aquaponik/AquaponicSystemDialog.tsx
 - src/frontend/src/pages/aquaponik/AquaponikPage.tsx
@@ -5203,6 +5226,7 @@ reads:
 - src/frontend/src/test/a11y/accessibility.test.tsx
 - src/frontend/src/test/a11y/adminOidcProviders.a11y.test.tsx
 - src/frontend/src/test/a11y/adminPlans.a11y.test.tsx
+- src/frontend/src/test/a11y/adminTenantImports.a11y.test.tsx
 - src/frontend/src/test/a11y/dialogs.a11y.test.tsx
 - src/frontend/src/test/a11y/emailChangePages.a11y.test.tsx
 - src/frontend/src/test/a11y/expectNoA11yViolations.test.tsx
@@ -5227,6 +5251,7 @@ reads:
 - src/frontend/src/test/api/endpoints/adminPlans.test.ts
 - src/frontend/src/test/api/endpoints/adminPlatform.test.ts
 - src/frontend/src/test/api/endpoints/adminSettings.test.ts
+- src/frontend/src/test/api/endpoints/adminTenantImports.test.ts
 - src/frontend/src/test/api/endpoints/adminWeatherProviders.test.ts
 - src/frontend/src/test/api/endpoints/auth.test.ts
 - src/frontend/src/test/api/endpoints/botanicalFamilies.test.ts
@@ -5333,6 +5358,8 @@ reads:
 - src/frontend/src/test/components/SubstrateSelectField.test.tsx
 - src/frontend/src/test/components/TabPanel.test.tsx
 - src/frontend/src/test/components/TaskOriginBadge.test.tsx
+- src/frontend/src/test/components/TenantExportCard.test.tsx
+- src/frontend/src/test/components/TenantImportStatusCard.test.tsx
 - src/frontend/src/test/components/UnsavedChangesGuard.test.tsx
 - src/frontend/src/test/components/WaterSourceSection.test.tsx
 - src/frontend/src/test/components/WeatherForecastWidget.test.tsx
@@ -5484,6 +5511,7 @@ reads:
 - src/frontend/src/test/pages/AdminEditUserTrustRaiseStepUp.test.tsx
 - src/frontend/src/test/pages/AdminOidcProvidersPage.test.tsx
 - src/frontend/src/test/pages/AdminPlansPage.test.tsx
+- src/frontend/src/test/pages/AdminTenantImportsPage.test.tsx
 - src/frontend/src/test/pages/AquaponikPage.test.tsx
 - src/frontend/src/test/pages/BatchDetailPage.test.tsx
 - src/frontend/src/test/pages/BotanicalFamilyCreateDialog.test.tsx
@@ -5639,6 +5667,7 @@ reads:
 - src/frontend/src/test/pages/TaskQueuePageCompactCard.test.tsx
 - src/frontend/src/test/pages/TaskQueuePlantScope.test.tsx
 - src/frontend/src/test/pages/TenantCreateOrganizationLimit.test.tsx
+- src/frontend/src/test/pages/TenantSettingsExportTab.test.tsx
 - src/frontend/src/test/pages/TenantSettingsInvitationDelivery.test.tsx
 - src/frontend/src/test/pages/TenantSettingsInvitationsMobile.test.tsx
 - src/frontend/src/test/pages/TenantSettingsMemberRemovalStepUp.test.tsx
@@ -5726,6 +5755,7 @@ reads:
 - src/frontend/src/test/utils/plantDisplay.test.ts
 - src/frontend/src/test/utils/stepUp.test.ts
 - src/frontend/src/test/utils/stepUpReauth.test.ts
+- src/frontend/src/test/utils/tenantImport.test.ts
 - src/frontend/src/test/utils/weekCalculation.test.ts
 - src/frontend/src/test/validation/
 - src/frontend/src/test/validation/zodErrorMap.test.ts
@@ -5753,6 +5783,7 @@ reads:
 - src/frontend/src/utils/plantDisplay.ts
 - src/frontend/src/utils/stepUp.ts
 - src/frontend/src/utils/stepUpReauth.ts
+- src/frontend/src/utils/tenantImport.ts
 - src/frontend/src/utils/weekCalculation.ts
 - src/frontend/src/validation/
 - src/frontend/src/validation/zodErrorMap.ts
@@ -6309,6 +6340,7 @@ test_modules:
 - src/backend/tests/unit/guards/test_retention_settings_are_read_and_counts_fail_safe.py
 - src/backend/tests/unit/guards/test_retired_indexes_are_catalogued.py
 - src/backend/tests/unit/guards/test_router_tags_are_declared.py
+- src/backend/tests/unit/guards/test_scan_stack_rate_limits.py
 - src/backend/tests/unit/guards/test_scoped_keys_on_routes_without_a_tenant.py
 - src/backend/tests/unit/guards/test_secret_model_fields_are_encrypted.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
@@ -6322,6 +6354,7 @@ test_modules:
 - src/backend/tests/unit/guards/test_tenant_bearing_repositories_declare_their_scope.py
 - src/backend/tests/unit/guards/test_tenant_erasure_inventory_is_complete.py
 - src/backend/tests/unit/guards/test_tenant_export_covers_the_inventory.py
+- src/backend/tests/unit/guards/test_tenant_import_body_ceiling_names_the_route.py
 - src/backend/tests/unit/guards/test_tenant_lookups_read_is_active.py
 - src/backend/tests/unit/guards/test_tenant_reference_keys_are_resolved.py
 - src/backend/tests/unit/guards/test_tenant_resolvers_bind_the_request_tenant.py
