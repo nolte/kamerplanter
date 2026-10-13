@@ -37,6 +37,14 @@ answers 413 above and forwards below is held by
 ``scripts/ci/probe_proxy_body_limit.sh``, which runs both configurations in the
 production nginx image.
 
+**The one exception (#2138).** The platform admin's tenant import
+(``POST /api/v1/admin/platform/tenant-imports``) takes an archive up to
+``tenant_import_max_upload_mb`` (512 MiB). Both nginx configurations give that
+exact path — a ``location =`` block, nothing broader — its own
+``client_max_body_size`` of the import bound + 1 MiB; the chart derives it from
+``tenantExport.importMaxUploadMb``, whose default equals the Settings default.
+Every other location still inherits the server-level limit.
+
 Traces to #2144 G-10 (no TC-ID: deployment configuration, no user-facing case).
 """
 
@@ -69,6 +77,28 @@ def _default(field: str) -> int:
 
 def _strip_comments(conf: str) -> str:
     return "\n".join(line.split("#", 1)[0] for line in conf.splitlines())
+
+
+_IMPORT_LOCATION = re.compile(r"location\s*=\s*/api/v1/admin/platform/tenant-imports\s*\{(?P<body>[^{}]*)\}")
+
+
+def _import_location_limit(conf: str) -> list[str]:
+    """``client_max_body_size`` values inside the exact import location (``[]`` without one).
+
+    A Helm expression (``{{ … }}``) is hidden while the block is matched and returned verbatim.
+    """
+    templates: list[str] = []
+
+    def _hide(match: re.Match[str]) -> str:
+        templates.append(match.group(0))
+        return f"\x00{len(templates) - 1}\x00"
+
+    text = re.sub(r"\{\{.*?\}\}", _hide, _strip_comments(conf))
+    found: list[str] = []
+    for block in _IMPORT_LOCATION.finditer(text):
+        for value in re.findall(r"client_max_body_size\s+([^;]+);", block["body"]):
+            found.append(re.sub(r"\x00(\d+)\x00", lambda m: templates[int(m.group(1))], value.strip()))
+    return found
 
 
 def _server_level_directives(conf: str, name: str) -> list[tuple[int, str]]:
@@ -140,8 +170,10 @@ def test_largest_legitimate_upload_is_the_attachment_bound() -> None:
 
 
 def test_image_nginx_sets_the_limit_once_at_server_level() -> None:
-    directives = _server_level_directives(_IMAGE_CONF.read_text(encoding="utf-8"), "client_max_body_size")
-    assert [depth for depth, _ in directives] == [1], (
+    conf = _IMAGE_CONF.read_text(encoding="utf-8")
+    directives = _server_level_directives(conf, "client_max_body_size")
+    # The import location's own limit (#2138) is the one directive below server level.
+    assert [depth for depth, _ in directives] == [1, 2] and len(_import_location_limit(conf)) == 1, (
         f"{_IMAGE_CONF}: expected exactly one client_max_body_size inside server {{}} "
         f"(nginx's default is 1 MiB), found {directives}"
     )
@@ -157,7 +189,7 @@ def test_chart_storage_default_matches_the_backend_default() -> None:
 
 def test_chart_nginx_sets_the_limit_once_at_server_level_from_storage() -> None:
     directives = _server_level_directives(_chart_default_conf(), "client_max_body_size")
-    assert [depth for depth, _ in directives] == [1], (
+    assert [depth for depth, _ in directives] == [1, 2] and len(_import_location_limit(_chart_default_conf())) == 1, (
         "configMaps.frontend-nginx default.conf: expected exactly one client_max_body_size "
         f"inside server {{}}, found {directives}"
     )
@@ -176,3 +208,21 @@ def test_chart_ingress_annotation_equals_the_nginx_limit() -> None:
         f"{annotations.get(_INGRESS_ANNOTATION)!r} differs from the nginx limit "
         f"{nginx_value[0][1]!r}"
     )
+
+
+def test_image_nginx_gives_the_import_path_the_import_bound() -> None:
+    """#2138 — the exact import path, and only it, takes ``tenant_import_max_upload_mb`` + 1 MiB."""
+    limits = _import_location_limit(_IMAGE_CONF.read_text(encoding="utf-8"))
+    expected = (_default("tenant_import_max_upload_mb") + _HEADROOM_MIB) * _MIB
+    assert [_bytes(limit) for limit in limits] == [expected], (
+        f"{_IMAGE_CONF}: the tenant-import location must carry tenant_import_max_upload_mb + {_HEADROOM_MIB} MiB "
+        f"= {expected} bytes, found {limits}"
+    )
+
+
+def test_chart_nginx_import_limit_follows_the_chart_import_bound() -> None:
+    limits = _import_location_limit(_chart_default_conf())
+    assert len(limits) == 1 and ".Values.tenantExport.importMaxUploadMb" in limits[0], (
+        f"the chart's import location must follow tenantExport.importMaxUploadMb, not a copied number: {limits}"
+    )
+    assert _chart_values()["tenantExport"]["importMaxUploadMb"] == _default("tenant_import_max_upload_mb")

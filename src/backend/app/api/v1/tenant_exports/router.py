@@ -35,6 +35,12 @@ from app.domain.services.tenant_export_service import (
 tenant_router = APIRouter(prefix="/tenants", tags=["tenants"], responses=AUTH_CRUD_RESPONSES)
 admin_router = APIRouter(prefix="/admin/platform", tags=["admin-platform"], responses=AUTH_CRUD_RESPONSES)
 
+#: The import route, relative to ``admin_router``; its full path carries the route's own body ceiling
+#: in ``RequestBodyLimitMiddleware`` (``TENANT_IMPORT_MAX_UPLOAD_MB``, #2138). The guard
+#: ``tests/unit/guards/test_tenant_import_body_ceiling_names_the_route.py`` holds the path to the app's route.
+IMPORT_ROUTE = "/tenant-imports"
+TENANT_IMPORT_PATH = f"/api/v1{admin_router.prefix}{IMPORT_ROUTE}"
+
 _ZIP_RESPONSE: dict[int | str, dict[str, Any]] = {
     200: {"content": {"application/zip": {}}, "description": "The tenant archive as a ZIP file."}
 }
@@ -203,7 +209,7 @@ async def admin_download_tenant_export(
     return _archive_response(await service.open_download(export), export.key or export_key)
 
 
-@admin_router.post("/tenant-imports", status_code=202, response_model=TenantImportResponse, responses=STEP_UP_RESPONSES)
+@admin_router.post(IMPORT_ROUTE, status_code=202, response_model=TenantImportResponse, responses=STEP_UP_RESPONSES)
 @limiter.limit(settings.rate_limit_tenant_import, key_func=user_rate_limit_key)
 def admin_import_tenant(
     request: Request,
@@ -238,7 +244,8 @@ def admin_import_tenant(
     photos of each plant (``409 PHOTO_QUOTA_EXCEEDED``). ``verified`` in the response says
     whether this installation signed the archive; a foreign or unsigned archive is imported unverified.
     Every document gets a new key. ``202 Accepted``; poll ``GET /admin/platform/tenant-imports/{import_key}``
-    for the report. ``413`` above ``TENANT_IMPORT_MAX_UPLOAD_MB``.
+    for the report. ``413`` above ``TENANT_IMPORT_MAX_UPLOAD_MB`` — this route's own body ceiling; every
+    other upload keeps ``STORAGE_MAX_FILE_SIZE_MB``. The ceiling never exceeds ``UPLOAD_SPOOL_BUDGET_MB``.
     """
     handle = archive.file
     handle.seek(0, 2)

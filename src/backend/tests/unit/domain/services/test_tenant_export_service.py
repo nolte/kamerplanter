@@ -1054,3 +1054,187 @@ class TestTheTargetPlansQuotasAreCheckedBeforeTheWrite:
         assert (finished.status, finished.failure_reason, finished.target_tenant_key) == ("failed", code, None)
         assert not any(key.startswith("t/") for key in world.storage.objects)
         assert world.audit.rows[-1]["outcome"] == f"failed:{code}"
+
+
+# ── REQ-056 §8.3: TimescaleDB readings as the optional part timeseries/readings.csv (#2138) ──
+
+
+class _Readings:
+    """A reading source for one tenant: records who was asked, how far the read got and whether it was closed."""
+
+    def __init__(self, pages: list[list[Any]]) -> None:
+        self.pages = pages
+        self.asked: list[str] = []
+        self.served = 0
+        self.closed = False
+
+    def iter_tenant_readings(self, tenant_key: str, *, page_size: int):
+        self.asked.append(tenant_key)
+        try:
+            for page in self.pages:
+                self.served += 1
+                yield page
+        finally:
+            self.closed = True
+
+
+def _reading(series: str = "raw", **fields: Any):
+    from app.domain.models.observation import ArchivedReading
+
+    base: dict[str, Any] = {"series": series, "time": NOW, "sensor_key": "sen-1", "sensor_type": "temperature"}
+    if series == "raw":
+        base |= {"value": 21.5, "unit": "°C", "source": "home_assistant"}
+    else:
+        base |= {"avg_value": 20.0, "min_value": -1.5, "max_value": 24.0, "sample_count": 60}
+    return ArchivedReading.model_validate(base | fields)
+
+
+def _completed_archive(world, service: TenantExportService):
+    import zipfile
+
+    created = _request(service)
+    done = run_async(service.run_export(created.key or ""))
+    assert done is not None and done.status == "completed", done
+    return done, zipfile.ZipFile(io.BytesIO(world.storage.objects[done.storage_key or ""]))
+
+
+class TestReadingsTravelAsAnOptionalPart:
+    def test_the_tenants_readings_are_in_the_archive_hashed_and_described(self, world) -> None:
+        import csv
+        import hashlib
+        import json
+
+        readings = _Readings(
+            [
+                [_reading(), _reading(value=-3.25, metadata={"entity": "sensor.x"})],
+                [_reading("hourly"), _reading("daily")],
+            ]
+        )
+        done, archive = _completed_archive(world, world.build(readings=readings))
+
+        assert readings.asked == ["t-1"]  # the requested tenant's key, nothing the caller named
+        data = archive.read("timeseries/readings.csv")
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["files"]["timeseries/readings.csv"] == {"rows": 4, "sha256": hashlib.sha256(data).hexdigest()}
+        assert manifest["timeseries"]["readings"]["rows"] == 4
+        assert manifest["timeseries"]["readings"]["series"] == ["raw", "hourly", "daily"]
+        assert not any(row["collection"].startswith("timescale:") for row in manifest["excluded"])
+        assert done.counts["timeseries/readings.csv"] == 4
+
+        rows = list(csv.DictReader(io.StringIO(data.decode("utf-8"))))
+        assert tuple(rows[0]) == tuple(manifest["timeseries"]["readings"]["columns"])
+        assert [row["series"] for row in rows] == ["raw", "raw", "hourly", "daily"]
+        assert rows[0]["value"] == "21.5" and rows[0]["avg_value"] == "" and rows[0]["time"] == NOW.isoformat()
+        assert rows[1]["value"] == "-3.25"  # a number is never neutralised
+        assert json.loads(rows[1]["metadata"]) == {"entity": "sensor.x"}
+        assert rows[2]["sample_count"] == "60" and rows[2]["value"] == ""
+
+    def test_a_formula_in_a_text_cell_is_neutralised(self) -> None:
+        from app.domain.engines.tenant_export_engine import READINGS_COLUMNS, readings_csv_rows
+
+        cells = dict(
+            zip(
+                READINGS_COLUMNS,
+                readings_csv_rows([_reading(unit="=HYPERLINK(1)", source="+cmd", sensor_type="@x")])[0],
+                strict=True,
+            )
+        )
+
+        assert (cells["unit"], cells["source"], cells["sensor_type"]) == ("'=HYPERLINK(1)", "'+cmd", "'@x")
+
+    @pytest.mark.parametrize("readings", [None, _Readings([])], ids=["no TimescaleDB", "no reading"])
+    def test_without_readings_there_is_no_part_and_no_section(self, world, readings) -> None:
+        import json
+
+        _done, archive = _completed_archive(world, world.build(readings=readings))
+
+        assert "timeseries/readings.csv" not in archive.namelist()
+        assert "timeseries" not in json.loads(archive.read("manifest.json"))
+
+    def test_readings_past_the_size_limit_stop_the_read_and_fail_too_large(self, world) -> None:
+        world.entitlements.storage_mb = 1  # 1.1 MB allowed
+        noise = [[_reading(metadata={"n": os.urandom(256).hex()}) for _ in range(500)] for _ in range(200)]
+        readings = _Readings(noise)
+        service = world.build(readings=readings)
+        created = _request(service)
+
+        done = run_async(service.run_export(created.key or ""))
+
+        assert done is not None and (done.status, done.failure_reason) == ("failed", "too_large")
+        assert world.storage.objects == {}
+        assert readings.served < len(noise)  # the limit stopped the read, it did not run to the end
+        assert readings.closed  # and the read was closed (its connection returned), not abandoned
+
+
+class TestAFormatOneReaderIgnoresTheReadings:
+    @staticmethod
+    def _with_readings(csv_bytes: bytes, *, stated: bytes | None = None, listed: bool = True) -> bytes:
+        """A signed archive with a readings part; *stated* is what the manifest's hash covers (default: the part)."""
+        import hashlib
+        import json
+        import zipfile
+
+        base = io.BytesIO(_archive_bytes(signing_key=None))
+        out = io.BytesIO()
+        with zipfile.ZipFile(base) as source, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+            manifest = json.loads(source.read("manifest.json"))
+            if listed:
+                manifest["files"]["timeseries/readings.csv"] = {
+                    "rows": 7,
+                    "sha256": hashlib.sha256(stated if stated is not None else csv_bytes).hexdigest(),
+                }
+            for name in source.namelist():
+                if name != "manifest.json":
+                    target.writestr(name, source.read(name))
+            target.writestr("timeseries/readings.csv", csv_bytes)
+            target.writestr("manifest.json", json.dumps(manifest))
+        return out.getvalue()
+
+    def test_an_archive_with_readings_is_read_and_the_part_is_reported(self) -> None:
+        from app.domain.engines.tenant_export_engine import read_tenant_archive
+
+        archive = read_tenant_archive(io.BytesIO(self._with_readings(b"series,time\nraw,x\n")))
+
+        assert archive.ignored_parts == {"timeseries/readings.csv": 7}
+        assert "timeseries/readings.csv" not in archive.objects
+
+    def test_the_part_is_never_decompressed(self) -> None:
+        """A part whose bytes do not match its hash still reads: nothing of it was decompressed or used."""
+        from app.domain.engines.tenant_export_engine import read_tenant_archive
+
+        archive = read_tenant_archive(io.BytesIO(self._with_readings(b"real", stated=b"something else")))
+
+        assert archive.ignored_parts == {"timeseries/readings.csv": 7}
+
+    def test_an_unlisted_readings_part_is_refused(self) -> None:
+        from app.domain.engines.tenant_export_engine import TenantArchiveError, read_tenant_archive
+
+        with pytest.raises(TenantArchiveError) as refused:
+            read_tenant_archive(io.BytesIO(self._with_readings(b"series\n", listed=False)))
+
+        assert refused.value.code == "IMPORT_CHECKSUM_MISMATCH"
+        assert refused.value.entries == ["unlisted:timeseries/readings.csv"]
+
+    def test_a_readings_part_larger_than_one_object_does_not_refuse_the_import(self) -> None:
+        """The per-entry bound protects what is held in memory; the readings part never is."""
+        from app.domain.engines.tenant_export_engine import read_tenant_archive
+
+        big = b"raw,2026-10-11T12:00:00+00:00\n" * 40_000  # ~1.2 MB, past a 1 MB entry bound
+        archive = read_tenant_archive(io.BytesIO(self._with_readings(big)), max_entry_bytes=1024 * 1024)
+
+        assert archive.ignored_parts == {"timeseries/readings.csv": 7}
+
+    def test_the_read_is_closed_when_the_limit_stops_it_not_when_the_error_is_collected(self, world) -> None:
+        """While the error (and its traceback, which holds the writer's frames) is alive, the read is already closed."""
+        from app.domain.engines.tenant_export_engine import ArchiveTooLargeError
+
+        noise = [[_reading(metadata={"n": os.urandom(256).hex()}) for _ in range(500)] for _ in range(200)]
+        readings = _Readings(noise)
+        service = world.build(readings=readings)
+        tenant = world.tenants.get_by_key("t-1")
+
+        with pytest.raises(ArchiveTooLargeError) as stopped:
+            run_async(service.write_archive(tenant, io.BytesIO(), max_bytes=512 * 1024))
+
+        assert stopped.traceback  # the frames are still referenced here
+        assert readings.closed and readings.served < len(noise)

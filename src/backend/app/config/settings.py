@@ -427,9 +427,26 @@ class Settings(BaseSettings):
     #: REQ-056 §8.4 (#2138) — the largest tenant archive a platform admin may upload for an import, in MB
     #: (compressed upload). Above it ``413``. The unpacked size is bounded independently of this — 1 GiB, of which
     #: at most 128 MiB documents, plus a compression-ratio and row bound (``tenant_export_engine``, SEC-R2-01).
-    #: Effective only up to the general multipart body ceiling (``storage_max_file_size_mb`` + 1 MiB,
-    #: ``RequestBodyLimitMiddleware``), which runs before any route.
+    #: This is the import route's own body ceiling in ``RequestBodyLimitMiddleware`` (+ 1 MiB of multipart
+    #: framing; every other route keeps ``storage_max_file_size_mb`` + 1 MiB), bounded by the spool budget
+    #: ``upload_spool_budget_mb``: the upload is spooled to ``/tmp`` before the route runs (#2138).
     tenant_import_max_upload_mb: int = Field(default=512, ge=1)
+
+    #: REQ-056 §8.3 (#2138) — the installation secret tenant archives are signed with (HMAC-SHA256 over
+    #: the manifest, through a fixed derivation label). Empty: the key is derived from ``jwt_secret_key``
+    #: as before, so rotating the JWT secret makes older archives import as unverified. Set it (at least
+    #: 32 characters, e.g. ``openssl rand -hex 32``) to keep archive signatures apart from token
+    #: signatures; changing it makes older archives import as unverified, nothing worse.
+    tenant_export_signing_secret: str = ""
+
+    @field_validator("tenant_export_signing_secret")
+    @classmethod
+    def _signing_secret_is_long_enough(cls, value: str) -> str:
+        """An empty secret falls back; a set one must be long enough to be one (the value is never echoed)."""
+        if value and len(value) < 32:
+            msg = "TENANT_EXPORT_SIGNING_SECRET must be empty or at least 32 characters long"
+            raise ValueError(msg)
+        return value
 
     #: E2E only (#1155) — email of a second, platform-admin account to seed.
     #:

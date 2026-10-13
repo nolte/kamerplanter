@@ -138,6 +138,9 @@ class TenantArchive(BaseModel):
     #: archive another installation wrote, an unsigned one, or one changed after it was signed: its
     #: content is then only as trustworthy as the person who handed it over.
     verified: bool = False
+    #: Optional parts this reader lists but does not read (``timeseries/readings.csv``, #2138), with
+    #: the row count the manifest states — reported, never imported.
+    ignored_parts: dict[str, int] = Field(default_factory=dict)
 
 
 class TenantImportOutcome(BaseModel):

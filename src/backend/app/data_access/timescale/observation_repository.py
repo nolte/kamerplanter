@@ -1,4 +1,6 @@
+from collections.abc import Generator
 from datetime import datetime
+from typing import Any
 
 import psycopg
 import structlog
@@ -8,7 +10,7 @@ from psycopg_pool import ConnectionPool
 
 from app.common.log_privacy import log_tenant
 from app.domain.interfaces.observation_repository import IObservationRepository
-from app.domain.models.observation import AggregatedReading, SensorReading
+from app.domain.models.observation import AggregatedReading, ArchivedReading, SensorReading
 
 logger = structlog.get_logger(__name__)
 
@@ -75,6 +77,42 @@ _DELETE_BY_TENANT_SQL = """
 DELETE FROM sensor_readings
 WHERE tenant_key = %(tenant_key)s
 """
+
+#: The tenant export's reads (REQ-056 §8.3, #2138): every series NFR-011 still keeps, each bound to the
+#: tenant by ``tenant_key`` in the statement itself. Fixed text — the only parameter is the tenant key.
+_EXPORT_SERIES: tuple[tuple[str, str], ...] = (
+    (
+        "raw",
+        """
+SELECT time, sensor_key, sensor_type, value, unit, source, quality_score, raw_value, metadata
+FROM sensor_readings
+WHERE tenant_key = %(tenant_key)s
+ORDER BY sensor_type, time, sensor_key
+""",
+    ),
+    (
+        "hourly",
+        """
+SELECT bucket AS time, sensor_key, sensor_type, avg_value, min_value, max_value, sample_count
+FROM sensor_hourly
+WHERE tenant_key = %(tenant_key)s
+ORDER BY bucket, sensor_type, sensor_key
+""",
+    ),
+    (
+        "daily",
+        """
+SELECT bucket AS time, sensor_key, sensor_type, avg_value, min_value, max_value, sample_count
+FROM sensor_daily
+WHERE tenant_key = %(tenant_key)s
+ORDER BY bucket, sensor_type, sensor_key
+""",
+    ),
+)
+
+#: The longest one statement of the export read may run — each ``FETCH`` of the server-side cursor
+#: is one. Ends a hung read instead of holding the export run until the task's own limit.
+EXPORT_STATEMENT_TIMEOUT = "120s"
 
 #: The continuous aggregates (migration 002) that hold a derived copy of every
 #: raw reading, and the only two names resolved to materialisation tables below.
@@ -279,6 +317,34 @@ class TimescaleObservationRepository(IObservationRepository):
         logger.info("tenant_aggregates_deleted", tenant=log_tenant(tenant_key), buckets=aggregates)
         return count
 
+    def iter_tenant_readings(self, tenant_key: str, *, page_size: int) -> Generator[list[ArchivedReading]]:
+        """The tenant's raw rows, then its hourly and daily buckets, *page_size* rows at a time (#2138).
+
+        One read-only ``REPEATABLE READ`` transaction: the three series are one snapshot, so a
+        bucket materialised while the export runs cannot appear next to raw rows it was not built
+        from. Server-side cursors stream the rows — nothing holds a tenant's whole history in memory.
+        The ``WHERE tenant_key = …`` predicate is the ownership check (MT-010); the pre-#2076 rows
+        without a tenant key are never matched (an empty key is refused).
+        """
+        if not tenant_key:
+            msg = "iter_tenant_readings needs a tenant key"
+            raise ValueError(msg)
+        if page_size < 1:
+            msg = "page_size must be positive"
+            raise ValueError(msg)
+        params = {"tenant_key": tenant_key}
+        with self._pool.connection() as conn, conn.transaction():
+            with conn.cursor() as setup:
+                # Must be the transaction's first statement; ``is_local`` keeps the timeout off the
+                # pooled connection's next user.
+                setup.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+                setup.execute("SELECT set_config('statement_timeout', %s, true)", (EXPORT_STATEMENT_TIMEOUT,))
+            for series, query in _EXPORT_SERIES:
+                with conn.cursor(name=f"tenant_export_{series}", row_factory=dict_row) as cur:
+                    cur.execute(query, params)
+                    while rows := cur.fetchmany(page_size):
+                        yield [_archived(series, row) for row in rows]
+
     def is_available(self) -> bool:
         try:
             with self._pool.connection() as conn:
@@ -286,3 +352,7 @@ class TimescaleObservationRepository(IObservationRepository):
             return True
         except Exception:
             return False
+
+
+def _archived(series: str, row: dict[str, Any]) -> ArchivedReading:
+    return ArchivedReading(**{**row, "series": series})

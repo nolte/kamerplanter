@@ -32,6 +32,18 @@ This middleware sits in front of the router and enforces, before the parse:
   ``400``. Everything a request took is returned when it ends — answered,
   refused, disconnected or cancelled.
 
+* **Route ceilings** (#2138). One route may carry its own multipart ceiling
+  (:class:`RouteBodyCeiling`, matched on the exact method and path before the
+  body is read): the platform admin's tenant import takes an archive up to
+  ``TENANT_IMPORT_MAX_UPLOAD_MB`` + 1 MiB. Every other route keeps the global
+  ceiling, and a path variant that does not match exactly falls back to it
+  (the safe direction). A route ceiling above the spool budget is lowered to
+  the budget at start (logged): a body the budget can never hold would only
+  wait for ``spool_wait_seconds`` and end in ``503``; ``413`` names the limit
+  instead. The route's own gates — platform admin, step-up — run after the
+  parse as before; what the ceiling admits is still counted against the
+  shared budget, which therefore stays the bound on what ``/tmp`` holds.
+
 Non-multipart bodies take nothing from the budget: their 1 MiB ceiling keeps
 them in memory (Starlette spools file parts of multipart bodies only, and only
 above 1 MiB), so they cannot reach ``/tmp``.
@@ -45,6 +57,8 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 import structlog
 from python_multipart.multipart import parse_options_header
@@ -96,6 +110,15 @@ def is_multipart(headers: Headers) -> bool:
     return bool(content_type == b"multipart/form-data")
 
 
+@dataclass(frozen=True)
+class RouteBodyCeiling:
+    """A multipart body ceiling of its own for one route: exact ``method`` and ``path`` (#2138)."""
+
+    method: str
+    path: str
+    max_body_bytes: int
+
+
 class _AbortBodyError(Exception):
     """Raised from the counting ``receive`` to stop the application's read."""
 
@@ -142,6 +165,7 @@ class RequestBodyLimitMiddleware:
         spool_budget_bytes: int,
         spool_wait_seconds: float,
         non_multipart_max_body_bytes: int = NON_MULTIPART_MAX_BODY_BYTES,
+        route_ceilings: Iterable[RouteBodyCeiling] = (),
     ) -> None:
         if max_body_bytes > spool_budget_bytes:
             msg = (
@@ -154,6 +178,28 @@ class RequestBodyLimitMiddleware:
         self.non_multipart_max_body_bytes = non_multipart_max_body_bytes
         self.budget = SpoolBudget(spool_budget_bytes)
         self.spool_wait_seconds = spool_wait_seconds
+        self.route_ceilings: dict[tuple[str, str], int] = {}
+        for route in route_ceilings:
+            ceiling = route.max_body_bytes
+            if ceiling > spool_budget_bytes:
+                logger.warning(
+                    "upload_route_ceiling_lowered_to_spool_budget",
+                    method=route.method,
+                    path=route.path,
+                    requested_bytes=ceiling,
+                    spool_budget_bytes=spool_budget_bytes,
+                )
+                ceiling = spool_budget_bytes
+            self.route_ceilings[(route.method.upper(), route.path)] = ceiling
+
+    def ceiling_for(self, scope: Scope, *, multipart: bool) -> int:
+        """The body ceiling of this request: the route's own for a multipart body, else the global one."""
+        if not multipart:
+            return self.non_multipart_max_body_bytes
+        method: str = scope.get("method", "")
+        path: str = scope.get("path", "")
+        own = self.route_ceilings.get((method.upper(), path))
+        return own if own is not None else self.max_body_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         inner: ASGIApp = self.app
@@ -163,7 +209,7 @@ class RequestBodyLimitMiddleware:
 
         headers = Headers(scope=scope)
         multipart = is_multipart(headers)
-        ceiling = self.max_body_bytes if multipart else self.non_multipart_max_body_bytes
+        ceiling = self.ceiling_for(scope, multipart=multipart)
         declared = declared_length(headers)
         if declared is not None and declared > ceiling:
             await self._refuse_too_large(scope, send, ceiling, declared=declared)
@@ -265,6 +311,7 @@ __all__ = [
     "BODY_HEADROOM_BYTES",
     "NON_MULTIPART_MAX_BODY_BYTES",
     "RequestBodyLimitMiddleware",
+    "RouteBodyCeiling",
     "SpoolBudget",
     "declared_length",
     "is_multipart",

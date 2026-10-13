@@ -43,7 +43,13 @@ photos of each plant. The request refuses with the dimension's own code (``422 M
 again before the tenant is founded (the plan may have changed in between) and ends ``failed`` with that
 code without having written anything.
 
-Not part of this slice (REQ-056 AK Stand, #2138): TimescaleDB readings, the per-document validation
+**Readings** (REQ-056 §8.3): with TimescaleDB, the tenant's raw readings and hourly/daily buckets
+travel as the optional part ``timeseries/readings.csv``, streamed page by page from a read bound to the
+tenant (``IObservationRepository.iter_tenant_readings``) through the same writer and the same size limit
+as every other part. Without TimescaleDB there is no reader and no part. The import does not write
+readings (format 1's reader lists the part and reports its row count).
+
+Not part of this slice (REQ-056 AK Stand, #2138): importing readings, the per-document validation
 against the domain models, and the frontend.
 """
 
@@ -54,7 +60,8 @@ import hmac
 import json
 import secrets
 import tempfile
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Generator, Iterator
+from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import IO, Any
@@ -90,6 +97,8 @@ from app.domain.engines.tenant_export_engine import (
     EDGES_DIR,
     MAX_UNCOMPRESSED_BYTES,
     MEMBERS_NAME,
+    READINGS_COLUMNS,
+    READINGS_NAME,
     TENANT_NAME,
     ArchiveTooLargeError,
     TenantArchiveError,
@@ -97,11 +106,13 @@ from app.domain.engines.tenant_export_engine import (
     TenantExportEngine,
     archive_document,
     read_tenant_archive,
+    readings_csv_rows,
 )
 from app.domain.engines.tenant_import_engine import TenantImportEngine, new_document_key
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.interfaces.tenant_export_store import (
     ITenantDataStore,
     ITenantExportRequestRepository,
@@ -138,6 +149,9 @@ _MANAGEMENT_STATES = frozenset({TenantStatus.ACTIVE, TenantStatus.PENDING_DELETI
 
 #: Rows read per query and written per transaction.
 PAGE_SIZE = 500
+
+#: Readings fetched per page of the server-side cursor; a page is encoded and written before the next.
+READINGS_PAGE_SIZE = 5000
 
 #: An archive is kept in memory up to this size, then spilled to a temporary file.
 _SPOOL_BYTES = 32 * 1024 * 1024
@@ -221,6 +235,7 @@ class TenantExportService:
         signing_key: bytes | None = None,
         allowed_mime_types: Callable[[str], list[str]] | None = None,
         max_object_bytes: int | None = None,
+        readings: IObservationRepository | None = None,
     ) -> None:
         if exports_per_day < 1:
             raise ValueError("exports_per_day must be at least 1")
@@ -245,6 +260,8 @@ class TenantExportService:
         self._signing_key = signing_key or None
         self._allowed_mime_types = allowed_mime_types
         self._max_object_bytes = max_object_bytes
+        #: ``None`` without TimescaleDB (``TIMESCALEDB_ENABLED=false``): the archive then has no readings part.
+        self._readings: IObservationRepository | None = readings
 
     def _now(self) -> datetime:
         clock = self._clock
@@ -560,19 +577,28 @@ class TenantExportService:
                     parent_keys[entry.collection] = keys
             self._write_edges(writer, exported_ids, beat)
             writer.write_lines(MEMBERS_NAME, [self._members_of(tenant_key)])
+            readings = self._write_readings(writer, tenant_key, beat)
             await self._write_objects(writer, tenant_key, attachments, beat)
-            return writer.finish(
-                {
-                    "format": ARCHIVE_FORMAT,
-                    "source_tenant_key": tenant_key,
-                    "source_migration": self._store.migration_level(),
-                    "created_at": self._now().isoformat(),
-                    # Random per archive, never a URL or a host name (§8.3).
-                    "source_instance_id": secrets.token_hex(16),
-                    "excluded": TenantExportEngine.excluded_manifest(),
-                },
-                signing_key=self._signing_key,
-            )
+            manifest: dict[str, Any] = {
+                "format": ARCHIVE_FORMAT,
+                "source_tenant_key": tenant_key,
+                "source_migration": self._store.migration_level(),
+                "created_at": self._now().isoformat(),
+                # Random per archive, never a URL or a host name (§8.3).
+                "source_instance_id": secrets.token_hex(16),
+                "excluded": TenantExportEngine.excluded_manifest(),
+            }
+            if readings:
+                # The optional section (format 1): its hash is in ``files`` like every part's.
+                manifest["timeseries"] = {
+                    "readings": {
+                        "part": READINGS_NAME,
+                        "rows": readings,
+                        "columns": list(READINGS_COLUMNS),
+                        "series": ["raw", "hourly", "daily"],
+                    }
+                }
+            return writer.finish(manifest, signing_key=self._signing_key)
         except BaseException:
             writer.abort()
             raise
@@ -630,6 +656,29 @@ class TenantExportService:
                     kept.append(archive_document(edge))
             beat()
             writer.write_lines(f"{EDGES_DIR}{edge_collection}.jsonl", [kept])
+
+    def _write_readings(self, writer: TenantArchiveWriter, tenant_key: str, beat: Callable[[], None]) -> int:
+        """``timeseries/readings.csv``: the tenant's readings, streamed (REQ-056 §8.3); the rows written.
+
+        The read is bound to the tenant in the repository's query (never a list of series named
+        here). Both generators are closed when the writer stops early (``too_large``) or a page
+        fails, so the read ends — and returns its connection — at once, not when the error is collected.
+        """
+        if self._readings is None:
+            return 0
+        with closing(self._reading_pages(tenant_key, beat)) as stream:
+            rows = writer.write_csv(READINGS_NAME, READINGS_COLUMNS, stream)
+        logger.info("tenant_export.readings_written", tenant=log_tenant(tenant_key), rows=rows)
+        return rows
+
+    def _reading_pages(self, tenant_key: str, beat: Callable[[], None]) -> Generator[list[list[str]]]:
+        """The CSV rows of the tenant's readings, one page at a time; closing it closes the read."""
+        if self._readings is None:
+            return
+        with closing(self._readings.iter_tenant_readings(tenant_key, page_size=READINGS_PAGE_SIZE)) as source:
+            for page in source:
+                beat()
+                yield readings_csv_rows(page)
 
     def _members_of(self, tenant_key: str) -> list[dict[str, Any]]:
         """``members.jsonl``: user key, display name, role, scopes, joined_at — no e-mail (E-09)."""
@@ -1147,6 +1196,9 @@ class TenantExportService:
                     beat()
                 report["objects"] = len(objects_written)
             report["members"] = len({m.user_key for m in members} | {owner})
+            for part, stated_rows in sorted(archive.ignored_parts.items()):
+                # Format 1's reader does not import optional parts (readings, #2138): said, not hidden.
+                report[f"not_imported:{part}"] = stated_rows
             self._tenant_service.activate_imported_tenant(tenant_key)
         except BaseException as exc:
             clean = await self._rollback(tenant_key, written, objects_written)
@@ -1454,6 +1506,16 @@ def export_signing_key(secret: str) -> bytes | None:
     if not secret:
         return None
     return hmac.new(secret.encode("utf-8"), b"kamerplanter-tenant-export-signature/1", hashlib.sha256).digest()
+
+
+def resolve_export_signing_key(*, dedicated_secret: str, jwt_secret: str) -> bytes | None:
+    """The archive signing key: from ``TENANT_EXPORT_SIGNING_SECRET`` when set, else from the JWT secret (#2138).
+
+    Only one key is used, for writing and for checking: with a dedicated secret, an archive signed
+    under the JWT-derived key imports as unverified — accepting both would keep the JWT secret able
+    to forge a verified archive, which a dedicated secret exists to prevent.
+    """
+    return export_signing_key(dedicated_secret or jwt_secret)
 
 
 def upload_sha256(upload: IO[bytes]) -> str:

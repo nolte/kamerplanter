@@ -281,7 +281,9 @@ SIGNING_KEY = b"integration-installation-key-0123456789"
 SALT = "tenant-export-salt-not-a-secret-0123456789"
 
 
-def _service(db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY) -> TenantExportService:
+def _service(
+    db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY, readings: Any = None
+) -> TenantExportService:
     from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
     from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
 
@@ -326,6 +328,7 @@ def _service(db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY)
         signing_key=signing_key,
         allowed_mime_types=lambda category: ["image/jpeg", "image/png", "image/webp"],
         max_object_bytes=10 * 1024 * 1024,
+        readings=readings,
     )
 
 
