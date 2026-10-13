@@ -10,7 +10,7 @@ gate:
   kind: on-paths
 status: measured
 measured_on: '2026-10-13'
-measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+measured_at_commit: cbb36e3ac58411929d350df4d68f6f1ca7353ddd
 replay_seconds: 63
 job_spec_sha256: e41c6e88caf56ef24a8f453336bbd09cc0b45b8c0604b9cf0260fe0e22504690
 invocations:
@@ -44,23 +44,48 @@ invocations:
   exit_code: 0
   env: []
   untracked_reads_dropped: 26
+- command: scripts/ci/assert_chart_contracts.sh helm/kamerplanter
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 6
+- command: scripts/ci/probe_proxy_body_limit.sh helm/kamerplanter
+  cwd: .
+  recorder: strace -ff -y -z
+  exit_code: 0
+  env: []
+  untracked_reads_dropped: 6
 subprocesses:
+- asdf
+- basename
 - bash
+- cat
+- chmod
+- cp
+- curl
 - dirname
 - docker
 - git
 - grep
+- head
 - helm
 - kubectl
 - minikube
+- mkdir
 - mktemp
 - rm
+- scripts/ci/assert_chart_contracts.sh
 - scripts/ci/assert_rendered_manifests.sh
+- scripts/ci/probe_proxy_body_limit.sh
 - scripts/ci/skaffold_render_verify.sh
 - sed
+- seq
 - skaffold
+- sleep
 - sort
 - tput
+- yq
 accepted_gaps: []
 reads:
 - .audits/
@@ -203,7 +228,9 @@ reads:
 - project/sprints/
 - scripts/
 - scripts/ci/
+- scripts/ci/assert_chart_contracts.sh
 - scripts/ci/assert_rendered_manifests.sh
+- scripts/ci/probe_proxy_body_limit.sh
 - scripts/ci/skaffold_render_verify.sh
 - scripts/docs/
 - scripts/kami/
