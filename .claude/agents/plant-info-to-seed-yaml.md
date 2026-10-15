@@ -107,7 +107,7 @@ src/backend/app/migrations/seed_data/schemas/species.schema.yaml
 ```
 
 Merke dir:
-1. **Alle Enum-Werte** — growth_habit (12 Werte), root_type (fibrous/taproot/tuberous/bulbous/corm), phase_name, frost_sensitivity (sensitive/moderate/hardy/very_hardy), photoperiod_type, cycle_type, container_suitable, nutrient_demand_level, plant_category, harvest_pattern, harvested_part, climacteric, propagation method + wood_stage, shade_tolerance, waterlogging_tolerance, salt_tolerance_class, photosynthesis_type, light_germination, seed_profile.pretreatment, toxicity.severity, plant_trait, pest_type, pathogen_type (fungal/bacterial/viral/physiological/**oomycete**/protist), treatment_type, application_method, substrate_type
+1. **Alle Enum-Werte** — growth_habit (12 Werte), root_type (fibrous/taproot/tuberous/bulbous/corm), phase_name, frost_sensitivity (sensitive/moderate/hardy/very_hardy), photoperiod_type, cycle_type, container_suitable, nutrient_demand_level, **nutrient_demand (heavy_feeder/medium_feeder/light_feeder — OHNE nitrogen_fixer)**, **nutrient_demand_confidence (high/medium/low)**, **light_requirement (full_sun/partial_shade/shade — OHNE deep_shade)**, plant_category, harvest_pattern, harvested_part, climacteric, propagation method + wood_stage, shade_tolerance, waterlogging_tolerance, salt_tolerance_class, photosynthesis_type, light_germination, seed_profile.pretreatment, toxicity.severity, plant_trait, pest_type, pathogen_type (fungal/bacterial/viral/physiological/**oomycete**/protist), treatment_type, application_method, substrate_type, typical_nutrient_demand (Familie: heavy/medium/light **und** *_feeder bis Migration M6)
 2. **Pflichtfelder** — species: `[scientific_name, common_names, genus, growth_habit, root_type]`, cultivar: `[name]`, phase_entry: `[name, display_name, duration_days, sequence_order, stress_tolerance, allows_harvest, is_terminal]`
 3. **Feldtypen** — hardiness_zones: array of strings "Xa"/"Xb", allelopathy_score: number -1..1, bloom_months/harvest_months: array of integers 1..12
 
@@ -177,6 +177,8 @@ Erzeuge die YAML-Datei strikt nach dem plant_info.schema.yaml Format.
 | "herb" | String (Enum pruefen!) | `herb` |
 | "true" / "false" | Boolean | `true` / `false` |
 | "50--200" (Range) | Range-String | `"50--200"` |
+| "40" / "30–40" (`spacing_cm`, `row_spacing_cm`) | **String** — auch der Einzelwert, nie Integer (Schema lehnt `40` ab) | `"40"` / `"30–40"` |
+| "4" (`rotation_pause_years`) | Integer 0–8 | `4` |
 | "8" (Wochen/Tage) | Integer | `8` |
 | "--" oder leer | null | `null` |
 | "0.4--0.8" (Zielwert) | Number (Mittelwert) | `0.6` |
@@ -209,6 +211,38 @@ Erzeuge die YAML-Datei strikt nach dem plant_info.schema.yaml Format.
 | Sommerruhe | summer_rest | phase_name |
 | Ruhephase | dormancy | phase_name |
 | Aktives Wachstum | active_growth | phase_name |
+| Starkzehrer | heavy_feeder | nutrient_demand (Steckbrief 6.1) |
+| Mittelzehrer | medium_feeder | nutrient_demand (Steckbrief 6.1) |
+| Schwachzehrer | light_feeder | nutrient_demand (Steckbrief 6.1) |
+| Gründüngung (als „Zehrerstufe") | **kein** nutrient_demand-Wert → `null` + `# MISSING` (Gründüngung steht in `green_manure_suitable`) | nutrient_demand |
+| Vollsonne / sonnig | full_sun | light_requirement (Steckbrief 1.10) |
+| Halbschatten | partial_shade | light_requirement (Steckbrief 1.10) |
+| Schatten / schattig | shade | light_requirement (Steckbrief 1.10) |
+| Tiefschatten (als Anspruch) | **ungültig** für light_requirement → `null` + `# ENUM-MISMATCH` (nur `shade_tolerance` kennt `deep_shade`) | light_requirement |
+
+### Extraktionsregeln Beetplanung (REQ-053 Welle 0 — GP-FR-061/138, E-10)
+
+Sieben Felder kommen aus drei Steckbrief-Abschnitten. Fuer sie gilt zusaetzlich zur allgemeinen Regel: **ein Wert ohne Quelle ist kein Wert.**
+
+| YAML-Feld | Steckbrief-Zeile (Abschnitt) | Typ | Quelle-Zeile, die belegt sein MUSS |
+|-----------|------------------------------|-----|-------------------------------------|
+| `spacing_cm` | „Pflanzabstand in der Reihe (cm)" (1.9; Altdokumente: „Platzbedarf Freiland (cm)" in 1.6) | String | „Quelle Abstände" (1.9) — Altdokumente ohne 1.9: Wert uebernehmen wie bisher |
+| `row_spacing_cm` | „Reihenabstand (cm)" (1.9) | String, gleiches Format wie `spacing_cm` | „Quelle Abstände" (1.9) |
+| `light_requirement` | „Lichtanspruch (Standort)" (1.10) | Enum 3 Werte | „Quelle Lichtbedarf" (1.10) |
+| `shade_tolerance` | „Schattentoleranz" (1.10; Altdokumente: „Schatten-/Sonnentoleranz" in 1.7) | Enum 4 Werte | — (Bestandsfeld, Regel unveraendert) |
+| `nutrient_demand` | „Zehrerstufe" (6.1) | Enum 3 Werte | „Zehrerstufe — Quelle" (6.1) → `nutrient_demand_source` |
+| `nutrient_demand_confidence` | „Zehrerstufe — Konfidenz" (6.1) | Enum high/medium/low | nur zusammen mit `nutrient_demand` |
+| `nitrogen_fixing` | „Stickstofffixierer" (6.1) | Boolean | Beleg in 6.1/Quellenverzeichnis; ohne Beleg `null` — **nie `false` als Platzhalter** |
+| `rotation_pause_years` | „Anbaupause (Jahre, Art-Abweichung)" (6.1) | Integer 0–8 | Beleg in 6.1; leer = Familienwert gilt → Feld `null` |
+| Familie: `typical_nutrient_demand`, `nitrogen_fixing`, `rotation_pause_years` | 6.5 | wie oben | 6.5 / Quellenverzeichnis |
+
+Regeln:
+1. **Null statt Default.** Fehlt die Zeile, ist sie `<!-- DATEN FEHLEN -->`, oder fehlt die zugehoerige Quelle-Zeile, wird das Feld **explizit `null`** geschrieben (nicht weggelassen) und mit `# MISSING: <feld> — no sourced value in Steckbrief (E-10)` markiert, damit es in der Lueckenliste (Phase 6) erscheint. Es gibt keinen Default — auch nicht `medium_feeder`, `partial_shade` oder `0`.
+2. **Keine Ableitung zwischen Feldern.** `light_requirement` wird NICHT aus `shade_tolerance` abgeleitet (und umgekehrt); `nutrient_demand` NICHT aus `nutrient_demand_level` (1.1) und NICHT aus `typical_nutrient_demand` der Familie; `nitrogen_fixing` NICHT aus `nutrient_demand_level = nitrogen_fixer` und NICHT aus der Familie Fabaceae; `row_spacing_cm` NICHT aus `spacing_cm` oder `mature_width_cm`. Das Alt-Feld `nutrient_demand_level` wird weiter 1:1 aus 1.1 uebernommen — beide Felder koexistieren bis Migration M6.
+3. **Wert ohne Quelle.** Steht in 6.1 eine Zehrerstufe, aber „Zehrerstufe — Quelle" ist leer/DATEN FEHLEN → `nutrient_demand: null` + `nutrient_demand_source: null` + Kommentar `# MISSING-SOURCE: nutrient_demand "<wert>" present in Steckbrief but unsourced (E-10)`. Gleiches Muster fuer Abstaende („Quelle Abstände") und Licht („Quelle Lichtbedarf"): Wert → `null`, Kommentar `# MISSING-SOURCE: <feld> ...`. Der Wert aus dem Steckbrief bleibt im Kommentar sichtbar, damit der `plant-info-document-generator` ihn nachbelegen kann.
+4. **Quelle-Zeilen sind kein YAML-Feld.** Nur `nutrient_demand_source` hat ein Zielfeld (String, 1:1 uebernehmen). „Quelle Abstände" und „Quelle Lichtbedarf" werden nur geprueft, nicht geschrieben.
+5. **Strings bleiben Strings.** `spacing_cm`/`row_spacing_cm` immer in Anfuehrungszeichen (`"40"`), Bereiche im Steckbrief-Format belassen (`"30–40"`), nicht in Zahlen umrechnen und nicht auf den unteren Wert kuerzen — das macht der Parser in Welle 1.
+6. **Bestandsarten.** Fuer Arten, die bereits in `species.yaml` stehen, gehen die Felder in `species_enrichment` (das Schema fuehrt sie dort explizit).
 
 ### YAML-Struktur-Template
 
@@ -227,7 +261,9 @@ new_families:
     common_name_de: "<DE>"
     common_name_en: "<EN>"
     order: "<Order>"
-    typical_nutrient_demand: <enum>
+    typical_nutrient_demand: <heavy_feeder|medium_feeder|light_feeder>   # Alt-Werte heavy/medium/light nur in Bestandsdaten bis M6
+    nitrogen_fixing: <bool|null>          # nur belegt; sonst null + # MISSING
+    rotation_pause_years: <int 0..8|null> # nur belegt; sonst null + # MISSING
     frost_tolerance: <enum>
     typical_root_depth: <enum>
     typical_growth_forms: [<enum>]
@@ -255,7 +291,13 @@ new_species:
     frost_sensitivity: <enum>
     allows_harvest: <bool>
     allelopathy_score: <float>
-    nutrient_demand_level: <enum>
+    nutrient_demand_level: <enum>         # Alt-Feld aus 1.1, bleibt bis M6
+    # ── Zehrerstufe / Fruchtfolge (REQ-053 GP-FR-138, Steckbrief 6.1) — nur mit Quelle, sonst null ──
+    nutrient_demand: <heavy_feeder|medium_feeder|light_feeder|null>
+    nutrient_demand_source: <string|null>
+    nutrient_demand_confidence: <high|medium|low|null>
+    nitrogen_fixing: <bool|null>          # nie false als Platzhalter
+    rotation_pause_years: <int 0..8|null>
     sowing_indoor_weeks_before_last_frost: <int|null>
     sowing_outdoor_after_last_frost_days: <int|null>
     direct_sow_months: [<int>]
@@ -284,7 +326,10 @@ new_species:
     min_container_depth_cm: <int>
     mature_height_cm: "<range>"
     mature_width_cm: "<range>"
-    spacing_cm: "<range>"
+    spacing_cm: "<range|single>"          # String, Steckbrief 1.9 (Altdokumente 1.6)
+    # ── Beetplanung (REQ-053 GP-FR-061, Steckbrief 1.9/1.10) — nur mit Quelle, sonst null ──
+    row_spacing_cm: "<range|single>"      # String wie spacing_cm, nie Integer
+    light_requirement: <full_sun|partial_shade|shade|null>   # Anspruch — NICHT aus shade_tolerance ableiten
     indoor_suitable: <enum>
     balcony_suitable: <enum>
     greenhouse_recommended: <bool>
@@ -309,7 +354,7 @@ new_species:
     photosynthesis_type: <c3|c4|cam|null>
     light_compensation_point_ppfd_min: <int|null>
     light_compensation_point_ppfd_max: <int|null>
-    shade_tolerance: <deep_shade|shade|partial_shade|full_sun|null>
+    shade_tolerance: <deep_shade|shade|partial_shade|full_sun|null>   # Toleranz (Steckbrief 1.10, Altdokumente 1.7)
     effective_root_depth_cm: <int|null>
     waterlogging_tolerance: <sensitive|moderate|tolerant|null>
     salt_tolerance_class: <sensitive|moderately_sensitive|moderately_tolerant|tolerant|null>
@@ -466,6 +511,7 @@ Konvertierung abgeschlossen:
 - IPM: <N> pests, <N> diseases, <N> treatments
 - Companion: <N> compatible, <N> incompatible
 - FEHLENDE FELDER: <Liste aller # MISSING Kommentare>
+- OHNE QUELLE (E-10): <Liste aller # MISSING-SOURCE Kommentare — Wert im Steckbrief, aber unbelegt>
 ```
 
 ---

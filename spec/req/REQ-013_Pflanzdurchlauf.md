@@ -7,13 +7,14 @@ Kategorie: Gruppenmanagement
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 2.7 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.8 (REQ-053 v1.4 Welle 0: Layout-Felder am Entry, Planrolle/Reservierung am Run, Edge `run_planned_at`, `create-plants` über geplante Slots)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.8 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issue 4):** (a) `PlantingRunEntry` erhält additiv die Layout-Felder `row_spacing_cm`, `row_direction`, `edge_margin_along_cm`/`edge_margin_across_cm`, `depth_cm`/`depth_kind`, `sowing_spacing_cm`/`thinning_to_cm`, `layout_strategy ∈ {grid, rows, triangular, zone, free}`, `placement_hint`; die Obergrenze von `spacing_cm` steigt von 300 auf **1 500 cm** (Gehölze, Streuobst — REQ-053 GP-FR-060, W-004). (b) `PlantingRun` erhält `plan_role` (`PlanRole`, Default `main_crop`, REQ-053 §16.3 GP-FR-138), `rotation_override_reason` (GP-FR-132), `reserved_area_m2`/`planned_from`/`planned_until` (flächige Reservierung vor der Slot-Berechnung, REQ-054 O-04) und `source` (Herkunft des Runs). (c) Neue Edge **`run_planned_at`** (`planting_runs → slots`) mit Zeitfenster (`planned_from`/`planned_until`), `entry_key`, `planned_species_key`, `sequence` — geplante Belegung, mehrere Runs je Slot bei disjunkten Fenstern, Konflikt 409 `slot.already_planned` (GP-FR-065). (d) `create-plants` mit `assign_to_slots = true` nutzt die `run_planned_at`-Slots in `sequence`-Reihenfolge statt „irgendeinen freien Slot"; überzählige Reservierungen bleiben bis `completed`/`cancelled` (GP-FR-066, GP-API-023). (e) Neue Endpunkte `plan-slots` (GP-API-021/022) in §4.3a; `POST /planting-runs` erzeugt bei Beet mit Geometrie Slots + `run_planned_at` (GP-API-020). Querverweise REQ-053 §11, §20.6; Abschnitt „Erweitert durch REQ-053" in §6. Keine Code-Änderung in dieser Version (Umsetzung REQ-053 Welle 3, Issue 27). |
 | 2.7 | 2026-08-16 | **Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt.** §5 fuehrt jetzt das Sechs-Spalten-Schema (Lesen / Anlegen / Aendern / Loeschen / Sonderaktionen); die frueheren Werte `Mitglied` und `Admin` sind ersetzt. `Mitglied` erlaubte in der Spalte Schreiben jeder Zeile dem Beobachter das Schreiben — der Widerspruch, den REQ-049 §1 auffuehrt. Die Tagebuch-Zeile traegt die Autorschafts-Einschraenkung aus REQ-051 §3.2 jetzt explizit; die veraltete Notiz „bei der REQ-049-Migration nachzuziehen" ist entfernt, weil die Migration mit dieser Version erfolgt ist. |
 | 2.6 | 2026-08-16 | **REQ-051 (Pflanzen-Tagebuch) uebernimmt die Tagebuch-Fachlogik.** Diese Anforderung bleibt Quelle fuer den Knoten `:PlantDiaryEntry`, seine Graph-Einbettung und die Endpunkt-Tabelle in §4.7 — die **Verwendung** des Tagebuchs (Erfassung, nachtraegliche Bearbeitung, Oberflaeche, Client-Neutralitaet) steht ab jetzt in REQ-051 und wird hier nicht wiederholt. Additiv am Knoten: `content_version` und `analysis_claimed_content_version` (REQ-051 §3.6/§4.4), beide mit Vorgabewert und ohne Migration. Neue Collection `plant_diary_analyses` (Analyse-Archiv, REQ-051 §5) — ein Dokumentknoten **ohne** Kante im Named Graph. Neuer Endpunkt `POST .../diary/{entry_key}/capture-environment` in §4.7: der Umgebungs-Schnappschuss ist nachtraeglich **neu erfassbar**, weiterhin nicht editierbar; §2.3a.8 ist entsprechend praezisiert (das Verbot galt dem *stillen* Neustempeln durch `update_entry`, nicht einer ausdruecklichen Nutzerhandlung). |
 | 2.5 | 2026-08-07 | **Umgebungs-Schnappschuss am Tagebuch-Eintrag (Issue #961):** Neues §2.3a. `PlantDiaryEntry` traegt additiv `environment` / `environment_captured_at` / `environment_status`; beim Anlegen werden die Sensorwerte, die die Pflanze abdecken, **serverseitig** ueber die REQ-005-Kette (Standort → Gelaende → Wetterdienst → nichts) aufgeloest und mit Herkunft gespeichert. Bewusst **getrennt** von `measurements`: das offene Freitext-Dict traegt keine Provenienz, und REQ-005 §1 sowie NFR-011/REQ-025 verlangen, dass maschinell erhobene von handnotierten Werten unterscheidbar bleiben. Neuer Lesepunkt `GET /t/{slug}/plant-instances/{key}/environment` in §4.7 (Vorschau fuer den Anlege-Dialog). Die Klassifikation von Metriknamen (Lufttemperatur/Luftfeuchte) hat mit `app/domain/engines/sensor_metrics.py` genau **eine** Quelle; die beiden zuvor widerspruechlichen Heuristiken (Frostwarnung, Winterquartier) konsumieren sie. |
@@ -177,6 +178,13 @@ PlantingRun: "White Widow Klone Runde 3"
     - `succession_plan_key: Optional[str]` (Referenz auf uebergeordneten Succession-Plan)
     - `succession_sequence: Optional[int]` (Laufende Nummer in der Staffel, z.B. 3 von 8)
     - `succession_total: Optional[int]` (Gesamtanzahl Staffeln)
+    <!-- Quelle: REQ-053 v1.4 §16.3 / §20.6 / GP-FR-132, 2026-10-15 -->
+    - `plan_role: PlanRole` = `main_crop | green_manure | fallow` (Default `main_crop`; Rolle des Durchlaufs in der Fruchtfolge, REQ-053 GP-FR-138. Validierung: `fallow` ist **nie** am Run erlaubt (Brache hat keinen Durchlauf — nur `CropRotationPlan.plan_role`, REQ-002); `green_manure` verlangt an jedem Entry `Species.green_manure_suitable = true` (REQ-001). Die Zehrerstufe kommt **nicht** vom Run, sondern aus `Species.nutrient_demand` der Entries.)
+    - `rotation_override_reason: Optional[str]` (max 500; Pflichtgrund, wenn der Nutzer einen Fruchtfolge-Hinweis des Beet-Validators mit „Trotzdem pflanzen" uebersteuert — REQ-053 GP-FR-132, D-09. `null`, wenn kein Hinweis vorlag.)
+    - `reserved_area_m2: Optional[float]` (**flaechige** Reservierung eines Beets, **bevor** Slots berechnet sind — vom Anbauplaner gesetzt (REQ-054 O-04), im Bepflanzen-Dialog durch `run_planned_at`-Slots ersetzt; Kapazitaetspruefung und REQ-053 V-08 behandeln sie wie belegte Slots derselben Flaeche.)
+    - `planned_from: Optional[date]`, `planned_until: Optional[date]` (Zeitfenster der Reservierung am Run; `planned_from` entspricht `planned_start_date`, `planned_until` = geplantes Ende aus der Kulturdauer des Steckbriefs oder manuell, `null` = offen. Dieselben Werte werden auf die `run_planned_at`-Kanten gestempelt, REQ-053 GP-FR-065.)
+    - `source: Optional[str]` (Herkunft des Runs, freier String mit Service-Allowlist (kein Enum — Enum-Retirement-Falle, analog `Task.entity_type` REQ-053 §20.9): `manual` (Default, bestehender Dialog), `plan_editor` (REQ-053 Bepflanzen-Dialog), `succession` (Staffelanbau), `allocation` (REQ-054 Anbauplaner `materialised_as`), `season_copy` (REQ-053 GP-FR-078). Die Liste wird in REQ-053 Welle 3 festgezogen.)
+    <!-- /Quelle: REQ-053 -->
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -187,8 +195,20 @@ PlantingRun: "White Widow Klone Runde 3"
     - `cultivar_key: Optional[str]` (Referenz auf Cultivar, optional)
     - `quantity: int` (Geplante Anzahl fuer diese Art)
     - `id_prefix: Optional[str]` (Praefix fuer auto-generierte Pflanzen-IDs, z.B. "TOM", "WW3")
-    - `spacing_cm: Optional[int]` (Empfohlener Pflanzabstand)
+    - `spacing_cm: Optional[int]` (Pflanzabstand **in der Reihe**; 5–**1 000** cm — Obergrenze von 300 angehoben fuer Gehoelze/Streuobst, REQ-053 GP-FR-060 W-004. Vorbelegung aus `Species.spacing_cm` (unterer Wert des Range-Strings), REQ-053 GP-FR-061.)
+    <!-- Quelle: REQ-053 v1.4 §11.2 GP-FR-060/061/070/071, §20.6, 2026-10-15 -->
+    - `row_spacing_cm: Optional[int]` (Reihenabstand, 5–1 500 cm; Vorbelegung aus `Species.row_spacing_cm` (REQ-001, neu). Bei `layout_strategy = grid` gilt `row_spacing = spacing`; bei `triangular` wird `row_spacing = spacing × 0,866` abgeleitet.)
+    - `row_direction: Optional[Literal['along_length', 'along_width']]` (Reihenrichtung relativ zur Beetgeometrie; Default `along_length`.)
+    - `edge_margin_along_cm: Optional[int]`, `edge_margin_across_cm: Optional[int]` (Randabstand 0–200 cm entlang/quer zur Reihe; Standard `spacing/2` bzw. `row_spacing/2`. Im Zelt frei konfigurierbar, weil `spacing/2` dort keine Lichtbasis hat (REQ-053 W-016.2/3).)
+    - `depth_cm: Optional[int]` (0–100) mit `depth_kind: Optional[Literal['sowing', 'planting']]` (Saat- bzw. Pflanztiefe; Vorbelegung `sowing` aus `Species.sowing_depth_cm`.)
+    - `sowing_spacing_cm: Optional[int]`, `thinning_to_cm: Optional[int]` (nur Direktsaat: Saatabstand und Abstand nach dem Vereinzeln; `thinning_to_cm ≥ sowing_spacing_cm`.)
+    - `layout_strategy: Optional[Literal['grid', 'rows', 'triangular', 'zone', 'free']]` (Default `rows` fuer Beete mit Geometrie, sonst `null` = kein Layout. `grid`/`rows`/`triangular` erzeugen Punkt-Slots (`slot_role = position`), `zone` einen Polygon-Slot mit `capacity_plants = n`, `free` nur vom Nutzer gesetzte Punkte. Die Berechnung ist die reine Funktion `compute_layout` (REQ-053 GP-FR-062, `domain/calculators/planting_layout_calculator.py`), Obergrenze 2 000 Positionen → 422 `layout.too_many_positions`.)
+    - `placement_hint: Optional[Literal['interior', 'edge', 'corner']]` (Begleit-/Randbepflanzung, REQ-053 GP-FR-071 COULD; `edge` erzeugt Positionen entlang der Beetkante.)
+    - `row_assignment: Optional[list[int]]` (Mischkultur im Beet: Reihenindizes, die dieser Entry bei alternierenden Reihen belegt — REQ-053 GP-FR-070; bleibt `null` bei Monokultur.)
+    <!-- /Quelle: REQ-053 -->
     - `notes: Optional[str]`
+
+  > **Layout gehoert zur Pflanzung, nicht zum Beet** (REQ-053 D-10, §20.8): Reihenanzahl und Reihenabstand werden **nicht** am Beet (REQ-002 `bed_rows`/`row_spacing_cm`) gefuehrt, sondern am Entry; das Ergebnis der Layout-Berechnung sind Slots mit Geometrie (REQ-002 `Slot.geometry`, `slot_role`), die ueber `run_planned_at` reserviert werden. Vorbelegung und `site_fit`-Hinweis im Bepflanzen-Dialog: REQ-053 §11.1/§11.2.
 
 - **`:PlantInstance`** (innerhalb eines Runs) — Schlanker Inventar-Eintrag
   - Collection: `plant_instances` (bestehend)
@@ -491,6 +511,23 @@ eigenen `tenant_key` — genau deshalb ist die Pflanzenpruefung nicht optional.
     - `removed_at: Optional[datetime]`
     - `location_role: Literal['propagation', 'final', 'temporary']`
     - `notes: Optional[str]`
+
+<!-- Quelle: REQ-053 v1.4 GP-FR-065/066, §20.6, 2026-10-15 -->
+- **`run_planned_at`**: `PlantingRun → Slot` (**neu**, geplante Belegung **mit Zeitfenster** — REQ-053 GP-FR-065, D-20)
+  - Properties:
+    - `entry_key: str` (welcher Entry des Runs den Slot belegt)
+    - `planned_species_key: str` (denormalisiert vom Entry, fuer Plan-Darstellung und Fruchtfolge-Hinweis ohne Join)
+    - `sequence: int` (Reihenfolge, in der `create-plants` die Slots fuellt — aus `compute_layout`: Reihe, dann Position)
+    - `planned_from: date` (= `run.planned_start_date`)
+    - `planned_until: Optional[date]` (geplantes Ende aus Kulturdauer des Steckbriefs oder manuell; `null` = offen)
+    - `planned_at: datetime` (Zeitpunkt der Reservierung)
+  - Regeln:
+    - Ein Slot darf fuer **mehrere** Runs reserviert sein, solange sich die Zeitfenster **nicht ueberlappen** (Nachkultur: Feldsalat nach Tomate im selben Slot). Ueberlappung → 409 `slot.already_planned {conflicting_run_key, overlap_from, overlap_until}`; ein offenes Fenster (`planned_until = null`) ueberlappt mit jedem spaeteren Beginn.
+    - Eine **aktive** Pflanze im Slot (`placed_in`, `removed_on = null`) blockiert jede Reservierung, deren `planned_from` vor dem erwarteten Ende des laufenden Runs liegt (Hinweis); eine Reservierung mit spaeterem `planned_from` ist erlaubt.
+    - `slot_keys` muessen Slots von `run.location_key` sein (Referenzaufloesung REQ-053 GP-NFR-058); die Kante wird vom `POST /planting-runs` (GP-API-020) bzw. `plan-slots` (GP-API-021) geschrieben, nie vom Client als Rohkante.
+    - `create-plants` mit `assign_to_slots = true` konsumiert die Kanten in `sequence`-Reihenfolge (GP-FR-066, s. §4.3); nicht konsumierte Reservierungen bleiben bestehen, bis der Run `completed`/`cancelled` wird oder der Nutzer sie ueber GP-API-022 freigibt.
+    - Die Kante ist **keine** Belegung: `Slot.currently_occupied` setzt erst `placed_in`. Der Plan zeigt reservierte, leere Positionen gestrichelt mit Datum (REQ-053 GP-FR-074, §11.3 Zustand `planned`).
+<!-- /Quelle: REQ-053 -->
 
 - **`run_uses_substrate`**: `PlantingRun → SubstrateBatch`
   - Properties:
@@ -965,11 +1002,13 @@ ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
 
 **1. PlantingRunEntry-Model:**
 ```python
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, model_validator
+
+PlanRole = Literal['main_crop', 'green_manure', 'fallow']  # REQ-001 / REQ-053 §16.3 GP-FR-138
 
 class PlantingRunEntryCreate(BaseModel):
-    """Erstellt einen Eintrag fuer die Artenzusammensetzung"""
+    """Erstellt einen Eintrag fuer die Artenzusammensetzung (Layout-Felder: REQ-053 v1.4 GP-FR-060)"""
 
     species_key: str = Field(description="Key der Species in ArangoDB")
     cultivar_key: Optional[str] = Field(None, description="Key der Cultivar (optional)")
@@ -980,8 +1019,31 @@ class PlantingRunEntryCreate(BaseModel):
         pattern=r'^[A-Z]{2,5}$',
         description="Praefix fuer auto-generierte Pflanzen-IDs (z.B. 'TOM', 'WW3')"
     )
-    spacing_cm: Optional[int] = Field(None, ge=5, le=300, description="Empfohlener Pflanzabstand in cm")
+    spacing_cm: Optional[int] = Field(None, ge=5, le=1000, description="Pflanzabstand in der Reihe in cm (Obergrenze 1000, REQ-053 GP-FR-060)")
+    # Layout (REQ-053 v1.4 §11.2 GP-FR-060, §20.6)
+    row_spacing_cm: Optional[int] = Field(None, ge=5, le=1000, description="Reihenabstand in cm")
+    row_direction: Optional[Literal['along_length', 'along_width']] = None
+    edge_margin_along_cm: Optional[int] = Field(None, ge=0, le=200, description="Standard spacing/2")
+    edge_margin_across_cm: Optional[int] = Field(None, ge=0, le=200, description="Standard row_spacing/2")
+    depth_cm: Optional[int] = Field(None, ge=0, le=100)
+    depth_kind: Optional[Literal['sowing', 'planting']] = None
+    sowing_spacing_cm: Optional[int] = Field(None, ge=1, le=1000, description="Nur Direktsaat")
+    thinning_to_cm: Optional[int] = Field(None, ge=1, le=1000, description="Nur Direktsaat; >= sowing_spacing_cm")
+    layout_strategy: Optional[Literal['grid', 'rows', 'triangular', 'zone', 'free']] = None
+    placement_hint: Optional[Literal['interior', 'edge', 'corner']] = None
+    row_assignment: Optional[list[int]] = Field(None, description="Reihenindizes bei alternierenden Reihen (GP-FR-070)")
     notes: Optional[str] = Field(None, max_length=500)
+
+    @model_validator(mode='after')
+    def validate_layout(self):
+        if self.depth_cm is not None and self.depth_kind is None:
+            raise ValueError("depth_kind ist erforderlich, wenn depth_cm gesetzt ist")
+        if self.thinning_to_cm is not None and self.sowing_spacing_cm is not None \
+                and self.thinning_to_cm < self.sowing_spacing_cm:
+            raise ValueError("thinning_to_cm muss >= sowing_spacing_cm sein")
+        if self.layout_strategy in ('rows', 'triangular', 'grid') and self.spacing_cm is None:
+            raise ValueError(f"layout_strategy='{self.layout_strategy}' erfordert spacing_cm")
+        return self
 ```
 
 **2. PlantingRun-Models:**
@@ -1016,10 +1078,23 @@ class PlantingRunCreate(BaseModel):
     substrate_volume_liters: Optional[float] = Field(None, gt=0, description="Verbrauchte Substrat-Menge")
     entries: list[PlantingRunEntryCreate] = Field(min_length=1, max_length=1)
     notes: Optional[str] = Field(None, max_length=2000)
+    # REQ-053 v1.4 §16.3 / §20.6 / GP-FR-132; REQ-054 O-04
+    plan_role: PlanRole = Field('main_crop', description="main_crop | green_manure — 'fallow' nie am Run (REQ-053 GP-FR-138)")
+    rotation_override_reason: Optional[str] = Field(None, max_length=500, description="Grund fuer 'Trotzdem pflanzen' (GP-FR-132)")
+    reserved_area_m2: Optional[float] = Field(None, gt=0, description="Flaechige Reservierung vor der Slot-Berechnung (REQ-054 O-04)")
+    planned_from: Optional[date] = None
+    planned_until: Optional[date] = None
+    source: Optional[str] = Field(None, max_length=50, description="manual | plan_editor | succession | allocation | season_copy (Service-Allowlist)")
 
     @model_validator(mode='after')
     def validate_run_type_constraints(self):
         """Validiert Typ-spezifische Constraints"""
+
+        if self.plan_role == 'fallow':
+            raise ValueError("plan_role='fallow' ist am Durchlauf nicht erlaubt (nur CropRotationPlan, REQ-002)")
+        # plan_role='green_manure' verlangt Species.green_manure_suitable=True — Service-Pruefung (REQ-053 GP-FR-138)
+        if self.planned_from and self.planned_until and self.planned_until < self.planned_from:
+            raise ValueError("planned_until muss >= planned_from sein")
 
         if self.run_type == PlantingRunType.CLONE:
             if not self.source_plant_key:
@@ -1077,7 +1152,10 @@ class BatchCreatePlantsRequest(BaseModel):
 
     assign_to_slots: bool = Field(
         default=False,
-        description="Automatisch freie Slots am Standort zuweisen"
+        description=(
+            "Slots zuweisen: zuerst die per run_planned_at reservierten Slots in sequence-Reihenfolge "
+            "(REQ-053 GP-FR-066), erst danach freie Slots am Standort (Bestandsverhalten)"
+        )
     )
     planted_on: Optional[date] = Field(
         None,
@@ -1482,6 +1560,13 @@ class PlantingRunDocument(BaseModel):
     primary_loss_reason: Optional[str] = Field(None, max_length=200)
     nutrient_plan_key: Optional[str] = None
     notes: Optional[str] = Field(None, max_length=2000)
+    # REQ-053 v1.4 (§16.3, §20.6, GP-FR-132), REQ-054 O-04
+    plan_role: PlanRole = 'main_crop'
+    rotation_override_reason: Optional[str] = Field(None, max_length=500)
+    reserved_area_m2: Optional[float] = Field(None, gt=0)
+    planned_from: Optional[date] = None
+    planned_until: Optional[date] = None
+    source: Optional[str] = Field(None, max_length=50)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -1511,8 +1596,43 @@ class PlantingRunEntryDocument(BaseModel):
     cultivar_key: Optional[str] = None
     quantity: int = Field(ge=1, le=1000)
     id_prefix: Optional[str] = Field(None, max_length=5, pattern=r'^[A-Z]{2,5}$')
-    spacing_cm: Optional[int] = Field(None, ge=5, le=300)
+    spacing_cm: Optional[int] = Field(None, ge=5, le=1000)  # Obergrenze 1000 (REQ-053 GP-FR-060)
+    # Layout-Felder (REQ-053 §20.6) — identisch zu PlantingRunEntryCreate
+    row_spacing_cm: Optional[int] = Field(None, ge=5, le=1000)
+    row_direction: Optional[Literal['along_length', 'along_width']] = None
+    edge_margin_along_cm: Optional[int] = Field(None, ge=0, le=200)
+    edge_margin_across_cm: Optional[int] = Field(None, ge=0, le=200)
+    depth_cm: Optional[int] = Field(None, ge=0, le=100)
+    depth_kind: Optional[Literal['sowing', 'planting']] = None
+    sowing_spacing_cm: Optional[int] = Field(None, ge=1, le=1000)
+    thinning_to_cm: Optional[int] = Field(None, ge=1, le=1000)
+    layout_strategy: Optional[Literal['grid', 'rows', 'triangular', 'zone', 'free']] = None
+    placement_hint: Optional[Literal['interior', 'edge', 'corner']] = None
+    row_assignment: Optional[list[int]] = None
     notes: Optional[str] = Field(None, max_length=500)
+
+
+# REQ-053 §16.3 GP-FR-138 — gemeinsames Enum mit CropRotationPlan.plan_role (REQ-002); Quelle REQ-001
+PlanRole = Literal['main_crop', 'green_manure', 'fallow']
+
+
+class RunPlannedAtEdge(BaseModel):
+    """ArangoDB-Edge-Schema fuer run_planned_at (REQ-053 GP-FR-065)"""
+
+    from_id: str = Field(alias='_from')  # planting_runs/{key}
+    to_id: str = Field(alias='_to')      # slots/{key}
+    entry_key: str
+    planned_species_key: str
+    sequence: int = Field(ge=0)
+    planned_from: date
+    planned_until: Optional[date] = None
+    planned_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @model_validator(mode='after')
+    def validate_window(self):
+        if self.planned_until is not None and self.planned_until < self.planned_from:
+            raise ValueError("planned_until muss >= planned_from sein")
+        return self
 
 
 DetachCategory = Literal[
@@ -1561,7 +1681,7 @@ class PlantDiaryEntryDocument(BaseModel):
 | Methode | Pfad | Beschreibung | Auth |
 |---------|------|-------------|------|
 | `GET` | `/api/v1/planting-runs` | Alle Durchlaeufe auflisten (Filter: status, run_type, location_key) | Alle Rollen |
-| `POST` | `/api/v1/planting-runs` | Neuen Durchlauf anlegen (inkl. Entry) | Ab Gärtner |
+| `POST` | `/api/v1/planting-runs` | Neuen Durchlauf anlegen (inkl. Entry). **REQ-053 GP-API-020:** Entries mit Layout-Feldern; liegt `location_key` auf einem Beet mit Geometrie (`LocationType.supports_layout`) und ist `layout_strategy != free`, erzeugt der Service Slots via `compute_layout` **und** `run_planned_at`-Kanten in einer Transaktion | Ab Gärtner |
 | `GET` | `/api/v1/planting-runs/{key}` | Einzelnen Durchlauf mit Entry, Pflanzen, Phase, Standort laden | Alle Rollen |
 | `PUT` | `/api/v1/planting-runs/{key}` | Durchlauf-Metadaten aktualisieren (Name, Notizen, Startdatum) | Ab Gärtner |
 | `DELETE` | `/api/v1/planting-runs/{key}` | Durchlauf loeschen (nur Status `planned`, sonst 409 Conflict) | Nur Leitung |
@@ -1579,11 +1699,20 @@ class PlantDiaryEntryDocument(BaseModel):
 
 | Methode | Pfad | Beschreibung | Request-Body | Auth |
 |---------|------|-------------|-------------|------|
-| `POST` | `/api/v1/planting-runs/{key}/create-plants` | N Pflanzen aus Entry erzeugen, Run → active | `BatchCreatePlantsRequest` | Ab Gärtner |
+| `POST` | `/api/v1/planting-runs/{key}/create-plants` | N Pflanzen aus Entry erzeugen, Run → active. **REQ-053 GP-API-023/GP-FR-066:** `assign_to_slots = true` nutzt die `run_planned_at`-Slots in `sequence`-Reihenfolge; ueberzaehlige Reservierungen bleiben bis `completed`/`cancelled` | `BatchCreatePlantsRequest` | Ab Gärtner |
 | `POST` | `/api/v1/planting-runs/{key}/adopt-plants` | Bestehende standalone PlantInstances dem Run zuordnen | `AdoptPlantsRequest` | Ab Gärtner |
 | `POST` | `/api/v1/planting-runs/{key}/transition` | **Run-Level Phasenwechsel** (alle Pflanzen im Run) | `RunTransitionRequest` | Ab Gärtner |
 | `POST` | `/api/v1/planting-runs/{key}/batch-harvest` | HarvestBatch erstellen | `BatchHarvestRequest` | Ab Gärtner |
 | `POST` | `/api/v1/planting-runs/{key}/batch-remove` | Alle Pflanzen entfernen, Run abschliessen | `BatchRemoveRequest` | Ab Gärtner |
+
+### 4.3a Geplante Belegung (REQ-053 §11, 2 Endpunkte — Umsetzung Welle 3, Issue 27)
+
+| Methode | Pfad | Beschreibung | Request-Body | Auth |
+|---------|------|-------------|-------------|------|
+| `POST` | `/api/v1/planting-runs/{key}/plan-slots` | Geplante Belegung setzen/ersetzen (`run_planned_at`), fuer `free`-Layouts und Korrekturen; `slot_keys` ⊆ Slots von `run.location_key` (GP-NFR-058); Zeitfenster aus `planned_from`/`planned_until` des Runs; Konflikt 409 `slot.already_planned` (REQ-053 GP-API-021, GP-FR-065) | `{entry_key, slot_keys[]}` | Ab Gärtner |
+| `DELETE` | `/api/v1/planting-runs/{key}/plan-slots/{slot_key}` | Reservierung freigeben (REQ-053 GP-API-022) | — | Ab Gärtner, solange der Run `planned` ist; sonst Nur Leitung (REQ-053 SR-010) |
+
+Die Vorschau der Layout-Berechnung ohne Persistenz (`POST …/locations/{key}/planting-layout/preview`, GP-FR-063) und die Beet-Validierung (`POST …/locations/{key}/validate-planting`, GP-API-025 — Fruchtfolge + Nachbarn, nur Hinweise) liegen am **Standort** und sind in REQ-053 §21 spezifiziert.
 
 ### 4.4 Pflanzen im Run (2 Endpunkte)
 
@@ -1761,6 +1890,8 @@ Analyse-Zustand **nicht** — Zustandswechsel laufen nie ueber das generische Up
 ```
 **Hinweis:** `create-plants` setzt den Run-Status auf `active` und die initiale Phase auf dem Run (aus Lifecycle-Config der Species). Es werden KEINE per-Plant Phase-Edges erzeugt — die Phase lebt auf dem Run.
 
+**Slot-Zuweisung mit geplanter Belegung (REQ-053 GP-FR-066, v2.8):** Bei `assign_to_slots = true` werden die Slots in dieser Reihenfolge vergeben: (1) alle `run_planned_at`-Slots des Runs aufsteigend nach `sequence`, je Entry; (2) erst wenn diese erschoepft sind, freie Slots am Standort wie bisher. `assigned_slots` in der Antwort folgt derselben Reihenfolge. Sind mehr Slots reserviert als Pflanzen erzeugt werden, bleiben die ueberzaehligen Kanten bestehen (Nachpflanzen), bis der Run `completed`/`cancelled` wird oder sie ueber `DELETE …/plan-slots/{slot_key}` freigegeben werden. Jede erzeugte Pflanze erhaelt `placed_in` auf ihren Slot; der Slot setzt `currently_occupied = true`.
+
 **POST `/api/v1/planting-runs/{key}/transition` — Run-Level Phasenwechsel:**
 ```json
 // Request
@@ -1863,7 +1994,8 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Modul | Abhaengigkeit | Prioritaet |
 |-------|-------------|-----------|
 | **REQ-001** (Stammdaten) | Species, Cultivar fuer Entry-Zuordnung | **HOCH** |
-| **REQ-002** (Standort/Substrat) | Location fuer `run_at_location`; SubstrateBatch fuer `run_uses_substrate`; Slot fuer Pflanzen-Platzierung | **HOCH** |
+| **REQ-002** (Standort/Substrat) | Location fuer `run_at_location`; SubstrateBatch fuer `run_uses_substrate`; Slot fuer Pflanzen-Platzierung und `run_planned_at`; `Slot.geometry`/`slot_role` (REQ-053) als Ergebnis der Layout-Berechnung | **HOCH** |
+| **REQ-053** (Garten-/Beetplanung) | `compute_layout` (GP-FR-062) erzeugt Slots aus den Entry-Layout-Feldern; `run_planned_at`-Reservierung mit Zeitfenster (GP-FR-065); Beet-Validator fuer Fruchtfolge-/Mischkultur-Hinweis (GP-FR-131/132, `rotation_override_reason`); `PlanRole` (§16.3) | **HOCH** |
 | **REQ-003** (Phasensteuerung) | GrowthPhase, PhaseTransitionRule fuer Run-Level Phasenwechsel; `current_phase`-Edge (Dual-Support) | **HOCH** |
 | **REQ-004** (Duenge-Logik) | NutrientPlan fuer `run_follows_plan`; WateringSchedule fuer Giesskalender | **HOCH** |
 
@@ -1878,6 +2010,24 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | **REQ-014** (Tankmanagement) | Giessplan-Bestaetigungsflow nutzt Run + NutrientPlan | **HOCH** |
 | **REQ-022** (Pflegeerinnerungen) | `has_care_profile`-Edge (Dual-Support) | **MITTEL** |
 | **REQ-028** (Mischkultur) | Companion-Beziehungen ueber Standort-Graph (keine gemeinsamen Runs) | **NIEDRIG** |
+| **REQ-054** (Anbauplanung) | `Allocation ──materialised_as──▶ PlantingRun (planned)` mit `reserved_area_m2`, `planned_from`/`planned_until`, `plan_role` | **MITTEL** |
+
+### Erweitert durch REQ-053 (Grafische Garten-/Beetplanung)
+
+REQ-013 **bleibt Quelle des Durchlaufs** (REQ-053 §2.4). REQ-053 v1.4 ergaenzt additiv und aendert keine bestehende Semantik; bei Widerspruch zu REQ-053 §11, §16.3, §20.6 gilt REQ-053.
+
+| Bereich | REQ-013 (Bestand) | REQ-053 (Erweiterung) | Wo |
+|---------|-------------------|-----------------------|----|
+| Entry-Layout | `spacing_cm` 5–300 | `spacing_cm` 5–1 500; `row_spacing_cm`, `row_direction`, Randabstaende, `depth_cm`/`depth_kind`, Direktsaat-Abstaende, `layout_strategy`, `placement_hint`, `row_assignment` | GP-FR-060/070/071, §20.6 |
+| Vorbelegung | — | aus `Species.spacing_cm` (unterer Wert), `row_spacing_cm`, `sowing_depth_cm`, `mature_width_cm` (REQ-001); Werte nur mit Quelle, sonst „zuletzt verwendet" | GP-FR-061, F-11 |
+| Layout-Berechnung | — | reine Funktion `compute_layout(bed_geometry, entry_layout, max_count?) → LayoutResult`, Python + TS-Port, Obergrenze 2 000 Positionen; Vorschau-Endpunkt am Standort | GP-FR-062/063 |
+| Ergebnis | `assign_to_slots` sucht freie Slots | Slots mit `geometry` + `slot_role ∈ {position, row, zone}` (REQ-002), reserviert ueber `run_planned_at` | GP-FR-064/065 |
+| Geplante Belegung | keine geplante Position | Edge `run_planned_at` mit Zeitfenster; Nachkultur im selben Slot; 409 `slot.already_planned` | GP-FR-065, D-20 |
+| `create-plants` | freie Slots am Standort | zuerst `run_planned_at` in `sequence`-Reihenfolge | GP-FR-066, GP-API-023 |
+| Run-Felder | — | `plan_role`, `rotation_override_reason`, `reserved_area_m2`, `planned_from`/`planned_until`, `source` | §16.3, §20.6, GP-FR-132 |
+| Fruchtfolge/Mischkultur | slot-basierter Validator (REQ-002) | Beet-Ebene als **Hinweis**, nicht Blocker; Uebersteuerung mit Grund am Run | GP-FR-131/132, D-09 |
+| Zustaende | Run-Status | Pflanzungs-Zustaende `planned / sown / active / harvested / historical` je Slot | §11.3 |
+| Beet raeumen | `batch-remove` je Run | „Beet raeumen" beendet alle aktiven Runs eines Beets in einem Schritt, Slots `archived_at` | GP-FR-055 |
 
 ### Grapherweiterungen am Named Graph `kamerplanter_graph`:
 
@@ -1894,6 +2044,12 @@ adressierten Mandanten, sofern nicht anders angegeben.
             "name": "run_at_location",
             "from": ["planting_runs"],
             "to": ["locations"]
+        },
+        {
+            "name": "run_planned_at",
+            "from": ["planting_runs"],
+            "to": ["slots"],
+            "note": "Geplante Belegung mit Zeitfenster (REQ-053 GP-FR-065, v2.8) — Welle 3"
         },
         {
             "name": "run_uses_substrate",
@@ -2007,6 +2163,13 @@ adressierten Mandanten, sofern nicht anders angegeben.
 - [ ] **Quantity-Konsistenz:** Entry-Quantity muss `planned_quantity` entsprechen
 - [ ] **Status-State-Machine:** Nur erlaubte Uebergaenge (planned→active→harvesting→completed; +cancelled) moeglich
 - [ ] **Batch-Erstellung:** `create-plants` erzeugt N PlantInstances mit auto-generierten IDs und `run_contains`-Edges; setzt Run-Phase
+<!-- Quelle: REQ-053 v1.4 GP-FR-060/065/066, v2.8 -->
+- [ ] **Entry-Layout-Felder:** `spacing_cm` akzeptiert 5–1 500; `row_spacing_cm`, `row_direction`, Randabstaende, `depth_cm`/`depth_kind`, `sowing_spacing_cm`/`thinning_to_cm`, `layout_strategy`, `placement_hint` werden validiert (`depth_kind` Pflicht bei `depth_cm`; `thinning_to_cm ≥ sowing_spacing_cm`)
+- [ ] **Run-Planrolle:** `plan_role` Default `main_crop`; `fallow` am Run → 422; `green_manure` ohne `Species.green_manure_suitable` → 422
+- [ ] **run_planned_at mit Zeitfenster:** Zwei Runs koennen denselben Slot bei disjunkten Fenstern reservieren; Ueberlappung → 409 `slot.already_planned` mit `conflicting_run_key`, `overlap_from`, `overlap_until`
+- [ ] **create-plants ueber geplante Slots:** `assign_to_slots = true` fuellt `run_planned_at`-Slots in `sequence`-Reihenfolge vor freien Slots; ueberzaehlige Reservierungen bleiben bis `completed`/`cancelled`
+- [ ] **Keine Rohkante vom Client:** `run_planned_at` wird nur ueber `POST /planting-runs` und `plan-slots` geschrieben; `slot_keys` ausserhalb von `run.location_key` → 422 (GP-NFR-058)
+<!-- /Quelle: REQ-053 -->
 - [ ] **ID-Generierung:** Pflanzen-IDs folgen dem Schema `{LOCATION}_{PREFIX}_{SEQ:02d}` ohne Kollisionen
 - [ ] **Run-Level Phasenwechsel:** `/transition` aktualisiert `current_phase_key` auf dem Run; keine per-Plant Phase-Edges
 - [ ] **Phase-History:** PhaseHistory wird auf dem Run (nicht auf Plants) geschrieben

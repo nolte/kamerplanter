@@ -6,15 +6,22 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.1
+Version: 1.2
 Autor: Business Analyst - Agrotech
-Datum: 2026-07-26
+Datum: 2026-10-15
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-005, UI-NFR-008, UI-NFR-017]
 Betroffene Module: [Frontend, Mobile]
 ---
 
 # UI-NFR-022: Testbarkeit & eindeutige Identifizierbarkeit (E2E)
+
+### Änderungshistorie
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.2 | 2026-10-15 | §2.5.1: Präfixe `garden-plan-*` (Editor), `bed-view-*` (Beetansicht) und `field-mode-*` (Feldmodus) für REQ-053 **reserviert** und die in REQ-053 GP-UX-012 genannten Identifikatoren registriert (per R-020, **vor** der Verwendung; Implementierung folgt mit REQ-053 Welle 4/5). §3.3 Kurzreferenz ergänzt. |
+| 1.1 | 2026-07-26 | Registrierte Zusatzmuster §2.5.1 (Karten-Layout, Formular-Aktionsleiste, Tabellenkopf, qualifizierende Attribute, konkret vergebene Identifikatoren). |
 
 ## 1. Business Case
 
@@ -149,6 +156,30 @@ Die folgenden beiden Namen sind **eigenständige HTML-Attribute**, nicht `data-t
 | `crop-rotation-dialog` / `companion-planting-dialog` | Dialoge der Fruchtfolge- bzw. Mischkultur-Pflege |
 | `sidebar-toggle` | Auf-/Zuklappen der Navigations-Seitenleiste im Hauptlayout |
 
+**Gartenplan, Beetansicht, Feldmodus (REQ-053 GP-UX-012) — reservierte Präfixe:**
+
+Die folgenden drei Präfixe sind für die grafische Garten-/Beetplanung reserviert und dürfen von keinem anderen Modul verwendet werden. Sie sind per R-020 **vor** der Implementierung registriert (REQ-053 v1.4, Anhang A Issue 67); die Identifikatoren der Spalte „Vergeben" entstehen mit REQ-053 Welle 4/5 und sind bis dahin noch nicht im DOM.
+
+| Präfix | Bereich | Vergeben (GP-UX-012) |
+|---|---|---|
+| `garden-plan-*` | Editor und Gartenübersicht (Route `standorte/sites/:key/plan`) | `garden-plan-page` (Seiten-Marker nach R-005), `garden-plan-canvas` (Zeichenfläche, Wurzel des `PlanRenderer`) |
+| `bed-view-*` | Beetansicht (Detailseite eines Beets mit Plan-Tab) | — (Präfix reserviert; die heute benannten Beet-Identifikatoren folgen dem Grundschema: `bed-detail-page`, `bed-plan-tab`) |
+| `field-mode-*` | Feldmodus (`?mode=field`, REQ-053 §18: Beet-Sheet, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper) | — (Präfix reserviert) |
+
+Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzisieren:
+
+| `data-testid` | Element |
+|---|---|
+| `plan-tool-<name>` | Werkzeug in der Werkzeugleiste des Editors, geschlüsselt über den englischen Werkzeugnamen (`select`, `rect`, `polygon`, `move`, …) |
+| `plan-object-<key>` | Gezeichnetes Objekt (Beet, Gartenobjekt, Slot) auf der Zeichenfläche, geschlüsselt über den fachlichen `_key` (R-014) |
+| `plan-handle-<position>` | Griff zum Skalieren/Drehen eines selektierten Objekts (`nw`, `n`, `ne`, …, `rotate`) |
+| `plan-properties-panel` | Eigenschaftenpanel rechts bzw. als Bottom Sheet |
+| `save-plan-button` | Speichern des Plan-Batches (Grundschema `<action>-button`) |
+| `plan-conflict-dialog` | 409-Konfliktdialog „Neu laden" / „Meine Änderungen als Kopie behalten" (Grundschema `<zweck>-dialog`) |
+| `care-event-row-<key>` | Zeile der Pflegehistorie, geschlüsselt über den `_key` des `care_event` (Grundschema `<entity>-row-<key>`) |
+
+Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
+
 ### 2.6 Stabilität als Vertrag
 
 | # | Regel | Stufe |
@@ -216,6 +247,12 @@ Die folgenden beiden Namen sind **eigenständige HTML-Attribute**, nicht `data-t
                       card-chip-<columnId>        z.B. card-chip-status
   Formular-Aktionen . form-actions
 
+  Reservierte Präfixe (REQ-053, §2.5.1):
+    garden-plan-*   Editor/Gartenübersicht   z.B. garden-plan-page, garden-plan-canvas
+    bed-view-*      Beetansicht
+    field-mode-*    Feldmodus (?mode=field)
+    plan-tool-<name> | plan-object-<key> | plan-handle-<position>
+
   Attribute (kein data-testid, qualifizieren ein Element):
     data-table-section=<id>   [data-testid='data-table'][data-table-section='…']
     data-chip-color=<palette> [data-testid='card-chip-…'][data-chip-color='error']
@@ -268,8 +305,8 @@ Die folgenden beiden Namen sind **eigenständige HTML-Attribute**, nicht `data-t
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.2
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-07-26
+**Letzte Aktualisierung**: 2026-10-15
 **Review**: Pending
 **Genehmigung**: Pending

@@ -143,7 +143,15 @@ $defs:
       order: { type: string }
       typical_nutrient_demand:
         type: string
-        enum: [heavy, medium, light]
+        # TRANSITIONAL (GP-FR-139): legacy + `*_feeder` values until migration M6 —
+        # kept identical to botanical_families.schema.yaml.
+        enum: [heavy, medium, light, heavy_feeder, medium_feeder, light_feeder]
+        description: "Typical feeder level of the family. New entries use *_feeder, sourced (E-10); legacy heavy/medium/light remain valid until M6."
+      nitrogen_fixing:
+        type: boolean
+        description: "Family-level nitrogen fixation; set only with a source (E-10)."
+      rotation_pause_years:
+        $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       frost_tolerance:
         type: string
         enum: [sensitive, moderate, hardy, very_hardy]
@@ -260,7 +268,14 @@ $defs:
       min_container_depth_cm: { type: integer, minimum: 0 }
       mature_height_cm: { type: string }
       mature_width_cm: { type: string }
-      spacing_cm: { type: [string, "null"] }
+      spacing_cm:
+        type: [string, "null"]
+        description: "In-row plant spacing — range string ('50--80') or single value ('40'); lower value is parsed (GP-FR-061)."
+      # ── Beetplanung (REQ-053 Welle 0, WP 0.5a) — optional, sourced values only (E-10) ──
+      row_spacing_cm:
+        $ref: "_defs.schema.yaml#/$defs/row_spacing_cm"
+      light_requirement:
+        $ref: "_defs.schema.yaml#/$defs/light_requirement_nullable"
       indoor_suitable:
         type: string
         enum: ["yes", limited, "no"]
@@ -272,6 +287,18 @@ $defs:
       nutrient_demand_level:
         type: string
         enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
+        description: "LEGACY until migration M6 (GP-FR-139) — superseded by nutrient_demand + nitrogen_fixing. Never the source for those two fields."
+      # ── Zehrerstufe / Fruchtfolge (GP-FR-138, K-001/K-004) — sourced values only (E-10) ──
+      nutrient_demand:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_nullable"
+      nutrient_demand_source:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_source"
+      nutrient_demand_confidence:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_confidence_nullable"
+      nitrogen_fixing:
+        $ref: "_defs.schema.yaml#/$defs/nitrogen_fixing"
+      rotation_pause_years:
+        $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       plant_category:
         type: string
         enum: [indoor_houseplant, outdoor_ornamental, outdoor_vegetable, balcony_plant,
@@ -333,7 +360,7 @@ $defs:
       shade_tolerance:
         type: [string, "null"]
         enum: [deep_shade, shade, partial_shade, full_sun, null]
-        description: "Qualitative shade/sun exposure for placement."
+        description: "Shade TOLERANCE — the shadiest exposure the species still copes with (O-16/E-05). Not the light requirement: that is `light_requirement` (three levels), and neither is derived from the other."
       effective_root_depth_cm:
         type: [integer, "null"]
         minimum: 0
@@ -447,6 +474,23 @@ $defs:
         description: "Flat legacy toxicity severity passthrough (low/moderate/high)."
       seed_profile:
         $ref: "#/$defs/seed_profile"
+      # ── Beetplanung (REQ-053 Welle 0, WP 0.5a) — the usual delivery path for the
+      #    210 species that already live in species.yaml. Same defs as `species`;
+      #    sourced values only (E-10), null otherwise. ──
+      row_spacing_cm:
+        $ref: "_defs.schema.yaml#/$defs/row_spacing_cm"
+      light_requirement:
+        $ref: "_defs.schema.yaml#/$defs/light_requirement_nullable"
+      nutrient_demand:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_nullable"
+      nutrient_demand_source:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_source"
+      nutrient_demand_confidence:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_confidence_nullable"
+      nitrogen_fixing:
+        $ref: "_defs.schema.yaml#/$defs/nitrogen_fixing"
+      rotation_pause_years:
+        $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
     additionalProperties: true
 
   cultivar:

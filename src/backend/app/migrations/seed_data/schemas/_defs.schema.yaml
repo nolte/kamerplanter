@@ -50,10 +50,115 @@ $defs:
     type: string
     enum: [heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer]
 
-  # Simplified version for botanical families (heavy/medium/light)
+  # Simplified version for botanical families (heavy/medium/light).
+  # TRANSITIONAL (REQ-053 §16.3 GP-FR-139): the three `*_feeder` values are
+  # accepted alongside the legacy ones until migration M6_nutrient_demand_split
+  # rewrites `light→light_feeder`, `medium→medium_feeder`, `heavy→heavy_feeder`
+  # in the seeds; the legacy values are then removed here. Additive on purpose —
+  # the Python `NutrientDemand` enum still carries only the legacy triple, so the
+  # seed-data-validator must not report the `*_feeder` values as SCHEMA-ENUM-STALE.
   nutrient_demand_simple:
     type: string
-    enum: [heavy, medium, light]
+    enum: [heavy, medium, light, heavy_feeder, medium_feeder, light_feeder]
+
+  # ── Beetplanung (REQ-053 Welle 0, WP 0.5a — GP-FR-061/138, O-16, E-05, E-10) ──
+  # One def per field so species.schema.yaml and plant_info.schema.yaml (species +
+  # species_enrichment) `$ref` the same description and nullability. Every value
+  # is OPTIONAL and MUST be sourced: a Steckbrief row without a usable source
+  # leaves the field `null` and lists it in the gap report (E-10) — there is no
+  # default, and nothing is derived from a neighbouring field.
+
+  # `NutrientDemand` per GP-FR-138 — three feeder levels only. `nitrogen_fixer`
+  # is deliberately NOT a level here (a pea is light_feeder AND nitrogen-fixing,
+  # K-001); that trait lives in `nitrogen_fixing`. Replaces
+  # `nutrient_demand_level` after M6; until then both fields coexist.
+  nutrient_demand:
+    type: string
+    enum: [heavy_feeder, medium_feeder, light_feeder]
+
+  nutrient_demand_confidence:
+    type: string
+    enum: [high, medium, low]
+
+  # Light REQUIREMENT of the species (what the site should offer). Distinct from
+  # `shade_tolerance`, which is the TOLERANCE ("copes with shade down to level X")
+  # and widens the `marginal` zone of `site_fit` (GP-FR-160). Three levels only —
+  # a species never *requires* deep shade.
+  light_requirement:
+    type: string
+    enum: [full_sun, partial_shade, shade]
+
+  # Single value or range in the exact shape `spacing_cm` uses in the data today
+  # ("40", "20--30", "25-30", "5–10"); the Welle-1 parser takes the lower value.
+  distance_cm_string:
+    type: string
+    pattern: "^\\d+(\\.\\d+)?(\\s*[-–—]+\\s*\\d+(\\.\\d+)?)?$"
+
+  row_spacing_cm:
+    description: >-
+      Row spacing in cm (GP-FR-061, O-11). Same string format as `spacing_cm`
+      (single value or range, 5–1500 cm — the range bound is checked by the
+      seed-data-validator, not by this pattern). Set only with a source in the
+      Steckbrief section "Pflanzabstand und Reihenabstand" (E-10); otherwise null.
+      No `spacing_cm_default` duplicate exists — `spacing_cm` stays the in-row
+      spacing (W-001).
+    oneOf:
+      - $ref: "#/$defs/distance_cm_string"
+      - type: "null"
+
+  light_requirement_nullable:
+    description: >-
+      Light requirement (Anspruch) of the species: full_sun | partial_shade |
+      shade (E-05, GP-FR-160). NOT the same as `shade_tolerance` (Toleranz) and
+      never derived from it. Set only with a source in the Steckbrief section
+      "Lichtbedarf" (E-10); otherwise null.
+    oneOf:
+      - $ref: "#/$defs/light_requirement"
+      - type: "null"
+
+  nutrient_demand_nullable:
+    description: >-
+      Feeder level (Zehrerstufe) heavy_feeder | medium_feeder | light_feeder
+      (GP-FR-138, H-004). Mandatory for crops once WP 0.5b has delivered the
+      values; until then a missing value is a validator warning. Set only with a
+      source (`nutrient_demand_source`, E-10) — never defaulted, never mapped from
+      `nutrient_demand_level` or from the family's `typical_nutrient_demand`.
+    oneOf:
+      - $ref: "#/$defs/nutrient_demand"
+      - type: "null"
+
+  nutrient_demand_source:
+    description: >-
+      Source (URL or citation) backing `nutrient_demand` (E-10, H-004). Required
+      whenever `nutrient_demand` is non-null.
+    type: [string, "null"]
+
+  nutrient_demand_confidence_nullable:
+    description: >-
+      Confidence of `nutrient_demand` as judged from its sources: high (≥ 3
+      independent sources agree) | medium | low (single or conflicting source).
+    oneOf:
+      - $ref: "#/$defs/nutrient_demand_confidence"
+      - type: "null"
+
+  nitrogen_fixing:
+    description: >-
+      True when the species fixes atmospheric nitrogen (rhizobia/Frankia symbiosis;
+      Fabaceae, Alnus, Hippophae …). Orthogonal to the feeder level (K-001). Feeds
+      the previous-crop nitrogen credit (GP-FR-125/131). Set only with a source
+      (E-10); null when unknown — `false` is a claim, not a placeholder.
+    type: [boolean, "null"]
+
+  rotation_pause_years:
+    description: >-
+      Years to wait before growing the same family/species on the same bed again
+      (K-004, GP-FR-131). 0 = no pause needed; upper bound 8 (long pauses for
+      clubroot-prone Brassicaceae or Allium white rot). On a species it overrides
+      `BotanicalFamily.rotation_pause_years`. Set only with a source (E-10);
+      otherwise null.
+    type: [integer, "null"]
+    minimum: 0
+    maximum: 8
 
   stress_tolerance:
     type: string

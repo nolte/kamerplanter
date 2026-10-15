@@ -478,8 +478,9 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 - **Transaktionale Batch-API mit Plan-Revision** (409 bei Konflikt) — bewusste Abweichung vom Teilerfolgs-Muster der Task-Batches, weil eine halb gespeicherte Geometrie nicht reparierbar ist.
 - **Feldmodus** für das Smartphone im Beet: zwei Tipps bis „Erledigt", 64-px-Ziele, Long-Press statt Drag, Position korrigieren per Stepper.
 - **Ein Positionsmodell für Zelt und Beet** (Betreiberentscheidung O-01, v1.1): `Slot.geometry` für alle Slots; `Slot.position` und `Location.dimensions` werden in Welle 1 migriert und entfernt. Alle 15 offenen Punkte sind entschieden (§32).
-- **Drei Reviews eingearbeitet (v1.2):** Agrobiologie (`spec/analysis/agrobiology-review-req-053.md`), Outdoor-Persona, Security. Folgen: Zehrerstufe und N-Fixierung getrennt, `tenant_key` auf Location/Slot, Slot-Reservierung mit Zeitfenster, Beet räumen, Fruchtfolge-/Mischkultur-Hinweis im MVP, Redaktion für Pflegeereignisse, Quoten und Pflicht-Audit, Bodenmodell mit Textur/Füllmedium/Zustand.
-- **49 Given/When/Then-Kriterien, 67 Issue-Kandidaten, 9 Wellen** (MVP in Wellen 0–6, ~16 Wochen).
+- **Drei Reviews eingearbeitet (v1.2):** Agrobiologie (`spec/analysis/agrobiology-review-req-053.md`), Outdoor-Persona, Security. Folgen: Zehrerstufe und N-Fixierung getrennt, Slot-Reservierung mit Zeitfenster, Beet räumen, Fruchtfolge-/Mischkultur-Hinweis im MVP, Redaktion für Pflegeereignisse, Quoten und Pflicht-Audit, Bodenmodell mit Textur/Füllmedium/Zustand.
+- **v1.4 Implementierungsstart (2026-10-15):** Betreiberentscheidungen E-01…E-11 (§32.2) — Site-Anker statt `tenant_key`-Stempel auf Location/Slot (#2107 gilt), ADR-008 Accepted mit Phase 3 nur für den Task-Abschluss, `Species.light_requirement` als Lichtanspruch, GeoJSON gestrichen, Offline-Basis in Welle 9. Plan: `.audits/plans/req-053-garden-bed-planning-implementation.md`.
+- **52 Given/When/Then-Kriterien, 86 Issue-Kandidaten, 11 Wellen** (MVP in Wellen 0–6, ~17 Wochen).
 
 ---
 

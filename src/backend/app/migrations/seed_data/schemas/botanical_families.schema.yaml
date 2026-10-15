@@ -30,7 +30,16 @@ $defs:
         description: "Taxonomic order (e.g. Solanales)"
       typical_nutrient_demand:
         type: string
-        enum: [heavy, medium, light]
+        # TRANSITIONAL (GP-FR-139): legacy heavy/medium/light stay valid until
+        # migration M6 rewrites them to the `*_feeder` values of
+        # `_defs.schema.yaml#/$defs/nutrient_demand`; additive until then.
+        enum: [heavy, medium, light, heavy_feeder, medium_feeder, light_feeder]
+        description: "Typical feeder level of the family. Legacy values (heavy/medium/light) and the NutrientDemand values (*_feeder) are both accepted until M6; new entries use *_feeder, sourced (E-10)."
+      nitrogen_fixing:
+        type: boolean
+        description: "Family-level nitrogen fixation (Fabaceae …). Mirrors the existing BotanicalFamily model field; set only with a source (E-10). Species override: Species.nitrogen_fixing."
+      rotation_pause_years:
+        $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       frost_tolerance:
         type: string
         enum: [sensitive, moderate, hardy, very_hardy]

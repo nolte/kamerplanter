@@ -1145,7 +1145,7 @@ Die folgenden Testfälle decken die Erweiterungen aus Version 1.3 ab. TC-053-037
 
 ### TC-053-037: Eignungs-Ampel beim Bepflanzen — nicht blockierend
 
-**Requirement**: REQ-053 §10.2 GP-FR-160 (abgeleitet); Voraussetzung: Semantik von `shade_tolerance` geklärt (O-16)
+**Requirement**: REQ-053 §10.2 GP-FR-160 (abgeleitet); Semantik geklärt (O-16/E-05, v1.4): `light_requirement` = Anspruch, `shade_tolerance` = Toleranz, Mapping in GP-FR-160
 **Gerät**: Desktop
 **Priority**: Medium
 **Category**: Standortmerkmale
@@ -1438,7 +1438,7 @@ Testebenen:
 | GP-ACC-042 | Gärtner darf Batch mit Löschung nicht (Rollen) | API-Rollentest; die sichtbare Löschwirkung ist in TC-053-010 und TC-053-028 teilweise abgedeckt |
 | GP-ACC-043 | Layout-Vorschau mit zu vielen Positionen | API-Limit, Antwortzeit |
 | GP-ACC-045 | Schutz vor Injektion im Beetnamen (SVG/PDF) | Sicherheitstest auf API-Ebene |
-| GP-ACC-046 | Mandantenfilter am Repository | Repository-Test |
+| GP-ACC-046 | Site-Anker-Prädikat im Service; kein `tenant_key` auf Location/Slot/GardenObject (revidiert v1.4, E-01) | Service-/Integrationstest |
 | GP-ACC-049 | Migration Spezies-Zehrerstufe | Unit-/Migrationstest |
 | GP-ACC-050 | Pflanzenzustand als reine Funktion, Frontend-Port identisch | Unit-Test (Calculator, Port-Gleichheit) |
 

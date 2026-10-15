@@ -94,6 +94,12 @@ Für jede identifizierte Pflanze:
    - Toxizität (Katzen, Hunde, Kinder)
    - Vermehrungsmethoden und -schwierigkeit
    - Nährstoffbedarfsstufe (Stark-/Mittel-/Schwachzehrer/Gründüngung)
+   - **Beetplanung (REQ-053 GP-FR-061/138, E-10 — Quelle je Wert, sonst `<!-- DATEN FEHLEN -->`):**
+     Pflanzabstand in der Reihe und **Reihenabstand** (cm, 5–1500; Saatgut-Hersteller, Landwirtschaftskammern, University Extension),
+     **Lichtanspruch** des Standorts (full_sun/partial_shade/shade — getrennt von der Schattentoleranz),
+     **Zehrerstufe** (heavy_feeder/medium_feeder/light_feeder) mit Quelle und Konfidenz (high = ≥ 3 unabhängige Quellen stimmen überein, medium, low),
+     **Stickstofffixierung** (ja/nein — Rhizobien-/Frankia-Symbiose, nicht aus der Zehrerstufe ableiten),
+     **Anbaupause** auf demselben Beet in Jahren (0–8; Familienwert aus der Fruchtfolge-Literatur, Art-Abweichung nur mit Beleg)
    - Aussaat- und Erntezeiträume (Monate)
    - Topfkultur-Eignung, empfohlene Topfgröße, Wuchshöhe/-breite
    - Indoor-/Balkon-/Gewächshaus-Eignung, Stützbedarf
@@ -195,7 +201,7 @@ Jedes Pflanzendokument MUSS exakt diese Struktur haben. Alle Felder orientieren 
 | Winterhärte-Detail | {Freitext, z.B. "Winterhart bis -15°C"} | `species.hardiness_detail` |
 | Heimat | {z.B. Südamerika, Anden} | `species.native_habitat` |
 | Allelopathie-Score | {-1.0 bis +1.0} | `species.allelopathy_score` |
-| Nährstoffbedarf-Stufe | {heavy_feeder/medium_feeder/light_feeder/nitrogen_fixer} | `species.nutrient_demand_level` |
+| Nährstoffbedarf-Stufe (Alt-Feld bis Migration M6) | {heavy_feeder/medium_feeder/light_feeder/nitrogen_fixer} | `species.nutrient_demand_level` |
 | Gründüngung geeignet | {true/false} | `species.green_manure_suitable` |
 | Photosynthese-Typ | {c3/c4/cam} | `species.photosynthesis_type` |
 | Lebensdauer (Jahre) | {z.B. 5–10; nur bei perennial} | `lifecycle_configs.typical_lifespan_years` |
@@ -271,7 +277,7 @@ Erzeuge **eine Zeile pro Vermehrungsmethode** (`species.propagation_configs[]`).
 | Min. Topftiefe (cm) | {z.B. 20} | `species.min_container_depth_cm` |
 | Wuchshöhe (cm) | {z.B. 30–60} | `species.mature_height_cm` |
 | Wuchsbreite (cm) | {z.B. 20–40} | `species.mature_width_cm` |
-| Platzbedarf Freiland (cm) | {z.B. 40} | `species.spacing_cm` |
+| Platzbedarf Freiland (cm) | → siehe 1.9 „Pflanzabstand und Reihenabstand" (dort `species.spacing_cm`, nicht doppelt eintragen) | — |
 | Indoor-Anbau | {yes/limited/no} | `species.indoor_suitable` |
 | Balkon-/Terrassenanbau | {yes/limited/no} | `species.balcony_suitable` |
 | Gewächshaus empfohlen | {true/false} | `species.greenhouse_recommended` |
@@ -286,7 +292,7 @@ Erzeuge **eine Zeile pro Vermehrungsmethode** (`species.propagation_configs[]`).
 |------|------|---------|
 | Lichtkompensationspunkt min (PPFD) | {z.B. 10 — Indoor schattentolerant} | `species.light_compensation_point_ppfd_min` |
 | Lichtkompensationspunkt max (PPFD) | {z.B. 17 — sonnenadaptiert} | `species.light_compensation_point_ppfd_max` |
-| Schatten-/Sonnentoleranz | {deep_shade/shade/partial_shade/full_sun} | `species.shade_tolerance` |
+| Schatten-/Sonnentoleranz | → siehe 1.10 „Lichtbedarf" (dort `species.shade_tolerance` neben `species.light_requirement`, nicht doppelt eintragen) | — |
 | Effektive Wurzeltiefe (cm) | {z.B. 30–60} | `species.effective_root_depth_cm` |
 | Staunässe-Toleranz | {sensitive/moderate/tolerant} | `species.waterlogging_tolerance` |
 | Salztoleranz-Klasse | {sensitive/moderately_sensitive/moderately_tolerant/tolerant} | `species.salt_tolerance_class` |
@@ -309,6 +315,28 @@ Erzeuge **eine Zeile pro Vermehrungsmethode** (`species.propagation_configs[]`).
 | Vorbehandlung | {cold_stratification/warm_stratification/scarification/presoak — Mehrfach möglich} | `species.seed_profile.pretreatment` |
 | Tausendkornmasse (g) | {z.B. 3.2} | `species.seed_profile.thousand_seed_weight_g` |
 | Aussaatdichte (Korn/m²) | {z.B. 40} | `species.seed_profile.sowing_density_per_m2` |
+
+---
+
+### 1.9 Pflanzabstand und Reihenabstand
+
+> Vorbelegung des Bepflanzen-Dialogs (REQ-053 GP-FR-061). Beide Werte als Einzelwert oder Spanne in cm (5–1500), **im selben String-Format** („40", „30–40"); der Planer nimmt den unteren Wert. **Nur mit Quelle** (E-10): Saatgut-Hersteller, Landwirtschaftskammer, University Extension. Fehlt eine belastbare Quelle, bleiben BEIDE Werte `<!-- DATEN FEHLEN -->` — kein Schätzwert aus Wuchsbreite oder Nachbararten. Bei Gehölzen/Stauden ohne Reihenkultur bleibt der Reihenabstand leer (nicht 0).
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | {z.B. 40 oder 30–40} | `species.spacing_cm` |
+| Reihenabstand (cm) | {z.B. 80 oder 60–80; leer bei freier Pflanzung} | `species.row_spacing_cm` |
+| Quelle Abstände | {URL/Zitat — Pflicht, sobald ein Wert gesetzt ist} | — |
+
+### 1.10 Lichtbedarf
+
+> Zwei getrennte Aussagen (REQ-053 O-16/E-05): **Lichtanspruch** = was der Standort bieten soll (`light_requirement`, drei Stufen — keine Art *braucht* Tiefschatten); **Schattentoleranz** = bis zu welcher Stufe die Art noch zurechtkommt (`shade_tolerance`, vier Stufen inkl. `deep_shade`). Die Toleranz ist nie sonniger als der Anspruch. Den Anspruch **nicht** aus der Toleranz ableiten und umgekehrt; jede Stufe nur mit Quelle, sonst `<!-- DATEN FEHLEN -->`.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | {full_sun/partial_shade/shade} | `species.light_requirement` |
+| Schattentoleranz | {deep_shade/shade/partial_shade/full_sun} | `species.shade_tolerance` |
+| Quelle Lichtbedarf | {URL/Zitat — Pflicht, sobald ein Wert gesetzt ist} | — |
 
 ---
 
@@ -515,13 +543,18 @@ Erregertyp-Enum (`disease.pathogen_type`): `fungal`, `bacterial`, `viral`, `phys
 
 ### 6.1 Fruchtfolge-Einordnung
 
-| Feld | Wert |
-|------|------|
-| Nährstoffbedarf | {Starkzehrer/Mittelzehrer/Schwachzehrer/Gründüngung} |
-| Fruchtfolge-Kategorie | {z.B. Nachtschattengewächse} |
-| Empfohlene Vorfrucht | {z.B. Hülsenfrüchte (Fabaceae)} |
-| Empfohlene Nachfrucht | {z.B. Salat, Spinat (Schwachzehrer)} |
-| Anbaupause (Jahre) | {z.B. 3–4 Jahre selbe Familie} |
+> Zehrerstufe und Stickstofffixierung sind **zwei Merkmale** (REQ-053 §16.3, K-001): eine Erbse ist Schwachzehrer *und* N-Fixierer. „Gründüngung" ist keine Zehrerstufe — sie steht in `green_manure_suitable` (1.1). Zehrerstufe **nur mit Quelle und Konfidenz** (E-10, H-004); bei Nutzpflanzen ist sie Pflicht, bei Zierpflanzen optional. Anbaupause als ganze Jahre 0–8; der Art-Wert überschreibt den Familienwert (6.5) und wird nur eingetragen, wenn eine Quelle eine Abweichung von der Familie belegt.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Zehrerstufe | {heavy_feeder/medium_feeder/light_feeder} | `species.nutrient_demand` |
+| Zehrerstufe — Quelle | {URL/Zitat — Pflicht, sobald die Stufe gesetzt ist} | `species.nutrient_demand_source` |
+| Zehrerstufe — Konfidenz | {high/medium/low} | `species.nutrient_demand_confidence` |
+| Stickstofffixierer | {true/false — nur belegt; sonst DATEN FEHLEN, nie false als Platzhalter} | `species.nitrogen_fixing` |
+| Anbaupause (Jahre, Art-Abweichung) | {z.B. 4; leer, wenn der Familienwert gilt} | `species.rotation_pause_years` |
+| Fruchtfolge-Kategorie | {z.B. Nachtschattengewächse} | — |
+| Empfohlene Vorfrucht | {z.B. Hülsenfrüchte (Fabaceae)} | — |
+| Empfohlene Nachfrucht | {z.B. Salat, Spinat (Schwachzehrer)} | — |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -554,7 +587,9 @@ Erregertyp-Enum (`disease.pathogen_type`): `fungal`, `bacterial`, `viral`, `phys
 | Volksname DE | {z.B. Nachtschattengewächse} | `botanical_families.common_name_de` |
 | Volksname EN | {z.B. Nightshades} | `botanical_families.common_name_en` |
 | Ordnung | {z.B. Solanales} | `botanical_families.order` |
-| Typischer Nährstoffbedarf | {heavy/medium/light} | `botanical_families.typical_nutrient_demand` |
+| Typischer Nährstoffbedarf | {heavy_feeder/medium_feeder/light_feeder — Alt-Werte heavy/medium/light nur in Bestandsdokumenten bis M6} | `botanical_families.typical_nutrient_demand` |
+| Stickstofffixierend (Familie) | {true/false — nur belegt} | `botanical_families.nitrogen_fixing` |
+| Anbaupause (Jahre, Familie) | {z.B. 4 für Brassicaceae; 0–8, nur mit Quelle} | `botanical_families.rotation_pause_years` |
 | Typische Frosttoleranz | {sensitive/moderate/hardy/very_hardy} | `botanical_families.frost_tolerance` |
 | Typische Wurzeltiefe | {shallow/medium/deep} | `botanical_families.typical_root_depth` |
 | Typische Wuchsformen | {Liste, z.B. herb, vine} | `botanical_families.typical_growth_forms` |

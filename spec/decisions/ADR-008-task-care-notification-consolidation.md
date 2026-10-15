@@ -2,26 +2,56 @@
 
 ## Status
 
-Proposed — 2026-08-08
+**Accepted** — *Entschieden: 2026-10-15, durch Betreiberentscheidung E-02 (REQ-053 v1.4)*
+*Erstellt: 2026-08-08 als Vorschlag*
 
 Hergeleitet aus der Issue-Muster-Analyse vom 2026-08-08
 (`.audits/issue-pattern-analysis/2026-08-08-report.md`, Cluster I / Meta-Muster
-M5). Angenommen wird dieses ADR, wenn die Phase-0-Bestandsaufnahme aus
-§"Migrationsskizze" vorliegt und die betroffenen REQs (006, 022, 030) die
-Zuständigkeitsgrenzen übernommen haben.
+M5). Annahmebedingung war: die Phase-0-Bestandsaufnahme aus §"Migrationsskizze"
+liegt vor **und** die betroffenen REQs (006, 022, 030) haben die
+Zuständigkeitsgrenzen übernommen. Beide Hälften sind am 2026-10-15 erfüllt
+(siehe unten).
 
-**Stand der Annahmebedingung (2026-09-01).** Die erste Hälfte liegt vor:
+**Stand der Annahmebedingung (2026-09-01).** Die erste Hälfte lag vor:
 `.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md` zählt (a) **11**
 offene Kadenz-Vorschübe außerhalb der `RecurrenceEngine` und (b) **1** offenen
 Notification-Write außerhalb des Propagationsdienstes, je Stelle attribuiert und
-mit einem Ratchet abgesichert. Die zweite Hälfte steht aus: REQ-006, REQ-022 und
-REQ-030 verweisen bislang auf keine der vier Zuständigkeitsgrenzen. Der Status
-bleibt deshalb *Proposed*.
+mit einem Ratchet abgesichert. Die zweite Hälfte stand damals aus: REQ-006,
+REQ-022 und REQ-030 verwiesen auf keine der vier Zuständigkeitsgrenzen.
 
 Die Bestandsaufnahme korrigiert außerdem eine Annahme dieses ADR: das
 Abschlusskriterium von Phase 2 („Baseline (b) auf null“) trägt nicht allein,
 weil (b) bereits bei 1 steht und null erreichen kann, ohne dass eine einzige
 fehlende Propagationskante geschlossen wurde — siehe §4.2 und §6 dort.
+
+**Annahme (2026-10-15).** Betreiberentscheidung E-02 aus REQ-053 v1.4
+(`spec/req/REQ-053_Grafische-Garten-Beetplanung.md` §12.2, §32.2 O-05, §34
+Welle 4) hebt dieses ADR auf *Accepted*. Die zweite Hälfte der
+Annahmebedingung ist mit derselben Änderung erfüllt: REQ-006 v3.5, REQ-022
+v3.0 und REQ-030 v1.13 übernehmen die vier Zuständigkeitsgrenzen und verweisen
+auf REQ-053 §12/§13. Der Umfang der Annahme ist bewusst **geteilt**:
+
+- **RRULE ist kanonisch (Grenze 1).** Gemessen am Code (2026-10-15):
+  `src/backend/app/domain/engines/recurrence_engine.py:51` parst die
+  iCal-`RRULE` bereits als kanonischen Pfad; `:57` hält einen
+  croniter-Fallback für Alt-Cron-Strings. Dieser Fallback entfällt mit
+  REQ-053-Migration `M5_recurrence_cron_to_rrule` (Welle 1), die nur
+  **gespeicherte** Cron-Regeln konvertiert; danach nimmt die API
+  ausschließlich RRULE an (422 `recurrence.rrule_required`, REQ-006 v3.5,
+  REQ-053 GP-ACC-038).
+- **Phase 3 „ein Abschluss-Übergang" (Grenze 4) wird in REQ-053 Welle 4 NUR
+  für den Task-Abschluss umgesetzt:** `TaskService.complete_task`,
+  `POST /tasks/{key}/complete`, `POST /tasks/batch/status` und `reopen`. Dieser
+  eine Übergang schreibt nach erfolgreichem Status-Wechsel **atomar** einen
+  `care_event` (REQ-053 GP-FR-083, Stream-Transaktion über `tasks`,
+  `care_events`, Fachcollection, Edges). Die Erinnerungs-Seite des Übergangs
+  („bestätigt", „übersprungen" an `care_confirmations`) und die
+  Notification-Seite sind **nicht** Teil von REQ-053.
+- **Die 11 Kadenz-Vorschübe (a) und der eine Notification-Write (b)** aus
+  `.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md` bleiben ein
+  **eigener ADR-008-Strang** (Phasen 1, 2, 4 und der Rest von Phase 3) mit
+  eigenen Issues. Sie sind **nicht** Teil von REQ-053; ihre Ratchet-Baselines
+  gelten unverändert.
 
 ## Context
 
@@ -181,6 +211,10 @@ einzeln gebaut (#769). Ohne festgehaltene Grenze wiederholt sich das.
   Datums-Vorschub auf `RecurrenceEngine` umstellen; die fachlichen
   Intervall-Bestimmungen bleiben, wo sie sind, und geben nur noch eine `RRULE`
   aus. Abschlusskriterium: Baseline aus Phase 0 (a) auf null.
+  **Teilschritt in REQ-053 (2026-10-15):** Migration `M5_recurrence_cron_to_rrule`
+  (Welle 1) konvertiert gespeicherte Cron-Regeln und entfernt den
+  croniter-Fallback in `recurrence_engine.py:57`; sie senkt Baseline (a)
+  **nicht** — die 11 Stellen bleiben der eigene ADR-008-Strang.
 - **Phase 2 — Propagation zusammenführen.** Jede verbliebene Direktschreibung an
   Notification-Repositories durch den Propagationsdienst ersetzen und die
   fehlenden Kanten (#769-Klasse) ergänzen. Abschlusskriterium: Baseline (b) auf
@@ -189,6 +223,11 @@ einzeln gebaut (#769). Ohne festgehaltene Grenze wiederholt sich das.
   bestätigt" auf einen Übergang ziehen, der alle drei Artefakte bewegt.
   Abschlusskriterium: ein Test je Quelle, der nach dem Übergang **alle drei**
   Seiten prüft — nicht nur die, an der er ausgelöst wurde.
+  **Teilumsetzung in REQ-053 Welle 4 (E-02, 2026-10-15):** nur die
+  **Task-Seite** — `TaskService.complete_task`, `POST /tasks/{key}/complete`,
+  `POST /tasks/batch/status`, `reopen` — als der eine Übergang, der atomar einen
+  `care_event` schreibt (REQ-053 GP-FR-083). Erinnerungs- und
+  Notification-Seite des Übergangs bleiben offen und im eigenen Strang.
 - **Phase 4 — Grenzen festschreiben.** Regeln in `BACKEND.md` aufnehmen und, wo
   praktikabel, als statischen Check mit Negativkontrolle absichern. Ohne diese
   Phase ist die Konsolidierung erneut nur eine Momentaufnahme.
@@ -197,12 +236,19 @@ einzeln gebaut (#769). Ohne festgehaltene Grenze wiederholt sich das.
 
 - REQ-006, REQ-022, REQ-030 erhalten je einen Verweis auf die hier festgelegten
   Zuständigkeitsgrenzen (welche Mechanik dem Teilsystem gehört und welche nicht).
-- `spec/style-guides/BACKEND.md` nimmt die zwei Regeln aus Phase 4 auf.
+  **Erledigt am 2026-10-15:** REQ-006 v3.5 (§1 „Wiederkehrende Aufgaben",
+  RRULE + `entity_type`-Allowlist), REQ-022 v3.0 (§3 Logik-Anforderungen),
+  REQ-030 v1.13 (§3.8a).
+- `spec/style-guides/BACKEND.md` nimmt die zwei Regeln aus Phase 4 auf (offen,
+  eigener Strang).
 - Nach `Accepted` wird dieses ADR als Doku-ADR auf der MkDocs-Site gespiegelt
-  (`docs/{de,en}/adr/`), wie ADR-005 → Docs-ADR-009.
+  (`docs/{de,en}/adr/`), wie ADR-005 → Docs-ADR-009 (offen, nicht Teil von
+  REQ-053).
 
 ## References
 
+- `spec/req/REQ-053_Grafische-Garten-Beetplanung.md` §12.2, §13, §32.2 (O-05, E-02), §34 Welle 1/4; GP-FR-083, GP-NFR-015, GP-ACC-038 — Annahme-Entscheidung und der REQ-053-Anteil von Phase 1/3
+- `.audits/plans/req-053-garden-bed-planning-implementation.md` §3 Welle 0 (WP 0.2), §5 E-02
 - `.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md` — Phase-0-Bestandsaufnahme (Zahlen, Stellenliste, Blindstellen der Messung)
 - `.audits/issue-pattern-analysis/2026-08-08-report.md` — Cluster I, Meta-Muster M5, Maßnahme P6.1
 - Issues: #489 (Analyse), #508, #509, #510, #511, #548, #619, #622, #742, #769
