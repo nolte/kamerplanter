@@ -1,12 +1,12 @@
 dependencies:
 - name: common
   repository: https://bjw-s-labs.github.io/helm-charts/
-  version: 5.2.1
+  version: 5.3.0
 - name: valkey
   repository: oci://ghcr.io/valkey-io/valkey-helm
   version: 0.12.0
 - name: ollama
   repository: https://otwld.github.io/ollama-helm/
   version: 1.87.0
-digest: sha256:572c4e00adc8cd66f0104bd8cdb00a7b0c6c312e781caaf3cdb19cece97d8b32
-generated: "2026-10-09T20:45:24.08200509Z"
+digest: sha256:f5514da8292384756f4a66350ded7213092b4795f22101dd8323ae0135b12d07
+generated: "2026-10-15T22:55:39.206206714Z"
