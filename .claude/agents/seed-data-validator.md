@@ -280,7 +280,7 @@ Vergleiche die Schema-Definitionen gegen die Pydantic-Modelle in `src/backend/ap
 2. **Enum-Werte synchron** — Pruefe ob Enums in `src/backend/app/common/enums.py` und den Models mit `_defs.schema.yaml` uebereinstimmen:
    - Neuer Enum-Wert im Python-Code aber nicht im Schema → `[SCHEMA-ENUM-OUTDATED]`
    - Enum-Wert im Schema aber nicht im Python-Code → `[SCHEMA-ENUM-STALE]`
-   - **Bekannte Uebergangsphase (kein Finding):** `typical_nutrient_demand` / `_defs.nutrient_demand_simple` fuehren bis Migration M6 (REQ-053 GP-FR-139) sowohl `heavy/medium/light` als auch `heavy_feeder/medium_feeder/light_feeder`, waehrend `enums.NutrientDemand` nur das Alt-Tripel kennt. Ebenso existieren `_defs.nutrient_demand`, `light_requirement`, `nutrient_demand_confidence`, `row_spacing_cm`, `nitrogen_fixing`, `rotation_pause_years` im Schema vor dem Pydantic-Modell (Welle 1). Diese Faelle NICHT als STALE/OUTDATED melden, sondern einmal als `[SCHEMA-AHEAD-OF-MODEL]` (informativ) listen.
+   - **Bekannte Reihenfolge Schema → Modell (kein Finding):** `typical_nutrient_demand` / `_defs.nutrient_demand_simple` bleiben bis Migration M6 (REQ-053 GP-FR-139) beim Alt-Tripel `heavy/medium/light`, weil `enums.NutrientDemand` nur dieses kennt und die Familien-Importer das Modell direkt bauen — ein `*_feeder`-Wert vor M6 ist deshalb 🔴 (Seed-Migration bricht). Die NEUEN Felder (`nutrient_demand`, `nutrient_demand_source/_confidence`, `nitrogen_fixing` an der Art, `rotation_pause_years`, `row_spacing_cm`, `light_requirement`) stehen im Schema vor dem Pydantic-Modell: bis M6 validiert, aber vom Importer nicht geschrieben → als `[SCHEMA-AHEAD-OF-MODEL]` informativ melden, nicht als STALE.
 3. **Required-Felder konsistent** — `required`-Listen im Schema sollten die Pflichtfelder der Pydantic-Modelle widerspiegeln (Felder ohne Default-Wert)
 
 ### 0.4 Schema erweitern (wenn Findings vorliegen)
@@ -359,7 +359,7 @@ Fuer jede YAML-Datei pruefe:
    - `nutrient_demand_confidence`: high, medium, low
    - `light_requirement` (E-05): full_sun, partial_shade, shade — **`deep_shade` ist hier ungueltig** (nur `shade_tolerance` kennt es)
    - `shade_tolerance`: deep_shade, shade, partial_shade, full_sun
-   - `typical_nutrient_demand` (Familie): heavy, medium, light **und** heavy_feeder, medium_feeder, light_feeder (Uebergang bis M6; neue Eintraege nur `*_feeder`)
+   - `typical_nutrient_demand` (Familie): **nur** heavy, medium, light bis Migration M6 — ein `*_feeder`-Wert ist vor M6 🔴 (das Python-Enum `NutrientDemand` kennt ihn nicht, die Familien-Importer bauen das Modell direkt → Seed-Migration bricht); ab M6 nur `*_feeder`
    - `frost_sensitivity`: sensitive, moderate, hardy, very_hardy
    - `pathogen_type`: fungal, bacterial, viral, physiological, oomycete, protist
 
@@ -432,7 +432,7 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 - [ ] `rotation_pause_years` — optional auf der Art (Override); erwartet auf der **Familie** fuer alle Familien mit `rotation_category ∉ {ornamental, permanent}` (🟠 wenn fehlt)
 - [ ] `row_spacing_cm` — erwartet bei Reihenkulturen (`plant_category = outdoor_vegetable`, `growth_habit ∈ {herb, grass}`, `allows_harvest = true`); bei Gehoelzen/Stauden darf es `null` bleiben
 - [ ] `light_requirement` — erwartet bei allen Outdoor-/Balkon-Arten (`plant_category ∈ {outdoor_vegetable, outdoor_ornamental, balcony_plant, herb}`); 🟠 wenn fehlt
-- [ ] Familie: `typical_nutrient_demand` neuer Eintrag in Alt-Form (`heavy/medium/light`) → 🟠 (neue Eintraege nutzen `*_feeder`); Bestandsdaten bis M6 kein Finding
+- [ ] Familie: `typical_nutrient_demand` vor M6 in Alt-Form (`heavy/medium/light`) ist korrekt; `*_feeder` vor M6 → 🔴 (siehe 1.1); nach M6 umgekehrt
 
 **Saatgut-Felder (fuer samenvermehrte Arten, REQ — siehe seed-pipeline-agent-review B7):**
 - [ ] `seed_profile` (`germination_temp_min_c/max_c`, `sowing_depth_cm`, `days_to_germination`, `seed_viability_years`, `light_germination`, `pretreatment`)

@@ -261,8 +261,8 @@ new_families:
     common_name_de: "<DE>"
     common_name_en: "<EN>"
     order: "<Order>"
-    typical_nutrient_demand: <heavy_feeder|medium_feeder|light_feeder>   # Alt-Werte heavy/medium/light nur in Bestandsdaten bis M6
-    nitrogen_fixing: <bool|null>          # nur belegt; sonst null + # MISSING
+    typical_nutrient_demand: <heavy|medium|light>   # BIS M6 die Alt-Schreibweise (Python-Enum NutrientDemand, Importer baut das Modell direkt); Starkzehrer→heavy, Mittelzehrer→medium, Schwachzehrer→light; ab M6 *_feeder
+    nitrogen_fixing: <bool>               # nur belegt; sonst den SCHLÜSSEL WEGLASSEN (Familien-Modell ist non-null bool, Schema lässt kein null zu) + # MISSING als Kommentar
     rotation_pause_years: <int 0..8|null> # nur belegt; sonst null + # MISSING
     frost_tolerance: <enum>
     typical_root_depth: <enum>

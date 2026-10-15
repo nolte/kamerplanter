@@ -142,14 +142,11 @@ $defs:
       common_name_en: { type: string }
       order: { type: string }
       typical_nutrient_demand:
-        type: string
-        # TRANSITIONAL (GP-FR-139): legacy + `*_feeder` values until migration M6 —
-        # kept identical to botanical_families.schema.yaml.
-        enum: [heavy, medium, light, heavy_feeder, medium_feeder, light_feeder]
-        description: "Typical feeder level of the family. New entries use *_feeder, sourced (E-10); legacy heavy/medium/light remain valid until M6."
+        # Same def as botanical_families.schema.yaml; switches to `*_feeder` with M6.
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_simple"
       nitrogen_fixing:
         type: boolean
-        description: "Family-level nitrogen fixation; set only with a source (E-10)."
+        description: "Family-level nitrogen fixation; set only with a source (E-10), omit when unsourced. Forwarded by the importer only from migration M6 on (REQ-053 wave 1 WP 1.6)."
       rotation_pause_years:
         $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       frost_tolerance:

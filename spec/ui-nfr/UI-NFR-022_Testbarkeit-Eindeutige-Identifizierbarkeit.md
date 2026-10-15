@@ -175,7 +175,7 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `plan-handle-<position>` | Griff zum Skalieren/Drehen eines selektierten Objekts (`nw`, `n`, `ne`, …, `rotate`) |
 | `plan-properties-panel` | Eigenschaftenpanel rechts bzw. als Bottom Sheet |
 | `save-plan-button` | Speichern des Plan-Batches (Grundschema `<action>-button`) |
-| `plan-conflict-dialog` | 409-Konfliktdialog „Neu laden" / „Meine Änderungen als Kopie behalten" (Grundschema `<zweck>-dialog`) |
+| `plan-conflict-dialog` | 409-Konfliktdialog „Neu laden" / „Meine Änderungen als Kopie behalten (JSON herunterladen)" (Grundschema `<zweck>-dialog`; Wortlaut identisch in REQ-053 GP-UX-017 und GP-ACC-011) |
 | `care-event-row-<key>` | Zeile der Pflegehistorie, geschlüsselt über den `_key` des `care_event` (Grundschema `<entity>-row-<key>`) |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).

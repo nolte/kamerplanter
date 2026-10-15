@@ -587,7 +587,7 @@ Erregertyp-Enum (`disease.pathogen_type`): `fungal`, `bacterial`, `viral`, `phys
 | Volksname DE | {z.B. Nachtschattengewächse} | `botanical_families.common_name_de` |
 | Volksname EN | {z.B. Nightshades} | `botanical_families.common_name_en` |
 | Ordnung | {z.B. Solanales} | `botanical_families.order` |
-| Typischer Nährstoffbedarf | {heavy_feeder/medium_feeder/light_feeder — Alt-Werte heavy/medium/light nur in Bestandsdokumenten bis M6} | `botanical_families.typical_nutrient_demand` |
+| Typischer Nährstoffbedarf | {Starkzehrer/Mittelzehrer/Schwachzehrer — der Konverter schreibt bis M6 heavy/medium/light, danach *_feeder} | `botanical_families.typical_nutrient_demand` |
 | Stickstofffixierend (Familie) | {true/false — nur belegt} | `botanical_families.nitrogen_fixing` |
 | Anbaupause (Jahre, Familie) | {z.B. 4 für Brassicaceae; 0–8, nur mit Quelle} | `botanical_families.rotation_pause_years` |
 | Typische Frosttoleranz | {sensitive/moderate/hardy/very_hardy} | `botanical_families.frost_tolerance` |

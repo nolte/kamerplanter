@@ -57,9 +57,17 @@ $defs:
   # in the seeds; the legacy values are then removed here. Additive on purpose —
   # the Python `NutrientDemand` enum still carries only the legacy triple, so the
   # seed-data-validator must not report the `*_feeder` values as SCHEMA-ENUM-STALE.
+  # Family-level feeder level AS THE PYTHON MODEL ACCEPTS IT TODAY. The importers
+  # (`seed_plant_info.py`, `seed_plant_info_extended.py`, `seed_adventskalender.py`)
+  # construct `BotanicalFamily` directly, and `common/enums.NutrientDemand` still
+  # knows only light/medium/heavy — a `*_feeder` value that passes this gate would
+  # crash the seed migration. Migration M6 (REQ-053 GP-FR-139, wave 1 WP 1.6)
+  # renames the enum, rewrites the stored values and switches THIS def to the
+  # `*_feeder` set in the same pull request; until then the Steckbrief pipeline
+  # writes the legacy spelling (mapping in plant-info-to-seed-yaml.md).
   nutrient_demand_simple:
     type: string
-    enum: [heavy, medium, light, heavy_feeder, medium_feeder, light_feeder]
+    enum: [heavy, medium, light]
 
   # ── Beetplanung (REQ-053 Welle 0, WP 0.5a — GP-FR-061/138, O-16, E-05, E-10) ──
   # One def per field so species.schema.yaml and plant_info.schema.yaml (species +

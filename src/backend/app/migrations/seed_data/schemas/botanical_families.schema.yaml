@@ -29,15 +29,12 @@ $defs:
         type: string
         description: "Taxonomic order (e.g. Solanales)"
       typical_nutrient_demand:
-        type: string
-        # TRANSITIONAL (GP-FR-139): legacy heavy/medium/light stay valid until
-        # migration M6 rewrites them to the `*_feeder` values of
-        # `_defs.schema.yaml#/$defs/nutrient_demand`; additive until then.
-        enum: [heavy, medium, light, heavy_feeder, medium_feeder, light_feeder]
-        description: "Typical feeder level of the family. Legacy values (heavy/medium/light) and the NutrientDemand values (*_feeder) are both accepted until M6; new entries use *_feeder, sourced (E-10)."
+        # One definition for both Steckbrief paths; the value set switches to
+        # `*_feeder` with migration M6 (REQ-053 GP-FR-139) in `_defs` only.
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_simple"
       nitrogen_fixing:
         type: boolean
-        description: "Family-level nitrogen fixation (Fabaceae …). Mirrors the existing BotanicalFamily model field; set only with a source (E-10). Species override: Species.nitrogen_fixing."
+        description: "Family-level nitrogen fixation (Fabaceae …), existing BotanicalFamily model field. Set only with a source (E-10); omit the key when unsourced (the model is a non-null bool). NOTE: the family importers (`seed_plant_info.py:_build_families` and siblings) forward this key only from migration M6 on (REQ-053 wave 1 WP 1.6); until then a sourced value is validated but not written."
       rotation_pause_years:
         $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       frost_tolerance:
