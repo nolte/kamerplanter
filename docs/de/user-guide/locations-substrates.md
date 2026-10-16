@@ -159,12 +159,16 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 | Balkon | Nein | Balkon |
 | Terrasse | Nein | Terrasse |
 | Grow-Zelt | Ja | Abgeschlossenes Growzelt mit kontrolliertem Klima |
-| Beet | Nein | Boden- oder Hochbeet im Freien |
+| Beet | Nein | Bodenbeet im Freien |
+| Hochbeet | Nein | Erhöhtes, eingefasstes Beet |
+| Gewächshausbeet | Nein | Beet innerhalb eines Gewächshauses |
+| Frühbeet | Nein | Abgedeckter Kasten für die frühe Anzucht |
+| Pflanzkübel / Topf-Gruppe | Nein | Beweglicher Kübel oder eine Gruppe von Töpfen, die wie ein Beet geplant wird |
 | Regal | Ja | Regal oder Shelving-System |
 | Topf-/Container-Gruppe | Nein | Gruppierung mehrerer Töpfe oder Container an einem Ort |
 
 !!! info "Für technische Nutzer"
-    Die zwölf oben aufgeführten Typen sind vorinstallierte System-Typen. Kamerplanter unterstützt intern bereits eigene, zusätzliche Location-Typen. Diese Einstellung ist derzeit nur über die API verfügbar — eine eigene Verwaltungsseite in der Oberfläche gibt es noch nicht.
+    Die sechzehn oben aufgeführten Typen sind vorinstallierte System-Typen. Kamerplanter unterstützt intern bereits eigene, zusätzliche Location-Typen. Diese Einstellung ist derzeit nur über die API verfügbar — eine eigene Verwaltungsseite in der Oberfläche gibt es noch nicht.
 
 ### Frostexposition einer Location festlegen {#frostexposition-einer-location-festlegen}
 

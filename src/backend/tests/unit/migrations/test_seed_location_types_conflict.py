@@ -49,7 +49,7 @@ def test_a_key_another_writer_inserted_counts_as_existing() -> None:
 
     seed_location_types(_Db(collection))
 
-    assert collection.inserts == 12, "every type was attempted, none aborted the job"
+    assert collection.inserts == 16, "every type was attempted, none aborted the job"
 
 
 def test_any_other_insert_error_still_fails_the_fatal_job() -> None:

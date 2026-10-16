@@ -660,6 +660,10 @@ export interface LocationType {
   name_en: string | null;
   icon: string | null;
   is_indoor: boolean;
+  /** REQ-053 GP-FR-040: a bed type (bed, raised_bed, planter, greenhouse_bed, cold_frame). */
+  is_bed: boolean;
+  /** REQ-053 §9.2a: may carry a geometry with slot layout (every bed type plus tent, shelf). */
+  supports_layout: boolean;
   is_system: boolean;
   sort_order: number;
   description: string | null;
@@ -3474,6 +3478,7 @@ export interface PostHarvestBatchDetail {
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+/** Mirrors `app.common.enums.TaskCategory` (36 values; REQ-053 §12.1 added the bed-care set, #2325). */
 export type TaskCategory =
   | 'maintenance'
   | 'watering'
@@ -3482,10 +3487,36 @@ export type TaskCategory =
   | 'pest_control'
   | 'harvest'
   | 'pruning'
+  | 'ausgeizen'
   | 'transplant'
+  | 'ipm'
+  | 'observation'
   | 'monitoring'
   | 'cleaning'
-  | 'care_reminder';
+  | 'care_reminder'
+  | 'seasonal'
+  | 'phenological'
+  // REQ-053 §12.1 bed care
+  | 'mulching'
+  | 'weeding'
+  | 'soil_loosening'
+  | 'sowing'
+  | 'pricking_out'
+  | 'soil_amendment'
+  | 'liming'
+  | 'ph_adjustment'
+  | 'ec_check'
+  | 'flush'
+  | 'thinning'
+  | 'hilling'
+  | 'tillage'
+  | 'covering'
+  | 'uncovering'
+  | 'ventilating'
+  | 'clearing'
+  | 'soil_analysis'
+  | 'rainfall'
+  | 'pollinating';
 export type TriggerType = 'manual' | 'time_based' | 'event_based' | 'conditional';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';

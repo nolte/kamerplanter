@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.5 (2026-10-15, ADR-008 Accepted / REQ-053 E-02: `recurrence_rule` ist RRULE (RFC 5545), Cron wird nach Migration M5 mit 422 `recurrence.rrule_required` abgelehnt; Abschluss-Übergang `complete_task`/`POST /tasks/{key}/complete`/`POST /tasks/batch/status`/`reopen` schreibt atomar einen `care_event` (REQ-053 §12/§13, GP-FR-083); `entity_type` bleibt String mit Service-Allowlist, `location` und `garden_object` zulässig (REQ-053 §20.9)); 3.4 (Enum-Werte an das Modell angeglichen: `WorkflowTemplate.category`/`TaskTemplate.category` = `TaskCategory` (16 Werte, kein `custom`), `TaskTemplate.trigger_type` mit `gdd_threshold`, #2183); 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
+Version: 3.6 (2026-10-16, REQ-053 §12.1 / Migration M3 (#2325): `TaskCategory` um die 20 Beetpflege-Werte `mulching` … `pollinating` erweitert (36 Werte, additiv — kein Retirement); `Task.suggested: bool = False` und `Task.suggestion_reason: Optional[str]` (REQ-053 §20.9); Literal-Listen in §Datenmodell und Anhang angeglichen, Guard #2183); 3.5 (2026-10-15, ADR-008 Accepted / REQ-053 E-02: `recurrence_rule` ist RRULE (RFC 5545), Cron wird nach Migration M5 mit 422 `recurrence.rrule_required` abgelehnt; Abschluss-Übergang `complete_task`/`POST /tasks/{key}/complete`/`POST /tasks/batch/status`/`reopen` schreibt atomar einen `care_event` (REQ-053 §12/§13, GP-FR-083); `entity_type` bleibt String mit Service-Allowlist, `location` und `garden_object` zulässig (REQ-053 §20.9)); 3.4 (Enum-Werte an das Modell angeglichen: `WorkflowTemplate.category`/`TaskTemplate.category` = `TaskCategory` (16 Werte, kein `custom`), `TaskTemplate.trigger_type` mit `gdd_threshold`, #2183); 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
 ```
 
 ## 1. Business Case
@@ -174,6 +174,8 @@ Die maschinelle Herkunft wird als **orthogonales Feld** modelliert, nicht als we
 - `source: str` (Default `""`) — frei wählbare Producer-Kennung, z.B. `"goose/leaf-analysis"`.
 - `source_run_ref: str | None` — optionale Referenz auf den Producer-Lauf (Pipeline-Run-ID), auf der Detailseite sichtbar.
 - `external_ref: str | None` — optionaler Producer-Dedupe-Schlüssel.
+
+Ebenfalls orthogonal zu `category` und `origin` sind `suggested: bool = False` und `suggestion_reason: str | None` (REQ-053 §20.9, Migration M3 / #2325): ein vom System vorgeschlagener, noch nicht angenommener Task trägt `suggested = true`. AQL-Leser filtern null-sicher (`suggested != true`), weil der Stempel von M3 nur den Bestand zur Laufzeit der Migration erfasst (ein später importiertes Alt-Archiv kann das Attribut weiterhin nicht tragen).
 
 **Herkunfts-Vertrauensregel (server-entschieden, #1000):**
 `origin` wird **niemals** aus dem Request-Body übernommen, sondern aus dem authentifizierten Prinzipal abgeleitet (`account_type`, REQ-023):
@@ -447,7 +449,7 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `growth_system: Literal['soil', 'hydro', 'coco', 'any']`
     - `difficulty_level: Literal['beginner', 'intermediate', 'advanced']`
     - `estimated_total_hours: float`
-    - `category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']` (Enum `TaskCategory` — dieselbe Liste wie `TaskTemplate.category`; einen Wert `custom` kennt das Modell nicht, #2183)
+    - `category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning', 'mulching', 'weeding', 'soil_loosening', 'sowing', 'pricking_out', 'soil_amendment', 'liming', 'ph_adjustment', 'ec_check', 'flush', 'thinning', 'hilling', 'tillage', 'covering', 'uncovering', 'ventilating', 'clearing', 'soil_analysis', 'rainfall', 'pollinating']` (Enum `TaskCategory` — dieselbe Liste wie `TaskTemplate.category`; einen Wert `custom` kennt das Modell nicht, #2183)
     - `tags: list[str]`
     - `usage_count: int` (Wie oft verwendet)
     - `average_rating: Optional[float]`
@@ -1005,7 +1007,7 @@ class TaskTemplate(BaseModel):
     task_template_id: str
     name: str = Field(min_length=3, max_length=200)
     instruction: str = Field(min_length=10, max_length=2000)
-    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']  # Enum TaskCategory (#2183)
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning', 'mulching', 'weeding', 'soil_loosening', 'sowing', 'pricking_out', 'soil_amendment', 'liming', 'ph_adjustment', 'ec_check', 'flush', 'thinning', 'hilling', 'tillage', 'covering', 'uncovering', 'ventilating', 'clearing', 'soil_analysis', 'rainfall', 'pollinating']  # Enum TaskCategory (#2183)
     trigger_type: Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']  # Enum TaskTriggerType (#2183)
     trigger_phase: Optional[str] = None
     days_offset: Optional[int] = Field(None, ge=0, le=365)
@@ -1167,7 +1169,7 @@ class WorkflowTemplate(BaseModel):
     growth_system: Literal['soil', 'hydro', 'coco', 'any'] = 'any'
     difficulty_level: Literal['beginner', 'intermediate', 'advanced']
     estimated_total_hours: float = Field(ge=0, le=1000)
-    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning']  # Enum TaskCategory (#2183)
+    category: Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning', 'mulching', 'weeding', 'soil_loosening', 'sowing', 'pricking_out', 'soil_amendment', 'liming', 'ph_adjustment', 'ec_check', 'flush', 'thinning', 'hilling', 'tillage', 'covering', 'uncovering', 'ventilating', 'clearing', 'soil_analysis', 'rainfall', 'pollinating']  # Enum TaskCategory (#2183)
     tags: List[str] = Field(default_factory=list)
 
     @field_validator('version')
@@ -2210,7 +2212,7 @@ from typing import Literal, Optional, List
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, time, datetime
 
-TaskCategory = Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological']
+TaskCategory = Literal['training', 'pruning', 'ausgeizen', 'transplant', 'feeding', 'ipm', 'harvest', 'observation', 'maintenance', 'care_reminder', 'seasonal', 'phenological', 'watering', 'pest_control', 'monitoring', 'cleaning', 'mulching', 'weeding', 'soil_loosening', 'sowing', 'pricking_out', 'soil_amendment', 'liming', 'ph_adjustment', 'ec_check', 'flush', 'thinning', 'hilling', 'tillage', 'covering', 'uncovering', 'ventilating', 'clearing', 'soil_analysis', 'rainfall', 'pollinating']
 TriggerType = Literal['phase_entry', 'days_after_phase', 'days_after_planting', 'absolute_date', 'manual', 'conditional', 'gdd_threshold', 'seasonal_month', 'phenological']
 # v3.0: 'dormant' Status für phasengebundene Workflow-Tasks (Phase noch nicht erreicht)
 TaskStatus = Literal['pending', 'in_progress', 'completed', 'skipped', 'failed', 'dormant']
