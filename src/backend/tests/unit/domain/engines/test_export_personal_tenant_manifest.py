@@ -26,6 +26,7 @@ EXPECTED: dict[str, tuple[tuple[str, str], ...]] = {
     "sites": (),
     "locations": (("site_key", "sites"),),
     "slots": (("location_key", "locations"), ("site_key", "sites")),
+    "garden_objects": (("site_key", "sites"),),
     "plant_instances": (),
     "planting_runs": (),
     "tasks": (),

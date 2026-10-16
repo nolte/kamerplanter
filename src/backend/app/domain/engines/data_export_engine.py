@@ -492,6 +492,10 @@ class DataExportEngine:
                 "hardiness_zone",
                 "timezone",
                 "total_area_m2",
+                # REQ-053 §20.2: the garden outline and north angle describe the subject's
+                # property as much as ``gps_coordinates`` does; ``plan_updated_by`` is
+                # another member's key only on a shared tenant, which this scope excludes.
+                "plan",
                 "created_at",
             ],
         ),
@@ -499,16 +503,77 @@ class DataExportEngine:
             collection="locations",
             personal_tenant_scope=_VIA_SITE,
             label="Your personal garden: locations",
-            fields=["_key", "name", "site_key", "parent_location_key", "area_m2", "light_type", "created_at"],
+            # REQ-053 WP 1.7 (#2326): the plan geometry and the bed's planning fields.
+            # ``description`` and ``notes`` are free text the subject wrote (Art. 15).
+            fields=[
+                "_key",
+                "name",
+                "description",
+                "site_key",
+                "parent_location_key",
+                "area_m2",
+                "light_type",
+                "geometry",
+                "height_m",
+                "bbox",
+                "bed_status",
+                "sun_exposure",
+                "irrigation_zone_key",
+                "soil_profile",
+                "notes",
+                "locked",
+                "z_order",
+                "pitch_m",
+                "rotation_exempt",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="slots",
             personal_tenant_scope=_VIA_LOCATION_AND_SITE,
             label="Your personal garden: slots",
             # The legacy ``position`` grid cell left with REQ-053 WP 1.5 (#2324); its
-            # successors ``geometry``/``row_index``/``sequence`` join once WP 1.7 puts
-            # them on the model (``test_privacy_engines`` binds every field to it).
-            fields=["_key", "slot_id", "location_key", "capacity_plants", "created_at"],
+            # successors ``geometry``/``row_index``/``sequence`` joined with WP 1.7 (#2326)
+            # (``test_privacy_engines`` binds every field to the model).
+            fields=[
+                "_key",
+                "slot_id",
+                "location_key",
+                "capacity_plants",
+                "slot_role",
+                "geometry",
+                "row_index",
+                "sequence",
+                "geometry_source",
+                "container_volume_l",
+                "sown_at",
+                "archived_at",
+                "planned_spacing_cm",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="garden_objects",
+            personal_tenant_scope=_VIA_SITE,
+            label="Your personal garden: plan objects",
+            # REQ-053 §20.4 (WP 1.7): trees, paths, buildings … the subject drew; ``label`` and
+            # ``notes`` are free text (Art. 15). ``created_by`` is left out: on a personal garden
+            # it is the subject's own key, and another member's key must not be disclosed.
+            fields=[
+                "_key",
+                "site_key",
+                "parent_location_key",
+                "object_type",
+                "label",
+                "geometry",
+                "bbox",
+                "props",
+                "off_site",
+                "locked",
+                "z_order",
+                "notes",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="plant_instances",

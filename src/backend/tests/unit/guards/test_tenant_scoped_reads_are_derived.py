@@ -188,6 +188,8 @@ PARENT_CHAINS: dict[str, tuple[tuple[str, str], ...]] = {
     col.SENSORS: (("tank_key", col.TANKS), ("site_key", col.SITES), ("location_key", col.LOCATIONS)),
     col.LOCATIONS: (("site_key", col.SITES),),
     col.SLOTS: (("location_key", col.LOCATIONS),),
+    # REQ-053 §20.4 (E-01): a garden object belongs to its site like a location does.
+    col.GARDEN_OBJECTS: (("site_key", col.SITES),),
     col.TASK_COMMENTS: (("task_key", col.TASKS),),
     col.TASK_AUDIT_ENTRIES: (("task_key", col.TASKS),),
     # ``entity_key`` is polymorphic over ``entity_type`` — every target owns it.

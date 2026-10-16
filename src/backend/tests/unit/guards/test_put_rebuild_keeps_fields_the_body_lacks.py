@@ -61,8 +61,10 @@ from pydantic import BaseModel
 
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
+from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.services.location_type_service import LOCATION_TYPE_FIELDS_KEPT_ON_EDIT
 from app.domain.services.phase_service import GROWTH_PHASE_FIELDS_KEPT_ON_EDIT
+from app.domain.services.site_service import LOCATION_FIELDS_KEPT_ON_EDIT, SLOT_FIELDS_KEPT_ON_EDIT
 from app.domain.services.species_service import SPECIES_FIELDS_KEPT_ON_EDIT
 from app.domain.services.substrate_service import SUBSTRATE_FIELDS_KEPT_ON_EDIT
 from tests.support.execution_guards import find_project_root
@@ -161,6 +163,9 @@ _KEPT_BY_SERVICE: dict[str, tuple[str, ...]] = {
     "app/api/v1/growth_phases/router.py::update_phase": GROWTH_PHASE_FIELDS_KEPT_ON_EDIT,
     "app/api/v1/location_types/router.py::update_location_type": LOCATION_TYPE_FIELDS_KEPT_ON_EDIT,
     "app/api/v1/substrates/router.py::update_substrate": SUBSTRATE_FIELDS_KEPT_ON_EDIT,
+    # REQ-053 WP 1.7 (#2326): the garden-plan fields no edit body carries until the PATCH of WP 1.9.
+    "app/api/v1/locations/tenant_router.py::update_location": LOCATION_FIELDS_KEPT_ON_EDIT,
+    "app/api/v1/slots/tenant_router.py::update_slot": SLOT_FIELDS_KEPT_ON_EDIT,
 }
 
 #: Repaired in SiteService by PR #2212 (#2181), pinned in
@@ -224,6 +229,12 @@ _DECIDED: dict[str, dict[str, _Decision]] = {
     },
     "app/api/v1/sites/tenant_router.py::update_site": {
         "weather_source_priority": _Decision(_Verdict.KEPT, _PR_2212),
+        "plan": _Decision(
+            _Verdict.NONE_IN_MERGE_MODE,
+            "REQ-053 §20.2 (WP 1.7, #2326): the garden plan is written only by the plan service (WP 1.8); "
+            "SiteCreate does not carry it and ArangoSiteRepository merges, so the stored plan survives.",
+            ArangoSiteRepository,
+        ),
         **{
             field: _Decision(
                 _Verdict.KEPT,
