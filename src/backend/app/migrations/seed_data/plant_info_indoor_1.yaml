@@ -19,7 +19,7 @@ new_families:
     common_name_de: Saumfarngewächse
     common_name_en: Maidenhair fern family
     order: Polypodiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -38,7 +38,7 @@ new_families:
     common_name_de: Gesneriengewächse
     common_name_en: Gesneriad family
     order: Lamiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, vine]
@@ -57,7 +57,7 @@ new_families:
     common_name_de: Affodillgewächse
     common_name_en: Asphodel family
     order: Asparagales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -76,7 +76,7 @@ new_families:
     common_name_de: Akanthusgewächse
     common_name_en: Acanthus family
     order: Lamiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -95,7 +95,7 @@ new_families:
     common_name_de: Primelgewächse
     common_name_en: Primrose family
     order: Ericales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -114,7 +114,7 @@ new_families:
     common_name_de: Streifenfarngewächse
     common_name_en: Spleenwort family
     order: Polypodiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -133,7 +133,7 @@ new_families:
     common_name_de: Schiefblattgewächse
     common_name_en: Begonia family
     order: Cucurbitales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -153,7 +153,7 @@ new_families:
     common_name_de: Orchideen
     common_name_en: Orchid family
     order: Asparagales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -173,7 +173,7 @@ new_families:
     common_name_de: Hundsgiftgewächse
     common_name_en: Dogbane family
     order: Gentianales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [vine, herb, shrub]
@@ -192,7 +192,7 @@ new_families:
     common_name_de: Palmengewächse
     common_name_en: Palm family
     order: Arecales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [tree]
@@ -211,7 +211,7 @@ new_families:
     common_name_de: Amaryllisgewächse
     common_name_en: Amaryllis family
     order: Asparagales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -235,7 +235,7 @@ new_families:
     common_name_de: Wolfsmilchgewächse
     common_name_en: Spurge family
     order: Malpighiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [shrub, herb, tree]
@@ -254,7 +254,7 @@ new_families:
     common_name_de: Rötegewächse
     common_name_en: Coffee family
     order: Gentianales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [shrub, tree]
@@ -273,7 +273,7 @@ new_families:
     common_name_de: Pfeilwurzgewächse
     common_name_en: Prayer plant family
     order: Zingiberales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -293,7 +293,7 @@ new_families:
     common_name_de: Dickblattgewächse
     common_name_en: Stonecrop family
     order: Saxifragales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]

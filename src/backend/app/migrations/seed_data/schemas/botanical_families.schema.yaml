@@ -29,12 +29,12 @@ $defs:
         type: string
         description: "Taxonomic order (e.g. Solanales)"
       typical_nutrient_demand:
-        # One definition for both Steckbrief paths; the value set switches to
-        # `*_feeder` with migration M6 (REQ-053 GP-FR-139) in `_defs` only.
+        # One definition for both Steckbrief paths: the `*_feeder` triple since
+        # migration M6 (v0096, REQ-053 GP-FR-139).
         $ref: "_defs.schema.yaml#/$defs/nutrient_demand_simple"
       nitrogen_fixing:
         type: boolean
-        description: "Family-level nitrogen fixation (Fabaceae …), existing BotanicalFamily model field. Set only with a source (E-10); omit the key when unsourced (the model is a non-null bool). NOTE: the family importers (`seed_plant_info.py:_build_families` and siblings) forward this key only from migration M6 on (REQ-053 wave 1 WP 1.6); until then a sourced value is validated but not written."
+        description: "Family-level nitrogen fixation (Fabaceae …), existing BotanicalFamily model field. Set only with a source (E-10); omit the key when unsourced (the model is a non-null bool). Forwarded by the family importers (`seed_plant_info.py:_build_families` and siblings) since migration M6 (#2325)."
       rotation_pause_years:
         $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       frost_tolerance:

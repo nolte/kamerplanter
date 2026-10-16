@@ -278,6 +278,27 @@ class OAuthAutoLinkRefusedError(ValidationError):
     """
 
 
+class RecurrenceRuleRequiredError(ValidationError):
+    """``recurrence_rule`` is not an RFC 5545 RRULE (REQ-053 GP-ACC-038, REQ-006 v3.5, ADR-008).
+
+    RRULE is the only recurrence format since migration M5 (v0097, #2325) converted
+    the stored cron strings and the engine dropped its croniter fallback. A cron
+    expression — or any other string ``dateutil.rrule`` cannot parse — is refused at
+    the service boundary with 422 and the code ``recurrence.rrule_required``, so a
+    client learns the format instead of storing a rule that never recurs.
+    """
+
+    def __init__(self, rule: str) -> None:
+        super().__init__(
+            message=(
+                "recurrence_rule must be an RFC 5545 RRULE such as 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0'; "
+                f"got {rule!r}. Cron expressions are no longer accepted."
+            ),
+            details=[{"field": "recurrence_rule", "code": "recurrence.rrule_required"}],
+        )
+        self.error_code = "recurrence.rrule_required"
+
+
 class WinterPathViolationError(KamerplanterError):
     """REQ-022 §D5 — ``OverwinteringProfile.winter_action`` contradicts the
     hardiness-derived winter path (in-situ path A vs. relocated path B)."""

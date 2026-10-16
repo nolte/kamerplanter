@@ -4,7 +4,7 @@ families:
     common_name_de: "Nachtschattengewächse"
     common_name_en: Nightshade family
     order: Solanales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -23,7 +23,7 @@ families:
     common_name_de: "Hanfgewächse"
     common_name_en: Hemp family
     order: Rosales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: sensitive
     typical_root_depth: deep
     typical_growth_forms: [herb, vine]
@@ -38,7 +38,7 @@ families:
     common_name_de: "Lippenblütler"
     common_name_en: Mint family
     order: Lamiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -53,7 +53,7 @@ families:
     common_name_de: "Eisenkrautgewächse"
     common_name_en: Verbena family
     order: Lamiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -68,7 +68,7 @@ families:
     common_name_de: "Doldenblütler"
     common_name_en: Carrot family
     order: Apiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -86,7 +86,7 @@ families:
     common_name_de: "Kreuzblütler"
     common_name_en: Cabbage family
     order: Brassicales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -104,7 +104,7 @@ families:
     common_name_de: "Hülsenfrüchtler"
     common_name_en: Legume family
     order: Fabales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     nitrogen_fixing: true
     frost_tolerance: moderate
     typical_root_depth: deep
@@ -120,7 +120,7 @@ families:
     common_name_de: "Kürbisgewächse"
     common_name_en: Gourd family
     order: Cucurbitales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [vine]
@@ -138,7 +138,7 @@ families:
     common_name_de: "Korbblütler"
     common_name_en: Daisy family
     order: Asterales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -156,7 +156,7 @@ families:
     common_name_de: "Süßgräser"
     common_name_en: Grass family
     order: Poales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -175,7 +175,7 @@ families:
     common_name_de: "Aronstabgewächse"
     common_name_en: Arum family
     order: Alismatales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, vine]
@@ -190,7 +190,7 @@ families:
     common_name_de: "Spargelgewächse"
     common_name_en: Asparagus family
     order: Asparagales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -209,7 +209,7 @@ families:
     common_name_de: "Bromeliengewächse"
     common_name_en: Bromeliad family
     order: Poales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -224,7 +224,7 @@ families:
     common_name_de: "Rosengewächse"
     common_name_en: Rose family
     order: Rosales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -239,7 +239,7 @@ families:
     common_name_de: "Veilchengewächse"
     common_name_en: Violet family
     order: Malpighiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -254,7 +254,7 @@ families:
     common_name_de: "Storchschnabelgewächse"
     common_name_en: Geranium family
     order: Geraniales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -273,7 +273,7 @@ families:
     common_name_de: "Brennnesselgewächse"
     common_name_en: Nettle family
     order: Rosales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -288,7 +288,7 @@ families:
     common_name_de: "Seerosengewaechse"
     common_name_en: Water Lily family
     order: Nymphaeales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: moderate
     typical_root_depth: deep
     typical_growth_forms: [herb]

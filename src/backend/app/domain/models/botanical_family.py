@@ -25,8 +25,13 @@ class BotanicalFamily(BaseModel):
     common_name_en: str = ""
     order: str | None = None
     description: str = ""
-    typical_nutrient_demand: NutrientDemand = NutrientDemand.MEDIUM
+    typical_nutrient_demand: NutrientDemand = NutrientDemand.MEDIUM_FEEDER
     nitrogen_fixing: bool = False
+    #: REQ-053 GP-FR-131 / K-004 (M6, #2325): years before the same family may return
+    #: to a bed; ``None`` = unsourced (E-10). Stored by M6 but not read by
+    #: ``CropRotationValidator`` yet — it will fall back to ``rotation_window_years``
+    #: once the rotation work of REQ-053 wave 2 (GP-FR-131) wires it. 0 = no pause needed.
+    rotation_pause_years: int | None = Field(default=None, ge=0, le=8)
     typical_root_depth: RootDepth = RootDepth.MEDIUM
     soil_ph_preference: PhRange | None = None
     frost_tolerance: FrostTolerance = FrostTolerance.MODERATE
@@ -58,9 +63,9 @@ class BotanicalFamily(BaseModel):
 
     @model_validator(mode="after")
     def nitrogen_fixing_not_heavy(self) -> BotanicalFamily:
-        if self.nitrogen_fixing and self.typical_nutrient_demand == NutrientDemand.HEAVY:
+        if self.nitrogen_fixing and self.typical_nutrient_demand == NutrientDemand.HEAVY_FEEDER:
             msg = (
-                "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy'. "
+                "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy_feeder'. "
                 "Stickstofffixierende Familien sind Schwach- oder Mittelzehrer."
             )
             raise ValueError(msg)

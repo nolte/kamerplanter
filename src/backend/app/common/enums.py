@@ -406,9 +406,31 @@ class IrrigationStrategy(StrEnum):
 
 
 class NutrientDemand(StrEnum):
-    LIGHT = "light"
-    MEDIUM = "medium"
-    HEAVY = "heavy"
+    """Feeder level (Zehrerstufe) — REQ-053 GP-FR-138, REQ-001 v4.12, REQ-002 v4.6.
+
+    Carried by ``Species.nutrient_demand``, ``BotanicalFamily.typical_nutrient_demand``
+    and ``CropRotationPlan.nutrient_demand``. Until migration M6 (v0096, #2325) the
+    values were ``light`` / ``medium`` / ``heavy``; M6 rewrites the stored family rows
+    and the seeds in the same change (``light → light_feeder`` …). Nitrogen fixation is
+    **not** a level (K-001) — it is the boolean ``nitrogen_fixing`` next to it.
+    """
+
+    HEAVY_FEEDER = "heavy_feeder"
+    MEDIUM_FEEDER = "medium_feeder"
+    LIGHT_FEEDER = "light_feeder"
+
+
+class PlanRole(StrEnum):
+    """Role of a planting run or a rotation-plan year — REQ-053 GP-FR-138.
+
+    ``PlantingRun.plan_role`` (REQ-013) and ``CropRotationPlan.plan_role`` (REQ-002).
+    ``fallow`` is the only value without a planting run; ``green_manure`` on a run
+    requires ``Species.green_manure_suitable``. Never carried by a species or a family.
+    """
+
+    MAIN_CROP = "main_crop"
+    GREEN_MANURE = "green_manure"
+    FALLOW = "fallow"
 
 
 class RootDepth(StrEnum):
@@ -431,6 +453,13 @@ class Suitability(StrEnum):
 
 
 class NutrientDemandLevel(StrEnum):
+    """Legacy four-value feeder class (REQ-053 GP-FR-139: superseded on ``Species`` by
+    ``nutrient_demand`` + ``nitrogen_fixing`` since M6, v0096). Kept because
+    ``Species.nutrient_demand_level`` still scales the EC target in
+    ``phase_resource_resolver`` and the area-dosing advisory takes it as input; a
+    retirement would crash the start on an alt volume. Never a source for
+    ``nutrient_demand`` (E-10)."""
+
     HEAVY_FEEDER = "heavy_feeder"
     MEDIUM_FEEDER = "medium_feeder"
     LIGHT_FEEDER = "light_feeder"

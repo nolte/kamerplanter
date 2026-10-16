@@ -30,7 +30,7 @@ function makeFamily(overrides: Partial<BotanicalFamily> = {}): BotanicalFamily {
     common_name_en: 'Nightshades',
     order: 'Solanales',
     description: '',
-    typical_nutrient_demand: 'high',
+    typical_nutrient_demand: 'heavy_feeder',
     nitrogen_fixing: false,
     typical_root_depth: 'medium',
     soil_ph_preference: null,

@@ -28,21 +28,21 @@ const FAMILIES = [
     name: 'Solanaceae',
     nitrogen_fixing: false,
     frost_tolerance: 'sensitive',
-    typical_nutrient_demand: 'heavy',
+    typical_nutrient_demand: 'heavy_feeder',
   },
   {
     key: 'fam-fabaceae',
     name: 'Fabaceae',
     nitrogen_fixing: true,
     frost_tolerance: 'hardy',
-    typical_nutrient_demand: 'medium',
+    typical_nutrient_demand: 'medium_feeder',
   },
   {
     key: 'fam-brassicaceae',
     name: 'Brassicaceae',
     nitrogen_fixing: false,
     frost_tolerance: 'hardy',
-    typical_nutrient_demand: 'light',
+    typical_nutrient_demand: 'light_feeder',
   },
 ];
 
@@ -271,7 +271,7 @@ describe('CropRotationPage family dropdown counts + filters', () => {
             common_name_de: 'Nachtschattengewächse',
             nitrogen_fixing: false,
             frost_tolerance: 'sensitive',
-            typical_nutrient_demand: 'heavy',
+            typical_nutrient_demand: 'heavy_feeder',
           },
         ]),
       ),
