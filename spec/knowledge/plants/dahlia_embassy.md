@@ -461,7 +461,7 @@ Der Dahlienknolle-Jahreszyklus entspricht dem in REQ-022 definierten Knollen-Zyk
 
 **Lagerungsmethode im Detail:**
 - Knollen in Kisten oder Plastikboxen mit Löchern einlagern
-- Einbettungsmedium: trockene Kokoserde, Vermiculit, trockener Sand oder Sägemehl
+- Einbettungsmedium: trockene Kokoserde, Vermiculite, trockener Sand oder Sägemehl
 - Knollen vollständig einbetten oder zumindest rundum bedecken
 - Jede Knolle/Knollengruppe beschriften (Sortenname, Farbe, Datum)
 - Monatliche Kontrolle auf Schimmel (abschneiden und Wunde desinfizieren) und Austrocknung

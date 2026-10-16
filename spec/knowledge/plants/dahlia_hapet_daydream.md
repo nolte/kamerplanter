@@ -595,7 +595,7 @@ Hinweis: Es liegen keine dahlienspezifischen Mikronährstoff-Sollwerte vor. Die 
 | Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
 | Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
-**Hinweis:** Dahlien sind keine Gemüsepflanzen im klassischen Sinne, daher greift die typische 4-Jahres-Fruchtfolge hier nicht strikt. In der Praxis: Standort jährlich wechseln oder nach 2–3 Jahren Dahlienanbau 1–2 Jahre Pause mit Hülsenfrüchten oder Gründüngung.
+**Hinweis:** Dahlien sind keine Gemüsepflanzen im klassischen Sinne, daher greift die typische 4-Jahres-Fruchtfolge hier nicht streng. In der Praxis: Standort jährlich wechseln oder nach 2–3 Jahren Dahlienanbau 1–2 Jahre Pause mit Hülsenfrüchten oder Gründüngung.
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
