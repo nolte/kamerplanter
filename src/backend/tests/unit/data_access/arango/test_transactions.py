@@ -379,27 +379,26 @@ class TestAConflictNeverLeavesTheBlockUntyped:
         assert "plan" in caught.value.message
         assert _tx(db).aborts == 1
 
-    @pytest.mark.parametrize("code", [18, 1200], ids=["lock-timeout", "conflict"])
-    def test_a_lock_the_server_cannot_grant_at_begin_is_a_write_conflict(self, code: int):
-        """``begin_transaction`` waits ``lockTimeout`` for the declared collections; a refusal is 409, not 500."""
-        error = TransactionInitError(_Response(code, "timeout waiting to lock"), _Request())
+    @pytest.mark.parametrize("code", [18, 1200, 1203], ids=["lock-timeout", "conflict-at-begin", "no-collection"])
+    def test_a_transaction_that_could_not_be_opened_is_never_a_conflict(self, code: int):
+        """A write that never started is not a write the data refused.
+
+        ``v0048_backfill_missing_care_profiles._persist`` counts ``WriteConflictError``
+        as "the edge is already taken" and must never count a transaction the server
+        refused to open as that — so a ``begin`` failure, whatever its code, stays
+        the driver's ``TransactionInitError``, as it did before the helper existed.
+        """
+        error = TransactionInitError(_Response(code, "cannot begin transaction"), _Request())
         db = _db(init_error=error)
 
         with (
-            pytest.raises(WriteConflictError) as caught,
+            pytest.raises(TransactionInitError) as caught,
             stream_transaction(db, write=[DOCS], exclusive=[DOCS]),  # type: ignore[arg-type]
         ):
             pytest.fail("the body ran although no transaction was opened")
 
-        assert caught.value.__cause__ is error
-        assert "lock" in caught.value.details[0]["reason"]
+        assert caught.value is error
         assert db.transaction is None
-
-    def test_any_other_begin_failure_is_the_drivers(self):
-        db = _db(init_error=TransactionInitError(_Response(1203, "collection or view not found"), _Request()))
-
-        with pytest.raises(TransactionInitError), stream_transaction(db, write=["missing"]):  # type: ignore[arg-type]
-            pytest.fail("the body ran although no transaction was opened")
 
     def test_conflict_error_for_answers_none_for_everything_else(self):
         assert conflict_error_for(_insert_error(1104), entity=DOCS) is None

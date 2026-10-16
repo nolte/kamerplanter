@@ -23,8 +23,9 @@ import time
 
 import pytest
 from arango import ArangoClient
+from arango.exceptions import TransactionInitError
 
-from app.common.exceptions import DuplicateError, TransactionTimeBudgetExceededError, WriteConflictError
+from app.common.exceptions import DuplicateError, TransactionTimeBudgetExceededError
 from app.data_access.arango.transactions import stream_transaction
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -165,14 +166,19 @@ class TestTheBudgetReachesTheServer:
 
 
 class TestAContendedCollectionLock:
-    def test_an_exclusive_lock_held_elsewhere_is_a_write_conflict_after_the_lock_timeout(self, db):
-        """Two exclusive declarations on one collection: the second waits ``lockTimeout`` (budget / 2), then 409."""
+    def test_an_exclusive_lock_held_elsewhere_is_refused_at_begin_after_the_lock_timeout(self, db):
+        """Two exclusive declarations on one collection: the second waits ``lockTimeout`` (budget / 2), then fails.
+
+        Measured: the server answers error ``18`` (lock timeout) at ``begin``. The
+        helper leaves it the driver's ``TransactionInitError`` — not a conflict on the
+        data, nothing was written — which is the distinction ``v0048`` relies on.
+        """
         client, other = _second_connection()
         holder = other.begin_transaction(exclusive=[DOCS])
         try:
             started = time.monotonic()
             with (
-                pytest.raises(WriteConflictError) as caught,
+                pytest.raises(TransactionInitError) as caught,
                 stream_transaction(db, write=[DOCS], exclusive=[DOCS], time_budget_seconds=2),
             ):
                 pytest.fail("the body ran although the lock is held elsewhere")
@@ -181,5 +187,5 @@ class TestAContendedCollectionLock:
             holder.abort_transaction()
             client.close()
 
-        assert "lock" in caught.value.details[0]["reason"]
+        assert caught.value.error_code == 18
         assert 0.5 < waited < 10, f"the lock wait ({waited:.1f} s) is not the derived lockTimeout of 1 s"

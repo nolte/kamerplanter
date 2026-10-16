@@ -34,9 +34,11 @@ What the helper guarantees, and what the unit tests pin against a fake driver:
   value; the bulk methods are forced to *raise* on the first refused document
   rather than return it inline, so a half-applied batch is never committed; a
   conflict the server defers to the commit, or one raised by an AQL statement, is
-  translated generically on the way out. A lock the server could not grant when
-  the transaction was opened is a :class:`WriteConflictError` too. No raw driver
-  conflict leaves the ``with`` block.
+  translated generically on the way out. No raw driver conflict leaves the
+  ``with`` block. A failure to *open* the transaction (a collection lock not
+  granted within ``lockTimeout``) is not a conflict on the data and stays the
+  driver's ``TransactionInitError``: a write that never started must never be
+  mistaken for one the data refused (``v0048`` relies on exactly that).
 * **A time budget.** The body is measured from ``begin`` to the commit decision;
   past the budget the transaction is aborted instead of committed and
   :class:`~app.common.exceptions.TransactionTimeBudgetExceededError` (422) is
@@ -66,10 +68,10 @@ import structlog
 from arango.aql import AQL
 from arango.collection import StandardCollection
 from arango.database import StandardDatabase, TransactionDatabase
-from arango.exceptions import AQLQueryExecuteError, ArangoServerError, TransactionCommitError, TransactionInitError
+from arango.exceptions import AQLQueryExecuteError, ArangoServerError, TransactionCommitError
 
-from app.common.exceptions import KamerplanterError, TransactionTimeBudgetExceededError, WriteConflictError
-from app.data_access.arango.conflicts import LOCK_TIMEOUT, QUERY_KILLED, WRITE_WRITE_CONFLICT, conflict_error_for
+from app.common.exceptions import KamerplanterError, TransactionTimeBudgetExceededError
+from app.data_access.arango.conflicts import QUERY_KILLED, conflict_error_for
 
 logger = structlog.get_logger()
 
@@ -353,8 +355,10 @@ def stream_transaction(
 
     Raises:
         DuplicateError: ArangoDB ``1210`` from a write, an AQL statement or the commit.
-        WriteConflictError: ArangoDB ``1200`` from the same places, or a collection
-            lock the server could not grant within the lock timeout at ``begin``.
+        WriteConflictError: ArangoDB ``1200`` from the same places — never from ``begin``.
+        TransactionInitError: the transaction could not be opened (a collection
+            lock not granted within ``lock_timeout``, a missing collection); the
+            driver's own error, untranslated, because nothing was written.
         TransactionTimeBudgetExceededError: the body outran its budget; aborted.
         ValueError: ``write`` is empty or the budget is not a positive finite
             number — refused before anything is opened.
@@ -366,19 +370,22 @@ def stream_transaction(
     about = entity or write[0]
 
     started = clock()
-    try:
-        raw = db.begin_transaction(
-            read=list(read) or None,
-            write=list(write),
-            exclusive=list(exclusive) or None,
-            allow_implicit=allow_implicit,
-            lock_timeout=_lock_timeout_for(time_budget_seconds),
-        )
-    except TransactionInitError as exc:
-        if exc.error_code in (LOCK_TIMEOUT, WRITE_WRITE_CONFLICT):
-            reason = "a collection lock could not be taken within the transaction's budget"
-            raise WriteConflictError(about, reason=reason) from exc
-        raise
+    # A failure to OPEN the transaction — a collection lock not granted within
+    # ``lock_timeout`` (error 18), a ``1200`` at begin, a missing collection — is
+    # deliberately NOT translated into the conflict family. A conflict says "the
+    # data refused this write"; a transaction that never started wrote nothing,
+    # and callers tell the two apart: ``v0048_backfill_missing_care_profiles``
+    # counts ``WriteConflictError`` as "the edge is already taken" and must never
+    # count a write that never happened as that. The driver's
+    # ``TransactionInitError`` therefore propagates as itself, which is what every
+    # hand-rolled site raised before this helper existed.
+    raw = db.begin_transaction(
+        read=list(read) or None,
+        write=list(write),
+        exclusive=list(exclusive) or None,
+        allow_implicit=allow_implicit,
+        lock_timeout=_lock_timeout_for(time_budget_seconds),
+    )
     handle = StreamTransaction(
         raw, entity=about, write=write, budget_seconds=time_budget_seconds, started=started, clock=clock
     )
