@@ -211,6 +211,7 @@ class TenantExportEngine:
         "ai_audit_log": _AUDIT,
         "mcp_audit_log": _AUDIT,
         "security_audit_log": _AUDIT,
+        "garden_plan_audit": _AUDIT,  # REQ-053 SR-011: the plan change log names this installation's accounts
         "tenant_erasure_records": "the proof of a tenant deletion in this installation",
         "tenant_export_requests": "export requests are not exported (§8.3)",
     }
@@ -286,6 +287,7 @@ class TenantExportEngine:
             "assessed_by_quality",
             "belongs_to_family",
             "belongs_to_tenant",
+            "care_event_at",  # REQ-053 M1 (#2323): care_events → locations
             "care_event_for",
             "cloned_from",
             "compatible_fish_plant",
@@ -328,8 +330,10 @@ class TenantExportEngine:
             "has_fill_event",
             "has_fish_stock",
             "has_forecast",
+            "has_garden_object",  # REQ-053 M1 (#2323): sites → garden_objects
             "has_harvest_indicator",
             "has_irrigation_demand",
+            "has_irrigation_zone",  # REQ-053 M1 (#2323): sites → irrigation_zones
             "has_lifecycle",
             "has_maintenance",
             "has_overwintering_profile",
@@ -377,6 +381,7 @@ class TenantExportEngine:
             "run_at_location",
             "run_contains",
             "run_follows_plan",
+            "run_planned_at",  # REQ-053 M1 (#2323): planting_runs → slots
             "run_uses_substrate",
             "stock_of_species",
             "succession_at",
@@ -388,6 +393,7 @@ class TenantExportEngine:
             "task_cloned_from",
             "task_has_audit",
             "task_has_comment",
+            "task_logged_as",  # REQ-053 M1 (#2323): tasks → care_events
             "task_recurs_from",
             "task_uses_activity",
             "to_run",
@@ -403,6 +409,9 @@ class TenantExportEngine:
             "wf_executing",
             "wf_generated",
             "wf_has_phase",
+            "zone_actuated_by",  # REQ-053 M1 (#2323): irrigation_zones → actuators
+            "zone_covers",  # REQ-053 M1 (#2323): irrigation_zones → locations
+            "zone_supplied_by",  # REQ-053 M1 (#2323): irrigation_zones → garden_objects
         }
     )
 

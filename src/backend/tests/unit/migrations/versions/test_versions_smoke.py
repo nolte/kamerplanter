@@ -167,6 +167,15 @@ class _NoopCollection:
                 "unique": True,
                 "sparse": True,
             },
+            # v0093 (#2323, REQ-053 M1): the garden-plan indexes are bootstrapped on a
+            # fresh volume, so the structural half finds every target present.
+            {"type": "persistent", "fields": col.LOCATION_BED_STATUS_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.GARDEN_OBJECT_TYPE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.SLOT_ROLE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_TASK_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_SOURCE_REF_INDEX_FIELDS, "unique": True, "sparse": True},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -204,10 +213,22 @@ class _NoopGraph:
             {"edge_collection": "phase_profile"},
             {"edge_collection": "location_profile"},
             {"edge_collection": "rule_monitors"},
+            # v0093 (#2323, REQ-053 M1): the eight garden-plan edges, and the three
+            # definitions it widens reported with the bootstrap's vertex lists so the
+            # widening finds nothing missing.
+            *({"edge_collection": name} for name in col.GARDEN_PLAN_EDGE_COLLECTIONS),
+            *(
+                definition
+                for definition in col.GRAPH_EDGE_DEFINITIONS
+                if definition["edge_collection"] in (col.BELONGS_TO_TENANT, col.CARE_EVENT_FOR, col.HAS_TASK)
+            ),
         ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
         raise AssertionError("no edge definition should be created when the bootstrap already added it")
+
+    def replace_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
+        raise AssertionError("no edge definition should be widened when the bootstrap already carries the vertices")
 
 
 class _NoopDb:

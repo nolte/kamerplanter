@@ -107,6 +107,19 @@ class TenantErasureEngine:
         _delete("sites"),
         _delete("locations", _parent("site_key", "sites")),
         _delete("slots", _parent("location_key", "locations")),
+        # REQ-053 garden plan (M1, #2323). garden_objects carry no tenant_key — the site
+        # is the anchor (E-01); the other four are stamped and listed tenant-wide.
+        _delete("garden_objects", _parent("site_key", "sites")),
+        # PLACEHOLDER (REQ-053 GP-NFR-055, needs-decision via #2323): rows with
+        # category pest_control/ipm carry the PflSchG reservation like
+        # treatment_applications (pseudonymize, R-17). No code path writes care_events
+        # before WP 1.7/4.x; the entry turns category-dependent with the writer.
+        _delete("care_events"),
+        _delete("irrigation_zones"),
+        _delete("bed_templates"),  # rows with tenant_key null are global templates (§20.12) and stay
+        # Deleted with the tenant, unlike the installation's security/AI/MCP audit logs:
+        # it records plan structure changes of the tenant's own sites (SR-011), not access.
+        _delete("garden_plan_audit"),
         _delete("weather_source_configs"),
         _delete("weather_forecasts"),
         _delete("climate_normals"),
