@@ -121,6 +121,37 @@ class WriteConflictError(KamerplanterError):
         )
 
 
+class TransactionTimeBudgetExceededError(KamerplanterError):
+    """A stream transaction outran its time budget and was aborted, writing nothing (REQ-053 GP-NFR-013).
+
+    Raised by ``data_access/arango/transactions.py`` when the body of a
+    transaction has taken longer than the budget it was opened with (10 s by
+    default), measured at the moment the helper would otherwise commit — or
+    earlier, when the body asks the handle to check between operations. The
+    transaction is **aborted** before this is raised, so nothing it staged is
+    visible to anyone.
+
+    422 rather than 409 or 503: the request was well-formed and nothing
+    conflicted with it — it was too much work to do atomically within the budget,
+    which is the same verdict GP-NFR-013 assigns to a plan batch over its
+    complexity limits (``batch.too_complex``). A caller that owns a published
+    contract code for that verdict (the plan batch, WP 1.8) catches this and
+    re-raises under its own code; the house code here keeps the condition
+    distinguishable from a validation error in logs and in the error catalogue.
+    """
+
+    def __init__(self, entity: str, *, budget_seconds: float, elapsed_seconds: float) -> None:
+        reason = f"took {elapsed_seconds:.2f} s against a budget of {budget_seconds:g} s"
+        super().__init__(
+            message=f"Transaction on '{entity}' exceeded its time budget ({reason}) and was aborted.",
+            error_code="TRANSACTION_TIME_BUDGET_EXCEEDED",
+            status_code=422,
+            # ``request``, not a field name: no input field caused this, so a client
+            # mapping ``details[].field`` onto its form (NFR-006 §7) has nothing to mark.
+            details=[{"field": "request", "reason": reason, "code": "TRANSACTION_TIME_BUDGET_EXCEEDED"}],
+        )
+
+
 class AccountBeingErasedError(KamerplanterError):
     """The account is closed and queued for erasure, so the e-mail revert cannot restore it (#1848).
 
