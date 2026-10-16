@@ -121,6 +121,22 @@
 **Hinweis (Salz):** Anthurium andraeanum gilt als salzempfindlichste der untersuchten Schnittblumen-Floristikkulturen (Sonneveld; HortTechnology 2011), mit spezifischer Natriumchlorid-Empfindlichkeit. Bezugsgröße der Schwellenangaben ist die Substrat-ECe, nicht die Gießwasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Anthurium andraeanum", Position „Partial shade", https://www.rhs.org.uk/plants/1349/anthurium-andraeanum/details | — |
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenübersicht
@@ -329,3 +345,4 @@ Anthurium andraeanum,"Flamingoblume;Große Flamingoblume;Flamingo Flower;Anthuri
 13. [Koppert — Cryptolaemus montrouzieri](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate Schmierlaus-Marienkäfer (2–10/m² Adulte), Etablierung
 14. [PMC — Cultivar/chilling sensitivity & Anthurium temperature data](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.00846/full) — Kälteempfindlichkeit (chilling injury < 12 °C), Mindesttemperatur ~15 °C
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+15. [RHS — Anthurium andraeanum](https://www.rhs.org.uk/plants/1349/anthurium-andraeanum/details) — Standortstufe „Partial shade" (Position, Aspect, Exposure)

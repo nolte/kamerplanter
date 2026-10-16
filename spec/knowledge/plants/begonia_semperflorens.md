@@ -136,6 +136,22 @@
 **Quellen (§1.8):** [Neil Sperry's GARDENS — How many seeds per ounce?](https://neilsperry.com/2021/10/how-many-seeds-per-ounce/10-14-21-wax-begonia-seeds-low-res/); [HowStuffWorks — Wax Begonia, Fibrous Begonia: A Profile of Annuals](https://home.howstuffworks.com/define-wax-begonia-fibrous-begonia.htm); [Plant Care Today — Growing Wax Begonias from Seed](https://plantcaretoday.com/growing-wax-begonias-seed.html); [Little Yellow Wheelbarrow — Begonias from Seed](https://www.littleyellowwheelbarrow.com/grow-begonias-seed-indoors/); [Laidback Gardener — Successfully Sowing Begonias From Seed](https://laidbackgardener.blog/2017/01/08/successfully-sowing-begonias-from-seed/); [American Begonia Society — Seed Collection and Storage](https://www.begonias.org/seed-collection-and-storage/); [Live to Plant — All About Begonia Plant Seeds](https://livetoplant.com/all-about-begonia-plant-seeds-germination-storage-and-sowing/).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15–20 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | Clemson Cooperative Extension HGIC, „Begonia" (HGIC 1159, rev. 2020), https://hgic.clemson.edu/factsheet/begonia/ (Wachsbegonien: „Set plants 6 to 8 inches apart in the garden", umgerechnet 15–20 cm; Reihenabstand nicht genannt) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quellen nennen Spanne ohne Vorzug (RHS „Full shade, Partial shade"; Clemson „nicht auf Halbschatten beschränkt, auch Vollsonne") --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -342,3 +358,4 @@ Begonia semperflorens,"Wachsbegonie;Eisbegonie;Immerblühende Begonie;Wax Begoni
 21. [NC State Extension Gardener Plant Toolbox — Begonia, Wax Types](https://plants.ces.ncsu.edu/plants/begonia-wax-types/) — "often used as an annual bedding plant or as a tender, herbaceous perennial grown in containers and brought indoors for the winter"; USDA Plant Hardiness Zone 9a–11b
 22. [RHS — Begonia Semperflorens Cultorum Group](https://www.rhs.org.uk/plants/130495/begonia-semperflorens-cultorum-group-s/details) — "fibrous-rooted, tender perennials grown as annuals" / "fibrous-rooted evergreen perennials, much used for summer bedding"; Härtegrad H1C
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+23. [Clemson Cooperative Extension HGIC — Begonia (HGIC 1159, rev. 2020)](https://hgic.clemson.edu/factsheet/begonia/) — Pflanzabstand Wachsbegonien 6–8 inches (15–20 cm) im Beet (§1.9)

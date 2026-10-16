@@ -120,6 +120,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Aloe vera wird im Hobby- und Erwerbsanbau ganz überwiegend über Kindel/Ableger (offset, siehe §1.3) vermehrt — dies ist schneller, sortenecht und liefert eine erntereife Pflanze deutlich früher als Samenvermehrung. Echte Samenvermehrung ist bei Aloe vera selten (u.a. weil die Art in Kultur oft klonal/steril bzw. selbstinkompatibel ist und kaum brauchbares Saatgut im Handel verfügbar ist) und für den praktischen Kamerplanter-Anwendungsfall nicht relevant. Es werden daher KEINE Keimwerte erfunden; `species.seed_profile` bleibt für diese Art unbefüllt (null). -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Aloe vera", Position „Full sun", https://www.rhs.org.uk/plants/981/aloe-vera/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -370,3 +386,4 @@ Aloe vera,"Echte Aloe;Aloe vera;True Aloe;Barbados Aloe",Asphodelaceae,Aloe,pere
 19. [gartengemeinschaft.de — Aloe Vera Blütezeit](https://www.gartengemeinschaft.de/aloe-vera-wann-ist-die-bluetezeit/) — Blüte ab März bis April, selten bereits Februar
 20. [aloeveraland.at — Blüten & Blütenstände der Aloen](https://www.aloeveraland.at/de/blueten-bluetenstaende-aloen) — Blütezeit März bis Juni
 <!-- /Quelle: growing-phase-auditor 2026-07 (Korrektur Blütemonate) -->
+21. [RHS — Aloe vera](https://www.rhs.org.uk/plants/981/aloe-vera/details) — Standortstufe „Full sun" (Position, Aspect, Exposure)

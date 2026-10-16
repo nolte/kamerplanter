@@ -133,6 +133,22 @@
 **Quellen (§1.8):** [Live to Plant — Ponytail Palm Plant Seeds: Guide to Storing, Sowing and Germination](https://livetoplant.com/ponytail-palm-plant-seeds-guide-to-storing-sowing-and-germination/); [World of Succulents — Beaucarnea recurvata](https://worldofsucculents.com/beaucarnea-recurvata/); [Gardening Know How — Harvesting Ponytail Palm Seeds](https://www.gardeningknowhow.com/houseplants/ponytail-palm/propagating-ponytail-palm-seeds.htm); [Garden Guides — How To Plant Ponytail Palm Seeds](https://www.gardenguides.com/90683-plant-ponytail-palm-seeds/); [Foliage Factory — Ponytail Palm Care Guide](https://www.foliage-factory.com/post/the-ultimate-guide-to-beaucarnea-recurvata).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Beaucarnea recurvata", Angabe „Position: Full sun", https://rhs.org.uk/Plants/1993/wd/Details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -341,3 +357,4 @@ Beaucarnea recurvata,"Elefantenfuß;Pferdeschwanzpalme;Flaschenpalme;Ponytail Pa
 16. [Missouri Botanical Garden — Beaucarnea recurvata Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282253) — Zone 10 bis 11, außerhalb dieser Zonen ausschließlich als Zimmerpflanze kultiviert
 17. [Epic Gardening — 5 Tips to Grow a Ponytail Palm Outdoors](https://www.epicgardening.com/growing-ponytail-palm-outdoors/) — USDA Zone 10–11; kurzzeitige Toleranz bis -9°C (15°F) mit Frostschäden, Umzug ins Winterquartier ab unter 7°C (45°F) erforderlich
 <!-- /Quelle: growing-phase-auditor 2026-07 (Korrektur USDA-Zonen & Frostempfindlichkeit) -->
+18. [RHS — Beaucarnea recurvata (elephant's foot)](https://rhs.org.uk/Plants/1993/wd/Details) — Position: Full sun (Lichtanspruch, §1.10)

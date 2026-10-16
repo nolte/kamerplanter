@@ -150,6 +150,22 @@ Hinweis: Beschaedigte oder gelbe Aussenblaetter regelmaessig entfernen. Bluetens
 - Aussaatdichte: eigene Pflanzabstand-Angabe §1.6 (Steckbrief); [West Coast Seeds — How to Grow Leeks from Seed](https://www.westcoastseeds.com/blogs/wcs-academy/grow-leeks) (6 Samen/ft, Reihenabstand 24 in ≈ 11/m² als Quervalidierung der Größenordnung)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15–20 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Grow your own: Leeks“ („Space the holes 15–20cm apart, depending on the variety“; „Allow 30cm between rows“; Baby-Lauch 10 cm), https://www.rhs.org.uk/vegetables/leeks/grow-your-own (abgerufen 2026-10-16) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Grow your own: Leeks“ („Choose a sunny spot with free-draining soil“), https://www.rhs.org.uk/vegetables/leeks/grow-your-own (abgerufen 2026-10-16) | — |
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenuebersicht
@@ -457,6 +473,11 @@ Hinweis: Sommerlauch-Sorten sind frostempfindlicher und werden nicht ueberwinter
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung -- lockerer, stickstoffangereicherter Boden |
 | Empfohlene Nachfrucht | Schwachzehrer (Feldsalat, Spinat) oder Mittelzehrer (Moehre, Salat) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Amaryllidaceae (Lauch, Zwiebel, Knoblauch, Schnittlauch) auf gleicher Flaeche |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer Schleswig-Holstein (LKSH), „Fruchtfolge im Garten“ (PDF, ohne Jahresangabe; Starkzehrer „z. B. Kohl, Kartoffeln, Kürbis, Porree“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Gegenstimmen: Landwirtschaftskammer NRW, Pressemeldung vom 25.02.2016, https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm (Porree = Mittelstarkzehrer); Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Lauch = Mittelzehrer) |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; LKSH, „Fruchtfolge im Garten“, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf — Hülsenfrüchte und Liliengewächse einschließlich Porree als getrennte Familien; Südtiroler Bauernbund, „Fruchtfolgen im Gemüsebau“ 2022, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf — Schmetterlingsblütler und Lauchgewächse getrennt) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Amaryllidaceae 4) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -547,3 +568,10 @@ Lancelot,Allium porrum,,,early_maturing;high_yield,95,,f1_hybrid
 18. UC Marin Master Gardeners -- Leeks (Wurzeltiefe 45--60 cm nach ca. 4 Monaten, neutraler pH): https://ucanr.edu/site/uc-marin-master-gardeners/document/leeks
 19. MSU Extension E486 -- Secondary and Micro-nutrients for Vegetable and Field Crops (Allium/Onion-Empfindlichkeit gegenueber Zn-, Mn-, Mo-Mangel): https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+20. RHS -- Grow your own: Leeks (Pflanz-/Reihenabstand, sonniger Standort; abgerufen 2026-10-16): https://www.rhs.org.uk/vegetables/leeks/grow-your-own
+21. Landwirtschaftskammer Schleswig-Holstein (LKSH) -- Fruchtfolge im Garten (PDF, ohne Jahresangabe; Porree = Starkzehrer, Liliengewaechse und Huelsenfruechte getrennt): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+22. Landwirtschaftskammer NRW -- Fruchtfolge im Gemuesegarten planen (Pressemeldung 25.02.2016; Porree = Mittelstarkzehrer): https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm
+23. Natur im Garten Burgenland / Land NOe -- Fruchtfolge im Gemuesegarten (2022; Lauch = Mittelzehrer): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+24. Suedtiroler Bauernbund (INNOProdukte) -- Fruchtfolgen im Gemuesebau (2022; Lauchgewaechse Anbaupause 4 Jahre, Schmetterlingsbluetler getrennt): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

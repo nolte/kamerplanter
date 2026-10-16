@@ -131,6 +131,22 @@
 **Quellen (§1.8):** [Sow Right Seeds — Growing Asparagus from Seed](https://sowrightseeds.com/blogs/planters-library/how-to-grow-asparagus-from-seed); [Gardening Know How — Asparagus Seed Propagation](https://www.gardeningknowhow.com/edible/vegetables/asparagus/planting-asparagus-seed.htm); [The Seed Collection — How to Grow Asparagus Seeds](https://www.theseedcollection.com.au/growguide/asparagus-seeds); [growseed.co.uk — Asparagus Seed Germination](https://www.growseed.co.uk/asparagus-seed-germination.html); [AgEconSearch — Rapid Determination of Seed Number and Thousand Kernel Weight of Asparagus officinalis L.](https://ageconsearch.umn.edu/record/300962/); [Sow True Seed — Planting Guide and Seed Saving Notes for Asparagus](https://sowtrueseed.com/pages/planting-guide-and-seed-saving-notes-for-asparagus); [Reading Food Growing Network — Seed Viability](https://www.readingfoodgrowingnetwork.org.uk/SeedViability.cfm).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 40 | `species.spacing_cm` |
+| Reihenabstand (cm) | 120 | `species.row_spacing_cm` |
+| Quelle Abstände | Landwirtschaftskammer Niedersachsen, „Anbau von Grünspargel im Hausgarten" (o. J.), https://lwk-niedersachsen.de/index.cfm/article/19263.html („Der Pflanzabstand beträgt 40 cm in der Reihe und 1,20 m zwischen den Reihen"; bestätigt die Angabe in 1.6) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Landwirtschaftskammer Niedersachsen, „Anbau von Grünspargel im Hausgarten" (o. J.), https://lwk-niedersachsen.de/index.cfm/article/19263.html („warmer, sonniger und windgeschützter Standort"); RHS, „Asparagus – How to grow" (Grow your own), https://www.rhs.org.uk/vegetables/asparagus/grow-your-own („A fully sunny site is best, though asparagus will tolerate dappled shade") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -300,6 +316,16 @@ Spargel ist Starkzehrer mit langer Standzeit — Boden großzügig vorbereiten (
 
 ## 6. Fruchtfolge & Mischkultur
 
+### 6.1 Fruchtfolge-Einordnung
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Zehrerstufe | medium_feeder | `species.nutrient_demand` |
+| Zehrerstufe — Quelle | Landwirtschaftskammer Niedersachsen, „Anbau von Grünspargel im Hausgarten" (o. J.), https://lwk-niedersachsen.de/index.cfm/article/19263.html („mittlere Nährstoffansprüche"); Virginia Cooperative Extension (Virginia Tech), Publikation 426-401 „Asparagus" (2015, rev. 2026), https://pubs.ext.vt.edu/426/426-401/426-401.html („Medium-heavy feeder, high phosphorus and potassium") | `species.nutrient_demand_source` |
+| Zehrerstufe — Konfidenz | low | `species.nutrient_demand_confidence` |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> | `species.nitrogen_fixing` |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine belegte Jahreszahl; RHS (https://www.rhs.org.uk/vegetables/asparagus/grow-your-own) rät nur „choose fresh ground" ohne Zahl, die Angabe „10–15 Jahre" in 5.3 ist unbelegt und liegt über der Obergrenze 8 --> | `species.rotation_pause_years` |
+
 ### 6.2 Mischkultur — Gute Nachbarn
 
 | Partner | Wissenschaftl. Name | Kompatibilitäts-Score | Nutzen | KA-Edge |
@@ -355,3 +381,6 @@ Asparagus officinalis,"Spargel;Gemüsespargel;Asparagus;Garden Asparagus",Aspara
 19. [Stauden-Ratgeber.de — Asparagus officinalis (Gemüse-Spargel)](https://stauden-ratgeber.de/stauden/112-asparagus/1168-asparagus-officinalis-gemuese-spargel) — Blütezeit Juni
 20. [Missouri Botanical Garden — Plant Finder Asparagus officinalis](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282227&isprofile=0) — 2–3 Jahre bis erntereif, Ernte April–Mai, unscheinbare weiße Blüten, rote Beeren spätsommerlich
 <!-- /Quelle: growing-phase-auditor 2026-07-03 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+21. [Virginia Cooperative Extension (Virginia Tech) — Asparagus, Publikation 426-401 (2015, rev. 2026)](https://pubs.ext.vt.edu/426/426-401/426-401.html) — Zehrerstufe „medium-heavy feeder"; Standzeit 12–15 Jahre; Pflanzabstand 15–18 in (≈ 38–46 cm), Reihenabstand 4–5 ft (≈ 122–152 cm) als Vergleichswert
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

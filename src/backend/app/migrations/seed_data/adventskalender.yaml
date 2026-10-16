@@ -26,6 +26,10 @@ new_families:
       Umfasst alle Allium-Arten (Lauch, Schnittlauch, Zwiebel, Knoblauch).
       Schwefelhaltige Aromastoffe (Allicin). Giftig für Katzen und Hunde.
     rotation_category: allium
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): SBB "Fruchtfolgen im Gemüsebau" (2022) 4 a,
+    # ÖLN Fruchtfolgeregelung 2025 (Zwiebel/Knoblauch max. 2/7 a, Lauch 3/7 a);
+    # spec/analysis/agrobiology-thresholds-req-053.md §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Amaranthaceae
     common_name_de: "Fuchsschwanzgewächse"
@@ -45,6 +49,9 @@ new_families:
       Fuchsschwanzgewächse (ehem. Chenopodiaceae). Enthält Rote Bete, Mangold,
       Spinat und Amaranth. Windbestäubt, oft hoher Oxalsäuregehalt in Blättern.
     rotation_category: root
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): SBB 2022 3–4 a, ÖLN 2025 max. 3/7 a,
+    # LfL Bayern (Heterodera schachtii); thresholds-req-053.md §C (confirmed 3).
+    rotation_pause_years: 3
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §2 New Species (4)

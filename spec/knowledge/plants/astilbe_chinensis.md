@@ -120,6 +120,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Astilbe chinensis wird gärtnerisch praktisch ausschließlich durch Teilung des Rhizoms vermehrt — §1.3 dieses Steckbriefs nennt ausschließlich "division" als Vermehrungsmethode. Die im Handel verbreiteten Sorten sind zudem Hybriden/Kultivare, die aus Samen nicht sortenecht nachkommen. Keine belastbaren, artspezifischen Keimwerte aus ≥2 seriösen Quellen auffindbar; keine Werte erfunden.) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Quelle nennt nur Endbreite, keinen Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — (RHS, „Astilbe chinensis", https://www.rhs.org.uk/plants/1825/wd/details, gelesen: nennt nur „Ultimate spread" 0,5–1 m, keinen Pflanzabstand; der Wert in 1.6 „40–60" bleibt unbelegt) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Astilbe chinensis" (Position „Partial shade"; „dappled shade, or indirect sun where the soil remains moisture-retentive in summer"), https://www.rhs.org.uk/plants/1825/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen

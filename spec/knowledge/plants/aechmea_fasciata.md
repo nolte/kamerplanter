@@ -127,6 +127,22 @@
 - *Boden-pH-Vorzug (soil pH preference):* 5.5–6.5 (sauer bis schwach sauer), harmonisiert mit Substrat-Empfehlung §1.6 und Nährstoffprofilen §2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Aechmea fasciata“, Position „Partial shade“, https://www.rhs.org.uk/plants/59419/aechmea-fasciata/details (abgerufen 2026-10-16) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -394,3 +410,6 @@ Aechmea fasciata,Urnenpflanze;Lanzenrosette;Silver Vase Plant;Urn Plant,Bromelia
 18. [NC State Extension Gardener Plant Toolbox — Aechmea fasciata (Direktabfrage 2026-07)](https://plants.ces.ncsu.edu/plants/aechmea-fasciata/) — cycle_type perennial trotz monokarper Einzelrosette bestätigt, USDA-Zonen 10a–11b bestätigt, Blüte "in spring"
 19. [OurHouseplants — Urn Plant (Direktabfrage 2026-07)](https://www.ourhouseplants.com/plants/urn-plant) — Mindesttemperatur 15 °C (widerspricht Quelle 17 „10 °C"; als ungeklärt dokumentiert, Originalwert 10 °C beibehalten)
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+20. [RHS — Aechmea fasciata, Position „Partial shade“ (abgerufen 2026-10-16)](https://www.rhs.org.uk/plants/59419/aechmea-fasciata/details) — Lichtanspruch (Standortstufe) §1.10
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

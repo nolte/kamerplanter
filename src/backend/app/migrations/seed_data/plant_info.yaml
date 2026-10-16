@@ -204,6 +204,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    row_spacing_cm: "40–50"
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (Oktober 2022), Tabelle 2: Knollensellerie = Starkzehrer, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten\" (April 2022), Sellerie im Starkzehrer-Beet, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; BBZ Arenenberg, „Kulturblatt Sellerie\" (2015), „Sellerie ist ein starker Nährstoffzehrer\", https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf; UMass Amherst, New England Vegetable Management Guide, „Celery and Celeriac\" („heavy feeders\"), https://nevegetable.org/crops/celery-and-celeriac"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (existing species - fill None/empty fields)

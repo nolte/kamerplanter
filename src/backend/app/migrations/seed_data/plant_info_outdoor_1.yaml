@@ -187,6 +187,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.8
+    row_spacing_cm: "25–30"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund (INNOProdukte), „Fruchtfolgen im Gemüsebau“ (2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Speisezwiebel = Mittelzehrer); Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Zwiebel = Mittelzehrer); Gegenstimmen: Landwirtschaftskammer NRW, Pressemeldung vom 25.02.2016, https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm (Zwiebeln = Schwachzehrer); FiBL/Bioland/KÖN/Bio Austria, „Biologischer Anbau von Zwiebeln“ (2007), https://www.fibl.org/fileadmin/documents/shop/1436-zwiebeln.pdf (Zwiebeln gelten als Schwachzehrer)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Allium sativum"
     common_names: ["Knoblauch", "Garlic"]
@@ -240,6 +247,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Knoblauch im „Mittelzehrer-Beet“); keine weitere Fachquelle gefunden, die Knoblauch einer Zehrerstufe zuordnet (LWK NRW 2016 und LKSH nennen Knoblauch nicht)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Anemone hupehensis"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -288,6 +302,11 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Asparagus officinalis"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -352,6 +371,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: "120"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Landwirtschaftskammer Niedersachsen, „Anbau von Grünspargel im Hausgarten\" (o. J.), https://lwk-niedersachsen.de/index.cfm/article/19263.html („mittlere Nährstoffansprüche\"); Virginia Cooperative Extension (Virginia Tech), Publikation 426-401 „Asparagus\" (2015, rev. 2026), https://pubs.ext.vt.edu/426/426-401/426-401.html („Medium-heavy feeder, high phosphorus and potassium\")"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Astilbe chinensis"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -399,6 +425,12 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document (Steckbrief 6.1 enthaelt nur Mischkultur)
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Brassica oleracea var. sabellica"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -876,6 +908,13 @@ species_enrichment:
     bloom_months: [5, 6, 7]
     pruning_type: harvest_cut
     pruning_months: [4, 5, 6, 7, 8, 9]
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Landwirtschaftskammer Schleswig-Holstein (LKSH), „Fruchtfolge im Garten“ (PDF, ohne Jahresangabe; Schwachzehrer „z. B. Erbsen, Bohnen, Kräuter“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, Pressemeldung vom 25.02.2016 (Schwachzehrer: „Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm; Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022; Schwachzehrer-Beet: „Kräuter“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; University of Wisconsin-Madison Extension, „Chives“ (geringer Nährstoffbedarf, art-spezifisch), https://hort.extension.wisc.edu/articles/chives-allium-schoenoprasum/. Hinweis: die drei deutschsprachigen Quellen ordnen die Sammelgruppe „Kräuter“ zu, nennen Schnittlauch nicht namentlich"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Anethum graveolens":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -905,6 +944,11 @@ species_enrichment:
     direct_sow_months: [4, 5, 6, 7]
     harvest_months: [6, 7, 8, 9]
     bloom_months: [7, 8]
+    row_spacing_cm: "25"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Artemisia dracunculus":
     frost_sensitivity: moderate
@@ -927,6 +971,13 @@ species_enrichment:
     mature_width_cm: "40"
     harvest_months: [5, 6, 7, 8, 9]
     bloom_months: [7, 8]
+    row_spacing_cm: "40"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Natur im Garten Burgenland (Land Niederösterreich), „Fruchtfolge im Gemüsegarten\" (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Gruppe „Kräuter\" im Schwachzehrer-Beet; Estragon nicht namentlich genannt, daher Gruppenzuordnung)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Beta vulgaris subsp. vulgaris":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -988,6 +1039,13 @@ species_enrichment:
     direct_sow_months: [5, 6]
     harvest_months: [7, 8, 9, 10]
     bloom_months: [5, 6]
+    row_spacing_cm: "50"
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "Landwirtschaftskammer Schleswig-Holstein, „Fruchtfolge im Garten\" (2020), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf (Starkzehrer z. B. Kohl); Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (INNOProdukte, 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Starkzehrer u. a. Blumenkohl); Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten\" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Starkzehrer-Beet: Kohlarten inkl. Karfiol)"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Brassica oleracea var. gemmifera":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1364,6 +1422,14 @@ species_enrichment:
       seed_viability_years: 3
       light_germination: light
       thousand_seed_weight_g: 0.4
+    spacing_cm: "30–35"
+    row_spacing_cm: "30–35"
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (Oktober 2022), Tabelle 2: Stangensellerie und Knollensellerie = Starkzehrer, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten\" (April 2022), Sellerie im Starkzehrer-Beet, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; BBZ Arenenberg, „Kulturblatt Sellerie\" (2015), „Sellerie ist ein starker Nährstoffzehrer\", https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf; UMass Amherst, New England Vegetable Management Guide, „Celery and Celeriac\" („heavy feeders\"), https://nevegetable.org/crops/celery-and-celeriac"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Avena sativa":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1376,6 +1442,14 @@ species_enrichment:
       light_germination: dark
       thousand_seed_weight_g: 25
       sowing_density_per_m2: 300
+    row_spacing_cm: "10–14"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    # Species override (family Poaceae stays null, E-10): LFA MV "Sommer- und Winterhafer —
+    # Anbautelegramm" (2025), https://www.landwirtschaft-mv.de/serviceassistent/download?id=1682613
+    # — Anbaupause mindestens 4 Jahre (Selbstunverträglichkeit, Hafernematoden); Steckbrief 6.1.
+    rotation_pause_years: 4
 
   "Brassica oleracea var. capitata":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1388,6 +1462,14 @@ species_enrichment:
       light_germination: indifferent
       thousand_seed_weight_g: 4
       sowing_density_per_m2: 2
+    spacing_cm: "50"
+    row_spacing_cm: "50"
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "Landwirtschaftskammer Schleswig-Holstein, „Fruchtfolge im Garten\" (2020), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf (Starkzehrer z. B. Kohl); Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (INNOProdukte, 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Starkzehrer u. a. Weißkohl); Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten\" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Starkzehrer-Beet: Kohlarten inkl. Kraut)"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Cannabis sativa":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
