@@ -151,8 +151,9 @@ def point_from_grid(cell: tuple[int, int], pitch_m: float) -> dict[str, Any] | N
 
 def natural_key(text: object) -> tuple[tuple[int, int | str], ...]:
     """A sort key that orders digit runs numerically: ``BED_2`` before ``BED_10``."""
+    # A split on a capturing group alternates text and digit runs: digits sit at odd indices.
     parts = _DIGITS.split(str(text or ""))
-    return tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts if part != "")
+    return tuple((0, int(part)) if index % 2 else (1, part) for index, part in enumerate(parts) if part != "")
 
 
 def sequence_ranks(slots: Iterable[Mapping[str, Any]]) -> dict[str, int]:
@@ -166,6 +167,7 @@ def sequence_ranks(slots: Iterable[Mapping[str, Any]]) -> dict[str, int]:
     ``position`` does not parse sorts after every valid cell.
     """
     by_location: dict[str, list[tuple[Any, ...]]] = {}
+    slot: Mapping[str, Any]
     for slot in slots:
         cell = grid_cell(slot.get("position"))
         order = (0, cell[0], cell[1]) if cell is not None else (1, 0, 0)

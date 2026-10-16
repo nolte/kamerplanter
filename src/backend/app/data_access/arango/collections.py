@@ -1,4 +1,5 @@
 import contextlib
+from typing import Any
 
 from arango.collection import StandardCollection
 from arango.database import StandardDatabase
@@ -1874,6 +1875,7 @@ def ensure_species_normalized_index(species_col: StandardCollection) -> None:
     migration then de-duplicates every volume and promotes the index to unique.
     Once promoted, a re-run finds the unique index already present and is a no-op.
     """
+    idx: dict[str, Any]
     for idx in species_col.indexes():
         if (
             isinstance(idx, dict)
@@ -1913,6 +1915,7 @@ def ensure_user_singleton_index(singleton_col: StandardCollection) -> None:
     non-unique bootstrap index, leaving v0031 to dedup and promote. Once
     promoted, a re-run finds the target index present and is a no-op.
     """
+    idx: dict[str, Any]
     for idx in singleton_col.indexes():
         if (
             isinstance(idx, dict)
@@ -2075,6 +2078,7 @@ def ensure_care_task_dedup_index(tasks_col: StandardCollection) -> None:
     if not has_care_task_dedup_computed_value(tasks_col):
         configure_care_task_dedup_computed_value(tasks_col)
 
+    idx: dict[str, Any]
     for idx in tasks_col.indexes():
         if (
             isinstance(idx, dict)

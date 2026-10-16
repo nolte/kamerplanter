@@ -234,16 +234,15 @@ def _plan_structure(db: StandardDatabase) -> _StructurePlan:
     plan = _StructurePlan()
     plan.document_collections = [name for name in _DOC_COLLECTIONS if not db.has_collection(name)]
     plan.edge_collections = [name for name in _EDGE_COLLECTIONS if not db.has_collection(name)]
-    for name, shape in _INDEXES:
-        if not db.has_collection(name):
-            # A collection this migration creates gets its index right after; one the
-            # bootstrap owns (locations, slots) and that is absent is the bootstrap's to
-            # create — with the index — on the next boot.
-            if name in _DOC_COLLECTIONS:
-                plan.indexes.append((name, shape))
-            continue
-        if not _index_present(db, name, shape):
-            plan.indexes.append((name, shape))
+    # An index is pending when its collection lacks it — or when the collection is one
+    # this migration creates (it gets the index right after). A bootstrap-owned
+    # collection (locations, slots) that is absent is the bootstrap's to create, with
+    # the index, on the next boot.
+    plan.indexes = [
+        (name, shape)
+        for name, shape in _INDEXES
+        if (name in _DOC_COLLECTIONS if not db.has_collection(name) else not _index_present(db, name, shape))
+    ]
     plan.graph_present = bool(db.has_graph(col.GRAPH_NAME))
     if not plan.graph_present:
         # The bootstrap creates the graph with every definition; nothing to wire here.
@@ -253,7 +252,8 @@ def _plan_structure(db: StandardDatabase) -> _StructurePlan:
     definitions = cast(list[dict[str, Any]], graph.edge_definitions())
     existing = {definition["edge_collection"]: definition for definition in definitions}
     plan.graph_edges = [d for d in _NEW_EDGE_DEFINITIONS if d["edge_collection"] not in existing]
-    for edge, (added_from, target_to) in _WIDENED_EDGES.items():
+    for edge in _WIDENED_EDGES:
+        added_from, target_to = _WIDENED_EDGES[edge]
         current = existing.get(edge)
         if current is None:
             # Never bootstrapped — an older volume than any this repository shipped; the
@@ -320,7 +320,7 @@ class _DataPlan:
     refusals: dict[str, _Refusals] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        self.counters = dict.fromkeys(self.counter_names, 0)
+        self.counters = {name: 0 for name in self.counter_names}
         self.refusals = {name: _Refusals() for name in self.refusal_names}
 
     def count(self, name: str, by: int = 1) -> None:
@@ -344,6 +344,7 @@ def _plan_locations(db: StandardDatabase) -> _DataPlan:
     plan = _DataPlan(_LOCATION_COUNTERS, _LOCATION_REFUSALS)
     if not db.has_collection(col.LOCATIONS):
         return plan
+    row: dict[str, Any]
     for row in _rows(db, _LOCATION_SCAN, col.LOCATIONS):
         plan.scanned += 1
         dimensions = row.get("dimensions")
@@ -383,12 +384,13 @@ def _plan_slots(db: StandardDatabase) -> _DataPlan:
         return plan
     pitches: dict[str, Any] = {}
     if db.has_collection(col.LOCATIONS):
-        pitches = {row["_key"]: row.get("pitch_m") for row in _rows(db, _PITCH_SCAN, col.LOCATIONS)}
+        pitches = {row["_key"]: row["pitch_m"] for row in _rows(db, _PITCH_SCAN, col.LOCATIONS)}
     slots = _rows(db, _SLOT_SCAN, col.SLOTS)
     plan.scanned = len(slots)
     ranks = sequence_ranks(slots)
     assumed_locations: set[str] = set()
     occupancy: dict[tuple[str, tuple[int, int]], int] = {}
+    slot: dict[str, Any]
     for slot in slots:
         if slot.get("has_geometry"):
             plan.count("geometry_already_present")
