@@ -7,7 +7,44 @@ from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourc
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.site import Location, Site, SiteWaterConfig, Slot
 from app.domain.models.tank import Tank
+from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.location_ownership import require_owned_site, resolve_owned_slot
+
+#: ``Location`` fields the ``PUT /locations/{key}`` body (``LocationCreate``) does not carry and
+#: that are written by the garden-plan paths (REQ-053 WP 1.7 — editor, batch, PATCH in WP 1.9).
+#: The location view is a *full-replace* repository (#714), so a rebuilt model would erase every
+#: one of them on an ordinary edit; they are taken from the stored row instead.
+#: ``area_m2`` and ``bbox`` are re-derived from the kept ``geometry`` afterwards (GP-ACC-035).
+LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
+    "bbox",
+    "bed_status",
+    "description",
+    "geometry",
+    "height_m",
+    "irrigation_zone_key",
+    "locked",
+    "notes",
+    "pitch_m",
+    "rotation_exempt",
+    "soil_profile",
+    "sun_exposure",
+    "z_order",
+)
+
+#: ``Slot`` fields the ``PUT /slots/{key}`` body (``SlotCreate``) does not carry and that the
+#: garden-plan paths write (REQ-053 WP 1.7). The slot view merges (a ``None`` is dropped), but
+#: ``slot_role`` defaults to ``position`` and would overwrite a row or zone — all are kept.
+SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
+    "archived_at",
+    "container_volume_l",
+    "geometry",
+    "geometry_source",
+    "planned_spacing_cm",
+    "row_index",
+    "sequence",
+    "slot_role",
+    "sown_at",
+)
 
 
 class _TankSource(Protocol):
@@ -142,8 +179,16 @@ class SiteService:
         them, so the rebuilt model held ``0`` / ``""`` and every edit turned a nested
         location into a root without a path (#2181). Descendants keep their stored
         path when a location is renamed or moved.
+
+        The garden-plan fields (REQ-053, :data:`LOCATION_FIELDS_KEPT_ON_EDIT`) are
+        taken from the stored location: the edit body does not carry them and the
+        repository replaces the whole document, so a routine rename would otherwise
+        unplace the bed and drop its soil profile. ``area_m2`` follows the kept
+        geometry (GP-ACC-035), which is why the model is re-validated afterwards.
         """
-        self.get_location(key, tenant_key=tenant_key)
+        existing = self.get_location(key, tenant_key=tenant_key)
+        keep_stored_fields(location, existing, LOCATION_FIELDS_KEPT_ON_EDIT)
+        location = Location.model_validate(location.model_dump(by_alias=True))
         parent: Location | None = None
         # The body's site too (#2107): the router used to check it before this call.
         self.get_site(location.site_key, tenant_key=tenant_key)
@@ -217,6 +262,8 @@ class SiteService:
         existing = self.get_slot(key, tenant_key=tenant_key)
         self.get_location(slot.location_key, tenant_key=tenant_key)
         slot.currently_occupied = existing.currently_occupied
+        # The garden-plan fields (REQ-053 WP 1.7) are the editor's, not the edit body's.
+        keep_stored_fields(slot, existing, SLOT_FIELDS_KEPT_ON_EDIT)
         return self._repo.update_slot(key, slot)
 
     def delete_slot(self, key: SlotKey, *, tenant_key: str) -> bool:

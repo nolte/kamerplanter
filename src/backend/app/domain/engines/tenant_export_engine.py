@@ -429,6 +429,7 @@ class TenantExportEngine:
         "cover_photo_ref": "the attachment id of the cover photo (rewritten on import)",
         "external_ref": "a machine producer's idempotency key of a task (#1082), not a credential",
         "source_run_ref": "the id of the producer run (pipeline) that emitted a task, shown for traceability",
+        "ppfd_ref": "a reference PPFD value of a lamp in µmol/m²/s (REQ-053 §9.8), a number, not an id",
     }
 
     #: Inventory collections whose global rows carry an empty ``tenant_key`` beside tenant-owned rows:
@@ -460,6 +461,7 @@ class TenantExportEngine:
         "parent_location_key": _internal("locations"),
         "sensor_location_key": _internal("locations"),
         "winter_quarter_key": _internal("locations"),
+        "irrigation_zone_key": _internal("irrigation_zones"),  # REQ-053 §20.3 (WP 1.7, #2326)
         "slot_key": _internal("slots"),
         "slot_keys": _internal("slots"),
         "tank_key": _internal("tanks"),
@@ -545,6 +547,8 @@ class TenantExportEngine:
             "delivery_channels.fertilizer_dosages.fertilizer_key": _internal("fertilizers"),
         },
         "substrates": {"mix_components.substrate_key": _internal("substrates")},
+        # REQ-053 §15.1 (WP 1.7, #2326): the bed's substrate (GP-FR-121) — a tenant row or a global one.
+        "locations": {"soil_profile.substrate_key": _internal("substrates")},
         "task_templates": {"source_template_key": _internal("task_templates")},
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
         "fish_stocks": {"species_key": _global("fish_species")},

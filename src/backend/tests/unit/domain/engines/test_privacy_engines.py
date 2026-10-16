@@ -18,6 +18,7 @@ from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
 from app.domain.models.calendar import CalendarFeed
 from app.domain.models.feeding_event import FeedingEvent
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.import_job import ImportJob
@@ -107,6 +108,7 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "sites": Site,
     "locations": Location,
     "slots": Slot,
+    "garden_objects": GardenObject,
     "plant_instances": PlantInstance,
     "planting_runs": PlantingRun,
     # #2165 — tanks, watering and feeding logs, sensors (ArangoDB) and their readings (TimescaleDB).

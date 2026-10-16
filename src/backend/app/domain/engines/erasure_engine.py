@@ -148,6 +148,17 @@ class ErasureEngine:
                 "free-text inspector name cleared."
             ),
         ),
+        AnonymizationRule(
+            # REQ-053 GP-NFR-055 / WP 1.7: a plan object belongs to the site's plan of a possibly
+            # shared tenant and is retained; only the author reference is removed.
+            collection="garden_objects",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055: the garden object is part of the site plan and is retained; "
+                "only the author reference is removed."
+            ),
+        ),
         # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
         # Until now only the *attachments* of a diary entry were anonymised
         # (storage scope ``user_diary_attachments`` below); the
@@ -796,6 +807,15 @@ class ErasureEngine:
     # field shaped like an account key to be reached above or named here with
     # the reason. Each reason below was measured against the write path.
     EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
+        ErasureExclusion(
+            collection="sites",
+            user_field="plan_updated_by",
+            reason=(
+                "REQ-053 GP-NFR-055: the field sits inside the nested ``plan`` object and no writer exists "
+                "before the plan routes (WP 1.8), so there is nothing to rewrite yet; the rule has to "
+                "address ``plan.plan_updated_by`` (the executor matches flat fields) before WP 1.8 writes it."
+            ),
+        ),
         ErasureExclusion(
             collection="watering_events",
             user_field="performed_by",

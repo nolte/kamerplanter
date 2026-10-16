@@ -2,9 +2,22 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from app.common.enums import IrrigationSystem, LightType, Orientation
+from app.common.enums import (
+    BedStatus,
+    GrowingMediumKind,
+    IrrigationSystem,
+    LightType,
+    Orientation,
+    PhMethod,
+    SiteWaterRegime,
+    SoilConditionFlag,
+    SoilDrainage,
+    SoilTexture,
+    SunExposure,
+)
+from app.domain.models.geometry import Geometry
 
 
 class LocationCreate(BaseModel):
@@ -25,6 +38,26 @@ class LocationCreate(BaseModel):
     frost_exposed: bool | None = None
 
 
+class SoilProfileSchema(BaseModel):
+    """The v1 soil profile of a bed (REQ-053 §15.1, GP-FR-120/121)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"soil_texture": "loam", "drainage": "good", "ph": 6.5, "humus_percent": 4.0}]}
+    )
+
+    growing_medium_kind: GrowingMediumKind | None = None
+    soil_texture: SoilTexture = SoilTexture.UNKNOWN
+    drainage: SoilDrainage = SoilDrainage.UNKNOWN
+    site_water_regime: SiteWaterRegime = SiteWaterRegime.UNKNOWN
+    conditions: list[SoilConditionFlag] = Field(default_factory=list)
+    substrate_key: str | None = None
+    ph: float | None = Field(default=None, ge=0.0, le=14.0)
+    ph_method: PhMethod | None = None
+    ec_ms_cm: float | None = Field(default=None, ge=0.0)
+    humus_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    notes: str | None = Field(default=None, max_length=4000)
+
+
 class LocationResponse(BaseModel):
     key: str
     name: str
@@ -43,6 +76,22 @@ class LocationResponse(BaseModel):
     tank_key: str | None = None
     #: Frost exposure override (Issue #706); ``None`` inherits from the site type.
     frost_exposed: bool | None = None
+    # ── Garden plan (REQ-053 §20.3, §10.1, WP 1.7) — read-only here; PATCH arrives with WP 1.9 ──
+    description: str | None = None
+    #: Plan frame (§9.2); ``None`` = not placed on the plan (GP-ACC-035).
+    geometry: Geometry | None = None
+    height_m: float | None = None
+    #: ``[min_x, min_y, max_x, max_y]``, derived from ``geometry`` (GP-FR-007).
+    bbox: tuple[float, float, float, float] | None = None
+    bed_status: BedStatus = BedStatus.ACTIVE
+    sun_exposure: SunExposure = SunExposure.UNKNOWN
+    irrigation_zone_key: str | None = None
+    soil_profile: SoilProfileSchema | None = None
+    notes: str | None = None
+    locked: bool = False
+    z_order: int = 0
+    pitch_m: float | None = None
+    rotation_exempt: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

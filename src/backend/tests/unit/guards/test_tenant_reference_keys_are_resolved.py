@@ -383,6 +383,8 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "site.Location.parent_location_key": _V,  # create (bundle A, L1) and update (#1872 C4)
     "site.Location.location_type_key": _G,
     "site.Location.tank_key": _V,  # #1872 C4
+    # REQ-053 §20.3 (WP 1.7, #2326): no write path stores it yet; the PATCH of WP 1.9 resolves the zone.
+    "site.Location.irrigation_zone_key": _gap(2328, "L1"),  # PATCH /locations/{key} resolves the zone
     "site.Slot.location_key": _V,  # #1871 B1
     "species.Cultivar.species_key": _V,
     "species.Species.family_key": _G,

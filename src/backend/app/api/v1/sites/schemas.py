@@ -1,8 +1,9 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import SiteType
+from app.domain.models.geometry import Geometry
 from app.domain.models.site import HardinessZoneSource
 
 # ── Water config schemas ──────────────────────────────────────────────
@@ -36,6 +37,30 @@ class WaterSourceWarningSchema(BaseModel):
     code: str
     message: str
     severity: str
+
+
+# ── Garden plan (REQ-053 §20.2, WP 1.7) ───────────────────────────────────────
+
+
+class SitePlanSchema(BaseModel):
+    """The garden plan of a site as the API returns it; written only by the plan routes (WP 1.8).
+
+    ``plan_updated_by`` (an account key) stays server-side: the plan response
+    names the last editor by display name, never by key (§22.1, SR-013).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"north_angle_deg": 15.0, "default_grid_m": 0.3, "adjacency_factor": 1.0, "plan_revision": 3}]
+        }
+    )
+
+    boundary: Geometry | None = None
+    north_angle_deg: float = 0.0
+    default_grid_m: float
+    adjacency_factor: float
+    plan_revision: int = 0
+    plan_updated_at: datetime | None = None
 
 
 # ── Site schemas ──────────────────────────────────────────────────────
@@ -75,5 +100,7 @@ class SiteResponse(BaseModel):
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
+    #: ``None`` is a site without a garden plan (REQ-053 §20.2).
+    plan: SitePlanSchema | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
