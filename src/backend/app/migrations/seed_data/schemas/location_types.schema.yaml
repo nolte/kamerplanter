@@ -28,11 +28,17 @@ $defs:
         type: string
       is_indoor:
         type: boolean
+      is_bed:
+        type: boolean
+        description: "Bed type (REQ-053 GP-FR-040): bed list, bed status, soil profile, crop rotation"
+      supports_layout:
+        type: boolean
+        description: "May carry a geometry with slot layout (REQ-053 §9.2a): every is_bed type plus tent, shelf"
       icon:
         type: string
         description: "MUI icon name (e.g. Park, MeetingRoom, Warehouse)"
       sort_order:
         type: integer
         minimum: 0
-    required: [key, name, name_en, is_indoor, icon, sort_order]
+    required: [key, name, name_en, is_indoor, is_bed, supports_layout, icon, sort_order]
     additionalProperties: false

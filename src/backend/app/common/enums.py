@@ -964,6 +964,29 @@ class TaskCategory(StrEnum):
     PEST_CONTROL = "pest_control"
     MONITORING = "monitoring"
     CLEANING = "cleaning"
+    # REQ-053 §12.1 bed-care catalogue (migration M3, #2325). Additive — an enum
+    # retirement crashes startup on an alt volume. i18n keys enums.taskCategory.*
+    # exist for each in DE and EN; the spec Literal lives in REQ-006 §Datenmodell.
+    MULCHING = "mulching"
+    WEEDING = "weeding"
+    SOIL_LOOSENING = "soil_loosening"
+    SOWING = "sowing"
+    PRICKING_OUT = "pricking_out"
+    SOIL_AMENDMENT = "soil_amendment"
+    LIMING = "liming"
+    PH_ADJUSTMENT = "ph_adjustment"
+    EC_CHECK = "ec_check"
+    FLUSH = "flush"
+    THINNING = "thinning"
+    HILLING = "hilling"
+    TILLAGE = "tillage"
+    COVERING = "covering"
+    UNCOVERING = "uncovering"
+    VENTILATING = "ventilating"
+    CLEARING = "clearing"
+    SOIL_ANALYSIS = "soil_analysis"
+    RAINFALL = "rainfall"
+    POLLINATING = "pollinating"
 
 
 class ActivityCategory(StrEnum):

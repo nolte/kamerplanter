@@ -151,12 +151,16 @@ Click **Save**. The site appears in the overview.
 | Balcony | No | Balcony |
 | Terrace | No | Terrace |
 | Grow Tent | Yes | Enclosed grow tent with controlled climate |
-| Bed | No | Ground-level or raised bed outdoors |
+| Bed | No | Ground-level bed outdoors |
+| Raised Bed | No | Elevated, framed bed |
+| Greenhouse Bed | No | Bed inside a greenhouse |
+| Cold Frame | No | Covered box for early propagation |
+| Planter | No | Movable planter or a group of pots planned like a bed |
 | Shelf | Yes | Shelf or shelving unit |
 | Container Group | No | Grouping of several pots or containers in one place |
 
 !!! info "For technical users"
-    The twelve types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
+    The sixteen types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
 
 ### Setting Frost Exposure for a Location {#setting-frost-exposure-for-a-location}
 

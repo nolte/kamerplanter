@@ -152,6 +152,15 @@ class Task(BaseModel):
     #: same ``(tenant_key, source)`` updates the existing task instead of
     #: creating a duplicate (idempotent machine creation, #1082 AC-3).
     external_ref: str | None = None
+    # ── REQ-053 §20.9 suggestion flag (migration M3, #2325) — orthogonal to ``origin`` ──
+    #: ``True`` for a task the system proposes (rotation hint, succession, phenology)
+    #: and the user has not accepted yet; ``False`` for every user-created and every
+    #: accepted task. Migration v0095 stamps ``False`` on the stored stock once; a row
+    #: imported later from an older archive may still lack it, so an AQL reader
+    #: filters null-safe (``t.suggested != true``), never ``== false``.
+    suggested: bool = False
+    #: Why the system proposed it (short, user-facing); ``None`` unless ``suggested``.
+    suggestion_reason: str | None = None
     entity_key: str | None = None
     entity_type: str | None = None
     # Watering/feeding tasks are scoped to a planting run rather than a single
