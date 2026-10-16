@@ -156,6 +156,22 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 - [Urban Farmer — Sugar Cube F1 Melon Seeds](https://www.ufseeds.com/product/sugar-cube-f1-melon-seeds/MESC.html) und [Urban Farmer — Passport F1 Melon Seeds](https://www.ufseeds.com/product/passport-f1-melon-seeds---1000-seeds/MEPP-1M.html) — Samenzahl 37–45 Samen/g (TKG-Ableitung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | 150–180 | `species.row_spacing_cm` |
+| Quelle Abstände | UMD Extension, „Growing Melons in the Home Garden" (Muskmelon: 24 in in der Reihe × 60–72 in Reihenabstand ≈ 61 × 152–183 cm), https://www.extension.umd.edu/resource/growing-melons-home-garden; Iowa State University Extension, „Growing Cantaloupe, Muskmelon, and Other Melons in the Home Garden" (Hügel 1,5–2 ft, Reihen 5–6 ft ≈ 46–61 × 152–183 cm), https://yardandgarden.extension.iastate.edu/how-to/growing-cantaloupe-muskmelon-and-other-melons-home-garden; Virginia Cooperative Extension, „Cucumbers, Melons and Squash" 426-406 (rev. 2026; Muskmelon 2–3 ft in Reihen 5–7 ft ≈ 61–91 × 152–213 cm), https://pubs.ext.vt.edu/426/426-406/426-406.html (Zollwerte umgerechnet und gerundet; bei Spalier/Rankhilfe engerer Reihenabstand möglich: VCE nennt Reihen ca. 3 ft ≈ 90 cm, UMD „allows closer spacing"; Clemson HGIC nennt weiter 6–8 ft Reihen × 18–24 in) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Virginia Cooperative Extension, „Cucumbers, Melons and Squash" 426-406 (rev. 2026; Standort „Sunny"), https://pubs.ext.vt.edu/426/426-406/426-406.html; UMD Extension, „Growing Melons in the Home Garden" („Full sun requires direct light at least 6 hours/day; prefers 8 - 10 hours/day"), https://www.extension.umd.edu/resource/growing-melons-home-garden; Iowa State University Extension („Plant melons in full sun"), https://yardandgarden.extension.iastate.edu/how-to/growing-cantaloupe-muskmelon-and-other-melons-home-garden | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -493,6 +509,11 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Empfohlene Vorfrucht | Leguminosen (Erbsen, Bohnen); Getreide; Gruenduengung (Phacelia) |
 | Empfohlene Nachfrucht | Feldsalat; Spinat; Zwiebeln (Schwachzehrer) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Cucurbitaceae auf gleicher Flaeche |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Fachquelle nennt Melone namentlich einer Zehrerstufe (LKSH 2020 nennt nur Kürbis als Starkzehrer; Südtiroler Bauernbund führt Zuckermelone nur in der Anbaupausen-Tabelle; Natur im Garten Burgenland führt Melone in keiner Zehrerliste) --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle, da keine Zehrerstufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau", Tabelle 1, führt Zuckermelone unter den Kürbisgewächsen, getrennt von den Schmetterlingsblütlern, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LKSH, „Fruchtfolge im Garten" (2020), führt Melone unter den Kürbisgewächsen, Hülsenfrüchte als eigene Gruppe, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cucurbitaceae 4) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -585,4 +606,8 @@ Cucumis melo,Melone;Zuckermelone;Honigmelone;Melon;Cantaloupe,Cucurbitaceae,Cucu
 23. [SimplySmartGardening -- How Long Do Seeds Last?](https://simplysmartgardening.com/how-long-do-seeds-last/) -- Keimfähigkeitsdauer
 24. [Harvest to Table -- Melon Seed Starting Tips](https://harvesttotable.com/melons-seed-starting-tips/) -- Keimfähigkeitsdauer (Zweitbeleg)
 25. [Urban Farmer -- Sugar Cube F1 / Passport F1 Melon Seeds](https://www.ufseeds.com/product/sugar-cube-f1-melon-seeds/MESC.html) -- Samenzahl je Gramm (TKG-Ableitung)
+26. [Virginia Cooperative Extension -- Cucumbers, Melons and Squash (426-406, rev. 2026)](https://pubs.ext.vt.edu/426/426-406/426-406.html) -- Pflanz-/Reihenabstand Muskmelon, Standort (Sunny)
+27. [UMD Extension -- Growing Melons in the Home Garden](https://www.extension.umd.edu/resource/growing-melons-home-garden) -- Pflanz-/Reihenabstand Muskmelon, Vollsonne
+28. [LKSH -- Fruchtfolge im Garten (2020)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) -- Pflanzenfamilien-Tabelle (Melone unter Kürbisgewächsen, Hülsenfrüchte eigene Gruppe)
+29. [Südtiroler Bauernbund -- Fruchtfolgen im Gemüsebau (Merkblatt INNOProdukte)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) -- Anbaupausen-Tabelle (Zuckermelone unter Kürbisgewächsen, Schmetterlingsblütler getrennt)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->

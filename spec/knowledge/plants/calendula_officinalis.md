@@ -132,6 +132,22 @@ Quellen (§1.8):
 6. Interne Pflegeangaben S.4.2 dieses Dokuments (Vereinzeln auf 25–30 cm Abstand) — bereits als Quelle im Dokument geführt.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine Fachquelle für den Abstand in der Reihe (gelesen: LfL Sachsen nennt nur Reihenabstand und Bestandsdichte 20 Pfl./m²; 20–30 cm stammt nur aus Garten-Magazinen/Blogs) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 40–60 | `species.row_spacing_cm` |
+| Quelle Abstände | Sächsische Landesanstalt für Landwirtschaft, „Ringelblume — Calendula officinalis L. Anbauverfahren" (2. Aufl., Juni 2006), https://publikationen.sachsen.de/bdb/artikel/13908/documents/16093 (Reihenabstand 40–60 cm im Feldanbau als Heilpflanze; Bestand 20 Pflanzen/m²) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | University of Wisconsin-Madison Extension, Wisconsin Horticulture, „Calendula — Calendula officinalis" (rev. 7.8.2025), https://hort.extension.wisc.edu/articles/calendula-calendula-officinalis/ („easy to grow in any well-drained soil in full sun"); RHS nennt „Full sun, Partial shade", https://www.rhs.org.uk/plants/62350/calendula-officinalis/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -273,6 +289,16 @@ Calendula officinalis ist eine **einjährige (annual)** Pflanze: Die Mutterpflan
 
 ## 6. Fruchtfolge & Mischkultur
 
+### 6.1 Fruchtfolge-Einordnung
+
+| Feld | Wert |
+|------|------|
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze/Heilpflanze — Fruchtfolge-Quellen führen die Ringelblume nicht als Stark-/Mittel-/Schwachzehrer, sondern als Gründüngungs-/Erholungsbeet-Pflanze (Natur im Garten 2022) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | false (keine Leguminose; Natur im Garten, „Fruchtfolge im Gemüsegarten" (April 2022) führt die Ringelblume bei den Korbblütlern, Schmetterlingsblütler getrennt, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3; Südtiroler Bauernbund 2022 nennt 3 Jahre für Korbblütler, LfL Sachsen 2006 „mehrjährige Anbaupausen zu allen Korbblütlern") --> |
+
 ### 6.2 Mischkultur — Gute Nachbarn
 
 | Partner | Wissenschaftl. Name | Kompatibilitäts-Score | Nutzen | KA-Edge |
@@ -332,3 +358,8 @@ Calendula officinalis,"Ringelblume;Sonnenwende;Pot Marigold;Common Marigold",Ast
 16. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Aphidius-Ausbringrate (0,1–3/m²), Etablierungsbedingungen
 17. [Atlas Scientific — Nutrient Solution for Hydroponics](https://atlas-scientific.com/blog/nutrient-solution-for-hydroponics/) — typische Mikronährstoff-Bandbreiten (Mn/Zn/Cu/Mo ppm)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+18. [Sächsische Landesanstalt für Landwirtschaft — Ringelblume, Calendula officinalis L., Anbauverfahren (2. Aufl., Juni 2006)](https://publikationen.sachsen.de/bdb/artikel/13908/documents/16093) — Reihenabstand 40–60 cm, Bestand 20 Pflanzen/m², mehrjährige Anbaupause zu Korbblütlern
+19. [University of Wisconsin-Madison Extension — Calendula (rev. 2025)](https://hort.extension.wisc.edu/articles/calendula-calendula-officinalis/) — Standort full sun
+20. [RHS — Calendula officinalis (Details)](https://www.rhs.org.uk/plants/62350/calendula-officinalis/details) — Position „Full sun, Partial shade"
+21. [Natur im Garten — Fruchtfolge im Gemüsegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Ringelblume im Erholungs-/Gründüngungsbeet; Familienzuordnung Korbblütler
+22. [Südtiroler Bauernbund — Merkblatt Fruchtfolgen im Gemüsebau (Stand Okt. 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Anbaupause Korbblütler 3 Jahre

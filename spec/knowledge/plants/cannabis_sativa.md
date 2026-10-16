@@ -143,6 +143,22 @@ Quellen (S.1.8):
 7. ResearchGate -- Seed-size variation in Cannabis (Figure): Samengroesse variiert sortenabhaengig sehr stark (Feral-Typen bis Kulturformen): https://www.researchgate.net/figure/Seed-size-variation-in-cannabis-Seeds-at-right-are-a-feral-plant-in-Kashmir-800_fig1_6126750
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine Fachquelle für Einzelpflanzenabstand bei Drogen-/Gartenhanf; TFZ-Kompakt 18 (2023) und Schweizer-Bauer-Dossier (2018) nennen nur Feldbestand-Parameter für Nutzhanf (Saatstärke/Reihenabstand je Nutzungsrichtung), keinen Abstand in der Reihe --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: gelesene Fachquellen (TFZ Bayern 2023: Körnerhanf 25–45, Faserhanf/Dualhanf 12–20; Schweizer Bauer/FiBL 2018: Blütenstände 50, 100 oder 150) beschreiben landwirtschaftlichen Nutzhanf-Feldbau, nicht den Einzelpflanzen-Gartenanbau dieses Steckbriefs; Übernahme würde den Planer-Vorbelegwert verfälschen --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine gelesene Fachquelle (Kammer/Extension/RHS) nennt eine Standort-Lichtstufe für Cannabis sativa; Angabe in 1.7 stützt sich nur auf Hersteller-/Blog-Quellen --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -575,6 +591,11 @@ Gezieltes Entfernen grosser Schirmblätter (Fan Leaves) die Bluetenpunkte verdec
 | Empfohlene Vorfrucht | Gruenduengung (Leguminosen: Klee, Lupippe) oder Schwachzehrer |
 | Empfohlene Nachfrucht | Kreuzblütler oder Gruenduengung |
 | Anbaupause (Jahre) | 2–3 Jahre (Pythium, Fusarium-Ruhezeiten) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Fachquelle ordnet Hanf einer Zehrerstufe (Stark-/Mittel-/Schwachzehrer) zu; TFZ-Kompakt 18 (2023) nennt nur einen N-Bedarfswert von 160 kg N/ha, Schweizer-Bauer-Dossier (2018) Düngungsmengen je Nutzungsrichtung --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | false (keine Leguminose; TFZ Bayern, „TFZ-Kompakt 18: Nutzhanf" (06/2023), https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/tfz_kompakt_18_nutzhanf_a.pdf — Hanf gehört zu den Hanfgewächsen (Cannabaceae), nur mit dem Hopfen verwandt, und wird im Ökolandbau nach einer Leguminose angebaut) |
+| Anbaupause (Jahre, Art-Abweichung) | 3 (Quelle nennt 2–3 Jahre: Hanf ist selbstverträglich, trotzdem wird eine Anbaupause von 2–3 Jahren empfohlen; Gelencser & Klaiss (FiBL), „Verwendung bestimmt die Anbautechnik", Schweizer Bauer Dossier Hanf, 07.04.2018, https://orgprints.org/id/eprint/34465/1/SBAU--0704-0-dossier4-hanf.pdf; Familienkandidat Cannabaceae, Landwirtschaftskammer-Quelle fehlt) |
 
 ### 7.2 Mischkultur — Gute Nachbarn (Outdoor)
 
@@ -694,3 +715,5 @@ CBD Charlotte's Angel,Cannabis sativa,annual,short_day,60–70,cbd_dominant;medi
 20. Cannabis Business Times (NCSU-Daten, Whipker et al.) — When Micronutrients Become Macro Problems — Mn/Zn/Cu/Mo ppm-Bereiche Bluete — https://www.cannabisbusinesstimes.com/columns/cultivation-matters/article/15693675/when-micronutrients-become-macro-problems
 21. Penn State Extension — Hydroponics Systems: Nutrient Solution Programs and Recipes — allgemeine Mikronaehrstoff-Sufficiency-Bereiche — https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+22. TFZ Bayern (Technologie- und Förderzentrum) — TFZ-Kompakt 18: Nutzhanf, das wiederentdeckte Multitalent (06/2023) — Hanf nur mit Hopfen verwandt, flexibel in der Fruchtfolge, Reihenabstand/Saatstärke je Nutzungsrichtung, N-Bedarf 160 kg N/ha — https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/tfz_kompakt_18_nutzhanf_a.pdf
+23. Gelencser & Klaiss (FiBL) — Verwendung bestimmt die Anbautechnik, Schweizer Bauer Dossier Hanf (07.04.2018) — Hanf selbstverträglich, Anbaupause 2–3 Jahre empfohlen — https://orgprints.org/id/eprint/34465/1/SBAU--0704-0-dossier4-hanf.pdf

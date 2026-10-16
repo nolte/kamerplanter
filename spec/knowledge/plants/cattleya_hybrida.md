@@ -116,6 +116,22 @@
 | Boden-pH-Vorzug (min–max) | 5.5–6.5 (Substrat-pH der Orchideenrinde; leicht sauer — konsistent mit §1.6 und §2.3 derselben Datei) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS (Cattleya labiata, nicht die Sammelart C. hybrida) nennt „Full sun, Partial shade" und „bright light conditions, but shade from hot, direct mid-day sun" — Spanne ohne Standortstufe/Vorzug; Indoor-Angabe (hell/indirekt) nicht auf Standortstufen abbildbar --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

@@ -97,3 +97,100 @@
    nicht → bei Batch 2 ff. gezielt Kulturanleitungen der Landesanstalten (LfULG, DLR, LFA) lesen.
 4. Nicht erreichbar bzw. unbrauchbar waren wiederholt: extension.umn.edu (403), Missouri
    Botanical Garden (TLS), BZfE-PDFs (404) — nicht erneut ansteuern.
+
+## Batch 2 (Arten 31–60, `brassica_oleracea_var_gemmifera` … `dahlia_hapet_daydream`) — 2026-10-16
+
+Konventionen wie bei Batch 1. Tally je Art: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_demand` | Konfidenz | `nitrogen_fixing` | `rotation_pause_years`.
+
+### Bilanz je Art
+
+| Art | spacing | row | light | nutrient_demand | Konf. | N-Fix | Pause |
+|---|---|---|---|---|---|---|---|
+| Brassica oleracea var. gemmifera | 60 | 60 | full_sun | heavy_feeder | medium | false | Familie |
+| Brassica oleracea var. gongylodes | 15 | 30 | full_sun | medium_feeder | medium | false | Familie |
+| Brassica oleracea var. italica | 30–45 | 45 | full_sun | heavy_feeder | medium | false | Familie |
+| Brassica oleracea var. sabellica | 30–60 | 45 | full_sun | heavy_feeder | medium | false | Familie |
+| Buxus sempervirens | 30–40 | n/a | null | n/a | — | null | n/a |
+| Calendula officinalis | null | 40–60 | full_sun | n/a | — | false | Familie |
+| Cannabis sativa | null | null | null | null (Pflicht) | — | false | 3 (low) |
+| Capsicum annuum | 40–50 | 40–50 | full_sun | heavy_feeder | low | false | Familie |
+| Cattleya hybrida, Chamaedorea elegans, Chlorophytum comosum, Codiaeum variegatum, Crassula ovata, Ctenanthe burle-marxii, Cyclamen persicum (keine 6.1) | n/a | n/a | null / partial_shade / partial_shade / partial_shade / full_sun / partial_shade / partial_shade | n/a | — | n/a | n/a |
+| Ceropegia woodii, Clivia miniata, Curio rowleyanus | n/a | n/a | partial_shade / partial_shade / full_sun | n/a | — | null | n/a |
+| Cichorium intybus | 30 | 30 | full_sun | medium_feeder | low | false | Familie |
+| Citrullus lanatus | 107–152 | 183 | full_sun | null (Pflicht) | — | null | Familie |
+| Clematis spp. | null | n/a (freie Pflanzung) | null | n/a | — | null | n/a |
+| Coffea arabica | n/a | n/a | partial_shade | n/a | — | null | n/a |
+| Coriandrum sativum | 20–25 | 12–30 | full_sun | light_feeder | low | false | Familie |
+| Cornus mas | null | n/a (freie Pflanzung) | null | n/a | — | null | n/a |
+| Cucumis melo | 60 | 150–180 | full_sun | null (Pflicht) | — | false | Familie |
+| Cucumis sativus | 30–45 | 120–180 | full_sun | heavy_feeder | medium | false | Familie |
+| Cucurbita maxima | 75–100 | 150 | full_sun | heavy_feeder | high | false | Familie |
+| Cucurbita pepo | 100 | 100 | full_sun | heavy_feeder | high | false | Familie |
+| Dahlia 'Embassy' / 'Hapet Daydream' | 60 | n/a (freie Pflanzung) | full_sun | n/a | — | null | Familie |
+
+### Lücken je Art × Feld
+
+| Art | Feld | Status | Grund / Befund der Recherche |
+|---|---|---|---|
+| Cannabis sativa | `nutrient_demand` | **unbelegt (Pflicht)** | keine Fachquelle für eine Zehrerstufe gelesen |
+| Cannabis sativa | `row_spacing_cm`, `spacing_cm` | unbelegt | TFZ 2023 (Körnerhanf 25–45 / Faser 12–20) und Schweizer Bauer (Blütenstände 50/100/150) beschreiben Feldkultur; Steckbrief meint Einzelpflanzen 80–120 |
+| Cannabis sativa | `light_requirement` | unbelegt | Abschnitt 1.7 stützt sich nur auf Blog/Hersteller |
+| Cannabis sativa | `rotation_pause_years` 3 | Konfidenz low | einzige Quelle Schweizer Bauer Dossier 2018 (FiBL-Autoren „2–3 Jahre"); Cannabaceae-Familienwert als Kandidat 3, schwach |
+| Buxus sempervirens | `light_requirement` | unbelegt | RHS „sun or shade" ohne Vorzug |
+| Buxus sempervirens | `nitrogen_fixing` | unbelegt | Buxaceae ohne Familienwert; Dauergehölz |
+| Calendula officinalis | `spacing_cm` | unbelegt | LfL Sachsen 2006 nennt nur Reihenabstand 40–60 (Feldanbau); Blog-Werte 20–30 verworfen |
+| Calendula officinalis | `nutrient_demand` | n/a | Natur im Garten führt sie als Erholungs-/Gründüngungsbeet, keine Zehrerstufe |
+| Cattleya hybrida | `light_requirement` | unbelegt | RHS nur C. labiata „Full sun, Partial shade" ohne Vorzug |
+| Clematis spp. | `spacing_cm` | unbelegt | RHS nennt nur Wandabstand 30–45 cm; Händlerwert 80 cm verworfen |
+| Clematis spp. | `light_requirement` | unbelegt | RHS „sunny or part-shaded" ohne Vorzug |
+| Clivia miniata | `light_requirement` | knapp belegt | partial_shade nach RHS-Kulturtext („bright, filtered light"), RHS-Position „Full sun, Partial shade" — Nachschärfung erwünscht |
+| Codiaeum variegatum | `light_requirement` | schwach belegt | RHS-Eintrag nur auf Varietätsebene (var. pictum) |
+| Cornus mas | `spacing_cm` | unbelegt | RHS nur Endbreite 2,5–4 m; LFA-MV-Versuch 4,5×1,5 m als PDF unlesbar |
+| Cornus mas | `light_requirement` | unbelegt | RHS „full sun or partial shade" ohne Vorzug |
+| Cornus mas | `nutrient_demand`, `nitrogen_fixing` | n/a/unbelegt | Wildobst/Gehölz; Cornaceae ohne Familienwert |
+| Citrullus lanatus | `nutrient_demand` | **unbelegt (Pflicht)** | LKSH/SBB nennen nur Kürbis, Gurke, Zucchini |
+| Citrullus lanatus | `nitrogen_fixing` | unbelegt | nur Cucumis („Melone/Zuckermelone") gelistet |
+| Cucumis melo | `nutrient_demand` | **unbelegt (Pflicht)** | LKSH nur Kürbis, SBB Zuckermelone nur in der Anbaupausen-Tabelle, NiG ohne Melone; Plantura/utopia „Starkzehrer" verworfen |
+| Cichorium intybus | `nutrient_demand` low | Konfidenz low | nur SBB Tab. 2 (Radicchio/Endivie), Chicorée nicht gelistet |
+| Coriandrum sativum | `nutrient_demand` low | Konfidenz low | LKSH + NiG nur Sammelgruppe „Kräuter"; `nitrogen_fixing` false über zwei Quellen abgeleitet (DLR Doldenblütler, LKSH Doldenblütler ≠ Hülsenfrüchte), Koriander nicht namentlich |
+| Capsicum annuum | `nutrient_demand` low | Konfidenz low | SBB/NiG S.2 Starkzehrer, NiG S.3 Schema Mittelzehrer |
+| Cucurbita pepo | Abstände | Quelle schwach | Herstellerangabe Bingenheimer ('Solara') über Händlerseite violey.com; Gartenakademie RLP nennt keine Abstände |
+| Calendula, Cannabis, Citrullus, Cornus mas, Cucumis melo | `rotation_pause_years` | Familienwert gilt | kein Art-Override belegt (außer Cannabis 3); Cannabaceae/Cornaceae/Buxaceae ohne Familienwert |
+| Zierpflanzen (Cattleya, Ceropegia, Chamaedorea, Chlorophytum, Clematis, Clivia, Codiaeum, Coffea, Crassula, Ctenanthe, Curio, Cyclamen, Dahlia ×2, Buxus) | `nutrient_demand`, `rotation_pause_years` | n/a | keine Fruchtfolge-Quelle nennt Zehrerstufen für Zierpflanzen |
+| Zimmerpflanzen (Cattleya, Ceropegia, Chamaedorea, Chlorophytum, Clivia, Codiaeum, Coffea, Crassula, Ctenanthe, Curio, Cyclamen) | `row_spacing_cm`, `spacing_cm` | n/a | keine Beetkultur |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert (1.9/6.1/1.10) | Hinweis |
+|---|---|---|---|
+| Brassica oleracea var. gongylodes | 1.6 „25–30" | 15 / 30 (RHS) | — |
+| Brassica oleracea var. italica | 1.6 „40–50" | 30–45 / 45 (RHS Calabrese) | OSU 46/91 verworfen |
+| Brassica oleracea var. sabellica | 1.6 „50–60" | 30–60 / 45 (RHS) | — |
+| Calendula officinalis | 1.6 „20–30" | ungestützt | — |
+| Cannabis sativa | 1.6 „80–120"; 7.1 Alt „Anbaupause 2–3" | ungestützt; Override 3 | — |
+| Cichorium intybus | 1.6/1.3 „25–30 / 30–40" | 30 / 30 (Kiepenkerl/Sperli, Quadratverband-Lesart) | LWG 2111 Zuckerhut 40/35 in Quelle-Zelle |
+| Citrullus lanatus | 1.6 „80–120 / 150–200"; 6.1 Alt „Starkzehrer", 1.1 heavy_feeder | 107–152 / 183 (ACES, Clemson, umgerechnet); Zehrerstufe unbelegt | deutsche Mini-Sorten (100/120, 80/80) nicht übernommen |
+| Coriandrum sativum | 1.6 „25–30", „Halbschatten für Blatternte" | 20–25 / 12–30; full_sun (USU, Kiepenkerl) | — |
+| Cucumis sativus | 1.6 „60–100" | 30–45 / 120–180 (Bodenkultur) | Rankhilfe enger, in Quelle-Zelle |
+| Cucumis melo | 1.6 „60–100 / 120–150"; 6.1 Alt „Starkzehrer", 1.1 heavy_feeder | 60 / 150–180 (US-Extension umgerechnet); Zehrerstufe unbelegt | — |
+| Cucurbita maxima | 1.6 „150–200" | 75–100 / 150 (LFA MV, LWK NRW) | — |
+| Cucurbita pepo | 1.6 „80–100" | 100 / 100 (Bingenheimer) | — |
+| Dahlia 'Hapet Daydream' | 1.6 Sortenbreite 60–75 | 60 (RHS-Untergrenze „at least 60 cm") | RHS deckt die Sortenbreite nicht |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Brassica oleracea var. gemmifera | `adventskalender.yaml` (`new_species`) — modellgetrieben gesperrt bis Migration M6 (siehe Batch 1); Werte nur im Steckbrief |
+| Chlorophytum comosum | nur `plant_info.yaml` species_enrichment, Importer ungeguardet — Werte nur im Steckbrief |
+| Dahlia 'Embassy', 'Hapet Daydream' | kein Seed-Eintrag für Dahlia pinnata — Werte nur im Steckbrief |
+| Capsicum annuum | `species_enrichment`-Eintrag in `plant_info_outdoor_1.yaml` existierte bereits (Brief ging von „neu anlegen“ aus) — sieben Felder dort ergänzt, kein Duplikat-Key; Capsicum in `adventskalender.yaml` unangetastet |
+| Citrullus lanatus, Cucumis melo | Seed hatte noch kein `spacing_cm` — aus 1.9 neu gesetzt ("107–152" / "60") |
+| 13 Arten mit Seed-`spacing_cm` ≠ 1.9 | Bestandswerte unverändert (Scope): gongylodes 28↔15, italica 45↔30–45, sabellica 50↔30–60, Buxus 30↔30–40, Capsicum 45↔40–50, Cichorium 28↔30, Coriandrum 27↔20–25, Cucumis sativus 80↔30–45, Cucurbita maxima 175↔75–100, Cucurbita pepo 90↔100; Calendula 30, Clematis 100, Cornus mas 300 ohne Steckbrief-Beleg (1.9 DATEN FEHLEN) |
+| Familien-Seeds | `botanical_families.yaml`: Solanaceae und Cucurbitaceae `rotation_pause_years: 4` (belegt, `agrobiology-thresholds-req-053.md` §C) |
+
+### Lehren aus Batch 2
+
+1. Der `plant-info-document-generator` hat erneut still Tippfehler/Wortlaut „korrigiert" (Cichorium 2, Citrullus 1, Cucumis sativus 1, Dahlia 2 Zeilen). `git diff | grep '^-[^-]'` allein übersieht Listenzeilen, die mit `- ` beginnen (Diff-Präfix `--`): zusätzlich `git diff --numstat` auf Löschungen prüfen.
+2. Melone/Wassermelone und Cannabis haben keine belastbare Zehrerstufen-Quelle in den üblichen Fruchtfolge-Merkblättern (LKSH, SBB, NiG).
+3. Gehölze/Stauden (Clematis, Cornus mas, Buxus): RHS nennt Endbreite statt Pflanzabstand — nie ableiten.

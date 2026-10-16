@@ -117,6 +117,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Ceropegia woodii wird gemäß §1.3 dieses Dokuments ausschließlich vegetativ vermehrt: cutting_stem, division, offset. Keine seed-Vermehrungsmethode gelistet — die Art bildet zwar Balgfrüchte mit flugfähigen Samen, in Kultur/Zimmerpflanzenhandel erfolgt die Vermehrung jedoch praktisch ausnahmslos über Stängelstecklinge, Teilung und die entlang der Triebe gebildeten Bruttuberkeln/Knöllchen (vgl. Quellen 16/18 dieses Dokuments zu Vermehrung via Stecklinge + Brutknöllchen). Ein Seed Profile (§1.8) entfällt daher — recherchiert im Rahmen von seed-profile-backfill, Batch 4, 2026-07.) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Ceropegia linearis subsp. woodii" (akzeptierter RHS-Name; Ceropegia woodii dort als Synonym geführt), Position „Partial shade", https://www.rhs.org.uk/Plants/74288/Ceropegia-linearis-subsp-woodii/Details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -376,6 +392,11 @@ Ceropegia woodii ist ein Schwachzehrer. Überdüngung führt zu Wurzelfäule und
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt (Zimmerpflanze, in keiner Fruchtfolgetabelle geführt) --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Zimmerpflanze, keine Beetkultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -455,3 +476,4 @@ Silver Glory,Ceropegia woodii,—,—,silver_leaf;compact,—,—,open_pollinate
 17. [UK Houseplants – Chain of Hearts Ceropegia woodii](https://www.ukhouseplants.com/plants/chain-of-hearts-ceropegia-woodii) — Winterruhe "vital for flower growth in the following season"; Blüte Sommer bis Frühwinter; Hardiness H1b (Zone 12), frostempfindlich
 18. [Zimmerpflanzenlexikon.info – Ceropegia woodii](https://www.zimmerpflanzenlexikon.info/pflanzen/ceropegia-woodii) — Ruhezeit November–März wenig gießen/nicht düngen; Vermehrung Stecklinge + Brutknöllchen
 <!-- /Quelle: growing-phase-auditor Audit 2026-07-03 -->
+19. [RHS – Ceropegia linearis subsp. woodii (Ceropegia woodii als Synonym)](https://www.rhs.org.uk/Plants/74288/Ceropegia-linearis-subsp-woodii/Details) — Position „Partial shade", Aspect West-/Ostlage (Beleg für `light_requirement`)
