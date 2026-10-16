@@ -159,6 +159,22 @@ Hinweis: Keimtemperatur min (18 degC), Saattiefe (0.5--1 cm) und Dunkelkeimer-St
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Capsicum: 150--200 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 40–50 | `species.spacing_cm` |
+| Reihenabstand (cm) | 40–50 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern (Bayerische Gartenakademie), Merkblatt 2111 „Fruchtfolge für Gemüsebeete" (Oktober 2016), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf (Tabelle Pflanzabstand: Paprika Reihenabstand 40–50 cm, Abstand in der Reihe 40–50 cm); RHS „How to grow peppers" nennt 38–45 cm in der Reihe (Reihenabstand dort nicht angegeben) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow peppers" (o. J.), https://www.rhs.org.uk/vegetables/peppers/grow-your-own („Give them your warmest, sunniest spot"; „need lots of sun and consistent warmth") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -497,6 +513,11 @@ Capsicum annuum hat je nach Cultivar unterschiedliche Resistenzniveaus. Wildtyp-
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung -- Stickstoff-Anreicherung, lockerer Boden |
 | Empfohlene Nachfrucht | Mittelzehrer (Moehren, Zwiebeln) oder Schwachzehrer (Salat, Radieschen) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Solanaceae auf gleicher Flaeche (Verticillium, Nematoden, bodenbuertige Viren) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Stand Okt. 2022, Tab. 2: Paprika bei den Starkzehrern), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten, „Fruchtfolge im Gemüsegarten" (April 2022, S. 2: Paprika im Starkzehrer-Beet; das Kreislaufschema auf S. 3 führt Paprika dagegen bei den Mittelzehrern — interner Widerspruch), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 und LKSH „Fruchtfolge im Garten" (2020) führen Nachtschattengewächse inkl. Paprika und Hülsenfrüchte/Schmetterlingsblütler als getrennte Familien, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Solanaceae 4; Südtiroler Bauernbund 2022 nennt 4 Jahre für Nachtschattengewächse) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -593,3 +614,9 @@ Snackpaprika (Mini),Capsicum annuum,,,compact;high_yield;early_maturing,60,,f1_h
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
 23. RHS -- Capsicum annuum (sweet pepper): "a woody perennial but is almost always grown as an annual"; H1C-Einstufung (frostempfindlich, nur Sommer im Freien): https://www.rhs.org.uk/plants/71018/capsicum-annuum/details
+24. LWG Bayern (Bayerische Gartenakademie) -- Merkblatt 2111 "Fruchtfolge fuer Gemuesebeete" (Oktober 2016): Pflanzabstand Paprika 40--50 x 40--50 cm: https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf
+25. RHS -- How to grow peppers: sonnigster/waermster Standort, 38--45 cm Pflanzabstand: https://www.rhs.org.uk/vegetables/peppers/grow-your-own
+26. Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (Stand Okt. 2022): Paprika Starkzehrer (Tab. 2), Nachtschattengewaechse 4 Jahre Anbaupause (Tab. 1): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+27. Natur im Garten -- Fruchtfolge im Gemuesegarten (April 2022): Paprika im Starkzehrer-Beet (S. 2) bzw. Mittelzehrer-Schema (S. 3): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+28. LKSH -- Fruchtfolge im Garten (2020): Nachtschattengewaechse (Kartoffel, Tomate, Paprika, Aubergine) und Huelsenfruechte als getrennte Familien: https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -132,6 +132,22 @@ Quellen (§1.8):
 6. Nimrod Bio — Seeds Per Gram Chart (Brassica-Gemüse ca. 300 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow kohl rabi" (o. J.), https://www.rhs.org.uk/vegetables/kohl-rabi/grow-your-own (Pflanzen 15 cm Abstand in Reihen 30 cm Abstand) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow kohl rabi" (o. J.), https://www.rhs.org.uk/vegetables/kohl-rabi/grow-your-own („grows best in a sunny site") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -286,6 +302,11 @@ Hinweis: Trichogramma wird als Eikarten ausgebracht und parasitiert die Falter-E
 | Empfohlene Vorfrucht | Hülsenfrüchte, Erbsen |
 | Empfohlene Nachfrucht | Möhren, Zwiebeln, Salat |
 | Anbaupause (Jahre) | 3–4 Jahre keine Brassicaceen |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Stand Okt. 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 führt Kreuzblütler und Schmetterlingsblütler als getrennte Familien, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4; Südtiroler Bauernbund 2022 nennt 4–5 Jahre für Kreuzblütler inkl. Kohlrabi) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -352,3 +373,6 @@ Brassica oleracea var. gongylodes,"Kohlrabi;Oberrübe;Turnip Cabbage",Brassicace
 20. [Seed Savers Exchange: Growing Guide Kohlrabi (PDF)](https://shop.seedsavers.org/site/pdf/grow-save-kohlrabi.pdf) — Samenbau im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze (monokarpe Bluehstrategie, gleiche Gattungs-/Artkonvention wie Kohl var. capitata/sabellica im Korpus)
 21. [The Lazy Homesteader: Seed Saving Kohlrabi](https://lazyhomesteader.com/2012/08/13/seed-saving-kohlrabi/) — Praxisbeleg: Pflanze "cannibalized" den Speicherkoerper zugunsten der Bluetenbildung und stirbt nach Samenreife
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+22. [RHS: How to grow kohl rabi](https://www.rhs.org.uk/vegetables/kohl-rabi/grow-your-own) — Pflanz- und Reihenabstand (15 × 30 cm), sonniger Standort
+23. [Südtiroler Bauernbund: Merkblatt Fruchtfolgen im Gemüsebau (Stand Okt. 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Kohlrabi als Mittelzehrer (Tab. 2), Anbaupause Kreuzblütler 4–5 Jahre (Tab. 1)
+24. [Natur im Garten: Fruchtfolge im Gemüsegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Kohlrabi im Mittelzehrer-Beet

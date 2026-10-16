@@ -158,6 +158,22 @@ Quellen (S.1.8):
 7. Green Harvest -- Seeds per Gram Guide (Brassica-Arten, seeds/gram Richtwerte): https://greenharvest.com.au/pages/seeds-per-gram
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | 60 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow Brussels sprouts" (o. J.), https://www.rhs.org.uk/vegetables/brussels-sprouts/grow-your-own (Pflanzen 60 cm Abstand, mind. 60 cm zwischen den Reihen) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow Brussels sprouts" (o. J.), https://www.rhs.org.uk/vegetables/brussels-sprouts/grow-your-own („Brussels sprouts like a sunny location") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -478,6 +494,11 @@ Rosenkohl als Art hat moderate natuerliche Resistenzen. Die Glucosinolate (Senfo
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae), Kartoffel, oder Gruenduengung |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Radieschen, Spinat) oder Gruenduengung |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Brassicaceae auf gleicher Flaeche (STRENG wegen Kohlhernie! Sporen ueberleben 20+ Jahre im Boden) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Stand Okt. 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; LKSH, „Fruchtfolge im Garten" (2020; nennt „Kohl" allgemein als Starkzehrer), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 führt Kreuzblütler und Schmetterlingsblütler als getrennte Familien, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4; Südtiroler Bauernbund 2022 nennt 4–5 Jahre für Kreuzblütler, LKSH 2020 4 Jahre für Kohlgewächse) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -580,3 +601,7 @@ Rosenkohl (Pötschke Historisch),Brassica oleracea var. gemmifera,Pötschke,,hei
 27. LearnSeedSaving -- Brussels Sprouts (Brassica oleracea var. gemmifera): "As a biennial plant, Brussels sprouts require two seasons to produce seeds and must undergo vernalization in order to flower": https://www.learnseedsaving.com/brussels-sprouts/
 28. RHS -- Brussels Sprouts Problems: Quick Fixes (Bluete/Bolting im 2. Jahr, gleiche Gattungs-/Artkonvention wie Kohl var. capitata/sabellica/gongylodes im Korpus): https://www.rhs.org.uk/problems/brussels-sprouts-problems
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+29. RHS -- How to grow Brussels sprouts: Pflanz- und Reihenabstand 60 cm, sonniger Standort: https://www.rhs.org.uk/vegetables/brussels-sprouts/grow-your-own
+30. Südtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemüsebau (Stand Okt. 2022): Zehrerstufen (Tab. 2), Anbaupausen (Tab. 1): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+31. Natur im Garten (Burgenland/Niederösterreich) -- Fruchtfolge im Gemüsegarten (April 2022): Starkzehrer-Beet mit Kohlarten inkl. Sprossenkohl: https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+32. LKSH -- Fruchtfolge im Garten (Informationen zum Pflanzenschutz, 2020): Kohl als Starkzehrer, Kohlgewächse 4 Jahre Anbaupause: https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf

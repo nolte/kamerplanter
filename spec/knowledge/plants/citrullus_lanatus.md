@@ -159,6 +159,22 @@ Quellen (S.1.8):
 6. Alabama Cooperative Extension System -- Considerations for Successful Watermelon Production: Endabstand/Reihenabstand fuer Standardsorten (Hills ca. 4 ft/122 cm, Reihen 6 ft/183 cm), bestaetigt Groessenordnung von S.1.6: https://www.aces.edu/blog/topics/crop-production/watermelon-production/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 107–152 | `species.spacing_cm` |
+| Reihenabstand (cm) | 183 | `species.row_spacing_cm` |
+| Quelle Abstände | Alabama Cooperative Extension System (ACES), „Considerations for Successful Watermelon Production": „42 to 60 inches in the row", „rows spaced 6 feet apart" (umgerechnet 107–152 cm bzw. 183 cm; Bodenkultur ohne Rankhilfe, bei senkrechter Erziehung mit Rankhilfe/Fruchtnetz abweichend — dafür keine Quelle gelesen), https://www.aces.edu/blog/topics/crop-production/watermelon-production/; Clemson HGIC, „Watermelons": Reihen 6 bis 8 ft (183–244 cm), 4 ft (122 cm) in der Reihe bei 6-ft-Reihen, https://hgic.clemson.edu/factsheet/watermelons/ | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Kiepenkerl, Wassermelone „Tigrimini F1", Angabe „Standort: sonnig" bzw. „sonniges Freiland und Gewächshaus", https://www.kiepenkerl.de/wassermelonensamen-tigrimini-f1-1031000/ | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -484,6 +500,11 @@ Mikronaehrstoff-Spalten Mn/Zn/Cu/Mo ergaenzt (KA-Felder `nutrient_profiles.manga
 | Empfohlene Vorfrucht | Leguminosen (Bohnen; Erbsen; Klee); Gruenduengung |
 | Empfohlene Nachfrucht | Spinat; Feldsalat; Zwiebeln; Moehren (Schwachzehrer) |
 | Anbaupause (Jahre) | 3--4 Jahre (Fusarium bleibt lange im Boden) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Fachquelle ordnet Wassermelone (Citrullus lanatus) ausdrücklich einer Zehrerstufe zu; LKSH (2020) und Südtiroler Bauernbund (2022) nennen Kürbis, Gurke und Zucchini als Starkzehrer, führen Wassermelone aber nicht namentlich --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt (Wassermelone in keiner gelesenen Fruchtfolgetabelle namentlich geführt; LKSH 2020 und Südtiroler Bauernbund 2022 führen „Melone"/„Zuckermelone" bei den Kürbisgewächsen, Hülsenfrüchte als eigene Gruppe) --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cucurbitaceae 4); Clemson HGIC nennt mind. 3 Jahre, ACES „bis zu 5 Jahre", Südtiroler Bauernbund 4-5 Jahre für Kürbisgewächse — keine eindeutige ganzzahlige Art-Abweichung --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -560,3 +581,6 @@ Citrullus lanatus,Wassermelone;Watermelon,Cucurbitaceae,Citrullus,annual,day_neu
 9. [EnvirevoAgritech -- Optimizing Hydroponic Nutrient Requirements per Stage](https://envirevoagritech.com/optimizing-hydroponic-nutrients-requirements/) -- allgemeine Spurenelement-Obergrenzen (Mn bis ~2 ppm, Mo 0.02--0.05 ppm). Hinweis: Die dort genannten oberen Zn-/Cu-Werte (Zn bis 2, Cu bis 0.5 ppm) liegen im near-toxischen Bereich und sind KEINE Empfehlung; verbindlich sind die Tabellenwerte (Zn 0.05--0.10, Cu 0.02--0.03 ppm) auf Hoagland-Baseline (Quelle #10), belegte Arbeitsspannen Zn 0.05--0.5, Cu 0.02--0.1 ppm
 10. [Hoagland-Loesung (Referenz-Naehrloesung)](https://en.wikipedia.org/wiki/Hoagland_solution) -- klassische Mikronaehrstoff-Baseline Mn 0.5; Zn 0.05; Cu 0.02; Mo 0.01 ppm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+11. [Alabama Cooperative Extension System -- Considerations for Successful Watermelon Production](https://www.aces.edu/blog/topics/crop-production/watermelon-production/) -- Pflanzabstand 42--60 in in der Reihe, Reihen 6 ft
+12. [Clemson HGIC -- Watermelons](https://hgic.clemson.edu/factsheet/watermelons/) -- Reihenabstand 6--8 ft, Abstand in der Reihe 4 ft bei 6-ft-Reihen
+13. [Kiepenkerl -- Wassermelone Tigrimini F1](https://www.kiepenkerl.de/wassermelonensamen-tigrimini-f1-1031000/) -- Standort sonnig

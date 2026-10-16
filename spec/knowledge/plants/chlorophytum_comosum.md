@@ -145,6 +145,22 @@
 - **Boden-pH:** Konsens leicht sauer bis neutral 6.0-7.0 (Missouri Botanical Garden, breitere Toleranz NC State bis 8.0); harmonisiert mit dem im Steckbrief durchgaengig genutzten Fertigations-Optimum von pH 6.0-6.5 (Abschnitte 2.3 und 3), das die ideale Untermenge dieser Spanne darstellt.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Chlorophytum comosum", Position „Partial shade", https://www.rhs.org.uk/plants/3761/spider-plant/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -525,3 +541,4 @@ Hawaiian,Chlorophytum comosum,--,--,variegated;champagne_tint,clone
 19. Wisconsin Horticulture Extension -- Spider plant (Bluete durch Kurztag ausgeloest, "when grown indoors they may appear at any time of year"): https://hort.extension.wisc.edu/articles/spider-plant-chlorophytum-comosum/
 20. Gardener's Path -- Do Spider Plants Bloom? ("Spider plants don't have a fixed blooming season indoors -- they'll flower year-round given adequate light, warmth, and maturity"): https://gardenerspath.com/plants/houseplants/spider-plant-flowers/
 <!-- /Quelle: Audit growing-phase-auditor 2026-07 (Bluetemonate-Korrektur) -->
+21. Royal Horticultural Society -- Chlorophytum comosum (Position "Partial shade"): https://www.rhs.org.uk/plants/3761/spider-plant/details

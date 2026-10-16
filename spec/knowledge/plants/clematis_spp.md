@@ -140,6 +140,22 @@
 - **Boden-pH:** Quellen reichen von 6.0–7.0 (leicht sauer bis neutral) bis 6.5–7.5 (neutral bis leicht alkalisch). Quellentreu und konsistent mit §1.6 und §2.3 (jeweils 6,0–7,0) wird die Spanne 6.0–7.0 übernommen und nicht eigenmächtig erweitert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine belastbare Fachquelle für den Pflanzabstand zwischen Clematis gefunden (RHS nennt nur Abstand zu Wand/Zaun 30–45 cm und ≥ 1,2 m zu Bäumen/Sträuchern; Kruse Baumschule nennt keinen Wert; Händlerangabe 80 cm nicht belastbar) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quellen nennen Spanne ohne Vorzug — RHS „sunny or part-shaded position" (Growing Guide), Kruse Baumschule „halbschattige bis vollsonnige Standorte mit mindestens sechs Stunden Sonne" --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -358,6 +374,11 @@ Ab Ende Juli kein stickstoffreicher Dünger mehr — die Triebe müssen vor dem 
 | Empfohlene Vorfrucht | — (Gehölz; kein Fruchtwechsel nötig) |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — (Mehrjährig; Standort bis 20+ Jahre) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt (Zierpflanze/Gehölz, in keiner Fruchtfolgetabelle geführt) --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Dauerkultur am festen Standort, keine Fruchtfolge) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

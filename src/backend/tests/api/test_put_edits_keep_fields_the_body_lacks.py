@@ -209,7 +209,13 @@ def client(
 def test_an_edited_system_location_type_stays_a_system_type(client: TestClient, location_types) -> None:
     response = client.put(
         "/api/v1/location-types/lt_greenhouse",
-        json={"name": "Gewächshaus (beheizt)", "is_indoor": True, "sort_order": 1},
+        json={
+            "name": "Gewächshaus (beheizt)",
+            "is_indoor": True,
+            "sort_order": 1,
+            "is_bed": False,
+            "supports_layout": False,
+        },
     )
 
     assert response.status_code == 200
@@ -220,7 +226,10 @@ def test_an_edited_system_location_type_stays_a_system_type(client: TestClient, 
 
 def test_an_edited_system_location_type_still_cannot_be_deleted(client: TestClient, location_types) -> None:
     """The consequence that made the reset severe: the delete guard reads ``is_system``."""
-    client.put("/api/v1/location-types/lt_greenhouse", json={"name": "Gewächshaus", "sort_order": 1})
+    client.put(
+        "/api/v1/location-types/lt_greenhouse",
+        json={"name": "Gewächshaus", "sort_order": 1, "is_bed": False, "supports_layout": False},
+    )
 
     response = client.delete("/api/v1/location-types/lt_greenhouse")
 
@@ -229,7 +238,10 @@ def test_an_edited_system_location_type_still_cannot_be_deleted(client: TestClie
 
 
 def test_a_location_type_body_cannot_make_a_type_a_system_type(client: TestClient, location_types) -> None:
-    response = client.put("/api/v1/location-types/lt_custom", json={"name": "Eigener Typ", "is_system": True})
+    response = client.put(
+        "/api/v1/location-types/lt_custom",
+        json={"name": "Eigener Typ", "is_system": True, "is_bed": False, "supports_layout": False},
+    )
 
     assert response.status_code == 200
     assert location_types.written[-1].is_system is False
