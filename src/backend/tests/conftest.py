@@ -214,7 +214,6 @@ def sample_location_data():
         "area_m2": 4.0,
         "light_type": "led",
         "irrigation_system": "drip",
-        "dimensions": (2.0, 2.0, 2.0),
     }
 
 

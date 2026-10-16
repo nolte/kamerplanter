@@ -42,7 +42,6 @@ const slot = {
   key: 'slot-1',
   location_key: 'loc-1',
   slot_id: 'A1',
-  position: [1, 2] as [number, number],
   capacity_plants: 4,
   currently_occupied: true,
   last_sanitization: null,
@@ -186,7 +185,7 @@ function useVariantLocation() {
     // Site fetch fails -> siteName stays empty (no site breadcrumb).
     http.get('/api/v1/t/:tenant/sites/:key', () => errorEnvelope(404)),
     http.get('/api/v1/t/:tenant/slots', () =>
-      HttpResponse.json([{ ...slot, currently_occupied: false, position: [0, 0] }]),
+      HttpResponse.json([{ ...slot, currently_occupied: false }]),
     ),
     http.get('/api/v1/t/:tenant/locations/:key/children', () =>
       HttpResponse.json([{ ...childLocation, location_type_key: null }]),

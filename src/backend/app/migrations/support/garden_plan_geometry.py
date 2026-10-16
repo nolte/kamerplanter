@@ -15,8 +15,9 @@ Two legacy fields become geometry:
   ``(row, col, slot_id, _key)`` — the spec's ``R2P05 → sequence 11`` (§20.5).
 
 What real volumes hold (measured 2026-10-16): no write path ever set a slot's
-``position`` — ``SlotCreate.position`` defaults to ``(0, 0)`` and the dialog never
-sends it — so on an installation every slot of a location sits on the **same**
+``position`` — ``SlotCreate.position`` defaulted to ``(0, 0)`` until WP 1.5 (#2324)
+removed it, and the dialog never sent it — so on an installation every slot of a
+location sits on the **same**
 cell and the migration stacks them on the bed origin. The rank then comes from
 ``slot_id`` in natural order (``BED_2`` before ``BED_10``), which is the order the
 grower gave the positions, and the migration's report counts the collapsed

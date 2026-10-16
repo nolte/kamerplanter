@@ -158,6 +158,13 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     # #2107 (MT-010) — never written; the site is the owner. v0087 unsets the stored "".
     ("site.py", "Location", "tenant_key"): _MigratedBy("0087"),
     ("site.py", "Slot", "tenant_key"): _MigratedBy("0087"),
+    # REQ-053 O-01/O-02 (#2323, #2324) — v0093 derived ``geometry``/``height_m`` from the
+    # extent triple and a bed-frame point with ``row_index``/``sequence`` from the grid
+    # cell; WP 1.5 removes the legacy fields from the model with their readers, no
+    # mirror (O-02). v0093 copies and does not unset: the stored attributes stay as
+    # the source for a catch-up run and the model ignores them (extra="ignore").
+    ("site.py", "Location", "dimensions"): _MigratedBy("0093"),
+    ("site.py", "Slot", "position"): _MigratedBy("0093"),
     # #2171 — the clear iCal token became its SHA-256 digest ``token_hash``; v0090 hashes and unsets it.
     ("calendar.py", "CalendarFeed", "token"): _MigratedBy("0090"),
     ("calendar.py", "CalendarEventsQuery", "site_key"): _NoStoredDocuments(

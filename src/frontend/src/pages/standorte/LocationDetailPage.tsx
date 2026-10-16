@@ -353,7 +353,6 @@ export default function LocationDetailPage() {
 
   const slotColumns: Column<Slot>[] = [
     { id: 'slotId', label: t('pages.slots.slotId'), render: (r) => r.slot_id },
-    { id: 'position', label: t('pages.slots.position'), render: (r) => `(${r.position[0]}, ${r.position[1]})` },
     { id: 'capacity', label: t('pages.slots.capacity'), render: (r) => r.capacity_plants, align: 'right' as const },
     { id: 'occupied', label: t('pages.slots.occupied'), render: (r) => (
       <Chip label={r.currently_occupied ? t('common.yes') : t('common.no')} size="small" color={r.currently_occupied ? 'warning' : 'default'} />
@@ -670,8 +669,6 @@ export default function LocationDetailPage() {
               <MobileCard
                 title={r.slot_id}
                 titleId="slotId"
-                subtitle={`(${r.position[0]}, ${r.position[1]})`}
-                subtitleId="position"
                 chips={[
                   {
                     id: 'occupied',

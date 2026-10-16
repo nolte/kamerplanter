@@ -18,7 +18,6 @@ const slot = {
   key: 'slot-1',
   slot_id: 'A1_B2',
   location_key: 'loc-1',
-  position: [0, 0] as [number, number],
   capacity_plants: 4,
   currently_occupied: false,
   last_sanitization: null,

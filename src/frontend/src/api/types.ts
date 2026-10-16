@@ -615,7 +615,6 @@ export interface Location {
   orientation: Orientation | null;
   light_type: LightType;
   irrigation_system: IrrigationSystem;
-  dimensions: [number, number, number];
   lights_on: string | null;
   lights_off: string | null;
   use_dynamic_sunrise: boolean;
@@ -634,7 +633,6 @@ export interface LocationCreate {
   orientation?: Orientation | null;
   light_type?: LightType;
   irrigation_system?: IrrigationSystem;
-  dimensions?: [number, number, number];
   lights_on?: string | null;
   lights_off?: string | null;
   use_dynamic_sunrise?: boolean;
@@ -671,7 +669,6 @@ export interface Slot {
   key: string;
   slot_id: string;
   location_key: string;
-  position: [number, number];
   capacity_plants: number;
   currently_occupied: boolean;
   last_sanitization: string | null;
@@ -682,7 +679,6 @@ export interface Slot {
 export interface SlotCreate {
   slot_id: string;
   location_key: string;
-  position?: [number, number];
   capacity_plants?: number;
 }
 
