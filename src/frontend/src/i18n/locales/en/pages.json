@@ -1968,7 +1968,6 @@
       "orientation": "Orientation",
       "lightType": "Light Type",
       "irrigationSystem": "Irrigation System",
-      "dimensions": "Dimensions (L × W × H)",
       "lightsOn": "Lights On",
       "lightsOnHelper": "Lights-on time (HH:MM)",
       "lightsOff": "Lights Off",
@@ -2006,7 +2005,6 @@
       "noSlots": "No slots created yet",
       "slotId": "Slot ID",
       "slotIdHelper": "Format: LOCATION_POSITION, e.g. 'TENT01_A1' (automatically converted to uppercase)",
-      "position": "Position",
       "capacity": "Capacity",
       "capacityHelper": "Maximum number of plants per slot (1–20)",
       "occupied": "Occupied"
