@@ -18,7 +18,7 @@ coverage_areas:
   - v1.3 — Pflanzeninfo beim Überfahren, grafische Pflanzenzustände, Standortmerkmale, Eignungs-Ampel
   - v1.3 — Wiederherstellung per Import, Saison-Kopie, Indoor-Grundriss (SHOULD)
 generated: "2026-10-11"
-version: "1.3"
+version: "1.4"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -55,9 +55,31 @@ TC-053-029 (Plan drucken, abgeleitet aus UC-11) und TC-053-030 (Plan als JSON si
 abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet).
 
 **Nicht** abgedeckt sind die Kriterien GP-ACC-003, 004, 009, 010, 013, 014, 017, 018, 023,
-033, 034, 037, 038, 041, 042, 043, 045, 046, 049 und 050 — siehe Abschnitt „Nicht abgedeckte
-Akzeptanzkriterien" am Dokumentende für die Begründung je Kriterium. Sie gehören in Unit-,
-Integrations- und Benchmark-Tests.
+033, 034, 037, 038, 041, 042, 043, 045, 046, 049, 050 sowie 053, 054, 055, 056 und 057 — siehe
+Abschnitt „Nicht abgedeckte Akzeptanzkriterien" am Dokumentende für die Begründung je
+Kriterium. Sie gehören in Unit-, Integrations- und Benchmark-Tests.
+
+**Version 1.4 (2026-10-16, Nachtrag zu REQ-053 v1.4 nach dem Spec-Readiness-Review) — was sich
+für die Tests ändert:**
+
+- **E-01 (Site-Anker statt `tenant_key`-Stempel):** Testdaten für Beete, Pflanzpositionen und
+  Gartenobjekte tragen kein `tenant_key`; die Mandantenzugehörigkeit kommt über den Garten
+  (Site). Für die Browser-Fälle ändert sich nichts Sichtbares; GP-ACC-046 bleibt Service-/
+  Integrationstest (Zeile in der Tabelle unten).
+- **E-05 (`light_requirement` vs. `shade_tolerance`):** TC-053-037 (Eignungs-Ampel) prüft den
+  Anspruch der Art gegen das Beet; die Zelle „Beet eine Stufe schattiger, Toleranz unbekannt"
+  zeigt **gelb** mit der Begründung „Toleranz unbekannt" (GP-FR-160). Die Matrix selbst wird im
+  Unit-Test GP-ACC-053 geprüft, nicht im Browser.
+- **Neue Akzeptanzkriterien GP-ACC-053…057** (Unit/Integration): Eignungs-Matrix mit
+  gemeinsamen Testvektoren, disjunkte Reihenzuweisung bei Mischkultur, Fruchtfolge standardmäßig
+  aus für Pflanzgefäß/Zelt/Regal, Plan-Rahmen > 1 000 m abgelehnt, mandantenweite Historie mit
+  90-Tage-Standard — alle ohne eigenen Browser-Fall; die sichtbare Wirkung von GP-ACC-054 ist in
+  TC-053-015 (Reihenlayout), die von GP-ACC-055 in TC-053-014 (Zelt) und TC-053-018
+  (Fruchtfolge-Hinweis) teilweise enthalten.
+- **Wortlaut Konflikt-Dialog (TC-053-008):** die zweite Schaltfläche heißt einheitlich
+  „Meine Änderungen als Kopie behalten (JSON herunterladen)" (GP-UX-017, GP-ACC-011, UI-NFR-022).
+- `test_count` bleibt 44; die Abdeckungs-Matrix und die Tabelle der nicht abgedeckten Kriterien
+  sind um GP-ACC-053…057 ergänzt.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -306,8 +328,8 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 
 **Erwartete Ergebnisse**:
 - Die Kopfzeile in Sitzung B zeigt „Konflikt"
-- Der Dialog bietet „Neu laden" und „Änderungen als JSON herunterladen" (Kopie der
-  eigenen Änderungen)
+- Der Dialog bietet „Neu laden" und „Meine Änderungen als Kopie behalten (JSON herunterladen)"
+  (Kopie der eigenen Änderungen; Wortlaut nach GP-UX-017)
 - Nach „Neu laden" zeigt Sitzung B den Plan mit der Verschiebung aus Sitzung A
 - Die eigene Änderung aus Sitzung B ist verworfen, der Undo-Stapel ist leer
   („Rückgängig" inaktiv)
@@ -1145,7 +1167,7 @@ Die folgenden Testfälle decken die Erweiterungen aus Version 1.3 ab. TC-053-037
 
 ### TC-053-037: Eignungs-Ampel beim Bepflanzen — nicht blockierend
 
-**Requirement**: REQ-053 §10.2 GP-FR-160 (abgeleitet); Voraussetzung: Semantik von `shade_tolerance` geklärt (O-16)
+**Requirement**: REQ-053 §10.2 GP-FR-160 (abgeleitet); Semantik geklärt (O-16/E-05, v1.4): `light_requirement` = Anspruch, `shade_tolerance` = Toleranz, Mapping in GP-FR-160
 **Gerät**: Desktop
 **Priority**: Medium
 **Category**: Standortmerkmale
@@ -1438,9 +1460,14 @@ Testebenen:
 | GP-ACC-042 | Gärtner darf Batch mit Löschung nicht (Rollen) | API-Rollentest; die sichtbare Löschwirkung ist in TC-053-010 und TC-053-028 teilweise abgedeckt |
 | GP-ACC-043 | Layout-Vorschau mit zu vielen Positionen | API-Limit, Antwortzeit |
 | GP-ACC-045 | Schutz vor Injektion im Beetnamen (SVG/PDF) | Sicherheitstest auf API-Ebene |
-| GP-ACC-046 | Mandantenfilter am Repository | Repository-Test |
+| GP-ACC-046 | Site-Anker-Prädikat im Service; kein `tenant_key` auf Location/Slot/GardenObject (revidiert v1.4, E-01) | Service-/Integrationstest |
 | GP-ACC-049 | Migration Spezies-Zehrerstufe | Unit-/Migrationstest |
 | GP-ACC-050 | Pflanzenzustand als reine Funktion, Frontend-Port identisch | Unit-Test (Calculator, Port-Gleichheit) |
+| GP-ACC-053 | Eignungs-Matrix `site_fit` mit gemeinsamen Testvektoren, inkl. „Toleranz unbekannt" (v1.4, E-05) | Unit-Test (Calculator, Port-Gleichheit); sichtbare Ampel in TC-053-037 |
+| GP-ACC-054 | Disjunkte `row_assignment` bei Mischkultur, Slots tragen den richtigen Entry (v1.4) | Integrationstest (Datenvertrag `run_planned_at`); Reihenlayout sichtbar in TC-053-015 |
+| GP-ACC-055 | Fruchtfolge standardmäßig aus für Pflanzgefäß/Zelt/Regal, je Beet einschaltbar (v1.4) | Integrationstest (`validate-planting`); Hinweis-Anzeige in TC-053-018 |
+| GP-ACC-056 | Plan-Rahmen mit Punkt > 1 000 m abgelehnt (v1.4) | API-Fehlervertrag; Integrationstest |
+| GP-ACC-057 | Mandantenweite Historie: nur eigener Mandant, 90 Tage, paginiert (v1.4) | Sicherheits-/Integrationstest auf API-Ebene; Filter-Anzeige in TC-053-023 |
 
 Teilweise nicht abgedeckt: der Import aus GP-ACC-031 ist über TC-053-041 für den Weg „Ersetzen“ abgedeckt; die Konfliktfälle der Ersetzungs-/Wiederherstellungsfunktion sowie die Quoten- und
 Prüfregeln der Datei sind kein Browser-Artefakt.

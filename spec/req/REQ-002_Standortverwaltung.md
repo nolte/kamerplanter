@@ -7,13 +7,14 @@ Kategorie: Infrastruktur
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.5 (Enum-Werte `Site.type`/`irrigation_system` an das Modell angeglichen, #2183)
+Version: 4.6 (REQ-053 v1.4 Welle 0: `bed_*`-Felder superseded, Geometrie statt `dimensions`/`position`, `is_bed`/`supports_layout`, NutrientDemand/PlanRole, kein `tenant_key` auf Location/Slot)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.6 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issues 4/55):** (a) Die im Business Case (G-003) vorgesehenen Location-Felder `bed_width_cm`, `bed_length_cm`, `bed_orientation`, `bed_type`, `bed_rows`, `row_spacing_cm` sowie `Slot.dimensions_cm` sind **superseded durch REQ-053 §20.8** — sie werden **nicht eingeführt**: Maße liegen in `Location.geometry`/`Slot.geometry`, der Beettyp in `LocationType.is_bed`, Reihen und Reihenabstand am `PlantingRunEntry` (REQ-013). (b) `Location.dimensions` (3-Tupel) und `Slot.position` (row, col) werden in REQ-053 **Welle 1** per Migration M1 in `geometry` + `height_m` bzw. `geometry` + `row_index`/`sequence` überführt und danach **entfernt** (O-01/O-02, D-16). (c) `LocationType` erhält `is_bed` und `supports_layout`; neue System-Seeds `raised_bed`, `planter`, `greenhouse_bed`, `cold_frame` (GP-FR-040, W-016.1) — 14 statt 10 Seeds. (d) `CropRotationPlan.demand_level` wird durch `nutrient_demand` (`NutrientDemand`, 3 Werte) + `plan_role` (`PlanRole`) ersetzt (GP-FR-138/139, Migration M6); `CropRotationValidator.rotation_window_years` Obergrenze 8 (K-004). (e) Explizit festgehalten: `Location` und `Slot` tragen **kein `tenant_key`** — Eigentümer ist die Site, Prädikat `domain/services/location_ownership.py` (E-01, #2107/MT-010). (f) Neuer Abschnitt „Erweitert durch REQ-053" in §5. |
 | 4.5 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Site.type` nennt alle Werte von `SiteType` (+`windowsill`, `balcony`, `grow_tent`). `Location.irrigation_system` nennt an allen drei Stellen (§Datenmodell, `LocationDefinition`, `IrrigationSystem`-Alias) die Werte von `IrrigationSystem` (`manual`, `drip`, `hydro`, `mist`, `nft`, `ebb_flow`); `sprinkler`, `sub_irrigation` und `aeroponics` entfallen. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 4.4 | 2026-07-12 | **GPS-Erfassung per Browser (opt-in):** Standortkoordinaten können zusätzlich zur manuellen Eingabe per Browser-Geolocation-API (`navigator.geolocation`) übernommen werden — permission-gated, nur im sicheren Kontext, mit Graceful Degradation und ohne serverseitige Ortung. Business-Case-Subsektion + DoD-Kriterium ergänzt (Issue #572). |
 | 4.3 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** `data_classification`-Feld auf Location ergänzt (5 Werte: `indoor_private`, `indoor_public`, `greenhouse`, `outdoor_open`, `unknown`). `extended_retention_optin` als Tenant-Admin-Opt-in für verlängerte Retention. `data_classification_set_at` für Audit. Steuert NFR-011 R-14 Sensor-Retention. Forward-only-Wechsel-Semantik. |
@@ -68,6 +69,9 @@ Ein Haushalt hat in der Regel eine Wasserleitung und optional eine Osmoseanlage.
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-003, G-004 -->
 **Visuelle Beetplanung (Outdoor-Modus):**
+
+> **Superseded durch REQ-053 (v4.6, 2026-10-15):** Die grafische Garten-/Beetplanung ist in **REQ-053 „Grafische Garten-Beetplanung"** vollständig spezifiziert (Geometriemodell §9/§20, Beetverwaltung §10, Pflanzplanung §11, Fruchtfolge/Mischkultur §16). Die hier aufgeführten Punkte bleiben als fachliche Motivation stehen; die in diesem Business Case ursprünglich vorgesehenen Felder `bed_width_cm`, `bed_length_cm`, `bed_orientation`, `bed_type`, `bed_rows`, `row_spacing_cm` (Location) und `dimensions_cm` (Slot) werden **nicht eingeführt** — Auflösung in REQ-053 §20.8.
+
 Freilandgärtner benötigen eine einfache 2D-Darstellung ihrer Beete, um Pflanzen visuell anzuordnen:
 - **Beet-Layout:** Rechteckige Beete mit konfigurierbaren Maßen (z.B. 3,0 × 1,2 m)
 - **Reihen-Ansicht:** Pflanzen in Reihen mit empfohlenen Pflanzabständen (aus Species-Daten)
@@ -77,7 +81,7 @@ Freilandgärtner benötigen eine einfache 2D-Darstellung ihrer Beete, um Pflanze
 
 **Erweiterter 4-Jahres-Fruchtfolgeplan:**
 Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotationsplaner erweitert:
-- **Nährstoffbedarfs-Rotation:** Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung (4-Jahres-Zyklus)
+- **Nährstoffbedarfs-Rotation:** Starkzehrer → Mittelzehrer → Schwachzehrer → Gründüngung (4-Jahres-Zyklus) — Zehrerstufe = `NutrientDemand` (3 Werte), Gründüngung/Brache = `PlanRole` (REQ-053 §16.3, GP-FR-138)
 - **Visuelle Rotationsmatrix:** Tabellarische Übersicht pro Beet × Jahr mit Farbcode (rot = Starkzehrer, gelb = Mittelzehrer, grün = Schwachzehrer, blau = Gründüngung)
 - **Planungsvorschläge:** "Beet B3 hatte 2024 Tomaten (Starkzehrer) → 2025: Möhren/Salat (Mittelzehrer) empfohlen"
 - **Gründüngung als Fruchtfolge-Glied:** Phacelia, Senf, Lupine, Inkarnatklee als eigenständige Phase im Rotationsplan (Verknüpfung mit REQ-001 `green_manure_suitable`)
@@ -127,9 +131,10 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
   - **Konsistenz:** `ro_water_profile` wird ignoriert wenn `has_ro_system=false`.
 
 - **`:Location`** - Räumlicher Container (Beet, Zelt, Raum) — rekursiv verschachtelbar
+  - **Kein `tenant_key`** (REQ-053 E-01, #2107/MT-010, v4.6): Eine Location gehört über `site_key` ihrer Site; die Mandantenzugehörigkeit prüft der Service ausschließlich über das Site-Anker-Prädikat `domain/services/location_ownership.py`. Ein nie geschriebenes `tenant_key: ""` las sich früher als *global* und war selbst die Leck-Quelle (#706/#1397) — deshalb wird das Feld bewusst **nicht** gestempelt (REQ-053 D-18 revidiert). Dasselbe gilt für `Slot` und `GardenObject` (REQ-053 §20.4).
   - Properties:
     - `name: str` (z.B. "Beet A", "Growzelt 1")
-    - `site_key: str` — Referenz auf das Root-Site (wird bei Erstellung vom Eltern-Standort geerbt)
+    - `site_key: str` — Referenz auf das Root-Site (wird bei Erstellung vom Eltern-Standort geerbt); **einziger Eigentümer-Anker** (s. o.)
     - `parent_location_key: Optional[str]` — Eltern-Location (`null` = direkt unter Site)
     - `location_type_key: str` — Referenz auf `location_types._key` (nutzerpflegbare Stammdaten, siehe Collection unten)
     <!-- Quelle: ADR-003 / W-014 -->
@@ -145,18 +150,19 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
     - `glazing_transmission_factor: Optional[float]` — Lichttransmission der Verglasung (0.0–1.0). Typisch: Einfachglas 0.85, Doppelverglasung 0.70, Dreifachverglasung 0.60, verschmutztes Fenster 0.50. Default: 0.70 (Standard-Isolierverglasung).
     - `light_type: Literal['natural', 'led', 'hps', 'cmh', 'mixed']`
     - `irrigation_system: Literal['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']` (Enum `IrrigationSystem`; Primäres Bewässerungssystem — beschreibt die Infrastruktur. Ergänzendes manuelles Gießen per Gießkanne ist immer möglich, auch bei automatischen Systemen, z.B. für organische Dünger, die nicht über Tropfer/Pumpen appliziert werden sollten. Siehe REQ-004 Applikationsmethoden und REQ-014 WateringEvent.)
-    - `dimensions: tuple[float, float, float]` (length, width, height in meters)
+    - ~~`dimensions: tuple[float, float, float]` (length, width, height in meters)~~ — **wird in REQ-053 Welle 1 entfernt** (O-02, D-16, Issue 56): Migration M1 übernimmt `(l, b)` als `rect`-Geometrie mit `origin = (0,0)` für Locations ohne `geometry` und `h` als `height_m`; alle Leser (Backend + Frontend) werden auf `geometry`/`height_m` umgestellt. Keine Spiegelung, keine zwei Wahrheiten für Maße. Bis zur Migration gilt das Feld als Bestandsfeld ohne dokumentierte Semantik (REQ-053 §3.1).
+    - `geometry: Optional[Geometry]` (**neu, REQ-053 §20.1/§20.3**) — eingebetteter Werttyp `{kind ∈ {rect, circle, polygon, point, polyline}, origin, width_m/length_m | radius_m | points, rotation_deg}` im Rahmen des Eltern-Bereichs; Quelle von `area_m2` (bei gesetzter Geometrie berechnet) und `bbox`. Für Zelte, Regale, Beete und Kübel **dasselbe** Modell (REQ-053 §9.2a, O-01).
+    - `height_m: Optional[float]` (**neu, REQ-053 GP-FR-043**) — Höhe für `raised_bed`/`planter` (0,1–1,5), kein Pflichtfeld.
+    - weitere REQ-053-Felder (additiv, dort spezifiziert): `description`, `notes`, `bed_status` + abgeleiteter `season_state` (§7.4), `sun_exposure ∈ {full_sun, partial_shade, shade, deep_shade, unknown}` (§10.2), `soil_profile` (§15), `irrigation_zone_key` (§14), `pitch_m` (Migrations-Annahme für Alt-Slots, Standard 0,30), `adjacency_factor`, `locked`, `z_order`, `photo_refs`/`cover_photo_ref`
     - `lights_on: Optional[str]` — Uhrzeit Licht-Ein im Format HH:MM (z.B. "06:00")
     - `lights_off: Optional[str]` — Uhrzeit Licht-Aus im Format HH:MM (z.B. "22:00")
     - `use_dynamic_sunrise: bool` — Dynamische Sonnenstandberechnung aus GPS-Koordinaten aktivieren (nur bei `light_type: natural` oder `mixed`)
     <!-- Quelle: Outdoor-Garden-Planner Review G-003 -->
-    # Visuelle Beetplanung
-    - `bed_width_cm: Optional[int]` (Beetbreite in cm, z.B. 120 für Standard-Beet)
-    - `bed_length_cm: Optional[int]` (Beetlänge in cm)
-    - `bed_orientation: Optional[Literal['north_south', 'east_west', 'diagonal']]` (Ausrichtung)
-    - `bed_type: Optional[Literal['ground_bed', 'raised_bed', 'container', 'cold_frame', 'polytunnel']]`
-    - `bed_rows: Optional[int]` (Anzahl Pflanzenreihen im Beet)
-    - `row_spacing_cm: Optional[int]` (Reihenabstand)
+    # Visuelle Beetplanung — SUPERSEDED durch REQ-053 §20.8 (v4.6, 2026-10-15): die folgenden Felder werden NICHT eingeführt.
+    - ~~`bed_width_cm: Optional[int]`~~, ~~`bed_length_cm: Optional[int]`~~ → `geometry.width_m`/`length_m`
+    - ~~`bed_orientation: Optional[Literal['north_south', 'east_west', 'diagonal']]`~~ → abgeleitet aus `geometry.rotation_deg` + `Site.plan.north_angle_deg` (REQ-053 GP-FR-017)
+    - ~~`bed_type: Optional[Literal['ground_bed', 'raised_bed', 'container', 'cold_frame', 'polytunnel']]`~~ → `location_type_key` mit `LocationType.is_bed = true` (s. u.)
+    - ~~`bed_rows: Optional[int]`~~, ~~`row_spacing_cm: Optional[int]`~~ → `PlantingRunEntry.layout_strategy = rows` + `row_spacing_cm` (REQ-013); Reihen sind Slots mit `slot_role = row` — Reihen hängen an der Pflanzung, nicht am Beet (REQ-053 D-10)
 
   **LocationType-Collection (`location_types`):**
 
@@ -168,34 +174,45 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
   - `name_en: Optional[str]` — Englischer Name für i18n
   - `icon: Optional[str]` — MUI-Icon-Name für UI (z.B. `"Park"`, `"Yard"`)
   - `is_indoor: bool` — Unterscheidung indoor/outdoor für kontextabhängige Logik (z.B. Lichtsteuerung)
+  - `is_bed: bool` (Default `false`; **neu, REQ-053 GP-FR-040**) — Typ ist ein Beettyp: Beetliste, Beet-Detailseite, Beetstatus (`bed_status`), Bodenprofil und Fruchtfolge-Hinweise hängen daran. **Nicht** `is_bed`: `shelf` (Tisch/Regal trägt Kübel, die selbst `planter` sind — O-09), `tent`, `room`, `garden`, `greenhouse`, `building`, `balcony`, `terrace`.
+  - `supports_layout: bool` (Default `false`; **neu, REQ-053 §9.2a, W-016.1**) — Location darf eine Geometrie mit Slot-Layout tragen; `true` für alle `is_bed`-Typen **und** `tent`, `shelf`. Bepflanzen-Dialog, `compute_layout` und Run-Layout hängen an `supports_layout`, nicht an `is_bed`.
   - `is_system: bool` — System-Seed vs. nutzerdefiniert (System-Einträge können nicht gelöscht werden)
   - `sort_order: int` — Reihenfolge in Dropdowns
   - `description: Optional[str]` — Kurzbeschreibung
   - `created_at: datetime`
   - `updated_at: datetime`
 
-  **10 Default-Seed-Einträge** (werden bei Erstinstallation angelegt, `is_system: true`):
+  **14 Default-Seed-Einträge** (werden bei Erstinstallation angelegt, `is_system: true`; die vier mit † markierten kommen mit REQ-053 Welle 1/3 hinzu, GP-FR-040):
 
-  | `_key` | `name` | `name_en` | `is_indoor` | `icon` | `sort_order` |
-  |--------|--------|-----------|-------------|--------|-------------|
-  | `garden` | Garten | Garden | `false` | `Park` | 10 |
-  | `greenhouse` | Gewächshaus | Greenhouse | `false` | `Warehouse` | 20 |
-  | `building` | Gebäude | Building | `true` | `Home` | 30 |
-  | `room` | Zimmer | Room | `true` | `MeetingRoom` | 40 |
-  | `balcony` | Balkon | Balcony | `false` | `Balcony` | 50 |
-  | `terrace` | Terrasse | Terrace | `false` | `Deck` | 60 |
-  | `tent` | Grow-Zelt | Grow Tent | `true` | `Campaign` | 70 |
-  | `bed` | Beet | Bed | `false` | `Grass` | 80 |
-  | `shelf` | Regal | Shelf | `true` | `Shelves` | 90 |
-  | `container` | Topf-/Container-Gruppe | Container Group | `false` | `Inventory2` | 100 |
+  | `_key` | `name` | `name_en` | `is_indoor` | `is_bed` | `supports_layout` | `icon` | `sort_order` |
+  |--------|--------|-----------|-------------|----------|-------------------|--------|-------------|
+  | `garden` | Garten | Garden | `false` | `false` | `false` | `Park` | 10 |
+  | `greenhouse` | Gewächshaus | Greenhouse | `false` | `false` | `false` | `Warehouse` | 20 |
+  | `building` | Gebäude | Building | `true` | `false` | `false` | `Home` | 30 |
+  | `room` | Zimmer | Room | `true` | `false` | `false` | `MeetingRoom` | 40 |
+  | `balcony` | Balkon | Balcony | `false` | `false` | `false` | `Balcony` | 50 |
+  | `terrace` | Terrasse | Terrace | `false` | `false` | `false` | `Deck` | 60 |
+  | `tent` | Grow-Zelt | Grow Tent | `true` | `false` | `true` | `Campaign` | 70 |
+  | `bed` | Beet (Bodenbeet) | Bed | `false` | `true` | `true` | `Grass` | 80 |
+  | `raised_bed` † | Hochbeet | Raised Bed | `false` | `true` | `true` | `Deck` | 82 |
+  | `greenhouse_bed` † | Gewächshausbeet | Greenhouse Bed | `false` | `true` | `true` | `Grass` | 84 |
+  | `cold_frame` † | Frühbeet | Cold Frame | `false` | `true` | `true` | `Window` | 86 |
+  | `planter` † | Pflanzkübel / Topf-Gruppe | Planter | `false` | `true` | `true` | `Inventory2` | 88 |
+  | `shelf` | Regal | Shelf | `true` | `false` | `true` | `Shelves` | 90 |
+  | `container` | Topf-/Container-Gruppe | Container Group | `false` | `false` | `false` | `Inventory2` | 100 |
+
+  > **Hinweis zu `planter`/`container`:** `planter` ersetzt `container` fachlich (beweglicher Kübel mit Geometrie, GP-FR-048); der Seed `container` bleibt aus Kompatibilität bestehen, ist aber kein Beettyp. Die Icon-Werte der †-Seeds sind Vorschläge; verbindlich ist `src/backend/app/migrations/seed_location_types.py`. Für `planter`, `tent`, `shelf` ist die Fruchtfolge-Prüfung standardmäßig aus (REQ-053 GP-FR-137 — Substratwechsel ersetzt die Rotation).
 
   > **Hinweis:** `location_type_key` ist ein einfaches String-Feld (Fremdschlüssel) — keine Edge-Collection nötig, da 1:1-Beziehung ohne Graph-Traversal-Bedarf. Konsistent mit `site_key`, `species_key` etc.
 
 - **`:Slot`** - Einzelner Pflanzplatz
+  - **Kein `tenant_key`** (REQ-053 E-01): Eigentümer ist die Site über `location_key → site_key`; Prädikat `location_ownership.py`.
   - Properties:
-    - `id: str` (Format: "LOCATION_SLOT_NUMBER", z.B. "TENT01_A1")
-    - `position: tuple[int, int]` (Grid-Position oder Reihe/Platz)
-    - `capacity_plants: int` (1 für Einzelkultur, >1 für Mischkultur)
+    - `id: str` (Format: "LOCATION_SLOT_NUMBER", z.B. "TENT01_A1"; REQ-053 GP-FR-064 nutzt dasselbe Format für Layout-Slots, z.B. `BEET03_R2P05`)
+    - ~~`position: tuple[int, int]` (Grid-Position oder Reihe/Platz)~~ — **wird in REQ-053 Welle 1 entfernt** (O-01, §9.2a, D-16): Migration M1 leitet für jeden Slot ohne `geometry` einen Punkt `origin = (col × pitch, row × pitch)` mit `pitch = location.pitch_m` (Standard 0,30 m) ab und setzt `geometry_source = migrated_grid`; Sortierungen nutzen danach `row_index`/`sequence`. Keine Spiegelung.
+    - `geometry: Optional[Geometry]` (**neu, REQ-053 §20.5**) — Position im beet-/zelt-lokalen Rahmen in Metern; `point` für `slot_role = position`, `polyline` für `row`, `polygon` für `zone`. Für Zelt-Töpfe und Beet-Positionen **dasselbe** Modell (O-01).
+    - `slot_role: Literal['position', 'row', 'zone']` (Default `position`; **neu**), `row_index: Optional[int]`, `sequence: Optional[int]`, `geometry_source: Literal['editor', 'layout', 'migrated_grid']`, `container_volume_l: Optional[float]` (Topfvolumen, W-016), `sown_at: Optional[date]` (Direktsaat, REQ-053 §11.3), `archived_at: Optional[datetime]` (Slot eines abgeschlossenen Runs, GP-FR-055), `planned_spacing_cm: Optional[int]` — alle REQ-053 §20.5
+    - `capacity_plants: int` (1 für Einzelkultur, >1 für Mischkultur; bei `slot_role = position` immer 1)
     - `currently_occupied: bool`
     - `last_sanitization: Optional[datetime]`
 
@@ -237,8 +254,9 @@ Das System unterstützt die Verwaltung von Lichtzeiten pro Location. Das Verhalt
     # Erweiterter 4-Jahres-Fruchtfolgeplan
     - `year: int` (Planjahr, z.B. 2026)
     - `season_period: Literal['spring', 'summer', 'autumn', 'winter', 'full_year']`
-    - `demand_level: Literal['heavy_feeder', 'medium_feeder', 'light_feeder', 'green_manure', 'fallow']`
-      (Geplante Nährstoffbedarfs-Stufe für dieses Jahr)
+    - ~~`demand_level: Literal['heavy_feeder', 'medium_feeder', 'light_feeder', 'green_manure', 'fallow']`~~ — **ersetzt durch zwei Felder** (REQ-053 §16.3 GP-FR-138/139, Migration M6 `M6_nutrient_demand_split`, v4.6): ein Enum mischte Zehrerstufe und Planrolle.
+    - `nutrient_demand: Optional[NutrientDemand]` = `heavy_feeder | medium_feeder | light_feeder` (geplante Zehrerstufe des Jahres; `null` bei `plan_role = fallow`). Dasselbe Enum wie `Species.nutrient_demand` und `BotanicalFamily.typical_nutrient_demand` (REQ-001).
+    - `plan_role: PlanRole` = `main_crop | green_manure | fallow` (Default `main_crop`). `fallow` ist der **einzige** Wert ohne Pflanzdurchlauf; `green_manure` verlangt in `planned_species_keys` Arten mit `Species.green_manure_suitable = true`. Dasselbe Enum trägt `PlantingRun.plan_role` (REQ-013). Migration M6: `demand_level ∈ {heavy_feeder, medium_feeder, light_feeder}` → `nutrient_demand` + `plan_role = main_crop`; `green_manure` → `plan_role = green_manure`, `nutrient_demand = null` (eine Gründüngung hat keine eigene Zehrerstufe — korrigiert 2026-10-16, REQ-053 GP-FR-139/GP-ACC-037); `fallow` → `plan_role = fallow`, `nutrient_demand = null`.
     - `planned_species_keys: list[str]` (Geplante Pflanzenarten)
     - `actual_species_keys: Optional[list[str]]` (Tatsächlich angebaut — nachträglich erfasst)
     - `notes: Optional[str]`
@@ -498,7 +516,7 @@ from pydantic import BaseModel, Field
 class CropRotationValidator(BaseModel):
     """Validiert Fruchtfolge-Konformität vor Anpflanzung"""
 
-    rotation_window_years: int = Field(default=3, ge=1, le=5)
+    rotation_window_years: int = Field(default=3, ge=1, le=8)  # Obergrenze 8 statt 5 (REQ-053 GP-FR-131, K-004); Fallback, wenn BotanicalFamily.rotation_pause_years / Species.rotation_pause_years (REQ-001) fehlen
     family_repeat_penalty: float = Field(default=1.0, ge=0, le=1.0)
     nutrient_demand_balance: bool = True
 
@@ -746,6 +764,9 @@ class LocationTypeDefinition(BaseModel):
     name_en: Optional[str] = Field(None, max_length=100, description="Englischer Name für i18n")
     icon: Optional[str] = Field(None, max_length=50, description="MUI-Icon-Name (z.B. 'Park', 'Yard')")
     is_indoor: bool = Field(description="Indoor/Outdoor-Unterscheidung für kontextabhängige Logik")
+    # REQ-053 GP-FR-040 / §9.2a (v4.6)
+    is_bed: bool = Field(default=False, description="Beettyp: Beetliste, Beetstatus, Bodenprofil, Fruchtfolge-Hinweise")
+    supports_layout: bool = Field(default=False, description="Geometrie + Slot-Layout erlaubt (is_bed-Typen, tent, shelf)")
     is_system: bool = Field(default=False, description="System-Seed (true) vs. nutzerdefiniert (false)")
     sort_order: int = Field(default=0, ge=0, description="Reihenfolge in Dropdowns")
     description: Optional[str] = Field(None, max_length=500)
@@ -776,7 +797,11 @@ class LocationDefinition(BaseModel):
     irrigation_system: Optional[Literal['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow']] = Field(
         None, description="Wenn nicht gesetzt, wird vom Eltern-Standort geerbt (Runtime)"
     )
-    dimensions: Optional[Tuple[float, float, float]] = None  # L, W, H in meters
+    # dimensions: Optional[Tuple[float, float, float]]  — ENTFÄLLT in REQ-053 Welle 1 (O-02, M1): ersetzt durch geometry + height_m
+    geometry: Optional["Geometry"] = None  # REQ-053 §20.1 (Pydantic-Werttyp, dort definiert)
+    height_m: Optional[float] = Field(None, ge=0.1, le=1.5)  # REQ-053 GP-FR-043
+    # bed_width_cm / bed_length_cm / bed_orientation / bed_type / bed_rows / row_spacing_cm:
+    # NICHT einführen — superseded durch REQ-053 §20.8
     gps_coordinates: Optional[Tuple[float, float]] = Field(None)
     climate_zone: Optional[str] = Field(None, regex=r'^\d{1,2}[a-b]$')
 
@@ -805,9 +830,14 @@ class SlotDefinition(BaseModel):
     """Einzelner Pflanzplatz"""
 
     id: str = Field(regex=r'^[A-Z0-9]+_[A-Z0-9]+$')  # Format: LOCATION_POSITION
-    position: Tuple[int, int] = Field(description="Grid-Position (row, col)")
+    # position: Tuple[int, int]  — ENTFÄLLT in REQ-053 Welle 1 (O-01, M1): ersetzt durch geometry + row_index/sequence
+    geometry: Optional["Geometry"] = None  # REQ-053 §20.5: point | polyline (row) | polygon (zone)
+    slot_role: Literal['position', 'row', 'zone'] = 'position'
+    row_index: Optional[int] = Field(None, ge=0)
+    sequence: Optional[int] = Field(None, ge=0)
+    geometry_source: Optional[Literal['editor', 'layout', 'migrated_grid']] = None
     capacity_plants: int = Field(ge=1, le=20)
-    dimensions_cm: Optional[Tuple[int, int, int]] = None  # L, W, H
+    # dimensions_cm: NICHT einführen — superseded durch Slot.geometry (REQ-053 §20.8)
 
     @field_validator('id')
     @classmethod
@@ -1040,6 +1070,30 @@ adressierten Mandanten, sofern nicht anders angegeben.
 - REQ-010 (IPM): Standort-Historie für Schädlings-Muster
 - REQ-004 (Düngung): **HOCH** — `WaterSource.tap_water_profile` als Default-Basis für `base_water_ec_ms`, `base_water_alkalinity_ppm` und CalMag-Korrektur im `WaterMixCalculator`
 - REQ-014 (Tankmanagement): **HOCH** — Location für Tank-Zuordnung, `irrigation_system` für Pflicht-Validierung; `WaterSource` als Default-Quelle in der Wasserquellen-Kaskade für TankFillEvent-Felder
+- REQ-013 (Pflanzdurchlauf): Location für `run_at_location`; Slots für `run_planned_at` (geplante Belegung mit Zeitfenster) und `placed_in`
+
+### Erweitert durch REQ-053 (Grafische Garten-/Beetplanung)
+
+REQ-002 **bleibt Quelle der Hierarchie** (Site → Location → Slot, LocationTypes, `adjacent_to`). REQ-053 v1.4 erweitert sie additiv und löst die hier ehemals vorgesehenen Beetfelder auf (REQ-053 §2.4, §20.8). Verbindlich ist bei Widerspruch REQ-053 für alles, was Geometrie, Beetverwaltung, Pflanzplanung im Beet und Pflegeprotokoll betrifft.
+
+| Bereich | REQ-002 (Bestand) | REQ-053 (Erweiterung) | Wo |
+|---------|-------------------|-----------------------|----|
+| Maße einer Location | `dimensions` (3-Tupel, ohne Semantik) | `geometry` (Werttyp `Geometry`) + `height_m`; `dimensions` wird in Welle 1 **entfernt** (M1, O-02) | §20.1, §20.3, §20.8 |
+| Position eines Slots | `position: (row, col)` als Rasterzelle | `geometry` im beet-/zelt-lokalen Rahmen in Metern + `row_index`/`sequence`; `position` wird in Welle 1 **entfernt** (M1, O-01) — ein Modell für Zelt **und** Beet | §9.2a, §20.5 |
+| Beettyp | `bed_type` (Business Case) | `LocationType.is_bed`; Seeds `bed`, `raised_bed`, `planter`, `greenhouse_bed`, `cold_frame` | GP-FR-040 |
+| Layout-Fähigkeit | — | `LocationType.supports_layout` (`is_bed`-Typen + `tent`, `shelf`) | §9.2a, W-016.1 |
+| Reihen/Reihenabstand | `bed_rows`, `row_spacing_cm` am Beet | `PlantingRunEntry.layout_strategy`/`row_spacing_cm` (REQ-013); Slots mit `slot_role = row` | GP-FR-060, D-10 |
+| Beet-Ausrichtung | `bed_orientation` | abgeleitet aus `geometry.rotation_deg` + `Site.plan.north_angle_deg` | GP-FR-017 |
+| Site-Plan | — | `Site.plan {boundary, north_angle_deg, scale, background, terrain}` | §20.2 |
+| Beetstatus | — | `Location.bed_status` (Lebenszyklus) + abgeleiteter `season_state` | §7.4, D-19 |
+| Standortmerkmale | `orientation`, `frost_exposed` | `sun_exposure` (5 Stufen), `microclimate`, `wind_exposure`, `access_sides` | §10.2 |
+| Boden | kein Träger-Entity | `Location.soil_profile` | §15 |
+| Gartenobjekte | — | Collection `garden_objects` (Wege, Bäume, Wasserquellen …), Edge `has_garden_object` | §20.4 |
+| Nachbarschaft | `adjacent_to` manuell/programmatisch | aus Slot-Geometrie abgeleitet (Adjacency-Engine), manuelle Kanten bleiben | GP-FR-130 |
+| Fruchtfolge | `CropRotationValidator` je Slot, `demand_level` | Beet-Ebene `validate_planting_in_location`, `NutrientDemand` + `PlanRole`, `rotation_pause_years` je Familie/Art, `rotation_window_years` ≤ 8; für `planter`/`tent`/`shelf` standardmäßig aus | §16.3, GP-FR-131/137/138 |
+| Bewässerung | `irrigation_system`, `tank_key` | `irrigation_zones` + `Location.irrigation_zone_key` | §14 |
+| Pflegeprotokoll | verteilt | `care_events` (eigene Collection, `entity_type = location` erste Klasse) | §13 |
+| Mandant | — | **kein `tenant_key`** auf Location/Slot/GardenObject; Site-Anker `location_ownership` | E-01, §22.3 |
 
 ## 6. Akzeptanzkriterien
 
@@ -1053,7 +1107,8 @@ adressierten Mandanten, sofern nicht anders angegeben.
 - [ ] **Teilbaum-Slots:** Alle Slots eines Teilbaums effizient abfragbar
 - [ ] **Breadcrumb-Pfad:** Breadcrumb-Pfad für jeden Standort generierbar
 - [ ] **LocationType-CRUD:** Nutzer kann eigene Standort-Typen anlegen, bearbeiten und löschen
-- [ ] **LocationType-System-Seed:** 10 vordefinierte Typen (garden, greenhouse, building, room, balcony, terrace, tent, bed, shelf, container) werden bei Erstinstallation als `is_system=true` angelegt
+- [ ] **LocationType-System-Seed:** 10 vordefinierte Typen (garden, greenhouse, building, room, balcony, terrace, tent, bed, shelf, container) werden bei Erstinstallation als `is_system=true` angelegt; mit REQ-053 kommen `raised_bed`, `planter`, `greenhouse_bed`, `cold_frame` hinzu (14), jeder Seed trägt `is_bed` und `supports_layout` (GP-FR-040, §9.2a)
+- [ ] **Kein `tenant_key` auf Location/Slot:** Mandantenzugehörigkeit wird ausschließlich über das Site-Anker-Prädikat `location_ownership` geprüft (REQ-053 E-01, #2107); Guard `tests/unit/guards/test_keyed_service_writes_take_the_tenant.py`
 - [ ] **LocationType-Lösch-Schutz:** System-Typen (`is_system=true`) können nicht gelöscht werden (HTTP 403)
 - [ ] **LocationType-Referenzielle Integrität:** Typen, die von Locations referenziert werden, können nicht gelöscht werden (HTTP 409)
 - [ ] **LocationType-Dropdown:** LocationType-Dropdown im Create/Edit-Dialog zeigt alle verfügbaren Typen (sortiert nach `sort_order`)

@@ -280,6 +280,7 @@ Vergleiche die Schema-Definitionen gegen die Pydantic-Modelle in `src/backend/ap
 2. **Enum-Werte synchron** — Pruefe ob Enums in `src/backend/app/common/enums.py` und den Models mit `_defs.schema.yaml` uebereinstimmen:
    - Neuer Enum-Wert im Python-Code aber nicht im Schema → `[SCHEMA-ENUM-OUTDATED]`
    - Enum-Wert im Schema aber nicht im Python-Code → `[SCHEMA-ENUM-STALE]`
+   - **Bekannte Reihenfolge Schema → Modell (kein Finding):** `typical_nutrient_demand` / `_defs.nutrient_demand_simple` bleiben bis Migration M6 (REQ-053 GP-FR-139) beim Alt-Tripel `heavy/medium/light`, weil `enums.NutrientDemand` nur dieses kennt und die Familien-Importer das Modell direkt bauen — ein `*_feeder`-Wert vor M6 ist deshalb 🔴 (Seed-Migration bricht). Die NEUEN Felder (`nutrient_demand`, `nutrient_demand_source/_confidence`, `nitrogen_fixing` an der Art, `rotation_pause_years`, `row_spacing_cm`, `light_requirement`) stehen im Schema vor dem Pydantic-Modell: bis M6 validiert, aber vom Importer nicht geschrieben → als `[SCHEMA-AHEAD-OF-MODEL]` informativ melden, nicht als STALE.
 3. **Required-Felder konsistent** — `required`-Listen im Schema sollten die Pflichtfelder der Pydantic-Modelle widerspiegeln (Felder ohne Default-Wert)
 
 ### 0.4 Schema erweitern (wenn Findings vorliegen)
@@ -353,7 +354,12 @@ Fuer jede YAML-Datei pruefe:
    - `phase_entry.name`: germination, seedling, vegetative, flowering, harvest, dormancy, … (voller Enum in `plant_info.schema.yaml`)
    - `form` (Fertilizer): LIQUID, GRANULAR, POWDER, etc.
    - `difficulty`: BEGINNER, INTERMEDIATE, EXPERT
-   - `nutrient_demand_level`: heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer
+   - `nutrient_demand_level`: heavy_feeder, medium_feeder, light_feeder, nitrogen_fixer (Alt-Feld bis M6)
+   - `nutrient_demand` (REQ-053 GP-FR-138): heavy_feeder, medium_feeder, light_feeder — **`nitrogen_fixer` ist hier ungueltig** (gehoert in `nitrogen_fixing: true`)
+   - `nutrient_demand_confidence`: high, medium, low
+   - `light_requirement` (E-05): full_sun, partial_shade, shade — **`deep_shade` ist hier ungueltig** (nur `shade_tolerance` kennt es)
+   - `shade_tolerance`: deep_shade, shade, partial_shade, full_sun
+   - `typical_nutrient_demand` (Familie): **nur** heavy, medium, light bis Migration M6 — ein `*_feeder`-Wert ist vor M6 🔴 (das Python-Enum `NutrientDemand` kennt ihn nicht, die Familien-Importer bauen das Modell direkt → Seed-Migration bricht); ab M6 nur `*_feeder`
    - `frost_sensitivity`: sensitive, moderate, hardy, very_hardy
    - `pathogen_type`: fungal, bacterial, viral, physiological, oomycete, protist
 
@@ -416,11 +422,23 @@ Fuer jede Species pruefe Abdeckung der Spec-Felder:
 - [ ] `hardiness_zones`, `frost_sensitivity`, `salt_tolerance_class`, `waterlogging_tolerance`
 - [ ] `pruning_type` / `pruning_months`
 
+**Beetplanungs-Felder (REQ-053 Welle 0, GP-FR-061/138, E-10 — Werte nur mit Quelle):**
+
+> Stand WP 0.5a: Schema und Vorlage fuehren die Felder, die Steckbriefe liefern die Werte erst mit WP 0.5b. Bis dahin ist ein **fehlender** Wert eine 🟠 Warnung (`V-XXX`, Luecke fuer den `plant-info-document-generator`), kein Fehler. Ein **gesetzter** Wert wird dagegen ab sofort hart geprueft (Range, Enum, Quelle). Pflichtstatus wird mit Abschluss von WP 0.5b auf 🔴 angehoben — nur fuer `nutrient_demand` bei Nutzpflanzen.
+
+- [ ] `nutrient_demand` — **Pflicht nur fuer Nutzpflanzen** (`allows_harvest = true` oder `plant_category ∈ {outdoor_vegetable, herb}`); fehlend → 🟠 Warnung (bis WP 0.5b), bei Zierpflanzen/Zimmerpflanzen optional
+- [ ] `nutrient_demand` gesetzt ⇒ `nutrient_demand_source` MUSS nicht-leer sein (🔴, E-10) und `nutrient_demand_confidence` SOLL gesetzt sein (🟠)
+- [ ] `nitrogen_fixing` — bei Fabaceae erwartet (🟠 wenn fehlt); `false` ohne Beleg im Steckbrief ist eine Behauptung → 🟠 `[AGROBIO-CHECK]`
+- [ ] `rotation_pause_years` — optional auf der Art (Override); erwartet auf der **Familie** fuer alle Familien mit `rotation_category ∉ {ornamental, permanent}` (🟠 wenn fehlt)
+- [ ] `row_spacing_cm` — erwartet bei Reihenkulturen (`plant_category = outdoor_vegetable`, `growth_habit ∈ {herb, grass}`, `allows_harvest = true`); bei Gehoelzen/Stauden darf es `null` bleiben
+- [ ] `light_requirement` — erwartet bei allen Outdoor-/Balkon-Arten (`plant_category ∈ {outdoor_vegetable, outdoor_ornamental, balcony_plant, herb}`); 🟠 wenn fehlt
+- [ ] Familie: `typical_nutrient_demand` vor M6 in Alt-Form (`heavy/medium/light`) ist korrekt; `*_feeder` vor M6 → 🔴 (siehe 1.1); nach M6 umgekehrt
+
 **Saatgut-Felder (fuer samenvermehrte Arten, REQ — siehe seed-pipeline-agent-review B7):**
 - [ ] `seed_profile` (`germination_temp_min_c/max_c`, `sowing_depth_cm`, `days_to_germination`, `seed_viability_years`, `light_germination`, `pretreatment`)
 
 **Erweiterte Felder (nice-to-have):**
-- [ ] `mature_height_cm` / `mature_width_cm` / `spacing_cm`
+- [ ] `mature_height_cm` / `mature_width_cm` / `spacing_cm` (Beetplanungs-Pflichten fuer `spacing_cm`/`row_spacing_cm` siehe Block oben)
 - [ ] `effective_root_depth_cm`, `soil_ph_preference`
 - [ ] `propagation_configs` (strukturiert, nicht deprecated `propagation_methods`)
 
@@ -503,6 +521,9 @@ Pruefe Wertebereiche auf biologische Plausibilitaet. **Bei jedem Verdachtsfall**
 | **seed_profile:** `seed_viability_years` | 1 bis 20 | >20 |
 | **seed_profile:** `thousand_seed_weight_g` | 0.01 bis 2000 | =0 |
 | `safety_interval_days` | 0 bis 90 | >90 bei Bio-Mitteln |
+| **Beetplanung:** `spacing_cm` / `row_spacing_cm` (String, Einzelwert oder Spanne) | **5 bis 1500 cm** — unterer UND oberer Wert im Bereich (GP-FR-060/061); String-Format `^\d+(\.\d+)?(\s*[-–—]+\s*\d+(\.\d+)?)?$`, Integer statt String ist 🔴 | <5 (Mikrogruen/Aussaatdichte gehoert in `seed_profile.sowing_density_per_m2`), >1000 (nur Streuobst/Alleebaeume — Quelle noetig), unterer > oberer Wert |
+| **Beetplanung:** `rotation_pause_years` (Art und Familie) | 0 bis 8 (ganzzahlig) | >8; Art-Wert ohne Quelle, der vom Familienwert abweicht; Brassicaceae/Allium <3 `[AGROBIO-CHECK]` |
+| **Beetplanung:** `nutrient_demand_confidence` | high nur bei ≥ 3 unabhaengigen Quellen | `high` mit nur einer URL in `nutrient_demand_source` |
 
 **Verifikations-Workflow bei Verdachtsfaellen:**
 1. WebSearch den wissenschaftlichen Namen + Parameter (z.B. `"Monstera deliciosa" temperature range`)
@@ -531,6 +552,10 @@ Pruefe Wertebereiche auf biologische Plausibilitaet. **Bei jedem Verdachtsfall**
 - `salt_tolerance_class` ↔ `salt_tolerance_ece_threshold_ds_m` konsistent (Maas-Hoffman: `sensitive` ≈ <2, `moderately_sensitive` ≈ 2–4, `moderately_tolerant` ≈ 4–6, `tolerant` ≈ >6 dS/m)
 - `light_compensation_point_ppfd_min` ≤ `light_compensation_point_ppfd_max`
 - `shade_tolerance = full_sun` ⇒ hohe `light_ppfd_target` in Wachstumsphasen plausibel (kein Schattenpflanzen-Widerspruch)
+- **Beetplanung (REQ-053 O-16/E-05) — Anspruch vs. Toleranz:** `light_requirement` ist der **Anspruch**, `shade_tolerance` die **Toleranz**. Auf der Stufenfolge `full_sun > partial_shade > shade > deep_shade` darf `shade_tolerance` nie **sonniger** sein als `light_requirement` (z. B. `light_requirement = shade` mit `shade_tolerance = full_sun` ist 🔴 — eine Art, die Schatten braucht, „toleriert" nicht erst Vollsonne). Gleiche Stufe ist zulaessig (keine Toleranz unter den Anspruch). Beide Felder duerfen unabhaengig `null` sein; ein Wert, der erkennbar aus dem anderen Feld kopiert wurde (alle Arten einer Datei mit identischem Paar), ist 🟠 `[AGROBIO-CHECK]`
+- **Beetplanung — Zehrerstufe vs. N-Fixierung (K-001):** `nutrient_demand_level = nitrogen_fixer` ⇒ `nitrogen_fixing` SOLL `true` sein, sobald gesetzt (🟠 bei `false`); `nitrogen_fixing = true` ⇒ `nutrient_demand` ist typischerweise `light_feeder` (Leguminosen) — `heavy_feeder` ist 🟠 `[AGROBIO-CHECK]`; `nitrogen_fixing = true` ausserhalb von Fabaceae, Betulaceae (*Alnus*), Elaeagnaceae, Casuarinaceae, Myricaceae, Rosaceae (*Dryas*), Cannabaceae (*Trema*) → 🟠 `[AGROBIO-CHECK]`
+- **Beetplanung — Abstaende:** `row_spacing_cm` gesetzt ⇒ `spacing_cm` gesetzt (Reihenabstand ohne Pflanzabstand ist fuer `compute_layout` unbrauchbar, 🟠); unterer Wert von `spacing_cm` < `mature_width_cm` × 0,7 → 🟠 (GP-FR-061 warnt im Dialog; im Seed ist es ein Quellen-Verdacht); `row_spacing_cm` < `spacing_cm` (unterer Wert) ist ungewoehnlich → 🟠 `[AGROBIO-CHECK]`
+- **Beetplanung — Familie ↔ Art:** `Species.rotation_pause_years` gesetzt und gleich `BotanicalFamily.rotation_pause_years` → 🟡 informativ (Override ohne Abweichung, kann entfallen); `Species.nutrient_demand` widerspricht `typical_nutrient_demand` der Familie um zwei Stufen (z. B. Familie `light_feeder`, Art `heavy_feeder`) → 🟠 `[AGROBIO-CHECK]` mit Quellenabgleich
 
 ---
 
