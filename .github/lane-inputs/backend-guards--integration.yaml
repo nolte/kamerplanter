@@ -11,8 +11,8 @@ gate:
   filter: integration
 status: measured
 measured_on: '2026-10-13'
-measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
-replay_seconds: 2427
+measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
+replay_seconds: 2575
 job_spec_sha256: e536e82a39c292017b34784d666dc1e6abc5c7b22f87d7c4de195e5b6ea96c0c
 invocations:
 - command: task test:backend:integration
