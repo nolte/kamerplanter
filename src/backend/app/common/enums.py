@@ -1896,6 +1896,20 @@ class SecurityAuditVia(StrEnum):
     LIGHT_MODE_TAKEOVER = "light_mode_takeover"
 
 
+class GeometryKind(StrEnum):
+    """Shape of a garden-plan geometry (REQ-053 §20.1, GP-FR-005).
+
+    Area shapes (``rect``, ``circle``, ``polygon``) carry an ``area_m2``; line
+    objects (``polyline``) and positions (``point``) do not.
+    """
+
+    RECT = "rect"
+    CIRCLE = "circle"
+    POLYGON = "polygon"
+    POLYLINE = "polyline"
+    POINT = "point"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

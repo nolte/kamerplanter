@@ -1,0 +1,2155 @@
+{
+  "format_version": 1,
+  "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004",
+  "description": [
+    "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
+    "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
+    "src/backend/app/domain/models/geometry.py; the TypeScript port (features/gardenPlanner/model/geometry.ts)",
+    "runs against this same file. One test per side reads the file - a test that copies these cases inline",
+    "certifies nothing.",
+    "Every case has: id (stable, never reused), operation, spec (the rule it pins), input, expected and an optional",
+    "tolerance (absolute, in the unit of the expected value; default_tolerance applies when omitted).",
+    "Booleans and string lists are compared exactly; numbers and number lists within the tolerance."
+  ],
+  "units": {
+    "length": "m",
+    "angle": "deg (counter-clockwise about +x)",
+    "area": "m2"
+  },
+  "default_tolerance": 0.001,
+  "conventions": [
+    "anchor: rect.origin (lower-left corner before rotation), circle/point.origin (centre), first vertex of polygon/polyline.",
+    "rotation pivots about the anchor; p_plan = anchor + R(rotation_deg) * p_bed (§9.2).",
+    "local (bed) frame: anchor at (0,0), no rotation - slots are expressed in the bed frame of their location. Because the anchor of a circular bed is its centre (and of a polygon bed its first vertex), slot coordinates are legitimately negative; the bed frame therefore accepts -1000 <= x,y <= 1000 (placeholder until the spec fixes the range - see the needs-decision issue linked from #2321), the plan frame 0 <= x,y <= 1000 (V-01).",
+    "rounding: the exact binary value is rounded to 3 decimals with ties away from zero - Python Decimal(value).quantize(Decimal('0.001'), ROUND_HALF_UP), TypeScript Number(value.toFixed(3)). Not Math.round(x*1000)/1000 and not Python's built-in round() (ties to even). -0.0 is stored as 0.0. rotation_deg is range-checked on the input (0 <= r < 360); an input below 360 that rounds to 360.000 is stored as 0.0; a negative input is invalid.",
+    "V-01 field types are strict: a number is required, a string ('1.5') or boolean is invalid; an integer is accepted as a float.",
+    "area_m2, bbox and centroid are rounded to 0.001 m / m2 (GP-FR-004); predicates work on unrounded values.",
+    "bbox = [min_x, min_y, max_x, max_y] after rotation; a polyline's bbox includes its stroke (+- width_m / 2 on every side). Containment of a polyline uses its vertices only (V-03 wording), so a fence drawn on the boundary passes V-03 although its stroke sticks out - a deliberate asymmetry.",
+    "centroid: area centroid for rect/circle/polygon, vertex mean for polyline, the point itself for point; computed in the local frame and transformed afterwards.",
+    "contains(parent, child, tolerance_m = 0.01, inset_m = 0): every child vertex (the 4 transformed corners of a rotated rect) is at least inset_m - tolerance_m inside the parent; a circle child is checked by centre distance + radius; against a polygon parent every child edge is split at its meetings with parent edges and each piece's midpoint must be inside (a child edge through parent vertices into a concave notch is rejected); with an inset every parent vertex must keep inset_m - tolerance_m from every child edge (reflex corners). mode 'plan' resolves both geometries in the frame they are expressed in (V-03); mode 'bed' resolves the parent in its own local frame and the child as given (V-04, slot in bed frame; the child is then parsed with frame 'bed').",
+    "overlaps(a, b, tolerance_m = 0.01): true only when the shapes penetrate by more than tolerance_m - beds sharing an edge do not overlap. bbox pre-test, then separating-axis test for convex polygons (projection overlap > tolerance on every axis), for concave ones: a proper edge crossing with all four ends more than the tolerance from the other line, or a vertex more than the tolerance inside the other, or an inward probe at tolerance/2 behind an edge midpoint that is at least tolerance/2 inside the other shape (identical and coincident-edge shapes). Both tests give the same verdict for parallel edges and corner penetration. Circles by distance formulas. point and polyline never overlap anything.",
+    "is_simple (V-02): no two non-adjacent edges meet (a revisited vertex is a self-touch), no edge folds back onto its neighbour, no zero-length edge, area > 0. contains/overlaps assume V-02 passed.",
+    "validate_model (V-01): expected.valid; when valid and expected.normalized is present, parsing must yield exactly that; input.frame ('plan' default | 'bed') selects the coordinate range.",
+    "resolved_area: shoelace over the vertices of the resolved (rotated) shape, rounded to 0.001 - the proof that rotation preserves area along the port's own transform path."
+  ],
+  "operations": {
+    "area": "input.geometry -> expected number (m2)",
+    "bbox": "input.geometry -> expected [min_x, min_y, max_x, max_y]",
+    "centroid": "input.geometry -> expected [x, y]",
+    "is_simple": "input.geometry (polygon) -> expected boolean",
+    "validate": "input.geometry -> expected list of domain error codes (empty = valid)",
+    "contains": "input.parent, input.child, input.mode ('plan' | 'bed'), optional input.tolerance_m, input.inset_m -> expected boolean; in mode 'bed' the child is parsed with frame 'bed'",
+    "overlaps": "input.a, input.b, optional input.tolerance_m -> expected boolean",
+    "bed_to_plan": "input.bed, input.point (bed frame) -> expected [x, y] (plan frame)",
+    "plan_to_bed": "input.bed, input.point (plan frame) -> expected [x, y] (bed frame)",
+    "validate_model": "input.geometry (raw mapping), optional input.frame ('plan' | 'bed') -> expected {valid: boolean, normalized?: geometry}",
+    "resolved_area": "input.geometry (rect | polygon) -> expected number (m2): shoelace over the resolved, rotated vertices"
+  },
+  "cases": [
+    {
+      "id": "area-rect-001",
+      "operation": "area",
+      "spec": "GP-FR-006, §20.1 example",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        }
+      },
+      "expected": 3.6
+    },
+    {
+      "id": "area-rect-002-rotation-invariant",
+      "operation": "area",
+      "spec": "GP-NFR-012 (rotation preserves area)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [1.0, 1.0],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 90.0
+        }
+      },
+      "expected": 2.0
+    },
+    {
+      "id": "area-circle-001",
+      "operation": "area",
+      "spec": "GP-FR-006, §20.1 example",
+      "input": {
+        "geometry": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        }
+      },
+      "expected": 0.503
+    },
+    {
+      "id": "area-polygon-001-acc-003",
+      "operation": "area",
+      "spec": "GP-ACC-003",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        }
+      },
+      "expected": 12.0
+    },
+    {
+      "id": "area-polygon-002-acc-003-rotated-37",
+      "operation": "area",
+      "spec": "GP-ACC-003 (rotation_deg = 37 keeps 12.000)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]],
+          "rotation_deg": 37.0
+        }
+      },
+      "expected": 12.0
+    },
+    {
+      "id": "area-polygon-003-spec-example",
+      "operation": "area",
+      "spec": "GP-FR-006 (shoelace), §20.1 example polygon",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]]
+        }
+      },
+      "expected": 8.61
+    },
+    {
+      "id": "area-polyline-001-has-no-area",
+      "operation": "area",
+      "spec": "GP-FR-006 (area only for rect/circle/polygon)",
+      "input": {
+        "geometry": {
+          "kind": "polyline",
+          "points": [[0, 5], [12, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": 0.0
+    },
+    {
+      "id": "area-point-001-has-no-area",
+      "operation": "area",
+      "spec": "GP-FR-006",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [0.3, 0.3]
+        }
+      },
+      "expected": 0.0
+    },
+    {
+      "id": "bbox-rect-001-spec-20-1-rotation-example",
+      "operation": "bbox",
+      "spec": "§20.1 worked example (GP-FR-007/008): corners (1,1),(1,3),(0,3),(0,1)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [1.0, 1.0],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 90.0
+        }
+      },
+      "expected": [0.0, 1.0, 1.0, 3.0]
+    },
+    {
+      "id": "bbox-rect-002-axis-aligned",
+      "operation": "bbox",
+      "spec": "GP-FR-007",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2
+        }
+      },
+      "expected": [2.0, 3.5, 5.0, 4.7]
+    },
+    {
+      "id": "bbox-rect-003-rotated-45",
+      "operation": "bbox",
+      "spec": "GP-FR-007/008",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [5.0, 5.0],
+          "width_m": 2.0,
+          "length_m": 2.0,
+          "rotation_deg": 45.0
+        }
+      },
+      "expected": [3.586, 5.0, 6.414, 7.828]
+    },
+    {
+      "id": "bbox-circle-001",
+      "operation": "bbox",
+      "spec": "GP-FR-007",
+      "input": {
+        "geometry": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        }
+      },
+      "expected": [7.85, 0.6, 8.65, 1.4]
+    },
+    {
+      "id": "bbox-polygon-001-spec-example",
+      "operation": "bbox",
+      "spec": "GP-FR-007",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]]
+        }
+      },
+      "expected": [0.0, 0.0, 4.2, 2.6]
+    },
+    {
+      "id": "bbox-polygon-002-rotated-90-about-first-vertex",
+      "operation": "bbox",
+      "spec": "GP-FR-007/008 (polygon pivots about its first vertex)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]],
+          "rotation_deg": 90.0
+        }
+      },
+      "expected": [-3.0, 0.0, 0.0, 4.0]
+    },
+    {
+      "id": "bbox-polygon-003-acc-003-rotated-37",
+      "operation": "bbox",
+      "spec": "GP-FR-007/008",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]],
+          "rotation_deg": 37.0
+        }
+      },
+      "expected": [-1.805, 0.0, 3.195, 4.803]
+    },
+    {
+      "id": "bbox-polyline-001-includes-stroke",
+      "operation": "bbox",
+      "spec": "GP-FR-007 (polyline box includes width_m / 2 on every side)",
+      "input": {
+        "geometry": {
+          "kind": "polyline",
+          "points": [[0, 5], [12, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": [-0.4, 4.6, 12.4, 5.4]
+    },
+    {
+      "id": "bbox-point-001-degenerate",
+      "operation": "bbox",
+      "spec": "GP-FR-007",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [0.3, 0.3]
+        }
+      },
+      "expected": [0.3, 0.3, 0.3, 0.3]
+    },
+    {
+      "id": "centroid-rect-001-rotated-90",
+      "operation": "centroid",
+      "spec": "§20.1 derived centroid",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [1.0, 1.0],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 90.0
+        }
+      },
+      "expected": [0.5, 2.0]
+    },
+    {
+      "id": "centroid-circle-001",
+      "operation": "centroid",
+      "spec": "§20.1 derived centroid",
+      "input": {
+        "geometry": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        }
+      },
+      "expected": [8.25, 1.0]
+    },
+    {
+      "id": "centroid-polygon-001-rectangle",
+      "operation": "centroid",
+      "spec": "§20.1 derived centroid",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        }
+      },
+      "expected": [2.0, 1.5]
+    },
+    {
+      "id": "centroid-polygon-002-spec-example-area-centroid",
+      "operation": "centroid",
+      "spec": "§20.1 derived centroid (area-weighted, not vertex mean)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]]
+        }
+      },
+      "expected": [2.091, 1.05]
+    },
+    {
+      "id": "centroid-polyline-001-vertex-mean",
+      "operation": "centroid",
+      "spec": "§20.1 derived centroid",
+      "input": {
+        "geometry": {
+          "kind": "polyline",
+          "points": [[0, 5], [12, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": [6.0, 5.0]
+    },
+    {
+      "id": "centroid-point-001",
+      "operation": "centroid",
+      "spec": "§20.1 derived centroid",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [0.3, 0.3]
+        }
+      },
+      "expected": [0.3, 0.3]
+    },
+    {
+      "id": "simple-001-acc-004-bowtie",
+      "operation": "is_simple",
+      "spec": "GP-ACC-004, V-02",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [2, 2], [2, 0], [0, 2]]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "simple-002-rectangle",
+      "operation": "is_simple",
+      "spec": "V-02",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "simple-003-concave-l-shape",
+      "operation": "is_simple",
+      "spec": "V-02 (concave is still simple)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "simple-004-spec-example",
+      "operation": "is_simple",
+      "spec": "V-02",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]]
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "simple-005-collinear-degenerate",
+      "operation": "is_simple",
+      "spec": "V-02 (zero area is not a polygon)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [1, 0], [2, 0]]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "simple-006-revisited-vertex",
+      "operation": "is_simple",
+      "spec": "V-02 (a vertex visited twice is a self-touch)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [2, 0], [1, 1], [2, 2], [0, 2], [1, 1]]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "validate-001-acc-004-self-intersecting",
+      "operation": "validate",
+      "spec": "GP-ACC-004 (returns geometry.self_intersecting)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [2, 2], [2, 0], [0, 2]]
+        }
+      },
+      "expected": [
+        "geometry.self_intersecting"
+      ]
+    },
+    {
+      "id": "validate-002-simple-polygon-is-clean",
+      "operation": "validate",
+      "spec": "V-02",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        }
+      },
+      "expected": []
+    },
+    {
+      "id": "validate-003-rect-has-no-domain-rule",
+      "operation": "validate",
+      "spec": "V-02 applies to polygons only",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2
+        }
+      },
+      "expected": []
+    },
+    {
+      "id": "contains-001-rect-inside-rect",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [2, 2],
+          "width_m": 3,
+          "length_m": 1.2
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-002-rect-sticks-out",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [8, 2],
+          "width_m": 3,
+          "length_m": 1.2
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-003-child-on-the-edge",
+      "operation": "contains",
+      "spec": "V-03 (edge-to-edge is inside)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [7, 2],
+          "width_m": 3,
+          "length_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-004-protrudes-5mm-within-tolerance",
+      "operation": "contains",
+      "spec": "V-03 (tolerance 1 cm)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [7.005, 2],
+          "width_m": 3,
+          "length_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-005-protrudes-2cm-beyond-tolerance",
+      "operation": "contains",
+      "spec": "V-03 (tolerance 1 cm)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [7.02, 2],
+          "width_m": 3,
+          "length_m": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-006-rotated-child-corners-inside",
+      "operation": "contains",
+      "spec": "V-03 (the 4 transformed corners of a rotated rect), §20.1 example",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [1, 1],
+          "width_m": 2,
+          "length_m": 1,
+          "rotation_deg": 90
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-007-rotated-child-corner-outside",
+      "operation": "contains",
+      "spec": "V-03 (rotation moves a corner to x = -0.5)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [0.5, 1],
+          "width_m": 2,
+          "length_m": 1,
+          "rotation_deg": 90
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-008-circle-inside-polygon",
+      "operation": "contains",
+      "spec": "V-03 (circle by centre distance + radius)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [2, 1.5],
+          "radius_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-009-circle-too-large-for-polygon",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [2, 1.5],
+          "radius_m": 1.6
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-010-rect-inside-circle",
+      "operation": "contains",
+      "spec": "V-03 (circle parent: every vertex within the radius)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "circle",
+          "origin": [5, 5],
+          "radius_m": 3
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [3, 3],
+          "width_m": 4,
+          "length_m": 4
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-011-rect-corner-outside-circle",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "circle",
+          "origin": [5, 5],
+          "radius_m": 3
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [3, 3],
+          "width_m": 5,
+          "length_m": 5
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-012-circle-inside-circle-touching",
+      "operation": "contains",
+      "spec": "V-03 (internally tangent is inside)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "circle",
+          "origin": [5, 5],
+          "radius_m": 3
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [6, 5],
+          "radius_m": 2
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-013-circle-protrudes-from-circle",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "circle",
+          "origin": [5, 5],
+          "radius_m": 3
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [6, 5],
+          "radius_m": 2.05
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-014-point-inside-polygon",
+      "operation": "contains",
+      "spec": "V-03 (point-in-polygon)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]]
+        },
+        "child": {
+          "kind": "point",
+          "origin": [2, 2]
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-015-point-outside-polygon",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]]
+        },
+        "child": {
+          "kind": "point",
+          "origin": [4, 2.5]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-016-concave-parent-child-in-bar",
+      "operation": "contains",
+      "spec": "V-03 (concave parent)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [0.5, 0.5],
+          "width_m": 3,
+          "length_m": 0.3
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-017-concave-parent-vertex-in-notch",
+      "operation": "contains",
+      "spec": "V-03 (a corner lands in the notch)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "child": {
+          "kind": "rect",
+          "origin": [0.5, 0.5],
+          "width_m": 3,
+          "length_m": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-018-concave-parent-edge-crosses-notch",
+      "operation": "contains",
+      "spec": "V-03 (all vertices inside, but an edge cuts across the notch)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "child": {
+          "kind": "polygon",
+          "points": [[0.5, 3.5], [3.5, 0.5], [3.6, 0.6]]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-019-polyline-inside-rect",
+      "operation": "contains",
+      "spec": "V-03 (polyline checked by its vertices)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "polyline",
+          "points": [[1, 5], [9, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-020-polyline-leaves-rect",
+      "operation": "contains",
+      "spec": "V-03",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "child": {
+          "kind": "polyline",
+          "points": [[1, 5], [11, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-021-slot-in-rotated-bed-with-inset",
+      "operation": "contains",
+      "spec": "V-04 (slot in bed frame, edge margin as inset; bed rotation is irrelevant in its own frame)",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30
+        },
+        "child": {
+          "kind": "point",
+          "origin": [0.3, 0.3]
+        },
+        "inset_m": 0.25
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-022-slot-violates-inset",
+      "operation": "contains",
+      "spec": "V-04",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30
+        },
+        "child": {
+          "kind": "point",
+          "origin": [0.3, 0.3]
+        },
+        "inset_m": 0.35
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-023-slot-centre-line-inset-ok",
+      "operation": "contains",
+      "spec": "V-04",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30
+        },
+        "child": {
+          "kind": "point",
+          "origin": [1.5, 0.6]
+        },
+        "inset_m": 0.5
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-024-slot-centre-line-inset-too-large",
+      "operation": "contains",
+      "spec": "V-04",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30
+        },
+        "child": {
+          "kind": "point",
+          "origin": [1.5, 0.6]
+        },
+        "inset_m": 0.65
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-025-zone-slot-with-inset",
+      "operation": "contains",
+      "spec": "V-04 (zone slot = circle, radius + inset against the bed edge)",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [1.5, 0.6],
+          "radius_m": 0.5
+        },
+        "inset_m": 0.05
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-026-zone-slot-inset-exceeded",
+      "operation": "contains",
+      "spec": "V-04",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [1.5, 0.6],
+          "radius_m": 0.5
+        },
+        "inset_m": 0.2
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-027-edge-through-two-parent-vertices",
+      "operation": "contains",
+      "spec": "V-03 (every vertex inside, the edge (3,3)-(0.5,0.5) runs through parent vertices (3,3) and (1,1) across the notch)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [3, 3], [3, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "child": {
+          "kind": "polygon",
+          "points": [[0.5, 0.5], [3.5, 0.5], [3, 3]]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-028-inset-near-reflex-vertex",
+      "operation": "contains",
+      "spec": "V-04 (all vertices keep the inset, the edge x + y = 1.95 passes 3.5 cm from the reflex corner (1,1))",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "child": {
+          "kind": "polygon",
+          "points": [[0.5, 1.45], [1.45, 0.5], [0.5, 0.5]]
+        },
+        "inset_m": 0.25
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-029-same-child-without-inset",
+      "operation": "contains",
+      "spec": "V-03 (the contains-028 child is inside once no inset is required)",
+      "input": {
+        "mode": "plan",
+        "parent": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "child": {
+          "kind": "polygon",
+          "points": [[0.5, 1.45], [1.45, 0.5], [0.5, 0.5]]
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-030-slot-in-circular-bed-negative-coordinates",
+      "operation": "contains",
+      "spec": "V-04, §9.2 (bed frame of a circle has its origin at the centre)",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        },
+        "child": {
+          "kind": "point",
+          "origin": [-0.1, 0.2]
+        },
+        "inset_m": 0.1
+      },
+      "expected": true
+    },
+    {
+      "id": "contains-031-slot-in-circular-bed-inset-exceeded",
+      "operation": "contains",
+      "spec": "V-04 (distance to the rim 0.176 < inset 0.2)",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        },
+        "child": {
+          "kind": "point",
+          "origin": [-0.1, 0.2]
+        },
+        "inset_m": 0.2
+      },
+      "expected": false
+    },
+    {
+      "id": "contains-032-slot-in-polygon-bed-negative-coordinates",
+      "operation": "contains",
+      "spec": "V-04, §9.2 (polygon bed anchored at a vertex that is not the lower-left corner)",
+      "input": {
+        "mode": "bed",
+        "parent": {
+          "kind": "polygon",
+          "points": [[4, 0], [4, 3], [0, 3], [0, 0]]
+        },
+        "child": {
+          "kind": "circle",
+          "origin": [-2.0, 1.5],
+          "radius_m": 0.3
+        },
+        "inset_m": 0.1
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-001-rects-apart",
+      "operation": "overlaps",
+      "spec": "V-05 (bbox pre-test)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [5, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-002-rects-share-an-edge",
+      "operation": "overlaps",
+      "spec": "V-05 (touching is not overlapping)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [3, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-003-rects-penetrate-5mm-within-tolerance",
+      "operation": "overlaps",
+      "spec": "V-05 (tolerance 1 cm)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [2.995, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-004-rects-penetrate-2cm",
+      "operation": "overlaps",
+      "spec": "V-05",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [2.98, 0],
+          "width_m": 3,
+          "length_m": 1.2
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-005-rect-fully-inside-rect",
+      "operation": "overlaps",
+      "spec": "V-05 (containment is overlap)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [2, 2],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-006-rotated-rect-crosses",
+      "operation": "overlaps",
+      "spec": "V-05 (SAT, rotated rect)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 4,
+          "length_m": 1
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [4.5, 0],
+          "width_m": 4,
+          "length_m": 1,
+          "rotation_deg": 90
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-007-rotated-rect-clear",
+      "operation": "overlaps",
+      "spec": "V-05",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 4,
+          "length_m": 1
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [5.5, 0],
+          "width_m": 4,
+          "length_m": 1,
+          "rotation_deg": 90
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-008-bboxes-overlap-but-sat-separates",
+      "operation": "overlaps",
+      "spec": "V-05 (bbox pre-test alone would say yes; the diamond clears the corner)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 4,
+          "length_m": 1
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [4.3, 0.8],
+          "width_m": 2,
+          "length_m": 2,
+          "rotation_deg": 45
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-009-diamond-covers-the-corner",
+      "operation": "overlaps",
+      "spec": "V-05 (SAT)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 4,
+          "length_m": 1
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [4.0, 0.8],
+          "width_m": 2,
+          "length_m": 2,
+          "rotation_deg": 45
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-010-concave-notch-is-free",
+      "operation": "overlaps",
+      "spec": "V-05 (edge test for concave shapes; bbox pre-test would say yes)",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [2, 2],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-011-concave-corner-overlap",
+      "operation": "overlaps",
+      "spec": "V-05",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [0.5, 0.5],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-012-concave-bar-overlap",
+      "operation": "overlaps",
+      "spec": "V-05",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [2, 0.5],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-013-circles-tangent",
+      "operation": "overlaps",
+      "spec": "V-06 (zone slots as circles; tangent is not overlapping)",
+      "input": {
+        "a": {
+          "kind": "circle",
+          "origin": [5, 5],
+          "radius_m": 1
+        },
+        "b": {
+          "kind": "circle",
+          "origin": [7, 5],
+          "radius_m": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-014-circles-penetrate",
+      "operation": "overlaps",
+      "spec": "V-06",
+      "input": {
+        "a": {
+          "kind": "circle",
+          "origin": [5, 5],
+          "radius_m": 1
+        },
+        "b": {
+          "kind": "circle",
+          "origin": [6.9, 5],
+          "radius_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-015-circle-tangent-to-polygon",
+      "operation": "overlaps",
+      "spec": "V-05/V-06 (circle vs polygon by centre distance)",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        },
+        "b": {
+          "kind": "circle",
+          "origin": [5, 1.5],
+          "radius_m": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-016-circle-penetrates-polygon",
+      "operation": "overlaps",
+      "spec": "V-05/V-06",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        },
+        "b": {
+          "kind": "circle",
+          "origin": [4.9, 1.5],
+          "radius_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-017-circle-inside-polygon",
+      "operation": "overlaps",
+      "spec": "V-05/V-06",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]]
+        },
+        "b": {
+          "kind": "circle",
+          "origin": [2, 1.5],
+          "radius_m": 0.5
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-018-point-has-no-overlap-notion",
+      "operation": "overlaps",
+      "spec": "V-06 (positions never overlap)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "b": {
+          "kind": "point",
+          "origin": [1, 1]
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-019-polyline-has-no-area",
+      "operation": "overlaps",
+      "spec": "V-05 (line objects do not take part)",
+      "input": {
+        "a": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 10,
+          "length_m": 10
+        },
+        "b": {
+          "kind": "polyline",
+          "points": [[1, 5], [9, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-020-identical-narrow-concave",
+      "operation": "overlaps",
+      "spec": "V-05 (identical 2 cm wide L-shapes overlap; the verdict must not depend on convexity)",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [1, 0], [1, 0.02], [0.02, 0.02], [0.02, 1], [0, 1]]
+        },
+        "b": {
+          "kind": "polygon",
+          "points": [[0, 0], [1, 0], [1, 0.02], [0.02, 0.02], [0.02, 1], [0, 1]]
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "overlaps-021-concave-beside-8mm",
+      "operation": "overlaps",
+      "spec": "V-05 (edge test, parallel edges: 8 mm penetration is within tolerance)",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [3.992, 0],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": false
+    },
+    {
+      "id": "overlaps-022-concave-beside-12mm",
+      "operation": "overlaps",
+      "spec": "V-05 (edge test, parallel edges: 12 mm penetration overlaps - same verdict SAT gives two rects)",
+      "input": {
+        "a": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]]
+        },
+        "b": {
+          "kind": "rect",
+          "origin": [3.988, 0],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": true
+    },
+    {
+      "id": "transform-001-spec-20-1-corner",
+      "operation": "bed_to_plan",
+      "spec": "§9.2 p_plan = origin + R(rot) * p_bed; §20.1 corner (1,3)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [1.0, 1.0],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 90.0
+        },
+        "point": [2.0, 0.0]
+      },
+      "expected": [1.0, 3.0]
+    },
+    {
+      "id": "transform-002-spec-20-1-far-corner",
+      "operation": "bed_to_plan",
+      "spec": "§20.1 corner (0,3)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [1.0, 1.0],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 90.0
+        },
+        "point": [2.0, 1.0]
+      },
+      "expected": [0.0, 3.0]
+    },
+    {
+      "id": "transform-003-rotation-30",
+      "operation": "bed_to_plan",
+      "spec": "§9.2",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 30.0
+        },
+        "point": [1.0, 0.0]
+      },
+      "expected": [2.866, 4.0]
+    },
+    {
+      "id": "transform-004-polygon-anchor-is-first-vertex",
+      "operation": "bed_to_plan",
+      "spec": "§9.2 (polygon bed: anchor = first vertex)",
+      "input": {
+        "bed": {
+          "kind": "polygon",
+          "points": [[1, 1], [4, 1], [4, 3], [1, 3]]
+        },
+        "point": [0.5, 0.5]
+      },
+      "expected": [1.5, 1.5]
+    },
+    {
+      "id": "transform-005-circle-anchor-is-centre",
+      "operation": "bed_to_plan",
+      "spec": "§9.2 (circle bed: anchor = centre, no rotation)",
+      "input": {
+        "bed": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        },
+        "point": [0.1, 0.2]
+      },
+      "expected": [8.35, 1.2]
+    },
+    {
+      "id": "transform-006-inverse",
+      "operation": "plan_to_bed",
+      "spec": "§9.2 (inverse transform)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [1.0, 1.0],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 90.0
+        },
+        "point": [0.0, 3.0]
+      },
+      "expected": [2.0, 1.0]
+    },
+    {
+      "id": "model-001-rect-spec-example",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-002-circle-spec-example",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "circle",
+          "origin": [8.25, 1.0],
+          "radius_m": 0.4
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-003-polygon-spec-example",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4.2, 0], [4.2, 1.5], [2.0, 2.6], [0, 1.5]],
+          "rotation_deg": 0.0
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-004-polyline-spec-example",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "polyline",
+          "points": [[0, 5], [12, 5]],
+          "width_m": 0.8
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-005-point-spec-example",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [0.3, 0.3]
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-006-rounds-to-millimetres",
+      "operation": "validate_model",
+      "spec": "GP-FR-004 (3 decimals)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0004, 3.5006],
+          "width_m": 1.23456,
+          "length_m": 0.9995,
+          "rotation_deg": 12.3456
+        }
+      },
+      "expected": {
+        "valid": true,
+        "normalized": {
+          "kind": "rect",
+          "origin": [2.0, 3.501],
+          "width_m": 1.235,
+          "length_m": 1.0,
+          "rotation_deg": 12.346
+        }
+      }
+    },
+    {
+      "id": "model-007-width-zero",
+      "operation": "validate_model",
+      "spec": "V-01 (dimensions > 0, minimum 0.01)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 0,
+          "length_m": 1
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-008-width-below-minimum",
+      "operation": "validate_model",
+      "spec": "V-01 (0.004 rounds to 0.0)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 0.004,
+          "length_m": 1
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-009-width-above-maximum",
+      "operation": "validate_model",
+      "spec": "V-01, GP-FR-013 (1 000 m)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 1000.5,
+          "length_m": 1
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-010-width-at-maximum",
+      "operation": "validate_model",
+      "spec": "V-01 (1 000 m inclusive)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 1000,
+          "length_m": 1000
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-011-negative-coordinate",
+      "operation": "validate_model",
+      "spec": "V-01 (0 <= x,y <= 1 000)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [-1, 0],
+          "width_m": 1,
+          "length_m": 1
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-012-coordinate-above-1000",
+      "operation": "validate_model",
+      "spec": "V-01",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [1000.001, 0]
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-013-rotation-360",
+      "operation": "validate_model",
+      "spec": "V-01 (0 <= r < 360 on the input: exactly 360 is invalid, 359.9996 is not - see model-026)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 1,
+          "length_m": 1,
+          "rotation_deg": 360
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-014-rotation-359-999",
+      "operation": "validate_model",
+      "spec": "V-01 (359.999 is the top)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 1,
+          "length_m": 1,
+          "rotation_deg": 359.999
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-015-rotation-negative",
+      "operation": "validate_model",
+      "spec": "V-01",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 1,
+          "length_m": 1,
+          "rotation_deg": -1
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-016-polygon-two-points",
+      "operation": "validate_model",
+      "spec": "V-01 (polygon >= 3 points)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [1, 1]]
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-017-polyline-one-point",
+      "operation": "validate_model",
+      "spec": "V-01 (polyline >= 2 points)",
+      "input": {
+        "geometry": {
+          "kind": "polyline",
+          "points": [[0, 0]],
+          "width_m": 0.5
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-018-circle-rejects-rotation",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1 (rotation_deg not allowed for circle)",
+      "input": {
+        "geometry": {
+          "kind": "circle",
+          "origin": [1, 1],
+          "radius_m": 0.5,
+          "rotation_deg": 10
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-019-polyline-rejects-rotation",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "polyline",
+          "points": [[0, 5], [12, 5]],
+          "width_m": 0.8,
+          "rotation_deg": 0
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-020-point-rejects-rotation",
+      "operation": "validate_model",
+      "spec": "V-01, §20.1",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [0.3, 0.3],
+          "rotation_deg": 0
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-021-polygon-accepts-rotation",
+      "operation": "validate_model",
+      "spec": "V-01, GP-ACC-003 (rotation_deg = 37 on a polygon)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]],
+          "rotation_deg": 37
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-022-unknown-kind",
+      "operation": "validate_model",
+      "spec": "V-01",
+      "input": {
+        "geometry": {
+          "kind": "ellipse",
+          "origin": [1, 1],
+          "radius_m": 0.5
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-023-self-intersecting-polygon-passes-v-01",
+      "operation": "validate_model",
+      "spec": "V-01 vs V-02: the bow-tie parses; simplicity is the domain rule (see validate-001)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [2, 2], [2, 0], [0, 2]]
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-024-tie-rounds-away-from-zero",
+      "operation": "validate_model",
+      "spec": "GP-FR-004 rounding rule (2.0625 is an exact binary tie)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0625, 0.0625],
+          "width_m": 1.0005,
+          "length_m": 2.0015
+        }
+      },
+      "expected": {
+        "valid": true,
+        "normalized": {
+          "kind": "rect",
+          "origin": [2.063, 0.063],
+          "width_m": 1.0,
+          "length_m": 2.002,
+          "rotation_deg": 0.0
+        }
+      }
+    },
+    {
+      "id": "model-025-dimension-just-below-minimum-after-rounding",
+      "operation": "validate_model",
+      "spec": "V-01 (0.0045 is binary-below the tie and rounds to 0.004)",
+      "input": {
+        "geometry": {
+          "kind": "circle",
+          "origin": [1, 1],
+          "radius_m": 0.0045
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-026-rotation-rounds-to-full-turn-wraps",
+      "operation": "validate_model",
+      "spec": "V-01 on the input (359.9996 < 360 is legal); it rounds to 360.000 and is stored as 0.0",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": 1,
+          "length_m": 1,
+          "rotation_deg": 359.9996
+        }
+      },
+      "expected": {
+        "valid": true,
+        "normalized": {
+          "kind": "rect",
+          "origin": [0.0, 0.0],
+          "width_m": 1.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        }
+      }
+    },
+    {
+      "id": "model-027-negative-zero-is-zero",
+      "operation": "validate_model",
+      "spec": "V-01 (-0.0004 rounds to 0.0, not -0.0)",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [-0.0004, 0.0]
+        }
+      },
+      "expected": {
+        "valid": true,
+        "normalized": {
+          "kind": "point",
+          "origin": [0.0, 0.0]
+        }
+      }
+    },
+    {
+      "id": "model-028-bed-frame-allows-negative-coordinates",
+      "operation": "validate_model",
+      "spec": "§9.2 (slot in the bed frame of a circular bed)",
+      "input": {
+        "frame": "bed",
+        "geometry": {
+          "kind": "point",
+          "origin": [-0.1, 0.2]
+        }
+      },
+      "expected": {
+        "valid": true
+      }
+    },
+    {
+      "id": "model-029-bed-frame-still-bounded",
+      "operation": "validate_model",
+      "spec": "§9.2 placeholder range -1000..1000",
+      "input": {
+        "frame": "bed",
+        "geometry": {
+          "kind": "point",
+          "origin": [-1000.001, 0.2]
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-030-string-dimension-is-invalid",
+      "operation": "validate_model",
+      "spec": "V-01 (strict numbers)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [0, 0],
+          "width_m": "1.5",
+          "length_m": 1
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-031-boolean-coordinate-is-invalid",
+      "operation": "validate_model",
+      "spec": "V-01 (strict numbers)",
+      "input": {
+        "geometry": {
+          "kind": "point",
+          "origin": [true, 0]
+        }
+      },
+      "expected": {
+        "valid": false
+      }
+    },
+    {
+      "id": "model-032-integer-is-a-valid-number",
+      "operation": "validate_model",
+      "spec": "V-01 (an integer literal is a number)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [1, 2],
+          "width_m": 3,
+          "length_m": 4
+        }
+      },
+      "expected": {
+        "valid": true,
+        "normalized": {
+          "kind": "rect",
+          "origin": [1.0, 2.0],
+          "width_m": 3.0,
+          "length_m": 4.0,
+          "rotation_deg": 0.0
+        }
+      }
+    },
+    {
+      "id": "resolved-area-001-rect-rotated-37",
+      "operation": "resolved_area",
+      "spec": "GP-NFR-012 (rotation preserves area through the transform)",
+      "input": {
+        "geometry": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 37.0
+        }
+      },
+      "expected": 3.6
+    },
+    {
+      "id": "resolved-area-002-acc-003-polygon-rotated-37",
+      "operation": "resolved_area",
+      "spec": "GP-ACC-003 (12.000 after rotating the vertices by 37 deg)",
+      "input": {
+        "geometry": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [4, 3], [0, 3]],
+          "rotation_deg": 37.0
+        }
+      },
+      "expected": 12.0
+    }
+  ]
+}
