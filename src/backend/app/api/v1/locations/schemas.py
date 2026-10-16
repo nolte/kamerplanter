@@ -16,7 +16,6 @@ class LocationCreate(BaseModel):
     orientation: Orientation | None = None
     light_type: LightType = LightType.NATURAL
     irrigation_system: IrrigationSystem = IrrigationSystem.MANUAL
-    dimensions: tuple[float, float, float] = (0.0, 0.0, 0.0)
     lights_on: str | None = None
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
@@ -38,7 +37,6 @@ class LocationResponse(BaseModel):
     orientation: Orientation | None
     light_type: LightType
     irrigation_system: IrrigationSystem
-    dimensions: tuple[float, float, float]
     lights_on: str | None = None
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False

@@ -505,7 +505,10 @@ class DataExportEngine:
             collection="slots",
             personal_tenant_scope=_VIA_LOCATION_AND_SITE,
             label="Your personal garden: slots",
-            fields=["_key", "slot_id", "location_key", "position", "capacity_plants", "created_at"],
+            # The legacy ``position`` grid cell left with REQ-053 WP 1.5 (#2324); its
+            # successors ``geometry``/``row_index``/``sequence`` join once WP 1.7 puts
+            # them on the model (``test_privacy_engines`` binds every field to it).
+            fields=["_key", "slot_id", "location_key", "capacity_plants", "created_at"],
         ),
         DataSourceDefinition(
             collection="plant_instances",

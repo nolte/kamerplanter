@@ -1953,8 +1953,9 @@ class GeometryKind(StrEnum):
 class GeometrySource(StrEnum):
     """Where a slot's geometry came from (REQ-053 §20.5, R-08).
 
-    ``migrated_grid`` marks a point migration M1 derived from the legacy
-    ``Slot.position`` grid cell with the ``pitch_m`` assumption; the editor shows
+    ``migrated_grid`` marks a point migration M1 (v0093) derived from the legacy
+    ``(row, col)`` grid cell — removed in WP 1.5 (#2324) — with the ``pitch_m``
+    assumption; the editor shows
     it as *estimated* until the location is saved once. Additive — a stored value
     is never retired (M-9).
     """

@@ -39,18 +39,25 @@ class SiteWaterConfig(BaseModel):
 
 
 class Slot(BaseModel):
-    """A plant position within a location.
+    """A plant place within a location.
 
     Carries **no** ``tenant_key`` (#2107): its tenant is its location's site's, and
     the field it used to declare was never written — every document held ``""``,
     which read as "global" to any check that trusted it (#1397). Ownership is
     resolved slot → location → site (``location_ownership.resolve_owned_slot``).
+
+    The legacy ``(row, col)`` grid cell is gone from the model (REQ-053 O-02,
+    #2324): migration v0093 derived a bed-frame ``point`` geometry plus
+    ``row_index``/``sequence`` from it, and WP 1.7 brings the model fields that
+    read them. Stored documents **keep** the attribute — v0093 copies, it does
+    not move; the model ignores it on read (``extra="ignore"``) and the
+    repository's merge update never strips an undeclared key, so it stays as the
+    source for a later catch-up run.
     """
 
     key: str | None = Field(default=None, alias="_key")
     slot_id: str
     location_key: str = ""
-    position: tuple[int, int] = (0, 0)
     capacity_plants: int = Field(default=1, ge=1, le=20)
     currently_occupied: bool = False
     last_sanitization: datetime | None = None
@@ -75,7 +82,13 @@ class Location(BaseModel):
     Carries **no** ``tenant_key`` (#2107), for the reason :class:`Slot` gives: the
     site is the tenant anchor (``location_ownership.require_owned_site``). Legacy
     documents may still hold a ``tenant_key`` stamped by migration v0004; it is
-    ignored on read and dropped by the next update.
+    ignored on read, and v0087 unsets it (the repository's merge update does not —
+    an undeclared key survives every PUT).
+
+    The legacy ``(L, W, H)`` extent triple is gone from the model as well (REQ-053
+    O-02, #2324): v0093 derived a ``rect`` geometry and ``height_m`` from it; WP
+    1.7 brings the model fields that read them. As for :class:`Slot`, stored
+    documents keep the attribute and the model ignores it on read.
     """
 
     key: str | None = Field(default=None, alias="_key")
@@ -89,7 +102,6 @@ class Location(BaseModel):
     orientation: Orientation | None = None
     light_type: LightType = LightType.NATURAL
     irrigation_system: IrrigationSystem = IrrigationSystem.MANUAL
-    dimensions: tuple[float, float, float] = (0.0, 0.0, 0.0)
     lights_on: str | None = None
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False

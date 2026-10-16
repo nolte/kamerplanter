@@ -367,7 +367,7 @@ class TestData:
             "rotation_deg": 0.0,
         }
         assert docs["tent"]["height_m"] == 2.0
-        assert docs["tent"]["dimensions"] == [1.2, 1.2, 2.0]  # kept until WP 1.5
+        assert docs["tent"]["dimensions"] == [1.2, 1.2, 2.0]  # never unset; the model ignores it since WP 1.5 (#2324)
         assert (docs["bed"]["geometry"]["width_m"], docs["bed"]["geometry"]["length_m"]) == (1.2, 2.4)
         assert "height_m" not in docs["bed"]
         assert "geometry" not in docs["unset"]
@@ -400,7 +400,7 @@ class TestData:
         assert slots["t22"]["geometry"]["origin"] == [0.6, 0.6]
         assert (slots["t11"]["row_index"], slots["t11"]["sequence"]) == (1, 5)
         assert slots["t11"]["geometry_source"] == "migrated_grid"
-        assert slots["t11"]["position"] == [1, 1]  # kept until WP 1.5
+        assert slots["t11"]["position"] == [1, 1]  # never unset; the model ignores it since WP 1.5 (#2324)
         assert slots["b01"]["geometry"]["origin"] == [0.5, 0.25]  # pitch_m 0.25 of the bed
         # Ranked over all four bed slots — b00, b01, done, broken — so the two written here are 1 and 2.
         assert (slots["b00"]["sequence"], slots["b01"]["sequence"]) == (1, 2)

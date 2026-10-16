@@ -1968,7 +1968,6 @@
       "orientation": "Ausrichtung",
       "lightType": "Beleuchtung",
       "irrigationSystem": "Bewässerungssystem",
-      "dimensions": "Abmessungen (L × B × H)",
       "lightsOn": "Licht Ein",
       "lightsOnHelper": "Uhrzeit Licht-Ein (HH:MM)",
       "lightsOff": "Licht Aus",
@@ -2006,7 +2005,6 @@
       "noSlots": "Noch keine Stellplätze angelegt",
       "slotId": "Stellplatz-ID",
       "slotIdHelper": "Format: BEREICH_POSITION, z. B. 'TENT01_A1' (wird automatisch in Großbuchstaben umgewandelt)",
-      "position": "Position",
       "capacity": "Kapazität",
       "capacityHelper": "Maximale Anzahl Pflanzen pro Stellplatz (1–20)",
       "occupied": "Belegt"
