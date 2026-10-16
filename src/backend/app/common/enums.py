@@ -508,6 +508,23 @@ class PlantingRunStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class LayoutStrategy(StrEnum):
+    """REQ-053 GP-FR-060 — how planting positions are laid out inside a bed.
+
+    ``grid`` sets ``row_spacing = spacing``; ``rows`` carries its own row spacing;
+    ``triangular`` derives ``row_spacing = spacing × 0.866`` (staggered rows);
+    ``zone`` is one area with a capacity (direct sowing); ``free`` is manually
+    placed positions (woody plants). The capacity calculator (GP-FR-073) knows the
+    first three; ``zone``/``free`` carry no per-plant geometry of their own.
+    """
+
+    GRID = "grid"
+    ROWS = "rows"
+    TRIANGULAR = "triangular"
+    ZONE = "zone"
+    FREE = "free"
+
+
 class SuccessionPlanStatus(StrEnum):
     """REQ-013 §2 — lifecycle state of a succession (staggered sowing) plan."""
 
