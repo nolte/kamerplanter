@@ -161,7 +161,21 @@ $defs:
         description: "Range string, e.g. '40--60'"
       spacing_cm:
         type: string
-        description: "Range string, e.g. '50--80'"
+        description: "In-row plant spacing — range string, e.g. '50--80', or a single value '40' (lower value is parsed, GP-FR-061)"
+      # ── Beetplanung (REQ-053 Welle 0, WP 0.5a) — all optional, sourced values only (E-10) ──
+      row_spacing_cm:
+        $ref: "_defs.schema.yaml#/$defs/row_spacing_cm"
+      # `shade_tolerance` (TOLERANCE, four levels incl. deep_shade) and
+      # `light_requirement` (REQUIREMENT, three levels) are two different facts
+      # (O-16/E-05): the requirement says what the bed should offer, the tolerance
+      # how far below that the species still copes (`site_fit` marginal zone).
+      # Neither is derived from the other.
+      shade_tolerance:
+        type: [string, "null"]
+        enum: [deep_shade, shade, partial_shade, full_sun, null]
+        description: "Shade TOLERANCE — the shadiest exposure the species still copes with. Not the light requirement (see light_requirement)."
+      light_requirement:
+        $ref: "_defs.schema.yaml#/$defs/light_requirement_nullable"
       indoor_suitable:
         type: string
         enum: ["yes", limited, "no"]
@@ -182,6 +196,21 @@ $defs:
       green_manure:
         type: boolean
         description: "DEPRECATED — use green_manure_suitable. Retained for backward compatibility."
+      # ── Zehrerstufe / Fruchtfolge (REQ-053 §16.3 GP-FR-138, K-001/K-004) ──
+      # `nutrient_demand` (3 feeder levels + source/confidence) and the boolean
+      # `nitrogen_fixing` replace `nutrient_demand_level` after migration M6; both
+      # coexist until then. Never copy `nutrient_demand_level` into
+      # `nutrient_demand` — the value must come with its own source (E-10).
+      nutrient_demand:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_nullable"
+      nutrient_demand_source:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_source"
+      nutrient_demand_confidence:
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_confidence_nullable"
+      nitrogen_fixing:
+        $ref: "_defs.schema.yaml#/$defs/nitrogen_fixing"
+      rotation_pause_years:
+        $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       # Pruning
       pruning_type:
         type: [string, "null"]

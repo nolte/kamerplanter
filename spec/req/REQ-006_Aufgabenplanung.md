@@ -7,7 +7,7 @@ Kategorie: Prozessmanagement
 Fokus: Beides
 Technologie: Python, ArangoDB, Celery (Task Scheduling)
 Status: Entwurf
-Version: 3.4 (Enum-Werte an das Modell angeglichen: `WorkflowTemplate.category`/`TaskTemplate.category` = `TaskCategory` (16 Werte, kein `custom`), `TaskTemplate.trigger_type` mit `gdd_threshold`, #2183); 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
+Version: 3.5 (2026-10-15, ADR-008 Accepted / REQ-053 E-02: `recurrence_rule` ist RRULE (RFC 5545), Cron wird nach Migration M5 mit 422 `recurrence.rrule_required` abgelehnt; Abschluss-Übergang `complete_task`/`POST /tasks/{key}/complete`/`POST /tasks/batch/status`/`reopen` schreibt atomar einen `care_event` (REQ-053 §12/§13, GP-FR-083); `entity_type` bleibt String mit Service-Allowlist, `location` und `garden_object` zulässig (REQ-053 §20.9)); 3.4 (Enum-Werte an das Modell angeglichen: `WorkflowTemplate.category`/`TaskTemplate.category` = `TaskCategory` (16 Werte, kein `custom`), `TaskTemplate.trigger_type` mit `gdd_threshold`, #2183); 3.3 (§4: geteilte Workflow-Vorlagen nie an Ort und Stelle schreibbar, #2101); 3.2 (FreeStyle: Foto-Auftrag als erster maschineller Produzent)
 ```
 
 ## 1. Business Case
@@ -105,12 +105,22 @@ Das System bietet dem Nutzer vollständige Kontrolle über einzelne Aufgaben —
 - Optional: Notification an zugewiesenen Nutzer
 
 **Wiederkehrende Aufgaben (Recurring Tasks):**
-- `recurrence_rule: Optional[str]` — Cron-Expression für automatische Wiedererzeugung (z.B. `"0 8 * * 1"` = jeden Montag 08:00)
+- `recurrence_rule: Optional[str]` — **iCal-`RRULE` (RFC 5545)** für automatische Wiedererzeugung (z.B. `"FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0"` = jeden Montag 08:00). Bis v3.4 war hier eine Cron-Expression (`"0 8 * * 1"`) spezifiziert; `RecurrenceEngine` parst RRULE bereits kanonisch (`recurrence_engine.py:51`) und hält bis zur Migration M5 einen croniter-Fallback (`:57`).
 - `recurrence_end_date: Optional[date]` — Optionales Ende der Wiederholung
 - `parent_recurring_task_key: Optional[str]` — Referenz auf die "Eltern-Aufgabe" die die Wiederholung definiert
 - Bei Completion einer wiederkehrenden Task wird automatisch die nächste Instanz erzeugt
 - Nutzer können die Wiederholung jederzeit stoppen, ändern oder pausieren
 - Celery-Beat prüft täglich offene Recurring-Rules und erzeugt fällige Instanzen
+
+**Zuständigkeitsgrenzen (ADR-008, Accepted 2026-10-15 — REQ-053 E-02):**
+- **Grenze 1 — eine Recurrence-Engine.** `RecurrenceEngine` ist die einzige Stelle, die aus `recurrence_rule` den nächsten Termin ableitet; das kanonische Format ist RRULE (derselbe String trägt den iCal-Export, REQ-015). Kein Service-Code rechnet einen eigenen Datums-Vorschub (`timedelta(days=...)`).
+- **Cron-Ablehnung nach M5.** Migration `M5_recurrence_cron_to_rrule` (REQ-053 §12.2, Welle 1) konvertiert gespeicherte Cron-Regeln (`0 8 * * 1` → `FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0`), verweigert den Start bei nicht konvertierbaren Ausdrücken und entfernt den croniter-Fallback. Ab dann nimmt die API (`POST /tasks`, `PATCH /tasks/{key}`, Template-Instanziierung) ausschließlich RRULE an; eine Cron-Expression wird mit **422 `recurrence.rrule_required`** abgelehnt (REQ-053 GP-ACC-038).
+- **Grenze 2 — fachliche Intervalle bleiben verteilt.** Was die Kadenz inhaltlich ist (Gießintervall nach Saison/Phase, REQ-022; Winterschutz, REQ-047), bestimmt die jeweilige Domänen-Engine und drückt es als RRULE aus.
+- **Grenze 3 — ein Propagationspfad.** Verschieben, Zuweisen, Erledigen, Löschen einer Aufgabe erreicht die zugehörige In-App-Benachrichtigung nur über den `NotificationPropagationService` (REQ-030 §3.8a); der `TaskService` schreibt keine Notification-Repositories direkt.
+- **Grenze 4 — ein Abschluss-Übergang (REQ-053 Welle 4, nur Task-Seite).** `TaskService.complete_task`, `POST /tasks/{key}/complete`, `POST /tasks/batch/status` (`action = complete`) und `POST /tasks/{key}/reopen` sind der **eine** Übergang. Er schreibt nach erfolgreichem Status-Wechsel **atomar** einen `care_event` (`task_key`, Kategorie, `performed_by`, `performed_at`, Notiz, Fotos, je nach Kategorie der Fachereignis-Bezug) in einer ArangoDB-Stream-Transaktion über `tasks`, `care_events`, Fachcollection und Edges — REQ-053 §12.3 GP-FR-083, §13 (`care_events`, Pflegehistorie). `reopen` storniert den `care_event` per `void` (`void_reason = undo`, GP-FR-149) in derselben Transaktion. Die Erinnerungs-Seite des Übergangs (`care_confirmations`, REQ-022) und die Kadenz-Vorschübe außerhalb der `RecurrenceEngine` bleiben ein eigener ADR-008-Strang und sind nicht Teil von REQ-053.
+
+**Entitätsbindung (`entity_type`, REQ-053 §20.9):**
+- `entity_type` bleibt ein **freier String** im Modell (kein Enum — Enum-Retirement-Falle). Der Service, der die `has_task`-Edge schreibt, prüft gegen eine **Allowlist** `{plant_instance, planting_run, location, garden_object}` (abschließend, identisch mit REQ-053 §20.9; neue Werte werden an beiden Stellen ergänzt); `location` (Beet, REQ-053 GP-FR-080) und `garden_object` (`compost`, `water_source`, `storage`) sind zulässige Werte und werden im API-Schema als solche dokumentiert. Ein Wert außerhalb der Allowlist → 422.
 
 **Task-Klonen (Duplikate):**
 - `POST /tasks/{key}/clone` — Erzeugt eine Kopie einer bestehenden Aufgabe
@@ -500,7 +510,7 @@ Das System bietet ein Jahreskalender-Template, das für jeden Monat die wichtigs
     - `tags: list[str]` (benutzerdefinierte Tags zur freien Kategorisierung, z.B. `["dringend", "hochbeet-a"]`)
     - `checklist: list[ChecklistItem]` (eingebettete Checkliste mit Teilschritten, `{ text: str, done: bool, order: int }`)
     - `assigned_to_user_key: Optional[str]` (zugewiesenes Tenant-Mitglied, REQ-024)
-    - `recurrence_rule: Optional[str]` (Cron-Expression für wiederkehrende Erzeugung, z.B. `"0 8 * * 1"`)
+    - `recurrence_rule: Optional[str]` (iCal-RRULE für wiederkehrende Erzeugung, z.B. `"FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0"`; Cron nur als Altbestand bis Migration M5, ADR-008 Grenze 1)
     - `recurrence_end_date: Optional[date]` (optionales Ende der Wiederholung)
     - `parent_recurring_task_key: Optional[str]` (Referenz auf die Eltern-Recurring-Aufgabe)
     - `trigger_phase: Optional[str]` (Phasen-Binding bei Workflow-Tasks — für dormant-Aktivierung)
@@ -2267,8 +2277,8 @@ class TaskInstance(BaseModel):
         description="Zugewiesenes Tenant-Mitglied (REQ-024). Bei Gemeinschaftsgärten: Admin kann Tasks zuweisen."
     )
     recurrence_rule: Optional[str] = Field(
-        None, max_length=100,
-        description="Cron-Expression für automatische Wiedererzeugung, z.B. '0 8 * * 1' (jeden Montag 08:00)"
+        None, max_length=200,
+        description="iCal-RRULE (RFC 5545) für automatische Wiedererzeugung, z.B. 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0' (jeden Montag 08:00); ADR-008 Grenze 1"
     )
     recurrence_end_date: Optional[date] = Field(
         None,
@@ -2301,12 +2311,15 @@ class TaskInstance(BaseModel):
 
     @field_validator('recurrence_rule')
     @classmethod
-    def validate_cron_expression(cls, v):
+    def validate_rrule(cls, v):
+        # ADR-008 Grenze 1: nur iCal-RRULE; eine Cron-Expression (5 Felder) wird
+        # nach Migration M5 mit 422 `recurrence.rrule_required` abgelehnt.
         if v is not None:
-            # Basis-Validierung: 5 Felder (minute hour day month weekday)
-            parts = v.strip().split()
-            if len(parts) != 5:
-                raise ValueError("Cron-Expression muss 5 Felder haben (minute hour day month weekday)")
+            from dateutil.rrule import rrulestr
+            try:
+                rrulestr(v)
+            except (ValueError, TypeError) as exc:
+                raise ValueError("recurrence.rrule_required") from exc
         return v
 
     @property
@@ -2497,7 +2510,8 @@ Wenn `AI_FEATURES_ENABLED=true` und `tenant.settings.ai_features_enabled=true`, 
 
 **Python-Bibliotheken:**
 - `celery` - Zeitgesteuerte Task-Erinnerungen + Recurring-Task-Erzeugung
-- `croniter` - Cron-Expression-Parsing für Recurring Tasks
+- `python-dateutil` (`rrulestr`) - RRULE-Parsing für Recurring Tasks in der `RecurrenceEngine` (ADR-008 Grenze 1)
+- `croniter` - nur noch Altbestand-Fallback bis Migration M5 (REQ-053 §12.2); entfällt danach
 - `jsonschema` - Validierung von Workflow-JSON-Importen
 
 ## 6. Akzeptanzkriterien
@@ -2574,6 +2588,9 @@ Wenn `AI_FEATURES_ENABLED=true` und `tenant.settings.ai_features_enabled=true`, 
 - [ ] **Zeitplanung (v3.0):** `scheduled_time` auf Task-Instanz; Auflösung aus TaskTemplate `optimal_time_of_day` in konkrete Uhrzeit
 - [ ] **User-Zuweisung (v3.0):** `assigned_to_user_key` auf Task; Filter "Meine Aufgaben" vs. "Alle Aufgaben"; Membership-Validierung (nur Tenant-Mitglieder)
 - [ ] **Wiederkehrende Aufgaben (v3.0):** `recurrence_rule` (Cron), `recurrence_end_date`; automatische Erzeugung nächster Instanz bei Completion; Celery-Beat tägliche Prüfung; Stoppen/Ändern/Pausieren der Wiederholung
+- [ ] **RRULE kanonisch (v3.5, ADR-008 Grenze 1):** `recurrence_rule` ist RRULE; nach Migration M5 lehnt die API Cron mit 422 `recurrence.rrule_required` ab (REQ-053 GP-ACC-038); kein eigener Datums-Vorschub außerhalb der `RecurrenceEngine`
+- [ ] **Abschluss-Übergang (v3.5, ADR-008 Grenze 4):** `complete_task` / `POST /tasks/{key}/complete` / `POST /tasks/batch/status` / `reopen` schreiben bzw. stornieren atomar einen `care_event` (REQ-053 GP-FR-083, GP-FR-149); ein Test je Pfad prüft Task **und** `care_event`
+- [ ] **`entity_type`-Allowlist (v3.5):** `location` und `garden_object` zulässig, Wert außerhalb der Allowlist → 422 (REQ-053 §20.9, GP-FR-080)
 - [ ] **Task-Klonen (v3.0):** `POST /tasks/{key}/clone` erzeugt Kopie mit Status=pending; optionale `target_plant_key` und `due_date_offset_days`
 - [ ] **Task-Wiedereröffnung (v3.0):** `POST /tasks/{key}/reopen` setzt completed/skipped → pending; Audit-Trail (`reopened_at`, `reopened_from_status`)
 - [ ] **Task-Neuzuweisung (v3.0):** `plant_key` und `assigned_to_user_key` über TaskUpdate änderbar
@@ -2942,8 +2959,8 @@ THEN:
 
 **Szenario 24: Wiederkehrende Aufgabe (Recurring Task)**
 ```
-GIVEN: Task "Orchidee tauchen" mit recurrence_rule="0 8 * * 6"
-       (jeden Samstag 08:00), recurrence_end_date=null
+GIVEN: Task "Orchidee tauchen" mit recurrence_rule="FREQ=WEEKLY;BYDAY=SA;BYHOUR=8;BYMINUTE=0"
+       (jeden Samstag 08:00, RRULE — ADR-008 Grenze 1), recurrence_end_date=null
 WHEN: Nutzer markiert Task als completed
 THEN:
   - Task.status = 'completed', completed_at = jetzt
@@ -2953,8 +2970,11 @@ THEN:
     scheduled_time: 08:00
     status: pending
     parent_recurring_task_key: key des abgeschlossenen Tasks
-    recurrence_rule: "0 8 * * 6" (propagiert)
+    recurrence_rule: "FREQ=WEEKLY;BYDAY=SA;BYHOUR=8;BYMINUTE=0" (propagiert)
   - recurs_from-Edge zum Eltern-Task
+  - care_event mit task_key des abgeschlossenen Tasks (ADR-008 Grenze 4, REQ-053 GP-FR-083)
+AND WHEN: ein Client nach Migration M5 recurrence_rule="0 8 * * 6" (Cron) sendet
+THEN: 422 recurrence.rrule_required (REQ-053 GP-ACC-038)
 ```
 
 **Szenario 25: Task-Kommentare im Team**
