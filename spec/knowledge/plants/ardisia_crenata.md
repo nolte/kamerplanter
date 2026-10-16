@@ -135,6 +135,22 @@
 - Tausendkornmasse: nur [HortScience/ASHS (2026)](https://journals.ashs.org/view/journals/hortsci/61/2/article-p457.xml) (0.96 ± 0.14 g) — kein zweiter unabhängiger Beleg gefunden (Fruchtgrößen-Angaben in [IUCN GISD — Ardisia crenata](https://www.iucngisd.org/gisd/pdf.php?sc=1285) beziehen sich auf die Beere/Drupe von 5–8 mm Ø, nicht auf das Einzelsamengewicht) → als DATEN FEHLEN belassen
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | NC State Extension Gardener Plant Toolbox, „Ardisia crenata" (Light: „Dappled sunlight" / „Partial shade", Sonne ca. 2–6 h/Tag), https://plants.ces.ncsu.edu/plants/ardisia-crenata/; RHS, „Ardisia crenata 'Queen Salmon'" (Sorte derselben Art; Position „Partial shade"), https://www.rhs.org.uk/plants/363913/ardisia-crenata-queen-salmon/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -352,3 +368,6 @@ Ardisia crenata,"Korallenmyrte;Spitzblume;Korallenbeere;Ardisie;Coral Ardisia;Co
 18. [IUCN Global Invasive Species Database — Ardisia crenata](https://www.iucngisd.org/gisd/pdf.php?sc=1285) — Beeren-/Drupengröße (5–8 mm Ø), Samenzahl pro Pflanze (30–225, Mittel 129)
 19. [Best Plants — Growing Coral Berry Plants: How To Care For Ardisia Crenata](https://bestplants.com/ardisia-crenata-care/) — Praxis-Keimtemperatur (55–70 °F), Aussaathinweise
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+20. [RHS — Ardisia crenata 'Queen Salmon'](https://www.rhs.org.uk/plants/363913/ardisia-crenata-queen-salmon/details) — Position „Partial shade" (Sorte der Art; Lichtanspruch 1.10)
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

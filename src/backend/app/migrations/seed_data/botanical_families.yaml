@@ -74,6 +74,9 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Doldenblütler mit Karotten, Fenchel, Dill, Petersilie und Sellerie."
     rotation_category: root
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): SBB 2022 4–5 a, ÖLN 2025 max. 3/7 a,
+    # LKSH Gemüsefliegen (Möhrenfliege); thresholds-req-053.md §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Brassicaceae
     common_name_de: "Kreuzblütler"
@@ -89,6 +92,9 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Kreuzblütler mit Kohl, Brokkoli, Rettich und Rucola. Biofumigations-Potential."
     rotation_category: brassica
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): LKSH "Fruchtfolge im Garten" (2020) "nur alle
+    # 4 Jahre", SBB 2022 4–5 a, ÖLN 2025 max. 3/7 a (Kohlhernie); thresholds §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Fabaceae
     common_name_de: "Hülsenfrüchtler"
@@ -135,6 +141,9 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Größte Pflanzenfamilie. Salat, Sonnenblume, Tagetes und Kamille."
     rotation_category: composite
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): SBB 2022 3 a, ÖLN 2025 max. 3/7 a;
+    # thresholds-req-053.md §C (confirmed 3).
+    rotation_pause_years: 3
 
   - name: Poaceae
     common_name_de: "Süßgräser"
@@ -150,6 +159,10 @@ families:
     soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
     description: "Gräser und Getreide wie Mais, Weizen und Reis. Windbestäubt, tiefwurzelnd."
     rotation_category: grain
+    # MISSING: rotation_pause_years — no primary source (LKSH 2020 names no pause for
+    # grasses, SBB 2022 has no entry; only tertiary sources say 3). Stays null per E-10;
+    # thresholds-req-053.md §C "unverified" → fallback rotation_window_years.
+    rotation_pause_years: null
 
   - name: Araceae
     common_name_de: "Aronstabgewächse"

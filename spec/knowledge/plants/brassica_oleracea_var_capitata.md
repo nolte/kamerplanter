@@ -145,6 +145,22 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 **Quellen (§1.8):** [Explore Cornell — Home Gardening Vegetable Growing Guides](http://www.gardening.cornell.edu/homegardening/scene5fdd.html); [PROSEA / Pl@ntUse — Brassica oleracea Headed Cabbage](https://plantuse.plantnet.org/en/Brassica_oleracea_Headed_Cabbage_(PROSEA)); [Wikifarmer — Brassica oleracea capitata Cabbage seeds](https://wikifarmer.com/library/en/article/brassica-oleracea-capitata-cabbage-seeds); [weekand.com — How Long Does It Take Cabbage to Germinate?](https://www.weekand.com/home-garden/article/long-cabbage-germinate-18026663.php); [Osborne Seed / Gardening Channel / Finch + Folly — Seed Viability Charts](https://www.osborneseed.com/pages/seed-viability-chart); [Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate](https://gardenbetty.com/seed-germination-light-darkness/).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 50 | `species.spacing_cm` |
+| Reihenabstand (cm) | 50 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern (Bayerische Gartenakademie), „Sä- und Pflanztermine auf einen Blick" (Dateistand 2018), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/sae_und_pflanztermine.pdf (Weißkohl: Reihen-/Pflanzabstand 50/50 cm; stützt den unteren Wert der 1.6-Spanne 50–60 für kleine Sorten) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow cabbages", „Grow cabbages in a sunny spot", https://www.rhs.org.uk/vegetables/cabbages/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -443,6 +459,11 @@ Betrifft ausschliesslich **Winterkohl-Sorten** (Lagerkohl/Dauerkohl), die im Bee
 | Empfohlene Vorfrucht | Huelsenfrüchte (Leguminosen: Erbse, Bohne, Klee) |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Spinat, Zwiebeln) oder Gruenduengung (Phacelia) |
 | Anbaupause (Jahre) | 3–4 Jahre (kein Kreuzblütler auf selber Flaeche — Kohlhernie!) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer Schleswig-Holstein, „Fruchtfolge im Garten" (2020), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf (Starkzehrer z. B. Kohl); Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (INNOProdukte, 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Starkzehrer u. a. Weißkohl); Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Starkzehrer-Beet: Kohlarten inkl. Kraut) |
+| Zehrerstufe — Konfidenz | high |
+| Stickstofffixierer | false (keine Leguminose; LKSH Fruchtfolge im Garten, 2020, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf: Kohl bei den Kreuzblütlern, Hülsenfrüchte als eigene Familie) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -531,3 +552,8 @@ Dithmarscher Fruehkohl,Brassica oleracea var. capitata f. alba,60–75,early;com
 19. [Oregon State University Extension Service — Ask Extension: cabbage bolting](https://extension.oregonstate.edu/ask-extension/featured/my-cabbage-bolting-heat-anything-i-can-do) — starke Biennen (inkl. Kohl) benoetigen bis 6–8 Wochen unter 10°C (50°F) fuer vollstaendige Vernalisation
 20. [Non-vernalization Flowering and Seed Set of Cabbage Induced by Grafting Onto Radish Rootstocks, Frontiers in Plant Science / PMC6335391](https://pmc.ncbi.nlm.nih.gov/articles/PMC6335391/) — konventionelles Vernalisationsprotokoll fuer Kopfkohl: 4–9°C ueber 6–7 Wochen zur Bluetenknospen-Differenzierung
 <!-- /Quelle: growing-phase-auditor 2026-07 (cycle_type/vernalization_min_days-Korrektur) -->
+21. LWG Bayern (Bayerische Gartenakademie) — Sä- und Pflanztermine auf einen Blick (Reihen-/Pflanzabstand Weißkohl 50/50 cm) — https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/sae_und_pflanztermine.pdf
+22. RHS — How to grow cabbages (sonniger Standort) — https://www.rhs.org.uk/vegetables/cabbages/grow-your-own
+23. Landwirtschaftskammer Schleswig-Holstein — Fruchtfolge im Garten (2020; Starkzehrer Kohl, Pflanzenfamilien, Anbaupause Kohlgewächse 4 Jahre) — https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+24. Südtiroler Bauernbund — Fruchtfolgen im Gemüsebau (INNOProdukte, 2022; Starkzehrer Weißkohl, Anbaupause Kreuzblütler 4–5 Jahre) — https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+25. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (April 2022; Starkzehrer-Beet Kohlarten) — https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf

@@ -157,6 +157,22 @@ Hinweis: Regelmaessiges Schneiden (3--5 cm ueber Bodenniveau) foerdert den Neuau
 - Aussaatdichte: [RHS — How to grow Chives](https://www.rhs.org.uk/herbs/chives/grow-your-own) (5–10 Samen/Modul); eigene Kulturhinweise §1.3/§4.2 (Horstteilung/Modulkultur statt Reihensaat)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15–20 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine Fachquelle mit Reihenabstand für Schnittlauch gelesen (RHS und Univ. Wisconsin nennen nur den Abstand der Horste) --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Grow your own: Chives“ (Horste „at least 15cm apart“; bei Freilandsaat auf 15–20 cm vereinzeln), https://www.rhs.org.uk/herbs/chives/grow-your-own (abgerufen 2026-10-16); University of Wisconsin-Madison Extension, „Chives“ (Horste 12–20 in ≈ 30–50 cm), https://hort.extension.wisc.edu/articles/chives-allium-schoenoprasum/ (abgerufen 2026-10-16) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | University of Wisconsin-Madison Extension, „Chives“ („do best when planted in full sun“, toleriert lichten Schatten), https://hort.extension.wisc.edu/articles/chives-allium-schoenoprasum/ (abgerufen 2026-10-16); LWG Bayern/StMELF, Infoschrift 2166 „Kräuter zum Frischverzehr aus dem eigenen Garten“ (Schnittlauch: „Sonniger Standort“), https://www.lwg.bayern.de/gartenakademie/gartendokumente/infoschriften/157754/index.php; RHS nennt „Full sun, Partial shade“ ohne Vorzug, https://www.rhs.org.uk/plants/859/allium-schoenoprasum/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -494,6 +510,11 @@ Schnittlauch hat als Art eine moderate natuerliche Widerstandsfaehigkeit gegen S
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Radieschen) oder Gruenduengung |
 | Anbaupause (Jahre) | 4--5 Jahre fuer Allium-Arten auf gleicher Flaeche (Nematoden, Zwiebelfaeule) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer Schleswig-Holstein (LKSH), „Fruchtfolge im Garten“ (PDF, ohne Jahresangabe; Schwachzehrer „z. B. Erbsen, Bohnen, Kräuter“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, Pressemeldung vom 25.02.2016 (Schwachzehrer: „Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm; Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022; Schwachzehrer-Beet: „Kräuter“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; University of Wisconsin-Madison Extension, „Chives“ (geringer Nährstoffbedarf, art-spezifisch), https://hort.extension.wisc.edu/articles/chives-allium-schoenoprasum/. Hinweis: die drei deutschsprachigen Quellen ordnen die Sammelgruppe „Kräuter“ zu, nennen Schnittlauch nicht namentlich |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; LKSH, „Fruchtfolge im Garten“, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf — Schnittlauch bei den Liliengewächsen, Hülsenfrüchte getrennt; Südtiroler Bauernbund, „Fruchtfolgen im Gemüsebau“ 2022, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf — Lauchgewächse mit Schnittlauch und Schmetterlingsblütler getrennt) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Amaryllidaceae 4) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -586,3 +607,11 @@ Feinroehriger (Pötschke Historisch),Allium schoenoprasum,Pötschke,,fine_leaf;h
 21. Sustainable Market Farming -- Allium Growth Stages / Year-Round (Kuehlsaison-Crop, frosttolerant, Bolting 7.2--10 degC): https://www.sustainablemarketfarming.com/wp-content/uploads/2023/01/Alliums-Year-Round.pdf
 22. Hoagland solution / hydroponic micronutrient ranges (Mn/Zn/Cu/Mo Standardbereiche Gemuese): https://en.wikipedia.org/wiki/Hoagland_solution
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+23. RHS -- Grow your own: Chives (Horstabstand 15--20 cm, Standort sonnig oder halbschattig; abgerufen 2026-10-16): https://www.rhs.org.uk/herbs/chives/grow-your-own
+24. LWG Bayern / StMELF -- Infoschrift 2166 Kraeuter zum Frischverzehr aus dem eigenen Garten (Schnittlauch: sonniger Standort): https://www.lwg.bayern.de/gartenakademie/gartendokumente/infoschriften/157754/index.php
+25. Landwirtschaftskammer Schleswig-Holstein (LKSH) -- Fruchtfolge im Garten (PDF, ohne Jahresangabe; Kraeuter = Schwachzehrer, Liliengewaechse und Huelsenfruechte getrennt): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+26. Landwirtschaftskammer NRW -- Fruchtfolge im Gemuesegarten planen (Pressemeldung 25.02.2016; Kraeuter = Schwachzehrer): https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm
+27. Natur im Garten Burgenland / Land NOe -- Fruchtfolge im Gemuesegarten (2022; Kraeuter = Schwachzehrer): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+28. Suedtiroler Bauernbund (INNOProdukte) -- Fruchtfolgen im Gemuesebau (2022; Lauchgewaechse inkl. Schnittlauch Anbaupause 4 Jahre, Schmetterlingsbluetler getrennt): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

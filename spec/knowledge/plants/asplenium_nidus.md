@@ -115,6 +115,22 @@
 
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Asplenium nidus" (Position „Partial shade"; „Grow indoors in bright indirect light"), https://www.rhs.org.uk/plants/1728/asplenium-nidus/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -342,3 +358,6 @@ Osaka,Asplenium nidus,"ornamental;narrow_fronds;upright",clone
 25. [Koppert — Cryptobug-L (*Cryptolaemus montrouzieri*)](https://www.koppert.com/cryptobug-l/) — Ausbringrate & Etablierungszeit gegen Woll-/Schmierläuse
 26. [Understory R:FR / far-red ratio — bioRxiv: Understory light quality](https://www.biorxiv.org/content/10.1101/829036v1.full) — R:FR im Unterwuchs, FR/(R+FR) ≈ 0.5 bei offenem Tageslicht
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+27. [RHS — Asplenium nidus](https://www.rhs.org.uk/plants/1728/asplenium-nidus/details) — Position „Partial shade", Zimmerkultur in hellem, indirektem Licht (Lichtanspruch 1.10)
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

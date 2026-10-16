@@ -114,6 +114,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Allium sativum wird im Erwerbs- und Hobbyanbau ausschließlich über Brutzehen (offset, siehe §1.3) vermehrt; die Kulturform bildet in Mitteleuropa praktisch keine fertilen Samen aus fruchtbaren Blüten (Blütenschaft/"Scape" wird planmäßig entfernt, siehe §1.5, um die Energie in die Knolle zu lenken). Echte generative Saatgutvermehrung ist nur in Züchtungsprogrammen mit spezifischen fertilen Akzessionen relevant und für den Hausgarten nicht praxisrelevant. Es werden daher KEINE Keimwerte erfunden; `species.seed_profile` bleibt für diese Art unbefüllt (null). -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Grow your own: Garlic“ („Space the cloves 15cm apart“; „Space rows 30cm apart“), https://www.rhs.org.uk/vegetables/garlic/grow-your-own (abgerufen 2026-10-16) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Grow your own: Garlic“ („Garlic needs full sun“; „Garlic likes a sunny site with free-draining soil“), https://www.rhs.org.uk/vegetables/garlic/grow-your-own (abgerufen 2026-10-16) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -286,6 +302,11 @@ Knoblauch wird im Herbst gesteckt und überwintert als bewurzelte Zehe im Freila
 | Empfohlene Vorfrucht | Tomaten, Kohlarten, Kürbis |
 | Empfohlene Nachfrucht | Möhren, Salat, Spinat |
 | Anbaupause (Jahre) | 3 Jahre selbe Familie |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Knoblauch im „Mittelzehrer-Beet“); keine weitere Fachquelle gefunden, die Knoblauch einer Zehrerstufe zuordnet (LWK NRW 2016 und LKSH nennen Knoblauch nicht) |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, „Fruchtfolgen im Gemüsebau“ 2022, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf — Lauchgewächse mit Knoblauch und Schmetterlingsblütler als getrennte Familien; LKSH, „Fruchtfolge im Garten“, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf — Knoblauch bei den Liliengewächsen, Hülsenfrüchte getrennt) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Amaryllidaceae 4) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -353,3 +374,9 @@ Morado de Pedroñeras,Allium sativum,–,–,"softneck;spanish",240,,open_pollin
 13. [Koppert — Neoseiulus cucumeris (predatory mite for thrips control)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Ausbringrate 50–100/m² gegen Thripse
 14. [Frontiers Lighting / Apogee — R:FR & Far-Red-Fraction im Tageslicht](https://www.apogeeinstruments.com/content/Estimating-Phytochrome-Photoequilibrium.pdf) — FR/(R+FR) ≈ 0.46 im offenen Tageslicht
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+15. [RHS — Grow your own: Garlic (abgerufen 2026-10-16)](https://www.rhs.org.uk/vegetables/garlic/grow-your-own) — Pflanz-/Reihenabstand (15 cm / 30 cm), Vollsonne
+16. [Natur im Garten Burgenland / Land NÖ — Fruchtfolge im Gemüsegarten (2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Knoblauch = Mittelzehrer; Lauchgewächse und Schmetterlingsblütler getrennt
+17. [Südtiroler Bauernbund (INNOProdukte) — Fruchtfolgen im Gemüsebau (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Lauchgewächse (Zwiebel, Lauch, Knoblauch, Schnittlauch) Anbaupause 4 Jahre; Schmetterlingsblütler als eigene Familie
+18. [Landwirtschaftskammer Schleswig-Holstein (LKSH) — Fruchtfolge im Garten (PDF, ohne Jahresangabe)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Liliengewächse (Porree, Zwiebel, Schnittlauch, Knoblauch) und Hülsenfrüchte als getrennte Familien
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

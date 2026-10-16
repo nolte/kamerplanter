@@ -132,6 +132,22 @@
 - Aussaatdichte: [Hazera Africa — Basic guidelines to soil preparation and onion sowing](https://af.hazera.com/basic-guidelines-to-soil-preparation-and-onion-sowing/) (80–90 Pflanzen/m² Zieldichte); [USU Extension — Planting and Spacing](https://extension.usu.edu/vegetableguide/onion/planting-spacing) (Pflanzabstand-Querrechnung ≈ 76–90/m²)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 10–15 | `species.spacing_cm` |
+| Reihenabstand (cm) | 25–30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Grow your own: Onions“ (Steckzwiebeln 10–15 cm in Reihen 20–30 cm; aus Saat vorgezogene Pflanzen 10 cm in Reihen 25–30 cm), https://www.rhs.org.uk/vegetables/onions/grow-your-own (abgerufen 2026-10-16); LWG Bayern, Merkblatt 2111 „Fruchtfolge für Gemüsebeete“ (2016; Steckzwiebeln 25 cm Reihenabstand, 10 cm in der Reihe), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Grow your own: Onions“ („A warm, sunny spot in well-drained soil is ideal“), https://www.rhs.org.uk/vegetables/onions/grow-your-own (abgerufen 2026-10-16); FiBL/Bioland/KÖN/Bio Austria, „Biologischer Anbau von Zwiebeln“ (2007; „liebt warmes Sommerwetter und viel Licht“), https://www.fibl.org/fileadmin/documents/shop/1436-zwiebeln.pdf | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -336,6 +352,11 @@ Betrifft ausschließlich **Wintersteckzwiebeln** (Sorten wie 'Radar', 'Shakespea
 | Empfohlene Vorfrucht | Tomaten, Kohlarten (Starkzehrer) |
 | Empfohlene Nachfrucht | Salat, Spinat, Möhren |
 | Anbaupause (Jahre) | 3 Jahre selbe Familie |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund (INNOProdukte), „Fruchtfolgen im Gemüsebau“ (2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Speisezwiebel = Mittelzehrer); Natur im Garten Burgenland / Land NÖ, „Fruchtfolge im Gemüsegarten“ (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Zwiebel = Mittelzehrer); Gegenstimmen: Landwirtschaftskammer NRW, Pressemeldung vom 25.02.2016, https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm (Zwiebeln = Schwachzehrer); FiBL/Bioland/KÖN/Bio Austria, „Biologischer Anbau von Zwiebeln“ (2007), https://www.fibl.org/fileadmin/documents/shop/1436-zwiebeln.pdf (Zwiebeln gelten als Schwachzehrer) |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, „Fruchtfolgen im Gemüsebau“ 2022, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf — Schmetterlingsblütler und Lauchgewächse als getrennte Familien; LKSH, „Fruchtfolge im Garten“, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf — Hülsenfrüchte und Liliengewächse getrennt geführt) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Amaryllidaceae 4) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -413,3 +434,12 @@ Sturon,Allium cepa,–,–,"long_storage;classic_round",120,,open_pollinated
 19. [Planting onions in the fall — savvygardening.com](https://savvygardening.com/planting-onions-in-the-fall/) — Bestätigung Herbststeckung 4–6 Wochen vor erstem Frost, Frühsommerernte
 20. [Allium cepa — pflanzen-lexikon.com](https://www.pflanzen-lexikon.com/index.php?a=allium-cepa&l=de) — "Blütezeit: meist Juni–Juli"; zweijähriger Kulturzyklus (Jahr 1 nur Laub, Überwinterung, Jahr 2 Blütenstand + Spätsommerernte)
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+21. [RHS — Grow your own: Onions (abgerufen 2026-10-16)](https://www.rhs.org.uk/vegetables/onions/grow-your-own) — Pflanz-/Reihenabstand (Steckzwiebeln, vorgezogene Pflanzen), sonniger Standort
+22. [LWG Bayern, Bayerische Gartenakademie — Merkblatt 2111 „Fruchtfolge für Gemüsebeete“ (2016)](https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf) — Steckzwiebeln: Reihenabstand 25 cm, Abstand in der Reihe 10 cm
+23. [FiBL/Bioland/KÖN/Bio Austria — Biologischer Anbau von Zwiebeln (Merkblatt 2007)](https://www.fibl.org/fileadmin/documents/shop/1436-zwiebeln.pdf) — Standortansprüche (viel Licht), Zwiebeln = Schwachzehrer, Anbaupause ≥ 4 Jahre nach Zwiebelgewächsen
+24. [Südtiroler Bauernbund (INNOProdukte) — Fruchtfolgen im Gemüsebau (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Speisezwiebel = Mittelzehrer; Lauchgewächse Anbaupause 4 Jahre; Schmetterlingsblütler als eigene Familie
+25. [Natur im Garten Burgenland / Land NÖ — Fruchtfolge im Gemüsegarten (2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Zwiebel, Lauch, Knoblauch = Mittelzehrer; Kräuter = Schwachzehrer
+26. [Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (Pressemeldung 25.02.2016)](https://www.landwirtschaftskammer.de/presse/archiv/2016/aa-2016-06-04.htm) — Zwiebeln und Kräuter = Schwachzehrer, Porree = Mittelstarkzehrer
+27. [Landwirtschaftskammer Schleswig-Holstein (LKSH) — Fruchtfolge im Garten (PDF, ohne Jahresangabe)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Porree = Starkzehrer, Kräuter = Schwachzehrer; Liliengewächse und Hülsenfrüchte als getrennte Familien
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

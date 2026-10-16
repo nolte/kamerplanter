@@ -112,6 +112,22 @@
 
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Adiantum raddianum“, Position „Partial shade“, Aspect East-/North-/West-facing, https://www.rhs.org.uk/plants/20650/adiantum-raddianum/details (abgerufen 2026-10-16) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -319,3 +335,6 @@ Adiantum raddianum,"Frauenhaarfarn;Delta-Frauenhaarfarn;Maidenhair Fern;Delta Ma
 14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate 2–50/m², RH > 70 %, gegen Spinnmilben <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 15. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate 5–40/m² gegen Schmierläuse <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 16. [Koppert — Scia-Rid (Steinernema feltiae)](https://www.koppert.com/scia-rid/) — 2 Mio. Nematoden/m² gegen Trauermücken-Larven <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+17. [RHS — Adiantum raddianum, Position „Partial shade“, Aspect East/North/West-facing (abgerufen 2026-10-16)](https://www.rhs.org.uk/plants/20650/adiantum-raddianum/details) — Lichtanspruch (Standortstufe) §1.10
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
