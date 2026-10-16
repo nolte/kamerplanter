@@ -1927,6 +1927,20 @@ class GeometryKind(StrEnum):
     POINT = "point"
 
 
+class GeometrySource(StrEnum):
+    """Where a slot's geometry came from (REQ-053 §20.5, R-08).
+
+    ``migrated_grid`` marks a point migration M1 derived from the legacy
+    ``Slot.position`` grid cell with the ``pitch_m`` assumption; the editor shows
+    it as *estimated* until the location is saved once. Additive — a stored value
+    is never retired (M-9).
+    """
+
+    EDITOR = "editor"
+    LAYOUT = "layout"
+    MIGRATED_GRID = "migrated_grid"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

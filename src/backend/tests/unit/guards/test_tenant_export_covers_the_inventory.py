@@ -48,6 +48,12 @@ _APP = find_project_root(Path(__file__)) / "app"
 _MODELS_BY_HAND: dict[str, type[BaseModel] | str] = {
     "ha_publish_settings": HaPublishSetting,  # written by a raw repository, the model is the shape
     "diagnosis_requests": "declared and indexed in collections.py; no code path writes it (inventory comment)",
+    # REQ-053 M1 (#2323, WP 1.4) created the collections; the models and repositories land in
+    # WP 1.7, which replaces these four rows by the derived binding (and declares the references).
+    "garden_objects": "created by migration v0093; no code path writes it until REQ-053 WP 1.7",
+    "care_events": "created by migration v0093; no code path writes it until REQ-053 WP 1.7",
+    "irrigation_zones": "created by migration v0093; no code path writes it until REQ-053 WP 1.7",
+    "bed_templates": "created by migration v0093; no code path writes it until REQ-053 WP 1.7",
 }
 
 

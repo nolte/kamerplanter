@@ -1,4 +1,5 @@
 import contextlib
+from typing import Any
 
 from arango.collection import StandardCollection
 from arango.database import StandardDatabase
@@ -267,6 +268,16 @@ TENANT_PLAN_INDEX_FIELDS = ["plan_key"]
 TENANT_EXPORT_REQUESTS = "tenant_export_requests"
 TENANT_IMPORT_REQUESTS = "tenant_import_requests"
 
+# REQ-053 garden plan (migration M1 = v0093, #2323). ``garden_objects`` follow the
+# location pattern — ``site_key`` only, the site is the tenant anchor (E-01, #2107);
+# the other four carry ``tenant_key`` because they are listed tenant-wide (GP-FR-107)
+# or are tenant-scoped master data (§20.13).
+GARDEN_OBJECTS = "garden_objects"
+CARE_EVENTS = "care_events"
+IRRIGATION_ZONES = "irrigation_zones"
+GARDEN_PLAN_AUDIT = "garden_plan_audit"
+BED_TEMPLATES = "bed_templates"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -421,6 +432,12 @@ DOCUMENT_COLLECTIONS = [
     CONTROL_EVENTS,
     MANUAL_OVERRIDES,
     PHASE_CONTROL_PROFILES,
+    # REQ-053 garden plan (M1, #2323)
+    GARDEN_OBJECTS,
+    CARE_EVENTS,
+    IRRIGATION_ZONES,
+    GARDEN_PLAN_AUDIT,
+    BED_TEMPLATES,
 ]
 
 # Edge collections
@@ -668,6 +685,16 @@ CV_DIAGNOSIS_FOUND = "cv_diagnosis_found"  # plant_diagnosis_requests → diseas
 CV_ATTACHED_TO_INSPECTION = "cv_attached_to_inspection"  # → inspections
 CV_PHENOTYPE_OF = "cv_phenotype_of"  # plant_diagnosis_requests → harvest_observations
 
+# REQ-053 garden plan edges (§20.14, M1 #2323)
+HAS_GARDEN_OBJECT = "has_garden_object"  # sites → garden_objects
+RUN_PLANNED_AT = "run_planned_at"  # planting_runs → slots (planned occupancy with a time window, GP-FR-065)
+CARE_EVENT_AT = "care_event_at"  # care_events → locations
+TASK_LOGGED_AS = "task_logged_as"  # tasks → care_events
+HAS_IRRIGATION_ZONE = "has_irrigation_zone"  # sites → irrigation_zones
+ZONE_COVERS = "zone_covers"  # irrigation_zones → locations
+ZONE_SUPPLIED_BY = "zone_supplied_by"  # irrigation_zones → garden_objects (water source)
+ZONE_ACTUATED_BY = "zone_actuated_by"  # irrigation_zones → actuators
+
 EDGE_COLLECTIONS = [
     TENANT_HAS_ACCESS,
     BELONGS_TO_FAMILY,
@@ -846,7 +873,28 @@ EDGE_COLLECTIONS = [
     PHASE_PROFILE,
     LOCATION_PROFILE,
     RULE_MONITORS,
+    # REQ-053 garden plan (M1, #2323)
+    HAS_GARDEN_OBJECT,
+    RUN_PLANNED_AT,
+    CARE_EVENT_AT,
+    TASK_LOGGED_AS,
+    HAS_IRRIGATION_ZONE,
+    ZONE_COVERS,
+    ZONE_SUPPLIED_BY,
+    ZONE_ACTUATED_BY,
 ]
+
+#: The eight edge collections REQ-053 §20.14 adds (M1 = v0093 creates them on existing volumes).
+GARDEN_PLAN_EDGE_COLLECTIONS = (
+    HAS_GARDEN_OBJECT,
+    RUN_PLANNED_AT,
+    CARE_EVENT_AT,
+    TASK_LOGGED_AS,
+    HAS_IRRIGATION_ZONE,
+    ZONE_COVERS,
+    ZONE_SUPPLIED_BY,
+    ZONE_ACTUATED_BY,
+)
 
 GRAPH_NAME = "kamerplanter_graph"
 
@@ -1218,7 +1266,8 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": HAS_TASK,
-        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS, LOCATIONS, TANKS],
+        # + garden_objects since M1 (REQ-053 §20.14): a tree or a water source carries tasks too.
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS, LOCATIONS, TANKS, GARDEN_OBJECTS],
         "to_vertex_collections": [TASKS],
     },
     {
@@ -1311,7 +1360,20 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": BELONGS_TO_TENANT,
-        "from_vertex_collections": [SITES, PLANT_INSTANCES, PLANTING_RUNS, TANKS, FERTILIZERS, NUTRIENT_PLANS, TASKS],
+        # + care_events, irrigation_zones, bed_templates since M1 (REQ-053 §20.14) —
+        # NOT garden_objects: they hang off their site like locations do (E-01).
+        "from_vertex_collections": [
+            SITES,
+            PLANT_INSTANCES,
+            PLANTING_RUNS,
+            TANKS,
+            FERTILIZERS,
+            NUTRIENT_PLANS,
+            TASKS,
+            CARE_EVENTS,
+            IRRIGATION_ZONES,
+            BED_TEMPLATES,
+        ],
         "to_vertex_collections": [TENANTS],
     },
     {
@@ -1348,7 +1410,8 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": CARE_EVENT_FOR,
-        "from_vertex_collections": [CARE_CONFIRMATIONS],
+        # + care_events since M1 (REQ-053 §20.10): the care protocol names the plants it was for.
+        "from_vertex_collections": [CARE_CONFIRMATIONS, CARE_EVENTS],
         "to_vertex_collections": [PLANT_INSTANCES],
     },
     # REQ-022 Overwintering (G-002)
@@ -1712,7 +1775,71 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [CONTROL_RULES],
         "to_vertex_collections": [SENSORS],
     },
+    # REQ-053 garden plan (§20.14, M1 #2323)
+    {
+        "edge_collection": HAS_GARDEN_OBJECT,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [GARDEN_OBJECTS],
+    },
+    {
+        "edge_collection": RUN_PLANNED_AT,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [SLOTS],
+    },
+    {
+        "edge_collection": CARE_EVENT_AT,
+        "from_vertex_collections": [CARE_EVENTS],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": TASK_LOGGED_AS,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [CARE_EVENTS],
+    },
+    {
+        "edge_collection": HAS_IRRIGATION_ZONE,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [IRRIGATION_ZONES],
+    },
+    {
+        "edge_collection": ZONE_COVERS,
+        "from_vertex_collections": [IRRIGATION_ZONES],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": ZONE_SUPPLIED_BY,
+        "from_vertex_collections": [IRRIGATION_ZONES],
+        "to_vertex_collections": [GARDEN_OBJECTS],
+    },
+    {
+        "edge_collection": ZONE_ACTUATED_BY,
+        "from_vertex_collections": [IRRIGATION_ZONES],
+        "to_vertex_collections": [ACTUATORS],
+    },
 ]
+
+
+# REQ-053 §20.14 garden-plan indexes (M1 = v0093, #2323). No ``tenant_key`` index on
+# ``locations``/``slots``/``garden_objects`` (E-01): their tenant is their site's.
+#: The bed list of a site filtered by status (GP-FR-052); ``site_key`` leads so a
+#: site-only read uses the prefix.
+LOCATION_BED_STATUS_INDEX_FIELDS = ["site_key", "bed_status"]
+#: A site's garden objects by type (§20.4).
+GARDEN_OBJECT_TYPE_INDEX_FIELDS = ["site_key", "object_type"]
+#: A location's slots by role (position / row / zone, §20.5).
+SLOT_ROLE_INDEX_FIELDS = ["location_key", "slot_role"]
+#: The care history of one bed, newest first (§20.10, GP-FR-107).
+CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS = ["tenant_key", "location_key", "performed_at"]
+#: The tenant-wide care history (§20.10).
+CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS = ["tenant_key", "performed_at"]
+#: The protocol row a task completion wrote (``task_logged_as`` inverse lookup).
+CARE_EVENT_TASK_INDEX_FIELDS = ["task_key"]
+#: One protocol row per source event (a watering, a feeding, a treatment …), unique and
+#: sparse so rows without a ``source_ref`` do not collide. ``tenant_key`` leads the pair
+#: §20.10 names: a unique index on a tenant-bearing collection is scoped to the tenant
+#: (#2029, ``test_tenant_unique_indexes_are_scoped``), and a source event belongs to
+#: exactly one tenant, so the constraint is not weakened.
+CARE_EVENT_SOURCE_REF_INDEX_FIELDS = ["tenant_key", "source_ref.collection", "source_ref.key"]
 
 
 #: Fields of the canonical species dedup index (REQ-048 Stufe 1 / SEC-003).
@@ -1748,6 +1875,7 @@ def ensure_species_normalized_index(species_col: StandardCollection) -> None:
     migration then de-duplicates every volume and promotes the index to unique.
     Once promoted, a re-run finds the unique index already present and is a no-op.
     """
+    idx: dict[str, Any]
     for idx in species_col.indexes():
         if (
             isinstance(idx, dict)
@@ -1787,6 +1915,7 @@ def ensure_user_singleton_index(singleton_col: StandardCollection) -> None:
     non-unique bootstrap index, leaving v0031 to dedup and promote. Once
     promoted, a re-run finds the target index present and is a no-op.
     """
+    idx: dict[str, Any]
     for idx in singleton_col.indexes():
         if (
             isinstance(idx, dict)
@@ -1949,6 +2078,7 @@ def ensure_care_task_dedup_index(tasks_col: StandardCollection) -> None:
     if not has_care_task_dedup_computed_value(tasks_col):
         configure_care_task_dedup_computed_value(tasks_col)
 
+    idx: dict[str, Any]
     for idx in tasks_col.indexes():
         if (
             isinstance(idx, dict)
@@ -2718,6 +2848,27 @@ def ensure_collections(db: StandardDatabase) -> None:
     irrigation_demands_col = db.collection(IRRIGATION_DEMANDS)
     irrigation_demands_col.add_persistent_index(
         fields=["tenant_key", "site_key", "run_key", "demand_date"], unique=True
+    )
+
+    # REQ-053 §20.14 garden plan (M1 = v0093, #2323). Built in the background: locations
+    # and slots exist on every volume and stay writable while the index is built.
+    db.collection(LOCATIONS).add_persistent_index(
+        fields=LOCATION_BED_STATUS_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(GARDEN_OBJECTS).add_persistent_index(
+        fields=GARDEN_OBJECT_TYPE_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(SLOTS).add_persistent_index(fields=SLOT_ROLE_INDEX_FIELDS, unique=False, in_background=True)
+    care_events_col = db.collection(CARE_EVENTS)
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS, unique=False, in_background=True
+    )
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS, unique=False, in_background=True
+    )
+    care_events_col.add_persistent_index(fields=CARE_EVENT_TASK_INDEX_FIELDS, unique=False, in_background=True)
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_SOURCE_REF_INDEX_FIELDS, unique=True, sparse=True, in_background=True
     )
 
     # Create or update named graph
