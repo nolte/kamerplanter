@@ -149,6 +149,22 @@
 - [Vilmorin Tree Seeds — Cornus mas](https://www.vilmorin-tree-seeds.com/seeds/ornamental-nurseries/1102-cornus-mas.html) — Samenzahl 4.300–5.000 Samen/kg (Zweitbeleg TKG), Herbstaussaat nach Stratifikation
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine belastbare Fachquelle mit Pflanzabstand für Garten-/Heckenpflanzung gelesen (RHS nennt nur die Endbreite 2,5–4 m, keinen Pflanzabstand; übrige Treffer Ratgeber/Shops) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS: „full sun or partial shade") --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -315,6 +331,11 @@ Kornelkirsche ist sehr anspruchslos — auf normalen Böden kaum Düngung nötig
 | Nährstoffbedarf | Schwachzehrer |
 | Fruchtfolge-Kategorie | Obstgehölze / Wildfrüchte |
 | Anbaupause (Jahre) | Mehrjährig; Standort dauerhaft; 30–80 Jahre Standzeit möglich |
+| Zehrerstufe | <!-- DATEN FEHLEN: Gehölz/Wildobst — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle, da keine Zehrerstufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cornaceae: kein Familienwert belegt; Dauerkultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

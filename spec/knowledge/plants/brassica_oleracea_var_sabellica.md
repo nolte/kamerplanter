@@ -135,6 +135,22 @@ Quellen (S.1.8):
 5. Nimrod Bio — Seeds Per Gram Chart (Brassica-Gemüse ca. 300 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–60 | `species.spacing_cm` |
+| Reihenabstand (cm) | 45 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow kale" (o. J.), https://www.rhs.org.uk/vegetables/kale/grow-your-own (Pflanzen 30–60 cm Abstand je nach Sorte, Reihen mind. 45 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow kale" (o. J.), https://www.rhs.org.uk/vegetables/kale/grow-your-own („It likes sun, but will also cope in light shade") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -317,6 +333,11 @@ Grünkohl ist Starkzehrer mit hohem Stickstoff- und Calciumbedarf. Kalkung wicht
 | Empfohlene Vorfrucht | Hülsenfrüchte, Erbsen (N-Fixierer) |
 | Empfohlene Nachfrucht | Möhren, Zwiebeln, Salat (Schwachzehrer) |
 | Anbaupause (Jahre) | 3–4 Jahre keine Brassicaceen (Clubwurzel-Dauersporen!) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Stand Okt. 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; LKSH, „Fruchtfolge im Garten" (2020; nennt „Kohl" allgemein als Starkzehrer), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 führt Kreuzblütler und Schmetterlingsblütler als getrennte Familien, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4; Südtiroler Bauernbund 2022 nennt 4–5 Jahre für Kreuzblütler, LKSH 2020 4 Jahre für Kohlgewächse) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -390,3 +411,7 @@ Brassica oleracea var. sabellica,"Grünkohl;Braunkohl;Krauskohl;Kale;Curly Kale"
 24. [MSU Extension — Bolting in spring vegetables](https://www.canr.msu.edu/news/bolting-in-spring-vegetables) — Vernalisation Brassica 4–10 Wochen bei 2–10 °C (Kale), bestätigt vernalization_min_days
 25. [RHS — Brassica oleracea Acephala Group (kale)](https://www.rhs.org.uk/plants/106079/brassica-oleracea-acephala-group-kale-borecole/details) — Winterhärte H7 (< −20 °C), Annual/Biennial
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+26. [RHS — How to grow kale](https://www.rhs.org.uk/vegetables/kale/grow-your-own) — Pflanzabstand 30–60 cm, Reihenabstand mind. 45 cm, Standort sonnig
+27. [Südtiroler Bauernbund — Merkblatt Fruchtfolgen im Gemüsebau (Stand Okt. 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Grünkohl als Starkzehrer (Tab. 2), Anbaupause Kreuzblütler 4–5 Jahre (Tab. 1)
+28. [Natur im Garten — Fruchtfolge im Gemüsegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Starkzehrer-Beet mit Kohlarten inkl. Grünkohl
+29. [LKSH — Fruchtfolge im Garten (2020)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Kohl als Starkzehrer, Kohlgewächse 4 Jahre Anbaupause

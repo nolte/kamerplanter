@@ -142,6 +142,22 @@
 - [PMC — Storage-related Studies zur Keimfähigkeit von Cyclamen-Samen bei -30°C bis +20°C](https://www.ncbi.nlm.nih.gov/pmc/) und [trailingpetunia.com — When to Plant Cyclamen Seeds for Best Germination Rates](https://www.trailingpetunia.com/blogs/news/when-to-plant-cyclamen-seeds-for-best-germination-rates) — Keimfähigkeitsdauer ≥2 Jahre bei Trockenlagerung, Praxisempfehlung Aussaat binnen 1 Jahr
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | NC State Extension Gardener Plant Toolbox, „Cyclamen persicum" (Light: Dappled Sunlight, Partial Shade; „prefers … bright indirect sunlight"), https://plants.ces.ncsu.edu/plants/cyclamen-persicum/; RHS Plant Finder, „Cyclamen persicum" (Sunlight: Full sun, Partial shade; Kulturhinweis „Maintain bright filtered light with moderate humidity" — Anspruch nach diesem Text als partial_shade gewählt), https://www.rhs.org.uk/plants/101163/cyclamen-persicum-persian-cyclamen/details | — |
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenübersicht
@@ -368,3 +384,4 @@ Cyclamen persicum,"Alpenveilchen;Cyclamen;Persian Cyclamen",Primulaceae,Cyclamen
 27. [Missing Henry Mitchell — Cyclamen from seed: Presoaking method](https://missinghenrymitchell.com/2013/12/23/cyclamen-from-seed-presoaking-method/) — Einweich-Vorbehandlung
 28. [trailingpetunia.com — When to Plant Cyclamen Seeds for Best Germination Rates](https://www.trailingpetunia.com/blogs/news/when-to-plant-cyclamen-seeds-for-best-germination-rates) — Keimfähigkeitsdauer, Lagerempfehlung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+29. [RHS Plant Finder — Cyclamen persicum](https://www.rhs.org.uk/plants/101163/cyclamen-persicum-persian-cyclamen/details) — Sunlight: Full sun, Partial shade; Kulturhinweis „bright filtered light" (Lichtanspruch §1.10)

@@ -151,6 +151,22 @@ Hinweis: Keimtemperatur min (15 degC), Saattiefe (2--3 cm) und Dunkelkeimer-Stat
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Cucumber: 30--45 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–45 | `species.spacing_cm` |
+| Reihenabstand (cm) | 120–180 | `species.row_spacing_cm` |
+| Quelle Abstände | Virginia Cooperative Extension, „Cucumbers, Melons and Squash" 426-406 (rev. 2026; „12 to 18 inches by 48 to 72 inches in rows … closer if trellised" ≈ 30–46 × 122–183 cm), https://pubs.ext.vt.edu/426/426-406/426-406.html; UMD Extension, „Growing Cucumbers in the Home Garden" („12 in in-row × 48–72 in between rows" ≈ 30 × 122–183 cm), https://www.extension.umd.edu/resource/growing-cucumbers-home-garden (Zollwerte umgerechnet und gerundet; Werte für Bodenkultur in Reihen — bei Rankhilfe/Spalier enger: VCE Reihen 30 in ≈ 76 cm, UMD Ausdünnen auf 9–12 in ≈ 23–30 cm; Kiepenkerl nennt 30 × 30 cm für Beetpflanzung vorgezogener Dreiergruppen, https://www.kiepenkerl.de/kulturanleitungen/gurken/) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Virginia Cooperative Extension, „Cucumbers, Melons and Squash" 426-406 (rev. 2026; Standort „Sunny"), https://pubs.ext.vt.edu/426/426-406/426-406.html; UMD Extension, „Growing Cucumbers in the Home Garden" („Plants need full sun … at least 6 hours/day; prefers 8 - 10 hours/day"), https://www.extension.umd.edu/resource/growing-cucumbers-home-garden | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -476,6 +492,11 @@ Moderne F1-Hybriden bieten Resistenzen gegen die wichtigsten Krankheiten.
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae, N-Anreicherung) oder Gruenduengung |
 | Empfohlene Nachfrucht | Mittelzehrer (Moehren, Fenchel) oder Schwachzehrer (Salat, Radieschen) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Cucurbitaceae (Kuerbis, Zucchini, Melone, Gurke) auf gleicher Flaeche |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Projekt INNOProdukte, Datei 221123_Fruchtfolge.pdf, 2022), Tabelle 2: Starkzehrer u. a. Gurke, Zucchini, Kürbis, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (Jahr nicht angegeben), Starkzehrer-Beet: Gurken, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (LKSH „Fruchtfolge im Garten" (2020) nennt nur Kürbis als Starkzehrer, Gurke nicht namentlich — nicht mitgezählt) |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau", Tabelle 1, führt Gurke unter den Kürbisgewächsen, getrennt von den Schmetterlingsblütlern, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LKSH, „Fruchtfolge im Garten" (2020), führt Gurke unter den Kürbisgewächsen, Hülsenfrüchte als eigene Gruppe, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cucurbitaceae 4) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -570,4 +591,10 @@ Chinese Slangen,Cucumis sativus,,,long_season;heirloom,65,,open_pollinated
 20. Bayer Vegetables -- Understanding Micronutrients and Greenhouse Vegetables (Mn/Zn/Cu/Mo-Richtwerte Naehrloesung): https://www.vegetables.bayer.com/ca/en-ca/resources/growing-tips/cultivation-insights/understanding-micronutrients-and-greenhouse-vegetables.html
 21. UF/IFAS HS787/CV265 -- Fertilizer Management for Greenhouse Vegetables (Mikronaehrstoff-Rezeptur): https://ask.ifas.ufl.edu/publication/CV265
 22. MDPI Horticulturae 8(2):147 -- Regulating VPD and Soil Moisture Improves Tomato and Cucumber Growth (VPD-Management, hohe VPD ab ~2.0 kPa kritisch): https://www.mdpi.com/2311-7524/8/2/147
+23. Virginia Cooperative Extension -- Cucumbers, Melons and Squash (426-406, rev. 2026; Pflanz-/Reihenabstand, Standort Sunny): https://pubs.ext.vt.edu/426/426-406/426-406.html
+24. UMD Extension -- Growing Cucumbers in the Home Garden (Pflanz-/Reihenabstand, Vollsonne): https://www.extension.umd.edu/resource/growing-cucumbers-home-garden
+25. Südtiroler Bauernbund -- Fruchtfolgen im Gemüsebau (Merkblatt INNOProdukte; Zehrerstufen-Tabelle, Anbaupausen-Tabelle): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+26. Natur im Garten Burgenland -- Fruchtfolge im Gemüsegarten (Starkzehrer-Beet): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+27. LKSH -- Fruchtfolge im Garten (2020; Pflanzenfamilien-Tabelle, Hülsenfrüchte als eigene Gruppe): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+28. Kiepenkerl -- Gurken Kulturanleitung (Pflanzabstand Beet 30 x 30 cm, sonniger Standort): https://www.kiepenkerl.de/kulturanleitungen/gurken/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

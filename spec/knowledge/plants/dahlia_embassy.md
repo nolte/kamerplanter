@@ -139,6 +139,22 @@ Mitteleuropa (Zone 7–8), Bezugspunkt: letzter Frost Mitte Mai (ca. 15. Mai).
 **Hinweis Lichtansprüche:** Dahlie ist ein sonnenadaptierter C3-Lichttyp (Sonnenblatt-Charakteristik). Der Kompensationspunkt liegt artübergreifend bei Sonnenpflanzen typischerweise im Bereich ~20–40 µmol/m²/s, ein dahlienspezifischer Messwert ist jedoch nicht aus zwei seriösen Quellen belegbar; das KA-Feld bleibt daher leer. Lichtsättigung und Optimumwerte gehören NICHT in das Kompensationspunkt-Feld.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow dahlias" (Growing Guide): vorgezogene Pflanzen aus Knollen 60 cm, bewurzelte Stecklinge 50–60 cm, größere Sorten mehr (mindestens 60 cm), https://www.rhs.org.uk/plants/dahlia/growing-guide (Reihenabstand wird von der Quelle nicht genannt; 'Embassy' ca. 110 cm hoch, daher 60 cm gewählt) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow dahlias" (Growing Guide): „Dahlias need a warm, sheltered, sunny spot", https://www.rhs.org.uk/plants/dahlia/growing-guide (gattungsweite Angabe; für 'Embassy' liegt keine sortenspezifische RHS-Seite vor) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -445,7 +461,7 @@ Der Dahlienknolle-Jahreszyklus entspricht dem in REQ-022 definierten Knollen-Zyk
 
 **Lagerungsmethode im Detail:**
 - Knollen in Kisten oder Plastikboxen mit Löchern einlagern
-- Einbettungsmedium: trockene Kokoserde, Vermiculite, trockener Sand oder Sägemehl
+- Einbettungsmedium: trockene Kokoserde, Vermiculit, trockener Sand oder Sägemehl
 - Knollen vollständig einbetten oder zumindest rundum bedecken
 - Jede Knolle/Knollengruppe beschriften (Sortenname, Farbe, Datum)
 - Monatliche Kontrolle auf Schimmel (abschneiden und Wunde desinfizieren) und Austrocknung
@@ -531,6 +547,11 @@ Der Dahlienknolle-Jahreszyklus entspricht dem in REQ-022 definierten Knollen-Zyk
 | Empfohlene Nachfrucht | Schwachzehrer: Salat, Spinat, Rettich, Kräuter — profitieren von der Bodenbearbeitungstiefe durch Knollenentnahme; NICHT erneut Asteraceae |
 | Anbaupause | 3–4 Jahre keine Dahlien (oder andere Asteraceae) auf derselben Fläche — verhindert Bodenmüdigkeit und Verticillium-Akkumulation |
 | Besonderheit | Knollenausgraben im Herbst lockert den Boden auf 40 cm Tiefe — gute Vorfrucht für Tiefwurzler wie Möhren oder Pastinaken im Folgejahr |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

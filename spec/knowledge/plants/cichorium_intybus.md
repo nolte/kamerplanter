@@ -158,6 +158,22 @@ Quellen (S.1.8):
 6. Seed Needs / Outside Pride -- Chicory Seeds For Planting: oberflaechennahe Aussaat mit Lichtbeduerfnis (widerspricht deutschen Fachquellen -- daher Feld als DATEN FEHLEN markiert): https://www.seedneeds.com/products/chicory-italian-dandelion-seeds-for-planting
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | Kiepenkerl, Kulturanleitung Zichorien, „Pflanzabstand von etwa 30 x 30 cm", https://www.kiepenkerl.de/kulturanleitungen/zichorien/; Sperli, Kulturanleitung Zichorien, „Abstand von 30 x 30 cm", https://www.sperli.de/anbauexperte/kulturanleitung-zichorien/ (beide Quellen nennen nur „30 x 30 cm" ohne getrennte Zuordnung zu Reihe/Pflanze; hier als Quadratverband gelesen; Zuckerhutsalat nach LWG Bayern, Merkblatt 2111 (2016): Reihenabstand 40 cm, Abstand in der Reihe 35 cm, https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Kiepenkerl, Kulturanleitung Zichorien, „sonnig und windgeschützt", https://www.kiepenkerl.de/kulturanleitungen/zichorien/; Sperli, Kulturanleitung Zichorien, „Sonnig und windgeschützt", https://www.sperli.de/anbauexperte/kulturanleitung-zichorien/ | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -485,6 +501,11 @@ Die Gemeine Wegwarte ist als Wildpflanze grundsaetzlich robust und wenig anfaell
 | Empfohlene Vorfrucht | Starkzehrer (Kohl, Kartoffel) oder Huelsenfruechte |
 | Empfohlene Nachfrucht | Schwachzehrer (Radieschen, Feldsalat) oder Gruenduengung |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Asteraceae auf gleicher Flaeche (inkl. Endivie, Chicoree, Radicchio, Sonnenblume) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (2022), Tabelle 2 (Radicchio = Cichorium intybus var. foliosum als Mittelzehrer; Chicoree selbst nicht in der Zehrer-Tabelle), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022, Tabelle 1: Chicoree und Radicchio unter Korbblütlern, Schmetterlingsblütler als eigene Gruppe, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3); Kiepenkerl und Sperli nennen die Spanne „3 bis 4 Jahre" (keine ganze Zahl, schließt den Familienwert ein) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -574,3 +595,5 @@ Wegwarte (Pötschke Historisch),Cichorium intybus,Pötschke,,heirloom;wild_type;
 20. plantura.garden -- Wegwarte Pflanzenportrait: Bluetezeit "von Juli bis Oktober" (bereits in Quellenliste Zeile 5 referenziert)
 <!-- /Quelle: growing-phase-auditor 2026-07 (Bluetemonate-Korrektur) -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+21. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (2022; Zehrerstufe Radicchio/Endivie, Familie Korbblütler, Leguminosen als eigene Gruppe): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+22. LWG Bayern, Bayerische Gartenakademie, Merkblatt 2111 „Fruchtfolge für Gemüsebeete" (2016; Zuckerhutsalat Reihenabstand 40 cm / Abstand in der Reihe 35 cm): https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf

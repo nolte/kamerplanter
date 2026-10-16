@@ -14,6 +14,10 @@ families:
     soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
     description: "Große Familie mit vielen Nutzpflanzen wie Tomate, Paprika, Kartoffel und Aubergine."
     rotation_category: fruit
+    # REQ-053 K-004/E-10 (WP 0.5b batch 2): SBB 2022 "mindestens vier Jahren zwischen
+    # Kartoffelkulturen oder anderen Nachtschattengewächsen", AGES (PCN) "höchstens alle vier
+    # Jahre", ÖLN 2025 max. 3/7 a; thresholds-req-053.md §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Cannabaceae
     common_name_de: "Hanfgewächse"
@@ -126,6 +130,9 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Kürbisgewächse wie Gurke, Zucchini, Kürbis und Melone. Insektenbestäubt."
     rotation_category: cucurbit
+    # REQ-053 K-004/E-10 (WP 0.5b batch 2): SBB 2022 4–5 a, ÖLN 2025 max. 2/7 a;
+    # thresholds-req-053.md §C (confirmed 4, Spanne 3–5).
+    rotation_pause_years: 4
 
   - name: Asteraceae
     common_name_de: "Korbblütler"
