@@ -1,4 +1,3 @@
-import re
 from collections.abc import Callable, Collection, Iterator
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
@@ -12,6 +11,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WriteConflictError
 from app.data_access.arango import tenant_ownership
 from app.data_access.arango.collection_entity_names import entity_name_for_collection
+from app.data_access.arango.conflicts import conflict_error_for, describe_unique_conflict, extract_unique_field
 from app.data_access.arango.query_builder import AQLBuilder
 
 logger = structlog.get_logger(__name__)
@@ -377,44 +377,10 @@ class BaseArangoRepository[TModel: BaseModel]:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
-    #: Matches the indexed field list in an ArangoDB unique-constraint message:
-    #: ``... over '["batch_id"]' ...``, the older ``... over 'batch_id' ...``, a
-    #: compound ``... over 'tenant_key, name'; ...`` (3.12) or a bare ``over [...]``.
-    _UNIQUE_INDEX_FIELDS_RE: ClassVar[re.Pattern[str]] = re.compile(
-        r"over\s+(?:'(?P<quoted>[^']*)'|(?P<bracketed>\[[^\]]*\])|(?P<bare>[A-Za-z_][A-Za-z0-9_.]*))"
-    )
-    _FIELD_NAME_RE: ClassVar[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
-
-    #: The scope of a compound unique index: the tenant, or the owning location of a
-    #: slot (``(location_key, slot_id)``, #2065). It bounds the constraint and is
-    #: never what the caller collided on; naming it would tell the caller an internal
-    #: key and point the client at no form field (#2029).
-    _UNIQUE_SCOPE_FIELDS: ClassVar[frozenset[str]] = frozenset({"tenant_key", "location_key"})
-
     @classmethod
     def _extract_unique_field(cls, error_message: str | None) -> str | None:
-        """Extract the conflicting field name from an ArangoDB 1210 error message.
-
-        ArangoDB names the violated unique index in its error message, e.g.::
-
-            unique constraint violated - in index 42 of type persistent
-            over '["batch_id"]'; conflicting key: '...'
-
-        Returns the first indexed field that is not a scope
-        (:attr:`_UNIQUE_SCOPE_FIELDS`) — for ``(tenant_key, name)`` that is ``name`` — or
-        the first field when every field is a scope. ``None`` when the message
-        does not follow the recognised shape (so callers can fall back gracefully).
-        """
-        if not error_message:
-            return None
-        match = cls._UNIQUE_INDEX_FIELDS_RE.search(error_message)
-        if match is None:
-            return None
-        listed = match.group("quoted") or match.group("bracketed") or match.group("bare") or ""
-        names: list[str] = cls._FIELD_NAME_RE.findall(listed)
-        if not names:
-            return None
-        return next((name for name in names if name not in cls._UNIQUE_SCOPE_FIELDS), names[0])
+        """The conflicting field named by an ArangoDB 1210 message; see ``conflicts.extract_unique_field``."""
+        return extract_unique_field(error_message)
 
     @classmethod
     def _describe_unique_conflict(
@@ -422,25 +388,13 @@ class BaseArangoRepository[TModel: BaseModel]:
         error: ArangoServerError,
         data: dict[str, Any],
     ) -> tuple[str, str]:
-        """Turn a unique-constraint violation into a ``(field, value)`` pair.
+        """``(field, value)`` of a unique-constraint violation; see ``conflicts.describe_unique_conflict``.
 
         Reached from the insert **and** the two update paths: an update can violate
         a unique index just as an insert can (reopening a completed care task while
-        an equivalent one is already open, #1301), and error code ``1210`` means the
-        same thing on both.
-
-        Extracts the real conflicting field from the ArangoDB error message and
-        pairs it with the value taken from the document being inserted, so the
-        resulting :class:`DuplicateError` names the actual culprit instead of the
-        misleading ``key='duplicate'`` placeholder. Falls back to a non-misleading
-        ``field='<value>'`` when the message cannot be parsed.
+        an equivalent one is already open, #1301), and ``1210`` means the same on both.
         """
-        field = cls._extract_unique_field(getattr(error, "error_message", None))
-        if field and field in data:
-            return field, str(data[field])
-        if field:
-            return field, ""
-        return "field", ""
+        return describe_unique_conflict(error, data)
 
     def _mapped_insert_error(
         self,
@@ -450,39 +404,20 @@ class BaseArangoRepository[TModel: BaseModel]:
     ) -> Exception | None:
         """The domain conflict a rejected insert stands for, or ``None``.
 
-        The single copy of a translation three write paths need: :meth:`_insert_doc`
-        for documents, :meth:`create_edge` for edges, and — since #1292 —
-        ``ArangoCareReminderRepository.create_linked_profile``, which inserts a
-        document and an edge inside one stream transaction and so cannot reach
-        either of the other two. Written out once because the two existing copies
-        had already drifted apart: ``create_edge`` only grew the ``1200`` branch in
-        #1292, months after ``_insert_doc`` got it in #1436, and every caller of the
-        edge path turned that gap into a 500 in the meantime.
-
-        ``1210`` (unique constraint violated) becomes :class:`DuplicateError`, named
-        after the real conflicting field. ``1200`` (write-write conflict,
-        ``arango.errno.CONFLICT``) becomes :class:`WriteConflictError` — a *different
-        answer*, not a variant: it says a concurrent transaction held the same key
-        or unique-index entry, never that that transaction committed, so it may not
-        be read as "the record already exists" without a re-read. The driver message
-        is deliberately not forwarded in that case; it names an index and a document
-        key, and these errors' ``details`` are client-visible.
+        The non-transactional write paths' entry to the one translation in
+        ``data_access/arango/conflicts.py`` (:meth:`_insert_doc` for documents,
+        :meth:`create_edge` for edges); the stream-transaction helper reaches the
+        same :func:`conflict_error_for` directly. One spelling, because the two
+        copies that used to exist had drifted apart: ``create_edge`` only grew the
+        ``1200`` branch in #1292, months after ``_insert_doc`` got it in #1436, and
+        every caller of the edge path turned that gap into a 500 in the meantime.
 
         **Returns** the exception rather than raising it, so that every ``raise``
-        this module performs is visible at the site that performs it. The first
-        spelling raised from in here and relied on the caller writing a bare
-        ``raise`` underneath for the unrecognised codes; a reader of the call site
-        could not see which of the two happened, and dropping the trailing
-        ``raise`` would have swallowed an unknown driver failure silently. ``None``
+        this module performs is visible at the site that performs it. ``None``
         means "not a conflict this layer translates" — the caller re-raises the
-        original.
+        original, so an unknown driver failure is never swallowed silently.
         """
-        if error.error_code == 1210:  # unique constraint violated
-            field, value = self._describe_unique_conflict(error, data)
-            return DuplicateError(collection_name, field, value)
-        if error.error_code == 1200:  # write-write conflict (arango.errno.CONFLICT)
-            return WriteConflictError(collection_name)
-        return None
+        return conflict_error_for(error, entity=collection_name, data=data)
 
     def _require_tenant_key(self, tenant_key: str, method: str) -> None:
         """Reject the empty-``tenant_key`` sentinel before issuing a scoped query.

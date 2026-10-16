@@ -2,13 +2,13 @@ from datetime import date
 from typing import Any, cast
 
 import structlog
-from arango.database import StandardDatabase, TransactionDatabase
-from arango.exceptions import DocumentInsertError, TransactionCommitError
+from arango.database import StandardDatabase
 
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import CareProfileKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository, get_all_pages
+from app.data_access.arango.transactions import stream_transaction
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
@@ -301,9 +301,11 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         A rejection from the unique ``_from`` index on ``has_care_profile`` reaches
         the caller as :class:`DuplicateError` (``1210``, the winner already
         committed) or :class:`WriteConflictError` (``1200``, the winner is still
-        open — measured as ``timeout waiting to lock key``), through the same
-        :meth:`BaseArangoRepository._mapped_insert_error` the non-transactional
-        paths use. ``CareReminderService`` resolves either by re-reading the edge.
+        open — measured as ``timeout waiting to lock key``), typed by
+        ``stream_transaction`` (REQ-053 WP 1.2) with the same ``1210``/``1200``
+        verdict the non-transactional paths get from
+        :meth:`BaseArangoRepository._mapped_insert_error`. ``CareReminderService``
+        resolves either by re-reading the edge.
         """
         # This create does not go through ``BaseArangoRepository.create``, so the two
         # things that method does for every other insert have to be invoked by hand:
@@ -314,74 +316,33 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
         data = self._insert_payload(profile)
         edge_from = f"{col.PLANT_INSTANCES}/{plant_key}"
 
-        transaction = self._db.begin_transaction(write=[col.CARE_PROFILES, col.HAS_CARE_PROFILE])
-        try:
-            try:
-                # The ``cast`` is deliberately a SEPARATE statement rather than a
-                # wrapper around the call: the driver types every write as
-                # "dict | AsyncJob | BatchJob | bool" (a union only the batch/async
-                # executors can produce, while this repository holds a synchronous
-                # ``StandardDatabase``), but wrapping the call in ``cast(...)`` nests
-                # it one level deeper than the edge insert below, and the write-route
-                # detector walks breadth-first and records the FIRST sink it reaches
-                # per function. Written as a wrapper, the sink this method is pinned
-                # by in ``test_write_route_gates.py`` silently became the edge insert.
-                written = transaction.collection(col.CARE_PROFILES).insert(data, return_new=True)
-                inserted = cast(dict[str, Any], written)
-            except DocumentInsertError as exc:
-                mapped = self._mapped_insert_error(exc, col.CARE_PROFILES, data)
-                if mapped is not None:
-                    raise mapped from exc
-                raise
+        # Commit-once, abort-on-anything, typed conflicts (insert *and* commit) and
+        # the time budget all live in ``stream_transaction`` (REQ-053 WP 1.2); this
+        # method only says what to write. The handle is named ``transaction`` because
+        # the write-route detector pins this method's sink by receiver name
+        # (``test_write_route_gates.py``, ``_CARE_PROFILE_SINKS``).
+        with stream_transaction(
+            self._db, write=[col.CARE_PROFILES, col.HAS_CARE_PROFILE], entity=col.HAS_CARE_PROFILE
+        ) as transaction:
+            # The ``cast`` is deliberately a SEPARATE statement rather than a
+            # wrapper around the call: the driver types every write as
+            # "dict | AsyncJob | BatchJob | bool" (a union only the batch/async
+            # executors can produce, while this repository holds a synchronous
+            # ``StandardDatabase``), but wrapping the call in ``cast(...)`` nests
+            # it one level deeper than the edge insert below, and the write-route
+            # detector walks breadth-first and records the FIRST sink it reaches
+            # per function. Written as a wrapper, the sink this method is pinned
+            # by in ``test_write_route_gates.py`` silently became the edge insert.
+            written = transaction.collection(col.CARE_PROFILES).insert(data, return_new=True)
+            inserted = cast(dict[str, Any], written)
             edge_data = {
                 "_from": edge_from,
                 "_to": f"{col.CARE_PROFILES}/{inserted['new']['_key']}",
                 "created_at": self._now(),
             }
-            try:
-                transaction.collection(col.HAS_CARE_PROFILE).insert(edge_data)
-            except DocumentInsertError as exc:
-                mapped = self._mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
-                if mapped is not None:
-                    raise mapped from exc
-                raise
-            try:
-                transaction.commit_transaction()
-            except TransactionCommitError as exc:
-                # Not reached on a single server in any measurement taken here — the
-                # unique-index rejection arrives at the edge insert above. Mapped all
-                # the same, because a deferred conflict is the server's choice, not
-                # the client's, and the alternative to a typed error here is the raw
-                # driver exception and the 500 this whole change exists to remove.
-                mapped = self._mapped_insert_error(exc, col.HAS_CARE_PROFILE, edge_data)
-                if mapped is not None:
-                    raise mapped from exc
-                raise
-        except BaseException:
-            self._abort_quietly(transaction)
-            raise
+            transaction.collection(col.HAS_CARE_PROFILE).insert(edge_data)
         stored: CareProfile = self._wrap(self._from_doc(inserted["new"]))
         return stored
-
-    @staticmethod
-    def _abort_quietly(transaction: TransactionDatabase) -> None:
-        """Roll the transaction back, never masking the failure that got us here.
-
-        An abort can fail on its own — the server may have torn the transaction
-        down already, which is precisely the case after a write-write conflict, and
-        the connection may be gone entirely. That secondary error must not replace
-        the primary one the caller is about to see, so it is logged and dropped.
-
-        Broad on purpose, and this is the one place in this module where that is
-        right: narrowing to :class:`ArangoError` would let a transport-level failure
-        (a dropped connection surfaces as a plain ``ConnectionError``) mask the
-        ``DuplicateError`` the caller is being raised for, turning a resolvable lost
-        race back into the 500 of #1292.
-        """
-        try:
-            transaction.abort_transaction()
-        except Exception:  # noqa: BLE001 — see the docstring; masking the primary error is worse
-            logger.warning("care_profile_transaction_abort_failed", exc_info=True)
 
     def get_linked_profile(self, plant_key: str) -> CareProfile | None:
         """Return the profile reachable from *plant_key* over ``has_care_profile``.
