@@ -157,6 +157,10 @@
     "glossary": {
       "label": "Glossary",
       "description": "Reference of technical terms such as VPD or EC around cultivation."
+    },
+    "garden_planner": {
+      "label": "Garden plan",
+      "description": "Graphical plan of your beds and garden objects, reachable from the site."
     }
   },
   "roleGuard": {
@@ -436,6 +440,7 @@
     "diary": "Diary",
     "kiAssistent": "AI Assistant",
     "glossary": "Glossary",
+    "gardenPlan": "Garden plan",
     "phasen": "Phases",
     "detail": "Details",
     "beginnerHint": "Unlock more features in the settings"

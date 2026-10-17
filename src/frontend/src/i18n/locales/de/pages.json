@@ -5284,6 +5284,16 @@
       "navCardOpen": "Import öffnen"
     },
     "gardenPlan": {
+      "title": "Gartenplan",
+      "intro": "Dein Garten von oben: Beete und Gartenobjekte im richtigen Maßstab.",
+      "backToSite": "Zurück zum Standort",
+      "open": "Gartenplan öffnen",
+      "openHint": "Beete und Gartenobjekte dieses Standorts als Plan ansehen.",
+      "fieldModeHint": "Der Feldmodus für unterwegs ist noch nicht verfügbar. Du siehst den normalen Plan.",
+      "empty": {
+        "title": "Noch kein Gartenplan",
+        "description": "Zeichne die Umrisse deines Gartens. Du kannst sie später jederzeit anpassen."
+      },
       "renderer": {
         "canvas": "Gartenplan",
         "canvasRole": "Gartenplan",

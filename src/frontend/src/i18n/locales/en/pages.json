@@ -5283,6 +5283,16 @@
       "navCardOpen": "Open import"
     },
     "gardenPlan": {
+      "title": "Garden plan",
+      "intro": "Your garden from above: beds and garden objects to scale.",
+      "backToSite": "Back to site",
+      "open": "Open garden plan",
+      "openHint": "See the beds and garden objects of this site as a plan.",
+      "fieldModeHint": "Field mode for use on the go is not available yet. You are seeing the regular plan.",
+      "empty": {
+        "title": "No garden plan yet",
+        "description": "Draw the outline of your garden. You can adjust it at any time later."
+      },
       "renderer": {
         "canvas": "Garden plan",
         "canvasRole": "Garden plan",

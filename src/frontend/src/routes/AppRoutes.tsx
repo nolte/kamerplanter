@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import MainLayout from '@/layouts/MainLayout';
 import KioskLayout from '@/layouts/KioskLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import ModuleGuard from '@/components/common/ModuleGuard';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import PublicOnlyRoute from '@/auth/PublicOnlyRoute';
 // #1261 — the domain-role guard. Every `<RequireRole>` below must match an entry
@@ -60,6 +61,7 @@ const LocationDetailPage = lazy(() => import('@/pages/standorte/LocationDetailPa
 const SubstrateListPage = lazy(() => import('@/pages/standorte/SubstrateListPage'));
 const SubstrateDetailPage = lazy(() => import('@/pages/standorte/SubstrateDetailPage'));
 const BatchDetailPage = lazy(() => import('@/pages/standorte/BatchDetailPage'));
+const GardenPlanRoute = lazy(() => import('@/features/gardenPlanner/routes/GardenPlanRoute'));
 const SlotDetailPage = lazy(() => import('@/pages/standorte/SlotDetailPage'));
 const PlantInstanceListPage = lazy(() => import('@/pages/pflanzen/PlantInstanceListPage'));
 const PlantInstanceDetailPage = lazy(() => import('@/pages/pflanzen/PlantInstanceDetailPage'));
@@ -543,6 +545,18 @@ export const router = createBrowserRouter(
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <SiteDetailPage />
               </Suspense>
+            }
+          />
+          {/* REQ-053 WP 2.3 — grafischer Gartenplan (Unterpunkt der Site, Modul `garden_planner`).
+              Liegt im Pfadraum des Kernmoduls `locations`, daher Modul-Key explizit (REQ-042 §4.3). */}
+          <Route
+            path="standorte/sites/:key/plan"
+            element={
+              <ModuleGuard moduleKey="garden_planner">
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <GardenPlanRoute />
+                </Suspense>
+              </ModuleGuard>
             }
           />
           <Route

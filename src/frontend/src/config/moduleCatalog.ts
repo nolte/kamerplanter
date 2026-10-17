@@ -40,7 +40,8 @@ export type ModuleKey =
   | 'automation'
   | 'ai'
   | 'ai_assistant'
-  | 'glossary';
+  | 'glossary'
+  | 'garden_planner';
 
 export interface ModuleDefinition {
   key: ModuleKey;
@@ -116,6 +117,14 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
   // therefore follows the core `plants` module, not this entry — hence the
   // single navPath.
   diary: def('diary', 'care_planning', 'beginner', false, ['/tagebuch']),
+  // REQ-053 / REQ-042 §1.3 — the graphical garden plan. A sub-item of the site inside the core
+  // `locations` module, not a main-menu entry: the module gates the entry point on the site detail
+  // page (`isModuleVisible('garden_planner')`) and the route (`<ModuleGuard moduleKey>`), NOT the
+  // path prefix. The `:key` segment is never evaluated by `findModuleByPath`, and the concrete path
+  // lies under the `locations` prefix anyway (REQ-042 §4.3). `beginner` keeps it visible in light mode.
+  garden_planner: def('garden_planner', 'care_planning', 'beginner', false, [
+    '/standorte/sites/:key/plan',
+  ]),
 
   // ── Nutrition & water ──
   nutrition: def('nutrition', 'nutrition_water', 'intermediate', false, [

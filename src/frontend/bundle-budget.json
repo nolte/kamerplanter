@@ -7,6 +7,10 @@
     "dashboard": {
       "source": "src/pages/DashboardPage.tsx",
       "gzipKb": 12
+    },
+    "gardenPlanner": {
+      "source": "src/features/gardenPlanner/routes/GardenPlanRoute.tsx",
+      "gzipKb": 120
     }
   }
 }

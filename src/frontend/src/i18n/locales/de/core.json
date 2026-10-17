@@ -157,6 +157,10 @@
     "glossary": {
       "label": "Glossar",
       "description": "Nachschlagewerk für Fachbegriffe wie VPD oder EC rund um den Anbau."
+    },
+    "garden_planner": {
+      "label": "Gartenplan",
+      "description": "Grafischer Plan deiner Beete und Gartenobjekte als Unterpunkt des Standorts."
     }
   },
   "roleGuard": {
@@ -436,6 +440,7 @@
     "diary": "Tagebuch",
     "kiAssistent": "KI-Assistent",
     "glossary": "Glossar",
+    "gardenPlan": "Gartenplan",
     "phasen": "Phasen",
     "detail": "Details",
     "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"

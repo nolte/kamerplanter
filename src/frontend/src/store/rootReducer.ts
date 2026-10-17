@@ -1,4 +1,5 @@
-import { combineReducers, type UnknownAction } from '@reduxjs/toolkit';
+import { combineSlices, type UnknownAction } from '@reduxjs/toolkit';
+import { connectLazySlices } from './lazySlices';
 import { clearAuth, logoutUser } from './slices/authSlice';
 import activitiesReducer from './slices/activitiesSlice';
 import authReducer from './slices/authSlice';
@@ -32,10 +33,20 @@ import pestDetectionReducer from './slices/pestDetectionSlice';
 import overwinteringProfilesReducer from './slices/overwinteringProfilesSlice';
 import seasonReducer from './slices/seasonSlice';
 import dashboardReducer from './slices/dashboardSlice';
-import gardenPlanReducer from '@/features/gardenPlanner/state/gardenPlanSlice';
+// Type only: the slice itself is injected by the lazy plan route (REQ-053 WP 2.3), so its code
+// stays out of the initial bundle.
+import type { GardenPlanState } from '@/features/gardenPlanner/state/gardenPlanSlice';
 
-/** Every slice the application mounts. */
-export const appReducer = combineReducers({
+/**
+ * Slices that are not part of the initial bundle and are injected when their route loads
+ * (`registerLazySlice(slice)`, see `lazySlices.ts`). They are optional in the state until then.
+ */
+export interface LazyLoadedSlices {
+  gardenPlan: GardenPlanState;
+}
+
+/** Every slice the application mounts at start-up; lazy ones join through `injectInto`. */
+export const appReducer = combineSlices({
   activities: activitiesReducer,
   auth: authReducer,
   ui: uiReducer,
@@ -68,8 +79,8 @@ export const appReducer = combineReducers({
   overwinteringProfiles: overwinteringProfilesReducer,
   season: seasonReducer,
   dashboard: dashboardReducer,
-  gardenPlan: gardenPlanReducer,
-});
+}).withLazyLoadedSlices<LazyLoadedSlices>();
+connectLazySlices(appReducer);
 
 type AppState = ReturnType<typeof appReducer>;
 

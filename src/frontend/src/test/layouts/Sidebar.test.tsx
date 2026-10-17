@@ -101,9 +101,14 @@ describe('Sidebar ↔ moduleCatalog sync (REQ-042 root-cause guard)', () => {
         .filter((key): key is ModuleKey => key !== undefined),
     );
 
+    // REQ-042 §4.3: a sub-item of a core module's path space has no sidebar entry of its own; its
+    // entry point sits on a detail page and is gated there (covered by SiteDetailPage.test.tsx).
+    const ENTRY_ON_DETAIL_PAGE: ReadonlySet<ModuleKey> = new Set<ModuleKey>(['garden_planner']);
+
     const phantomModules = Object.values(moduleCatalog)
       .filter((m) => !m.core)
       .map((m) => m.key)
+      .filter((key) => !ENTRY_ON_DETAIL_PAGE.has(key))
       .filter((key) => !owningKeys.has(key));
     expect(phantomModules).toEqual([]);
   });
