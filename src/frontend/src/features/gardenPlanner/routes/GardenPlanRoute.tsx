@@ -5,8 +5,10 @@
  * (`SvgPlanRenderer`, GP-NFR-009) and that injects the plan slice into the root reducer, so neither
  * the renderer, the plan model nor the slice are part of the initial bundle (UI-NFR-003).
  *
- * Read-only for now: the page loads the plan, draws it and explains the empty and error states. The
- * editor tools arrive with WP 2.4; `?mode=field` is only recognised and announced (GP-FR-182, §18).
+ * The page loads the plan, explains the empty and error states and mounts the editor (WP 2.4:
+ * select, pan, draw, handles). It owns the viewport - fitted to the plan, shifted by the pan tool;
+ * zoom and the fit button follow in WP 2.5. `?mode=field` is only recognised and announced
+ * (GP-FR-182, §18).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
@@ -31,7 +33,8 @@ import {
 } from '../state/gardenPlanSlice';
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
-import type { RenderSelection } from '../renderer/types';
+import { GardenPlanEditor } from '../editor/GardenPlanEditor';
+import type { BoundingBox, Point } from '../model/types';
 import { fitViewport, planContentBounds } from './fitViewport';
 
 // Register the slice before the first render of the page; idempotent, so a re-evaluated module
@@ -44,7 +47,6 @@ const FALLBACK_WIDTH_PX = 640;
 const MAX_HEIGHT_SHARE = 0.7;
 /** Both sides of the 1px canvas border; the drawing must fit inside it or the box scrolls sideways. */
 const CANVAS_BORDER_PX = 2;
-const NO_SELECTION: RenderSelection = { selectedKeys: new Set() };
 
 /** The width of the element the ref points at, kept up to date while it resizes. */
 function useElementWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
@@ -69,7 +71,7 @@ export default function GardenPlanRoute() {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const { plan, loadStatus, loadError } = useAppSelector(selectGardenPlanState);
+  const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
   const labels = useRendererLabels();
   const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
@@ -103,12 +105,38 @@ export default function GardenPlanRoute() {
     };
   }, [dispatch, key, siteName]);
 
-  const bounds = useMemo(() => (plan ? planContentBounds(plan) : null), [plan]);
-  const viewport = useMemo(() => {
+  // The view is fitted once per load, not per edit: drawing or moving a bed must not make the plan
+  // jump under the pointer. (State adjusted during render, the documented derived-state pattern.)
+  const [fit, setFit] = useState<{ requestId: string | null; bounds: BoundingBox | null } | null>(null);
+  if (plan !== null && loadStatus === 'ready' && fit?.requestId !== loadRequestId) {
+    setFit({ requestId: loadRequestId, bounds: planContentBounds(plan) });
+  }
+  const bounds = fit?.bounds ?? null;
+  const fitted = useMemo(() => {
     if (bounds === null) return null;
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
     return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
   }, [bounds, canvasWidth]);
+
+  // The pan tool shifts the fitted view (model metres). The shift belongs to one site: another
+  // site starts unshifted again, without an effect to reset it.
+  const [pan, setPan] = useState<{ siteKey: string | undefined; offsetM: Point }>({ siteKey: key, offsetM: [0, 0] });
+  const fittedPxPerM = fitted?.pxPerM ?? 1;
+  const onPan = useCallback(
+    (dxPx: number, dyPx: number) => {
+      // Dragging the plan right moves the viewport origin left; screen y points down, model y up.
+      setPan((previous) => {
+        const [x, y] = previous.siteKey === key ? previous.offsetM : [0, 0];
+        return { siteKey: key, offsetM: [x - dxPx / fittedPxPerM, y + dyPx / fittedPxPerM] };
+      });
+    },
+    [fittedPxPerM, key],
+  );
+  const viewport = useMemo(() => {
+    if (!fitted) return null;
+    const [panX, panY] = pan.siteKey === key ? pan.offsetM : [0, 0];
+    return { ...fitted, originM: [fitted.originM[0] + panX, fitted.originM[1] + panY] as Point };
+  }, [fitted, pan, key]);
 
   const backLink = (
     <Button
@@ -138,22 +166,14 @@ export default function GardenPlanRoute() {
     );
   } else {
     content = (
-      <Box
-        data-testid="garden-plan-canvas"
-        role="region"
-        aria-label={t('pages.gardenPlan.renderer.canvas')}
-        // A scrollable region must be reachable by keyboard (WCAG 2.1.1).
-        tabIndex={0}
-        sx={{
-          overflow: 'auto',
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          bgcolor: 'background.paper',
-        }}
-      >
-        {renderer.render(plan, viewport, NO_SELECTION, { labels, fieldMode })}
-      </Box>
+      <GardenPlanEditor
+        plan={plan}
+        viewport={viewport}
+        renderer={renderer}
+        labels={labels}
+        fieldMode={fieldMode}
+        onPan={onPan}
+      />
     );
   }
 

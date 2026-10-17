@@ -5326,6 +5326,115 @@
           "furniture": "Möbel",
           "lamp": "Lampe"
         }
+      },
+      "editor": {
+        "toolbar": {
+          "label": "Werkzeuge des Gartenplans",
+          "tools": "Werkzeug",
+          "shapes": "Form",
+          "angleStep": "Drehraster"
+        },
+        "tools": {
+          "select": {
+            "label": "Auswählen",
+            "hint": "Auswählen und verschieben – Klick, Rahmen aufziehen, Umschalt für mehrere"
+          },
+          "pan": {
+            "label": "Ansicht verschieben",
+            "hint": "Die Ansicht verschieben, ohne etwas zu ändern"
+          },
+          "bed": {
+            "label": "Beet zeichnen",
+            "hint": "Ein neues Beet auf dem Plan zeichnen"
+          },
+          "garden_object": {
+            "label": "Gartenobjekt zeichnen",
+            "hint": "Ein Gartenobjekt wie Weg, Zaun oder Baum zeichnen"
+          }
+        },
+        "shapes": {
+          "rect": {
+            "label": "Rechteck",
+            "hint": "Rechteck aufziehen – Umschalt für ein Quadrat"
+          },
+          "circle": {
+            "label": "Kreis",
+            "hint": "Kreis vom Mittelpunkt aus aufziehen"
+          },
+          "polygon": {
+            "label": "Vieleck",
+            "hint": "Punkt für Punkt klicken; Enter oder Klick auf den ersten Punkt schließt die Form"
+          },
+          "polyline": {
+            "label": "Linie",
+            "hint": "Punkt für Punkt klicken; Enter oder Klick auf den letzten Punkt beendet die Linie"
+          }
+        },
+        "angleStep": {
+          "label": "Drehraster {{step}} Grad",
+          "hint": "Der Drehgriff rastet alle {{step}}° ein (Alt gedrückt: frei drehen)"
+        },
+        "draw": {
+          "finish": "Fertig",
+          "cancel": "Abbrechen"
+        },
+        "vertex": {
+          "insert": "Punkt einfügen",
+          "delete": "Punkt löschen"
+        },
+        "delete": {
+          "label": "Löschen",
+          "hint": "Die Auswahl löschen (Entf)"
+        },
+        "newBedName": "Beet {{n}}",
+        "tooSmall": "Dieses Objekt ist auf dem Bildschirm zu klein für Griffe. Verschieben geht trotzdem; zum Ändern der Größe wähle es und gib die Maße im Eigenschaftenfeld ein, sobald es verfügbar ist.",
+        "actions": {
+          "move": "Verschieben",
+          "rotate": "Drehen",
+          "resize": "Größe ändern",
+          "editPoint": "Punkt ändern",
+          "draw": "Zeichnen",
+          "delete": "Löschen"
+        },
+        "notice": {
+          "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
+          "object": {
+            "locked": "Gesperrte Objekte lassen sich nicht ändern oder löschen. Entsperre sie zuerst."
+          },
+          "geometry": {
+            "outside_parent": "Die Form liegt nicht vollständig in ihrem Bereich (oder in der Gartengrenze). Der Plan bleibt unverändert.",
+            "self_intersecting": "Die Kanten des Vielecks überschneiden sich. Verschiebe einen Punkt, bis sich keine Kanten mehr kreuzen.",
+            "invalid": "Die Form hat ungültige Maße oder liegt außerhalb des Plans.",
+            "too_few_points": "Ein Vieleck braucht mindestens drei Punkte, eine Linie mindestens zwei."
+          },
+          "draw": {
+            "too_few_points": "Setze mindestens drei Punkte für ein Vieleck oder zwei für eine Linie."
+          },
+          "reference": {
+            "not_found": "Ein Objekt dieser Änderung gibt es nicht mehr. Der Plan bleibt unverändert."
+          }
+        },
+        "deleteDialog": {
+          "titleOne": "„{{name}}“ löschen?",
+          "titleMany_one": "{{count}} Objekt löschen?",
+          "titleMany_other": "{{count}} Objekte löschen?",
+          "alsoDeleted": "Dabei wird auch gelöscht:",
+          "nothingElse": "Darin liegen keine weiteren Beete, Objekte, Pflanzen oder Aufgaben.",
+          "counts": {
+            "beds_one": "{{count}} enthaltenes Beet",
+            "beds_other": "{{count}} enthaltene Beete",
+            "objects_one": "{{count}} Gartenobjekt",
+            "objects_other": "{{count}} Gartenobjekte",
+            "slots_one": "{{count}} Pflanzposition",
+            "slots_other": "{{count}} Pflanzpositionen",
+            "plants_one": "{{count}} Pflanze",
+            "plants_other": "{{count}} Pflanzen",
+            "tasks_one": "{{count}} offene Aufgabe",
+            "tasks_other": "{{count}} offene Aufgaben"
+          },
+          "irreversible": "Nach dem Speichern lässt sich das Löschen nicht mehr rückgängig machen.",
+          "confirm": "Löschen"
+        }
       }
     }
   }

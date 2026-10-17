@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -58,6 +58,23 @@ describe('GardenPlanRoute', () => {
     expect(container.querySelector('[data-plan-key="go_1"]')).not.toBeNull();
     // The scrollable drawing is a named, keyboard-focusable region.
     expect(screen.getByRole('region', { name: 'Garden plan' })).toHaveAttribute('tabindex', '0');
+  });
+
+  it('mounts the editor: the tool bar, and a pan drag moves the view of the drawing', async () => {
+    usePlan();
+    const { container } = renderRoute();
+    const canvas = await screen.findByTestId('garden-plan-canvas');
+    expect(screen.getByRole('toolbar', { name: 'Garden plan tools' })).toBeInTheDocument();
+    const viewBox = () => container.querySelector('svg[data-testid="garden-plan-svg"]')!.getAttribute('viewBox');
+    const before = viewBox();
+    fireEvent.click(screen.getByTestId('garden-plan-tool-pan'));
+    fireEvent.pointerDown(canvas, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(canvas, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 160, clientY: 130 });
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 160, clientY: 130 });
+    const after = viewBox();
+    expect(after).not.toBe(before);
+    // The view moved, the plan did not: nothing is pending.
+    expect(screen.queryByTestId('garden-plan-notice')).toBeNull();
   });
 
   it('explains the empty state of a site without a plan', async () => {

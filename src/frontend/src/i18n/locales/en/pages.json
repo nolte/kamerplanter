@@ -5325,6 +5325,115 @@
           "furniture": "Furniture",
           "lamp": "Lamp"
         }
+      },
+      "editor": {
+        "toolbar": {
+          "label": "Garden plan tools",
+          "tools": "Tool",
+          "shapes": "Shape",
+          "angleStep": "Rotation step"
+        },
+        "tools": {
+          "select": {
+            "label": "Select",
+            "hint": "Select and move – click, drag a frame, hold Shift for several"
+          },
+          "pan": {
+            "label": "Pan view",
+            "hint": "Move the view without changing anything"
+          },
+          "bed": {
+            "label": "Draw bed",
+            "hint": "Draw a new bed on the plan"
+          },
+          "garden_object": {
+            "label": "Draw garden object",
+            "hint": "Draw a garden object such as a path, fence or tree"
+          }
+        },
+        "shapes": {
+          "rect": {
+            "label": "Rectangle",
+            "hint": "Drag out a rectangle – hold Shift for a square"
+          },
+          "circle": {
+            "label": "Circle",
+            "hint": "Drag out a circle from its centre"
+          },
+          "polygon": {
+            "label": "Polygon",
+            "hint": "Click point by point; Enter or a click on the first point closes the shape"
+          },
+          "polyline": {
+            "label": "Line",
+            "hint": "Click point by point; Enter or a click on the last point ends the line"
+          }
+        },
+        "angleStep": {
+          "label": "Rotation step {{step}} degrees",
+          "hint": "The rotate handle snaps every {{step}}° (hold Alt to rotate freely)"
+        },
+        "draw": {
+          "finish": "Done",
+          "cancel": "Cancel"
+        },
+        "vertex": {
+          "insert": "Insert point",
+          "delete": "Delete point"
+        },
+        "delete": {
+          "label": "Delete",
+          "hint": "Delete the selection (Del)"
+        },
+        "newBedName": "Bed {{n}}",
+        "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties field once it is available.",
+        "actions": {
+          "move": "Move",
+          "rotate": "Rotate",
+          "resize": "Resize",
+          "editPoint": "Edit point",
+          "draw": "Draw",
+          "delete": "Delete"
+        },
+        "notice": {
+          "generic": "That is not possible. The plan stays as it was.",
+          "object": {
+            "locked": "Locked objects cannot be changed or deleted. Unlock them first."
+          },
+          "geometry": {
+            "outside_parent": "The shape does not lie completely inside its area (or the garden boundary). The plan stays as it was.",
+            "self_intersecting": "The polygon's edges cross. Move a point until no edges cross.",
+            "invalid": "The shape has invalid dimensions or lies outside the plan.",
+            "too_few_points": "A polygon needs at least three points, a line at least two."
+          },
+          "draw": {
+            "too_few_points": "Place at least three points for a polygon or two for a line."
+          },
+          "reference": {
+            "not_found": "An object of this change no longer exists. The plan stays as it was."
+          }
+        },
+        "deleteDialog": {
+          "titleOne": "Delete \"{{name}}\"?",
+          "titleMany_one": "Delete {{count}} object?",
+          "titleMany_other": "Delete {{count}} objects?",
+          "alsoDeleted": "This also deletes:",
+          "nothingElse": "It contains no further beds, objects, plants or tasks.",
+          "counts": {
+            "beds_one": "{{count}} contained bed",
+            "beds_other": "{{count}} contained beds",
+            "objects_one": "{{count}} garden object",
+            "objects_other": "{{count}} garden objects",
+            "slots_one": "{{count}} planting position",
+            "slots_other": "{{count}} planting positions",
+            "plants_one": "{{count}} plant",
+            "plants_other": "{{count}} plants",
+            "tasks_one": "{{count}} open task",
+            "tasks_other": "{{count}} open tasks"
+          },
+          "irreversible": "Once saved, this deletion cannot be undone.",
+          "confirm": "Delete"
+        }
       }
     }
   }
