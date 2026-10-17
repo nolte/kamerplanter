@@ -137,6 +137,22 @@
 4. §1.3 dieses Steckbriefs (bereits zitierte Quellen: Samen bei 22–28°C, Keimung 7–21 Tage, Substratoberfläche ohne Bedeckung) — Cross-Check Keimtemperatur/-tiefe
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Lithops olivacea" (Position: Full sun; Kulturtext „Grow in cactus compost with added leaf mould in full light"; Beleg über eine Art der Gattung, die RHS-Gattungsseite nennt keine Standortstufe), https://www.rhs.org.uk/plants/10370/lithops-olivacea/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -345,4 +361,5 @@ Lithops spp.,"Lebende Steine;Steinpflanzen;Living Stones;Pebble Plants",Aizoacea
 18. [Koppert — Stratiolaelaps scimitus (Hypoaspis miles)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/stratiolaelaps-scimitus-hypoaspis-miles/) — Raubmilbe gegen Trauermücken
 19. [Penn State Extension — Stratiolaelaps scimitus (Hypoaspis miles)](https://extension.psu.edu/all-about-stratiolaelaps-scimitus-hypoaspis-miles-predatory-mites) — Ausbringrate/Etablierung (100–500/m², 2 Gaben)
 20. [Bugs for Growers — Biocontrol agents for fungus gnats (Steinernema feltiae)](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Nematoden gegen Trauermücken-Larven
+21. [RHS — Lithops olivacea](https://www.rhs.org.uk/plants/10370/lithops-olivacea/details) — Position (Full sun), Kulturtext „in full light"
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

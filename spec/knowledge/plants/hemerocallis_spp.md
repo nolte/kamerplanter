@@ -118,6 +118,22 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.0 (neutral bis leicht sauer; mit §1.6/§2.3 harmonisiert) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 25–40 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | Illinois Extension (University of Illinois), „Daylily" („Space 10–16 inches apart" = 25–40 cm; Jahr nicht angegeben; weicht von Platzbedarf 45–60 in 1.6 ab), https://extension.illinois.edu/landscaping/daylily | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow Hemerocallis" („Hemerocallis perform best in full sun, but are fine in partial shade"), https://www.rhs.org.uk/plants/hemerocallis/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -288,6 +304,11 @@ Taglilien sind pflegeleicht und brauchen keine intensive Düngung. Zweimalige D�
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Gartenstauden |
 | Anbaupause (Jahre) | Mehrjährig; Standort 10–15 Jahre; alle 4–5 Jahre teilen |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert; Dauerstaude ohne Fruchtfolge --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -345,3 +366,4 @@ Hemerocallis spp.,"Taglilie;Daylily",Asphodelaceae,Hemerocallis,perennial,day_ne
 12. [Frontiers in Plant Science (2024) — Optimizing Hemerocallis citrina cultivation; PMC12197142 Pollen viability](https://pmc.ncbi.nlm.nih.gov/articles/PMC11443226/) — Temperaturoptima (Pollenkeimung 24–26 °C) als Anker für Photosynthese-T_opt
 13. [Hou et al. (2025), PMC — HfCOL2 / CONSTANS-like in Hemerocallis flowering](https://pmc.ncbi.nlm.nih.gov/articles/PMC12252332/) — Blühregulation entwicklungs-/zirkadian gesteuert, keine eindeutige Lang-/Kurztag-Klassifikation → tagneutral
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+14. [Illinois Extension — Daylily](https://extension.illinois.edu/landscaping/daylily) — Pflanzabstand 10–16 inches (25–40 cm)

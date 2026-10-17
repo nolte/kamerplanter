@@ -260,3 +260,77 @@ Konventionen wie bei Batch 1 und 2. Auswahl: alphabetische Dateiliste von `spec/
 1. Der `plant-info-document-generator` lief in diesem Batch ohne Bash und konnte `git diff --numstat` nicht selbst prüfen (Zeilenzahl-Selbstprüfung); die Prüfung durch den Aufrufer ergab 0 Löschungen. Prüfpflicht beim Aufrufer bleibt.
 2. Ein Agent trug eine Lichtstufe aus „bright, filtered light" ab, obwohl die RHS-Position eine Spanne ohne Vorzug nennt (Dieffenbachia); auf null zurückgesetzt. Dem Agenten die Regel „Spanne ohne Vorzug = null" ausdrücklich mitgeben.
 3. Gehölze/Stauden: RHS gibt nur Endbreite oder Heckenabstand — Pflanzabstand nur bei ausdrücklichem „plant … apart".
+
+## Batch 4 (Arten 91–120, `goeppertia_orbifolia` … `malus_domestica`) — 2026-10-17
+
+Konventionen wie bei Batch 1–3. Auswahl: alphabetische Dateiliste von `spec/knowledge/plants/*.md` (ohne `_*`), Position 91–120 (Batch 1–3 = Position 1–90, keine Überschneidung). Tally je Art: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_demand` | Konfidenz | `nitrogen_fixing` | `rotation_pause_years`. „n/a" = Zimmerpflanze bzw. Abschnitt 6 „Entfällt"; „frei" = freie Pflanzung, keine Reihenkultur.
+
+### Bilanz je Art
+
+| Art | spacing | row | light | nutrient_demand | Konf. | N-Fix | Pause |
+|---|---|---|---|---|---|---|---|
+| Lactuca sativa | 30 | 30 | full_sun | medium_feeder | medium | false | Familie (Asteraceae 3) |
+| Luffa aegyptiaca | 40–100 | 150–200 | full_sun | null | — | null | Familie (Cucurbitaceae 4) |
+| Lens culinaris | null | null | null | null | — | true | Familie (Fabaceae 6) |
+| Helianthus annuus | null | null | full_sun | null | — | null | null |
+| Hordeum vulgare | null | null | null | null | — | null | null |
+| Humulus lupulus | null | null | null | null | — | null | null |
+| Levisticum officinale | 30–45 | null | null | null | — | null | Familie (Apiaceae 4) |
+| Lupinus polyphyllus | null | frei | null | n/a | — | true | null |
+| Helleborus niger | 30–36 | frei | partial_shade | n/a | — | null | null |
+| Hemerocallis spp. | 25–40 | frei | full_sun | n/a | — | null | null |
+| Hosta spp. | null | frei | partial_shade | n/a | — | n/a | n/a |
+| Hydrangea macrophylla | null | frei | partial_shade | n/a | — | null | null |
+| Impatiens walleriana | 20–25 | frei | partial_shade | n/a | — | n/a | n/a |
+| Lavandula angustifolia | null | frei | full_sun | n/a | — | n/a | n/a |
+| Ligustrum vulgare | null | frei | null | n/a | — | null | null |
+| Malus domestica | null | frei | full_sun | n/a | — | null | null |
+| Goeppertia orbifolia, Guzmania lingulata, Howea forsteriana, Kalanchoe blossfeldiana | n/a | n/a | partial_shade | n/a | — | n/a | n/a |
+| Lithops spp., Kalanchoe daigremontiana | n/a | n/a | full_sun | n/a | — | n/a | n/a |
+| Gymnocalycium, Haworthiopsis, Hedera helix, Hibiscus rosa-sinensis, Hippeastrum, Hoya carnosa, Jasminum polyanthum, Livistona chinensis | n/a bzw. null | n/a bzw. frei | null | n/a | — | n/a | n/a |
+
+### Lücken (Wert `null`, Grund)
+
+| Art | Feld | Grund |
+|---|---|---|
+| Hedera helix, Humulus lupulus, Jasminum polyanthum, Livistona chinensis, Ligustrum vulgare | `light_requirement` | RHS nennt Spanne ohne Vorzug |
+| Haworthiopsis fasciata, Hoya carnosa, Hibiscus rosa-sinensis, Levisticum officinale, Lupinus polyphyllus | `light_requirement` | Quellen widersprechen sich (RHS-Positionsfeld vs. Kulturtext bzw. Artseite vs. Guide) |
+| Gymnocalycium, Hordeum, Lens, Hippeastrum | `light_requirement` | keine Standortstufe gelesen („bright, filtered light" ist keine Stufe) |
+| Helianthus, Hordeum, Humulus, Lens, Levisticum (Reihe), Lavandula, Hosta, Hydrangea, Ligustrum, Lupinus, Malus | `spacing_cm` / `row_spacing_cm` | RHS nennt nur Endbreite bzw. Obergrenze; Getreide/Hülsenfrüchte nach Saatstärke; Hopfen/Sonnenblume: Fachquellen als PDF nicht lesbar |
+| Lens, Hordeum, Humulus, Helianthus, Levisticum, Luffa | `nutrient_demand` | keine artspezifische Zehrerstufe gelesen (LK NRW nennt nur Sammelgruppe „Kräuter") |
+| Zierpflanzen/Gehölze (Helleborus, Hemerocallis, Hosta, Hydrangea, Jasminum, Ligustrum, Lupinus, Malus, Hibiscus) | `nutrient_demand`, `rotation_pause_years` | keine Zehrerstufe in Fruchtfolge-Quellen |
+| Helleborus, Hemerocallis, Helianthus, Hydrangea, Ligustrum, Luffa, Malus, Levisticum | `nitrogen_fixing` | nicht belegt |
+| Zimmerpflanzen (Abschnitt 6 „Entfällt") | 6.1-Felder | kein 6.1-Abschnitt; Felder bleiben null |
+| Lavandula, Livistona | 6.1-Felder | Datei hat nur 6.2/6.3, kein 6.1; nichts angelegt |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert | Hinweis |
+|---|---|---|---|
+| Hemerocallis spp. | 1.6 „45–60" | 25–40 (Illinois Extension) | Einzelquelle |
+| Helleborus niger | 1.6 „30–40" | 30–36 (Proven Winners, Sorte) | Einzelquelle |
+| Luffa aegyptiaca | 1.6 „60–100" in der Reihe | 40–100 / Reihe 150–200 (OMAFRA 2012) | teilweise bestätigt |
+| Levisticum officinale | 1.6 „80–100"; 6.1 „3–4 Jahre" | 30–45 „to start with" (RHS); SBB Doldenblütler 4–5 | Wert gilt nur für die Anfangspflanzung |
+| Lactuca sativa | 6.1 „2 Jahre" | SBB Korbblütler 3 | Familienwert Asteraceae 3 |
+| Lens culinaris | 1.6 „5 cm / 30–40"; 6.1 „4–5 Jahre" | LfL: Drillsaat ca. 12,5 cm (Feldanbau); Pause mind. 6 | Familienwert Fabaceae 6 |
+| Hosta spp. | 1.6 „40–80" | RHS „bis zu 90 cm" | stützt keinen Einzelwert |
+| Hordeum, Humulus, Hydrangea | 1.6 / 6.1 Zehrerstufe und Anbaupause | keine lesbare Quelle | unbelegt, unverändert |
+| Malus domestica | 1.6 „300–500" | unterlagenabhängig 50–1000 (LWG 2021) | kein einheitlicher Artwert |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Guzmania lingulata, Helianthus annuus | Basisarten mit Enrichment nur in `plant_info.yaml` (Importer ungeguardet) — Werte nur im Steckbrief; ein zusätzlicher Enrichment-Eintrag in `plant_info_*_N.yaml` wurde bewusst nicht angelegt (Doppel-Enrichment) |
+| Humulus lupulus | Basisart (`species.yaml`) ohne belegten Wert — kein leerer Enrichment-Eintrag angelegt |
+| Lactuca sativa, Lavandula, Hordeum, Lens, Luffa | Felder in den bestehenden `species_enrichment`-Eintrag (`plant_info_outdoor_1/2.yaml`) |
+| übrige 22 Arten | Felder im `new_species`-Eintrag (`plant_info_indoor_2.yaml`, `plant_info_outdoor_2.yaml`); Arten ohne belegten Wert tragen `null` mit `# MISSING`-Kommentar |
+| `spacing_cm` | in Batch 4 für keine Art geschrieben (Bestandswert vorhanden). Seed ↔ 1.9: Helleborus 30-40 ↔ 30–36, Hemerocallis 45-60 ↔ 25–40, Impatiens 20-30 ↔ 20–25, Lactuca 25-30 ↔ 30, Levisticum 60-80 ↔ 30–45, Luffa (species.yaml) 60--100 ↔ 40–100 |
+| `rotation_pause_years` | für alle 30 Arten `null` (keine Art-Abweichung vom Familienwert belegt) |
+| `nitrogen_fixing` | Lactuca `false`, Lens `true`, Lupinus `true` (im Seed bereits vorhanden) |
+
+### Lehren aus Batch 4
+
+1. Die drei Sub-Batch-Subagenten liefen ohne Bash; die Prüfung `git diff --numstat origin/develop` durch den Aufrufer ergab 0 Löschungen. Ein Agent hängte unaufgefordert einen zusätzlichen Schlusskommentar an (Hippeastrum); vom Aufrufer entfernt — Dateiende stets mit prüfen.
+2. Viele Fachquellen (LfL, LWG-Merkblatt 2111, Hochschul-PDFs) sind per WebFetch nicht lesbar; ein Agent las PDFs über den Read-Pfad. Für künftige Batches das PDF-Lesen im Brief vorschlagen.
+3. Lichtstufe: Positionsfeld-Spannen führen häufig zu `null`; bei Hydrangea, Impatiens und Malus wurde die Stufe nur gesetzt, weil der Kulturtext der Quelle ausdrücklich einen Vorzug nennt.

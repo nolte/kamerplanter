@@ -113,6 +113,22 @@
 
 > **Hinweis (Standort):** J. polyanthum gilt als Halbschatten-/Sonnenpflanze (full sun to part shade); zu viel Schatten reduziert Blüte und fördert vergeilten Wuchs. Quellenübergreifend wird ein etwas breiterer pH-Korridor von **5.5–7.0** (leicht sauer bis neutral) genannt; das KA-Feld `soil_ph_preference` ist hier auf den mit §1.6/§2.3 deckungsgleichen, quellengestützten Bereich **6.0–7.0** gesetzt. Der LCP-Bereich nennt ausschließlich den Lichtkompensationspunkt; Sättigungs-/Optimumwerte stehen in §2.2 (`light_ppfd_target`). <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug — RHS „Full sun, Partial shade"; Kulturtext „in full sun or part shade with shelter" --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -305,6 +321,11 @@ Die Überwinterung bei 5–10°C ist der Schlüssel für die Blüteninduktion �
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Kübelpflanze |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Oleaceae: kein Familienwert belegt) --> |
 
 ---
 

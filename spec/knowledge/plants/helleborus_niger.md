@@ -148,6 +148,22 @@ Quellen (§1.8):
 3. [Barnhaven — Sowing hellebore seed](https://www.barnhaven.com/en/content/20-hellebore-sowing-instructions) — Saattiefe/Abdeckung, Stratifikationsschema
 4. [Your Flowers Guide — Growing hellebores from seed: the two-year journey](https://yourflowersguide.com/hellebore/hellebores-from-seed-two-year-journey-first-blooms/) — Keimfähigkeitsverlust, Lagerungs-/Frischeempfehlung
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–36 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | Proven Winners, „Snowbells Christmas Rose (Helleborus niger)" (Spacing 12–14 Inches = 30–36 cm; Sortenangabe eines Jungpflanzenherstellers, einzelne Quelle), https://www.provenwinners.com/plants/helleborus/snowbells-christmas-rose-helleborus-niger | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Helleborus niger" (Position: Partial shade), https://www.rhs.org.uk/plants/8575/helleborus-niger/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -336,6 +352,11 @@ Christrosen sind Schwachzehrer und brauchen kaum Düngung. Ein unter Laubbäumen
 | Nährstoffbedarf | Schwachzehrer |
 | Fruchtfolge-Kategorie | Gartenstauden |
 | Anbaupause (Jahre) | Mehrjährig; Standort 10–20 Jahre; sehr standorttreu |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert; Dauerstaude ohne Fruchtfolge --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -396,3 +417,4 @@ Helleborus niger,"Christrose;Weihnachtsrose;Christmas Rose",Ranunculaceae,Helleb
 15. [Plant Delights — Hellebores Beginner's Guide](https://www.plantdelights.com/blogs/marketing/hellebores-a-beginners-guide-to-growing-lenten-roses) — sehr langlebig (20+ Jahre), tiefwurzelnd
 16. [Zhen & Bugbee 2022, New Phytologist — Photosynthesis in sun and shade: importance of far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — Far-Red-Fraction Anker offenes/beschattetes Lichtmilieu
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. [Proven Winners — Snowbells Christmas Rose (Helleborus niger)](https://www.provenwinners.com/plants/helleborus/snowbells-christmas-rose-helleborus-niger) — Pflanzabstand 30–36 cm (12–14 Inches)

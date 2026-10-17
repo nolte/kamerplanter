@@ -117,6 +117,22 @@
 **Hinweis:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist als Spanne aus zwei nahe verwandten Schatten-Calatheen abgeleitet (G. makoyana ≈ 50, C. insignis ≈ 100 µmol/m²/s). Der Lichtsättigungspunkt (light saturation point) liegt bei diesen Arten deutlich höher (≈ 400–600 µmol/m²/s) — gehört aber NICHT ins LCP-Feld. Als Unterwuchspflanze (understory) toleriert die Art tiefen Schatten, gedeiht aber bei hellem indirektem Licht (≈ 10–30 % Vollsonne) am besten. Salztoleranz: ausgesprochen empfindlich — Tip-Burn (braune Blattränder) bereits bei niedrigen Fluorid-/Salzgehalten im Gießwasser; ECe-Schwellen-/Slope-Werte nach Maas-Hoffman sind für diese Zierpflanze nicht publiziert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Goeppertia orbifolia" (Position: Partial shade), https://www.rhs.org.uk/plants/357191/goeppertia-orbifolia/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -328,3 +344,4 @@ Goeppertia orbifolia,"Calathea orbifolia;Rundblatt-Korbmarante;Orbifolia Prayer 
 14. [GetPlanta — Calathea orbifolia Trivia](https://getplanta.com/article/trivia/calatheaorbifolia) — Blütezeit (Sommer, selten indoor)
 15. [Gardening Chores — Calathea Orbifolia Care](https://www.gardeningchores.com/calathea-orbifolia-care/) — Blütezeit (Quick-Facts: "Bloom time: Summer"), Vermehrung durch Teilung
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+16. [RHS — Goeppertia orbifolia (Plant details)](https://www.rhs.org.uk/plants/357191/goeppertia-orbifolia/details) — Position: Partial shade (Lichtanspruch Standort)

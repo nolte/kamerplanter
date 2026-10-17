@@ -132,6 +132,22 @@
 **Hinweis (Salz- & Staunaesse-Toleranz):** Guzmania zaehlt zu den salzempfindlichsten Bromelien (Trichome werden durch Salz-/Kalkablagerungen verstopft; Chlorid/Fluorid verursachen Blattspitzennekrosen). Bezugsgroesse der Salzempfindlichkeit ist die Substrat-/Trichterloesung, nicht eine pauschale Giesswasser-EC -- siehe auch Wasserqualitaet in 4.1. Als flachwurzelnder Epiphyt mit verankerndem (nicht saugendem) Wurzelsystem ist die Art extrem staunaesseempfindlich; Wurzel- und Trichterfaeule sind die haeufigsten Todesursachen (siehe 5.2). Der pH-Vorzug 5.5--6.0 ist quellentreu uebernommen und liegt innerhalb des in 2.3/3.2 genannten Substrat-pH-Korridors 5.0--6.0 (kein Widerspruch).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Guzmania lingulata" (Position: Partial shade), https://www.rhs.org.uk/plants/8142/guzmania-lingulata/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -518,3 +534,4 @@ Rana,Guzmania lingulata,--,--,orange_bract;compact,clone
 16. bromeliads.info -- Bromeliad Potting Soil / Guzmania-Growing-Specifications (Bromelien bevorzugen leicht sauren Boden pH 5-6; Guzmania 5.5-6.0; hohe Salz-/Kalkempfindlichkeit): https://www.bromeliads.info/bromeliad-potting-soil/ ; https://www.bromeliads.info/bromeliad-plant-growing-specifications-guzmania-lingulata-and-hybrids/
 17. flowersgeek.com -- "How to Water Bromeliads" (Guzmania hochgradig salzempfindlich; Chlorid/Fluorid -> Trichom-Schaeden, Spitzennekrosen): https://flowersgeek.com/how-to-water-bromeliads-for-bold-color-and-long-lasting-blooms/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+18. RHS -- Guzmania lingulata (Plant details; Position: Partial shade): https://www.rhs.org.uk/plants/8142/guzmania-lingulata/details
