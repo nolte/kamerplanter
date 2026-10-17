@@ -212,6 +212,10 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
         "the whole location tree of one site: the UI renders the tree, a window would cut it",
     ),
     ("GET", f"{_T}/sites/{{key}}/sensors"): ("per-parent", "the sensors of one site"),
+    ("GET", f"{_T}/sites/{{key}}/garden-objects"): (
+        "per-parent",
+        "the garden objects of one site, capped at 500 together with its locations (GP-NFR-017, plan.quota_exceeded)",
+    ),
     ("GET", f"{_T}/locations"): (
         "per-parent",
         "the locations of one site (or children of one location); the physical layout bounds it",

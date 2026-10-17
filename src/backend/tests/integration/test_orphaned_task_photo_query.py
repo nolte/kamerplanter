@@ -11,11 +11,11 @@ that the AQL mentions the right collections; it cannot say what
 empty, or holds a URI from before the #1339 normalisation. Those are the shapes
 real rows are in, and they decide whether a photo lives.
 
-**Every carrier is exercised, not just tasks.** ``PHOTO_REF_COLLECTIONS`` lists six
+**Every carrier is exercised, not just tasks.** ``PHOTO_REF_COLLECTIONS`` lists seven
 collections because a destructive query may not rest on "a task-category
-attachment should only ever be referenced by a task". Each of the six gets a row
+attachment should only ever be referenced by a task". Each of the seven gets a row
 here, and each must protect its photo — a collection dropped from the tuple turns
-exactly one of these red, which is the point of having six cases rather than one
+exactly one of these red, which is the point of having seven cases rather than one
 parametrised over a list the code also supplies.
 
 Runs in CI against a service container; locally it needs a database of its own
@@ -80,6 +80,7 @@ REFERENCED: list[tuple[str, str, dict]] = [
     (col.HARVEST_OBSERVATIONS, "ref-harvest", {"tenant_key": TENANT}),
     (col.INSPECTIONS, "ref-inspection", {"tenant_key": TENANT}),
     (col.STORAGE_OBSERVATIONS, "ref-storage", {"tenant_key": TENANT}),
+    (col.CARE_EVENTS, "ref-care-event", {"tenant_key": TENANT}),
 ]
 
 

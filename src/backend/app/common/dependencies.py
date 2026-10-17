@@ -18,6 +18,7 @@ from app.data_access.arango.enrichment_repository import (
 )
 from app.data_access.arango.feeding_repository import ArangoFeedingRepository
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
+from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
@@ -89,6 +90,7 @@ from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -427,6 +429,16 @@ def get_garden_plan_repo() -> ArangoGardenPlanRepository:
 def get_garden_plan_service() -> GardenPlanService:
     """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch."""
     return GardenPlanService(get_site_repo(), get_garden_plan_repo())
+
+
+def get_garden_resource_service() -> GardenResourceService:
+    """REQ-053 WP 1.9 — beds, garden objects and slots as single resources."""
+    return GardenResourceService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        ArangoGardenObjectRepository(get_db()),
+        get_garden_plan_service(),
+    )
 
 
 def get_substrate_service() -> SubstrateService:

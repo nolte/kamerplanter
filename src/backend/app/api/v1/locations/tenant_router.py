@@ -1,17 +1,36 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.mapping import to_response
-from app.api.v1.locations.schemas import FrostWarningResponse, LocationCreate, LocationResponse
+from app.api.v1.auth.router import limiter, user_rate_limit_key
+from app.api.v1.locations.schemas import (
+    BedListItemResponse,
+    BedSummaryResponse,
+    FrostWarningResponse,
+    LocationCreate,
+    LocationPatch,
+    LocationPatchResponse,
+    LocationResponse,
+    LocationStatusRequest,
+)
+from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_sensor_service, get_site_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.dependencies import get_garden_resource_service, get_sensor_service, get_site_service
+from app.common.enums import BedStatus
+from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    VALIDATION_RESPONSE,
+)
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
 
@@ -29,16 +48,40 @@ def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) 
     return service.get_location(key, tenant_key=ctx.tenant_key)
 
 
-@router.get("", response_model=list[LocationResponse])
+@router.get("", response_model=list[BedListItemResponse])
 def list_locations(
     site_key: str = Query(..., description="Document key of the site to list locations for."),
     parent_location_key: str | None = Query(
         None, description="If set, list the child locations of this parent instead."
     ),
+    is_bed: bool | None = Query(
+        None, description="Only locations whose type is (true) or is not (false) a bed; adds the counters (GP-API-011)."
+    ),
+    bed_status: BedStatus | None = Query(None, description="Only beds in this status; adds the counters (GP-API-011)."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
+    resources: GardenResourceService = Depends(get_garden_resource_service),
 ):
-    """List a site's locations, or the children of a parent location."""
+    """List a site's locations, or the children of a parent location.
+
+    With ``is_bed`` or ``bed_status`` the rows carry ``active_plant_count``, ``open_task_count`` and
+    ``next_due_at`` (GP-API-011).
+    """
+    if is_bed is not None or bed_status is not None:
+        rows = resources.list_beds(site_key, tenant_key=ctx.tenant_key, is_bed=is_bed, bed_status=bed_status)
+        if parent_location_key:
+            rows = [(loc, counters) for loc, counters in rows if loc.parent_location_key == parent_location_key]
+        return [
+            to_response(
+                loc,
+                BedListItemResponse,
+                active_plant_count=counters.active_plant_count if counters else None,
+                open_task_count=counters.open_task_count if counters else None,
+                overdue_task_count=counters.overdue_task_count if counters else None,
+                next_due_at=counters.next_due_at if counters else None,
+            )
+            for loc, counters in rows
+        ]
     service.get_site(site_key, tenant_key=ctx.tenant_key)
     if parent_location_key:
         # The parent is resolved under the tenant too (#1871 B14): checking only
@@ -47,7 +90,7 @@ def list_locations(
         items = service.list_location_children(parent_location_key, tenant_key=ctx.tenant_key)
     else:
         items = service.list_locations(site_key, tenant_key=ctx.tenant_key)
-    return [to_response(loc, LocationResponse) for loc in items]
+    return [to_response(loc, BedListItemResponse) for loc in items]
 
 
 @router.get("/{key}", response_model=LocationResponse)
@@ -97,14 +140,116 @@ def update_location(
     return to_response(updated, LocationResponse)
 
 
-@router.delete("/{key}", status_code=204)
+@router.patch(
+    "/{key}",
+    response_model=LocationPatchResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+def patch_location(
+    key: Annotated[str, Path(description="Document key of the location.")],
+    body: LocationPatch,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> LocationPatchResponse:
+    """Change the fields present in the body (GP-API-010).
+
+    A new geometry goes through the plan's rules (containment, overlap, lock) and raises the site's
+    ``plan_revision``; the other fields do not (GP-NFR-007). ``bed_status`` is a transition (V-10): 422
+    ``bed_status.invalid_transition``, and ``retired`` needs ``status_reason`` and the lead role.
+    """
+    stored, revision = service.patch_location(
+        key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, patch=body
+    )
+    return to_response(stored, LocationPatchResponse, plan_revision=revision)
+
+
+@router.get("/{key}/summary", response_model=BedSummaryResponse)
+def get_location_summary(
+    key: Annotated[str, Path(description="Document key of the location.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> BedSummaryResponse:
+    """The head data of the bed view: area, type, status, soil, sun, plants, tasks, last care (GP-API-012)."""
+    view = service.get_summary(key, tenant_key=ctx.tenant_key)
+    counters = view.counters
+    return to_response(
+        view.location,
+        BedSummaryResponse,
+        is_bed=view.is_bed,
+        season_state=view.season_state,
+        active_plant_count=counters.active_plant_count,
+        species_keys=counters.species_keys,
+        open_task_count=counters.open_task_count,
+        overdue_task_count=counters.overdue_task_count,
+        next_due_at=counters.next_due_at,
+        last_care_at=counters.last_care_at,
+    )
+
+
+@router.post(
+    "/{key}/status",
+    response_model=LocationPatchResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+def change_location_status(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: LocationStatusRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> LocationPatchResponse:
+    """Move a bed through its lifecycle and log it as a care event (GP-API-018, GP-FR-046).
+
+    Allowed: ``planned`` to ``active`` or ``retired``, ``active`` to ``retired``, ``retired`` to ``active``;
+    anything else is 422 ``bed_status.invalid_transition`` (V-10). ``retired`` and the reactivation are the
+    lead's; ``retired`` needs ``reason`` and a bed without plants (409 ``location.has_active_plants``, V-09).
+    """
+    stored, revision = service.change_bed_status(
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        bed_status=body.bed_status,
+        reason=body.reason,
+    )
+    return to_response(stored, LocationPatchResponse, plan_revision=revision)
+
+
+@router.delete("/{key}", status_code=204, responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE})
 def delete_location(
     key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
-    service: SiteService = Depends(get_site_service),
-):
-    """Delete a location."""
-    service.delete_location(key, tenant_key=ctx.tenant_key)
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> None:
+    """Delete a location with its slots and everything below it (lead only).
+
+    409 ``location.has_active_plants`` with ``details[0].active_plant_count`` while a plant stands in it
+    (V-09, GP-ACC-012); the deletion is audited and raises the site's ``plan_revision``.
+    """
+    service.delete_location(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+
+
+@router.post(
+    "/{key}/slots/batch",
+    response_model=SlotBatchResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+def apply_slot_batch(
+    request: Request,
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: SlotBatchRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> SlotBatchResponse:
+    """Replace the bed's unoccupied slots or append to them, in one transaction (GP-API-015).
+
+    Outside the plan revision (GP-NFR-007). V-04 ``slot.outside_bed``, V-06 ``slot.overlap`` and V-20
+    (``slot.duplicate_id``) refuse the whole batch; at most 2 000 positions (``layout.too_many_positions``).
+    """
+    result = service.replace_slots(key, tenant_key=ctx.tenant_key, role=ctx.role, request=body)
+    return SlotBatchResponse(
+        created_keys=result.created_keys, deleted_count=result.deleted_count, kept_count=result.kept_count
+    )
 
 
 # ── Sensors ──────────────────────────────────────────────────────────

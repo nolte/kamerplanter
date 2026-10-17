@@ -34,11 +34,14 @@ from app.data_access.arango.transactions import StreamTransaction, TransactionCo
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
+    BedCounters,
     PlanAuditEntry,
     PlanAuditRecord,
     PlanBatchOutcome,
     PlanBatchWrite,
     PlantShortInfo,
+    SlotBatchOutcome,
+    SlotBatchWrite,
     TaskCounter,
 )
 from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, Slot
@@ -90,6 +93,8 @@ _BATCH_WRITE = tuple(
             col.SLOTS,
             col.GARDEN_OBJECTS,
             col.GARDEN_PLAN_AUDIT,
+            col.CARE_EVENTS,
+            col.CARE_EVENT_AT,
             col.CONTAINS,
             col.HAS_GARDEN_OBJECT,
             *(edge for edge, _ in (*_LOCATION_EDGES, *_SLOT_EDGES, *_OBJECT_EDGES)),
@@ -97,6 +102,11 @@ _BATCH_WRITE = tuple(
     )
 )
 _BATCH_READ = (col.USERS, col.PLANT_INSTANCES)
+
+#: Collections a slot batch writes: the slots, their ``has_slot`` edge and every other edge a deleted slot may carry.
+_SLOT_BATCH_WRITE = tuple(dict.fromkeys((col.LOCATIONS, col.SLOTS, col.HAS_SLOT, *(edge for edge, _ in _SLOT_EDGES))))
+#: ``run_planned_at`` is read for the reservation re-check; it is declared for writing already when a slot edge.
+_SLOT_BATCH_READ = tuple(c for c in (col.RUN_PLANNED_AT,) if c not in _SLOT_BATCH_WRITE)
 
 
 class _LostTheRace(Exception):  # noqa: N818 — a control-flow signal inside the module, never leaves it
@@ -265,9 +275,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     ? t.entity_key
                     : DOCUMENT(CONCAT(@plants, t.entity_key)).location_key
                 FILTER loc IN @location_keys
-                COLLECT location = loc AGGREGATE open_count = COUNT(1),
+                COLLECT location = loc AGGREGATE open_count = COUNT(1), next_due = MIN(t.due_date),
                     overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@now) ? 1 : 0)
-                RETURN {location, open_count, overdue}
+                RETURN {location, open_count, overdue, next_due}
             """,
                 bind_vars={
                     "@tasks": col.TASKS,
@@ -280,11 +290,17 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             ),
         )
         return {
-            row["location"]: TaskCounter(open_task_count=row["open_count"], overdue_task_count=int(row["overdue"] or 0))
+            row["location"]: TaskCounter(
+                open_task_count=row["open_count"],
+                overdue_task_count=int(row["overdue"] or 0),
+                next_due_at=row["next_due"],
+            )
             for row in cursor
         }
 
-    def load_active_slots(self, site_key: SiteKey, location_keys: list[str], *, tenant_key: str) -> list[Slot]:
+    def load_active_slots(
+        self, site_key: SiteKey, location_keys: list[str], *, tenant_key: str, include_archived: bool = False
+    ) -> list[Slot]:
         if not tenant_key:
             raise ValueError("load_active_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
         if not location_keys:
@@ -298,7 +314,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 FILTER l._key IN @location_keys AND l.site_key == @site_key
                 {_OWNED_BY_LOCATION_SITE}
                 FOR s IN @@slots
-                    FILTER s.location_key == l._key AND s.archived_at == null
+                    FILTER s.location_key == l._key AND (@include_archived OR s.archived_at == null)
                     RETURN s
             """,
                 bind_vars={
@@ -308,6 +324,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     "site_key": site_key,
                     "sites": f"{col.SITES}/",
                     "tenant_key": tenant_key,
+                    "include_archived": include_archived,
                 },
             ),
         )
@@ -393,6 +410,11 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 new_revision = revision + 1
                 key_map: dict[str, str] = {}
 
+                # A bed that is retired holds no plant either (V-09); re-checked here for the same reason as below.
+                self._refuse_changed_status(txn, write.status_from)
+                self._refuse_active_plants(
+                    txn, [key for key, fields in write.location_updates if fields.get("bed_status") == "retired"]
+                )
                 self._delete_locations(txn, write)
                 txn.check_budget()
                 self._delete_objects(txn, write.object_deletes)
@@ -403,6 +425,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 txn.check_budget()
                 self._write_site(txn, write, stored_plan, new_revision, now)
                 self._write_audit(txn, write, new_revision, now)
+                self._write_care_events(txn, write, now)
         except _LostTheRace:
             # The transaction is aborted; the winner's revision is what the loser is told about.
             raise self._conflict_after_race(write) from None
@@ -485,27 +508,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         keys = write.location_deletes
         if not keys:
             return
-        # Re-checked inside the transaction: a plant placed between the service's read and this
-        # statement must not be orphaned (V-09).
-        active = list(
-            txn.aql.execute(
-                """
-            RETURN LENGTH(
-                FOR p IN @@plants
-                    FILTER p.location_key IN @keys AND p.removed_on == null
-                    RETURN 1
-            )
-            """,
-                bind_vars={"@plants": col.PLANT_INSTANCES, "keys": keys},
-            )
-        )[0]
-        if active:
-            raise PlanError(
-                "location.has_active_plants",
-                "A location with active plants cannot be deleted.",
-                status_code=409,
-                active_plant_count=int(active),
-            )
+        self._refuse_active_plants(txn, keys)
         # A child created through a path outside the plan revision after the service read the tree would be
         # orphaned by the edge cascade below: refuse, the client reloads and deletes again.
         orphaned = list(
@@ -536,6 +539,55 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             "FOR l IN @@col FILTER l._key IN @keys REMOVE l IN @@col",
             bind_vars={"@col": col.LOCATIONS, "keys": keys},
         )
+
+    @staticmethod
+    def _refuse_changed_status(txn: StreamTransaction, status_from: dict[str, str]) -> None:
+        """V-10 inside the transaction: the bed still has the status the transition was validated from."""
+        if not status_from:
+            return
+        rows = list(
+            txn.aql.execute(
+                'FOR l IN @@col FILTER l._key IN @keys RETURN {key: l._key, status: l.bed_status || "active"}',
+                bind_vars={"@col": col.LOCATIONS, "keys": sorted(status_from)},
+            )
+        )
+        stored = {row["key"]: row["status"] for row in rows}
+        for key, expected in status_from.items():
+            if key not in stored:
+                raise NotFoundError("Location", key)
+            if stored[key] != expected:
+                raise PlanError(
+                    "bed_status.changed",
+                    "The bed status was changed by someone else; reload and try again.",
+                    status_code=409,
+                    field="bed_status",
+                    current=stored[key],
+                )
+
+    @staticmethod
+    def _refuse_active_plants(txn: StreamTransaction, keys: list[str]) -> None:
+        """V-09 inside the transaction: a plant placed after the service's read must not be orphaned."""
+        if not keys:
+            return
+        active = list(
+            txn.aql.execute(
+                """
+            RETURN LENGTH(
+                FOR p IN @@plants
+                    FILTER p.location_key IN @keys AND p.removed_on == null
+                    RETURN 1
+            )
+            """,
+                bind_vars={"@plants": col.PLANT_INSTANCES, "keys": keys},
+            )
+        )[0]
+        if active:
+            raise PlanError(
+                "location.has_active_plants",
+                "A location with active plants cannot be deleted or retired.",
+                status_code=409,
+                active_plant_count=int(active),
+            )
 
     @staticmethod
     def _remove_edges(txn: StreamTransaction, edge_collection: str, field: str, ids: list[str]) -> None:
@@ -659,6 +711,26 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         # ``merge=False`` replaces the nested ``plan`` object whole: the dict above is the complete plan.
         txn.collection(col.SITES).update(site_update, merge=False)
 
+    @staticmethod
+    def _write_care_events(txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
+        """The care events of the write (a bed-status change), each with its ``care_event_at`` edge to the bed."""
+        if not write.care_events:
+            return
+        events = txn.collection(col.CARE_EVENTS)
+        edges = txn.collection(col.CARE_EVENT_AT)
+        for event in write.care_events:
+            doc = _dump(event, by_alias=True, exclude_none=True, mode="json")
+            doc.pop("_key", None)
+            doc["created_at"] = now
+            created = events.insert(doc, return_new=True)
+            edges.insert(
+                {
+                    "_from": f"{col.CARE_EVENTS}/{created['_key']}",
+                    "_to": f"{col.LOCATIONS}/{event.location_key}",
+                    "created_at": now,
+                }
+            )
+
     def _write_audit(self, txn: StreamTransaction, write: PlanBatchWrite, revision: int, now: str) -> None:
         if not write.audit:
             return
@@ -677,3 +749,225 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 at=datetime.fromisoformat(now),
             )
             audit.insert(_dump(record, mode="json"))
+
+    # ── Single resources (WP 1.9) ─────────────────────────────────────
+
+    def load_bed_counters(self, location_keys: list[str], *, tenant_key: str) -> dict[str, BedCounters]:
+        if not tenant_key:
+            raise ValueError("load_bed_counters needs a tenant_key (an empty tenant is no tenant, #2107).")
+        rows: dict[str, dict[str, Any]] = {}
+        if not location_keys:
+            return {}
+        plants = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@plants
+                FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys AND p.removed_on == null
+                COLLECT location = p.location_key INTO species = p.species_key
+                RETURN {location, count: LENGTH(species), species: UNIQUE(species)}
+            """,
+                bind_vars={"@plants": col.PLANT_INSTANCES, "tenant_key": tenant_key, "location_keys": location_keys},
+            ),
+        )
+        for row in plants:
+            rows[row["location"]] = {
+                "active_plant_count": row["count"],
+                "species_keys": sorted(k for k in row["species"] if k),
+            }
+        for location, counter in self._task_counters(location_keys, tenant_key).items():
+            rows[location] = {
+                **rows.get(location, {}),
+                "open_task_count": counter.open_task_count,
+                "overdue_task_count": counter.overdue_task_count,
+                "next_due_at": counter.next_due_at,
+            }
+        events = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR e IN @@events
+                FILTER e.tenant_key == @tenant_key AND e.location_key IN @location_keys AND e.voided_at == null
+                COLLECT location = e.location_key AGGREGATE last = MAX(e.performed_at)
+                RETURN {location, last}
+            """,
+                bind_vars={"@events": col.CARE_EVENTS, "tenant_key": tenant_key, "location_keys": location_keys},
+            ),
+        )
+        for row in events:
+            rows[row["location"]] = {**rows.get(row["location"], {}), "last_care_at": row["last"]}
+        # Validated here, so the stored ISO strings reach the caller as datetimes.
+        return {location: BedCounters.model_validate(values) for location, values in rows.items()}
+
+    def count_active_slots(self, site_key: SiteKey, *, tenant_key: str) -> int:
+        if not tenant_key:
+            raise ValueError("count_active_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""
+            RETURN LENGTH(
+                FOR l IN @@locations
+                    FILTER l.site_key == @site_key
+                    {_OWNED_BY_LOCATION_SITE}
+                    FOR s IN @@slots
+                        FILTER s.location_key == l._key AND s.archived_at == null
+                        RETURN 1
+            )
+            """,
+                bind_vars={
+                    "@locations": col.LOCATIONS,
+                    "@slots": col.SLOTS,
+                    "site_key": site_key,
+                    "sites": f"{col.SITES}/",
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return int(next(cursor, 0))
+
+    def update_location_fields(self, location_key: str, fields: dict[str, Any]) -> None:
+        try:
+            self._db.collection(col.LOCATIONS).update(
+                {"_key": location_key, **fields, "updated_at": _now()}, merge=False, keep_none=False
+            )
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # document not found: removed after the service read it
+                raise NotFoundError("Location", location_key) from exc
+            raise
+
+    def update_slot_fields(self, slot_key: str, fields: dict[str, Any]) -> None:
+        try:
+            self._db.collection(col.SLOTS).update(
+                {"_key": slot_key, **fields, "updated_at": _now()}, merge=False, keep_none=False
+            )
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # document not found: removed after the service read it
+                raise NotFoundError("Slot", slot_key) from exc
+            raise
+
+    def irrigation_zone_site_key(self, zone_key: str, *, tenant_key: str) -> str | None:
+        if not tenant_key:
+            raise ValueError("irrigation_zone_site_key needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET zone = DOCUMENT(CONCAT(@zones, @key))
+            FILTER zone != null AND zone.tenant_key == @tenant_key
+            RETURN zone.site_key
+            """,
+                bind_vars={"zones": f"{col.IRRIGATION_ZONES}/", "key": zone_key, "tenant_key": tenant_key},
+            ),
+        )
+        return next(cursor, None)
+
+    def substrate_visible(self, substrate_key: str, *, tenant_key: str) -> bool:
+        if not tenant_key:
+            raise ValueError("substrate_visible needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET substrate = DOCUMENT(CONCAT(@substrates, @key))
+            RETURN substrate != null AND (substrate.tenant_key == null OR substrate.tenant_key IN ["", @tenant_key])
+            """,
+                bind_vars={"substrates": f"{col.SUBSTRATES}/", "key": substrate_key, "tenant_key": tenant_key},
+            ),
+        )
+        return bool(next(cursor, False))
+
+    def reserved_among(self, candidates: list[str], *, tenant_key: str) -> set[str]:
+        if not tenant_key:
+            raise ValueError("reserved_among needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not candidates:
+            return set()
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR e IN @@edges
+                FILTER e._to IN @ids
+                LET run = DOCUMENT(e._from)
+                FILTER run != null AND run.tenant_key == @tenant_key
+                RETURN DISTINCT PARSE_IDENTIFIER(e._to).key
+            """,
+                bind_vars={
+                    "@edges": col.RUN_PLANNED_AT,
+                    "ids": [f"{col.SLOTS}/{key}" for key in candidates],
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return set(cursor)
+
+    def replace_slots(self, write: SlotBatchWrite) -> SlotBatchOutcome:
+        created_keys: list[str] = []
+        with stream_transaction(
+            self._db,
+            write=_SLOT_BATCH_WRITE,
+            read=_SLOT_BATCH_READ,
+            entity="slots",
+            time_budget_seconds=write.time_budget_seconds,
+        ) as txn:
+            now = _now()
+            self._lock_location(txn, write.location_key, now)
+            self._remove_slots(txn, write.delete_keys)
+            slots = txn.collection(col.SLOTS)
+            edges = txn.collection(col.HAS_SLOT)
+            for slot in write.inserts:
+                doc = _dump(slot, by_alias=True, exclude_none=True, mode="json")
+                doc.pop("_key", None)
+                doc["location_key"] = write.location_key
+                doc["created_at"] = doc["updated_at"] = now
+                created = slots.insert(doc, return_new=True)
+                created_keys.append(created["_key"])
+                edges.insert(
+                    {
+                        "_from": f"{col.LOCATIONS}/{write.location_key}",
+                        "_to": f"{col.SLOTS}/{created['_key']}",
+                        "created_at": now,
+                    }
+                )
+                txn.check_budget()
+        return SlotBatchOutcome(created_keys=created_keys, deleted_count=len(write.delete_keys))
+
+    @staticmethod
+    def _lock_location(txn: StreamTransaction, location_key: str, now: str) -> None:
+        """Write the bed's own document first, so two slot batches of one bed — or a slot batch and the delete of the
+        bed — cannot both pass: the loser fails with the write-write conflict (409) instead of committing a layout
+        that the winner's V-04/V-06 check never saw. A bed that is gone is a 404."""
+        touched = list(
+            txn.aql.execute(
+                "FOR l IN @@col FILTER l._key == @key UPDATE l WITH {updated_at: @now} IN @@col RETURN 1",
+                bind_vars={"@col": col.LOCATIONS, "key": location_key, "now": now},
+            )
+        )
+        if not touched:
+            raise NotFoundError("Location", location_key)
+
+    def _remove_slots(self, txn: StreamTransaction, keys: list[str]) -> None:
+        """Delete slots that are still unoccupied and unreserved — re-checked here, after the service's read."""
+        if not keys:
+            return
+        ids = [f"{col.SLOTS}/{key}" for key in keys]
+        taken = list(
+            txn.aql.execute(
+                """
+            RETURN LENGTH(
+                FOR s IN @@slots
+                    FILTER s._key IN @keys AND (s.currently_occupied == true OR s.archived_at != null)
+                    RETURN 1
+            ) + LENGTH(FOR e IN @@reserved FILTER e._to IN @ids RETURN 1)
+            """,
+                bind_vars={"@slots": col.SLOTS, "keys": keys, "@reserved": col.RUN_PLANNED_AT, "ids": ids},
+            )
+        )[0]
+        if taken:
+            raise WriteConflictError("slots", "a slot to replace was occupied or reserved concurrently")
+        for edge, field_name in _SLOT_EDGES:
+            self._remove_edges(txn, edge, field_name, ids)
+        txn.aql.execute(
+            "FOR s IN @@slots FILTER s._key IN @keys REMOVE s IN @@slots",
+            bind_vars={"@slots": col.SLOTS, "keys": keys},
+        )

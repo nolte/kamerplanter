@@ -243,6 +243,18 @@ def _gap(issue: int, item: str) -> str:
 #: ``internal`` = set only by server code; ``actor`` = the caller's own user key;
 #: ``not-persisted`` = query or projection model; ``gap:#<issue>:<item>`` = open.
 _REFERENCE_FIELDS: dict[str, str] = {
+    # REQ-053 §20.10. The only writer so far is the bed-status change (WP 1.9): site and location come from the
+    # owned location, the actor is the caller. The rest is empty until the care-event API (WP 4.1) accepts them
+    # from a client; it must then resolve `plant_keys`, `supersedes_key` and `performed_for_user_key` under the
+    # tenant (GP-NFR-058) and reclassify the rows below.
+    "care_event.CareEvent.site_key": _V,
+    "care_event.CareEvent.location_key": _V,
+    "care_event.CareEvent.plant_keys": _I,
+    "care_event.CareEvent.task_key": _I,
+    "care_event.CareEvent.performed_by_user_key": _A,
+    "care_event.CareEvent.performed_for_user_key": _I,
+    "care_event.CareEvent.supersedes_key": _I,
+    "care_event.CareEvent.superseded_by_key": _I,
     "actuator.Actuator.location_key": _V,
     "actuator.ControlEvent.actuator_key": _I,
     "actuator.ControlEvent.location_key": _I,
@@ -387,8 +399,9 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "site.Location.parent_location_key": _V,  # create (bundle A, L1) and update (#1872 C4)
     "site.Location.location_type_key": _G,
     "site.Location.tank_key": _V,  # #1872 C4
-    # REQ-053 §20.3 (WP 1.7, #2326): no write path stores it yet; the PATCH of WP 1.9 resolves the zone.
-    "site.Location.irrigation_zone_key": _gap(2328, "L1"),  # PATCH /locations/{key} resolves the zone
+    # REQ-053 §20.3: GardenResourceService.patch_location resolves the zone under the tenant and the location's site
+    # (GP-NFR-058, #2328 L1); the PATCH is its only write path.
+    "site.Location.irrigation_zone_key": _V,
     "site.Slot.location_key": _V,  # #1871 B1
     "species.Cultivar.species_key": _V,
     "species.Species.family_key": _G,

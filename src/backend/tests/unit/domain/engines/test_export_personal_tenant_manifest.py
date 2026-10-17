@@ -27,6 +27,7 @@ EXPECTED: dict[str, tuple[tuple[str, str], ...]] = {
     "locations": (("site_key", "sites"),),
     "slots": (("location_key", "locations"), ("site_key", "sites")),
     "garden_objects": (("site_key", "sites"),),
+    "care_events": (),  # REQ-053 §20.10 (WP 1.9): stamped with ``tenant_key``, so no hop is needed
     "plant_instances": (),
     "planting_runs": (),
     "tasks": (),

@@ -80,6 +80,7 @@ MODEL_COLLECTIONS_BY_HAND: dict[str, str] = {
     "PhaseSequenceEntry": "phase_sequence_entries",  # phase_sequence_repository
     "StarterKit": "starter_kits",  # starter_kit_repository (raw)
     "SystemSettings": "system_settings",  # system_settings_repository (raw)
+    "CareEvent": "care_events",  # written by ArangoGardenPlanRepository inside the status-change transaction (WP 1.9)
     "PlanAuditRecord": "garden_plan_audit",  # written by ArangoGardenPlanRepository inside the batch transaction
     "SitePlan": "sites",  # embedded in the site document (ArangoSiteRepository), REQ-053 WP 1.7
 }
