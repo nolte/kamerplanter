@@ -5281,6 +5281,41 @@
       "navCardTitle": "Import a garden",
       "navCardDescription": "Bring the archive of a garden export back as a new garden and map its members to existing accounts.",
       "navCardOpen": "Open import"
+    },
+    "gardenPlan": {
+      "renderer": {
+        "canvas": "Garden plan",
+        "canvasRole": "Garden plan",
+        "boundary": "Garden boundary",
+        "bedType": "Bed",
+        "plantCount_one": "{{count}} plant",
+        "plantCount_other": "{{count}} plants",
+        "openTaskCount_one": "{{count}} open task",
+        "openTaskCount_other": "{{count}} open tasks",
+        "plant": "Plant {{id}}",
+        "slot": "Empty planting position {{id}}",
+        "sizeRect": "{{width}} × {{length}} m",
+        "sizeCircle": "Ø {{diameter}} m",
+        "sizeArea": "{{area}} m²",
+        "objectType": {
+          "path": "Path",
+          "lawn": "Lawn",
+          "tree": "Tree",
+          "shrub": "Shrub",
+          "building": "Building",
+          "wall": "Wall",
+          "fence": "Fence",
+          "trellis": "Trellis",
+          "water_source": "Water source",
+          "compost": "Compost",
+          "storage": "Storage",
+          "other": "Other",
+          "window": "Window",
+          "door": "Door",
+          "furniture": "Furniture",
+          "lamp": "Lamp"
+        }
+      }
     }
   }
 }

@@ -5282,6 +5282,41 @@
       "navCardTitle": "Garten importieren",
       "navCardDescription": "Spiele das Archiv eines Garten-Exports als neuen Garten ein und ordne die Mitglieder bestehenden Konten zu.",
       "navCardOpen": "Import öffnen"
+    },
+    "gardenPlan": {
+      "renderer": {
+        "canvas": "Gartenplan",
+        "canvasRole": "Gartenplan",
+        "boundary": "Gartengrenze",
+        "bedType": "Beet",
+        "plantCount_one": "{{count}} Pflanze",
+        "plantCount_other": "{{count}} Pflanzen",
+        "openTaskCount_one": "{{count}} offene Aufgabe",
+        "openTaskCount_other": "{{count}} offene Aufgaben",
+        "plant": "Pflanze {{id}}",
+        "slot": "Freie Pflanzposition {{id}}",
+        "sizeRect": "{{width}} × {{length}} m",
+        "sizeCircle": "Ø {{diameter}} m",
+        "sizeArea": "{{area}} m²",
+        "objectType": {
+          "path": "Weg",
+          "lawn": "Rasen",
+          "tree": "Baum",
+          "shrub": "Strauch",
+          "building": "Gebäude",
+          "wall": "Mauer",
+          "fence": "Zaun",
+          "trellis": "Rankhilfe",
+          "water_source": "Wasserstelle",
+          "compost": "Kompost",
+          "storage": "Lager",
+          "other": "Sonstiges",
+          "window": "Fenster",
+          "door": "Tür",
+          "furniture": "Möbel",
+          "lamp": "Lampe"
+        }
+      }
     }
   }
 }

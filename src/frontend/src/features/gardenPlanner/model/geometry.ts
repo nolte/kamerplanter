@@ -200,7 +200,8 @@ function cross(o: Point, a: Point, b: Point): number {
   return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
 }
 
-function pointSegmentDistance(point: Point, a: Point, b: Point): number {
+/** Distance from `point` to the segment `a`-`b`. */
+export function pointSegmentDistance(point: Point, a: Point, b: Point): number {
   const abx = b[0] - a[0];
   const aby = b[1] - a[1];
   const lengthSq = abx * abx + aby * aby;
