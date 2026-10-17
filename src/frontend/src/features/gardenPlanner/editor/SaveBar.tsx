@@ -14,6 +14,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Tooltip from '@mui/material/Tooltip';
+import { visuallyHidden } from '@mui/utils';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import RedoIcon from '@mui/icons-material/Redo';
@@ -66,6 +67,16 @@ export function SaveBar() {
 
   const count = pending.length;
   const saving = saveStatus === 'saving';
+  // "Saved" is spoken once, when a save has just finished with nothing left to send; the next edit
+  // clears it (state adjusted during render, no effect between the store and the region).
+  const [wasSaving, setWasSaving] = useState(false);
+  const [savedSpoken, setSavedSpoken] = useState(false);
+  if (saving !== wasSaving) {
+    setWasSaving(saving);
+    if (wasSaving && saveStatus === 'idle' && count === 0) setSavedSpoken(true);
+  } else if (savedSpoken && count > 0) {
+    setSavedSpoken(false);
+  }
   const conflict = saveStatus === 'conflict';
   // Once everything pending is undone there is nothing left to retry: the old refusal is history.
   const failed = saveStatus === 'error' && count > 0;
@@ -136,8 +147,6 @@ export function SaveBar() {
           </span>
         </Tooltip>
         <Box
-          role="status"
-          aria-live="polite"
           data-testid="garden-plan-save-status"
           data-pending-count={count}
           sx={{
@@ -148,7 +157,15 @@ export function SaveBar() {
             minWidth: 0,
             px: 1,
             typography: 'body2',
-            color: failed || conflict ? 'error.main' : count > 0 ? 'warning.main' : 'text.secondary',
+            // warning.main on paper is 3.1:1 in the light theme (see theme.ts): its dark tone is used there.
+            color: (theme) =>
+              failed || conflict
+                ? theme.palette.error.main
+                : count > 0
+                  ? theme.palette.mode === 'light'
+                    ? theme.palette.warning.dark
+                    : theme.palette.warning.main
+                  : theme.palette.text.secondary,
           }}
         >
           {failed || conflict ? (
@@ -177,6 +194,17 @@ export function SaveBar() {
           </span>
         </Tooltip>
       </Paper>
+      {/* The one spoken word of the bar: undo, redo and every edit are said by the editor's live region,
+          a refusal by the alert below, the conflict by its dialog - only a successful save is said here. */}
+      <Box
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        sx={visuallyHidden}
+        data-testid="garden-plan-save-announcement"
+      >
+        {savedSpoken ? t(`${PREFIX}.status.saved`) : ''}
+      </Box>
       {refusal && (
         <Alert severity="error" role="alert" data-testid="garden-plan-save-error">
           <Box sx={{ fontWeight: 600 }}>{failureTitle(refusal, t)}</Box>

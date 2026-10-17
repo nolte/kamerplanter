@@ -5411,7 +5411,8 @@
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
           "object": {
-            "locked": "Locked objects cannot be changed or deleted. Unlock them first."
+            "locked": "Locked objects cannot be changed or deleted. Unlock them first.",
+            "not_movable": "Only beds and garden objects can be moved."
           },
           "geometry": {
             "outside_parent": "The shape sticks out of its area or the garden boundary and was not applied. Place it completely inside.",
@@ -5473,6 +5474,139 @@
             "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
             "next_other": "{{count}} points placed. Place more points or finish with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
           }
+        },
+        "skip": {
+          "list": "Skip to object list",
+          "plan": "Skip to plan",
+          "panel": "Skip to the properties panel"
+        },
+        "list": {
+          "switch": "Show as list",
+          "heading": "Plan as list",
+          "intro": "The objects of {{name}}: areas, beds and garden objects. Select one to read its values, move it or delete it.",
+          "empty": "There is nothing on the plan yet. Use “Add with dimensions” or draw a bed in the plan view.",
+          "level": {
+            "area": "Area",
+            "bed": "Bed",
+            "object": "Garden object"
+          },
+          "position": "x {{x}} m, y {{y}} m",
+          "notPlaced": "not placed on the plan",
+          "fact": {
+            "type": "Type",
+            "position": "Position",
+            "size": "Size",
+            "status": "Status",
+            "plants": "Plants",
+            "openTasks": "Open tasks",
+            "notes": "Notes",
+            "locked": "Locked"
+          },
+          "status": {
+            "planned": "Planned",
+            "active": "Active",
+            "retired": "Retired"
+          },
+          "actions": {
+            "group": "Actions for {{name}}"
+          },
+          "move": {
+            "left": "Move {{step}} m left",
+            "right": "Move {{step}} m right",
+            "up": "Move {{step}} m up",
+            "down": "Move {{step}} m down"
+          },
+          "moveTo": {
+            "group": "Move {{name}} to a position",
+            "x": "X (m)",
+            "y": "Y (m)",
+            "apply": "Move here"
+          },
+          "delete": "Delete",
+          "lockedHint": "This object is locked. Unlock it to move or delete it.",
+          "lockedIcon": "Locked"
+        },
+        "liveRegion": {
+          "unnamed": "Object",
+          "done": "Done.",
+          "moved": "{{name}} moved to x {{x}} m, y {{y}} m.",
+          "changed": "{{action}}: {{name}}, now at x {{x}} m, y {{y}} m.",
+          "changedNoPosition": "{{action}}: {{name}}.",
+          "deleted": "{{name}} deleted.",
+          "deletedMany_one": "{{count}} object deleted.",
+          "deletedMany_other": "{{count}} objects deleted.",
+          "undone": "Undone.",
+          "undoneAction": "Undone: {{action}}.",
+          "redone": "Redone."
+        },
+        "keyboard": {
+          "open": "Keyboard help",
+          "title": "Keyboard operation of the plan",
+          "keys": {
+            "arrows": {
+              "keys": "Arrow keys",
+              "does": "Move the selection by one grid step; without a selection, scroll the view."
+            },
+            "shiftArrows": {
+              "keys": "Shift + arrow keys",
+              "does": "Ten steps at once (or scroll faster)."
+            },
+            "scroll": {
+              "keys": "Tab",
+              "does": "Leaves the plan. Reach every object and all actions in the list view ('Show as list')."
+            },
+            "pageKeys": {
+              "keys": "Page Down / Page Up",
+              "does": "Focus the next or previous object."
+            },
+            "enter": {
+              "keys": "Enter / Space",
+              "does": "Select the focused object; Enter also finishes a polygon."
+            },
+            "del": {
+              "keys": "Delete",
+              "does": "Delete the selection after confirmation."
+            },
+            "esc": {
+              "keys": "Esc",
+              "does": "Cancel what is under way, then clear the selection."
+            },
+            "selectAll": {
+              "keys": "Ctrl + A",
+              "does": "Select all unlocked objects."
+            },
+            "help": {
+              "keys": "?",
+              "does": "Opens this keyboard help."
+            },
+            "zoom": {
+              "keys": "+ / −",
+              "does": "Zoom the view in or out."
+            },
+            "fit": {
+              "keys": "0",
+              "does": "Show the whole plan."
+            },
+            "grid": {
+              "keys": "G",
+              "does": "Show or hide the grid."
+            },
+            "undo": {
+              "keys": "Ctrl + Z",
+              "does": "Undo the last change."
+            },
+            "redo": {
+              "keys": "Ctrl + Shift + Z / Ctrl + Y",
+              "does": "Redo the change you undid."
+            },
+            "save": {
+              "keys": "Ctrl + S",
+              "does": "Save the plan."
+            }
+          },
+          "shortcutNote": "The single keys ?, G, +, − and 0 only work while the plan has the focus. Switch them off below if they get in your way (WCAG 2.1.4). Arrow keys, Page Down/Up, Delete, Esc as well as Ctrl + A, Ctrl + Z, Ctrl + Shift + Z, Ctrl + Y and Ctrl + S stay active. In text fields, Ctrl + Z and Ctrl + Y act on the field itself.",
+          "singleKeyLabel": "Single-key shortcuts",
+          "singleKeyHint": "Switch off to stop the keys ?, G, +, − and 0 from reacting. This help stays available through the “Keyboard help” button."
         },
         "panel": {
           "title": "Properties",
@@ -5712,7 +5846,7 @@
           "advice": "Reload the plan to see the current state. Your changes and the undo history are lost when you do – download them as a copy first if you still need them.",
           "download": "Keep my changes as a copy (download JSON)",
           "reload": "Reload",
-          "downloaded": "The copy was downloaded."
+          "downloaded": "The copy was downloaded. You can reload now."
         }
       }
     }

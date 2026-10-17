@@ -230,6 +230,37 @@ describe('saving (GP-NFR-006)', () => {
     expect(applyPlanBatch).toHaveBeenCalledTimes(1);
   });
 
+  it('Ctrl+Z, Ctrl+Y and Ctrl+S stay active with the single-key shortcuts switched off (WCAG 2.1.4)', async () => {
+    window.localStorage.setItem('kamerplanter.gardenPlan.singleKeyShortcuts', 'off');
+    const t = setupEditor({ plan: plan() });
+    moveBed(t, 4);
+    t.after(() => fireEvent.keyDown(t.canvas(), { key: 'z', ctrlKey: true }));
+    expect(originOf(t, 'b1')).toBe(3);
+    t.after(() => fireEvent.keyDown(t.canvas(), { key: 'y', ctrlKey: true }));
+    expect(originOf(t, 'b1')).toBe(4);
+    applyPlanBatch.mockResolvedValue(ok());
+    await act(async () => {
+      fireEvent.keyDown(t.canvas(), { key: 's', ctrlKey: true });
+    });
+    expect(applyPlanBatch).toHaveBeenCalledTimes(1);
+    window.localStorage.removeItem('kamerplanter.gardenPlan.singleKeyShortcuts');
+  });
+
+  it('speaks a finished save once and keeps the visible status out of the live regions', async () => {
+    const t = setupEditor({ plan: plan() });
+    const spoken = () => screen.getByTestId('garden-plan-save-announcement');
+    expect(status()).not.toHaveAttribute('aria-live');
+    expect(status()).not.toHaveAttribute('role');
+    expect(spoken()).toHaveTextContent('');
+    moveBed(t, 4);
+    expect(spoken()).toHaveTextContent('');
+    applyPlanBatch.mockResolvedValue(ok());
+    await clickSave(t);
+    expect(spoken()).toHaveTextContent('Saved');
+    moveBed(t, 5);
+    expect(spoken()).toHaveTextContent('');
+  });
+
   it('Ctrl+S inside a field commits the value first, then saves it', async () => {
     const t = setupEditor({ plan: plan() });
     t.click(4, 4); // selects b1, the panel shows its fields
@@ -374,6 +405,7 @@ describe('409 conflict (GP-ACC-010/011, GP-UX-017)', () => {
     await clickSave(t);
     const dialog = screen.getByRole('alertdialog');
     expect(screen.getByTestId('plan-conflict-dialog')).toContainElement(dialog);
+    expect(screen.getByTestId('plan-conflict-reload')).toHaveFocus();
     expect(dialog).toHaveAccessibleName('The plan was changed meanwhile');
     expect(dialog).toHaveTextContent('Your 2 unsaved changes could not be applied.');
     expect(screen.getByTestId('plan-conflict-who')).toHaveTextContent(/Sabine/);

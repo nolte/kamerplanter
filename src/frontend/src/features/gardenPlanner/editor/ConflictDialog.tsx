@@ -13,6 +13,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -35,6 +37,7 @@ export function ConflictDialog() {
   const dispatch = useAppDispatch();
   const { conflict, plan, pending } = useAppSelector(selectGardenPlanState);
   const [downloaded, setDownloaded] = useState(false);
+  const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
 
   const download = useCallback(() => {
     if (conflict === null || plan === null) return;
@@ -79,6 +82,8 @@ export function ConflictDialog() {
       onClose={() => undefined}
       fullWidth
       maxWidth="sm"
+      // A phone gets the whole screen so the text and both buttons are never cut off (UI-NFR-008).
+      fullScreen={fullScreen}
       data-testid="plan-conflict-dialog"
     >
       <DialogTitle id={TITLE_ID}>{t(`${PREFIX}.title`)}</DialogTitle>
@@ -106,7 +111,18 @@ export function ConflictDialog() {
           </Typography>
         )}
       </DialogContent>
-      <DialogActions sx={{ flexWrap: 'wrap', gap: 1, px: 3, pb: 2 }}>
+      <DialogActions
+        sx={{
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'stretch', sm: 'center' },
+          flexWrap: 'wrap',
+          gap: 1,
+          px: 3,
+          pb: 2,
+          // MUI adds a left margin to every button but the first; stacked buttons need none.
+          '& > :not(style) ~ :not(style)': { ml: { xs: 0, sm: 1 } },
+        }}
+      >
         <Button
           onClick={download}
           startIcon={<DownloadIcon />}
@@ -118,6 +134,7 @@ export function ConflictDialog() {
         <Button
           variant="contained"
           onClick={reload}
+          autoFocus
           startIcon={<RefreshIcon />}
           sx={{ minHeight: 44 }}
           data-testid="plan-conflict-reload"
