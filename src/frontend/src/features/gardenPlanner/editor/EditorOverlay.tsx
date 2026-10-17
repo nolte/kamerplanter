@@ -5,6 +5,7 @@
  * from assistive technology - the plan itself carries the accessible names; this layer only
  * shows what a gesture is about to do.
  */
+import type { ReactNode } from 'react';
 import { useTheme } from '@mui/material/styles';
 import type { Shape } from '../model/geometry';
 import type { Point } from '../model/types';
@@ -21,6 +22,8 @@ interface EditorOverlayProps {
   pxPerM: number;
   widthPx: number;
   heightPx: number;
+  /** Extra layers drawn last: dimension text, snap marker (WP 2.5). */
+  children?: ReactNode;
 }
 
 function pathOf(shape: Shape, toScreen: (pointM: Point) => Point): string {
@@ -37,6 +40,7 @@ export function EditorOverlay({
   pxPerM,
   widthPx,
   heightPx,
+  children,
 }: EditorOverlayProps) {
   const theme = useTheme();
   const { palette } = theme;
@@ -82,6 +86,7 @@ export function EditorOverlay({
         />
       )}
       {handles && <Handles set={handles} toScreen={toScreen} vertex={vertex} />}
+      {children}
     </svg>
   );
 }
