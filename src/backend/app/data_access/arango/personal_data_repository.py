@@ -14,6 +14,19 @@ from app.domain.models.privacy import DataSourceDefinition
 EDGE_ENDPOINT_FIELDS = frozenset({"_from", "_to"})
 
 
+def _without_paths(row: dict[str, Any], paths: list[str]) -> dict[str, Any]:
+    """*row* without the dotted *paths* (copying the objects on the way, never mutating the read result)."""
+    result = dict(row)
+    for path in paths:
+        head, _, rest = path.partition(".")
+        value = result.get(head)
+        if not rest:
+            result.pop(head, None)
+        elif isinstance(value, dict):
+            result[head] = _without_paths(value, [rest])
+    return result
+
+
 class ArangoPersonalDataRepository(IPersonalDataRepository):
     """Resolves one declared manifest source into the user's rows.
 
@@ -26,6 +39,17 @@ class ArangoPersonalDataRepository(IPersonalDataRepository):
         self._db = db
 
     def collect_for_user(
+        self,
+        source: DataSourceDefinition,
+        user_key: UserKey,
+        tenant_keys: Sequence[str],
+        *,
+        tombstone: str | None = None,
+    ) -> list[dict[str, Any]]:
+        rows = self._collect(source, user_key, tenant_keys, tombstone=tombstone)
+        return [_without_paths(row, source.withhold) for row in rows] if source.withhold else rows
+
+    def _collect(
         self,
         source: DataSourceDefinition,
         user_key: UserKey,

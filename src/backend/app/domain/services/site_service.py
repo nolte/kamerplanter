@@ -47,6 +47,22 @@ SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
 )
 
 
+def place_in_tree(location: Location, parent: Location | None) -> None:
+    """Derive ``depth`` and ``path`` of *location* from its *parent* (``None`` = directly on the site).
+
+    Module-level so the garden-plan batch (REQ-053 WP 1.8) places a created location exactly as
+    ``POST /locations`` does.
+    """
+    segment = location.name.lower().replace(" ", "_")
+    if parent is None:
+        location.depth = 0
+        location.path = segment
+        return
+    location.depth = parent.depth + 1
+    parent_path = parent.path or parent.name.lower().replace(" ", "_")
+    location.path = f"{parent_path}/{segment}"
+
+
 class _TankSource(Protocol):
     def get_by_key(self, key: str) -> Tank | None: ...
 
@@ -99,6 +115,11 @@ class SiteService:
         existing = self.get_site(key, tenant_key=tenant_key)
         site.tenant_key = tenant_key
         site.weather_source_priority = list(existing.weather_source_priority)
+        if existing.plan is not None and existing.plan.boundary is not None:
+            # REQ-053 §20.2: with a boundary the area is derived from it. ``SiteCreate`` carries a
+            # ``total_area_m2`` (default 0) the model cannot tell from a typed value, and the repository
+            # merge would write it over the derived one on every ordinary site edit.
+            site.total_area_m2 = existing.total_area_m2
         return self._repo.update_site(key, site)
 
     def delete_site(self, key: SiteKey, *, tenant_key: str) -> bool:
@@ -159,14 +180,7 @@ class SiteService:
     @staticmethod
     def _place_in_tree(location: Location, parent: Location | None) -> None:
         """Derive ``depth`` and ``path`` from the parent — the fields no request body carries."""
-        segment = location.name.lower().replace(" ", "_")
-        if parent is None:
-            location.depth = 0
-            location.path = segment
-            return
-        location.depth = parent.depth + 1
-        parent_path = parent.path or parent.name.lower().replace(" ", "_")
-        location.path = f"{parent_path}/{segment}"
+        place_in_tree(location, parent)
 
     def update_location(self, key: LocationKey, location: Location, *, tenant_key: str) -> Location:
         """Update a location; the parent and the tank it names are resolved under the tenant (#1872 C4).

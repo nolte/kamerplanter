@@ -350,11 +350,12 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "AquaponikService": "aquaponik_service.py",
     "InvenTreeService": "inventree_service.py",
     "PlantPhotoService": "plant_photo_service.py",
+    "GardenPlanService": "garden_plan_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
 #: twenty and more; a smaller class is pinned at its measured count so an emptied match still fails.
-_MIN_TENANT_METHODS: dict[str, int] = {"PlantPhotoService": 10}
+_MIN_TENANT_METHODS: dict[str, int] = {"PlantPhotoService": 10, "GardenPlanService": 6}
 _DEFAULT_MIN_TENANT_METHODS = 20
 
 

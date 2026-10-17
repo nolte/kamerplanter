@@ -12,7 +12,7 @@ class KamerplanterError(Exception):
         message: str,
         error_code: str = "INTERNAL_ERROR",
         status_code: int = 500,
-        details: list[dict[str, str]] | None = None,
+        details: list[dict[str, Any]] | None = None,
     ) -> None:
         self.error_id = new_error_id()
         self.message = message
@@ -150,6 +150,74 @@ class TransactionTimeBudgetExceededError(KamerplanterError):
             # mapping ``details[].field`` onto its form (NFR-006 §7) has nothing to mark.
             details=[{"field": "request", "reason": reason, "code": "TRANSACTION_TIME_BUDGET_EXCEEDED"}],
         )
+
+
+class PlanError(KamerplanterError):
+    """A garden-plan refusal that carries its **published** dotted code (REQ-053 §21.3, §22.2).
+
+    The plan API publishes lowercase dotted codes (``plan.revision_conflict``,
+    ``batch.operation_forbidden``, ``boundary.shrinks_below_objects`` …) that a
+    client branches on, so a plan error is born with that code as both its
+    ``error_code`` and the ``code`` of its first ``details`` entry, instead of a
+    SCREAMING_CASE house code a transport would have to translate. ``extra``
+    keys (``op_index``, ``current_revision``, ``limit`` …) ride in the first
+    ``details`` entry with their native JSON types, because a client reads
+    ``details[0].op_index`` as a number.
+    """
+
+    def __init__(self, code: str, message: str, *, status_code: int, field: str = "request", **extra: Any) -> None:
+        super().__init__(
+            message=message,
+            error_code=code,
+            status_code=status_code,
+            details=[{"field": field, "reason": message, "code": code, **extra}],
+        )
+
+
+class PlanRevisionConflictError(PlanError):
+    """409 ``plan.revision_conflict``: ``expected_revision`` is not the site's ``plan_revision`` (V-14).
+
+    ``changed_by`` is the *display name* of the last editor, never the account key
+    (§22.1, SR-013): a key would be a stable identifier for a person in the
+    response of an optimistic-locking miss.
+    """
+
+    def __init__(self, *, current_revision: int, changed_by: str | None, changed_at: str | None) -> None:
+        super().__init__(
+            "plan.revision_conflict",
+            "The garden plan was changed by someone else; reload it and apply your changes again.",
+            status_code=409,
+            field="expected_revision",
+            current_revision=current_revision,
+            changed_by=changed_by,
+            changed_at=changed_at,
+        )
+        self.current_revision = current_revision
+
+
+class PlanValidationError(KamerplanterError):
+    """422: one or more operations of a plan request violate a validation rule (§22.2).
+
+    ``findings`` are ``(op_index, field, code)``; the whole request is refused and
+    nothing is persisted. ``op_index`` is ``None`` for a finding that belongs to no
+    single operation (a boundary that shrinks below existing objects).
+    """
+
+    def __init__(self, findings: list[tuple[int | None, str, str, dict[str, Any]]]) -> None:
+        details: list[dict[str, Any]] = []
+        for op_index, field, code, extra in findings:
+            entry: dict[str, Any] = {"field": field, "reason": code, "code": code}
+            if op_index is not None:
+                entry["op_index"] = op_index
+            entry.update(extra)
+            details.append(entry)
+        super().__init__(
+            message="The plan request is invalid.",
+            error_code="VALIDATION_ERROR",
+            status_code=422,
+            details=details,
+        )
+        self.codes = [code for _, _, code, _ in findings]
 
 
 class AccountBeingErasedError(KamerplanterError):

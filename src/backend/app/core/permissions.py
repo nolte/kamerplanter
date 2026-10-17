@@ -70,6 +70,13 @@ class ResourceType(StrEnum):
     #: the cache is machine-managed (``glossary.cleanup_expired_cache``,
     #: ``glossary.invalidate_after_reingest``), never edited by hand.
     GLOSSARY = "glossary"
+    #: REQ-053 §21.8 — additive. ``garden_object`` is gated by the plan routes of WP 1.8/1.9;
+    #: the other three are declared with it so the matrix names every resource of the garden plan
+    #: (care events WP 4.x, irrigation zones WP 7.x, bed templates WP 8.x) before their routes exist.
+    GARDEN_OBJECT = "garden_object"
+    CARE_EVENT = "care_event"
+    IRRIGATION_ZONE = "irrigation_zone"
+    BED_TEMPLATE = "bed_template"
 
 
 class Action(StrEnum):
@@ -141,6 +148,10 @@ _PLANT_DOMAIN: list[ResourceType] = [
     ResourceType.FEEDING_EVENT,
     ResourceType.WATERING_EVENT,
     ResourceType.WATERING_LOG,
+    ResourceType.GARDEN_OBJECT,
+    ResourceType.CARE_EVENT,
+    ResourceType.IRRIGATION_ZONE,
+    ResourceType.BED_TEMPLATE,
 ]
 for _resource in _PLANT_DOMAIN:
     _grant(_resource, [Action.READ], [TenantRole.LEAD, TenantRole.GROWER, TenantRole.VIEWER])
