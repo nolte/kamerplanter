@@ -207,9 +207,19 @@ describe('zoom (GP-FR-009, GP-FR-150)', () => {
     expect(level()).toBe('40 %');
   });
 
-  it('the wheel zooms stepless around the pointer and keeps the page from scrolling', () => {
+  it('a plain wheel leaves the page scrolling', () => {
     const t = setup();
     const wheel = new WheelEvent('wheel', { deltaY: -200, clientX: 200, clientY: 200, cancelable: true, bubbles: true });
+    act(() => {
+      t.canvas().dispatchEvent(wheel);
+    });
+    expect(wheel.defaultPrevented).toBe(false);
+    expect(level()).toBe('40 %');
+  });
+
+  it('Ctrl + wheel zooms stepless around the pointer and keeps the page from scrolling', () => {
+    const t = setup();
+    const wheel = new WheelEvent('wheel', { deltaY: -200, clientX: 200, clientY: 200, ctrlKey: true, cancelable: true, bubbles: true });
     act(() => {
       t.canvas().dispatchEvent(wheel);
     });
@@ -290,12 +300,17 @@ describe('compass (GP-FR-015)', () => {
     expect(t.state().plan!.settings!.north_angle_deg).toBe(0);
   });
 
-  it('wraps and rounds the typed value', () => {
+  it('stores 360 as 0 and refuses values outside 0 to 360 with a message', () => {
     const t = setup();
     const input = screen.getByLabelText(/North angle/);
     fireEvent.change(input, { target: { value: '-15' } });
+    expect(screen.getByText('Enter an angle from 0 to 360.')).toBeInTheDocument();
     fireEvent.blur(input);
-    expect(t.state().plan!.settings!.north_angle_deg).toBe(345);
+    expect(t.state().plan!.settings!.north_angle_deg).toBe(0);
+    expect(t.state().pending).toHaveLength(0);
+    fireEvent.change(input, { target: { value: '360' } });
+    fireEvent.blur(input);
+    expect(t.state().plan!.settings!.north_angle_deg).toBe(0);
   });
 
   it('arrow keys turn the dial by 1 degree, Shift by 15', () => {

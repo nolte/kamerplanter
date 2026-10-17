@@ -30,7 +30,11 @@ export function ScaleBar({ pxPerM }: ScaleBarProps) {
         // A soft backing keeps the bar readable over beds and the grid.
         bgcolor: 'background.paper',
         opacity: 0.92,
-        px: 0.5,
+        fontWeight: 600,
+        px: 0.75,
+        py: 0.25,
+        border: 1,
+        borderColor: 'divider',
         borderRadius: 0.5,
       }}
     >

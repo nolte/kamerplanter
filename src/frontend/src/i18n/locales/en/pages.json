@@ -5486,7 +5486,7 @@
           "in": "Zoom in",
           "out": "Zoom out",
           "fit": "Fit",
-          "inHint": "Zoom in (+)",
+          "inHint": "Zoom in (+). Zoom smoothly with Ctrl/Cmd + mouse wheel or while the plan is focused.",
           "outHint": "Zoom out (−)",
           "fitHint": "Fit the whole plan into view (0)",
           "level": "Zoom {{percent}} percent",
@@ -5494,12 +5494,14 @@
         },
         "compass": {
           "label": "Compass: direction of geographic north on the plan",
-          "input": "North angle (°, clockwise)",
+          "input": "North angle (degrees)",
           "value": "{{angle}}° clockwise from the top of the plan",
           "n": "N",
           "e": "E",
           "s": "S",
-          "w": "W"
+          "w": "W",
+          "help": "Set where geographic north lies on your plan. Turn the dial or use the arrow keys (Shift or Page Up/Down: 15 degree steps, Home: north up). 0 degrees means north is up, 90 degrees means north points right.",
+          "invalid": "Enter an angle from 0 to 360."
         },
         "dimensions": {
           "rect": "{{width}} × {{length}} · {{area}}",

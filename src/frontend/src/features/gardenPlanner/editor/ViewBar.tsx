@@ -48,6 +48,9 @@ export interface ViewBarProps {
   onNorthAngle?: (angleDeg: number) => void;
 }
 
+// A divider between wrapped rows would dangle at the line end on a phone: only where all fits.
+const dividerSx = { display: { xs: 'none', md: 'block' } } as const;
+
 const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
 
 export function ViewBar(props: ViewBarProps) {
@@ -72,7 +75,7 @@ export function ViewBar(props: ViewBarProps) {
           select: { native: true },
           htmlInput: { 'data-testid': 'garden-plan-grid-step' },
         }}
-        sx={{ minWidth: 104 }}
+        sx={{ minWidth: 104, '& select': { minHeight: TARGET_PX, boxSizing: 'border-box', display: 'flex', alignItems: 'center' } }}
       >
         {GRID_STEPS_M.map((step) => (
           <option key={step} value={String(step)}>
@@ -87,6 +90,7 @@ export function ViewBar(props: ViewBarProps) {
             selected={props.gridVisible}
             onChange={() => props.onGridVisible(!props.gridVisible)}
             aria-label={t(`${PREFIX}.grid.toggle`)}
+            aria-keyshortcuts="G"
             data-testid="garden-plan-grid-toggle"
             sx={buttonSx}
           >
@@ -107,7 +111,7 @@ export function ViewBar(props: ViewBarProps) {
         </Tooltip>
       </ToggleButtonGroup>
 
-      <Divider orientation="vertical" flexItem />
+      <Divider orientation="vertical" flexItem sx={dividerSx} />
 
       <Box role="group" aria-label={t(`${PREFIX}.zoom.label`)} sx={{ display: 'flex', alignItems: 'center' }}>
         <Tooltip title={t(`${PREFIX}.zoom.outHint`)}>
@@ -116,6 +120,7 @@ export function ViewBar(props: ViewBarProps) {
               onClick={props.onZoomOut}
               disabled={atMin}
               aria-label={t(`${PREFIX}.zoom.out`)}
+              aria-keyshortcuts="-"
               data-testid="garden-plan-zoom-out"
               sx={buttonSx}
             >
@@ -136,6 +141,7 @@ export function ViewBar(props: ViewBarProps) {
           <IconButton
             onClick={props.onZoomIn}
             aria-label={t(`${PREFIX}.zoom.in`)}
+            aria-keyshortcuts="+"
             data-testid="garden-plan-zoom-in"
             sx={buttonSx}
           >
@@ -146,6 +152,7 @@ export function ViewBar(props: ViewBarProps) {
           <Button
             onClick={props.onFit}
             startIcon={<FitScreenIcon />}
+            aria-keyshortcuts="0"
             data-testid="garden-plan-zoom-fit"
             sx={buttonSx}
           >
@@ -154,7 +161,7 @@ export function ViewBar(props: ViewBarProps) {
         </Tooltip>
       </Box>
 
-      <Divider orientation="vertical" flexItem />
+      <Divider orientation="vertical" flexItem sx={dividerSx} />
 
       <ToggleButtonGroup
         exclusive
@@ -179,7 +186,7 @@ export function ViewBar(props: ViewBarProps) {
         ))}
       </ToggleButtonGroup>
 
-      <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
       <Compass angleDeg={props.northAngleDeg} onChange={props.onNorthAngle} />
     </Paper>
   );

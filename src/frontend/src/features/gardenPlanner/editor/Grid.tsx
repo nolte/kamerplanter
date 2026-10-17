@@ -14,6 +14,8 @@ interface GridProps {
   stepM: number;
 }
 
+// Lines that carry information (every metre, or the step itself when no metre lines are drawn) keep
+// >= 3:1 against the canvas (light: grey[600] at 0.8 ~ 3.2:1); the fine lines in between stay faint.
 /** Offset of the first line: the model origin lies at `-origin * pxPerM` from the left edge. */
 function phase(originCoordinateM: number, stepPx: number, pxPerM: number, flip: boolean): number {
   const offsetPx = (flip ? -originCoordinateM : originCoordinateM) * pxPerM;
@@ -28,7 +30,7 @@ export function Grid({ viewport, stepM }: GridProps) {
   const stepPx = shown * pxPerM;
   const majorPx = pxPerM; // every whole metre
   const showMajor = shown < 1 && majorPx >= MIN_GRID_LINE_PX * 2;
-  const line = palette.mode === 'dark' ? palette.grey[600] : palette.grey[400];
+  const line = palette.mode === 'dark' ? palette.grey[500] : palette.grey[600];
   const x0 = phase(originM[0], stepPx, pxPerM, false);
   // Screen y points down while model y points up.
   const y0 = phase(originM[1], stepPx, pxPerM, true);
@@ -53,7 +55,7 @@ export function Grid({ viewport, stepM }: GridProps) {
           y={y0}
           patternUnits="userSpaceOnUse"
         >
-          <path d={`M${stepPx} 0V${stepPx}M0 ${stepPx}H${stepPx}`} fill="none" stroke={line} strokeWidth={1} opacity={0.35} />
+          <path d={`M${stepPx} 0V${stepPx}M0 ${stepPx}H${stepPx}`} fill="none" stroke={line} strokeWidth={1} opacity={showMajor ? 0.35 : 0.8} />
         </pattern>
         {showMajor && (
           <pattern
@@ -64,7 +66,7 @@ export function Grid({ viewport, stepM }: GridProps) {
             y={my0}
             patternUnits="userSpaceOnUse"
           >
-            <path d={`M${majorPx} 0V${majorPx}M0 ${majorPx}H${majorPx}`} fill="none" stroke={line} strokeWidth={1} opacity={0.7} />
+            <path d={`M${majorPx} 0V${majorPx}M0 ${majorPx}H${majorPx}`} fill="none" stroke={line} strokeWidth={1} opacity={0.8} />
           </pattern>
         )}
       </defs>

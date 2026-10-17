@@ -5487,7 +5487,7 @@
           "in": "Vergrößern",
           "out": "Verkleinern",
           "fit": "Anpassen",
-          "inHint": "Vergrößern (+)",
+          "inHint": "Vergrößern (+). Mit Strg/Cmd + Mausrad oder bei fokussiertem Plan stufenlos zoomen.",
           "outHint": "Verkleinern (−)",
           "fitHint": "An Fläche anpassen: ganzen Plan einpassen (0)",
           "level": "Zoom {{percent}} Prozent",
@@ -5495,12 +5495,14 @@
         },
         "compass": {
           "label": "Kompass: Richtung geografisch Nord auf dem Plan",
-          "input": "Nordwinkel (°, im Uhrzeigersinn)",
+          "input": "Nordwinkel (Grad)",
           "value": "{{angle}}° im Uhrzeigersinn von oben",
           "n": "N",
           "e": "O",
           "s": "S",
-          "w": "W"
+          "w": "W",
+          "help": "Stelle ein, wo geografisch Norden auf deinem Plan liegt. Drehe das Zifferblatt oder nutze die Pfeiltasten (Umschalt oder Bild auf/ab: 15°-Schritte, Pos1: Norden oben). 0° heißt: Norden ist oben, 90°: Norden zeigt nach rechts.",
+          "invalid": "Gib einen Winkel von 0 bis 360 ein."
         },
         "dimensions": {
           "rect": "{{width}} × {{length}} · {{area}}",

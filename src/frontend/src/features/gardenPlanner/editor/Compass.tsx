@@ -9,12 +9,14 @@
 import { useCallback, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Tooltip from '@mui/material/Tooltip';
+import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
 import { useTheme } from '@mui/material/styles';
 import { azimuthFromScreenOffset, normalizeAzimuth } from '../model/compass';
 
 const DIAL_PX = 56;
-const LETTER_RADIUS = 19;
+const LETTER_RADIUS = 20;
 const PREFIX = 'pages.gardenPlan.editor.compass';
 
 interface CompassProps {
@@ -36,6 +38,9 @@ export function Compass({ angleDeg, onChange }: CompassProps) {
   // What the user is typing; `null` = show the stored value (no effect needed to sync it).
   const [typed, setTyped] = useState<string | null>(null);
   const text = typed ?? String(angleDeg);
+  const parsedText = Number(text);
+  // Valid: a number from 0 to 360 (360 is north again and is stored as 0).
+  const invalid = typed !== null && (text.trim() === '' || !Number.isFinite(parsedText) || parsedText < 0 || parsedText > 360);
 
   const commit = useCallback(
     (value: number) => {
@@ -59,6 +64,8 @@ export function Compass({ angleDeg, onChange }: CompassProps) {
     let next: number | null = null;
     if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = angleDeg + step;
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next = angleDeg - step;
+    else if (event.key === 'PageUp') next = angleDeg + 15;
+    else if (event.key === 'PageDown') next = angleDeg - 15;
     else if (event.key === 'Home') next = 0;
     if (next === null) return;
     event.preventDefault();
@@ -72,6 +79,7 @@ export function Compass({ angleDeg, onChange }: CompassProps) {
       data-testid="garden-plan-compass"
       sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
     >
+      <Tooltip title={t(`${PREFIX}.help`)}>
       <Box
         role="slider"
         tabIndex={0}
@@ -118,11 +126,11 @@ export function Compass({ angleDeg, onChange }: CompassProps) {
           <circle cx={center} cy={center} r={center - 1} fill="none" stroke={palette.divider} strokeWidth={2} />
           <g transform={`rotate(${shown} ${center} ${center})`}>
             <path
-              d={`M${center} ${center - 15}L${center + 4} ${center}L${center - 4} ${center}Z`}
+              d={`M${center} ${center - 12}L${center + 4} ${center}L${center - 4} ${center}Z`}
               fill={palette.error.main}
             />
             <path
-              d={`M${center} ${center + 15}L${center + 4} ${center}L${center - 4} ${center}Z`}
+              d={`M${center} ${center + 12}L${center + 4} ${center}L${center - 4} ${center}Z`}
               fill={palette.text.disabled}
             />
           </g>
@@ -136,7 +144,7 @@ export function Compass({ angleDeg, onChange }: CompassProps) {
                 y={center - LETTER_RADIUS * Math.cos(bearing)}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={9}
+                fontSize={11}
                 fontWeight={letter === 'n' ? 700 : 400}
                 fill={letter === 'n' ? palette.error.main : palette.text.secondary}
               >
@@ -146,25 +154,35 @@ export function Compass({ angleDeg, onChange }: CompassProps) {
           })}
         </svg>
       </Box>
+      </Tooltip>
       <TextField
         size="small"
         type="number"
         label={t(`${PREFIX}.input`)}
         value={text}
         disabled={!editable}
+        error={invalid}
+        helperText={invalid ? t(`${PREFIX}.invalid`) : undefined}
         onChange={(event) => setTyped(event.target.value)}
         onBlur={() => {
-          const parsed = Number(text);
+          const wasInvalid = invalid;
           setTyped(null);
-          if (text.trim() !== '' && Number.isFinite(parsed)) commit(parsed);
+          if (!wasInvalid && typed !== null) commit(parsedText);
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
         }}
         slotProps={{
-          htmlInput: { min: 0, max: 359.9, step: 0.1, 'data-testid': 'garden-plan-compass-input' },
+          input: { endAdornment: <InputAdornment position="end">°</InputAdornment> },
+          htmlInput: {
+            min: 0,
+            max: 360,
+            step: 'any',
+            inputMode: 'decimal',
+            'data-testid': 'garden-plan-compass-input',
+          },
         }}
-        sx={{ width: 120 }}
+        sx={{ width: 148, '& input': { minHeight: 28 } }}
       />
     </Box>
   );

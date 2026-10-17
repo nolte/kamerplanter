@@ -209,7 +209,7 @@ export function GardenPlanEditor({
   const zoomOut = useCallback(() => zoomBy(-1), [zoomBy]);
   const fit = useCallback(() => onFit?.(), [onFit]);
 
-  // The wheel zooms around the pointer. A listener of its own: React's wheel handlers are passive
+  // The wheel zooms around the pointer (with Ctrl/Cmd or a focused canvas). A listener of its own: React's wheel handlers are passive
   // and could not keep the page from scrolling.
   const wheelState = useRef({ pxPerM, onZoom });
   useEffect(() => {
@@ -221,6 +221,10 @@ export function GardenPlanEditor({
     const onWheel = (event: WheelEvent) => {
       const { pxPerM: current, onZoom: zoom } = wheelState.current;
       if (!zoom) return;
+      // A plain wheel (or a two-finger touchpad scroll) scrolls the page; zooming needs Ctrl/Cmd
+      // (a touchpad pinch arrives as Ctrl + wheel) or the focus on the canvas.
+      const focused = element.contains(document.activeElement);
+      if (!event.ctrlKey && !event.metaKey && !focused) return;
       event.preventDefault();
       const box = element.getBoundingClientRect();
       const lines = event.deltaMode === 1 ? 16 : 1;
