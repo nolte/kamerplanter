@@ -11,12 +11,14 @@
  * (GP-FR-182, §18).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -34,6 +36,7 @@ import {
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { GardenPlanEditor } from '../editor/GardenPlanEditor';
+import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
 import type { BoundingBox, Point } from '../model/types';
 import { fitViewport, planContentBounds } from './fitViewport';
 
@@ -70,6 +73,10 @@ export default function GardenPlanRoute() {
   const { key } = useParams<{ key: string }>();
   const [searchParams] = useSearchParams();
   const { t } = useTranslation();
+  const theme = useTheme();
+  const navigate = useNavigate();
+  // From md up the properties panel sits beside the plan and takes its width from the drawing.
+  const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
   const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
   const labels = useRendererLabels();
@@ -115,8 +122,8 @@ export default function GardenPlanRoute() {
   const fitted = useMemo(() => {
     if (bounds === null) return null;
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
-    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
-  }, [bounds, canvasWidth]);
+    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX - (sidebarBeside ? EDITOR_SIDEBAR_RESERVE_PX : 0)), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
+  }, [bounds, canvasWidth, sidebarBeside]);
 
   // The pan tool shifts the fitted view (model metres). The shift belongs to one site: another
   // site starts unshifted again, without an effect to reset it.
@@ -173,6 +180,7 @@ export default function GardenPlanRoute() {
         labels={labels}
         fieldMode={fieldMode}
         onPan={onPan}
+        onOpenLocation={(locationKey) => navigate(`/standorte/locations/${locationKey}`)}
       />
     );
   }

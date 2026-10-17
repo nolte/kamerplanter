@@ -37,7 +37,20 @@ export interface ToolEnv {
   angleStepDeg: number;
 }
 
-export type ActionLabel = 'move' | 'rotate' | 'resize' | 'editPoint' | 'draw' | 'delete';
+export type ActionLabel =
+  | 'move'
+  | 'rotate'
+  | 'resize'
+  | 'editPoint'
+  | 'draw'
+  | 'delete'
+  // Panel, menu and dialog actions (WP 2.6)
+  | 'edit'
+  | 'duplicate'
+  | 'lock'
+  | 'unlock'
+  | 'zOrder'
+  | 'addWithDimensions';
 
 export type Effect =
   | { type: 'select'; selection: SelectionRef[] }

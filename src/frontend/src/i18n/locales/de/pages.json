@@ -5393,14 +5393,20 @@
           "hint": "Die Auswahl löschen (Entf)"
         },
         "newBedName": "Beet {{n}}",
-        "tooSmall": "Dieses Objekt ist auf dem Bildschirm zu klein für Griffe. Verschieben geht trotzdem; zum Ändern der Größe wähle es und gib die Maße im Eigenschaftenfeld ein, sobald es verfügbar ist.",
+        "tooSmall": "Dieses Objekt ist auf dem Bildschirm zu klein für Griffe. Verschieben geht trotzdem; zum Ändern der Größe wähle es und gib die Maße im Eigenschaftenfeld ein.",
         "actions": {
           "move": "Verschieben",
           "rotate": "Drehen",
           "resize": "Größe ändern",
           "editPoint": "Punkt ändern",
           "draw": "Zeichnen",
-          "delete": "Löschen"
+          "delete": "Löschen",
+          "edit": "Wert ändern",
+          "duplicate": "Duplizieren",
+          "lock": "Sperren",
+          "unlock": "Entsperren",
+          "zOrder": "Reihenfolge ändern",
+          "addWithDimensions": "Mit Maßen hinzufügen"
         },
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
@@ -5460,6 +5466,84 @@
             "start": "Tippe die Punkte der Linie nacheinander auf den Plan. Ab zwei Punkten kannst du mit „Fertig“ oder Enter beenden.",
             "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
             "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder beende mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
+          }
+        },
+        "panel": {
+          "title": "Eigenschaften",
+          "close": "Eigenschaften schließen",
+          "name": "Name",
+          "label": "Bezeichnung",
+          "type": "Typ: {{type}}",
+          "notPlaced": "Dieses Beet ist noch nicht auf dem Plan platziert.",
+          "lockedHint": "Gesperrt: Die Werte sind schreibgeschützt. Entsperre das Objekt, um es zu ändern.",
+          "locked": "Gesperrt",
+          "fields": {
+            "x": "Position x",
+            "y": "Position y",
+            "width": "Breite",
+            "length": "Länge",
+            "radius": "Radius",
+            "rotation": "Drehung",
+            "strokeWidth": "Strichbreite"
+          },
+          "points": "Punkte ({{count}})",
+          "deletePoint": "Punkt {{n}} löschen",
+          "emptyBed": "Dieses Beet ist leer.",
+          "plant": "Bepflanzen",
+          "openDetails": "Details öffnen",
+          "nothingSelected": "Wähle ein Beet oder Objekt auf dem Plan, um seine Werte zu sehen und zu ändern.",
+          "drawBed": "Beet zeichnen",
+          "stack": "Objekte an dieser Stelle ({{count}})",
+          "plantsNearby": "Pflanzen in der Nähe ({{count}})",
+          "multiTitle_one": "{{count}} Objekt ausgewählt",
+          "multiTitle_other": "{{count}} Objekte ausgewählt",
+          "multiHint": "Mit mehreren Objekten kannst du duplizieren, löschen, in den Vorder- oder Hintergrund holen und sperren. Zum Ändern von Werten wähle ein einzelnes Objekt.",
+          "slotInfo": "Pflanzposition {{name}}. Pflanzen und Positionen bearbeitest du am Beet.",
+          "plantInfo": "Pflanze {{name}} ({{species}}). Die Details findest du auf der Pflanzenseite.",
+          "region": "Eigenschaften"
+        },
+        "contextMenu": {
+          "label": "Aktionen für die Auswahl",
+          "more": "Weitere Aktionen",
+          "overflow": "Mehr",
+          "edit": "Bearbeiten",
+          "duplicate": "Duplizieren",
+          "front": "In den Vordergrund",
+          "back": "In den Hintergrund",
+          "lock": "Sperren",
+          "unlock": "Entsperren",
+          "selectAll": "Alle auswählen"
+        },
+        "duplicate": {
+          "name": "{{name}} (Kopie)"
+        },
+        "touch": {
+          "label": "Touch-Aktionen",
+          "place": "Punkt setzen",
+          "undo": "Rückgängig",
+          "finish": "Fertig",
+          "cancel": "Abbrechen",
+          "multiSelect": "Mehrfachauswahl"
+        },
+        "addWithDimensions": {
+          "open": "Mit Maßen hinzufügen",
+          "title": "Mit Maßen hinzufügen",
+          "kind": "Was wird hinzugefügt",
+          "bed": "Beet",
+          "object": "Gartenobjekt",
+          "bedType": "Beettyp",
+          "objectType": "Objekttyp",
+          "name": "Name",
+          "submit": "Hinzufügen",
+          "addPoint": "Punkt hinzufügen",
+          "fields": {
+            "x": "Position x (→)",
+            "y": "Position y (↑)",
+            "width": "Breite",
+            "length": "Länge",
+            "radius": "Radius",
+            "rotation": "Drehung",
+            "strokeWidth": "Strichbreite"
           }
         }
       }

@@ -5392,14 +5392,20 @@
           "hint": "Delete the selection (Del)"
         },
         "newBedName": "Bed {{n}}",
-        "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties field once it is available.",
+        "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties panel.",
         "actions": {
           "move": "Move",
           "rotate": "Rotate",
           "resize": "Resize",
           "editPoint": "Edit point",
           "draw": "Draw",
-          "delete": "Delete"
+          "delete": "Delete",
+          "edit": "Change value",
+          "duplicate": "Duplicate",
+          "lock": "Lock",
+          "unlock": "Unlock",
+          "zOrder": "Change order",
+          "addWithDimensions": "Add with dimensions"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5459,6 +5465,84 @@
             "start": "Tap the points of the line on the plan one after another. From two points on you can finish with \"Done\" or Enter.",
             "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
             "next_other": "{{count}} points placed. Place more points or finish with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
+          }
+        },
+        "panel": {
+          "title": "Properties",
+          "close": "Close properties",
+          "name": "Name",
+          "label": "Label",
+          "type": "Type: {{type}}",
+          "notPlaced": "This bed is not placed on the plan yet.",
+          "lockedHint": "Locked: the values are read-only. Unlock the object to change it.",
+          "locked": "Locked",
+          "fields": {
+            "x": "Position x",
+            "y": "Position y",
+            "width": "Width",
+            "length": "Length",
+            "radius": "Radius",
+            "rotation": "Rotation",
+            "strokeWidth": "Stroke width"
+          },
+          "points": "Points ({{count}})",
+          "deletePoint": "Delete point {{n}}",
+          "emptyBed": "This bed is empty.",
+          "plant": "Plant it",
+          "openDetails": "Open details",
+          "nothingSelected": "Pick a bed or object on the plan to see and change its values.",
+          "drawBed": "Draw a bed",
+          "stack": "Objects at this spot ({{count}})",
+          "plantsNearby": "Plants nearby ({{count}})",
+          "multiTitle_one": "{{count}} object selected",
+          "multiTitle_other": "{{count}} objects selected",
+          "multiHint": "With several objects you can duplicate, delete, bring to front or back, and lock them. To change values, pick a single object.",
+          "slotInfo": "Planting position {{name}}. Edit plants and positions on the bed.",
+          "plantInfo": "Plant {{name}} ({{species}}). Details are on the plant page.",
+          "region": "Properties"
+        },
+        "contextMenu": {
+          "label": "Actions for the selection",
+          "more": "More actions",
+          "overflow": "More",
+          "edit": "Edit",
+          "duplicate": "Duplicate",
+          "front": "Bring to front",
+          "back": "Send to back",
+          "lock": "Lock",
+          "unlock": "Unlock",
+          "selectAll": "Select all"
+        },
+        "duplicate": {
+          "name": "{{name}} (copy)"
+        },
+        "touch": {
+          "label": "Touch actions",
+          "place": "Set point",
+          "undo": "Undo",
+          "finish": "Finish",
+          "cancel": "Cancel",
+          "multiSelect": "Multi-select"
+        },
+        "addWithDimensions": {
+          "open": "Add with dimensions",
+          "title": "Add with dimensions",
+          "kind": "What to add",
+          "bed": "Bed",
+          "object": "Garden object",
+          "bedType": "Bed type",
+          "objectType": "Object type",
+          "name": "Name",
+          "submit": "Add",
+          "addPoint": "Add point",
+          "fields": {
+            "x": "Position x (→)",
+            "y": "Position y (↑)",
+            "width": "Width",
+            "length": "Length",
+            "radius": "Radius",
+            "rotation": "Rotation",
+            "strokeWidth": "Stroke width"
           }
         }
       }

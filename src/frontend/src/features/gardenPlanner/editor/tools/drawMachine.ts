@@ -6,12 +6,13 @@
  * machine reports a notice and, for point-by-point shapes, keeps the points so nothing is lost.
  *
  * The new object's parent is the smallest placed location that holds it completely - the same
- * containment rule the server enforces - and the bed type is the one most beds of the plan have;
- * both are placeholders until the panel and the "add with dimensions" dialog land (WP 2.6).
+ * containment rule the server enforces. The bed type and the object type come from the editor's
+ * type choice (WP 2.6); without one the bed type is the one most beds of the plan have and the
+ * object is a generic `other`.
  */
 import { MIN_DIMENSION_M, roundLength, toShape } from '../../model/geometry';
 import { newTempKey } from '../../model/planModel';
-import type { Geometry, Point, PlanOperation } from '../../model/types';
+import type { GardenObjectType, Geometry, Point, PlanOperation } from '../../model/types';
 import type { SelectionRef } from '../../state/gardenPlanSlice';
 import {
   dragThresholdPx,
@@ -23,6 +24,7 @@ import {
   type Step,
   type ToolEnv,
 } from './machineTypes';
+import { defaultProps } from './objectTypes';
 import { inferParentKey, violationOfNew } from './validation';
 
 export type DrawShape = 'rect' | 'circle' | 'polygon' | 'polyline';
@@ -33,6 +35,10 @@ export interface DrawOptions {
   shape: DrawShape;
   /** Name of the n-th location of the plan ("Beet 4"); keeps i18n out of the machine. */
   newBedName: (n: number) => string;
+  /** `location_type_key` of a new bed; the plan's most common bed type when unset. */
+  bedTypeKey?: string;
+  /** Type of a new garden object; `other` when unset. */
+  objectType?: GardenObjectType;
 }
 
 export type DrawState =
@@ -45,7 +51,9 @@ export type DrawState =
       currentPx: Point;
       square: boolean;
     }
-  | { kind: 'points'; points: Point[]; hoverM: Point | null; pressPx: Point | null };
+  | { kind: 'points'; points: Point[]; hoverM: Point | null; pressPx: Point | null }
+  /** Touch: the first corner of a rectangle or circle is set; the second tap completes it. */
+  | { kind: 'corner'; startPx: Point; startM: Point };
 
 export const INITIAL_DRAW_STATE: DrawState = { kind: 'idle' };
 
@@ -65,9 +73,9 @@ function isPointShape(shape: DrawShape): boolean {
 }
 
 /** The bed type most beds of the plan have. */
-function bedTypeKey(env: ToolEnv): string {
+export function commonBedTypeKey(plan: ToolEnv['plan']): string {
   const counts = new Map<string, number>();
-  for (const location of Object.values(env.plan.locations)) {
+  for (const location of Object.values(plan.locations)) {
     counts.set(location.location_type_key, (counts.get(location.location_type_key) ?? 0) + 1);
   }
   let best = FALLBACK_BED_TYPE_KEY;
@@ -76,6 +84,10 @@ function bedTypeKey(env: ToolEnv): string {
     if (count > bestCount) [best, bestCount] = [key, count];
   }
   return best;
+}
+
+function bedTypeKey(env: ToolEnv): string {
+  return commonBedTypeKey(env.plan);
 }
 
 function rectBetween(a: Point, b: Point, square: boolean): Geometry | null {
@@ -149,7 +161,7 @@ function create(
       temp_key: tempKey,
       data: {
         name: opts.newBedName(Object.keys(env.plan.locations).length + 1),
-        location_type_key: bedTypeKey(env),
+        location_type_key: opts.bedTypeKey ?? bedTypeKey(env),
         geometry,
         ...(parentKey ? { parent_location_key: parentKey } : {}),
       },
@@ -160,8 +172,9 @@ function create(
       op: 'create_garden_object',
       temp_key: tempKey,
       data: {
-        object_type: 'other',
+        object_type: opts.objectType ?? 'other',
         geometry,
+        props: defaultProps(opts.objectType ?? 'other'),
         ...(parentKey ? { parent_location_key: parentKey } : {}),
       },
     };
@@ -187,6 +200,18 @@ export function drawDown(
   opts: DrawOptions,
 ): Step<DrawState> {
   const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt);
+  if (state.kind === 'corner' && !isPointShape(opts.shape)) {
+    // The second tap: from here on it is an ordinary drag from the first corner.
+    return step({
+      kind: 'drag',
+      // Where the first corner is on screen now - the view may have been panned since the first tap.
+      startPx: env.toScreen(state.startM),
+      startM: state.startM,
+      currentM: point,
+      currentPx: sample.pointPx,
+      square: sample.shift,
+    });
+  }
   if (isPointShape(opts.shape)) {
     const points = state.kind === 'points' ? state.points : [];
     return step({ kind: 'points', points, hoverM: point, pressPx: sample.pointPx });
@@ -242,10 +267,16 @@ export function drawUp(
           },
           opts.shape,
         );
-    if (geometry === null) return step(INITIAL_DRAW_STATE);
+    if (geometry === null) {
+      // A touch that barely moved is a tap: it sets the first corner, the next tap the second.
+      return tooShort && sample.pointerType === 'touch'
+        ? step({ kind: 'corner', startPx: state.startPx, startM: state.startM })
+        : step(INITIAL_DRAW_STATE);
+    }
     const { effects } = create(env, opts, geometry);
     return step(INITIAL_DRAW_STATE, effects);
   }
+  if (state.kind === 'corner') return step(state);
   if (state.kind !== 'points' || state.pressPx === null) {
     return step(state.kind === 'points' ? { ...state, pressPx: null } : state);
   }

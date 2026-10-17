@@ -243,3 +243,58 @@ describe('pan tool (GP-FR-010)', () => {
     expect(panMove(second.state, atPx([112, 95])).effects).toEqual([]);
   });
 });
+
+describe('type choice and touch taps (WP 2.6)', () => {
+  it('creates the bed with the chosen bed type, not the plan default', () => {
+    const env = makeEnv(testPlan());
+    const opts = { ...bedOptions('rect'), bedTypeKey: 'raised_bed' };
+    const down = drawDown(INITIAL_DRAW_STATE, at(env, [16, 14]), env, opts);
+    const up = drawUp(down.state, at(env, [18, 16]), env, opts);
+    expect(commit(up.effects)!.ops[0]).toMatchObject({
+      data: { location_type_key: 'raised_bed' },
+    });
+  });
+
+  it('creates the object with the chosen type and its required props', () => {
+    const env = makeEnv(testPlan());
+    const opts = { ...objectOptions('rect'), objectType: 'trellis' as const };
+    const down = drawDown(INITIAL_DRAW_STATE, at(env, [16, 14]), env, opts);
+    const up = drawUp(down.state, at(env, [18, 16]), env, opts);
+    expect(commit(up.effects)!.ops[0]).toMatchObject({
+      op: 'create_garden_object',
+      data: { object_type: 'trellis', props: { height_m: 1.8 } },
+    });
+  });
+
+  it('keeps the old placeholder `other` when no type is chosen', () => {
+    const env = makeEnv(testPlan());
+    const down = drawDown(INITIAL_DRAW_STATE, at(env, [16, 14]), env, objectOptions('rect'));
+    const up = drawUp(down.state, at(env, [18, 16]), env, objectOptions('rect'));
+    expect(commit(up.effects)!.ops[0]).toMatchObject({ data: { object_type: 'other' } });
+  });
+
+  it('a touch tap sets the first corner; the second tap completes the rectangle', () => {
+    const env = makeEnv(testPlan());
+    const opts = bedOptions('rect');
+    const tap = (point: [number, number], state: DrawState) => {
+      const sample = at(env, point, { pointerType: 'touch' });
+      const down = drawDown(state, sample, env, opts);
+      return drawUp(down.state, sample, env, opts);
+    };
+    const first = tap([16, 14], INITIAL_DRAW_STATE);
+    expect(first.state.kind).toBe('corner');
+    expect(first.effects).toEqual([]);
+    const second = tap([18, 16], first.state);
+    expect(commit(second.effects)!.ops[0]).toMatchObject({
+      data: { geometry: { origin: [16, 14], width_m: 2, length_m: 2 } },
+    });
+  });
+
+  it('a mouse click without a drag still creates nothing', () => {
+    const env = makeEnv(testPlan());
+    const opts = bedOptions('rect');
+    const down = drawDown(INITIAL_DRAW_STATE, at(env, [16, 14]), env, opts);
+    const up = drawUp(down.state, at(env, [16, 14]), env, opts);
+    expect(up.state).toEqual(INITIAL_DRAW_STATE);
+  });
+});
