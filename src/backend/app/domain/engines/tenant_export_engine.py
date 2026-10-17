@@ -430,6 +430,8 @@ class TenantExportEngine:
         "external_ref": "a machine producer's idempotency key of a task (#1082), not a credential",
         "source_run_ref": "the id of the producer run (pipeline) that emitted a task, shown for traceability",
         "ppfd_ref": "a reference PPFD value of a lamp in µmol/m²/s (REQ-053 §9.8), a number, not an id",
+        "product_ref": "{kind, key} of a product document of a care event (REQ-053 §20.10), not a credential",
+        "source_ref": "{collection, key} of the event a care event mirrors (REQ-053 §20.10), not a credential",
     }
 
     #: Inventory collections whose global rows carry an empty ``tenant_key`` beside tenant-owned rows:
@@ -550,6 +552,11 @@ class TenantExportEngine:
         # REQ-053 §15.1 (WP 1.7, #2326): the bed's substrate (GP-FR-121) — a tenant row or a global one.
         "locations": {"soil_profile.substrate_key": _internal("substrates")},
         "task_templates": {"source_template_key": _internal("task_templates")},
+        # REQ-053 §20.10 (WP 1.9): the supersede chain of the care log points within the collection.
+        "care_events": {
+            "supersedes_key": _internal("care_events"),
+            "superseded_by_key": _internal("care_events"),
+        },
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
         "fish_stocks": {"species_key": _global("fish_species")},
         "phase_histories": {"phase_key": _global("growth_phases", "phase_definitions")},

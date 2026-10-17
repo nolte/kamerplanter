@@ -151,6 +151,66 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
+            collection="care_events",
+            user_field="performed_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account that carried out the care"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
+                "(WP 4.x, R-17)."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="performed_for_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account the care was done for (a deputy entry, GP-FR-089)"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
+                "(WP 4.x, R-17)."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account that logged the entry"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
+                "(WP 4.x, R-17)."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="voided_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account that voided the entry"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
+                "(WP 4.x, R-17)."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="redacted_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the lead that redacted the entry"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
+                "(WP 4.x, R-17)."
+            ),
+        ),
+        AnonymizationRule(
             collection="inspections",
             user_field="inspected_by_key",
             replacement_strategy="tombstone_hash",
@@ -832,6 +892,14 @@ class ErasureEngine:
     # field shaped like an account key to be reached above or named here with
     # the reason. Each reason below was measured against the write path.
     EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
+        ErasureExclusion(
+            collection="care_events",
+            user_field="superseded_by_key",
+            reason=(
+                "The key of the care event that supersedes this one (REQ-053 §20.10), a document key of the same "
+                "collection and never an account key; the name only matches the *_by_key shape."
+            ),
+        ),
         ErasureExclusion(
             collection="watering_events",
             user_field="performed_by",

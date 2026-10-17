@@ -635,6 +635,27 @@ class DataExportEngine:
             ],
         ),
         DataSourceDefinition(
+            collection="care_events",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: care log",
+            # REQ-053 §20.10 (WP 1.9: the bed-status change writes the first rows). ``reason`` and ``summary``
+            # are free text (Art. 15). None of the five account references (``performed_by_user_key``,
+            # ``performed_for_user_key``, ``created_by``, ``voided_by``, ``redacted_by``): on a personal garden
+            # they are the subject's own key, and another member's key must not be disclosed.
+            fields=[
+                "_key",
+                "site_key",
+                "location_key",
+                "plant_keys",
+                "category",
+                "summary",
+                "performed_at",
+                "trigger",
+                "reason",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
             collection="plant_diary_entries",
             personal_tenant_scope=_PERSONAL_TENANT,
             label="Your personal garden: diary",

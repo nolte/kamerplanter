@@ -46,6 +46,7 @@ _MODEL_FOR_COLLECTION: dict[str, str] = {
     "harvest_observations": "HarvestObservation",
     "inspections": "Inspection",
     "storage_observations": "StorageObservation",
+    "care_events": "CareEvent",
     "pest_image_contributions": "PestImageContribution",
     "pests": "Pest",
 }

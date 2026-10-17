@@ -42,6 +42,7 @@ _MODEL_TO_COLLECTION: dict[str, str] = {
     "HarvestObservation": col.HARVEST_OBSERVATIONS,
     "Inspection": col.INSPECTIONS,
     "StorageObservation": col.STORAGE_OBSERVATIONS,
+    "CareEvent": col.CARE_EVENTS,
 }
 
 
@@ -138,6 +139,8 @@ def test_the_set_is_not_empty():
 #: Fields that look like an attachment reference and are not one. Each names why,
 #: so the list cannot quietly grow into "everything the scan complained about".
 _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
+    "CareEvent.product_ref": "{kind, key} of a fertilizer / product document (REQ-053 §20.10), not an attachment",
+    "CareEvent.source_ref": "{collection, key} of the specialist event it mirrors (§20.10), not an attachment",
     "Task.source_run_ref": "points at a PlantingRun, not an attachment",
     "Task.external_ref": "an external system's identifier (InvenTree et al.), not a document key",
     "WeatherSourcePublicConfig.api_key_ref": "names a secret in the key store, not an attachment",

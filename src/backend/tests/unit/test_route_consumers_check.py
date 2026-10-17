@@ -236,9 +236,15 @@ class TestTheRouteOperand:
         +4: the garden plan (REQ-053 WP 1.8, #2327): ``GET /t/{slug}/sites/{key}/plan``, ``PUT …/plan/boundary``,
         ``POST …/plan/batch`` and ``GET …/plan/audit``. The editor that consumes them is WP 2.1+ (frontend), open —
         so all four are reported candidates until it lands.
+
+        +10: the single resources of the plan (REQ-053 WP 1.9, #2328):
+        ``GET|POST /t/{slug}/sites/{key}/garden-objects``, ``GET|PATCH|DELETE /t/{slug}/garden-objects/{key}``,
+        ``PATCH /t/{slug}/locations/{key}``, ``GET …/summary``,
+        ``POST …/status``, ``POST …/slots/batch`` and ``PATCH /t/{slug}/slots/{key}``. Their consumer is the bed
+        view and the editor (WP 2.x/3.x, frontend), open — all ten are reported candidates until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 836
+        assert len(checker.collect_operations(app)) == 846
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

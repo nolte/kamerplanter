@@ -1,9 +1,12 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import GeometrySource, SlotRole
+from app.domain.models.garden_plan import SlotBatchRequest, SlotPatch
 from app.domain.models.geometry import BedFrameGeometry
+
+__all__ = ["SlotBatchRequest", "SlotBatchResponse", "SlotCreate", "SlotPatch", "SlotResponse"]
 
 
 class SlotCreate(BaseModel):
@@ -32,3 +35,17 @@ class SlotResponse(BaseModel):
     planned_spacing_cm: float | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class SlotBatchResponse(BaseModel):
+    """What ``POST /locations/{key}/slots/batch`` did (GP-API-015)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"created_keys": ["slot_1", "slot_2"], "deleted_count": 4, "kept_count": 1}]}
+    )
+
+    #: Keys of the created slots, in the order of the request's ``slots``.
+    created_keys: list[str]
+    deleted_count: int
+    #: Slots of the bed that were left as they were (occupied, reserved, archived, or all of them on ``append``).
+    kept_count: int

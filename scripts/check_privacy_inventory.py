@@ -240,7 +240,7 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: removal of more than four such fields lowers it here, in the same change.
 #: 51 since #1855: 55 measured (TakeoverReceipt's account references, in memory only).
 #: 54 after #2138 met #1855 on 2026-10-12: 58 measured (both changes' fields together).
-MIN_USER_REFERENCE_FIELDS = 56
+MIN_USER_REFERENCE_FIELDS = 66
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:

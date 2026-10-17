@@ -99,6 +99,9 @@ CARRIER_CATEGORY: dict[str, str] = {
     col.HARVEST_OBSERVATIONS: "harvest",
     col.INSPECTIONS: "ipm",
     col.STORAGE_OBSERVATIONS: "post_harvest",
+    # REQ-053 §20.10: a care event's photos are the ones of the task it records (GP-API-031). The collection did not
+    # exist when this migration ran, so the entry changes nothing; it keeps the pin against PHOTO_REF_COLLECTIONS.
+    col.CARE_EVENTS: "task",
 }
 
 

@@ -15,14 +15,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
-from app.common.enums import GardenObjectType, SlotRole, SunExposure
+from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRole, SunExposure
+from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
-from app.domain.models.geometry import Geometry
-from app.domain.models.site import Location, SitePlan
+from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.site import Location, SitePlan, Slot, SoilProfile
 
 #: Request-local name for an object created in the same batch (``tmp1``); the server answers with ``key_map``.
 TempKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
@@ -239,7 +240,46 @@ class PlanBatchWrite:
     total_area_m2: float | None = None
     #: ``{op, entity, key, summary}`` — the repository adds revision, site, tenant, editor and time (SR-011).
     audit: list[dict[str, str]] = field(default_factory=list)
+    #: Care events written in the same transaction (a bed-status change, GP-FR-046). ``tenant_key`` is stamped by
+    #: the service; the repository adds the ``care_event_at`` edge to the event's location.
+    care_events: list[CareEvent] = field(default_factory=list)
+    #: ``location key → bed_status`` the transition was validated from. The transaction re-reads the stored status
+    #: and refuses (409 ``bed_status.changed``) when it is another one — the revision alone does not protect a
+    #: check that ran against a location read *before* the revision was read.
+    status_from: dict[str, str] = field(default_factory=dict)
     time_budget_seconds: float = BATCH_TIME_BUDGET_SECONDS
+
+
+#: GP-FR-062 / V-22: positions one slot batch may carry (``layout.too_many_positions``).
+MAX_SLOTS_PER_BATCH = 2_000
+
+
+@dataclass(frozen=True)
+class SlotBatchWrite:
+    """One replace/append of a bed's slots (GP-API-015), computed before the transaction opens.
+
+    Slots live in the bed frame and change **outside** the plan revision (GP-NFR-007), so there is no
+    revision here. ``delete_keys`` are the unoccupied, unreserved, unarchived slots a ``replace_unoccupied``
+    removes; the repository re-checks that inside the transaction.
+    """
+
+    location_key: str
+    delete_keys: list[str]
+    inserts: list[Slot]
+    time_budget_seconds: float = BATCH_TIME_BUDGET_SECONDS
+
+
+class BedCounters(BaseModel):
+    """What a bed list row and the bed summary show beside the document (GP-API-011, GP-FR-047)."""
+
+    active_plant_count: int = 0
+    species_keys: list[str] = Field(default_factory=list)
+    open_task_count: int = 0
+    overdue_task_count: int = 0
+    #: Earliest ``due_date`` of an open task of the bed (ISO date or datetime as stored).
+    next_due_at: datetime | None = None
+    #: ``performed_at`` of the newest care event that is not voided.
+    last_care_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -248,6 +288,123 @@ class PlanBatchOutcome:
 
     plan_revision: int
     key_map: dict[str, str]
+
+
+@dataclass(frozen=True)
+class SlotBatchOutcome:
+    """What a slot batch reports: the keys it created and how many it removed."""
+
+    created_keys: list[str]
+    deleted_count: int
+
+
+# ── Single-resource bodies (WP 1.9, GP-API-010, 013, 014, 015, 018) ────────────
+
+
+def _no_null_for(model: BaseModel, names: tuple[str, ...]) -> None:
+    """A field that cannot be cleared must not arrive as an explicit ``null`` (``None`` would be dropped silently)."""
+    for name in names:
+        if name in model.model_fields_set and getattr(model, name) is None:
+            raise ValueError(f"{name} cannot be null.")
+
+
+class LocationPatch(_Strict):
+    """``PATCH /locations/{key}`` (GP-API-010): only the fields present are changed; an explicit ``null`` clears
+    the ones that can be cleared (description, notes, height, irrigation zone, soil profile)."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=1000)
+    notes: str | None = Field(default=None, max_length=4000)
+    height_m: float | None = None
+    sun_exposure: SunExposure | None = None
+    geometry: Geometry | None = None
+    soil_profile: SoilProfile | None = None
+    irrigation_zone_key: str | None = Field(default=None, min_length=1, max_length=200)
+    locked: bool | None = None
+    z_order: int | None = Field(default=None, ge=-10_000, le=10_000)
+    #: A transition (V-10); ``retired`` needs ``status_reason`` and the lead role.
+    bed_status: BedStatus | None = None
+    status_reason: str | None = Field(default=None, min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def _only_clearable_fields_take_null(self) -> Self:
+        _no_null_for(self, ("name", "sun_exposure", "geometry", "locked", "z_order", "bed_status"))
+        if not self.model_fields_set:
+            raise ValueError("A PATCH needs at least one field.")
+        return self
+
+
+class GardenObjectPatch(_Strict):
+    """``PATCH /garden-objects/{key}`` (GP-API-013): geometry and fields in one structural change."""
+
+    label: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=4000)
+    props: dict[str, Any] | None = None
+    off_site: bool | None = None
+    geometry: Geometry | None = None
+    locked: bool | None = None
+    z_order: int | None = Field(default=None, ge=-10_000, le=10_000)
+
+    @model_validator(mode="after")
+    def _only_notes_take_null(self) -> Self:
+        _no_null_for(self, ("label", "props", "off_site", "geometry", "locked", "z_order"))
+        if not self.model_fields_set:
+            raise ValueError("A PATCH needs at least one field.")
+        return self
+
+
+class SlotPatch(_Strict):
+    """``PATCH /slots/{key}`` (GP-API-014): geometry (bed frame), role and capacity."""
+
+    geometry: BedFrameGeometry | None = None
+    slot_role: SlotRole | None = None
+    capacity_plants: int | None = Field(default=None, ge=1, le=20)
+
+    @model_validator(mode="after")
+    def _no_null(self) -> Self:
+        _no_null_for(self, ("geometry", "slot_role", "capacity_plants"))
+        if not self.model_fields_set:
+            raise ValueError("A PATCH needs at least one field.")
+        return self
+
+
+class SlotBatchItem(_Strict):
+    """One slot of ``POST /locations/{key}/slots/batch`` (GP-API-015); ``location_key`` is the path's."""
+
+    slot_id: str = Field(min_length=3, max_length=100)
+    slot_role: SlotRole = SlotRole.POSITION
+    geometry: BedFrameGeometry
+    capacity_plants: int = Field(default=1, ge=1, le=20)
+    row_index: int | None = Field(default=None, ge=0)
+    sequence: int | None = Field(default=None, ge=1)
+    geometry_source: GeometrySource = GeometrySource.EDITOR
+    container_volume_l: float | None = Field(default=None, gt=0)
+    planned_spacing_cm: float | None = Field(default=None, gt=0)
+
+
+class SlotBatchRequest(_Strict):
+    """``replace_unoccupied`` removes the bed's unoccupied, unreserved, unarchived slots first; ``append`` keeps all."""
+
+    mode: Literal["replace_unoccupied", "append"]
+    slots: list[SlotBatchItem] = Field(max_length=100_000)
+
+
+@dataclass(frozen=True)
+class SlotBatchResult:
+    created_keys: list[str]
+    deleted_count: int
+    kept_count: int
+
+
+@dataclass(frozen=True)
+class BedSummaryView:
+    """The head data of the bed view (GP-FR-047): the document, its counters and the derived season state."""
+
+    location: Location
+    counters: BedCounters
+    #: ``planted`` or ``empty`` until the run, rotation and covering data of wave 3/4 exist (§7.4).
+    season_state: str
+    is_bed: bool
 
 
 # ── Read model (GP-API-001) ───────────────────────────────────────────────────
@@ -264,7 +421,7 @@ class PlanAuditRecord(BaseModel):
     site_key: str
     revision: int
     user_key: str
-    #: ``delete``, ``delete_cascade`` or ``set_boundary``.
+    #: ``delete``, ``delete_cascade``, ``set_boundary``, ``retire`` or ``reactivate`` (a bed's lifecycle, §7.4).
     op: str
     #: ``location``, ``garden_object`` or ``site``.
     entity: str
@@ -297,6 +454,8 @@ class PlantShortInfo(BaseModel):
 class TaskCounter(BaseModel):
     open_task_count: int = 0
     overdue_task_count: int = 0
+    #: Earliest due date of an open task (ISO string as stored); the bed list and summary show it.
+    next_due_at: str | None = None
 
 
 class PlanSlotView(BaseModel):

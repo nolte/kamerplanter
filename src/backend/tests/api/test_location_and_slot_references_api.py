@@ -19,15 +19,18 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
-from app.common.dependencies import get_site_service, get_tenant_service
+from app.common.dependencies import get_garden_resource_service, get_site_service, get_tenant_service
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.user import User
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
 from tests.unit.domain.services.test_site_service_location_tenant import OWN, FakeSiteRepo
 
@@ -86,6 +89,14 @@ def client(repo: _Repo) -> Iterator[TestClient]:
     app.dependency_overrides[get_current_user] = lambda: User(_key="lead", email="lead@example.org", display_name="L")
     app.dependency_overrides[get_tenant_service] = _Tenants
     app.dependency_overrides[get_site_service] = lambda: SiteService(repo)  # type: ignore[arg-type]
+    # ``GET /locations`` also resolves the bed-list service (WP 1.9); its plan repository is never reached here.
+    plan_repo = MagicMock()
+    app.dependency_overrides[get_garden_resource_service] = lambda: GardenResourceService(
+        repo,  # type: ignore[arg-type]
+        plan_repo,
+        MagicMock(),
+        GardenPlanService(repo, plan_repo),  # type: ignore[arg-type]
+    )
     try:
         yield TestClient(app)
     finally:
