@@ -34,6 +34,7 @@ import type { PlanModel } from '../model/planModel';
 import type { Geometry, PlanEntity, PlanOperation } from '../model/types';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
+import { EDITOR_ANCHORS } from './anchors';
 import { PANEL_WIDTH_PX } from './layout';
 import { NumberField } from './NumberField';
 import { insertVertex, removeVertex } from './tools/geometryEdit';
@@ -564,6 +565,8 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
     <Paper
       variant="outlined"
       component="section"
+      id={EDITOR_ANCHORS.panel}
+      tabIndex={-1} // the skip link "To the properties panel" focuses the region itself
       aria-label={t(`${PREFIX}.panel.region`)}
       data-testid="garden-plan-panel"
       data-layout={layout}

@@ -20,6 +20,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -48,21 +52,30 @@ import {
   type PlanTool,
 } from '../state/gardenPlanSlice';
 import { AddWithDimensionsDialog } from './AddWithDimensionsDialog';
+import { EDITOR_ANCHORS } from './anchors';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { DimensionLabels, type DimensionItem } from './DimensionLabels';
 import { EditorHeaderActions } from './EditorHeaderActions';
 import { EditorOverlay } from './EditorOverlay';
 import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
 import { Grid } from './Grid';
+import { KeyboardHelp } from './KeyboardHelp';
+import { LiveRegion } from './LiveRegion';
 import { NewTypeSelect } from './NewTypeSelect';
+import { PlanListView } from './PlanListView';
+import { buildTree, neighbourKey } from './planTree';
 import { PropertiesPanel } from './PropertiesPanel';
 import { ScaleBar } from './ScaleBar';
+import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
 import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
 import { ViewBar } from './ViewBar';
+import { useAnnouncement } from './useAnnouncement';
 import { useBedTypes } from './useBedTypes';
+import { useEditorKeyboard } from './useEditorKeyboard';
 import { useLengthUnit } from './useLengthUnit';
+import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
 import { duplicateSelection } from './tools/duplicate';
 import { deleteImpact, isPlanEntity, type DeleteImpact } from './tools/hierarchy';
@@ -159,7 +172,7 @@ export function GardenPlanEditor({
   const touchUi = toolbarBelow || coarsePointer;
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
-  const { selection, stack, tool, editError } = useAppSelector(selectGardenPlanState);
+  const { selection, stack, tool, editError, past, future } = useAppSelector(selectGardenPlanState);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
@@ -175,8 +188,16 @@ export function GardenPlanEditor({
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const deleteTexts = useDeleteTexts(pendingDelete, plan, labels);
+  const [view, setView] = useState<'plan' | 'list'>('plan');
+  const [helpOpen, setHelpOpen] = useState(false);
+  const shortcuts = useSingleKeyShortcuts();
   const dockRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const announcement = useAnnouncement(plan, past, future, t(`${PREFIX}.liveRegion.unnamed`));
+  // Where the focus goes after the next render (GP-NFR-070 - never to the body): an object key,
+  // or one of the two surfaces.
+  const pendingFocus = useRef<{ key: string } | 'plan' | 'list' | null>(null);
 
   const bedTypes = useBedTypes(tool === 'bed' || addOpen);
   const fallbackBedType = useMemo(() => commonBedTypeKey(plan), [plan]);
@@ -194,6 +215,26 @@ export function GardenPlanEditor({
   );
   const onStack = useCallback((next: typeof stack) => void dispatch(setStack(next)), [dispatch]);
   const onTool = useCallback((next: PlanTool) => void dispatch(setTool(next)), [dispatch]);
+  const focusPlan = useCallback(() => canvasRef.current?.focus(), []);
+  const focusSurface = useCallback(() => {
+    pendingFocus.current = view === 'plan' ? 'plan' : 'list';
+  }, [view]);
+  useEffect(() => {
+    const request = pendingFocus.current;
+    if (request === null) return;
+    pendingFocus.current = null;
+    const surface =
+      view === 'plan'
+        ? canvasRef.current
+        : (listRef.current?.querySelector<HTMLElement>(`#${EDITOR_ANCHORS.list}`) ?? null);
+    if (request === 'plan' || request === 'list') {
+      surface?.focus();
+      return;
+    }
+    const attribute = view === 'plan' ? 'data-plan-key' : 'data-list-key';
+    const node = surface?.querySelector<HTMLElement>(`[${attribute}="${CSS.escape(request.key)}"]`);
+    (node ?? surface)?.focus();
+  });
   const newBedName = useCallback((n: number) => t(`${PREFIX}.newBedName`, { n }), [t]);
 
   const requestDelete = useCallback(() => {
@@ -205,6 +246,19 @@ export function GardenPlanEditor({
     }
     setPendingDelete(impact);
   }, [plan, selection]);
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  const keyboard = useEditorKeyboard({
+    plan,
+    tool,
+    selection,
+    canvasRef,
+    singleKeyShortcuts: shortcuts.enabled,
+    stepM: gridStepM,
+    onCommit,
+    onNotice: setNotice,
+    onPan,
+    onHelp: openHelp,
+  });
 
   // The seam of the tool machines for grid and snap (GP-FR-012, GP-FR-154). Object snap (corner,
   // edge) is a SHOULD and not wired in the MVP: no candidates are handed to the resolver.
@@ -276,12 +330,16 @@ export function GardenPlanEditor({
     };
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => element.removeEventListener('wheel', onWheel);
-  }, []);
+    // The canvas element is a new one each time the list view has been shown in between.
+  }, [view]);
 
   const toolKeyDown = tools.containerProps.onKeyDown;
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
-      if (!event.ctrlKey && !event.metaKey && !event.altKey) {
+      // Arrows, PageUp/Down and ? first (WP 2.7); they report whether they took the key.
+      if (keyboard.handleKey(event)) return;
+      // The single printable keys of the view (WP 2.5) obey the WCAG 2.1.4 switch like `?` does.
+      if (shortcuts.enabled && !event.ctrlKey && !event.metaKey && !event.altKey) {
         if (event.key === '+' || event.key === '=') {
           event.preventDefault();
           zoomIn();
@@ -305,7 +363,7 @@ export function GardenPlanEditor({
       }
       toolKeyDown(event);
     },
-    [fit, toolKeyDown, zoomIn, zoomOut],
+    [fit, keyboard, shortcuts.enabled, toolKeyDown, zoomIn, zoomOut],
   );
 
   // The snap marker follows the pointer of the draw tools (where the next point will land).
@@ -417,9 +475,17 @@ export function GardenPlanEditor({
   }, [plan, selection, tools.overlay.shapes]);
 
   const confirmDelete = useCallback(() => {
-    if (pendingDelete) onCommit(pendingDelete.ops, 'delete');
+    if (pendingDelete) {
+      onCommit(pendingDelete.ops, 'delete');
+      // The deleted object cannot keep the focus: hand it to its neighbour in the list.
+      const next = neighbourKey(
+        buildTree(plan, labels.objectType),
+        new Set(pendingDelete.roots.map((root) => root.key)),
+      );
+      pendingFocus.current = next === null ? (view === 'plan' ? 'plan' : 'list') : { key: next };
+    }
     setPendingDelete(null);
-  }, [onCommit, pendingDelete]);
+  }, [labels, onCommit, pendingDelete, plan, view]);
 
   // ── Actions of the panel, the item menu and the overflow ──────────────────
 
@@ -475,6 +541,10 @@ export function GardenPlanEditor({
 
   const focusPanel = useCallback(() => {
     document.querySelector<HTMLElement>('[data-testid="garden-plan-panel-name"]')?.focus();
+  }, []);
+  /** The skip link "To the properties panel": the panel's own region takes the focus. */
+  const focusPanelRegion = useCallback(() => {
+    document.getElementById(EDITOR_ANCHORS.panel)?.focus();
   }, []);
 
   const menuActions = useMemo<MenuAction[]>(() => {
@@ -582,6 +652,30 @@ export function GardenPlanEditor({
     [dispatch, plan],
   );
 
+  const onListSelect = useCallback(
+    (ref: (typeof selection)[number]) => {
+      dispatch(setSelection([ref]));
+      dispatch(setStack(null));
+    },
+    [dispatch],
+  );
+  const showList = useCallback(() => {
+    pendingFocus.current = 'list';
+    setView('list');
+  }, []);
+  const showPlan = useCallback(() => {
+    pendingFocus.current = 'plan';
+    setView('plan');
+  }, []);
+  // Buttons that disappear once they have acted must not take the focus with them.
+  const thenFocusPlan = useCallback(
+    (action: () => void) => () => {
+      action();
+      focusPlan();
+    },
+    [focusPlan],
+  );
+
   // The renderer output depends on the plan, view and selection only - not on the pointer.
   const rendered = useMemo(
     () => renderer.render(plan, viewport, selectedKeys, { labels, fieldMode, onActivateKey }),
@@ -608,19 +702,19 @@ export function GardenPlanEditor({
     if (!toolbarBelow || selectionSignature === '' || !dock || !canvas) return;
     const free = dock.getBoundingClientRect().top - canvas.getBoundingClientRect().top;
     if (free <= 0) return;
-    const view = latestView.current;
-    const ref = view.selection.length === 1 ? view.selection[0] : null;
+    const latest = latestView.current;
+    const ref = latest.selection.length === 1 ? latest.selection[0] : null;
     if (!ref || !isPlanEntity(ref)) return;
     const source =
-      ref.entity === 'location' ? view.plan.locations[ref.key] : view.plan.gardenObjects[ref.key];
+      ref.entity === 'location' ? latest.plan.locations[ref.key] : latest.plan.gardenObjects[ref.key];
     const bbox = source?.bbox;
     if (!bbox) return;
     const ys = [
-      view.renderer.toScreen([bbox[0], bbox[1]])[1],
-      view.renderer.toScreen([bbox[2], bbox[3]])[1],
+      latest.renderer.toScreen([bbox[0], bbox[1]])[1],
+      latest.renderer.toScreen([bbox[2], bbox[3]])[1],
     ];
     const dy = panIntoView(Math.min(...ys), Math.max(...ys), free);
-    if (dy !== 0) view.onPan(0, dy);
+    if (dy !== 0) latest.onPan(0, dy);
   }, [selectionSignature, toolbarBelow]);
 
   const code = notice ?? editError;
@@ -648,14 +742,14 @@ export function GardenPlanEditor({
       angleStep={angleStep}
       onAngleStep={setAngleStep}
       draftPoints={tools.draftPoints}
-      onFinishDraw={tools.finishDraw}
-      onCancelDraw={tools.cancel}
+      onFinishDraw={thenFocusPlan(tools.finishDraw)}
+      onCancelDraw={thenFocusPlan(tools.cancel)}
       canDelete={selection.some(isPlanEntity)}
       onDelete={requestDelete}
       vertexPicked={tools.vertex !== null}
       canDeleteVertex={tools.vertex !== null}
-      onDeleteVertex={tools.deleteVertex}
-      onInsertVertex={tools.insertVertexAfter}
+      onDeleteVertex={thenFocusPlan(tools.deleteVertex)}
+      onInsertVertex={thenFocusPlan(tools.insertVertexAfter)}
     />
   );
 
@@ -689,7 +783,7 @@ export function GardenPlanEditor({
       onClose={() => {
         onSelect([]);
         onStack(null);
-        canvasRef.current?.focus(); // the close button disappears with the sheet: keep the focus on the plan
+        focusSurface(); // the close button disappears with the sheet: keep the focus on the plan or the list
       }}
       onMore={(element) => setMenuAnchor({ kind: 'element', element })}
       onDuplicate={duplicate}
@@ -720,13 +814,123 @@ export function GardenPlanEditor({
     />
   );
 
+  const listShown = view === 'list';
+  const canvasSurface = (
+    <Box
+      ref={canvasRef}
+      id={EDITOR_ANCHORS.canvas}
+      data-testid="garden-plan-canvas"
+      role="region"
+      aria-label={labels.canvas}
+      // The region takes the editor's keys (arrows, Esc, Del, Ctrl+A); it must be reachable by keyboard (WCAG 2.1.1).
+      tabIndex={0}
+      {...touch.containerProps}
+      onPointerLeave={onPointerLeave}
+      onContextMenu={onContextMenu}
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        touchAction: 'none',
+        userSelect: 'none',
+        cursor: cursorOf(tool),
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        bgcolor: 'background.paper',
+        flexShrink: 0,
+        '&:focus-visible': {
+          outline: 3,
+          outlineStyle: 'solid',
+          outlineColor: 'primary.main',
+          outlineOffset: 2,
+        },
+      }}
+    >
+      {rendered}
+      {gridVisible && <Grid viewport={viewport} stepM={gridStepM} />}
+      <EditorOverlay
+        overlay={tools.overlay}
+        handles={handles}
+        vertex={tools.vertex}
+        toScreen={renderer.toScreen.bind(renderer)}
+        pxPerM={viewport.pxPerM}
+        widthPx={viewport.widthPx}
+        heightPx={viewport.heightPx}
+      >
+        <DimensionLabels
+          items={dimensionItems}
+          toScreen={renderer.toScreen.bind(renderer)}
+          unit={unit}
+        />
+        {snapMark && (
+          <SnapMarker
+            mark={snapMark}
+            toScreen={renderer.toScreen.bind(renderer)}
+            widthPx={viewport.widthPx}
+            heightPx={viewport.heightPx}
+          />
+        )}
+      </EditorOverlay>
+      <ScaleBar pxPerM={pxPerM} />
+      <TouchOverlay
+        ring={touch.ring}
+        crosshair={touchUi && drawing ? centerPx : null}
+        widthPx={viewport.widthPx}
+        heightPx={viewport.heightPx}
+      />
+    </Box>
+  );
+
   return (
-    <Box data-testid="garden-plan-editor" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      data-testid="garden-plan-editor"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        // GP-NFR-026: no motion for people who ask for none (ripples, tooltips, dialogs, ghost fading).
+        '@media (prefers-reduced-motion: reduce)': {
+          '& *, & *::before, & *::after': {
+            transition: 'none !important',
+            animation: 'none !important',
+            scrollBehavior: 'auto !important',
+          },
+        },
+      }}
+    >
+      <SkipLinks
+        listShown={listShown}
+        panelAvailable={!toolbarBelow || sheetOpen}
+        onToList={showList}
+        onToPlan={showPlan}
+        onToPanel={focusPanelRegion}
+      />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+        <FormControlLabel
+          sx={{ m: 0, minHeight: 44 }}
+          control={
+            <Switch
+              checked={listShown}
+              onChange={(event) => (event.target.checked ? showList() : showPlan())}
+              slotProps={{ input: { 'data-testid': 'garden-plan-view-list' } as object }}
+            />
+          }
+          label={t(`${PREFIX}.list.switch`)}
+        />
+        <Button
+          startIcon={<KeyboardIcon />}
+          onClick={openHelp}
+          sx={{ minHeight: 44 }}
+          data-testid="garden-plan-keyboard-help-button"
+        >
+          {t(`${PREFIX}.keyboard.open`)}
+        </Button>
+      </Box>
       <EditorHeaderActions onAddWithDimensions={() => setAddOpen(true)} onSelectAll={doSelectAll} />
-      {viewBar}
-      {!toolbarBelow && toolbar}
-      {!toolbarBelow && touchBar}
-      {drawing && (
+      {!listShown && viewBar}
+      {!listShown && !toolbarBelow && toolbar}
+      {!listShown && !toolbarBelow && touchBar}
+      {!listShown && drawing && (
         <NewTypeSelect
           target={tool === 'bed' ? 'bed' : 'garden_object'}
           labels={labels}
@@ -737,7 +941,7 @@ export function GardenPlanEditor({
           onObjectType={setObjectType}
         />
       )}
-      {hintKey && (
+      {!listShown && hintKey && (
         <Typography
           variant="body2"
           color="text.secondary"
@@ -760,71 +964,30 @@ export function GardenPlanEditor({
           {noticeText}
         </Alert>
       )}
-      {singleTooSmall && (
+      {!listShown && singleTooSmall && (
         <Alert severity="info" role="status" data-testid="garden-plan-too-small">
           {t(`${PREFIX}.tooSmall`)}
         </Alert>
       )}
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        <Box
-          ref={canvasRef}
-          data-testid="garden-plan-canvas"
-          role="region"
-          aria-label={labels.canvas}
-          // The region takes the editor's keys (Esc, Del, Ctrl+A); it must be reachable by keyboard (WCAG 2.1.1).
-          tabIndex={0}
-          {...touch.containerProps}
-          onPointerLeave={onPointerLeave}
-          onContextMenu={onContextMenu}
-          sx={{
-            position: 'relative',
-            overflow: 'hidden',
-            touchAction: 'none',
-            userSelect: 'none',
-            cursor: cursorOf(tool),
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 1,
-            bgcolor: 'background.paper',
-            flexShrink: 0,
-          }}
-        >
-          {rendered}
-          {gridVisible && <Grid viewport={viewport} stepM={gridStepM} />}
-          <EditorOverlay
-            overlay={tools.overlay}
-            handles={handles}
-            vertex={tools.vertex}
-            toScreen={renderer.toScreen.bind(renderer)}
-            pxPerM={viewport.pxPerM}
-            widthPx={viewport.widthPx}
-            heightPx={viewport.heightPx}
-          >
-            <DimensionLabels
-              items={dimensionItems}
-              toScreen={renderer.toScreen.bind(renderer)}
-              unit={unit}
+        {listShown ? (
+          <Box ref={listRef} sx={{ flex: 1, minWidth: 0 }}>
+            <PlanListView
+              plan={plan}
+              labels={labels}
+              selection={selection}
+              stepM={gridStepM}
+              onSelect={onListSelect}
+              onMove={keyboard.moveSelection}
+              onRequestDelete={requestDelete}
             />
-            {snapMark && (
-              <SnapMarker
-                mark={snapMark}
-                toScreen={renderer.toScreen.bind(renderer)}
-                widthPx={viewport.widthPx}
-                heightPx={viewport.heightPx}
-              />
-            )}
-          </EditorOverlay>
-          <ScaleBar pxPerM={pxPerM} />
-          <TouchOverlay
-            ring={touch.ring}
-            crosshair={touchUi && drawing ? centerPx : null}
-            widthPx={viewport.widthPx}
-            heightPx={viewport.heightPx}
-          />
-        </Box>
+          </Box>
+        ) : (
+          canvasSurface
+        )}
         {!toolbarBelow && panel('sidebar')}
       </Box>
-      {toolbarBelow && (
+      {toolbarBelow && (!listShown || sheetOpen) && (
         <Box
           ref={dockRef}
           data-testid="garden-plan-dock"
@@ -845,10 +1008,17 @@ export function GardenPlanEditor({
               {panel('sheet')}
             </Box>
           )}
-          {touchBar}
-          {toolbar}
+          {!listShown && touchBar}
+          {!listShown && toolbar}
         </Box>
       )}
+      <LiveRegion message={announcement} />
+      <KeyboardHelp
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        singleKeyShortcuts={shortcuts.enabled}
+        onSingleKeyShortcuts={shortcuts.setEnabled}
+      />
       <ContextMenu
         anchor={menuAnchor}
         actions={menuActions}

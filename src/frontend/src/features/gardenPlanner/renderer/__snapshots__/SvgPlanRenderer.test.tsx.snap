@@ -2,7 +2,7 @@
 
 exports[`SvgPlanRenderer - structure > draws the cluster view of a dense bed (snapshot) 1`] = `
 "<g class="gp-obj" data-plan-key="__boundary__" data-plan-kind="boundary" role="button" tabindex="-1" aria-label="Boundary" aria-pressed="false">
-<path class="gp-shape" d="M0 0L100 0L100 -100L0 -100Z" fill="none" stroke="rgba(0, 0, 0, 0.38)" stroke-width="2" stroke-dasharray="10 6" vector-effect="non-scaling-stroke">
+<path class="gp-shape" d="M0 0L100 0L100 -100L0 -100Z" fill="none" stroke="rgba(0, 0, 0, 0.6)" stroke-width="2" stroke-dasharray="10 6" vector-effect="non-scaling-stroke">
 </path>
 </g>
 <g class="gp-obj" data-plan-key="loc_a" data-plan-kind="location" role="button" tabindex="0" aria-label="Bed loc_a, bed, 2.4 m2, 6 plants, 0 tasks" aria-pressed="false">
@@ -19,7 +19,7 @@ exports[`SvgPlanRenderer - structure > draws the cluster view of a dense bed (sn
 
 exports[`SvgPlanRenderer - structure > draws the small plan (snapshot) 1`] = `
 "<g class="gp-obj" data-plan-key="__boundary__" data-plan-kind="boundary" role="button" tabindex="-1" aria-label="Boundary" aria-pressed="false">
-<path class="gp-shape" d="M0 0L100 0L100 -100L0 -100Z" fill="none" stroke="rgba(0, 0, 0, 0.38)" stroke-width="2" stroke-dasharray="10 6" vector-effect="non-scaling-stroke">
+<path class="gp-shape" d="M0 0L100 0L100 -100L0 -100Z" fill="none" stroke="rgba(0, 0, 0, 0.6)" stroke-width="2" stroke-dasharray="10 6" vector-effect="non-scaling-stroke">
 </path>
 </g>
 <g class="gp-obj" data-plan-key="go_1" data-plan-kind="gardenObject" role="button" tabindex="-1" aria-label="Tree go_1, tree, 4 m2" aria-pressed="false">

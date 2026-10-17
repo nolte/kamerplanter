@@ -173,7 +173,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 
-interface PlanPalette {
+export interface PlanPalette {
   stroke: string;
   selected: string;
   text: string;
@@ -188,13 +188,14 @@ interface PlanPalette {
   slot: string;
 }
 
-function planPalette(theme: Theme): PlanPalette {
+export function planPalette(theme: Theme): PlanPalette {
   const { palette } = theme;
   return {
     stroke: palette.text.secondary,
     selected: palette.primary.main,
     text: palette.text.primary,
-    boundary: palette.text.disabled,
+    // text.disabled is 2.7:1 on white; a boundary and an empty slot are information (WCAG 1.4.11, 3:1).
+    boundary: palette.text.secondary,
     // Planned beds are dashed and retired ones grey, so status is not carried by colour alone.
     bed: {
       active: { fill: alpha(palette.success.main, 0.35) },
@@ -207,7 +208,7 @@ function planPalette(theme: Theme): PlanPalette {
     path: alpha(palette.warning.dark, 0.5),
     water: alpha(palette.info.main, 0.4),
     plant: palette.success.dark,
-    slot: palette.text.disabled,
+    slot: palette.text.secondary,
   };
 }
 
