@@ -240,7 +240,7 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: removal of more than four such fields lowers it here, in the same change.
 #: 51 since #1855: 55 measured (TakeoverReceipt's account references, in memory only).
 #: 54 after #2138 met #1855 on 2026-10-12: 58 measured (both changes' fields together).
-MIN_USER_REFERENCE_FIELDS = 54
+MIN_USER_REFERENCE_FIELDS = 56
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:
@@ -679,6 +679,8 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
             continue
         if f := _kwarg(call, "user_field"):
             covered.add((c, f))
+            # A field one object down (``plan.plan_updated_by``) is the model field of its last segment.
+            covered.add((c, f.rsplit(".", 1)[-1]))
         covered.update((c, cleared) for cleared in _list_kwarg(call, "clear_fields"))
     excluded: dict[tuple[str, str], int] = {}
     for call in _class_list_calls(erasure_tree, "ErasureEngine", "EXCLUDED_USER_REFERENCES"):

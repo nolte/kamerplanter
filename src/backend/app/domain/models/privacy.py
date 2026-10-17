@@ -411,6 +411,10 @@ class DataSourceDefinition(BaseModel):
     #: #2165 — the source is a table of the time-series store, not an ArangoDB collection.
     #: Only a personal-tenant source whose rows carry ``tenant_key`` themselves can be one.
     time_series: TimeSeriesScope | None = None
+    #: Dotted paths (``plan.plan_updated_by``) inside the projected ``fields`` that name *another* account
+    #: and are removed from every record after the read (Art. 15(4)). ``KEEP`` projects top-level fields
+    #: only, so a field that sits inside a projected object cannot be left out by ``fields`` alone.
+    withhold: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _one_way_of_attribution(self) -> Self:

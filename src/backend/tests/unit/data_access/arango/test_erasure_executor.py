@@ -150,10 +150,13 @@ class TestStrategies:
         db = _FakeDb()
         plan = _plan()
         _run(db, plan)
-        writes = {(b["@collection"], b["field"]): b for _, b in db.calls if "patch" in b}
+        writes = {(b["@collection"], ".".join(b["path"])): b for _, b in db.calls if "patch" in b}
         for rule in plan.anonymize:
             expected_value = TOMBSTONE if rule.replacement_strategy == "tombstone_hash" else rule.anonymized_value
-            expected = {rule.user_field: expected_value, **dict.fromkeys(rule.clear_fields, "")}
+            head, *tail = rule.user_field.split(".")
+            # A field one object down is patched as a nested object, merged into the stored one (REQ-053).
+            expected = {head: {tail[0]: expected_value} if tail else expected_value}
+            expected.update(dict.fromkeys(rule.clear_fields, ""))
             binds = writes[(rule.collection, rule.user_field)]
             assert binds["patch"] == expected
             assert binds["rename_fields"] == rule.rename_fields
@@ -170,7 +173,9 @@ class TestStrategies:
         assert renaming
         for rule in renaming:
             (binds,) = [
-                b for _, b in db.calls if b["@collection"] == rule.collection and b.get("field") == rule.user_field
+                b
+                for _, b in db.calls
+                if b["@collection"] == rule.collection and ".".join(b.get("path", [])) == rule.user_field
             ]
             assert binds["rename_prefix"] == ANONYMIZED_KEY_PREFIX
             # #1700 review — the rename is keyed on the salted tombstone, not on
@@ -404,3 +409,53 @@ class TestEmptyUserKey:
             _run(db, plan)
         assert db.transactions == []
         assert db.calls == []
+
+
+class TestAFieldOneObjectDown:
+    """REQ-053 WP 1.8 — ``sites.plan.plan_updated_by`` is rewritten where it lives, not as a flat key."""
+
+    def test_the_plan_editor_of_a_site_is_an_anonymisation_rule_not_an_exclusion(self):
+        from app.domain.engines.erasure_engine import ErasureEngine
+
+        rules = {(r.collection, r.user_field) for r in ErasureEngine.ANONYMIZE_COLLECTIONS}
+        assert ("sites", "plan.plan_updated_by") in rules
+        assert not [x for x in ErasureEngine.EXCLUDED_USER_REFERENCES if x.user_field == "plan_updated_by"]
+
+    def test_the_rule_binds_the_two_segments_and_patches_a_nested_object(self):
+        db = _FakeDb()
+        plan = _plan()
+        _run(db, plan)
+        (binds,) = [b for _, b in db.calls if b.get("@collection") == "sites" and "patch" in b]
+        assert binds["path"] == ["plan", "plan_updated_by"]
+        assert binds["patch"] == {"plan": {"plan_updated_by": "_anonymized"}}
+
+    def test_a_path_deeper_than_one_object_is_refused_before_anything_is_written(self):
+        import pytest
+
+        from app.data_access.arango.erasure_executor import ErasurePlanError, _field_path
+
+        assert _field_path("created_by") == ["created_by"]
+        for bad in ("a.b.c", "", ".a", "a."):
+            with pytest.raises(ErasurePlanError):
+                _field_path(bad)
+
+    def test_the_plan_audit_is_pseudonymised_not_deleted(self):
+        from app.domain.engines.erasure_engine import ErasureEngine
+
+        rule = next(r for r in ErasureEngine.PSEUDONYMIZE_AUDIT_COLLECTIONS if r.collection == "garden_plan_audit")
+        assert (rule.user_field, rule.replacement_strategy) == ("user_key", "tombstone_hash")
+
+    def test_a_malformed_rule_path_stops_the_plan_before_the_transaction_opens(self):
+        """Review F-13 — refused up front, not half way through an account erasure."""
+        import pytest
+
+        from app.data_access.arango.erasure_executor import ErasurePlanError
+        from app.domain.models.privacy import AnonymizationRule
+
+        db = _FakeDb()
+        plan = _plan()
+        bad = AnonymizationRule(collection="sites", user_field="a.b.c", reason="too deep")
+        broken = plan.model_copy(update={"anonymize": [*plan.anonymize, bad]})
+        with pytest.raises(ErasurePlanError):
+            _run(db, broken)
+        assert db.transactions == []
