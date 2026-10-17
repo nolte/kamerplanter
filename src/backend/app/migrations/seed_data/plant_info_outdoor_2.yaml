@@ -950,6 +950,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6.5
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Viburnum opulus"
     propagation_configs:
@@ -995,6 +1003,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 8.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Weigela florida"
     propagation_configs:
@@ -1038,6 +1053,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Fruit trees ----------
 
@@ -1561,6 +1583,13 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 5.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "UGA Extension C1163: \"Blueberry plants are sensitive to overfertilization, and the nutrient demand of blueberries is low compared to row crops and vegetables\", https://fieldreport.caes.uga.edu/publications/C1163/suggested-blueberry-fertilization-timings-and-rates/; RHS How to grow blueberries: in gemulchtem Boden keine zusaetzliche Duengung, \"dislike excess fertiliser\", https://www.rhs.org.uk/fruit/blueberries/grow-your-own"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Vitis vinifera"
     propagation_configs:
@@ -1610,6 +1639,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 6.5
+    row_spacing_cm: "150–180"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "RHS How to grow grapes: in gemulchtem Boden \"shouldn't need any additional feeding\", https://www.rhs.org.uk/fruit/grapes/grow-your-own; UC IPM Grape Fertilization Guide: Dünger \"may rarely be needed in some aeras with rich soil\", Übermaß fördert Wuchs, https://ipm.ucanr.edu/home-and-landscape/grape-fertilization-guide/ (beide indirekt, Hausgarten-Ratgeber)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Herbs ----------
 
@@ -2053,6 +2089,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.0
+    row_spacing_cm: "20"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "LK NRW 2020 (Mittelstarkzehrer: Spinat), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH (Mittelzehrer: Moehren, Spinat, Radies), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; WIDERSPRUCH: Suedtiroler Bauernbund 2022 Tab. 2 (Schwachzehrer: Spinat), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland (Schwachzehrer-Beet: Spinat), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Green manure / cover crops ----------
 
@@ -2336,6 +2379,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.5
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Tropaeolum majus"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2395,6 +2445,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.1
       max_ph: 7.8
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (14 existing species)
@@ -2938,6 +2995,13 @@ species_enrichment:
     native_habitat: "Westliches Mittelmeer"
     pruning_type: spring_pruning
     pruning_months: [4, 7]
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "LKSH (Schwachzehrer: Erbsen, Bohnen, Kraeuter; Gruppe), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; LK NRW 2020 (Schwachzehrer: alle Huelsenfruechte, Moehren, Zwiebeln sowie Kraeuter; Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland (Schwachzehrer-Beet: Kraeuter; Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Trifolium pratense":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2961,6 +3025,12 @@ species_enrichment:
     direct_sow_months: [3, 4, 5, 8, 9]
     nutrient_demand_level: nitrogen_fixer
     nitrogen_fixing: true
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Landwirtschaftskammer NRW, Fruchtfolge im Gemüsegarten planen (2020): Schwachzehrer = \"alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter\" (Gruppenangabe, Klee nicht namentlich), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, Fruchtfolge im Garten (Schwachzehrer z. B. Erbsen, Bohnen; Klee als Gründüngung der Hülsenfrüchte), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf"
+    nutrient_demand_confidence: low
+    rotation_pause_years: 4
     green_manure_suitable: true
     allelopathy_score: 0.0
     native_habitat: "Europa, Westasien"

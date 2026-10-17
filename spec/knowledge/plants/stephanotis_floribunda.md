@@ -116,6 +116,22 @@ Begründungen Sektion 1.7:
 -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Stephanotis floribunda“ (Position: Full sun; Kulturtext: "in full light with shade from hot sun" (Kultur unter Glas)), https://www.rhs.org.uk/plants/17784/stephanotis-floribunda/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -344,4 +360,5 @@ Stephanotis floribunda,Brautstrauch;Madagaskarjasmin;Madagascar Jasmine,Apocynac
 8. [Davis Floral Company – Stephanotis Vine (NCSU Hortscans, PDF)](https://hortscans.ces.ncsu.edu/uploads/s/t/stephano_51e40f167cb7b.pdf) — kommerzielle Kultur, Photoperiode/Nachtunterbrechung, Temperatur
 9. [yourflowersguide – Stephanotis Plant Care & Growing Guide](https://yourflowersguide.com/stephanotis/) — Staunässe-/Wurzelfäule-Empfindlichkeit, Drainage
 10. [Gardenia.net – Madagascar Jasmine (Stephanotis floribunda)](https://www.gardenia.net/plant/stephanotis-floribunda-madagascar-jasmine-grow-care-guide) — leicht saurer bis neutraler Boden, helles indirektes Licht
+RHS -- Stephanotis floribunda (Position/Aspect: Full sun; Lichtanspruch): https://www.rhs.org.uk/plants/17784/stephanotis-floribunda/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

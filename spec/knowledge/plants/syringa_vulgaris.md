@@ -116,6 +116,22 @@
 > Hinweis: Flieder blüht am besten in voller Sonne (6–8 h Direktlicht). Salztoleranz ist standortabhängig — als Windbrecher kann Flieder salzsensiblere Pflanzen vor Sprühnebel schützen, leidet aber selbst bei direktem Streusalzkontakt.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (RHS nennt keinen Pflanzabstand; Endgröße 4–8 m Höhe/Breite ist kein Pflanzabstand) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Ziergehölz, freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Syringa vulgaris“ (Max Spread 4–8 m, Endgröße, kein Pflanzabstand), https://www.rhs.org.uk/plants/99011/wd/details; RHS, „How to grow lilacs“ (nennt keinen Pflanzabstand), https://www.rhs.org.uk/plants/lilac/how-to-grow-lilacs | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Syringa vulgaris“ (Position: Full sun), https://www.rhs.org.uk/plants/99011/wd/details; RHS, „How to grow lilacs“ („Lilacs need a sunny, open and uncrowded position to flower well“), https://www.rhs.org.uk/plants/lilac/how-to-grow-lilacs | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -331,4 +347,6 @@ Syringa vulgaris,"Gemeiner Flieder;Edelflieder;Common Lilac",Oleaceae,Syringa,pe
 8. [Missouri Botanical Garden — Syringa vulgaris](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282932) — Standort, Boden, Vollsonne, Schnitt nach Blüte
 9. [PFAF — Syringa vulgaris](https://pfaf.org/user/Plant.aspx?LatinName=Syringa+vulgaris) — hermaphrodit, insektenbestäubt (Bienen/Falter), wenige fertile Samen, Bodenansprüche
 10. [RHS / Penn State & Purdue Extension — Salztoleranz Gehölze](https://extension.psu.edu/minimize-deicer-damage-with-salt-tolerant-plants) — Einordnung Flieder-Salztoleranz (Sprühnebel intermediär–empfindlich)
+11. RHS -- Syringa vulgaris (Position: Full sun; Lichtanspruch; Endgröße): https://www.rhs.org.uk/plants/99011/wd/details
+12. RHS -- How to grow lilacs (sunny, open position; Lichtanspruch): https://www.rhs.org.uk/plants/lilac/how-to-grow-lilacs
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

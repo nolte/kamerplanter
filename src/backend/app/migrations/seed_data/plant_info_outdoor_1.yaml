@@ -1838,6 +1838,13 @@ species_enrichment:
       seed_viability_years: 5
       thousand_seed_weight_g: 25
       sowing_density_per_m2: 25
+    row_spacing_cm: "30–50"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "LTZ Augustenberg Zuckerhirse (relativ hoher Naehrstoffbedarf, 150-200 kg N/ha), https://ltz.landwirtschaft-bw.de/,Len/Kulturpflanzen/Zuckerhirse; TFZ Bayern Sorghum-Sortenvergleich 2018 (N-Bedarfswert 200 kg N/ha, 30 % unter Mais), https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/19pfr002_mb_bayernweiter_sorghum-sortenvergleich_2018_tfz.pdf; EIP LUPI-HIRSE-Huhn 2022 (mittlere Maisduengung 120 kg N/ha). Ackerbau ohne Zehrerklasse, Einstufung indirekt"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Tagetes erecta":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1848,6 +1855,13 @@ species_enrichment:
       days_to_germination: 4
       seed_viability_years: 2
       light_germination: indifferent
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Triticum aestivum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1859,6 +1873,13 @@ species_enrichment:
       seed_viability_years: 3
       thousand_seed_weight_g: 45
       sowing_density_per_m2: 400
+    row_spacing_cm: "12.5–25"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Verbena x hybrida":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1870,6 +1891,13 @@ species_enrichment:
       light_germination: dark
       pretreatment: [cold_stratification]
       thousand_seed_weight_g: 2.9
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Vicia faba":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1883,6 +1911,13 @@ species_enrichment:
       pretreatment: [presoak]
       thousand_seed_weight_g: 500
       sowing_density_per_m2: 45
+    row_spacing_cm: "45"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "LKSH (Schwachzehrer: Erbsen, Bohnen, Kraeuter; Gruppe), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; LK NRW 2020 (Schwachzehrer: alle Huelsenfruechte; Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LfL Bayern Ackerbohne (N i.d.R. kein Bedarf, kein Zehrerklassen-Begriff), https://www.lfl.bayern.de/mam/cms07/publikationen/daten/informationen/ackerbohnen.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: true
+    rotation_pause_years: 4
 
   "Zea mays":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1895,6 +1930,13 @@ species_enrichment:
       light_germination: indifferent
       thousand_seed_weight_g: 280
       sowing_density_per_m2: 5
+    row_spacing_cm: "34–45"
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "FiBL Merkblatt Mais 1017 (grosser Naehrstoffzehrer; hoher Stickstoffbedarf), https://www.fibl.org/fileadmin/documents/shop/1017-mais.pdf; Natur im Garten Burgenland (Starkzehrer: Zuckermais), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
 lifecycle_configs:
   # NOTE (WP-8, #565): the perennial/biennial outdoor species that declared

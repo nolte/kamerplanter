@@ -128,6 +128,22 @@
 **Quellen (§1.8):** [How to Grow Red Clover from Seed — Sacred Plant Co](https://sacredplantco.com/blogs/growing-guides/how-to-grow-red-clover-from-seeds) (Keimtemperatur-Minimum ~41 °F/5 °C, Kältetoleranz) und [Sowing & Growing: Red Clover — Cotswold Seeds](https://www.cotswoldseeds.com/articles/759/sowing-and-growing-red-clover) (Saattiefe ≤10 mm); [Red Clover — Mississippi State University Extension](https://extension.msstate.edu/agriculture/forages/legumes/red-clover-trifolium-pratense) und [Red Clover — SARE, Managing Cover Crops Profitably](https://www.sare.org/publications/managing-cover-crops-profitably/legume-cover-crops/red-clover/) (Keimdauer 5–7 Tage, Etablierungsbedingungen); [Effect of scarification on seed germination of red clover in hydrotime model terms — ResearchGate](https://www.researchgate.net/publication/233684330_Effect_of_scarification_on_seed_germination_of_red_clover_in_hydrotime_model_terms) und [Effect of pretreatments on seed germination rate of red clover (Trifolium pratense L.) populations — ResearchGate](https://www.researchgate.net/publication/268263028_Effect_of_pretreatments_on_seed_germination_rate_of_red_clover_Trifolium_pratense_L_populations) (physikalische Dormanz/Hartschaligkeit, Skarifizierung); [RED CLOVER — USDA NRCS Plant Guide](https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/pg_trpr2.pdf) und [Feedipedia — Red clover (Trifolium pratense)](https://www.feedipedia.org/node/246) (bereits als Hauptquelle #9 im Dokument geführt; Tausendkornmasse-Cross-Check über Saatgutgewicht/Aussaatmengen-Angaben).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: kein Drillreihenabstand für Rotklee in einer gelesenen Quelle; Rotklee wird meist breitwürfig bzw. als Gras-Klee-Gemenge ausgesät --> | `species.row_spacing_cm` |
+| Quelle Abstände | — (keine gelesene Quelle) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (siehe 1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | PFAF (Plants For A Future, Datenbank, schwache Quelle), Trifolium pratense („It cannot grow in the shade“; „Succeeds in a moist, well-drained circum-neutral soil in full sun“), https://pfaf.org/user/Plant.aspx?LatinName=Trifolium+pratense | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -296,6 +312,11 @@ Rotklee deckt seinen Stickstoffbedarf vollständig über die Symbiose mit Bodenb
 | Empfohlene Vorfrucht | Starkzehrer (Kohl, Kürbis, Mais) oder Getreide |
 | Empfohlene Nachfrucht | Alle Kulturen profitieren: Wintergetreide (+20–40% Ertrag), Kohl, Möhren |
 | Anbaupause (Jahre) | 3–4 Jahre auf gleicher Fläche (Kleekrebs-Prävention) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; Gruppenangabe, Klee nicht namentlich genannt), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, „Fruchtfolge im Garten“ (Schwachzehrer z. B. Erbsen, Bohnen; Klee nur als Gründüngung der Hülsenfrüchte geführt), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf |
+| Zehrerstufe — Konfidenz | low (Gruppenangabe „Hülsenfrüchte“, Rotklee nicht namentlich eingestuft) |
+| Stickstofffixierer | true (Weimar 2009, Journal für Kulturpflanzen 61(9): „Durch die Stickstoff-Fixierung des Rotklees kann Dünger eingespart werden“; N-Fixierung der Knöllchenbakterien), https://ojs.openagrar.de/index.php/Kulturpflanzenjournal/article/view/12188/11171 |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (Weimar 2009: „Beim Anbau von Rotklee in Reinsaat empfiehlt es sich, Anbaupausen von 4 bis 7 Jahren einzuhalten“ wegen Kleekrebs, Fusarium-Welke, Stängelnematoden; bei Rotkleegras 3 bis 4 Jahre), https://ojs.openagrar.de/index.php/Kulturpflanzenjournal/article/view/12188/11171 |
 
 ### 6.2 N-Hinterlassenschaft für Nachkulturen
 
@@ -362,4 +383,8 @@ Trifolium pratense,"Rotklee;Wiesenklee;Red Clover",Fabaceae,Trifolium,perennial,
 20. [Effect of scarification on seed germination of red clover in hydrotime model terms — ResearchGate](https://www.researchgate.net/publication/233684330_Effect_of_scarification_on_seed_germination_of_red_clover_in_hydrotime_model_terms) — Physikalische Dormanz, Skarifizierung
 21. [Effect of pretreatments on seed germination rate of red clover (Trifolium pratense L.) populations — ResearchGate](https://www.researchgate.net/publication/268263028_Effect_of_pretreatments_on_seed_germination_rate_of_red_clover_Trifolium_pratense_L_populations) — Vorbehandlungseffekte
 22. [RED CLOVER — USDA NRCS Plant Guide](https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/pg_trpr2.pdf) — Tausendkornmasse-Cross-Check
+23. PFAF — Trifolium pratense (Lichtanspruch: kein Schatten, volle Sonne; schwache Quelle): https://pfaf.org/user/Plant.aspx?LatinName=Trifolium+pratense
+24. Weimar (2009), Journal für Kulturpflanzen 61(9) — Anforderungen an die Rotkleezüchtung (N-Fixierung, Anbaupause 4–7 Jahre Reinsaat, 3–4 Jahre Rotkleegras): https://ojs.openagrar.de/index.php/Kulturpflanzenjournal/article/view/12188/11171
+25. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020) (Schwachzehrer: alle Hülsenfrüchte): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
+26. LKSH — Fruchtfolge im Garten (Zehrergruppen, Hülsenfrüchte/Klee als Gründüngung): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
