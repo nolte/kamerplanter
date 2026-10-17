@@ -133,6 +133,22 @@
 Quellen (§1.8): [RHS — How to grow broad beans](https://www.rhs.org.uk/vegetables/broad-beans/grow-your-own); [Harvest to Table — The Ultimate Fava Bean Growing Guide](https://harvesttotable.com/how_to_grow_broad_beans/); [PMC9098359 — Assessment of the Effects of Seed Storage Time on Germination Rate and Performance Evaluation of Ethiopian Faba Bean Varieties](https://pmc.ncbi.nlm.nih.gov/articles/PMC9098359/); [Saskatchewan Pulse Growers — Faba Beans Seeding](https://saskpulse.com/growing-pulses/faba-beans/faba-beans-seeding/); [RealAgriculture — Pulse School: Know Your Seed Size — Keys to Getting Faba Beans Off to a Strong Start](https://www.realagriculture.com/2016/03/pulse-school-know-your-seed-weight-keys-to-getting-faba-beans-off-to-a-strong-start/); [Homestead and Chill — How to Grow & Use Fava Beans](https://homesteadandchill.com/how-to-grow-fava-beans/); [Gardening Know How — How to Grow Fava Beans](https://www.gardeningknowhow.com/edible/vegetables/beans/growing-fava-beans.htm)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15–23 (je nach Sorte) | `species.spacing_cm` |
+| Reihenabstand (cm) | 45 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Broad beans: Grow your own“ („sow broad bean seeds … 15–23cm (6–9in) apart, depending on the variety. Space single rows 45cm (18in) apart and double rows 23cm (9in) apart with 60cm (2ft) between each double row“), https://www.rhs.org.uk/vegetables/broad-beans/grow-your-own; Feldanbau abweichend: LfL Bayern, „Ackerbohne“ (Reihenabstand je Sätechnik 15–45 cm), https://www.lfl.bayern.de/mam/cms07/publikationen/daten/informationen/ackerbohnen.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Broad beans: Grow your own“ („like a sunny, sheltered site“; „Choose a warm, sunny, sheltered growing site“), https://www.rhs.org.uk/vegetables/broad-beans/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -347,6 +363,11 @@ KEINE Stickstoffdüngung — hemmt Knöllchenbildung. Kalzium-Versorgung wichtig
 | Empfohlene Vorfrucht | Getreide (Winterweizen, Wintergerste); Mais |
 | Empfohlene Nachfrucht | Starkzehrer (Kohl, Kürbis, Mais, Tomaten profitieren stark) |
 | Anbaupause (Jahre) | 4–5 Jahre auf gleichem Standort (Botrytis, Sklerotinia) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; Dicke Bohne nur in der Familientabelle Hülsenfrüchte, Zehrerstufe als Gruppe), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte“; Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LfL Bayern, „Ackerbohne“ (Düngung: Stickstoff „i.d.R. kein Bedarf“ wegen Knöllchenbakterien; Phosphor/Kali nötig; kein Zehrerklassen-Begriff), https://www.lfl.bayern.de/mam/cms07/publikationen/daten/informationen/ackerbohnen.pdf |
+| Zehrerstufe — Konfidenz | low (Gruppenangaben „Hülsenfrüchte/Bohnen“, Art nicht namentlich als Zehrerklasse; LfL nur indirekt) |
+| Stickstofffixierer | true (RHS: „legumes (peas, beans and related plants) fix nitrogen from the air at their roots“, https://www.rhs.org.uk/vegetables/broad-beans/grow-your-own; LfL Bayern: biologische N-Fixierung im Mittel ca. 170 kg N/ha, https://www.lfl.bayern.de/mam/cms07/publikationen/daten/informationen/ackerbohnen.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Ackerbohne“, 3.1 Fruchtfolge: „mit sich selbst unverträglich … Anbaupause von mindestens 4 bis 5 Jahren“, untere Grenze; Steckbrief: „Anbaupause von mind. 4 Jahren, auch mit anderen Hülsenfrüchten“; Familienwert Fabaceae in botanical_families.yaml ohne Anbaupause; https://www.lfl.bayern.de/mam/cms07/publikationen/daten/informationen/ackerbohnen.pdf) |
 
 **Besonderheit Gemüsegarten:** Ackerbohne ist die *beste N-Vorfrucht* im europäischen Gartenbau. Ein guter Bestand kann 80–150 kg N/ha im Boden hinterlassen.
 
@@ -425,4 +446,8 @@ Aquadulce Claudia,Vicia faba,"winter_type;overwintering;early_harvest",90,open_p
 13. [Root growth of chickpea, faba bean, lentil and pea; water/salt stress (Springer)](https://link.springer.com/chapter/10.1007/978-94-009-2764-3_68) — effektive Wurzeltiefe (selten > 1 m)
 14. [Autofertility and rate of cross-fertilization in faba beans (TAG/PubMed)](https://pubmed.ncbi.nlm.nih.gov/24226589/) — Selbstfruchtbarkeit/teilweise Allogamie, Autofertilität
 15. [Yield benefits of additional pollination to faba bean (Scientific Reports)](https://www.nature.com/articles/s41598-020-58518-1) — Bienen-/Hummelbestäubung erhöht Ertrag (Freitext-Hinweis)
+16. RHS — Broad beans: Grow your own (Pflanzabstand 15–23 cm, Reihenabstand 45 cm; sonniger Standort; Stickstofffixierung der Leguminosen): https://www.rhs.org.uk/vegetables/broad-beans/grow-your-own
+17. LfL Bayern — Ackerbohne (Selbstunverträglichkeit, Anbaupause mind. 4–5 Jahre, N-Fixierung ca. 170 kg N/ha, Reihenabstand 15–45 cm, kein N-Düngebedarf): https://www.lfl.bayern.de/mam/cms07/publikationen/daten/informationen/ackerbohnen.pdf
+18. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+19. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

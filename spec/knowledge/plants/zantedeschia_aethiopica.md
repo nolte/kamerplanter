@@ -113,6 +113,22 @@
 **Hinweis (Standortqualität):** Z. aethiopica ist eine ausgesprochene Feucht-/Nasszeiger-Art und gehört zu den wenigen Zierpflanzen, die echte Staunässe und sogar dauerhaft stehendes Wasser am Teichrand vertragen (Korb bis max. 30 cm Wassertiefe). Die Salztoleranz bezieht sich auf die salzhaltige Küstenluft im natürlichen Habitat; ein quantitativer Substrat-ECe-Schwellenwert nach Maas-Hoffman ist für die Art nicht publiziert. Der pH-Vorzug (6.0–7.0) harmonisiert mit der Substrat-Empfehlung in §1.6 (6.0–6.5) und den Phasen-pH-Werten in §2.3 (6.0–6.5), die im unteren Teil dieser Spanne liegen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (kein artspezifischer Pflanzabstand belegt; RHS-Growing-guide: robuste Arum-Lilien bilden Horste bis 90 cm Breite und brauchen "plenty of room" ohne Zahlenangabe; 30 cm Abstand nennt der Guide nur für kleinere Calla-Hybriden, nicht für Z. aethiopica) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (kein Reihenabstand belegt; Zimmer-/Kübelpflanze, Beetkultur nicht Gegenstand) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS -- How to grow zantedeschia (Growing guide): https://www.rhs.org.uk/plants/zantedeschia/growing-guide | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Zantedeschia aethiopica (Cultivar-Seiten und Gattungs-Growing-guide; Artseite nicht gelesen)“ (Position (Cultivar Green Goddess, Flamingo): Full sun, Partial shade; Growing guide: "sun or partial shade – although they usually flower best in full sun"), https://www.rhs.org.uk/plants/60961/zantedeschia-aethiopica-green-goddess/details — Cultivar- und Gattungsquelle, keine Artseite; Position nennt Full sun und Partial shade, Growing guide: Blüte meist am besten in voller Sonne. | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -319,3 +335,5 @@ Zantedeschia aethiopica,"Calla;Weiße Calla;Zimmercalla;Sumpfcalla;Calla Lily;Ar
 12. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate/Etablierungszeit Spinnmilben-Raubmilbe <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 13. [Koppert — Neoseiulus (Amblyseius) cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Thrips-Raubmilbe, Ausbringrate/Etablierung <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 14. [Hoagland solution / Standard-Nährlösung (Wikipedia)](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffbereiche Mn/Zn/Cu/Mo (ppm) <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+RHS -- Zantedeschia aethiopica (Cultivar-Seite Green Goddess, Position: Full sun, Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/60961/zantedeschia-aethiopica-green-goddess/details
+RHS -- How to grow zantedeschia (Growing guide; Lichtanspruch, Abstände): https://www.rhs.org.uk/plants/zantedeschia/growing-guide

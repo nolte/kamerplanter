@@ -555,3 +555,151 @@ Tally: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_d
 2. Reihenabstände aus Erwerbsobst-Unterlagen sind keine Hausgarten-Empfehlung; künftig im Brief verlangen, dass Versuchs-/Spindelanlagen als „schwache Quelle“ markiert werden.
 3. Die Sub-Batch-Agenten (3 × 10 Arten) lasen die Zehrerstufen-Quellen aus vorab per `curl` + `pdftotext -layout` abgelegten Textdateien (SBB, LKSH, NiG, LK NRW) — spart je Agent die Wiederholung der PDF-Beschaffung; so beibehalten.
 4. RHS-Gruppenseiten (Weihnachtskaktus, Zimmerazaleen) sind keine Artseiten; als Quelle zulässig, aber im Steckbrief als Gruppenquelle vermerken.
+
+## Batch 7 (Arten 181–210, `sorghum_bicolor` … `zea_mays`) — 2026-10-17
+
+Konventionen wie bei Batch 1–6. Auswahl: alphabetische Dateiliste von `spec/knowledge/plants/*.md` (ohne `_*`), Position 181–210 (Batch 1–6 = Position 1–180, keine Überschneidung; **letzter Batch**, damit alle 210 Steckbriefe bearbeitet). Gemischt: 12 Zimmerpflanzen (Spathiphyllum, Stephanotis, Strelitzia, Streptocarpus, Stromanthe, Syngonium, Tillandsia, Tradescantia, Vriesea, Yucca, Zamioculcas, Zantedeschia), 8 Zier-/Beetpflanzen und Ziergehölze (Syringa, Tagetes erecta/patula, Tigridia, Verbena, Viburnum, Viola, Weigela), 10 Nutzarten (Sorghum, Spinat, Thymian, Rotklee, Weizen, Kapuzinerkresse, Heidelbeere, Ackerbohne, Weinrebe, Mais).
+
+### Bilanz je Feld
+
+| Feld | gesetzt (mit Quelle) | `null` n/a | `null` unbelegt |
+|---|---|---|---|
+| `row_spacing_cm` | 9 (Sorghum 30–50, Spinat 20, Tagetes erecta 30, Tagetes patula 30, Weizen 12,5–25, Tropaeolum 30, Ackerbohne 45, Weinrebe 150–180, Mais 34–45) | 15 (12 Zimmerpflanzen, Syringa, Viburnum, Weigela; keine Reihenkultur) | 6 (Thymus, Trifolium, Vaccinium, Tigridia, Verbena, Viola) |
+| `light_requirement` | 26 (`full_sun` 18, `partial_shade` 8) | 0 | 4 (Sorghum, Viburnum, Viola, Weigela) |
+| `nutrient_demand` (+ `_source`, `_confidence`) | 8 (light 5, medium 1, heavy 2; Konfidenz medium 2, low 6, high 0) | 20 (12 Zimmerpflanzen, 8 Zierpflanzen; optional) | 2 von 10 Nutzarten (**Pflicht**): Weizen, Kapuzinerkresse |
+| `nitrogen_fixing` | 2 (`true`: Rotklee, Ackerbohne) | 20 (Zimmer-/Zierpflanzen) | 8 von 10 Nutzarten (keine gelesene Quelle nennt „fixiert keinen Stickstoff“; `false` ist eine Behauptung) |
+| `rotation_pause_years` (Art-Override) | 2 (Rotklee 4, Ackerbohne 4) | 20 (Zimmer-/Zierpflanzen) | übrige Nutzarten: „Familienwert gilt“ (Spinat: Familie Amaranthaceae nicht in `botanical_families.yaml`) bzw. kein Familienwert (Lamiaceae, Fabaceae, Poaceae) bzw. Dauerkultur ohne Quelle bzw. „selbstverträglich“ ohne Zahl (Mais, Sorghum) |
+
+### Bilanz je Art
+
+Tally: `row_spacing_cm` | `light_requirement` | `nutrient_demand` (Konfidenz) | `nitrogen_fixing` | `rotation_pause_years`. „n/a“ = Zimmer-/Zierpflanze bzw. kein Reihenanbau.
+
+| Art | row | light | nutrient_demand | N-Fix | Pause |
+|---|---|---|---|---|---|
+| Sorghum bicolor | 30–50 | null | heavy_feeder (low) | null | null (selbstverträglich, kein Zahlenwert) |
+| Spinacia oleracea | 20 | full_sun | medium_feeder (low) | null | null (Familienwert nicht gesetzt) |
+| Thymus vulgaris | null | full_sun | light_feeder (low) | null | null |
+| Trifolium pratense | null | full_sun | light_feeder (low) | true | 4 (Art-Abweichung) |
+| Triticum aestivum | 12,5–25 | full_sun | null | null | null |
+| Tropaeolum majus | 30 | full_sun | null | null | null |
+| Vaccinium corymbosum | null | full_sun | light_feeder (medium) | null | null |
+| Vicia faba | 45 | full_sun | light_feeder (low) | true | 4 (Art-Abweichung) |
+| Vitis vinifera | 150–180 | full_sun | light_feeder (low) | null | null |
+| Zea mays | 34–45 | full_sun | heavy_feeder (medium) | null | null (selbstverträglich) |
+| Tagetes erecta / patula | 30 | full_sun | n/a | n/a | n/a |
+| Syringa, Tigridia, Verbena | null (n/a bzw. unbelegt) | full_sun | n/a | n/a | n/a |
+| Viburnum, Viola, Weigela | null | null | n/a | n/a | n/a |
+| Stephanotis, Strelitzia, Yucca, Zantedeschia | n/a | full_sun | n/a | n/a | n/a |
+| Spathiphyllum, Streptocarpus, Stromanthe, Syngonium, Tillandsia, Tradescantia, Vriesea, Zamioculcas | n/a | partial_shade | n/a | n/a | n/a |
+
+### Lücken (Wert `null`, Grund)
+
+| Art | Feld | Grund |
+|---|---|---|
+| Sorghum bicolor | `light_requirement` | keine gelesene Quelle nennt einen Lichtanspruch (LTZ nennt nur Wärmebedarf, C4) |
+| Viburnum opulus, Weigela florida, Viola x wittrockiana | `light_requirement` | RHS nennt Spanne „Full sun, Partial shade“ ohne ausdrücklichen Vorzug |
+| Triticum aestivum, Tropaeolum majus | `nutrient_demand` | **Pflicht, unbelegt**: Weizen in keiner Gemüsebau-Zehrerliste, Kapuzinerkresse in keiner der vier Fruchtfolge-Quellen namentlich (grep „Kapuziner“/„Tropaeol“ ohne Treffer) |
+| Thymus, Trifolium, Vaccinium, Tigridia, Verbena, Viola | `row_spacing_cm` | RHS nennt nur Pflanzabstand (Thymus 20–30, Vaccinium 1–2 m bzw. LWG 1,5 m) bzw. keine Quelle |
+| Sorghum, Thymus, Trifolium, Triticum, Vaccinium, Vitis, Syringa, Tigridia, Verbena, Viburnum, Weigela | `spacing_cm` (1.9) | keine Quelle für Abstand in der Reihe bzw. nur Endgröße (RHS); Tigridia: RHS nennt nur Pflanztiefe 10 cm |
+| Zantedeschia aethiopica | `spacing_cm`, `row_spacing_cm` | RHS-Gattungsguide nennt Horste bis 90 cm Breite ohne Abstandszahl; 30 cm gelten dort nur für kleinere Calla-Hybriden |
+| Alle Nutzarten außer Rotklee/Ackerbohne | `nitrogen_fixing` | keine gelesene Quelle belegt `false` |
+| Mais, Sorghum | `rotation_pause_years` | FiBL/Uni Göttingen bzw. LTZ/EIP LUPI-HIRSE-Huhn: „selbstverträglich“ ohne Zahl; die 1 Jahr bei Mais ist nur eine Bio-Suisse-Vorgabe |
+| Thymus, Spinat, Tropaeolum, Weizen, Heidelbeere, Weinrebe | `rotation_pause_years` | keine Artquelle; Familienwert Lamiaceae/Amaranthaceae/Tropaeolaceae/Poaceae/Ericaceae/Vitaceae nicht in `botanical_families.yaml` bzw. Dauerkultur |
+| Zimmerpflanzen (12), Syringa, Tagetes (2), Tigridia, Verbena, Viburnum, Viola, Weigela | 6.1-Felder | n/a (Zimmer-/Zierpflanze, keine Fruchtfolge) |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert | Hinweis |
+|---|---|---|---|
+| Spinacia oleracea | 6.1 Mittelzehrer; Pause 2 Jahre | SBB/NiG Schwachzehrer, LKSH/LK NRW Mittelzehrer (2:2); SBB-Familienwert 3–4 | `medium_feeder`, Konfidenz low (Auslegung); Licht RHS „sun or partial shade“ gleichrangig → `full_sun` gewählt (Auslegung) |
+| Trifolium pratense | 6.1 Pause 3–4 | Weimar 2009: Reinsaat 4–7, Rotkleegras 3–4 | Art-Override 4 = Minimum Reinsaat; Bestand gilt nur für Rotkleegras |
+| Triticum aestivum | 1.6 Drillsaat 10–15 cm; 6.1 Starkzehrer, Pause 2 Jahre | belegt 12,5–25 cm (Versuchsvarianten LK Steiermark, schwach) | Zehrerstufe und Pause im Bestand unbelegt, nicht übernommen |
+| Vicia faba | 6.1 Pause 4–5 | LfL Bayern „mindestens 4 bis 5 Jahre“ | passt, Art-Override 4 = untere Grenze |
+| Zea mays, Sorghum | 6.1 Pause 2–3 | selbstverträglich (FiBL, Göttingen, LTZ) | Wert bleibt null |
+| Vitis vinifera | 6.1 Mittelzehrer | RHS/UC IPM: kaum Düngung nötig → `light_feeder` (low, indirekt) | Hausgarten-Ratgeber, keine Zehrerklassifikation |
+| Tagetes erecta / patula, Viola | 1.6 25–40 / 20–25 / 20–25 cm | Gardeners' World 15 cm in der Reihe (schwach) | Bestand unverändert; Tagetes-erecta-Bestand „Leichtezer“ in 6.1 ist ein ungültiger Enum-Wert ohne Quelle |
+| Tigridia pavonia | 1.6 10–15 cm | RHS nennt nur Pflanztiefe | Bestand nicht als Beleg genutzt |
+| Syringa vulgaris, Streptocarpus | 1.7 Toleranz partial_shade / shade | Anspruch full_sun (RHS) / partial_shade (RHS-Gattungsguide) | Toleranz ≠ Anspruch |
+
+### Konfidenz `low` / schwache Quelle — Nachschärfung erwünscht
+
+| Art | Feld | Befund |
+|---|---|---|
+| Sorghum bicolor | `nutrient_demand` heavy_feeder (low) | Ackerbau-Quellen (LTZ „relativ hoher Nährstoffbedarf“, TFZ N-Bedarf 30 % unter Mais, EIP 120 kg N/ha) ohne Zehrerklasse; Einstufung indirekt, TFZ widerspricht teilweise |
+| Spinat, Thymus, Rotklee, Ackerbohne, Weinrebe | `nutrient_demand` (low) | widersprüchlich (Spinat) bzw. nur Gruppenangabe („Kräuter“, „Hülsenfrüchte“, „Bohnen“) bzw. Ratgeber (Weinrebe) |
+| Mais, Heidelbeere | `nutrient_demand` (medium) | je zwei Quellen (FiBL Feldmais + NiG Zuckermais; UGA direkt + RHS indirekt) |
+| Tagetes (2), Viola | `row_spacing_cm`/Abstand | Gardeners' World (Zeitschrift, schwach, Gattungsangabe) |
+| Tropaeolum | `row_spacing_cm` 30 | RHS-Kinderseite „Grow it“ (Einzelquelle, schwach) |
+| Weizen | `row_spacing_cm` 12,5–25 | Versuchsbericht LK Steiermark 2024 (Varianten, keine Gartenempfehlung); Licht PFAF (schwach) |
+| Weinrebe | `row_spacing_cm` 150–180 | RHS Hausgarten-Minirebanlage, keine Erwerbsanlage gelesen |
+| Rotklee | Licht | PFAF (schwach) |
+| Tillandsia, Tradescantia, Zamioculcas, Zantedeschia, Stephanotis | `light_requirement` | RHS-Position (Spanne) und Kulturtext unterscheiden sich; Wert folgt dem Kulturtext (Konvention Batch 6: Position = Toleranz, Kulturtext = Anspruch); Tillandsia am wackeligsten (Position „Full sun“, Text „bright, indirect light“) |
+| Streptocarpus, Zantedeschia | `light_requirement` | RHS-Gattungs-/Cultivar-Seiten, keine Artseite |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Spathiphyllum wallisii, Viola x wittrockiana | nur `plant_info.yaml` `species_enrichment` (Importer ungeguardet) — Werte nur im Steckbrief, kein Doppel-Enrichment angelegt |
+| Tagetes erecta | `species_enrichment` in `plant_info_outdoor_1.yaml`; zusätzlich Eintrag in `adventskalender.yaml`, dort nicht geschrieben (Modellgrenze wie Batch 1) |
+| Sorghum, Triticum, Verbena, Vicia, Zea | `species_enrichment` in `plant_info_outdoor_1.yaml` |
+| Thymus, Trifolium | `species_enrichment` in `plant_info_outdoor_2.yaml`; Trifolium trug `nitrogen_fixing: true` bereits (Skript übersprang den Eintrag, sechs Felder manuell nachgetragen, Wert identisch) |
+| Tigridia pavonia | `new_species` in `plant_info.yaml` |
+| Syngonium podophyllum | `new_species` in `plant_info_supplement_1.yaml` |
+| übrige 18 Arten | `new_species` in `plant_info_indoor_3.yaml` (10) und `plant_info_outdoor_2.yaml` (8) |
+| `spacing_cm` | in Batch 7 für keine Art geschrieben; Validator-Warnung „row_spacing ⇒ spacing_cm“ bleibt für Arten mit Reihenabstand ohne Bestands-`spacing_cm` stehen (Weizen, Sorghum) |
+| Steckbrief-Struktur | 1.9/1.10 überall frei und vor `## 2.` eingefügt (kein Fall von 1.7/1.8 hinter Abschnitt 2); Thymus und Vaccinium: neuer Abschnitt „6.4 Fruchtfolge-Einordnung (Beetplanung)“; Vicia faba: Zeilen unter 6.1 (6.4 = Familien-Kompatibilität bereits belegt); Syringa: 6.1 = Mischkultur, keine Ergänzung; Zantedeschia: keine abschließende `<!-- /Quelle -->`-Zeile, Quellenzeilen am Dateiende angehängt |
+
+### Betreiberfragen
+
+1. Sorghum `heavy_feeder` (low) stützt sich auf kg-N/ha-Angaben ohne Zehrerklassen-Begriff — behalten oder auf `null` setzen (E-10 streng gelesen)?
+2. Familienwerte Lamiaceae, Fabaceae, Rosaceae, Poaceae, Cannabaceae fehlen in `botanical_families.yaml`; Polygonaceae, Amaranthaceae, Ericaceae, Vitaceae, Tropaeolaceae sind dort gar nicht angelegt (siehe Gesamtbilanz).
+3. Spinat: medium_feeder (Auslegung bei 2:2-Quellenlage) und full_sun (Quelle „sun or partial shade“) — bestätigen?
+
+### Lehren aus Batch 7
+
+1. RHS-Suche per `curl` liefert nichts (JS-Rendering); Artseiten-ID per WebSearch finden, danach `curl` auf `/plants/<id>/<slug>/details` (Position-Feld liegt im HTML). RHS-Anleitungen (marigolds, pansies, weigela, lilac) liefern teils 404.
+2. RHS-„Position“ ist eine Toleranzspanne; als Anspruch zählt der Kulturtext („bright indirect/filtered light“ → `partial_shade`). Bei Spanne ohne Vorzug bleibt `null`.
+3. WebSearch-Snippets zählen nicht als gelesen; jede zitierte Aussage wurde per `curl`/`pdftotext` oder WebFetch geprüft.
+4. Gemüsebau-Zehrerlisten decken Zierpflanzen, Obst, Getreide und Klee nicht ab; für Nutzarten außerhalb des Gemüsebaus braucht die Nachbelegung Ackerbau-/Obstbau-Quellen (LfL, LK, LWG), die selten eine Zehrerklasse nennen.
+5. Das Einfüge-Skript muss vorhandene Einzelschlüssel pro Feld behandeln, nicht den ganzen Eintrag überspringen (Trifolium).
+
+## Gesamtbilanz Batches 1–7 (alle 210 Steckbriefe) — 2026-10-17
+
+Zählung aus den Steckbriefen (Abschnitt 1.9/1.10/6.x, Parse der Tabellenzeilen; 210 Dateien). Einzelwerte je Batch stehen in den Batch-Abschnitten.
+
+| Feld | gesetzt | Aufschlüsselung | n/a bzw. leer |
+|---|---|---|---|
+| `row_spacing_cm` | 93 | — | 94 n/a (Zimmerpflanzen, Stauden, Gehölze ohne Reihenkultur), 23 unbelegt |
+| `light_requirement` | 156 | `full_sun` 99, `partial_shade` 57 (`shade` 0) | 54 `null` (Spanne ohne Vorzug bzw. keine Quelle) |
+| `nutrient_demand` | 50 | `light_feeder` 18, `medium_feeder` 15, `heavy_feeder` 17; Konfidenz high 10, medium 13, low 27 | 61 mit `DATEN FEHLEN`, davon 30 Nutzarten (Pflichtlücke, unten), 31 Zier-/Zimmerpflanzen (n/a); 90 Steckbriefe ohne Zehrer-Zeile (Zimmerpflanzen, bewusst n/a) |
+| `nitrogen_fixing` | 47 | `true` 8, `false` 39 | übrige null/n/a |
+| `rotation_pause_years` (Art-Override) | 10 mit Zahlenwert | Avena 4, Cannabis 3, Daucus 5, Fragaria 4, Melissa 4, Mentha 4, Phaseolus 3, Pisum 5, Trifolium 4, Vicia 4 | übrige: Familienwert gilt oder unbelegt |
+
+### Offene Pflichtlücke `nutrient_demand` bei Nutzpflanzen — Nachbelegungsliste (30 Arten)
+
+Quellenhinweis aus allen Batches: Gemüsebau-Listen (SBB, LKSH, NiG, LK NRW) reichen für diese Arten nicht; benötigt werden Obstbau-Quellen (Sächs. LfL, LWG, Bayerische Gartenakademie), Ackerbau-/Futterbau-Quellen (LfL, Landwirtschaftskammern, KTBL) und Kräuter-/Sonderkultur-Merkblätter.
+
+| Gruppe | Arten |
+|---|---|
+| Obst-/Beerengehölze, Wildobst | Malus domestica, Prunus avium, Prunus domestica, Pyrus communis, Ribes rubrum, Ribes uva-crispa, Rubus fruticosus, Rubus idaeus, Cornus mas; zusätzlich Sambucus nigra (kein Fruchtfolge-Abschnitt, keine Zehrer-Zeile) |
+| Getreide/Körnerfrüchte/Ackerbau | Avena sativa, Hordeum vulgare, Triticum aestivum, Oryza sativa, Glycine max, Lens culinaris, Medicago sativa, Helianthus annuus, Cannabis sativa, Humulus lupulus, Nicotiana tabacum |
+| Gemüse/Kräuter/Sonstige | Anethum graveolens, Levisticum officinale, Petroselinum crispum, Citrullus lanatus, Cucumis melo, Luffa aegyptiaca, Physalis peruviana, Tropaeolum majus |
+| Gründüngung | Phacelia tanacetifolia, Sinapis alba |
+
+Hinweis: Die Zuordnung Nutzart/Zierpflanze für die Zählung 30/31 erfolgte heuristisch aus dem `DATEN FEHLEN`-Text; Steckbriefe ohne Zehrer-Zeile (90) sind nicht einzeln geprüft.
+
+### Fehlende Familienwerte in `botanical_families.yaml`
+
+`rotation_pause_years` ist nur für Solanaceae, Apiaceae, Brassicaceae, Cucurbitaceae (je 4), Asteraceae (3) gesetzt. Folgende Familien tragen Nutzarten, haben aber keinen Wert:
+
+| Familie | Status | Arten mit belegter Art-Abweichung / Hinweis |
+|---|---|---|
+| Lamiaceae | angelegt, `null` | Melissa 4, Mentha 4 (Art-Override); Thymus, Rosmarinus, Salvia, Origanum, Ocimum ohne Wert |
+| Fabaceae | angelegt, `null` | Pisum 5 (SBB 5–6, LKSH 6–7), Phaseolus 3, Trifolium 4, Vicia 4 (LfL 4–5); Batch 5 notierte noch 6 — Familienwert abstimmen |
+| Rosaceae | angelegt, `null` | Fragaria 4; Obstgehölze und Rosa ohne Quelle (Rosmüdigkeit nur im Bestand) |
+| Poaceae | angelegt, `null` | Avena 4; Mais und Sorghum „selbstverträglich“ ohne Zahl |
+| Cannabaceae | angelegt, `null` | Cannabis 3 (Art-Override) |
+| Polygonaceae | nicht angelegt | Rheum rhabarbarum |
+| Amaranthaceae | nicht angelegt | Spinacia (SBB nennt 3–4 für Gänsefußgewächse), Beta |
+| Ericaceae, Vitaceae, Tropaeolaceae | nicht angelegt | Dauerkulturen bzw. Zierpflanze ohne Quelle |

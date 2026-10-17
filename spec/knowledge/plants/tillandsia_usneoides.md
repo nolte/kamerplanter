@@ -116,6 +116,22 @@
 **Hinweis zur Standort-Physiologie:** *T. usneoides* ist ein obligater CAM-Epiphyt (crassulacean acid metabolism) ohne funktionale Wurzeln und ohne durchwurzeltes Substrat — bodenbezogene Felder (Wurzeltiefe, Boden-pH, Substrat-ECe) sind physiologisch nicht anwendbar. Lichtphysiologisch ist die Art lichthungrig (eine der lichtbedürftigsten Tillandsien), verträgt aber keine tiefe Beschattung; natürlicher Standort ist halbschattig-gefiltertes Licht (dappled shade) bis lichte Sonne. Die Pflanze muss nach Befeuchtung vollständig abtrocknen — anhaltende Nässe führt zu Fäule (daher Staunässe-Toleranz `sensitive`).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Tillandsia usneoides“ (Position: Full sun; Kulturtext: "Grow epiphytically under glass in bright, indirect light" — Quelle intern uneinheitlich, Kulturtext (helles indirektes Licht) gewählt, Konflikt gemeldet), https://www.rhs.org.uk/plants/18258/tillandsia-usneoides/details — Quelle intern widersprüchlich (Position-Feld Full sun vs. Kulturtext helles indirektes Licht); Einstufung folgt dem Kulturtext, Konfidenz gering. | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -332,4 +348,5 @@ Tillandsia usneoides,Spanisches Moos;Louisianamoos;Spanish Moss,Bromeliaceae,Til
 9. [North Carolina Extension Gardener Plant Toolbox – Tillandsia usneoides](https://plants.ces.ncsu.edu/plants/tillandsia-usneoides/) — Lichttoleranz (Full Sun / Partial Shade), Küstenpflanze, USDA-Zonen
 10. [RHS – Tillandsia usneoides](https://www.rhs.org.uk/plants/18258/tillandsia-usneoides/details) — perennierender immergrüner Epiphyt, Pflege
 11. [Foliage Factory – Tillandsia usneoides](https://www.foliage-factory.com/tillandsia-usneoides) — Temperatur-/Frosttoleranz (kurze Fröste bis ca. -5/-6 °C, frostfrei überwintern), Lichtbedarf
+RHS -- Tillandsia usneoides (Position/Aspect: Full sun; Lichtanspruch): https://www.rhs.org.uk/plants/18258/tillandsia-usneoides/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

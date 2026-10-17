@@ -147,6 +147,22 @@
 **Quellen (§1.8):** [How to grow Bloomsdale long standing spinach — UNH Extension](https://extension.unh.edu/resource/how-grow-bloomsdale-long-standing-spinach-spinacia-oleracea) und [Effect of Temperature on Seed Germination in Spinach — ResearchGate](https://www.researchgate.net/publication/312048125_Effect_of_Temperature_on_Seed_Germination_in_Spinach_Spinacia_oleracea) (Keimtemperatur 5–30 °C, Optimum 20 °C, Keimdauer 7–14 Tage); [Spinach Growing Guide — UF Seeds](https://www.ufseeds.com/spinach-growing-info.html) und [Grow Spinach from Seed — Backbone Valley Nursery](https://backbonevalleynursery.com/grow-spinach-from-seed-in-the-garden/) (Saattiefe ½ Zoll); [Do Spinach Seeds Need Light to Germinate? — Chef's Resource](https://www.chefsresource.com/do-spinach-seeds-need-light-to-germinate/) und [7 Seeds That Need Light / 8 That Require Darkness — Gardening Know How](https://www.gardeningknowhow.com/garden-how-to/seeds/seeds-that-need-light-and-seeds-that-need-darkness-to-germinate) (Dunkelkeimer); [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) und [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html) (Keimfähigkeitsdauer 1–5 Jahre); [Bloomsdale Organic Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/bloomsdale-organic-spinach-seeds---1-ounce/OSPBL-1+Ounce.html) (69 Korn/g) und [Seaside F1 Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/seaside-f1-spinach-seeds---500000-seeds/SPSS-500,000seeds.html) (81 Korn/g) für die Tausendkornmasse; [Direct Seeding Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/methods-tools-supplies/direct-seeding/direct-seeding-guidelines.html) (12–15 Korn/Fuß Reihenlänge) und Square-Foot-Gardening-Konvention (9 Korn/sqft, zitiert u.a. bei [Eden Brothers Planting Guide](https://grow.edenbrothers.com/planting-guides/spinach-seeds/)) für die Aussaatdichte.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 (Auspflanzen; Ausdünnen auf 7,5 cm) | `species.spacing_cm` |
+| Reihenabstand (cm) | 20 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Spinach: Grow your own“ („Space additional rows 20cm (8in) apart“; „Space young spinach plants 15cm (6in) apart“; Ausdünnen der Sämlinge auf 7,5 cm), https://www.rhs.org.uk/vegetables/spinach/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Spinach: Grow your own“ („Choose a sowing site in sun or partial shade“; „sunny or lightly shaded planting site“; bei Wärme leichter Schatten gegen Schossen) — Quelle nennt Sonne UND Halbschatten gleichrangig, Einstufung full_sun mit Toleranz partial_shade ist eine Auslegung, https://www.rhs.org.uk/vegetables/spinach/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -317,6 +333,11 @@ Spinat tendiert zur Nitratspeicherung — daher organische Düngung bevorzugen u
 | Empfohlene Vorfrucht | Tomaten, Kohlarten (Starkzehrer) |
 | Empfohlene Nachfrucht | Bohnen, Erbsen (N-Fixierer) oder Kohlarten |
 | Anbaupause (Jahre) | 2 Jahre keine Amaranthaceen (Spinat, Mangold, Rote Bete) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Mittelstarkzehrer: „Spinat“), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, „Fruchtfolge im Garten“ (Mittelzehrer: „Möhren, Spinat, Radies“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; WIDERSPRUCH: Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Schwachzehrer: Spinat), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: Spinat), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | low (widersprüchlich: 2 Quellen Mittelzehrer, 2 Quellen Schwachzehrer; Wert medium_feeder nach LKSH/LK NRW) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle zur Anbaupause; SBB 2022 Tabelle 1 nennt für die Familie Gänsefußgewächse (Spinat, Rote Bete, Mangold) 3–4 Jahre (Familienwert, kein Art-Override), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Bestandswert in 6.1 (2 Jahre) bleibt unverändert und widerspricht der Quelle --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -392,4 +413,9 @@ Spinacia oleracea,"Spinat;Echter Spinat;Spinach",Amaranthaceae,Spinacia,annual,l
 28. [Seaside F1 Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/seaside-f1-spinach-seeds---500000-seeds/SPSS-500,000seeds.html) — 81 Korn/g
 29. [Direct Seeding Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/methods-tools-supplies/direct-seeding/direct-seeding-guidelines.html) — 12–15 Korn/Fuß Reihenlänge
 30. [How to Plant Spinach Seeds — Eden Brothers Planting Guides](https://grow.edenbrothers.com/planting-guides/spinach-seeds/) — Square-Foot-Gardening-Dichte (9 Korn/sqft)
+31. RHS — Spinach: Grow your own (Pflanzabstand 15 cm, Reihenabstand 20 cm; Sonne oder Halbschatten): https://www.rhs.org.uk/vegetables/spinach/grow-your-own
+32. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022) — Tabelle 1 Anbaupausen, Tabelle 2 Zehrerklassen: https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+33. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+34. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+35. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

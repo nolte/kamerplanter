@@ -142,6 +142,22 @@
 **Quellen (§1.8):** [Tagetes Plant Growing Guide — GardenersHQ](https://www.gardenershq.com/Tagetes-Marigold.php) (Keimtemperatur 22–24 °C, Saattiefe ¼ Zoll, Licht nicht zwingend, Vermiculit-Abdeckung); [Crackerjack African Marigold Seeds — Everwilde](https://www.everwilde.com/store/African-Marigold-Crackerjack-Wildflower-Seeds.html) und [Marigolds Are Easily Grown From Seed — Horticulture.co.uk](https://horticulture.co.uk/marigolds/sowing/) (Keimdauer 4–14 Tage); [How to Save Marigold Seeds for Next Year — Ramniwas Bagh](https://ramniwasbagh.com/how-to-save-marigold-seeds-for-next-year/) und [Seed storage of African marigold (Tagetes erecta L.) for ex-situ conservation — Ingenta/Seed Science and Technology](https://www.ingentaconnect.com/content/ista/sst/2004/00000032/00000002/art00020) (Keimfähigkeitsdauer 2–3 Jahre).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 (Gattungsangabe Tagetes; Aussaat auf 10–20 cm ausdünnen je nach Sortengröße) | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | Gardeners' World, „How to grow marigolds“ (Spacing: 15 cm apart, 30 between rows; gilt für French und African marigolds gemeinsam; Zeitschriftenquelle, schwach; die RHS-Artenseite nennt keinen Abstand), https://gardenersworld.com/how-to/grow-plants/how-to-grow-marigolds | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Tagetes erecta“ (Position: Full sun; Kulturtext „Grow in moderately fertile, well-drained soil in full sun“), https://www.rhs.org.uk/Plants/151627/wd/Details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -347,6 +363,11 @@ Weniger ist mehr bei Tagetes. Gut angereicherte Gartenerde oder Kompost-basierte
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | 2 Jahre empfohlen (Botrytis-Dauerformen) |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Leichtezer oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung (Tagetes im Zwischenanbau gegen Nematoden bei LKSH erwähnt, aber ohne Zehrerstufe/Anbaupause) --> |
 
 **Nematoden-Sanierung:** Tagetes erecta und T. patula wirken als biologische Nematizide. 3 Monate Tagetes-Anbau auf befallenen Flächen reduziert Meloidogyne-Populationen um 90%. Anschließend 4 Monate Brache für maximalen Effekt. Wissenschaftlich gut belegt (Ploeg & Maris 1999, Nematology).
 
@@ -438,4 +459,6 @@ American Giant Mix,Tagetes erecta,"very_tall;mixed_colors;cut_flower",65,open_po
 19. [Tagetes Marigolds Are Easily Grown From Seed — Horticulture.co.uk](https://horticulture.co.uk/marigolds/sowing/) — Keimdauer-Bestätigung
 20. [How to Save Marigold Seeds for Next Year — Ramniwas Bagh](https://ramniwasbagh.com/how-to-save-marigold-seeds-for-next-year/) — Keimfähigkeitsdauer 2–3 Jahre
 21. [Seed storage of African marigold (Tagetes erecta L.) for ex-situ conservation — Seed Science and Technology / Ingenta](https://www.ingentaconnect.com/content/ista/sst/2004/00000032/00000002/art00020) — Keimfähigkeitsdauer, Lagerbedingungen
+22. RHS -- Tagetes erecta (Position: Full sun; Lichtanspruch): https://www.rhs.org.uk/Plants/151627/wd/Details
+23. Gardeners' World -- How to grow marigolds (Spacing 15 cm / 30 cm Reihe; Gattung Tagetes, schwach): https://gardenersworld.com/how-to/grow-plants/how-to-grow-marigolds
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

@@ -136,6 +136,22 @@
 Quellen (§1.8): [Ball Horticultural Company — Seed Crop Information Guide (Verbena-Zeile: 10.000 Samen/oz, 350 Samen/g, Cover Seed: Yes, 75–80 °F, Sow-to-Transplant 35–42 Tage)](https://www.panamseed.com/media/culture/pas/seedcropchart_ball.pdf); [Gardening Know How — Verbena Seed Germination: How To Grow Verbena From Seed](https://www.gardeningknowhow.com/ornamental/flowers/verbena/verbena-seed-germination.htm); [Sow Right Seeds — Grow Vibrant Verbena Flowers That Beat the Summer Heat](https://sowrightseeds.com/blogs/planters-library/how-to-grow-verbena-flowers-from-seed); [Bright Lane Gardens — How Long to Cold Stratify Seeds for Successful Germination](https://brightlanegardens.com/native-plants/seed-starting/how-long-to-cold-stratify-seeds/); [OSC Seeds — Ideal Florist Mixed Hybrid Verbena Seeds (Seed count ~350/g)](https://www.oscseeds.com/product/ideal-florist-mixed-hybrid-verbena-seeds-6277/); [Park Seed — Know Before You Grow: Verbena Plant](https://www.parkseed.com/blogs/park-seed-blog/know-before-you-grow-verbena-plant)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — | `species.spacing_cm` |
+| Reihenabstand (cm) | — (kein Reihenabstand in RHS-Quellen) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Glandularia × hybrida“ (Synonym Verbena × hybrida; Höhe/Spread 0,1–0,5 m, kein Pflanzabstand), https://www.rhs.org.uk/plants/354300/glandularia-x-hybrida/details; RHS, „How to grow verbena“ (kein Abstand), https://www.rhs.org.uk/plants/popular/verbena/growing-guide | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Glandularia × hybrida“ (Synonym Verbena × hybrida; Position: Full sun; Kulturtext „Grow in moderately fertile, moist but well-drained soil in full sun“), https://www.rhs.org.uk/plants/354300/glandularia-x-hybrida/details; RHS, „How to grow verbena“ („All verbenas like full sun and well-drained soil“), https://www.rhs.org.uk/plants/popular/verbena/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -361,6 +377,11 @@ Verbene ist nicht anspruchsvoll, aber kontinuierliches Blühen braucht regelmä�
 | Empfohlene Vorfrucht | — (Einjährige Zierpflanze; keine klassische Fruchtfolge) |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | 2–3 Jahre Pause auf gleicher Beetfläche (Botrytis) |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Mittelzehrer oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -428,4 +449,6 @@ Superbena Coral Red,Verbena × hybrida,"trailing;large_flower;vegetative;heat_to
 <!-- Quelle: growing-phase-auditor 2026-07 -->
 12. [Proven Winners — Growing Verbena](https://www.provenwinners.com/learn/how-plant/verbena) — Verbena x hybrida als "long-blooming, heat-tolerant tender perennial", in kalten Zonen als Einjährige kultiviert
 13. [Texas A&M AgriLife Extension / Henderson County Master Gardeners — Verbena Hybrid Mix](https://txmg.org/hendersonmg/plant-library/verbena-hybrid-mix/) — "short-lived perennial hardy only to USDA Zones 9 or 10", außerhalb dieser Zonen einjährig kultiviert
+14. RHS -- Glandularia × hybrida (Syn. Verbena × hybrida; Position: Full sun; Lichtanspruch): https://www.rhs.org.uk/plants/354300/glandularia-x-hybrida/details
+15. RHS -- How to grow verbena (full sun; Lichtanspruch): https://www.rhs.org.uk/plants/popular/verbena/growing-guide
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
