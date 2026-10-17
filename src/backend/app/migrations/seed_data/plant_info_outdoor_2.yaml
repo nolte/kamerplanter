@@ -740,6 +740,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Phlox paniculata"
     propagation_configs:
@@ -782,6 +789,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rhododendron spp."
     propagation_configs:
@@ -1653,6 +1667,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.6
       max_ph: 9
+    row_spacing_cm: "42–62.5"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Sammelgruppe Kräuter = Schwachzehrer: Natur im Garten Burgenland, Fruchtfolge im Gemüsegarten (Schwachzehrer-Beet mit Kräuter); Landwirtschaftskammer NRW 2020, Fruchtfolge im Gemüsegarten planen (Schwachzehrer inkl. Kräuter) (Melisse nicht namentlich)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: 4
 
   - scientific_name: "Origanum vulgare"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1712,6 +1733,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Landwirtschaftskammer NRW, Fruchtfolge im Gemuesegarten planen (2020; Gruppenangabe: Kraeuter = Schwachzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Satureja hortensis"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1821,6 +1849,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    row_spacing_cm: "30–40"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt Fruchtfolgen im Gemüsebau (2022), Tabelle 2 (Pastinake: Mittelzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LWG Bayern, Merkblatt 2157 Pastinake - Kulturanleitung (2013; Mittelstarkzehrer), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/infoschrift_pastinake.pdf"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rheum rhabarbarum"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2048,6 +2083,12 @@ new_species:
     soil_ph_preference:
       min_ph: 6.5
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Phacelia tanacetifolia"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2097,6 +2138,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.4
       max_ph: 8.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Sinapis alba"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2382,6 +2430,13 @@ species_enrichment:
     native_habitat: "Hybride (Mentha aquatica x Mentha spicata); Europa"
     pruning_type: after_harvest
     pruning_months: [6, 7, 8, 9]
+    row_spacing_cm: "62.5–75"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Sammelgruppe Kräuter = Schwachzehrer: Natur im Garten Burgenland, Fruchtfolge im Gemüsegarten (Schwachzehrer-Beet mit Kräuter); Landwirtschaftskammer NRW 2020, Fruchtfolge im Gemüsegarten planen (Schwachzehrer inkl. Kräuter) (Pfefferminze nicht namentlich); Gegenindiz LfL Bayern Kulturanleitung Pfefferminze: Entzug 42 kg N je 100 dt Frischkraut, gestaffelte N-Gaben, keine Zehrerklasse"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: 4
 
   "Ocimum basilicum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2423,6 +2478,13 @@ species_enrichment:
     native_habitat: "Tropisches Asien (Indien, Suedostasien)"
     pruning_type: summer_pruning
     pruning_months: [5, 6, 7, 8, 9]
+    row_spacing_cm: "25"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "LWG Bayern, Merkblatt 2151 Basilikum (2020; mittleres Naehrstoffbeduerfnis), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf; abweichend LK NRW 2020 (Kraeuter als Gruppe Schwachzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Petroselinum crispum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2461,6 +2523,13 @@ species_enrichment:
     native_habitat: "Mittelmeerraum"
     pruning_type: summer_pruning
     pruning_months: [5, 6, 7, 8, 9, 10]
+    row_spacing_cm: "20–30"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Phaseolus vulgaris":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2499,6 +2568,13 @@ species_enrichment:
     support_required: true
     pruning_type: none
     pruning_months: []
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt Fruchtfolgen im Gemüsebau (2022), Tabelle 2 (Buschbohne: Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, Fruchtfolge im Gemüsegarten planen (2020; Schwachzehrer: alle Hülsenfrüchte), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, Fruchtfolge im Garten (Schwachzehrer: Erbsen, Bohnen, Kräuter), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Natur im Garten Burgenland (Schwachzehrer-Beet: Buschbohnen; Stangenbohnen in Mittelzehrer-Spalte), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; RHS French beans (don't need feeding when growing in the ground), https://www.rhs.org.uk/vegetables/french-beans/grow-your-own"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: true
+    rotation_pause_years: 3
 
   "Pisum sativum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources

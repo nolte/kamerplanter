@@ -126,6 +126,23 @@
 
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Artseite nennt keinen Pflanzabstand; Max Spread 0,5–1 m ist kein Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite: Position „Full sun, Partial shade“, Kulturtext „fertile, moist soil in full sun or partial shade“ — Spanne ohne Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -310,6 +327,11 @@ Phlox reagiert empfindlich auf zu hohen Stickstoffgehalt — dies fördert üppi
 | Fruchtfolge-Kategorie | Gartenstauden |
 | Empfohlene Vorfrucht | — (Mehrjährig; kein Fruchtwechsel) |
 | Anbaupause (Jahre) | Mindestens 3–4 Jahre an gleichem Standort sinnvoll; dann teilen |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierstaude — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierstaude — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierstaude — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierstaude — keine gelesene Quelle zur Stickstofffixierung --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Zierstaude, keine Fruchtfolgekultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -362,4 +384,5 @@ Phlox paniculata,"Flammenblume;Hoher Stauden-Phlox;Garden Phlox",Polemoniaceae,P
 8. [Biology Insights — Phlox Roots: Depth, Planting, and Common Problems](https://biologyinsights.com/phlox-roots-depth-planting-and-common-problems/) — Wurzelsystem-Tiefe (≈30–38 cm)
 9. [Jersey-Friendly Yards — Phlox paniculata](https://www.jerseyyards.org/plant/phlox-paniculata/) — Salztoleranz "medium" (→ moderately_sensitive), Licht, Bodenfeuchte
 10. [Yard & Garden, Iowa State Extension — Using Growing Degree Days](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basistemperatur 5 °C für kühl-temperate Arten
+11. [RHS — Phlox paniculata](https://www.rhs.org.uk/plants/12736/phlox-paniculata/details) — Position „Full sun, Partial shade“ ohne Vorzug; kein Pflanzabstand angegeben
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

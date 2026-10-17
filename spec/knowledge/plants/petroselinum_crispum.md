@@ -147,6 +147,23 @@ Hinweis: Regelmaessiges Ernten der aeusseren Blaetter foerdert buschiges Nachwac
 Quellen (§1.8): [BBC Gardeners' World Magazine -- How to Grow Parsley](https://www.gardenersworld.com/how-to/grow-plants/how-to-grow-parsley/); [Wisconsin Horticulture Extension -- Parsley, Petroselinum crispum](https://hort.extension.wisc.edu/articles/parsley-petroselinum-crispum/); [Wikifarmer -- Petroselinum crispum: Parsley seeds](https://wikifarmer.com/library/en/article/petroselinum-crispum-parsley-seeds); [A Way To Garden -- Estimating viability: how long do seeds last?](https://awaytogarden.com/estimating-viability-how-long-do-seeds-last/); [lovethegarden.com -- How to plant, grow and care for Parsley](https://www.lovethegarden.com/uk-en/article/parsley-petroselinum-crispum); [Southern Exposure Seed Exchange -- Parsley](https://www.southernexposure.com/categories/parsley/)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15–30 | `species.spacing_cm` |
+| Reihenabstand (cm) | 20–30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Parsley: Grow your own“ („Space any additional rows 20–30cm (8–12in) apart“; Vereinzeln auf „15–30cm (6–12in) between plants, depending on the variety“), https://www.rhs.org.uk/herbs/parsley/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Anbauanleitung: „will grow well in full sun or partial shade“ — Spanne ohne Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -472,6 +489,11 @@ Petersilie (Petroselinum crispum) hat begrenzte natuerliche Resistenzen. Die bed
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung -- lockerer, stickstoffangereicherter Boden |
 | Empfohlene Nachfrucht | Schwachzehrer (Radieschen, Feldsalat) oder Gruenduengung |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Apiaceae auf gleicher Flaeche (Septoria, Nematoden) |
+| Zehrerstufe | <!-- DATEN FEHLEN: LKSH, Landwirtschaftskammer NRW und Natur im Garten nennen Zehrerstufen nur für die Sammelgruppe „Kräuter“ (Schwachzehrer), Petersilie nicht namentlich; Südtiroler Bauernbund Tabelle 2 führt Petersilie nicht --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine artspezifische Zehrerstufe in einer gelesenen Fachquelle --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine artspezifische Zehrerstufe in einer gelesenen Fachquelle --> |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 führt Petersilie unter Doldenblütler, Schmetterlingsblütler als eigene Familie, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4; Südtiroler Bauernbund 2022 nennt für Doldenblütler inkl. Petersilie 4–5 Jahre) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -574,4 +596,7 @@ Festival 68,Petroselinum crispum,,,high_yield;disease_resistant,70,,open_pollina
 27. A Way To Garden -- Estimating viability: how long do seeds last?: https://awaytogarden.com/estimating-viability-how-long-do-seeds-last/ -- Petersiliensaatgut nur 1--2 Jahre keimfaehig
 28. lovethegarden.com -- How to plant, grow and care for Parsley: https://www.lovethegarden.com/uk-en/article/parsley-petroselinum-crispum -- Reihenabstand 30 cm, Pflanzabstand 10--15 cm nach Vereinzelung
 29. Southern Exposure Seed Exchange -- Parsley: https://www.southernexposure.com/categories/parsley/ -- Sortenkatalog, Samengewicht/-mengen je Packung
+30. [RHS — Parsley: Grow your own](https://www.rhs.org.uk/herbs/parsley/grow-your-own) — Reihenabstand 20–30 cm, Pflanzabstand 15–30 cm, „full sun or partial shade“ ohne Vorzug
+31. [Südtiroler Bauernbund — Merkblatt „Fruchtfolgen im Gemüsebau“ (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Petersilie in der Familie Doldenblütler (4–5 Jahre Anbaupause), Hülsenfrüchte als eigene Familie
+32. [LKSH — Fruchtfolge im Garten](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Petersilie unter Doldenblütler; Zehrerstufen nur als Sammelgruppe „Kräuter“ (Schwachzehrer)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

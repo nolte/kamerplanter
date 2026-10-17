@@ -112,6 +112,22 @@
 **Hinweise:** Neoregelia ist ein epiphytischer CAM-Schattenspezialist des atlantischen Regenwald-Unterwuchses: helles indirektes Licht bis Halbschatten optimal, überlebt auch nahezu Vollschatten, verträgt jedoch keine direkte Mittagssonne. Salzempfindlichkeit zeigt sich als Blattspitzen-Nekrose (tip burn) bei salzhaltigem oder enthärtetem Wasser; Regen-/Destillatwasser bevorzugt (Wasser-pH 4.0–7.0). Die Staunässe-Empfindlichkeit bezieht sich auf das Substrat (Wurzelfäule), nicht auf den wassergefüllten Blatttrichter (Phytotelma), der dauerhaft gefüllt bleiben soll.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite (Neoregelia carolinae) führt keine Position; die RHS-Sortenseiten weichen ab (Full sun, Partial shade bzw. Partial shade) und gelten nicht für die Art --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -276,6 +292,11 @@ Neoregelia ist wie alle Tank-Bromeliaden ein Epiphyt — Düngung ausschließlic
 | Nährstoffbedarf | Schwachzehrer |
 | Fruchtfolge-Kategorie | Zimmerpflanze, Epiphyt |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zimmerpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zimmerpflanze ohne Fruchtfolge; keine Quelle --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

@@ -141,6 +141,22 @@
 7. [CORESTA — Pre-chilling improves tobacco (Nicotiana tabacum L.) seed germination](https://www.coresta.org/abstracts/pre-chilling-improves-tobacco-nicotiana-tabacum-l-seed-germination-27921.html) — Vorkühlung verbessert Keimrate zusätzlich (optional, nicht obligatorisch)
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine gelesene Fachquelle mit Pflanzabstand-Empfehlung; University-of-Kentucky-Tabelle „Tobacco Plant Population Based on Row Width and In-row Spacing“ ist eine Rechentabelle, keine Empfehlung; KTBL-Tabakbau-PDF nicht lesbar --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine gelesene Fachquelle mit Reihenabstand-Empfehlung (siehe Pflanzabstand) --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine gelesene Fachquelle mit Lichtstufe (Univ. Kentucky Produktionsleitfaden ID-160 nennt keine Standort-Lichtstufe) --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -417,6 +433,11 @@ Nicht zutreffend: Nicotiana tabacum ist in Mitteleuropa eine einjährige (annual
 | Empfohlene Vorfrucht | Getreide, Gräser, Hülsenfrüchte |
 | Empfohlene Nachfrucht | Getreide; KEINE Solanaceen (TMV-Risiko); KEIN Kohl |
 | Anbaupause (Jahre) | 4 Jahre vor erneuten Solanaceen (TMV, Nematoden) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Fachquelle; Bestand „Starkzehrer“ unbelegt (KTBL-Tabakbau-PDF nicht lesbar) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für die Zehrerstufe --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Tabak als Nicht-Leguminose ausweist --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Solanaceae) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

@@ -139,6 +139,22 @@
 6. [Jelitto Perennial Seed — Melissa officinalis](https://www.jelitto.com/Seed/Herbs/MELISSA+officinalis+Portion+s.html) — Tausendkornmasse 0,6–0,7 g/1000 Korn (professioneller Staudensaatgut-Anbieter)
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 25–30 | `species.spacing_cm` |
+| Reihenabstand (cm) | 42–62,5 (Reihenabstand 42 cm, 50 cm oder 62,5 cm) | `species.row_spacing_cm` |
+| Quelle Abstände | LfL Bayern, „Kulturanleitung für Zitronenmelisse“ (2001, überarb. 2008), Abschnitt Pflanzung („Reihenabstand von 42 cm, 50 cm oder 62,5 cm und einem Abstand in der Reihe zwischen 25 cm und 30 cm“; maschinelle Feldpflanzung), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite: Position „Full sun, Partial shade“, Kulturtext „full sun or partial shade“ (Spanne ohne Vorzug); LfL Bayern nennt nur höhere Ölgehalte auf sonnigen, wärmeren Standorten (kein Standortanspruch) --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -362,6 +378,11 @@ Zitronenmelisse ist Lamiaceae — wie Salbei, Thymian und Oregano ein mediterran
 | Empfohlene Vorfrucht | Leguminosen (Erbse, Bohne) oder nährstoffarme Parzellen |
 | Empfohlene Nachfrucht | Starkzehrer (Kürbis, Kohl) profitieren von leicht verbessertem Boden |
 | Anbaupause (Jahre) | 3 Jahre selbe Familie (Lamiaceae) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Sammelgruppe „Kräuter“ als Schwachzehrer (Melisse nicht namentlich): Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „… Kräuter, Spinat“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; „Schwachzehrern, also alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (Lippenblütler, keine Leguminose; LfL Bayern, „Kulturanleitung für Zitronenmelisse“ führt Leguminosen als eigene Vorfruchtgruppe neben den Lippenblütlern, https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Kulturanleitung für Zitronenmelisse“: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“; Untergrenze der belegten Spanne 4–5; Familienwert Lamiaceae im Seed nicht gesetzt), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -428,4 +449,8 @@ Melissa officinalis,"Zitronenmelisse;Gartenmelisse;Lemon Balm",Lamiaceae,Melissa
 12. [Melissa officinalis — Missouri Botanical Garden Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=c857) — herbaceous perennial, Winter-Dieback/Dormanz, USDA 4–9
 13. [Lemon balm — Wikipedia](https://en.wikipedia.org/wiki/Lemon_balm) — Lichtkeimung, Keim-Minimum ~20 °C, Blütezeit, Familie/Taxonomie
 14. [Lemon balm (Melissa officinalis) — Gardenia.net](https://www.gardenia.net/plant/melissa-officinalis) — Wurzelsystem (faserig/rhizomatös, 15–30 cm Tiefe, 40–50 cm laterale Ausbreitung)
+15. [LfL Bayern — Kulturanleitung für Zitronenmelisse (2001, überarb. 2008)](https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf) — Pflanz- und Reihenabstand (Feldanbau), Anbaupause 4–5 Jahre für Lippenblütler
+16. [Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Schwachzehrer-Beet mit „Kräuter“ (Sammelgruppe)
+17. [Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) — Schwachzehrer inkl. „Kräuter“ (Sammelgruppe)
+18. [RHS — Melissa officinalis](https://www.rhs.org.uk/plants/11040/melissa-officinalis/details) — Position „Full sun, Partial shade“ ohne Vorzug (daher kein Lichtanspruch)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

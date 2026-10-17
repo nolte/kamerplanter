@@ -121,6 +121,22 @@
 **Hinweis:** Als immergrüner Unterwuchsfarn feuchter Tropenwälder ist *N. exaltata* tiefschattentolerant (deep_shade — verträgt < 2 h Direktlicht), bevorzugt aber helles indirektes Licht; direkte Vollsonne führt zu Wedelnekrosen. Der niedrige Lichtkompensationspunkt (Spanne abgeleitet aus dem für schattentolerante Arten belegten Wert ≈ 5,3 µmol/m²/s und der allgemeinen Schattenfarn-Physiologie) erlaubt positive Netto-Photosynthese bereits bei sehr geringer Beleuchtung. Lichtsättigung schattenadaptierter Farne liegt bei ca. 200–400 µmol/m²/s (Photoinhibition oberhalb ~600) — dieser Sättigungswert gehört NICHT in das Kompensationspunkt-Feld. Die Salzempfindlichkeit (sensitive) zeigt sich praktisch in Salzschäden durch überdüngtes Substrat und kalkreiches Gießwasser (Blattspitzennekrosen).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | deep_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Nephrolepis exaltata“ (Position: Partial shade; Kulturtext „bright filtered light“), https://www.rhs.org.uk/plants/11508/nephrolepis-exaltata/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -365,4 +381,5 @@ Tiger Fern,Nephrolepis exaltata,"ornamental;variegated;yellow_green",clone
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- Quelle: growing-phase-auditor 2026-07-03 -->
 14. [RHS — Nephrolepis exaltata](https://www.rhs.org.uk/plants/11508/nephrolepis-exaltata/details) — RHS Hardiness Rating H1b (Minimum +10 bis +15 °C, ganzjährig frostfreie/beheizte Kultur nötig) → `frost_sensitivity: tender`
+[RHS — Nephrolepis exaltata (Position)](https://www.rhs.org.uk/plants/11508/nephrolepis-exaltata/details) — Lichtanspruch (Position: Partial shade; Indoor: „bright filtered light“)
 <!-- /Quelle: growing-phase-auditor 2026-07-03 -->

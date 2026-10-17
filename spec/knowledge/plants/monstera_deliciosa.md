@@ -134,6 +134,22 @@
 | Boden-pH-Vorzug (soil pH preference, min--max) | 5.5--6.5 (optimal; toleriert 5.5--7.0, schwach sauer bis neutral) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Monstera deliciosa (F)“ (Position: Partial shade; Kulturtext „bright, indirect light“), https://www.rhs.org.uk/plants/11192/monstera-deliciosa-f/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -499,4 +515,5 @@ Borsigiana,Monstera deliciosa,--,--,compact;fast_growing,clone
 10. Winter & Smith et al. -- "Carbon isotope composition ... reflects a CAM continuum" (Flora 2021, ScienceDirect): https://www.sciencedirect.com/science/article/pii/S1433831921000317 -- C3- vs. CAM-Abgrenzung in Araceae; Hemiepiphyten der Gattung Monstera als C3-Pflanzen eingeordnet.
 11. Foliage Factory -- Epiphytes vs Soil / Aroid Care (Monstera, Philodendron, Anthurium, Epipremnum als C3-Pflanzen): https://foliage-factory.com/blogs/plant-care/epiphytes-vs-soil-houseplants -- Bestaetigung Photosynthese-Typ c3 fuer Indoor-Aroideen inkl. Monstera.
 12. Grossiord et al. (2020) -- "Plant responses to rising vapor pressure deficit", New Phytologist 226:1550-1566: https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.16485 -- VPD-Stomataschluss/Stress bei duennblaettrigen Pflanzen; Grundlage fuer VPD-Schwelle (~1.5 kPa) und hohe VPD-Sensitivitaet tropischer Blattpflanzen.
+RHS -- Monstera deliciosa (F) (Position: Partial shade; Kulturtext „bright, indirect light“; Lichtanspruch): https://www.rhs.org.uk/plants/11192/monstera-deliciosa-f/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
