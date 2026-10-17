@@ -67,7 +67,7 @@ export function selectionRoots(
 }
 
 /** The garden objects inside any of `locationKeys`. */
-function objectsIn(plan: PlanModel, locationKeys: ReadonlySet<string>): string[] {
+export function objectsIn(plan: PlanModel, locationKeys: ReadonlySet<string>): string[] {
   return Object.values(plan.gardenObjects)
     .filter(
       (garden) =>
