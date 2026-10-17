@@ -417,6 +417,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.3
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Echeveria elegans"
     propagation_configs:
@@ -461,6 +469,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # Epipremnum aureum removed — already defined in species.yaml.
   # Enrichment fields moved to species_enrichment section below.
@@ -504,6 +520,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Fatsia japonica"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -551,6 +574,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Ficus benjamina"
     propagation_configs:
@@ -596,6 +627,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Ficus elastica"
     propagation_configs:
@@ -639,6 +678,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Ficus lyrata"
     propagation_configs:
@@ -683,6 +730,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Fittonia albivenis"
     propagation_configs:
@@ -726,6 +781,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Gardenia jasminoides"
     propagation_configs:
@@ -767,6 +830,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Goeppertia lancifolia"
     propagation_configs:
@@ -809,6 +879,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Goeppertia makoyana"
     propagation_configs:
@@ -850,6 +928,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Goeppertia orbifolia"
     propagation_configs:
@@ -1598,6 +1684,14 @@ species_enrichment:
           interval_days: 30
           volume_ml_min: 80
           volume_ml_max: 200
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Dypsis lutescens":
     watering_guide:
@@ -1655,6 +1749,14 @@ species_enrichment:
           interval_days: 12
           volume_ml_min: 60
           volume_ml_max: 150
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Euphorbia pulcherrima":
     watering_guide:

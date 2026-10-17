@@ -135,6 +135,22 @@
 Quellen (§1.8): [Harvest to Table — How to Grow Geranium (Cranesbill)](https://harvesttotable.com/how-to-grow-cranesbill-geranium/) (Kältestratifikation 60 Tage, Keimtemperatur 60–70 °F, Keimdauer 7–10 Tage); [Swallowtail Garden Seeds — Geranium Perennial Flower Seeds, Bloody Cranesbill (Geranium sanguineum)](https://www.swallowtailgardenseeds.com/perennials/geranium-seeds.html) (artspezifische Saatgut-Produktseite mit Kulturanleitung); [Hayefield — Geranium sanguineum (Bloody Cranesbill) Seeds](https://hayefield.com/product/geranium-sanguineum-bloody-cranesbill/) (artspezifische Saatgutquelle, keine Aussaatdichten-Angabe für Freiland-Direktsaat)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine Quelle mit ausdrücklichem Pflanzabstand für G. sanguineum (RHS „Geranium growing guide" verweist nur auf das Pflanzenetikett) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS: „Full sun, Partial shade") --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

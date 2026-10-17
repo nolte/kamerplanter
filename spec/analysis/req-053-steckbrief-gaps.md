@@ -194,3 +194,69 @@ Konventionen wie bei Batch 1. Tally je Art: `spacing_cm (1.9)` | `row_spacing_cm
 1. Der `plant-info-document-generator` hat erneut still Tippfehler/Wortlaut „korrigiert" (Cichorium 2, Citrullus 1, Cucumis sativus 1, Dahlia 2 Zeilen). `git diff | grep '^-[^-]'` allein übersieht Listenzeilen, die mit `- ` beginnen (Diff-Präfix `--`): zusätzlich `git diff --numstat` auf Löschungen prüfen.
 2. Melone/Wassermelone und Cannabis haben keine belastbare Zehrerstufen-Quelle in den üblichen Fruchtfolge-Merkblättern (LKSH, SBB, NiG).
 3. Gehölze/Stauden (Clematis, Cornus mas, Buxus): RHS nennt Endbreite statt Pflanzabstand — nie ableiten.
+
+## Batch 3 (Arten 61–90, `dahlia_pinnata_great_silence` … `goeppertia_makoyana`) — 2026-10-17
+
+Konventionen wie bei Batch 1 und 2. Auswahl: alphabetische Dateiliste von `spec/knowledge/plants/*.md`, Position 61–90 (Batch 1 + 2 = Position 1–60, keine Überschneidung). Tally je Art: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_demand` | Konfidenz | `nitrogen_fixing` | `rotation_pause_years`.
+
+### Bilanz je Art
+
+| Art | spacing | row | light | nutrient_demand | Konf. | N-Fix | Pause |
+|---|---|---|---|---|---|---|---|
+| Dahlia 'Great Silence' / 'Armateras' / 'Lavender Perfection' | 60 | freie Pflanzung | full_sun | null | — | null | null |
+| Daucus carota | 3–5 | 25–30 | full_sun | medium_feeder | low | false | 5 (Art-Abweichung, Familie 4) |
+| Delphinium elatum | null | freie Pflanzung | full_sun | null | — | null | null |
+| Echinacea purpurea | null | freie Pflanzung | full_sun | null | — | null | null |
+| Eruca vesicaria | 15–23 | 15 | null | light_feeder | low | false | Familie |
+| Foeniculum vulgare | 25 | 40 | full_sun | medium_feeder | low | false | Familie |
+| Fragaria x ananassa | 25–30 | 40 | full_sun | medium_feeder | low | false | 4 |
+| Forsythia x intermedia | 45–60 (nur Hecke) | freie Pflanzung | full_sun | n/a | — | n/a | n/a |
+| Geranium sanguineum | null | freie Pflanzung | null | n/a | — | n/a | n/a |
+| Glycine max | 10–20 | 18–75 | null | null | — | true | null |
+| Dendrobium, Dracaena angolensis, Dypsis, Fatsia, Gardenia, Goeppertia ×2 | n/a | n/a | partial_shade | n/a | — | n/a | n/a |
+| Dracaena marginata, Echeveria, Ficus benjamina | n/a | n/a | full_sun | n/a | — | n/a | n/a |
+| Dieffenbachia, Dracaena trifasciata, Drachenpalmen, Epipremnum, Euphorbia pulcherrima, Ficus elastica, Ficus lyrata, Fittonia | n/a | n/a | null | n/a | — | n/a | n/a |
+
+### Lücken (Wert `null`, Grund)
+
+| Art | Feld | Grund |
+|---|---|---|
+| Dieffenbachia, Dracaena trifasciata, Epipremnum, Euphorbia, Ficus elastica, Drachenpalmen, Geranium sanguineum, Eruca, Glycine max | `light_requirement` | RHS nennt Spanne ohne Vorzug („Full sun, Partial shade"); bei Eruca und Glycine max keine Standortstufe gelesen |
+| Ficus lyrata | `light_requirement` | RHS-Positionsfeld „Full sun", Kulturtext „full sun or partial shade" widerspricht — konservativ null |
+| Fittonia | `light_requirement` | RHS nennt nur „bright light, out of direct sun", keine Standortstufe |
+| Delphinium, Echinacea, Geranium sanguineum | `spacing_cm` | RHS nennt Endbreite/Etikett, keinen Pflanzabstand; Echinacea 1.6 „40–50" von keiner Quelle gestützt |
+| Dahlien ×3, Delphinium, Echinacea, Glycine max | `nutrient_demand`, `rotation_pause_years` | Zierpflanzen ohne Zehrerstufe in Fruchtfolge-Quellen; Glycine max keine Zehrerstufen-Quelle gelesen |
+| Dahlien ×3, Delphinium, Echinacea | `nitrogen_fixing` | nicht belegt |
+| Foeniculum, Eruca | `rotation_pause_years` | nur Familienwert Apiaceae/Brassicaceae 4 gestützt |
+| Zimmerpflanzen (Abschnitt 6 „Entfällt") | 6.1-Felder | kein 6.1-Abschnitt; Felder bleiben null |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert | Hinweis |
+|---|---|---|---|
+| Dahlien ×3 | 1.6 „60–80 / 60–70 / 60–90" | 60 (RHS „about 60cm apart") | Untergrenze, größere Sorten mehr |
+| Daucus carota | 6.1 Alt „Anbaupause 3–5", „Mittelzehrer" | Pause 5 (LKSH); oekolandbau.de nennt Schwachzehrer | Konfidenz deshalb low |
+| Dracaena angolensis | 1.7 „bevorzugt volle Sonne" | partial_shade (NC State) | Quelle gewinnt |
+| Eruca vesicaria | 1.6 „5–10 / 20 cm"; 6.1 Alt „Anbaupause 2–3" | 15–23 / 15 (LWG 2168, OSU); SBB 4–5 | — |
+| Echinacea purpurea | 1.6 „40–50" | keine Quelle | 1.9 DATEN FEHLEN |
+| Foeniculum vulgare | 6.1 Alt „Anbaupause 2–3" | SBB 4–5 (Familie 4); Zehrerstufe LWG/NiG Mittelzehrer, SBB Starkzehrer | Konfidenz low |
+| Fragaria x ananassa | 1.6 „60–80" Reihenabstand; 6.1 Alt „3–4 Jahre" | 40 (LWG 3182); RHS 35–40 / 75; LWG Pause „4–5" -> 4 | — |
+| Glycine max | 1.6 „5–10 / 40–60" | 10–20 / 18–75 (OMAFRA Edamame); LfL Körnersoja 12,5–50 in Quelle-Zelle | — |
+| Forsythia x intermedia | 1.6 Solitär „150–200" | 45–60 (RHS, nur Heckenpflanzung) | Wert gilt nur für Hecke |
+| Ficus benjamina | 1.7 Toleranz partial_shade | Anspruch full_sun (RHS) | formal korrekt, für Zimmerkultur ungewöhnlich sonnig |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Fragaria x ananassa | nur `plant_info.yaml`, Importer ungeguardet — Werte nur im Steckbrief |
+| Dahlien ×3, Drachenpalmen | kein Seed-Eintrag — Werte nur im Steckbrief |
+| Eruca vesicaria, Glycine max | 1.9 `spacing_cm` nicht übernommen: `species.yaml` hat bereits „10--15", der Importer füllt `species_enrichment` nur fill-if-empty |
+| Seed-`spacing_cm` ≠ 1.9 | Bestand unverändert: Daucus 5↔3–5, Foeniculum 28↔25, Forsythia 150-200↔45–60 (Hecke), Delphinium 50, Echinacea 40, Geranium 30-40 (1.9 DATEN FEHLEN) |
+| Basisarten aus `species.yaml` | Daucus, Foeniculum, Eruca, Glycine, Epipremnum, Dracaena trifasciata: Felder in den bestehenden `species_enrichment`-Eintrag |
+
+### Lehren aus Batch 3
+
+1. Der `plant-info-document-generator` lief in diesem Batch ohne Bash und konnte `git diff --numstat` nicht selbst prüfen (Zeilenzahl-Selbstprüfung); die Prüfung durch den Aufrufer ergab 0 Löschungen. Prüfpflicht beim Aufrufer bleibt.
+2. Ein Agent trug eine Lichtstufe aus „bright, filtered light" ab, obwohl die RHS-Position eine Spanne ohne Vorzug nennt (Dieffenbachia); auf null zurückgesetzt. Dem Agenten die Regel „Spanne ohne Vorzug = null" ausdrücklich mitgeben.
+3. Gehölze/Stauden: RHS gibt nur Endbreite oder Heckenabstand — Pflanzabstand nur bei ausdrücklichem „plant … apart".

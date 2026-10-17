@@ -167,6 +167,22 @@ Quellen: ASPCA Toxic and Non-Toxic Plants (Dahlia — toxic to dogs and cats), W
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Dahlia 'Armateras' ist eine benannte Cultivar-Sorte; §1.3 dokumentiert Stecklinge und Knollenteilung als Standardvermehrung. Der Praxis-Hinweis in §1.3 stellt explizit fest, dass Samenvermehrung "Sorteneigenschaften nicht erhalten" kann — nur die botanischen Artmerkmale, nicht die Cultivar-Identität "Armateras". Eine echte Aussaat-/Keim-Metadatenerhebung für diese benannte Sorte wäre daher irreführend und unterbleibt.) -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow dahlias" (Growing Guide), https://www.rhs.org.uk/plants/dahlia/growing-guide („Space plants about 60cm (2ft) apart"; größere Sorten brauchen mehr Platz; Gattungsangabe, nicht sortenspezifisch); Longfield Gardens, „How far apart should I plant dahlia tubers", https://www.longfield-gardens.com/blogs/dahlia-care/how-far-apart-should-i-plant-dahlia-tubers (30–46 cm Standard, Dinnerplate 46–61 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow dahlias" (Growing Guide), https://www.rhs.org.uk/plants/dahlia/growing-guide („need a warm, sheltered, sunny spot"; Blühschwäche bei Beschattung) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -535,6 +551,11 @@ Für Dahlien im Freiland wird typischerweise keine komplexe Hydro-Mischsequenz b
 | Empfohlene Vorfrucht | Hülsenfrüchte (Fabaceae: Bohne, Erbse — liefern N), Gründüngung (Phacelia, Tagetes als Nematoden-Unterdrücker) |
 | Empfohlene Nachfrucht | Zwiebeln (Allium) oder Salat (Asteraceae-freie Nachfolger bevorzugen); bei Tagetes als Vorfrucht: stark nematodenbefallene Böden sanieren |
 | Anbaupause (Jahre) | 3–4 Jahre (gleiche Stelle meiden, um Verticillium-Akkumulation zu verhindern) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 **Hinweis:** Dahlien werden in der Praxis oft an festen Beetplätzen kultiviert, da Knollen jährlich ausgegraben werden. Bei jährlicher Knollenentfernung und Bodenerneuerung (Kompost) ist eine strikte Fruchtfolge weniger kritisch als bei Stauden oder im Freilandanbau verbleibenden Arten.
 
@@ -649,3 +670,4 @@ Dahlien-Knollen folgen einem klar strukturierten 6-Phasen-Jahreszyklus, der in R
 30. [RHS — How to grow dahlias (Growing Guide)](https://www.rhs.org.uk/plants/dahlia/growing-guide) — Vollsonne, free-draining, „may rot in waterlogged soil" (Sonnen-/Staunässe-Beleg)
 31. [Floret Flowers — How to Grow Dahlias](https://www.floretflowers.com/resources/how-to-grow-dahlias/) — Vollsonne mind. 6 h, free-draining (Zweitbeleg Sonne/Drainage)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+32. [Longfield Gardens — How far apart should I plant dahlia tubers](https://www.longfield-gardens.com/blogs/dahlia-care/how-far-apart-should-i-plant-dahlia-tubers) — Pflanzabstand je Dahlientyp (spacing_cm)

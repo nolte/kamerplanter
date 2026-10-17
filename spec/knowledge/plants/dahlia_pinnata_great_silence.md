@@ -133,6 +133,22 @@
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Dahlia 'Great Silence' ist eine benannte Cultivar-Sorte; §1.3 dokumentiert Knollenteilung/Stecklinge aus Knospenaustrieb als Standard- und einzig sortenechte Vermehrungsmethode. Der Praxis-Hinweis in §1.3 stellt explizit fest: "Samenanzucht liefert keine sortenechten Pflanzen" — eine echte Aussaat-/Keim-Metadatenerhebung für diese Sorte wäre daher irreführend und unterbleibt.) -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow dahlias" (Growing Guide), https://www.rhs.org.uk/plants/dahlia/growing-guide („Space plants about 60cm (2ft) apart"; größere Sorten brauchen mehr Platz; Gattungsangabe, nicht sortenspezifisch); Longfield Gardens, „How far apart should I plant dahlia tubers", https://www.longfield-gardens.com/blogs/dahlia-care/how-far-apart-should-i-plant-dahlia-tubers (30–46 cm Standard, Dinnerplate 46–61 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow dahlias" (Growing Guide), https://www.rhs.org.uk/plants/dahlia/growing-guide („need a warm, sheltered, sunny spot"; Blühschwäche bei Beschattung) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -515,6 +531,11 @@
 | Empfohlene Vorfrucht | Hülsenfrüchte (Fabaceae: Erbsen, Bohnen) — hinterlassen Stickstoff und lockern Boden; Salate (Schwachzehrer) |
 | Empfohlene Nachfrucht | Brassica-Arten (Kohlgemüse; Starkzehrer nutzen das verbesserte Bodengefüge), Wurzelgemüse (Möhren, Sellerie) |
 | Anbaupause (Jahre) | 3 Jahre selbe Stelle für Asteraceae (Verticillium-Prophylaxe) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 > **Hinweis:** Da Dahlien als Knollen jährlich ausgegraben werden, ist die klassische Fruchtfolge bei der Beetplanung zu berücksichtigen: nicht jedes Jahr an denselben Platz und nicht nach anderen Asteraceae (Chrysanthemen, Sonnenblumen, Artischocken) pflanzen — geteilte Verticillium-Anfälligkeit.
 
@@ -628,3 +649,5 @@ Great Silence,Dahlia pinnata,Peter Komen,2018,"informal_decorative;dark_blend;co
 24. [Longfield Gardens — How Many Years Do Dahlia Tubers Last?](https://www.longfield-gardens.com/blogs/dahlia-care/how-many-years-do-dahlia-tubers-last) — Lebensdauer der Knollen über viele Jahre (typical_lifespan_years)
 25. [Frontiers in Plant Science 2025 — Response of ornamental plants to salinity (Miyamoto-Klassifikation)](https://pmc.ncbi.nlm.nih.gov/articles/PMC12343571/) — ECe-Salztoleranzklassen (sensitive 0–3 dS/m), Bezugsgröße Substrat-ECe (salt_tolerance_class)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+26. [RHS — How to grow dahlias (Growing Guide)](https://www.rhs.org.uk/plants/dahlia/growing-guide) — Pflanzabstand 60 cm, sonniger Standort (spacing_cm, light_requirement)
+27. [Longfield Gardens — How far apart should I plant dahlia tubers](https://www.longfield-gardens.com/blogs/dahlia-care/how-far-apart-should-i-plant-dahlia-tubers) — Pflanzabstand je Dahlientyp (spacing_cm)
