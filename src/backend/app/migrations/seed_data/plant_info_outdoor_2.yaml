@@ -502,6 +502,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Hemerocallis spp."
     propagation_configs:
@@ -540,6 +547,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Hosta spp."
     propagation_configs:
@@ -581,6 +595,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Hydrangea macrophylla"
     propagation_configs:
@@ -623,6 +645,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Ligustrum vulgare"
     propagation_configs:
@@ -664,6 +693,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Paeonia lactiflora"
     propagation_configs:
@@ -1021,6 +1057,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Prunus avium"
     propagation_configs:
@@ -1541,6 +1584,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Melissa officinalis"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1939,6 +1989,12 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 7
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Medicago sativa"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2240,6 +2296,13 @@ species_enrichment:
       light_germination: light
       thousand_seed_weight_g: 1.1
       # sowing_density_per_m2: MISSING - two values in source (11-16 for Kopfsalat, 25-33 for Pfluecksalat); cannot determine single target value
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (2022), Tabelle 2 (Kopfsalat: Mittelzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen\" (2020; Salate: Mittelstarkzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Lavandula angustifolia":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2280,6 +2343,14 @@ species_enrichment:
     native_habitat: "Westliches Mittelmeer (Frankreich, Spanien)"
     pruning_type: spring_pruning
     pruning_months: [3, 4, 8]
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Mentha piperita":
     propagation_configs:

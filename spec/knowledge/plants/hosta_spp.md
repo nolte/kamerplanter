@@ -114,6 +114,22 @@
 **Hinweis (Freitext):** Lichtsättigung tritt bei Hosta erst sehr hoch ein — Studien zeigen keine Sättigung der Netto-Photosynthese im Bereich 100–1200 µmol/m²/s bei akklimatisierten Pflanzen; der oben angegebene Wert ist ausschließlich der Kompensationspunkt (Netto-Photosynthese = 0), nicht der Sättigungspunkt. Streusalz: Bei vorhandenem Streusalz-Eintrag salzärmere Auftaumittel (Calcium-/Magnesiumchlorid, CMA) statt NaCl bevorzugen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS nennt nur eine Obergrenze („up to 90cm apart, depending on their ultimate height and spread"), keinen Pflanzabstand als Wert/Spanne --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow hostas", https://www.rhs.org.uk/plants/hosta/growing-guide (nur Obergrenze „Space plants up to 90cm (3ft) apart"; der Wert 40–80 in 1.6 ist dort nicht belegt) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow hostas", https://www.rhs.org.uk/plants/hosta/growing-guide („All hostas give their best in moist soil in partial shade, whether in the ground or a container"; gelbblättrige Sorten bevorzugen etwas Sonne) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -339,4 +355,5 @@ Hosta spp.,"Funkie;Herzlilie;Hosta;Plantain Lily",Asparagaceae,Hosta,perennial,d
 15. [Nematodes Direct — Nemaslug (Phasmarhabditis hermaphrodita)](https://www.nematodesdirect.co.uk/nemaslug/8-nemaslug) — Schnecken-Nematode ~300.000/m², ~6 Wochen Wirkung
 16. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate/Etablierung
 17. [Sound Horticulture — Aphid Tech Sheet (Aphidius/Aphidoletes)](https://soundhorticulture.com/pages/aphids) — Freilassungsraten Aphidius/Aphidoletes
+18. [RHS — How to grow hostas](https://www.rhs.org.uk/plants/hosta/growing-guide) — Lichtanspruch (partial shade), Pflanzabstand nur als Obergrenze (up to 90 cm)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -151,6 +151,22 @@ Quellen (§1.8):
 7. [Wiley Plant, Cell & Environment 2014 — Inhibition of germination of dormant barley grains by blue light](https://onlinelibrary.wiley.com/doi/full/10.1111/pce.12239) — Dunkelkeimer-Beleg, Lichtempfindlichkeit dormanter Körner
 8. [PMC6016650 — Rapid loss of seed viability in ex situ conserved wheat and barley at 4 °C vs. −20 °C storage](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6016650/) — Langzeit-Keimfähigkeit unter Kühllagerung
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Getreide wird nach Saatstärke (Körner/m²) gedrillt, ein Pflanzabstand in der Reihe wird in den gelesenen Quellen nicht genannt --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine lesbare Fachquelle (Hohenheim Lehrgarten und Liebegg-Steckbrief 404, Uni Idaho CIS 1217 403, LK Kärnten/LK OÖ nennen keinen Reihenabstand); der Wert „12–15 cm" in 1.6 ist unbelegt --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine lesbare Fachquelle mit Standortstufe für Gerste gelesen (LK OÖ Anbaublatt 2026 nennt nichts zum Licht) --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -417,6 +433,11 @@ Gerste reagiert sehr sensibel auf N-Überdüngung (Lagergefahr). Braugerste: Nie
 | Empfohlene Vorfrucht | Raps, Hülsenfrüchte, Kartoffel, Rübe |
 | Empfohlene Nachfrucht | Winterweizen, Winterraps, Leguminosen |
 | Anbaupause (Jahre) | 2–3 Jahre Pause vor erneutem Getreide auf gleicher Fläche |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine lesbare Fachquelle mit Zehrerstufen-Zuordnung für Gerste (LK OÖ Anbaublatt 2026 nennt nur N-Bedarf 80–100 kg N/ha Sommergerste, keine Zehrerstufe; LWG-Merkblatt 2111 als PDF nicht lesbar) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für die Stufe --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Poaceae: kein Familienwert belegt) --> |
 
 **Besonderheit:** Gerste ist empfindlicher gegenüber Getreidemüdigkeit (Getreidezysten-Nematoden) als Hafer. Maximale Getreideanteile in der Fruchtfolge: 50–60%. Wintergerste eignet sich als frühe Vorfrucht für Gemüse (Ernte im Juni/Juli).
 

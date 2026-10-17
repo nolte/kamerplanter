@@ -113,6 +113,22 @@
 **Hinweis zur Standort-Physiologie:** Hippeastrum ist eine C3-Pflanze (kein CAM/Sukkulent — Spaltöffnungen öffnen tagsüber, schließen nachts; belegt durch Gaswechselmessungen, NYBG/PMC9232429). Die effektive Wurzeltiefe von 20–30 cm leitet sich aus der empfohlenen Mindest-Topftiefe (≥ 30 cm für gutes Wurzelwachstum, RHS/Sarah Raven) und der fleischigen Zwiebelwurzelbasis ab. Die UF/IFAS-EDIS-Publikation FP255 stuft die Boden-Salztoleranz ausdrücklich als „poor" ein (→ `sensitive`); ein abweichender „high"-Eintrag einer Demo-Garten-Sortenliste wurde zugunsten der primären EDIS-Quelle verworfen. Der Boden-pH-Vorzug (6.0–6.5) ist mit den pH-Angaben in §2.3 und §3.2 harmonisiert; Quellen nennen Spannen bis 6.0–7.0 (RHS/Gardener's Path), der engere Korridor bleibt quellentreu zum bestehenden Dokument.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Indoor-Angabe (hell/indirekt) nicht auf Standortstufen abbildbar — RHS Hippeastrum Growing Guide: „Bright, filtered light" --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -340,6 +356,11 @@ Der Schlüssel zu einer guten Wiederblüte liegt in der Blattphase (April–Sept
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Amaryllidaceae 4); Zimmerpflanze ohne Fruchtfolge --> |
 
 ---
 

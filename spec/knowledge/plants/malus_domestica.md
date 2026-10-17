@@ -118,6 +118,22 @@
 | Kompatible Befruchter (compatible pollinators) | Diploide Sorten überlappender Blütezeit (z. B. Elstar, Rewena, Gala, Golden Delicious); Zieräpfel (Malus floribunda/Evereste) als universelle Pollenspender | `cultivar.compatible_pollinators` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: kein einheitlicher Artwert; LWG Bayern (Veredlungsunterlagen von Apfelbäumen, 2021) nennt unterlagen- und erziehungsformabhängig Spindel/Spalier schwachwachsend 1,5–2 m, mittelstark 2,5–4 m, Säulenapfel 0,5–0,7 m, Halbstamm 6–8 m, Rundkrone starkwachsend 8–10 m; RHS-Artseite nennt keinen Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Malus domestica" (Kulturtext: „Prefers deep, fertile, moist but well-drained, neutral soil in a sunny, sheltered position. Will not thrive ... with shade for more than half the day"; Position-Feld: „Full sun, Partial shade"), https://www.rhs.org.uk/plants/202338/malus-domestica/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -296,6 +312,11 @@ Düngung ab März (Austrieb) und zweite Gabe Juli/August (Fruchtentwicklung). KE
 | Empfohlene Vorfrucht | — (Standzeit 40–80 Jahre) |
 | Empfohlene Nachfrucht | Nach Rodung: mind. 5 Jahre Pause; Bodenaustausch bei Neupflanzung (Apfelmüdigkeit!) |
 | Anbaupause (Jahre) | 10+ Jahre nach Rodemüdigkeit |
+| Zehrerstufe | <!-- DATEN FEHLEN: Obstgehölz (Dauerkultur) — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Obstgehölz (Dauerkultur) — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Obstgehölz (Dauerkultur) — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Rosaceae: kein Familienwert; Dauerkultur, Pause bis zur Nachpflanzung nicht belegt) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -370,4 +391,6 @@ Rewena,Malus domestica,scab_resistant;robust;organic,140,scab_resistant,open_pol
 17. [ScienceDirect — Photosynthetic responses to CO2 at different leaf temperatures in apple (Malus domestica)](https://www.sciencedirect.com/science/article/abs/pii/S0098847218300625) — Photosynthese-Temperaturoptimum 20–30 °C
 18. [WSU Tree Fruit — Cross-compatibility of apple cultivars and pollinizers](https://treefruit.wsu.edu/article/cross-compatibility-of-apple-cultivars-and-pollinizers/) — Selbstinkompatibilität, Befruchtersorten, Triploide
 19. [Orange Pippin Trees — Pollination of apple trees](https://www.orangepippintrees.com/articles/planting-growing/pollination-of-fruit-trees) — Blühgruppen A–F, Fremdbefruchtung, Triploid-Regel
+20. [RHS — Malus domestica](https://www.rhs.org.uk/plants/202338/malus-domestica/details) — Standort (sonnig, geschützt; Schatten max. halber Tag)
+21. [LWG Bayern — Veredlungsunterlagen von Apfelbäumen (Stand September 2021)](https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/3101b_veredlung_bf.pdf) — Pflanzabstände je Unterlagen-/Erziehungsform (1,5–10 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

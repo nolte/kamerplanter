@@ -140,6 +140,22 @@ Quellen (§1.8):
 3. [lifetips.alibaba.com — How Deep to Plant Hibiscus Seeds](https://lifetips.alibaba.com/plant-care/how-deep-to-plant-hibiscus-seeds) — Saattiefe
 4. [growplants.org — Hibiscus rosa sinensis: How to grow & care](https://www.growplants.org/growing/hibiscus-rosa-sinensis) — Lagerungsfähigkeit Saatgut (1–3 Jahre)
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Kübel-/Zimmerpflanze; RHS-Gattungsratgeber nennt keinen Pflanzabstand, keine weitere belastbare Quelle gelesen --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quellen widersprüchlich — RHS-Artseite führt Position „Full sun, Partial shade" (Spanne ohne Vorzug), RHS-Gattungsratgeber nennt „Bright, filtered light"/Schutz vor direkter Sonne --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -359,6 +375,11 @@ Hibiscus rosa-sinensis ist ein ausgesprochener Starkzehrer — wöchentliche Dü
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert; Kübelpflanze ohne Fruchtfolge --> |
 
 ---
 

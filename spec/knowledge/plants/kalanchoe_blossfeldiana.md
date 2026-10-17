@@ -122,6 +122,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (§1.3 führt ausschließlich cutting_stem/cutting_leaf als Vermehrungsmethoden; Kalanchoe blossfeldiana wird im Zierpflanzenbau praktisch ausschließlich über Kopf- und Blattstecklinge vermehrt, keine Aussaat-Praxis dokumentiert) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Kalanchoe blossfeldiana", https://www.rhs.org.uk/plants/78810/kalanchoe-blossfeldiana/details (Position: „Partial shade"; Kultur: „in bright filtered light") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -362,4 +378,5 @@ Kalanchoe blossfeldiana,"Flammendes Käthchen;Kalanchoe;Flaming Katy;Christmas K
 18. [University of Illinois Extension — A nontraditional holiday plant: Kalanchoe](https://extension.illinois.edu/blogs/good-growing/2025-12-19-nontraditional-holiday-plant-kalanchoe) — Blattsteckling-Anleitung, Kurztag-Blühinduktion (14h Dunkelheit, 6 Wochen)
 19. [Plantura — Flammendes Käthchen Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/flammendes-kaethchen/flammendes-kaethchen-pflanzenportrait) — Blütezeit Februar–Juni, Trieb- und Blattstecklinge
 20. [Zimmerpflanzen-FAQ — Kalanchoe blossfeldiana](https://zimmerpflanzen-faq.de/kalanchoe-blossfeldiana/) — Blütezeit Winter–Frühjahr (erste Knospen Dez/Jan), Stamm- und Blattstecklinge
+21. [RHS — Kalanchoe blossfeldiana](https://www.rhs.org.uk/plants/78810/kalanchoe-blossfeldiana/details) — Lichtanspruch (Position: Partial shade)
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

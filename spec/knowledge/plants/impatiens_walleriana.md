@@ -142,6 +142,22 @@ Quellen (§1.8):
 4. [McKenzie Seeds / Harris Seeds — Impatiens-Saatgutpackungen (Füllgewicht/Samenzahl)](https://mckenzieseeds.com/products/impatiens-tropical-fizz-hybrid) — Basis der TKM-Schätzung
 5. [joegardener — Seed Longevity Chart](https://joegardener.com/wp-content/uploads/2020/12/Seed-Longevity-Chart.pdf) — Keimfähigkeitsdauer 1 Jahr
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 20–25 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | Proven Winners (Jungpflanzenhersteller), „Soprano Rose Bedding Impatiens (Impatiens walleriana)", https://www.provenwinners.com/plants/impatiens/soprano-rose-bedding-impatiens-impatiens-walleriana (Spacing „8 - 10 Inches" = 20–25 cm; Serienangabe einer Sorte, einzige gelesene Quelle) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Impatiens walleriana", https://www.rhs.org.uk/plants/95402/impatiens-walleriana/details (Kulturtext: „a sheltered, partially shaded site"; Positionsfeld „Full shade, Full sun, Partial shade"); Proven Winners, Soprano Rose, https://www.provenwinners.com/plants/impatiens/soprano-rose-bedding-impatiens-impatiens-walleriana (Light Exposure „Part Shade to Shade") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -337,4 +353,5 @@ Impatiens walleriana,"Fleißiges Lieschen;Springkraut;Busy Lizzie;Touch-me-not",
 16. [Missouri Botanical Garden — Impatiens walleriana Plant Finder](https://plantfinder.mobot.org/PlantFinderDetails.aspx?kempercode=a586) — "a bushy, succulent-stemmed tender perennial ... Winter hardy to USDA Zones 10-11"; in St. Louis als Beet-Einjährige/Zimmerpflanze kultiviert
 17. [NC State Extension Gardener Plant Toolbox — Impatiens walleriana](https://plants.ces.ncsu.edu/plants/impatiens-walleriana/) — "technically herbaceous perennial plants in tropical zones, but they are frequently grown as annuals"; USDA Plant Hardiness Zone 10a–11b (University Extension)
 18. [RHS — Impatiens walleriana](https://www.rhs.org.uk/plants/95402/impatiens-walleriana/details) — "tender herbaceous perennial plant but mostly grown as annual bedding"; Härtegrad H1B
+19. [Proven Winners — Soprano Rose Bedding Impatiens (Impatiens walleriana)](https://www.provenwinners.com/plants/impatiens/soprano-rose-bedding-impatiens-impatiens-walleriana) — Pflanzabstand 8–10 Zoll (20–25 cm); Licht „Part Shade to Shade"
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
