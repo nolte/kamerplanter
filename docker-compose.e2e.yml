@@ -93,6 +93,13 @@ services:
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
+      # REQ-053 WP 2.9: the garden plan editor tests (test_req053_*.py) save through
+      # `POST /plan/batch` and arrange each plan with one `PUT /plan/boundary` and one
+      # batch. Production allows 10 a minute per account (GP-NFR-056) — a grower's
+      # pace; here the whole suite is one account, and the first local run of the
+      # editor file alone was refused with 429 after ~14 writes in its first minute.
+      # Ten times the production budget, as for the other per-account limits.
+      RATE_LIMIT_PLAN_BATCH: "100/minute"
     depends_on:
       arangodb:
         condition: service_healthy
@@ -346,6 +353,9 @@ services:
       RATE_LIMIT_UPLOAD: "300/minute"
       RATE_LIMIT_INFERENCE: "200/minute"
       RATE_LIMIT_EXPORT: "200/minute"
+      # REQ-053 WP 2.9 garden plan writes (`/plan/batch`, `/plan/boundary`); see the
+      # light backend for the reason. Ten times the production 10/minute.
+      RATE_LIMIT_PLAN_BATCH: "100/minute"
       # #1855 R3 W-5 — the take-over probe (`GET /system/takeover-status`) runs on every
       # full-mode app bootstrap (`LightModeTakeoverDialog` in `MainLayout`), so for this suite
       # it is as busy as the refresh path: every `page.open()` of one account. A refusal only
