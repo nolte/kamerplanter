@@ -45,6 +45,17 @@ export interface SelectionRef {
   key: string;
 }
 
+/**
+ * The objects under the last click and the one that is selected from them (GP-UX-033): a repeated
+ * click on the same spot walks down it. The panel list "Objekte an dieser Stelle (n)" reads it
+ * (WP 2.6); `pointPx` is the click in canvas pixels.
+ */
+export interface SelectionStack {
+  keys: string[];
+  index: number;
+  pointPx: [number, number];
+}
+
 /** An operation waiting for the next save. */
 export interface PendingOperation {
   id: number;
@@ -84,6 +95,7 @@ export interface GardenPlanState {
   loadError: string | null;
   loadRequestId: string | null;
   selection: SelectionRef[];
+  stack: SelectionStack | null;
   tool: PlanTool;
   past: HistoryEntry[];
   future: HistoryEntry[];
@@ -105,6 +117,7 @@ export const initialState: GardenPlanState = {
   loadError: null,
   loadRequestId: null,
   selection: [],
+  stack: null,
   tool: 'select',
   past: [],
   future: [],
@@ -224,6 +237,10 @@ export const gardenPlanSlice = createSlice({
     },
     clearSelection(state) {
       state.selection = [];
+      state.stack = null;
+    },
+    setStack(state, action: PayloadAction<SelectionStack | null>) {
+      state.stack = action.payload;
     },
     clearEditError(state) {
       state.editError = null;
@@ -261,6 +278,7 @@ export const gardenPlanSlice = createSlice({
           state.future = [];
           state.plan = applied.plan;
           state.editError = null;
+          state.stack = null; // the objects under the old click may have moved
           dropSelectionOfMissing(state);
         } catch (error) {
           state.editError = errorCodeOf(error);
@@ -297,6 +315,7 @@ export const gardenPlanSlice = createSlice({
       state.past.pop();
       state.future.push({ ...entry, undo: null, pendingIds: [] });
       state.editError = null;
+      state.stack = null; // the objects under the old click may have moved
       dropSelectionOfMissing(state);
     },
 
@@ -315,6 +334,7 @@ export const gardenPlanSlice = createSlice({
         });
         state.plan = applied.plan;
         state.editError = null;
+        state.stack = null; // the objects under the old click may have moved
         dropSelectionOfMissing(state);
       } catch {
         // The plan moved on (an entity the redo needs is gone): the redo branch is stale.
@@ -343,6 +363,7 @@ export const gardenPlanSlice = createSlice({
         state.conflict = null;
         state.inFlight = 0;
         state.editError = null;
+        state.stack = null;
         dropSelectionOfMissing(state);
       })
       .addCase(loadGardenPlan.rejected, (state, action) => {
@@ -418,6 +439,7 @@ export const {
   setTool,
   setSelection,
   clearSelection,
+  setStack,
   clearEditError,
   resetGardenPlan,
   applyAction,

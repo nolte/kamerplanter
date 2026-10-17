@@ -15,7 +15,9 @@ import gardenPlanReducer, {
   selectCanUndo,
   selectIsDirty,
   selectPendingCount,
+  clearSelection,
   setSelection,
+  setStack,
   setTool,
   undo,
 } from './gardenPlanSlice';
@@ -472,5 +474,21 @@ describe('tool, selection and reset', () => {
     store.dispatch(setSelection([{ entity: 'garden_object', key: 'go_1' }]));
     store.dispatch(applyAction([{ op: 'delete', entity: 'garden_object', key: 'go_1' }]));
     expect(store.getState().gardenPlan.selection).toEqual([]);
+  });
+
+  it('keeps the stack under the last click (GP-UX-033) until the selection is cleared or the plan changes', async () => {
+    const store = await loaded();
+    const stack = { keys: ['loc_a', 'loc_b'], index: 0, pointPx: [10, 20] as [number, number] };
+    store.dispatch(setStack(stack));
+    expect(store.getState().gardenPlan.stack).toEqual(stack);
+    store.dispatch(clearSelection());
+    expect(store.getState().gardenPlan.stack).toBeNull();
+
+    store.dispatch(setStack(stack));
+    store.dispatch(applyAction([move('loc_a', 5, 5)]));
+    expect(store.getState().gardenPlan.stack).toBeNull(); // the objects under it moved
+    store.dispatch(setStack(stack));
+    store.dispatch(undo());
+    expect(store.getState().gardenPlan.stack).toBeNull();
   });
 });

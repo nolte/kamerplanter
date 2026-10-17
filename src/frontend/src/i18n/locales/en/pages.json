@@ -5325,6 +5325,142 @@
           "furniture": "Furniture",
           "lamp": "Lamp"
         }
+      },
+      "editor": {
+        "toolbar": {
+          "label": "Garden plan tools",
+          "tools": "Tool",
+          "shapes": "Shape",
+          "angleStep": "Rotation step"
+        },
+        "tools": {
+          "select": {
+            "label": "Select",
+            "hint": "Select and move – click, drag a frame, hold Shift for several",
+            "short": "Select"
+          },
+          "pan": {
+            "label": "Pan view",
+            "hint": "Move the view without changing anything",
+            "short": "Pan"
+          },
+          "bed": {
+            "label": "Draw bed",
+            "hint": "Draw a new bed on the plan",
+            "short": "Bed"
+          },
+          "garden_object": {
+            "label": "Draw garden object",
+            "hint": "Draw a garden object such as a path, fence or tree",
+            "short": "Object"
+          }
+        },
+        "shapes": {
+          "rect": {
+            "label": "Rectangle",
+            "hint": "Drag out a rectangle – hold Shift for a square"
+          },
+          "circle": {
+            "label": "Circle",
+            "hint": "Drag out a circle from its centre"
+          },
+          "polygon": {
+            "label": "Polygon",
+            "hint": "Click point by point; Enter or a click on the first point closes the shape"
+          },
+          "polyline": {
+            "label": "Line",
+            "hint": "Click point by point; Enter or a click on the last point ends the line"
+          }
+        },
+        "angleStep": {
+          "label": "Rotation step {{step}} degrees",
+          "hint": "The rotate handle snaps every {{step}}° (hold Alt to rotate freely)"
+        },
+        "draw": {
+          "finish": "Done",
+          "cancel": "Cancel",
+          "finishHint": "Finish the shape (Enter)",
+          "finishDisabled": "Place at least {{count}} points first."
+        },
+        "vertex": {
+          "insert": "Insert point",
+          "delete": "Delete point"
+        },
+        "delete": {
+          "label": "Delete",
+          "hint": "Delete the selection (Del)"
+        },
+        "newBedName": "Bed {{n}}",
+        "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties field once it is available.",
+        "actions": {
+          "move": "Move",
+          "rotate": "Rotate",
+          "resize": "Resize",
+          "editPoint": "Edit point",
+          "draw": "Draw",
+          "delete": "Delete"
+        },
+        "notice": {
+          "generic": "That is not possible. The plan stays as it was.",
+          "object": {
+            "locked": "Locked objects cannot be changed or deleted. Unlock them first."
+          },
+          "geometry": {
+            "outside_parent": "The shape sticks out of its area or the garden boundary and was not applied. Place it completely inside.",
+            "self_intersecting": "The polygon's edges cross. Move a point until no edges cross.",
+            "invalid": "The shape has invalid dimensions or lies outside the plan and was not applied.",
+            "too_few_points": "A polygon needs at least three points, a line at least two."
+          },
+          "draw": {
+            "too_few_points": "Place at least three points for a polygon or two for a line."
+          },
+          "reference": {
+            "not_found": "An object of this change no longer exists. The plan stays as it was."
+          }
+        },
+        "deleteDialog": {
+          "titleOne": "Delete \"{{name}}\"?",
+          "titleMany_one": "Delete {{count}} object?",
+          "titleMany_other": "Delete {{count}} objects?",
+          "alsoDeleted": "This also deletes:",
+          "nothingElse": "It contains no further beds, objects, plants or tasks.",
+          "counts": {
+            "beds_one": "{{count}} contained bed",
+            "beds_other": "{{count}} contained beds",
+            "objects_one": "{{count}} garden object",
+            "objects_other": "{{count}} garden objects",
+            "slots_one": "{{count}} planting position",
+            "slots_other": "{{count}} planting positions",
+            "plants_one": "{{count}} plant",
+            "plants_other": "{{count}} plants",
+            "tasks_one": "{{count}} open task",
+            "tasks_other": "{{count}} open tasks"
+          },
+          "irreversible": "Caution: once the plan is saved, this deletion cannot be undone.",
+          "confirm": "Delete",
+          "reversible": "As long as you have not saved the plan, you can undo this deletion."
+        },
+        "drawHint": {
+          "rect": {
+            "start": "Drag out a rectangle on the plan. Releasing places it, Esc cancels.",
+            "next": "Releasing places the rectangle, Esc cancels."
+          },
+          "circle": {
+            "start": "Drag outwards from the centre to draw a circle. Releasing places it, Esc cancels.",
+            "next": "Releasing places the circle, Esc cancels."
+          },
+          "polygon": {
+            "start": "Tap the corner points on the plan one after another. From three points on you can close with \"Done\" or Enter.",
+            "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
+            "next_other": "{{count}} points placed. Place more points or close with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
+          },
+          "polyline": {
+            "start": "Tap the points of the line on the plan one after another. From two points on you can finish with \"Done\" or Enter.",
+            "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
+            "next_other": "{{count}} points placed. Place more points or finish with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
+          }
+        }
       }
     }
   }

@@ -5326,6 +5326,142 @@
           "furniture": "Möbel",
           "lamp": "Lampe"
         }
+      },
+      "editor": {
+        "toolbar": {
+          "label": "Werkzeuge des Gartenplans",
+          "tools": "Werkzeug",
+          "shapes": "Form",
+          "angleStep": "Drehraster"
+        },
+        "tools": {
+          "select": {
+            "label": "Auswählen",
+            "hint": "Auswählen und verschieben – Klick, Rahmen aufziehen, Umschalt für mehrere",
+            "short": "Auswählen"
+          },
+          "pan": {
+            "label": "Ansicht verschieben",
+            "hint": "Die Ansicht verschieben, ohne etwas zu ändern",
+            "short": "Verschieben"
+          },
+          "bed": {
+            "label": "Beet zeichnen",
+            "hint": "Ein neues Beet auf dem Plan zeichnen",
+            "short": "Beet"
+          },
+          "garden_object": {
+            "label": "Gartenobjekt zeichnen",
+            "hint": "Ein Gartenobjekt wie Weg, Zaun oder Baum zeichnen",
+            "short": "Objekt"
+          }
+        },
+        "shapes": {
+          "rect": {
+            "label": "Rechteck",
+            "hint": "Rechteck aufziehen – Umschalt für ein Quadrat"
+          },
+          "circle": {
+            "label": "Kreis",
+            "hint": "Kreis vom Mittelpunkt aus aufziehen"
+          },
+          "polygon": {
+            "label": "Vieleck",
+            "hint": "Punkt für Punkt klicken; Enter oder Klick auf den ersten Punkt schließt die Form"
+          },
+          "polyline": {
+            "label": "Linie",
+            "hint": "Punkt für Punkt klicken; Enter oder Klick auf den letzten Punkt beendet die Linie"
+          }
+        },
+        "angleStep": {
+          "label": "Drehraster {{step}} Grad",
+          "hint": "Der Drehgriff rastet alle {{step}}° ein (Alt gedrückt: frei drehen)"
+        },
+        "draw": {
+          "finish": "Fertig",
+          "cancel": "Abbrechen",
+          "finishHint": "Form abschließen (Enter)",
+          "finishDisabled": "Setze zuerst mindestens {{count}} Punkte."
+        },
+        "vertex": {
+          "insert": "Punkt einfügen",
+          "delete": "Punkt löschen"
+        },
+        "delete": {
+          "label": "Löschen",
+          "hint": "Die Auswahl löschen (Entf)"
+        },
+        "newBedName": "Beet {{n}}",
+        "tooSmall": "Dieses Objekt ist auf dem Bildschirm zu klein für Griffe. Verschieben geht trotzdem; zum Ändern der Größe wähle es und gib die Maße im Eigenschaftenfeld ein, sobald es verfügbar ist.",
+        "actions": {
+          "move": "Verschieben",
+          "rotate": "Drehen",
+          "resize": "Größe ändern",
+          "editPoint": "Punkt ändern",
+          "draw": "Zeichnen",
+          "delete": "Löschen"
+        },
+        "notice": {
+          "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
+          "object": {
+            "locked": "Gesperrte Objekte lassen sich nicht ändern oder löschen. Entsperre sie zuerst."
+          },
+          "geometry": {
+            "outside_parent": "Die Form ragt aus ihrem Bereich oder der Gartengrenze heraus und wurde nicht übernommen. Lege sie ganz hinein.",
+            "self_intersecting": "Die Kanten des Vielecks überschneiden sich. Verschiebe einen Punkt, bis sich keine Kanten mehr kreuzen.",
+            "invalid": "Die Form hat ungültige Maße oder liegt außerhalb des Plans und wurde nicht übernommen.",
+            "too_few_points": "Ein Vieleck braucht mindestens drei Punkte, eine Linie mindestens zwei."
+          },
+          "draw": {
+            "too_few_points": "Setze mindestens drei Punkte für ein Vieleck oder zwei für eine Linie."
+          },
+          "reference": {
+            "not_found": "Ein Objekt dieser Änderung gibt es nicht mehr. Der Plan bleibt unverändert."
+          }
+        },
+        "deleteDialog": {
+          "titleOne": "„{{name}}“ löschen?",
+          "titleMany_one": "{{count}} Objekt löschen?",
+          "titleMany_other": "{{count}} Objekte löschen?",
+          "alsoDeleted": "Dabei wird auch gelöscht:",
+          "nothingElse": "Darin liegen keine weiteren Beete, Objekte, Pflanzen oder Aufgaben.",
+          "counts": {
+            "beds_one": "{{count}} enthaltenes Beet",
+            "beds_other": "{{count}} enthaltene Beete",
+            "objects_one": "{{count}} Gartenobjekt",
+            "objects_other": "{{count}} Gartenobjekte",
+            "slots_one": "{{count}} Pflanzposition",
+            "slots_other": "{{count}} Pflanzpositionen",
+            "plants_one": "{{count}} Pflanze",
+            "plants_other": "{{count}} Pflanzen",
+            "tasks_one": "{{count}} offene Aufgabe",
+            "tasks_other": "{{count}} offene Aufgaben"
+          },
+          "irreversible": "Achtung: Nach dem Speichern des Plans lässt sich dieses Löschen nicht mehr rückgängig machen.",
+          "confirm": "Löschen",
+          "reversible": "Solange du den Plan nicht gespeichert hast, kannst du das Löschen rückgängig machen."
+        },
+        "drawHint": {
+          "rect": {
+            "start": "Ziehe auf dem Plan ein Rechteck auf. Loslassen legt es an, Esc bricht ab.",
+            "next": "Loslassen legt das Rechteck an, Esc bricht ab."
+          },
+          "circle": {
+            "start": "Ziehe vom Mittelpunkt nach außen, um einen Kreis aufzuziehen. Loslassen legt ihn an, Esc bricht ab.",
+            "next": "Loslassen legt den Kreis an, Esc bricht ab."
+          },
+          "polygon": {
+            "start": "Tippe die Eckpunkte nacheinander auf den Plan. Ab drei Punkten kannst du mit „Fertig“ oder Enter schließen.",
+            "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
+            "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder schließe mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
+          },
+          "polyline": {
+            "start": "Tippe die Punkte der Linie nacheinander auf den Plan. Ab zwei Punkten kannst du mit „Fertig“ oder Enter beenden.",
+            "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
+            "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder beende mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
+          }
+        }
       }
     }
   }
