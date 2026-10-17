@@ -4,7 +4,7 @@
 #   dev  (built by skaffold):      docker build --target dev .
 
 # ── Shared node base: install dependencies once ──
-FROM node:26-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a AS base
+FROM node:26-alpine@sha256:6f08a523443ddedf52941874c203475b0ad503e859ad70cb26ab8be9a517dbd5 AS base
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -44,7 +44,7 @@ RUN npm run build
 
 # ── Production target (default; last stage): non-root nginx-unprivileged ──
 # Runs as UID 101, listens on 8080 — no root, no privileged port.
-FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:b9241c6e7b8e9a862f129d8d4199ab64b10390949a78bdd5603379b32c844083 AS prod
+FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00 AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.description="Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards" \
