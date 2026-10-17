@@ -6,10 +6,14 @@
  * panel and context menu (WP 2.6), the list view and full keyboard (WP 2.7) and saving (WP 2.8)
  * plug into the seams marked in `useEditorTools`.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import KeyboardIcon from '@mui/icons-material/Keyboard';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -27,8 +31,17 @@ import {
   setTool,
   type PlanTool,
 } from '../state/gardenPlanSlice';
+import { EDITOR_ANCHORS } from './anchors';
 import { EditorOverlay } from './EditorOverlay';
 import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
+import { KeyboardHelp } from './KeyboardHelp';
+import { LiveRegion } from './LiveRegion';
+import { PlanListView } from './PlanListView';
+import { buildTree, neighbourKey } from './planTree';
+import { SkipLinks } from './SkipLinks';
+import { useAnnouncement } from './useAnnouncement';
+import { stepOf, useEditorKeyboard } from './useEditorKeyboard';
+import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import type { DrawShape } from './tools/drawMachine';
 import { deleteImpact, isPlanEntity, type DeleteImpact } from './tools/hierarchy';
 import type { ActionLabel } from './tools/machineTypes';
@@ -97,12 +110,21 @@ export function GardenPlanEditor({
   // tab order is the visual order (WCAG 2.4.3). On md+ it sits above the plan.
   const toolbarBelow = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useAppDispatch();
-  const { selection, stack, tool, editError } = useAppSelector(selectGardenPlanState);
+  const { selection, stack, tool, editError, past, future } = useAppSelector(selectGardenPlanState);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<DeleteImpact | null>(null);
   const deleteTexts = useDeleteTexts(pendingDelete, plan, labels);
+  const [view, setView] = useState<'plan' | 'list'>('plan');
+  const [helpOpen, setHelpOpen] = useState(false);
+  const shortcuts = useSingleKeyShortcuts();
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const announcement = useAnnouncement(plan, past, future, t(`${PREFIX}.liveRegion.unnamed`));
+  // Where the focus goes after the next render (GP-NFR-070 - never to the body): an object key,
+  // or one of the two surfaces.
+  const pendingFocus = useRef<{ key: string } | 'plan' | 'list' | null>(null);
 
   const onCommit = useCallback(
     (ops: PlanOperation[], label: ActionLabel) => {
@@ -116,6 +138,23 @@ export function GardenPlanEditor({
   );
   const onStack = useCallback((next: typeof stack) => void dispatch(setStack(next)), [dispatch]);
   const onTool = useCallback((next: PlanTool) => void dispatch(setTool(next)), [dispatch]);
+  const focusPlan = useCallback(() => canvasRef.current?.focus(), []);
+  useEffect(() => {
+    const request = pendingFocus.current;
+    if (request === null) return;
+    pendingFocus.current = null;
+    const surface =
+      view === 'plan'
+        ? canvasRef.current
+        : (listRef.current?.querySelector<HTMLElement>(`#${EDITOR_ANCHORS.list}`) ?? null);
+    if (request === 'plan' || request === 'list') {
+      surface?.focus();
+      return;
+    }
+    const attribute = view === 'plan' ? 'data-plan-key' : 'data-list-key';
+    const node = surface?.querySelector<HTMLElement>(`[${attribute}="${CSS.escape(request.key)}"]`);
+    (node ?? surface)?.focus();
+  });
   const newBedName = useCallback((n: number) => t(`${PREFIX}.newBedName`, { n }), [t]);
 
   const requestDelete = useCallback(() => {
@@ -127,6 +166,18 @@ export function GardenPlanEditor({
     }
     setPendingDelete(impact);
   }, [plan, selection]);
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  const keyboard = useEditorKeyboard({
+    plan,
+    tool,
+    selection,
+    canvasRef,
+    singleKeyShortcuts: shortcuts.enabled,
+    onCommit,
+    onNotice: setNotice,
+    onPan,
+    onHelp: openHelp,
+  });
 
   const tools = useEditorTools({
     tool,
@@ -148,9 +199,17 @@ export function GardenPlanEditor({
   });
 
   const confirmDelete = useCallback(() => {
-    if (pendingDelete) onCommit(pendingDelete.ops, 'delete');
+    if (pendingDelete) {
+      onCommit(pendingDelete.ops, 'delete');
+      // The deleted object cannot keep the focus: hand it to its neighbour in the list.
+      const next = neighbourKey(
+        buildTree(plan, labels.objectType),
+        new Set(pendingDelete.roots.map((root) => root.key)),
+      );
+      pendingFocus.current = next === null ? (view === 'plan' ? 'plan' : 'list') : { key: next };
+    }
     setPendingDelete(null);
-  }, [onCommit, pendingDelete]);
+  }, [labels, onCommit, pendingDelete, plan, view]);
 
   const selectedKeys = useMemo<RenderSelection>(
     () => ({ selectedKeys: new Set(selection.map((ref) => ref.key)) }),
@@ -166,6 +225,37 @@ export function GardenPlanEditor({
       }
     },
     [dispatch, plan],
+  );
+
+  const onListSelect = useCallback(
+    (ref: (typeof selection)[number]) => {
+      dispatch(setSelection([ref]));
+      dispatch(setStack(null));
+    },
+    [dispatch],
+  );
+  const showList = useCallback(() => {
+    pendingFocus.current = 'list';
+    setView('list');
+  }, []);
+  const showPlan = useCallback(() => {
+    pendingFocus.current = 'plan';
+    setView('plan');
+  }, []);
+  const { onKeyDown: toolsKeyDown, ...pointerProps } = tools.containerProps;
+  const onCanvasKeyDown = useCallback(
+    (event: Parameters<typeof toolsKeyDown>[0]) => {
+      if (!keyboard.handleKey(event)) toolsKeyDown(event);
+    },
+    [keyboard, toolsKeyDown],
+  );
+  // Buttons that disappear once they have acted must not take the focus with them.
+  const thenFocusPlan = useCallback(
+    (action: () => void) => () => {
+      action();
+      focusPlan();
+    },
+    [focusPlan],
   );
 
   const selectChooseTool = useCallback(
@@ -199,21 +289,101 @@ export function GardenPlanEditor({
       angleStep={angleStep}
       onAngleStep={setAngleStep}
       draftPoints={tools.draftPoints}
-      onFinishDraw={tools.finishDraw}
-      onCancelDraw={tools.cancel}
+      onFinishDraw={thenFocusPlan(tools.finishDraw)}
+      onCancelDraw={thenFocusPlan(tools.cancel)}
       canDelete={selection.some(isPlanEntity)}
       onDelete={requestDelete}
       vertexPicked={tools.vertex !== null}
       canDeleteVertex={tools.vertex !== null}
-      onDeleteVertex={tools.deleteVertex}
-      onInsertVertex={tools.insertVertexAfter}
+      onDeleteVertex={thenFocusPlan(tools.deleteVertex)}
+      onInsertVertex={thenFocusPlan(tools.insertVertexAfter)}
     />
   );
 
+  const listShown = view === 'list';
+  const canvasSurface = (
+    <Box
+      ref={canvasRef}
+      id={EDITOR_ANCHORS.canvas}
+      data-testid="garden-plan-canvas"
+      role="region"
+      aria-label={labels.canvas}
+      // The region takes the editor's keys (arrows, Esc, Del, Ctrl+A); it must be reachable by keyboard (WCAG 2.1.1).
+      tabIndex={0}
+      {...pointerProps}
+      onKeyDown={onCanvasKeyDown}
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        touchAction: 'none',
+        userSelect: 'none',
+        cursor: cursorOf(tool),
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        bgcolor: 'background.paper',
+        '&:focus-visible': {
+          outline: 3,
+          outlineStyle: 'solid',
+          outlineColor: 'primary.main',
+          outlineOffset: 2,
+        },
+      }}
+    >
+      {renderer.render(plan, viewport, selectedKeys, { labels, fieldMode, onActivateKey })}
+      <EditorOverlay
+        overlay={tools.overlay}
+        handles={handles}
+        vertex={tools.vertex}
+        toScreen={renderer.toScreen.bind(renderer)}
+        pxPerM={viewport.pxPerM}
+        widthPx={viewport.widthPx}
+        heightPx={viewport.heightPx}
+      />
+    </Box>
+  );
+
   return (
-    <Box data-testid="garden-plan-editor" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {!toolbarBelow && toolbar}
-      {hintKey && (
+    <Box
+      data-testid="garden-plan-editor"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        // GP-NFR-026: no motion for people who ask for none (ripples, tooltips, dialogs, ghost fading).
+        '@media (prefers-reduced-motion: reduce)': {
+          '& *, & *::before, & *::after': {
+            transition: 'none !important',
+            animation: 'none !important',
+            scrollBehavior: 'auto !important',
+          },
+        },
+      }}
+    >
+      <SkipLinks listShown={listShown} onToList={showList} onToPlan={showPlan} />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+        <FormControlLabel
+          sx={{ m: 0, minHeight: 44 }}
+          control={
+            <Switch
+              checked={listShown}
+              onChange={(event) => (event.target.checked ? showList() : showPlan())}
+              slotProps={{ input: { 'data-testid': 'garden-plan-view-list' } as object }}
+            />
+          }
+          label={t(`${PREFIX}.list.switch`)}
+        />
+        <Button
+          startIcon={<KeyboardIcon />}
+          onClick={() => setHelpOpen(true)}
+          sx={{ minHeight: 44 }}
+          data-testid="garden-plan-keyboard-help-button"
+        >
+          {t(`${PREFIX}.keyboard.open`)}
+        </Button>
+      </Box>
+      {!listShown && !toolbarBelow && toolbar}
+      {!listShown && hintKey && (
         <Typography
           variant="body2"
           color="text.secondary"
@@ -236,42 +406,34 @@ export function GardenPlanEditor({
           {noticeText}
         </Alert>
       )}
-      {singleTooSmall && (
+      {!listShown && singleTooSmall && (
         <Alert severity="info" role="status" data-testid="garden-plan-too-small">
           {t(`${PREFIX}.tooSmall`)}
         </Alert>
       )}
-      <Box
-        data-testid="garden-plan-canvas"
-        role="region"
-        aria-label={labels.canvas}
-        // The region takes the editor's keys (Esc, Del, Ctrl+A); it must be reachable by keyboard (WCAG 2.1.1).
-        tabIndex={0}
-        {...tools.containerProps}
-        sx={{
-          position: 'relative',
-          overflow: 'hidden',
-          touchAction: 'none',
-          userSelect: 'none',
-          cursor: cursorOf(tool),
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          bgcolor: 'background.paper',
-        }}
-      >
-        {renderer.render(plan, viewport, selectedKeys, { labels, fieldMode, onActivateKey })}
-        <EditorOverlay
-          overlay={tools.overlay}
-          handles={handles}
-          vertex={tools.vertex}
-          toScreen={renderer.toScreen.bind(renderer)}
-          pxPerM={viewport.pxPerM}
-          widthPx={viewport.widthPx}
-          heightPx={viewport.heightPx}
-        />
-      </Box>
-      {toolbarBelow && toolbar}
+      {listShown ? (
+        <Box ref={listRef} sx={{ display: 'contents' }}>
+          <PlanListView
+            plan={plan}
+            labels={labels}
+            selection={selection}
+            stepM={stepOf(plan)}
+            onSelect={onListSelect}
+            onMove={keyboard.moveSelection}
+            onRequestDelete={requestDelete}
+          />
+        </Box>
+      ) : (
+        canvasSurface
+      )}
+      {!listShown && toolbarBelow && toolbar}
+      <LiveRegion message={announcement} />
+      <KeyboardHelp
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        singleKeyShortcuts={shortcuts.enabled}
+        onSingleKeyShortcuts={shortcuts.setEnabled}
+      />
       <ConfirmDialog
         open={pendingDelete !== null}
         title={deleteTexts.title}

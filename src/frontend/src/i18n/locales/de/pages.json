@@ -5405,7 +5405,8 @@
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
           "object": {
-            "locked": "Gesperrte Objekte lassen sich nicht ändern oder löschen. Entsperre sie zuerst."
+            "locked": "Gesperrte Objekte lassen sich nicht ändern oder löschen. Entsperre sie zuerst.",
+            "not_movable": "Nur Beete und Gartenobjekte lassen sich verschieben."
           },
           "geometry": {
             "outside_parent": "Die Form ragt aus ihrem Bereich oder der Gartengrenze heraus und wurde nicht übernommen. Lege sie ganz hinein.",
@@ -5461,6 +5462,110 @@
             "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
             "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder beende mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
           }
+        },
+        "skip": {
+          "list": "Zur Objektliste springen",
+          "plan": "Zum Plan springen"
+        },
+        "list": {
+          "switch": "Als Liste anzeigen",
+          "heading": "Plan als Liste",
+          "intro": "Die Objekte von {{name}}: Bereiche, Beete und Gartenobjekte. Wähle eines aus, um seine Werte zu lesen, es zu verschieben oder zu löschen.",
+          "empty": "Auf dem Plan gibt es noch nichts.",
+          "level": {
+            "area": "Bereich",
+            "bed": "Beet",
+            "object": "Gartenobjekt"
+          },
+          "position": "x {{x}} m, y {{y}} m",
+          "notPlaced": "nicht auf dem Plan platziert",
+          "fact": {
+            "type": "Typ",
+            "position": "Position",
+            "size": "Größe",
+            "status": "Status",
+            "plants": "Pflanzen",
+            "openTasks": "Offene Aufgaben",
+            "notes": "Notizen",
+            "locked": "Gesperrt"
+          },
+          "status": {
+            "planned": "Geplant",
+            "active": "Aktiv",
+            "retired": "Stillgelegt"
+          },
+          "actions": {
+            "group": "Aktionen für {{name}}"
+          },
+          "move": {
+            "left": "{{step}} m nach links verschieben",
+            "right": "{{step}} m nach rechts verschieben",
+            "up": "{{step}} m nach oben verschieben",
+            "down": "{{step}} m nach unten verschieben"
+          },
+          "moveTo": {
+            "group": "{{name}} an eine Position verschieben",
+            "x": "X (m)",
+            "y": "Y (m)",
+            "apply": "Hierhin verschieben"
+          },
+          "delete": "Löschen",
+          "lockedHint": "Dieses Objekt ist gesperrt. Entsperre es, um es zu verschieben oder zu löschen.",
+          "lockedIcon": "Gesperrt"
+        },
+        "liveRegion": {
+          "unnamed": "Objekt",
+          "done": "Erledigt.",
+          "moved": "{{name}} verschoben nach x {{x}} m, y {{y}} m.",
+          "changed": "{{action}}: {{name}}, jetzt bei x {{x}} m, y {{y}} m.",
+          "changedNoPosition": "{{action}}: {{name}}.",
+          "deleted": "{{name}} gelöscht.",
+          "deletedMany_one": "{{count}} Objekt gelöscht.",
+          "deletedMany_other": "{{count}} Objekte gelöscht.",
+          "undone": "Rückgängig gemacht.",
+          "undoneAction": "Rückgängig gemacht: {{action}}.",
+          "redone": "Wiederhergestellt."
+        },
+        "keyboard": {
+          "open": "Tastaturhilfe",
+          "title": "Tastaturbedienung des Plans",
+          "keys": {
+            "arrows": {
+              "keys": "Pfeiltasten",
+              "does": "Verschieben die Auswahl um einen Rasterschritt; ohne Auswahl scrollen sie die Ansicht."
+            },
+            "shiftArrows": {
+              "keys": "Umschalt + Pfeiltasten",
+              "does": "Zehn Schritte auf einmal (oder schneller scrollen)."
+            },
+            "scroll": {
+              "keys": "Tab",
+              "does": "Verlässt den Plan. Alle Objekte und Aktionen erreichst du in der Listenansicht ('Als Liste anzeigen')."
+            },
+            "pageKeys": {
+              "keys": "Bild ab / Bild auf",
+              "does": "Fokussieren das nächste oder vorherige Objekt."
+            },
+            "enter": {
+              "keys": "Eingabe / Leertaste",
+              "does": "Wählen das fokussierte Objekt aus; Eingabe schließt auch ein Polygon ab."
+            },
+            "del": {
+              "keys": "Entf",
+              "does": "Löscht die Auswahl nach Rückfrage."
+            },
+            "esc": {
+              "keys": "Esc",
+              "does": "Bricht Laufendes ab, danach hebt es die Auswahl auf."
+            },
+            "selectAll": {
+              "keys": "Strg + A",
+              "does": "Wählt alle nicht gesperrten Objekte aus."
+            }
+          },
+          "shortcutNote": "Einzeltasten-Kürzel wie ? reagieren nur, solange der Plan den Fokus hat.",
+          "singleKeyLabel": "Einzeltasten-Kürzel",
+          "singleKeyHint": "Schalte sie aus, damit Tasten wie ? nicht reagieren. Diese Hilfe bleibt über die Schaltfläche erreichbar."
         }
       }
     }
