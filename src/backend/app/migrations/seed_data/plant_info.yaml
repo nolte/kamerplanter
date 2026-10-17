@@ -14,7 +14,7 @@ new_families:
     common_name_de: "Schwertliliengewächse"
     common_name_en: Iris family
     order: Asparagales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb]

@@ -18,7 +18,7 @@ new_families:
     common_name_de: "Seerosengewaechse"
     common_name_en: Water Lily family
     order: Nymphaeales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: moderate
     typical_root_depth: deep
     typical_growth_forms: [herb]

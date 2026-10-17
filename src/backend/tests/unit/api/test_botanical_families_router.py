@@ -246,7 +246,7 @@ class TestFamilyCreateRejectsAtTheBoundary:
             FamilyCreate(
                 name="Fabaceae",
                 nitrogen_fixing=True,
-                typical_nutrient_demand=NutrientDemand.HEAVY,
+                typical_nutrient_demand=NutrientDemand.HEAVY_FEEDER,
             )
 
     def test_a_valid_family_still_constructs(self):

@@ -30,6 +30,7 @@ from app.common.enums import (
     FrostTolerance,
     GrowthDeterminacy,
     GrowthHabit,
+    NutrientDemand,
     PhotoperiodType,
     PlantCategory,
     PropagationDifficulty,
@@ -74,6 +75,7 @@ def _load_yaml() -> dict[str, Any]:
 def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
     """Construct BotanicalFamily models from YAML data."""
     families: list[BotanicalFamily] = []
+    entry: dict[str, Any]
     for entry in data.get("new_families", []):
         ph_pref = None
         if "soil_ph_preference" in entry and entry["soil_ph_preference"] is not None:
@@ -85,7 +87,11 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 common_name_de=entry.get("common_name_de", ""),
                 common_name_en=entry.get("common_name_en", ""),
                 order=entry.get("order"),
-                typical_nutrient_demand=entry.get("typical_nutrient_demand", "medium"),
+                typical_nutrient_demand=entry.get("typical_nutrient_demand", "medium_feeder"),
+                # REQ-053 GP-FR-138 (M6, #2325): sourced values only (E-10); absent keys keep the
+                # model defaults (nitrogen_fixing False, rotation_pause_years None).
+                nitrogen_fixing=entry.get("nitrogen_fixing", False),
+                rotation_pause_years=entry.get("rotation_pause_years"),
                 frost_tolerance=FrostTolerance(entry.get("frost_tolerance", "moderate")),
                 typical_root_depth=entry.get("typical_root_depth", "medium"),
                 typical_growth_forms=[GrowthHabit(g) for g in entry.get("typical_growth_forms", ["herb"])],
@@ -163,6 +169,7 @@ def _build_seed_profile(source: dict[str, Any]) -> SeedProfile | None:
 def _build_species(data: dict[str, Any]) -> list[Species]:
     """Construct Species models from YAML data."""
     species_list: list[Species] = []
+    entry: dict[str, Any]
     for entry in data.get("new_species", []):
         frost = entry.get("frost_sensitivity")
         pc = entry.get("plant_category")
@@ -222,6 +229,14 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 light_compensation_point_ppfd_min=entry.get("light_compensation_point_ppfd_min"),
                 light_compensation_point_ppfd_max=entry.get("light_compensation_point_ppfd_max"),
                 shade_tolerance=entry.get("shade_tolerance"),
+                # ── Beetplanung (REQ-053 §16.3 / GP-FR-061 / E-05, M6 #2325) — sourced only (E-10) ──
+                nutrient_demand=entry.get("nutrient_demand"),
+                nutrient_demand_source=entry.get("nutrient_demand_source"),
+                nutrient_demand_confidence=entry.get("nutrient_demand_confidence"),
+                nitrogen_fixing=entry.get("nitrogen_fixing"),
+                rotation_pause_years=entry.get("rotation_pause_years"),
+                row_spacing_cm=entry.get("row_spacing_cm"),
+                light_requirement=entry.get("light_requirement"),
                 effective_root_depth_cm=entry.get("effective_root_depth_cm"),
                 waterlogging_tolerance=entry.get("waterlogging_tolerance"),
                 salt_tolerance_class=entry.get("salt_tolerance_class"),
@@ -240,6 +255,7 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "indoor_suitable": Suitability,
         "balcony_suitable": Suitability,
         "frost_sensitivity": FrostTolerance,
+        "nutrient_demand": NutrientDemand,
     }
 
     propagation_keys = {

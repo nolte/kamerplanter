@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.11 (REQ-053 v1.4 Welle 0: NutrientDemand/nitrogen_fixing/PlanRole-Split, rotation_pause_years, row_spacing_cm, light_requirement vs. shade_tolerance)
+Version: 4.12 (REQ-053 Welle 1 WP 1.6 / Migration M6 v0096 umgesetzt: `NutrientDemand` = `*_feeder`, Species-Felder `nutrient_demand`/`_source`/`_confidence`, `nitrogen_fixing`, `rotation_pause_years`, `row_spacing_cm`, `light_requirement`, Familie `rotation_pause_years`); 4.11 (REQ-053 v1.4 Welle 0: NutrientDemand/nitrogen_fixing/PlanRole-Split, rotation_pause_years, row_spacing_cm, light_requirement vs. shade_tolerance)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.5 (R-24 Promotion-Audit-Retention; bis NFR-011 v1.4 als R-19 geführt), REQ-053 v1.4 (§16.3 GP-FR-138/139, GP-FR-061, GP-FR-131, GP-FR-160)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.12 | 2026-10-16 | **Migration M6 umgesetzt (REQ-053 WP 1.6, #2325, `v0096_nutrient_demand_split`):** `common/enums.NutrientDemand` trägt jetzt `heavy_feeder`/`medium_feeder`/`light_feeder`; die Seed-Tabelle der Familien (§Seed-Daten) zeigt die neuen Werte; `Species` erhält im Code die v4.11-Felder `nutrient_demand`, `nutrient_demand_source`, `nutrient_demand_confidence`, `nitrogen_fixing` (Optional, `null` = unbelegt), `rotation_pause_years`, `row_spacing_cm` (Range-String), `light_requirement`; `BotanicalFamily.rotation_pause_years`; Importer (`seed_plant_info.py` und Geschwister) leiten die Felder weiter. `nutrient_demand_level` bleibt als Alt-Feld (EC-Resolver), ist nie Quelle für `nutrient_demand` (E-10). Nutzerseitige Edits behalten die belegten Werte (`SPECIES_FIELDS_KEPT_ON_EDIT`). |
 | 4.11 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issues 55/57/77):** *Nachtrag 2026-10-16 (Spec-Readiness-Review REQ-053):* `Species.row_spacing_cm` ist ein **Range-String** wie `spacing_cm` (`Optional[str]`, Pattern `distance_cm_string`, Parser „unterer Wert"; Bereich 5–1 500 prüft der `seed-data-validator`), kein `int` mit `le=`; `site_fit`-Mapping an GP-FR-160 angeglichen (sonniger als der Anspruch → `marginal`/`poor`, nicht `ok`; `shade_tolerance = null` bei genau einer Stufe schattiger → `marginal` „Toleranz unbekannt", GP-ACC-053). (a) **Zehrerstufe, Stickstofffixierung und Planrolle getrennt** (REQ-053 §16.3, GP-FR-138, K-001): `NutrientDemand = heavy_feeder \| medium_feeder \| light_feeder` an `Species.nutrient_demand` (**Pflicht bei Nutzpflanzen**, mit `nutrient_demand_source`/`nutrient_demand_confidence`, H-004) und `BotanicalFamily.typical_nutrient_demand` (Werte `light`/`medium`/`heavy` → `light_feeder`/`medium_feeder`/`heavy_feeder`); `nitrogen_fixing: bool` neu an `Species` (an `BotanicalFamily` vorhanden); `PlanRole = main_crop \| green_manure \| fallow` **nur** an `PlantingRun` (REQ-013) und `CropRotationPlan` (REQ-002), nie an Spezies/Familie. `Species.nutrient_demand_level` (4 Werte inkl. `nitrogen_fixer`) wird per Migration **M6** `M6_nutrient_demand_split` abgelöst (GP-FR-139): `nitrogen_fixer` → `nitrogen_fixing = true`, `nutrient_demand` aus dem Steckbrief, sonst `null` + Dry-Run-Report — **kein stiller Default**. (b) `BotanicalFamily.rotation_pause_years` (Default je Familie) + `Species.rotation_pause_years` (Override); `rotation_window_years` Obergrenze 8 (GP-FR-131, K-004). (c) **Neu** `Species.row_spacing_cm` (5–1 000, GP-FR-061, O-11) und `Species.light_requirement ∈ {full_sun, partial_shade, shade}` als **Lichtanspruch**; `Species.shade_tolerance` bleibt **Toleranz** („verträgt Schatten bis Stufe X") — Semantik festgeschrieben (E-05, O-16), `site_fit`-Mapping in REQ-053 GP-FR-160 referenziert. (d) Agronomische Werte **nur mit Quelle** (E-10): fehlt eine belastbare Quelle, bleibt das Feld `null` und steht in der Lückenliste. Keine Code-Änderung in dieser Version; Schema/Seeds/Migration folgen in REQ-053 Welle 1 (Issue 57, M6). |
 | 4.10 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Species.root_type` (§Datenmodell + `SpeciesDefinition` + `RootType`-Enum) nennt jetzt die Werte des Code-Enums `RootType` — `corm` neu, `rhizomatous`/`aerial` entfallen (die Seed-Daten führen solche Arten als `fibrous`). `Species.frost_sensitivity` nennt die Werte von `FrostTolerance` (`very_hardy`/`hardy`/`moderate`/`sensitive`) statt `hardy`/`half_hardy`/`tender`; die dreistufige Ampel-Sprache bleibt die abgeleitete Sicht von REQ-039/REQ-022 (feste Abbildung, s. §Datenmodell). Zierpflanzen-Seed-Tabelle auf die gespeicherten Werte umgestellt. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 4.9 | 2026-10-04 | **`Species.regulatory_class` (REQ-055 O-05):** Additives optionales Feld `regulatory_class: Optional[Literal['cannabis']]` (`None` = unreguliert). Zweck: Funktionen mit Außenwirkung — zuerst öffentliche Pflanzenprofile und Social-Veröffentlichung (REQ-055 PS-PRI-040, KCanG § 6 Werbe- und Sponsoringverbot) — sperren sich für Arten dieser Klasse per Default; der Betreiber kann die Sperre instanzweit aufheben. Gepflegt im Seed (`species.yaml`) für die Gattung *Cannabis*; bis zur Seed-Pflege gilt als Fallback der Gattungsabgleich auf `scientific_name` beginnend mit `Cannabis ` (REQ-055 §17.5). Kein Einfluss auf Stammdatensichtbarkeit (die bleibt beim Tenant-Overlay §2), keine Migration (Feld fehlt = unreguliert). Weitere Klassen (z. B. invasive Arten, Artenschutz) sind bewusst nicht vorweggenommen. (v4.8 — Rechte-Vokabular REQ-049 — hatte keinen eigenen Eintrag.) |
@@ -601,22 +602,22 @@ Neue Document Collection für persistente Audit-Spur jeder Promotion. Aufbewahru
 
 ### Seed-Daten: BotanicalFamily
 
-> **Vokabular (v4.11):** Die Spalte `typical_nutrient_demand` zeigt hier noch die Werte vor Migration M6 (`light`/`medium`/`heavy`); ab M6 lauten sie `light_feeder`/`medium_feeder`/`heavy_feeder` (REQ-053 GP-FR-139). Die Spalte `nutrient_demand_level` der Zierpflanzen-Tabelle wird zu `nutrient_demand` (`nitrogen_fixer` → `nitrogen_fixing = true`). `rotation_pause_years` wird je Familie erst mit Quelle gesetzt (Welle 1, Issue 57) und ist deshalb hier nicht aufgeführt.
+> **Vokabular (v4.12):** Die Spalte `typical_nutrient_demand` zeigt die Werte seit Migration M6 (`v0096`, REQ-053 GP-FR-139): `light_feeder`/`medium_feeder`/`heavy_feeder`. Die Spalte `nutrient_demand_level` der Zierpflanzen-Tabelle wird zu `nutrient_demand` (`nitrogen_fixer` → `nitrogen_fixing = true`). `rotation_pause_years` wird je Familie erst mit Quelle gesetzt (Welle 1, Issue 57) und ist deshalb hier nicht aufgeführt.
 
 Die folgenden 9 Pflanzenfamilien bilden die initiale Datenbasis:
 
 | name | common_name_de | common_name_en | order | typical_nutrient_demand | nitrogen_fixing | typical_root_depth | frost_tolerance | pollination_type |
 |------|---------------|---------------|-------|------------------------|----------------|-------------------|----------------|-----------------|
-| Solanaceae | Nachtschattengewächse | Nightshade family | Solanales | heavy | false | MEDIUM | SENSITIVE | INSECT, SELF |
-| Brassicaceae | Kreuzblütler | Mustard family | Brassicales | heavy | false | MEDIUM | HARDY | INSECT |
-| Fabaceae | Hülsenfrüchtler | Legume family | Fabales | light | true | DEEP | MODERATE | INSECT, SELF |
-| Cucurbitaceae | Kürbisgewächse | Gourd family | Cucurbitales | heavy | false | SHALLOW | SENSITIVE | INSECT |
-| Apiaceae | Doldenblütler | Carrot family | Apiales | medium | false | DEEP | HARDY | INSECT |
-| Asteraceae | Korbblütler | Daisy family | Asterales | medium | false | MEDIUM | MODERATE | INSECT, WIND |
-| Poaceae | Süßgräser | Grass family | Poales | medium | false | SHALLOW | VERY_HARDY | WIND, SELF |
-| Lamiaceae | Lippenblütler | Mint family | Lamiales | light | false | SHALLOW | MODERATE | INSECT |
-| Cannabaceae | Hanfgewächse | Hemp family | Rosales | heavy | false | DEEP | SENSITIVE | WIND |
-| Violaceae | Veilchengewächse | Violet family | Malpighiales | light | false | SHALLOW | HARDY | INSECT, SELF |
+| Solanaceae | Nachtschattengewächse | Nightshade family | Solanales | heavy_feeder | false | MEDIUM | SENSITIVE | INSECT, SELF |
+| Brassicaceae | Kreuzblütler | Mustard family | Brassicales | heavy_feeder | false | MEDIUM | HARDY | INSECT |
+| Fabaceae | Hülsenfrüchtler | Legume family | Fabales | light_feeder | true | DEEP | MODERATE | INSECT, SELF |
+| Cucurbitaceae | Kürbisgewächse | Gourd family | Cucurbitales | heavy_feeder | false | SHALLOW | SENSITIVE | INSECT |
+| Apiaceae | Doldenblütler | Carrot family | Apiales | medium_feeder | false | DEEP | HARDY | INSECT |
+| Asteraceae | Korbblütler | Daisy family | Asterales | medium_feeder | false | MEDIUM | MODERATE | INSECT, WIND |
+| Poaceae | Süßgräser | Grass family | Poales | medium_feeder | false | SHALLOW | VERY_HARDY | WIND, SELF |
+| Lamiaceae | Lippenblütler | Mint family | Lamiales | light_feeder | false | SHALLOW | MODERATE | INSECT |
+| Cannabaceae | Hanfgewächse | Hemp family | Rosales | heavy_feeder | false | DEEP | SENSITIVE | WIND |
+| Violaceae | Veilchengewächse | Violet family | Malpighiales | light_feeder | false | SHALLOW | HARDY | INSECT, SELF |
 
 <!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 ### Seed-Daten: Zierpflanzen-Species
@@ -663,10 +664,10 @@ Zusätzliche BotanicalFamily-Einträge für Zierpflanzen (sofern nicht bereits v
 
 | name | common_name_de | common_name_en | order | typical_nutrient_demand | nitrogen_fixing | typical_root_depth | frost_tolerance | pollination_type |
 |------|---------------|---------------|-------|------------------------|----------------|-------------------|----------------|-----------------|
-| Geraniaceae | Storchschnabelgewächse | Geranium family | Geraniales | medium | false | SHALLOW | SENSITIVE | INSECT |
-| Campanulaceae | Glockenblumengewächse | Bellflower family | Asterales | light | false | SHALLOW | MODERATE | INSECT |
-| Balsaminaceae | Balsaminengewächse | Balsam family | Ericales | light | false | SHALLOW | SENSITIVE | INSECT |
-| Primulaceae | Primelgewächse | Primrose family | Ericales | light | false | SHALLOW | HARDY | INSECT, SELF |
+| Geraniaceae | Storchschnabelgewächse | Geranium family | Geraniales | medium_feeder | false | SHALLOW | SENSITIVE | INSECT |
+| Campanulaceae | Glockenblumengewächse | Bellflower family | Asterales | light_feeder | false | SHALLOW | MODERATE | INSECT |
+| Balsaminaceae | Balsaminengewächse | Balsam family | Ericales | light_feeder | false | SHALLOW | SENSITIVE | INSECT |
+| Primulaceae | Primelgewächse | Primrose family | Ericales | light_feeder | false | SHALLOW | HARDY | INSECT, SELF |
 
 <!-- Quelle: Agrarbiologie-Review AB-002, 2026-03 -->
 > **Taxonomie-Hinweis (APG IV):** *Primulaceae* und *Balsaminaceae* gehören seit APG III (2009) zur Ordnung **Ericales** (nicht zur historischen Ordnung Primulales bzw. einer eigenen Ordnung). Dies ist korrekt nach aktuellem molekulargenetischem Stand.

@@ -14,7 +14,7 @@ new_families:
     common_name_de: "Palmengewaechse"
     common_name_en: Palm family
     order: Arecales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: deep
     typical_growth_forms: [tree]
@@ -33,7 +33,7 @@ new_families:
     common_name_de: "Dickblattgewaechse"
     common_name_en: Stonecrop family
     order: Saxifragales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -52,7 +52,7 @@ new_families:
     common_name_de: "Wolfsmilchgewaechse"
     common_name_en: Spurge family
     order: Malpighiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -71,7 +71,7 @@ new_families:
     common_name_de: "Maulbeergewaechse"
     common_name_en: Mulberry family
     order: Rosales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: deep
     typical_growth_forms: [tree, shrub]
@@ -90,7 +90,7 @@ new_families:
     common_name_de: "Akanthusgewaechse"
     common_name_en: Acanthus family
     order: Lamiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, groundcover]
@@ -109,7 +109,7 @@ new_families:
     common_name_de: "Roetegewaechse"
     common_name_en: Coffee family
     order: Gentianales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [shrub, tree]
@@ -128,7 +128,7 @@ new_families:
     common_name_de: "Pfeilwurzgewaechse"
     common_name_en: Prayer plant family
     order: Zingiberales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -147,7 +147,7 @@ new_families:
     common_name_de: "Kakteengewaechse"
     common_name_en: Cactus family
     order: Caryophyllales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -166,7 +166,7 @@ new_families:
     common_name_de: "Affodillgewaechse"
     common_name_en: Asphodel family
     order: Asparagales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -185,7 +185,7 @@ new_families:
     common_name_de: "Araliengewaechse"
     common_name_en: Ivy family
     order: Apiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [shrub, vine, tree]
@@ -204,7 +204,7 @@ new_families:
     common_name_de: "Malvengewaechse"
     common_name_en: Mallow family
     order: Malvales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [shrub, herb]
@@ -223,7 +223,7 @@ new_families:
     common_name_de: "Hundsgiftgewaechse"
     common_name_en: Dogbane family
     order: Gentianales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [vine, shrub]
@@ -242,7 +242,7 @@ new_families:
     common_name_de: "Balsaminengewaechse"
     common_name_en: Balsam family
     order: Ericales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -261,7 +261,7 @@ new_families:
     common_name_de: "Oelbaumgewaechse"
     common_name_en: Olive family
     order: Lamiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [vine, shrub]
@@ -280,7 +280,7 @@ new_families:
     common_name_de: "Mittagsblumengewaechse"
     common_name_en: Ice plant family
     order: Caryophyllales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
