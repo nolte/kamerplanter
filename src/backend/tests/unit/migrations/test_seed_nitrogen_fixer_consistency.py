@@ -31,10 +31,11 @@ def _species_entries() -> list[tuple[str, dict]]:
     return entries
 
 
-@pytest.mark.parametrize(("where", "entry"), _species_entries())
+@pytest.mark.parametrize(
+    ("where", "entry"),
+    [(w, e) for w, e in _species_entries() if e.get("nutrient_demand_level") == "nitrogen_fixer"],
+)
 def test_a_legacy_nitrogen_fixer_is_flagged_and_not_a_heavy_feeder(where: str, entry: dict) -> None:
-    if entry.get("nutrient_demand_level") != "nitrogen_fixer":
-        pytest.skip("not a legacy nitrogen fixer")
     assert entry.get("nitrogen_fixing") is True, f"{where}: legacy nitrogen_fixer without nitrogen_fixing: true"
     assert entry.get("nutrient_demand") != "heavy_feeder", f"{where}: nitrogen fixer must not be a heavy feeder"
 
