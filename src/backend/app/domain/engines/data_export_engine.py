@@ -493,11 +493,13 @@ class DataExportEngine:
                 "timezone",
                 "total_area_m2",
                 # REQ-053 §20.2: the garden outline and north angle describe the subject's
-                # property as much as ``gps_coordinates`` does; ``plan_updated_by`` is
-                # another member's key only on a shared tenant, which this scope excludes.
+                # property as much as ``gps_coordinates`` does.
                 "plan",
                 "created_at",
             ],
+            # ``plan_updated_by`` is the key of whoever saved the plan last — on a personal tenant that can be
+            # a member who joined later, and no source below may carry another account's key (Art. 15(4)).
+            withhold=["plan.plan_updated_by"],
         ),
         DataSourceDefinition(
             collection="locations",
@@ -900,6 +902,15 @@ class DataExportEngine:
             filter_field="actor_user_key",
             label="Membership, account and tenant changes you made (security audit)",
             fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
+        ),
+        # REQ-053 SR-011: the plan change log names the account that deleted or reshaped the plan.
+        # The rows are about the subject's own actions; ``summary`` is the name or label of the thing
+        # they removed (free text the subject typed), disclosed with them.
+        DataSourceDefinition(
+            collection="garden_plan_audit",
+            filter_field="user_key",
+            label="Deletions and boundary changes you made in a garden plan",
+            fields=["tenant_key", "site_key", "revision", "op", "entity", "key", "summary", "at"],
         ),
         DataSourceDefinition(
             collection="mcp_idempotency_record",

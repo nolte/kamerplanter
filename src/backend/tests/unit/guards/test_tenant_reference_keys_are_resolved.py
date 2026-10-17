@@ -314,6 +314,10 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "mode_switch.TakeoverReceipt.previous_owner_key": _I,
     "mode_switch.TakeoverReceipt.raised_membership_key": _I,
     "mode_switch.TakeoverReceipt.system_user_key": _I,
+    # REQ-053 SR-011 (WP 1.8): the plan change log; the site is the path site resolved under the tenant, the
+    # account is the caller — neither is read back as a reference.
+    "garden_plan.PlanAuditRecord.site_key": _I,
+    "garden_plan.PlanAuditRecord.user_key": _A,
     "security_audit.SecurityAuditEntry.actor_user_key": _A,  # #2111: proof of who acted, never read back as a reference
     "security_audit.SecurityAuditEntry.target_user_key": _A,
     "security_audit.SecurityAuditEntry.membership_key": _I,

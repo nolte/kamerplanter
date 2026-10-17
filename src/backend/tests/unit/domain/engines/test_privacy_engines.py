@@ -19,6 +19,7 @@ from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
 from app.domain.models.calendar import CalendarFeed
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.import_job import ImportJob
@@ -64,6 +65,7 @@ from app.domain.services.favorites_service import FavoritesService
 #: see :func:`_model_field_names`.
 COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "users": User,
+    "garden_plan_audit": PlanAuditRecord,
     "auth_providers": AuthProvider,
     "refresh_tokens": RefreshToken,
     "memberships": Membership,
@@ -188,6 +190,18 @@ EDGE_SOURCE_FIELDS: dict[str, set[str]] = {"user_favorites": _stored_favorite_ed
 #: document step whose collection is missing here fails the field-existence test
 #: by name instead of being skipped (#1663).
 ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {**COLLECTION_MODELS}
+
+
+def _has_field(model: type[BaseModel], path: str) -> bool:
+    """Whether *path* (``a`` or ``a.b``: a field, or a field one object down) exists on *model*."""
+    head, _, rest = path.partition(".")
+    if head not in _model_field_names(model):
+        return False
+    if not rest:
+        return True
+    annotation = model.model_fields[head].annotation
+    candidates = [arg for arg in getattr(annotation, "__args__", ()) if isinstance(arg, type)] or [annotation]
+    return any(isinstance(c, type) and issubclass(c, BaseModel) and _has_field(c, rest) for c in candidates)
 
 
 def _model_field_names(model: type[BaseModel]) -> set[str]:
@@ -535,7 +549,7 @@ class TestErasureEngine:
             f"{rule.collection}.{field}"
             for rule in engine.ANONYMIZE_COLLECTIONS
             for field in (rule.user_field, *rule.clear_fields)
-            if field not in _model_field_names(COLLECTION_MODELS[rule.collection])
+            if not _has_field(COLLECTION_MODELS[rule.collection], field)
         ]
         assert unknown == []
 
@@ -640,7 +654,7 @@ class TestErasureStepUserField:
             f"{collection}.{field}"
             for collection, user_field, clear_fields in rules
             for field in (user_field, *clear_fields)
-            if field not in _model_field_names(ERASURE_COLLECTION_MODELS[collection])
+            if not _has_field(ERASURE_COLLECTION_MODELS[collection], field)
         ]
         assert unknown == []
 

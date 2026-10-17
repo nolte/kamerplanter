@@ -139,6 +139,18 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
+            # REQ-053 WP 1.8 (GP-NFR-055) — the plan routes write ``plan.plan_updated_by`` on every
+            # structural change. The site belongs to the tenant and stays; only the editor's key goes.
+            # The field sits one object down, which the executor's two-segment path addresses.
+            collection="sites",
+            user_field="plan.plan_updated_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055: the site and its garden plan belong to a possibly shared tenant and are "
+                "retained; only the reference to the account that last changed the plan is removed."
+            ),
+        ),
+        AnonymizationRule(
             collection="inspections",
             user_field="inspected_by_key",
             replacement_strategy="tombstone_hash",
@@ -729,6 +741,19 @@ class ErasureEngine:
     # one-way hash before the user document itself is deleted.
     PSEUDONYMIZE_AUDIT_COLLECTIONS: list[PseudonymizationRule] = [
         PseudonymizationRule(
+            # REQ-053 SR-011 — the plan change log names the account that deleted or reshaped the plan.
+            # It is the proof that a deletion happened, so the row stays; the key becomes the tombstone
+            # hash and the rows of one erased account stay linkable to each other. Tenant erasure deletes
+            # the rows with the tenant.
+            collection="garden_plan_audit",
+            user_field="user_key",
+            replacement_strategy="tombstone_hash",
+            reason=(
+                "REQ-053 SR-011 / NFR-011: the plan audit is retained with the plan; the editing account's "
+                "key is pseudonymised at erasure so the entry stays linkable without naming anybody."
+            ),
+        ),
+        PseudonymizationRule(
             collection="erasure_requests",
             user_field="user_key",
             replacement_strategy="tombstone_hash",
@@ -807,15 +832,6 @@ class ErasureEngine:
     # field shaped like an account key to be reached above or named here with
     # the reason. Each reason below was measured against the write path.
     EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
-        ErasureExclusion(
-            collection="sites",
-            user_field="plan_updated_by",
-            reason=(
-                "REQ-053 GP-NFR-055: the field sits inside the nested ``plan`` object and no writer exists "
-                "before the plan routes (WP 1.8), so there is nothing to rewrite yet; the rule has to "
-                "address ``plan.plan_updated_by`` (the executor matches flat fields) before WP 1.8 writes it."
-            ),
-        ),
         ErasureExclusion(
             collection="watering_events",
             user_field="performed_by",

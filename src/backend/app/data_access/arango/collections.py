@@ -1826,6 +1826,8 @@ GRAPH_EDGE_DEFINITIONS = [
 LOCATION_BED_STATUS_INDEX_FIELDS = ["site_key", "bed_status"]
 #: A site's garden objects by type (§20.4).
 GARDEN_OBJECT_TYPE_INDEX_FIELDS = ["site_key", "object_type"]
+#: ``garden_plan_audit (site_key, revision)`` — the per-site change log, bootstrap-created (WP 1.8).
+GARDEN_PLAN_AUDIT_SITE_INDEX_FIELDS = ["site_key", "revision"]
 #: A location's slots by role (position / row / zone, §20.5).
 SLOT_ROLE_INDEX_FIELDS = ["location_key", "slot_role"]
 #: The care history of one bed, newest first (§20.10, GP-FR-107).
@@ -2859,6 +2861,11 @@ def ensure_collections(db: StandardDatabase) -> None:
         fields=GARDEN_OBJECT_TYPE_INDEX_FIELDS, unique=False, in_background=True
     )
     db.collection(SLOTS).add_persistent_index(fields=SLOT_ROLE_INDEX_FIELDS, unique=False, in_background=True)
+    # REQ-053 WP 1.8 (SR-011): the plan change log is read per site, newest revision first
+    # (``GET /sites/{key}/plan/audit``). Bootstrap-only on purpose — an additive index needs no migration.
+    db.collection(GARDEN_PLAN_AUDIT).add_persistent_index(
+        fields=GARDEN_PLAN_AUDIT_SITE_INDEX_FIELDS, unique=False, in_background=True
+    )
     care_events_col = db.collection(CARE_EVENTS)
     care_events_col.add_persistent_index(
         fields=CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS, unique=False, in_background=True

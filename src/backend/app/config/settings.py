@@ -914,6 +914,12 @@ class Settings(BaseSettings):
     #: below ``rate_limit_auth`` (an interactive retry surface): a download is
     #: neither.
     rate_limit_export_download: str = "10/hour"
+    #: The garden-plan writes — ``POST /sites/{key}/plan/batch`` and ``PUT /sites/{key}/plan/boundary``
+    #: (REQ-053 GP-NFR-056, SR-017), per account. A save is one Arango transaction of up to 500
+    #: operations plus an O(n·m) containment check, and a grower who drags objects around saves
+    #: in bursts, not in a stream: 10 a minute is the spec's figure and covers an editor that
+    #: saves on every pause with room for a retry after a revision conflict.
+    rate_limit_plan_batch: str = "10/minute"
     #: ``POST /api/v1/admin/platform/tenant-imports`` (REQ-056 §8.4, #2138), per account: each call reads,
     #: verifies and stores an archive of up to ``TENANT_IMPORT_MAX_UPLOAD_MB``.
     rate_limit_tenant_import: str = "10/hour"

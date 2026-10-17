@@ -232,9 +232,13 @@ class TestTheRouteOperand:
         ``GET /admin/platform/tenant-imports/{import_key}``. No consumer in the tree yet — the UI is
         REQ-056 §15, open — so all eight are reported candidates, used through the API directly
         (runbook ``docs/*/deployment/tenant-export-import.md``).
+
+        +4: the garden plan (REQ-053 WP 1.8, #2327): ``GET /t/{slug}/sites/{key}/plan``, ``PUT …/plan/boundary``,
+        ``POST …/plan/batch`` and ``GET …/plan/audit``. The editor that consumes them is WP 2.1+ (frontend), open —
+        so all four are reported candidates until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 832
+        assert len(checker.collect_operations(app)) == 836
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

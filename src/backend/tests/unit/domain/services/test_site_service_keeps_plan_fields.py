@@ -136,3 +136,43 @@ class TestUpdateSlot:
         plan_fields = set(Slot.model_fields) - set(SlotCreate.model_fields)
         plan_fields -= {"key", "created_at", "updated_at", "currently_occupied", "last_sanitization"}
         assert plan_fields == set(SLOT_FIELDS_KEPT_ON_EDIT)
+
+
+class TestTheDerivedAreaSurvivesAnOrdinaryEdit:
+    """REQ-053 WP 1.8 — ``PUT /sites`` carries a ``total_area_m2`` (default 0) that looks like a typed value."""
+
+    def _service(self, boundary: bool):
+        from app.domain.models.site import SitePlan
+
+        class _SiteRepo:
+            def __init__(self) -> None:
+                plan = SitePlan(boundary=_RECT_BOUNDARY, plan_revision=2) if boundary else None
+                self.site = Site(_key="site_1", tenant_key=TENANT, name="Garten", type="outdoor", plan=plan)
+                if boundary:
+                    assert self.site.total_area_m2 == 100.0
+                self.written: Site | None = None
+
+            def get_site_or_raise(self, key):
+                return self.site
+
+            def update_site(self, key, site):
+                self.written = site
+                return site
+
+        repo = _SiteRepo()
+        return SiteService(repo), repo  # type: ignore[arg-type]
+
+    def test_with_a_boundary_the_stored_area_wins_over_the_body(self) -> None:
+        service, repo = self._service(boundary=True)
+        body = Site(name="Garten (umbenannt)", type="outdoor", total_area_m2=0.0)
+        service.update_site("site_1", body, tenant_key=TENANT)
+        assert repo.written is not None and repo.written.total_area_m2 == 100.0
+
+    def test_without_a_boundary_the_body_still_sets_the_area(self) -> None:
+        service, repo = self._service(boundary=False)
+        body = Site(name="Garten", type="outdoor", total_area_m2=42.5)
+        service.update_site("site_1", body, tenant_key=TENANT)
+        assert repo.written is not None and repo.written.total_area_m2 == 42.5
+
+
+_RECT_BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10, "rotation_deg": 0}
