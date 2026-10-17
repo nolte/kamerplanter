@@ -148,6 +148,22 @@ Hinweis: Basilikum ist eine Sonnenpflanze mit flachem, faserigem Wurzelsystem (H
 Quellen (§1.8): [NCSU Extension -- Ocimum basilicum](https://plants.ces.ncsu.edu/plants/ocimum-basilicum/); [Johnny's Selected Seeds -- Hydroponic Container Basil Guide](https://www.johnnyseeds.com/growers-library/herbs/basil/hydroponic-container-basil-guide.html); [West Coast Seeds -- How to Grow Basil](https://www.westcoastseeds.com/blogs/wcs-academy/grow-basil); [RHS -- How to grow Basil](https://www.rhs.org.uk/herbs/basil/grow-your-own); [Fontana Seeds -- Everything you need to know about basil seeds](https://www.fontanaseeds.com/pages/everything-you-need-to-know-about-basil-seeds); [ScienceDirect -- Physicochemical characterization of basil (Ocimum basilicum L.) seeds](https://www.sciencedirect.com/science/article/abs/pii/S2214786121000048); [Rutgers NJAES FS1279 -- Ultra-Niche Crops Series: Fresh-Market Basil](https://njaes.rutgers.edu/fs1279/); [ScienceDirect -- Optimization of seed rate and seedling establishment technique for raising the nursery of French basil](https://www.sciencedirect.com/science/article/abs/pii/S0926669016301546)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: LWG Merkblatt 2151 nennt „Pflanzabstand: 20 x 25 cm, tief pflanzen“ ohne Zuordnung zu Reihe/Pflanze; nur der Reihenabstand der Direktsaat ist eindeutig --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 25 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern, Merkblatt 2151 „Basilikum - ein koenigliches Kraut“ (2020): „Aussaat ins Freiland … mit einem Reihenabstand 25 cm“, https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf (Pflanzabstand dort als „20 x 25 cm“ angegeben, nicht zuordenbar) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | LWG Bayern, Merkblatt 2151 (2020), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf („besonders licht- und waermebeduerftig“; „bevorzugt einen sonnigen Platz“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -466,6 +482,11 @@ Basilikum (Ocimum basilicum) als Art hat kaum natuerliche Resistenzen. Die groes
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung -- lockerer, naehrstoffreicher Boden |
 | Empfohlene Nachfrucht | Schwachzehrer (Radieschen, Salat) oder Gruenduengung |
 | Anbaupause (Jahre) | 2--3 Jahre fuer Lamiaceae auf gleicher Flaeche (Fusarium-Problematik) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | LWG Bayern, Merkblatt 2151 „Basilikum - ein koenigliches Kraut“ (2020; „Die Pflanzen besitzen ein mittleres Naehrstoffbeduerfnis“), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf; abweichend Landwirtschaftskammer NRW, „Fruchtfolge im Gemuesegarten planen“ (2020; nur Gruppenangabe: Kraeuter zaehlen zu den Schwachzehrern), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; LWG Bayern 2020 fuehrt Basilikum als Lippenbluetler, https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: LWG Merkblatt 2151 nennt nur „mehrere Jahre“ ohne Zahl; keine Quelle fuer einen artspezifischen Wert --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -568,4 +589,6 @@ Cinnamon Basil,Ocimum basilicum 'Cinnamon',,,purple_stems;cinnamon_aroma,60,,ope
 26. PFAF (Plants For A Future) -- Ocimum basilicum: "Ocimum basilicum is a PERENNIAL... Basil is a perennial plant in the tropics, but it is frost tender and needs to be grown as a half-hardy annual in temperate zones"; USDA-Haerte 9--11: https://pfaf.org/user/Plant.aspx?LatinName=Ocimum+basilicum
 27. Missouri Botanical Garden -- Ocimum basilicum Plant Finder: "a herbaceous annual or short-lived perennial native to tropical regions of Africa and Asia": https://plantfinder.mobot.org/PlantFinderDetails.aspx?kempercode=a689
 28. RHS -- Ocimum basilicum 'Thai Sita': "a tender perennial" (grown as an annual in the UK, H1C-Einstufung); RHS-Artprofil "Annual Biennial Herbs" mit Kultivierungshinweis "Grow as an annual": https://www.rhs.org.uk/plants/319211/ocimum-basilicum-thai-sita/details ; https://www.rhs.org.uk/plants/11649/ocimum-basilicum/details
+29. LWG Bayern -- Merkblatt 2151 „Basilikum - ein koenigliches Kraut“ (2020; Reihenabstand Direktsaat 25 cm, Pflanzabstand 20 x 25 cm, sonniger Standort, mittleres Naehrstoffbeduerfnis, Lippenbluetler): https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf
+30. Landwirtschaftskammer NRW -- „Fruchtfolge im Gemuesegarten planen“ (2020; Zehrergruppen, Kraeuter als Gruppe Schwachzehrer): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

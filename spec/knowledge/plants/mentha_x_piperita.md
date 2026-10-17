@@ -113,6 +113,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Mentha × piperita ist ein steriler Hybrid aus Mentha aquatica × Mentha spicata; §1.3 dieses Steckbriefs führt ausschließlich cutting_stem, division, layering — KEIN seed. §1.2 bestätigt explizit: "keine Aussaat — ausschließlich vegetative Vermehrung bei Mentha × piperita; Samen kommen nicht sortenecht". Zwar bildet die Art gelegentlich Samen, diese sind jedoch genetisch instabil/nicht sortenecht (der Hybridcharakter spaltet in der Nachkommenschaft auf) und in der Praxis fast nie keimfähig — kommerzielles/gärtnerisches Saatgut existiert nicht. Ein §1.8-Seed-Profile wäre daher botanisch nicht zutreffend und würde einen in der Praxis nicht existierenden Aussaatweg suggerieren. Batch 8, Issue #301, 2026-07. -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 20–25 | `species.spacing_cm` |
+| Reihenabstand (cm) | 62,5–75 | `species.row_spacing_cm` |
+| Quelle Abstände | LfL Bayern, „Kulturanleitung für Pfefferminze“ (2001, überarb. 2008), Abschnitt Pflanzung („Reihenabstand von 62,5 cm bis 75 cm und einem Abstand in der Reihe zwischen 20 cm und 25 cm“; maschinelle Feldpflanzung), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite: Position „Full sun, Partial shade“, Kulturtext „full or partial sun“ (Spanne ohne Vorzug); LfL Bayern nennt nur höhere Ölgehalte auf wärmeren Standorten (kein Standortanspruch) --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -275,6 +291,11 @@ Pfefferminze ist mittelstark zehrend und braucht etwas mehr Nährstoffe als medi
 | Empfohlene Vorfrucht | Beliebig; bevorzugt feuchten Standort |
 | Empfohlene Nachfrucht | Beliebig |
 | Anbaupause (Jahre) | Alle 3–4 Jahre Stelle wechseln (Rost-Sporen) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Sammelgruppe „Kräuter“ als Schwachzehrer (Pfefferminze nicht namentlich): Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „… Kräuter, Spinat“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; „Schwachzehrern, also alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Gegenindiz: LfL Bayern, „Kulturanleitung für Pfefferminze“ (Entzug 42 kg N je 100 dt Frischkraut, gestaffelte N-Gaben) ordnet keine Zehrerstufe zu, https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (Lippenblütler, keine Leguminose; LfL Bayern, „Kulturanleitung für Pfefferminze“ führt Leguminosen als eigene Vorfruchtgruppe neben den Lippenblütlern, https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Kulturanleitung für Pfefferminze“: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“; Untergrenze der belegten Spanne 4–5; Familienwert Lamiaceae im Seed nicht gesetzt), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -340,5 +361,8 @@ Mentha × piperita,"Pfefferminze;Minze;Peppermint",Lamiaceae,Mentha,perennial,lo
 16. [Kiepenkerl — Kulturanleitung Pfefferminze](https://www.kiepenkerl.de/kulturanleitungen/pfefferminze/) — Blütezeit "von Juli bis in den Oktober"; Blatternte "ab dem Frühjahr bis in den Herbst"
 17. [PFAF — Mentha x piperita](https://pfaf.org/user/Plant.aspx?LatinName=Mentha+x+piperita) — Blütezeit "August to October"; Vermehrung vorrangig durch Teilung (Samen nicht sortenecht, da Kreuzungsprodukt)
 18. [RHS — Mentha × piperita](https://www.rhs.org.uk/plants/11050/mentha-piperita/details) — Blütezeit "late summer" (bestätigend, kein Beleg für Juni-Blüte)
+19. [LfL Bayern — Kulturanleitung für Pfefferminze (2001, überarb. 2008)](https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf) — Pflanz- und Reihenabstand (Feldanbau), Anbaupause 4–5 Jahre für Lippenblütler, Stickstoffentzug
+20. [Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Schwachzehrer-Beet mit „Kräuter“ (Sammelgruppe)
+21. [Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) — Schwachzehrer inkl. „Kräuter“ (Sammelgruppe)
 <!-- Korrektur `species.bloom_months`: [6,7,8] → [7,8,9] — Konfidenz ✅ GESICHERT (4/4 unabhängige Quellen Nr. 15–18 bestätigen Blühbeginn nicht vor Juli; kein valider Beleg für Juni-Blüte außerhalb der als Quelle ausgeschlossenen Wikipedia) -->
 <!-- /Quelle: growing-phase-auditor 2026-07-04 -->

@@ -334,3 +334,111 @@ Konventionen wie bei Batch 1–3. Auswahl: alphabetische Dateiliste von `spec/kn
 1. Die drei Sub-Batch-Subagenten liefen ohne Bash; die Prüfung `git diff --numstat origin/develop` durch den Aufrufer ergab 0 Löschungen. Ein Agent hängte unaufgefordert einen zusätzlichen Schlusskommentar an (Hippeastrum); vom Aufrufer entfernt — Dateiende stets mit prüfen.
 2. Viele Fachquellen (LfL, LWG-Merkblatt 2111, Hochschul-PDFs) sind per WebFetch nicht lesbar; ein Agent las PDFs über den Read-Pfad. Für künftige Batches das PDF-Lesen im Brief vorschlagen.
 3. Lichtstufe: Positionsfeld-Spannen führen häufig zu `null`; bei Hydrangea, Impatiens und Malus wurde die Stufe nur gesetzt, weil der Kulturtext der Quelle ausdrücklich einen Vorzug nennt.
+
+## Batch 5 (Arten 121–150, `mammillaria_spp` … `physalis_peruviana`) — 2026-10-17
+
+Konventionen wie bei Batch 1–4. Auswahl: alphabetische Dateiliste von `spec/knowledge/plants/*.md` (ohne `_*`), Position 121–150 (Batch 1–4 = Position 1–120, keine Überschneidung). Gemischt: 12 Zimmerpflanzen, 5 Zierstauden/Beetzierpflanzen (Paeonia, Nymphaea, Petunia, Phlox, Pelargonium), 13 Nutz-/Gründüngungs-/Kräuterarten.
+
+### Bilanz je Feld
+
+| Feld | gesetzt (mit Quelle) | `null` n/a | `null` unbelegt |
+|---|---|---|---|
+| `row_spacing_cm` | 8 (Matricaria, Melissa, Mentha, Pastinaca, Ocimum, Oryza, Petroselinum, Physalis) | 17 (12 Zimmerpflanzen, 5 Stauden/Beetzierpflanzen ohne Reihenkultur) | 5 (Medicago, Nicotiana, Origanum, Phacelia, Phaseolus) |
+| `light_requirement` | 18 (`full_sun` 12, `partial_shade` 6) | 0 | 12 |
+| `nutrient_demand` (+ `_source`, `_confidence`) | 7 (light 5, medium 2; Konfidenz high 1, medium 2, low 4) | 17 (12 Zimmerpflanzen, 5 Zierpflanzen; optional) | 6 von 13 Nutzarten (**Pflicht**): Medicago, Nicotiana, Oryza, Petroselinum, Phacelia, Physalis |
+| `nitrogen_fixing` | 11 (`true` 2: Medicago, Phaseolus; `false` 9) | 17 (Zimmer-/Zierpflanzen) | 2 (Origanum, Nicotiana) |
+| `rotation_pause_years` (Art-Override) | 3 (Phaseolus 3, Melissa 4, Mentha 4) | 17 (Zimmer-/Zierpflanzen) | übrige Nutzarten: „Familienwert gilt" bzw. unbelegt (Nicotiana, Ocimum, Oryza) |
+
+### Bilanz je Art
+
+Tally: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_demand` | Konfidenz | `nitrogen_fixing` | `rotation_pause_years`. „n/a" = Zimmerpflanze / Abschnitt 6 „Entfällt"; „frei" = freie Pflanzung.
+
+| Art | spacing | row | light | nutrient_demand | Konf. | N-Fix | Pause |
+|---|---|---|---|---|---|---|---|
+| Matricaria chamomilla | null | 30–35 | full_sun | light_feeder | medium | false | Familie (Asteraceae 3) |
+| Medicago sativa | null | null | full_sun | null | — | true | Familie (Fabaceae 6) |
+| Melissa officinalis | 25–30 | 42–62,5 | null | light_feeder | low | false | 4 |
+| Mentha x piperita | 20–25 | 62,5–75 | null | light_feeder | low | false | 4 |
+| Pastinaca sativa | 10–15 | 30–40 | full_sun | medium_feeder | medium | false | Familie (Apiaceae 4) |
+| Ocimum basilicum | null | 25 | full_sun | medium_feeder | low | false | null |
+| Origanum vulgare | 20–30 | null | full_sun | light_feeder | low | null | null |
+| Oryza sativa | null | 15–25 | null | null | — | false | null |
+| Nicotiana tabacum | null | null | null | null | — | null | null |
+| Petroselinum crispum | 15–30 | 20–30 | null | null | — | false | Familie (Apiaceae 4) |
+| Phacelia tanacetifolia | null | null | full_sun | null | — | false | null |
+| Phaseolus vulgaris | 15 | null | full_sun | light_feeder | high | true | 3 (Art-Abweichung) |
+| Physalis peruviana | 61 | 91 | full_sun | null | — | false | Familie (Solanaceae 4) |
+| Paeonia lactiflora | 100 | frei | full_sun | n/a | — | n/a | n/a |
+| Nymphaea alba | null | frei | full_sun | n/a | — | n/a | n/a |
+| Petunia x hybrida | null | frei | full_sun | n/a | — | null | null |
+| Phlox paniculata | null | frei | null | n/a | — | null | null |
+| Pelargonium zonale | null | frei | null | n/a | — | n/a | n/a |
+| Monstera adansonii, Monstera deliciosa, Nephrolepis exaltata, Peperomia obtusifolia, Phalaenopsis, Philodendron hederaceum | n/a | n/a | partial_shade | n/a | — | n/a | n/a |
+| Opuntia microdasys | n/a | n/a | full_sun | n/a | — | n/a | n/a |
+| Mammillaria, Maranta, Neoregelia, Oxalis triangularis, Pachira aquatica | n/a | n/a | null | n/a | — | n/a | n/a |
+
+### Lücken (Wert `null`, Grund)
+
+| Art | Feld | Grund |
+|---|---|---|
+| Mammillaria, Maranta, Melissa, Mentha, Neoregelia, Oxalis, Pachira, Petroselinum, Phlox, Pelargonium | `light_requirement` | RHS nennt Spanne ohne Vorzug bzw. Artseite ohne Position bzw. Artseite in sich widersprüchlich (Oxalis); Mammillaria nur Gattungsebene, uneinheitlich |
+| Oryza, Nicotiana | `light_requirement` | keine Lichtstufe gelesen (LfL-Infofolie bzw. keine lesbare Fachquelle) |
+| Medicago, Phacelia, Oryza, Nicotiana, Petroselinum, Physalis | `nutrient_demand` | **Pflicht, unbelegt**: Medicago/Phacelia nur Futter-/Gründüngungsleguminose bzw. Gründüngung ohne Zehrerklasse; Petroselinum nur Sammelgruppe „Kräuter" (LKSH, LK NRW, NiG), Petersilie nicht namentlich; Oryza, Nicotiana, Physalis in keiner gelesenen Zehrerliste |
+| Matricaria, Medicago, Ocimum, Origanum, Oryza, Nicotiana, Phacelia, Pelargonium, Petunia, Phlox, Nymphaea | `spacing_cm` (1.9) | Drill-/Flächenkultur nach Saatstärke bzw. RHS nennt nur Endbreite/keinen Abstand bzw. LWG „20 × 25" ohne Zuordnung Reihe/Pflanze (Basilikum) |
+| Medicago, Origanum, Nicotiana, Phacelia, Phaseolus | `row_spacing_cm` | RHS nennt keinen Reihenabstand (45 cm Bohne nur A-Gestell); LKSH-Luzerne-Versuch 12,5 cm nur Versuchsangabe; Phacelia „wie Getreide" ohne Zahl |
+| Origanum, Nicotiana, Petunia, Phlox, Paeonia, Nymphaea, Phacelia | `nitrogen_fixing` / Zehrerstufe / Pause | nicht belegt bzw. Zierstaude ohne Fruchtfolge-Eintrag |
+| Zimmerpflanzen (12) | 6.1-Felder | kein 6.1-Abschnitt bzw. nur Alt-Zeilen ohne Quelle; Felder bleiben null |
+| Nicotiana (alle Felder) | alle 7 | KTBL-Quelle nicht lesbar (HTML statt PDF), Kentucky-Leitfaden nennt eine Rechentabelle, keine Empfehlung |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert | Hinweis |
+|---|---|---|---|
+| Matricaria chamomilla | 1.6 „15–20" Direktsaat; Anbaupause „1–2 Jahre" (Kamillenmüdigkeit) | Reihe 30–35 (Sächs. LfL, Drillkultur); „selbstverträglich" | Abschnitt für Kamille ist 7.1, nicht 6.1 |
+| Melissa officinalis | 1.6 „30–40"; Pause 3 | 25–30 in der Reihe, Reihe 42–62,5 (LfL Bayern, Feldanbau); Lippenblütler 4–5 | Pause 4 = Untergrenze der Spanne |
+| Mentha x piperita | 1.6 „30–40"; Mittelzehrer; Pause 3–4 | 20–25 / 62,5–75 (LfL Bayern); Sammelgruppe Kräuter = Schwachzehrer; 4–5 | Zehrerstufe `low` wegen Sammelgruppe |
+| Pastinaca sativa | Reihe 25–30; Pause 3–4 | 30–40 (LWG), 30 (RHS); Doldenblütler 4–5 (SBB) | Familienwert Apiaceae 4 gilt |
+| Ocimum basilicum | Schwachzehrer; 1.6 „25–30" | LWG 2151 „mittleres Nährstoffbedürfnis" (medium, low); 20 × 25 | Einzelquelle gegen Gruppenangabe LK NRW |
+| Oryza sativa | 1.6 „20–30 × 20–30" (Pikiermethode) | 15–25 Reihe (LfL, Drillsaat/Trockenreis) | Kulturverfahren verschieden |
+| Origanum vulgare | 1.6 „30–40" | RHS mind. 20–30 | — |
+| Paeonia lactiflora | 6.1 Mittelzehrer (unbelegt); 1.7 Schattentoleranz partial_shade | RHS „do best in full sun" | Standort `full_sun` gesetzt |
+| Petroselinum crispum | 6.1 Pause 3–4 | SBB Doldenblütler inkl. Petersilie 4–5 | Familienwert Apiaceae 4 |
+| Phaseolus vulgaris | 1.6 Reihe 40–50 / Stange 60–80; Familienwert Fabaceae 6 | RHS Buschbohne mind. 15 cm; SBB Bohne 3–4 (Erbse separat 5–6) | Art-Override 3 gesetzt — Familienwert Fabaceae 6 und Bohne 3 laufen auseinander |
+| Physalis peruviana | 1.6 „70–90"; Mittelzehrer, Pause 3–4 unbelegt | Hudson Valley Seed 61 / Reihe 91 | Einzelquelle Saatgutanbieter |
+| Petunia, Phlox, Phacelia, Neoregelia | 6.1 Zehrerstufen (Starkzehrer/Mittelzehrer/Schwachzehrer/Schwachzehrer) | ohne Quelle | unbelegt, unverändert |
+
+### Konfidenz `low` — Nachschärfung erwünscht
+
+(`high` gilt nur bei mindestens drei übereinstimmenden unabhängigen Quellen, Schema-Definition; Pastinaca hat zwei — SBB 2022, LWG 2013 — und steht daher auf `medium`.)
+
+| Art | `nutrient_demand` | Befund |
+|---|---|---|
+| Melissa officinalis | light_feeder | nur Sammelgruppe „Kräuter" (NiG Burgenland, LK NRW 2020), Art nicht namentlich |
+| Mentha x piperita | light_feeder | wie Melisse; widerspricht Bestand Mittelzehrer und gestaffelter N-Düngung (LfL) |
+| Ocimum basilicum | medium_feeder | LWG 2151 (artspezifisch) gegen LK NRW (Gruppe Kräuter, schwach) |
+| Origanum vulgare | light_feeder | nur Gruppenangabe Kräuter |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Monstera deliciosa, Petunia x hybrida | Basisarten mit Enrichment nur in `plant_info.yaml` (Importer ungeguardet) — Werte nur im Steckbrief, kein Doppel-Enrichment angelegt |
+| Matricaria, Nicotiana, Oryza, Physalis | Felder im bestehenden `species_enrichment`-Eintrag `plant_info_outdoor_1.yaml` |
+| Mentha, Ocimum, Petroselinum, Phaseolus | `species_enrichment` in `plant_info_outdoor_2.yaml` (Seed-Namen „Mentha piperita"; Ocimum/Petroselinum/Phaseolus zusätzlich in `adventskalender.yaml`, dort nicht geschrieben — Modellgrenze wie Batch 1) |
+| übrige 20 Arten | `new_species`-Eintrag (`plant_info_indoor_2/3.yaml`, `plant_info_outdoor_2/3.yaml`); Seed-Name Phalaenopsis „Phalaenopsis hybrida" |
+| Medicago sativa | `nitrogen_fixing: true` stand im Seed bereits (übernommen, nicht doppelt) |
+| Nymphaea alba | Steckbrief hatte schon 1.9 „Saatgut & Keimung" → neue Abschnitte als 1.10 (Abstand) / 1.11 (Licht) nummeriert; Parser, der exakt „1.9 Pflanzabstand" sucht, findet sie dort nicht |
+| `spacing_cm` | in Batch 5 für keine Art geschrieben (Bestandswert vorhanden) |
+
+### Betreiberfragen
+
+1. Familienwert Lamiaceae fehlt in `botanical_families.yaml`; Melisse/Mentha tragen den LfL-Wert 4 (Spanne 4–5, „alle Lippenblütler") als Art-Override — als Familienwert Lamiaceae erfassen?
+2. Phaseolus: Art-Override 3 (SBB Bohne 3–4) gegen Familienwert Fabaceae 6 — Familienwert unverändert lassen oder je Gattung differenzieren?
+3. Mentha (Seed `nutrient_demand_level: medium_feeder` vs. neu `nutrient_demand: light_feeder`) und Ocimum (`light_feeder` vs. `medium_feeder`): zwei Zehrerfelder derselben Art widersprechen sich — welches Feld hat Vorrang (REQ-053 H-004)?
+
+### Lehren aus Batch 5
+
+1. Die Sub-Batch-Agenten liefen mit Bash; `pdftotext` auf per `curl` geladene PDFs (LWG, SBB, LKSH, LfL, NiG) lieferte lesbare Quellen, wo WebFetch scheiterte — künftig im Brief vorschlagen (PDF in leeres Scratchpad-Verzeichnis, `pdftotext -layout`). Spaltenreihenfolge bei NiG-PDFs ohne `-layout` unzuverlässig.
+2. Kräuter erscheinen in den Zehrer-Listen nur als Sammelgruppe „Kräuter" (Schwachzehrer): Petersilie bleibt Pflichtlücke, Melisse/Minze/Oregano nur `low`.
+3. Wo ein Steckbrief schon einen Abschnitt 1.9 hat (Nymphaea) oder die Fruchtfolgetabelle anders nummeriert ist (Kamille 7.1), musste von der Vorlage abgewichen werden — Extraktor-Parser darauf prüfen.
+4. Gründüngungs-/Futterleguminosen (Phacelia, Medicago) haben in Gartenbau-Fruchtfolgequellen keine Zehrerklasse — Pflichtfeld bleibt `null`, kein Default.

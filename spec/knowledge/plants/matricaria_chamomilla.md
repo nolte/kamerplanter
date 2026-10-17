@@ -155,6 +155,22 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 6. [Bank on Seeds — Common Chamomile Guide](https://bankonseeds.com/pages/common-chamomile-guide) — Keimfähigkeitsdauer 3–5 Jahre bei richtiger Lagerung
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Drillkultur — Sächsische Landesanstalt für Landwirtschaft nennt nur Saatstärke (1–3 kg/ha) und Reihenabstand, keinen Pflanzabstand in der Reihe --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 30–35 | `species.row_spacing_cm` |
+| Quelle Abstände | Sächsische Landesanstalt für Landwirtschaft, „Echte Kamille – Matricaria recutita L. – Anbauverfahren“ (2. Auflage 2006), Abschnitt Aussaat („1–3 kg/ha Saatgut bei 30–35 cm Reihenabstand“), https://publikationen.sachsen.de/bdb/artikel/13526/documents/15441 | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Sächsische Landesanstalt für Landwirtschaft, „Echte Kamille – Anbauverfahren“ (2006), Abschnitt Standort („Bevorzugt werden sonnige, warme sowie mäßig feuchte Lagen“), https://publikationen.sachsen.de/bdb/artikel/13526/documents/15441 | — |
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenuebersicht
@@ -418,6 +434,11 @@ Da chemischer Pflanzenschutz wegen der Blütenernte ausscheidet, eignen sich Nü
 | Empfohlene Vorfrucht | Alle; keine speziellen Ansprüche |
 | Empfohlene Nachfrucht | Alle; Kamille als Bodenverbesserer |
 | Anbaupause (Jahre) | 1–2 Jahre (Kamillenmüdigkeit; Selbstaussaat aber wuenschenswert) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Sächsische Landesanstalt für Landwirtschaft, „Echte Kamille – Anbauverfahren“ (2006), Abschnitt Fruchtfolge/Düngung („geringe Nährstoffansprüche“, „abtragende Frucht“, Aufnahme 25–55 kg N/ha), https://publikationen.sachsen.de/bdb/artikel/13526/documents/15441; Sammelgruppe „Kräuter“ als Schwachzehrer: Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „… Kräuter, Spinat“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; „Schwachzehrern, also alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm (Kamille dort nicht namentlich) |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose, Korbblütler; Sächsische Landesanstalt für Landwirtschaft 2006: „Kamille hinterlässt nur wenig Stickstoff im Boden“, https://publikationen.sachsen.de/bdb/artikel/13526/documents/15441) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Sächsische Landesanstalt für Landwirtschaft (2006) nennt Kamille „selbstverträglich“, aber keine Zahl; Familienwert Asteraceae 3 gilt, keine belegte Zahl für eine Abweichung --> |
 
 ### 7.2 Mischkultur — Gute Nachbarn
 
@@ -503,4 +524,7 @@ Bona,Matricaria chamomilla,60–80,early;compact;good_yield,open_pollinated,Frue
 17. Koppert — Aphidius colemani, Aphidoletes aphidimyza, Phytoseiulus persimilis: Ausbringraten/m² — https://www.koppertus.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/
 18. Plantura — German chamomile care & propagation: Herbstaussaat überwintert als Rosette, Mulchschutz, Blüte ab April — https://plantura.garden/uk/herbs/chamomile/german-chamomile
 19. Envirevo Agritech — Hydroponic micronutrient ranges (Mn/Zn/Cu/Mo ppm, generische Nährlösungsnormen) — https://envirevoagritech.com/optimizing-hydroponic-nutrients-requirements/
+20. Sächsische Landesanstalt für Landwirtschaft — Echte Kamille, Matricaria recutita L., Anbauverfahren (2. Auflage 2006; Reihenabstand, Standort, Zehrerstufe, Fruchtfolge) — https://publikationen.sachsen.de/bdb/artikel/13526/documents/15441
+21. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Schwachzehrer-Beet mit „Kräuter“; Sammelgruppe) — https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+22. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020; Schwachzehrer inkl. „Kräuter“; Sammelgruppe) — https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

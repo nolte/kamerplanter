@@ -1751,6 +1751,13 @@ species_enrichment:
       light_germination: light
       thousand_seed_weight_g: 0.09
       sowing_density_per_m2: 1100
+    row_spacing_cm: "30–35"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Sächsische Landesanstalt für Landwirtschaft, Echte Kamille - Anbauverfahren (2006): geringe Nährstoffansprüche, abtragende Frucht, 25-55 kg N/ha Aufnahme; Sammelgruppe Kräuter = Schwachzehrer: Natur im Garten Burgenland, Fruchtfolge im Gemüsegarten (Schwachzehrer-Beet mit Kräuter); Landwirtschaftskammer NRW 2020, Fruchtfolge im Gemüsegarten planen (Schwachzehrer inkl. Kräuter) (Kamille nicht namentlich)"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Nicotiana tabacum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1762,6 +1769,13 @@ species_enrichment:
       seed_viability_years: 5
       light_germination: light
       thousand_seed_weight_g: 0.05
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Oryza sativa":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1775,6 +1789,13 @@ species_enrichment:
       pretreatment: [presoak]
       thousand_seed_weight_g: 25
       sowing_density_per_m2: 250
+    row_spacing_cm: "15–25"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Physalis peruviana":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1785,6 +1806,13 @@ species_enrichment:
       days_to_germination: 14
       light_germination: light
       thousand_seed_weight_g: 1
+    row_spacing_cm: "91"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Sorghum bicolor":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
