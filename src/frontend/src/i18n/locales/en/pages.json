@@ -5399,7 +5399,8 @@
           "resize": "Resize",
           "editPoint": "Edit point",
           "draw": "Draw",
-          "delete": "Delete"
+          "delete": "Delete",
+          "northAngle": "Set north direction"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5460,6 +5461,51 @@
             "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
             "next_other": "{{count}} points placed. Place more points or finish with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
           }
+        },
+        "view": {
+          "label": "View settings"
+        },
+        "grid": {
+          "step": "Grid step",
+          "toggles": "Grid and snap",
+          "toggle": "Show grid",
+          "toggleHint": "Show or hide the grid (G). The snap raster stays active.",
+          "unit": "Length unit",
+          "unitOption": {
+            "m": "Metres",
+            "cm": "Centimetres"
+          }
+        },
+        "snap": {
+          "toggle": "Snap to grid",
+          "short": "Snap",
+          "hint": "Snap to the grid. Hold Alt to switch snapping off briefly."
+        },
+        "zoom": {
+          "label": "Zoom",
+          "in": "Zoom in",
+          "out": "Zoom out",
+          "fit": "Fit",
+          "inHint": "Zoom in (+)",
+          "outHint": "Zoom out (−)",
+          "fitHint": "Fit the whole plan into view (0)",
+          "level": "Zoom {{percent}} percent",
+          "scaleBar": "Scale bar: {{length}}"
+        },
+        "compass": {
+          "label": "Compass: direction of geographic north on the plan",
+          "input": "North angle (°, clockwise)",
+          "value": "{{angle}}° clockwise from the top of the plan",
+          "n": "N",
+          "e": "E",
+          "s": "S",
+          "w": "W"
+        },
+        "dimensions": {
+          "rect": "{{width}} × {{length}} · {{area}}",
+          "circle": "Ø {{diameter}} · {{area}}",
+          "polygon": "{{width}} × {{length}} · {{area}}",
+          "line": "{{length}}"
         }
       }
     }

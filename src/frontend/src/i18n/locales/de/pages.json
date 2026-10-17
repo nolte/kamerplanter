@@ -5400,7 +5400,8 @@
           "resize": "Größe ändern",
           "editPoint": "Punkt ändern",
           "draw": "Zeichnen",
-          "delete": "Löschen"
+          "delete": "Löschen",
+          "northAngle": "Nordrichtung setzen"
         },
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
@@ -5461,6 +5462,51 @@
             "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
             "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder beende mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
           }
+        },
+        "view": {
+          "label": "Ansichtseinstellungen"
+        },
+        "grid": {
+          "step": "Rasterstufe",
+          "toggles": "Raster und Einrasten",
+          "toggle": "Raster anzeigen",
+          "toggleHint": "Raster ein- oder ausblenden (G). Das Einrast-Raster bleibt aktiv.",
+          "unit": "Längeneinheit",
+          "unitOption": {
+            "m": "Meter",
+            "cm": "Zentimeter"
+          }
+        },
+        "snap": {
+          "toggle": "Am Raster einrasten",
+          "short": "Einrasten",
+          "hint": "Am Raster einrasten. Mit gehaltener Alt-Taste kurzzeitig ausschalten."
+        },
+        "zoom": {
+          "label": "Zoom",
+          "in": "Vergrößern",
+          "out": "Verkleinern",
+          "fit": "Anpassen",
+          "inHint": "Vergrößern (+)",
+          "outHint": "Verkleinern (−)",
+          "fitHint": "An Fläche anpassen: ganzen Plan einpassen (0)",
+          "level": "Zoom {{percent}} Prozent",
+          "scaleBar": "Maßstabsbalken: {{length}}"
+        },
+        "compass": {
+          "label": "Kompass: Richtung geografisch Nord auf dem Plan",
+          "input": "Nordwinkel (°, im Uhrzeigersinn)",
+          "value": "{{angle}}° im Uhrzeigersinn von oben",
+          "n": "N",
+          "e": "O",
+          "s": "S",
+          "w": "W"
+        },
+        "dimensions": {
+          "rect": "{{width}} × {{length}} · {{area}}",
+          "circle": "Ø {{diameter}} · {{area}}",
+          "polygon": "{{width}} × {{length}} · {{area}}",
+          "line": "{{length}}"
         }
       }
     }
