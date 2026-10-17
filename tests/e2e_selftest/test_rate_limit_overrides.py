@@ -88,13 +88,6 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "bounds a route that reads, verifies and stores a whole upload, so raising it here would "
         "test nothing the suite uses."
     ),
-    "rate_limit_plan_batch": (
-        "No E2E test calls the garden-plan batch endpoint (grep over tests/e2e finds no call to "
-        "/plan/batch, REQ-053 WP 1.8) and the plan editor has no UI yet (Welle 3+). One batch is "
-        "one deliberate editing step by a grower; the per-minute budget of 10 is human-scale. If "
-        "a journey ever drives the editor through this route, this entry is wrong and the limit "
-        "needs raising."
-    ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "
         "deliberate send per channel a user is configuring. It is not on any bootstrap "
