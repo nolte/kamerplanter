@@ -133,6 +133,22 @@ Quellen (§1.8):
 6. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) — Salbei 1–3 Jahre keimfähig
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30 (mindestens) | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt nur den Abstand zu Nachbarpflanzen (mind. 30 cm), keinen Reihenabstand --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Sage: Grow your own“ („Allow at least 30cm (12in) from neighbouring plants“), https://www.rhs.org.uk/herbs/sage/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Sage: Grow your own“ („likes full sun in a sheltered spot“), https://www.rhs.org.uk/herbs/sage/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -304,6 +320,11 @@ Salbei WENIG düngen! Auf mageren, gut kalkhaltig-durchlässigen Böden bildet e
 | Empfohlene Vorfrucht | Beliebig; kein spezieller Vorfrucht-Anspruch |
 | Empfohlene Nachfrucht | Beliebig; Starkzehrer profitieren von Nährstoff-arm bleibendem Boden |
 | Anbaupause (Jahre) | keine Beschränkung |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | low (nur Sammelgruppe „Kräuter“, Art nicht namentlich) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: kein Familienwert Lamiaceae in botanical_families.yaml und keine gelesene artspezifische Quelle zur Anbaupause --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -371,4 +392,8 @@ Salvia officinalis,"Echter Salbei;Küchensalbei;Common Sage;Garden Sage",Lamiace
 18. [Missouri Botanical Garden — Salvia officinalis Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=m260) — USDA-Zone 4-8, Blütezeit late spring
 19. [nachhaltigleben.ch — Salbei ernten: Fast ganzjährig im eigenen Garten anbauen](https://www.nachhaltigleben.ch/garten/salbei-ernten-fast-ganzjaehrig-im-eigenen-garten-anbauen-2502) — Haupt-Wachstum April–September, eingeschränkte Winterernte an frostfreien Tagen
 20. [Kistengrün — Kann man frischen Salbei im Winter ernten?](https://www.kistengruen.de/wp/2019/11/salbei-im-winter-ernten/) — Winterernte nur sparsam/frostfrei, Pflanze zieht sich in Ruhemodus zurück
+21. RHS — Sage: Grow your own (Pflanzabstand mind. 30 cm; volle Sonne, geschützt): https://www.rhs.org.uk/herbs/sage/grow-your-own
+22. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+23. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+24. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: growing-phase-auditor Audit 2026-07 -->

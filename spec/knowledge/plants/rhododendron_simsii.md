@@ -122,6 +122,22 @@
 **Hinweis (1.7):** Rhododendron simsii ist eine schattentolerante (shade-tolerant) Waldbodenpflanze mit sehr niedrigem Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0); der angegebene Bereich 5–20 µmol/m²/s ist der für schattentolerante Gehölz-Jungpflanzen typische Blatt-Kompensationsbereich (artspezifischer Messwert nicht publiziert). Sättigungs- und Optimumwerte gehören NICHT in dieses Feld. Standort: helle, lichte Schatten ("dappled shade"), keine pralle Mittagssonne. Das Wurzelsystem ist flach und faserig (fibrous), Feinwurzeln konzentrieren sich in den oberen ~15–30 cm — daher staunässe-empfindlich (Phytophthora-Risiko). Salzempfindlich (Streusalz-/Salzsprüh-Schäden); eine Maas-Hoffman-ECe-Schwelle (Substrat-ECe, nicht Gießwasser-EC) ist für die Art nicht quantifiziert (DATEN FEHLEN). Der Boden-pH-Vorzug 4.5–5.5 ist mit §1.6 (Substrat pH 4.0–5.5) und §2.3 (pH 4.5–5.5) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Indoor azaleas“ (Aspect: Light, dappled shade; „A cool, partially shaded position is desirable“; gute Helligkeit ohne pralle Mittagssonne), https://www.rhs.org.uk/plants/rhododendron/indoor-azaleas | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -363,4 +379,5 @@ Rhododendron simsii,"Zimmerazalee;Indische Azalee;Topf-Azalee;Sims Azalea;Indian
 22. [Gardener's Path — How to Grow and Care for Florist's Azaleas Indoors](https://gardenerspath.com/plants/houseplants/grow-azaleas-indoors/) — frost-intolerant, Kältereiz-Anforderung (2 Monate 4–13°C) für Knospenbildung
 23. [Homeplantsguide.com — Indian Azalea (Rhododendron simsii) Growing and Care Guide](https://homeplantsguide.com/houseplants/rhododendron-simsii-grow-and-care.html) — "not frost hardy", USDA-Zonenangabe
 24. [REQ-003_Phasensteuerung.md, Spec-Audit 2026-07-02 D11](spec/req/REQ-003_Phasensteuerung.md) — Photoperiodische Zier-Induktions-Template (Weihnachtsstern/Kalanchoe-Analogon): perennierende/polykarpe Zierpflanzen mit Ruhephase führen `is_recurring: true`, NICHT `is_terminal: true` — Zyklus wird über `is_cycle_restart` fortgesetzt, nicht terminiert
+RHS -- Indoor azaleas (Aspect: Light, dappled shade; „cool, partially shaded position“; Lichtanspruch): https://www.rhs.org.uk/plants/rhododendron/indoor-azaleas
 <!-- /Quelle: Growing-Phase-Audit 2026-07 -->

@@ -113,6 +113,22 @@
 | Boden-pH-Vorzug (min–max) | 5.5–6.8 (slightly acidic; Optimum ≈ 6.5) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 120–150 | `species.spacing_cm` |
+| Reihenabstand (cm) | 280 | `species.row_spacing_cm` |
+| Quelle Abstände | In der Reihe: RHS, „How to grow redcurrants“, https://www.rhs.org.uk/fruit/redcurrants/grow-your-own („1.2–1.5m (4–5ft) apart for bush plants“). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Johannisbeere Spindelerziehung, „Pflanzabstand: 2,80 m x 0,50 m“; Versuchsanlage im Erwerbsanbau, im Hausgarten nicht übertragbar ohne Prüfung) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow redcurrants“, https://www.rhs.org.uk/fruit/redcurrants/grow-your-own (Rote/Weiße Johannisbeere „prefer full sun“, Halbschatten wird vertragen) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -280,6 +296,11 @@ Zwei Düngungen im Frühjahr: Ende Februar (Startdüngung) und Ende April (Fruch
 | Empfohlene Vorfrucht | Hülsenfrüchte; Gründüngung |
 | Empfohlene Nachfrucht | Nach Rodung mind. 5 Jahre Pause (Pilze im Boden) |
 | Anbaupause (Jahre) | 5–7 Jahre nach Rodung |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauergehölz); Bestandswert 5–7 Jahre nach Rodung ist unbelegt --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -355,4 +376,6 @@ Rovada,Ribes rubrum,late;very_long_clusters;mildew_tolerant,80,open_pollinated
 19. [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/wp-content/uploads/sites/3216/2022/12/2019Biologicalcontrolofaphidsfinal3.pdf) — Aphidius, Aphidoletes, Florfliege Ausbringraten/Etablierung
 20. [Cornell Biocontrol — Aphidoletes aphidimyza](https://biocontrol.entomology.cornell.edu/predators/Aphidoletes.php) — Ausbringrate Gallmücke gegen Blattläuse
 21. [Koppert — Aphipar (Aphidius colemani)](https://www.koppert.com/aphipar/) — Aphidius-Ausbringrate 1–2/m², Mumienbildung 2–3 Wochen
+22. RHS, How to grow redcurrants: https://www.rhs.org.uk/fruit/redcurrants/grow-your-own (1,2–1,5 m, full sun)
+23. Sächs. LfL, Beerenobstanbau, Heft 24/2007: https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Reihe 2,80 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -117,6 +117,22 @@
 | Boden-pH-Vorzug (min–max) | 5.0–8.0 (quellentreu PFAF; Vorzugsbereich humusreich/feucht pH 5,5–7,0 gemäß §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS Sambucus nigra nennt nur die Endbreite (2,5–4 m), keinen Pflanzabstand; Bestandswert §1.6 bleibt unverändert --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine gelesene Quelle für einen Reihenabstand; Heckenpflanzung bzw. Einzelstrauch --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS Sambucus nigra, https://www.rhs.org.uk/plants/16391/sambucus-nigra/details (nur „Spread 2.5-4 metres“, kein Abstand) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS Sambucus nigra nennt „Full sun, Partial shade“ ohne ausdrücklichen Vorzug; keine weitere gelesene Quelle --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS Sambucus nigra, https://www.rhs.org.uk/plants/16391/sambucus-nigra/details (Position: „Full sun, Partial shade“, kein Vorzug genannt) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -326,4 +342,5 @@ Sambucus nigra,"Schwarzer Holunder;Fliederbeere;Hollerbusch;Black Elderberry",Ad
 8. [NC State Extension — Sambucus nigra Plant Toolbox](https://plants.ces.ncsu.edu/plants/sambucus-nigra/) — Standort, Sonne/Halbschatten, Bodenansprüche, Winterhärte
 9. [Wojciechowicz-Żytko et al. — Sambucus nigra L. as a reservoir of beneficial insects (Diptera, Syrphidae)](https://www.researchgate.net/publication/311972995_Sambucus_nigra_L_as_a_reservoir_of_beneficial_insects_Diptera_Syrphidae) — Aphis sambuci, aphidophage Schwebfliegen (Epistrophe eligans) als Nützlinge
 10. [Frontiers in Plant Science — Interactive Effects of Chilling, Photoperiod, and Forcing Temperature on Flowering Phenology of Temperate Woody Plants](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.00443/full) — Temperatur-/Chilling-Steuerung der Blühphänologie (Beleg day_neutral statt long_day)
+11. RHS Sambucus nigra: https://www.rhs.org.uk/plants/16391/sambucus-nigra/details (Position Full sun / Partial shade; Spread 2,5–4 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

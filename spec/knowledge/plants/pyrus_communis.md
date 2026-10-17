@@ -136,6 +136,22 @@
 **Hinweis (Staunässe):** Auf flachwurzelnder Quitte-Unterlage werden schwere, zeitweise nasse Böden besser toleriert als auf Pyrus-Sämling; dauerhafte Staunässe schädigt jedoch beide. Einstufung daher `moderate`, nicht `tolerant`.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 350–550 | `species.spacing_cm` |
+| Reihenabstand (cm) | 350 | `species.row_spacing_cm` |
+| Quelle Abstände | In der Reihe: RHS, „How to grow pears“, https://www.rhs.org.uk/fruit/pears/grow-your-own („space trees 3.5–5.5m (11–18ft) apart if grafted on ‘Quince A’ rootstock“; auf ‘Quince C’/‘Quince Eline’ 2,5–3,5 m, Espalier/Fächer mind. 3,6 m, Cordon ca. 75 cm). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Berichte aus dem Obstbau“, Schriftenreihe Heft 4/2004, https://publikationen.sachsen.de/bdb/artikel/14041/documents/16506 („Der Reihenabstand betrug 3,5 m“, Birnen-Unterlagenversuch, Spindeln, Erwerbsanbau) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow pears“, https://www.rhs.org.uk/fruit/pears/grow-your-own („crop best in a warm, sunny, sheltered position protected from late frosts“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -318,6 +334,11 @@ Junge Bäume brauchen mehr N für Wuchs; ältere Bäume mehr P+K für Fruchtbild
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Kernobst (Rosaceae) |
 | Anbaupause (Jahre) | Mehrjährig; Standort dauerhaft; 30–60 Jahre Standzeit |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauergehölz, keine Fruchtfolgekultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -382,4 +403,6 @@ Pyrus communis,"Kulturbirne;Gemeine Birne;Pear",Rosaceae,Pyrus,perennial,day_neu
 14. [Frontiers in Plant Science 2019 — Self-Incompatibility in European Pear](https://www.frontiersin.org/articles/10.3389/fpls.2019.00407/full) — Selbstinkompatibilität, Befruchter-Notwendigkeit
 15. [Keepers Nursery — Pollination partners for Conference](https://www.keepers-nursery.co.uk/searchpolpartner.aspx?id=CONFER) — Befruchter-Sortenliste, Blühgruppe Conference
 16. [Ashridge Nurseries — Pear Tree Pollination Groups Chart UK](https://www.ashridgetrees.co.uk/blog/pear-tree-pollination-groups-chart/) — Blühgruppen: Conference/Williams Gruppe 3, Comice Gruppe 4
+17. RHS, How to grow pears: https://www.rhs.org.uk/fruit/pears/grow-your-own (Abstand auf Quitte A 3,5–5,5 m; sunny)
+18. Sächs. LfL, Berichte aus dem Obstbau, Heft 4/2004: https://publikationen.sachsen.de/bdb/artikel/14041/documents/16506 (Reihenabstand 3,5 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

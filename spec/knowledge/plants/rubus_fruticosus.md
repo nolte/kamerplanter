@@ -113,6 +113,22 @@
 | Boden-pH-Vorzug (min–max) | 5.5–6.5 (Quellen 5,5–7,0; eng gefasst harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 250–350 | `species.spacing_cm` |
+| Reihenabstand (cm) | 280 | `species.row_spacing_cm` |
+| Quelle Abstände | In der Reihe: RHS, „How to grow blackberries“, https://www.rhs.org.uk/fruit/blackberries/grow-your-own („2.5–3.5m (8–11ft) between plants“ bei mäßig starkwüchsigen Sorten, bis 4 m bei sehr starkwüchsigen). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Brombeere ‚Loch Ness‘/‚Chester Thornless‘, Pflanzabstand 2,80 m × 0,75 bzw. 1,50 m, fächerförmige Erziehung; Versuchsanlage im Erwerbsanbau) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow blackberries“, https://www.rhs.org.uk/fruit/blackberries/grow-your-own (sonniger Standort für besten Ertrag; Früchte auch im Halbschatten; sinngemäß wiedergegeben) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -288,6 +304,11 @@ Brombeere: Düngung ab Mitte August einstellen! Spätdüngung fördert weiches H
 | Empfohlene Vorfrucht | Hülsenfrüchte; Gründüngung |
 | Empfohlene Nachfrucht | Nach Rodung: 3–4 Jahre Pause; dann Gemüse oder andere Obstarten |
 | Anbaupause (Jahre) | Nach Rodung mind. 5 Jahre (Bodenpilze, Verticillium) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauerkultur); Bestandswert mind. 5 Jahre ist unbelegt --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -358,4 +379,6 @@ Loch Ness,Rubus fruticosus agg.,thornless;large_fruit;robust,75,open_pollinated
 10. [Wikifarmer — Blackberries Propagation and Pollination](https://wikifarmer.com/library/en/article/blackberries-propagation-and-pollination) — Selbstfruchtbarkeit; Insektenflug erhöht Fruchtansatz/-größe
 11. [Penn State Extension — Pollination Requirements for Various Fruits and Nuts](https://extension.psu.edu/pollination-requirements-for-various-fruits-and-nuts) — Brombeere selbstfruchtbar (keine Befruchtersorte nötig)
 12. [Ambitious Harvest — Blackberry Growth Stages / Lifespan](https://www.ambitiousharvest.com/learn/blackberry-growth-stages) — Lebensdauer 15–20 Jahre (Krone ausdauernd, Ruten biennial)
+13. RHS, How to grow blackberries: https://www.rhs.org.uk/fruit/blackberries/grow-your-own (2,5–3,5 m, sunny)
+14. Sächs. LfL, Beerenobstanbau, Heft 24/2007: https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Reihe 2,80 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

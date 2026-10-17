@@ -133,6 +133,22 @@
 - _Boden-pH:_ 6.0–7.0 harmonisiert mit §1.6 (pH 6,0–7,5) und §2.3 (pH 6,0–7,0); pH-Optimum laut Quellen 6,0–6,8.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS „How to grow plums“ nennt keinen Abstand zwischen Bäumen; Sächs. LfL 4 × 2,5 m gilt nur für Spindelerziehung im Versuch; Bestandswert §1.6 (400–500 cm, freistehend) bleibt unverändert --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 400 | `species.row_spacing_cm` |
+| Quelle Abstände | Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Berichte aus dem Obstbau“, Schriftenreihe Heft 4/2004, https://publikationen.sachsen.de/bdb/artikel/14041/documents/16506 („Der Pflanzabstand beträgt 4 x 2,5 m. Die Bäume sind als Spindel erzogen“, Pflaumen-Sorten-/Unterlagenversuch; 4 m = Reihenabstand, 2,5 m = Baumabstand in der Reihe; Spindelanlage im Erwerbsobstbau-Versuch) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow plums“, https://www.rhs.org.uk/fruit/plums/grow-your-own („crop best in a warm, sheltered site in full sun“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -327,6 +343,11 @@ Pflaumen sind empfindlicher als andere Obstbäume gegenüber Nährstoffüberdosi
 | Nährstoffbedarf | Mittelzehrer (medium_feeder) |
 | Fruchtfolge-Kategorie | Dauergehölz (Rosaceae/Steinobst) |
 | Anbaupause (Jahre) | 5+ Jahre Pflaume/Kirsche nach Pflaume (Bodenermüdung) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauergehölz, keine Fruchtfolgekultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -402,4 +423,6 @@ Elena,Prunus domestica,,,"groß;frühreifend",,,vegetatively_propagated
 14. [Real English Fruit — Plum tree pollination](https://realenglishfruit.co.uk/plum-tree-pollination/) — selbstfruchtbar/teilselbstfruchtbar, Befruchter
 15. [BBC Gardeners' World — Victoria Plum Tree (Prunus domestica)](https://www.gardenersworld.com/plants/victoria-plum-tree-prunus-domestica/) — produktive Lebensdauer ~20 Jahre
 16. [University of Maine Extension — Bulletin #2034 Plum Production](https://extension.umaine.edu/publications/2034e/) — Standzeit, Ertragseintritt, Pflege
+17. Sächs. LfL, Berichte aus dem Obstbau, Heft 4/2004: https://publikationen.sachsen.de/bdb/artikel/14041/documents/16506 (Pflaume 4 × 2,5 m, Spindel)
+18. RHS, How to grow plums: https://www.rhs.org.uk/fruit/plums/grow-your-own (full sun)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

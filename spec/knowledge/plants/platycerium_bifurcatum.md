@@ -120,6 +120,22 @@
 **Hinweis 1.7:** Der Lichtkompensationspunkt ist für *Platycerium bifurcatum* nicht direkt publiziert; der angegebene Bereich (10–25 µmol/m²/s) ist aus dem Kompensationspunkt stark schattenadaptierter Epiphyten-/Farn-Niche abgeleitet (schattenadaptierte Farne liegen typisch < 50 µmol/m²/s, sehr schattenadaptierte filmy ferns ≤ 51 µmol/m²/s für PPFD bei 95 % Sättigung; reiner LCP deutlich darunter). Lichtsättigung liegt deutlich höher (Photosynthese-Messungen bei 100 µmol/m²/s, Photoinhibition/Starklichtstress ab ≈ 800 µmol/m²/s) — diese Sättigungs-/Inhibitionswerte gehören NICHT ins LCP-Feld. Salztoleranz: Epiphyt mit sehr geringer Salzpufferung, empfindlich gegenüber Salzanreicherung im Substrat; daher Dünger stets halbkonzentriert und Montagefläche regelmäßig mit salzarmem Wasser durchspülen. Boden-pH-Vorzug quellentreu auf 6.0–7.0 gesetzt (slightly acidic to neutral) und mit §2.3 (pH 6.0–7.0) harmonisiert; einzelne Quellen nennen auch 5.5–6.5 (leicht sauer bevorzugt).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Platycerium bifurcatum“ (Position: Partial shade; Kulturtext „bright filtered light and high humidity“), https://www.rhs.org.uk/plants/13234/platycerium-bifurcatum/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -323,4 +339,5 @@ Platycerium bifurcatum,"Geweihfarn;Hirschgeweihfarn;Staghorn Fern;Elkhorn Fern",
 12. [Wisconsin Horticulture Extension — Staghorn Fern, Platycerium bifurcatum](https://hort.extension.wisc.edu/articles/staghorn-fern-platycerium-bifurcatum/) — Lichtbedarf, Halbschatten, Kultur
 13. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Ausbringrate 2–5/m² (Innenraum/Gewächshaus), Entwicklungszyklus
 14. [University of Hertfordshire AERU / Wikipedia — Metaphycus helvolus](https://sitem.herts.ac.uk/aeru/bpdb/Reports/2258.htm) — Ausbringrate 5–10/m², Zielwirt Coccus hesperidum (Weichschildlaus)
+RHS -- Platycerium bifurcatum (Position: Partial shade; Kulturtext „bright filtered light“; Lichtanspruch): https://www.rhs.org.uk/plants/13234/platycerium-bifurcatum/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

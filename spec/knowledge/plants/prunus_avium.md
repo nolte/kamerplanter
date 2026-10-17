@@ -122,6 +122,22 @@
 - *pH:* Kern-Vorzug 6.0–7.0; toleriert leicht saure bis schwach alkalische Böden bis ~7.5 (harmonisiert mit §1.6/§2.3); auf stark alkalischen Böden steigt das Risiko von Eisen-/Mangan-Chlorose.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS „How to grow cherries“ nennt keinen Abstand zwischen Bäumen (nur Wandabstand 25–35 cm, Rasenkreis 1 m); Bestandswert §1.6 bleibt unverändert --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine gelesene Quelle für einen Reihenabstand der Süßkirsche (RHS: kein Abstand genannt) --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow cherries“, https://www.rhs.org.uk/fruit/cherries/grow-your-own (kein Baum-/Reihenabstand genannt, nur Wandabstand und Mindestgröße der Baumscheibe) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow cherries“, https://www.rhs.org.uk/fruit/cherries/grow-your-own (Süßkirschen brauchen volle Sonne, Sauerkirschen vertragen etwas Schatten; sinngemäß wiedergegeben); ergänzend RHS Prunus avium, https://www.rhs.org.uk/plants/13950/i-prunus-avium-i/details (Position „Full sun“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -288,6 +304,11 @@ Kirschbäume brauchen weniger Stickstoff als Birnen. Überdüngung fördert star
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Steinobst (Rosaceae) |
 | Anbaupause (Jahre) | Mehrjährig; Standort dauerhaft; 30–50 Jahre Standzeit |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauergehölz, keine Fruchtfolgekultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -343,4 +364,6 @@ Prunus avium,"Süßkirsche;Vogelkirsche;Sweet Cherry",Rosaceae,Prunus,perennial,
 15. [WSU Tree Fruit — Micronutrients](https://treefruit.wsu.edu/micronutrients/) — Mangelschwellen Zn <20, Mn <40 ppm
 16. [Garden Oracle — Growing Sweet Cherry: Prunus avium](https://gardenoracle.com/images/prunus-avium.html) — Lebensdauer 15–30 produktive Jahre, pH 6.0–7.0
 17. [HortiDaily — Ratios in the light spectrum (R:FR, far-red fraction)](https://www.hortidaily.com/article/9089222/ratios-in-the-light-spectrum-a-brief-overview/) — Vollsonne FR-Fraction ≈ 0.46–0.5
+18. RHS, How to grow cherries: https://www.rhs.org.uk/fruit/cherries/grow-your-own (Sonne/Position; kein Pflanzabstand)
+19. RHS Prunus avium: https://www.rhs.org.uk/plants/13950/i-prunus-avium-i/details (Full sun)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

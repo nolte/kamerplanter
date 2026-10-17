@@ -140,6 +140,22 @@ Quellen (§1.8):
 8. [Effect of light, temperature and seed mass on germination of two species of the Himalayan rhubarb — ResearchGate](https://www.researchgate.net/publication/235633636_Effect_of_light_temperature_and_seed_mass_on_germination_of_two_species_of_the_Himalayan_rhubarb) — Lichtkeimung 87 % vs. Dunkelkeimung 9,6 % (Gattung Rheum, andere Arten)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 75–90 | `species.spacing_cm` |
+| Reihenabstand (cm) | 91–122 | `species.row_spacing_cm` |
+| Quelle Abstände | In der Reihe: RHS, „How to grow rhubarb“, https://www.rhs.org.uk/vegetables/rhubarb/grow-your-own („space them 75–90cm (30–35in) apart“). Reihenabstand und Gegenprobe: University of Arkansas Extension FSA-6076 „Rhubarb“, https://www.uaex.uada.edu/publications/PDF/FSA-6076.pdf („Space roots 36 to 48 inches apart in rows 3 to 4 feet apart“ = 91–122 cm) und UConn Home & Garden Education Center, https://homegarden.cahnr.uconn.edu/factsheets/rhubarb („spaced 3-4’ apart in rows that are also 3-4’ apart“) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow rhubarb“, https://www.rhs.org.uk/vegetables/rhubarb/grow-your-own („grows best in an open, sunny site“, verträgt leichten Schatten); University of Arkansas FSA-6076, https://www.uaex.uada.edu/publications/PDF/FSA-6076.pdf („Light – sunny“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -310,6 +326,16 @@ Rhabarber ist Starkzehrer mit hohem Stickstoffbedarf. Wichtig: Dünger NIE direk
 |---------|-------------------|-------|-------------|---------|
 | Mangold | Beta vulgaris subsp. vulgaris | Ähnlich hoher Oxalsäuregehalt; Konkurrenz um Nährstoffe bei eng benachbarter Pflanzung | mild | `incompatible_with` |
 
+### 6.4 Fruchtfolge-Einordnung (Beetplanung)
+
+| Feld | Wert |
+|------|------|
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | University of Arkansas Division of Agriculture, FSA-6076 „Rhubarb“ (Craig R. Andersen): „Fertility – medium to rich“, „Fertilizer – medium“, https://www.uaex.uada.edu/publications/PDF/FSA-6076.pdf; abweichend UConn Home & Garden Education Center: „little to no fertilizer“ nötig, https://homegarden.cahnr.uconn.edu/factsheets/rhubarb |
+| Zehrerstufe — Konfidenz | low (eine artspezifische Aussage, eine abweichende; keine DACH-Fruchtfolgequelle nennt Rhabarber) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Dauerkultur (Arkansas: Pflanzen nach 5–6 Jahren teilen/ersetzen, keine Anbaupause genannt); keine Quelle für einen Fruchtfolgewert --> |
+
 ---
 
 ## 8. CSV-Import-Daten
@@ -339,4 +365,7 @@ Rheum rhabarbarum,"Rhabarber;Gemüserhabarber;Rhubarb;Garden Rhubarb",Polygonace
 11. [Rhubarb: Planting, Growing, and Harvesting — The Old Farmer's Almanac](https://www.almanac.com/plant/rhubarb) — Lebensdauer, Wuchs-/Sommertemperaturen
 12. [Aphidius colemani Tech Sheet — Sound Horticulture](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Ausbringraten Blattlaus-Nützlinge (Aphidius/Aphidoletes)
 13. [SLUGTECH SP (Phasmarhabditis hermaphrodita) — Dudutech](https://www.dudutech.com/products/slugtech-sp/) — Nematoden-Ausbringrate gegen Nacktschnecken
+14. RHS, How to grow rhubarb: https://www.rhs.org.uk/vegetables/rhubarb/grow-your-own (75–90 cm, open sunny site)
+15. University of Arkansas FSA-6076 Rhubarb: https://www.uaex.uada.edu/publications/PDF/FSA-6076.pdf (36–48 in, Reihen 3–4 ft, sunny, Fertilizer medium)
+16. UConn Rhubarb: https://homegarden.cahnr.uconn.edu/factsheets/rhubarb (3–4 ft × 3–4 ft; little fertilizer)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

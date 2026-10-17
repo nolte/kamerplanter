@@ -157,6 +157,22 @@ Quellen (§1.8):
 6. UMN/Clemson/PSU Extension — Garden Peas (bereits §1.7 zitiert) — Keimtemperatur-Bereich 4–20 °C
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 7.5 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Peas: Grow your own“ („For taller varieties, sow seeds 7.5cm (3in) apart in either a single row, or a double row with 30cm (1ft) between them“; Zwergsorten in drei versetzten Reihen, ca. 7,5 cm), https://www.rhs.org.uk/vegetables/peas/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Peas: Grow your own“ („Choose a warm, sunny, sheltered growing site with well-drained soil“), https://www.rhs.org.uk/vegetables/peas/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -466,6 +482,11 @@ Nicht anwendbar -- Erbsen sind einjaehrige Kulturpflanzen. Die Pflanzen sterben 
 | Empfohlene Vorfrucht | Getreide, Kartoffeln, Kohl -- nach Starkzehrern die Stickstofffixierung nutzen |
 | Empfohlene Nachfrucht | Starkzehrer (Kohl, Tomate, Kuerbis) -- profitieren von der Stickstoffanreicherung im Boden |
 | Anbaupause (Jahre) | 4--5 Jahre fuer Fabaceae auf gleicher Flaeche (Fusarium, Ascochyta, Erbsenmuedigkeit) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Erbse: Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: Erbsen), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: Erbsen), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: alle Hülsenfrüchte), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; RHS, „Peas: Grow your own“ (im Boden meist keine Düngung nötig), https://www.rhs.org.uk/vegetables/peas/grow-your-own |
+| Zehrerstufe — Konfidenz | high (vier Quellen übereinstimmend) |
+| Stickstofffixierer | true (RHS: „legumes (peas, beans and related plants) fix nitrogen from the air at their roots“, https://www.rhs.org.uk/vegetables/peas/grow-your-own) |
+| Anbaupause (Jahre, Art-Abweichung) | 5 (Südtiroler Bauernbund 2022, Tabelle 1: Erbse 5–6 Jahre, untere Grenze; LKSH: Erbsen 6 bis 7 Jahre; Familienwert Fabaceae in botanical_families.yaml ohne Anbaupause; https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -561,4 +582,9 @@ Zuckererbse 'Ambrosia',Pisum sativum,,,early_maturing;high_yield,60,,open_pollin
 19. UMN / Clemson / PSU Extension -- Garden Peas (Boden-pH 6.0--7.5, Vollsonne 6--8 h): https://extension.umn.edu/vegetables/growing-peas , https://hgic.clemson.edu/factsheet/garden-peas/ , https://extension.psu.edu/a-gardeners-guide-to-peas
 20. Montana State Univ. Fertilizer Facts FF77 + MSU Extension E486 -- Mikronaehrstoffe Leguminosen, Mn-Ansprache und Mo-Funktion in der N-Fixierung: https://landresources.montana.edu/fertilizerfacts/html/FF77.html , https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
 21. Thermal Requirements / GDD pea cultivars (CWE Journal) + Frontiers heat-stress phenology (PMC8040956): http://cwejournal.org/vol14no3/thermal-requirements-and-heat-use-efficiency-of-pea-cultivars-under-varying-environments , https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8040956/ -- GDD-Basistemperatur ca. 5 degC (Auflauf--Reife)
+22. RHS — Peas: Grow your own (Pflanzabstand 7,5 cm / Doppelreihe 30 cm; sonniger Standort; Stickstofffixierung der Leguminosen): https://www.rhs.org.uk/vegetables/peas/grow-your-own
+23. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022) — Tabelle 1 Anbaupausen, Tabelle 2 Zehrerklassen: https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+24. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+25. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+26. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
