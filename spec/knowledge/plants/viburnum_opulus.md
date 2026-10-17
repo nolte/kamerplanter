@@ -122,6 +122,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Begründung: §1.3 nennt ausschließlich cutting_stem und layering als Vermehrungsmethoden; `seed` ist nicht gelistet. Zwar keimt Viburnum opulus aus Samen mit doppelter (warm+cold) Morphophysiologischer Dormanz, siehe PMC3119608 in Quelle 12 der bestehenden §1.7-Belege, doch die gartenbauliche Standardvermehrung dieser Art erfolgt praxisweit über Stecklinge/Absenker — daher entfällt gemäß Klassifikations-Regel (maßgeblich §1.3) die Seed-Profile-Sektion.) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Ziergehölz, freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Viburnum opulus“ (Max Spread 4–8 m, Endgröße, kein Pflanzabstand), https://www.rhs.org.uk/plants/18919/wd/details; RHS, „Viburnum: growing guide“ (kein Pflanzabstand für die Art), https://www.rhs.org.uk/plants/viburnum/growing-guide | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS nennt Spanne „Full sun, Partial shade“ ohne ausdrücklichen Vorzug; keine weitere gelesene Quelle mit Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Viburnum opulus“ (Position: Full sun, Partial shade; Kulturtext „in sun or part shade“, kein Vorzug genannt), https://www.rhs.org.uk/plants/18919/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -277,6 +293,11 @@ Viburnum opulus ist ein genügsamer Einheimischer und braucht auf normalen Garte
 | Nährstoffbedarf | Schwachzehrer |
 | Fruchtfolge-Kategorie | Heimische Sträucher |
 | Anbaupause (Jahre) | Mehrjährig; Standort dauerhaft |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Schwachzehrer oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -328,4 +349,6 @@ Viburnum opulus,"Gewöhnlicher Schneeball;Gemeiner Schneeball;Guelder-rose",Adox
 13. [Wikipedia — Growing degree-day](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Konzept, Basistemperatur
 14. [Klosterman et al. 2018 — Later springs green-up faster (Int. J. Biometeorology)](https://ecoss.nau.edu/wp-content/uploads/2018/11/Klosterman-et-al.-2018-International-Journal-of-Biometerology.pdf) — Laubgehölz-Budburst GDD referenziert auf 5 °C
 15. [Zhen et al. 2022 — Photosynthesis in sun and shade: importance of far-red photons (New Phytologist)](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) — R:FR ≈ 1.1 Vollsonne (FR-Fraction ≈ 0.5), höher im Unterwuchs
+16. RHS -- Viburnum opulus (Position: Full sun, Partial shade; kein Vorzug; Endgröße): https://www.rhs.org.uk/plants/18919/wd/details
+17. RHS -- Viburnum: growing guide (kein Pflanzabstand für die Art): https://www.rhs.org.uk/plants/viburnum/growing-guide
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

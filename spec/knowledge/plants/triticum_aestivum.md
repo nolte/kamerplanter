@@ -133,6 +133,22 @@
 Quellen (§1.8): [Agri Farming — Wheat Seed Germination, Time, Temperature, Procedure](https://www.agrifarming.in/wheat-seed-germination-time-temperature-procedure); [Ali (1994) — Variation in cardinal temperatures for germination among wheat (Triticum aestivum) genotypes, Annals of Applied Biology](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1744-7348.1994.tb04977.x); [ResearchGate — Wheat seed germination under the influence of temperature regimes (ISTA 8-Tage-Auszählung)](https://www.researchgate.net/publication/266463463_Wheat_seed_germination_under_the_influence_of_temperature_regimes); [PMC4555037 — Analysis of main effect QTL for thousand grain weight in European winter wheat](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4555037/); [Farmers Weekly — Why field loss is important for seed rate calculations](https://www.fwi.co.uk/arable/establishment/why-field-loss-is-important-for-seed-rate-calculations); [Nebraska CropWatch — Determining the Seeding Rate for Winter Wheat](https://cropwatch.unl.edu/determining-seeding-rate-your-winter-wheat/); [AgriLife Today — Farmer-saved wheat seed quality should be checked before planting](https://agrilifetoday.tamu.edu/2015/11/05/farmer-saved-wheat-seed-quality-should-be-checked-before-planting/); [Oklahoma State University Extension — Farmer-Saved Wheat Seed in Oklahoma: Questions and Answers](https://extension.okstate.edu/fact-sheets/farmer-saved-wheat-seed-in-oklahoma-questions-and-answers)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — | `species.spacing_cm` |
+| Reihenabstand (cm) | 12,5–25 | `species.row_spacing_cm` |
+| Quelle Abstände | Landwirtschaftskammer Steiermark / Versuchsstation für Pflanzenbau, Versuchsbericht 2024 „Winterweizen – Saatstärken- und Reihenweitenversuch“ (getestete Reihenabstände 12,5 cm und 25 cm, Kornerträge statistisch nicht gesichert verschieden; Versuchsvarianten, keine Gartenempfehlung, schwache Quelle), https://fachschulen.steiermark.at/cms/dokumente/12979562_152716776/3af89b0b/Winterweizen%20Saatst%C3%A4rke-Versuch%202024.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (siehe 1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | PFAF (Plants For A Future, Datenbank, schwache Quelle), Triticum aestivum („It cannot grow in the shade“; „it prefers a sunny position in a rich well-drained soil“), https://pfaf.org/user/Plant.aspx?LatinName=Triticum+aestivum | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -386,6 +402,11 @@ Weizen ist Starkzehrer mit dem höchsten N-Bedarf unter den Getreidearten (ca. 1
 | Empfohlene Vorfrucht | Raps (beste Vorfrucht!), Hülsenfrüchte, Zuckerrübe, Kartoffel |
 | Empfohlene Nachfrucht | Raps, Sommergerste, Leguminosen |
 | Anbaupause (Jahre) | 2 Jahre Pause empfohlen; maximal 50% Getreide in Fruchtfolge |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Quelle stuft Weizen als Stark-/Mittel-/Schwachzehrer ein (Zehrerklassen der gelesenen Gemüsebau-Merkblätter nennen Getreide nicht); Wert bleibt null --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | — |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene Quelle für eine art-spezifische Anbaupause; Wert bleibt null (Familienwert Poaceae gilt) --> |
 
 **Stoppelweizen (Weizen nach Weizen):** Stark erhöhtes Krankheitsrisiko (Septoria, Ährenfusarium, Halmbasis); vermeiden! Raps als Vorfrucht steigert Ertrag um 10–15% (Rapsvorfruchteffekt).
 
@@ -456,4 +477,6 @@ Alixan,Triticum aestivum,"summer_wheat;baking_quality;medium_early",110,fusarium
 14. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Referenz Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.01–0.048 ppm
 15. [Koppert — Aphidius ervi (parasitic wasp)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-ervi/) — Ausbringrate 0.25–2/m²/Freilassung
 16. [Plant Protection Science — Effect of temperature on development & parasitism of Aphidius ervi](https://www.agriculturejournals.cz/publicFiles/01157.pdf) — Etablierung ~14 Tage (erste Mumien), T_opt 20–25 °C
+17. Landwirtschaftskammer Steiermark, Versuchsstation für Pflanzenbau — Winterweizen Saatstärken- und Reihenweitenversuch 2024 (Reihenabstand 12,5 / 25 cm; schwache Quelle): https://fachschulen.steiermark.at/cms/dokumente/12979562_152716776/3af89b0b/Winterweizen%20Saatst%C3%A4rke-Versuch%202024.pdf
+18. PFAF — Triticum aestivum (Lichtanspruch: kein Schatten, sonniger Standort; schwache Quelle): https://pfaf.org/user/Plant.aspx?LatinName=Triticum+aestivum
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
