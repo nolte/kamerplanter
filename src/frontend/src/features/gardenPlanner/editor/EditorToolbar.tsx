@@ -81,6 +81,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
     (entry) => props.tool === 'garden_object' || entry.shape !== 'polyline',
   );
   const pointShape = props.drawShape === 'polygon' || props.drawShape === 'polyline';
+  const minPoints = props.drawShape === 'polygon' ? 3 : 2;
+  const finishReady = props.draftPoints >= minPoints;
   const prefix = 'pages.gardenPlan.editor';
 
   return (
@@ -94,12 +96,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
         alignItems: 'center',
         gap: 1,
         p: 0.5,
-        overflowX: 'auto',
-        // Thumb reach: the bar docks to the bottom of the screen on phones.
-        order: { xs: 2, md: 0 },
+        // Wrap instead of scrolling sideways: a control scrolled out of sight cannot be used.
+        flexWrap: 'wrap',
+        // Thumb reach: the bar docks to the bottom of the screen on phones. The editor puts it
+        // after the canvas in the DOM there, so the tab order matches what is on screen (WCAG 2.4.3).
         position: { xs: 'sticky', md: 'static' },
         bottom: 0,
         zIndex: 2,
+        bgcolor: 'background.paper',
       }}
     >
       <ToggleButtonGroup
@@ -120,6 +124,9 @@ export function EditorToolbar(props: EditorToolbarProps) {
               sx={buttonSx}
             >
               {icon}
+              <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' }, ml: 0.75 }}>
+                {t(`${prefix}.tools.${tool}.short`)}
+              </Box>
             </ToggleButton>
           </Tooltip>
         ))}
@@ -178,16 +185,26 @@ export function EditorToolbar(props: EditorToolbarProps) {
       {drawing && pointShape && (
         <>
           <Divider orientation="vertical" flexItem />
-          <Button
-            variant="contained"
-            size="small"
-            onClick={props.onFinishDraw}
-            disabled={props.draftPoints < (props.drawShape === 'polygon' ? 3 : 2)}
-            data-testid="garden-plan-draw-finish"
-            sx={buttonSx}
+          <Tooltip
+            title={
+              finishReady
+                ? t(`${prefix}.draw.finishHint`)
+                : t(`${prefix}.draw.finishDisabled`, { count: minPoints })
+            }
           >
-            {t(`${prefix}.draw.finish`)}
-          </Button>
+            <span>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={props.onFinishDraw}
+                disabled={!finishReady}
+                data-testid="garden-plan-draw-finish"
+                sx={buttonSx}
+              >
+                {t(`${prefix}.draw.finish`)}
+              </Button>
+            </span>
+          </Tooltip>
         </>
       )}
       {props.draftPoints > 0 && (

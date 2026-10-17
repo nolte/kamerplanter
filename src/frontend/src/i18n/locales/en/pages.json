@@ -5336,19 +5336,23 @@
         "tools": {
           "select": {
             "label": "Select",
-            "hint": "Select and move – click, drag a frame, hold Shift for several"
+            "hint": "Select and move – click, drag a frame, hold Shift for several",
+            "short": "Select"
           },
           "pan": {
             "label": "Pan view",
-            "hint": "Move the view without changing anything"
+            "hint": "Move the view without changing anything",
+            "short": "Pan"
           },
           "bed": {
             "label": "Draw bed",
-            "hint": "Draw a new bed on the plan"
+            "hint": "Draw a new bed on the plan",
+            "short": "Bed"
           },
           "garden_object": {
             "label": "Draw garden object",
-            "hint": "Draw a garden object such as a path, fence or tree"
+            "hint": "Draw a garden object such as a path, fence or tree",
+            "short": "Object"
           }
         },
         "shapes": {
@@ -5375,7 +5379,9 @@
         },
         "draw": {
           "finish": "Done",
-          "cancel": "Cancel"
+          "cancel": "Cancel",
+          "finishHint": "Finish the shape (Enter)",
+          "finishDisabled": "Place at least {{count}} points first."
         },
         "vertex": {
           "insert": "Insert point",
@@ -5401,9 +5407,9 @@
             "locked": "Locked objects cannot be changed or deleted. Unlock them first."
           },
           "geometry": {
-            "outside_parent": "The shape does not lie completely inside its area (or the garden boundary). The plan stays as it was.",
+            "outside_parent": "The shape sticks out of its area or the garden boundary and was not applied. Place it completely inside.",
             "self_intersecting": "The polygon's edges cross. Move a point until no edges cross.",
-            "invalid": "The shape has invalid dimensions or lies outside the plan.",
+            "invalid": "The shape has invalid dimensions or lies outside the plan and was not applied.",
             "too_few_points": "A polygon needs at least three points, a line at least two."
           },
           "draw": {
@@ -5431,8 +5437,29 @@
             "tasks_one": "{{count}} open task",
             "tasks_other": "{{count}} open tasks"
           },
-          "irreversible": "Once saved, this deletion cannot be undone.",
-          "confirm": "Delete"
+          "irreversible": "Caution: once the plan is saved, this deletion cannot be undone.",
+          "confirm": "Delete",
+          "reversible": "As long as you have not saved the plan, you can undo this deletion."
+        },
+        "drawHint": {
+          "rect": {
+            "start": "Drag out a rectangle on the plan. Releasing places it, Esc cancels.",
+            "next": "Releasing places the rectangle, Esc cancels."
+          },
+          "circle": {
+            "start": "Drag outwards from the centre to draw a circle. Releasing places it, Esc cancels.",
+            "next": "Releasing places the circle, Esc cancels."
+          },
+          "polygon": {
+            "start": "Tap the corner points on the plan one after another. From three points on you can close with \"Done\" or Enter.",
+            "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
+            "next_other": "{{count}} points placed. Place more points or close with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
+          },
+          "polyline": {
+            "start": "Tap the points of the line on the plan one after another. From two points on you can finish with \"Done\" or Enter.",
+            "next_one": "{{count}} point placed. Place the next point. Backspace takes back the last point, Esc discards everything.",
+            "next_other": "{{count}} points placed. Place more points or finish with \"Done\" or Enter. Backspace takes back the last point, Esc discards everything."
+          }
         }
       }
     }

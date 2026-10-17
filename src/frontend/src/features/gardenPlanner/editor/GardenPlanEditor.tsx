@@ -10,6 +10,9 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { PlanModel } from '../model/planModel';
@@ -75,7 +78,7 @@ function useDeleteTexts(impact: DeleteImpact | null, plan: PlanModel, labels: Re
         ? `${t(`${PREFIX}.deleteDialog.alsoDeleted`)}\n${lines.map((line) => `• ${line}`).join('\n')}`
         : t(`${PREFIX}.deleteDialog.nothingElse`),
     ];
-    if (!impact.reversible) parts.push(t(`${PREFIX}.deleteDialog.irreversible`));
+    parts.push(t(`${PREFIX}.deleteDialog.${impact.reversible ? 'reversible' : 'irreversible'}`));
     return { title, message: parts.join('\n\n') };
   }, [impact, labels, plan, t]);
 }
@@ -89,6 +92,10 @@ export function GardenPlanEditor({
   onPan,
 }: GardenPlanEditorProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  // On phones the bar docks to the bottom; it follows the canvas in the DOM there so that the
+  // tab order is the visual order (WCAG 2.4.3). On md+ it sits above the plan.
+  const toolbarBelow = useMediaQuery(theme.breakpoints.down('md'));
   const dispatch = useAppDispatch();
   const { selection, stack, tool, editError } = useAppSelector(selectGardenPlanState);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
@@ -176,25 +183,46 @@ export function GardenPlanEditor({
   const handles = tools.handles;
   const singleTooSmall = handles !== null && handles.density === 'none';
 
+  const drawing = tool === 'bed' || tool === 'garden_object';
+  const hintKey = !drawing
+    ? null
+    : tools.draftPoints > 0
+      ? `${PREFIX}.drawHint.${drawShape}.next`
+      : `${PREFIX}.drawHint.${drawShape}.start`;
+
+  const toolbar = (
+    <EditorToolbar
+      tool={tool}
+      onTool={selectChooseTool}
+      drawShape={drawShape}
+      onDrawShape={setDrawShape}
+      angleStep={angleStep}
+      onAngleStep={setAngleStep}
+      draftPoints={tools.draftPoints}
+      onFinishDraw={tools.finishDraw}
+      onCancelDraw={tools.cancel}
+      canDelete={selection.some(isPlanEntity)}
+      onDelete={requestDelete}
+      vertexPicked={tools.vertex !== null}
+      canDeleteVertex={tools.vertex !== null}
+      onDeleteVertex={tools.deleteVertex}
+      onInsertVertex={tools.insertVertexAfter}
+    />
+  );
+
   return (
     <Box data-testid="garden-plan-editor" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <EditorToolbar
-        tool={tool}
-        onTool={selectChooseTool}
-        drawShape={drawShape}
-        onDrawShape={setDrawShape}
-        angleStep={angleStep}
-        onAngleStep={setAngleStep}
-        draftPoints={tools.draftPoints}
-        onFinishDraw={tools.finishDraw}
-        onCancelDraw={tools.cancel}
-        canDelete={selection.some(isPlanEntity)}
-        onDelete={requestDelete}
-        vertexPicked={tools.vertex !== null}
-        canDeleteVertex={tools.vertex !== null}
-        onDeleteVertex={tools.deleteVertex}
-        onInsertVertex={tools.insertVertexAfter}
-      />
+      {!toolbarBelow && toolbar}
+      {hintKey && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          role="status"
+          data-testid="garden-plan-draw-hint"
+        >
+          {t(hintKey, { count: tools.draftPoints })}
+        </Typography>
+      )}
       {noticeText && (
         <Alert
           severity="warning"
@@ -243,6 +271,7 @@ export function GardenPlanEditor({
           heightPx={viewport.heightPx}
         />
       </Box>
+      {toolbarBelow && toolbar}
       <ConfirmDialog
         open={pendingDelete !== null}
         title={deleteTexts.title}

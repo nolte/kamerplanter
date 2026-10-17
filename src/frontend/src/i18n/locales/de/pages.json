@@ -5337,19 +5337,23 @@
         "tools": {
           "select": {
             "label": "Auswählen",
-            "hint": "Auswählen und verschieben – Klick, Rahmen aufziehen, Umschalt für mehrere"
+            "hint": "Auswählen und verschieben – Klick, Rahmen aufziehen, Umschalt für mehrere",
+            "short": "Auswählen"
           },
           "pan": {
             "label": "Ansicht verschieben",
-            "hint": "Die Ansicht verschieben, ohne etwas zu ändern"
+            "hint": "Die Ansicht verschieben, ohne etwas zu ändern",
+            "short": "Verschieben"
           },
           "bed": {
             "label": "Beet zeichnen",
-            "hint": "Ein neues Beet auf dem Plan zeichnen"
+            "hint": "Ein neues Beet auf dem Plan zeichnen",
+            "short": "Beet"
           },
           "garden_object": {
             "label": "Gartenobjekt zeichnen",
-            "hint": "Ein Gartenobjekt wie Weg, Zaun oder Baum zeichnen"
+            "hint": "Ein Gartenobjekt wie Weg, Zaun oder Baum zeichnen",
+            "short": "Objekt"
           }
         },
         "shapes": {
@@ -5376,7 +5380,9 @@
         },
         "draw": {
           "finish": "Fertig",
-          "cancel": "Abbrechen"
+          "cancel": "Abbrechen",
+          "finishHint": "Form abschließen (Enter)",
+          "finishDisabled": "Setze zuerst mindestens {{count}} Punkte."
         },
         "vertex": {
           "insert": "Punkt einfügen",
@@ -5402,9 +5408,9 @@
             "locked": "Gesperrte Objekte lassen sich nicht ändern oder löschen. Entsperre sie zuerst."
           },
           "geometry": {
-            "outside_parent": "Die Form liegt nicht vollständig in ihrem Bereich (oder in der Gartengrenze). Der Plan bleibt unverändert.",
+            "outside_parent": "Die Form ragt aus ihrem Bereich oder der Gartengrenze heraus und wurde nicht übernommen. Lege sie ganz hinein.",
             "self_intersecting": "Die Kanten des Vielecks überschneiden sich. Verschiebe einen Punkt, bis sich keine Kanten mehr kreuzen.",
-            "invalid": "Die Form hat ungültige Maße oder liegt außerhalb des Plans.",
+            "invalid": "Die Form hat ungültige Maße oder liegt außerhalb des Plans und wurde nicht übernommen.",
             "too_few_points": "Ein Vieleck braucht mindestens drei Punkte, eine Linie mindestens zwei."
           },
           "draw": {
@@ -5432,8 +5438,29 @@
             "tasks_one": "{{count}} offene Aufgabe",
             "tasks_other": "{{count}} offene Aufgaben"
           },
-          "irreversible": "Nach dem Speichern lässt sich das Löschen nicht mehr rückgängig machen.",
-          "confirm": "Löschen"
+          "irreversible": "Achtung: Nach dem Speichern des Plans lässt sich dieses Löschen nicht mehr rückgängig machen.",
+          "confirm": "Löschen",
+          "reversible": "Solange du den Plan nicht gespeichert hast, kannst du das Löschen rückgängig machen."
+        },
+        "drawHint": {
+          "rect": {
+            "start": "Ziehe auf dem Plan ein Rechteck auf. Loslassen legt es an, Esc bricht ab.",
+            "next": "Loslassen legt das Rechteck an, Esc bricht ab."
+          },
+          "circle": {
+            "start": "Ziehe vom Mittelpunkt nach außen, um einen Kreis aufzuziehen. Loslassen legt ihn an, Esc bricht ab.",
+            "next": "Loslassen legt den Kreis an, Esc bricht ab."
+          },
+          "polygon": {
+            "start": "Tippe die Eckpunkte nacheinander auf den Plan. Ab drei Punkten kannst du mit „Fertig“ oder Enter schließen.",
+            "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
+            "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder schließe mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
+          },
+          "polyline": {
+            "start": "Tippe die Punkte der Linie nacheinander auf den Plan. Ab zwei Punkten kannst du mit „Fertig“ oder Enter beenden.",
+            "next_one": "{{count}} Punkt gesetzt. Setze den nächsten Punkt. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles.",
+            "next_other": "{{count}} Punkte gesetzt. Setze weitere Punkte oder beende mit „Fertig“ oder Enter. Rücktaste nimmt den letzten Punkt zurück, Esc verwirft alles."
+          }
         }
       }
     }

@@ -240,9 +240,7 @@ describe('moving is one undo step (GP-FR-155, GP-FR-151)', () => {
       [12, 4],
     ]);
     expect(t.state().past).toHaveLength(0);
-    expect(screen.getByTestId('garden-plan-notice')).toHaveTextContent(
-      /does not lie completely inside/,
-    );
+    expect(screen.getByTestId('garden-plan-notice')).toHaveTextContent(/sticks out of its area/);
   });
 
   it('Escape in the middle of a drag leaves everything as it was', () => {
@@ -395,6 +393,20 @@ describe('drawing (GP-FR-001)', () => {
     t.rerender();
     expect(t.state().past).toHaveLength(0);
     expect(screen.getByTestId('garden-plan-notice')).toBeInTheDocument();
+  });
+});
+
+describe('drawing hints', () => {
+  it('tells what to do next while drawing a polygon and says nothing outside the draw tools', () => {
+    const t = setup();
+    expect(screen.queryByTestId('garden-plan-draw-hint')).toBeNull();
+    fireEvent.click(screen.getByTestId('garden-plan-tool-bed'));
+    fireEvent.click(screen.getByTestId('garden-plan-shape-polygon'));
+    expect(screen.getByTestId('garden-plan-draw-hint')).toHaveTextContent(/corner points/);
+    t.click(16, 14);
+    expect(screen.getByTestId('garden-plan-draw-hint')).toHaveTextContent(
+      /1 point placed.*Backspace/,
+    );
   });
 });
 
