@@ -32,6 +32,7 @@ import pestDetectionReducer from './slices/pestDetectionSlice';
 import overwinteringProfilesReducer from './slices/overwinteringProfilesSlice';
 import seasonReducer from './slices/seasonSlice';
 import dashboardReducer from './slices/dashboardSlice';
+import gardenPlanReducer from '@/features/gardenPlanner/state/gardenPlanSlice';
 
 /** Every slice the application mounts. */
 export const appReducer = combineReducers({
@@ -67,6 +68,7 @@ export const appReducer = combineReducers({
   overwinteringProfiles: overwinteringProfilesReducer,
   season: seasonReducer,
   dashboard: dashboardReducer,
+  gardenPlan: gardenPlanReducer,
 });
 
 type AppState = ReturnType<typeof appReducer>;
