@@ -422,6 +422,107 @@ def test_the_whole_class_rule_finds_a_planted_positional_tenant(tmp_path: Path) 
     assert _loose_in_whole_classes(services) == ["AquaponikService.update_system"]
 
 
+# ── REQ-053 WP 1.10 (#2329): the garden-plan services resolve ownership through the anchor ───────────
+#
+# ``GardenPlanService`` and ``GardenResourceService`` (and with them the slot and garden-object
+# writes, which have no service of their own) load by walking ``location_ownership`` — ``_owned_site``,
+# ``resolve_owned_location`` — and never name a ``get…_by_key``. The keyed-write selector above is
+# therefore blind to them: ``apply_batch``, ``set_boundary``, ``change_bed_status``, ``delete_location``,
+# ``patch_slot`` and ``replace_slots`` are writers (call graph) that it does not list, and a method that
+# lost its ``tenant_key`` altogether would escape the whole-class rule too, which only looks at methods
+# that still take one. This rule closes both holes for the two classes: **every public method takes the
+# tenant strictly**, and **every public writer of these modules is among them**. A third class of the
+# slice joins by being added to the dict.
+
+_ANCHORED_SERVICES: dict[str, str] = {
+    "GardenPlanService": "garden_plan_service.py",
+    "GardenResourceService": "garden_resource_service.py",
+}
+_EXPECTED_ANCHORED_WRITERS = frozenset(
+    {
+        "GardenPlanService.apply_batch",
+        "GardenPlanService.set_boundary",
+        "GardenResourceService.patch_location",
+        "GardenResourceService.change_bed_status",
+        "GardenResourceService.delete_location",
+        "GardenResourceService.create_garden_object",
+        "GardenResourceService.patch_garden_object",
+        "GardenResourceService.delete_garden_object",
+        "GardenResourceService.patch_slot",
+        "GardenResourceService.replace_slots",
+    }
+)
+
+
+def _public_methods(services: Path, klass: str, filename: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    tree = ast.parse((services / filename).read_text(encoding="utf-8"))
+    (cls,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == klass]
+    return {
+        fn.name: fn
+        for fn in cls.body
+        if isinstance(fn, ast.FunctionDef | ast.AsyncFunctionDef) and not fn.name.startswith("_")
+    }
+
+
+def _anchored_without_the_tenant(services: Path) -> list[str]:
+    return sorted(
+        f"{klass}.{name}"
+        for klass, filename in _ANCHORED_SERVICES.items()
+        for name, fn in _public_methods(services, klass, filename).items()
+        if not _takes_tenant_strictly(fn)
+    )
+
+
+def _anchored_writers() -> set[str]:
+    modules = {
+        f"app.domain.services.{filename.removesuffix('.py')}": klass for klass, filename in _ANCHORED_SERVICES.items()
+    }
+    found: set[str] = set()
+    for writer in call_graph().writers():
+        module, _, qualname = writer.partition("::")
+        owner, _, name = qualname.partition(".")
+        if modules.get(module) == owner and not name.startswith("_"):
+            found.add(qualname)
+    return found
+
+
+def test_every_public_method_of_an_anchored_service_takes_the_tenant_keyword_only() -> None:
+    loose = _anchored_without_the_tenant(_SERVICES)
+    assert loose == [], (
+        "These public methods of a garden-plan service lack `*, tenant_key: str` (no default); the ownership "
+        f"walk cannot run without it (#2107, #2329): {loose}"
+    )
+
+
+def test_every_public_writer_of_the_anchored_services_is_covered_and_none_is_missing() -> None:
+    writers = _anchored_writers()
+    assert writers == set(_EXPECTED_ANCHORED_WRITERS), sorted(writers ^ set(_EXPECTED_ANCHORED_WRITERS))
+    covered = {
+        f"{klass}.{name}"
+        for klass, filename in _ANCHORED_SERVICES.items()
+        for name in _public_methods(_SERVICES, klass, filename)
+    }
+    assert writers <= covered
+
+
+def test_the_anchored_rule_finds_a_planted_missing_tenant(tmp_path: Path) -> None:
+    """End to end on a copy: ``apply_batch`` put back to a tenant-less signature is reported by name."""
+    import shutil
+
+    services = tmp_path / "services"
+    shutil.copytree(_SERVICES, services, ignore=shutil.ignore_patterns("__pycache__"))
+    assert _anchored_without_the_tenant(services) == []
+    target = services / "garden_plan_service.py"
+    original = target.read_text(encoding="utf-8")
+    head = "        *,\n"
+    tail = "        user_key: str,\n        role: TenantRole,\n        expected_revision"
+    signature = head + "        tenant_key: str,\n" + tail
+    planted = original.replace(signature, head + tail)
+    assert planted != original, "the planted replacement did not apply"
+    target.write_text(planted, encoding="utf-8")
+    assert _anchored_without_the_tenant(services) == ["GardenPlanService.apply_batch"]
+
+
 class TestTheRuleSeesTheShapes:
     """Self-tests on :func:`_shape` and :func:`_loads_by_key`, the expressions the rule evaluates."""
 
