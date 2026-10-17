@@ -42,6 +42,8 @@ registerLazySlice(gardenPlanSlice);
 const FALLBACK_WIDTH_PX = 640;
 /** The drawing may take this share of the viewport height before the page scrolls. */
 const MAX_HEIGHT_SHARE = 0.7;
+/** Both sides of the 1px canvas border; the drawing must fit inside it or the box scrolls sideways. */
+const CANVAS_BORDER_PX = 2;
 const NO_SELECTION: RenderSelection = { selectedKeys: new Set() };
 
 /** The width of the element the ref points at, kept up to date while it resizes. */
@@ -105,7 +107,7 @@ export default function GardenPlanRoute() {
   const viewport = useMemo(() => {
     if (bounds === null) return null;
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
-    return fitViewport(bounds, canvasWidth, Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
+    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
   }, [bounds, canvasWidth]);
 
   const backLink = (
@@ -138,6 +140,10 @@ export default function GardenPlanRoute() {
     content = (
       <Box
         data-testid="garden-plan-canvas"
+        role="region"
+        aria-label={t('pages.gardenPlan.renderer.canvas')}
+        // A scrollable region must be reachable by keyboard (WCAG 2.1.1).
+        tabIndex={0}
         sx={{
           overflow: 'auto',
           border: 1,

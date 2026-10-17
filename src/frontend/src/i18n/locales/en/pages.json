@@ -5291,7 +5291,7 @@
       "fieldModeHint": "Field mode for use on the go is not available yet. You are seeing the regular plan.",
       "empty": {
         "title": "No garden plan yet",
-        "description": "Draw the outline of your garden. You can adjust it at any time later."
+        "description": "No plan has been created for this site yet. Once there is one, you will see your beds and garden objects from above here."
       },
       "renderer": {
         "canvas": "Garden plan",

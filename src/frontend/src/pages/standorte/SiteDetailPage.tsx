@@ -232,6 +232,7 @@ export default function SiteDetailPage() {
                   variant="outlined"
                   startIcon={<MapOutlinedIcon />}
                   data-testid="garden-plan-open-link"
+                  sx={{ minHeight: 44 }}
                   title={t('pages.gardenPlan.openHint')}
                 >
                   {t('pages.gardenPlan.open')}

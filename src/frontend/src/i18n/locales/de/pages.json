@@ -5292,7 +5292,7 @@
       "fieldModeHint": "Der Feldmodus für unterwegs ist noch nicht verfügbar. Du siehst den normalen Plan.",
       "empty": {
         "title": "Noch kein Gartenplan",
-        "description": "Zeichne die Umrisse deines Gartens. Du kannst sie später jederzeit anpassen."
+        "description": "Für diesen Standort ist noch kein Plan angelegt. Sobald es einen gibt, siehst du hier deine Beete und Gartenobjekte von oben."
       },
       "renderer": {
         "canvas": "Gartenplan",

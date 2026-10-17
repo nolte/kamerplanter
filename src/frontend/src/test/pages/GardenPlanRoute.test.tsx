@@ -56,13 +56,15 @@ describe('GardenPlanRoute', () => {
     expect(container.querySelector('svg')).not.toBeNull();
     expect(container.querySelector('[data-plan-key="loc_a"]')).not.toBeNull();
     expect(container.querySelector('[data-plan-key="go_1"]')).not.toBeNull();
+    // The scrollable drawing is a named, keyboard-focusable region.
+    expect(screen.getByRole('region', { name: 'Garden plan' })).toHaveAttribute('tabindex', '0');
   });
 
   it('explains the empty state of a site without a plan', async () => {
     usePlan(planResponse({ plan: null, locations: [], garden_objects: [], slots: [], plants: [] }));
     renderRoute();
     expect(await screen.findByTestId('garden-plan-empty')).toBeInTheDocument();
-    expect(screen.getByText(/Draw the outline of your garden/)).toBeInTheDocument();
+    expect(screen.getByText(/No plan has been created for this site yet/)).toBeInTheDocument();
     expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
   });
 
