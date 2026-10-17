@@ -2,6 +2,6 @@
 export const EDITOR_ANCHORS = {
   list: 'garden-plan-object-list',
   canvas: 'garden-plan-canvas',
-  /** Reserved for the properties panel (WP 2.6), which adds the second skip link. */
+  /** The properties panel (WP 2.6); the third skip link aims at it. */
   panel: 'garden-plan-properties-panel',
 } as const;

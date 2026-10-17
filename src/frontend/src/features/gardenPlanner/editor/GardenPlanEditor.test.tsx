@@ -274,7 +274,7 @@ describe('moving is one undo step (GP-FR-155, GP-FR-151)', () => {
     fireEvent.pointerUp(t.canvas(), pointer(px(4, 4)));
   });
 
-  it('works the same for pen and touch input', () => {
+  it('works the same for pen input (a finger needs the long press, see the touch tests)', () => {
     const t = setup();
     t.drag(
       [
@@ -282,7 +282,7 @@ describe('moving is one undo step (GP-FR-155, GP-FR-151)', () => {
         [4.5, 4.5],
         [5, 5],
       ],
-      { pointerType: 'touch' },
+      { pointerType: 'pen' },
     );
     expect(t.state().past).toHaveLength(1);
   });

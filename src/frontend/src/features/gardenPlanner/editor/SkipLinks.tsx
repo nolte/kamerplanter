@@ -1,7 +1,7 @@
 /**
  * Skip links of the editor (REQ-053 GP-NFR-070): "To the object list" and "To the plan" are the
  * first tab stops, invisible until focused. The list link opens the list view when the plan is
- * showing; the target of "To the properties panel" arrives with the panel (WP 2.6).
+ * showing; "To the properties panel" is offered while the panel is on screen (WP 2.6).
  */
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -9,8 +9,11 @@ import { EDITOR_ANCHORS } from './anchors';
 
 interface SkipLinksProps {
   listShown: boolean;
+  /** The panel is on screen: always on md+, on a phone only while the bottom sheet is open. */
+  panelAvailable: boolean;
   onToList: () => void;
   onToPlan: () => void;
+  onToPanel: () => void;
 }
 
 const linkSx = {
@@ -33,7 +36,7 @@ const linkSx = {
   '&:focus': { transform: 'none' },
 } as const;
 
-export function SkipLinks({ listShown, onToList, onToPlan }: SkipLinksProps) {
+export function SkipLinks({ listShown, panelAvailable, onToList, onToPlan, onToPanel }: SkipLinksProps) {
   const { t } = useTranslation();
   const prefix = 'pages.gardenPlan.editor.skip';
   return (
@@ -62,6 +65,20 @@ export function SkipLinks({ listShown, onToList, onToPlan }: SkipLinksProps) {
           data-testid="garden-plan-skip-plan"
         >
           {t(`${prefix}.plan`)}
+        </Box>
+      )}
+      {panelAvailable && (
+        <Box
+          component="a"
+          href={`#${EDITOR_ANCHORS.panel}`}
+          sx={linkSx}
+          onClick={(event) => {
+            event.preventDefault();
+            onToPanel();
+          }}
+          data-testid="garden-plan-skip-panel"
+        >
+          {t(`${prefix}.panel`)}
         </Box>
       )}
     </Box>

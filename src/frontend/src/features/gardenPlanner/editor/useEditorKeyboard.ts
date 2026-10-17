@@ -1,7 +1,7 @@
 /**
  * Keyboard operation of the plan canvas beyond what the tools bring (REQ-053 GP-NFR-020/068,
- * GP-UX-045, GP-ACC-008): with something selected the arrow keys move it by one grid step
- * (Shift: ten steps); with nothing selected - or with another tool - they scroll the view.
+ * GP-UX-045, GP-ACC-008): with something selected the arrow keys move it by one grid step of the editor's grid (the same step the snap uses;
+ * Shift: ten steps); with nothing selected - or with another tool - they scroll the view.
  * PageDown/PageUp walk the focus from object to object, `?` opens the key help (a single printable
  * key, so it follows the setting of WCAG 2.1.4). Everything that changes the plan goes out as
  * `PlanOperation`s through `onCommit`; the hook never touches the store.
@@ -21,8 +21,6 @@ import type { ActionLabel } from './tools/machineTypes';
 
 /** Pixels the view scrolls per arrow press (Shift: four times that). */
 export const SCROLL_STEP_PX = 40;
-/** The step when the plan has no grid setting yet. */
-export const FALLBACK_STEP_M = 0.5;
 const COARSE = 10;
 
 const DIRECTIONS: Record<string, Point> = {
@@ -38,16 +36,12 @@ export interface EditorKeyboardOptions {
   selection: readonly SelectionRef[];
   canvasRef: RefObject<HTMLElement | null>;
   singleKeyShortcuts: boolean;
+  /** The grid step in metres (the editor's one grid state, shared with the snap): one arrow press moves by it. */
+  stepM: number;
   onCommit: (ops: PlanOperation[], label: ActionLabel) => void;
   onNotice: (code: string | null) => void;
   onPan: (dxPx: number, dyPx: number) => void;
   onHelp: () => void;
-}
-
-/** The grid step in metres that one arrow press moves a selection by. */
-export function stepOf(plan: PlanModel): number {
-  const grid = plan.settings?.default_grid_m;
-  return grid && grid > 0 ? grid : FALLBACK_STEP_M;
 }
 
 function isTextEntry(target: EventTarget | null): boolean {
@@ -65,7 +59,7 @@ function objectNodes(root: HTMLElement | null): HTMLElement[] {
 }
 
 export function useEditorKeyboard(options: EditorKeyboardOptions) {
-  const { plan, tool, selection, canvasRef, singleKeyShortcuts } = options;
+  const { plan, tool, selection, canvasRef, singleKeyShortcuts, stepM } = options;
   const { onCommit, onNotice, onPan, onHelp } = options;
 
   /** Shifts the selection by `delta` metres; says why not when it cannot (locked, outside, ...). */
@@ -89,7 +83,7 @@ export function useEditorKeyboard(options: EditorKeyboardOptions) {
         event.preventDefault();
         const movable = tool === 'select' && selection.some(isPlanEntity);
         if (movable) {
-          const step = stepOf(plan) * (event.shiftKey ? COARSE : 1);
+          const step = stepM * (event.shiftKey ? COARSE : 1);
           moveSelection([direction[0] * step, direction[1] * step]);
         } else {
           const px = SCROLL_STEP_PX * (event.shiftKey ? 4 : 1);
@@ -127,7 +121,7 @@ export function useEditorKeyboard(options: EditorKeyboardOptions) {
       }
       return false;
     },
-    [canvasRef, moveSelection, onHelp, onPan, plan, selection, singleKeyShortcuts, tool],
+    [canvasRef, moveSelection, onHelp, onPan, selection, singleKeyShortcuts, stepM, tool],
   );
 
   return useMemo(() => ({ handleKey, moveSelection }), [handleKey, moveSelection]);

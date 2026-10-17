@@ -18,7 +18,7 @@ import {
 } from 'react';
 import { roundLength } from '../../model/geometry';
 import type { PlanModel } from '../../model/planModel';
-import type { PlanOperation, Point } from '../../model/types';
+import type { GardenObjectType, PlanOperation, Point } from '../../model/types';
 import type { PlanRenderer, Viewport } from '../../renderer';
 import type { PlanTool, SelectionRef, SelectionStack } from '../../state/gardenPlanSlice';
 import {
@@ -83,6 +83,11 @@ export interface EditorToolsOptions {
   onRequestDelete: () => void;
   /** Grid and snap hook (WP 2.5); defaults to rounding to the storage precision. */
   snapPoint?: ToolEnv['snapPoint'];
+  /** Every click adds to the selection, like Shift (the touch "multi-select" toggle, GP-UX-037). */
+  additive?: boolean;
+  /** The type choice for the next drawn bed / garden object (WP 2.6). */
+  bedTypeKey?: string;
+  objectType?: GardenObjectType;
 }
 
 export interface EditorTools {
@@ -103,6 +108,10 @@ export interface EditorTools {
   busy: boolean;
   cancel: () => void;
   finishDraw: () => void;
+  /** Touch: set a polygon/line point or a rectangle/circle corner at a canvas pixel. */
+  placePointAt: (pointPx: Point) => void;
+  /** Touch: take the last drawn point back. */
+  undoPoint: () => void;
   deleteVertex: () => void;
   insertVertexAfter: () => void;
 }
@@ -115,7 +124,7 @@ function toolKind(tool: PlanTool): 'select' | 'draw' | 'pan' {
   return 'select';
 }
 
-function sampleOf(event: ReactPointerEvent<HTMLElement>): PointerSample {
+function sampleOf(event: ReactPointerEvent<HTMLElement>, additive = false): PointerSample {
   const element = event.currentTarget;
   const box = element.getBoundingClientRect();
   return {
@@ -125,7 +134,7 @@ function sampleOf(event: ReactPointerEvent<HTMLElement>): PointerSample {
     ],
     pointerType:
       event.pointerType === 'touch' || event.pointerType === 'pen' ? event.pointerType : 'mouse',
-    shift: event.shiftKey,
+    shift: event.shiftKey || additive,
     alt: event.altKey,
   };
 }
@@ -154,6 +163,8 @@ function drawOptionsOf(o: EditorToolsOptions): DrawOptions {
     target: o.tool === 'garden_object' ? 'garden_object' : 'bed',
     shape: o.drawShape,
     newBedName: o.newBedName,
+    bedTypeKey: o.bedTypeKey,
+    objectType: o.objectType,
   };
 }
 
@@ -255,7 +266,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       if (m.pointerId !== null) return; // one pointer at a time
       const o = latest.current;
       o.onNotice(null);
-      const sample = sampleOf(event);
+      const sample = sampleOf(event, o.additive);
       const env = envOf(o);
       const kind = event.button === 1 ? 'pan' : toolKind(o.tool);
       try {
@@ -284,7 +295,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       const m = current();
       const o = latest.current;
       if (m.pointerId !== null && event.pointerId !== m.pointerId) return;
-      const sample = sampleOf(event);
+      const sample = sampleOf(event, o.additive);
       const env = envOf(o);
       if (m.active === 'pan') {
         const step = panMove(m.pan, sample);
@@ -309,7 +320,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       const m = current();
       const o = latest.current;
       if (m.pointerId === null || event.pointerId !== m.pointerId) return;
-      const sample = sampleOf(event);
+      const sample = sampleOf(event, o.additive);
       const env = envOf(o);
       try {
         event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -366,6 +377,25 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     update({ draw: step.state });
     apply(step.effects);
   }, [apply, current, update]);
+
+  const placePointAt = useCallback(
+    (pointPx: Point) => {
+      const o = latest.current;
+      if (toolKind(o.tool) !== 'draw') return;
+      const sample: PointerSample = { pointPx, pointerType: 'touch', shift: false, alt: false };
+      const env = envOf(o);
+      const drawOptions = drawOptionsOf(o);
+      const down = drawDown(current().draw, sample, env, drawOptions);
+      const up = drawUp(down.state, sample, env, drawOptions);
+      update({ draw: up.state });
+      apply(up.effects);
+    },
+    [apply, current, update],
+  );
+
+  const undoPoint = useCallback(() => {
+    update({ draw: drawUndoPoint(current().draw) });
+  }, [current, update]);
 
   /** The geometry and index of the picked polygon point, if it is still there. */
   const pickedVertex = useCallback(() => {
@@ -451,8 +481,18 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
   );
 
   const kind = toolKind(options.tool);
-  const { plan, viewport, selection, renderer, stack, angleStepDeg, snapPoint, newBedName } =
-    options;
+  const {
+    plan,
+    viewport,
+    selection,
+    renderer,
+    stack,
+    angleStepDeg,
+    snapPoint,
+    newBedName,
+    bedTypeKey,
+    objectType,
+  } = options;
   const { select: selectState, draw: drawState } = machines;
 
   const overlay = useMemo<Overlay>(() => {
@@ -461,7 +501,13 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     return drawOverlay(
       drawState,
       envOf({ plan, viewport, selection, renderer, stack, angleStepDeg, snapPoint }),
-      { target: tool === 'garden_object' ? 'garden_object' : 'bed', shape: drawShape, newBedName },
+      {
+        target: tool === 'garden_object' ? 'garden_object' : 'bed',
+        shape: drawShape,
+        newBedName,
+        bedTypeKey,
+        objectType,
+      },
     );
   }, [
     kind,
@@ -477,6 +523,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
     tool,
     drawShape,
     newBedName,
+    bedTypeKey,
+    objectType,
   ]);
 
   // Handles follow the live draft of a handle drag, and are hidden while a move or marquee runs.
@@ -512,6 +560,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       busy,
       cancel,
       finishDraw,
+      placePointAt,
+      undoPoint,
       deleteVertex,
       insertVertexAfter,
     }),
@@ -528,6 +578,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       busy,
       cancel,
       finishDraw,
+      placePointAt,
+      undoPoint,
       deleteVertex,
       insertVertexAfter,
     ],

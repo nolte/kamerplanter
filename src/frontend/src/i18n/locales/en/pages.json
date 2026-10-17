@@ -5392,14 +5392,21 @@
           "hint": "Delete the selection (Del)"
         },
         "newBedName": "Bed {{n}}",
-        "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties field once it is available.",
+        "tooSmall": "This object is too small on screen for handles. You can still move it; to change its size, select it and enter the dimensions in the properties panel.",
         "actions": {
           "move": "Move",
           "rotate": "Rotate",
           "resize": "Resize",
           "editPoint": "Edit point",
           "draw": "Draw",
-          "delete": "Delete"
+          "delete": "Delete",
+          "edit": "Change value",
+          "duplicate": "Duplicate",
+          "lock": "Lock",
+          "unlock": "Unlock",
+          "zOrder": "Change order",
+          "addWithDimensions": "Add with dimensions",
+          "northAngle": "Set north direction"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5464,7 +5471,8 @@
         },
         "skip": {
           "list": "Skip to object list",
-          "plan": "Skip to plan"
+          "plan": "Skip to plan",
+          "panel": "Skip to the properties panel"
         },
         "list": {
           "switch": "Show as list",
@@ -5565,6 +5573,160 @@
           "shortcutNote": "Single-key shortcuts such as ? only work while the plan has the focus.",
           "singleKeyLabel": "Single-key shortcuts",
           "singleKeyHint": "Switch off to stop keys like ? from reacting. This help stays available through the button."
+        },
+        "panel": {
+          "title": "Properties",
+          "close": "Close properties",
+          "name": "Name",
+          "label": "Label",
+          "type": "Type: {{type}}",
+          "notPlaced": "This bed is not placed on the plan yet.",
+          "lockedHint": "Locked: the values are read-only. Unlock the object to change it.",
+          "locked": "Locked",
+          "fields": {
+            "x": "Position x",
+            "y": "Position y",
+            "width": "Width",
+            "length": "Length",
+            "radius": "Radius",
+            "rotation": "Rotation",
+            "strokeWidth": "Stroke width"
+          },
+          "points": "Points ({{count}})",
+          "deletePoint": "Delete point {{n}}",
+          "emptyBed": "This bed is empty.",
+          "plant": "Plant it",
+          "openDetails": "Open details",
+          "nothingSelected": "Pick a bed or object on the plan to see and change its values.",
+          "drawBed": "Draw a bed",
+          "stack": "Objects at this spot ({{count}})",
+          "plantsNearby": "Plants nearby ({{count}})",
+          "multiTitle_one": "{{count}} object selected",
+          "multiTitle_other": "{{count}} objects selected",
+          "multiHint": "With several objects you can duplicate, delete, bring to front or back, and lock them. To change values, pick a single object.",
+          "slotInfo": "Planting position {{name}}. Edit plants and positions on the bed.",
+          "plantInfo": "Plant {{name}} ({{species}}). Details are on the plant page.",
+          "region": "Properties",
+          "geometryTitle": "Position and size",
+          "geometryHint": "Sizes in metres, rotation in degrees. The position is the corner of the object (the centre for circles); x points right, y points up.",
+          "fieldInvalid": "Please enter a valid number."
+        },
+        "contextMenu": {
+          "label": "Actions for the selection",
+          "more": "More actions",
+          "overflow": "More",
+          "edit": "Edit",
+          "duplicate": "Duplicate",
+          "front": "Bring to front",
+          "back": "Send to back",
+          "lock": "Lock",
+          "unlock": "Unlock",
+          "selectAll": "Select all"
+        },
+        "duplicate": {
+          "name": "{{name}} (copy)"
+        },
+        "touch": {
+          "label": "Touch actions",
+          "place": "Set point",
+          "undo": "Undo",
+          "finish": "Finish",
+          "cancel": "Cancel",
+          "multiSelect": "Multi-select",
+          "multiSelectOn": "Multi-select is on: tap objects to add or remove them. Dragging across empty ground draws a selection frame.",
+          "hint": {
+            "rect": {
+              "start": "Move the plan with two fingers until the crosshair sits on the first corner, then tap \"Set point\". Then set the opposite corner the same way.",
+              "next": "First corner set. Move the crosshair to the opposite corner and tap \"Set point\". \"Undo\" takes the corner back."
+            },
+            "circle": {
+              "start": "Move the plan with two fingers until the crosshair sits on the centre, then tap \"Set point\". Then set a point on the edge.",
+              "next": "Centre set. Move the crosshair to the edge of the circle and tap \"Set point\". \"Undo\" takes the point back."
+            },
+            "polygon": {
+              "start": "Move the plan with two fingers until the crosshair sits on a corner, then tap \"Set point\". From three points on, \"Finish\" closes the shape.",
+              "next_one": "{{count}} point placed. Place the next point. \"Undo\" takes back the last one.",
+              "next_other": "{{count}} points placed. Place more points or close with \"Finish\". \"Undo\" takes back the last one."
+            },
+            "polyline": {
+              "start": "Move the plan with two fingers until the crosshair sits on the start of the line, then tap \"Set point\". From two points on, \"Finish\" ends the line.",
+              "next_one": "{{count}} point placed. Place the next point. \"Undo\" takes back the last one.",
+              "next_other": "{{count}} points placed. Place more points or end with \"Finish\". \"Undo\" takes back the last one."
+            }
+          }
+        },
+        "addWithDimensions": {
+          "open": "Add with dimensions",
+          "title": "Add with dimensions",
+          "kind": "What to add",
+          "bed": "Bed",
+          "object": "Garden object",
+          "bedType": "Bed type",
+          "objectType": "Object type",
+          "name": "Name",
+          "submit": "Add",
+          "addPoint": "Add point",
+          "fields": {
+            "x": "Position x (→)",
+            "y": "Position y (↑)",
+            "width": "Width",
+            "length": "Length",
+            "radius": "Radius",
+            "rotation": "Rotation",
+            "strokeWidth": "Stroke width"
+          },
+          "intro": "Add a bed or object by typing numbers instead of drawing it. The shape is checked like a drawn one and has to fit completely inside its area.",
+          "nameHelper": "Leave empty to use the suggestion.",
+          "positionHint": "All sizes in metres, rotation in degrees. The position is the corner of the rectangle (the centre for circles); x points right, y points up.",
+          "pointsHint": "Enter the points one after another in metres (x to the right, y up). A polygon needs at least three points, a line two.",
+          "fieldInvalid": "Please enter a number, e.g. 2.5."
+        },
+        "view": {
+          "label": "View settings"
+        },
+        "grid": {
+          "step": "Grid step",
+          "toggles": "Grid and snap",
+          "toggle": "Show grid",
+          "toggleHint": "Show or hide the grid (G). The snap raster stays active.",
+          "unit": "Length unit",
+          "unitOption": {
+            "m": "Metres",
+            "cm": "Centimetres"
+          }
+        },
+        "snap": {
+          "toggle": "Snap to grid",
+          "short": "Snap",
+          "hint": "Snap to the grid. Hold Alt to switch snapping off briefly."
+        },
+        "zoom": {
+          "label": "Zoom",
+          "in": "Zoom in",
+          "out": "Zoom out",
+          "fit": "Fit",
+          "inHint": "Zoom in (+). Zoom smoothly with Ctrl/Cmd + mouse wheel or while the plan is focused.",
+          "outHint": "Zoom out (−)",
+          "fitHint": "Fit the whole plan into view (0)",
+          "level": "Zoom {{percent}} percent",
+          "scaleBar": "Scale bar: {{length}}"
+        },
+        "compass": {
+          "label": "Compass: direction of geographic north on the plan",
+          "input": "North angle (degrees)",
+          "value": "{{angle}}° clockwise from the top of the plan",
+          "n": "N",
+          "e": "E",
+          "s": "S",
+          "w": "W",
+          "help": "Set where geographic north lies on your plan. Turn the dial or use the arrow keys (Shift or Page Up/Down: 15 degree steps, Home: north up). 0 degrees means north is up, 90 degrees means north points right.",
+          "invalid": "Enter an angle from 0 to 360."
+        },
+        "dimensions": {
+          "rect": "{{width}} × {{length}} · {{area}}",
+          "circle": "Ø {{diameter}} · {{area}}",
+          "polygon": "{{width}} × {{length}} · {{area}}",
+          "line": "{{length}}"
         }
       }
     }

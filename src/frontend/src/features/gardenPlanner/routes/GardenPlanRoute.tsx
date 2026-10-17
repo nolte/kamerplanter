@@ -6,17 +6,19 @@
  * the renderer, the plan model nor the slice are part of the initial bundle (UI-NFR-003).
  *
  * The page loads the plan, explains the empty and error states and mounts the editor (WP 2.4:
- * select, pan, draw, handles). It owns the viewport - fitted to the plan, shifted by the pan tool;
- * zoom and the fit button follow in WP 2.5. `?mode=field` is only recognised and announced
+ * select, pan, draw, handles). It owns the viewport - fitted to the plan, then panned and zoomed
+ * (WP 2.5: zoom levels, wheel, "fit to area"). `?mode=field` is only recognised and announced
  * (GP-FR-182, §18).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -34,7 +36,9 @@ import {
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { GardenPlanEditor } from '../editor/GardenPlanEditor';
+import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
 import type { BoundingBox, Point } from '../model/types';
+import { zoomAround } from '../model/units';
 import { fitViewport, planContentBounds } from './fitViewport';
 
 // Register the slice before the first render of the page; idempotent, so a re-evaluated module
@@ -70,6 +74,10 @@ export default function GardenPlanRoute() {
   const { key } = useParams<{ key: string }>();
   const [searchParams] = useSearchParams();
   const { t } = useTranslation();
+  const theme = useTheme();
+  const navigate = useNavigate();
+  // From md up the properties panel sits beside the plan and takes its width from the drawing.
+  const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
   const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
   const labels = useRendererLabels();
@@ -115,28 +123,57 @@ export default function GardenPlanRoute() {
   const fitted = useMemo(() => {
     if (bounds === null) return null;
     const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
-    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
-  }, [bounds, canvasWidth]);
+    return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX - (sidebarBeside ? EDITOR_SIDEBAR_RESERVE_PX : 0)), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
+  }, [bounds, canvasWidth, sidebarBeside]);
 
-  // The pan tool shifts the fitted view (model metres). The shift belongs to one site: another
-  // site starts unshifted again, without an effect to reset it.
-  const [pan, setPan] = useState<{ siteKey: string | undefined; offsetM: Point }>({ siteKey: key, offsetM: [0, 0] });
-  const fittedPxPerM = fitted?.pxPerM ?? 1;
-  const onPan = useCallback(
-    (dxPx: number, dyPx: number) => {
-      // Dragging the plan right moves the viewport origin left; screen y points down, model y up.
-      setPan((previous) => {
-        const [x, y] = previous.siteKey === key ? previous.offsetM : [0, 0];
-        return { siteKey: key, offsetM: [x - dxPx / fittedPxPerM, y + dyPx / fittedPxPerM] };
-      });
-    },
-    [fittedPxPerM, key],
-  );
+  // The user's view: pan and zoom replace the fitted view until "fit to area" (or another load)
+  // drops them. It belongs to one site and one load, so neither needs an effect to reset it.
+  const [view, setView] = useState<{
+    siteKey: string | undefined;
+    requestId: string | null;
+    pxPerM: number;
+    originM: Point;
+  } | null>(null);
+  const activeView = view && view.siteKey === key && view.requestId === loadRequestId ? view : null;
   const viewport = useMemo(() => {
     if (!fitted) return null;
-    const [panX, panY] = pan.siteKey === key ? pan.offsetM : [0, 0];
-    return { ...fitted, originM: [fitted.originM[0] + panX, fitted.originM[1] + panY] as Point };
-  }, [fitted, pan, key]);
+    return activeView ? { ...fitted, pxPerM: activeView.pxPerM, originM: activeView.originM } : fitted;
+  }, [fitted, activeView]);
+  const viewportRef = useRef(viewport);
+  useEffect(() => {
+    viewportRef.current = viewport;
+  });
+  const minPxPerM = fitted?.pxPerM ?? 1;
+
+  const onPan = useCallback(
+    (dxPx: number, dyPx: number) => {
+      const current = viewportRef.current;
+      if (!current) return;
+      // Dragging the plan right moves the viewport origin left; screen y points down, model y up.
+      setView((previous) => {
+        const base = previous && previous.siteKey === key && previous.requestId === loadRequestId ? previous : null;
+        const origin = base ? base.originM : current.originM;
+        const pxPerM = base ? base.pxPerM : current.pxPerM;
+        return {
+          siteKey: key,
+          requestId: loadRequestId,
+          pxPerM,
+          originM: [origin[0] - dxPx / pxPerM, origin[1] + dyPx / pxPerM],
+        };
+      });
+    },
+    [key, loadRequestId],
+  );
+  const onZoom = useCallback(
+    (pxPerM: number, anchorPx: Point) => {
+      const current = viewportRef.current;
+      if (!current) return;
+      const next = zoomAround(current, pxPerM, anchorPx, minPxPerM);
+      setView({ siteKey: key, requestId: loadRequestId, ...next });
+    },
+    [key, loadRequestId, minPxPerM],
+  );
+  const onFit = useCallback(() => setView(null), []);
 
   const backLink = (
     <Button
@@ -173,6 +210,10 @@ export default function GardenPlanRoute() {
         labels={labels}
         fieldMode={fieldMode}
         onPan={onPan}
+        onOpenLocation={(locationKey) => navigate(`/standorte/locations/${locationKey}`)}
+        onZoom={onZoom}
+        onFit={onFit}
+        minPxPerM={minPxPerM}
       />
     );
   }
