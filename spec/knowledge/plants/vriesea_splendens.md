@@ -112,6 +112,22 @@
 **Hinweis:** Als deutlich schattentolerante (shade-tolerant) Tank-Epiphyt liegt der Lichtkompensationspunkt im unteren Bereich schattentoleranter Arten (10–50 µmol/m²/s); hier konservativ 10–30 angesetzt. Lichtsättigung und mögliche Photoinhibition liegen weit darüber (vgl. PPFD-Zielkorridor §2.2) und gehören NICHT in das LCP-Feld. Die flachen, primär der Verankerung dienenden Wurzeln müssen relativ trocken bleiben → Staunässe-empfindlich. Die feinen Blatt-Trichome (trichomes) sind salz- und mineralempfindlich → kalkarmes Regen-/Destillatwasser; ECe-/Slope-Kennwerte (Maas-Hoffman) sind für diese epiphytische Zierpflanze nicht publiziert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Vriesea splendens“ (Position: Partial shade; Kulturtext: "in moderate light"), https://www.rhs.org.uk/plants/19052/vriesea-splendens/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -366,4 +382,5 @@ Vriesea splendens,Flammendes Schwert;Vriesea;Flaming Sword,Bromeliaceae,Vriesea,
 13. [Gardener's Path – Grow Flaming Sword Bromeliads (Vriesea)](https://gardenerspath.com/plants/houseplants/grow-vriesea/) — Boden-pH 5.5–6.5, Pflege
 14. [Smart Garden Guide – Vriesea Plant Care (Flaming Sword)](https://smartgardenguide.com/vriesea-plant-care-flaming-sword/) — Mindesttemperatur ~10 °C, frostfreie Überwinterung, Schattentoleranz
 15. [Floral Induction of Bromeliads by Ethylene (Springer)](https://link.springer.com/chapter/10.1007/978-94-009-1271-7_35) — Blühinduktion über Reife/Ethylen (bestätigt day_neutral, nicht photoperiodisch)
+RHS -- Vriesea splendens (Position/Aspect: Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/19052/vriesea-splendens/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

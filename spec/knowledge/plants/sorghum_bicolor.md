@@ -136,6 +136,22 @@
 **Quellen (§1.8):** [Sorghum Seed Germination (Jowar) — Agri Farming](https://www.agrifarming.in/sorghum-seed-germination-jowar-period-procedure) (Keimtemperatur/-dauer, Bodentemperatur-Schwelle); [Sorghum Growth Stages — Bayer Crop Science](https://www.cropscience.bayer.us/articles/bayer/sorghum-growth-stages) und [Sorghum Growth Management Guide — EOS](https://eos.com/crop-management-guide/sorghum-growth-stages/) (Auflaufzeit 3–10 Tage, Saattiefe); [Thousand Kernel Weight — Alberta Grains](https://www.albertagrains.com/the-growing-point/articles-library/thousand-kernel-weight) und [Grain Sorghum Planting Rate Considerations — Pioneer](https://www.pioneer.com/us/agronomy/planting_rate.html) (TKW-Cross-Check via Korn/lb); [Sorghum Seeding Rates — Sorghum Checkoff](https://www.sorghumcheckoff.com/agronomy-insights/sorghum-seeding-rates/) und [Grain Sorghum Row Spacing, Plant Population — NMWRRI](https://nmwrri.nmsu.edu/footer_pages/nm-wrri-library-database-files/wrri-library-pdfs/wrrilibrary1/001088.pdf) (Pflanzdichte 210.000–300.000/ha); [Long-Term Storage and Longevity of Orthodox Seeds — PMC systematic review](https://pmc.ncbi.nlm.nih.gov/articles/PMC7347988/) und [Seed viability of sorghum active collection — ResearchGate/genebank data](https://www.researchgate.net/figure/Seed-viability-of-sorghum-active-collection-from-27-years-of-regeneration-conserved-in_tbl1_26628879) (Keimfähigkeitsdauer 5–10 Jahre, Genbank->85 % Viabilität nach 5–21 Jahren).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine gelesene Quelle nennt den Abstand in der Reihe als cm-Wert (nur Saatstärke 25 Körner/m² LTZ bzw. 35–40 Körner/m² TFZ) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 30–50 | `species.row_spacing_cm` |
+| Quelle Abstände | LTZ Augustenberg, „Zuckerhirse“ (Saatstärke 25 Körner/m²; „Reihenabstand: 30-50 cm“), https://ltz.landwirtschaft-bw.de/,Len/Kulturpflanzen/Zuckerhirse; TFZ Bayern, Sorghum-Sortenvergleich 2018 („Reihenweiten unter 50 cm bieten einen zügigeren Reihenschluss“, TFZ nutzt 37,5 cm), https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/19pfr002_mb_bayernweiter_sorghum-sortenvergleich_2018_tfz.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine gelesene Quelle nennt einen Lichtanspruch (LTZ nennt nur Wärmebedarf, C4) --> | `species.light_requirement` |
+| Schattentoleranz | <!-- DATEN FEHLEN: keine gelesene Quelle --> | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -322,6 +338,11 @@ Sorghum hat einen sehr hohen Kalium-Bedarf. Trockenheitstoleranz bedeutet NICHT 
 | Empfohlene Vorfrucht | Leguminosen (Soja, Erbse); Raps |
 | Empfohlene Nachfrucht | Hülsenfrüchte; Gemüse; Leguminosen |
 | Anbaupause (Jahre) | 2–3 Jahre auf gleichem Standort |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | LTZ Augustenberg, „Zuckerhirse“ („relativ hoher Nährstoffbedarf … ca. 150-200 kg N/ha, 250 kg K2O/ha, 100 kg P2O5/ha“), https://ltz.landwirtschaft-bw.de/,Len/Kulturpflanzen/Zuckerhirse; TFZ Bayern, Sorghum-Sortenvergleich 2018 (Stickstoff-Bedarfswert 200 kg N/ha, 130 kg N/ha ausreichend; N-Bedarfswert 30 % geringer als Mais), https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/19pfr002_mb_bayernweiter_sorghum-sortenvergleich_2018_tfz.pdf; EIP LUPI-HIRSE-Huhn, Anbauanleitung Körnerhirse 2022 („mittlere Maisdüngung“: 120 kg N/ha), https://www.oekolandbau.rlp.de/Internet/global/Themen.nsf/fa66e38445c2c72cc1258155002a789b/411d5cf0be883720c12589400039cbae/$FILE/Anbaubeschreibung%20Sorghum_%202022.pdf. Hinweis: Ackerbau-Quellen ohne Zehrerklassen-Begriff; Einstufung aus Nährstoffbedarf abgeleitet, daher schwach |
+| Zehrerstufe — Konfidenz | low (Ackerbau-Quellen ohne Zehrerklasse, Einstufung indirekt aus kg N/ha; TFZ: Bedarf 30 % unter Mais) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: kein Zahlenwert. LTZ Augustenberg („selbstverträglich, lässt sich gut in Fruchtfolgen integrieren“), https://ltz.landwirtschaft-bw.de/,Len/Kulturpflanzen/Zuckerhirse; EIP LUPI-HIRSE-Huhn 2022 („selbstverträglich“), https://www.oekolandbau.rlp.de/Internet/global/Themen.nsf/fa66e38445c2c72cc1258155002a789b/411d5cf0be883720c12589400039cbae/$FILE/Anbaubeschreibung%20Sorghum_%202022.pdf; KONFLIKT mit Bestandswert 6.1 (2–3 Jahre); Wert bleibt null --> |
 
 **Besonderheit Unkrautunterdrückung:** Sorghum-Biomasse (Mulch, Stroh) hemmt Unkrautkeimung durch Sorgoleone. Bei Einarbeitung als Gründüngung auf nächste Folgekulturen achten — Keimhemmung kann auch Nutzpflanzen betreffen (Möhren, Zwiebeln empfindlich).
 
@@ -400,4 +421,7 @@ Bepari,Sorghum bicolor,"grain_sorghum;medium_tall;early",105,open_pollinated
 21. [Grain Sorghum Row Spacing, Plant Population, and Irrigation — NMWRRI](https://nmwrri.nmsu.edu/footer_pages/nm-wrri-library-database-files/wrri-library-pdfs/wrrilibrary1/001088.pdf) — Pflanzdichte 210.000–300.000/ha
 22. [Long-Term Storage and Longevity of Orthodox Seeds: A Systematic Review — PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC7347988/) — Saatgut-Halbwertszeit 5–10 (ambient) bis 40–60 Jahre (optimal)
 23. [Seed viability of sorghum active collection from 27 years of regeneration — ResearchGate (Genbank-Daten)](https://www.researchgate.net/figure/Seed-viability-of-sorghum-active-collection-from-27-years-of-regeneration-conserved-in_tbl1_26628879) — >85 % Viabilität nach 5–21 Jahren Lagerung
+24. LTZ Augustenberg — Zuckerhirse (Sorghum bicolor; Reihenabstand 30–50 cm, Nährstoffbedarf, selbstverträglich): https://ltz.landwirtschaft-bw.de/,Len/Kulturpflanzen/Zuckerhirse
+25. TFZ Bayern — Bayernweiter Sorghum-Sortenvergleich 2018 (Reihenweite, N-Bedarfswert): https://www.tfz.bayern.de/mam/cms08/rohstoffpflanzen/dateien/19pfr002_mb_bayernweiter_sorghum-sortenvergleich_2018_tfz.pdf
+26. EIP LUPI-HIRSE-Huhn — Anbauanleitung Körnerhirse (Sorghum bicolor L.) 2022 (selbstverträglich, mittlere Maisdüngung): https://www.oekolandbau.rlp.de/Internet/global/Themen.nsf/fa66e38445c2c72cc1258155002a789b/411d5cf0be883720c12589400039cbae/$FILE/Anbaubeschreibung%20Sorghum_%202022.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
