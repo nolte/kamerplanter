@@ -23,6 +23,8 @@ interface NumberFieldProps {
   /** Reports the live error code (or `null`) so the panel can explain it. */
   onError?: (code: string | null) => void;
   testId?: string;
+  /** Short text under the field while its draft is invalid (the panel explains the cause). */
+  errorText?: string;
 }
 
 const format = (value: number): string => String(value);
@@ -38,6 +40,7 @@ export function NumberField({
   onCommit,
   onError,
   testId,
+  errorText,
 }: NumberFieldProps) {
   const [text, setText] = useState(format(value));
   const [seen, setSeen] = useState(value);
@@ -73,6 +76,7 @@ export function NumberField({
       value={text}
       disabled={disabled}
       error={dirty && code !== null}
+      helperText={dirty && code !== null ? errorText : undefined}
       onChange={(event) => {
         setText(event.target.value);
         const next = parseDecimal(event.target.value);

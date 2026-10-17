@@ -8,6 +8,7 @@
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import AddLocationAltOutlinedIcon from '@mui/icons-material/AddLocationAltOutlined';
 import CheckIcon from '@mui/icons-material/Check';
@@ -124,6 +125,17 @@ export function TouchBar({
           <PlaylistAddCheckIcon sx={{ mr: 0.75 }} />
           {t(`${PREFIX}.multiSelect`)}
         </ToggleButton>
+      )}
+      {tool === 'select' && multiSelect && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          role="status"
+          sx={{ flex: '1 1 12rem', px: 0.5 }}
+          data-testid="garden-plan-touch-multi-hint"
+        >
+          {t(`${PREFIX}.multiSelectOn`)}
+        </Typography>
       )}
     </Paper>
   );

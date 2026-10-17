@@ -57,6 +57,21 @@ describe('add with dimensions (GP-UX-046)', () => {
     await waitFor(() => expect(screen.queryByTestId('garden-plan-add-dialog')).toBeNull());
   });
 
+  it('explains an invalid number under the field and submits with Enter', async () => {
+    const t = setupEditor();
+    open(t);
+    await waitFor(() => expect(listLocationTypes).toHaveBeenCalled());
+    set('garden-plan-add-width', 'abc');
+    expect(screen.getByTestId('garden-plan-add-width')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Please enter a number, e.g. 2.5.')).toBeInTheDocument();
+    set('garden-plan-add-width', '3');
+    set('garden-plan-add-x', '14');
+    set('garden-plan-add-y', '14');
+    t.after(() => fireEvent.submit(screen.getByTestId('garden-plan-add-width').closest('form')!));
+    const [key] = t.selected();
+    expect(t.state().plan!.locations[key].geometry).toMatchObject({ width_m: 3 });
+  });
+
   it('offers only bed types for a bed and uses the chosen one', async () => {
     const t = setupEditor();
     open(t);

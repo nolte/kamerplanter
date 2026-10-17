@@ -5,7 +5,7 @@
  * explained inside the dialog and nothing is created. A reference-object distance ("2 m from the
  * fence") is not part of this version.
  */
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -18,6 +18,7 @@ import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -157,7 +158,13 @@ function DimensionsForm({
         label={t(`${PREFIX}.addWithDimensions.fields.${id}`)}
         value={draft[id]}
         onChange={(event) => set(id, event.target.value)}
+        required={id !== 'rotation' && id !== 'strokeWidth'}
         error={draft[id] !== '' && num(draft[id]) === null}
+        helperText={
+          draft[id] !== '' && num(draft[id]) === null
+            ? t(`${PREFIX}.addWithDimensions.fieldInvalid`)
+            : undefined
+        }
         slotProps={{
           htmlInput: { inputMode: 'decimal', 'data-testid': `garden-plan-add-${id}` },
           input: { endAdornment: unit },
@@ -180,9 +187,20 @@ function DimensionsForm({
   };
 
   return (
-    <>
+    <Box
+      component="form"
+      noValidate
+      onSubmit={(event: FormEvent) => {
+        event.preventDefault(); // Enter in a field adds the shape, like the button
+        submit();
+      }}
+      sx={{ display: 'flex', flexDirection: 'column', flex: '1 1 auto', minHeight: 0 }}
+    >
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t(`${PREFIX}.addWithDimensions.intro`)}
+          </Typography>
           <ToggleButtonGroup
             exclusive
             fullWidth
@@ -254,6 +272,7 @@ function DimensionsForm({
             value={draft.name}
             onChange={(event) => set('name', event.target.value)}
             placeholder={suggestedName}
+            helperText={t(`${PREFIX}.addWithDimensions.nameHelper`)}
             slotProps={{ htmlInput: { 'data-testid': 'garden-plan-add-name' } }}
             sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
           />
@@ -277,6 +296,15 @@ function DimensionsForm({
             ))}
           </ToggleButtonGroup>
 
+          {fields.includes('points') ? (
+            <Typography variant="body2" color="text.secondary">
+              {t(`${PREFIX}.addWithDimensions.pointsHint`)}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {t(`${PREFIX}.addWithDimensions.positionHint`)}
+            </Typography>
+          )}
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1.5 }}>
             {numberField('x', 'm')}
             {numberField('y', 'm')}
@@ -344,7 +372,7 @@ function DimensionsForm({
           )}
 
           {error && (
-            <Alert severity="error" role="status" data-testid="garden-plan-add-error">
+            <Alert severity="error" data-testid="garden-plan-add-error">
               {t(`${PREFIX}.notice.${error}`, { defaultValue: t(`${PREFIX}.notice.generic`) })}
             </Alert>
           )}
@@ -356,14 +384,14 @@ function DimensionsForm({
         </Button>
         <Button
           variant="contained"
-          onClick={submit}
+          type="submit"
           sx={{ minHeight: 48 }}
           data-testid="garden-plan-add-submit"
         >
           {t(`${PREFIX}.addWithDimensions.submit`)}
         </Button>
       </DialogActions>
-    </>
+    </Box>
   );
 }
 

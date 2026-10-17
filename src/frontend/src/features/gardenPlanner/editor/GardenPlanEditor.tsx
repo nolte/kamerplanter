@@ -631,11 +631,13 @@ export function GardenPlanEditor({
   const singleTooSmall = handles !== null && handles.density === 'none';
 
   const drawing = tool === 'bed' || tool === 'garden_object';
+  // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
+  const hintBase = touchUi ? `${PREFIX}.touch.hint` : `${PREFIX}.drawHint`;
   const hintKey = !drawing
     ? null
     : tools.draftPoints > 0
-      ? `${PREFIX}.drawHint.${drawShape}.next`
-      : `${PREFIX}.drawHint.${drawShape}.start`;
+      ? `${hintBase}.${drawShape}.next`
+      : `${hintBase}.${drawShape}.start`;
 
   const toolbar = (
     <EditorToolbar
@@ -687,6 +689,7 @@ export function GardenPlanEditor({
       onClose={() => {
         onSelect([]);
         onStack(null);
+        canvasRef.current?.focus(); // the close button disappears with the sheet: keep the focus on the plan
       }}
       onMore={(element) => setMenuAnchor({ kind: 'element', element })}
       onDuplicate={duplicate}

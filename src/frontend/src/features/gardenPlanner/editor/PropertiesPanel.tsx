@@ -219,6 +219,16 @@ function EntityForm({
       )}
 
       {fields.length > 0 && (
+        <Typography variant="subtitle2" component="h4" data-testid="garden-plan-panel-geometry-title">
+          {t(`${PREFIX}.panel.geometryTitle`)}
+        </Typography>
+      )}
+      {fields.length > 0 && (
+        <Typography variant="body2" color="text.secondary">
+          {t(`${PREFIX}.panel.geometryHint`)}
+        </Typography>
+      )}
+      {fields.length > 0 && (
         <Box
           sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}
           data-testid="garden-plan-panel-geometry"
@@ -237,6 +247,7 @@ function EntityForm({
                 geometry ? violation(setField(geometry, field.id, value)) : null
               }
               onError={setError}
+              errorText={t(`${PREFIX}.panel.fieldInvalid`)}
               onCommit={(value) => geometry && commitGeometry(setField(geometry, field.id, value))}
             />
           ))}
@@ -260,6 +271,7 @@ function EntityForm({
                   testId={`garden-plan-panel-point-${index}-x`}
                   validate={(value) => violation(setPoint(geometry, index, [value, py]))}
                   onError={setError}
+                  errorText={t(`${PREFIX}.panel.fieldInvalid`)}
                   onCommit={(value) => commitGeometry(setPoint(geometry, index, [value, py]))}
                 />
                 <NumberField
@@ -270,6 +282,7 @@ function EntityForm({
                   testId={`garden-plan-panel-point-${index}-y`}
                   validate={(value) => violation(setPoint(geometry, index, [px, value]))}
                   onError={setError}
+                  errorText={t(`${PREFIX}.panel.fieldInvalid`)}
                   onCommit={(value) => commitGeometry(setPoint(geometry, index, [px, value]))}
                 />
                 <Tooltip title={t(`${PREFIX}.vertex.delete`)}>
@@ -310,7 +323,7 @@ function EntityForm({
       )}
 
       {errorText && (
-        <Alert severity="error" role="status" data-testid="garden-plan-panel-error">
+        <Alert severity="error" data-testid="garden-plan-panel-error">
           {errorText}
         </Alert>
       )}
@@ -569,8 +582,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         <Typography
           variant="h6"
           component="h3"
-          noWrap
-          sx={{ flexGrow: 1 }}
+          sx={{ flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}
           data-testid="garden-plan-panel-title"
         >
           {title}

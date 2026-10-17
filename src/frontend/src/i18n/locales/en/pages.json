@@ -5500,7 +5500,10 @@
           "multiHint": "With several objects you can duplicate, delete, bring to front or back, and lock them. To change values, pick a single object.",
           "slotInfo": "Planting position {{name}}. Edit plants and positions on the bed.",
           "plantInfo": "Plant {{name}} ({{species}}). Details are on the plant page.",
-          "region": "Properties"
+          "region": "Properties",
+          "geometryTitle": "Position and size",
+          "geometryHint": "Sizes in metres, rotation in degrees. The position is the corner of the object (the centre for circles); x points right, y points up.",
+          "fieldInvalid": "Please enter a valid number."
         },
         "contextMenu": {
           "label": "Actions for the selection",
@@ -5523,7 +5526,28 @@
           "undo": "Undo",
           "finish": "Finish",
           "cancel": "Cancel",
-          "multiSelect": "Multi-select"
+          "multiSelect": "Multi-select",
+          "multiSelectOn": "Multi-select is on: tap objects to add or remove them. Dragging across empty ground draws a selection frame.",
+          "hint": {
+            "rect": {
+              "start": "Move the plan with two fingers until the crosshair sits on the first corner, then tap \"Set point\". Then set the opposite corner the same way.",
+              "next": "First corner set. Move the crosshair to the opposite corner and tap \"Set point\". \"Undo\" takes the corner back."
+            },
+            "circle": {
+              "start": "Move the plan with two fingers until the crosshair sits on the centre, then tap \"Set point\". Then set a point on the edge.",
+              "next": "Centre set. Move the crosshair to the edge of the circle and tap \"Set point\". \"Undo\" takes the point back."
+            },
+            "polygon": {
+              "start": "Move the plan with two fingers until the crosshair sits on a corner, then tap \"Set point\". From three points on, \"Finish\" closes the shape.",
+              "next_one": "{{count}} point placed. Place the next point. \"Undo\" takes back the last one.",
+              "next_other": "{{count}} points placed. Place more points or close with \"Finish\". \"Undo\" takes back the last one."
+            },
+            "polyline": {
+              "start": "Move the plan with two fingers until the crosshair sits on the start of the line, then tap \"Set point\". From two points on, \"Finish\" ends the line.",
+              "next_one": "{{count}} point placed. Place the next point. \"Undo\" takes back the last one.",
+              "next_other": "{{count}} points placed. Place more points or end with \"Finish\". \"Undo\" takes back the last one."
+            }
+          }
         },
         "addWithDimensions": {
           "open": "Add with dimensions",
@@ -5544,7 +5568,12 @@
             "radius": "Radius",
             "rotation": "Rotation",
             "strokeWidth": "Stroke width"
-          }
+          },
+          "intro": "Add a bed or object by typing numbers instead of drawing it. The shape is checked like a drawn one and has to fit completely inside its area.",
+          "nameHelper": "Leave empty to use the suggestion.",
+          "positionHint": "All sizes in metres, rotation in degrees. The position is the corner of the rectangle (the centre for circles); x points right, y points up.",
+          "pointsHint": "Enter the points one after another in metres (x to the right, y up). A polygon needs at least three points, a line two.",
+          "fieldInvalid": "Please enter a number, e.g. 2.5."
         },
         "view": {
           "label": "View settings"
