@@ -5426,6 +5426,12 @@
           },
           "reference": {
             "not_found": "Ein Objekt dieser Änderung gibt es nicht mehr. Der Plan bleibt unverändert."
+          },
+          "undo": {
+            "not_reversible": "Das lässt sich nach dem Speichern nicht mehr rückgängig machen. Der Plan bleibt unverändert."
+          },
+          "redo": {
+            "failed": "Das Wiederholen geht nicht mehr, weil sich der Plan inzwischen geändert hat."
           }
         },
         "deleteDialog": {
@@ -5585,9 +5591,21 @@
             "grid": {
               "keys": "G",
               "does": "Blendet das Raster ein oder aus."
+            },
+            "undo": {
+              "keys": "Strg + Z",
+              "does": "Macht die letzte Änderung rückgängig."
+            },
+            "redo": {
+              "keys": "Strg + Umschalt + Z / Strg + Y",
+              "does": "Stellt die rückgängig gemachte Änderung wieder her."
+            },
+            "save": {
+              "keys": "Strg + S",
+              "does": "Speichert den Plan."
             }
           },
-          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc und Strg + A bleiben aktiv.",
+          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc sowie Strg + A, Strg + Z, Strg + Umschalt + Z, Strg + Y und Strg + S bleiben aktiv. Strg + Z und Strg + Y gelten in Textfeldern für das Feld selbst.",
           "singleKeyLabel": "Einzeltasten-Kürzel",
           "singleKeyHint": "Schalte sie aus, damit die Tasten ?, G, +, − und 0 nicht reagieren. Diese Hilfe bleibt über die Schaltfläche „Tastaturhilfe“ erreichbar."
         },
@@ -5744,6 +5762,92 @@
           "circle": "Ø {{diameter}} · {{area}}",
           "polygon": "{{width}} × {{length}} · {{area}}",
           "line": "{{length}}"
+        },
+        "save": {
+          "label": "Speichern und Verlauf",
+          "button": "Speichern",
+          "retry": "Erneut speichern",
+          "shortcut": "Speichern (Strg+S)",
+          "status": {
+            "saving": "Speichern …",
+            "conflict": "Konflikt – Plan wurde zwischenzeitlich geändert",
+            "failed_one": "Speichern fehlgeschlagen – 1 Änderung noch offen",
+            "failed_other": "Speichern fehlgeschlagen – {{count}} Änderungen noch offen",
+            "dirty": "Ungespeicherte Änderungen ({{count}})",
+            "saved": "Gespeichert"
+          },
+          "undo": {
+            "label": "Rückgängig (Strg+Z)",
+            "withAction": "Rückgängig: {{action}} (Strg+Z)"
+          },
+          "redo": {
+            "label": "Wiederholen (Strg+Umschalt+Z)",
+            "withAction": "Wiederholen: {{action}} (Strg+Umschalt+Z)"
+          },
+          "subject": {
+            "bed": "Beet",
+            "object": "Gartenobjekt",
+            "boundary": "Gartengrenze"
+          },
+          "finding": {
+            "where": "Änderung {{n}} ({{subject}}):",
+            "field": "Feld „{{field}}“:"
+          },
+          "code": {
+            "unknown": "Der Server hat diese Änderung abgelehnt (Code {{code}}).",
+            "validation_error": "Der Server hat die Änderungen nicht akzeptiert.",
+            "bed": {
+              "overlap": "Das Beet überlappt ein anderes Beet. Verschiebe es, bis sich beide nicht mehr berühren."
+            },
+            "location": {
+              "has_active_plants": "Auf dem Beet wachsen noch Pflanzen, deshalb lässt es sich nicht löschen. Räume zuerst das Beet."
+            },
+            "boundary": {
+              "shrinks_below_objects": "Die neue Gartengrenze lässt Objekte außerhalb. Verschiebe sie zuerst nach innen."
+            },
+            "garden_object": {
+              "not_plantable": "Auf ein Gartenobjekt lassen sich keine Pflanzen setzen."
+            },
+            "batch": {
+              "too_many_operations": "Es sind mehr als 500 Änderungen offen. Speichere zwischendurch, sonst nimmt der Server sie nicht an.",
+              "operation_forbidden": "Für diese Änderung fehlt dir die Berechtigung.",
+              "too_complex": "Die Änderungen sind zu aufwendig für einen Durchgang. Speichere weniger Änderungen auf einmal."
+            },
+            "plan": {
+              "quota_exceeded": "Das Limit für diesen Plan ist erreicht. Lösche nicht mehr benötigte Objekte."
+            }
+          },
+          "failed": {
+            "title": "Speichern nicht möglich: keine Verbindung zum Server.",
+            "hint": "Deine Änderungen sind noch da. Prüfe deine Verbindung und speichere erneut."
+          },
+          "forbidden": {
+            "title": "Speichern nicht erlaubt.",
+            "hint": "Dir fehlt die Berechtigung für mindestens eine dieser Änderungen. Mache sie rückgängig oder bitte die Leitung um Hilfe."
+          },
+          "gone": {
+            "title": "Der Plan wurde nicht gefunden.",
+            "hint": "Der Standort existiert nicht mehr oder gehört nicht zu diesem Konto. Lade die Seite neu."
+          },
+          "rejected": {
+            "title": "Der Server hat die Änderungen abgelehnt. Es wurde nichts gespeichert.",
+            "hint": "Korrigiere die genannten Stellen oder mache sie rückgängig und speichere erneut. Deine übrigen Änderungen bleiben erhalten."
+          },
+          "tooMany": {
+            "hint": "Mache einige Änderungen rückgängig oder gliedere den Plan in kleinere Schritte. Es wurde nichts gespeichert."
+          }
+        },
+        "conflict": {
+          "title": "Der Plan wurde zwischenzeitlich geändert",
+          "message_one": "Jemand hat die Struktur dieses Plans gespeichert, während du daran gearbeitet hast. Deine 1 ungespeicherte Änderung konnte nicht übernommen werden.",
+          "message_other": "Jemand hat die Struktur dieses Plans gespeichert, während du daran gearbeitet hast. Deine {{count}} ungespeicherten Änderungen konnten nicht übernommen werden.",
+          "byAt": "Zuletzt geändert von {{name}} am {{when}}.",
+          "by": "Zuletzt geändert von {{name}}.",
+          "at": "Zuletzt geändert am {{when}}.",
+          "advice": "Lade den Plan neu, um den aktuellen Stand zu sehen. Dabei gehen deine Änderungen und der Rückgängig-Verlauf verloren – lade sie vorher als Kopie herunter, wenn du sie noch brauchst.",
+          "download": "Meine Änderungen als Kopie behalten (JSON herunterladen)",
+          "reload": "Neu laden",
+          "downloaded": "Die Kopie wurde heruntergeladen. Du kannst jetzt neu laden."
         }
       }
     }
