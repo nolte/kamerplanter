@@ -5424,6 +5424,12 @@
           },
           "reference": {
             "not_found": "An object of this change no longer exists. The plan stays as it was."
+          },
+          "undo": {
+            "not_reversible": "This cannot be undone after saving. The plan stays as it was."
+          },
+          "redo": {
+            "failed": "Redo is no longer possible because the plan has changed since."
           }
         },
         "deleteDialog": {
@@ -5621,6 +5627,92 @@
           "circle": "Ø {{diameter}} · {{area}}",
           "polygon": "{{width}} × {{length}} · {{area}}",
           "line": "{{length}}"
+        },
+        "save": {
+          "label": "Save and history",
+          "button": "Save",
+          "retry": "Save again",
+          "shortcut": "Save (Ctrl+S)",
+          "status": {
+            "saving": "Saving …",
+            "conflict": "Conflict – the plan was changed meanwhile",
+            "failed_one": "Saving failed – 1 change still open",
+            "failed_other": "Saving failed – {{count}} changes still open",
+            "dirty": "Unsaved changes ({{count}})",
+            "saved": "Saved"
+          },
+          "undo": {
+            "label": "Undo (Ctrl+Z)",
+            "withAction": "Undo: {{action}} (Ctrl+Z)"
+          },
+          "redo": {
+            "label": "Redo (Ctrl+Shift+Z)",
+            "withAction": "Redo: {{action}} (Ctrl+Shift+Z)"
+          },
+          "subject": {
+            "bed": "Bed",
+            "object": "Garden object",
+            "boundary": "Garden boundary"
+          },
+          "finding": {
+            "where": "Change {{n}} ({{subject}}):",
+            "field": "Field “{{field}}”:"
+          },
+          "code": {
+            "unknown": "The server refused this change (code {{code}}).",
+            "validation_error": "The server did not accept the changes.",
+            "bed": {
+              "overlap": "The bed overlaps another bed. Move it until the two no longer touch."
+            },
+            "location": {
+              "has_active_plants": "Plants are still growing in this bed, so it cannot be deleted. Clear the bed first."
+            },
+            "boundary": {
+              "shrinks_below_objects": "The new garden boundary leaves objects outside. Move them inside first."
+            },
+            "garden_object": {
+              "not_plantable": "Plants cannot be placed on a garden object."
+            },
+            "batch": {
+              "too_many_operations": "More than 500 changes are open. Save in between, or the server will not accept them.",
+              "operation_forbidden": "You do not have permission for this change.",
+              "too_complex": "The changes are too demanding for one go. Save fewer changes at once."
+            },
+            "plan": {
+              "quota_exceeded": "The limit for this plan is reached. Delete objects you no longer need."
+            }
+          },
+          "failed": {
+            "title": "Cannot save: no connection to the server.",
+            "hint": "Your changes are still here. Check your connection and save again."
+          },
+          "forbidden": {
+            "title": "Saving is not allowed.",
+            "hint": "You lack permission for at least one of these changes. Undo them or ask a lead for help."
+          },
+          "gone": {
+            "title": "The plan was not found.",
+            "hint": "The site no longer exists or does not belong to this account. Reload the page."
+          },
+          "rejected": {
+            "title": "The server refused the changes. Nothing was saved.",
+            "hint": "Fix the places named or undo them, then save again. Your other changes are kept."
+          },
+          "tooMany": {
+            "hint": "Undo some changes or split the work into smaller steps. Nothing was saved."
+          }
+        },
+        "conflict": {
+          "title": "The plan was changed meanwhile",
+          "message_one": "Someone saved the structure of this plan while you were working on it. Your 1 unsaved change could not be applied.",
+          "message_other": "Someone saved the structure of this plan while you were working on it. Your {{count}} unsaved changes could not be applied.",
+          "byAt": "Last changed by {{name}} on {{when}}.",
+          "by": "Last changed by {{name}}.",
+          "at": "Last changed on {{when}}.",
+          "advice": "Reload the plan to see the current state. Your changes and the undo history are lost when you do – download them as a copy first if you still need them.",
+          "download": "Keep my changes as a copy (download JSON)",
+          "reload": "Reload",
+          "downloaded": "The copy was downloaded."
         }
       }
     }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import GardenPlanRoute from '@/features/gardenPlanner/routes/GardenPlanRoute';
 import ModuleGuard from '@/components/common/ModuleGuard';
+import { applyAction } from '@/features/gardenPlanner/state/gardenPlanSlice';
 import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -90,6 +91,40 @@ describe('GardenPlanRoute', () => {
     expect(level()).toBe(fitted);
     // The fitted view is the lowest zoom (GP-FR-150).
     expect(screen.getByTestId('garden-plan-zoom-out')).toBeDisabled();
+  });
+
+  it('asks before leaving with unsaved changes and lets the user stay (GP-NFR-005)', async () => {
+    usePlan();
+    const { store, router } = renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    // Nothing pending: the back link leaves without a question.
+    expect(screen.getByTestId('garden-plan-save-status')).toHaveTextContent('Saved');
+
+    act(() => {
+      store.dispatch(
+        applyAction([
+          {
+            op: 'update_geometry',
+            entity: 'location',
+            key: 'loc_a',
+            geometry: { kind: 'rect', origin: [3, 3], width_m: 2, length_m: 2, rotation_deg: 0 },
+          },
+        ]),
+      );
+    });
+    expect(screen.getByTestId('garden-plan-save-status')).toHaveTextContent('Unsaved changes (1)');
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+
+    await act(async () => {
+      void router.navigate('/standorte/sites/site_1');
+    });
+    expect(await screen.findByTestId('confirm-dialog')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/standorte/sites/site_1/plan');
+    fireEvent.click(screen.getByTestId('confirm-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).toBeNull());
+    expect(screen.getByTestId('garden-plan-save-status')).toHaveTextContent('Unsaved changes (1)');
   });
 
   it('explains the empty state of a site without a plan', async () => {

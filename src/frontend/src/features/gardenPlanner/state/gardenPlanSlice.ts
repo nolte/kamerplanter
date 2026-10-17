@@ -152,11 +152,12 @@ interface SaveResult {
 export const saveGardenPlan = createAsyncThunk<
   SaveResult,
   void,
-  { state: { gardenPlan: GardenPlanState }; rejectValue: PlanSaveFailure }
+  // The slice is injected lazily, so the root state may not carry it yet (see the selectors).
+  { state: { gardenPlan?: GardenPlanState }; rejectValue: PlanSaveFailure }
 >(
   'gardenPlan/save',
   async (_arg, { getState, rejectWithValue }) => {
-    const { plan, pending } = getState().gardenPlan;
+    const { plan, pending } = selectGardenPlanState(getState());
     if (plan === null) return rejectWithValue({ kind: 'failed', message: 'No plan loaded.' });
     if (pending.length > MAX_BATCH_OPERATIONS) {
       // V-17: a batch is all-or-nothing, so it is never split into several requests.
@@ -179,7 +180,7 @@ export const saveGardenPlan = createAsyncThunk<
   },
   {
     condition: (_arg, { getState }) => {
-      const { plan, pending, saveStatus } = getState().gardenPlan;
+      const { plan, pending, saveStatus } = selectGardenPlanState(getState());
       // A conflict is left by reloading, never by sending the same stale request again.
       if (plan === null || pending.length === 0) return false;
       return saveStatus !== 'saving' && saveStatus !== 'conflict';
@@ -474,3 +475,15 @@ export const selectCanRedo = (state: RootWithPlan): boolean =>
   planState(state).future.length > 0 &&
   planState(state).saveStatus !== 'saving' &&
   planState(state).saveStatus !== 'conflict';
+
+/** What the next undo would take back ("Beet verschieben"): a label key or text, or `null`. */
+export const selectUndoLabel = (state: RootWithPlan): string | null => {
+  const { past } = planState(state);
+  return past.length > 0 ? past[past.length - 1].label : null;
+};
+
+/** What the next redo would redo. */
+export const selectRedoLabel = (state: RootWithPlan): string | null => {
+  const { future } = planState(state);
+  return future.length > 0 ? future[future.length - 1].label : null;
+};

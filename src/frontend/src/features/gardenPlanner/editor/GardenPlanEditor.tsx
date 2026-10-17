@@ -5,8 +5,9 @@
  * `PlanRenderer` interface the route hands in (GP-NFR-009). Grid, snap, zoom, scale bar, compass and
  * dimension text (WP 2.5) live here too, and so do the properties panel (a sidebar, on phones a
  * bottom sheet), the item menu, duplicate / lock / z-order, "add with dimensions" and the touch
- * layer (WP 2.6). The list view and full keyboard (WP 2.7) and saving (WP 2.8) plug into the seams
- * marked in `useEditorTools`.
+ * layer (WP 2.6). Saving, the conflict dialog and undo/redo (WP 2.8: `SaveBar`, `ConflictDialog`,
+ * `useEditorShortcuts`) are mounted here; the list view and full keyboard (WP 2.7) plug into the
+ * seams marked in `useEditorTools`.
  */
 import {
   useCallback,
@@ -50,18 +51,22 @@ import {
 import { AddWithDimensionsDialog } from './AddWithDimensionsDialog';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { DimensionLabels, type DimensionItem } from './DimensionLabels';
+import { ConflictDialog } from './ConflictDialog';
 import { EditorHeaderActions } from './EditorHeaderActions';
 import { EditorOverlay } from './EditorOverlay';
 import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
 import { Grid } from './Grid';
 import { NewTypeSelect } from './NewTypeSelect';
 import { PropertiesPanel } from './PropertiesPanel';
+import { SaveBar } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SnapMarker, type SnapMark } from './SnapMarker';
 import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
 import { ViewBar } from './ViewBar';
 import { useBedTypes } from './useBedTypes';
+import { useEditorShortcuts } from './useEditorShortcuts';
+import { useLayerPrefs } from './useLayerPrefs';
 import { useLengthUnit } from './useLengthUnit';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
 import { duplicateSelection } from './tools/duplicate';
@@ -164,7 +169,14 @@ export function GardenPlanEditor({
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
   const [gridStepM, setGridStepM] = useState(() => nearestGridStep(plan.settings?.default_grid_m));
-  const [gridVisible, setGridVisible] = useState(true);
+  // The grid switch is a per-user layer choice kept in localStorage (GP-FR-031).
+  const { prefs: layerPrefs, setLayer } = useLayerPrefs();
+  const gridVisible = layerPrefs.grid;
+  const setGridVisible = useCallback(
+    (visible: boolean) => setLayer('grid', visible),
+    [setLayer],
+  );
+  const onShortcut = useEditorShortcuts();
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [snapMark, setSnapMark] = useState<SnapMark | null>(null);
   const [unit, setUnit] = useLengthUnit();
@@ -299,13 +311,13 @@ export function GardenPlanEditor({
         }
         if (event.key === 'g' || event.key === 'G') {
           event.preventDefault();
-          setGridVisible((visible) => !visible);
+          setGridVisible(!gridVisible);
           return;
         }
       }
       toolKeyDown(event);
     },
-    [fit, toolKeyDown, zoomIn, zoomOut],
+    [fit, gridVisible, setGridVisible, toolKeyDown, zoomIn, zoomOut],
   );
 
   // The snap marker follows the pointer of the draw tools (where the next point will land).
@@ -721,7 +733,12 @@ export function GardenPlanEditor({
   );
 
   return (
-    <Box data-testid="garden-plan-editor" sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      data-testid="garden-plan-editor"
+      onKeyDown={onShortcut}
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+    >
+      <SaveBar />
       <EditorHeaderActions onAddWithDimensions={() => setAddOpen(true)} onSelectAll={doSelectAll} />
       {viewBar}
       {!toolbarBelow && toolbar}
@@ -866,6 +883,7 @@ export function GardenPlanEditor({
         onAdd={addWithDimensions}
         onClose={() => setAddOpen(false)}
       />
+      <ConflictDialog />
       <ConfirmDialog
         open={pendingDelete !== null}
         title={deleteTexts.title}
