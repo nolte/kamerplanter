@@ -385,9 +385,9 @@
       "hydro_solution": "Hydrolösung"
     },
     "nutrientDemand": {
-      "light": "Schwachzehrer",
-      "medium": "Mittelzehrer",
-      "heavy": "Starkzehrer"
+      "heavy_feeder": "Starkzehrer",
+      "medium_feeder": "Mittelzehrer",
+      "light_feeder": "Schwachzehrer"
     },
     "rootDepth": {
       "shallow": "Flach",

@@ -108,6 +108,7 @@ def _load_data() -> dict[str, Any]:
 def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
     """Construct BotanicalFamily models from YAML data."""
     families: list[BotanicalFamily] = []
+    entry: dict[str, Any]
     for entry in data.get("new_families", []):
         ph_pref = entry.get("soil_ph_preference")
         families.append(
@@ -117,6 +118,10 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 common_name_en=entry["common_name_en"],
                 order=entry["order"],
                 typical_nutrient_demand=entry["typical_nutrient_demand"],
+                # REQ-053 GP-FR-138 (M6, #2325): sourced values only (E-10); absent keys keep the
+                # model defaults (nitrogen_fixing False, rotation_pause_years None).
+                nitrogen_fixing=entry.get("nitrogen_fixing", False),
+                rotation_pause_years=entry.get("rotation_pause_years"),
                 frost_tolerance=entry["frost_tolerance"],
                 typical_root_depth=entry["typical_root_depth"],
                 typical_growth_forms=entry["typical_growth_forms"],
@@ -144,6 +149,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
     """
     carry_fields = _species_carry_fields()
     species_list: list[Species] = []
+    entry: dict[str, Any]
     for entry in data.get("new_species", []):
         _warn_on_unknown_species_fields(entry)
 

@@ -5,7 +5,7 @@ const mockFamilies = [
   {
     key: 'fam-1',
     name: 'Solanaceae',
-    typical_nutrient_demand: 'heavy',
+    typical_nutrient_demand: 'heavy_feeder',
     common_pests: ['aphids', 'whitefly'],
     rotation_category: 'fruit',
     created_at: '2024-01-01T00:00:00Z',
@@ -14,7 +14,7 @@ const mockFamilies = [
   {
     key: 'fam-2',
     name: 'Fabaceae',
-    typical_nutrient_demand: 'light',
+    typical_nutrient_demand: 'light_feeder',
     common_pests: ['bean beetle'],
     rotation_category: 'legume',
     created_at: '2024-01-02T00:00:00Z',

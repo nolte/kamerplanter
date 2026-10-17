@@ -104,8 +104,8 @@ describe('BotanicalFamilyListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Solanaceae')).toBeTruthy();
     });
-    // typical_nutrient_demand "heavy" → localized enum label appears in the table
-    expect(screen.getAllByText(i18n.t('enums.nutrientDemand.heavy')).length).toBeGreaterThan(0);
+    // typical_nutrient_demand "heavy_feeder" → localized enum label appears in the table
+    expect(screen.getAllByText(i18n.t('enums.nutrientDemand.heavy_feeder')).length).toBeGreaterThan(0);
   });
 
   it('navigates to the family detail when a row is clicked', async () => {
@@ -132,12 +132,12 @@ describe('BotanicalFamilyListPage', () => {
     const richFamilies = [
       {
         key: 'fam-r1', name: 'Brassicaceae', common_name_de: 'Kreuzblütler', common_name_en: 'Cabbage family',
-        typical_nutrient_demand: 'heavy', typical_root_depth: 'deep', frost_tolerance: 'hardy',
+        typical_nutrient_demand: 'heavy_feeder', typical_root_depth: 'deep', frost_tolerance: 'hardy',
         species_count: 12, rotation_category: 'leaf', common_pests: [], created_at: '2024-01-01T00:00:00Z', updated_at: null,
       },
       {
         key: 'fam-r2', name: 'Apiaceae', common_name_de: 'Doldenblütler', common_name_en: 'Carrot family',
-        typical_nutrient_demand: 'medium', typical_root_depth: 'medium', frost_tolerance: 'moderate',
+        typical_nutrient_demand: 'medium_feeder', typical_root_depth: 'medium', frost_tolerance: 'moderate',
         species_count: 5, rotation_category: 'root', common_pests: [], created_at: '2024-01-02T00:00:00Z', updated_at: null,
       },
     ];
@@ -200,12 +200,12 @@ describe('BotanicalFamilyListPage', () => {
       const mixedFamilies = [
         {
           key: 'fam-with', name: 'Brassicaceae', common_name_de: 'Kreuzblütler', common_name_en: 'Cabbage family',
-          typical_nutrient_demand: 'heavy', typical_root_depth: 'deep', frost_tolerance: 'hardy',
+          typical_nutrient_demand: 'heavy_feeder', typical_root_depth: 'deep', frost_tolerance: 'hardy',
           species_count: 12, rotation_category: 'leaf', common_pests: [], created_at: '2024-01-01T00:00:00Z', updated_at: null,
         },
         {
           key: 'fam-without', name: 'Apiaceae', common_name_de: 'Doldenblütler', common_name_en: 'Carrot family',
-          typical_nutrient_demand: 'medium', typical_root_depth: 'medium', frost_tolerance: 'moderate',
+          typical_nutrient_demand: 'medium_feeder', typical_root_depth: 'medium', frost_tolerance: 'moderate',
           species_count: 0, rotation_category: 'root', common_pests: [], created_at: '2024-01-02T00:00:00Z', updated_at: null,
         },
       ];

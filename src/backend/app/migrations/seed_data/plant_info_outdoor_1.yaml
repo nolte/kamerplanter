@@ -24,7 +24,7 @@ new_families:
     common_name_de: "Hahnenfussgewaechse"
     common_name_en: Buttercup family
     order: Ranunculales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb, vine]
@@ -43,7 +43,7 @@ new_families:
     common_name_de: Steinbrechgewaechse
     common_name_en: Saxifrage family
     order: Saxifragales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -62,7 +62,7 @@ new_families:
     common_name_de: Buchsbaumgewaechse
     common_name_en: Boxwood family
     order: Buxales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -81,7 +81,7 @@ new_families:
     common_name_de: Hartriegelgewaechse
     common_name_en: Dogwood family
     order: Cornales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub, tree]

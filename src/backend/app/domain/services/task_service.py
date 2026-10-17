@@ -1133,6 +1133,7 @@ class TaskService:
         return user_key
 
     def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
+        self._recurrence.require_rrule(task.recurrence_rule)  # 422 recurrence.rrule_required (GP-ACC-038)
         self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         created = self._repo.create_task(task)
         self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
@@ -1223,6 +1224,10 @@ class TaskService:
         notification to the new member. The ``previous`` snapshot (pre-edit task)
         lets the coupling detect a reassignment.
         """
+        # 422 recurrence.rrule_required (GP-ACC-038) — only for a rule the edit changes, so a task
+        # that still carries a not-yet-migrated rule can be renamed or reassigned.
+        if previous is None or task.recurrence_rule != previous.recurrence_rule:
+            self._recurrence.require_rrule(task.recurrence_rule)
         prev_assignee = previous.assigned_to_user_key if previous is not None else None
         if task.assigned_to_user_key != prev_assignee:
             self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)

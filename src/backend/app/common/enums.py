@@ -406,9 +406,31 @@ class IrrigationStrategy(StrEnum):
 
 
 class NutrientDemand(StrEnum):
-    LIGHT = "light"
-    MEDIUM = "medium"
-    HEAVY = "heavy"
+    """Feeder level (Zehrerstufe) — REQ-053 GP-FR-138, REQ-001 v4.12, REQ-002 v4.6.
+
+    Carried by ``Species.nutrient_demand``, ``BotanicalFamily.typical_nutrient_demand``
+    and ``CropRotationPlan.nutrient_demand``. Until migration M6 (v0096, #2325) the
+    values were ``light`` / ``medium`` / ``heavy``; M6 rewrites the stored family rows
+    and the seeds in the same change (``light → light_feeder`` …). Nitrogen fixation is
+    **not** a level (K-001) — it is the boolean ``nitrogen_fixing`` next to it.
+    """
+
+    HEAVY_FEEDER = "heavy_feeder"
+    MEDIUM_FEEDER = "medium_feeder"
+    LIGHT_FEEDER = "light_feeder"
+
+
+class PlanRole(StrEnum):
+    """Role of a planting run or a rotation-plan year — REQ-053 GP-FR-138.
+
+    ``PlantingRun.plan_role`` (REQ-013) and ``CropRotationPlan.plan_role`` (REQ-002).
+    ``fallow`` is the only value without a planting run; ``green_manure`` on a run
+    requires ``Species.green_manure_suitable``. Never carried by a species or a family.
+    """
+
+    MAIN_CROP = "main_crop"
+    GREEN_MANURE = "green_manure"
+    FALLOW = "fallow"
 
 
 class RootDepth(StrEnum):
@@ -431,6 +453,13 @@ class Suitability(StrEnum):
 
 
 class NutrientDemandLevel(StrEnum):
+    """Legacy four-value feeder class (REQ-053 GP-FR-139: superseded on ``Species`` by
+    ``nutrient_demand`` + ``nitrogen_fixing`` since M6, v0096). Kept because
+    ``Species.nutrient_demand_level`` still scales the EC target in
+    ``phase_resource_resolver`` and the area-dosing advisory takes it as input; a
+    retirement would crash the start on an alt volume. Never a source for
+    ``nutrient_demand`` (E-10)."""
+
     HEAVY_FEEDER = "heavy_feeder"
     MEDIUM_FEEDER = "medium_feeder"
     LIGHT_FEEDER = "light_feeder"
@@ -1963,6 +1992,178 @@ class GeometrySource(StrEnum):
     EDITOR = "editor"
     LAYOUT = "layout"
     MIGRATED_GRID = "migrated_grid"
+
+
+class SlotRole(StrEnum):
+    """What a slot's geometry stands for (REQ-053 §20.5).
+
+    ``position`` is a single plant place (``point``), ``row`` a sowing row
+    (``polyline``), ``zone`` a broadcast-sown area (``polygon``).
+    """
+
+    POSITION = "position"
+    ROW = "row"
+    ZONE = "zone"
+
+
+class BedStatus(StrEnum):
+    """Lifecycle of a bed location (REQ-053 §7.4, W-014); ``active`` is the default."""
+
+    PLANNED = "planned"
+    ACTIVE = "active"
+    RETIRED = "retired"
+
+
+class SunExposure(StrEnum):
+    """Coarse sun exposure of a location (REQ-053 §10.1, GP-FR-157).
+
+    Five values so that the scale matches ``Species.shade_tolerance`` (O-16);
+    ``unknown`` is the default for a location nobody has classified yet.
+    """
+
+    FULL_SUN = "full_sun"
+    PARTIAL_SHADE = "partial_shade"
+    SHADE = "shade"
+    DEEP_SHADE = "deep_shade"
+    UNKNOWN = "unknown"
+
+
+class GrowingMediumKind(StrEnum):
+    """What fills a bed (REQ-053 §15.1, K-002) — one of three soil axes."""
+
+    NATIVE_SOIL = "native_soil"
+    RAISED_BED_MIX = "raised_bed_mix"
+    POTTING_MIX = "potting_mix"
+    MINERAL_SUBSTRATE = "mineral_substrate"
+    OTHER = "other"
+
+
+class SoilTexture(StrEnum):
+    """Grain-size class of a bed's soil (REQ-053 §15.1, K-002)."""
+
+    SAND = "sand"
+    LOAMY_SAND = "loamy_sand"
+    SANDY_LOAM = "sandy_loam"
+    LOAM = "loam"
+    SILT_LOAM = "silt_loam"
+    CLAY_LOAM = "clay_loam"
+    CLAY = "clay"
+    UNKNOWN = "unknown"
+
+
+class SoilDrainage(StrEnum):
+    """How well a bed drains (REQ-053 §15.1)."""
+
+    POOR = "poor"
+    MODERATE = "moderate"
+    GOOD = "good"
+    UNKNOWN = "unknown"
+
+
+class SiteWaterRegime(StrEnum):
+    """Site-level moisture class of a bed — a site description, not a sensor state (REQ-053 §15.1, H-002)."""
+
+    DRY = "dry"
+    FRESH = "fresh"
+    MOIST = "moist"
+    WET = "wet"
+    UNKNOWN = "unknown"
+
+
+class SoilConditionFlag(StrEnum):
+    """Observed soil condition of a bed (REQ-053 §15.1 ``conditions[]``)."""
+
+    COMPACTED = "compacted"
+    DEPLETED = "depleted"
+    WATERLOGGED = "waterlogged"
+    CRUSTING = "crusting"
+    STONY = "stony"
+
+
+class PhMethod(StrEnum):
+    """How a stored soil pH was measured (REQ-053 §15.1)."""
+
+    CACL2 = "cacl2"
+    H2O = "h2o"
+    PROBE_UNKNOWN = "probe_unknown"
+
+
+class GardenObjectType(StrEnum):
+    """Class of a non-plantable plan object (REQ-053 §20.4, §9.5, §9.8).
+
+    The outdoor classes come from §9.5, the indoor classes (``window``, ``door``,
+    ``furniture``, ``lamp``) from §9.8. The value selects the ``props`` model of a
+    :class:`~app.domain.models.garden_object.GardenObject`. Additive (M-9).
+    """
+
+    PATH = "path"
+    LAWN = "lawn"
+    TREE = "tree"
+    SHRUB = "shrub"
+    BUILDING = "building"
+    WALL = "wall"
+    FENCE = "fence"
+    TRELLIS = "trellis"
+    WATER_SOURCE = "water_source"
+    COMPOST = "compost"
+    STORAGE = "storage"
+    OTHER = "other"
+    WINDOW = "window"
+    DOOR = "door"
+    FURNITURE = "furniture"
+    LAMP = "lamp"
+
+
+class WaterSourceKind(StrEnum):
+    """Kind of a ``water_source`` garden object (REQ-053 §9.5)."""
+
+    TAP = "tap"
+    RAIN_BARREL = "rain_barrel"
+    WELL = "well"
+    POND = "pond"
+    CISTERN = "cistern"
+    HOSE_REEL = "hose_reel"
+
+
+class PathSurface(StrEnum):
+    """Surface of a ``path`` garden object (REQ-053 §20.4)."""
+
+    GRAVEL = "gravel"
+    PAVING = "paving"
+    BARK = "bark"
+    GRASS = "grass"
+    OTHER = "other"
+
+
+class FoliageType(StrEnum):
+    """Foliage of a ``tree`` garden object — the shade preparation of §29 (REQ-053 §9.5)."""
+
+    DECIDUOUS = "deciduous"
+    EVERGREEN = "evergreen"
+
+
+class ObstacleOpacity(StrEnum):
+    """How much a wall, fence or shrub blocks light and wind (REQ-053 §9.5, GP-FR-163)."""
+
+    OPAQUE = "opaque"
+    SEMI = "semi"
+    OPEN = "open"
+
+
+class WindowGlazing(StrEnum):
+    """Glazing of a ``window`` garden object (REQ-053 §9.8)."""
+
+    SINGLE = "single"
+    DOUBLE = "double"
+    UNKNOWN = "unknown"
+
+
+class LampKind(StrEnum):
+    """Kind of a ``lamp`` garden object (REQ-053 §9.8)."""
+
+    GROW_LIGHT = "grow_light"
+    CEILING = "ceiling"
+    FLOOR = "floor"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {

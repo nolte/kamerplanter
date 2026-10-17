@@ -66,7 +66,7 @@ const schema = z.object({
   common_name_en: z.string(),
   order: z.string(),
   description: z.string(),
-  typical_nutrient_demand: z.enum(['light', 'medium', 'heavy']),
+  typical_nutrient_demand: z.enum(['light_feeder', 'medium_feeder', 'heavy_feeder']),
   nitrogen_fixing: z.boolean(),
   typical_root_depth: z.enum(['shallow', 'medium', 'deep']),
   soil_ph_min: z.union([z.number().min(3).max(9), z.literal('')]).nullable(),
@@ -117,7 +117,7 @@ export default function BotanicalFamilyDetailPage() {
       common_name_en: '',
       order: '',
       description: '',
-      typical_nutrient_demand: 'medium',
+      typical_nutrient_demand: 'medium_feeder',
       nitrogen_fixing: false,
       typical_root_depth: 'medium',
       soil_ph_min: '',
@@ -209,9 +209,9 @@ export default function BotanicalFamilyDetailPage() {
   if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
 
   const nutrientDemandOptions = [
-    { value: 'light', label: t('enums.nutrientDemand.light') },
-    { value: 'medium', label: t('enums.nutrientDemand.medium') },
-    { value: 'heavy', label: t('enums.nutrientDemand.heavy') },
+    { value: 'light_feeder', label: t('enums.nutrientDemand.light_feeder') },
+    { value: 'medium_feeder', label: t('enums.nutrientDemand.medium_feeder') },
+    { value: 'heavy_feeder', label: t('enums.nutrientDemand.heavy_feeder') },
   ];
 
   const rootDepthOptions = [

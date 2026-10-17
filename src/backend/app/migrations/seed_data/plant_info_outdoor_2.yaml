@@ -20,7 +20,7 @@ new_families:
     common_name_de: "Oelgewaechse"
     common_name_en: Olive family
     order: Lamiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [shrub, tree]
@@ -39,7 +39,7 @@ new_families:
     common_name_de: Storchschnabelgewaechse
     common_name_en: Geranium family
     order: Geraniales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -58,7 +58,7 @@ new_families:
     common_name_de: Hahnenfussgewaechse
     common_name_en: Buttercup family
     order: Ranunculales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -77,7 +77,7 @@ new_families:
     common_name_de: Grasliliengewaechse
     common_name_en: Asphodel family
     order: Asparagales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -96,7 +96,7 @@ new_families:
     common_name_de: Hortensiengewaechse
     common_name_en: Hydrangea family
     order: Cornales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -115,7 +115,7 @@ new_families:
     common_name_de: Pfingstrosengewaechse
     common_name_en: Peony family
     order: Saxifragales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [herb, shrub]
@@ -134,7 +134,7 @@ new_families:
     common_name_de: Raublattgewaechse
     common_name_en: Borage family
     order: Boraginales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -153,7 +153,7 @@ new_families:
     common_name_de: Weinrebengewaechse
     common_name_en: Grape family
     order: Vitales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [vine]
@@ -172,7 +172,7 @@ new_families:
     common_name_de: Heidekrautgewaechse
     common_name_en: Heath family
     order: Ericales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: shallow
     typical_growth_forms: [shrub]
@@ -191,7 +191,7 @@ new_families:
     common_name_de: Stachelbeergewaechse
     common_name_en: Currant family
     order: Saxifragales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -210,7 +210,7 @@ new_families:
     common_name_de: Moschuskrautgewaechse
     common_name_en: Moschatel family
     order: Dipsacales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -229,7 +229,7 @@ new_families:
     common_name_de: Geissblattgewaechse
     common_name_en: Honeysuckle family
     order: Dipsacales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -248,7 +248,7 @@ new_families:
     common_name_de: Himmelsleitergewaechse
     common_name_en: Phlox family
     order: Ericales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -267,7 +267,7 @@ new_families:
     common_name_de: Knoeterichgewaechse
     common_name_en: Buckwheat family
     order: Caryophyllales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -286,7 +286,7 @@ new_families:
     common_name_de: Kapuzinerkressengewaechse
     common_name_en: Nasturtium family
     order: Brassicales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, vine]
@@ -1928,6 +1928,7 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: nitrogen_fixer
+    nitrogen_fixing: true
     green_manure_suitable: true
     pruning_type: after_harvest
     pruning_months: [7, 10]
@@ -1977,6 +1978,7 @@ new_species:
     mature_width_cm: "20-40"
     spacing_cm: "5-10"
     nutrient_demand_level: nitrogen_fixer
+    nitrogen_fixing: true
     green_manure_suitable: true
     pruning_type: after_harvest
     pruning_months: [6, 7, 8]
@@ -2684,6 +2686,7 @@ species_enrichment:
     sowing_outdoor_after_last_frost_days: -21
     direct_sow_months: [3, 4, 5, 8, 9]
     nutrient_demand_level: nitrogen_fixer
+    nitrogen_fixing: true
     green_manure_suitable: true
     allelopathy_score: 0.0
     native_habitat: "Europa, Westasien"

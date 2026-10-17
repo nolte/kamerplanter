@@ -385,9 +385,9 @@
       "hydro_solution": "Hydro Solution"
     },
     "nutrientDemand": {
-      "light": "Light Feeder",
-      "medium": "Medium Feeder",
-      "heavy": "Heavy Feeder"
+      "heavy_feeder": "Heavy Feeder",
+      "medium_feeder": "Medium Feeder",
+      "light_feeder": "Light Feeder"
     },
     "rootDepth": {
       "shallow": "Shallow",

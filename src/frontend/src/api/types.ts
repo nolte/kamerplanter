@@ -90,7 +90,8 @@ export type SubstrateType =
   | 'pon_mineral'
   | 'sphagnum'
   | 'hydro_solution';
-export type NutrientDemand = 'light' | 'medium' | 'heavy';
+/** Feeder level — mirrors `app.common.enums.NutrientDemand` since REQ-053 M6 (#2325). */
+export type NutrientDemand = 'heavy_feeder' | 'medium_feeder' | 'light_feeder';
 export type RootDepth = 'shallow' | 'medium' | 'deep';
 export type FrostTolerance = 'sensitive' | 'moderate' | 'hardy' | 'very_hardy';
 export type Suitability = 'yes' | 'limited' | 'no';
@@ -214,6 +215,8 @@ export interface BotanicalFamily {
   description: string;
   typical_nutrient_demand: NutrientDemand;
   nitrogen_fixing: boolean;
+  /** REQ-053 GP-FR-131 (M6): years before the family may return to a bed; null = unsourced. */
+  rotation_pause_years: number | null;
   typical_root_depth: RootDepth;
   soil_ph_preference: PhRange | null;
   frost_tolerance: FrostTolerance;
@@ -235,6 +238,7 @@ export interface BotanicalFamilyCreate {
   description?: string;
   typical_nutrient_demand?: NutrientDemand;
   nitrogen_fixing?: boolean;
+  rotation_pause_years?: number | null;
   typical_root_depth?: RootDepth;
   soil_ph_preference?: PhRange | null;
   frost_tolerance?: FrostTolerance;

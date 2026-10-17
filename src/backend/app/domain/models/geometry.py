@@ -34,7 +34,16 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, StrictFloat, TypeAdapter, ValidationInfo, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictFloat,
+    TypeAdapter,
+    ValidationInfo,
+    ValidatorFunctionWrapHandler,
+    WrapValidator,
+    field_validator,
+)
 
 from app.common.enums import GeometryKind
 
@@ -254,3 +263,23 @@ def parse_geometry(data: object, *, frame: GeometryFrame = GeometryFrame.PLAN) -
         pydantic.ValidationError: when the payload violates V-01.
     """
     return GeometryAdapter.validate_python(data, context={FRAME_CONTEXT_KEY: frame})
+
+
+def _validate_in_bed_frame(value: object, handler: ValidatorFunctionWrapHandler) -> Geometry:
+    """Validate a field value in the bed frame whatever context the outer model was validated with.
+
+    The bed frame is a property of the *field* (``Slot.geometry``, §9.2), not of the
+    call site, so a slot read from the database or built from a request body must
+    not depend on the caller remembering ``context={geometry_frame: bed}``. An
+    already-validated instance passes through unchanged (a frozen model cannot
+    have drifted); ``handler`` is unused because the frame can only be selected
+    through the validation context.
+    """
+    if isinstance(value, RectGeometry | CircleGeometry | PolygonGeometry | PolylineGeometry | PointGeometry):
+        return value
+    return parse_geometry(value, frame=GeometryFrame.BED)
+
+
+#: A :data:`Geometry` field expressed in the bed frame of its parent location
+#: (``Slot.geometry``, REQ-053 §9.2): coordinates may be negative, V-01 otherwise unchanged.
+BedFrameGeometry = Annotated[Geometry, WrapValidator(_validate_in_bed_frame)]

@@ -6,6 +6,7 @@ type FamilyKey = str
 type SiteKey = str
 type LocationKey = str
 type SlotKey = str
+type GardenObjectKey = str
 type SubstrateKey = str
 type BatchKey = str
 type PhaseKey = str

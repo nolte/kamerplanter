@@ -143,6 +143,7 @@ _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
     "WeatherSourcePublicConfig.api_key_ref": "names a secret in the key store, not an attachment",
     "McpAuditLog.api_key_ref": "a salted HMAC reference to an api_keys document (#2130), not an attachment",
     "McpAuditLog.client_ip_ref": "the client address truncated the R-03 way (#2130), not an attachment",
+    "LampProps.ppfd_ref": "a reference PPFD value of a lamp in µmol/m²/s (REQ-053 §9.8, #2326), a number",
     # Holds real attachment ids, and still adds no reference the sweep does not
     # already see: ``PlantDiaryService`` refuses an analysis whose
     # ``analyzed_photo_ids`` are not a subset of the entry's own ``photo_refs``

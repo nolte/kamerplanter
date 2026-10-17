@@ -11,7 +11,7 @@ new_families:
     common_name_de: "Amaryllisgewächse"
     common_name_en: "Amaryllis family"
     order: Asparagales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -35,7 +35,7 @@ new_families:
     common_name_de: "Fuchsschwanzgewächse"
     common_name_en: "Amaranth family"
     order: Caryophyllales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [herb]

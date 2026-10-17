@@ -39,7 +39,7 @@ import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import type { BotanicalFamily, RotationCountsMap, RotationSuccessor } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
-type NutrientDemandFilter = '' | 'heavy' | 'medium' | 'light';
+type NutrientDemandFilter = '' | 'heavy_feeder' | 'medium_feeder' | 'light_feeder';
 
 const HARDY_FROST_TOLERANCES = new Set(['hardy', 'very_hardy']);
 
@@ -302,9 +302,9 @@ export default function CropRotationPage() {
           data-testid="filter-nutrient-demand"
         >
           <MenuItem value="">{t('pages.cropRotation.filterAll')}</MenuItem>
-          <MenuItem value="heavy">{t('enums.nutrientDemand.heavy')}</MenuItem>
-          <MenuItem value="medium">{t('enums.nutrientDemand.medium')}</MenuItem>
-          <MenuItem value="light">{t('enums.nutrientDemand.light')}</MenuItem>
+          <MenuItem value="heavy_feeder">{t('enums.nutrientDemand.heavy_feeder')}</MenuItem>
+          <MenuItem value="medium_feeder">{t('enums.nutrientDemand.medium_feeder')}</MenuItem>
+          <MenuItem value="light_feeder">{t('enums.nutrientDemand.light_feeder')}</MenuItem>
         </TextField>
         {/* Inline explanation of the domain "Zehrer" classes (REQ-567/A): a
             touch-and-keyboard-reachable info affordance spelling out what
