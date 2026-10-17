@@ -117,6 +117,22 @@
 **Hinweis:** Schefflera arboricola ist eine ausgesprochen schattentolerante (shade-tolerant) Art, die in ihrer Heimat über ein breites Strahlungsspektrum von Tiefschatten (deep shade) bis Vollsonne (full sun) vorkommt; im Innenraum wird sie als Tiefschatten-verträgliche Zimmerpflanze geführt. Der Lichtkompensationspunkt liegt entsprechend niedrig (schattenadaptierte Blätter ~5–20 µmol/m²/s; in Büro-/Innenraumstudien sicherten bereits ~6,8 µmol/m²/s/9 h dauerhaftes Wachstum). Lichtsättigung und Photoinhibition (bei plötzlichem Wechsel Tiefschatten→Starklicht) sind separate Phänomene und nicht in das LCP-Feld eingetragen. Salzempfindlich: regelmäßiges Durchspülen des Topfes alle 2–3 Monate gegen Salzanreicherung empfohlen; eine exakte ECe-Schwelle (Substrat-ECe, nicht Gießwasser-EC) ist für die Art nicht belegt.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Schefflera arboricola“ (Position: Partial shade; Kulturtext „bright indirect light“), https://www.rhs.org.uk/plants/70437/schefflera-arboricola/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -338,4 +354,5 @@ Renate,Schefflera arboricola,"ornamental;compact;dark_green",clone
 18. [Koppert — Encarsia formosa / Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate 0,25–4/m²
 19. [University of Connecticut IPM — Aphidius colemani / Whitefly Biological Control](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-whiteflies/) — Nützling-Wirt-Zuordnung, Freilassungsfrequenz
 20. [Clemson HGIC — Schefflera factsheet](https://hgic.clemson.edu/factsheet/schefflera-2/) — Mindesttemperatur, Überwinterung (frost_free), Innenraumkultur
+RHS -- Schefflera arboricola (Position: Partial shade; Kulturtext „bright indirect light“; Lichtanspruch): https://www.rhs.org.uk/plants/70437/schefflera-arboricola/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

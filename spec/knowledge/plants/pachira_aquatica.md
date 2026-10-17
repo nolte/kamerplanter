@@ -138,6 +138,22 @@
 Quellen (§1.8): [Epic Gardening — Money Tree Plant: Growing Pachira Aquatica](https://www.epicgardening.com/money-tree-plant/); [VIRIAR — Pachira aquatica (Malabar Chestnut, Money Tree): Complete Tree Growing](https://www.viriar.com/blogs/tree-encyclopedia/pachira-aquatica); [Greg.app — How Fast Your Pachira Will Grow](https://greg.app/pachira-lifecycle/); [ResearchGate — Germination of Pachira aquatica as a function of the storage treatments](https://www.researchgate.net/figure/Germination-of-Pachira-aquatica-as-a-function-of-the-storage-treatments-over-time_fig1_222666625); [Useful Tropical Plants — Pachira aquatica](https://tropical.theferns.info/viewtropical.php?id=Pachira+aquatica)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Position „Full shade, Partial shade“ ohne Vorzug; Kulturtext „bright light or partial shade“ — Indoor-Angabe nicht auf eine Standortstufe abbildbar --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -355,4 +371,5 @@ Pachira aquatica,"Glückskastanie;Malabar-Kastanie;Pachira;Money Tree;Guiana Che
 20. [Greg.app — How Fast Your Pachira Will Grow](https://greg.app/pachira-lifecycle/) — Keimdauer 2–4 Wochen
 21. [ResearchGate — Germination of Pachira aquatica as a function of the storage treatments](https://www.researchgate.net/figure/Germination-of-Pachira-aquatica-as-a-function-of-the-storage-treatments-over-time_fig1_222666625) — sehr kurze Keimfähigkeitsdauer (20–60 Tage je nach Lagerung)
 22. [Useful Tropical Plants — Pachira aquatica](https://tropical.theferns.info/viewtropical.php?id=Pachira+aquatica) — Samenmerkmale, Frischsaat-Empfehlung
+23. [RHS — Pachira aquatica](https://www.rhs.org.uk/plants/12078/pachira-aquatica/details) — Position „Full shade, Partial shade“, Kultur „bright light or partial shade“ (ohne Vorzug)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

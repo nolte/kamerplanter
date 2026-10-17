@@ -144,6 +144,22 @@
 6. §1.3 dieses Steckbriefs (bereits zitierte Quelle: Samen bei 22–28°C, Keimung 1–3 Wochen) — Cross-Check Keimtemperatur/-dauer
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Gattungsebene (spp.) — die RHS-Artseiten einzelner Mammillaria-Arten führen Position „Full sun“ bzw. „bright, filtered light“/Schatten vor praller Sonne, es gibt keine gattungsweite Quelle; Art-Streuung nicht auf eine Stufe abbildbar --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

@@ -162,6 +162,22 @@ Hinweis: Keimtemperatur min/max (5/30 degC), Saattiefe (1--2 cm) und Dunkelkeime
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Radish: 90--140 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 2.5–5 | `species.spacing_cm` |
+| Reihenabstand (cm) | 15 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Radishes: Grow your own“ („Sow seeds 1cm (½in) deep and 2.5–5cm (1–2in) apart, with 15cm (6in) between rows“; Salatradieschen), https://www.rhs.org.uk/vegetables/radishes/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Radishes: Grow your own“ („Choose an open, sunny site, although light shade is acceptable for salad radishes in midsummer“), https://www.rhs.org.uk/vegetables/radishes/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -461,6 +477,11 @@ Radieschen als Art haben keine bemerkenswerten Resistenzen. Aufgrund der sehr ku
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae -- N-Fixierung), Nachtschattengewaechse (Solanaceae), Kuerbisgewaechse (Cucurbitaceae) |
 | Empfohlene Nachfrucht | Nachtschattengewaechse (Tomate, Paprika), Doldenbluetler (Moehre, Petersilie), Kuerbisgewaechse |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Brassicaceae auf gleicher Flaeche (Kohlhernie-Sporen ueberdauern 7+ Jahre im Boden!) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Quellen widersprechen sich: Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Radieschen: Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LKSH, „Fruchtfolge im Garten“ (Mittelzehrer: „Möhren, Spinat, Radies“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Mittelzehrer-Beet: Radieschen), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) nennt Radieschen nicht namentlich, https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm |
+| Zehrerstufe — Konfidenz | low (zwei Quellen Mittelzehrer, eine Schwachzehrer) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | Familienwert gilt (Brassicaceae 4 Jahre; SBB 2022: Kreuzblütler 4–5 Jahre, LKSH: Kreuzblütler alle 4 Jahre — kein abweichender Artwert, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -578,4 +599,8 @@ Zlata,Raphanus sativus var. sativus,,,round;yellow;mild;unusual_color,30,none,op
 28. PSU Extension -- Hydroponics Systems and Principles of Plant Nutrition (Mikronaehrstoff-Loesungskonzentrationen Mn/Zn/Cu/Mo fuer Gemuese): https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess
 29. MSU Extension E-486 -- Secondary and Micro-nutrients for Vegetable and Field Crops (Radieschen als Mn-empfindliche Kultur): https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
 30. ASHS HortTechnology -- Contribution of Far-red Photons to Light Compensation Point in Tomato (C3-LCP-Vergleichswerte): https://journals.ashs.org/view/journals/horttech/35/2/article-p186.xml
+31. RHS — Radishes: Grow your own (Pflanzabstand 2,5–5 cm, Reihenabstand 15 cm; offener sonniger Standort): https://www.rhs.org.uk/vegetables/radishes/grow-your-own
+32. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022) — Tabelle 1 Anbaupausen, Tabelle 2 Zehrerklassen: https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+33. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+34. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

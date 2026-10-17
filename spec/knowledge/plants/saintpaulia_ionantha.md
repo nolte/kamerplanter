@@ -133,6 +133,22 @@
 **Quellen (§1.8):** [How Do You Propagate and Grow African Violets From Seeds? — African Violet Resource Center](https://africanvioletresourcecenter.com/how-do-you-propagate-and-grow-african-violets-from-seeds/) und [How to Grow Gorgeous African Violets from Seed — Tower Landscape Design](https://towerlandscapedesign.com/growing-african-violets-from-seed/) (Keimtemperatur 21–27 °C, Keimdauer ab 14 Tagen bis 60–90 Tage, Lichtkeimer mit 10 h Licht/Tag, staubfeines Saatgut, kurze Haltbarkeit von Kapsel-Samen); [How to grow African violets — RHS Growing Guide](https://www.rhs.org.uk/plants/african-violets/growing-guide) und [How to Grow African Violets — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/how-to-grow-african-violets) (Oberflächenaussaat, Lichtbedarf zur Keimung).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS Growing Guide, „How to grow African violets“ (Quick Facts: „Position in bright, indirect light“; keine Direktsonne), https://www.rhs.org.uk/plants/african-violets/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -496,4 +512,5 @@ Ness Golden Chalice,Streptocarpus ionanthus,standard;frilled;yellow_toned_white,
 14. [How to Grow Gorgeous African Violets from Seed — Tower Landscape Design](https://towerlandscapedesign.com/growing-african-violets-from-seed/) — Keimdauer 14–90 Tage, Saatguthaltbarkeit
 15. [How to grow African violets — RHS Growing Guide](https://www.rhs.org.uk/plants/african-violets/growing-guide) — Oberflächenaussaat
 16. [How to Grow African Violets — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/how-to-grow-african-violets) — Aussaatpraxis, Lichtkeimung
+RHS -- How to grow African violets (Quick Facts: „Position in bright, indirect light“; Lichtanspruch): https://www.rhs.org.uk/plants/african-violets/growing-guide
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

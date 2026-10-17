@@ -136,6 +136,22 @@
 Quellen (§1.8): [ScialErt — Germination Characteristics of Korean and Southeast Asian Redrice (Oryza sativa L.) Seeds as Affected by Temperature](https://scialert.net/fulltext/?doi=ajps.2010.104.107); [PMC — Optimizing Sowing and Flooding Depth for Anaerobic Germination-Tolerant Genotypes to Enhance Crop Establishment in Dry-Seeded Rice (Oryza sativa L.)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6265439/); [IRRI Rice Knowledge Bank — Seed rate (High)](http://www.knowledgebank.irri.org/decision-tools/rice-doctor/rice-doctor-fact-sheets/item/seed-high-rate); [Wikifarmer — Rice Planting, Seeding Requirements — Seed Rate of Rice](https://wikifarmer.com/library/en/article/rice-planting-seeding-requirements-seed-rate-of-rice); [ScienceDirect — Association Mapping of Thousand Grain Weight using SSR and SNP Markers in Rice](https://link.springer.com/article/10.1007/s12042-021-09282-7); [Agronomy Journal — Photoblastism and Ecophysiology of Seed Germination in Weedy Rice](https://acsess.onlinelibrary.wiley.com/doi/abs/10.2134/agronj2003.1840); [Journal of Experimental Agriculture International — Improving Rice Seed Longevity: Impact of Storage Containers, Conditions and Seed Moisture during Storage](https://journaljeai.com/index.php/JEAI/article/view/3522); [Nature Scientific Reports — Benefits of rice seed priming are offset permanently by prolonged storage and the storage conditions](https://www.nature.com/articles/srep08101)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: LfL-Infofolie nennt nur den Reihenabstand der Drillsaat; für die Pflanzung (Pikiermethode, Bestand 1.6: 20–30 cm) liegt keine gelesene Quelle vor --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 15–25 | `species.row_spacing_cm` |
+| Quelle Abstände | LfL Bayern, Infofolien FutureCrop „Reis“: „Drillsaat, Reihenabstand 15 – 25 cm“, https://www.Lfl.bayern.de/mam/cms07/ipz/dateien/infofolien_futurecrop_reis_2.pdf (Trockenreis-Drillsaat wie Getreide, nicht Nassreis-Pflanzung) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: LfL-Infofolie nennt für Reis nur „sehr wärmebedürftig“, keine Standort-Lichtstufe; keine weitere gelesene Quelle --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -371,6 +387,11 @@ Nassreis wächst in anaeroben (sauerstoffarmen) Bedingungen — Stickstoff NICHT
 | Empfohlene Vorfrucht | Leguminosen (Azolla, Soja); Gründüngung |
 | Empfohlene Nachfrucht | Gemüse; Leguminosen; Trockenfrüchte |
 | Anbaupause (Jahre) | In traditionellen Systemen: 2 Reisernten/Jahr im Tropengürtel; in Mitteleuropa einmalig pro Jahr |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Fruchtfolge-Quelle stuft Reis ein; LfL-Infofolie nennt nur Stickstoff als limitierenden Nährstoff --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für die Zehrerstufe --> |
+| Stickstofffixierer | false (keine Leguminose; LfL Bayern: „Reis gehört wie unsere Getreidearten und Mais zu den Süßgräsern“, https://www.Lfl.bayern.de/mam/cms07/ipz/dateien/infofolien_futurecrop_reis_2.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Poaceae) --> |
 
 ### 6.2 Mischkultur
 
@@ -439,4 +460,5 @@ Arborio,Oryza sativa,"japonica_type;risotto;high_starch",135,open_pollinated
 21. [Agronomy Journal — Photoblastism and Ecophysiology of Seed Germination in Weedy Rice](https://acsess.onlinelibrary.wiley.com/doi/abs/10.2134/agronj2003.1840) — moderne Kultursorten lichtunabhängig keimend (indifferent), Photoblastismus nur bei Wildreis-Typen
 22. [Journal of Experimental Agriculture International — Improving Rice Seed Longevity: Impact of Storage Containers, Conditions and Seed Moisture during Storage](https://journaljeai.com/index.php/JEAI/article/view/3522) — Keimfähigkeit bei Praxis-Lagerung, ~3 Jahre bei trockener Lagerung
 23. [Nature Scientific Reports — Benefits of rice seed priming are offset permanently by prolonged storage and the storage conditions](https://www.nature.com/articles/srep08101) — Keimfähigkeitsverlust unter Farm-Lagerbedingungen (30 °C/70% rF)
+24. [LfL Bayern — Infofolien FutureCrop: Reis](https://www.Lfl.bayern.de/mam/cms07/ipz/dateien/infofolien_futurecrop_reis_2.pdf) — Reihenabstand Drillsaat 15–25 cm, Süßgras (Poaceae), Stickstoff limitierend
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

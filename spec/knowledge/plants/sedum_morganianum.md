@@ -122,6 +122,22 @@
 **Hinweis Salztoleranz:** Die Einstufung `moderately_tolerant` stützt sich auf die qualitative Gattungs-Evidenz (Sedum als salzverträgliche Gründach-/Küstenpflanze), nicht auf art-spezifische Maas-Hoffman-Messungen; ECe-Schwelle und Slope bleiben daher unbelegt.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite widersprüchlich (Position: Full sun; Kulturtext unter Glas „bright, filtered light“), kein ausdrücklicher Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS -- Sedum morganianum | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -387,4 +403,5 @@ Sedum morganianum,Eselsschwanz;Donkey's Tail;Burro's Tail,Crassulaceae,Sedum,per
 22. [Healthy Houseplants — Burro's Tail Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/burros-tail-sedum-morganianum-care-guide-a-trailing-succulent-beauty/) — explizit "doesn't have a distinct dormancy period" (Bestätigung `dormancy_required: false`), Blühbedingungen (Licht, kühlere Winterperiode)
 23. [Planet Desert — Donkey's Tail Plant Care](https://planetdesert.com/blogs/news/donkeys-tail-plant-sedum-morganianum-care) — Blüte "late spring or early summer", 5–6 h Licht als Blühvoraussetzung, kühlere Außentemperatur als Blühreiz, Trieb-/Blattstecklinge
 24. [JoyUsGarden — Burro's Tail Care and Propagation](https://www.joyusgarden.com/burros-tail-care/) — Blüte "rare", reduziertes Winter-Gießen (kein Absterben), Trieb-/Blattstecklinge
+RHS -- Sedum morganianum (Position: Full sun; Kulturtext unter Glas „bright, filtered light“ -- in sich widersprüchlich, light_requirement bleibt null): https://www.rhs.org.uk/plants/16969/sedum-morganianum/details
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

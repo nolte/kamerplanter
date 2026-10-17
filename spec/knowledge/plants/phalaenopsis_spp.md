@@ -117,6 +117,23 @@
 | Boden-pH-Vorzug (min–max) | 5.5–6.0 (Substrat-pH der Orchideenrinde; leicht sauer) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade (helles indirektes Licht) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Phalaenopsis“ (Position: Partial shade; Kulturtext „Provide enough bright filtered light, but keep away from direct mid-day sunlight“), https://www.rhs.org.uk/plants/12596/phalaenopsis/details | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -402,4 +419,5 @@ Phalaenopsis spp.,"Schmetterlingsorchidee;Phalaenopsis;Moth Orchid",Orchidaceae,
 17. [RHS — Biological control in the garden](https://www.rhs.org.uk/prevention-protection/biological-control-garden) — Nützlinge (Cryptolaemus, Phytoseiulus)
 18. [RHS Hardiness Ratings (PDF)](https://www.rhs.org.uk/plants/pdfs/rhs-hardiness-rating.pdf) — Härtegrad H1b (10–15 °C) für Überwinterung
 19. [Colorado State University — Biological Control Organisms for Insects and Mites](https://webdoc.agsci.colostate.edu/bspm/InsectInformation/Factsheets/BioControlSuppliers.pdf) — Ausbringraten/Bedingungen Nützlinge
+20. [RHS — Phalaenopsis](https://www.rhs.org.uk/plants/12596/phalaenopsis/details) — Position „Partial shade“; Kulturtext „Provide enough bright filtered light, but keep away from direct mid-day sunlight“
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

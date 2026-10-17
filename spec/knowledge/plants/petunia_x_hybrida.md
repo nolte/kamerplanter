@@ -159,6 +159,23 @@
 Quellen (§1.8): [Iowa State University Extension — How to Start Petunias from Seed Indoors](https://yardandgarden.extension.iastate.edu/how-to/how-start-petunias-seed-indoors); [The Seed Collection — How to Grow Petunia Seeds](https://www.theseedcollection.com.au/growguide/petunia-seeds); [Trailing Petunia — Flower Seed Germination Temperature Chart](https://www.trailingpetunia.com/blogs/news/flower-seed-germination-temperature-chart-the-complete-guide-for-home-commercial-growers); [Dave's Garden — Propagation: How many hours of light is best for petunia seed germination](https://davesgarden.com/community/forums/t/951409/); [Week& — How to Store Petunia Seeds for Best Viability](https://www.weekand.com/home-garden/article/store-petunia-seeds-viability-18038705.php); [Shiplap and Shells — How Long Old Seeds Last: Flower Seed Viability Chart](https://shiplapandshells.com/old-flower-seed-viability/); [Amazon/Outsidepride — Hybrida Mix Petunia Seeds (Seed count reference)](https://www.amazon.com/Outsidepride-Petunia-Hybrida-Flower-Seed/dp/B004IVBV5U); [Green Harvest — Seeds per Gram](https://greenharvest.com.au/SeedOrganic/SeedsPerGram.html)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Serienseite (Surfinia Series) nennt keinen Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung/Balkonkasten, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Petunia Surfinia Series“ (Position: Full sun; „Grow in light, fertile, well-drained soil in full sun, with shelter from drying winds“), https://www.rhs.org.uk/plants/120078/petunia-surfinia-series/details | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -521,6 +538,11 @@ Quellen (§1.8): [Iowa State University Extension — How to Start Petunias from
 | Empfohlene Vorfrucht | Nicht relevant (einjährige Zierpflanze; klassische Fruchtfolge nur für Gemüsebeete) |
 | Empfohlene Nachfrucht | Nicht relevant (einjährig; Beet wird neu bepflanzt) |
 | Anbaupause (Jahre) | 2–3 Jahre am gleichen Standort empfohlen (Pythium, Fusarium im Boden) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — Landwirtschaftskammer NRW nennt nur die Sammelgruppe „Einjahresblumen“ (Mittelstarkzehrer), Petunia nicht namentlich; Alt-Zeile „Nährstoffbedarf“ (Starkzehrer) unbelegt --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze, keine artspezifische Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze, keine artspezifische Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle zur Stickstofffixierung --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze, keine Fruchtfolge-Quelle für eine Anbaupause --> |
 
 **Praxis-Hinweis Bodenruhe:** Bei Wiederholung an gleichem Standort über mehrere Jahre können sich bodenbürtige Erreger anreichern (Pythium, Fusarium). Substrat in Kübeln und Balkonkästen jährlich erneuern. Bei Beetanbau Standort rotieren oder Substrat mit Trichoderma-Präparaten behandeln.
 
@@ -640,4 +662,6 @@ SUCCESS! 360 Deep Rose,Petunia × hybrida,Benary,2018,"trailing;rain_tolerant;vi
 43. [Shiplap and Shells — How Long Old Seeds Last: Flower Seed Viability Chart](https://shiplapandshells.com/old-flower-seed-viability/) — Keimfähigkeitsdauer 3–5 Jahre, Keimratenabnahme ~15%/Jahr
 44. [Amazon/Outsidepride — Hybrida Mix Petunia Seeds](https://www.amazon.com/Outsidepride-Petunia-Hybrida-Flower-Seed/dp/B004IVBV5U) — ca. 10.000 Samen/Gramm
 45. [Green Harvest — Seeds per Gram](https://greenharvest.com.au/SeedOrganic/SeedsPerGram.html) — Bestätigung Samenzahl (~250.000–300.000 Samen/oz, entspricht 8.800–10.600/g)
+46. [RHS — Petunia Surfinia Series](https://www.rhs.org.uk/plants/120078/petunia-surfinia-series/details) — Position „Full sun“; kein Pflanzabstand angegeben
+47. [Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) — Sammelgruppe „Einjahresblumen“ als Mittelstarkzehrer; Petunie nicht namentlich genannt
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

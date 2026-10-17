@@ -89,6 +89,13 @@ new_species:
 # ==============================================================================
 # S4  SPECIES ENRICHMENT
 # ==============================================================================
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 species_enrichment: {}
 
 # ==============================================================================

@@ -334,3 +334,224 @@ Konventionen wie bei Batch 1–3. Auswahl: alphabetische Dateiliste von `spec/kn
 1. Die drei Sub-Batch-Subagenten liefen ohne Bash; die Prüfung `git diff --numstat origin/develop` durch den Aufrufer ergab 0 Löschungen. Ein Agent hängte unaufgefordert einen zusätzlichen Schlusskommentar an (Hippeastrum); vom Aufrufer entfernt — Dateiende stets mit prüfen.
 2. Viele Fachquellen (LfL, LWG-Merkblatt 2111, Hochschul-PDFs) sind per WebFetch nicht lesbar; ein Agent las PDFs über den Read-Pfad. Für künftige Batches das PDF-Lesen im Brief vorschlagen.
 3. Lichtstufe: Positionsfeld-Spannen führen häufig zu `null`; bei Hydrangea, Impatiens und Malus wurde die Stufe nur gesetzt, weil der Kulturtext der Quelle ausdrücklich einen Vorzug nennt.
+
+## Batch 5 (Arten 121–150, `mammillaria_spp` … `physalis_peruviana`) — 2026-10-17
+
+Konventionen wie bei Batch 1–4. Auswahl: alphabetische Dateiliste von `spec/knowledge/plants/*.md` (ohne `_*`), Position 121–150 (Batch 1–4 = Position 1–120, keine Überschneidung). Gemischt: 12 Zimmerpflanzen, 5 Zierstauden/Beetzierpflanzen (Paeonia, Nymphaea, Petunia, Phlox, Pelargonium), 13 Nutz-/Gründüngungs-/Kräuterarten.
+
+### Bilanz je Feld
+
+| Feld | gesetzt (mit Quelle) | `null` n/a | `null` unbelegt |
+|---|---|---|---|
+| `row_spacing_cm` | 8 (Matricaria, Melissa, Mentha, Pastinaca, Ocimum, Oryza, Petroselinum, Physalis) | 17 (12 Zimmerpflanzen, 5 Stauden/Beetzierpflanzen ohne Reihenkultur) | 5 (Medicago, Nicotiana, Origanum, Phacelia, Phaseolus) |
+| `light_requirement` | 18 (`full_sun` 12, `partial_shade` 6) | 0 | 12 |
+| `nutrient_demand` (+ `_source`, `_confidence`) | 7 (light 5, medium 2; Konfidenz high 1, medium 2, low 4) | 17 (12 Zimmerpflanzen, 5 Zierpflanzen; optional) | 6 von 13 Nutzarten (**Pflicht**): Medicago, Nicotiana, Oryza, Petroselinum, Phacelia, Physalis |
+| `nitrogen_fixing` | 11 (`true` 2: Medicago, Phaseolus; `false` 9) | 17 (Zimmer-/Zierpflanzen) | 2 (Origanum, Nicotiana) |
+| `rotation_pause_years` (Art-Override) | 3 (Phaseolus 3, Melissa 4, Mentha 4) | 17 (Zimmer-/Zierpflanzen) | übrige Nutzarten: „Familienwert gilt" bzw. unbelegt (Nicotiana, Ocimum, Oryza) |
+
+### Bilanz je Art
+
+Tally: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_demand` | Konfidenz | `nitrogen_fixing` | `rotation_pause_years`. „n/a" = Zimmerpflanze / Abschnitt 6 „Entfällt"; „frei" = freie Pflanzung.
+
+| Art | spacing | row | light | nutrient_demand | Konf. | N-Fix | Pause |
+|---|---|---|---|---|---|---|---|
+| Matricaria chamomilla | null | 30–35 | full_sun | light_feeder | medium | false | Familie (Asteraceae 3) |
+| Medicago sativa | null | null | full_sun | null | — | true | Familie (Fabaceae 6) |
+| Melissa officinalis | 25–30 | 42–62,5 | null | light_feeder | low | false | 4 |
+| Mentha x piperita | 20–25 | 62,5–75 | null | light_feeder | low | false | 4 |
+| Pastinaca sativa | 10–15 | 30–40 | full_sun | medium_feeder | medium | false | Familie (Apiaceae 4) |
+| Ocimum basilicum | null | 25 | full_sun | medium_feeder | low | false | null |
+| Origanum vulgare | 20–30 | null | full_sun | light_feeder | low | null | null |
+| Oryza sativa | null | 15–25 | null | null | — | false | null |
+| Nicotiana tabacum | null | null | null | null | — | null | null |
+| Petroselinum crispum | 15–30 | 20–30 | null | null | — | false | Familie (Apiaceae 4) |
+| Phacelia tanacetifolia | null | null | full_sun | null | — | false | null |
+| Phaseolus vulgaris | 15 | null | full_sun | light_feeder | high | true | 3 (Art-Abweichung) |
+| Physalis peruviana | 61 | 91 | full_sun | null | — | false | Familie (Solanaceae 4) |
+| Paeonia lactiflora | 100 | frei | full_sun | n/a | — | n/a | n/a |
+| Nymphaea alba | null | frei | full_sun | n/a | — | n/a | n/a |
+| Petunia x hybrida | null | frei | full_sun | n/a | — | null | null |
+| Phlox paniculata | null | frei | null | n/a | — | null | null |
+| Pelargonium zonale | null | frei | null | n/a | — | n/a | n/a |
+| Monstera adansonii, Monstera deliciosa, Nephrolepis exaltata, Peperomia obtusifolia, Phalaenopsis, Philodendron hederaceum | n/a | n/a | partial_shade | n/a | — | n/a | n/a |
+| Opuntia microdasys | n/a | n/a | full_sun | n/a | — | n/a | n/a |
+| Mammillaria, Maranta, Neoregelia, Oxalis triangularis, Pachira aquatica | n/a | n/a | null | n/a | — | n/a | n/a |
+
+### Lücken (Wert `null`, Grund)
+
+| Art | Feld | Grund |
+|---|---|---|
+| Mammillaria, Maranta, Melissa, Mentha, Neoregelia, Oxalis, Pachira, Petroselinum, Phlox, Pelargonium | `light_requirement` | RHS nennt Spanne ohne Vorzug bzw. Artseite ohne Position bzw. Artseite in sich widersprüchlich (Oxalis); Mammillaria nur Gattungsebene, uneinheitlich |
+| Oryza, Nicotiana | `light_requirement` | keine Lichtstufe gelesen (LfL-Infofolie bzw. keine lesbare Fachquelle) |
+| Medicago, Phacelia, Oryza, Nicotiana, Petroselinum, Physalis | `nutrient_demand` | **Pflicht, unbelegt**: Medicago/Phacelia nur Futter-/Gründüngungsleguminose bzw. Gründüngung ohne Zehrerklasse; Petroselinum nur Sammelgruppe „Kräuter" (LKSH, LK NRW, NiG), Petersilie nicht namentlich; Oryza, Nicotiana, Physalis in keiner gelesenen Zehrerliste |
+| Matricaria, Medicago, Ocimum, Origanum, Oryza, Nicotiana, Phacelia, Pelargonium, Petunia, Phlox, Nymphaea | `spacing_cm` (1.9) | Drill-/Flächenkultur nach Saatstärke bzw. RHS nennt nur Endbreite/keinen Abstand bzw. LWG „20 × 25" ohne Zuordnung Reihe/Pflanze (Basilikum) |
+| Medicago, Origanum, Nicotiana, Phacelia, Phaseolus | `row_spacing_cm` | RHS nennt keinen Reihenabstand (45 cm Bohne nur A-Gestell); LKSH-Luzerne-Versuch 12,5 cm nur Versuchsangabe; Phacelia „wie Getreide" ohne Zahl |
+| Origanum, Nicotiana, Petunia, Phlox, Paeonia, Nymphaea, Phacelia | `nitrogen_fixing` / Zehrerstufe / Pause | nicht belegt bzw. Zierstaude ohne Fruchtfolge-Eintrag |
+| Zimmerpflanzen (12) | 6.1-Felder | kein 6.1-Abschnitt bzw. nur Alt-Zeilen ohne Quelle; Felder bleiben null |
+| Nicotiana (alle Felder) | alle 7 | KTBL-Quelle nicht lesbar (HTML statt PDF), Kentucky-Leitfaden nennt eine Rechentabelle, keine Empfehlung |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert | Hinweis |
+|---|---|---|---|
+| Matricaria chamomilla | 1.6 „15–20" Direktsaat; Anbaupause „1–2 Jahre" (Kamillenmüdigkeit) | Reihe 30–35 (Sächs. LfL, Drillkultur); „selbstverträglich" | Abschnitt für Kamille ist 7.1, nicht 6.1 |
+| Melissa officinalis | 1.6 „30–40"; Pause 3 | 25–30 in der Reihe, Reihe 42–62,5 (LfL Bayern, Feldanbau); Lippenblütler 4–5 | Pause 4 = Untergrenze der Spanne |
+| Mentha x piperita | 1.6 „30–40"; Mittelzehrer; Pause 3–4 | 20–25 / 62,5–75 (LfL Bayern); Sammelgruppe Kräuter = Schwachzehrer; 4–5 | Zehrerstufe `low` wegen Sammelgruppe |
+| Pastinaca sativa | Reihe 25–30; Pause 3–4 | 30–40 (LWG), 30 (RHS); Doldenblütler 4–5 (SBB) | Familienwert Apiaceae 4 gilt |
+| Ocimum basilicum | Schwachzehrer; 1.6 „25–30" | LWG 2151 „mittleres Nährstoffbedürfnis" (medium, low); 20 × 25 | Einzelquelle gegen Gruppenangabe LK NRW |
+| Oryza sativa | 1.6 „20–30 × 20–30" (Pikiermethode) | 15–25 Reihe (LfL, Drillsaat/Trockenreis) | Kulturverfahren verschieden |
+| Origanum vulgare | 1.6 „30–40" | RHS mind. 20–30 | — |
+| Paeonia lactiflora | 6.1 Mittelzehrer (unbelegt); 1.7 Schattentoleranz partial_shade | RHS „do best in full sun" | Standort `full_sun` gesetzt |
+| Petroselinum crispum | 6.1 Pause 3–4 | SBB Doldenblütler inkl. Petersilie 4–5 | Familienwert Apiaceae 4 |
+| Phaseolus vulgaris | 1.6 Reihe 40–50 / Stange 60–80; Familienwert Fabaceae 6 | RHS Buschbohne mind. 15 cm; SBB Bohne 3–4 (Erbse separat 5–6) | Art-Override 3 gesetzt — Familienwert Fabaceae 6 und Bohne 3 laufen auseinander |
+| Physalis peruviana | 1.6 „70–90"; Mittelzehrer, Pause 3–4 unbelegt | Hudson Valley Seed 61 / Reihe 91 | Einzelquelle Saatgutanbieter |
+| Petunia, Phlox, Phacelia, Neoregelia | 6.1 Zehrerstufen (Starkzehrer/Mittelzehrer/Schwachzehrer/Schwachzehrer) | ohne Quelle | unbelegt, unverändert |
+
+### Konfidenz `low` — Nachschärfung erwünscht
+
+(`high` gilt nur bei mindestens drei übereinstimmenden unabhängigen Quellen, Schema-Definition; Pastinaca hat zwei — SBB 2022, LWG 2013 — und steht daher auf `medium`.)
+
+| Art | `nutrient_demand` | Befund |
+|---|---|---|
+| Melissa officinalis | light_feeder | nur Sammelgruppe „Kräuter" (NiG Burgenland, LK NRW 2020), Art nicht namentlich |
+| Mentha x piperita | light_feeder | wie Melisse; widerspricht Bestand Mittelzehrer und gestaffelter N-Düngung (LfL) |
+| Ocimum basilicum | medium_feeder | LWG 2151 (artspezifisch) gegen LK NRW (Gruppe Kräuter, schwach) |
+| Origanum vulgare | light_feeder | nur Gruppenangabe Kräuter |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Monstera deliciosa, Petunia x hybrida | Basisarten mit Enrichment nur in `plant_info.yaml` (Importer ungeguardet) — Werte nur im Steckbrief, kein Doppel-Enrichment angelegt |
+| Matricaria, Nicotiana, Oryza, Physalis | Felder im bestehenden `species_enrichment`-Eintrag `plant_info_outdoor_1.yaml` |
+| Mentha, Ocimum, Petroselinum, Phaseolus | `species_enrichment` in `plant_info_outdoor_2.yaml` (Seed-Namen „Mentha piperita"; Ocimum/Petroselinum/Phaseolus zusätzlich in `adventskalender.yaml`, dort nicht geschrieben — Modellgrenze wie Batch 1) |
+| übrige 20 Arten | `new_species`-Eintrag (`plant_info_indoor_2/3.yaml`, `plant_info_outdoor_2/3.yaml`); Seed-Name Phalaenopsis „Phalaenopsis hybrida" |
+| Medicago sativa | `nitrogen_fixing: true` stand im Seed bereits (übernommen, nicht doppelt) |
+| Nymphaea alba | Steckbrief hatte schon 1.9 „Saatgut & Keimung" → neue Abschnitte als 1.10 (Abstand) / 1.11 (Licht) nummeriert; Parser, der exakt „1.9 Pflanzabstand" sucht, findet sie dort nicht |
+| `spacing_cm` | in Batch 5 für keine Art geschrieben (Bestandswert vorhanden) |
+
+### Betreiberfragen
+
+1. Familienwert Lamiaceae fehlt in `botanical_families.yaml`; Melisse/Mentha tragen den LfL-Wert 4 (Spanne 4–5, „alle Lippenblütler") als Art-Override — als Familienwert Lamiaceae erfassen?
+2. Phaseolus: Art-Override 3 (SBB Bohne 3–4) gegen Familienwert Fabaceae 6 — Familienwert unverändert lassen oder je Gattung differenzieren?
+3. Mentha (Seed `nutrient_demand_level: medium_feeder` vs. neu `nutrient_demand: light_feeder`) und Ocimum (`light_feeder` vs. `medium_feeder`): zwei Zehrerfelder derselben Art widersprechen sich — welches Feld hat Vorrang (REQ-053 H-004)?
+
+### Lehren aus Batch 5
+
+1. Die Sub-Batch-Agenten liefen mit Bash; `pdftotext` auf per `curl` geladene PDFs (LWG, SBB, LKSH, LfL, NiG) lieferte lesbare Quellen, wo WebFetch scheiterte — künftig im Brief vorschlagen (PDF in leeres Scratchpad-Verzeichnis, `pdftotext -layout`). Spaltenreihenfolge bei NiG-PDFs ohne `-layout` unzuverlässig.
+2. Kräuter erscheinen in den Zehrer-Listen nur als Sammelgruppe „Kräuter" (Schwachzehrer): Petersilie bleibt Pflichtlücke, Melisse/Minze/Oregano nur `low`.
+3. Wo ein Steckbrief schon einen Abschnitt 1.9 hat (Nymphaea) oder die Fruchtfolgetabelle anders nummeriert ist (Kamille 7.1), musste von der Vorlage abgewichen werden — Extraktor-Parser darauf prüfen.
+4. Gründüngungs-/Futterleguminosen (Phacelia, Medicago) haben in Gartenbau-Fruchtfolgequellen keine Zehrerklasse — Pflichtfeld bleibt `null`, kein Default.
+
+## Batch 6 (Arten 151–180, `pilea_peperomioides` … `soleirolia_soleirolii`) — 2026-10-17
+
+Konventionen wie bei Batch 1–5. Auswahl: alphabetische Dateiliste von `spec/knowledge/plants/*.md` (ohne `_*`), Position 151–180 (Batch 1–5 = Position 1–150, keine Überschneidung; `sorghum_bicolor` und `spathiphyllum_wallisii` folgen in Batch 7). Gemischt: 10 Zimmerpflanzen (Pilea … Soleirolia), 2 Ziergehölze (Rosa, Rhododendron spp.), 18 Nutz-/Gründüngungs-/Kräuterarten (8 Obst-/Beerengehölze und Rhabarber, 7 Gemüse/Kräuter, Gelbsenf, Holunder).
+
+### Bilanz je Feld
+
+| Feld | gesetzt (mit Quelle) | `null` n/a | `null` unbelegt |
+|---|---|---|---|
+| `row_spacing_cm` | 11 (Pisum 30, Satureja 30, Prunus domestica 400, Pyrus 350, Raphanus 15, Rheum 91–122, Ribes rubrum 280, Ribes uva-crispa 280, Rubus fruticosus 280, Rubus idaeus 150–200, Solanum tuberosum 60–75) | 12 (10 Zimmerpflanzen, Rosa, Rhododendron spp.; keine Reihenkultur) | 7 (Prunus avium, Rosmarinus, Salvia, Sambucus, Sinapis, Solanum lycopersicum, Solanum melongena) |
+| `light_requirement` | 25 (`full_sun` 17, `partial_shade` 8) | 0 | 5 (Plectranthus, Sambucus, Sedum, Sinapis, Soleirolia) |
+| `nutrient_demand` (+ `_source`, `_confidence`) | 9 (light 4, medium 2, heavy 3; Konfidenz high 3, medium 1, low 5) | 12 (10 Zimmerpflanzen, Rosa, Rhododendron spp.; optional) | 9 von 18 Nutzarten (**Pflicht**): Prunus avium, Prunus domestica, Pyrus, Ribes rubrum, Ribes uva-crispa, Rubus fruticosus, Rubus idaeus, Sambucus, Sinapis |
+| `nitrogen_fixing` | 1 (`true`: Pisum) | 12 (Zimmer-/Zierpflanzen) | 17 von 18 Nutzarten (keine gelesene Quelle nennt „fixiert keinen Stickstoff“; `false` ist eine Behauptung, kein Platzhalter) |
+| `rotation_pause_years` (Art-Override) | 1 (Pisum 5) | 12 (Zimmer-/Zierpflanzen) | übrige Nutzarten: „Familienwert gilt“ (Brassicaceae 4, Solanaceae 4) bzw. kein Familienwert (Lamiaceae, Fabaceae, Rosaceae, Polygonaceae) bzw. Dauerkultur ohne Quelle |
+
+### Bilanz je Art
+
+Tally: `spacing_cm (1.9)` | `row_spacing_cm` | `light_requirement` | `nutrient_demand` | Konfidenz | `nitrogen_fixing` | `rotation_pause_years`. „n/a“ = Zimmer-/Zierpflanze bzw. kein Reihenanbau.
+
+| Art | spacing | row | light | nutrient_demand | Konf. | N-Fix | Pause |
+|---|---|---|---|---|---|---|---|
+| Pisum sativum | 7,5 | 30 | full_sun | light_feeder | high | true | 5 (Art-Abweichung) |
+| Raphanus sativus var. sativus | 2,5–5 | 15 | full_sun | medium_feeder | low | null | Familie (Brassicaceae 4) |
+| Rosmarinus officinalis | 45 (min.) | null | full_sun | light_feeder | low | null | null |
+| Salvia officinalis | 30 (min.) | null | full_sun | light_feeder | low | null | null |
+| Satureja hortensis | 25 | 30 | full_sun | light_feeder | low | null | null |
+| Sinapis alba | null | null | null | null | — | null | null |
+| Solanum lycopersicum | 45–60 | null | full_sun | heavy_feeder | high | null | Familie (Solanaceae 4) |
+| Solanum melongena | 60 | null | full_sun | heavy_feeder | medium | null | Familie (Solanaceae 4) |
+| Solanum tuberosum | 30–37 | 60–75 | full_sun | heavy_feeder | high | null | Familie (Solanaceae 4) |
+| Rheum rhabarbarum | 75–90 | 91–122 | full_sun | medium_feeder | low | null | null |
+| Prunus avium | null | null | full_sun | null | — | null | null |
+| Prunus domestica | null | 400 | full_sun | null | — | null | null |
+| Pyrus communis | 350–550 | 350 | full_sun | null | — | null | null |
+| Ribes rubrum | 120–150 | 280 | full_sun | null | — | null | null |
+| Ribes uva-crispa | 120–150 | 280 | full_sun | null | — | null | null |
+| Rubus fruticosus | 250–350 | 280 | full_sun | null | — | null | null |
+| Rubus idaeus | 40–60 | 150–200 | full_sun | null | — | null | null |
+| Sambucus nigra | null | null | null | null | — | null | null |
+| Rosa spp. | 60 | n/a | full_sun | n/a | — | n/a | n/a |
+| Rhododendron spp. | 50–100 | n/a | partial_shade | n/a | — | n/a | n/a |
+| Pilea, Platycerium, Rhipsalis, Rhododendron simsii, Saintpaulia, Schefflera, Schlumbergera | n/a | n/a | partial_shade | n/a | — | n/a | n/a |
+| Plectranthus, Sedum morganianum, Soleirolia | n/a | n/a | null | n/a | — | n/a | n/a |
+
+### Lücken (Wert `null`, Grund)
+
+| Art | Feld | Grund |
+|---|---|---|
+| Plectranthus verticillatus | `light_requirement` | UF/IFAS nennt „prefers bright light“ / „moderate light“ und Schutz vor Direktsonne ohne eindeutige Stufe; keine RHS-Artseite gelesen |
+| Sedum morganianum | `light_requirement` | RHS-Artseite in sich widersprüchlich (Position „Full sun“, Kulturtext unter Glas „bright, filtered light“), kein ausdrücklicher Vorzug |
+| Soleirolia soleirolii | `light_requirement` | RHS nennt Spanne „Full sun, Partial shade“ ohne ausdrücklichen Vorzug |
+| Sambucus nigra | `light_requirement`, `row_spacing_cm`, alle 6.1-Felder | RHS-Spanne „Full sun, Partial shade“ ohne Vorzug; RHS nennt nur Endbreite 2,5–4 m (kein Abstand); Steckbrief ohne Fruchtfolge-Abschnitt und keine Zehrerstufe in den gelesenen Listen |
+| Sinapis alba | alle 7 Felder | keine Kammer-/Hochschulquelle gelesen (TLL-Leitlinie auf openagrar lieferte HTML statt PDF); Gelbsenf steht bei Natur im Garten nur als Gründünger ohne Zehrerklasse |
+| Prunus avium, Prunus domestica, Pyrus, Ribes rubrum, Ribes uva-crispa, Rubus fruticosus, Rubus idaeus, Sambucus | `nutrient_demand` | **Pflicht, unbelegt**: Obstgehölze und Beerenobst kommen in keiner gelesenen Zehrerliste (SBB, LKSH, LK NRW, Natur im Garten) namentlich vor |
+| Rosmarinus, Salvia, Satureja | `nutrient_demand` (nur `low`) | nur Sammelgruppe „Kräuter“ (LKSH, LK NRW, Natur im Garten), Arten nicht namentlich |
+| Prunus avium, Rosmarinus, Salvia, Solanum lycopersicum, Solanum melongena, Sinapis | `row_spacing_cm` | RHS nennt keinen Reihenabstand (Einzelpflanzung/Mindestabstand) bzw. Gelbsenf: keine Quelle |
+| Prunus avium, Prunus domestica, Sambucus, Sinapis | `spacing_cm` (1.9) | RHS nennt keinen Abstand bzw. nur Endbreite; Sächs. LfL nennt nur Spindelanlagen (Erwerbsanbau) |
+| Alle Nutzarten außer Pisum | `nitrogen_fixing` | keine gelesene Quelle belegt `false`; PFAF „some varieties can fix nitrogen“ (Rubus/Prunus) reicht nicht für `false` |
+| Alle Nutzarten außer Pisum | `rotation_pause_years` (Art-Override) | keine artspezifische Quelle; Familienwert gilt, wo `botanical_families.yaml` ihn führt |
+| Zimmerpflanzen (10), Rosa, Rhododendron spp. | 6.1-Felder | n/a (Zimmer-/Zierpflanze, keine Fruchtfolge) |
+
+### Konflikte mit Bestandswerten (Bestand unverändert gelassen)
+
+| Art | Bestand | belegter Wert | Hinweis |
+|---|---|---|---|
+| Pisum sativum | 6.1 Pause 4–5; 1.6 Reihe 30–50 | SBB 5–6, LKSH 6–7; RHS Doppelreihe 30 | Art-Override 5 = untere Grenze SBB; Familienwert Fabaceae in `botanical_families.yaml` nicht gesetzt |
+| Raphanus sativus | 6.1 Schwachzehrer; Pause 3–4 | LKSH, Natur im Garten: Mittelzehrer; SBB: Schwachzehrer; Pause SBB 4–5, LKSH 4 | Quellen widersprechen sich → `medium_feeder`, Konfidenz low; Familienwert Brassicaceae 4 gilt |
+| Satureja hortensis | 1.6 Reihe 25, in der Reihe 10–20 | Plantura: Reihe 30, Pflanze 25 | Einzelquelle Ratgeberseite (Plantura); Reihe 30 und Licht full_sun nur daraus, im Seed übernommen |
+| Solanum lycopersicum / melongena / tuberosum | 1.6 50–80 / 50–60 / 30–35 × 70–80; Pause 3–4 | RHS 45–60 / 60 / 30–37 × 60–75; SBB Nachtschatten 4 Jahre | Familienwert Solanaceae 4 gilt |
+| Rubus fruticosus | 1.6 150–200 | RHS 250–350; Sächs. LfL 75–150 (Fächer) | Reihenabstand 280 aus Spindelanlage Erwerbsanbau |
+| Rheum rhabarbarum | 1.6 80–100; „Starkzehrer“ ohne Quelle | RHS 75–90; Arkansas „medium“, UConn „little to no fertilizer“ | `medium_feeder`, Konfidenz low; Bestand „Starkzehrer“ unbelegt |
+| Rhododendron spp. | 1.6 80–200 | Plantura 50–100 | Ratgeberquelle |
+| Prunus domestica, Pyrus communis, Ribes rubrum, Ribes uva-crispa | 6.1 Mittelzehrer / Pausen 3–7 | unbelegt | Bestand unverändert |
+| Sinapis alba | 6.1 Schwachzehrer; Pause 3–4 | unbelegt | Bestand unverändert |
+| Saintpaulia, Schefflera, Soleirolia | 1.7 Schattentoleranz `shade` | Anspruch `partial_shade` (RHS) bzw. unbelegt (Soleirolia) | Toleranz ≠ Anspruch; Bestand nicht als Beleg genutzt |
+
+### Konfidenz `low` / schwache Quelle — Nachschärfung erwünscht
+
+| Art | Feld | Befund |
+|---|---|---|
+| Raphanus sativus | `nutrient_demand` medium_feeder (low) | SBB gegen LKSH/Natur im Garten widersprüchlich |
+| Rheum rhabarbarum | `nutrient_demand` medium_feeder (low) | Arkansas „medium“ gegen UConn „little to no“; keine deutsche Kammerquelle |
+| Rosmarinus, Salvia, Satureja | `nutrient_demand` light_feeder (low) | nur Sammelgruppe „Kräuter“ |
+| Solanum melongena | `nutrient_demand` heavy_feeder (medium) | zwei Quellen (SBB, Natur im Garten) |
+| Prunus domestica, Pyrus communis, Ribes rubrum, Ribes uva-crispa, Rubus fruticosus | `row_spacing_cm` | Werte (400 / 350 / 280) stammen aus Spindel-/Versuchsanlagen des Erwerbsobstbaus (Sächs. LfL), nicht aus Hausgarten-Empfehlungen — für Beetplanung ggf. verwerfen |
+| Satureja hortensis, Rhododendron spp. | Licht / Abstände | Ratgeberseite Plantura (Einzelquelle) |
+| Schlumbergera, Rhododendron simsii | `light_requirement` | RHS-Gruppenseiten (Weihnachtskaktus, Zimmerazaleen), keine Artseite |
+
+### Seed-Übernahme (Steckbrief → YAML) — Ausnahmen
+
+| Art | Befund |
+|---|---|
+| Pisum sativum, Salvia officinalis, Salvia rosmarinus (Seed-Name für Rosmarinus), Solanum lycopersicum, Solanum tuberosum | `species_enrichment`-Eintrag in `plant_info_outdoor_2.yaml` (Pisum und Solanum lycopersicum zusätzlich in `adventskalender.yaml`, dort nicht geschrieben — Modellgrenze wie Batch 1/5) |
+| Solanum melongena, Raphanus sativus | `species_enrichment`-Eintrag in `plant_info_outdoor_1.yaml` (Raphanus zusätzlich in `adventskalender.yaml`, dort nicht geschrieben) |
+| Saintpaulia ionantha | Seed-Name `Streptocarpus ionanthus` (`plant_info_supplement_1.yaml`, `new_species`) |
+| übrige 22 Arten | `new_species`-Eintrag (`plant_info_indoor_3.yaml`, `plant_info_outdoor_2.yaml`) |
+| `spacing_cm` | in Batch 6 für keine Art geschrieben (Bestandswert vorhanden) |
+| Solanum tuberosum | Steckbrief führt 1.7/1.8 hinter Abschnitt 2; neue 1.9/1.10 stehen vor dem ersten „## 2.“ → Reihenfolge 1.6, 1.9, 1.10, 2, 1.7, 1.8; Parser darauf prüfen |
+| Rheum rhabarbarum | kein „6.1 Fruchtfolge-Einordnung“ → neuer Abschnitt „6.4 Fruchtfolge-Einordnung (Beetplanung)“ |
+| Sambucus nigra | 6.1 = Mischkultur, kein Fruchtfolge-Abschnitt; keine 6.x-Ergänzung, da kein Wert gelesen |
+
+### Betreiberfragen
+
+1. Familienwerte Lamiaceae und Fabaceae (und Rosaceae, Polygonaceae) fehlen in `botanical_families.yaml` — Pisum trägt den SBB-Wert 5 als Art-Override; Batch 5 notierte für Fabaceae noch 6. Familienwerte nachziehen?
+2. Reihenabstände der Obstgehölze (Prunus domestica 400, Pyrus 350, Ribes 280, Rubus fruticosus 280) stammen aus Erwerbsobst-Spindelanlagen — für die Beetplanung (Hausgarten) übernehmen oder auf `null` setzen?
+3. Raphanus: Seed `nutrient_demand_level: light_feeder` vs. neu `nutrient_demand: medium_feeder`; Rheum und Solanum analog zwei Zehrerfelder derselben Art — welches Feld hat Vorrang (REQ-053 H-004)?
+
+### Lehren aus Batch 6
+
+1. Obstgehölze, Beerenobst und Holunder tauchen in keiner Fruchtfolge-/Zehrerliste auf (Listen sind Gemüsebau); die Pflichtlücke `nutrient_demand` betrifft hier eine ganze Artengruppe (8 Arten) und braucht eine Obstbau-Quelle (z. B. Sächs. LfL Obstbau, Bayerische Gartenakademie), nicht weitere Gemüselisten.
+2. Reihenabstände aus Erwerbsobst-Unterlagen sind keine Hausgarten-Empfehlung; künftig im Brief verlangen, dass Versuchs-/Spindelanlagen als „schwache Quelle“ markiert werden.
+3. Die Sub-Batch-Agenten (3 × 10 Arten) lasen die Zehrerstufen-Quellen aus vorab per `curl` + `pdftotext -layout` abgelegten Textdateien (SBB, LKSH, NiG, LK NRW) — spart je Agent die Wiederholung der PDF-Beschaffung; so beibehalten.
+4. RHS-Gruppenseiten (Weihnachtskaktus, Zimmerazaleen) sind keine Artseiten; als Quelle zulässig, aber im Steckbrief als Gruppenquelle vermerken.

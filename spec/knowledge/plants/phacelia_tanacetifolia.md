@@ -141,6 +141,23 @@ Quellen (§1.8):
 8. [The Sowing Value of Tansy Phacelia Seeds in the Long-Term Storage — ResearchGate](https://www.researchgate.net/publication/309330815_The_Sowing_Value_of_Tansy_Phacelia_Phacelia_Tanacetifolia_Benth_Seeds_in_the_Long-Term_Storage) — Keimfähigkeit über 8–9 Jahre Lagerung messbar erhalten (Sorte Vetrovska)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Artseite nennt keinen Pflanzabstand (nur Max Spread); Gründüngung wird nach Saatstärke ausgebracht, Saatgut-Datenblatt nennt „Reihenabstand wie Getreide“ ohne Zahl --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine Zahl in einer gelesenen Fachquelle (Saatgut-Datenblatt: „Reihenabstand wie Getreide“) --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Phacelia tanacetifolia“, https://www.rhs.org.uk/plants/23945/phacelia-tanacetifolia/details (kein Pflanzabstand angegeben) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Phacelia tanacetifolia“ (Position: Full sun; „Grow in fertile, well-drained soil in full sun“), https://www.rhs.org.uk/plants/23945/phacelia-tanacetifolia/details | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -233,6 +250,11 @@ Phacelia ist sehr robust und praktisch schädlings- und krankheitsfrei — einer
 | Empfohlene Vorfrucht | Starkzehrer (Kürbis, Mais, Kohlarten) |
 | Empfohlene Nachfrucht | alle Hauptkulturen (Phacelia ist nicht familienverwandt mit Gemüsearten) |
 | Anbaupause (Jahre) | keine — Phacelia ist in keiner Gemüsefamilie; universell einsetzbar |
+| Zehrerstufe | <!-- DATEN FEHLEN: Gründüngungspflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Gründüngungspflanze, keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Gründüngungspflanze, keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | false (keine Leguminose; LKSH, „Fruchtfolge im Garten“, führt Phacelia als Gründüngung der Familie Wasserblattgewächse, getrennt von den Hülsenfrüchten, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Anbaupause (LKSH nennt als Folgekulturen „alle anderen Pflanzenfamilien“, keine Jahreszahl) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -280,4 +302,6 @@ Phacelia tanacetifolia,"Bienenfreund;Rainfarn-Phazelie;Büschelschön;Lacy Phace
 10. [Springer (Plant and Soil) — Phacelia affects soil structure (taproot >70 cm)](https://link.springer.com/article/10.1007/s11104-019-04144-4) — Pfahlwurzel + dichte Faserwurzeln, Tiefe bis ~75 cm
 11. [Epic Gardening — How to Grow Phacelia](https://www.epicgardening.com/phacelia/) — Staunässe-/Lodging-Empfindlichkeit, Vollsonne, Drought
 12. [Wiley (Ecology & Evolution 2023) — C4 eudicots in Boraginaceae](https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.10720) — C4 in Boraginaceae nur Euploca/Heliotropium; Phacelia = C3
+13. [RHS — Phacelia tanacetifolia](https://www.rhs.org.uk/plants/23945/phacelia-tanacetifolia/details) — Position „Full sun“; kein Pflanzabstand angegeben
+14. [Landwirtschaftskammer Schleswig-Holstein — Fruchtfolge im Garten](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Phacelia als Gründüngung der Familie „Wasserblattgewächse“, getrennt von den Hülsenfrüchten
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

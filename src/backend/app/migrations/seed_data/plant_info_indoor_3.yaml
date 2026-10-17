@@ -92,6 +92,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Neoregelia carolinae"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -131,6 +139,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Nephrolepis exaltata"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -180,6 +195,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Opuntia microdasys"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -234,6 +257,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Oxalis triangularis"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -285,6 +316,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pachira aquatica"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -336,6 +375,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.8
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pelargonium zonale"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -385,6 +432,14 @@ new_species:
     support_required: false
     nutrient_demand_level: heavy_feeder
     frost_sensitivity: sensitive
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Peperomia obtusifolia"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -428,6 +483,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Phalaenopsis hybrida"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -474,6 +537,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.0
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Philodendron hederaceum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -519,6 +590,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pilea peperomioides"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -555,6 +634,14 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Platycerium bifurcatum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -599,6 +686,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Plectranthus verticillatus"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -637,6 +732,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rhipsalis baccifera"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -686,6 +789,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rhododendron simsii"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -735,6 +846,14 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 6
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Schefflera arboricola"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -779,6 +898,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Schlumbergera truncata"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -821,6 +948,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Sedum morganianum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -867,6 +1002,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Soleirolia soleirolii"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -912,6 +1055,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.0
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Stephanotis floribunda"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate

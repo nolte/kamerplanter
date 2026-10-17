@@ -115,6 +115,22 @@
 **Hinweis:** Als Schatten-/Unterwuchspflanze von Waldrändern und lichten Wäldern (Südafrika) ist *P. verticillatus* an niedrige Lichtniveaus angepasst; der Lichtkompensationspunkt liegt entsprechend niedrig (typischer Bereich für Schattenblätter). Verträgt nach SANBI sauren, neutralen und alkalischen Boden; der hier gewählte pH-Korridor 6.0–7.0 bleibt quellentreu zur Topfkultur-Empfehlung (§1.6) und den Nährstoffprofilen (§2.3). Sehr empfindlich gegen Staunässe (Wurzelfäule durch Pythium); daher `sensitive`. Für die Salztoleranz fehlen belegte Maas-Hoffman-Kennwerte; die Klasseneinstufung `moderately_sensitive` ist konservativ aus der Topfkultur-Praxis (Leitungswasser geeignet, aber empfindlich gegen Salzanreicherung/Überdüngung) abgeleitet.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: UF/IFAS nennt „prefers bright light“ (innen), „moderate light year-round“ und Schutz vor Direktsonne ohne eindeutige Stufe; kein RHS-Positionsfeld gelesen --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | UF/IFAS Gardening Solutions -- Swedish Ivy | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -344,4 +360,5 @@ Plectranthus verticillatus,Schwedischer Efeu;Swedish Ivy;Creeping Charlie,Lamiac
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- Quelle: Growing-Phase-Audit 2026-07 -->
 15. [Guide to Houseplants — Swedish Ivy Plant Care](https://www.guide-to-houseplants.com/swedish-ivy.html) — Blüte "spring or summer" (weiß/blasslila); Bestätigung Bluetemonate-Korrektur §1.2
+UF/IFAS Gardening Solutions -- Swedish Ivy (Lichtangaben „prefers bright light“, „moderate light“, Direktsonne verbrennt Laub; keine eindeutige Stufe, light_requirement bleibt null): https://gardeningsolutions.ifas.ufl.edu/plants/houseplants/swedish-ivy/
 <!-- /Quelle: Growing-Phase-Audit 2026-07 -->

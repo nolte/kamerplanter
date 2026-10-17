@@ -118,6 +118,22 @@
 **Hinweis pH:** Vorzug leicht sauer (5.0–6.0 nach EpicGardening/Florgeous); harmonisiert mit der Substrat-/Nährlösungsangabe pH 5.5–6.5 in §1.6 und §2.3. Die RHS führt die Art als gegenüber pH adaptabel (acid/neutral/alkaline), der Wachstums-Vorzug bleibt im sauren Bereich.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS nennt Spanne „Full sun, Partial shade“ / „full light, with shade from hot sun, or in partial shade“ ohne ausdrücklichen Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS -- Soleirolia soleirolii | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -348,4 +364,5 @@ Soleirolia soleirolii,Bubikopf;Baby's Tears;Mind-Your-Own-Business,Urticaceae,So
 <!-- Quelle: growing-phase-auditor 2026-07 -->
 18. [Plantura — Bubikopf Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/bubikopf/bubikopf-pflanzenportrait) — Blütezeit April–Juni, Vermehrung ausschließlich Teilung/Stecklinge, "bedingt winterhart"
 19. [Zimmerpflanzen-FAQ — Soleirolia soleirolii](https://zimmerpflanzen-faq.de/soleirolia-soleirolii/) — Vermehrung ausschließlich Teilung/Stecklinge (kein Saatgut)
+RHS -- Soleirolia soleirolii (Position: Full sun, Partial shade; Kulturtext „full light, with shade from hot sun, or in partial shade“ -- Spanne ohne Vorzug, light_requirement bleibt null): https://www.rhs.org.uk/plants/17471/soleirolia-soleirolii/details
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
