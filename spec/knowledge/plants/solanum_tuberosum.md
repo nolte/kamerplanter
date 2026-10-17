@@ -95,6 +95,22 @@
 | Rankhilfe/Stütze nötig | false | `species.support_required` |
 | Substrat-Empfehlung (Topf) | Lockere, sandig-lehmige Erde mit hohem Humusanteil, pH 5,5–6,5; kein Frischdünger | — |
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–37 | `species.spacing_cm` |
+| Reihenabstand (cm) | 60–75 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Potatoes: Grow your own“ („Earlies: plant 30cm (1ft) apart, in rows 60cm (2ft) apart“; „Maincrops: plant 37cm (15in) apart, in rows 75cm (30in) apart“), https://www.rhs.org.uk/vegetables/potatoes/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Potatoes: Grow your own“ („an open, sunny growing site“), https://www.rhs.org.uk/vegetables/potatoes/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -371,6 +387,11 @@ Kartoffeln reagieren empfindlich auf frischen Stallmist (fördert Schorf). Kein 
 | Empfohlene Vorfrucht | Hülsenfrüchte (Leguminosen), Kleegras |
 | Empfohlene Nachfrucht | Wurzelgemüse (Möhre, Pastinake), Salat, Spinat |
 | Anbaupause (Jahre) | 3–4 Jahre selbe Familie (Solanaceae) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten“ (Starkzehrer: „Kohl, Kartoffeln, Kürbis, Porree“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Starkzehrer: Kohlarten, Kartoffeln, Gurken, Kürbisarten, Tomaten), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Starkzehrer-Beet: Erdäpfel), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | high (drei unabhängige Quellen übereinstimmend) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | Familienwert gilt (Solanaceae 4 Jahre; SBB 2022: „Anbaupausen von mindestens vier Jahren zwischen Kartoffelkulturen oder anderen Nachtschattengewächsen“, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -449,4 +470,9 @@ Annabelle,Solanum tuberosum,Agrico,2003,"very_early;festkochend",75,,open_pollin
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
 15. [Klassifikationsentscheid §1.8: §1.3 dieses Dokuments (Vermehrungsmethoden "tuber" führend, "seed" nur selten/Züchtung) — keine externe Quelle nötig, da SECTION MISSING allein aus bestehendem §1.3-Inhalt begründet ist]
+16. RHS — Potatoes: Grow your own (Pflanzabstand Früh 30 cm / Haupternte 37 cm, Reihen 60 / 75 cm; offener sonniger Standort): https://www.rhs.org.uk/vegetables/potatoes/grow-your-own
+17. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+18. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+19. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
+20. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022) — Tabelle 1 Anbaupausen, Tabelle 2 Zehrerklassen: https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

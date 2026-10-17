@@ -123,6 +123,22 @@
 **Hinweis Standort:** Beste Erträge in voller Sonne; Halbschatten (z. B. unter lichten Obstbäumen, Nordwand) wird vertragen — daher `partial_shade`. Wurzelsystem fibrös und flach (Hauptmasse 20–40 cm), dadurch nicht trockenheitsfest und auf gleichmäßige Feuchte angewiesen, gleichzeitig staunässeempfindlich (gute Drainage bzw. Hochbeet bei schweren Böden). Der pH-Vorzug 6,0–7,0 umschließt das engere Düngeplan-Optimum 6,0–6,5 aus §1.6/§2.3; schwach alkalische (kalkhaltige) Böden werden noch toleriert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 120–150 | `species.spacing_cm` |
+| Reihenabstand (cm) | 280 | `species.row_spacing_cm` |
+| Quelle Abstände | In der Reihe: RHS, „How to grow gooseberries“, https://www.rhs.org.uk/fruit/gooseberries/grow-your-own („bushes and standards 1.2–1.5m (4–5ft) apart“). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Stachelbeere Spindelerziehung ‚Achilles‘/‚Pax‘, Pflanzabstand 2,80 m × 0,50 m; Versuchsanlage im Erwerbsanbau) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow gooseberries“, https://www.rhs.org.uk/fruit/gooseberries/grow-your-own („crop best and produce sweeter fruits in a sunny position, but will tolerate some shade“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -314,6 +330,11 @@ Kein Stickstoff nach Ende Juli — fördert übermäßiges Triebwachstum auf Kos
 | Fruchtfolge-Kategorie | Dauergehölz (Grossulariaceae) |
 | Empfohlene Nachbarschaft | Von Knoblauch, Lavendel, Tagetes profitieren |
 | Anbaupause (Jahre) | Keine Neupflanzung nach Stachelbeere/Johannisbeere: 3 Jahre Pause |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauergehölz); Bestandswert 3 Jahre ist unbelegt --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -383,4 +404,6 @@ Resistenta,Ribes uva-crispa,,,"mehltauresistent;ertragreich",,,vegetatively_prop
 14. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Lösungskonzentrationen (Mn/Zn/Cu/Mo)
 15. [Science in Hydroponics — Nutrient Solutions for Hydroponic Strawberry Production](https://scienceinhydroponics.com/2025/10/comparing-nutrient-solutions-for-hydroponic-strawberry-production.html) — Steiner-Beerennährlösung Mikronährstoff-Zielwerte
 16. [Plants in Action 14.3.1 — Photosynthesis](https://rseco.org/content/1431-photosynthesis.html) — Photosynthese-Temperaturoptimum temperater C3-Gehölze (15–25 °C)
+17. RHS, How to grow gooseberries: https://www.rhs.org.uk/fruit/gooseberries/grow-your-own (1,2–1,5 m, sunny)
+18. Sächs. LfL, Beerenobstanbau, Heft 24/2007: https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Reihe 2,80 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
