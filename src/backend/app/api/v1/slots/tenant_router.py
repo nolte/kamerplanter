@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
-from app.api.v1.slots.schemas import SlotCreate, SlotResponse
+from app.api.v1.slots.schemas import SlotCreate, SlotPatch, SlotResponse
 from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_site_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.dependencies import get_garden_resource_service, get_site_service
+from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 from app.core.permissions import Action, ResourceType
 from app.domain.models.site import Slot
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
 
 router = APIRouter(prefix="/slots", tags=["slots"], responses=NOT_FOUND_RESPONSE)
@@ -72,6 +73,22 @@ def update_slot(
     slot = Slot(**body.model_dump())
     updated = service.update_slot(key, slot, tenant_key=ctx.tenant_key)
     return to_response(updated, SlotResponse)
+
+
+@router.patch("/{key}", response_model=SlotResponse, responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE})
+def patch_slot(
+    key: Annotated[str, Path(description="Document key of the slot.")],
+    body: SlotPatch,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> SlotResponse:
+    """Correct a slot's geometry (bed frame), role or capacity (GP-API-014).
+
+    Outside the plan revision (GP-NFR-007). 422 ``slot.outside_bed`` (V-04) or ``slot.overlap`` (V-06)
+    when the new geometry breaks a rule. Triggers the adjacency recompute (a no-op until wave 3).
+    """
+    slot = service.patch_slot(key, tenant_key=ctx.tenant_key, role=ctx.role, patch=body)
+    return to_response(slot, SlotResponse)
 
 
 @router.delete("/{key}", status_code=204)

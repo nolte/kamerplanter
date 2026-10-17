@@ -17,7 +17,10 @@ from app.common.enums import (
     SoilTexture,
     SunExposure,
 )
+from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import Geometry
+
+__all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 
 
 class LocationCreate(BaseModel):
@@ -94,6 +97,118 @@ class LocationResponse(BaseModel):
     rotation_exempt: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class BedListItemResponse(LocationResponse):
+    """A location in the bed list (GP-API-011): the document plus its counters.
+
+    The counters are ``None`` on a plain listing (no ``is_bed`` / ``bed_status`` filter) — they cost three
+    queries, and the plain listing is the hot path of every location picker.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "loc_b03",
+                    "name": "Hochbeet 3",
+                    "site_key": "site_7f3a",
+                    "location_type_key": "raised_bed",
+                    "area_m2": 2.0,
+                    "orientation": "south",
+                    "light_type": "natural",
+                    "irrigation_system": "drip",
+                    "bed_status": "active",
+                    "active_plant_count": 6,
+                    "open_task_count": 2,
+                    "overdue_task_count": 0,
+                    "next_due_at": "2026-06-18T00:00:00Z",
+                }
+            ]
+        }
+    )
+
+    active_plant_count: int | None = None
+    open_task_count: int | None = None
+    overdue_task_count: int | None = None
+    #: Earliest due date of an open task of the bed.
+    next_due_at: datetime | None = None
+
+
+class LocationPatchResponse(LocationResponse):
+    """The stored location after a PATCH or a status change, with the site's revision (GP-API-010/018)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "loc_b03",
+                    "name": "Hochbeet 3",
+                    "site_key": "site_7f3a",
+                    "location_type_key": "raised_bed",
+                    "area_m2": 2.0,
+                    "orientation": "south",
+                    "light_type": "natural",
+                    "irrigation_system": "drip",
+                    "bed_status": "retired",
+                    "plan_revision": 43,
+                }
+            ]
+        }
+    )
+
+    plan_revision: int = 0
+
+
+class LocationStatusRequest(BaseModel):
+    """``POST /locations/{key}/status`` (GP-API-018)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"bed_status": "retired", "reason": "Raised bed dismantled for the new shed."}]}
+    )
+
+    bed_status: BedStatus
+    reason: str | None = Field(
+        default=None, min_length=1, max_length=1000, description="Required when retiring a bed (GP-FR-046)."
+    )
+
+
+class BedSummaryResponse(LocationResponse):
+    """The head of the bed view (GP-API-012, GP-FR-047)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "loc_b03",
+                    "name": "Hochbeet 3",
+                    "site_key": "site_7f3a",
+                    "location_type_key": "raised_bed",
+                    "area_m2": 2.0,
+                    "orientation": "south",
+                    "light_type": "natural",
+                    "irrigation_system": "drip",
+                    "is_bed": True,
+                    "bed_status": "active",
+                    "season_state": "planted",
+                    "active_plant_count": 6,
+                    "species_keys": ["sp_solanum_lycopersicum"],
+                    "open_task_count": 2,
+                    "last_care_at": "2026-06-14T18:30:00Z",
+                }
+            ]
+        }
+    )
+
+    is_bed: bool = False
+    #: Derived, never set (§7.4): ``planted`` or ``empty`` until runs, rotation and covering exist.
+    season_state: str = "empty"
+    active_plant_count: int = 0
+    species_keys: list[str] = Field(default_factory=list)
+    open_task_count: int = 0
+    overdue_task_count: int = 0
+    next_due_at: datetime | None = None
+    last_care_at: datetime | None = None
 
 
 class LocationTreeNode(BaseModel):

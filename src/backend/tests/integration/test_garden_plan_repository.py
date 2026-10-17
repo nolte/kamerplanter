@@ -37,6 +37,7 @@ _DOCUMENTS = (
     col.SLOTS,
     col.GARDEN_OBJECTS,
     col.GARDEN_PLAN_AUDIT,
+    col.CARE_EVENTS,
     col.LOCATION_TYPES,
     col.USERS,
     col.PLANT_INSTANCES,

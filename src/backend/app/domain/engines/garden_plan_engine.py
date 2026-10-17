@@ -15,6 +15,9 @@ Rules covered:
   bed overlapping a garden object is allowed (a path under a raised bed).
 * **V-19** ``boundary.shrinks_below_objects`` — a new boundary may not leave an
   existing top-level object outside.
+* **V-06** ``slot.overlap`` — zone slots of one bed may not overlap (:func:`overlapping_zones`).
+* **V-10** ``bed_status.invalid_transition`` — only the transitions of §7.4
+  (:func:`bed_status_transition_allowed`).
 
 Which entities are *checked* is the service's decision (the touched set): checking
 the whole plan on every batch would make a one-bed edit cost O(plan²) and would
@@ -26,6 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.common.enums import BedStatus, GeometryKind
 from app.domain.calculators.geometry_calculator import (
     VertexShape,
     contains,
@@ -42,6 +46,15 @@ ERROR_BOUNDARY_SHRINKS = "boundary.shrinks_below_objects"
 ERROR_REFERENCE_NOT_FOUND = "reference.not_found"
 ERROR_OBJECT_LOCKED = "object.locked"
 ERROR_SLOT_OUTSIDE_BED = "slot.outside_bed"
+ERROR_SLOT_OVERLAP = "slot.overlap"
+ERROR_INVALID_BED_TRANSITION = "bed_status.invalid_transition"
+
+#: REQ-053 §7.4: ``planned → active → retired → active`` and ``planned → retired`` (never created).
+BED_STATUS_TRANSITIONS: dict[BedStatus, frozenset[BedStatus]] = {
+    BedStatus.PLANNED: frozenset({BedStatus.ACTIVE, BedStatus.RETIRED}),
+    BedStatus.ACTIVE: frozenset({BedStatus.RETIRED}),
+    BedStatus.RETIRED: frozenset({BedStatus.ACTIVE}),
+}
 
 #: ``(field, code, key)`` — what is wrong with which entity.
 type Finding = tuple[str, str, str]
@@ -171,3 +184,24 @@ def slots_outside_bed(bed: Geometry, slots: list[tuple[str, Geometry]]) -> list[
     """
     shape = to_local_shape(bed)
     return sorted(key for key, geometry in slots if not contains(shape, to_shape(geometry)))
+
+
+def bed_status_transition_allowed(current: BedStatus, target: BedStatus) -> bool:
+    """V-10: whether §7.4 allows ``current → target``. Staying where you are is not a transition."""
+    return target in BED_STATUS_TRANSITIONS[current]
+
+
+def overlapping_zones(slots: list[tuple[str, Geometry]]) -> list[tuple[str, str]]:
+    """V-06: pairs of zone slots (bed frame) that overlap. Positions and rows have no overlap notion.
+
+    Only ``polygon`` geometries take part; the caller passes the *active and planned* slots of the bed
+    (``archived_at`` null, F-02). Quadratic in the number of zones, which is small by nature (a bed is
+    sown in a handful of zones).
+    """
+    zones = [(key, to_shape(geometry)) for key, geometry in slots if geometry.kind is GeometryKind.POLYGON]
+    pairs: list[tuple[str, str]] = []
+    for index, (first_key, first) in enumerate(zones):
+        for second_key, second in zones[index + 1 :]:
+            if overlaps(first, second):
+                pairs.append((first_key, second_key))
+    return pairs

@@ -17,6 +17,7 @@ from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTi
 from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
 from app.domain.models.calendar import CalendarFeed
+from app.domain.models.care_event import CareEvent
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlanAuditRecord
@@ -111,6 +112,7 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "locations": Location,
     "slots": Slot,
     "garden_objects": GardenObject,
+    "care_events": CareEvent,
     "plant_instances": PlantInstance,
     "planting_runs": PlantingRun,
     # #2165 — tanks, watering and feeding logs, sensors (ArangoDB) and their readings (TimescaleDB).

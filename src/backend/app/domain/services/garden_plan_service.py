@@ -341,11 +341,16 @@ class GardenPlanService:
         tenant_key: str,
         user_key: str,
         role: TenantRole,
-        expected_revision: int,
+        expected_revision: int | None,
         operations: list[Any],
         body_bytes: int,
     ) -> PlanBatchResult:
-        """Apply the operations atomically, or none (GP-NFR-013). See the module docstring for the order."""
+        """Apply the operations atomically, or none (GP-NFR-013). See the module docstring for the order.
+
+        ``expected_revision = None`` expects the revision the validation ran against: the single-resource
+        routes (WP 1.9, GP-API-010/013) have no client revision to send, yet a writer that lost the race
+        for the site document is still refused with 409.
+        """
         started = _now()
         site = self._owned_site(site_key, tenant_key=tenant_key)  # (2) tenant anchor
 
@@ -383,7 +388,7 @@ class GardenPlanService:
             site,
             tenant_key=tenant_key,
             user_key=user_key,
-            expected_revision=expected_revision,
+            expected_revision=self._revision_of(site) if expected_revision is None else expected_revision,
             basis_revision=self._revision_of(site),
             operations=parsed,
             started=started,

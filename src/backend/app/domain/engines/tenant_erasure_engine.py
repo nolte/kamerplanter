@@ -112,8 +112,9 @@ class TenantErasureEngine:
         _delete("garden_objects", _parent("site_key", "sites")),
         # PLACEHOLDER (REQ-053 GP-NFR-055, needs-decision via #2323): rows with
         # category pest_control/ipm carry the PflSchG reservation like
-        # treatment_applications (pseudonymize, R-17). No code path writes care_events
-        # before WP 1.7/4.x; the entry turns category-dependent with the writer.
+        # treatment_applications (pseudonymize, R-17). The only writer so far is the bed-status
+        # change (category bed_status_change, WP 1.9), which carries no such reservation; the
+        # entry turns category-dependent with the care-event API (WP 4.x).
         _delete("care_events"),
         _delete("irrigation_zones"),
         _delete("bed_templates"),  # rows with tenant_key null are global templates (§20.12) and stay

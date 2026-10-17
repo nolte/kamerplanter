@@ -51,7 +51,11 @@ _MODELS_BY_HAND: dict[str, type[BaseModel] | str] = {
     # REQ-053 M1 (#2323, WP 1.4) created the collections. ``garden_objects`` is bound to its model
     # by ``ArangoGardenObjectRepository`` since WP 1.7 (#2326); the other three get their models and
     # repositories in waves 2/4, which replace these rows by the derived binding.
-    "care_events": "created by migration v0093; no code path writes it until REQ-053 WP 4.1",
+    # Written by the bed-status change since WP 1.9 (#2328), which makes ``CareEvent`` (app/domain/models/care_event.py)
+    # the model — but binding it here would put its key fields under the export's reference declarations
+    # (``performed_by_user_key``, ``supersedes_key``) and its ``product_ref`` / ``source_ref`` under the secret
+    # check. That belongs with the care-event API and its export rows: REQ-053 WP 4.1.
+    "care_events": "written by the bed-status change (WP 1.9); the model is bound with the care-event API in WP 4.1",
     "irrigation_zones": "created by migration v0093; no code path writes it until REQ-053 wave 2",
     "bed_templates": "created by migration v0093; no code path writes it until REQ-053 wave 2",
 }

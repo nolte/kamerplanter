@@ -20,12 +20,14 @@ from fastapi.testclient import TestClient
 from app.api.v1.locations.schemas import LocationCreate
 from app.api.v1.locations.tenant_router import router as locations_router
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_site_service
+from app.common.dependencies import get_garden_resource_service, get_site_service
 from app.common.enums import IrrigationSystem, LightType, Orientation, SiteType, TenantRole
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.models.site import Location, Site
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
 
 TENANT_KEY = "t-owned-1"
@@ -92,6 +94,12 @@ def _client(repo: MagicMock) -> TestClient:
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     app.include_router(locations_router, prefix="/api/v1/t/owned-slug")
     app.dependency_overrides[get_site_service] = lambda: SiteService(repo)
+    # The delete and the bed list run through the garden-resource service since WP 1.9 (#2328): the real one,
+    # over the same site-repository double, so the tenant anchor under test is the production one.
+    plan_repo = MagicMock()
+    app.dependency_overrides[get_garden_resource_service] = lambda: GardenResourceService(
+        repo, plan_repo, MagicMock(), GardenPlanService(repo, plan_repo)
+    )
     app.dependency_overrides[get_current_tenant] = _ctx
     return TestClient(app)
 
@@ -158,6 +166,7 @@ def test_delete_of_a_location_in_a_foreign_site_is_404_and_deletes_nothing():
     """#2107: the delete handler no longer pre-checks; the service does."""
     repo = _repo()
     repo.get_location_or_raise.side_effect = lambda key: _make_location(key, site_key="site-foreign")
+    repo.get_location_by_key.side_effect = lambda key: _make_location(key, site_key="site-foreign")
     client = _client(repo)
     lead = _ctx().model_copy(update={"role": TenantRole.LEAD})  # delete is lead-only (REQ-049 §2.3)
     client.app.dependency_overrides[get_current_tenant] = lambda: lead  # type: ignore[attr-defined]

@@ -38,6 +38,9 @@ PHOTO_REF_COLLECTIONS: tuple[str, ...] = (
     col.HARVEST_OBSERVATIONS,
     col.INSPECTIONS,
     col.STORAGE_OBSERVATIONS,
+    # REQ-053 §20.10 (WP 1.9): a care event can carry photos (GP-FR-091); the bed-status change writes none, the
+    # care-event API of WP 4.1 does — and a destructive sweep must know the carrier before the first one is written.
+    col.CARE_EVENTS,
 )
 
 #: Every other field anywhere that holds an attachment id, with the collection it
@@ -86,6 +89,7 @@ TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
         col.PLANT_DIARY_ENTRIES,
         col.INSPECTIONS,
         col.PEST_IMAGE_CONTRIBUTIONS,
+        col.CARE_EVENTS,  # CareEvent.tenant_key is required (REQ-053 §20.13)
     }
 )
 

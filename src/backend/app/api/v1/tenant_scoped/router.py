@@ -23,6 +23,7 @@ from app.api.v1.equipment.tenant_router import router as tenant_equipment_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
 from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
+from app.api.v1.garden_objects.tenant_router import router as tenant_garden_objects_router
 from app.api.v1.garden_plan.tenant_router import router as tenant_garden_plan_router
 from app.api.v1.glossar.router import router as tenant_glossary_router
 from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_router
@@ -76,6 +77,8 @@ tenant_scoped_router = APIRouter(
 tenant_scoped_router.include_router(tenant_sites_router)
 # REQ-053 WP 1.8 — the garden plan of a site (/sites/{key}/plan, /plan/boundary, /plan/batch, /plan/audit).
 tenant_scoped_router.include_router(tenant_garden_plan_router)
+# REQ-053 WP 1.9 — garden-object CRUD (/sites/{key}/garden-objects, /garden-objects/{key}).
+tenant_scoped_router.include_router(tenant_garden_objects_router)
 # REQ-023 §5b (#2137) — the tenant's service accounts (lead ∧ technical, step-up on every write).
 tenant_scoped_router.include_router(tenant_service_accounts_router)
 tenant_scoped_router.include_router(tenant_locations_router)
