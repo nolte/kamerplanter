@@ -341,7 +341,7 @@ class Species(BaseModel):
     #: crops in the Steckbrief, ``None`` only without a source.
     nutrient_demand: NutrientDemand | None = None
     #: Source (URL or citation) backing ``nutrient_demand`` (H-004).
-    nutrient_demand_source: str | None = Field(default=None, max_length=500)
+    nutrient_demand_source: str | None = Field(default=None, max_length=2000)
     #: Confidence of ``nutrient_demand`` as judged from its sources.
     nutrient_demand_confidence: NutrientDemandConfidence | None = None
     #: Nitrogen fixation of the species (orthogonal to the feeder level, K-001).
