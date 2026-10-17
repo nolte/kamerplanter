@@ -116,6 +116,22 @@
 **Hinweis:** Als Regenwald-Understory-Art (Unterwuchs) ist *Ficus elastica* schattenverträglich (shade-tolerant), gedeiht aber auch in hellem indirektem Licht bis lichtem Halbschatten — daher Einstufung `partial_shade` (PFAF: „semi-shade to no shade"). Der Lichtkompensationspunkt liegt im für schattentolerante Gehölze typischen Bereich von 10–50 µmol/m²/s (Craine & Reich 2005; Sterck et al. 2013); für *F. elastica* konservativ mit 10–25 µmol/m²/s angesetzt. Der Lichtsättigungspunkt (deutlich höher, mit Photoinhibition ab ≥ 400 µmol/m²/s laut MDPI-Lichtstress-Studie) gehört NICHT in das Kompensationspunkt-Feld. Staunässe-Empfindlichkeit ist hoch (Wurzelfäule-Risiko); die Salztoleranz ist allenfalls mäßig — Blattrand-Nekrosen durch Salzakkumulation aus Leitungswasser/Dünger sind dokumentiert, das Substrat sollte periodisch durchgespült werden.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS Position: Full sun, Partial shade; Innenraum „bright but filtered or indirect light" nicht auf Standortstufen abbildbar) --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (RHS, „Ficus elastica", https://www.rhs.org.uk/plants/95720/ficus-elastica/details, gelesen, aber ohne eindeutige Stufe) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -344,3 +360,4 @@ Doescheri,Ficus elastica,"ornamental;variegated;gray_cream",clone
 18. [University of Hertfordshire AERU — Metaphycus helvolus](https://sitem.herts.ac.uk/aeru/bpdb/Reports/2258.htm) — Weichschildlaus-Wirt (Coccus hesperidum), Rate 5 /m², 3 Freilassungen
 19. [Applied Bio-nomics — Encarsia formosa](https://appliedbio-nomics.com/product/encarsia-formosa/) — Weiße-Fliege-Parasitoid, Ausbringrate
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+20. [RHS — Ficus elastica](https://www.rhs.org.uk/plants/95720/ficus-elastica/details) — Position (Full sun, Partial shade; ohne Vorzug), gelesen

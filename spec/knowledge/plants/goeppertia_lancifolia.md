@@ -119,6 +119,22 @@
 **Hinweis:** Der Lichtkompensationspunkt (light compensation point, LCP, Netto-Photosynthese = 0) ist aus Messungen an *Calathea insignis* (= älteres Synonym für *G. lancifolia*) mit 100 µmol/m²/s und der nahverwandten *C. makoyana* mit 50 µmol/m²/s belegt; die Spanne 50–100 deckt beide Marantaceen-Messwerte ab. Der Lichtsättigungspunkt (light saturation point) liegt bei *C. insignis* bei rund 600 µmol/m²/s, bei *C. makoyana* bei 400 — diese Sättigungswerte gehören NICHT ins LCP-Feld. Typische Schattenpflanze (shade plant) des Regenwald-Unterwuchses, daher `shade` (kein partial_shade). Salzempfindlichkeit: Calathea reagiert auf Fluorid, Chlorid und harte Wassersalze mit Tip-Burn (Blattspitzennekrose), daher Salztoleranz-Klasse `sensitive`; Bezugsgröße bei einem etwaigen ECe-Wert wäre die Substrat-ECe, nicht die Gießwasser-EC. Boden-pH 6.0–6.5 ist quellentreu (leicht sauer); breiterer tolerierter Bereich bis 7.0 deckt sich mit §1.6/§2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Goeppertia lancifolia" (Position: Partial shade; unter Glas „bright indirect or filtered light"), https://www.rhs.org.uk/plants/357178/goeppertia-lancifolia/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -326,3 +342,4 @@ Goeppertia lancifolia,"Klapperschlangen-Calathea;Lanzettblatt-Calathea;Rattlesna
 15. [Missouri Botanical Garden — Plant Finder: Calathea lancifolia](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=244436) — Blütenfarbe gelb, Blühzeit später Frühling/Frühsommer, seltene Blüte an Zimmerpflanzen
 16. [Gardening Know How — Calathea Rattlesnake Plant Care](https://www.gardeningknowhow.com/houseplants/calathea-plants/calathea-rattlesnake-plant-care.htm) — Blütenfarbe gelb-orange, seltene Blüte an Zimmerpflanzen
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+17. [RHS — Goeppertia lancifolia (Plant Details)](https://www.rhs.org.uk/plants/357178/goeppertia-lancifolia/details) — Position: Partial shade

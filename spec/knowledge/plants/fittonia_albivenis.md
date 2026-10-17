@@ -118,6 +118,22 @@
 **Hinweis:** Fittonia albivenis ist eine schattentolerante Unterwuchspflanze (understory) tropischer Regenwälder. Ein artspezifisch gemessener Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist nicht publiziert; der angegebene Bereich 10–30 µmol/m²/s ist aus der Physiologie schattentoleranter Unterwuchsarten abgeleitet (Literaturspanne 10–50 µmol/m²/s, tiefe Schattenpflanzen am unteren Ende). Lichtsättigung und Photoinhibition liegen deutlich oberhalb und sind hier bewusst NICHT eingetragen — Fittonia bleicht/verbrennt bei direkter Sonne. Die Pflanze nutzt im Unterwuchs angereichertes Fernrot-Licht (far-red) effizient (PSI-Emissionsmaximum λmax 753 nm). Effektive Wurzeltiefe abgeleitet aus min. Topftiefe 8 cm und flachem, mattenbildendem Faserwurzelsystem. Staunässe und Salzanreicherung (hartes Leitungswasser, Überdüngung) führen rasch zu Wurzelfäule bzw. braunen Blatträndern. Der pH-Vorzug 6.0–6.5 ist quellentreu; er liegt innerhalb der in §1.6/§2.3 genannten weiteren Spanne 6.0–7.0.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Indoor-Angabe (hell/indirekt) nicht auf Standortstufen abbildbar; RHS: „Position in bright light, but out of direct sun" --> | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

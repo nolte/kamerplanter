@@ -147,6 +147,22 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 Quellen (§1.8): [Wisconsin Horticulture — Arugula, Eruca sativa](https://hort.extension.wisc.edu/articles/arugula/) (Keimtemperatur 10–21 °C, bereits als Quelle 9 im Hauptquellenverzeichnis gelistet); [Johnny's Selected Seeds — Arugula Key Growing Information](https://www.johnnyseeds.com/growers-library/vegetables/greens/arugula-key-growing-information.html) (7–14 Tage, Saattiefe 1/8 in, bereits als Quelle 10 gelistet); [Seed Savers Exchange — How to Grow and Save Arugula](https://seedsavers.org/wp-content/uploads/2023/07/PDF-Grow-_-Save-Arugula-1.pdf) (Lichtkeimer, nicht vergraben); [Sow True Seed — Planting Guide and Seed Saving Notes for Arugula](https://sowtrueseed.com/pages/planting-guide-and-seed-saving-notes-for-arugula) (Keimfähigkeit 3–4 Jahre); [Northwest Edible Life — How To Grow Arugula In The Pacific Northwest](https://nwedible.com/how-to-grow-arugula/) (Aussaatdichte Baby-Leaf-Streusaat); [Harvest to Table — The Ultimate Arugula Growing Guide](https://harvesttotable.com/how-to-grow-arugula/) (Aussaatdichte ~200 Korn/sq ft für Cut-and-Come-Again)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15–23 | `species.spacing_cm` |
+| Reihenabstand (cm) | 15 | `species.row_spacing_cm` |
+| Quelle Abstände | Pflanzabstand: Oregon State University, „Arugula" (Oregon Vegetables, 2010; „plants 6-9 inches apart in the row", Erwerbsanbau), https://horticulture.oregonstate.edu/oregon-vegetables/arugula-0; Reihenabstand: LWG Bayern, Merkblatt 2168 „Rucola – die Rauke" (2017; „Reihenabstand 15 cm"), https://www.lwg.bayern.de/mam/cms06/gartenakademie/bilder/2168-2016.pdf (OSU nennt für den Erwerbsanbau abweichend Reihen 12–15 in = 30–38 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (LWG Bayern Merkblatt 2168: „sonnige bis halbschattige Lage") --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (LWG Bayern, Merkblatt 2168 (2017), https://www.lwg.bayern.de/mam/cms06/gartenakademie/bilder/2168-2016.pdf, gelesen, aber Spanne ohne Vorzug) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -405,6 +421,11 @@ Quellen (§1.8): [Wisconsin Horticulture — Arugula, Eruca sativa](https://hort
 | Empfohlene Vorfrucht | Leguminosen (Erbsen, Bohnen); Gruenduengung; Zwiebeln |
 | Empfohlene Nachfrucht | Tomate; Paprika; Aubergine (Starkzehrer nach Rucola-Erschoepfung minimal) |
 | Anbaupause (Jahre) | 2--3 Jahre fuer Brassicaceae (Kohlhernie-Praevention) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (2022; Tabelle 2: „Salatrauke" unter Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" 2022 führt Schmetterlingsblütler als eigene Familie, Rucola unter Kreuzblütlern, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4); SBB 2022 nennt für Kreuzblütler inkl. Rucola 4-5 Jahre --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -486,3 +507,6 @@ Eruca vesicaria,Rucola;Senfrauke;Rocket;Arugula,Brassicaceae,Eruca,annual,long_d
 15. [Penn State Extension -- Hydroponics Nutrient Solution Recipes](https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes) -- Mikronaehrstoff-Richtwerte Blattgemuese (Mn/Zn/Cu/Mo ppm)
 16. [West Coast Seeds -- How to Grow Arugula from Seed](https://www.westcoastseeds.com/blogs/wcs-academy/how-to-grow-arugula) -- Kuehlkultur 10--18 degC; Bolting-Trigger Photoperiode > 12--13 h + Bodentemperatur
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. [LWG Bayern -- Merkblatt 2168 „Rucola – die Rauke" (2017)](https://www.lwg.bayern.de/mam/cms06/gartenakademie/bilder/2168-2016.pdf) -- Reihenabstand 15 cm, Lage sonnig bis halbschattig
+18. [Oregon State University -- Arugula (Oregon Vegetables, 2010)](https://horticulture.oregonstate.edu/oregon-vegetables/arugula-0) -- Pflanzabstand in der Reihe 6–9 in, Reihen 12–15 in
+19. [Südtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemüsebau (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) -- Zehrerstufe (Salatrauke Schwachzehrer), Kreuzblütler-Anbaupause 4-5 Jahre, Leguminosen als eigene Familie

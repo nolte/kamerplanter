@@ -113,6 +113,22 @@
 > **Hinweis Salz/pH:** Poinsettie reagiert empfindlich auf hohe lösliche Salze (soluble salts) im Substrat. Der Species-pH-Vorzug 5.8–6.5 (leicht sauer; gärtnerischer Standard für Poinsettien 5.5–6.5) ist der breitere Toleranzbereich; die engeren Empfehlungswerte in §1.6 (6.0–6.5) und §2.3 (6.0–6.5) liegen vollständig innerhalb dieses Bereichs (gemeinsame Schnittmenge 6.0–6.5) — kein Widerspruch.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS Position: Full sun, Partial shade; Innenraum „full light" nicht auf Standortstufen abbildbar) --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (RHS, „Euphorbia pulcherrima", https://www.rhs.org.uk/plants/88057/euphorbia-pulcherrima/details, gelesen, aber ohne eindeutige Stufe) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -335,6 +351,11 @@ Der Weihnachtsstern ist als Kurztagspflanze auf exakt gesteuerte Beleuchtung ang
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zimmerpflanze, keine Fruchtfolge-Quelle; Familie Euphorbiaceae ohne Familienwert --> |
 
 ---
 
@@ -380,3 +401,4 @@ Euphorbia pulcherrima,Weihnachtsstern;Poinsettie;Christmas Star,Euphorbiaceae,Eu
 15. [Purdue University Extension – Reflowering Poinsettias](https://www.purdue.edu/hla/sites/yardandgarden/reflowering-poinsettias/) — Jährlicher Rückschnitt-/Wiederaustrieb-/Kurztag-Zyklus (Phasenrücksprung Blüte → Vegetativ)
 16. [University of Maryland Extension – Poinsettias](https://extension.umd.edu/resource/poinsettias) — Rückschnitt April/Mai, Neuaustrieb, Pinzieren Juli, Kurztag-Induktion ab Oktober
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+17. [RHS — Euphorbia pulcherrima](https://www.rhs.org.uk/plants/88057/euphorbia-pulcherrima/details) — Position (Full sun, Partial shade; ohne Vorzug), gelesen

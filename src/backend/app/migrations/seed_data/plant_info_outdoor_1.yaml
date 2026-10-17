@@ -805,6 +805,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.5
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Echinacea purpurea"
     # #1002: genuinely harvested (medicinal), not an ornamental — harvest_pattern
@@ -871,6 +878,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
 # ==============================================================================
 # S4  SPECIES ENRICHMENT (18 existing species)
@@ -1444,6 +1458,13 @@ species_enrichment:
       light_germination: dark
       thousand_seed_weight_g: 1.25
       sowing_density_per_m2: 90
+    row_spacing_cm: "25–30"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Landwirtschaftskammer Schleswig-Holstein, „Fruchtfolge im Garten\" (2020; Möhre = Mittelzehrer), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Sächsische Gartenakademie, „Gemüse-Aussaat - Folge 04\" (Möhre = Mittelzehrer), https://www.gartenakademie.sachsen.de/gemuese-aussaat-folge-04-4786.html; abweichend oekolandbau.de, „Möhren\" (führt Möhren als Schwachzehrer, geringer Nährstoffbedarf pro Hektar), https://www.oekolandbau.de/index.php?id=6901"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: 5
 
   "Foeniculum vulgare":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1476,6 +1497,13 @@ species_enrichment:
     bloom_months: [7, 8, 9]
     pruning_type: none
     allelopathy_score: 0.0
+    row_spacing_cm: "40"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "LWG Bayern, Merkblatt 2172 (September 2016; „mittleren Nährstoffbedarf\"), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2172-2016.pdf; Natur im Garten (Land NÖ), „Fruchtfolge im Gemüsegarten\" (April 2022; Fenchel im Mittelzehrer-Beet), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; abweichend: Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (Oktober 2022; Knollenfenchel unter Starkzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Solanum melongena":
     seed_profile:
@@ -1629,6 +1657,13 @@ species_enrichment:
       seed_viability_years: 3
       light_germination: light
       sowing_density_per_m2: 2000
+    row_spacing_cm: "15"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (2022; Tabelle 2: „Salatrauke\" unter Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Glycine max":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1640,6 +1675,13 @@ species_enrichment:
       light_germination: dark
       thousand_seed_weight_g: 97.3
       sowing_density_per_m2: 20
+    row_spacing_cm: "18–75"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: true
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Hordeum vulgare":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources

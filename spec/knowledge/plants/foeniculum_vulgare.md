@@ -136,6 +136,22 @@
 Quellen (§1.8): [Homesteadculture — Fennel Seeds (Foeniculum vulgare) Sweet Fennel Seeds](https://homesteadculture.com/fennel/) (Dunkelkeimer, Saattiefe ¼ in, Keimung 1–2 Wochen); [Wikifarmer — Foeniculum vulgare Fennel seeds](https://wikifarmer.com/library/en/article/foemiculum-vulgare-fennel-seeds) (Keimfähigkeit 2–3 Jahre, 100-Korn-Gewicht 1,12 g); [True Leaf Market — Fennel Seeds Sweet](https://trueleafmarket.com/products/fennel-seeds-sweet) (Saatgutkatalog-Dichteangabe, daraus abgeleitete leichtere Tausendkornmasse); [PubMed 27080166 — Seed germination of medicinal plant fennel as affected by different priming techniques](https://pubmed.ncbi.nlm.nih.gov/27080166/) (wissenschaftliche Bestätigung von Priming/Presoak als optionale, keimfördernde Vorbehandlung); bereits gelistete Quelle 7 [USU Extension — How to Grow Fennel in Your Garden](https://extension.usu.edu/yardandgarden/research/fennel-in-the-garden) (Keimtemperatur-Korridor 15–21 °C)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 25 | `species.spacing_cm` |
+| Reihenabstand (cm) | 40 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern, Merkblatt 2172 „Knollenfenchel (Foeniculum vulgare var. azoricum)" (September 2016), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2172-2016.pdf (abweichend RHS, „Florence fennel – Grow your own", https://www.rhs.org.uk/vegetables/florence-fennel/grow-your-own: 30 cm in der Reihe, Reihen 30 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | LWG Bayern, Merkblatt 2172 (2016) („nährstoffreichen Boden in sonniger Lage"), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2172-2016.pdf; RHS, „Florence fennel – Grow your own" („warm, sheltered, sunny"), https://www.rhs.org.uk/vegetables/florence-fennel/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -303,6 +319,11 @@ Knollenfenchel wird in Mitteleuropa (USDA 6–8) als einjährige Kultur gezogen 
 | Empfohlene Vorfrucht | Leguminosen; Starkzehrer (Kohl) |
 | Empfohlene Nachfrucht | Leguminosen, Zwiebelgewächse |
 | Anbaupause (Jahre) | 2–3 Jahre; keine Apiaceae auf gleicher Fläche (Möhrenrost, Fenchelfäule) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | LWG Bayern, Merkblatt 2172 (September 2016; „mittleren Nährstoffbedarf"), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2172-2016.pdf; Natur im Garten (Land NÖ), „Fruchtfolge im Gemüsegarten" (April 2022; Fenchel im Mittelzehrer-Beet), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; abweichend: Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Oktober 2022; Knollenfenchel unter Starkzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Natur im Garten 2022 führt Fenchel unter Doldenblütler, Schmetterlingsblütler als eigene Familie, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4); SBB 2022 nennt für Doldenblütler incl. Fenchel 4-5 Jahre --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -384,3 +405,6 @@ Foeniculum vulgare var. azoricum,"Knollenfenchel;Gemüsefenchel;Florence Fennel;
 22. [True Leaf Market — Fennel Seeds Sweet](https://trueleafmarket.com/products/fennel-seeds-sweet) — Saatgutkatalog-Referenzwerte
 23. [PubMed 27080166 — Seed germination of fennel as affected by different priming techniques](https://pubmed.ncbi.nlm.nih.gov/27080166/) — Priming/Presoak als optionale Vorbehandlung
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+24. [LWG Bayern — Merkblatt 2172 Knollenfenchel (September 2016)](https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2172-2016.pdf) — Pflanz-/Reihenabstand 25/40 cm, sonnige Lage, mittlerer Nährstoffbedarf
+25. [Natur im Garten (Land NÖ) — Fruchtfolge im Gemüsegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Zehrerstufen-Tabelle (Fenchel Mittelzehrer), Familienliste
+26. [Südtiroler Bauernbund — Merkblatt Fruchtfolgen im Gemüsebau (Oktober 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Anbaupausen Doldenblütler 4-5 Jahre; Knollenfenchel als Starkzehrer (abweichend)

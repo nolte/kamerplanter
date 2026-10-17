@@ -133,6 +133,22 @@
 Quellen (§1.8): [ResearchGate — Light inhibits soybean seed germination (Abbildung/Studienfigur)](https://www.researchgate.net/figure/Light-inhibits-soybean-seed-germination-a-b-Healthy-and-uniform-soybean-seeds_fig3_295605945) (Licht hemmt Keimung); [PMC — Karrikins delay soybean seed germination by mediating abscisic acid and gibberellin biogenesis under shaded conditions](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4763256/) (negativ photoblastisch, Licht + Karrikine hemmen Keimung); [PMC — Physical characteristics and nutritional composition of some new soybean genotypes](https://pmc.ncbi.nlm.nih.gov/articles/PMC3931876/) (100-Korn-Gewicht 8,7–11,1 g, Mittel 9,73 g); [Agri Farming — Soybean Seed Germination, Time, Temperature, Process](https://www.agrifarming.in/soybean-seed-germination-time-temperature-process) (Keimtemperatur 24–29 °C optimal, Keimdauer 7–21 Tage, Saattiefe ~25 mm); bereits gelistete Quelle 2 [Iowa State University Extension — Soybean Production](https://crops.extension.iastate.edu/soybean) (Reihen-/Pflanzabstand, Aussaatdichte-Kontext)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 10–20 | `species.spacing_cm` |
+| Reihenabstand (cm) | 18–75 | `species.row_spacing_cm` |
+| Quelle Abstände | OMAFRA (Ontario Ministry of Agriculture, Food and Rural Affairs), „Edamame (vegetable soybean)", 2012, https://www.omafra.gov.on.ca/CropOp/en/spec_veg/pea_bean/edam.html (Gemüsesoja/Edamame; für Körnersoja nennt LfL Bayern, „Sojabohne – der Eiweißlieferant", https://lfl.bayern.de/mam/cms07/publikationen/daten/informationen/061490_sojabohne.pdf, Abschnitt 3.4.4 Reihenabstand 12,5–50 cm, ohne Angabe zum Abstand in der Reihe) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine gelesene Fachquelle (LfL Bayern, OMAFRA) nennt eine Standort-Lichtstufe für Sojabohne --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -371,6 +387,11 @@ Sojabohne ist Stickstofflieferant, KEIN Stickstoffverbraucher. Übermäßige N-D
 | Empfohlene Vorfrucht | Getreide (Weizen, Mais, Gerste) |
 | Empfohlene Nachfrucht | Winterweizen, Mais, Kartoffel (profitieren vom N-Depot) |
 | Anbaupause (Jahre) | 3–4 Jahre auf gleichem Standort (Sklerotinia, Nematoden) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Fachquelle ordnet Sojabohne einer Zehrerstufe zu (LfL Bayern: N-Sammler, keine Stufe; SBB 2022 und Natur im Garten 2022 führen Sojabohne nicht) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | true (Symbiose mit Bradyrhizobium japonicum; LfL Bayern, LfL-Information „Sojabohne – der Eiweißlieferant", https://lfl.bayern.de/mam/cms07/publikationen/daten/informationen/061490_sojabohne.pdf; OMAFRA 2012, https://www.omafra.gov.on.ca/CropOp/en/spec_veg/pea_bean/edam.html) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Fabaceae 6); LfL nennt 4 Jahre nur als Pause zu Sklerotinia-Wirtspflanzen --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -459,3 +480,5 @@ ES Mentor,Glycine max,"grain_type;high_yield;maturity_group_000",100,certified
 25. [PMC — Physical characteristics and nutritional composition of some new soybean genotypes](https://pmc.ncbi.nlm.nih.gov/articles/PMC3931876/) — 100-Korn-Gewicht
 26. [Agri Farming — Soybean Seed Germination, Time, Temperature, Process](https://www.agrifarming.in/soybean-seed-germination-time-temperature-process) — Keimtemperatur, Keimdauer, Saattiefe
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+27. [OMAFRA — Edamame (vegetable soybean), 2012](https://www.omafra.gov.on.ca/CropOp/en/spec_veg/pea_bean/edam.html) — Pflanzabstand 10–20 cm, Reihenabstand 18–75 cm, Leguminose ohne N-Düngung
+28. [LfL Bayern — Sojabohne, der Eiweißlieferant (LfL-Information)](https://lfl.bayern.de/mam/cms07/publikationen/daten/informationen/061490_sojabohne.pdf) — Reihenabstand 12,5–50 cm, Knöllchenbakterien/Impfung, Fruchtfolge
