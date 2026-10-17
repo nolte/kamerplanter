@@ -162,7 +162,7 @@ services:
 
   # ── Selenium Hub ─────────────────────────────────────────
   selenium-hub:
-    image: selenium/hub:4.49@sha256:178c2a330deb5c674c74ca63028737954106372ff66785244c16dfd66276654e
+    image: selenium/hub:4.50@sha256:2289f34916ff37e2f2a0c52973c745c7eb129399ed8da40874b25bc31ac89623
     environment:
       SE_SESSION_REQUEST_TIMEOUT: "300"
       SE_NODE_SESSION_TIMEOUT: "300"
