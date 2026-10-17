@@ -14,7 +14,10 @@ const budget = {
   initialJsGzipKb: 490,
   initialCssGzipKb: 50,
   cssSeverity: 'error' as const,
-  routeChunks: { dashboard: { source: 'src/pages/DashboardPage.tsx', gzipKb: 12 } },
+  routeChunks: {
+    dashboard: { source: 'src/pages/DashboardPage.tsx', gzipKb: 12 },
+    gardenPlanner: { source: 'src/features/gardenPlanner/routes/GardenPlanRoute.tsx', gzipKb: 120 },
+  },
 };
 
 const KB = 1024;
@@ -63,6 +66,37 @@ describe('evaluateBudget', () => {
       budget,
     });
     expect(checks.find((c) => c.requirement === 'R-028')).toBeUndefined();
+  });
+
+  it('fails when the garden-plan route chunk exceeds its budget (REQ-053 WP 2.3)', () => {
+    const over = evaluateBudget({
+      initialJsBytes: 400 * KB,
+      initialCssBytes: 1 * KB,
+      dashboardBytes: 3 * KB,
+      gardenPlannerBytes: 130 * KB,
+      budget,
+    });
+    expect(over.failed).toBe(true);
+    expect(over.checks.find((c) => c.requirement === 'REQ-053 WP 2.3')?.status).toBe('FAIL');
+
+    const within = evaluateBudget({
+      initialJsBytes: 400 * KB,
+      initialCssBytes: 1 * KB,
+      dashboardBytes: 3 * KB,
+      gardenPlannerBytes: 12 * KB,
+      budget,
+    });
+    expect(within.failed).toBe(false);
+  });
+
+  it('omits the garden-plan check when its chunk is not measured', () => {
+    const { checks } = evaluateBudget({
+      initialJsBytes: 400 * KB,
+      initialCssBytes: 1 * KB,
+      dashboardBytes: 3 * KB,
+      budget,
+    });
+    expect(checks.find((c) => c.requirement === 'REQ-053 WP 2.3')).toBeUndefined();
   });
 
   it('treats a CSS overshoot as a non-blocking warning when cssSeverity is warn', () => {

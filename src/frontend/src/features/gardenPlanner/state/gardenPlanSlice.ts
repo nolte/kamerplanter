@@ -16,8 +16,9 @@
  *   defined merge of an action with a request on the wire, and the revision the next save expects
  *   is not known yet.
  *
- * Mounted in the root reducer, so it stays small: the model code it imports is pure functions and
- * the geometry module is tree-shaken to what the operations use.
+ * Not part of the initial bundle: the plan route injects it into the root reducer when it loads
+ * (`registerLazySlice(gardenPlanSlice)`, REQ-053 WP 2.3). Until then `state.gardenPlan` is
+ * absent, which is why the selectors fall back to the initial state.
  */
 import { createAsyncThunk, createSlice, original, type PayloadAction } from '@reduxjs/toolkit';
 import {
@@ -211,7 +212,7 @@ function errorCodeOf(error: unknown): PlanEditError {
 
 // ── Slice ────────────────────────────────────────────────────────────────────
 
-const gardenPlanSlice = createSlice({
+export const gardenPlanSlice = createSlice({
   name: 'gardenPlan',
   initialState,
   reducers: {
@@ -428,20 +429,26 @@ export default gardenPlanSlice.reducer;
 
 // ── Selectors ────────────────────────────────────────────────────────────────
 
-type RootWithPlan = { gardenPlan: GardenPlanState };
+/** `gardenPlan` is absent until the plan route has injected the slice. */
+type RootWithPlan = { gardenPlan?: GardenPlanState };
+
+/** The whole slice state; the initial state while the slice is not injected yet. */
+export const selectGardenPlanState = (state: RootWithPlan): GardenPlanState =>
+  state.gardenPlan ?? initialState;
+const planState = selectGardenPlanState;
 
 /** The dirty flag of GP-NFR-005. */
-export const selectIsDirty = (state: RootWithPlan): boolean => state.gardenPlan.pending.length > 0;
+export const selectIsDirty = (state: RootWithPlan): boolean => planState(state).pending.length > 0;
 
 /** "Ungespeicherte Änderungen (n)". */
-export const selectPendingCount = (state: RootWithPlan): number => state.gardenPlan.pending.length;
+export const selectPendingCount = (state: RootWithPlan): number => planState(state).pending.length;
 
 export const selectCanUndo = (state: RootWithPlan): boolean =>
-  state.gardenPlan.past.length > 0 &&
-  state.gardenPlan.saveStatus !== 'saving' &&
-  state.gardenPlan.saveStatus !== 'conflict';
+  planState(state).past.length > 0 &&
+  planState(state).saveStatus !== 'saving' &&
+  planState(state).saveStatus !== 'conflict';
 
 export const selectCanRedo = (state: RootWithPlan): boolean =>
-  state.gardenPlan.future.length > 0 &&
-  state.gardenPlan.saveStatus !== 'saving' &&
-  state.gardenPlan.saveStatus !== 'conflict';
+  planState(state).future.length > 0 &&
+  planState(state).saveStatus !== 'saving' &&
+  planState(state).saveStatus !== 'conflict';

@@ -126,6 +126,9 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
   'stammdaten/companion-planting',
   'standorte/sites',
   'standorte/sites/:key',
+  // REQ-053 WP 2.3: readable for every member (GP-API-001 "Alle Rollen"); the editor tools of WP 2.4
+  // gate their writes in the page ("Ab Gärtner", §21.8), as the site detail page does.
+  'standorte/sites/:key/plan',
   'standorte/locations/:key',
   'standorte/slots/:key',
   'standorte/watering-events',

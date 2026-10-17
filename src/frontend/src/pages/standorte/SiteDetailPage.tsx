@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { useForm, useWatch } from 'react-hook-form';
 import MobileCard from '@/components/common/MobileCard';
@@ -43,6 +44,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
+import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSite, clearCurrent } from '@/store/slices/sitesSlice';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -72,6 +74,10 @@ export default function SiteDetailPage() {
   // Deleting is lead-only backend-side (`require_permission(SITE|SENSOR, DELETE)`),
   // so a grower must not be offered a control that can only answer 403 (#1467).
   const { canDelete } = useTenantPermissions();
+  // REQ-042 §4.3: the plan lies in the path space of the core `locations` module, so its entry point
+  // is gated here by module key, not by path prefix.
+  const { isModuleVisible } = useModuleVisibility();
+  const showGardenPlan = isModuleVisible('garden_planner');
   const { currentSite: current, loading, error } = useAppSelector((s) => s.sites);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -217,10 +223,27 @@ export default function SiteDetailPage() {
       <PageTitle
         title={current?.name ?? t('entities.site')}
         action={
-          canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
-              {t('common.delete')}
-            </Button>
+          showGardenPlan || canDelete ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {showGardenPlan && key && (
+                <Button
+                  component={RouterLink}
+                  to={`/standorte/sites/${key}/plan`}
+                  variant="outlined"
+                  startIcon={<MapOutlinedIcon />}
+                  data-testid="garden-plan-open-link"
+                  sx={{ minHeight: 44 }}
+                  title={t('pages.gardenPlan.openHint')}
+                >
+                  {t('pages.gardenPlan.open')}
+                </Button>
+              )}
+              {canDelete && (
+                <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
+                  {t('common.delete')}
+                </Button>
+              )}
+            </Box>
           ) : undefined
         }
       />

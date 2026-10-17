@@ -72,9 +72,16 @@ export function kib(bytes) {
  * over budget).
  *
  * @param {{ initialJsBytes: number, initialCssBytes: number,
- *   dashboardBytes: number | null, budget: object }} input
+ *   dashboardBytes: number | null, gardenPlannerBytes?: number | null,
+ *   budget: object }} input
  */
-export function evaluateBudget({ initialJsBytes, initialCssBytes, dashboardBytes, budget }) {
+export function evaluateBudget({
+  initialJsBytes,
+  initialCssBytes,
+  dashboardBytes,
+  gardenPlannerBytes = null,
+  budget,
+}) {
   const checks = [
     {
       label: 'Initial JS (gzip)',
@@ -102,6 +109,18 @@ export function evaluateBudget({ initialJsBytes, initialCssBytes, dashboardBytes
     });
   }
 
+  // REQ-053 WP 2.3: the lazy garden-plan route chunk (renderer + plan slice + model) is budgeted on
+  // its own so it can never leak into the initial payload unnoticed.
+  if (gardenPlannerBytes !== null && budget.routeChunks.gardenPlanner) {
+    checks.push({
+      label: '/standorte/sites/:key/plan route chunk (gzip)',
+      requirement: 'REQ-053 WP 2.3',
+      actual: gardenPlannerBytes,
+      budget: budget.routeChunks.gardenPlanner.gzipKb * 1024,
+      severity: 'error',
+    });
+  }
+
   let failed = false;
   for (const c of checks) {
     c.over = c.actual > c.budget;
@@ -123,10 +142,22 @@ function main() {
     ? dashboardFiles.reduce((sum, f) => sum + gzipBytes(f), 0)
     : null;
 
+  const gardenPlannerSource = budget.routeChunks.gardenPlanner?.source;
+  const gardenPlannerFiles = gardenPlannerSource ? resolveManifestChunk(gardenPlannerSource) : null;
+  if (gardenPlannerSource && !gardenPlannerFiles) {
+    // A configured route budget whose chunk is not in the manifest would silently measure nothing.
+    console.error(`Route chunk "${gardenPlannerSource}" is missing from the Vite manifest.`);
+    process.exit(1);
+  }
+  const gardenPlannerBytes = gardenPlannerFiles
+    ? gardenPlannerFiles.reduce((sum, f) => sum + gzipBytes(f), 0)
+    : null;
+
   const { checks, failed } = evaluateBudget({
     initialJsBytes,
     initialCssBytes,
     dashboardBytes,
+    gardenPlannerBytes,
     budget,
   });
 

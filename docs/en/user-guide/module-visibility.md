@@ -115,6 +115,7 @@ The table below lists all modules you can show or hide, along with the default v
 | Watering Log | Care & Planning | Beginner |
 | Tasks & Workflows | Care & Planning | Beginner |
 | Diary | Care & Planning | Beginner |
+| Garden plan | Care & Planning | Beginner |
 | Fertilization & Nutrient Plans | Nutrition & Water | Intermediate |
 | Tank Management | Nutrition & Water | Expert |
 | Aquaponics | Nutrition & Water | Expert |

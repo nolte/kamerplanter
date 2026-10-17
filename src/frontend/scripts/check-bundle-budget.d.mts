@@ -12,6 +12,7 @@ export interface BundleBudgetConfig {
   cssSeverity?: 'error' | 'warn';
   routeChunks: {
     dashboard: BudgetRouteChunk;
+    gardenPlanner?: BudgetRouteChunk;
   };
 }
 
@@ -29,6 +30,7 @@ export interface EvaluateBudgetInput {
   initialJsBytes: number;
   initialCssBytes: number;
   dashboardBytes: number | null | undefined;
+  gardenPlannerBytes?: number | null;
   budget: BundleBudgetConfig;
 }
 

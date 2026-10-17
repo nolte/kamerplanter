@@ -6,6 +6,7 @@ import i18n from 'i18next';
 import SiteDetailPage from '@/pages/standorte/SiteDetailPage';
 import {
   renderWithProviders,
+  createStoreWithModuleOverrides,
   createStoreWithSmartHome,
   createTestStore,
   smartHomeState,
@@ -104,6 +105,20 @@ describe('SiteDetailPage', () => {
     // outside act(). Unmounting first makes the reset touch nothing.
     cleanup();
     i18n.changeLanguage('en');
+  });
+
+  it('offers the garden plan as a sub-item of the site while the module is on (REQ-042 §4.3)', async () => {
+    renderPage();
+    const link = await screen.findByTestId('garden-plan-open-link');
+    expect(link).toHaveAttribute('href', '/standorte/sites/site-1/plan');
+  });
+
+  it('hides the garden plan entry when the module is switched off', async () => {
+    renderWithProviders(<SiteDetailPage />, {
+      store: createStoreWithModuleOverrides('expert', { garden_planner: 'disabled' }),
+    });
+    await screen.findByTestId('site-detail-page');
+    expect(screen.queryByTestId('garden-plan-open-link')).toBeNull();
   });
 
   it('renders the site detail page from the loaded site', async () => {
