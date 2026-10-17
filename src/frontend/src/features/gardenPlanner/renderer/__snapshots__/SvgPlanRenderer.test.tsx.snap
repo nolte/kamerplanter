@@ -1,0 +1,47 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SvgPlanRenderer - structure > draws the cluster view of a dense bed (snapshot) 1`] = `
+"<g class="gp-obj" data-plan-key="__boundary__" data-plan-kind="boundary" role="button" tabindex="-1" aria-label="Boundary" aria-pressed="false">
+<path class="gp-shape" d="M0 0L100 0L100 -100L0 -100Z" fill="none" stroke="rgba(0, 0, 0, 0.38)" stroke-width="2" stroke-dasharray="10 6" vector-effect="non-scaling-stroke">
+</path>
+</g>
+<g class="gp-obj" data-plan-key="loc_a" data-plan-kind="location" role="button" tabindex="0" aria-label="Bed loc_a, bed, 2.4 m2, 6 plants, 0 tasks" aria-pressed="false">
+<path class="gp-shape" d="M1 -1L2.2 -1L2.2 -3L1 -3Z" fill="rgba(46, 125, 50, 0.35)" stroke="rgba(0, 0, 0, 0.6)" stroke-width="1" vector-effect="non-scaling-stroke">
+</path>
+<text x="1.6" y="-1.96" font-size="0.1212" text-anchor="middle" fill="rgba(0, 0, 0, 0.87)" pointer-events="none" aria-hidden="true">Bed loc_a</text>
+</g>
+<g data-plan-cluster="loc_a" role="img" aria-label="6 plants" pointer-events="none">
+<circle cx="1.6" cy="-2" r="0.109" fill="#1b5e20" fill-opacity="0.85">
+</circle>
+<text x="1.6" y="-1.96" font-size="0.1212" text-anchor="middle" fill="#fff" aria-hidden="true">6</text>
+</g>"
+`;
+
+exports[`SvgPlanRenderer - structure > draws the small plan (snapshot) 1`] = `
+"<g class="gp-obj" data-plan-key="__boundary__" data-plan-kind="boundary" role="button" tabindex="-1" aria-label="Boundary" aria-pressed="false">
+<path class="gp-shape" d="M0 0L100 0L100 -100L0 -100Z" fill="none" stroke="rgba(0, 0, 0, 0.38)" stroke-width="2" stroke-dasharray="10 6" vector-effect="non-scaling-stroke">
+</path>
+</g>
+<g class="gp-obj" data-plan-key="go_1" data-plan-kind="gardenObject" role="button" tabindex="-1" aria-label="Tree go_1, tree, 4 m2" aria-pressed="false">
+<circle class="gp-shape" cx="6" cy="-6" r="1" fill="rgba(27, 94, 32, 0.3)" stroke="rgba(0, 0, 0, 0.6)" stroke-width="1" vector-effect="non-scaling-stroke">
+</circle>
+<path d="M12 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM11 14h2v8h-2z" transform="translate(6 -6.108) scale(0.006667) translate(-12 -12)" fill="none" stroke="rgba(0, 0, 0, 0.87)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+</path>
+<text x="6" y="-5.892" font-size="0.1200" text-anchor="middle" fill="rgba(0, 0, 0, 0.87)" pointer-events="none" aria-hidden="true">Tree go_1</text>
+</g>
+<g class="gp-obj" data-plan-key="loc_a" data-plan-kind="location" role="button" tabindex="0" aria-label="Bed loc_a, bed, 2.4 m2, 1 plants, 0 tasks" aria-pressed="true">
+<path class="gp-shape" d="M1 -1L2.2 -1L2.2 -3L1 -3Z" fill="rgba(46, 125, 50, 0.35)" stroke="#1976d2" stroke-width="3" vector-effect="non-scaling-stroke">
+</path>
+<text x="1.6" y="-1.96" font-size="0.1200" text-anchor="middle" fill="rgba(0, 0, 0, 0.87)" pointer-events="none" aria-hidden="true">Bed loc_a</text>
+<text x="1.6" y="-3.06" font-size="0.1200" text-anchor="middle" fill="#1976d2" pointer-events="none" aria-hidden="true">2.4 m2</text>
+</g>
+<g class="gp-obj" data-plan-key="loc_b" data-plan-kind="location" role="button" tabindex="-1" aria-label="Bed loc_b, bed, 2.4 m2, 0 plants, 0 tasks" aria-pressed="false">
+<path class="gp-shape" d="M4 -1L5.2 -1L5.2 -3L4 -3Z" fill="rgba(46, 125, 50, 0.35)" stroke="rgba(0, 0, 0, 0.6)" stroke-width="1" vector-effect="non-scaling-stroke">
+</path>
+<text x="4.6" y="-1.96" font-size="0.1200" text-anchor="middle" fill="rgba(0, 0, 0, 0.87)" pointer-events="none" aria-hidden="true">Bed loc_b</text>
+</g>
+<g data-plan-markers="loc_a" aria-hidden="true" pointer-events="none">
+<path d="M1.26 -1.3a0.04 0.04 0 1 0 0.08 0a0.04 0.04 0 1 0 -0.08 0" fill="#1b5e20" stroke="#1b5e20" vector-effect="non-scaling-stroke">
+</path>
+</g>"
+`;

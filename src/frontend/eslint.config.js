@@ -72,6 +72,31 @@ export default tseslint.config(
     },
   },
   {
+    // REQ-053 GP-NFR-009 / D-01: the garden editor talks to the `PlanRenderer` interface only.
+    // A renderer implementation or rendering library imported here would weld the editor to one
+    // renderer and make the Konva fallback a rewrite instead of a swap. Only the code that mounts
+    // the editor (the lazy route) may pick `SvgPlanRenderer`; tests use `HeadlessPlanRenderer`.
+    files: ['src/features/gardenPlanner/editor/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['konva', 'react-konva', 'fabric', 'pixi.js'].map((name) => ({
+            name,
+            message: 'The garden editor must not import a rendering library (GP-NFR-009). Use the PlanRenderer interface.',
+          })),
+          patterns: [
+            {
+              group: ['**/SvgPlanRenderer', '**/SvgPlanRenderer.*', '**/renderer/svg', '**/renderer/svg/**', '@pixi/*'],
+              message:
+                'The garden editor must not import a renderer implementation (GP-NFR-009). Import the PlanRenderer interface from the renderer barrel and receive the instance from the route.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Node-side build/CI tooling (e.g. the bundle-budget gate) runs outside the
     // browser and legitimately uses Node globals like `process` and `console`.
     files: ['scripts/**/*.{js,mjs,cjs}'],
