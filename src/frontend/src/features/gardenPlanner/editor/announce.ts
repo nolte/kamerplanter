@@ -11,8 +11,21 @@ import { positionOf } from './tools/keyboardMove';
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const PREFIX = 'pages.gardenPlan.editor.liveRegion';
-const ACTIONS = ['move', 'rotate', 'resize', 'editPoint', 'draw', 'delete'] as const;
+const ACTIONS = [
+  'move',
+  'rotate',
+  'resize',
+  'editPoint',
+  'draw',
+  'delete',
+  'edit',
+  'lock',
+  'unlock',
+  'zOrder',
+] as const;
 type Action = (typeof ACTIONS)[number];
+/** Actions that change where an object is: only these name the position (the others leave it as it was). */
+const MOVES_OBJECT: readonly Action[] = ['move', 'rotate', 'resize', 'editPoint', 'draw'];
 
 function actionOf(label: string | null): Action | null {
   const last = label?.split('.').pop();
@@ -73,7 +86,7 @@ export function announceAction(
       y: formatNumber(position[1]),
     });
   }
-  if (position) {
+  if (position && MOVES_OBJECT.includes(action)) {
     return t(`${PREFIX}.changed`, {
       action: t(`pages.gardenPlan.editor.actions.${action}`),
       name,

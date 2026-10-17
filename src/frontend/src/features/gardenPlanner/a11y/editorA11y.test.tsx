@@ -160,6 +160,48 @@ describe('single-key shortcuts (WCAG 2.1.4, GP-UX-045)', () => {
   });
 });
 
+describe('single-key shortcuts of the view (WP 2.5) share the switch', () => {
+  it('toggles the grid with G, and not any more once the shortcuts are switched off', () => {
+    const t = setup();
+    expect(screen.getByTestId('garden-plan-grid')).toBeInTheDocument();
+    fireEvent.keyDown(t.canvas(), { key: 'g' });
+    expect(screen.queryByTestId('garden-plan-grid')).toBeNull();
+    fireEvent.keyDown(t.canvas(), { key: 'g' });
+    expect(screen.getByTestId('garden-plan-grid')).toBeInTheDocument();
+    window.localStorage.setItem('kamerplanter.gardenPlan.singleKeyShortcuts', 'off');
+    cleanup();
+    const off = setup();
+    fireEvent.keyDown(off.canvas(), { key: 'g' });
+    expect(screen.getByTestId('garden-plan-grid')).toBeInTheDocument();
+  });
+
+  it('lists the view shortcuts in the key help', () => {
+    setup();
+    fireEvent.click(screen.getByTestId('garden-plan-keyboard-help-button'));
+    const help = screen.getByTestId('garden-plan-keyboard-help');
+    for (const key of ['?', 'G', '0', '+ / −']) {
+      expect(within(help).getByText(key)).toBeInTheDocument();
+    }
+  });
+});
+
+describe('skip link to the properties panel (WP 2.6)', () => {
+  it('is offered with the panel and focuses it', () => {
+    setup();
+    fireEvent.click(screen.getByTestId('garden-plan-skip-panel'));
+    expect(document.activeElement).toBe(screen.getByTestId('garden-plan-panel'));
+  });
+
+  it('shows the same selection in the list and in the panel', () => {
+    const t = setup();
+    fireEvent.click(screen.getByRole('switch', { name: 'Show as list' }));
+    t.select('solo');
+    const row = screen.getByTestId('garden-plan-list-details');
+    expect(row).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-panel-name')).toBeInTheDocument();
+  });
+});
+
 describe('list view (GP-NFR-023, GP-ACC-032)', () => {
   it('is reached by the skip link, with the focus on the list', () => {
     const t = setup();

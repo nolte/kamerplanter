@@ -14,12 +14,18 @@ import FormHelperText from '@mui/material/FormHelperText';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 const KEYS = [
   'arrows',
   'shiftArrows',
   'scroll',
   'pageKeys',
+  'help',
+  'zoom',
+  'fit',
+  'grid',
   'enter',
   'del',
   'esc',
@@ -41,12 +47,15 @@ export function KeyboardHelp({
 }: KeyboardHelpProps) {
   const { t } = useTranslation();
   const prefix = 'pages.gardenPlan.editor.keyboard';
+  // On a phone the dialog fills the screen (UI-NFR-008); the key list can be long.
+  const fullScreen = useMediaQuery(useTheme().breakpoints.down('sm'));
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      fullScreen={fullScreen}
       aria-labelledby="garden-plan-keyboard-title"
       data-testid="garden-plan-keyboard-help"
     >

@@ -121,7 +121,7 @@ function MoveToForm({ position, disabled, name, onMove }: MoveToProps) {
               'data-testid': `garden-plan-list-${axis}`,
             },
           }}
-          sx={{ width: 120, '& input': { minHeight: 28 } }}
+          sx={{ width: 120, '& .MuiInputBase-root': { minHeight: TARGET_PX } }}
         />
       ))}
       <Button

@@ -5479,7 +5479,7 @@
           "switch": "Als Liste anzeigen",
           "heading": "Plan als Liste",
           "intro": "Die Objekte von {{name}}: Bereiche, Beete und Gartenobjekte. Wähle eines aus, um seine Werte zu lesen, es zu verschieben oder zu löschen.",
-          "empty": "Auf dem Plan gibt es noch nichts.",
+          "empty": "Auf dem Plan gibt es noch nichts. Nutze „Mit Maßen hinzufügen“ oder zeichne in der Planansicht ein Beet.",
           "level": {
             "area": "Bereich",
             "bed": "Beet",
@@ -5569,11 +5569,27 @@
             "selectAll": {
               "keys": "Strg + A",
               "does": "Wählt alle nicht gesperrten Objekte aus."
+            },
+            "help": {
+              "keys": "?",
+              "does": "Öffnet diese Tastaturhilfe."
+            },
+            "zoom": {
+              "keys": "+ / −",
+              "does": "Vergrößert oder verkleinert die Ansicht."
+            },
+            "fit": {
+              "keys": "0",
+              "does": "Zeigt den ganzen Plan."
+            },
+            "grid": {
+              "keys": "G",
+              "does": "Blendet das Raster ein oder aus."
             }
           },
-          "shortcutNote": "Einzeltasten-Kürzel wie ? reagieren nur, solange der Plan den Fokus hat.",
+          "shortcutNote": "Die Einzeltasten ?, G, +, − und 0 reagieren nur, solange der Plan den Fokus hat. Schalte sie unten aus, wenn sie dich stören (WCAG 2.1.4). Pfeiltasten, Bild ab/auf, Entf, Esc und Strg + A bleiben aktiv.",
           "singleKeyLabel": "Einzeltasten-Kürzel",
-          "singleKeyHint": "Schalte sie aus, damit Tasten wie ? nicht reagieren. Diese Hilfe bleibt über die Schaltfläche erreichbar."
+          "singleKeyHint": "Schalte sie aus, damit die Tasten ?, G, +, − und 0 nicht reagieren. Diese Hilfe bleibt über die Schaltfläche „Tastaturhilfe“ erreichbar."
         },
         "panel": {
           "title": "Eigenschaften",
