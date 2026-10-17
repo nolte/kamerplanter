@@ -148,14 +148,15 @@ describe('selection above the sheet (GP-UX-052)', () => {
 
 describe('two fingers (GP-UX-040)', () => {
   it('pan with the midpoint and zoom with the spread', () => {
-    const onZoom = vi.fn<(factor: number, centerPx: [number, number]) => void>();
+    const onZoom = vi.fn<(pxPerM: number, anchorPx: [number, number]) => void>();
     const t = setupEditor({ onZoom });
     touchEvent(t, 'pointerDown', [4, 10], { id: 1, at: 1000 });
     touchEvent(t, 'pointerDown', [6, 10], { id: 2, at: 1200 });
     touchEvent(t, 'pointerMove', [3, 10], { id: 1, at: 1300 });
     touchEvent(t, 'pointerMove', [7, 10], { id: 2, at: 1300 });
-    // Each finger moved on its own: 2 m -> 3 m -> 4 m apart, the factors multiply to 2.
-    const factor = onZoom.mock.calls.reduce((product, [f]) => product * f, 1);
+    // Each finger moved on its own: 2 m -> 3 m -> 4 m apart, the factors multiply to 2. The editor
+    // hands the route the new absolute zoom (the viewport of this harness stays at 40 px/m).
+    const factor = onZoom.mock.calls.reduce((product, [pxPerM]) => product * (pxPerM / 40), 1);
     expect(factor).toBeCloseTo(2, 5);
     t.onPan.mockClear();
     touchEvent(t, 'pointerMove', [3, 11], { id: 1, at: 1400 });
@@ -204,7 +205,7 @@ describe('phantom touch filter (GP-UX-041)', () => {
   });
 
   it('ignores a second pointer within 50 ms of the first (no pan/zoom starts)', () => {
-    const onZoom = vi.fn<(factor: number, centerPx: [number, number]) => void>();
+    const onZoom = vi.fn<(pxPerM: number, anchorPx: [number, number]) => void>();
     const t = setupEditor({ onZoom });
     touchEvent(t, 'pointerDown', [4, 10], { id: 1, at: 1000 });
     touchEvent(t, 'pointerDown', [6, 10], { id: 2, at: 1030 });

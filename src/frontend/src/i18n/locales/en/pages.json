@@ -5405,7 +5405,8 @@
           "lock": "Lock",
           "unlock": "Unlock",
           "zOrder": "Change order",
-          "addWithDimensions": "Add with dimensions"
+          "addWithDimensions": "Add with dimensions",
+          "northAngle": "Set north direction"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5544,6 +5545,53 @@
             "rotation": "Rotation",
             "strokeWidth": "Stroke width"
           }
+        },
+        "view": {
+          "label": "View settings"
+        },
+        "grid": {
+          "step": "Grid step",
+          "toggles": "Grid and snap",
+          "toggle": "Show grid",
+          "toggleHint": "Show or hide the grid (G). The snap raster stays active.",
+          "unit": "Length unit",
+          "unitOption": {
+            "m": "Metres",
+            "cm": "Centimetres"
+          }
+        },
+        "snap": {
+          "toggle": "Snap to grid",
+          "short": "Snap",
+          "hint": "Snap to the grid. Hold Alt to switch snapping off briefly."
+        },
+        "zoom": {
+          "label": "Zoom",
+          "in": "Zoom in",
+          "out": "Zoom out",
+          "fit": "Fit",
+          "inHint": "Zoom in (+). Zoom smoothly with Ctrl/Cmd + mouse wheel or while the plan is focused.",
+          "outHint": "Zoom out (−)",
+          "fitHint": "Fit the whole plan into view (0)",
+          "level": "Zoom {{percent}} percent",
+          "scaleBar": "Scale bar: {{length}}"
+        },
+        "compass": {
+          "label": "Compass: direction of geographic north on the plan",
+          "input": "North angle (degrees)",
+          "value": "{{angle}}° clockwise from the top of the plan",
+          "n": "N",
+          "e": "E",
+          "s": "S",
+          "w": "W",
+          "help": "Set where geographic north lies on your plan. Turn the dial or use the arrow keys (Shift or Page Up/Down: 15 degree steps, Home: north up). 0 degrees means north is up, 90 degrees means north points right.",
+          "invalid": "Enter an angle from 0 to 360."
+        },
+        "dimensions": {
+          "rect": "{{width}} × {{length}} · {{area}}",
+          "circle": "Ø {{diameter}} · {{area}}",
+          "polygon": "{{width}} × {{length}} · {{area}}",
+          "line": "{{length}}"
         }
       }
     }

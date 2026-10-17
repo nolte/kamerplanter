@@ -77,6 +77,21 @@ describe('GardenPlanRoute', () => {
     expect(screen.queryByTestId('garden-plan-notice')).toBeNull();
   });
 
+  it('zooms with the buttons, keeps the pan, and "fit" returns to the fitted view (WP 2.5)', async () => {
+    usePlan();
+    renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    const level = () => screen.getByTestId('garden-plan-zoom-level').textContent;
+    const fitted = level();
+    fireEvent.click(screen.getByTestId('garden-plan-zoom-in'));
+    expect(level()).not.toBe(fitted);
+    expect(screen.getByTestId('garden-plan-scale-bar')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('garden-plan-zoom-fit'));
+    expect(level()).toBe(fitted);
+    // The fitted view is the lowest zoom (GP-FR-150).
+    expect(screen.getByTestId('garden-plan-zoom-out')).toBeDisabled();
+  });
+
   it('explains the empty state of a site without a plan', async () => {
     usePlan(planResponse({ plan: null, locations: [], garden_objects: [], slots: [], plants: [] }));
     renderRoute();

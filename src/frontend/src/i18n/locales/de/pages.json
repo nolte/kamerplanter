@@ -5406,7 +5406,8 @@
           "lock": "Sperren",
           "unlock": "Entsperren",
           "zOrder": "Reihenfolge ändern",
-          "addWithDimensions": "Mit Maßen hinzufügen"
+          "addWithDimensions": "Mit Maßen hinzufügen",
+          "northAngle": "Nordrichtung setzen"
         },
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
@@ -5545,6 +5546,53 @@
             "rotation": "Drehung",
             "strokeWidth": "Strichbreite"
           }
+        },
+        "view": {
+          "label": "Ansichtseinstellungen"
+        },
+        "grid": {
+          "step": "Rasterstufe",
+          "toggles": "Raster und Einrasten",
+          "toggle": "Raster anzeigen",
+          "toggleHint": "Raster ein- oder ausblenden (G). Das Einrast-Raster bleibt aktiv.",
+          "unit": "Längeneinheit",
+          "unitOption": {
+            "m": "Meter",
+            "cm": "Zentimeter"
+          }
+        },
+        "snap": {
+          "toggle": "Am Raster einrasten",
+          "short": "Einrasten",
+          "hint": "Am Raster einrasten. Mit gehaltener Alt-Taste kurzzeitig ausschalten."
+        },
+        "zoom": {
+          "label": "Zoom",
+          "in": "Vergrößern",
+          "out": "Verkleinern",
+          "fit": "Anpassen",
+          "inHint": "Vergrößern (+). Mit Strg/Cmd + Mausrad oder bei fokussiertem Plan stufenlos zoomen.",
+          "outHint": "Verkleinern (−)",
+          "fitHint": "An Fläche anpassen: ganzen Plan einpassen (0)",
+          "level": "Zoom {{percent}} Prozent",
+          "scaleBar": "Maßstabsbalken: {{length}}"
+        },
+        "compass": {
+          "label": "Kompass: Richtung geografisch Nord auf dem Plan",
+          "input": "Nordwinkel (Grad)",
+          "value": "{{angle}}° im Uhrzeigersinn von oben",
+          "n": "N",
+          "e": "O",
+          "s": "S",
+          "w": "W",
+          "help": "Stelle ein, wo geografisch Norden auf deinem Plan liegt. Drehe das Zifferblatt oder nutze die Pfeiltasten (Umschalt oder Bild auf/ab: 15°-Schritte, Pos1: Norden oben). 0° heißt: Norden ist oben, 90°: Norden zeigt nach rechts.",
+          "invalid": "Gib einen Winkel von 0 bis 360 ein."
+        },
+        "dimensions": {
+          "rect": "{{width}} × {{length}} · {{area}}",
+          "circle": "Ø {{diameter}} · {{area}}",
+          "polygon": "{{width}} × {{length}} · {{area}}",
+          "line": "{{length}}"
         }
       }
     }
