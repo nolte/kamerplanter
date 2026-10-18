@@ -23,7 +23,13 @@ import { loadVectors, type VectorCase } from '@/test/gardenPlanVectors';
  * (`tests/unit/domain/calculators/test_geometry_vectors.py`, REQ-053 §19.6). A test that copied the
  * cases inline would certify nothing.
  */
-const VECTORS = loadVectors();
+const ALL_VECTORS = loadVectors();
+/** The planting-layout operations live in the same file but run in `layout.vectors.test.ts`. */
+const LAYOUT_OPERATIONS = new Set(['layout', 'layout_error']);
+const VECTORS = {
+  ...ALL_VECTORS,
+  cases: ALL_VECTORS.cases.filter((vector) => !LAYOUT_OPERATIONS.has(vector.operation)),
+};
 
 type Input = Record<string, unknown>;
 
@@ -106,13 +112,13 @@ function run(vector: VectorCase): unknown {
 
 describe('garden-plan-vectors.json', () => {
   it('has unique ids', () => {
-    const ids = VECTORS.cases.map((vector) => vector.id);
+    const ids = ALL_VECTORS.cases.map((vector) => vector.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('exercises exactly the documented operations', () => {
     expect(new Set(VECTORS.cases.map((vector) => vector.operation))).toEqual(
-      new Set(Object.keys(VECTORS.operations)),
+      new Set(Object.keys(VECTORS.operations).filter((name) => !LAYOUT_OPERATIONS.has(name))),
     );
   });
 
