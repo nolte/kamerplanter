@@ -43,6 +43,9 @@ _MODEL_TO_COLLECTION: dict[str, str] = {
     "Inspection": col.INSPECTIONS,
     "StorageObservation": col.STORAGE_OBSERVATIONS,
     "CareEvent": col.CARE_EVENTS,
+    # The request base of ``POST /care-events`` and its supersede (WP 4.1, #2400): the same carrier as it is
+    # sent, before it is stored as ``CareEvent``. Mapped (not excused) so a collection change moves both.
+    "_CareEventFields": col.CARE_EVENTS,
 }
 
 
@@ -141,6 +144,8 @@ def test_the_set_is_not_empty():
 _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
     "CareEvent.product_ref": "{kind, key} of a fertilizer / product document (REQ-053 §20.10), not an attachment",
     "CareEvent.source_ref": "{collection, key} of the specialist event it mirrors (§20.10), not an attachment",
+    "CareEventOrigin.source_ref": "the server-side form of CareEvent.source_ref (WP 4.1), not an attachment",
+    "_CareEventFields.product_ref": "{kind, key} of a fertilizer in the request (WP 4.1), not an attachment",
     "Task.source_run_ref": "points at a PlantingRun, not an attachment",
     "Task.external_ref": "an external system's identifier (InvenTree et al.), not a document key",
     "WeatherSourcePublicConfig.api_key_ref": "names a secret in the key store, not an attachment",

@@ -96,6 +96,10 @@ class GBIFSettings(BaseModel):
 #: value the NFR fixes; a larger value stops ``Settings`` from loading, so API and
 #: worker (both import it) refuse to start. ``RetentionService`` re-checks the same
 #: table for a caller that builds it with explicit values.
+#: NFR-011 §4 (SR-005, operator decision): the floor of ``RETENTION_CARE_EVENT_RETENTION_YEARS`` — not a statutory
+#: period but the crop-rotation look-back of REQ-053 GP-FR-103 (Art. 17 para. 3); floor and ceiling are both five.
+CARE_EVENT_MIN_RETENTION_YEARS = 5
+
 RETENTION_CEILINGS: dict[str, int] = {
     "retention_soft_delete_retention_days": 90,  # R-01
     "retention_unverified_account_days": 7,  # R-02
@@ -116,6 +120,10 @@ RETENTION_CEILINGS: dict[str, int] = {
     # #2123 (MT-027) — the cancellable grace between a tenant deletion being accepted and the
     # erasure running. Operator decision 2026-10-04: as long as an account's (R-01), never longer.
     "retention_tenant_erasure_grace_days": 90,  # R-01b
+    # REQ-053 GP-NFR-055 — the care log is kept for the crop-rotation look-back (5 years from
+    # ``performed_at``) and the plan change log for one year; the NFR's own periods are the ceilings.
+    "retention_care_event_retention_years": 5,  # R-25
+    "retention_garden_plan_audit_retention_days": 365,  # R-26
 }
 
 
@@ -920,6 +928,10 @@ class Settings(BaseSettings):
     #: in bursts, not in a stream: 10 a minute is the spec's figure and covers an editor that
     #: saves on every pause with room for a retry after a revision conflict.
     rate_limit_plan_batch: str = "10/minute"
+    #: ``POST /t/{slug}/care-events`` and its supersede / void / redact siblings (REQ-053 GP-NFR-056, SR-017),
+    #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in
+    #: the field with room for a retry, and bounds a runaway client.
+    rate_limit_care_events: str = "60/minute"
     #: ``POST /api/v1/admin/platform/tenant-imports`` (REQ-056 §8.4, #2138), per account: each call reads,
     #: verifies and stores an archive of up to ``TENANT_IMPORT_MAX_UPLOAD_MB``.
     rate_limit_tenant_import: str = "10/hour"
@@ -1206,6 +1218,21 @@ class Settings(BaseSettings):
     #: NFR-011 R-18 / §4 ``INSPECTION_MIN_RETENTION_YEARS`` (#1789) — the same for
     #: inspections, counted from ``inspected_at``; floor PflSchG §11.
     retention_inspection_min_retention_years: int = Field(default=3, ge=3)
+    #: NFR-011 R-25 / REQ-053 GP-NFR-055 (SR-005) — a care event keeps its person fields, free texts and
+    #: photos this many years after ``performed_at`` (the crop-rotation look-back, GP-FR-103); then
+    #: ``retention.anonymize_expired_care_events`` anonymises them. Floor and ceiling are both five (SR-005). For
+    #: ``pest_control`` / ``ipm`` the longer of this and ``retention_treatment_min_retention_years`` (PflSchG §11)
+    #: applies.
+    retention_care_event_retention_years: int = Field(
+        default=5,
+        ge=CARE_EVENT_MIN_RETENTION_YEARS,
+        le=RETENTION_CEILINGS["retention_care_event_retention_years"],
+    )
+    #: NFR-011 R-26 / REQ-053 GP-NFR-055 (SR-011) — a ``garden_plan_audit`` row is hard-deleted this many
+    #: days after ``at`` (``retention.purge_expired_garden_plan_audit``).
+    retention_garden_plan_audit_retention_days: int = Field(
+        default=365, ge=1, le=RETENTION_CEILINGS["retention_garden_plan_audit_retention_days"]
+    )
 
     # REQ-030 Notifications
     vapid_private_key: str = ""

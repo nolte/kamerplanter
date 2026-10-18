@@ -243,17 +243,18 @@ def _gap(issue: int, item: str) -> str:
 #: ``internal`` = set only by server code; ``actor`` = the caller's own user key;
 #: ``not-persisted`` = query or projection model; ``gap:#<issue>:<item>`` = open.
 _REFERENCE_FIELDS: dict[str, str] = {
-    # REQ-053 §20.10. The only writer so far is the bed-status change (WP 1.9): site and location come from the
-    # owned location, the actor is the caller. The rest is empty until the care-event API (WP 4.1) accepts them
-    # from a client; it must then resolve `plant_keys`, `supersedes_key` and `performed_for_user_key` under the
-    # tenant (GP-NFR-058) and reclassify the rows below.
+    # REQ-053 §20.10 (WP 4.1, #2400): `CareEventService` resolves every key of a request under the tenant before it
+    # writes (GP-NFR-058) — the bed through `resolve_owned_location` (site_key is derived from it), `plant_keys`
+    # against the plants standing in the bed's subtree, `performed_for_user_key` against the tenant's active
+    # memberships, `supersedes_key` as the path key under the tenant. `task_key` and `source_ref` come from
+    # `CareEventOrigin`, which no request body can carry; `superseded_by_key` is set by the supersede itself.
     "care_event.CareEvent.site_key": _V,
     "care_event.CareEvent.location_key": _V,
-    "care_event.CareEvent.plant_keys": _I,
+    "care_event.CareEvent.plant_keys": _V,
     "care_event.CareEvent.task_key": _I,
     "care_event.CareEvent.performed_by_user_key": _A,
-    "care_event.CareEvent.performed_for_user_key": _I,
-    "care_event.CareEvent.supersedes_key": _I,
+    "care_event.CareEvent.performed_for_user_key": _V,
+    "care_event.CareEvent.supersedes_key": _V,
     "care_event.CareEvent.superseded_by_key": _I,
     "actuator.Actuator.location_key": _V,
     "actuator.ControlEvent.actuator_key": _I,

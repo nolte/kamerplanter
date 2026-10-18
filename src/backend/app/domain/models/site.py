@@ -104,7 +104,7 @@ class SitePlan(BaseModel):
     adjacency_factor: float = Field(default=DEFAULT_ADJACENCY_FACTOR, gt=0, le=10.0)
     plan_revision: int = Field(default=0, ge=0)
     plan_updated_at: datetime | None = None
-    #: Account key of the last structural change; account erasure handles it in WP 4.1.
+    #: Account key of the last structural change; the account erasure replaces it (GP-NFR-055, ``ErasureEngine``).
     plan_updated_by: str | None = None
 
     @field_validator("north_angle_deg")

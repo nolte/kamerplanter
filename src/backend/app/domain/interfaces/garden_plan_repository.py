@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from app.common.types import SiteKey
@@ -77,6 +78,10 @@ class IGardenPlanRepository(ABC):
     @abstractmethod
     def list_audit(self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int) -> list[PlanAuditEntry]:
         """The site's plan change log, newest first."""
+
+    @abstractmethod
+    def purge_audit_before(self, cutoff: datetime, *, batch: int) -> int:
+        """Hard-delete up to ``batch`` audit rows with ``at`` before ``cutoff`` (NFR-011 R-26); the number removed."""
 
     # ── Single resources (WP 1.9, GP-API-010…015, GP-API-018) ─────────────────
 

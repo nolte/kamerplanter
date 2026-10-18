@@ -115,11 +115,13 @@ TENANT_AGNOSTIC_BEATS: dict[str, str] = {
     "mcp.cleanup_expired_idempotency": _RETENTION,
     "pest_image.sweep_orphaned_prototypes": _STORAGE + " (contributed pest prototypes)",
     "retention.anonymize_consent_ips": _RETENTION + " (R-04a)",
+    "retention.anonymize_expired_care_events": _RETENTION + " (R-25, REQ-053 care log)",
     "retention.execute_scheduled_erasures": _RETENTION,
     "retention.expire_data_exports": _RETENTION + " (export expiry)",
     "retention.expire_email_change_requests": _RETENTION,
     "retention.purge_expired_consent_records": _RETENTION + " (R-04)",
     "retention.purge_expired_erasure_records": _RETENTION + " (R-06)",
+    "retention.purge_expired_garden_plan_audit": _RETENTION + " (R-26, REQ-053 plan audit)",
     "retention.purge_expired_legal_retention_rows": _RETENTION + " (R-16/R-17/R-18)",
     "retention.purge_expired_tenant_erasure_records": _RETENTION + " (R-06a)",
     "retention.redispatch_stale_pending_exports": (
