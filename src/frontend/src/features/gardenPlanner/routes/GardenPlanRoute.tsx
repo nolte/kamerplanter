@@ -25,6 +25,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
+import { useNotification } from '@/hooks/useNotification';
 import { registerLazySlice } from '@/store/lazySlices';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -64,6 +65,7 @@ export default function GardenPlanRoute() {
   const { t } = useTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
+  const notification = useNotification();
   // From md up the properties panel sits beside the plan and takes its width from the drawing.
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
@@ -169,16 +171,21 @@ export default function GardenPlanRoute() {
   const fittedHeight = fitted?.heightPx ?? 0;
   const onSelectBed = useCallback(
     (bed: BedListItem) => {
-      dispatch(setSelection([{ entity: 'location', key: bed.key }]));
       const placed = plan?.locations[bed.key];
-      const geometry = placed?.geometry ?? bed.geometry ?? null;
-      if (!geometry || fittedWidth === 0) return;
-      const bounds = placed?.bbox ?? bed.bbox ?? boundingBox(geometry);
+      const geometry = placed?.geometry ?? null;
+      if (!placed || !geometry) {
+        // A bed that is not drawn yet has nothing to highlight; say so instead of selecting a ghost.
+        notification.info(t('pages.bed.list.notPlaced', { name: bed.name }));
+        return;
+      }
+      dispatch(setSelection([{ entity: 'location', key: bed.key }]));
+      if (fittedWidth === 0) return;
+      const bounds = placed.bbox ?? boundingBox(geometry);
       const next = focusViewport(bounds, fittedWidth, fittedHeight, minPxPerM);
       setView({ siteKey: key, requestId: loadRequestId, ...next });
       document.getElementById(EDITOR_ANCHORS.canvas)?.scrollIntoView?.({ block: 'nearest' });
     },
-    [dispatch, plan, fittedWidth, fittedHeight, minPxPerM, key, loadRequestId],
+    [dispatch, plan, fittedWidth, fittedHeight, minPxPerM, key, loadRequestId, notification, t],
   );
 
   const backLink = (
@@ -239,7 +246,7 @@ export default function GardenPlanRoute() {
       <UnsavedChangesGuard dirty={dirty} />
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
-      {key && plan !== null && loadStatus === 'ready' && (
+      {key && plan !== null && (
         <BedListSection siteKey={key} reloadToken={loadRequestId} onSelectBed={onSelectBed} />
       )}
     </Box>

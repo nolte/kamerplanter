@@ -5979,7 +5979,8 @@
         "hint": "Choose a row to highlight the bed on the plan. The name opens the bed.",
         "empty": "No beds yet",
         "emptyDescription": "Draw a bed on the garden plan and it appears here.",
-        "onlyMineNone": "No beds are assigned to you yet."
+        "onlyMineNone": "No beds are assigned to you yet.",
+        "notPlaced": "\"{{name}}\" is not drawn on the garden plan yet."
       }
     }
   }

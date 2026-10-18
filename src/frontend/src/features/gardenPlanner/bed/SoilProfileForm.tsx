@@ -4,7 +4,7 @@
  * substrate that pre-fills pH and EC. Everything is optional - an empty field stays "unknown", no
  * agronomic value is invented. A viewer sees the values read-only.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +28,6 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { patchSoilProfile } from './bedApi';
 import {
-  EMPTY_SOIL_FORM,
   SUBSTRATE_MEDIA,
   formToSoil,
   soilFormSchema,
@@ -65,10 +64,22 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
   const initial = useMemo(() => soilToForm(profile), [profile]);
   const { control, handleSubmit, reset, setValue, getValues, formState } = useForm<SoilFormData>({
     resolver: zodResolver(soilFormSchema),
-    defaultValues: EMPTY_SOIL_FORM,
-    values: initial,
+    defaultValues: initial,
     disabled: !canEdit,
   });
+
+  // A reload of the summary (after a status change, say) hands in a new profile object. It replaces
+  // the form only when its content changed and the user has no edits of their own to lose.
+  const initialKey = useMemo(() => JSON.stringify(initial), [initial]);
+  const dirtyRef = useRef(false);
+  useEffect(() => {
+    dirtyRef.current = formState.isDirty;
+  });
+  useEffect(() => {
+    if (!dirtyRef.current) reset(initial);
+    // `initial` is derived from `initialKey`; only a change of content may reset the form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialKey, reset]);
 
   const medium = useWatch({ control, name: 'growing_medium_kind' });
   const substrateKey = useWatch({ control, name: 'substrate_key' });

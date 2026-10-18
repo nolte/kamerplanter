@@ -5980,7 +5980,8 @@
         "hint": "Wähle eine Zeile, um das Beet im Plan hervorzuheben. Der Name öffnet das Beet.",
         "empty": "Noch keine Beete",
         "emptyDescription": "Zeichne ein Beet im Gartenplan, dann erscheint es hier.",
-        "onlyMineNone": "Dir sind noch keine Beete zugewiesen."
+        "onlyMineNone": "Dir sind noch keine Beete zugewiesen.",
+        "notPlaced": "„{{name}}“ ist noch nicht im Gartenplan eingezeichnet."
       }
     }
   }

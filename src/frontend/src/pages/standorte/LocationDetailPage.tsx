@@ -130,8 +130,10 @@ export default function LocationDetailPage() {
   const [sublocationCreateOpen, setSublocationCreateOpen] = useState(false);
   const [ancestorChain, setAncestorChain] = useState<{ key: string; name: string }[]>([]);
   const [siteName, setSiteName] = useState<string>('');
-  // REQ-053 GP-API-012: the head data of a bed; `null` for a location that is not one.
-  const [bedSummary, setBedSummary] = useState<BedSummary | null>(null);
+  // REQ-053 GP-API-012: the head data of a bed. It is kept with its key, so the summary of the
+  // location we came from is never shown (or written to) under the one we navigated to.
+  const [loadedSummary, setLoadedSummary] = useState<BedSummary | null>(null);
+  const bedSummary = loadedSummary !== null && loadedSummary.key === key ? loadedSummary : null;
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
@@ -169,9 +171,9 @@ export default function LocationDetailPage() {
   const loadBedSummary = useCallback(async () => {
     if (!key) return;
     try {
-      setBedSummary(await getBedSummary(key));
+      setLoadedSummary(await getBedSummary(key));
     } catch {
-      setBedSummary(null);
+      setLoadedSummary(null);
     }
   }, [key]);
 
@@ -179,9 +181,11 @@ export default function LocationDetailPage() {
     if (!key) return;
     setLoading(true);
     try {
+      // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
+      const summaryLoaded = loadBedSummary();
       const loc = await api.getLocation(key);
       setLocation(loc);
-      await loadBedSummary();
+      await summaryLoaded;
       // Build ancestor breadcrumb chain
       const ancestors: { key: string; name: string }[] = [];
       let current = loc;

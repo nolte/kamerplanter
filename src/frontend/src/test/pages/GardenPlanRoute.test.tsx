@@ -136,6 +136,20 @@ describe('GardenPlanRoute', () => {
     }
   });
 
+  it('does not select a bed that is not drawn yet, and says so', async () => {
+    usePlan(planResponse({ locations: [bed('loc_a', 2, 2)], garden_objects: [] }));
+    server.use(
+      http.get('/api/v1/t/:tenant/locations', () =>
+        HttpResponse.json([bedListItem('loc_x', { name: 'Stock bed', geometry: null, bbox: null })]),
+      ),
+    );
+    const { store } = renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    fireEvent.click((await screen.findByText('Stock bed')).closest('tr')!);
+    expect(await screen.findByText('"Stock bed" is not drawn on the garden plan yet.')).toBeInTheDocument();
+    expect(store.getState().gardenPlan?.selection).toEqual([]);
+  });
+
   it('asks before leaving with unsaved changes and lets the user stay (GP-NFR-005)', async () => {
     usePlan();
     const { store, router } = renderRoute();
