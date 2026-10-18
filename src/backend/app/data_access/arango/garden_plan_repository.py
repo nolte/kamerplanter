@@ -214,6 +214,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             data.plants = self._plants(location_keys, tenant_key)
         if include_tasks and location_keys:
             data.task_counters = self._task_counters(location_keys, tenant_key)
+        object_keys = [obj.key for obj in objects if obj.key]
+        if include_tasks and object_keys:
+            data.object_task_counters = self._object_task_counters(object_keys, tenant_key)
         return data
 
     def _editor_name(self, site_key: SiteKey, tenant_key: str) -> str | None:
@@ -293,6 +296,40 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         return {
             row["location"]: TaskCounter(
+                open_task_count=row["open_count"],
+                overdue_task_count=int(row["overdue"] or 0),
+                next_due_at=row["next_due"],
+            )
+            for row in cursor
+        }
+
+    def _object_task_counters(self, object_keys: list[str], tenant_key: str) -> dict[str, TaskCounter]:
+        """Open tasks per garden object (compost, water source, storage — REQ-053 R-7.2), suggestions not counted."""
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR t IN @@tasks
+                FILTER t.tenant_key == @tenant_key
+                    AND t.status IN @open
+                    AND t.suggested != true
+                    AND t.entity_type == "garden_object"
+                    AND t.entity_key IN @object_keys
+                COLLECT object = t.entity_key AGGREGATE open_count = COUNT(1), next_due = MIN(t.due_date),
+                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@now) ? 1 : 0)
+                RETURN {object, open_count, overdue, next_due}
+            """,
+                bind_vars={
+                    "@tasks": col.TASKS,
+                    "tenant_key": tenant_key,
+                    "open": list(_OPEN_TASK_STATUSES),
+                    "object_keys": object_keys,
+                    "now": _now(),
+                },
+            ),
+        )
+        return {
+            row["object"]: TaskCounter(
                 open_task_count=row["open_count"],
                 overdue_task_count=int(row["overdue"] or 0),
                 next_due_at=row["next_due"],

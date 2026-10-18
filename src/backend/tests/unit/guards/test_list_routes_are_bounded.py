@@ -278,9 +278,14 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", f"{_T}/tasks/workflows/{{wf_key}}/templates"): ("per-parent", "the task templates of one workflow"),
     ("GET", f"{_T}/tasks/queue"): (
         "remaining",
-        "the tenant-wide branch is capped at QUEUE_LIMIT; the ?plant_key branch reads every pending "
+        "the tenant-wide and the ?location_key branch are capped at QUEUE_LIMIT; "
+        "the ?plant_key branch reads every pending "
         "task of one plant, and care-task de-duplication runs after the read, so a window before it "
         "would return short pages",
+    ),
+    ("POST", f"{_T}/tasks/{{key}}/fan-out"): (
+        "write-echo",
+        "answers with the clones it created, one per plant of one bed and at most MAX_FAN_OUT (REQ-053 GP-FR-081)",
     ),
     ("GET", f"{_T}/tasks/overdue"): (
         "remaining",

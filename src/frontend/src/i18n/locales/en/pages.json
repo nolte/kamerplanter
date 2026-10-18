@@ -5350,7 +5350,7 @@
             "short": "Bed"
           },
           "garden_object": {
-            "label": "Draw garden object",
+            "label": "Object: draw garden object",
             "hint": "Draw a garden object such as a path, fence or tree",
             "short": "Object"
           }
@@ -5725,8 +5725,8 @@
           "toggleHint": "Show or hide the grid (G). The snap raster stays active.",
           "unit": "Length unit",
           "unitOption": {
-            "m": "Metres",
-            "cm": "Centimetres"
+            "m": "Metres (m)",
+            "cm": "Centimetres (cm)"
           }
         },
         "snap": {

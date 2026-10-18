@@ -96,8 +96,8 @@ DERIVED_ENTITY_SITES: dict[str, str] = {
     "app/domain/services/favorites_service.py::entity_name_for_collection(target_collection)": (
         "Table lookup over the resolver's own fixed collection list."
     ),
-    "app/domain/services/task_entity_guard.py::entity_name_for_collection(ENTITY_TYPE_TO_COLLECTION[entity_type])": (
-        "Table lookup keyed by ENTITY_TYPE_TO_COLLECTION, which the guard has already membership-tested."
+    "app/domain/services/task_entity_guard.py::entity_name_for_collection(TASK_ENTITY_TYPE_TO_COLLECTION[entity_type])": (  # noqa: E501
+        "Table lookup keyed by TASK_ENTITY_TYPE_TO_COLLECTION, which the guard has already membership-tested."
     ),
     "app/common/tenant_guard.py::resource_name": (
         "The guards' own parameter; call sites are checked through ENTITY_NAME_ARGUMENTS."
@@ -560,11 +560,11 @@ def _collections_reaching_the_fallback() -> dict[str, set[str]]:
             if collection is not None:
                 routes["raw repository"].add(collection)
 
-    from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
+    from app.data_access.arango.task_repository import TASK_ENTITY_TYPE_TO_COLLECTION
     from app.data_access.arango.tenant_ownership import OWNERSHIP_VERIFIABLE_COLLECTIONS
 
     routes["ownership allowlist"] = set(OWNERSHIP_VERIFIABLE_COLLECTIONS)
-    routes["task entity binding"] = set(ENTITY_TYPE_TO_COLLECTION.values())
+    routes["task entity binding"] = set(TASK_ENTITY_TYPE_TO_COLLECTION.values())
 
     declared: set[str] = set()
     for path in sorted((APP_ROOT / "data_access").rglob("*.py")):

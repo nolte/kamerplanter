@@ -268,6 +268,7 @@ class GardenPlanService:
             slots=slots,
             plants=data.plants if "plants" in include else [],
             task_counters=data.task_counters if "tasks" in include else {},
+            object_task_counters=data.object_task_counters if "tasks" in include else {},
             season_states=season_states,
             zones=[],
             included=sorted(include),
