@@ -116,6 +116,8 @@ def test_no_series_is_labelled_by_tenant_person_or_request(api: TestClient, scra
         "minor",
         "patchlevel",
         "version",
+        # REQ-053 care_events_created_total{category}: a closed enum of care kinds, never a person or a tenant.
+        "category",
     }
     for forbidden in ("tenant", "user", "subject", "actor", "request_id", "ip"):
         assert forbidden not in label_names

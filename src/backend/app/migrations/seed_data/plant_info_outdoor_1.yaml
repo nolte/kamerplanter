@@ -207,6 +207,7 @@ new_species:
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b", "9a", "9b"]
     allelopathy_score: 0.4
     frost_sensitivity: hardy
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     traits: [edible, medicinal]
@@ -330,6 +331,7 @@ new_species:
     hardiness_zones: ["3a", "3b", "4a", "4b", "5a", "5b", "6a", "6b", "7a", "7b", "8a", "8b"]
     allelopathy_score: 0.1
     frost_sensitivity: hardy
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     traits: [edible]

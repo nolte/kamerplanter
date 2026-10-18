@@ -33,6 +33,9 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Enthält Cannabis und Hopfen. Meist windbestäubt, hoher Nährstoffbedarf."
     rotation_category: fiber
+    # MISSING: rotation_pause_years — no family-level source (Cannabis 3 is a species
+    # override; no hop source read). Stays null per E-10, operator decision #2371 (2026-10-18).
+    rotation_pause_years: null
 
   - name: Lamiaceae
     common_name_de: "Lippenblütler"
@@ -48,6 +51,10 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Aromatische Kräuter wie Basilikum, Minze, Thymian und Rosmarin. Ätherische Öle."
     rotation_category: herb
+    # REQ-053 K-004/E-10, operator decision #2371 (2026-10-18): LfL Bayern, Kulturanleitungen
+    # Zitronenmelisse (p_20116.pdf) and Pfefferminze: "vier- bis fünfjährige Anbaupause für
+    # alle Lippenblütler" -> lower bound 4 of the sourced range 4-5.
+    rotation_pause_years: 4
 
   - name: Verbenaceae
     common_name_de: "Eisenkrautgewächse"
@@ -115,6 +122,10 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Stickstofffixierende Hülsenfrüchtler. Wichtige Gründünger und Vorfrüchte."
     rotation_category: legume
+    # REQ-053 K-004/E-10, operator decision #2371 (2026-10-18): family value 3 = lower bound of
+    # the species range 3-5 (SBB 2022 Tab. 1 Busch-/Stangenbohne 3-4; Pisum 5, Vicia 4 and
+    # Trifolium 4 stay as species overrides).
+    rotation_pause_years: 3
 
   - name: Cucurbitaceae
     common_name_de: "Kürbisgewächse"
@@ -234,6 +245,10 @@ families:
     soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
     description: "Große Familie mit Erdbeere, Rose, Apfel, Kirsche, Himbeere. Viele Obst- und Zierpflanzen."
     rotation_category: fruit
+    # MISSING: rotation_pause_years — no family-level source (Fragaria 4 is a species
+    # override; garden-advice sites only, no extension service). Stays null per E-10,
+    # operator decision #2371 (2026-10-18).
+    rotation_pause_years: null
 
   - name: Violaceae
     common_name_de: "Veilchengewächse"

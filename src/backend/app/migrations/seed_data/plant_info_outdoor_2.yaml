@@ -1210,7 +1210,7 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.5
-    row_spacing_cm: "400"
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
     light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
@@ -1261,7 +1261,7 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
-    row_spacing_cm: "350"
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
     light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
@@ -1317,7 +1317,7 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
-    row_spacing_cm: "280"
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
     light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
@@ -1371,7 +1371,7 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.5
-    row_spacing_cm: "280"
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
     light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
@@ -1426,7 +1426,7 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
-    row_spacing_cm: "280"
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
     light_requirement: full_sun
     nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
     nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
@@ -1625,6 +1625,7 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     support_required: true
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     pruning_type: winter_pruning
@@ -2012,6 +2013,7 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     pruning_type: after_harvest
@@ -2573,6 +2575,7 @@ species_enrichment:
     frost_sensitivity: hardy
     harvest_months: [5, 6, 7, 8, 9, 10]
     bloom_months: [6, 7, 8]
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     allelopathy_score: 0.2
@@ -2621,6 +2624,7 @@ species_enrichment:
     sowing_indoor_weeks_before_last_frost: 7
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: [5, 6]
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     allelopathy_score: 0.1
@@ -3023,6 +3027,7 @@ species_enrichment:
     bloom_months: [5, 6, 7, 8, 9]
     sowing_outdoor_after_last_frost_days: -21
     direct_sow_months: [3, 4, 5, 8, 9]
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: nitrogen_fixer
     nitrogen_fixing: true
     row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)

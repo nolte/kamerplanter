@@ -128,7 +128,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Pflanzabstand in der Reihe (cm) | 120–150 | `species.spacing_cm` |
-| Reihenabstand (cm) | 280 | `species.row_spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: Wert 280 cm stammt aus Spindel-/Versuchsanlagen des Erwerbsobstbaus (Saechs. LfL) und gilt fuer den Hausgarten nicht; keine Hausgarten-Quelle gelesen (Betreiberentscheidung #2371, E-10) --> | `species.row_spacing_cm` |
 | Quelle Abstände | In der Reihe: RHS, „How to grow gooseberries“, https://www.rhs.org.uk/fruit/gooseberries/grow-your-own („bushes and standards 1.2–1.5m (4–5ft) apart“). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Stachelbeere Spindelerziehung ‚Achilles‘/‚Pax‘, Pflanzabstand 2,80 m × 0,50 m; Versuchsanlage im Erwerbsanbau) | — |
 
 ### 1.10 Lichtbedarf

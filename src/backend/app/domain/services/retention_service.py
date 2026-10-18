@@ -34,6 +34,10 @@ from settings and turned into deadlines or cutoffs:
   purged this many years after its ``harvest_date``/``applied_at``/``inspected_at``
   (``retention.purge_expired_legal_retention_rows``, #1789); the floor is the
   legal minimum;
+* R-25 ``retention_care_event_retention_years`` — a care event of the bed log is anonymised this many years
+  after ``performed_at`` (``retention.anonymize_expired_care_events``, REQ-053 GP-NFR-055); R-26
+  ``retention_garden_plan_audit_retention_days`` — a plan audit row is hard-deleted this many days after ``at``
+  (``retention.purge_expired_garden_plan_audit``);
 * R-06a — the five-year cap on a tenant-erasure record
   (``retention.purge_expired_tenant_erasure_records``, #1793) is the spec's fixed
   :data:`TENANT_ERASURE_RECORD_CAP_YEARS`, not a setting: a shorter cap would drop
@@ -51,7 +55,7 @@ here yet.
 from datetime import UTC, datetime, timedelta
 
 from app.common.datetimes import replace_year
-from app.config.settings import RETENTION_CEILINGS, settings
+from app.config.settings import CARE_EVENT_MIN_RETENTION_YEARS, RETENTION_CEILINGS, settings
 
 #: NFR-011 §2.3 — the legal minimum of each rule (CanG, PflSchG §11), the floor of its setting.
 LEGAL_RETENTION_FLOOR_YEARS: dict[str, int] = {"R-16": 5, "R-17": 3, "R-18": 3}
@@ -81,6 +85,8 @@ class RetentionService:
         harvest_data_retention_years: int | None = None,
         treatment_retention_years: int | None = None,
         inspection_retention_years: int | None = None,
+        care_event_retention_years: int | None = None,
+        garden_plan_audit_retention_days: int | None = None,
     ) -> None:
         self._export_retention_hours = (
             export_retention_hours
@@ -142,6 +148,16 @@ class RetentionService:
             if erasure_member_notice_days is not None
             else settings.retention_erasure_member_notice_days
         )
+        self._care_event_retention_years = (
+            care_event_retention_years
+            if care_event_retention_years is not None
+            else settings.retention_care_event_retention_years
+        )
+        self._garden_plan_audit_retention_days = (
+            garden_plan_audit_retention_days
+            if garden_plan_audit_retention_days is not None
+            else settings.retention_garden_plan_audit_retention_days
+        )
         self._legal_retention_years: dict[str, int] = {
             "R-16": (
                 harvest_data_retention_years
@@ -192,10 +208,17 @@ class RetentionService:
                 self._erasure_member_notice_days,
                 "NFR-011 R-01a: the wait after telling the other members of a personal tenant is at least one day.",
             ),
+            (self._garden_plan_audit_retention_days, "NFR-011 R-26: a plan audit row is kept at least one day."),
         )
         for period, message in floors:
             if period < 1:
                 raise ValueError(message)
+        if self._care_event_retention_years < CARE_EVENT_MIN_RETENTION_YEARS:
+            msg = (
+                f"NFR-011 R-25: a care event is kept at least {CARE_EVENT_MIN_RETENTION_YEARS} years "
+                "(the crop-rotation look-back)."
+            )
+            raise ValueError(msg)
         # The ceilings (NFR-011 §4, AK-14): the settings refuse them at load, and a
         # caller constructing the service with explicit values meets the same wall.
         # The message names the limit, never the offered value.
@@ -211,6 +234,8 @@ class RetentionService:
             (self._consent_ip_anonymization_days, "retention_consent_ip_anonymization_days", "R-04a"),
             (self._invitation_retention_days, "retention_invitation_retention_days", "R-12"),
             (self._erasure_member_notice_days, "retention_erasure_member_notice_days", "R-01a"),
+            (self._care_event_retention_years, "retention_care_event_retention_years", "R-25"),
+            (self._garden_plan_audit_retention_days, "retention_garden_plan_audit_retention_days", "R-26"),
         )
         for period, setting_name, rule in ceilings:
             if period > RETENTION_CEILINGS[setting_name]:
@@ -315,6 +340,29 @@ class RetentionService:
         now = now.astimezone(UTC)
         return replace_year(now, now.year - self._legal_retention_years[rule]).replace(microsecond=0)
 
+    def care_event_anonymisation_cutoff(self, now: datetime) -> datetime:
+        """Return the ``performed_at`` before which a care event is anonymised (NFR-011 R-25, REQ-053 GP-NFR-055).
+
+        Calendar years back from *now*, like :meth:`erasure_record_purge_cutoff`: "5 Jahre ab ``performed_at``"
+        must never be undercut by ``365 * years`` days. UTC, whole seconds.
+        """
+        now = now.astimezone(UTC)
+        return replace_year(now, now.year - self._care_event_retention_years).replace(microsecond=0)
+
+    def care_event_pflschg_cutoff(self, now: datetime) -> datetime:
+        """Return the ``performed_at`` before which a ``pest_control`` / ``ipm`` care event is anonymised (R-25).
+
+        The longer of the care-event period and the treatment period (R-17, PflSchG §11) wins, so the cutoff is
+        the earlier of the two instants.
+        """
+        now = now.astimezone(UTC)
+        years = max(self._care_event_retention_years, self._legal_retention_years["R-17"])
+        return replace_year(now, now.year - years).replace(microsecond=0)
+
+    def garden_plan_audit_purge_cutoff(self, now: datetime) -> datetime:
+        """Return the ``at`` before which a plan audit row is hard-deleted (NFR-011 R-26, REQ-053 GP-NFR-055)."""
+        return now.astimezone(UTC) - timedelta(days=self._garden_plan_audit_retention_days)
+
     def tenant_erasure_record_purge_cutoff(self, now: datetime) -> datetime:
         """Return the completion time before which a tenant-erasure record goes regardless (NFR-011 R-06a, #1793)."""
         now = now.astimezone(UTC)
@@ -388,6 +436,14 @@ class RetentionService:
     @property
     def invitation_retention_days(self) -> int:
         return self._invitation_retention_days
+
+    @property
+    def care_event_retention_years(self) -> int:
+        return self._care_event_retention_years
+
+    @property
+    def garden_plan_audit_retention_days(self) -> int:
+        return self._garden_plan_audit_retention_days
 
     def legal_retention_years(self, rule: str) -> int:
         return self._legal_retention_years[rule]

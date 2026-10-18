@@ -27,6 +27,7 @@ from pydantic import BaseModel
 from app.common.exceptions import NotFoundError, PlanError, PlanRevisionConflictError, WriteConflictError
 from app.common.types import SiteKey
 from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.query_builder import aql_field
@@ -93,8 +94,7 @@ _BATCH_WRITE = tuple(
             col.SLOTS,
             col.GARDEN_OBJECTS,
             col.GARDEN_PLAN_AUDIT,
-            col.CARE_EVENTS,
-            col.CARE_EVENT_AT,
+            *CARE_EVENT_WRITE_COLLECTIONS,
             col.CONTAINS,
             col.HAS_GARDEN_OBJECT,
             *(edge for edge, _ in (*_LOCATION_EDGES, *_SLOT_EDGES, *_OBJECT_EDGES)),
@@ -716,20 +716,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         """The care events of the write (a bed-status change), each with its ``care_event_at`` edge to the bed."""
         if not write.care_events:
             return
-        events = txn.collection(col.CARE_EVENTS)
-        edges = txn.collection(col.CARE_EVENT_AT)
         for event in write.care_events:
-            doc = _dump(event, by_alias=True, exclude_none=True, mode="json")
-            doc.pop("_key", None)
-            doc["created_at"] = now
-            created = events.insert(doc, return_new=True)
-            edges.insert(
-                {
-                    "_from": f"{col.CARE_EVENTS}/{created['_key']}",
-                    "_to": f"{col.LOCATIONS}/{event.location_key}",
-                    "created_at": now,
-                }
-            )
+            write_care_event(txn, event, now)
 
     def _write_audit(self, txn: StreamTransaction, write: PlanBatchWrite, revision: int, now: str) -> None:
         if not write.audit:
@@ -749,6 +737,33 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 at=datetime.fromisoformat(now),
             )
             audit.insert(_dump(record, mode="json"))
+
+    def purge_audit_before(self, cutoff: datetime, *, batch: int) -> int:
+        """Hard-delete up to ``batch`` audit rows with ``at`` before ``cutoff`` (NFR-011 R-26, REQ-053 GP-NFR-055).
+
+        A row whose ``at`` cannot be read as an instant is never selected (``DATE_TIMESTAMP`` of it is ``null``,
+        which would order below every cutoff).
+        """
+        bind_vars: dict[str, Any] = {
+            "@audit": col.GARDEN_PLAN_AUDIT,
+            "cutoff": cutoff.astimezone(UTC).isoformat(),
+            "batch": batch,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@audit
+                LET at = DATE_TIMESTAMP(a.at)
+                FILTER at != null AND at < DATE_TIMESTAMP(@cutoff)
+                LIMIT @batch
+                REMOVE a IN @@audit
+                RETURN 1
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return sum(1 for _ in cursor)
 
     # ── Single resources (WP 1.9) ─────────────────────────────────────
 

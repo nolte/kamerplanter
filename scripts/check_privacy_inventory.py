@@ -226,6 +226,11 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     # #2138 (REQ-056 §8) — a line of a tenant archive (members.jsonl), written into the ZIP the export
     # stores for 72 h (NFR-011 R-05, retention.expire_data_exports) and parsed in memory on import.
     "TenantArchiveMember": "a line of a tenant archive (members.jsonl), held in the ZIP, never in a collection",
+    # REQ-053 WP 4.1 (#2400) — what a client sends or the API shows; the stored form is ``CareEvent``.
+    "_CareEventFields": "request base of the care-event bodies; the stored form is CareEvent (care_events)",
+    "CareEventInput": "request body of POST /care-events; the stored form is CareEvent (care_events)",
+    "CareEventCorrection": "request body of POST /care-events/{key}/supersede; the stored form is CareEvent",
+    "CareEventView": "read projection of a stored CareEvent with display names (the API never shows an account key)",
     "TakeoverReceipt": (
         "no collection of its own: kept in memory for one take-over decision, and only when its undo failed "
         "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it; "

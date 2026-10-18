@@ -9,6 +9,7 @@ from arango.database import StandardDatabase
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.enrichment_repository import (
@@ -84,11 +85,13 @@ from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.services.auth_service import AuthService
+from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.companion_edge_service import CompanionEdgeService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
+from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
@@ -438,6 +441,32 @@ def get_garden_resource_service() -> GardenResourceService:
         get_garden_plan_repo(),
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
+    )
+
+
+def get_care_event_repo() -> ArangoCareEventRepository:
+    """REQ-053 WP 4.1 — the care log (``care_events``)."""
+    return ArangoCareEventRepository(get_db())
+
+
+def get_care_event_service() -> CareEventService:
+    """REQ-053 WP 4.1 — create, supersede, void and redact the care events of a bed."""
+    return CareEventService(
+        get_care_event_repo(),
+        get_site_repo(),
+        get_membership_repo(),
+        get_fertilizer_repo(),
+        get_attachment_repo(),
+        get_attachment_service(),
+    )
+
+
+def get_garden_plan_retention_service() -> GardenPlanRetentionService:
+    """REQ-053 GP-NFR-055 — the R-25 / R-26 retention sweeps of the care log and the plan audit."""
+    from app.domain.services.retention_service import RetentionService
+
+    return GardenPlanRetentionService(
+        get_care_event_repo(), get_garden_plan_repo(), get_attachment_service(), RetentionService()
     )
 
 

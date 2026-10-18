@@ -592,6 +592,20 @@ class AttachmentService:
         )
         return deleted
 
+    async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
+        """Delete the attachment unless a carrier still references it (a redacted care event let go of it, #2400).
+
+        The reference scan is the one the task-photo route and the orphan sweep share
+        (:meth:`IAttachmentRepository.task_photo_delete_state`, here asked with no task to discount): a photo
+        another task, plant gallery, diary entry or care event still lists stays — sha256 deduplication gives one
+        stored object to several carriers, and deleting it would strand their references. Idempotent: an unknown
+        id returns ``False``.
+        """
+        state, _created_by = self._repo.task_photo_delete_state(attachment_id, tenant_key, task_key="")
+        if state != "staged":
+            return False
+        return await self.delete(attachment_id, tenant_key)
+
     def _object_keys(self, attachment: Attachment) -> list[str]:
         """The stored object of *attachment* and its renditions."""
         return [

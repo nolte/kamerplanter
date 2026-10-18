@@ -37,6 +37,19 @@ GARDEN_PLAN_SIZE_OBJECTS = Gauge(
 )
 
 
+CARE_EVENTS_CREATED = Counter(
+    "care_events_created_total",
+    "Care events written to the bed log, by category (REQ-053 GP-NFR-061, WP 4.1).",
+    ("category",),
+    registry=REGISTRY,
+)
+
+
+def record_care_event_created(category: str) -> None:
+    """Count one care event written. ``category`` is a validated enum value (closed set), never user text."""
+    CARE_EVENTS_CREATED.labels(category=category).inc()
+
+
 def size_class(object_count: int) -> str:
     """The §25.1 bucket of a plan with *object_count* locations and garden objects."""
     if object_count <= SIZE_SMALL_MAX:

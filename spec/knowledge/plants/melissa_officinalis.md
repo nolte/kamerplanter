@@ -382,7 +382,7 @@ Zitronenmelisse ist Lamiaceae — wie Salbei, Thymian und Oregano ein mediterran
 | Zehrerstufe — Quelle | Sammelgruppe „Kräuter“ als Schwachzehrer (Melisse nicht namentlich): Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „… Kräuter, Spinat“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; „Schwachzehrern, also alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm |
 | Zehrerstufe — Konfidenz | low |
 | Stickstofffixierer | false (Lippenblütler, keine Leguminose; LfL Bayern, „Kulturanleitung für Zitronenmelisse“ führt Leguminosen als eigene Vorfruchtgruppe neben den Lippenblütlern, https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf) |
-| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Kulturanleitung für Zitronenmelisse“: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“; Untergrenze der belegten Spanne 4–5; Familienwert Lamiaceae im Seed nicht gesetzt), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Kulturanleitung für Zitronenmelisse“: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“; Untergrenze der belegten Spanne 4–5; Familienwert Lamiaceae 4 in botanical_families.yaml (Betreiberentscheidung #2371, gleiche LfL-Quelle)), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20116.pdf |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

@@ -485,6 +485,7 @@ Basilikum (Ocimum basilicum) als Art hat kaum natuerliche Resistenzen. Die groes
 | Zehrerstufe | medium_feeder |
 | Zehrerstufe — Quelle | LWG Bayern, Merkblatt 2151 „Basilikum - ein koenigliches Kraut“ (2020; „Die Pflanzen besitzen ein mittleres Naehrstoffbeduerfnis“), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf; abweichend Landwirtschaftskammer NRW, „Fruchtfolge im Gemuesegarten planen“ (2020; nur Gruppenangabe: Kraeuter zaehlen zu den Schwachzehrern), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm |
 | Zehrerstufe — Konfidenz | low |
+| Vorrang Zehrerfelder | Betreiberentscheidung #2371 (2026-10-18): bei Widerspruch gewinnt das quellenbelegte `nutrient_demand` (dieser Abschnitt) gegenüber `nutrient_demand_level` (Abschnitt 1); `nutrient_demand_level` bleibt als Altfeld stehen (EC-Skalierung). Konflikt: spec/analysis/req-053-steckbrief-gaps.md |
 | Stickstofffixierer | false (keine Leguminose; LWG Bayern 2020 fuehrt Basilikum als Lippenbluetler, https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf) |
 | Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: LWG Merkblatt 2151 nennt nur „mehrere Jahre“ ohne Zahl; keine Quelle fuer einen artspezifischen Wert --> |
 

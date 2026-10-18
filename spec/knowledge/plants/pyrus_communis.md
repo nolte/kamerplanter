@@ -141,7 +141,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Pflanzabstand in der Reihe (cm) | 350–550 | `species.spacing_cm` |
-| Reihenabstand (cm) | 350 | `species.row_spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: Wert 350 cm stammt aus Spindel-/Versuchsanlagen des Erwerbsobstbaus (Saechs. LfL) und gilt fuer den Hausgarten nicht; keine Hausgarten-Quelle gelesen (Betreiberentscheidung #2371, E-10) --> | `species.row_spacing_cm` |
 | Quelle Abstände | In der Reihe: RHS, „How to grow pears“, https://www.rhs.org.uk/fruit/pears/grow-your-own („space trees 3.5–5.5m (11–18ft) apart if grafted on ‘Quince A’ rootstock“; auf ‘Quince C’/‘Quince Eline’ 2,5–3,5 m, Espalier/Fächer mind. 3,6 m, Cordon ca. 75 cm). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Berichte aus dem Obstbau“, Schriftenreihe Heft 4/2004, https://publikationen.sachsen.de/bdb/artikel/14041/documents/16506 („Der Reihenabstand betrug 3,5 m“, Birnen-Unterlagenversuch, Spindeln, Erwerbsanbau) | — |
 
 ### 1.10 Lichtbedarf

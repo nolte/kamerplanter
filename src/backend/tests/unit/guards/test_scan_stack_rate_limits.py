@@ -108,6 +108,10 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
     "rate_limit_invitation_email": "Authenticated tenant invitation: 401 x 25 anonymously.",
     "rate_limit_notification_test": "Authenticated notification test send: 401 x 25 anonymously.",
     "rate_limit_export": "Authenticated /print routes, per account: 401 x 25 anonymously.",
+    "rate_limit_care_events": (
+        "Authenticated care-log writes (POST /t/{slug}/care-events and its supersede / void siblings): "
+        "401 x 25 anonymously."
+    ),
     "rate_limit_plan_batch": (
         "Authenticated garden-plan writes (POST /t/{slug}/sites/{key}/plan/batch, PUT …/plan/boundary): "
         "401 x 25 anonymously."

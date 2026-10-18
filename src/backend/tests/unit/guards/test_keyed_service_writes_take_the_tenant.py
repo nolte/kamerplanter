@@ -352,11 +352,17 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "PlantPhotoService": "plant_photo_service.py",
     "GardenPlanService": "garden_plan_service.py",
     "GardenResourceService": "garden_resource_service.py",
+    "CareEventService": "care_event_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
 #: twenty and more; a smaller class is pinned at its measured count so an emptied match still fails.
-_MIN_TENANT_METHODS: dict[str, int] = {"PlantPhotoService": 10, "GardenPlanService": 6, "GardenResourceService": 12}
+_MIN_TENANT_METHODS: dict[str, int] = {
+    "PlantPhotoService": 10,
+    "GardenPlanService": 6,
+    "GardenResourceService": 12,
+    "CareEventService": 7,
+}
 _DEFAULT_MIN_TENANT_METHODS = 20
 
 
@@ -437,6 +443,11 @@ def test_the_whole_class_rule_finds_a_planted_positional_tenant(tmp_path: Path) 
 _ANCHORED_SERVICES: dict[str, str] = {
     "GardenPlanService": "garden_plan_service.py",
     "GardenResourceService": "garden_resource_service.py",
+    # REQ-053 WP 4.1 (#2400): the care log resolves the bed through ``resolve_owned_location`` and loads its own
+    # events through ``repo.get`` — no ``get…_by_key`` — so the keyed-write selector above is blind to
+    # create / supersede / void / redact too. ``build_event`` is no writer but is public API for the callers that
+    # write in their own transaction, and it resolves the bed: it takes the tenant like the rest.
+    "CareEventService": "care_event_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
@@ -450,6 +461,10 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "GardenResourceService.delete_garden_object",
         "GardenResourceService.patch_slot",
         "GardenResourceService.replace_slots",
+        "CareEventService.create",
+        "CareEventService.supersede",
+        "CareEventService.void",
+        "CareEventService.redact",
     }
 )
 

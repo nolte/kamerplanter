@@ -15,6 +15,7 @@ from app.api.v1.actuators.tenant_router import router as tenant_actuators_router
 from app.api.v1.aquaponik.tenant_router import router as tenant_aquaponics_router
 from app.api.v1.attachments.tenant_router import router as tenant_attachments_router
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
+from app.api.v1.care_events.tenant_router import router as tenant_care_events_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
 from app.api.v1.dashboard.tenant_router import router as tenant_dashboard_router
 from app.api.v1.diagnose.tenant_router import router as tenant_diagnosis_router
@@ -79,6 +80,8 @@ tenant_scoped_router.include_router(tenant_sites_router)
 tenant_scoped_router.include_router(tenant_garden_plan_router)
 # REQ-053 WP 1.9 — garden-object CRUD (/sites/{key}/garden-objects, /garden-objects/{key}).
 tenant_scoped_router.include_router(tenant_garden_objects_router)
+# REQ-053 WP 4.1 — the care log (/care-events).
+tenant_scoped_router.include_router(tenant_care_events_router)
 # REQ-023 §5b (#2137) — the tenant's service accounts (lead ∧ technical, step-up on every write).
 tenant_scoped_router.include_router(tenant_service_accounts_router)
 tenant_scoped_router.include_router(tenant_locations_router)

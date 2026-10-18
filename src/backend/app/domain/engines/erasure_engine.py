@@ -158,8 +158,8 @@ class ErasureEngine:
                 "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
                 "retained; the reference to the account that carried out the care"
                 " is removed and the API shows 'anonymisiert'. "
-                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
-                "(WP 4.x, R-17)."
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
             ),
         ),
         AnonymizationRule(
@@ -170,8 +170,8 @@ class ErasureEngine:
                 "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
                 "retained; the reference to the account the care was done for (a deputy entry, GP-FR-089)"
                 " is removed and the API shows 'anonymisiert'. "
-                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
-                "(WP 4.x, R-17)."
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
             ),
         ),
         AnonymizationRule(
@@ -182,8 +182,8 @@ class ErasureEngine:
                 "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
                 "retained; the reference to the account that logged the entry"
                 " is removed and the API shows 'anonymisiert'. "
-                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
-                "(WP 4.x, R-17)."
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
             ),
         ),
         AnonymizationRule(
@@ -194,8 +194,8 @@ class ErasureEngine:
                 "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
                 "retained; the reference to the account that voided the entry"
                 " is removed and the API shows 'anonymisiert'. "
-                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
-                "(WP 4.x, R-17)."
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
             ),
         ),
         AnonymizationRule(
@@ -206,8 +206,8 @@ class ErasureEngine:
                 "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
                 "retained; the reference to the lead that redacted the entry"
                 " is removed and the API shows 'anonymisiert'. "
-                "The PflSchG categories (pest_control, ipm) get tombstone pseudonymisation with the care-event API "
-                "(WP 4.x, R-17)."
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
             ),
         ),
         AnonymizationRule(
