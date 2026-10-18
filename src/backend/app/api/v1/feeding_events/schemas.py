@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ── FeedingEvent schemas ────────────────────────────────────────────
 
@@ -48,6 +48,8 @@ class FeedingEventResponse(BaseModel):
     application_method: str
     is_supplemental: bool
     tank_fill_event_key: str | None
+    #: ``0`` for a dry dose (``g`` / ``kg`` / ``g_per_m2``) that a bed-task completion logged without a volume
+    #: (REQ-053 WP 4.3): the clients treat the field as a number, and a dry dose applied no litres.
     volume_applied_liters: float
     fertilizers_used: list[FeedingFertilizerSchema]
     measured_ec_before: float | None
@@ -60,6 +62,11 @@ class FeedingEventResponse(BaseModel):
     notes: str | None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    @field_validator("volume_applied_liters", mode="before")
+    @classmethod
+    def _dry_dose_applied_no_litres(cls, value: object) -> object:
+        return 0.0 if value is None else value
 
 
 class RunoffAnalysisResponse(BaseModel):

@@ -44,6 +44,7 @@ from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.data_access.arango.succession_plan_repository import ArangoSuccessionPlanRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
+from app.data_access.arango.task_completion_repository import ArangoTaskCompletionRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
 from app.data_access.arango.user_repository import ArangoUserRepository
@@ -977,6 +978,11 @@ def get_notification_propagation_service() -> NotificationPropagationService:
     return NotificationPropagationService(get_notification_repo())
 
 
+def get_task_completion_repo() -> ArangoTaskCompletionRepository:
+    """REQ-053 WP 4.3 — the stream transactions of the task completion and its undo."""
+    return ArangoTaskCompletionRepository(get_db())
+
+
 def get_task_service() -> TaskService:
     return TaskService(
         get_task_repo(),
@@ -991,6 +997,12 @@ def get_task_service() -> TaskService:
         membership_lookup=lambda user_key, tenant_key: get_membership_repo().get_by_user_and_tenant(
             user_key, tenant_key
         ),
+        # REQ-053 WP 4.3 (ADR-008 phase 3 for tasks): the atomic completion over the task, the care-log line and the
+        # specialist document. Without these three a completion closes the task alone.
+        completion=get_task_completion_repo(),
+        care_events=get_care_event_service(),
+        harvests=get_harvest_service(),
+        fertilizers=get_fertilizer_repo(),
     )
 
 

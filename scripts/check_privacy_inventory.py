@@ -231,6 +231,12 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     "CareEventInput": "request body of POST /care-events; the stored form is CareEvent (care_events)",
     "CareEventCorrection": "request body of POST /care-events/{key}/supersede; the stored form is CareEvent",
     "CareEventView": "read projection of a stored CareEvent with display names (the API never shows an account key)",
+    # REQ-053 WP 4.3 (#2413) — values that cross the layers of the task completion; nothing stores them as such.
+    "CompletionActor": "the verified caller of a completion (token user + role), built per request, never stored",
+    "UndoWrite": (
+        "write set of reopen-with-undo handed to the repository; its voided_by lands in care_events.voided_by, "
+        "which the erasure inventory covers (CareEvent)"
+    ),
     "TakeoverReceipt": (
         "no collection of its own: kept in memory for one take-over decision, and only when its undo failed "
         "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it; "
@@ -245,7 +251,8 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: removal of more than four such fields lowers it here, in the same change.
 #: 51 since #1855: 55 measured (TakeoverReceipt's account references, in memory only).
 #: 54 after #2138 met #1855 on 2026-10-12: 58 measured (both changes' fields together).
-MIN_USER_REFERENCE_FIELDS = 66
+#: 68 after REQ-053 WP 4.3 (#2413): 73 measured (the completion's CompletionActor and UndoWrite, in memory only).
+MIN_USER_REFERENCE_FIELDS = 68
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:

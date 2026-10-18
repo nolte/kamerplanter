@@ -285,6 +285,34 @@ class TestReads:
         assert client(TenantRole.VIEWER).get(_OWN).status_code == 200
 
 
+class TestFilterByMember:
+    """#2411 item 1 (SR-020): a viewer or grower filters by themselves only; a lead (or management) by anyone."""
+
+    @pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.GROWER])
+    def test_a_viewer_or_grower_may_filter_by_themselves(self, client, role) -> None:
+        entry = logged(client)
+
+        response = client(role).get(_OWN, params={"performed_by": "u_sabine"})
+
+        assert response.status_code == 200
+        assert [row["key"] for row in response.json()] == [entry["key"]]
+
+    @pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.GROWER])
+    def test_a_viewer_or_grower_may_not_filter_by_a_colleague(self, client, role) -> None:
+        logged(client)
+
+        response = client(role).get(_OWN, params={"performed_by": "u_tom"})
+
+        assert response.status_code == 403
+
+    def test_a_lead_may_filter_by_a_colleague(self, client) -> None:
+        logged(client)
+
+        response = client(TenantRole.LEAD).get(_OWN, params={"performed_by": "u_sabine"})
+
+        assert response.status_code == 200 and len(response.json()) == 1
+
+
 class TestAnotherTenantSeesNothing:
     """GP-NFR-050, GP-ACC-041 — the cross-tenant negative test of every route.
 

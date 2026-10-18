@@ -932,6 +932,11 @@ class Settings(BaseSettings):
     #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in
     #: the field with room for a retry, and bounds a runaway client.
     rate_limit_care_events: str = "60/minute"
+    #: ``POST /t/{slug}/tasks/{key}/complete``, ``POST …/tasks/batch/status`` and ``POST …/tasks/{key}/reopen``
+    #: (REQ-053 GP-FR-083/088/149, WP 4.3), per account. Each call is one Arango transaction over the task, its
+    #: care-log line and its specialist document; a batch carries up to 200 tasks. 120 a minute covers a round of
+    #: "Erledigt" taps and undo snackbars in the field (the UI debounces at 300 ms) and bounds a runaway client.
+    rate_limit_task_completion: str = "120/minute"
     #: ``POST /t/{slug}/locations/{key}/quick-planting`` and ``…/clear`` (REQ-053 GP-NFR-056, SR-017), per account.
     #: Each call is one transaction that writes up to ``QUICK_PLANTING_MAX_QUANTITY`` plants (quick-planting) or
     #: ends every run of a bed (clear); a grower in the garden taps through a few beds, not a stream, and a

@@ -287,6 +287,14 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "feeding_event.FeedingEvent.plant_key": _V,
     "feeding_event.FeedingEvent.tank_fill_event_key": _V,  # through the tank (#1872 C6)
     "feeding_event.FeedingEvent.watering_event_key": _I,
+    # REQ-053 WP 4.3: a feeding logged by a bed task completion. Every key is resolved under the tenant by the
+    # care-event service in the same write (build_event: the bed through location_ownership, the plants as a subset of
+    # the bed's, the product through the visible-fertilizer check — and again by the engine, #1713); the task is
+    # the one loaded by TaskService.get_task under the tenant.
+    "feeding_event.FeedingEvent.location_key": _V,
+    "feeding_event.FeedingEvent.plant_keys": _V,
+    "feeding_event.FeedingEvent.product_key": _V,
+    "feeding_event.FeedingEvent.task_key": _V,
     "fertilizer.FertilizerStock.fertilizer_key": _V,
     "ha_publish_setting.HaPublishSetting.entity_key": _V,  # #1872 C8
     "harvest.HarvestBatch.plant_key": _V,

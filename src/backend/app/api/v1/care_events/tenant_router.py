@@ -43,14 +43,25 @@ def _as_utc(moment: datetime | None) -> datetime | None:
     return moment.replace(tzinfo=UTC) if moment is not None and moment.tzinfo is None else moment
 
 
-@router.get("", response_model=list[CareEventResponse], summary="List the care log")
+@router.get(
+    "",
+    response_model=list[CareEventResponse],
+    summary="List the care log",
+    responses=FORBIDDEN_RESPONSE,
+)
 def list_care_events(
     location_key: str | None = Query(None, description="Only the events of this bed."),
     plant_key: str | None = Query(None, description="Only the events that name this plant."),
     category: str | None = Query(None, description="Only this category."),
     performed_from: datetime | None = Query(None, alias="from", description="`performed_at` from (inclusive)."),
     performed_to: datetime | None = Query(None, alias="to", description="`performed_at` until (inclusive)."),
-    performed_by: str | None = Query(None, description="Account key of a member, as the member list names it."),
+    performed_by: str | None = Query(
+        None,
+        description=(
+            "Account key of a member, as the member list names it. A viewer or grower may name only themselves; "
+            "a lead or a member with the management scope may name anyone (403 otherwise)."
+        ),
+    ),
     include_superseded: bool = Query(False, description="Also the entries a correction replaced."),
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
@@ -58,7 +69,8 @@ def list_care_events(
 ) -> list[CareEventResponse]:
     """The tenant's care log, newest first (GP-API-034, GP-FR-107); the last 90 days when no range is given.
 
-    `performed_by` is shown as a display name or `anonymisiert`, never as an account key.
+    `performed_by` is shown as a display name or `anonymisiert`, never as an account key. Filtering by another
+    member needs the lead role or the management scope (a per-person activity timeline, SR-020).
     """
     if category is not None and category not in CARE_EVENT_CATEGORIES:
         raise ValidationError(
@@ -78,7 +90,13 @@ def list_care_events(
         include_superseded=include_superseded,
     )
     views = service.list_window(
-        criteria, tenant_key=ctx.tenant_key, user_key=ctx.user_key, offset=pagination.offset, limit=pagination.limit
+        criteria,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        admin_scopes=ctx.admin_scopes,
+        offset=pagination.offset,
+        limit=pagination.limit,
     )
     return [care_event_to_response(view) for view in views]
 

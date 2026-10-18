@@ -17,8 +17,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
+from app.common.enums import AdminScope, TenantRole
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
 from app.domain.interfaces.care_event_repository import CareEventFilter
 from app.domain.models.care_event import (
     REDACTED,
@@ -357,12 +357,13 @@ class TestSupersede:
         second = service.supersede(first.key, correction_for(), tenant_key=TENANT, user_key=USER, role=GROWER).event
 
         default = service.list_window(
-            CareEventFilter(location_key="bed"), tenant_key=TENANT, user_key=USER, offset=0, limit=50
+            CareEventFilter(location_key="bed"), tenant_key=TENANT, user_key=USER, role=GROWER, offset=0, limit=50
         )
         both = service.list_window(
             CareEventFilter(location_key="bed", include_superseded=True),
             tenant_key=TENANT,
             user_key=USER,
+            role=GROWER,
             offset=0,
             limit=50,
         )
@@ -674,11 +675,14 @@ class TestReads:
         recent = create(service, input_for(performed_at=datetime.now(UTC) - timedelta(days=10))).event
         old = create(service, input_for(performed_at=datetime.now(UTC) - timedelta(days=200))).event
 
-        shown = service.list_window(CareEventFilter(), tenant_key=TENANT, user_key=USER, offset=0, limit=50)
+        shown = service.list_window(
+            CareEventFilter(), tenant_key=TENANT, user_key=USER, role=GROWER, offset=0, limit=50
+        )
         explicit = service.list_window(
             CareEventFilter(performed_from=datetime.now(UTC) - timedelta(days=300)),
             tenant_key=TENANT,
             user_key=USER,
+            role=GROWER,
             offset=0,
             limit=50,
         )
@@ -693,19 +697,148 @@ class TestReads:
         ).event
 
         for criteria in (CareEventFilter(location_key="bed"), CareEventFilter(plant_key="pi_here")):
-            shown = service.list_window(criteria, tenant_key=TENANT, user_key=USER, offset=0, limit=50)
+            shown = service.list_window(criteria, tenant_key=TENANT, user_key=USER, role=GROWER, offset=0, limit=50)
             assert [v.event.key for v in shown] == [old.key]
-        assert service.list_window(CareEventFilter(), tenant_key=TENANT, user_key=USER, offset=0, limit=50) == []
+        assert (
+            service.list_window(CareEventFilter(), tenant_key=TENANT, user_key=USER, role=GROWER, offset=0, limit=50)
+            == []
+        )
 
     def test_the_list_of_another_tenant_is_empty_and_a_foreign_bed_filter_is_404(self, world):
         service, *_ = world
         create(service)
 
         assert (
-            service.list_window(CareEventFilter(), tenant_key=OTHER_TENANT, user_key="u_foreign", offset=0, limit=50)
+            service.list_window(
+                CareEventFilter(), tenant_key=OTHER_TENANT, user_key="u_foreign", role=GROWER, offset=0, limit=50
+            )
             == []
         )
         with pytest.raises(NotFoundError):
             service.list_window(
-                CareEventFilter(location_key="loc_foreign"), tenant_key=TENANT, user_key=USER, offset=0, limit=50
+                CareEventFilter(location_key="loc_foreign"),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=GROWER,
+                offset=0,
+                limit=50,
             )
+
+
+class TestFilterByMember:
+    """#2411 item 1 (SR-020): a viewer or grower filters by themselves only; a lead or management by anyone."""
+
+    @pytest.mark.parametrize("role", [VIEWER, GROWER])
+    def test_a_viewer_or_grower_may_filter_by_themselves(self, world, role):
+        service, *_ = world
+        mine = create(service)
+
+        shown = service.list_window(
+            CareEventFilter(location_key="bed", performed_by=USER),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=role,
+            offset=0,
+            limit=50,
+        )
+
+        assert [v.event.key for v in shown] == [mine.event.key]
+
+    @pytest.mark.parametrize("role", [VIEWER, GROWER])
+    def test_a_viewer_or_grower_may_not_filter_by_another_member(self, world, role):
+        service, *_ = world
+        create(service)
+
+        with pytest.raises(ForbiddenError):
+            service.list_window(
+                CareEventFilter(performed_by="u_colleague"),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=role,
+                offset=0,
+                limit=50,
+            )
+
+    def test_a_lead_may_filter_by_anyone(self, world):
+        service, *_ = world
+        mine = create(service)
+
+        shown = service.list_window(
+            CareEventFilter(location_key="bed", performed_by=USER),
+            tenant_key=TENANT,
+            user_key="u_lead",
+            role=LEAD,
+            offset=0,
+            limit=50,
+        )
+        none = service.list_window(
+            CareEventFilter(location_key="bed", performed_by="u_colleague"),
+            tenant_key=TENANT,
+            user_key="u_lead",
+            role=LEAD,
+            offset=0,
+            limit=50,
+        )
+
+        assert [v.event.key for v in shown] == [mine.event.key]
+        assert none == []
+
+    def test_a_viewer_with_the_management_scope_may_filter_by_anyone(self, world):
+        service, *_ = world
+        mine = create(service)
+
+        shown = service.list_window(
+            CareEventFilter(location_key="bed", performed_by=USER),
+            tenant_key=TENANT,
+            user_key="u_secretary",
+            role=VIEWER,
+            admin_scopes=[AdminScope.MANAGEMENT],
+            offset=0,
+            limit=50,
+        )
+
+        assert [v.event.key for v in shown] == [mine.event.key]
+
+    def test_the_technical_scope_alone_is_no_licence_to_profile_members(self, world):
+        service, *_ = world
+        create(service)
+
+        with pytest.raises(ForbiddenError):
+            service.list_window(
+                CareEventFilter(performed_by=USER),
+                tenant_key=TENANT,
+                user_key="u_admin",
+                role=GROWER,
+                admin_scopes=[AdminScope.TECHNICAL],
+                offset=0,
+                limit=50,
+            )
+
+    @pytest.mark.parametrize("role", [GROWER, LEAD])
+    def test_nobody_may_filter_by_the_erasure_marker(self, world, role):
+        # The marker bundles every erased member: a filter on it is a timeline of someone who asked to be forgotten.
+        service, *_ = world
+        create(service)
+
+        with pytest.raises(ValidationError):
+            service.list_window(
+                CareEventFilter(performed_by="_anonymized"),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=role,
+                offset=0,
+                limit=50,
+            )
+
+    def test_no_member_filter_needs_no_rank(self, world):
+        service, *_ = world
+        create(service)
+
+        assert service.list_window(
+            CareEventFilter(location_key="bed"),
+            tenant_key=TENANT,
+            user_key="u_viewer",
+            role=VIEWER,
+            offset=0,
+            limit=50,
+        )

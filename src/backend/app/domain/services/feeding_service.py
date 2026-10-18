@@ -151,6 +151,7 @@ class FeedingService:
             or event.measured_ph_before is None
             or event.runoff_ph is None
             or event.runoff_volume_liters is None
+            or event.volume_applied_liters is None
         ):
             return {"error": "Insufficient runoff data for analysis"}
 

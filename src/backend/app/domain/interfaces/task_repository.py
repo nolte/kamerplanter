@@ -162,6 +162,15 @@ class ITaskRepository(ABC):
     def update_task(self, key: TaskKey, task: Task) -> Task: ...
 
     @abstractmethod
+    def clear_parked_recurrence(self, key: TaskKey) -> None:
+        """Drop ``recurrence_rule_unconvertible`` from the stored task (REQ-053 v1.5 §12.2, #2411 item 4).
+
+        The one-off migration M5 parks a Cron rule it cannot convert in that field and sets ``recurrence_rule`` to
+        ``null``; when the owner sets a new RRULE the parked value has been answered. It is no model field and no
+        API field; the attribute is removed and a task without one is left as it is.
+        """
+
+    @abstractmethod
     def delete_task(self, key: TaskKey) -> bool: ...
 
     @abstractmethod

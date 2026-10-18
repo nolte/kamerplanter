@@ -159,7 +159,10 @@ class ErasureEngine:
                 "retained; the reference to the account that carried out the care"
                 " is removed and the API shows 'anonymisiert'. "
                 "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
-                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
             ),
         ),
         AnonymizationRule(
@@ -171,7 +174,10 @@ class ErasureEngine:
                 "retained; the reference to the account the care was done for (a deputy entry, GP-FR-089)"
                 " is removed and the API shows 'anonymisiert'. "
                 "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
-                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
             ),
         ),
         AnonymizationRule(
@@ -183,7 +189,10 @@ class ErasureEngine:
                 "retained; the reference to the account that logged the entry"
                 " is removed and the API shows 'anonymisiert'. "
                 "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
-                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
             ),
         ),
         AnonymizationRule(
@@ -195,7 +204,10 @@ class ErasureEngine:
                 "retained; the reference to the account that voided the entry"
                 " is removed and the API shows 'anonymisiert'. "
                 "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
-                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
             ),
         ),
         AnonymizationRule(
@@ -207,7 +219,10 @@ class ErasureEngine:
                 "retained; the reference to the lead that redacted the entry"
                 " is removed and the API shows 'anonymisiert'. "
                 "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
-                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker."
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
             ),
         ),
         AnonymizationRule(

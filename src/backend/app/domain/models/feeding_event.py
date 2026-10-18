@@ -18,7 +18,9 @@ class FeedingEvent(BaseModel):
     application_method: ApplicationMethod = ApplicationMethod.FERTIGATION
     is_supplemental: bool = False
     tank_fill_event_key: str | None = None
-    volume_applied_liters: float = Field(gt=0)
+    #: ``None`` for a dry dose (``g`` / ``kg`` / ``g_per_m2``) logged by a task completion (REQ-053 WP 4.3); the
+    #: API still requires it on a create, so a fertigation row always carries it.
+    volume_applied_liters: float | None = Field(default=None, gt=0)
     fertilizers_used: list[FeedingEventFertilizer] = Field(default_factory=list)
     measured_ec_before: float | None = Field(default=None, ge=0)
     measured_ec_after: float | None = Field(default=None, ge=0)
@@ -30,6 +32,19 @@ class FeedingEvent(BaseModel):
     watering_event_key: str | None = None
     channel_id: str | None = None
     notes: str | None = None
+    # ── REQ-053 WP 4.3: a feeding logged by a bed task completion (GP-FR-083, GP-ACC-024) — additive ──
+    #: The bed the task was bound to; ``plant_key`` holds the first plant (empty for the whole bed).
+    location_key: str | None = None
+    #: Every plant of the dose; empty for the whole bed.
+    plant_keys: list[str] = Field(default_factory=list)
+    task_key: str | None = None
+    #: The product and the dose as typed (``quantity`` in ``unit``) and, for an area dose, the total for the bed.
+    product_key: str | None = None
+    material: str | None = None
+    dose_quantity: float | None = Field(default=None, ge=0)
+    dose_unit: str | None = None
+    quantity_total: float | None = Field(default=None, ge=0)
+    quantity_total_unit: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

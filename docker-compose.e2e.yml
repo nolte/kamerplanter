@@ -104,6 +104,10 @@ services:
       # one account (light mode: one user) and the Protokoll/Schnellprotokoll journeys of waves 4+ log in
       # bursts; ten times the production 60/minute, as for the other per-account limits.
       RATE_LIMIT_CARE_EVENTS: "600/minute"
+      # REQ-053 WP 4.3 task completion (`complete`, `batch/status`, `reopen`), per account. The suite is one
+      # account (light mode: one user) and the Erledigen / Rückgängig journeys of wave 4 complete in bursts; ten
+      # times the production 120/minute, as for the other per-account limits.
+      RATE_LIMIT_TASK_COMPLETION: "1200/minute"
       # REQ-053 WP 3.2 bed actions (`POST /locations/{key}/quick-planting` and `…/clear`), per account. The suite
       # is one account and plants and clears many beds in a minute; ten times the production 20/minute.
       RATE_LIMIT_BED_ACTIONS: "200/minute"
@@ -367,6 +371,10 @@ services:
       # one account (light mode: one user) and the Protokoll/Schnellprotokoll journeys of waves 4+ log in
       # bursts; ten times the production 60/minute, as for the other per-account limits.
       RATE_LIMIT_CARE_EVENTS: "600/minute"
+      # REQ-053 WP 4.3 task completion (`complete`, `batch/status`, `reopen`), per account. The suite is one
+      # account (light mode: one user) and the Erledigen / Rückgängig journeys of wave 4 complete in bursts; ten
+      # times the production 120/minute, as for the other per-account limits.
+      RATE_LIMIT_TASK_COMPLETION: "1200/minute"
       # REQ-053 WP 3.2 bed actions (`POST /locations/{key}/quick-planting` and `…/clear`), per account. The suite
       # is one account and plants and clears many beds in a minute; ten times the production 20/minute.
       RATE_LIMIT_BED_ACTIONS: "200/minute"
