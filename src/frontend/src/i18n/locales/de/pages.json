@@ -5351,7 +5351,7 @@
             "short": "Beet"
           },
           "garden_object": {
-            "label": "Gartenobjekt zeichnen",
+            "label": "Objekt: Gartenobjekt zeichnen",
             "hint": "Ein Gartenobjekt wie Weg, Zaun oder Baum zeichnen",
             "short": "Objekt"
           }
@@ -5726,8 +5726,8 @@
           "toggleHint": "Raster ein- oder ausblenden (G). Das Einrast-Raster bleibt aktiv.",
           "unit": "Längeneinheit",
           "unitOption": {
-            "m": "Meter",
-            "cm": "Zentimeter"
+            "m": "Meter (m)",
+            "cm": "Zentimeter (cm)"
           }
         },
         "snap": {

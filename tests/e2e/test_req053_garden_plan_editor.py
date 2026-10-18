@@ -564,19 +564,6 @@ def test_tc_053_008_conflict_with_a_second_session_offers_reload(
 
 # ── TC-053-009 ──────────────────────────────────────────────────────────────
 
-#: The violation #2388 tracks, node by node: (axe rule, CSS target). Measured on
-#: the first local run of this file (light mode, 1920 x 1080).
-_KNOWN_AXE_2388 = frozenset(
-    {
-        ("label-content-name-mismatch", 'button[value="cm"]'),
-        ("label-content-name-mismatch", 'button[value="garden_object"]'),
-    }
-)
-
-
-class KnownLabelInNameViolation(AssertionError):
-    """axe found exactly the #2388 nodes and nothing else."""
-
 
 def _axe_nodes(violations: list[dict]) -> set[tuple[str, str]]:
     return {
@@ -586,16 +573,6 @@ def _axe_nodes(violations: list[dict]) -> set[tuple[str, str]]:
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=KnownLabelInNameViolation,
-    reason=(
-        "#2388: unit toggle 'cm' and tool 'Objekt' violate WCAG 2.5.3 Label in Name "
-        "(axe label-content-name-mismatch). strict: once fixed this XPASSes and fails "
-        "the run - remove the marker with the fix. Any other violation, or any other "
-        "failed assertion of this test, fails it for real."
-    ),
-)
 def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
     plan: GardenPlanPage, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
@@ -671,8 +648,6 @@ def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
         f"Plan view:\n{format_violations(plan_violations)}\n"
         f"List view:\n{format_violations(list_violations)}"
     )
-    if found and found <= _KNOWN_AXE_2388:
-        raise KnownLabelInNameViolation(report)
     assert not found, report
 
 
