@@ -50,8 +50,9 @@ _EDGES = tuple(
     for definition in col.GRAPH_EDGE_DEFINITIONS
     if definition["edge_collection"] in _BATCH_WRITE
 )
-#: Measured 2026-10-17 at ≈ 0.85 MB for the "large" class (see the test); the spec target is 500 KB.
-LARGE_PLAN_RESPONSE_CEILING_BYTES = 900 * 1024
+#: Measured 2026-10-17 at ≈ 0.85 MB for the "large" class (see the test); the spec
+#: target (GP-NFR-031, REQ-053 v1.5/E-13) is ≈ 1 MB uncompressed.
+LARGE_PLAN_RESPONSE_CEILING_BYTES = 1_000_000
 _BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 10, "length_m": 10, "rotation_deg": 0}
 
 
