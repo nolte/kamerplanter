@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
-from app.api.v1.garden_plan.export_options import plan_svg_options
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_svg_options
 from app.common.auth import get_budgeted_tenant, get_current_tenant
 from app.common.dependencies import get_garden_plan_export_service, get_print_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -133,7 +133,9 @@ def export_plant_labels_pdf(
 
 @router.get("/garden-plan/{site_key}")
 @limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
-@limiter.limit(settings.rate_limit_plan_export_tenant, key_func=tenant_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
 def export_garden_plan_pdf(
     request: Request,
     site_key: Annotated[str, Path(description="Document key of the site.")],

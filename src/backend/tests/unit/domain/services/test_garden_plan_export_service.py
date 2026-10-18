@@ -416,3 +416,27 @@ class TestFilename:
     @pytest.mark.parametrize(("key", "expected"), [("site_1", "site_1"), ('a"b\r\nX: y', "a_b__X__y"), ("", "plan")])
     def test_a_key_becomes_a_header_safe_fragment(self, key, expected) -> None:
         assert safe_filename_part(key) == expected
+
+
+class TestBedListAndPage:
+    def test_the_bed_list_names_beds_not_areas(self, repo) -> None:
+        repo.locations["gh"] = make_location(
+            "gh", "Gewächshaus", geometry=rect(0.5, 3, 5, 2), location_type_key="greenhouse"
+        )
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(), bed_list=True)
+
+        table = engine.html[-1].split("<tbody>")[1]
+        assert "Beet 1" in table and "Gewächshaus" not in table
+
+    def test_the_generic_header_and_the_german_page_counter_are_switched_off(self, repo) -> None:
+        engine = _CapturingEngine()
+
+        _service(repo, engine).render_pdf(SITE, tenant_key=TENANT, options=_options(locale="en"))
+
+        html = engine.html[-1]
+        assert (
+            "@bottom-center { content: none; }" in html.split("{% block")[0]
+            or "content: none" in html.split("@page")[-1]
+        )

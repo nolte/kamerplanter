@@ -37,7 +37,7 @@ from app.domain.calculators.geometry_calculator import (
     to_shape,
 )
 from app.domain.models.garden_object import POINT_OBJECT_RADIUS_M, GardenObject
-from app.domain.models.garden_plan import GardenPlanView, PlanSlotView, PlantShortInfo
+from app.domain.models.garden_plan import GardenPlanView, PlanSlotView
 from app.domain.models.geometry import (
     CircleGeometry,
     Geometry,
@@ -425,9 +425,9 @@ def _geometry_box(geometry: Geometry) -> tuple[float, float, float, float]:
 
 def _extent_of(view: GardenPlanView) -> _Extent | None:
     boundary = view.plan.boundary if view.plan is not None else None
-    if boundary is not None:
-        return _union([_geometry_box(boundary)])
-    boxes = [_geometry_box(loc.geometry) for loc in view.locations if loc.geometry is not None]
+    # The boundary and everything placed on the plan: a bed the boundary does not enclose is still drawn, not clipped.
+    boxes = [_geometry_box(boundary)] if boundary is not None else []
+    boxes += [_geometry_box(loc.geometry) for loc in view.locations if loc.geometry is not None]
     boxes += [_geometry_box(obj.geometry) for obj in view.garden_objects if not obj.off_site]
     return _union(boxes)
 
@@ -447,7 +447,12 @@ def _legend(
     entries: list[_LegendEntry] = []
     layers = options.layers
     if PlanSvgLayer.BEDS in layers:
-        present = {loc.bed_status for loc in view.locations if loc.geometry is not None}
+        # Only what ``_bed_layer`` draws: areas, not lines or points.
+        present = {
+            loc.bed_status
+            for loc in view.locations
+            if loc.geometry is not None and not isinstance(loc.geometry, PolylineGeometry | PointGeometry)
+        }
         for status in (BedStatus.ACTIVE, BedStatus.PLANNED, BedStatus.RETIRED):
             if status in present:
                 fill, stroke, dash = _BED_STYLE[status]
@@ -455,7 +460,7 @@ def _legend(
     if PlanSvgLayer.OBJECTS in layers:
         seen: list[GardenObjectType] = []
         for obj in view.garden_objects:
-            if obj.object_type not in seen:
+            if not obj.off_site and obj.object_type not in seen:
                 seen.append(obj.object_type)
         for object_type in seen:
             fill, stroke = _OBJECT_STYLE[object_type]
@@ -502,7 +507,9 @@ def _layout_at(scale: int, extent: _Extent, legend_count: int) -> _Layout:
 
 
 def _fits(layout: _Layout, available_w: float, available_h: float) -> bool:
-    return layout.canvas_w_mm <= available_w + 1e-9 and layout.canvas_h_mm <= available_h + 1e-9
+    # 0.1 mm of slack: the SVG and the page figure carry sizes rounded to 0.01 mm, which must not tip a plan that
+    # fits to the next page.
+    return layout.canvas_w_mm <= available_w - 0.1 and layout.canvas_h_mm <= available_h - 0.1
 
 
 def choose_layout(extent: _Extent, legend_count: int, options: PlanSvgOptions) -> tuple[_Layout, bool]:
@@ -751,32 +758,40 @@ def _slot_layer(canvas: _Canvas, slots: list[PlanSlotView]) -> _Node:
 
 
 def _plant_positions(view: GardenPlanView) -> dict[str, list[tuple[float, float]]]:
-    """Plant marker positions per bed: the plant's slot, or a spiral around the bed centre for a slotless plant."""
+    """Plant marker positions per bed: the plant's slot, or — for a slotless plant — a sunflower spread that stays
+    inside the bed's bounding box (an ellipse of 40 % of its half-extent), however many plants stand there."""
     slot_points = {slot.key: _slot_point(slot) for slot in view.slots}
+    slot_beds = {slot.key: slot.location_key for slot in view.slots}
     beds = {loc.key: loc for loc in view.locations if loc.key and loc.geometry is not None}
-    positions: dict[str, list[tuple[float, float]]] = {}
-    unplaced: dict[str, int] = {}
+    placed: dict[str, list[tuple[float, float]]] = {}
+    slotless: dict[str, int] = {}
+    resolved: list[tuple[str, tuple[float, float] | None]] = []
     for plant in view.plants:
-        bed_key = plant.location_key or _bed_of_slot(view, plant)
+        bed_key = plant.location_key or slot_beds.get(plant.slot_key or "")
         bed = beds.get(bed_key or "")
-        if bed is None or bed.geometry is None or bed.key is None:
+        if bed is None or bed.key is None:
             continue
         point = slot_points.get(plant.slot_key or "") if plant.slot_key else None
         if point is None:
-            index = unplaced.get(bed.key, 0)
-            unplaced[bed.key] = index + 1
-            cx, cy = centroid(bed.geometry)
-            radius = 0.12 * math.sqrt(index + 1)
+            slotless[bed.key] = slotless.get(bed.key, 0) + 1
+        resolved.append((bed.key, point))
+    seen: dict[str, int] = {}
+    for bed_key, point in resolved:
+        if point is None:
+            geometry = beds[bed_key].geometry
+            assert geometry is not None  # noqa: S101 - beds are filtered on it
+            min_x, min_y, max_x, max_y = bounding_box(geometry)
+            cx, cy = centroid(geometry)
+            index = seen.get(bed_key, 0)
+            seen[bed_key] = index + 1
+            fraction = math.sqrt((index + 0.5) / slotless[bed_key])
             angle = index * 2.399963  # golden angle
-            point = (cx + radius * math.cos(angle), cy + radius * math.sin(angle))
-        positions.setdefault(bed.key, []).append(point)
-    return positions
-
-
-def _bed_of_slot(view: GardenPlanView, plant: PlantShortInfo) -> str | None:
-    if not plant.slot_key:
-        return None
-    return next((slot.location_key for slot in view.slots if slot.key == plant.slot_key), None)
+            point = (
+                cx + 0.4 * (max_x - min_x) * fraction * math.cos(angle),
+                cy + 0.4 * (max_y - min_y) * fraction * math.sin(angle),
+            )
+        placed.setdefault(bed_key, []).append(point)
+    return placed
 
 
 def _plant_layer(canvas: _Canvas, view: GardenPlanView, labels: dict[str, str], *, counters: bool) -> _Node:

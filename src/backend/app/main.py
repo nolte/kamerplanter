@@ -475,6 +475,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
+    # The garden-plan exports report their scale and an A3 suggestion in headers (REQ-053 WP 5.2); a cross-origin
+    # SPA reads response headers only when they are exposed.
+    expose_headers=["Content-Disposition", "X-Plan-Scale", "X-Plan-Suggested-Paper"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

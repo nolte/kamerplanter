@@ -376,3 +376,24 @@ class TestRateLimits:
         other = client("token-late").get(f"{_BASE.replace('own', 'other')}/sites/site_foreign/plan/render.svg")
 
         assert other.status_code == 200
+
+
+class TestTenantBudgetIsSharedByTheRoutes:
+    def test_svg_json_and_pdf_draw_on_one_tenant_bucket(self, client) -> None:
+        """30 a minute for the tenant in total: ten each from three routes use it up, the next is refused."""
+        statuses = []
+        for member in range(3):
+            http = client(f"token-member{member}")
+            statuses += [http.get(_SVG).status_code for _ in range(5)]
+            statuses += [http.get(_EXPORT).status_code for _ in range(3)]
+            statuses += [http.get(_PDF, params={"layers": ""}).status_code for _ in range(2)]
+        assert statuses == [200] * 30
+
+        assert client("token-late").get(_EXPORT).status_code == 429
+
+
+def test_cors_exposes_the_plan_headers(client) -> None:
+    response = client().get(_SVG, headers={"Origin": "http://localhost:5173"})
+
+    exposed = response.headers.get("access-control-expose-headers", "")
+    assert "X-Plan-Scale" in exposed and "X-Plan-Suggested-Paper" in exposed

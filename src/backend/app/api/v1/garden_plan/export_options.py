@@ -24,6 +24,9 @@ from app.domain.engines.plan_svg_engine import (
     parse_scale,
 )
 
+#: One bucket name for the three export routes: the per-tenant budget is shared by them, not counted per route.
+PLAN_EXPORT_TENANT_SCOPE = "garden_plan_export_tenant"
+
 _SCALE_PATTERN = "^(auto|" + "|".join(f"1:{step}" for step in SCALE_STEPS) + ")$"
 _DEFAULT_LAYERS = ",".join(layer.value for layer in PlanSvgLayer if layer in DEFAULT_LAYERS)
 _LAYER_VALUES = ", ".join(layer.value for layer in PlanSvgLayer)

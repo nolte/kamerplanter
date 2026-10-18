@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import base64
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import perf_counter
 
@@ -123,21 +123,13 @@ class GardenPlanExportService:
     ) -> PlanPdf:
         """A scaled plan on one page (plus the bed list when asked). 422 ``plan.does_not_fit`` when it cannot."""
         started = perf_counter()
-        pdf_options = PlanSvgOptions(
-            scale=options.scale,
-            paper=options.paper,
-            orientation=options.orientation,
-            layers=options.layers,
-            locale=options.locale,
-            accent=options.accent,
-            header_mm=PDF_HEADER_MM,
-        )
+        pdf_options = replace(options, header_mm=PDF_HEADER_MM)
         view = self._view(site_key, tenant_key=tenant_key, options=pdf_options)
         rendered = render_plan_svg(view, pdf_options)
         if not rendered.fits:
             raise PlanError(
                 "plan.does_not_fit",
-                "The plan does not fit the page at this scale; choose a coarser scale or a larger paper.",
+                "The plan does not fit the page at this scale; choose a larger paper or a coarser scale.",
                 status_code=422,
                 field="scale",
                 scale=f"1:{rendered.scale}",
@@ -186,12 +178,13 @@ class GardenPlanExportService:
         include = frozenset({"plants"}) if PlanSvgLayer.PLANTS in options.layers else frozenset()
         return self._plans.get_plan(site_key, tenant_key=tenant_key, include=include)
 
-    @staticmethod
-    def _bed_rows(view: GardenPlanView, locale: str) -> list[dict[str, str]]:
-        """Name, area, status and sun exposure of every placed location — no notes, no assignments (SR-024)."""
+    def _bed_rows(self, view: GardenPlanView, locale: str) -> list[dict[str, str]]:
+        """Name, area, status and sun exposure of every placed *bed* — no rooms or areas, no notes, no assignments
+        (SR-024). Whether a location is a bed is the ``is_bed`` flag of its type."""
+        is_bed = self._plan.bed_type_flags(sorted({loc.location_type_key for loc in view.locations}))
         rows = []
         for location in sorted(view.locations, key=lambda loc: loc.name.casefold()):
-            if location.geometry is None:
+            if location.geometry is None or not is_bed.get(location.location_type_key, False):
                 continue
             rows.append(
                 {

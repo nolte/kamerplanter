@@ -17,7 +17,7 @@ from fastapi.responses import Response
 from app.api.mapping import to_response
 from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
 from app.api.v1.garden_objects.schemas import garden_object_to_response
-from app.api.v1.garden_plan.export_options import plan_svg_options
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_svg_options
 from app.api.v1.garden_plan.schemas import (
     SCHEMA_VERSION,
     DerivedGeometrySchema,
@@ -313,7 +313,9 @@ SVG_DOWNLOAD_HEADERS = {
     },
 )
 @limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
-@limiter.limit(settings.rate_limit_plan_export_tenant, key_func=tenant_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
 def render_plan_svg(
     request: Request,
     key: _SITE_KEY,
@@ -344,7 +346,9 @@ def render_plan_svg(
     summary="Back up the plan structure as JSON",
 )
 @limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
-@limiter.limit(settings.rate_limit_plan_export_tenant, key_func=tenant_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
 def export_plan(
     request: Request,
     key: _SITE_KEY,

@@ -934,8 +934,9 @@ class Settings(BaseSettings):
     #: the cost is the same kind as ``rate_limit_export``; the spec's 10 a minute is the figure. A person who
     #: exports a few formats of one plan and retries a size stays well inside it.
     rate_limit_plan_export: str = "10/minute"
-    #: The same three routes, per **tenant** (GP-NFR-056): 30 a minute across all members, so a club of thirty
-    #: parcel holders cannot together keep the renderer busy while each stays inside the per-account budget.
+    #: The same three routes, per **tenant** (GP-NFR-056): 30 a minute across all members *and* all three routes
+    #: (one bucket), so a club of thirty parcel holders cannot together keep the renderer busy while each stays
+    #: inside the per-account budget.
     rate_limit_plan_export_tenant: str = "30/minute"
     #: ``POST /t/{slug}/care-events`` and its supersede / void / redact siblings (REQ-053 GP-NFR-056, SR-017),
     #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in

@@ -4,6 +4,10 @@
 @page {
     size: {{ page_size }};
     margin: 10mm;
+    /* The generic header and footer of base.html (German-only page counter) have no place on a scaled plan. */
+    @top-left { content: none; }
+    @top-right { content: none; }
+    @bottom-center { content: none; }
 }
 
 .plan-header {

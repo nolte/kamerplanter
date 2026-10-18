@@ -137,7 +137,7 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
 }
 
 #: A ``RATE_LIMIT_*`` setting applied by a route decorator, from either limiter.
-_DECORATOR = re.compile(r"@(?:limiter|process_memory_limiter)\.limit\(\s*settings\.(rate_limit_[a-z_]+)")
+_DECORATOR = re.compile(r"@(?:limiter|process_memory_limiter)\.(?:shared_)?limit\(\s*settings\.(rate_limit_[a-z_]+)")
 
 
 def _limits_gating_a_route() -> set[str]:

@@ -510,3 +510,27 @@ class TestPlants:
         bed_points = _by_key(root, "b1").attrib["points"].split()
         left = float(bed_points[0].split(",")[0])
         assert float(marker.attrib["cx"]) - left == pytest.approx(1000.0)
+
+
+class TestReviewFindings:
+    def test_slotless_plants_stay_inside_the_bounding_box_of_their_bed(self) -> None:
+        bed = make_location("b1", geometry=rect(1, 1, 2, 1))
+        plants = [_plant(f"p{i}", None, "b1") for i in range(1500)]
+
+        rendered = _render(_view(locations=[bed], plants=plants))
+
+        root = _parse(rendered.svg)
+        (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
+        left = float(_by_key(root, "b1").attrib["points"].split()[0].split(",")[0])
+        circles = layer.findall(f"{SVG}circle")
+        assert len(circles) == 1500
+        assert all(left <= float(c.attrib["cx"]) <= left + 2000 for c in circles)
+
+    def test_a_bed_outside_the_boundary_is_inside_the_canvas(self) -> None:
+        view = _view(locations=[make_location("out", geometry=rect(12, 1, 2, 1))])
+
+        root = _parse(_render(view).svg)
+
+        canvas_w = float(root.attrib["viewBox"].split()[2])
+        points = _by_key(root, "out").attrib["points"].split()
+        assert max(float(p.split(",")[0]) for p in points) <= canvas_w
