@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -53,6 +53,11 @@ import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getBedSummary } from '@/features/gardenPlanner/bed/bedApi';
+import type { BedSummary } from '@/features/gardenPlanner/bed/types';
+
+// The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
+const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
 
 const runStatusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -125,6 +130,8 @@ export default function LocationDetailPage() {
   const [sublocationCreateOpen, setSublocationCreateOpen] = useState(false);
   const [ancestorChain, setAncestorChain] = useState<{ key: string; name: string }[]>([]);
   const [siteName, setSiteName] = useState<string>('');
+  // REQ-053 GP-API-012: the head data of a bed; `null` for a location that is not one.
+  const [bedSummary, setBedSummary] = useState<BedSummary | null>(null);
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
@@ -158,12 +165,23 @@ export default function LocationDetailPage() {
   const isArtificial = lightType === 'led' || lightType === 'hps' || lightType === 'cmh';
   const isNaturalOrMixed = lightType === 'natural' || lightType === 'mixed';
 
+  // The summary makes a location a bed (`is_bed`); a failed request leaves the plain location page.
+  const loadBedSummary = useCallback(async () => {
+    if (!key) return;
+    try {
+      setBedSummary(await getBedSummary(key));
+    } catch {
+      setBedSummary(null);
+    }
+  }, [key]);
+
   const load = async () => {
     if (!key) return;
     setLoading(true);
     try {
       const loc = await api.getLocation(key);
       setLocation(loc);
+      await loadBedSummary();
       // Build ancestor breadcrumb chain
       const ancestors: { key: string; name: string }[] = [];
       let current = loc;
@@ -364,21 +382,8 @@ export default function LocationDetailPage() {
 
   const PANEL_GAP = 4;
 
-  return (
-    <Box data-testid="location-detail-page">
-      <UnsavedChangesGuard dirty={isDirty} />
-
-      <PageTitle
-        title={location?.name ?? t('entities.location')}
-        action={
-          canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="location-delete-button">
-              {t('common.delete')}
-            </Button>
-          ) : undefined
-        }
-      />
-
+  const pageBody = (
+    <>
       <Form onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">
           {t('pages.locations.editIntro')}
@@ -873,6 +878,31 @@ export default function LocationDetailPage() {
           />
         )}
       </Box>
+      )}
+    </>
+  );
+
+  return (
+    <Box data-testid="location-detail-page">
+      <UnsavedChangesGuard dirty={isDirty} />
+
+      <PageTitle
+        title={location?.name ?? t('entities.location')}
+        action={
+          canDelete ? (
+            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="location-delete-button">
+              {t('common.delete')}
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {bedSummary?.is_bed ? (
+        <Suspense fallback={<LoadingSkeleton variant="card" />}>
+          <BedView summary={bedSummary} details={pageBody} onReload={loadBedSummary} />
+        </Suspense>
+      ) : (
+        pageBody
       )}
 
       {isSmartHomeEnabled && key && (

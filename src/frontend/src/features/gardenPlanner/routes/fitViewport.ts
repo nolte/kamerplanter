@@ -1,6 +1,6 @@
 import { boundingBox } from '../model/geometry';
 import type { PlanModel } from '../model/planModel';
-import type { BoundingBox } from '../model/types';
+import type { BoundingBox, Point } from '../model/types';
 import type { Viewport } from '../renderer/types';
 
 /** Free space around the drawing, as a share of its larger side. */
@@ -56,5 +56,32 @@ export function fitViewport(bounds: BoundingBox, widthPx: number, maxHeightPx: n
     pxPerM,
     widthPx: Math.round(contentW * pxPerM),
     heightPx: Math.round(contentH * pxPerM),
+  };
+}
+
+/**
+ * The pan and zoom that bring `bounds` into the middle of a canvas that already has its size
+ * (GP-ACC-016: a bed chosen in the list is in view, its whole bounding box visible). The zoom is the
+ * largest that shows the box plus a margin, never below `minPxPerM` (the zoom that fits the whole
+ * plan) and never above the fit limit of a single object.
+ */
+export function focusViewport(
+  bounds: BoundingBox,
+  widthPx: number,
+  heightPx: number,
+  minPxPerM: number,
+): { pxPerM: number; originM: Point } {
+  const [minX, minY, maxX, maxY] = bounds;
+  const sizeX = Math.max(maxX - minX, 0.1);
+  const sizeY = Math.max(maxY - minY, 0.1);
+  const margin = Math.max(sizeX, sizeY) * MARGIN_RATIO;
+  const fit = Math.min(widthPx / (sizeX + 2 * margin), heightPx / (sizeY + 2 * margin));
+  const pxPerM = Math.max(minPxPerM, Math.min(MAX_PX_PER_M, fit));
+  // Centre the box: the canvas shows widthPx / pxPerM metres, the box needs sizeX.
+  const visibleX = widthPx / pxPerM;
+  const visibleY = heightPx / pxPerM;
+  return {
+    pxPerM,
+    originM: [minX - (visibleX - sizeX) / 2, maxY + (visibleY - sizeY) / 2],
   };
 }

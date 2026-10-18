@@ -15,6 +15,7 @@ import type { GardenPlanResponse } from '@/features/gardenPlanner/model/types';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import { createStoreWithModuleOverrides, renderWithProviders } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import { bedListItem } from '@/features/gardenPlanner/bed/bedTestKit';
 
 const PLAN_URL = '/api/v1/t/:tenant/sites/:key/plan';
 
@@ -91,6 +92,48 @@ describe('GardenPlanRoute', () => {
     expect(level()).toBe(fitted);
     // The fitted view is the lowest zoom (GP-FR-150).
     expect(screen.getByTestId('garden-plan-zoom-out')).toBeDisabled();
+  });
+
+  it('selects the bed and brings its bounding box into view when a row of the bed list is chosen (GP-ACC-016)', async () => {
+    usePlan(
+      planResponse({
+        locations: [bed('loc_a', 2, 2), bed('loc_b', 60, 70), bed('loc_c', 80, 10)],
+        garden_objects: [],
+      }),
+    );
+    server.use(
+      http.get('/api/v1/t/:tenant/locations', () =>
+        HttpResponse.json([
+          bedListItem('loc_a', { name: 'Bed near', bbox: [2, 2, 3.2, 4] }),
+          bedListItem('loc_b', { name: 'Bed far', bbox: [60, 70, 61.2, 72] }),
+          bedListItem('loc_c', { name: 'Bed east', bbox: [80, 10, 81.2, 12] }),
+        ]),
+      ),
+    );
+    const { store, container } = renderRoute();
+    await screen.findByTestId('garden-plan-canvas');
+    const level = () => screen.getByTestId('garden-plan-zoom-level').textContent;
+    const fitted = level();
+    const row = (await screen.findByText('Bed far')).closest('tr')!;
+    fireEvent.click(row);
+
+    // Selected on the plan ...
+    expect(store.getState().gardenPlan?.selection).toEqual([{ entity: 'location', key: 'loc_b' }]);
+    // ... and zoomed in on: the whole bounding box lies inside the visible part of the drawing.
+    expect(level()).not.toBe(fitted);
+    const [x, y, width, height] = container
+      .querySelector('svg[data-testid="garden-plan-svg"]')!
+      .getAttribute('viewBox')!
+      .split(/\s+/)
+      .map(Number);
+    // The viewBox is in metres with y negated (user unit = 1 m); the view is the bed, not the 100 m plan.
+    expect(width).toBeLessThan(30);
+    for (const [mx, my] of [[60, 70], [61.2, 72]]) {
+      expect(mx).toBeGreaterThanOrEqual(x);
+      expect(mx).toBeLessThanOrEqual(x + width);
+      expect(-my).toBeGreaterThanOrEqual(y);
+      expect(-my).toBeLessThanOrEqual(y + height);
+    }
   });
 
   it('asks before leaving with unsaved changes and lets the user stay (GP-NFR-005)', async () => {

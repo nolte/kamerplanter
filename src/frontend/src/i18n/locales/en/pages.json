@@ -5849,6 +5849,133 @@
           "downloaded": "The copy was downloaded. You can reload now."
         }
       }
+    },
+    "bed": {
+      "tabs": {
+        "label": "Bed views",
+        "plan": "Plan",
+        "planting": "Planting",
+        "care": "Care",
+        "soil": "Soil",
+        "history": "History",
+        "details": "Details"
+      },
+      "header": {
+        "title": "Bed at a glance",
+        "area": "Area",
+        "type": "Type",
+        "status": "Status",
+        "changeStatus": "Change status",
+        "soil": "Soil type",
+        "sun": "Sun exposure",
+        "plants": "Active plants",
+        "plantCount_one": "{{count}} plant",
+        "plantCount_other": "{{count}} plants",
+        "speciesCount_one": "{{count}} species",
+        "speciesCount_other": "{{count}} species",
+        "openTasks": "Open tasks",
+        "taskCount_one": "{{count}} task",
+        "taskCount_other": "{{count}} tasks",
+        "overdueCount_one": "{{count}} overdue",
+        "overdueCount_other": "{{count}} overdue",
+        "lastCare": "Last care",
+        "nextDue": "Next due",
+        "assigned": "Responsible",
+        "nobody": "Nobody assigned",
+        "never": "Never",
+        "none": "None",
+        "unknown": "Not set",
+        "year": "Season",
+        "previousYear": "Previous year ({{year}}): this bed's growing history appears here once it has been recorded."
+      },
+      "status": {
+        "title": "Change bed status",
+        "current": "Current status: {{status}}",
+        "target": "New status",
+        "reason": "Reason",
+        "reasonRequired": "Required when retiring. It goes into the bed's care log.",
+        "reasonOptional": "Optional. It goes into the bed's care log.",
+        "submit": "Change status",
+        "changed": "Status changed."
+      },
+      "soil": {
+        "title": "Soil profile",
+        "intro": "Describe the soil of your bed. Everything is optional - what you do not know stays \"unknown\".",
+        "introReadOnly": "The soil profile of this bed. You can view it but not change it.",
+        "medium": "Filling",
+        "mediumHelper": "What is the bed filled with?",
+        "substrate": "Substrate",
+        "substrateHelper": "Pick a substrate from your catalogue. pH and EC are pre-filled if you have not measured yet.",
+        "notSet": "Not set",
+        "texture": "Soil type",
+        "textureHelper": "The grain size of your soil. The finger test below helps you decide.",
+        "fingerTest": {
+          "title": "Finger test: how to tell your soil type",
+          "intro": "Take a handful of moist soil, knead it and try to roll it into a sausage about as thick as a pencil.",
+          "sand": "Runs through your fingers, cannot be shaped, feels gritty and rough.",
+          "loamy_sand": "Falls apart almost at once, sandy and rough, but sticks together a little.",
+          "sandy_loam": "Can be pressed into a lump but not rolled into a sausage; clearly rough.",
+          "loam": "Can be rolled into a sausage, not shiny, feels slightly floury and a little rough.",
+          "silt_loam": "Feels floury and velvety, hardly sticky, the grooves of your fingers stay dull.",
+          "clay_loam": "Rolls well, the cut surface shines slightly, sticky.",
+          "clay": "Very easy to shape, shiny, sticky and plastic; a fingerprint stays."
+        },
+        "drainage": "Drainage",
+        "waterRegime": "Site moisture",
+        "waterRegimeHelper": "How moist the site is in general - not how wet the soil is today.",
+        "conditions": "Soil condition",
+        "conditionsHelper": "You can pick several.",
+        "measurements": "Measurements",
+        "ph": "pH value",
+        "phMethod": "Method",
+        "ec": "EC",
+        "humus": "Humus content",
+        "notes": "Notes",
+        "saved": "Soil profile saved."
+      },
+      "plan": {
+        "openGarden": "Open in garden plan",
+        "summary": "{{size}} · {{slots}} places · {{plants}} plants",
+        "loading": "Loading bed ...",
+        "notPlaced": {
+          "title": "This bed is not on the garden plan yet",
+          "description": "Once you draw it on the garden plan, you see its frame, the places and the plants here."
+        }
+      },
+      "placeholder": {
+        "planting": {
+          "title": "Planting is coming",
+          "description": "Soon you plan here what grows in this bed. Until then, the existing runs and plants are on the details tab.",
+          "action": "Go to details"
+        },
+        "care": {
+          "title": "Care is coming",
+          "description": "Soon you see the tasks and the care log of this bed here."
+        },
+        "history": {
+          "title": "History is coming",
+          "description": "Soon you see here what grew in this bed in past years."
+        }
+      },
+      "list": {
+        "title": "Beds",
+        "name": "Name",
+        "type": "Type",
+        "area": "Area",
+        "status": "Status",
+        "assigned": "Responsible",
+        "plants": "Plants",
+        "tasks": "Open tasks",
+        "tasksOverdue": "{{open}} ({{overdue}} overdue)",
+        "nextDue": "Next due",
+        "statusFilter": "Status",
+        "filterOpen": "Planned and active",
+        "filterAll": "All",
+        "onlyMine": "My beds",
+        "hint": "Choose a row to highlight the bed on the plan. The name opens the bed.",
+        "empty": "No beds yet",
+        "emptyDescription": "Draw a bed on the garden plan and it appears here."
+      }
     }
   }
 }

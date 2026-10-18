@@ -1096,6 +1096,60 @@
       "ai_calls_per_user_day": "AI calls per account and day",
       "ai_calls_per_tenant_day": "AI calls of the garden per day",
       "ai_tokens_per_tenant_day": "AI tokens of the garden per day"
+    },
+    "bedStatus": {
+      "planned": "Planned",
+      "active": "Active",
+      "retired": "Retired"
+    },
+    "sunExposure": {
+      "full_sun": "Full sun",
+      "partial_shade": "Partial shade",
+      "shade": "Shade",
+      "deep_shade": "Deep shade",
+      "unknown": "Unknown"
+    },
+    "growingMediumKind": {
+      "native_soil": "Native soil",
+      "raised_bed_mix": "Raised bed mix",
+      "potting_mix": "Potting mix",
+      "mineral_substrate": "Mineral substrate",
+      "other": "Other"
+    },
+    "soilTexture": {
+      "sand": "Sand",
+      "loamy_sand": "Loamy sand",
+      "sandy_loam": "Sandy loam",
+      "loam": "Loam",
+      "silt_loam": "Silt loam",
+      "clay_loam": "Clay loam",
+      "clay": "Clay",
+      "unknown": "Unknown"
+    },
+    "soilDrainage": {
+      "poor": "Poor",
+      "moderate": "Moderate",
+      "good": "Good",
+      "unknown": "Unknown"
+    },
+    "siteWaterRegime": {
+      "dry": "Dry",
+      "fresh": "Fresh",
+      "moist": "Moist",
+      "wet": "Wet",
+      "unknown": "Unknown"
+    },
+    "soilCondition": {
+      "compacted": "Compacted",
+      "depleted": "Depleted",
+      "waterlogged": "Waterlogged",
+      "crusting": "Crusting",
+      "stony": "Stony"
+    },
+    "phMethod": {
+      "cacl2": "CaCl2 solution",
+      "h2o": "Water",
+      "probe_unknown": "Probe, method unknown"
     }
   }
 }
