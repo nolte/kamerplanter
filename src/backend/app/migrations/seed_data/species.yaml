@@ -412,6 +412,7 @@ species:
     spacing_cm: "30--45"
     indoor_suitable: "yes"
     balcony_suitable: "yes"
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: medium_feeder
     photosynthesis_type: c3
     shade_tolerance: partial_shade
@@ -918,6 +919,7 @@ species:
     spacing_cm: "3--5"
     indoor_suitable: limited
     balcony_suitable: "yes"
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: light_feeder
     photosynthesis_type: c3
     shade_tolerance: partial_shade

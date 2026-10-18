@@ -118,7 +118,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Pflanzabstand in der Reihe (cm) | 120–150 | `species.spacing_cm` |
-| Reihenabstand (cm) | 280 | `species.row_spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: Wert 280 cm stammt aus Spindel-/Versuchsanlagen des Erwerbsobstbaus (Saechs. LfL) und gilt fuer den Hausgarten nicht; keine Hausgarten-Quelle gelesen (Betreiberentscheidung #2371, E-10) --> | `species.row_spacing_cm` |
 | Quelle Abstände | In der Reihe: RHS, „How to grow redcurrants“, https://www.rhs.org.uk/fruit/redcurrants/grow-your-own („1.2–1.5m (4–5ft) apart for bush plants“). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Johannisbeere Spindelerziehung, „Pflanzabstand: 2,80 m x 0,50 m“; Versuchsanlage im Erwerbsanbau, im Hausgarten nicht übertragbar ohne Prüfung) | — |
 
 ### 1.10 Lichtbedarf

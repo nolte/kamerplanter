@@ -294,8 +294,9 @@ Pfefferminze ist mittelstark zehrend und braucht etwas mehr Nährstoffe als medi
 | Zehrerstufe | light_feeder |
 | Zehrerstufe — Quelle | Sammelgruppe „Kräuter“ als Schwachzehrer (Pfefferminze nicht namentlich): Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „… Kräuter, Spinat“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; „Schwachzehrern, also alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Gegenindiz: LfL Bayern, „Kulturanleitung für Pfefferminze“ (Entzug 42 kg N je 100 dt Frischkraut, gestaffelte N-Gaben) ordnet keine Zehrerstufe zu, https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf |
 | Zehrerstufe — Konfidenz | low |
+| Vorrang Zehrerfelder | Betreiberentscheidung #2371 (2026-10-18): bei Widerspruch gewinnt das quellenbelegte `nutrient_demand` (dieser Abschnitt) gegenüber `nutrient_demand_level` (Abschnitt 1); `nutrient_demand_level` bleibt als Altfeld stehen (EC-Skalierung). Konflikt: spec/analysis/req-053-steckbrief-gaps.md |
 | Stickstofffixierer | false (Lippenblütler, keine Leguminose; LfL Bayern, „Kulturanleitung für Pfefferminze“ führt Leguminosen als eigene Vorfruchtgruppe neben den Lippenblütlern, https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf) |
-| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Kulturanleitung für Pfefferminze“: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“; Untergrenze der belegten Spanne 4–5; Familienwert Lamiaceae im Seed nicht gesetzt), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (LfL Bayern, „Kulturanleitung für Pfefferminze“: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“; Untergrenze der belegten Spanne 4–5; Familienwert Lamiaceae 4 in botanical_families.yaml (Betreiberentscheidung #2371, gleiche LfL-Quelle)), https://lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_20062.pdf |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
