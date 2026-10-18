@@ -60,11 +60,13 @@ CRITICAL_TASKS: Final = frozenset(
     {
         # NFR-011 retention and erasure
         "retention.anonymize_consent_ips",
+        "retention.anonymize_expired_care_events",
         "retention.execute_scheduled_erasures",
         "retention.expire_data_exports",
         "retention.expire_email_change_requests",
         "retention.purge_expired_consent_records",
         "retention.purge_expired_erasure_records",
+        "retention.purge_expired_garden_plan_audit",
         "retention.purge_expired_legal_retention_rows",
         "retention.purge_expired_tenant_erasure_records",
         "retention.redispatch_stale_pending_exports",
@@ -194,10 +196,12 @@ ACKS_LATE_TASKS: Final = frozenset(
     {
         # NFR-011 retention sweeps: delete / anonymise / flip rows past a cutoff
         "retention.anonymize_consent_ips",
+        "retention.anonymize_expired_care_events",
         "retention.expire_data_exports",
         "retention.expire_email_change_requests",
         "retention.purge_expired_consent_records",
         "retention.purge_expired_erasure_records",
+        "retention.purge_expired_garden_plan_audit",
         "retention.purge_expired_legal_retention_rows",
         "retention.purge_expired_tenant_erasure_records",
         "app.tasks.auth_tasks.anonymize_old_ips",

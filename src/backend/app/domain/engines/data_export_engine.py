@@ -66,6 +66,30 @@ _SENSOR_PARENTS = PersonalTenantScope(
     ),
 )
 
+#: REQ-053 §20.10 — what the Art. 15 bundle shows of a care event (``reason`` / ``summary`` / ``observed_outcome`` are
+#: free text the subject typed; no account reference, no third-party label). No ``_key``, like every other
+#: attributed source: the personal-garden source below carries it, and the export walk seeds one document per source.
+_CARE_EVENT_EXPORT_FIELDS = [
+    "site_key",
+    "location_key",
+    "plant_keys",
+    "category",
+    "summary",
+    "performed_at",
+    "trigger",
+    "reason",
+    "product_label",
+    "quantity",
+    "unit",
+    "quantity_total",
+    "quantity_total_unit",
+    "material",
+    "measurements",
+    "observed_outcome",
+    "outcome_rating",
+    "created_at",
+]
+
 #: #2165 — the columns of the two continuous aggregates (TimescaleDB migration 002).
 _AGGREGATE_FIELDS = ["bucket", "sensor_key", "sensor_type", "avg_value", "min_value", "max_value", "sample_count"]
 
@@ -276,6 +300,48 @@ class DataExportEngine:
             label="Treatment applications",
             # ``dosage`` (not ``dose``).
             fields=["treatment_key", "plant_key", "applied_at", "dosage", "notes"],
+        ),
+        # REQ-053 GP-NFR-055 (SR-008, Art. 15/20): the care events the subject carried out or logged, in any
+        # tenant they belong to — the personal garden is disclosed whole by the source further down. None of the
+        # five account references is disclosed (another member's key is not the subject's data); the third party's
+        # ``performed_by_label`` is left out for the same reason.
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="performed_by_user_key",
+            label="Care log entries you carried out",
+            fields=_CARE_EVENT_EXPORT_FIELDS,
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="created_by",
+            label="Care log entries you logged",
+            fields=_CARE_EVENT_EXPORT_FIELDS,
+        ),
+        # The entries recorded about the subject (GP-FR-089: a member logs the care "for" another), and the
+        # cancellations and redactions they carried out with the reason they typed. The reason of a cancellation
+        # somebody else made is that person's text and is not part of these three sources.
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="performed_for_user_key",
+            label="Care log entries recorded for you",
+            fields=_CARE_EVENT_EXPORT_FIELDS,
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="voided_by",
+            label="Care log entries you cancelled",
+            fields=["site_key", "location_key", "category", "performed_at", "voided_at", "void_reason"],
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="redacted_by",
+            label="Care log entries you redacted",
+            fields=["site_key", "location_key", "category", "performed_at", "redacted_at", "redaction_reason"],
         ),
         DataSourceDefinition(
             collection="plant_diary_entries",
@@ -652,6 +718,19 @@ class DataExportEngine:
                 "performed_at",
                 "trigger",
                 "reason",
+                "product_label",
+                "quantity",
+                "unit",
+                "quantity_total",
+                "quantity_total_unit",
+                "material",
+                "measurements",
+                "observed_outcome",
+                "outcome_rating",
+                "voided_at",
+                "void_reason",
+                "redacted_at",
+                "redaction_reason",
                 "created_at",
             ],
         ),

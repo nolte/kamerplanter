@@ -92,6 +92,15 @@ class _FakeAttachmentRepo:
                 return att
         return None
 
+    #: Per attachment id, what ``task_photo_delete_state`` answers; "missing" for an id nobody set (and not stored).
+    states: dict[str, str] = {}
+
+    def task_photo_delete_state(self, attachment_id, tenant_key, *, task_key):  # type: ignore[no-untyped-def]
+        stored = self.get(attachment_id, tenant_key)
+        if stored is None:
+            return "missing", None
+        return self.states.get(attachment_id, "staged"), stored.created_by
+
     def storage_keys_held_elsewhere(self, *, tenant_key, storage_keys, excluding):  # type: ignore[no-untyped-def]
         return {
             a.storage_key
@@ -661,6 +670,43 @@ class TestDelete:
 
     async def test_delete_is_idempotent(self, service):
         assert await service.delete("does-not-exist", "t-1") is False
+
+
+class TestDeleteIfUnreferenced:
+    """#2400 — the care-event redaction and the R-25 sweep delete a photo only when no carrier references it."""
+
+    async def _stored(self, service) -> Attachment:
+        with patch("app.tasks.storage_tasks.generate_thumbnails.delay"):
+            return await service.upload(
+                tenant_key="t-1",
+                user_key="u-1",
+                data=_make_jpeg(),
+                mime_type="image/jpeg",
+                original_filename="a.jpg",
+                category=AttachmentCategory.PLANT,
+            )
+
+    async def test_an_unreferenced_photo_is_deleted(self, service, repo):
+        attachment = await self._stored(service)
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is True
+
+        assert repo.get(attachment.key, "t-1") is None
+
+    async def test_a_photo_another_carrier_still_references_stays(self, service, repo):
+        attachment = await self._stored(service)
+        repo.states = {attachment.key: "shared"}
+
+        assert await service.delete_if_unreferenced(attachment.key, "t-1") is False
+
+        assert repo.get(attachment.key, "t-1") is not None
+
+    async def test_an_unknown_or_foreign_id_is_a_no_op(self, service, repo):
+        attachment = await self._stored(service)
+
+        assert await service.delete_if_unreferenced("does-not-exist", "t-1") is False
+        assert await service.delete_if_unreferenced(attachment.key, "t-other") is False
+        assert repo.get(attachment.key, "t-1") is not None
 
 
 class TestARecordNeverReachesAnotherTenantsObject:

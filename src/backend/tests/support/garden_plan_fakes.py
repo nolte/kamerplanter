@@ -170,6 +170,11 @@ class FakePlanRepo(IGardenPlanRepository):
     def list_audit(self, site_key, *, tenant_key, offset, limit):
         return self.audit[offset : offset + limit]
 
+    def purge_audit_before(self, cutoff, *, batch):
+        due = [entry for entry in self.audit if entry.at < cutoff][:batch]
+        self.audit = [entry for entry in self.audit if entry not in due]
+        return len(due)
+
     # the transaction ---------------------------------------------------
     def apply_plan_batch(self, write: PlanBatchWrite) -> PlanBatchOutcome:
         site = self._sites.sites[write.site_key]

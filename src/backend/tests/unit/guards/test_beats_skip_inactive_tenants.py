@@ -126,7 +126,7 @@ def test_the_schedule_read_covers_the_flagged_beats_too() -> None:
         "app.tasks.actuator_tasks.evaluate_control_rules",
         "app.tasks.season_tasks.evaluate_quarter_climate",
     } <= scheduled
-    assert len(scheduled) == len(TENANT_WRITING_BEATS) + len(TENANT_AGNOSTIC_BEATS) == 49
+    assert len(scheduled) == len(TENANT_WRITING_BEATS) + len(TENANT_AGNOSTIC_BEATS) == 51
 
 
 def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:

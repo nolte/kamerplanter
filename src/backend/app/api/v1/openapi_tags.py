@@ -53,6 +53,10 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "fish-species", "description": "Fish species master data (aquaponics)."},
     {"name": "garden-objects", "description": "Paths, trees, fences, water sources on a site's plan (REQ-053)."},
     {
+        "name": "care-events",
+        "description": "The append-only care log of the beds: log, correct, cancel, redact (REQ-053).",
+    },
+    {
         "name": "garden-plan",
         "description": "The garden plan of a site: read model, boundary and transactional batch (REQ-053).",
     },

@@ -13,8 +13,8 @@ import pytest
 
 from app.config.settings import Settings, SettingsError, load_settings
 
-# (environment variable, ceiling) — NFR-011 §4, the twelve settings with a ceiling
-# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946, R-01a, #1960, and R-01b, #2123).
+# (environment variable, ceiling) — NFR-011 §4, the fourteen settings with a ceiling
+# (the seven of Q-R9 plus R-04 / R-04a / R-12, #1946, R-01a, #1960, R-01b, #2123, and R-25 / R-26, REQ-053).
 CEILINGS = [
     ("RETENTION_SOFT_DELETE_RETENTION_DAYS", 90),
     ("RETENTION_UNVERIFIED_ACCOUNT_DAYS", 7),
@@ -29,6 +29,9 @@ CEILINGS = [
     ("RETENTION_ERASURE_MEMBER_NOTICE_DAYS", 7),
     # #2123 (MT-027) — the cancellable grace of a tenant deletion; floor 0 (self-hosted).
     ("RETENTION_TENANT_ERASURE_GRACE_DAYS", 90),
+    # REQ-053 GP-NFR-055 — the care log (R-25, floor and ceiling both five) and the plan audit (R-26).
+    ("RETENTION_CARE_EVENT_RETENTION_YEARS", 5),
+    ("RETENTION_GARDEN_PLAN_AUDIT_RETENTION_DAYS", 365),
 ]
 # The pre-#1782 names still accepted as aliases (NFR-011 §4 last column).
 ALIAS_CEILINGS = [
@@ -61,11 +64,23 @@ def test_a_value_at_the_ceiling_still_loads(monkeypatch, variable, ceiling):
     load_settings()
 
 
-@pytest.mark.parametrize(("variable", "ceiling"), CEILINGS)
+#: Settings whose floor equals their ceiling (NFR-011 §4): a shorter period is not the operator's call.
+#: R-25 is the crop-rotation look-back of REQ-053 GP-FR-103, five years and no other value (SR-005).
+PINNED_PERIODS = {"RETENTION_CARE_EVENT_RETENTION_YEARS"}
+
+
+@pytest.mark.parametrize(("variable", "ceiling"), [c for c in CEILINGS if c[0] not in PINNED_PERIODS])
 def test_a_shorter_period_still_loads(monkeypatch, variable, ceiling):
     # More minimisation than the NFR asks for is the operator's call.
     monkeypatch.setenv(variable, "1")
     load_settings()
+
+
+def test_a_pinned_period_refuses_a_shorter_value(monkeypatch):
+    monkeypatch.setenv("RETENTION_CARE_EVENT_RETENTION_YEARS", "4")
+    with pytest.raises(SettingsError) as raised:
+        load_settings()
+    assert "RETENTION_CARE_EVENT_RETENTION_YEARS" in str(raised.value)
 
 
 def test_every_default_is_within_its_own_ceiling():
@@ -101,6 +116,8 @@ class TestTheServiceRepeatsTheCeilings:
             ("consent_ip_anonymization_days", 7, "R-04a"),
             ("invitation_retention_days", 30, "R-12"),
             ("erasure_member_notice_days", 7, "R-01a"),
+            ("care_event_retention_years", 5, "R-25"),
+            ("garden_plan_audit_retention_days", 365, "R-26"),
         ],
     )
     def test_an_explicit_period_above_the_ceiling_is_refused(self, keyword, ceiling, rule):

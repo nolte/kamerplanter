@@ -569,6 +569,16 @@ celery_app.conf.update(
             "task": "retention.purge_expired_tenant_erasure_records",
             "schedule": crontab(hour=4, minute=50),  # 04:50 UTC daily, after the row purge
         },
+        # NFR-011 R-25 (REQ-053 GP-NFR-055): care events of the bed log past their five years.
+        "retention-anonymize-care-events-daily": {
+            "task": "retention.anonymize_expired_care_events",
+            "schedule": crontab(hour=4, minute=55),  # 04:55 UTC daily
+        },
+        # NFR-011 R-26 (REQ-053 GP-NFR-055): the plan change log past its year. Its own task, no master task.
+        "retention-purge-garden-plan-audit-daily": {
+            "task": "retention.purge_expired_garden_plan_audit",
+            "schedule": crontab(hour=5, minute=0),  # 05:00 UTC daily
+        },
     },
 )
 
