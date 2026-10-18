@@ -30,6 +30,9 @@ const KEYS = [
   'del',
   'esc',
   'selectAll',
+  'undo',
+  'redo',
+  'save',
 ] as const;
 
 interface KeyboardHelpProps {

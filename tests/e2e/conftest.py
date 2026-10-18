@@ -1003,38 +1003,13 @@ def _e2e_api_post(
 # the sidebar's scroll container), turning two green tests red.
 
 
-@pytest.fixture(scope="function")
-def browser(
-    request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict
-) -> webdriver.Remote:
-    """Create a fresh headless browser session per test (NFR-008 §3.1).
+def start_browser_session(request: pytest.FixtureRequest, device_profile: dict) -> webdriver.Remote:
+    """Start one configured browser session: driver, device emulation, locale,
+    module visibility and (full mode) the demo login.
 
-    Depends on ``e2e_seed_data`` to ensure the demo user exists before
-    attempting browser login in full mode.
-
-    Function-scope (one Remote-WebDriver session per test) instead of the
-    cheaper session-scope (one per xdist worker) is required because the
-    REQ-020/REQ-021 wizard tests interact via shared backend tenant state.
-    On session-scope a single test that leaves the Wizard in a bad state
-    (e.g. ``OnboardingState.skipped=True`` after the seed-fixture's
-    ``/onboarding/skip`` call) cascades into every subsequent test on the
-    same xdist worker — observed as 14–17 failures all attributed to one
-    worker (gw3) while the other workers stayed clean. Per-test browser
-    sessions guarantee a clean cookie/localStorage/sessionStorage starting
-    point for every test; combined with the per-test
-    ``OnboardingWizardPage._reset_wizard_via_api`` this yields
-    deterministic state.
-
-    Cost: one extra Remote WebDriver allocation per test (~1–2 s on
-    Selenium Grid). At ~450 executed tests this adds ~10–15 min to a full
-    suite run, parallelised across 4 xdist workers.
-
-    When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
-    a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
-    local browser is started as before.
-
-    The ``--device`` option controls viewport size and mobile emulation
-    via Chrome DevTools Protocol.
+    Shared by the ``browser`` fixture and by tests that need an additional,
+    independent session. The caller owns the session and must end it with
+    ``quit_driver``.
     """
     browser_name = request.config.getoption("--browser")
     remote_url = os.environ.get("SELENIUM_REMOTE_URL")
@@ -1226,6 +1201,48 @@ def browser(
     if request.config.getoption("--app-mode") == "full":
         _browser_login(driver, url)
 
+    return driver
+
+
+@pytest.fixture(scope="function")
+def browser(
+    request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict
+) -> webdriver.Remote:
+    """Create a fresh headless browser session per test (NFR-008 §3.1).
+
+    The session itself is built by :func:`start_browser_session`, which a test
+    that needs a *second*, independent session (REQ-053 TC-053-008: two editors
+    on one plan) calls directly — so both sessions are configured identically
+    instead of the second one being a hand-copied variant of this fixture.
+
+    Depends on ``e2e_seed_data`` to ensure the demo user exists before
+    attempting browser login in full mode.
+
+    Function-scope (one Remote-WebDriver session per test) instead of the
+    cheaper session-scope (one per xdist worker) is required because the
+    REQ-020/REQ-021 wizard tests interact via shared backend tenant state.
+    On session-scope a single test that leaves the Wizard in a bad state
+    (e.g. ``OnboardingState.skipped=True`` after the seed-fixture's
+    ``/onboarding/skip`` call) cascades into every subsequent test on the
+    same xdist worker — observed as 14–17 failures all attributed to one
+    worker (gw3) while the other workers stayed clean. Per-test browser
+    sessions guarantee a clean cookie/localStorage/sessionStorage starting
+    point for every test; combined with the per-test
+    ``OnboardingWizardPage._reset_wizard_via_api`` this yields
+    deterministic state.
+
+    Cost: one extra Remote WebDriver allocation per test (~1–2 s on
+    Selenium Grid). At ~450 executed tests this adds ~10–15 min to a full
+    suite run, parallelised across 4 xdist workers.
+
+    When ``SELENIUM_REMOTE_URL`` is set (e.g. in docker-compose.e2e.yml),
+    a Remote WebDriver connecting to Selenium Grid is used.  Otherwise a
+    local browser is started as before.
+
+    The ``--device`` option controls viewport size and mobile emulation
+    via Chrome DevTools Protocol.
+    """
+    driver = start_browser_session(request, device_profile)
     yield driver
     # A session that died under the test must not add a second traceback that
     # hides the first (#1903); it is recorded on the test result instead.

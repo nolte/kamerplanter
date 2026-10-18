@@ -21,6 +21,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmptyState from '@/components/common/EmptyState';
+import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
@@ -32,6 +33,7 @@ import {
   loadGardenPlan,
   resetGardenPlan,
   selectGardenPlanState,
+  selectIsDirty,
 } from '../state/gardenPlanSlice';
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
@@ -80,6 +82,7 @@ export default function GardenPlanRoute() {
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
   const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
+  const dirty = useAppSelector(selectIsDirty);
   const labels = useRendererLabels();
   const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
@@ -229,6 +232,8 @@ export default function GardenPlanRoute() {
           {t('pages.gardenPlan.fieldModeHint')}
         </Alert>
       )}
+      {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first. */}
+      <UnsavedChangesGuard dirty={dirty} />
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
     </Box>

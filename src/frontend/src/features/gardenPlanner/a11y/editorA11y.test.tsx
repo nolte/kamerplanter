@@ -179,7 +179,7 @@ describe('single-key shortcuts of the view (WP 2.5) share the switch', () => {
     setup();
     fireEvent.click(screen.getByTestId('garden-plan-keyboard-help-button'));
     const help = screen.getByTestId('garden-plan-keyboard-help');
-    for (const key of ['?', 'G', '0', '+ / −']) {
+    for (const key of ['?', 'G', '0', '+ / −', 'Ctrl + Z', 'Ctrl + Shift + Z / Ctrl + Y', 'Ctrl + S']) {
       expect(within(help).getByText(key)).toBeInTheDocument();
     }
   });
