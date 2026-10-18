@@ -1096,6 +1096,60 @@
       "ai_calls_per_user_day": "KI-Aufrufe je Konto und Tag",
       "ai_calls_per_tenant_day": "KI-Aufrufe des Gartens je Tag",
       "ai_tokens_per_tenant_day": "KI-Tokens des Gartens je Tag"
+    },
+    "bedStatus": {
+      "planned": "Geplant",
+      "active": "Aktiv",
+      "retired": "Stillgelegt"
+    },
+    "sunExposure": {
+      "full_sun": "Volle Sonne",
+      "partial_shade": "Halbschatten",
+      "shade": "Schatten",
+      "deep_shade": "Tiefschatten",
+      "unknown": "Unbekannt"
+    },
+    "growingMediumKind": {
+      "native_soil": "Gewachsener Boden",
+      "raised_bed_mix": "Hochbeetmischung",
+      "potting_mix": "Blumenerde",
+      "mineral_substrate": "Mineralisches Substrat",
+      "other": "Sonstiges"
+    },
+    "soilTexture": {
+      "sand": "Sand",
+      "loamy_sand": "Lehmiger Sand",
+      "sandy_loam": "Sandiger Lehm",
+      "loam": "Lehm",
+      "silt_loam": "Schluffiger Lehm",
+      "clay_loam": "Toniger Lehm",
+      "clay": "Ton",
+      "unknown": "Unbekannt"
+    },
+    "soilDrainage": {
+      "poor": "Schlecht",
+      "moderate": "Mittel",
+      "good": "Gut",
+      "unknown": "Unbekannt"
+    },
+    "siteWaterRegime": {
+      "dry": "Trocken",
+      "fresh": "Frisch",
+      "moist": "Feucht",
+      "wet": "Nass",
+      "unknown": "Unbekannt"
+    },
+    "soilCondition": {
+      "compacted": "Verdichtet",
+      "depleted": "Ausgelaugt",
+      "waterlogged": "Staunass",
+      "crusting": "Verschlämmt",
+      "stony": "Steinig"
+    },
+    "phMethod": {
+      "cacl2": "CaCl₂-Lösung",
+      "h2o": "Wasser",
+      "probe_unknown": "Sonde, Methode unbekannt"
     }
   }
 }

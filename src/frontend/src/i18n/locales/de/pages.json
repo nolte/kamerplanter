@@ -5850,6 +5850,139 @@
           "downloaded": "Die Kopie wurde heruntergeladen. Du kannst jetzt neu laden."
         }
       }
+    },
+    "bed": {
+      "tabs": {
+        "label": "Ansichten des Beets",
+        "plan": "Plan",
+        "planting": "Pflanzung",
+        "care": "Pflege",
+        "soil": "Boden",
+        "history": "Historie",
+        "details": "Stammdaten"
+      },
+      "header": {
+        "title": "Beet auf einen Blick",
+        "area": "Fläche",
+        "type": "Typ",
+        "status": "Status",
+        "changeStatus": "Status ändern",
+        "soil": "Bodenart",
+        "sun": "Sonneneinstrahlung",
+        "plants": "Aktive Pflanzen",
+        "plantCount_one": "{{count}} Pflanze",
+        "plantCount_other": "{{count}} Pflanzen",
+        "speciesCount_one": "{{count}} Art",
+        "speciesCount_other": "{{count}} Arten",
+        "openTasks": "Offene Aufgaben",
+        "taskCount_one": "{{count}} Aufgabe",
+        "taskCount_other": "{{count}} Aufgaben",
+        "overdueCount_one": "{{count}} überfällig",
+        "overdueCount_other": "{{count}} überfällig",
+        "lastCare": "Letzte Pflege",
+        "nextDue": "Nächste Fälligkeit",
+        "assigned": "Zuständig",
+        "nobody": "Niemand zugewiesen",
+        "never": "Noch nie",
+        "none": "Keine",
+        "unknown": "Nicht angegeben",
+        "year": "Saison",
+        "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird."
+      },
+      "status": {
+        "title": "Status des Beets ändern",
+        "current": "Aktueller Status: {{status}}",
+        "target": "Neuer Status",
+        "reason": "Begründung",
+        "reasonRequired": "Pflicht beim Stilllegen: Schreib kurz, warum das Beet stillgelegt wird. Der Grund landet im Pflegeprotokoll des Beets.",
+        "reasonOptional": "Optional. Der Grund landet im Pflegeprotokoll des Beets.",
+        "submit": "Status ändern",
+        "changed": "Status geändert."
+      },
+      "soil": {
+        "title": "Bodenprofil",
+        "intro": "Beschreibe den Boden deines Beets. Alle Angaben sind freiwillig – was du nicht weißt, bleibt „unbekannt“.",
+        "introReadOnly": "Das Bodenprofil dieses Beets. Du kannst es ansehen, aber nicht ändern.",
+        "medium": "Füllung",
+        "mediumHelper": "Woraus besteht die Beetfüllung?",
+        "substrate": "Substrat",
+        "substrateHelper": "Wähle ein Substrat aus deinem Katalog. pH und EC werden vorbelegt, wenn du noch nichts gemessen hast.",
+        "notSet": "Nicht angegeben",
+        "texture": "Bodenart",
+        "textureHelper": "Die Korngröße deines Bodens. Die Fingerprobe unten hilft dir beim Bestimmen.",
+        "fingerTest": {
+          "title": "Fingerprobe: So bestimmst du die Bodenart",
+          "intro": "Nimm eine Handvoll feuchte Erde, knete sie durch und versuche, sie zu einer Rolle von etwa einem Bleistift zu formen.",
+          "sand": "Rieselt durch die Finger, lässt sich nicht formen, fühlt sich körnig und rau an.",
+          "loamy_sand": "Zerfällt fast sofort, ist sandig-rau, hängt aber ein wenig zusammen.",
+          "sandy_loam": "Lässt sich zu einem Klumpen formen, aber nicht zu einer Rolle ausrollen; deutlich rau.",
+          "loam": "Lässt sich zu einer Rolle ausrollen, ist nicht glänzend, fühlt sich leicht mehlig und etwas rau an.",
+          "silt_loam": "Fühlt sich mehlig-samtig an, klebt kaum, die Fingerrillen bleiben stumpf.",
+          "clay_loam": "Lässt sich gut ausrollen, die Schnittfläche glänzt leicht, ist klebrig.",
+          "clay": "Sehr gut formbar, glänzend, klebrig-plastisch; ein Fingerabdruck bleibt bestehen."
+        },
+        "drainage": "Drainage",
+        "drainageHelper": "Wie schnell versickert Wasser im Beet?",
+        "waterRegime": "Feuchte des Standorts",
+        "waterRegimeHelper": "Wie feucht ist der Standort allgemein – nicht, wie nass die Erde heute ist.",
+        "conditions": "Zustand des Bodens",
+        "conditionsHelper": "Mehrfachauswahl möglich.",
+        "measurements": "Messwerte",
+        "ph": "pH-Wert",
+        "phMethod": "Messmethode",
+        "phHelper": "Ein Wert zwischen 0 (sauer) und 14 (basisch).",
+        "ec": "EC (Leitfähigkeit)",
+        "ecHelper": "Misst, wie viele gelöste Nährsalze im Boden stecken.",
+        "humus": "Humusgehalt",
+        "humusHelper": "Anteil organischer Substanz in Prozent.",
+        "notes": "Notizen",
+        "saved": "Bodenprofil gespeichert."
+      },
+      "plan": {
+        "openGarden": "Im Gartenplan öffnen",
+        "summary": "{{size}} · {{slots}} Plätze · {{plants}} Pflanzen",
+        "loading": "Beet wird geladen …",
+        "notPlaced": {
+          "title": "Dieses Beet ist noch nicht im Gartenplan",
+          "description": "Sobald du es im Gartenplan zeichnest, siehst du hier seinen Rahmen, die Plätze und die Pflanzen."
+        }
+      },
+      "placeholder": {
+        "planting": {
+          "title": "Pflanzung folgt",
+          "description": "Hier planst du bald, was in diesem Beet wächst. Die bestehenden Durchläufe und Pflanzen findest du solange in den Stammdaten.",
+          "action": "Zu den Stammdaten"
+        },
+        "care": {
+          "title": "Pflege folgt",
+          "description": "Hier siehst du bald die Aufgaben und das Pflegeprotokoll dieses Beets."
+        },
+        "history": {
+          "title": "Historie folgt",
+          "description": "Hier siehst du bald, was in den vergangenen Jahren in diesem Beet stand."
+        }
+      },
+      "list": {
+        "title": "Beete",
+        "name": "Name",
+        "type": "Typ",
+        "area": "Fläche",
+        "status": "Status",
+        "assigned": "Zuständig",
+        "plants": "Pflanzen",
+        "tasks": "Offene Aufgaben",
+        "tasksOverdue": "{{open}} ({{overdue}} überfällig)",
+        "nextDue": "Nächste Fälligkeit",
+        "statusFilter": "Status",
+        "filterOpen": "Geplant und aktiv",
+        "filterAll": "Alle",
+        "onlyMine": "Meine Beete",
+        "hint": "Wähle eine Zeile, um das Beet im Plan hervorzuheben. Der Name öffnet das Beet.",
+        "empty": "Noch keine Beete",
+        "emptyDescription": "Zeichne ein Beet im Gartenplan, dann erscheint es hier.",
+        "onlyMineNone": "Dir sind noch keine Beete zugewiesen.",
+        "notPlaced": "„{{name}}“ ist noch nicht im Gartenplan eingezeichnet."
+      }
     }
   }
 }
