@@ -127,6 +127,43 @@ curl -X GET \
 
 ---
 
+### Gartenplan (PDF, SVG, JSON-Sicherung)
+
+Drei Exporte des Gartenplans eines Standorts (REQ-053). Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen. Ein Standort eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`. Je Route gelten `RATE_LIMIT_PLAN_EXPORT` Anfragen je Konto (Standard 10 pro Minute) und `RATE_LIMIT_PLAN_EXPORT_TENANT` je Mandant (Standard 30 pro Minute); darüber antwortet die API mit `429` und `Retry-After`.
+
+```
+GET /api/v1/t/{slug}/print/garden-plan/{site_key}        # PDF
+GET /api/v1/t/{slug}/sites/{key}/plan/render.svg         # SVG-Download
+GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON-Sicherung
+```
+
+**Query-Parameter von PDF und SVG:**
+
+| Parameter | Standard | Beschreibung |
+|-----------|----------|--------------|
+| `scale` | `auto` | `auto` oder `1:20`, `1:25`, `1:50`, `1:75`, `1:100`, `1:125`, `1:150`, `1:200`, `1:250`, `1:300`, `1:400`, `1:500`. `auto` nimmt den feinsten Maßstab, bei dem der Plan auf die Seite passt |
+| `paper` | `a4` | `a4` oder `a3` |
+| `orientation` | `landscape` | `landscape` oder `portrait` |
+| `layers` | `beds,objects,plants,labels` | Kommagetrennt: `grid`, `beds`, `objects`, `slots`, `plants`, `labels`. Grenze, Maßstabsleiste, Nordpfeil und Legende werden immer gezeichnet |
+| `locale` | `de` | `de` oder `en` |
+| `color` | `#2e7d32` | Akzentfarbe der Gartengrenze als `#rrggbb` (das `#` als `%23` senden) |
+| `bed_list` | `false` | Nur PDF: zweite Seite mit der Beetliste (Name, Fläche, Status, Sonne) |
+
+Die Antwort trägt `X-Plan-Scale` (zum Beispiel `1:50`). `X-Plan-Suggested-Paper: a3` erscheint, wenn A4 einen gröberen Maßstab als 1:200 bräuchte.
+
+Das PDF enthält keine Mitgliedsnamen, Zuweisungen, Notizen oder Koordinaten. Das SVG nutzt Millimeter im `viewBox` (1 m = 1 000 Einheiten) und kommt als Anhang mit `X-Content-Type-Options: nosniff` und `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. Die JSON-Sicherung trägt `schema_version: "1"` mit Planeinstellungen, Standorten, Pflanzplätzen und Gartenobjekten, aber ohne Pflanzen, Aufgaben, Ereignisse oder Kontoverweise.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `404` | `ENTITY_NOT_FOUND` | Standort nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `plan.empty` | Der Plan hat weder eine Grenze noch etwas Platziertes |
+| `422` | `plan.does_not_fit` | Nur PDF: der feste `scale` passt nicht auf das Papier; gröberen Maßstab oder A3 wählen |
+| `422` | `VALIDATION_ERROR` | Ein Query-Wert außerhalb der obigen Listen |
+
+---
+
 ### Verfügbare Templates auflisten
 
 Gibt eine Liste aller registrierten Print-Templates zurück.

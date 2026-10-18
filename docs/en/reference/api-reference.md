@@ -127,6 +127,43 @@ curl -X GET \
 
 ---
 
+### Garden Plan (PDF, SVG, JSON backup)
+
+Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.
+
+```
+GET /api/v1/t/{slug}/print/garden-plan/{site_key}        # PDF
+GET /api/v1/t/{slug}/sites/{key}/plan/render.svg         # SVG download
+GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON backup
+```
+
+**Query parameters of the PDF and the SVG:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `scale` | `auto` | `auto` or one of `1:20`, `1:25`, `1:50`, `1:75`, `1:100`, `1:125`, `1:150`, `1:200`, `1:250`, `1:300`, `1:400`, `1:500`. `auto` takes the finest scale at which the plan fits the page |
+| `paper` | `a4` | `a4` or `a3` |
+| `orientation` | `landscape` | `landscape` or `portrait` |
+| `layers` | `beds,objects,plants,labels` | Comma-separated: `grid`, `beds`, `objects`, `slots`, `plants`, `labels`. Boundary, scale bar, north arrow and legend are always drawn |
+| `locale` | `de` | `de` or `en` |
+| `color` | `#2e7d32` | Accent colour of the garden boundary, `#rrggbb` (send the `#` as `%23`) |
+| `bed_list` | `false` | PDF only: add a second page with the bed list (name, area, status, sun) |
+
+The response carries `X-Plan-Scale` (for example `1:50`). `X-Plan-Suggested-Paper: a3` appears when A4 would need a scale coarser than 1:200.
+
+The PDF contains no member names, assignments, notes or coordinates. The SVG uses millimetres in its `viewBox` (1 m = 1,000 units) and is delivered as an attachment with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. The JSON backup carries `schema_version: "1"` with the plan settings, locations, slots and garden objects, but no plants, tasks, events or account references.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `404` | `ENTITY_NOT_FOUND` | Site not found (or not in this tenant) |
+| `422` | `plan.empty` | The plan has no boundary and nothing placed on it |
+| `422` | `plan.does_not_fit` | PDF only: the fixed `scale` does not fit the paper; choose a coarser scale or A3 |
+| `422` | `VALIDATION_ERROR` | A query value outside the lists above |
+
+---
+
 ### List Available Templates
 
 Returns a list of all registered print templates.

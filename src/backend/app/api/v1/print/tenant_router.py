@@ -6,12 +6,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.api.v1.auth.router import limiter, user_rate_limit_key
-from app.common.auth import get_current_tenant
-from app.common.dependencies import get_print_service
+from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
+from app.api.v1.garden_plan.export_options import plan_svg_options
+from app.common.auth import get_budgeted_tenant, get_current_tenant
+from app.common.dependencies import get_garden_plan_export_service, get_print_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
+from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.print_service import PrintService
 
 router = APIRouter(prefix="/print", tags=["print"], responses=NOT_FOUND_RESPONSE)
@@ -126,3 +129,30 @@ def export_plant_labels_pdf(
             "Content-Disposition": 'attachment; filename="plant-labels.pdf"',
         },
     )
+
+
+@router.get("/garden-plan/{site_key}")
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+@limiter.limit(settings.rate_limit_plan_export_tenant, key_func=tenant_rate_limit_key)
+def export_garden_plan_pdf(
+    request: Request,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
+    options: PlanSvgOptions = Depends(plan_svg_options),
+    bed_list: bool = Query(False, description="Add a second page listing the beds (name, area, status, sun)."),
+    ctx: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanExportService = Depends(get_garden_plan_export_service),
+) -> StreamingResponse:
+    """The garden plan to scale as PDF (GP-API-007, GP-FR-142): scale bar, north arrow, legend, title block.
+
+    Default A4 landscape with the finest scale at which the plan fits; ``X-Plan-Suggested-Paper: a3`` when A4
+    would need a scale coarser than 1:200. Carries no member names, assignments, notes or coordinates.
+    422 ``plan.does_not_fit`` when a fixed scale does not fit the paper, ``plan.empty`` when there is nothing to draw.
+    """
+    pdf = service.render_pdf(site_key, tenant_key=ctx.tenant_key, options=options, bed_list=bed_list)
+    headers = {
+        "Content-Disposition": f'attachment; filename="{pdf.filename}"',
+        "X-Plan-Scale": f"1:{pdf.scale}",
+    }
+    if pdf.suggest_a3:
+        headers["X-Plan-Suggested-Paper"] = "a3"
+    return StreamingResponse(BytesIO(pdf.content), media_type="application/pdf", headers=headers)

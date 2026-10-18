@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+@page {
+    size: {{ page_size }};
+    margin: 10mm;
+}
+
+.plan-header {
+    height: 12mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 0.5mm solid #2e7d32;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+.plan-header h1 {
+    font-size: 14pt;
+    color: #2e7d32;
+}
+
+.plan-header .meta {
+    font-size: 8pt;
+    color: #555;
+}
+
+.plan-header .hint {
+    color: #b26a00;
+}
+
+.plan-figure {
+    display: block;
+    width: {{ plan_width_mm }}mm;
+    height: {{ plan_height_mm }}mm;
+}
+
+.bed-list {
+    page-break-before: always;
+}
+
+.bed-list table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+}
+
+.bed-list th,
+.bed-list td {
+    border-bottom: 0.2mm solid #ccc;
+    padding: 1.5mm 2mm;
+    text-align: left;
+}
+{% endblock %}
+
+{% block content %}
+<div class="plan-header">
+    <h1>{{ labels.garden_plan_title }}: {{ site_name }}</h1>
+    <div class="meta">
+        {{ labels.garden_plan_scale }} {{ scale_label }} &middot;
+        {{ labels.garden_plan_paper }} {{ paper_label }} &middot;
+        {{ labels.garden_plan_revision }} {{ plan_revision }} &middot;
+        {{ generated_date }}
+        {% if suggest_a3 %}<span class="hint">&middot; {{ labels.garden_plan_a3_hint }}</span>{% endif %}
+    </div>
+</div>
+<img class="plan-figure" src="{{ svg_data_uri }}" alt="{{ labels.garden_plan_title }}: {{ site_name }}">
+
+{% if show_bed_list %}
+<section class="bed-list">
+    <h2>{{ labels.garden_plan_bed_list }}</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ labels.garden_plan_bed_name }}</th>
+                <th>{{ labels.garden_plan_bed_area }}</th>
+                <th>{{ labels.garden_plan_bed_status }}</th>
+                <th>{{ labels.garden_plan_bed_sun }}</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for bed in beds %}
+            <tr>
+                <td>{{ bed.name }}</td>
+                <td>{{ bed.area }}</td>
+                <td>{{ labels['bed_status_' ~ bed.status] }}</td>
+                <td>{{ labels['sun_exposure_' ~ bed.sun] }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% endblock %}

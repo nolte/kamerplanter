@@ -385,6 +385,10 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "GardenResourceService": "garden_resource_service.py",
     "CareEventService": "care_event_service.py",
     "PlantingReservationService": "planting_reservation_service.py",
+    # REQ-053 WP 5.2 (#2431): the JSON backup, the SVG and the PDF read a whole site and resolve it through
+    # ``require_owned_site`` — no ``get…_by_key``, so the keyed-write selector is blind to them, and an export that
+    # lost its ``tenant_key`` would hand out another tenant's plan. Read-only, hence no entry among the writers.
+    "GardenPlanExportService": "garden_plan_export_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -395,6 +399,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "GardenResourceService": 12,
     "CareEventService": 7,
     "PlantingReservationService": 6,
+    "GardenPlanExportService": 5,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -486,6 +491,7 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # the load but not the layout / clearing writers, which reach the repository through write sets. Every public
     # method takes the tenant strictly.
     "PlantingReservationService": "planting_reservation_service.py",
+    "GardenPlanExportService": "garden_plan_export_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
