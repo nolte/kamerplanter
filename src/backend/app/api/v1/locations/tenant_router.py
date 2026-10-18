@@ -13,6 +13,8 @@ from app.api.v1.locations.schemas import (
     LocationPatchResponse,
     LocationResponse,
     LocationStatusRequest,
+    PlantingLayoutPreviewRequest,
+    PlantingLayoutPreviewResponse,
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
@@ -250,6 +252,31 @@ def apply_slot_batch(
     return SlotBatchResponse(
         created_keys=result.created_keys, deleted_count=result.deleted_count, kept_count=result.kept_count
     )
+
+
+@router.post(
+    "/{key}/planting-layout/preview",
+    response_model=PlantingLayoutPreviewResponse,
+    responses={**VALIDATION_RESPONSE},
+)
+def preview_planting_layout(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: PlantingLayoutPreviewRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.READ)),
+    service: GardenResourceService = Depends(get_garden_resource_service),
+) -> PlantingLayoutPreviewResponse:
+    """Where an entry's plants would stand in the bed, without persisting anything (GP-API-016, GP-FR-063).
+
+    Slots are in the bed frame (§9.2). 422 ``layout.too_many_positions {estimated, limit}`` when the
+    area-based pre-estimate exceeds 2 000 positions (GP-FR-062); that check runs before a point exists.
+    ``warnings`` carry hints only: spacing below 70 % of the mature width, positions closer than
+    ``spacing_cm`` (V-07), nothing fits, a zone margin that could not be applied. The server answer is
+    authoritative over the client-side preview (GP-FR-063).
+    """
+    result = service.preview_planting_layout(
+        key, tenant_key=ctx.tenant_key, entry=body.entry.to_layout(), max_count=body.entry.max_count
+    )
+    return PlantingLayoutPreviewResponse.from_result(result)
 
 
 # ── Sensors ──────────────────────────────────────────────────────────

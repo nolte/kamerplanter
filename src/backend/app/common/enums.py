@@ -554,6 +554,33 @@ class LayoutStrategy(StrEnum):
     FREE = "free"
 
 
+class RowDirection(StrEnum):
+    """REQ-053 GP-FR-060 — which side of the bed the planting rows run along.
+
+    ``along_length`` follows the **longer** side of the bed's bounding box in the
+    bed frame, ``along_width`` the shorter one (a square bed: ``along_length`` is
+    the bed-frame x axis). Additive — a stored value is never retired.
+    """
+
+    ALONG_LENGTH = "along_length"
+    ALONG_WIDTH = "along_width"
+
+
+class DepthKind(StrEnum):
+    """REQ-053 GP-FR-060 — what ``depth_cm`` of a planting-run entry measures."""
+
+    SOWING = "sowing"
+    PLANTING = "planting"
+
+
+class PlacementHint(StrEnum):
+    """REQ-053 GP-FR-071 (COULD) — where in the bed an entry prefers to stand."""
+
+    INTERIOR = "interior"
+    EDGE = "edge"
+    CORNER = "corner"
+
+
 class SuccessionPlanStatus(StrEnum):
     """REQ-013 §2 — lifecycle state of a succession (staggered sowing) plan."""
 

@@ -233,6 +233,17 @@ class PlantingRunService:
                     quantity=e.quantity,
                     id_prefix=e.id_prefix,
                     spacing_cm=e.spacing_cm,
+                    row_spacing_cm=e.row_spacing_cm,
+                    row_direction=e.row_direction,
+                    edge_margin_along_cm=e.edge_margin_along_cm,
+                    edge_margin_across_cm=e.edge_margin_across_cm,
+                    depth_cm=e.depth_cm,
+                    depth_kind=e.depth_kind,
+                    sowing_spacing_cm=e.sowing_spacing_cm,
+                    thinning_to_cm=e.thinning_to_cm,
+                    layout_strategy=e.layout_strategy,
+                    placement_hint=e.placement_hint,
+                    row_assignment=e.row_assignment,
                     notes=e.notes,
                 )
                 for e in self._repo.get_entries(run.clone_from_run_key)
@@ -409,7 +420,25 @@ class PlantingRunService:
         self._repo.update(run_key, run)
         return created
 
-    ENTRY_UPDATABLE_FIELDS = {"species_key", "cultivar_key", "quantity", "id_prefix", "spacing_cm", "notes"}
+    ENTRY_UPDATABLE_FIELDS = {
+        "species_key",
+        "cultivar_key",
+        "quantity",
+        "id_prefix",
+        "spacing_cm",
+        "row_spacing_cm",
+        "row_direction",
+        "edge_margin_along_cm",
+        "edge_margin_across_cm",
+        "depth_cm",
+        "depth_kind",
+        "sowing_spacing_cm",
+        "thinning_to_cm",
+        "layout_strategy",
+        "placement_hint",
+        "row_assignment",
+        "notes",
+    }
     ENTRY_REQUIRED_FIELDS = {"species_key", "quantity", "id_prefix"}
 
     def update_entry(

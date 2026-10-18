@@ -2,23 +2,32 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.common.enums import (
     BedStatus,
     GrowingMediumKind,
     IrrigationSystem,
+    LayoutStrategy,
     LightType,
     Orientation,
     PhMethod,
+    RowDirection,
     SiteWaterRegime,
+    SlotRole,
     SoilConditionFlag,
     SoilDrainage,
     SoilTexture,
     SunExposure,
 )
+from app.domain.calculators.planting_layout_calculator import (
+    MAX_LAYOUT_POSITIONS,
+    EntryLayout,
+    LayoutResult,
+)
 from app.domain.models.garden_plan import LocationPatch
-from app.domain.models.geometry import Geometry
+from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 
@@ -241,3 +250,174 @@ class FrostWarningResponse(BaseModel):
     threshold_celsius: float
     source: str
     entity_id: str | None = None
+
+
+class PlantingLayoutEntryRequest(BaseModel):
+    """The layout fields of one planting-run entry, in centimetres (GP-API-016, GP-FR-060)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"layout_strategy": "triangular", "spacing_cm": 40, "mature_width_cm": 60, "max_count": 24},
+                {"layout_strategy": "rows", "spacing_cm": 30, "row_spacing_cm": 40, "row_assignment": [0, 2]},
+            ]
+        }
+    )
+
+    layout_strategy: LayoutStrategy = LayoutStrategy.GRID
+    spacing_cm: float = Field(ge=MIN_SPACING_CM, le=MAX_SPACING_CM)
+    row_spacing_cm: float | None = Field(
+        default=None,
+        ge=MIN_SPACING_CM,
+        le=MAX_SPACING_CM,
+        description="Required for `rows`; `grid` and `triangular` derive it from `spacing_cm`.",
+    )
+    row_direction: RowDirection = RowDirection.ALONG_LENGTH
+    edge_margin_along_cm: float | None = Field(
+        default=None, ge=0, le=MAX_EDGE_MARGIN_CM, description="Default `spacing_cm / 2` (0 for a zone)."
+    )
+    edge_margin_across_cm: float | None = Field(
+        default=None, ge=0, le=MAX_EDGE_MARGIN_CM, description="Default `row_spacing / 2` (0 for a zone)."
+    )
+    row_assignment: list[int] | None = Field(
+        default=None, max_length=MAX_LAYOUT_POSITIONS, description="Row indices (0-based) this entry occupies."
+    )
+    mature_width_cm: float | None = Field(
+        default=None, gt=0, le=MAX_SPACING_CM, description="Steckbrief width; only drives the spacing warning."
+    )
+    max_count: int | None = Field(default=None, ge=1, le=MAX_LAYOUT_POSITIONS)
+
+    @field_validator("row_assignment")
+    @classmethod
+    def validate_row_assignment(cls, value: list[int] | None) -> list[int] | None:
+        return check_row_assignment(value)
+
+    def to_layout(self) -> EntryLayout:
+        """The calculator's input; ``max_count`` travels beside it."""
+        return EntryLayout(
+            layout_strategy=self.layout_strategy,
+            spacing_cm=self.spacing_cm,
+            row_spacing_cm=self.row_spacing_cm,
+            row_direction=self.row_direction,
+            edge_margin_along_cm=self.edge_margin_along_cm,
+            edge_margin_across_cm=self.edge_margin_across_cm,
+            row_assignment=None if self.row_assignment is None else tuple(self.row_assignment),
+            mature_width_cm=self.mature_width_cm,
+        )
+
+
+class PlantingLayoutPreviewRequest(BaseModel):
+    """``POST /locations/{key}/planting-layout/preview`` (GP-API-016)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "entry": {
+                        "layout_strategy": "rows",
+                        "spacing_cm": 30,
+                        "row_spacing_cm": 40,
+                        "edge_margin_along_cm": 15,
+                        "edge_margin_across_cm": 15,
+                    }
+                }
+            ]
+        }
+    )
+
+    entry: PlantingLayoutEntryRequest
+
+
+class PlantingLayoutSlotResponse(BaseModel):
+    """One planned slot: a `position` point or a `zone` polygon in the bed frame (§9.2)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "slot_role": "position",
+                    "geometry": {"kind": "point", "origin": [0.15, 0.55]},
+                    "row_index": 1,
+                    "sequence": 11,
+                    "capacity_plants": 1,
+                }
+            ]
+        }
+    )
+
+    slot_role: SlotRole
+    geometry: BedFrameGeometry
+    row_index: int | None = None
+    sequence: int
+    capacity_plants: int
+
+
+class PlantingLayoutWarningResponse(BaseModel):
+    """A hint that never blocks (GP-FR-062, V-07)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"code": "layout.spacing_below_mature_width", "detail": {"spacing_cm": 30.0, "mature_width_cm": 50.0}}
+            ]
+        }
+    )
+
+    code: str
+    detail: dict[str, float] = Field(default_factory=dict)
+
+
+class PlantingLayoutPreviewResponse(BaseModel):
+    """What the bed would hold, without persisting anything (GP-API-016)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "slots": [
+                        {
+                            "slot_role": "position",
+                            "geometry": {"kind": "point", "origin": [0.15, 0.15]},
+                            "row_index": 0,
+                            "sequence": 1,
+                            "capacity_plants": 1,
+                        }
+                    ],
+                    "count": 30,
+                    "capacity_max": 30,
+                    "warnings": [],
+                }
+            ]
+        }
+    )
+
+    slots: list[PlantingLayoutSlotResponse]
+    count: int
+    capacity_max: int
+    warnings: list[PlantingLayoutWarningResponse]
+
+    @classmethod
+    def from_result(cls, result: LayoutResult) -> PlantingLayoutPreviewResponse:
+        """The wire form of a layout; slot geometries are bed-frame points (positions) or polygons (zones)."""
+        slots = [
+            PlantingLayoutSlotResponse.model_validate(
+                {
+                    "slot_role": slot.slot_role,
+                    "geometry": (
+                        {"kind": "point", "origin": list(slot.point)}
+                        if slot.point is not None
+                        else {"kind": "polygon", "points": [list(p) for p in slot.outline or ()]}
+                    ),
+                    "row_index": slot.row_index,
+                    "sequence": slot.sequence,
+                    "capacity_plants": slot.capacity_plants,
+                }
+            )
+            for slot in result.slots
+        ]
+        return cls(
+            slots=slots,
+            count=result.count,
+            capacity_max=result.capacity_max,
+            warnings=[PlantingLayoutWarningResponse(code=w.code, detail=w.detail) for w in result.warnings],
+        )

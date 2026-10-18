@@ -1043,3 +1043,50 @@ def test_every_public_method_takes_the_tenant_keyword_only_without_a_default() -
         parameter = inspect.signature(fn).parameters.get("tenant_key")
         assert parameter is not None, name
         assert parameter.kind is inspect.Parameter.KEYWORD_ONLY and parameter.default is inspect.Parameter.empty, name
+
+
+# ── GP-API-016: the layout preview ─────────────────────────────────────────────────────────────────
+
+
+class TestThePlantingLayoutPreview:
+    @staticmethod
+    def entry():
+        from app.common.enums import LayoutStrategy
+        from app.domain.calculators.planting_layout_calculator import EntryLayout
+
+        return EntryLayout(LayoutStrategy.GRID, spacing_cm=50)
+
+    def test_it_computes_over_the_geometry_of_the_owned_bed_and_writes_nothing(self, world) -> None:
+        service, repo, _ = world
+        result = service.preview_planting_layout("bed", tenant_key=TENANT, entry=self.entry(), max_count=None)
+        assert result.count > 0 and result.capacity_max == result.count
+        assert repo.slot_writes == []
+
+    def test_a_foreign_bed_and_an_absent_one_are_the_same_404_and_compute_nothing(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["foreign_bed"] = make_location("foreign_bed", geometry=rect(1, 1, 2, 1)).model_copy(
+            update={"site_key": "site_foreign"}
+        )
+        for key in ("foreign_bed", "nope"):
+            with pytest.raises(NotFoundError) as exc:
+                service.preview_planting_layout(key, tenant_key=TENANT, entry=self.entry(), max_count=None)
+            assert exc.value.status_code == 404
+
+    def test_an_empty_tenant_is_no_tenant(self, world) -> None:
+        service, _, _ = world
+        with pytest.raises(NotFoundError):
+            service.preview_planting_layout("bed", tenant_key="", entry=self.entry(), max_count=None)
+
+    def test_a_bed_without_geometry_is_a_422(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["bare"] = make_location("bare")
+        with pytest.raises(PlanError) as exc:
+            service.preview_planting_layout("bare", tenant_key=TENANT, entry=self.entry(), max_count=None)
+        assert code_of(exc) == "layout.bed_without_geometry"
+
+    def test_the_tenant_is_keyword_only_without_a_default(self) -> None:
+        import inspect
+
+        parameter = inspect.signature(GardenResourceService.preview_planting_layout).parameters["tenant_key"]
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is inspect.Parameter.empty
