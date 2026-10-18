@@ -840,8 +840,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     ) -> list[Task]:
         """Pending tasks bound to one of ``location_keys`` or to a plant standing in one (GP-FR-080, GP-API-030).
 
-        The same two bindings the plan's badge counter adds up (``garden_plan_repository._task_counters``), so the
-        list a badge opens holds exactly the tasks it counted. The keys are the caller's already-verified subtree;
+        The same two bindings the plan's badge counter adds up (``garden_plan_repository._task_counters``). The list
+        differs from the badge in two deliberate ways: it is the queue's ``pending`` set (a started task is not in
+        ``/tasks/queue`` either) and it keeps suggestions, which the care tab shows in a section of their own
+        (GP-FR-086) while the badge does not count them. The keys are the caller's already-verified subtree;
         the tenant predicate is still in the query, and a removed plant's task does not surface.
         An empty ``location_keys`` matches nothing (never "no filter").
         """
@@ -868,6 +870,21 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         bind_vars["limit"] = limit
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def get_clone_entity_keys(self, source_key: str, *, tenant_key: str) -> set[str]:
+        """The entities that already hold a clone of ``source_key`` (``task_cloned_from``), inside ``tenant_key``."""
+        self._require_tenant_key(tenant_key, "get_clone_entity_keys")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"FOR e IN {col.TASK_CLONED_FROM} FILTER e._to == @source "
+                "LET clone = DOCUMENT(e._from) "
+                "FILTER clone != null AND clone.tenant_key == @tenant_key AND clone.entity_key != null "
+                "RETURN DISTINCT clone.entity_key",
+                bind_vars={"source": f"{col.TASKS}/{source_key}", "tenant_key": tenant_key},
+            ),
+        )
+        return {str(key) for key in cursor}
 
     def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
         """Record that ``clone_key`` was cloned from ``source_key`` (``task_cloned_from``, clone → source)."""

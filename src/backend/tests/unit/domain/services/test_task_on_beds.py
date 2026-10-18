@@ -233,6 +233,27 @@ class TestFanOutToPlants:
 
         assert tasks.created == []
 
+    def test_a_retry_after_a_failure_part_way_clones_only_the_missing_plants(self, world):
+        service, tasks = world
+        first = service.fan_out_to_plants("t_bed", tenant_key=TENANT, keep_source=True)
+        assert len(first) == 2
+        tasks.store["t_bed"] = tasks.store["t_bed"].model_copy(update={"status": TaskStatus.PENDING})
+        service._completion.plants["pi_new"] = (TENANT, "bed")
+
+        retry = service.fan_out_to_plants("t_bed", tenant_key=TENANT)
+
+        assert [c.entity_key for c in retry] == ["pi_new"]
+        assert tasks.store["t_bed"].status == TaskStatus.SKIPPED
+
+    def test_a_care_reminder_is_not_fanned_out(self, world):
+        service, tasks = world
+        tasks.store["t_care"] = bed_task("t_care", "care_reminder")
+
+        with pytest.raises(ValidationError):
+            service.fan_out_to_plants("t_care", tenant_key=TENANT)
+
+        assert tasks.created == []
+
     def test_the_tenant_cannot_be_left_empty(self, world):
         service, _ = world
 

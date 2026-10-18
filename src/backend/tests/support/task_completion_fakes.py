@@ -52,6 +52,10 @@ class FakeTaskRepo:
         self.store[task.key] = task
         return task
 
+    def get_clone_entity_keys(self, source_key, *, tenant_key):
+        clones = {clone for clone, source in self.cloned_from if source == source_key}
+        return {t.entity_key for k, t in self.store.items() if k in clones and t.tenant_key == tenant_key}
+
     def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
         self.cloned_from.append((clone_key, source_key))
 

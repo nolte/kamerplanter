@@ -149,7 +149,11 @@ def test_a_location_is_anchored_on_its_site() -> None:
     """
     sites = _SiteService()
     guard = TaskEntityGuard(
-        lambda: _TenantScopedService(), lambda: _TenantScopedService(), lambda: _TenantScopedService(), lambda: sites
+        lambda: _TenantScopedService(),
+        lambda: _TenantScopedService(),
+        lambda: _TenantScopedService(),
+        lambda: sites,
+        lambda: _TenantScopedService(),
     )
 
     guard.verify("location", "loc_1", tenant_key=_MINE)
@@ -184,7 +188,9 @@ def test_an_unbound_create_constructs_no_collaborator() -> None:
 
         return make
 
-    guard = TaskEntityGuard(_factory("plants"), _factory("runs"), _factory("tanks"), _factory("sites"))
+    guard = TaskEntityGuard(
+        _factory("plants"), _factory("runs"), _factory("tanks"), _factory("sites"), _factory("objects")
+    )
 
     guard.verify(None, None, tenant_key=_MINE)
     guard.verify("plant_instance", None, tenant_key=_MINE)
@@ -268,12 +274,6 @@ def test_a_foreign_garden_object_is_a_404_not_a_422() -> None:
     """Ownership first: the class of a foreign object must not be learnable from the answer."""
     with pytest.raises(NotFoundError):
         _guard(owner=_THEIRS, object_type="path").verify("garden_object", "go_1", tenant_key=_MINE)
-
-
-def test_a_garden_object_binding_without_the_service_fails_closed() -> None:
-    guard = TaskEntityGuard(lambda: None, lambda: None, lambda: None, lambda: None)  # type: ignore[arg-type,return-value]
-    with pytest.raises(NotFoundError):
-        guard.verify("garden_object", "go_1", tenant_key=_MINE)
 
 
 @pytest.mark.parametrize("entity_type", ["greenhouse", "plant", "Location"])

@@ -249,6 +249,11 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
+    def get_clone_entity_keys(self, source_key: str, *, tenant_key: str) -> set[str]:
+        """The entities that already hold a clone of ``source_key``, inside ``tenant_key``."""
+        ...
+
+    @abstractmethod
     def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
         """Write the ``task_cloned_from`` edge clone → source."""
         ...

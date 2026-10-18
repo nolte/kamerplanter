@@ -74,7 +74,7 @@ class TaskEntityGuard:
         planting_run_service: Callable[[], Any],
         tank_service: Callable[[], Any],
         site_service: Callable[[], Any],
-        garden_object_service: Callable[[], Any] | None = None,
+        garden_object_service: Callable[[], Any],
     ) -> None:
         self._plants = plant_service
         self._runs = planting_run_service
@@ -124,7 +124,7 @@ class TaskEntityGuard:
             # a foreign location as "No Site <its site key>", an unknown one as
             # "No Location" — an oracle that echoed the other tenant's site.
             self._sites().get_location(entity_key, tenant_key=tenant_key)
-        elif entity_type == "garden_object" and self._garden_objects is not None:
+        elif entity_type == "garden_object":
             garden_object = self._garden_objects().get_garden_object(entity_key, tenant_key=tenant_key)
             if garden_object.object_type not in TASK_GARDEN_OBJECT_TYPES:
                 allowed = ", ".join(sorted(t.value for t in TASK_GARDEN_OBJECT_TYPES))

@@ -155,3 +155,14 @@ def test_the_cloned_from_edge_runs_clone_to_source_and_dies_with_either_end(data
     repo.delete_task(source.key)
 
     assert list(database.collection(col.TASK_CLONED_FROM).all()) == []
+
+
+def test_the_clone_entities_of_a_source_are_found_inside_the_tenant_only(database, repo) -> None:
+    source = repo.create_task(Task(tenant_key=A, name="Water", entity_type="location", entity_key="bed"))
+    own = repo.create_task(Task(tenant_key=A, name="Water", entity_type="plant_instance", entity_key="p_here"))
+    foreign = repo.create_task(Task(tenant_key=B, name="Water", entity_type="plant_instance", entity_key="p_other"))
+    repo.create_task_cloned_from_edge(own.key, source.key)
+    repo.create_task_cloned_from_edge(foreign.key, source.key)
+
+    assert repo.get_clone_entity_keys(source.key, tenant_key=A) == {"p_here"}
+    assert repo.get_clone_entity_keys(source.key, tenant_key=B) == {"p_other"}

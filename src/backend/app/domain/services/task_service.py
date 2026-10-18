@@ -1859,7 +1859,7 @@ class TaskService:
         ``task_cloned_from`` edge. The bed task itself is then ``skipped`` — the user chose "for every plant"
         *instead of* "for the bed" — unless ``keep_source``. A bed without plants clones nothing and leaves the
         source open. The clones are written one by one, not in one transaction: a failure part-way leaves the
-        source open, so the request is not lost; a retry then clones the plants again.
+        source open, so the request is not lost; a retry clones only the plants that hold no clone yet.
         """
         self._require_tenant_key(tenant_key, "fan_out_to_plants")
         source = self.get_task(key, tenant_key=tenant_key)
@@ -1868,6 +1868,9 @@ class TaskService:
             raise ValidationError(
                 "Only a task bound to a bed (entity_type 'location') can be fanned out to its plants."
             )
+        if source.category == "care_reminder":
+            # Care reminders have their own strand (GP-FR-106), and the queue collapses same-named care tasks.
+            raise ValidationError("A care reminder cannot be fanned out; the reminder engine writes one per plant.")
         if self._care_events is None or self._completion is None:
             raise RuntimeError("fan_out_to_plants needs the care-event service and the completion repository.")
         scope = self._care_events.location_scope(
@@ -1878,11 +1881,14 @@ class TaskService:
             raise ValidationError(
                 f"The bed holds {len(plants)} plants; at most {MAX_FAN_OUT} tasks are created at once."
             )
+        # A retry after a failure part-way clones only the plants that have no clone yet.
+        already = self._repo.get_clone_entity_keys(key, tenant_key=tenant_key)
         clones = [
             self._clone_of(source, entity_type="plant_instance", entity_key=plant_key, due_date=source.due_date)
             for plant_key in plants
+            if plant_key not in already
         ]
-        if clones and not keep_source:
+        if plants and not keep_source:
             self.skip_task(key, tenant_key=tenant_key)
         return clones
 
