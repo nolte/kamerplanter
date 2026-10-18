@@ -1,12 +1,18 @@
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
-from app.domain.interfaces.graph_repository import IGraphRepository
+from app.domain.interfaces.graph_repository import (
+    ADJACENCY_SOURCE_DERIVED,
+    ADJACENCY_SOURCE_MANUAL,
+    AdjacencySync,
+    IGraphRepository,
+)
 
 
 class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
@@ -236,14 +242,92 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [{"slot": self._from_doc(r["slot"])} for r in cursor]
 
-    def set_adjacent_slots(self, slot_a_key: str, slot_b_key: str) -> None:
+    def set_adjacent_slots(
+        self,
+        slot_a_key: str,
+        slot_b_key: str,
+        *,
+        distance_cm: float | None = None,
+        source: str = ADJACENCY_SOURCE_DERIVED,
+    ) -> None:
         a_id = f"{col.SLOTS}/{slot_a_key}"
         b_id = f"{col.SLOTS}/{slot_b_key}"
+        data: dict[str, Any] = {"source": source}
+        if distance_cm is not None:
+            data["distance_cm"] = distance_cm
         # Adjacency is bidirectional — create edges in both directions
         self.delete_edges(col.ADJACENT_TO, a_id, b_id)
         self.delete_edges(col.ADJACENT_TO, b_id, a_id)
-        self.create_edge(col.ADJACENT_TO, a_id, b_id)
-        self.create_edge(col.ADJACENT_TO, b_id, a_id)
+        self.create_edge(col.ADJACENT_TO, a_id, b_id, data)
+        self.create_edge(col.ADJACENT_TO, b_id, a_id, data)
+
+    def sync_derived_adjacency(self, slot_keys: list[str], pairs: list[tuple[str, str, float]]) -> AdjacencySync:
+        if not slot_keys:
+            return AdjacencySync()
+        ids = [f"{col.SLOTS}/{key}" for key in slot_keys]
+        existing = list(
+            cast(
+                "Cursor",
+                self._db.aql.execute(
+                    "FOR e IN @@edges FILTER e._from IN @ids AND e._to IN @ids RETURN e",
+                    bind_vars={"@edges": col.ADJACENT_TO, "ids": ids},
+                ),
+            )
+        )
+        manual = {frozenset((e["_from"], e["_to"])) for e in existing if e.get("source") == ADJACENCY_SOURCE_MANUAL}
+        wanted: dict[tuple[str, str], float] = {}
+        for first, second, distance in pairs:
+            a_id, b_id = f"{col.SLOTS}/{first}", f"{col.SLOTS}/{second}"
+            if frozenset((a_id, b_id)) in manual:
+                continue
+            wanted[(a_id, b_id)] = distance
+            wanted[(b_id, a_id)] = distance
+        edges = self._db.collection(col.ADJACENT_TO)
+        removed = updated = kept = 0
+        present: set[tuple[str, str]] = set()
+        for edge in existing:
+            if edge.get("source") == ADJACENCY_SOURCE_MANUAL:
+                continue
+            direction = (edge["_from"], edge["_to"])
+            if direction not in wanted or direction in present:
+                edges.delete(edge["_key"], ignore_missing=True)
+                removed += 1
+                continue
+            present.add(direction)
+            if edge.get("distance_cm") != wanted[direction] or edge.get("source") != ADJACENCY_SOURCE_DERIVED:
+                edges.update(
+                    {"_key": edge["_key"], "distance_cm": wanted[direction], "source": ADJACENCY_SOURCE_DERIVED}
+                )
+                updated += 1
+            else:
+                kept += 1
+        created = 0
+        for (from_id, to_id), distance in sorted(wanted.items()):
+            if (from_id, to_id) in present:
+                continue
+            self.create_edge(
+                col.ADJACENT_TO, from_id, to_id, {"source": ADJACENCY_SOURCE_DERIVED, "distance_cm": distance}
+            )
+            created += 1
+        return AdjacencySync(created=created, updated=updated, removed=removed, kept=kept)
+
+    def remove_manual_adjacency(self, slot_a_key: str, slot_b_key: str) -> int:
+        a_id = f"{col.SLOTS}/{slot_a_key}"
+        b_id = f"{col.SLOTS}/{slot_b_key}"
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR e IN @@edges
+                FILTER e.source == @manual
+                    AND ((e._from == @a AND e._to == @b) OR (e._from == @b AND e._to == @a))
+                REMOVE e IN @@edges
+                RETURN 1
+            """,
+                bind_vars={"@edges": col.ADJACENT_TO, "manual": ADJACENCY_SOURCE_MANUAL, "a": a_id, "b": b_id},
+            ),
+        )
+        return len(list(cursor))
 
     # ── Family-level edges ─────────────────────────────────────────────
 

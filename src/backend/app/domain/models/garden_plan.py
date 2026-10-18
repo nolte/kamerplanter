@@ -451,6 +451,20 @@ class PlantShortInfo(BaseModel):
     location_key: str | None = None
 
 
+class SlotSpeciesHint(BaseModel):
+    """What the species standing in, or planned for, a slot says about its neighbourhood (GP-FR-130).
+
+    The raw species strings (``"60--80"`` ranges); the adjacency engine reads the lower value.
+    """
+
+    slot_key: str
+    species_key: str
+    spacing_cm: str | None = None
+    row_spacing_cm: str | None = None
+    mature_width_cm: str | None = None
+    growth_habit: str | None = None
+
+
 class TaskCounter(BaseModel):
     open_task_count: int = 0
     overdue_task_count: int = 0

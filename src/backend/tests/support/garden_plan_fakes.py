@@ -21,6 +21,7 @@ from app.domain.models.garden_plan import (
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
+    SlotSpeciesHint,
     TaskCounter,
 )
 from app.domain.models.site import Location, Site, SitePlan, Slot
@@ -130,6 +131,7 @@ class FakePlanRepo(IGardenPlanRepository):
         self.field_updates: list[tuple[str, dict]] = []
         self.slot_writes: list[SlotBatchWrite] = []
         self.slot_field_updates: list[tuple[str, dict]] = []
+        self.species_hints: list[SlotSpeciesHint] = []
         self._next = 100
         sites.repo = self
 
@@ -160,6 +162,14 @@ class FakePlanRepo(IGardenPlanRepository):
             for slot in self.slots
             if slot.location_key in location_keys and (include_archived or slot.archived_at is None)
         ]
+
+    def load_slot_species_hints(self, location_key, *, tenant_key):
+        location = self.locations.get(location_key)
+        site = self._sites.get_site_by_key(location.site_key) if location is not None else None
+        if site is None or not tenant_key or site.tenant_key != tenant_key:
+            return []
+        in_bed = {slot.key for slot in self.slots if slot.location_key == location_key and slot.archived_at is None}
+        return [hint for hint in self.species_hints if hint.slot_key in in_bed]
 
     def bed_type_flags(self, location_type_keys):
         return {key: self.bed_types[key] for key in location_type_keys if key in self.bed_types}

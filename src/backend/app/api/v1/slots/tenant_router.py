@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
-from app.api.v1.slots.schemas import SlotCreate, SlotPatch, SlotResponse
+from app.api.v1.slots.schemas import ManualAdjacencyRequest, SlotCreate, SlotPatch, SlotResponse
 from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_garden_resource_service, get_site_service
+from app.common.dependencies import get_adjacency_service, get_garden_resource_service, get_site_service
 from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 from app.core.permissions import Action, ResourceType
 from app.domain.models.site import Slot
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
 
@@ -85,7 +86,7 @@ def patch_slot(
     """Correct a slot's geometry (bed frame), role or capacity (GP-API-014).
 
     Outside the plan revision (GP-NFR-007). 422 ``slot.outside_bed`` (V-04) or ``slot.overlap`` (V-06)
-    when the new geometry breaks a rule. Triggers the adjacency recompute (a no-op until wave 3).
+    when the new geometry breaks a rule. Triggers the adjacency recompute (GP-NFR-016).
     """
     slot = service.patch_slot(key, tenant_key=ctx.tenant_key, role=ctx.role, patch=body)
     return to_response(slot, SlotResponse)
@@ -99,3 +100,40 @@ def delete_slot(
 ):
     """Delete a slot."""
     service.delete_slot(key, tenant_key=ctx.tenant_key)
+
+
+@router.put(
+    "/{key}/adjacent/{other_key}",
+    status_code=204,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+def set_manual_adjacency(
+    key: Annotated[str, Path(description="Document key of the first slot.")],
+    other_key: Annotated[str, Path(description="Document key of the second slot.")],
+    body: ManualAdjacencyRequest | None = None,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: AdjacencyService = Depends(get_adjacency_service),
+) -> None:
+    """Mark two slots as neighbours by hand (``source = manual``, both directions); the geometry never removes it.
+
+    Both slots must belong to the caller's tenant and to the same site: a slot of a foreign tenant is 404, one
+    of another site of the same tenant is 422 ``adjacency.different_site`` (SR-021).
+    """
+    service.set_manual_edge(
+        key,
+        other_key,
+        tenant_key=ctx.tenant_key,
+        role=ctx.role,
+        distance_cm=None if body is None else body.distance_cm,
+    )
+
+
+@router.delete("/{key}/adjacent/{other_key}", status_code=204, responses=FORBIDDEN_RESPONSE)
+def remove_manual_adjacency(
+    key: Annotated[str, Path(description="Document key of the first slot.")],
+    other_key: Annotated[str, Path(description="Document key of the second slot.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: AdjacencyService = Depends(get_adjacency_service),
+) -> None:
+    """Remove a manual neighbourhood. A neighbourhood the geometry derives stays (and is re-derived if gone)."""
+    service.remove_manual_edge(key, other_key, tenant_key=ctx.tenant_key, role=ctx.role)
