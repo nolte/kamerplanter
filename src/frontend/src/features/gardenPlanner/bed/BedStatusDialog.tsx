@@ -87,6 +87,7 @@ export default function BedStatusDialog({
         </Typography>
         <TextField
           select
+          autoFocus
           label={t('pages.bed.status.target')}
           value={target ?? ''}
           onChange={(event) => setChosen(event.target.value as BedStatus)}

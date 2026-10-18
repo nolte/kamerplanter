@@ -109,6 +109,14 @@ describe('BedListSection', () => {
     expect(screen.queryByText('Herb spiral')).toBeNull();
   });
 
+  it('says why "My beds" is off when nothing is assigned to me', async () => {
+    useBackend();
+    server.use(http.get('/api/v1/tenants/:slug/assignments', () => HttpResponse.json([])));
+    renderList();
+    expect(await screen.findByTestId('bed-list-only-mine-hint')).toHaveTextContent('No beds are assigned to you yet.');
+    expect(screen.getByRole('checkbox', { name: 'My beds' })).toBeDisabled();
+  });
+
   it('shows an empty state and an error with retry', async () => {
     useBackend([]);
     renderList();

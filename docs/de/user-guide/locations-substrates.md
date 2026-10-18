@@ -270,6 +270,54 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 
 ---
 
+## Beetansicht {#beetansicht}
+
+Öffnest du einen Standort, dessen Typ ein Beet ist (Beet, Hochbeet, Gewächshausbeet, Frühbeet oder Pflanzkübel), erscheint statt der normalen Standortseite die Beetansicht. Sie bündelt alles Wichtige zu einem Beet an einer Stelle.
+
+### Übersicht oberhalb der Tabs
+
+Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`.
+
+!!! warning "Noch nicht implementiert"
+    Die Anzeige der Vorjahreskultur in der Übersicht ist noch nicht umgesetzt. Bis dahin zeigt Kamerplanter dort eine Platzhalterzeile. Auch **Beet räumen** wird erst in einer späteren Version verfügbar sein.
+
+### Die Tabs
+
+Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Links auf einen bestimmten Tab teilen kannst.
+
+| Tab | Inhalt |
+|-----|--------|
+| Plan | Beetrahmen mit Plätzen, Reihen bzw. Zonen und Pflanzenmarkern, nur lesend. Über **Im Gartenplan öffnen** wechselst du zum Bearbeiten in den Gartenplan. |
+| Pflanzung, Pflege, Historie | Zeigen vorerst einen Leerzustand. Bestehende Durchläufe und Pflanzen findest du weiterhin unter **Stammdaten**. |
+| Boden | Bodenprofil des Beets (siehe unten). |
+| Stammdaten | Die bisherige Standortseite, unverändert. |
+
+!!! warning "Noch nicht implementiert"
+    Die Tabs **Pflanzung**, **Pflege** und **Historie** sind angelegt, enthalten aber noch keine Inhalte. Sie werden künftig Pflanzungen, Pflegeeinträge und den Verlauf des Beets zeigen.
+
+### Bodenprofil pflegen
+
+Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
+
+### Status des Beets ändern
+
+- **Geplant → Aktiv**: möglich ab der Rolle „grower".
+- **Stilllegen und Reaktivieren**: nur mit der Rolle „lead".
+- Zum Stilllegen brauchst du einen **Grund**, und das Beet darf keine Pflanzen mehr enthalten. Der Grund landet im Pflegeprotokoll.
+
+!!! tip "Tipp: Beet erst leeren, dann stilllegen"
+    Sind noch Pflanzen im Beet, lehnt Kamerplanter das Stilllegen ab. Entferne oder ernte sie vorher.
+
+---
+
+## Beetliste im Gartenplan {#beetliste-im-gartenplan}
+
+Unter dem Plan auf der Gartenplan-Seite listet eine Tabelle deine Beete: Name (als Link zur Beetansicht), Typ, Fläche, Status, Zuständige, Pflanzen, offene Aufgaben (mit überfälligen) und nächste Fälligkeit. Stillgelegte Beete sind standardmäßig ausgeblendet. Der Schalter **Meine Beete** filtert auf deine Beete und setzt voraus, dass dir Beete zugewiesen sind.
+
+Klickst du auf eine Zeile oder drückst die Eingabetaste, wird das Beet im Plan ausgewählt und die Ansicht zoomt darauf.
+
+---
+
 ## Tipps für die Standortstruktur
 
 !!! example "Beispiel: Balkon-Gärtner"

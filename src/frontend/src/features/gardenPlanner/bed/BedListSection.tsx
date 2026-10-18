@@ -177,7 +177,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
           label={t('pages.bed.list.statusFilter')}
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
-          sx={{ minWidth: 180 }}
+          sx={{ minWidth: 180, '& .MuiInputBase-root': { minHeight: 44 } }}
           slotProps={{ htmlInput: { 'data-testid': 'bed-list-status-filter' } }}
         >
           <MenuItem value="open">{t('pages.bed.list.filterOpen')}</MenuItem>
@@ -199,6 +199,11 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
           }
           label={t('pages.bed.list.onlyMine')}
         />
+        {assignments.ready && assignments.mine.size === 0 && (
+          <Typography variant="caption" color="text.secondary" data-testid="bed-list-only-mine-hint">
+            {t('pages.bed.list.onlyMineNone')}
+          </Typography>
+        )}
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {t('pages.bed.list.hint')}
@@ -229,6 +234,8 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
                   component={RouterLink}
                   to={`/standorte/locations/${bed.key}`}
                   onClick={(event) => event.stopPropagation()}
+                  data-testid={`bed-list-link-${bed.key}`}
+                  sx={{ display: 'inline-block', py: 1 }}
                 >
                   {bed.name}
                 </Link>
@@ -251,7 +258,17 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
               fields={[
                 { id: 'area', label: t('pages.bed.list.area'), value: area(bed) },
                 { id: 'plants', label: t('pages.bed.list.plants'), value: String(count(bed.active_plant_count)) },
-                { id: 'tasks', label: t('pages.bed.list.tasks'), value: String(count(bed.open_task_count)) },
+                {
+                  id: 'tasks',
+                  label: t('pages.bed.list.tasks'),
+                  value:
+                    count(bed.overdue_task_count) > 0
+                      ? t('pages.bed.list.tasksOverdue', {
+                          open: count(bed.open_task_count),
+                          overdue: count(bed.overdue_task_count),
+                        })
+                      : String(count(bed.open_task_count)),
+                },
               ]}
             />
           )}

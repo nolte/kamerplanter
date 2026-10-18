@@ -5893,7 +5893,7 @@
         "current": "Current status: {{status}}",
         "target": "New status",
         "reason": "Reason",
-        "reasonRequired": "Required when retiring. It goes into the bed's care log.",
+        "reasonRequired": "Required when retiring: say briefly why the bed is retired. It goes into the bed's care log.",
         "reasonOptional": "Optional. It goes into the bed's care log.",
         "submit": "Change status",
         "changed": "Status changed."
@@ -5921,6 +5921,7 @@
           "clay": "Very easy to shape, shiny, sticky and plastic; a fingerprint stays."
         },
         "drainage": "Drainage",
+        "drainageHelper": "How quickly does water drain from the bed?",
         "waterRegime": "Site moisture",
         "waterRegimeHelper": "How moist the site is in general - not how wet the soil is today.",
         "conditions": "Soil condition",
@@ -5928,8 +5929,11 @@
         "measurements": "Measurements",
         "ph": "pH value",
         "phMethod": "Method",
-        "ec": "EC",
+        "phHelper": "A value between 0 (acidic) and 14 (alkaline).",
+        "ec": "EC (conductivity)",
+        "ecHelper": "Shows how many dissolved nutrient salts the soil holds.",
         "humus": "Humus content",
+        "humusHelper": "Share of organic matter in percent.",
         "notes": "Notes",
         "saved": "Soil profile saved."
       },
@@ -5974,7 +5978,8 @@
         "onlyMine": "My beds",
         "hint": "Choose a row to highlight the bed on the plan. The name opens the bed.",
         "empty": "No beds yet",
-        "emptyDescription": "Draw a bed on the garden plan and it appears here."
+        "emptyDescription": "Draw a bed on the garden plan and it appears here.",
+        "onlyMineNone": "No beds are assigned to you yet."
       }
     }
   }

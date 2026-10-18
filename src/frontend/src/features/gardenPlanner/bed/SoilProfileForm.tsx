@@ -190,6 +190,7 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
             name="drainage"
             control={control}
             label={t('pages.bed.soil.drainage')}
+            helperText={t('pages.bed.soil.drainageHelper')}
             options={SOIL_DRAINAGES.map((value) => ({ value, label: label('soilDrainage', value) }))}
           />
           <FormSelectField
@@ -208,11 +209,20 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
           options={SOIL_CONDITIONS.map((value) => ({ value, label: label('soilCondition', value) }))}
         />
 
-        <Typography variant="subtitle2" sx={{ mt: 1 }}>
+        <Typography variant="subtitle2" component="h3" sx={{ mt: 1 }}>
           {t('pages.bed.soil.measurements')}
         </Typography>
         <FormRow>
-          <FormNumberField name="ph" control={control} label={t('pages.bed.soil.ph')} min={0} max={14} step={0.1} />
+          <FormNumberField
+            name="ph"
+            control={control}
+            label={t('pages.bed.soil.ph')}
+            helperText={t('pages.bed.soil.phHelper')}
+            min={0}
+            max={14}
+            step={0.1}
+            inputMode="decimal"
+          />
           <FormSelectField
             name="ph_method"
             control={control}
@@ -224,11 +234,22 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
           />
         </FormRow>
         <FormRow>
-          <FormNumberField name="ec_ms_cm" control={control} label={t('pages.bed.soil.ec')} min={0} suffix="mS/cm" />
+          <FormNumberField
+            name="ec_ms_cm"
+            control={control}
+            label={t('pages.bed.soil.ec')}
+            helperText={t('pages.bed.soil.ecHelper')}
+            min={0}
+            step="any"
+            inputMode="decimal"
+            suffix="mS/cm"
+          />
           <FormNumberField
             name="humus_percent"
             control={control}
             label={t('pages.bed.soil.humus')}
+            helperText={t('pages.bed.soil.humusHelper')}
+            inputMode="decimal"
             min={0}
             max={100}
             suffix="%"

@@ -32,7 +32,7 @@ interface BedHeaderProps {
 
 function Fact({ label, children, testId }: { label: string; children: ReactNode; testId: string }) {
   return (
-    <Box sx={{ minWidth: 140 }} data-testid={testId}>
+    <Box sx={{ minWidth: 0, overflowWrap: 'anywhere' }} data-testid={testId}>
       <Typography variant="caption" color="text.secondary" component="div">
         {label}
       </Typography>
@@ -67,7 +67,12 @@ export default function BedHeader({
   return (
     <Card variant="outlined" data-testid="bed-header" component="section" aria-label={t('pages.bed.header.title')}>
       <CardContent>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'flex-start' }}>
+        <Box sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+            gap: 2,
+            alignItems: 'start',
+          }}>
           <Fact label={t('pages.bed.header.area')} testId="bed-header-area">
             {area} m²
           </Fact>
@@ -151,7 +156,7 @@ export default function BedHeader({
             label={t('pages.bed.header.year')}
             value={year}
             onChange={(event) => onYearChange(Number(event.target.value))}
-            sx={{ minWidth: 120 }}
+            sx={{ minWidth: 120, '& .MuiInputBase-root': { minHeight: 44 } }}
             slotProps={{ htmlInput: { 'data-testid': 'bed-year-select' } }}
           >
             {years.map((value) => (

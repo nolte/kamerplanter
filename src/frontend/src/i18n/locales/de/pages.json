@@ -5894,7 +5894,7 @@
         "current": "Aktueller Status: {{status}}",
         "target": "Neuer Status",
         "reason": "Begründung",
-        "reasonRequired": "Pflicht beim Stilllegen. Der Grund landet im Pflegeprotokoll des Beets.",
+        "reasonRequired": "Pflicht beim Stilllegen: Schreib kurz, warum das Beet stillgelegt wird. Der Grund landet im Pflegeprotokoll des Beets.",
         "reasonOptional": "Optional. Der Grund landet im Pflegeprotokoll des Beets.",
         "submit": "Status ändern",
         "changed": "Status geändert."
@@ -5922,6 +5922,7 @@
           "clay": "Sehr gut formbar, glänzend, klebrig-plastisch; ein Fingerabdruck bleibt bestehen."
         },
         "drainage": "Drainage",
+        "drainageHelper": "Wie schnell versickert Wasser im Beet?",
         "waterRegime": "Feuchte des Standorts",
         "waterRegimeHelper": "Wie feucht ist der Standort allgemein – nicht, wie nass die Erde heute ist.",
         "conditions": "Zustand des Bodens",
@@ -5929,8 +5930,11 @@
         "measurements": "Messwerte",
         "ph": "pH-Wert",
         "phMethod": "Messmethode",
-        "ec": "EC",
+        "phHelper": "Ein Wert zwischen 0 (sauer) und 14 (basisch).",
+        "ec": "EC (Leitfähigkeit)",
+        "ecHelper": "Misst, wie viele gelöste Nährsalze im Boden stecken.",
         "humus": "Humusgehalt",
+        "humusHelper": "Anteil organischer Substanz in Prozent.",
         "notes": "Notizen",
         "saved": "Bodenprofil gespeichert."
       },
@@ -5975,7 +5979,8 @@
         "onlyMine": "Meine Beete",
         "hint": "Wähle eine Zeile, um das Beet im Plan hervorzuheben. Der Name öffnet das Beet.",
         "empty": "Noch keine Beete",
-        "emptyDescription": "Zeichne ein Beet im Gartenplan, dann erscheint es hier."
+        "emptyDescription": "Zeichne ein Beet im Gartenplan, dann erscheint es hier.",
+        "onlyMineNone": "Dir sind noch keine Beete zugewiesen."
       }
     }
   }
