@@ -44,6 +44,8 @@ from app.api.v1.auth.router import limiter
 from app.api.v1.tenant_scoped.router import tenant_scoped_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import (
+    get_adjacency_dispatch,
+    get_adjacency_service,
     get_garden_plan_service,
     get_garden_resource_service,
     get_planting_reservation_service,
@@ -61,6 +63,7 @@ from app.data_access.arango.garden_plan_repository import (
     _SLOT_BATCH_WRITE,
     ArangoGardenPlanRepository,
 )
+from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_reservation_repository import (
     _CLEAR_WRITE,
@@ -73,6 +76,7 @@ from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -90,7 +94,18 @@ A, B = "ten_a", "ten_b"
 SLUG_A, SLUG_B = "alice", "bob"
 USER = "u_sabine"
 #: Strings that exist only in tenant B's data; none may appear in a response to tenant A.
-B_SECRETS = ("Bobs Geheimbeet", "Bobs Garten", "Bobs Eiche", "site_b", "bed_b", "slot_b", "obj_b", "zone_b", B)
+B_SECRETS = (
+    "Bobs Geheimbeet",
+    "Bobs Garten",
+    "Bobs Eiche",
+    "site_b",
+    "bed_b",
+    "slot_b",
+    "slot2_b",
+    "obj_b",
+    "zone_b",
+    B,
+)
 _BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 20, "length_m": 20, "rotation_deg": 0}
 _RECT = {"kind": "rect", "origin": [1, 1], "width_m": 2, "length_m": 1, "rotation_deg": 0}
 
@@ -105,6 +120,7 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.SLOTS,
             col.GARDEN_OBJECTS,
             col.GARDEN_PLAN_AUDIT,
+            col.ADJACENT_TO,
             col.CARE_EVENTS,
             col.IRRIGATION_ZONES,
             col.LOCATION_TYPES,
@@ -214,6 +230,11 @@ def db(database):
         database.collection(col.HAS_SLOT).insert(
             {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot_{suffix}"}
         )
+        # a second slot per tenant: the manual adjacency routes (WP 3.3) need two ends
+        database.collection(col.SLOTS).insert(_slot(f"slot2_{suffix}", f"bed_{suffix}"))
+        database.collection(col.HAS_SLOT).insert(
+            {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot2_{suffix}"}
+        )
         database.collection(col.GARDEN_OBJECTS).insert(_tree(f"obj_{suffix}", site, tree_name))
     return database
 
@@ -282,7 +303,11 @@ class _Unscoped:
 
 def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped: bool = False) -> TestClient:
     plan, resources, sites, reservations, runs = _services(db)
+    adjacency: Any = AdjacencyService(
+        ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
+    )
     if unscoped:
+        adjacency = _Unscoped(adjacency)
         plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
             _Unscoped(plan),
             _Unscoped(resources),
@@ -302,6 +327,8 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_site_service] = lambda: sites
     app.dependency_overrides[get_planting_reservation_service] = lambda: reservations
     app.dependency_overrides[get_planting_run_service] = lambda: runs
+    app.dependency_overrides[get_adjacency_service] = lambda: adjacency
+    app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -473,9 +500,25 @@ CASES: tuple[Case, ...] = (
     Case("update_slot", "PUT", "/slots/slot_b", {"slot_id": "SLOT_B", "location_key": "bed_b"}, writes=True),
     Case("patch_slot", "PATCH", "/slots/slot_b", {"capacity_plants": 3}, writes=True),
     Case("delete_slot", "DELETE", "/slots/slot_b", owner_status=204, writes=True),
+    # REQ-053 WP 3.3, SR-021: the manual neighbourhood of two slots - both ends are resolved under the tenant.
+    Case(
+        "set_manual_adjacency",
+        "PUT",
+        "/slots/slot_b/adjacent/slot2_b",
+        {"distance_cm": 20},
+        owner_status=204,
+        writes=True,
+    ),
+    Case("remove_manual_adjacency", "DELETE", "/slots/slot_b/adjacent/slot2_b", owner_status=204, writes=True),
 )
 
-_ABSENT = {"site_b": "site_gone", "bed_b": "bed_gone", "slot_b": "slot_gone", "obj_b": "obj_gone"}
+_ABSENT = {
+    "site_b": "site_gone",
+    "bed_b": "bed_gone",
+    "slot_b": "slot_gone",
+    "slot2_b": "slot2_gone",
+    "obj_b": "obj_gone",
+}
 
 
 def _url(case: Case, slug: str) -> str:
