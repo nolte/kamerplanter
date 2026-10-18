@@ -1,10 +1,10 @@
-"""Property-style tests for the geometry calculator (REQ-053 GP-NFR-012).
+"""Property tests for the geometry calculator (REQ-053 GP-NFR-012).
 
 GP-NFR-012 asks for Hypothesis properties (area ≥ 0, shoelace = rect formula,
-rotation preserves area). ``hypothesis`` is not a dev dependency of the
-backend, so the properties run over a seeded sample of generated shapes
-instead — deterministic, so a failure reproduces. The example-based cases
-live in the shared vectors (``test_geometry_vectors.py``).
+rotation preserves area). The strategies below generate the shapes; every test
+runs ``derandomize=True`` so the examples are a pure function of the test, which
+keeps CI seed-stable and a failure reproducible. The example-based cases live in
+the shared vectors (``test_geometry_vectors.py``).
 """
 
 from __future__ import annotations
@@ -13,6 +13,8 @@ import math
 import random
 
 import pytest
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from app.domain.calculators import geometry_calculator as calc
 from app.domain.models.geometry import (
@@ -24,51 +26,45 @@ from app.domain.models.geometry import (
     parse_geometry,
 )
 
-SEED = 20261016
-SAMPLES = 150
+properties = settings(derandomize=True, max_examples=100, deadline=None, database=None)
 
 
-def _rng() -> random.Random:
-    return random.Random(SEED)
-
-
-def _random_rect(rng: random.Random) -> RectGeometry:
+@st.composite
+def rects(draw: st.DrawFn) -> RectGeometry:
     return RectGeometry(
-        origin=(rng.uniform(10, 900), rng.uniform(10, 900)),
-        width_m=rng.uniform(0.05, 50),
-        length_m=rng.uniform(0.05, 50),
-        rotation_deg=rng.uniform(0, 359.999),
+        origin=(draw(st.floats(10, 900)), draw(st.floats(10, 900))),
+        width_m=draw(st.floats(0.05, 50)),
+        length_m=draw(st.floats(0.05, 50)),
+        rotation_deg=draw(st.floats(0, 359.999)),
     )
 
 
-def _random_star_polygon(rng: random.Random, *, rotation_deg: float = 0.0) -> PolygonGeometry:
+@st.composite
+def star_polygons(draw: st.DrawFn) -> PolygonGeometry:
     """A star-shaped polygon around a centre is always simple.
 
     Vertices go round the centre at increasing angles with every angular gap
     below π (evenly spaced, jittered by at most ±20 % of the spacing) — a gap
     above π would send an edge past the centre and could cross another edge.
     """
-    cx, cy = rng.uniform(100, 900), rng.uniform(100, 900)
-    count = rng.randint(3, 12)
+    cx, cy = draw(st.floats(100, 900)), draw(st.floats(100, 900))
+    count = draw(st.integers(3, 12))
     spacing = 2 * math.pi / count
-    angles = [i * spacing + rng.uniform(-0.2, 0.2) * spacing for i in range(count)]
-    radii = [rng.uniform(1, 40) for _ in angles]
+    jitters = draw(st.lists(st.floats(-0.2, 0.2), min_size=count, max_size=count))
+    radii = draw(st.lists(st.floats(1, 40), min_size=count, max_size=count))
+    angles = [i * spacing + jitter * spacing for i, jitter in enumerate(jitters)]
     points = [(cx + r * math.cos(a), cy + r * math.sin(a)) for a, r in zip(angles, radii, strict=True)]
-    return PolygonGeometry(points=points, rotation_deg=rotation_deg)
+    return PolygonGeometry(points=points, rotation_deg=0.0)
 
 
-def _random_circle(rng: random.Random) -> CircleGeometry:
-    return CircleGeometry(origin=(rng.uniform(100, 900), rng.uniform(100, 900)), radius_m=rng.uniform(0.05, 40))
+@st.composite
+def circles(draw: st.DrawFn) -> CircleGeometry:
+    origin = (draw(st.floats(100, 900)), draw(st.floats(100, 900)))
+    return CircleGeometry(origin=origin, radius_m=draw(st.floats(0.05, 40)))
 
 
-def _rects() -> list[RectGeometry]:
-    rng = _rng()
-    return [_random_rect(rng) for _ in range(SAMPLES)]
-
-
-def _polygons() -> list[PolygonGeometry]:
-    rng = _rng()
-    return [_random_star_polygon(rng) for _ in range(SAMPLES)]
+#: A deterministic ``random.Random`` per example (``use_true_random=False``) for the partners drawn next to a shape.
+_rngs = st.randoms(use_true_random=False)
 
 
 def _shape_vertices(geometry: Geometry) -> tuple[tuple[float, float], ...]:
@@ -90,6 +86,7 @@ def _rect_pair_with_penetration(rect: RectGeometry, depth_m: float) -> tuple[cal
     the millimetre rounding of the origin, well below the ±2 mm steps used).
     """
     shift = calc.transform_bed_to_plan((rect.width_m - depth_m, 0.0), rect)
+    assume(all(0.0 <= c <= 1000.0 for c in shift))  # the shifted copy must stay inside the plan frame
     moved = _with(rect, origin=list(shift))
     a, b = calc.to_shape(rect), calc.to_shape(moved)
     assert isinstance(a, calc.VertexShape)
@@ -98,7 +95,8 @@ def _rect_pair_with_penetration(rect: RectGeometry, depth_m: float) -> tuple[cal
 
 
 class TestAreaProperties:
-    @pytest.mark.parametrize("rect", _rects())
+    @properties
+    @given(rect=rects())
     def test_shoelace_equals_rect_formula(self, rect: RectGeometry) -> None:
         """GP-NFR-012: shoelace over the resolved corners equals width × length.
 
@@ -108,7 +106,8 @@ class TestAreaProperties:
         assert calc.shoelace_area(_shape_vertices(rect)) == pytest.approx(rect.width_m * rect.length_m, abs=1e-6)
         assert calc.area_m2(rect) == pytest.approx(rect.width_m * rect.length_m, abs=0.0006)  # rounded to 0.001
 
-    @pytest.mark.parametrize("polygon", _polygons())
+    @properties
+    @given(polygon=star_polygons())
     def test_area_is_non_negative_and_rotation_invariant(self, polygon: PolygonGeometry) -> None:
         """GP-NFR-012: the shoelace over the *rotated* vertices equals the unrotated one.
 
@@ -124,19 +123,20 @@ class TestAreaProperties:
         )
         assert calc.shoelace_area(_shape_vertices(rotated)) == pytest.approx(area, abs=0.0006)
 
-    @pytest.mark.parametrize("polygon", _polygons())
+    @properties
+    @given(polygon=star_polygons())
     def test_generated_polygons_are_simple(self, polygon: PolygonGeometry) -> None:
         assert calc.validate_geometry(polygon) == []
 
-    def test_circle_area(self) -> None:
-        rng = _rng()
-        for _ in range(SAMPLES):
-            circle = _random_circle(rng)
-            assert calc.area_m2(circle) == pytest.approx(math.pi * circle.radius_m**2, abs=0.0006)  # rounded to 0.001
+    @properties
+    @given(circle=circles())
+    def test_circle_area(self, circle: CircleGeometry) -> None:
+        assert calc.area_m2(circle) == pytest.approx(math.pi * circle.radius_m**2, abs=0.0006)  # rounded to 0.001
 
 
 class TestBoundingBoxProperties:
-    @pytest.mark.parametrize("rect", _rects())
+    @properties
+    @given(rect=rects())
     def test_bbox_encloses_every_corner_and_is_never_smaller_than_the_area(self, rect: RectGeometry) -> None:
         min_x, min_y, max_x, max_y = calc.bounding_box(rect)
         for x, y in _shape_vertices(rect):
@@ -144,15 +144,16 @@ class TestBoundingBoxProperties:
             assert min_y - 0.001 <= y <= max_y + 0.001
         assert (max_x - min_x) * (max_y - min_y) >= calc.area_m2(rect) - 0.01
 
-    @pytest.mark.parametrize("rect", _rects())
+    @properties
+    @given(rect=rects())
     def test_centroid_lies_inside_the_rect(self, rect: RectGeometry) -> None:
         assert calc.contains(calc.to_shape(rect), calc.VertexShape((calc.centroid(rect),), closed=False))
 
 
 class TestTransformProperties:
-    @pytest.mark.parametrize("rect", _rects())
-    def test_bed_to_plan_round_trips(self, rect: RectGeometry) -> None:
-        rng = random.Random(hash((rect.origin, rect.rotation_deg)) & 0xFFFF)
+    @properties
+    @given(rect=rects(), rng=_rngs)
+    def test_bed_to_plan_round_trips(self, rect: RectGeometry, rng: random.Random) -> None:
         for _ in range(5):
             bed_point = (rng.uniform(0, rect.width_m), rng.uniform(0, rect.length_m))
             plan_point = calc.transform_bed_to_plan(bed_point, rect)
@@ -169,17 +170,20 @@ class TestTransformProperties:
 
 
 class TestContainmentProperties:
-    @pytest.mark.parametrize("polygon", _polygons())
+    @properties
+    @given(polygon=star_polygons())
     def test_a_shape_contains_itself(self, polygon: PolygonGeometry) -> None:
         shape = calc.to_shape(polygon)
         assert calc.contains(shape, shape)
 
-    @pytest.mark.parametrize("polygon", _polygons())
+    @properties
+    @given(polygon=star_polygons())
     def test_a_shape_does_not_contain_itself_with_an_inset(self, polygon: PolygonGeometry) -> None:
         shape = calc.to_shape(polygon)
         assert not calc.contains(shape, shape, inset_m=0.5)
 
-    @pytest.mark.parametrize("rect", _rects())
+    @properties
+    @given(rect=rects())
     def test_rect_contains_its_local_frame_corners(self, rect: RectGeometry) -> None:
         local = calc.to_local_shape(rect)
         assert isinstance(local, calc.VertexShape)
@@ -193,17 +197,18 @@ class TestContainmentProperties:
 
 
 class TestOverlapProperties:
-    @pytest.mark.parametrize("polygon", _polygons())
+    @properties
+    @given(polygon=star_polygons())
     def test_overlap_is_reflexive(self, polygon: PolygonGeometry) -> None:
         shape = calc.to_shape(polygon)
         assert calc.overlaps(shape, shape)
 
-    @pytest.mark.parametrize("polygon", _polygons())
-    def test_overlap_is_symmetric_against_a_near_partner(self, polygon: PolygonGeometry) -> None:
+    @properties
+    @given(polygon=star_polygons(), rng=_rngs)
+    def test_overlap_is_symmetric_against_a_near_partner(self, polygon: PolygonGeometry, rng: random.Random) -> None:
         """A partner whose bbox meets the polygon's, so both the convex and the concave branch are reached."""
         shape = calc.to_shape(polygon)
         assert isinstance(shape, calc.VertexShape)
-        rng = random.Random(hash(polygon.points[0]) & 0xFFFF)
         min_x, min_y, max_x, max_y = calc.bounding_box(polygon)
         near_circle = calc.CircleShape((rng.uniform(min_x, max_x), rng.uniform(min_y, max_y)), rng.uniform(0.05, 5))
         near_polygon = calc.VertexShape(
@@ -212,20 +217,20 @@ class TestOverlapProperties:
         for partner in (near_circle, near_polygon):
             assert calc.overlaps(shape, partner) == calc.overlaps(partner, shape)
 
-    @pytest.mark.parametrize("rect", _rects())
+    @properties
+    @given(rect=rects())
     def test_translated_copy_beyond_its_own_extent_does_not_overlap(self, rect: RectGeometry) -> None:
         min_x, _, max_x, _ = calc.bounding_box(rect)
         shift = (max_x - min_x) + 0.05
-        if rect.origin[0] + shift > 1000.0:
-            pytest.skip("sample runs into the frame edge")
+        assume(rect.origin[0] + shift <= 1000.0)  # the moved copy must stay inside the plan frame
         moved = _with(rect, origin=[rect.origin[0] + shift, rect.origin[1]])
         assert not calc.overlaps(calc.to_shape(rect), calc.to_shape(moved))
 
-    @pytest.mark.parametrize("rect", _rects())
-    def test_sat_and_edge_test_agree_on_random_convex_pairs(self, rect: RectGeometry) -> None:
+    @properties
+    @given(rect=rects(), rng=_rngs)
+    def test_sat_and_edge_test_agree_on_random_convex_pairs(self, rect: RectGeometry, rng: random.Random) -> None:
         """The two overlap algorithms are one semantic: a convex pair gives the same verdict either way."""
         a = calc.to_shape(rect)
-        rng = random.Random(hash(rect.origin) & 0xFFFF)
         b = calc.to_shape(
             _with(
                 rect,
@@ -237,8 +242,8 @@ class TestOverlapProperties:
         assert isinstance(b, calc.VertexShape)
         assert calc._sat_overlap(a, b, calc.DEFAULT_TOLERANCE_M) == calc._edge_overlap(a, b, calc.DEFAULT_TOLERANCE_M)
 
-    @pytest.mark.parametrize("rect", _rects()[:40])
-    @pytest.mark.parametrize("depth_offset_mm", [-6, -4, -2, 2, 4, 6])
+    @properties
+    @given(rect=rects(), depth_offset_mm=st.sampled_from([-6, -4, -2, 2, 4, 6]))
     def test_sat_and_edge_test_agree_in_the_tolerance_band(self, rect: RectGeometry, depth_offset_mm: int) -> None:
         """Penetrations of 1 cm ± 2/4/6 mm: exactly where the two semantics could drift apart."""
         depth = calc.DEFAULT_TOLERANCE_M + depth_offset_mm / 1000.0
