@@ -46,6 +46,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
+    get_garden_plan_export_service,
     get_garden_plan_service,
     get_garden_resource_service,
     get_planting_reservation_service,
@@ -78,6 +79,7 @@ from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.care_event_service import CareEventService
+from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
@@ -306,8 +308,10 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     adjacency: Any = AdjacencyService(
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
     )
+    export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
     if unscoped:
         adjacency = _Unscoped(adjacency)
+        export = _Unscoped(export)
         plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
             _Unscoped(plan),
             _Unscoped(resources),
@@ -328,6 +332,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_planting_reservation_service] = lambda: reservations
     app.dependency_overrides[get_planting_run_service] = lambda: runs
     app.dependency_overrides[get_adjacency_service] = lambda: adjacency
+    app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
 
@@ -395,6 +400,9 @@ CASES: tuple[Case, ...] = (
     # garden_plan (WP 1.8)
     Case("get_plan", "GET", "/sites/site_b/plan"),
     Case("list_plan_audit", "GET", "/sites/site_b/plan/audit"),
+    # REQ-053 WP 5.2, GP-API-004 / GP-API-006: the JSON backup and the SVG read a whole site - a foreign one is a 404.
+    Case("export_plan", "GET", "/sites/site_b/plan/export"),
+    Case("render_plan_svg", "GET", "/sites/site_b/plan/render.svg"),
     Case(
         "put_boundary",
         "PUT",
