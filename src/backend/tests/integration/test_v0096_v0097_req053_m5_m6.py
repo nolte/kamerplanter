@@ -161,14 +161,24 @@ class TestM5RecurrenceCronToRrule:
 
         assert report.changed == 0 and _revs(db, col.TASKS) == before
 
-    def test_an_unconvertible_rule_refuses_and_writes_nothing(self, db) -> None:  # type: ignore[no-untyped-def]
+    def test_an_unconvertible_rule_is_parked_and_the_version_is_recorded(self, db) -> None:  # type: ignore[no-untyped-def]
         self._tasks(db, with_refusal=True)
+        tasks = db.collection(col.TASKS)
+        tasks.insert({"_key": "free", "tenant_key": "t2", "name": "Text", "recurrence_rule": "weekly"})
         before = _revs(db, col.TASKS)
 
         dry = m5.up(db, dry_run=True)
+        assert _revs(db, col.TASKS) == before
         report = m5.up(db)
 
-        assert dry.details["refused"] == {"count": 1, "listed": [{"_key": "steps", "rule": "*/15 * * * *"}]}
-        assert report.precondition_unmet is True and report.changed == 0
-        assert _revs(db, col.TASKS) == before
-        assert db.collection(col.TASKS).get("monday")["recurrence_rule"] == "0 8 * * 1"
+        assert {p["_key"]: (p["tenant_key"], p["rule"]) for p in dry.details["parked"]["listed"]} == {
+            "steps": ("t", "*/15 * * * *"),
+            "free": ("t2", "weekly"),
+        }
+        assert report.precondition_unmet is False and report.changed == 3
+        steps = tasks.get("steps")
+        assert steps["recurrence_rule"] is None and steps["recurrence_rule_unconvertible"] == "*/15 * * * *"
+        assert tasks.get("free")["recurrence_rule_unconvertible"] == "weekly"
+        assert tasks.get("monday")["recurrence_rule"] == "FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0"
+        after = _revs(db, col.TASKS)
+        assert m5.up(db).changed == 0 and _revs(db, col.TASKS) == after
