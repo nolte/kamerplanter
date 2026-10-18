@@ -67,9 +67,9 @@ _SENSOR_PARENTS = PersonalTenantScope(
 )
 
 #: REQ-053 §20.10 — what the Art. 15 bundle shows of a care event (``reason`` / ``summary`` / ``observed_outcome`` are
-#: free text the subject typed; no account reference, no third-party label).
+#: free text the subject typed; no account reference, no third-party label). No ``_key``, like every other
+#: attributed source: the personal-garden source below carries it, and the export walk seeds one document per source.
 _CARE_EVENT_EXPORT_FIELDS = [
-    "_key",
     "site_key",
     "location_key",
     "plant_keys",
@@ -334,14 +334,14 @@ class DataExportEngine:
             tenant_scoped=True,
             filter_field="voided_by",
             label="Care log entries you cancelled",
-            fields=["_key", "site_key", "location_key", "category", "performed_at", "voided_at", "void_reason"],
+            fields=["site_key", "location_key", "category", "performed_at", "voided_at", "void_reason"],
         ),
         DataSourceDefinition(
             collection="care_events",
             tenant_scoped=True,
             filter_field="redacted_by",
             label="Care log entries you redacted",
-            fields=["_key", "site_key", "location_key", "category", "performed_at", "redacted_at", "redaction_reason"],
+            fields=["site_key", "location_key", "category", "performed_at", "redacted_at", "redaction_reason"],
         ),
         DataSourceDefinition(
             collection="plant_diary_entries",
