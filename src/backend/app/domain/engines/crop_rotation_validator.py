@@ -23,25 +23,26 @@ from app.domain.models.species import Species
 from app.domain.services.location_ownership import resolve_owned_location
 from app.domain.services.species_visibility import readable_species
 
+Severity = Literal["OK", "INFO", "WARNING", "CRITICAL"]
+
+#: Strongest first: the order every result list is sorted in, the slot level and the bed level alike.
+SEVERITY_ORDER: dict[str, int] = {"CRITICAL": 0, "WARNING": 1, "INFO": 2, "OK": 3}
+
 
 @dataclass
 class RotationValidationResult:
-    severity: Literal["OK", "INFO", "WARNING", "CRITICAL"]
+    severity: Severity
     message: str
     nitrogen_benefit: str | None = None
     pest_risk: dict | None = field(default=None)
     rotation_benefit: dict | None = field(default=None)
 
 
-Severity = Literal["OK", "INFO", "WARNING", "CRITICAL"]
-
 #: Location types whose substrate is changed instead of rotated (GP-FR-137, REQ-001): the bed-level check is off.
 ROTATION_OFF_LOCATION_TYPES: frozenset[str] = frozenset({"planter", "tent", "shelf"})
 
 NOT_APPLICABLE_CONTAINER = "rotation.not_applicable.container"
 NOT_APPLICABLE_EXEMPT = "rotation.not_applicable.rotation_exempt"
-
-SEVERITY_ORDER: dict[str, int] = {"CRITICAL": 0, "WARNING": 1, "INFO": 2, "OK": 3}
 
 PauseSource = Literal["species", "family", "default"]
 HistorySource = Literal["plant", "backfill"]
@@ -285,8 +286,7 @@ class CropRotationValidator:
             )
 
         # Legacy compat: return highest severity first
-        severity_order = {"CRITICAL": 0, "WARNING": 1, "INFO": 2, "OK": 3}
-        results.sort(key=lambda r: severity_order.get(r.severity, 99))
+        results.sort(key=lambda r: SEVERITY_ORDER.get(r.severity, 99))
 
         return results
 
@@ -446,9 +446,11 @@ class CropRotationValidator:
         today_year: int,
     ) -> list[RotationFinding]:
         findings: list[RotationFinding] = []
+        if pause == 0:  # "no pause needed" (rotation_pause_years = 0): nothing to check, nothing to verify
+            return findings
         occupied = [e for e in entries if e.family_key is not None and e.plan_role != PlanRole.FALLOW.value]
         same = [e for e in occupied if e.family_key == family_key]
-        if same and pause > 0:
+        if same:
             last = max(same, key=lambda e: e.year)
             years_since = today_year - last.year
             if years_since < pause:
@@ -469,7 +471,7 @@ class CropRotationValidator:
                         plan_role=last.plan_role,
                     )
                 )
-        if self._graph_repo is not None and pause > 0:
+        if self._graph_repo is not None:
             recent = {e.family_key for e in occupied if today_year - e.year < pause and e.family_key != family_key}
             for risk in self._graph_repo.get_pest_risks(family_key):
                 other = risk["family"].get("_key", "")
@@ -529,16 +531,30 @@ class CropRotationValidator:
                 family_cache[key] = families.get_by_key(key)
             return family_cache[key]
 
+        species_cache: dict[str, Species | None] = {}
+
+        def species_of(key: str | None) -> Species | None:
+            if key is None:
+                return None
+            if key not in species_cache:
+                species_cache[key] = readable_species(self._species_repo, key, tenant_key)
+            return species_cache[key]
+
         if years is None:
-            pauses = [
-                p
-                for e in entries
-                if (fam := family(e.family_key)) is not None and (p := fam.rotation_pause_years) is not None
-            ]
+            # The longest pause a family or a species override names (an unsourced family adds nothing): the
+            # look-back must reach as far as the validator does.
+            pauses: list[int] = []
+            for e in entries:
+                species, fam = species_of(e.species_key), family(e.family_key)
+                for named in (
+                    species.rotation_pause_years if species is not None else None,
+                    fam.rotation_pause_years if fam is not None else None,
+                ):
+                    if named is not None:
+                        pauses.append(named)
             years = min(max([*pauses, MIN_ROTATION_TIMELINE_YEARS]), MAX_ROTATION_TIMELINE_YEARS)
         from_year = today_year - years + 1
 
-        species_cache: dict[str, Species | None] = {}
         rows: list[TimelineEntry] = []
         for entry in entries:
             if entry.year < from_year:
@@ -546,11 +562,7 @@ class CropRotationValidator:
             fam = family(entry.family_key)
             demand: str | None = None
             if entry.plan_role == PlanRole.MAIN_CROP.value and entry.family_key is not None:
-                if entry.species_key is not None and entry.species_key not in species_cache:
-                    species_cache[entry.species_key] = readable_species(
-                        self._species_repo, entry.species_key, tenant_key
-                    )
-                species = species_cache.get(entry.species_key) if entry.species_key is not None else None
+                species = species_of(entry.species_key)
                 if species is not None and species.nutrient_demand is not None:
                     demand = species.nutrient_demand.value
                 elif fam is not None:

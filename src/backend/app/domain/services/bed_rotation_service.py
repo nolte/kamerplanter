@@ -35,25 +35,22 @@ from app.domain.engines.crop_rotation_validator import (
     Severity,
 )
 from app.domain.engines.membership_engine import MembershipEngine
-from app.domain.interfaces.care_event_repository import ICareEventRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.care_event import (
-    BACKFILL_MAX_AGE_DAYS,
+    BACKFILL_YEAR_WINDOW_DAYS,
     CareEventInput,
     CareEventOrigin,
     RotationEntry,
 )
-from app.domain.services.care_event_service import CareEventService
+from app.domain.services.care_event_service import BACKFILL_ERROR_REASON, CareEventService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 from app.domain.services.species_visibility import readable_species
 
 logger = structlog.get_logger()
 
-#: ``void_reason`` of a backfilled year taken back (GP-API-042).
-BACKFILL_ERROR_REASON = "backfill_error"
 #: The first backfilled year is ``current year - 10``, the last ``current year - 1`` (GP-API-042).
 BACKFILL_YEARS_BACK = 10
 
@@ -112,7 +109,6 @@ class BedRotationService:
         graph_repo: IGraphRepository,
         species_repo: ISpeciesRepository,
         family_repo: FamilySource,
-        care_repo: ICareEventRepository,
         care_service: CareEventService,
         validator: CropRotationValidator,
     ) -> None:
@@ -121,7 +117,6 @@ class BedRotationService:
         self._graph = graph_repo
         self._species = species_repo
         self._families = family_repo
-        self._care_repo = care_repo
         self._care = care_service
         self._validator = validator
 
@@ -152,9 +147,12 @@ class BedRotationService:
         scope: NeighbourScope = "bed"
         neighbour_slots: set[str] | None = None
         if slot_key is not None:
-            slot, slot_location = resolve_owned_slot(self._sites, slot_key, tenant_key)
+            try:
+                slot, slot_location = resolve_owned_slot(self._sites, slot_key, tenant_key)
+            except NotFoundError:
+                raise _not_found("slot_key") from None
             if slot_location.key != location.key:
-                raise NotFoundError("Slot", slot_key)
+                raise _not_found("slot_key")
             scope = "slot"
             neighbour_slots = {
                 row["slot"].get("_key", "") for row in self._graph.get_adjacent_slots(slot.key or slot_key)
@@ -289,7 +287,7 @@ class BedRotationService:
             tenant_key=tenant_key,
             user_key=user_key,
             role=role,
-            origin=CareEventOrigin(trigger="backfill", max_age_days=BACKFILL_MAX_AGE_DAYS, rotation_entry=entry),
+            origin=CareEventOrigin(trigger="backfill", max_age_days=BACKFILL_YEAR_WINDOW_DAYS, rotation_entry=entry),
         )
         logger.info("bed_rotation.backfilled", location_key=location_key, year=year, plan_role=plan_role.value)
         return BackfillOutcome(view.event.key or "", performed_at, entry)
@@ -305,17 +303,10 @@ class BedRotationService:
         if not MembershipEngine.can_edit_resource(role):
             raise ForbiddenError("Requires at least grower role.")
         resolve_owned_location(self._sites, location_key, tenant_key)
-        event = self._care_repo.get(event_key, tenant_key=tenant_key)
-        if (
-            event is None
-            or event.location_key != location_key
-            or event.category != "planting"
-            or event.trigger != "backfill"
-        ):
+        event = self._care.get(event_key, tenant_key=tenant_key, user_key=user_key).event
+        if event.location_key != location_key or event.category != "planting" or event.trigger != "backfill":
             raise NotFoundError("CareEvent", event_key)
-        if event.created_by != user_key and not MembershipEngine.can_delete_resource(role):
-            raise ForbiddenError("Only the author or a lead may cancel this backfilled year.")
-        self._care_repo.void(
-            event_key, tenant_key=tenant_key, voided_by=user_key, reason=BACKFILL_ERROR_REASON, at=datetime.now(UTC)
-        )
+        # The care-event service decides who may cancel (the author of a backfilled year, or a lead) and refuses
+        # a closed entry; it also writes the log line, so this path leaves no second void implementation behind.
+        self._care.void(event_key, reason=BACKFILL_ERROR_REASON, tenant_key=tenant_key, user_key=user_key, role=role)
         logger.info("bed_rotation.backfill_cancelled", location_key=location_key, event_key=event_key)

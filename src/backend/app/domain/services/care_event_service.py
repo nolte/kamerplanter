@@ -73,6 +73,8 @@ logger = structlog.get_logger()
 DEFAULT_HISTORY_DAYS = 90
 
 ERROR_REFERENCE_NOT_FOUND = "reference.not_found"
+#: ``void_reason`` of a backfilled year taken back (GP-API-042).
+BACKFILL_ERROR_REASON = "backfill_error"
 ERROR_PERFORMED_IN_FUTURE = "care_event.performed_in_future"
 ERROR_TOO_OLD = "care_event.too_old"
 ERROR_IMMUTABLE = "care_event.immutable"
@@ -101,12 +103,15 @@ def check_void_allowed(event: CareEvent, *, reason: str, user_key: str, role: Te
     """The cancellation predicate of GP-API-037, shared with the atomic undo of a task completion (GP-FR-149).
 
     The lead may cancel any entry. A grower may take back their *own* entry within ten minutes of ``created_at``
-    with ``reason = "undo"`` and nothing else.
+    with ``reason = "undo"``, and their *own* backfilled year at any time with ``reason = "backfill_error"``
+    (GP-API-042).
 
     Raises:
         ForbiddenError: the caller may not cancel this entry.
     """
     if MembershipEngine.can_delete_resource(role):
+        return
+    if event.trigger == "backfill" and reason == BACKFILL_ERROR_REASON and event.created_by == user_key:
         return
     within_window = event.created_at is not None and datetime.now(UTC) - event.created_at <= timedelta(
         minutes=UNDO_WINDOW_MINUTES
@@ -388,12 +393,9 @@ class CareEventService:
             tenant_key=tenant_key,
             user_key=user_key,
             already_photos=[],
-            # V-11 exempts a server-made backfill (GP-API-042) from the 365 days: its window is the calendar-year
-            # range the backfill service checks, and the oldest allowed year can lie more than 3 650 days back.
-            # The future bound (five minutes) still holds.
-            max_age_days=BACKFILL_YEAR_WINDOW_DAYS
-            if origin is not None and origin.trigger == "backfill"
-            else (origin.max_age_days if origin else MAX_AGE_DAYS),
+            # The origin carries its own bound: a client gets a year, a server-made backfill the calendar-year
+            # window of GP-API-042 (V-11 exception). The future bound (five minutes) holds for every caller.
+            max_age_days=origin.max_age_days if origin else MAX_AGE_DAYS,
         )
         return CareEvent(
             tenant_key=tenant_key,
@@ -489,6 +491,7 @@ class CareEventService:
             performed_by_user_key=predecessor.performed_by_user_key,
             trigger=predecessor.trigger,
             task_key=predecessor.task_key,
+            rotation_entry=predecessor.rotation_entry,
             supersedes_key=predecessor.key,
             created_by=user_key,
             **fields,

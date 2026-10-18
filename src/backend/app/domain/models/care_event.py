@@ -328,8 +328,8 @@ class CareEventOrigin:
     def __post_init__(self) -> None:
         if self.trigger not in CARE_EVENT_TRIGGERS:
             raise ValueError(f"Unknown care event trigger '{self.trigger}'.")
-        if self.max_age_days > BACKFILL_MAX_AGE_DAYS:
-            raise ValueError("A backfill reaches ten years back at most.")
+        if self.max_age_days > BACKFILL_YEAR_WINDOW_DAYS:
+            raise ValueError("A backfill reaches ten calendar years back at most.")
         if self.rotation_entry is not None and self.trigger != "backfill":
             raise ValueError("Only a backfill carries a rotation entry.")
 

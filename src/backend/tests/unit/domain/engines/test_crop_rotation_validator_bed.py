@@ -141,6 +141,16 @@ class TestPauseAndStrength:
         finding = check(validator, "grass", rotation_window_years=5).findings[0]
         assert (finding.pause_years, finding.pause_source) == (5, "default")
 
+    def test_a_pause_of_zero_needs_no_hint_even_with_history(self, world) -> None:
+        validator, _plan, history, *_ = world
+        history.add_plant("bed", "tomato", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+        history.add_plant("bed", "kale", date(2026, 3, 1))
+        validator._families.by_key["brassica"] = make_family("brassica", pause=0)
+
+        result = check(validator)
+
+        assert (result.findings, result.severity) == ([], "OK")
+
     def test_the_window_is_bounded_to_eight_years(self, world) -> None:
         validator, *_ = world
         for bad in (0, 9):
@@ -287,6 +297,14 @@ class TestTimeline:
         assert validator.rotation_timeline("bed", tenant_key=TENANT).years == 5
         history.add_plant("bed", "clover", date(2022, 5, 1), removed_on=date(2022, 8, 1))  # fabace: pause 6
         assert validator.rotation_timeline("bed", tenant_key=TENANT).years == 6
+
+    def test_a_species_override_widens_the_default_look_back(self, world) -> None:
+        validator, _plan, history, *_ = world
+        # bean overrides the fabace pause (6) with 4; give kale a 9-year override via a fresh species
+        validator._species_repo.by_key["longpause"] = make_species("longpause", "brassica", rotation_pause_years=8)
+        history.add_plant("bed", "longpause", date(2022, 5, 1), removed_on=date(2022, 8, 1))
+
+        assert validator.rotation_timeline("bed", tenant_key=TENANT).years == 8
 
     def test_more_than_ten_years_is_refused(self, world) -> None:
         validator, *_ = world

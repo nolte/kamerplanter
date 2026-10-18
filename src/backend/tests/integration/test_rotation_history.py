@@ -137,6 +137,27 @@ class TestPlantings:
 
         assert roles == {"green": "green_manure", "plain": "main_crop"}
 
+    def test_a_detached_run_does_not_decide_the_role(self, db, repo) -> None:
+        db.collection(col.SLOTS).insert({"_key": "s1", "location_key": "bed"})
+        db.collection(col.PLANTING_RUNS).insert_many(
+            [{"_key": "r_a_detached", "plan_role": "green_manure"}, {"_key": "r_b_attached", "plan_role": "main_crop"}]
+        )
+        _plant(db, "moved", slot="s1")
+        db.collection(col.RUN_CONTAINS).insert_many(
+            [
+                {
+                    "_from": "planting_runs/r_a_detached",
+                    "_to": "plant_instances/moved",
+                    "detached_at": "2025-06-01T00:00:00Z",
+                },
+                {"_from": "planting_runs/r_b_attached", "_to": "plant_instances/moved"},
+            ]
+        )
+
+        (row,) = repo.list_plantings("bed", since=date(2020, 1, 1), tenant_key=TENANT)
+
+        assert row.plan_role == "main_crop"
+
     def test_an_empty_tenant_is_refused(self, repo) -> None:
         with pytest.raises(ValueError, match="tenant_key"):
             repo.list_plantings("bed", since=date(2020, 1, 1), tenant_key="")

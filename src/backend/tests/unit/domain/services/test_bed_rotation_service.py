@@ -85,7 +85,7 @@ def world():
     validator = CropRotationValidator(
         None, species, graph, site_repo=sites, family_repo=families, history_repo=history, today=lambda: TODAY
     )
-    service = BedRotationService(sites, plan, graph, species, families, care_repo, care, validator)
+    service = BedRotationService(sites, plan, graph, species, families, care, validator)
     return service, plan, graph, care_repo, history
 
 
@@ -143,11 +143,16 @@ class TestNeighbourHints:
 
         assert result.severity == "CRITICAL"  # returned, not raised (D-09)
 
-    def test_a_slot_of_another_bed_or_tenant_is_a_404(self, world) -> None:
+    def test_a_slot_of_another_bed_or_tenant_is_a_reference_error_like_an_unknown_one(self, world) -> None:
         service, *_ = world
+        details = []
         for slot_key in ("o1", "z1", "nowhere"):
-            with pytest.raises(NotFoundError):
+            with pytest.raises(PlanValidationError) as exc:
                 service.validate_planting("bed", "cabbage", tenant_key=TENANT, slot_key=slot_key)
+            details.append(exc.value.details)
+        assert details[0] == details[1] == details[2]
+        assert details[0][0]["code"] == "reference.not_found"
+        assert details[0][0]["field"] == "slot_key"
 
     def test_a_foreign_bed_is_a_404_and_reads_no_neighbours(self, world) -> None:
         service, plan, *_ = world
@@ -268,6 +273,33 @@ class TestBackfill:
         )
         assert entry.event_key == "ce_1"
         assert result.rotation.findings[0].code == "rotation.pause_not_elapsed"
+
+
+class TestACorrectedBackfillStaysHistory:
+    def test_superseding_a_backfilled_year_keeps_its_rotation_entry(self, world) -> None:
+        """A correction is a new entry; the family-year must survive on the new head of the chain."""
+        from app.domain.models.care_event import CareEventCorrection
+
+        service, _plan, _graph, care_repo, _history = world
+        outcome = backfill(service, year=THIS_YEAR - 1, family_key="brassica")
+
+        corrected = service._care.supersede(
+            outcome.care_event_key,
+            CareEventCorrection(
+                category="planting", summary="Backfill, corrected text", performed_at=outcome.performed_at
+            ),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=GROWER,
+        )
+
+        assert corrected.event.rotation_entry == outcome.entry
+        assert corrected.event.trigger == "backfill"
+        (entry,) = service.rotation_timeline("bed", tenant_key=TENANT, years=5).entries
+        assert (entry.year, entry.family_key, entry.event_key) == (THIS_YEAR - 1, "brassica", corrected.event.key)
+        assert service.validate_planting("bed", "cabbage", tenant_key=TENANT).rotation.findings[0].code == (
+            "rotation.pause_not_elapsed"
+        )
 
 
 class TestCancelBackfill:

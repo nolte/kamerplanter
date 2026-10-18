@@ -42,7 +42,13 @@ class ArangoRotationHistoryRepository(IRotationHistoryRepository):
                     FILTER p.tenant_key == @tenant_key
                     FILTER p.slot_key IN bed_slots OR p.location_key == @location_key
                     FILTER p.removed_on == null OR p.removed_on >= @since
-                    LET run = FIRST(FOR r IN 1..1 INBOUND p._id @@run_contains RETURN r)
+                    LET run = FIRST(
+                        FOR r, e IN 1..1 INBOUND p._id @@run_contains
+                            FILTER e.detached_at == null
+                            SORT r._key
+                            LIMIT 1
+                            RETURN r
+                    )
                     RETURN {
                         plant_key: p._key,
                         species_key: p.species_key,

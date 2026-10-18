@@ -482,7 +482,6 @@ def get_bed_rotation_service() -> BedRotationService:
         get_graph_repo(),
         get_species_repo(),
         get_family_repo(),
-        get_care_event_repo(),
         get_care_event_service(),
         validator,
     )

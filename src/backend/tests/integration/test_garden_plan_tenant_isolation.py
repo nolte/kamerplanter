@@ -353,9 +353,7 @@ def _rotation_service(db) -> BedRotationService:
         family_repo=families,
         history_repo=ArangoRotationHistoryRepository(db),
     )
-    return BedRotationService(
-        sites, ArangoGardenPlanRepository(db), graph, species, families, care_repo, care, validator
-    )
+    return BedRotationService(sites, ArangoGardenPlanRepository(db), graph, species, families, care, validator)
 
 
 def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped: bool = False) -> TestClient:

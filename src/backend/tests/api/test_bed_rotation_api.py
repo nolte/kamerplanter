@@ -94,7 +94,7 @@ def world() -> SimpleNamespace:
     validator = CropRotationValidator(
         None, species, graph, site_repo=sites, family_repo=families, history_repo=history, today=lambda: TODAY
     )
-    service = BedRotationService(sites, plan, graph, species, families, care_repo, care, validator)
+    service = BedRotationService(sites, plan, graph, species, families, care, validator)
     return SimpleNamespace(service=service, history=history, care_repo=care_repo, plan=plan)
 
 
@@ -172,6 +172,13 @@ class TestValidatePlanting:
         assert client().post(url, json={"species_key": "tomato", "rotation_window_years": 9}).status_code == 422
         assert client().post(url, json={"species_key": "tomato", "rotation_window_years": 8}).status_code == 200
         assert client().post(url, json={"species_key": "tomato", "tenant_key": OTHER_TENANT}).status_code == 422
+
+    def test_a_foreign_slot_is_a_422_like_an_unknown_one(self, client, world) -> None:
+        url = f"{_BASE}/locations/bed/validate-planting"
+        foreign = client().post(url, json={"species_key": "tomato", "slot_key": "z1"})
+        unknown = client().post(url, json={"species_key": "tomato", "slot_key": "nope"})
+        assert foreign.status_code == unknown.status_code == 422
+        assert foreign.json()["details"] == unknown.json()["details"]
 
 
 class TestRotationTimeline:
