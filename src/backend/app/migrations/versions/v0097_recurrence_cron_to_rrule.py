@@ -77,6 +77,8 @@ FOR t IN @@collection
 
 _APPLY = """
 FOR u IN @updates
+  LET current = DOCUMENT(@@collection, u._key)
+  FILTER current != null AND current.recurrence_rule == u.from
   UPDATE u._key WITH { recurrence_rule: u.rule } IN @@collection
 """
 
@@ -149,7 +151,7 @@ class RecurrenceCronToRruleMigration(Migration):
             return MigrationReport(
                 version=self.version, name=self.name, scanned=scanned, changed=0, dry_run=True, details=details
             )
-        _apply(db, _APPLY, [{"_key": c["_key"], "rule": c["rule"]} for c in conversions])
+        _apply(db, _APPLY, [{"_key": c["_key"], "from": c["from"], "rule": c["rule"]} for c in conversions])
         _apply(db, _PARK, [{"_key": p["_key"], "rule": p["rule"]} for p in parked])
         if parked:
             logger.warning("recurrence_cron_to_rrule_parked", parked=len(parked), details=details)

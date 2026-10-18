@@ -28,7 +28,8 @@ class _FakeAql:
         if "UPDATE u._key" in query and "recurrence_rule_unconvertible" not in query:
             self.updates.append(list(bind_vars["updates"]))
             for update in bind_vars["updates"]:
-                self.db.docs[update["_key"]]["recurrence_rule"] = update["rule"]
+                if self.db.docs[update["_key"]].get("recurrence_rule") == update["from"]:
+                    self.db.docs[update["_key"]]["recurrence_rule"] = update["rule"]
             return iter(())
         if "recurrence_rule_unconvertible: u.rule" in query:
             self.parks.append(list(bind_vars["updates"]))
@@ -214,3 +215,23 @@ class TestConversion:
     def test_down_is_refused(self) -> None:
         with pytest.raises(IrreversibleMigrationError):
             migration.down(_FakeDb())
+
+
+class TestReviewFindings:
+    def test_a_padded_rrule_is_not_parked(self) -> None:
+        db = _FakeDb([{"_key": "padded", "tenant_key": "x", "recurrence_rule": " FREQ=WEEKLY;BYDAY=MO "}])
+
+        report = migration.up(db)
+
+        assert db.docs["padded"]["recurrence_rule"].strip() == "FREQ=WEEKLY;BYDAY=MO"
+        assert report.details["parked"]["count"] == 0
+
+    def test_a_conversion_does_not_overwrite_a_concurrent_edit(self) -> None:
+        db = _FakeDb([{"_key": "raced", "recurrence_rule": "FREQ=DAILY"}])
+
+        db.aql.execute(
+            module._APPLY,
+            bind_vars={"@collection": col.TASKS, "updates": [{"_key": "raced", "from": "0 9 * * *", "rule": "X"}]},
+        )
+
+        assert db.docs["raced"]["recurrence_rule"] == "FREQ=DAILY"
