@@ -312,14 +312,14 @@ def test_a_rule_update_cannot_repoint_the_sensor_location() -> None:
 
 @pytest.mark.parametrize("entity_type", [None, "generic", "plant", "actuator"])
 def test_a_task_key_needs_an_edge_writing_type(entity_type: str | None) -> None:
-    guard = TaskEntityGuard(MagicMock, MagicMock, MagicMock, MagicMock)
+    guard = TaskEntityGuard(MagicMock, MagicMock, MagicMock, MagicMock, MagicMock)
 
     with pytest.raises(ValidationError):
         guard.verify(entity_type, "some-key", tenant_key=OWN)
 
 
 def test_a_system_task_keeps_its_free_binding() -> None:
-    guard = TaskEntityGuard(MagicMock, MagicMock, MagicMock, MagicMock)
+    guard = TaskEntityGuard(MagicMock, MagicMock, MagicMock, MagicMock, MagicMock)
 
     guard.verify("actuator", "act1", tenant_key="")  # no tenant: the system context
 

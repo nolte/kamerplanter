@@ -91,7 +91,11 @@ def client(tasks: _Tasks) -> Iterator[TestClient]:
     from app.main import app
 
     guard = TaskEntityGuard(
-        _ForeignKeyAwareService, _ForeignKeyAwareService, _ForeignKeyAwareService, lambda: _SiteService()
+        _ForeignKeyAwareService,
+        _ForeignKeyAwareService,
+        _ForeignKeyAwareService,
+        lambda: _SiteService(),
+        _ForeignKeyAwareService,
     )
     app.dependency_overrides[get_current_user] = lambda: User(_key="lead", email="lead@example.org", display_name="L")
     app.dependency_overrides[get_tenant_service] = _Tenants

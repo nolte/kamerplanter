@@ -54,6 +54,9 @@ logger = structlog.get_logger(__name__)
 #: either layer has to be able to find the cap that makes that true.
 QUEUE_LIMIT = 200
 
+#: At most this many clones per "for every plant" request (REQ-053 GP-FR-081); a bed holds a few dozen plants.
+MAX_FAN_OUT = 200
+
 # ── Update allow-lists (mass assignment, #965) ──
 #
 # The three ``update_*`` methods below used to loop over the caller's dict and
@@ -1809,7 +1812,12 @@ class TaskService:
 
         entity_key = target_entity_key or source.entity_key
         entity_type = target_entity_type or source.entity_type
+        return self._clone_of(source, entity_type=entity_type, entity_key=entity_key, due_date=due_date)
 
+    def _clone_of(
+        self, source: Task, *, entity_type: str | None, entity_key: str | None, due_date: datetime | None
+    ) -> Task:
+        """One new pending task copied from ``source`` onto an entity, linked by ``task_cloned_from`` (GP-FR-081)."""
         new_task = Task(
             tenant_key=source.tenant_key,
             name=source.name,
@@ -1831,7 +1839,58 @@ class TaskService:
             tags=list(source.tags),
             checklist=[ChecklistItem(text=item.text, done=False, order=item.order) for item in source.checklist],
         )
-        return self._repo.create_task(new_task)
+        created = self._repo.create_task(new_task)
+        if source.key and created.key:
+            self._repo.create_task_cloned_from_edge(created.key, source.key)
+        return created
+
+    def fan_out_to_plants(
+        self,
+        key: str,
+        *,
+        tenant_key: str,
+        include_children: bool = True,
+        keep_source: bool = False,
+    ) -> list[Task]:
+        """ "For every plant in the bed": one clone of a bed task per plant standing in it (GP-FR-081).
+
+        ``key`` must be an open task bound to a bed (``entity_type = location``). Every active plant of the bed
+        (and of its sub-locations when ``include_children``) gets a pending clone bound to it, linked back by a
+        ``task_cloned_from`` edge. The bed task itself is then ``skipped`` — the user chose "for every plant"
+        *instead of* "for the bed" — unless ``keep_source``. A bed without plants clones nothing and leaves the
+        source open. The clones are written one by one, not in one transaction: a failure part-way leaves the
+        source open, so the request is not lost; a retry clones only the plants that hold no clone yet.
+        """
+        self._require_tenant_key(tenant_key, "fan_out_to_plants")
+        source = self.get_task(key, tenant_key=tenant_key)
+        self._require_completable(source)
+        if source.entity_type != "location" or not source.entity_key:
+            raise ValidationError(
+                "Only a task bound to a bed (entity_type 'location') can be fanned out to its plants."
+            )
+        if source.category == "care_reminder":
+            # Care reminders have their own strand (GP-FR-106), and the queue collapses same-named care tasks.
+            raise ValidationError("A care reminder cannot be fanned out; the reminder engine writes one per plant.")
+        if self._care_events is None or self._completion is None:
+            raise RuntimeError("fan_out_to_plants needs the care-event service and the completion repository.")
+        scope = self._care_events.location_scope(
+            source.entity_key, include_children=include_children, tenant_key=tenant_key
+        )
+        plants = self._completion.plants_in_locations(scope, tenant_key=tenant_key)
+        if len(plants) > MAX_FAN_OUT:
+            raise ValidationError(
+                f"The bed holds {len(plants)} plants; at most {MAX_FAN_OUT} tasks are created at once."
+            )
+        # A retry after a failure part-way clones only the plants that have no clone yet.
+        already = self._repo.get_clone_entity_keys(key, tenant_key=tenant_key)
+        clones = [
+            self._clone_of(source, entity_type="plant_instance", entity_key=plant_key, due_date=source.due_date)
+            for plant_key in plants
+            if plant_key not in already
+        ]
+        if plants and not keep_source:
+            self.skip_task(key, tenant_key=tenant_key)
+        return clones
 
     # ── Reopen ──
 
@@ -2193,8 +2252,15 @@ class TaskService:
         tenant_key: str,
         category: str | None = None,
         origins: Sequence[str] | None = None,
+        location_key: str | None = None,
+        include_children: bool = True,
     ) -> list[Task]:
         """The prioritised task queue of one tenant (#927, #1503).
+
+        ``location_key`` (REQ-053 GP-FR-080, GP-API-030) narrows the queue to a bed: the tasks bound to it and to
+        the plants standing in it, with the sub-locations below it when ``include_children``. The bed is resolved
+        against the caller's tenant here, so a foreign or unknown key is a 404 — never an empty queue. It excludes
+        ``plant_key``: asking for both is a 422 rather than a silent intersection.
 
         Both branches are tenant-scoped: the per-plant one because ``plant_key``
         comes from a query parameter and used to select across tenants, the
@@ -2209,7 +2275,18 @@ class TaskService:
         #1484 closed for ``plant_key``). Both are threaded into the query the
         same way ``plant_key`` is, and both apply to either branch.
         """
-        if plant_key:
+        if plant_key and location_key:
+            raise ValidationError("plant_key and location_key cannot be combined.")
+        if location_key:
+            if self._care_events is None:
+                raise RuntimeError("get_task_queue by location needs the care-event service.")
+            scope = self._care_events.location_scope(
+                location_key, include_children=include_children, tenant_key=tenant_key
+            )
+            tasks = self._repo.get_pending_tasks_in_locations(
+                scope, QUEUE_LIMIT, tenant_key=tenant_key, category=category, origins=origins
+            )
+        elif plant_key:
             tasks = self._repo.get_tasks_for_plant(
                 plant_key, "pending", tenant_key=tenant_key, category=category, origins=origins
             )

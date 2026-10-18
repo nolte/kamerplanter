@@ -115,6 +115,27 @@ class TestReadingThePlan:
         assert body["plan"]["plan_updated_by_name"] == "Sabine"
         assert '"plan_updated_by"' not in json.dumps(body)
 
+    def test_the_task_badges_of_beds_and_garden_objects_are_on_the_plan(self, client, repo) -> None:
+        from app.common.enums import GardenObjectType
+        from app.domain.models.garden_object import GardenObject
+        from app.domain.models.garden_plan import TaskCounter
+
+        repo.objects["go_1"] = GardenObject(
+            _key="go_1",
+            site_key=SITE,
+            object_type=GardenObjectType.COMPOST,
+            geometry=rect(8, 8, 1, 1),
+            props={"object_type": "compost"},
+        )
+        repo.task_counters = {"bed": TaskCounter(open_task_count=2, overdue_task_count=1)}
+        repo.object_task_counters = {"go_1": TaskCounter(open_task_count=3, overdue_task_count=2)}
+
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+
+        assert (body["locations"][0]["open_task_count"], body["locations"][0]["overdue_task_count"]) == (2, 1)
+        assert (body["garden_objects"][0]["open_task_count"], body["garden_objects"][0]["overdue_task_count"]) == (3, 2)
+        assert body["garden_objects"][0]["object_type"] == "compost"  # the object itself is unchanged
+
     def test_an_unknown_include_is_a_422(self, client) -> None:
         response = client().get(_PLAN, params={"include": "plants,fish"})
         assert response.status_code == 422 and response.json()["details"][0]["field"] == "include"

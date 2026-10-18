@@ -122,6 +122,7 @@ class FakePlanRepo(IGardenPlanRepository):
         self.audit: list[PlanAuditEntry] = []
         self.editor_name: str | None = "Sabine"
         self.task_counters: dict[str, TaskCounter] = {}
+        self.object_task_counters: dict[str, TaskCounter] = {}
         self.counters: dict[str, BedCounters] = {}
         self.care_events: list[CareEvent] = []
         self.zones: dict[str, tuple[str, str]] = {"zone_1": (TENANT, SITE)}
@@ -148,6 +149,7 @@ class FakePlanRepo(IGardenPlanRepository):
             slots=list(self.slots),
             plants=list(self.plants) if include_plants else [],
             task_counters=dict(self.task_counters) if include_tasks else {},
+            object_task_counters=dict(self.object_task_counters) if include_tasks else {},
             plan_updated_by_name=self.editor_name,
         )
 

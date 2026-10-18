@@ -22,6 +22,7 @@ from app.api.v1.tasks.schemas import (
     TaskCommentUpdate,
     TaskCompleteRequest,
     TaskCreate,
+    TaskFanOutRequest,
     TaskReopenRequest,
     TaskResponse,
     TaskTemplateCreate,
@@ -506,6 +507,14 @@ def create_task(
 @router.get("/queue", response_model=list[TaskResponse])
 def get_task_queue(
     plant_key: str | None = Query(default=None, description="Restrict the queue to a single plant instance."),
+    location_key: str | None = Query(
+        default=None,
+        description=(
+            "Restrict the queue to a bed or area (REQ-053 GP-API-030): the tasks bound to it and to the plants "
+            "standing in it. A bed of another tenant is a 404. Cannot be combined with `plant_key`."
+        ),
+    ),
+    include_children: bool = Query(default=True, description="With `location_key`: also take the locations below it."),
     category: TaskCategory | None = Query(default=None, description="Restrict the queue to one task category."),
     origin: list[TaskOrigin] | None = Query(
         default=None,
@@ -533,7 +542,14 @@ def get_task_queue(
     typed as their enums, so a value the store cannot hold is a 422 at the
     boundary rather than a silently empty list.
     """
-    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key, category=category, origins=origin)
+    tasks = service.get_task_queue(
+        plant_key,
+        tenant_key=ctx.tenant_key,
+        category=category,
+        origins=origin,
+        location_key=location_key,
+        include_children=include_children,
+    )
     return [_task_response(t) for t in tasks]
 
 
@@ -786,6 +802,29 @@ def clone_task(
         tenant_key=ctx.tenant_key,
     )
     return _task_response(cloned)
+
+
+@router.post("/{key}/fan-out", response_model=list[TaskResponse], status_code=201)
+def fan_out_task(
+    key: Annotated[str, Path(description="Document key of the bed task to fan out.")],
+    body: TaskFanOutRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
+    service: TaskService = Depends(get_task_service),
+) -> list[TaskResponse]:
+    """Clone a bed task onto every plant standing in the bed ("for every plant", REQ-053 GP-FR-081).
+
+    The task must be bound to a bed of the caller's tenant (`entity_type = location`); a foreign task or bed is a
+    404, a task bound to anything else a 422. Each clone is bound to one plant and linked back by a
+    `task_cloned_from` edge. The bed task is skipped afterwards unless `keep_source` is set. A bed without
+    plants answers an empty list and leaves the task open.
+    """
+    clones = service.fan_out_to_plants(
+        key,
+        tenant_key=ctx.tenant_key,
+        include_children=body.include_children,
+        keep_source=body.keep_source,
+    )
+    return [_task_response(t) for t in clones]
 
 
 @router.post("/{key}/reopen", response_model=TaskResponse)

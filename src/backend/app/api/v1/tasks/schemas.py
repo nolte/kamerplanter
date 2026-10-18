@@ -226,7 +226,14 @@ class TaskCreate(BaseModel):
     source_run_ref: str | None = None
     external_ref: str | None = None
     entity_key: str | None = None
-    entity_type: str | None = None
+    entity_type: str | None = Field(
+        default=None,
+        description=(
+            "What the task hangs off: `plant_instance`, `planting_run`, `location` (a bed or area), `tank` or "
+            "`garden_object` (only a compost, water source or storage object, REQ-053 R-7.2). "
+            "Any other value is a 422."
+        ),
+    )
     due_date: datetime | None = None
     scheduled_time: str | None = None
     priority: str = "medium"
@@ -287,7 +294,13 @@ class TaskResponse(BaseModel):
     source_run_ref: str | None = None
     external_ref: str | None = None
     entity_key: str | None = None
-    entity_type: str | None = None
+    entity_type: str | None = Field(
+        default=None,
+        description="`plant_instance`, `planting_run`, `location`, `tank` or `garden_object`.",
+    )
+    #: REQ-053 §20.9: a system proposal the user has not accepted yet (pending, shown in its own section).
+    suggested: bool = False
+    suggestion_reason: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     status: str
@@ -348,6 +361,16 @@ class TaskCloneRequest(BaseModel):
     target_entity_key: str | None = None
     target_entity_type: str | None = None
     due_date_offset_days: int | None = None
+
+
+class TaskFanOutRequest(BaseModel):
+    """ "For every plant in the bed" (REQ-053 GP-FR-081): clone a bed task onto each plant standing in it."""
+
+    include_children: bool = Field(default=True, description="Also take the plants of the sub-locations below the bed.")
+    keep_source: bool = Field(
+        default=False,
+        description="Keep the bed task open. By default it is skipped ('for every plant' replaces 'for the bed').",
+    )
 
 
 class TaskReopenRequest(BaseModel):

@@ -42,6 +42,7 @@ from app.domain.entity_names import entity_name
 from app.domain.models.activity import Activity
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.fertilizer import Fertilizer
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.harvest import HarvestObservation
 from app.domain.models.inventree import Equipment
 from app.domain.models.nutrient_plan import NutrientPlan
@@ -67,6 +68,7 @@ COLLECTION_ENTITY_MODELS: Final[dict[str, type[BaseModel]]] = {
     col.CULTIVARS: Cultivar,
     col.EQUIPMENT: Equipment,
     col.FERTILIZERS: Fertilizer,
+    col.GARDEN_OBJECTS: GardenObject,
     col.HARVEST_OBSERVATIONS: HarvestObservation,
     col.LOCATIONS: Location,
     col.NUTRIENT_PLANS: NutrientPlan,
