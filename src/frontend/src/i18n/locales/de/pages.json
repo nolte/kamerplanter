@@ -5644,7 +5644,8 @@
           "region": "Eigenschaften",
           "geometryTitle": "Lage und Maße",
           "geometryHint": "Maße in Metern, Drehung in Grad. Die Position ist die Ecke des Objekts (bei Kreisen der Mittelpunkt); x zeigt nach rechts, y nach oben.",
-          "fieldInvalid": "Bitte eine gültige Zahl eingeben."
+          "fieldInvalid": "Bitte eine gültige Zahl eingeben.",
+          "openCare": "Pflege: {{open}} offen, {{overdue}} überfällig"
         },
         "contextMenu": {
           "label": "Aktionen für die Auswahl",
@@ -5953,10 +5954,6 @@
           "description": "Hier planst du bald, was in diesem Beet wächst. Die bestehenden Durchläufe und Pflanzen findest du solange in den Stammdaten.",
           "action": "Zu den Stammdaten"
         },
-        "care": {
-          "title": "Pflege folgt",
-          "description": "Hier siehst du bald die Aufgaben und das Pflegeprotokoll dieses Beets."
-        },
         "history": {
           "title": "Historie folgt",
           "description": "Hier siehst du bald, was in den vergangenen Jahren in diesem Beet stand."
@@ -5981,7 +5978,117 @@
         "empty": "Noch keine Beete",
         "emptyDescription": "Zeichne ein Beet im Gartenplan, dann erscheint es hier.",
         "onlyMineNone": "Dir sind noch keine Beete zugewiesen.",
-        "notPlaced": "„{{name}}“ ist noch nicht im Gartenplan eingezeichnet."
+        "notPlaced": "„{{name}}“ ist noch nicht im Gartenplan eingezeichnet.",
+        "batchOpen": "Aufgaben auf mehreren Beeten erledigen",
+        "careLink": "{{tasks}}: Pflege-Tab von {{name}} öffnen"
+      },
+      "care": {
+        "sections": {
+          "overdue": "Überfällig ({{count}})",
+          "open": "Offen ({{count}})",
+          "suggested": "Vorschläge ({{count}})",
+          "suggestedHint": "Diese Aufgaben schlägt das System vor. Erledige eine jetzt oder verwirf sie; ohne deine Entscheidung passiert nichts.",
+          "suggestedNoReason": "Kein Grund angegeben."
+        },
+        "target": {
+          "bed": "Ganzes Beet",
+          "plant": "Pflanze {{name}}",
+          "plantUnknown": "in diesem Beet",
+          "other": "Sonstiges"
+        },
+        "due": "Fällig {{date}}",
+        "dueOverdue": "Überfällig seit {{date}}",
+        "done": "Erledigt",
+        "doneFor": "Erledigt: {{name}}",
+        "doNow": "Jetzt erledigen",
+        "doNowFor": "Jetzt erledigen: {{name}}",
+        "dismiss": "Verwerfen",
+        "dismissFor": "Verwerfen: {{name}}",
+        "empty": {
+          "title": "Hier ist nichts zu tun",
+          "description": "Keine offenen Aufgaben für dieses Beet oder seine Pflanzen.",
+          "descriptionEdit": "Keine offenen Aufgaben für dieses Beet oder seine Pflanzen. Lege eine Aufgabe an oder protokolliere, was du gerade gemacht hast."
+        },
+        "undo": {
+          "action": "Rückgängig",
+          "completed": "Erledigt: {{name}}",
+          "dismissed": "Verworfen: {{name}}",
+          "logged": "Protokolliert: {{category}}",
+          "batch": "{{count}} Aufgaben erledigt"
+        },
+        "complete": {
+          "title": "Erledigen: {{category}}",
+          "optionalHint": "Alles Weitere ist optional. Du kannst die Aufgabe auch ohne Eingabe erledigen.",
+          "submit": "Erledigen"
+        },
+        "form": {
+          "note": "Notiz",
+          "quantity": {
+            "watering": "Menge",
+            "rainfall": "Niederschlag",
+            "feeding": "Menge",
+            "amendment": "Menge",
+            "mulching": "Dicke",
+            "harvest": "Gewicht",
+            "amount": "Menge"
+          },
+          "unit": "Einheit",
+          "source": "Wasserquelle",
+          "sourceUnknown": "Nicht angegeben",
+          "material": "Material",
+          "product": "Produkt",
+          "productHint": "Wähle einen Dünger aus dem Katalog oder tippe einen Namen.",
+          "performedAt": "Wann",
+          "performedAtHint": "Standard ist jetzt. Du kannst bis zu 365 Tage zurückdatieren, aber nie in die Zukunft."
+        },
+        "errors": {
+          "future": "Der Zeitpunkt liegt in der Zukunft.",
+          "tooOld": "Der Zeitpunkt liegt mehr als 365 Tage zurück.",
+          "invalid": "Gib ein gültiges Datum mit Uhrzeit ein.",
+          "quantity": "Gib eine Zahl ab 0 ein.",
+          "tooLong": "Dieser Text ist zu lang."
+        },
+        "create": {
+          "open": "Neue Aufgabe",
+          "title": "Neue Aufgabe für dieses Beet",
+          "category": "Kategorie",
+          "name": "Name",
+          "nameHint": "Optional. Ohne Namen gilt die Kategorie.",
+          "due": "Fällig am",
+          "scope": "Gilt für",
+          "scopeBed": "Das ganze Beet (eine Aufgabe)",
+          "scopePlants": "Jede Pflanze im Beet (eine Aufgabe je Pflanze)",
+          "scopePlantsHint": "In diesem Beet stehen {{count}} Pflanzen. Jede bekommt eine eigene Aufgabe; die Beet-Aufgabe bleibt nicht erhalten.",
+          "scopeNoPlants": "In diesem Beet stehen keine Pflanzen.",
+          "submit": "Aufgabe anlegen",
+          "createdBed": "Aufgabe für das Beet angelegt.",
+          "createdPlants_one": "{{count}} Aufgabe für die Pflanze angelegt.",
+          "createdPlants_other": "{{count}} Aufgaben angelegt, eine je Pflanze."
+        },
+        "log": {
+          "open": "Pflege protokollieren",
+          "title": "Pflege ohne Aufgabe protokollieren",
+          "category": "Was hast du gemacht?",
+          "categoryHint": "Pflanzenschutz-Behandlungen werden hier nicht protokolliert; nutze dafür das Pflanzenschutz-Formular.",
+          "noteCategory": "Notiz",
+          "noteText": "Notiz",
+          "submit": "Protokollieren"
+        },
+        "batch": {
+          "title": "Aufgaben auf mehreren Beeten erledigen",
+          "intro": "Wähle eine Aufgabenart und die Beete. Alle offenen Aufgaben dieser Art auf diesen Beeten (und ihren Pflanzen) werden in einem Schritt erledigt.",
+          "category": "Aufgabenart",
+          "beds": "Beete",
+          "noBeds": "Wähle mindestens ein Beet.",
+          "find": "Aufgaben suchen",
+          "none": "Auf den gewählten Beeten gibt es keine offenen Aufgaben dieser Art ({{category}}).",
+          "found": "{{tasks}} offene Aufgaben auf {{beds}} Beeten.",
+          "tooMany": "Es werden nur die ersten {{max}} Aufgaben erledigt; wiederhole den Schritt für den Rest.",
+          "back": "Zurück",
+          "submit": "{{count}} Aufgaben erledigen",
+          "partial": "{{done}} erledigt, {{failed}} konnten nicht erledigt werden.",
+          "findFailed": "Einige Beete konnten nicht gelesen werden; die Aufgaben der übrigen sind aufgelistet."
+        }
       }
     }
   }

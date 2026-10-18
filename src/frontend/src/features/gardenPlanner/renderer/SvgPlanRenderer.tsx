@@ -186,6 +186,9 @@ export interface PlanPalette {
   water: string;
   plant: string;
   slot: string;
+  /** Task badge on a bed (GP-FR-089): overdue tasks, otherwise open tasks; the text is the contrast of the fill. */
+  badgeOverdue: { fill: string; text: string };
+  badgeOpen: { fill: string; text: string };
 }
 
 export function planPalette(theme: Theme): PlanPalette {
@@ -209,6 +212,8 @@ export function planPalette(theme: Theme): PlanPalette {
     water: alpha(palette.info.main, 0.4),
     plant: palette.success.dark,
     slot: palette.text.secondary,
+    badgeOverdue: { fill: palette.error.main, text: palette.getContrastText(palette.error.main) },
+    badgeOpen: { fill: palette.primary.main, text: palette.getContrastText(palette.primary.main) },
   };
 }
 
@@ -263,6 +268,11 @@ interface ShapeNodeProps {
   onFocusKey?: (key: string) => void;
   onActivateKey?: (key: string) => void;
 }
+
+/** Radius of the task badge on a bed, in screen pixels. */
+const BADGE_RADIUS_PX = 11;
+/** A bed narrower than this on screen shows no badge (the aria-label still carries the count). */
+const BADGE_MIN_BED_PX = 44;
 
 function shapeStyle(entry: ShapeEntry, selected: boolean, palette: PlanPalette) {
   const location = entry.kind === 'location' ? (entry.source as PlanLocation) : null;
@@ -416,9 +426,83 @@ const ShapeNode = memo(function ShapeNode({
           {size}
         </text>
       ) : null}
+      {entry.kind === 'location' && widthPx >= BADGE_MIN_BED_PX
+        ? (() => {
+            const location = entry.source as PlanLocation;
+            if (location.open_task_count <= 0) return null;
+            return (
+              <TaskBadge
+                locationKey={entry.key}
+                openCount={location.open_task_count}
+                overdueCount={location.overdue_task_count}
+                x={entry.bbox[2]}
+                y={-entry.bbox[3]}
+                pxPerM={pxPerM}
+                palette={palette}
+              />
+            );
+          })()
+        : null}
     </g>
   );
 });
+
+// ── Task badge ───────────────────────────────────────────────────────────────
+
+interface TaskBadgeProps {
+  locationKey: string;
+  openCount: number;
+  overdueCount: number;
+  /** The bed's top-right corner in drawing coordinates (y already flipped). */
+  x: number;
+  y: number;
+  pxPerM: number;
+  palette: PlanPalette;
+}
+
+/**
+ * The open-task badge of a bed (GP-FR-089): the count of open tasks, red when some are overdue. It is
+ * decorative for assistive technology - the bed's accessible name already says how many tasks are open,
+ * and the properties panel offers the care tab as a button. The `data-plan-badge` marker lets the editor
+ * open the care tab when the pointer goes down on it (the canvas captures the pointer, so a click never
+ * reaches the badge itself).
+ */
+function TaskBadge({ locationKey, openCount, overdueCount, x, y, pxPerM, palette }: TaskBadgeProps) {
+  const radius = BADGE_RADIUS_PX / pxPerM;
+  const colors = overdueCount > 0 ? palette.badgeOverdue : palette.badgeOpen;
+  const text = openCount > 99 ? '99+' : String(openCount);
+  return (
+    <g
+      className="gp-badge"
+      data-plan-badge={locationKey}
+      data-overdue={overdueCount > 0 ? 'true' : 'false'}
+      aria-hidden="true"
+      style={{ cursor: 'pointer' }}
+    >
+      <circle
+        cx={num(x - radius)}
+        cy={num(y + radius)}
+        r={num(radius)}
+        fill={colors.fill}
+        stroke={colors.text}
+        strokeWidth={1}
+        vectorEffect="non-scaling-stroke"
+      />
+      <text
+        x={num(x - radius)}
+        y={num(y + radius)}
+        fontSize={((BADGE_RADIUS_PX * 1.1) / pxPerM).toPrecision(4)}
+        fontWeight="bold"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={colors.text}
+        pointerEvents="none"
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
 
 // ── Markers and clusters ─────────────────────────────────────────────────────
 

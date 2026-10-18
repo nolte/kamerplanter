@@ -271,3 +271,44 @@ describe('SvgPlanRenderer - boundary stays in the plan', () => {
     expect(boundary?.querySelector('path')).toHaveAttribute('stroke-dasharray', '10 6');
   });
 });
+
+describe('SvgPlanRenderer - task badge (GP-FR-089)', () => {
+  const planWith = (counts: { open: number; overdue: number }, width = 1.2) =>
+    smallPlan({
+      locations: [
+        bed('loc_a', 1, 1, {
+          open_task_count: counts.open,
+          overdue_task_count: counts.overdue,
+          geometry: { kind: 'rect', origin: [1, 1], width_m: width, length_m: 2, rotation_deg: 0 },
+          bbox: [1, 1, 1 + width, 3],
+        }),
+      ],
+      garden_objects: [],
+    });
+
+  it('draws the count of open tasks at the corner of the bed, decorative for assistive technology', () => {
+    const { svg } = mount(new SvgPlanRenderer(), planWith({ open: 3, overdue: 0 }));
+    const badge = svg.querySelector('[data-plan-badge="loc_a"]');
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toBe('3');
+    expect(badge?.getAttribute('data-overdue')).toBe('false');
+    expect(badge?.getAttribute('aria-hidden')).toBe('true');
+    // The bed's accessible name already carries the count.
+    expect(svg.querySelector('[data-plan-key="loc_a"]')?.getAttribute('aria-label')).toContain('3 tasks');
+  });
+
+  it('marks a bed with overdue tasks and caps the number at 99+', () => {
+    const { svg } = mount(new SvgPlanRenderer(), planWith({ open: 120, overdue: 2 }));
+    const badge = svg.querySelector('[data-plan-badge="loc_a"]');
+    expect(badge?.getAttribute('data-overdue')).toBe('true');
+    expect(badge?.textContent).toBe('99+');
+  });
+
+  it('draws no badge for a bed without open tasks, or one too narrow on screen', () => {
+    expect(mount(new SvgPlanRenderer(), planWith({ open: 0, overdue: 0 })).svg.querySelector('[data-plan-badge]')).toBeNull();
+    // 1.2 m at 30 px/m = 36 px, below the 44 px a badge needs.
+    expect(
+      mount(new SvgPlanRenderer(), planWith({ open: 2, overdue: 0 }), viewportAt(0, 10, 30)).svg.querySelector('[data-plan-badge]'),
+    ).toBeNull();
+  });
+});

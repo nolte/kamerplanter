@@ -50,6 +50,7 @@ interface SetupOptions {
   onPan?: Mock<(dxPx: number, dyPx: number) => void>;
   onZoom?: Mock<(factor: number, centerPx: [number, number]) => void>;
   onOpenLocation?: Mock<(locationKey: string) => void>;
+  onOpenCare?: Mock<(locationKey: string) => void>;
 }
 
 export function setupEditor(options: SetupOptions = {}) {
@@ -57,6 +58,7 @@ export function setupEditor(options: SetupOptions = {}) {
   const onPan = options.onPan ?? vi.fn<(dxPx: number, dyPx: number) => void>();
   const onZoom = options.onZoom;
   const onOpenLocation = options.onOpenLocation;
+  const onOpenCare = options.onOpenCare;
   const store = configureStore({ reducer: { gardenPlan: gardenPlanSlice.reducer } });
   store.dispatch(loadGardenPlan.pending('r1', 'site_1'));
   store.dispatch(loadGardenPlan.fulfilled(plan, 'r1', 'site_1'));
@@ -74,6 +76,7 @@ export function setupEditor(options: SetupOptions = {}) {
           onPan={onPan}
           onZoom={onZoom}
           onOpenLocation={onOpenLocation}
+          onOpenCare={onOpenCare}
         />
       </ThemeContextProvider>
     </Provider>

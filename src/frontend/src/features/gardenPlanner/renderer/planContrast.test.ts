@@ -50,6 +50,11 @@ describe.each(THEMES)('plan elements in the %s theme', (_name, theme) => {
     },
   );
 
+  it.each(['badgeOverdue', 'badgeOpen'] as const)('the %s badge is 3:1 against the canvas and its number 4.5:1 on it', (name) => {
+    expect(contrast(palette[name].fill, canvas)).toBeGreaterThanOrEqual(3);
+    expect(contrast(palette[name].text, palette[name].fill)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('draws the invalid-ghost red and the draft blue at 3:1 too', () => {
     expect(contrast(theme.palette.error.main, canvas)).toBeGreaterThanOrEqual(3);
     expect(contrast(theme.palette.primary.main, canvas)).toBeGreaterThanOrEqual(3);

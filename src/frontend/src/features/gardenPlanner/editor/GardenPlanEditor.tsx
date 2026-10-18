@@ -109,6 +109,8 @@ export interface GardenPlanEditorProps {
   minPxPerM?: number;
   /** Opens the detail page of a bed ("Details öffnen" / "Bepflanzen"). */
   onOpenLocation?: (locationKey: string) => void;
+  /** Opens the care tab of a bed: the task badge on the plan and the panel button (GP-FR-089). */
+  onOpenCare?: (locationKey: string) => void;
 }
 
 /** The wheel zooms stepless: `exp(-deltaY * this)` per event (the buttons and + / - use the fixed levels). */
@@ -167,6 +169,7 @@ export function GardenPlanEditor({
   onFit,
   minPxPerM = 0,
   onOpenLocation,
+  onOpenCare,
 }: GardenPlanEditorProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -423,7 +426,6 @@ export function GardenPlanEditor({
     },
     [toolPointerUp],
   );
-
   const onPlantsNearby = useCallback(
     (keys: string[], pointPx: Point) => {
       // Never a guessed single hit: the finger gets the list (GP-UX-034).
@@ -803,6 +805,7 @@ export function GardenPlanEditor({
       onZOrder={moveInZ}
       onDrawBed={() => dispatch(setTool('bed'))}
       onOpenLocation={onOpenLocation}
+      onOpenCare={onOpenCare}
     />
   );
 
@@ -826,6 +829,23 @@ export function GardenPlanEditor({
     />
   );
 
+  // A press on a bed's task badge opens its care tab (GP-FR-089) instead of starting a gesture; the canvas
+  // captures the pointer, so a click on the badge itself would never arrive.
+  const touchPointerDown = touch.containerProps.onPointerDown;
+  const onCanvasPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      const badge = event.target instanceof Element ? event.target.closest('[data-plan-badge]') : null;
+      const key = badge?.getAttribute('data-plan-badge');
+      if (key && onOpenCare && tool === 'select' && event.button === 0) {
+        event.preventDefault();
+        onOpenCare(key);
+        return;
+      }
+      touchPointerDown(event);
+    },
+    [onOpenCare, tool, touchPointerDown],
+  );
+
   const listShown = view === 'list';
   const canvasSurface = (
     <Box
@@ -837,6 +857,7 @@ export function GardenPlanEditor({
       // The region takes the editor's keys (arrows, Esc, Del, Ctrl+A); it must be reachable by keyboard (WCAG 2.1.1).
       tabIndex={0}
       {...touch.containerProps}
+      onPointerDown={onCanvasPointerDown}
       onPointerLeave={onPointerLeave}
       onContextMenu={onContextMenu}
       sx={{
