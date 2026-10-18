@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
 from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlanRole, RowDirection
@@ -215,6 +215,8 @@ class PlantingRunResponse(BaseModel):
 class BatchCreatePlantsRequest(BaseModel):
     """Body of `POST /planting-runs/{key}/create-plants`; the whole body is optional (GP-API-023)."""
 
+    model_config = ConfigDict(json_schema_extra={"examples": [{"assign_to_slots": True, "planted_on": "2026-05-20"}]})
+
     assign_to_slots: bool = Field(
         default=True,
         description=(
@@ -241,6 +243,8 @@ class BatchCreatePlantsResponse(BaseModel):
 class PlanSlotsRequest(BaseModel):
     """Body of `POST /planting-runs/{key}/plan-slots` (GP-API-021)."""
 
+    model_config = ConfigDict(json_schema_extra={"examples": [{"entry_key": "9303", "slot_keys": ["8841", "8842"]}]})
+
     entry_key: str = Field(min_length=1, max_length=200)
     slot_keys: list[str] = Field(
         max_length=MAX_RESERVED_SLOTS,
@@ -249,11 +253,27 @@ class PlanSlotsRequest(BaseModel):
 
 
 class ReservedSlotResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"slot_key": "8841", "sequence": 1}]})
+
     slot_key: str
     sequence: int
 
 
 class PlanSlotsResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "run_key": "9302",
+                    "entry_key": "9303",
+                    "planned_from": "2026-10-05",
+                    "planned_until": None,
+                    "slots": [{"slot_key": "8841", "sequence": 1}, {"slot_key": "8842", "sequence": 2}],
+                }
+            ]
+        }
+    )
+
     run_key: str
     entry_key: str
     planned_from: date

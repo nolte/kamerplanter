@@ -496,6 +496,20 @@ class ClearBedRequest(BaseModel):
 
 
 class ClearBedResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "plants_removed": 12,
+                    "runs_completed": 2,
+                    "slots_archived": 12,
+                    "slots_released": 0,
+                    "care_event_key": "9417",
+                }
+            ]
+        }
+    )
+
     plants_removed: int
     runs_completed: int
     slots_archived: int
@@ -518,6 +532,21 @@ class QuickPlantingRequest(QuickPlantingInput):
 
 
 class QuickPlantingResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "run_key": "9302",
+                    "entry_key": "9303",
+                    "slot_keys": ["8841", "8842"],
+                    "plant_keys": ["7001", "7002"],
+                    "instance_ids": ["BEET3_SOL_01", "BEET3_SOL_02"],
+                    "warnings": [],
+                }
+            ]
+        }
+    )
+
     run_key: str
     entry_key: str
     slot_keys: list[str]
