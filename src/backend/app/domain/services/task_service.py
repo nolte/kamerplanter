@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, WorkflowTargetType
+from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, TenantRole, WorkflowTargetType
 from app.common.exceptions import ForbiddenError, KarenzViolationError, NotFoundError, PlanError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
@@ -1496,6 +1496,7 @@ class TaskService:
         location_key = self._bed_of(task, tenant_key=tenant_key) if actor is not None else None
         event: CareEvent | None = None
         domain: DomainDocument | None = None
+        replaces_event_key: str | None = None
         if location_key is not None and actor is not None and self._care_events is not None:
             event = self._build_event(
                 task,
@@ -1509,6 +1510,7 @@ class TaskService:
             )
             if event is not None:
                 domain = self._domain_document(task, event, tenant_key=tenant_key, taken_batch_ids=taken_batch_ids)
+                replaces_event_key = self._line_to_replace(task, actor, tenant_key=tenant_key)
         elif details.carries_care_fields:
             raise PlanError(
                 "task.no_bed_context",
@@ -1542,7 +1544,29 @@ class TaskService:
             },
             exclude_none=True,
         )
-        return CompletionWrite(task_key=task.key or "", task_patch=patch, event=event, domain=domain)
+        return CompletionWrite(
+            task_key=task.key or "",
+            task_patch=patch,
+            event=event,
+            domain=domain,
+            replaces_event_key=replaces_event_key,
+        )
+
+    def _line_to_replace(self, task: Task, actor: CompletionActor, *, tenant_key: str) -> str | None:
+        """The open care line of an earlier, reopened completion that this completion may replace, else ``None``.
+
+        Only the author of that line or a lead may take it out (no time window: the task was reopened by someone
+        entitled to, and the line says "done" for a task that is not); anyone else completing the task adds a line
+        and leaves the author's alone — the lead can void it (GP-API-037).
+        """
+        if self._completion is None:
+            return None
+        earlier = self._completion.task_event(task.key or "", tenant_key=tenant_key)
+        if earlier is None:
+            return None
+        if earlier.created_by == actor.user_key or actor.role == TenantRole.LEAD:
+            return earlier.key
+        return None
 
     def _build_event(
         self,
@@ -1999,9 +2023,7 @@ class TaskService:
             try:
                 self._after_completion(completed, as_stored)
             except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
-                logger.warning(
-                    "task_completion.follow_up_failed", task_key=completed.key, error_type=type(exc).__name__
-                )
+                logger.error("task_completion.follow_up_failed", task_key=completed.key, error_type=type(exc).__name__)
         return [task.key or "" for task in stored], failed
 
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:

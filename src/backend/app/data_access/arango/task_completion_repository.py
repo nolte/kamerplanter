@@ -70,9 +70,9 @@ _REMOVE_EDGES_TO = "FOR e IN @@edge FILTER e._to == @id REMOVE e IN @@edge"
 _DEPENDENT_BY_BATCH_KEY = "FOR d IN @@collection FILTER d.batch_key == @key LIMIT 1 RETURN 1"
 _DEPENDENT_BY_HARVEST_BATCH_KEY = "FOR d IN @@collection FILTER d.harvest_batch_key == @key LIMIT 1 RETURN 1"
 
-_OPEN_EVENTS_OF_TASK = """
+_OPEN_EVENT_OF_TASK = """
 FOR e IN @@events
-    FILTER e.task_key == @task_key AND e.tenant_key == @tenant_key
+    FILTER e._key == @key AND e.task_key == @task_key AND e.tenant_key == @tenant_key
         AND e.voided_at == null AND e.superseded_by_key == null
     RETURN e
 """
@@ -187,10 +187,12 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                 status = self._stored_status(txn, write.task_key, tenant_key)
                 if status not in _COMPLETABLE:
                     raise ValidationError(f"Cannot complete task in status '{status}'.")
-                if write.event is not None:
-                    # The task was reopened without an undo and is completed again: the earlier line (and its
-                    # specialist document) described a completion that no longer holds; replace it, do not add to it.
-                    for earlier in self._open_events(txn, write.task_key, tenant_key):
+                if write.event is not None and write.replaces_event_key:
+                    # The task was reopened without an undo and is completed again by the author of the earlier
+                    # line (or a lead): that line, and its specialist document, described a completion that no
+                    # longer holds; replace it instead of adding to it. A line closed meanwhile is left alone.
+                    earlier = self._open_event(txn, write.task_key, write.replaces_event_key, tenant_key)
+                    if earlier is not None:
                         self._withdraw(
                             txn,
                             earlier,
@@ -198,7 +200,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                             voided_by=write.event.performed_by_user_key or "",
                             reason=REOPENED_REASON,
                             at=now,
-                            strict=False,
+                            strict=True,
                         )
                 reference: dict[str, str] | None = None
                 if write.domain is not None:
@@ -245,12 +247,13 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
         logger.info("task_completion.reopened", undo=bool(write.event_key))
 
     @staticmethod
-    def _open_events(txn: StreamTransaction, task_key: str, tenant_key: str) -> list[dict[str, Any]]:
+    def _open_event(txn: StreamTransaction, task_key: str, event_key: str, tenant_key: str) -> dict[str, Any] | None:
+        """The task's care event ``event_key`` if it is still open (not voided, not superseded), else ``None``."""
         cursor = txn.aql.execute(
-            _OPEN_EVENTS_OF_TASK,
-            bind_vars={"@events": col.CARE_EVENTS, "task_key": task_key, "tenant_key": tenant_key},
+            _OPEN_EVENT_OF_TASK,
+            bind_vars={"@events": col.CARE_EVENTS, "key": event_key, "task_key": task_key, "tenant_key": tenant_key},
         )
-        return [cast("dict[str, Any]", doc) for doc in cursor]
+        return next((cast("dict[str, Any]", doc) for doc in cursor), None)
 
     @staticmethod
     def _event_in(txn: StreamTransaction, write: UndoWrite, tenant_key: str) -> dict[str, Any]:
@@ -301,7 +304,7 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
         The undo is the inverse of the completion: a watering or feeding row, or a harvest batch, that stayed behind
         would keep counting a deed the author took back. A harvest batch that has collected follow-up records
         (assessment, yield, post-harvest) is no longer the bare result of the completion: ``strict`` refuses the
-        undo then (409 ``task.undo_blocked``), the non-strict replacement of a re-completion keeps the batch.
+        withdrawal then (409 ``task.undo_blocked``), where a non-strict caller keeps the batch and only voids the line.
         """
         reference = event.get("source_ref") or {}
         collection, doc_key = reference.get("collection"), reference.get("key")

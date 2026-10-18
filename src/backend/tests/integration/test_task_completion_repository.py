@@ -407,26 +407,51 @@ class TestWithdrawal:
         first_event, first_ref = self.completed(repo, watering_document())
         db.collection(col.TASKS).update({"_key": "t1", "status": "pending"})  # a plain reopen: the line stays
 
-        second_event, second_ref = self.completed(repo, watering_document(volume_liters=7.0))
+        (done,) = repo.complete(
+            [completion(domain=watering_document(volume_liters=7.0), replaces_event_key=first_event)], tenant_key=A
+        )
 
         first = db.collection(col.CARE_EVENTS).get(first_event)
         assert (first["void_reason"], first["voided_by"]) == ("reopened", USER)
         assert db.collection(col.WATERING_EVENTS).get(first_ref["key"]) is None
-        assert db.collection(col.WATERING_EVENTS).get(second_ref["key"])["volume_liters"] == 7.0
-        assert db.collection(col.CARE_EVENTS).get(second_event).get("voided_at") is None
+        assert db.collection(col.WATERING_EVENTS).get(done.domain_ref["key"])["volume_liters"] == 7.0
+        assert db.collection(col.CARE_EVENTS).get(done.event_key).get("voided_at") is None
         assert count(db, col.WATERED_PLANT) == 2  # only the second document's edges are left
-        assert repo.task_event("t1", tenant_key=A).key == second_event  # one open line per task
+        assert repo.task_event("t1", tenant_key=A).key == done.event_key  # one open line per task
 
-    def test_a_harvest_batch_with_follow_up_records_survives_a_re_completion(self, db, repo) -> None:
+    def test_without_the_replacement_flag_the_earlier_line_is_left_alone(self, db, repo) -> None:
+        # The service sets the flag only for the line's author or a lead; any other completion adds a line.
+        first_event, first_ref = self.completed(repo, watering_document())
+        db.collection(col.TASKS).update({"_key": "t1", "status": "pending"})
+
+        repo.complete([completion(domain=watering_document())], tenant_key=A)
+
+        assert db.collection(col.CARE_EVENTS).get(first_event).get("voided_at") is None
+        assert db.collection(col.WATERING_EVENTS).get(first_ref["key"]) is not None
+
+    def test_a_line_that_was_closed_meanwhile_is_not_touched_twice(self, db, repo) -> None:
+        first_event, _ = self.completed(repo, watering_document())
+        db.collection(col.CARE_EVENTS).update({"_key": first_event, "voided_at": NOW.isoformat(), "voided_by": "u_x"})
+        db.collection(col.TASKS).update({"_key": "t1", "status": "pending"})
+
+        repo.complete([completion(replaces_event_key=first_event)], tenant_key=A)
+
+        assert db.collection(col.CARE_EVENTS).get(first_event)["voided_by"] == "u_x"  # untouched
+        assert db.collection(col.TASKS).get("t1")["status"] == "completed"
+
+    def test_a_harvest_batch_with_follow_up_records_blocks_the_re_completion(self, db, repo) -> None:
         first_event, first_ref = self.completed(repo, self.harvest())
         db.collection(col.YIELD_METRICS).insert({"batch_key": first_ref["key"]})
         db.collection(col.TASKS).update({"_key": "t1", "status": "pending"})
 
-        second_event, _ = self.completed(repo, watering_document())
+        with pytest.raises(PlanError) as exc:
+            repo.complete([completion(domain=self.harvest(), replaces_event_key=first_event)], tenant_key=A)
 
+        assert exc.value.details[0]["code"] == "task.undo_blocked"
         assert db.collection(col.HARVEST_BATCHES).get(first_ref["key"]) is not None
-        assert db.collection(col.CARE_EVENTS).get(first_event)["void_reason"] == "reopened"
-        assert db.collection(col.CARE_EVENTS).get(second_event).get("voided_at") is None
+        assert db.collection(col.CARE_EVENTS).get(first_event).get("voided_at") is None
+        assert count(db, col.HARVEST_BATCHES) == 1  # no second batch
+        assert db.collection(col.TASKS).get("t1")["status"] == "pending"
 
 
 class TestReads:

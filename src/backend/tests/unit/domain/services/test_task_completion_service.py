@@ -498,6 +498,56 @@ class TestBatch:
         assert succeeded == ["t1"] and len(completion.completed) == 1
 
 
+class TestReCompletion:
+    """A task reopened without an undo and completed again: the earlier line is replaced only by who could void it."""
+
+    @pytest.fixture
+    def reopened(self, world):
+        service, tasks, completion, *_ = world
+        completion.open_event = CareEvent(
+            _key="ce_old",
+            tenant_key=TENANT,
+            site_key="site_1",
+            location_key="bed",
+            category="watering",
+            summary="x",
+            performed_at=datetime.now(UTC) - timedelta(days=1),
+            trigger="task",
+            task_key="t1",
+            created_by=USER,
+            created_at=datetime.now(UTC) - timedelta(days=1),
+        )
+        return service, completion
+
+    def test_the_author_replaces_their_own_line(self, reopened):
+        service, completion = reopened
+
+        complete(service, "t1", actor=GROWER)
+
+        assert completion.completed[0].replaces_event_key == "ce_old"
+
+    def test_a_lead_replaces_any_line(self, reopened):
+        service, completion = reopened
+
+        complete(service, "t1", actor=LEAD)
+
+        assert completion.completed[0].replaces_event_key == "ce_old"
+
+    def test_another_grower_adds_a_line_and_leaves_the_authors_alone(self, reopened):
+        service, completion = reopened
+
+        complete(service, "t1", actor=CompletionActor(user_key="u_tom", role=TenantRole.GROWER))
+
+        assert completion.completed[0].replaces_event_key is None
+
+    def test_a_first_completion_replaces_nothing(self, world):
+        service, _, completion, *_ = world
+
+        complete(service, "t1")
+
+        assert completion.completed[0].replaces_event_key is None
+
+
 class TestUndo:
     @pytest.fixture
     def completed(self, world):

@@ -141,6 +141,10 @@ class CompletionWrite:
     #: ``None`` for a task without a bed context — the task is then updated alone.
     event: CareEvent | None = None
     domain: DomainDocument | None = None
+    #: The open care line of an earlier completion of this task (the task was reopened without an undo) that this
+    #: completion replaces: voided with ``void_reason = reopened`` and its specialist document removed in the same
+    #: transaction. Set by the service only for a caller who could void that line themselves (its author, or a lead).
+    replaces_event_key: str | None = None
 
 
 @dataclass(frozen=True)
