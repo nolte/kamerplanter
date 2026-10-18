@@ -20,4 +20,3 @@ export function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, 
   }, []);
   return [ref, width];
 }
-
