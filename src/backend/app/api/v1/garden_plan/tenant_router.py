@@ -25,6 +25,7 @@ from app.api.v1.garden_plan.schemas import (
     PlanBatchResponse,
     PlanBoundaryRequest,
     PlanBoundaryResponse,
+    PlanGardenObjectResponse,
     PlanLocationResponse,
     PlanPlantResponse,
     PlanSettingsResponse,
@@ -94,7 +95,14 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
             )
             for location in view.locations
         ],
-        garden_objects=[garden_object_to_response(obj) for obj in view.garden_objects],
+        garden_objects=[
+            PlanGardenObjectResponse(
+                **garden_object_to_response(obj).model_dump(),
+                open_task_count=view.object_task_counters.get(obj.key or "", _NO_TASKS).open_task_count,
+                overdue_task_count=view.object_task_counters.get(obj.key or "", _NO_TASKS).overdue_task_count,
+            )
+            for obj in view.garden_objects
+        ],
         slots=[_slot_response(slot) for slot in view.slots],
         plants=[_plant_response(plant) for plant in view.plants],
         zones=view.zones,

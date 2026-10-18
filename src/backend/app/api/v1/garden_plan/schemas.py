@@ -177,6 +177,13 @@ class PlanLocationResponse(BaseModel):
     overdue_task_count: int = 0
 
 
+class PlanGardenObjectResponse(GardenObjectResponse):
+    """A garden object on the plan with the counters its badge shows (a compost, water source or storage; R-7.2)."""
+
+    open_task_count: int = 0
+    overdue_task_count: int = 0
+
+
 class PlanSlotGeometry(BaseModel):
     """A slot's geometry in the plan frame, as compact as the wire allows (2 000 plants, GP-NFR-031).
 
@@ -299,7 +306,7 @@ class GardenPlanResponse(BaseModel):
     #: ``null`` = a site without a garden plan (§20.2).
     plan: PlanSettingsResponse | None = None
     locations: list[PlanLocationResponse] = Field(default_factory=list)
-    garden_objects: list[GardenObjectResponse] = Field(default_factory=list)
+    garden_objects: list[PlanGardenObjectResponse] = Field(default_factory=list)
     slots: list[PlanSlotResponse] = Field(default_factory=list)
     plants: list[PlanPlantResponse] = Field(default_factory=list)
     zones: list[dict[str, Any]] = Field(

@@ -812,6 +812,8 @@ def get_task_entity_guard() -> TaskEntityGuard:
         get_planting_run_service,
         get_tank_service,
         get_site_service,
+        # REQ-053 §20.9 / R-7.2: a compost heap, water source or storage object takes care tasks.
+        get_garden_resource_service,
     )
 
 

@@ -537,6 +537,50 @@ class TestTheReadModel:
         assert view.season_states == {bed: "planted"}
         assert view.plan_updated_by_name == "Sabine"
 
+    def test_a_garden_objects_open_tasks_ride_in_the_same_read_and_a_foreign_tenant_does_not_leak(
+        self, db, service
+    ) -> None:
+        first_save(service)
+        keys = batch(
+            service,
+            [
+                {
+                    "op": "create_garden_object",
+                    "temp_key": "compost",
+                    "data": {"object_type": "compost", "geometry": rect(8, 8, 1, 1)},
+                }
+            ],
+            revision=1,
+        ).key_map
+        compost = keys["compost"]
+        tasks = db.collection(col.TASKS)
+        tasks.insert(
+            {
+                "tenant_key": A,
+                "entity_type": "garden_object",
+                "entity_key": compost,
+                "status": "pending",
+                "due_date": "2020-01-01T00:00:00+00:00",
+            }
+        )
+        tasks.insert({"tenant_key": A, "entity_type": "garden_object", "entity_key": compost, "status": "completed"})
+        tasks.insert(
+            {
+                "tenant_key": A,
+                "entity_type": "garden_object",
+                "entity_key": compost,
+                "status": "pending",
+                "suggested": True,
+            }
+        )
+        tasks.insert({"tenant_key": B, "entity_type": "garden_object", "entity_key": compost, "status": "pending"})
+
+        view = service.get_plan("site_a", tenant_key=A)
+
+        assert view.object_task_counters[compost].open_task_count == 1  # open, own tenant, not a suggestion
+        assert view.object_task_counters[compost].overdue_task_count == 1
+        assert service.get_plan("site_a", tenant_key=A, include=frozenset({"plants"})).object_task_counters == {}
+
     def test_archived_slots_stay_out_of_the_plan(self, db, service) -> None:
         first_save(service)
         bed = batch(service, [create("bed", rect(1, 1, 2, 1))], revision=1).key_map["bed"]

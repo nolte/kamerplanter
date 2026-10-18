@@ -101,7 +101,9 @@ class _SiteService:
 def _client(service: _RecordingTaskService, *, foreign: bool, sites: _SiteService | None = None) -> TestClient:
     entities: Any = _ForeignEntityService() if foreign else _OwnEntityService()
     site_service = sites if sites is not None else _SiteService(foreign=foreign)
-    guard = TaskEntityGuard(lambda: entities, lambda: entities, lambda: entities, lambda: site_service)
+    guard = TaskEntityGuard(
+        lambda: entities, lambda: entities, lambda: entities, lambda: site_service, lambda: entities
+    )
 
     app = FastAPI()
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
