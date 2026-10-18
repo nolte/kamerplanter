@@ -49,7 +49,7 @@ from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.care_event import (
     ANONYMIZED_MARKER,
-    BACKFILL_MAX_AGE_DAYS,
+    BACKFILL_YEAR_WINDOW_DAYS,
     FUTURE_TOLERANCE_MINUTES,
     MAX_AGE_DAYS,
     SERVER_ONLY_CATEGORIES,
@@ -388,7 +388,12 @@ class CareEventService:
             tenant_key=tenant_key,
             user_key=user_key,
             already_photos=[],
-            max_age_days=origin.max_age_days if origin else MAX_AGE_DAYS,
+            # V-11 exempts a server-made backfill (GP-API-042) from the 365 days: its window is the calendar-year
+            # range the backfill service checks, and the oldest allowed year can lie more than 3 650 days back.
+            # The future bound (five minutes) still holds.
+            max_age_days=BACKFILL_YEAR_WINDOW_DAYS
+            if origin is not None and origin.trigger == "backfill"
+            else (origin.max_age_days if origin else MAX_AGE_DAYS),
         )
         return CareEvent(
             tenant_key=tenant_key,
@@ -398,6 +403,7 @@ class CareEventService:
             trigger=origin.trigger if origin else data.trigger,
             task_key=origin.task_key if origin else None,
             source_ref=origin.source_ref if origin else None,
+            rotation_entry=origin.rotation_entry if origin else None,
             created_by=user_key,
             **fields,
         )
@@ -473,7 +479,7 @@ class CareEventService:
             tenant_key=tenant_key,
             user_key=user_key,
             already_photos=predecessor.photo_refs,
-            max_age_days=BACKFILL_MAX_AGE_DAYS if predecessor.trigger == "backfill" else MAX_AGE_DAYS,
+            max_age_days=BACKFILL_YEAR_WINDOW_DAYS if predecessor.trigger == "backfill" else MAX_AGE_DAYS,
             check_instant=not unchanged_instant,
         )
         event = CareEvent(

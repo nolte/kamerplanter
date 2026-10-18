@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 from app.api.mapping import to_response
 from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.locations.schemas import (
+    BackfillRequest,
+    BackfillResponse,
     BedListItemResponse,
     BedSummaryResponse,
     ClearBedRequest,
@@ -15,16 +17,24 @@ from app.api.v1.locations.schemas import (
     LocationPatchResponse,
     LocationResponse,
     LocationStatusRequest,
+    NeighbourHintResponse,
     PlantingItemResponse,
     PlantingLayoutPreviewRequest,
     PlantingLayoutPreviewResponse,
     QuickPlantingRequest,
     QuickPlantingResponse,
+    RotationFindingResponse,
+    RotationPlantingResponse,
+    RotationTimelineResponse,
+    RotationYearResponse,
+    ValidatePlantingRequest,
+    ValidatePlantingResponse,
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import (
+    get_bed_rotation_service,
     get_garden_resource_service,
     get_planting_reservation_service,
     get_planting_run_service,
@@ -39,11 +49,13 @@ from app.common.openapi_responses import (
     VALIDATION_RESPONSE,
 )
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
@@ -391,6 +403,157 @@ def quick_plant(
         instance_ids=result.instance_ids,
         warnings=result.warnings,
     )
+
+
+@router.post(
+    "/{key}/validate-planting",
+    response_model=ValidatePlantingResponse,
+    responses={**VALIDATION_RESPONSE},
+)
+def validate_planting(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: ValidatePlantingRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.READ)),
+    service: BedRotationService = Depends(get_bed_rotation_service),
+) -> ValidatePlantingResponse:
+    """Crop-rotation and companion hints for planting a species in a bed (GP-API-025, GP-FR-131/132), all roles.
+
+    **Hints with a strength, never a blocker** (D-09): a violation is a `WARNING` or `CRITICAL` finding in a 200,
+    not an error. The history of every slot of the bed counts, from `rotation_reset_at` on; the pause comes from the
+    species, else its family, else `rotation_window_years` (default 3, at most 8). Off (`rotation_applicable:
+    false`) for planters, tents, shelves and `rotation_exempt` beds. With `slot_key` the neighbours of that slot
+    (`adjacent_to`) are checked, otherwise every species standing or planned in the bed. 422
+    `reference.not_found` for a species or slot the tenant cannot see.
+    """
+    result = service.validate_planting(
+        key,
+        body.species_key,
+        tenant_key=ctx.tenant_key,
+        slot_key=body.slot_key,
+        rotation_window_years=body.rotation_window_years,
+    )
+    return ValidatePlantingResponse(
+        location_key=result.rotation.location_key,
+        species_key=result.rotation.species_key,
+        severity=result.severity,
+        rotation_applicable=result.rotation.applicable,
+        not_applicable_reason=result.rotation.not_applicable_reason,
+        rotation_window_years=result.rotation.rotation_window_years,
+        rotation_reset_at=result.rotation.rotation_reset_at,
+        rotation=[RotationFindingResponse.model_validate(f, from_attributes=True) for f in result.rotation.findings],
+        neighbour_scope=result.neighbour_scope,
+        neighbours=[NeighbourHintResponse.model_validate(h, from_attributes=True) for h in result.neighbours],
+    )
+
+
+@router.get("/{key}/rotation", response_model=RotationTimelineResponse, responses={**VALIDATION_RESPONSE})
+def get_rotation_timeline(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    years: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            le=MAX_ROTATION_TIMELINE_YEARS,
+            description="Look-back in years; default `max(pause of the families involved, 5)`, at most 10.",
+        ),
+    ] = None,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: BedRotationService = Depends(get_bed_rotation_service),
+) -> RotationTimelineResponse:
+    """What stood in the bed per year: family, `nutrient_demand` and `plan_role` (GP-API-039, GP-FR-103), all roles.
+
+    Plants of every slot of the bed and the years filled in afterwards (`POST …/history/backfill`); history before
+    `rotation_reset_at` is left out. Every year of the look-back is listed, newest first — an empty `plantings` list
+    is a year nobody recorded. A `years` above 10 is a 422.
+    """
+    timeline = service.rotation_timeline(key, tenant_key=ctx.tenant_key, years=years)
+    by_year: dict[int, list[RotationPlantingResponse]] = {
+        y: [] for y in range(timeline.to_year, timeline.from_year - 1, -1)
+    }
+    for entry in timeline.entries:
+        by_year.setdefault(entry.year, []).append(
+            RotationPlantingResponse(
+                season=entry.season,
+                family_key=entry.family_key,
+                family_name=entry.family_name,
+                species_key=entry.species_key,
+                nutrient_demand=entry.nutrient_demand,
+                plan_role=entry.plan_role,
+                source=entry.source,
+                care_event_key=entry.event_key,
+            )
+        )
+    return RotationTimelineResponse(
+        location_key=timeline.location_key,
+        years=timeline.years,
+        rotation_applicable=timeline.applicable,
+        not_applicable_reason=timeline.not_applicable_reason,
+        rotation_reset_at=timeline.rotation_reset_at,
+        timeline=[RotationYearResponse(year=year, plantings=rows) for year, rows in by_year.items()],
+    )
+
+
+@router.post(
+    "/{key}/history/backfill",
+    response_model=BackfillResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_bed_actions, key_func=user_rate_limit_key)
+def backfill_history(
+    request: Request,
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: BackfillRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.CARE_EVENT, Action.CREATE)),
+    service: BedRotationService = Depends(get_bed_rotation_service),
+) -> BackfillResponse:
+    """Record what stood in the bed in an earlier year — *"Was stand hier {Jahr}?"* (GP-API-042), grower and above.
+
+    The server writes `care_event(category = planting, trigger = backfill)` at the middle of the season (1 July
+    without one); the client never sends the trigger (SR-009). V-11 does not apply to it, the year range does:
+    current year minus 10 up to minus 1 (422 `backfill.year_out_of_range`). A species names its family; a given
+    `family_key` must agree (422 `backfill.family_mismatch`). Only a fallow year may omit both.
+    """
+    outcome = service.backfill(
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        year=body.year,
+        season=body.season,
+        species_key=body.species_key,
+        family_key=body.family_key,
+        plan_role=body.plan_role,
+    )
+    return BackfillResponse(
+        care_event_key=outcome.care_event_key,
+        year=outcome.entry.year,
+        season=outcome.entry.season,
+        performed_at=outcome.performed_at,
+        family_key=outcome.entry.family_key,
+        species_key=outcome.entry.species_key,
+        plan_role=outcome.entry.plan_role.value,
+    )
+
+
+@router.delete(
+    "/{key}/history/backfill/{care_event_key}",
+    status_code=204,
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_bed_actions, key_func=user_rate_limit_key)
+def cancel_backfill(
+    request: Request,
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    care_event_key: Annotated[str, Path(description="Key of the backfilled care event.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.CARE_EVENT, Action.UPDATE)),
+    service: BedRotationService = Depends(get_bed_rotation_service),
+) -> None:
+    """Take a backfilled year back (`void_reason = backfill_error`, GP-API-042): its author or a lead.
+
+    404 for anything that is not a backfill of this bed — an absent, a foreign and an ordinary care event alike.
+    """
+    service.cancel_backfill(key, care_event_key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
 
 
 # ── Sensors ──────────────────────────────────────────────────────────
