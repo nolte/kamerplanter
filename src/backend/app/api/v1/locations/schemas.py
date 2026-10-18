@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -19,6 +19,7 @@ from app.common.enums import (
     SoilDrainage,
     SoilTexture,
     SunExposure,
+    TerminationType,
 )
 from app.domain.calculators.planting_layout_calculator import (
     MAX_LAYOUT_POSITIONS,
@@ -27,6 +28,7 @@ from app.domain.calculators.planting_layout_calculator import (
 )
 from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
@@ -421,3 +423,107 @@ class PlantingLayoutPreviewResponse(BaseModel):
             capacity_max=result.capacity_max,
             warnings=[PlantingLayoutWarningResponse(code=w.code, detail=w.detail) for w in result.warnings],
         )
+
+
+# ── Plantings of a bed, clearing and quick planting (REQ-053 WP 3.2) ─────────────────────────────
+
+
+class PlantingItemResponse(BaseModel):
+    """One line of `GET /locations/{key}/plantings`: a planned position or a plant (§11.3)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "state": "planned",
+                    "slot_key": "8841",
+                    "slot_id": "BEET3_011",
+                    "species_key": "5120",
+                    "run_key": "9302",
+                    "entry_key": "9303",
+                    "sequence": 11,
+                    "planned_from": "2026-05-15",
+                    "planned_until": "2026-09-30",
+                }
+            ]
+        }
+    )
+
+    state: str = Field(description="`planned`, `active`, `harvested` or `historical`.")
+    slot_key: str | None = None
+    slot_id: str | None = None
+    species_key: str
+    cultivar_key: str | None = None
+    plant_key: str | None = None
+    instance_id: str | None = None
+    run_key: str | None = None
+    entry_key: str | None = None
+    sequence: int | None = None
+    planted_on: date | None = None
+    removed_on: date | None = None
+    termination_type: str | None = None
+    planned_from: date | None = None
+    planned_until: date | None = None
+
+    @classmethod
+    def from_row(cls, row: PlantingRow) -> PlantingItemResponse:
+        return cls(
+            state=row.state,
+            slot_key=row.slot_key,
+            slot_id=row.slot_id,
+            species_key=row.species_key,
+            cultivar_key=row.cultivar_key,
+            plant_key=row.plant_key,
+            instance_id=row.instance_id,
+            run_key=row.run_key,
+            entry_key=row.entry_key,
+            sequence=row.sequence,
+            planted_on=row.planted_on,
+            removed_on=row.removed_on,
+            termination_type=row.termination_type,
+            planned_from=row.planned_from,
+            planned_until=row.planned_until,
+        )
+
+
+class ClearBedRequest(BaseModel):
+    """Body of `POST /locations/{key}/clear` (GP-API-019)."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"termination_type": "senesced"}]})
+
+    termination_type: TerminationType = Field(description="How the plants ended: harvested, senesced, died, cancelled.")
+    reason: str | None = Field(default=None, max_length=1000)
+
+
+class ClearBedResponse(BaseModel):
+    plants_removed: int
+    runs_completed: int
+    slots_archived: int
+    slots_released: int
+    care_event_key: str
+
+
+class QuickPlantingRequest(QuickPlantingInput):
+    """Body of `POST /locations/{key}/quick-planting` (GP-API-017): *I planted n of this species here*."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"species_key": "5120", "quantity": 12, "layout_strategy": "grid", "spacing_cm": 40},
+                {"species_key": "5120", "quantity": 6},
+            ]
+        },
+    )
+
+
+class QuickPlantingResponse(BaseModel):
+    run_key: str
+    entry_key: str
+    slot_keys: list[str]
+    plant_keys: list[str]
+    instance_ids: list[str]
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Hints that never block, e.g. `layout.bed_without_geometry`, `layout.capacity_exceeded`.",
+    )

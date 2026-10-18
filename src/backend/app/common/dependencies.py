@@ -35,6 +35,7 @@ from app.data_access.arango.overwintering_profile_template_repository import (
     ArangoOverwinteringProfileTemplateRepository,
 )
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.planting_reservation_repository import ArangoPlantingReservationRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.post_harvest_repository import ArangoPostHarvestRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
@@ -101,6 +102,7 @@ from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
@@ -722,6 +724,22 @@ def _resolve_substrate_batch(key: str, *, tenant_key: str) -> SubstrateBatch:
     return get_substrate_service().get_batch(key, tenant_key=tenant_key)
 
 
+def get_planting_reservation_repo() -> ArangoPlantingReservationRepository:
+    """REQ-053 WP 3.2 — reservations of slots by planting runs (``run_planned_at``) and their transactions."""
+    return ArangoPlantingReservationRepository(get_db())
+
+
+def get_planting_reservation_service() -> PlantingReservationService:
+    """REQ-053 WP 3.2 — plan-slots, planting states, bed clearing and the layout a run gets on a bed."""
+    return PlantingReservationService(
+        get_planting_reservation_repo(),
+        get_planting_run_repo(),
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_care_event_service(),
+    )
+
+
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
@@ -744,6 +762,9 @@ def get_planting_run_service() -> PlantingRunService:
         substrate_batch_resolver=_resolve_substrate_batch,
         # #1871 B11 — an entry's species must be one the tenant may read.
         species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
+        # REQ-053 WP 3.2 — the layout of a run on a bed, planned slots at create-plants, quick planting.
+        reservations=get_planting_reservation_service(),
+        reservation_repo=get_planting_reservation_repo(),
     )
 
 

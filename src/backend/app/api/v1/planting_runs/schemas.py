@@ -1,16 +1,19 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
-from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, RowDirection
+from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlanRole, RowDirection
 from app.domain.models.planting_run import (
     MAX_DEPTH_CM,
     MAX_EDGE_MARGIN_CM,
+    MAX_ROTATION_OVERRIDE_REASON,
     MAX_SPACING_CM,
     MIN_ROW_SPACING_CM,
+    RUN_SOURCES,
     check_row_assignment,
 )
+from app.domain.services.planting_reservation_service import MAX_RESERVED_SLOTS
 
 # ── Phase summary ────────────────────────────────────────────────────
 
@@ -137,6 +140,38 @@ class PlantingRunCreate(BaseModel):
     source_plant_key: str | None = None
     notes: str | None = None
     entries: list[EntryCreate] | None = None
+    # ── Garden plan (REQ-053 §16.3, §20.6, GP-FR-065/132) ──
+    plan_role: PlanRole = PlanRole.MAIN_CROP
+    rotation_override_reason: str | None = Field(default=None, max_length=MAX_ROTATION_OVERRIDE_REASON)
+    reserved_area_m2: float | None = Field(default=None, gt=0)
+    planned_from: date | None = Field(
+        default=None, description="Start of the reservation window; defaults to `planned_start_date`."
+    )
+    planned_until: date | None = Field(
+        default=None, description="End of the reservation window (inclusive); `null` = open."
+    )
+    source: str | None = Field(default=None, max_length=50, description="`manual`, `plan_editor`, `succession` …")
+
+    @field_validator("plan_role")
+    @classmethod
+    def validate_plan_role(cls, value: PlanRole) -> PlanRole:
+        if value is PlanRole.FALLOW:
+            raise ValueError("A fallow period has no planting run.")
+        return value
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str | None) -> str | None:
+        if value is not None and value not in RUN_SOURCES:
+            raise ValueError(f"source must be one of: {', '.join(sorted(RUN_SOURCES))}")
+        return value
+
+    @model_validator(mode="after")
+    def validate_window(self) -> PlantingRunCreate:
+        start = self.planned_from or self.planned_start_date
+        if start and self.planned_until and self.planned_until < start:
+            raise ValueError("planned_until must not lie before the start of the window.")
+        return self
 
 
 class PlantingRunUpdate(BaseModel):
@@ -164,11 +199,30 @@ class PlantingRunResponse(BaseModel):
     source_plant_key: str | None
     notes: str | None
     phase_summary: PhaseSummary | None = None
+    plan_role: PlanRole = PlanRole.MAIN_CROP
+    rotation_override_reason: str | None = None
+    reserved_area_m2: float | None = None
+    planned_from: date | None = None
+    planned_until: date | None = None
+    source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
 # ── Batch operation schemas ──────────────────────────────────────────
+
+
+class BatchCreatePlantsRequest(BaseModel):
+    """Body of `POST /planting-runs/{key}/create-plants`; the whole body is optional (GP-API-023)."""
+
+    assign_to_slots: bool = Field(
+        default=True,
+        description=(
+            "Place the plants on the slots the run reserved (`run_planned_at`, in `sequence` order per entry), "
+            "then on free slots of the bed. `false` creates the plants without a slot."
+        ),
+    )
+    planted_on: date | None = Field(default=None, description="Planting date; default today (UTC).")
 
 
 class BatchCreatePlantsResponse(BaseModel):
@@ -177,6 +231,34 @@ class BatchCreatePlantsResponse(BaseModel):
     plant_keys: list[str]
     instance_ids: list[str]
     slots_assigned: int = 0
+    assigned_slots: list[str] = Field(
+        default_factory=list,
+        description="Slot keys of the plants that got a slot, in the order of `plant_keys`.",
+    )
+    warnings: list[str] = Field(default_factory=list, description="Hints that never block; none yet.")
+
+
+class PlanSlotsRequest(BaseModel):
+    """Body of `POST /planting-runs/{key}/plan-slots` (GP-API-021)."""
+
+    entry_key: str = Field(min_length=1, max_length=200)
+    slot_keys: list[str] = Field(
+        max_length=MAX_RESERVED_SLOTS,
+        description="Ordered: the position is the `sequence` `create-plants` fills them in. Empty releases.",
+    )
+
+
+class ReservedSlotResponse(BaseModel):
+    slot_key: str
+    sequence: int
+
+
+class PlanSlotsResponse(BaseModel):
+    run_key: str
+    entry_key: str
+    planned_from: date
+    planned_until: date | None
+    slots: list[ReservedSlotResponse]
 
 
 class AdoptPlantsRequest(BaseModel):

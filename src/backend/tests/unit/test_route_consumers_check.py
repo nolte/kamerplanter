@@ -249,9 +249,14 @@ class TestTheRouteOperand:
         +6: the care log (REQ-053 WP 4.1, #2400): ``GET|POST /t/{slug}/care-events``, ``GET …/{key}``,
         ``POST …/{key}/supersede``, ``…/void`` and ``…/redact``. Their consumer is the history tab and the field
         mode (WP 4.4/4.5, frontend), open — all six are reported candidates until it lands.
+
+        +5: the reservation and bed actions (REQ-053 WP 3.2, #2392): ``POST|DELETE /t/{slug}/planting-runs/{key}/
+        plan-slots[/{slot_key}]``, ``GET /t/{slug}/locations/{key}/plantings``, ``POST …/clear`` and
+        ``POST …/quick-planting``. Their consumers are the planting dialog and the field mode (WP 3.6/5.1,
+        frontend), open — all five are reported candidates until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 853
+        assert len(checker.collect_operations(app)) == 858
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

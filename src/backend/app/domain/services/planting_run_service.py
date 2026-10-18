@@ -1,27 +1,46 @@
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import structlog
 
 from app.common.datetimes import today_utc
-from app.common.enums import PlantingRunStatus
-from app.common.exceptions import InvalidRunStateError, NotFoundError, ValidationError
+from app.common.enums import PlanRole, PlantingRunStatus, PlantingRunType, TenantRole
+from app.common.exceptions import (
+    ForbiddenError,
+    InvalidRunStateError,
+    NotFoundError,
+    PlanError,
+    PlanValidationError,
+    ValidationError,
+)
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.planting_reservation_repository import IPlantingReservationRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
-from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
+from app.domain.models.planting_reservation import (
+    QUICK_PLANTING_MAX_QUANTITY,
+    QuickPlantedPlant,
+    QuickPlantingInput,
+    QuickPlantingResult,
+    QuickPlantWrite,
+)
+from app.domain.models.planting_run import SOURCE_FIELD_MODE, PlantingRun, PlantingRunEntry
+from app.domain.models.site import Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
+from app.domain.services.planting_reservation_service import PlantingReservationService
 
 logger = structlog.get_logger()
 
@@ -43,8 +62,14 @@ class PlantingRunService:
         companion_engine: CompanionPlantingEngine | None = None,
         substrate_batch_resolver: Callable[..., Any] | None = None,
         species_resolver: Callable[..., Any] | None = None,
+        reservations: PlantingReservationService | None = None,
+        reservation_repo: IPlantingReservationRepository | None = None,
     ) -> None:
         self._repo = run_repo
+        # REQ-053 WP 3.2 — slot reservation (layout at create, planned slots at create-plants, quick planting).
+        # Optional so a solitary run test can omit them; unwired, the service behaves as before WP 3.2.
+        self._reservations = reservations
+        self._reservation_repo = reservation_repo
         # ``SubstrateService.get_batch``-shaped: ``resolver(key, tenant_key=...)``
         # answers the batch or raises 404 for one that is not the tenant's (#1868).
         self._substrate_batch_resolver = substrate_batch_resolver
@@ -182,6 +207,7 @@ class PlantingRunService:
             entry.tenant_key = run.tenant_key
             self._require_readable_species(entry.species_key, run.tenant_key)
             self._repo.verify_entry_references(entry)
+        self._require_green_manure_species(run, entries or [])
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -191,12 +217,51 @@ class PlantingRunService:
             )
             total_qty = sum(e.quantity for e in entries)
         run.planned_quantity = total_qty
+        # The reservation window starts with the run (GP-FR-065: ``planned_from`` = ``planned_start_date``).
+        if run.planned_from is None:
+            run.planned_from = run.planned_start_date
+        # The layout of a bed with geometry is computed *before* the run is stored (GP-API-020): a refusal —
+        # no spacing, too many positions, a zone overlap, the slot quota — leaves nothing behind.
+        location, prepared = self._prepare_layout(run, entries or [])
         created = self._repo.create(run)
+        stored_entries: list[PlantingRunEntry] = []
         if entries and created.key:
             for entry in entries:
                 entry.run_key = created.key
-                self._repo.create_entry(entry)
+                stored_entries.append(self._repo.create_entry(entry))
+        if prepared is not None and location is not None and created.key:
+            try:
+                assert self._reservations is not None  # noqa: S101 — set by _prepare_layout's condition
+                self._reservations.place_layout(location, created, stored_entries, prepared, tenant_key=tenant_key)
+            except Exception:
+                # The run and its entries are already stored; the slots are the all-or-nothing part. Take the run
+                # back so a failed layout does not leave a planned run without its positions.
+                self._repo.delete(created.key)
+                raise
         return created
+
+    def _prepare_layout(self, run: PlantingRun, entries: list[PlantingRunEntry]):  # type: ignore[no-untyped-def]
+        """``(bed, prepared slots)`` for a run on a bed with geometry whose entries plan a layout, else nothing."""
+        if self._reservations is None or self._site_repo is None or not run.location_key or not entries:
+            return None, None
+        location = resolve_owned_location(self._site_repo, run.location_key, run.tenant_key)
+        prepared = self._reservations.prepare_layout(location, entries, tenant_key=run.tenant_key)
+        return (location, prepared) if prepared is not None else (None, None)
+
+    def _require_green_manure_species(self, run: PlantingRun, entries: list[PlantingRunEntry]) -> None:
+        """``plan_role = green_manure`` needs ``Species.green_manure_suitable`` on every entry (REQ-013, GP-FR-138)."""
+        if run.plan_role is not PlanRole.GREEN_MANURE or not run.tenant_key or self._species_resolver is None:
+            return
+        for entry in entries:
+            species = self._species_resolver(entry.species_key, tenant_key=run.tenant_key)
+            if not getattr(species, "green_manure_suitable", False):
+                raise PlanError(
+                    "run.species_not_green_manure",
+                    "A green-manure run needs species that are suited as green manure.",
+                    status_code=422,
+                    field="plan_role",
+                    species_key=entry.species_key,
+                )
 
     def _apply_clone_config(
         self,
@@ -375,6 +440,7 @@ class PlantingRunService:
         # value itself has no such seam.
         if "location_key" in data:
             self._require_owned_location_key(data["location_key"], run.tenant_key)
+        self._require_window_not_reserved(run, data)
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(run, field, value)
@@ -390,10 +456,31 @@ class PlantingRunService:
 
         return updated
 
+    def _require_window_not_reserved(self, run: PlantingRun, data: dict[str, Any]) -> None:
+        """A run with reservations keeps its start date: the edges carry the window (GP-FR-065), V-08 judged it.
+
+        Moving the date would leave the edges stating a window the run no longer has. Release the reservation
+        (``DELETE …/plan-slots/{slot}``) and plan again to move it.
+        """
+        if self._reservation_repo is None or not run.key or "planned_start_date" not in data:
+            return
+        if data["planned_start_date"] == run.planned_start_date:
+            return
+        if self._reservation_repo.reservations_of_run(run.key, tenant_key=run.tenant_key):
+            raise PlanError(
+                "run.reserved_window_fixed",
+                "The run reserves slots for its start date; release them before moving the start.",
+                status_code=422,
+                field="planned_start_date",
+            )
+
     def delete_run(self, key: PlantingRunKey, *, tenant_key: str) -> bool:
         run = self._owned_run(key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("delete", run.status.value)
+        # The reservations go with the run, and so do the layout slots only it used (GP-FR-066).
+        if self._reservation_repo is not None:
+            self._reservation_repo.drop_run_reservations(key, remove_layout_slots=True)
         return self._repo.delete(key)
 
     # ── Entry management ──────────────────────────────────────────────
@@ -542,14 +629,28 @@ class PlantingRunService:
                 "performed unvalidated."
             )
         for i, spec in enumerate(plant_specs):
-            slot_key = available_slots[i].key if i < len(available_slots) else None
+            slot = available_slots[i] if i < len(available_slots) else None
+            slot_key = slot.key if slot is not None else None
             if not slot_key:
                 continue
             self._rotation.validate_or_raise(slot_key, spec["species_key"], tenant_key=tenant_key)
             self._companion.check_or_raise(spec["species_key"], slot_key, tenant_key=tenant_key)
 
-    def create_plants(self, run_key: PlantingRunKey, *, tenant_key: str) -> dict:
-        """Batch-create PlantInstances from run entries."""
+    def create_plants(
+        self,
+        run_key: PlantingRunKey,
+        *,
+        tenant_key: str,
+        assign_to_slots: bool = True,
+        planted_on: date | None = None,
+    ) -> dict:
+        """Batch-create PlantInstances from run entries.
+
+        ``assign_to_slots`` (REQ-053 GP-FR-066, GP-API-023) places the plants first on the slots the run reserved
+        (``run_planned_at``), per entry in ``sequence`` order, and only then on free slots of the bed as before;
+        ``False`` creates the plants without a slot. Reserved slots that stay unused stay reserved until the run
+        ends or the grower releases them. ``planted_on`` defaults to today (UTC).
+        """
         run = self._owned_run(run_key, tenant_key=tenant_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("create_plants", run.status.value)
@@ -580,8 +681,8 @@ class PlantingRunService:
 
         plant_specs = self._engine.generate_plant_ids(location_key, entries, existing_ids)
 
-        # Resolve available slots at the run's location
-        available_slots = self._get_available_slots(run.location_key)
+        # Resolve the slot of every plant: reserved slots first (per entry, in ``sequence`` order), then free ones
+        available_slots = self._slots_for_specs(run, plant_specs, assign_to_slots=assign_to_slots)
 
         # Rotation + companion checks — mirror the single-plant path
         # (PlantInstanceService.create_plant). Only slot-assigned instances are
@@ -610,8 +711,10 @@ class PlantingRunService:
             phase_name = pn
 
         created_plants = []
+        occupied_slot_keys: set[str] = set()
         for i, spec in enumerate(plant_specs):
-            slot_key = available_slots[i].key if i < len(available_slots) else None
+            slot = available_slots[i]
+            slot_key = slot.key if slot is not None else None
             species_phase_key, _ = initial_phases.get(spec["species_key"], ("", ""))
             plant = PlantInstance(
                 # The run's own tenant (#951). Batch-created instances were built
@@ -626,7 +729,7 @@ class PlantingRunService:
                 slot_key=slot_key,
                 # UTC, like ``now`` two lines down: both stamp the same event and
                 # the reports that subtract them must not straddle two clocks.
-                planted_on=today_utc(),
+                planted_on=planted_on or today_utc(),
                 current_phase_key=species_phase_key or None,
                 current_phase_started_at=now,
             )
@@ -658,11 +761,11 @@ class PlantingRunService:
                         transition_reason="initial",
                     )
                     self._phase_repo.create_phase_history(hist)
-            # Mark slot as occupied
-            if slot_key and self._site_repo:
-                slot = available_slots[i]
+            # Mark slot as occupied (once: a row or a zone takes several plants)
+            if slot is not None and slot_key and self._site_repo and slot_key not in occupied_slot_keys:
                 slot.currently_occupied = True
                 self._site_repo.update_slot(slot_key, slot)
+                occupied_slot_keys.add(slot_key)
             created_plants.append(created)
 
         # Transition to active and set run-level phase
@@ -689,8 +792,177 @@ class PlantingRunService:
             "created_count": len(created_plants),
             "plant_keys": [p.key for p in created_plants if p.key],
             "instance_ids": [p.instance_id for p in created_plants],
-            "slots_assigned": min(len(available_slots), len(created_plants)),
+            "slots_assigned": sum(1 for slot in available_slots if slot is not None),
+            # The slot of each plant that got one, in the order of ``plant_keys`` (GP-FR-066).
+            "assigned_slots": [slot.key for slot in available_slots if slot is not None and slot.key],
         }
+
+    # ── Quick planting (GP-API-017, GP-UX-027) ───────────────────────
+
+    def quick_plant(
+        self,
+        location_key: str,
+        *,
+        tenant_key: str,
+        role: TenantRole,
+        request: QuickPlantingInput,
+    ) -> QuickPlantingResult:
+        """*I planted n of this species here*: run, entry, slots and plants in **one** transaction (GP-API-017).
+
+        For the field mode, where a two-step "plan, then create plants" is no option. The run is ``active``
+        straight away with ``source = field_mode``. On a bed with geometry and a ``spacing_cm`` the plants stand
+        on a computed layout (grid, rows or triangular); without either, or beyond what the bed holds, they are
+        recorded in the bed without a position and a warning says so. Rotation and companion hints belong to
+        the planting dialog (WP 3.6) — what was planted in the field is recorded, not refused.
+        """
+        if self._site_repo is None or self._reservation_repo is None:
+            raise NotFoundError("Location", location_key)
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+        if request.quantity > QUICK_PLANTING_MAX_QUANTITY:
+            raise PlanError(
+                "plan.quota_exceeded",
+                f"A quick planting holds at most {QUICK_PLANTING_MAX_QUANTITY} plants.",
+                status_code=422,
+                limit=QUICK_PLANTING_MAX_QUANTITY,
+                current=request.quantity,
+            )
+        location = resolve_owned_location(self._site_repo, location_key, tenant_key)
+        # A key of the body is a reference: foreign and absent alike are 422 ``reference.not_found`` (GP-NFR-058).
+        try:
+            species = self._readable_species(request.species_key, tenant_key)
+        except NotFoundError:
+            raise PlanValidationError([(None, "species_key", "reference.not_found", {})]) from None
+        planted_on = request.planted_on or today_utc()
+        now = datetime.now(UTC)
+
+        entry = PlantingRunEntry(
+            tenant_key=tenant_key,
+            species_key=request.species_key,
+            cultivar_key=request.cultivar_key,
+            quantity=request.quantity,
+            id_prefix=request.id_prefix or self._id_prefix_of(species),
+            spacing_cm=request.spacing_cm,
+            row_spacing_cm=request.row_spacing_cm,
+            row_direction=request.row_direction,
+            layout_strategy=request.layout_strategy,
+            notes=request.notes,
+        )
+        try:
+            self._repo.verify_entry_references(entry)
+        except NotFoundError:
+            raise PlanValidationError([(None, "cultivar_key", "reference.not_found", {})]) from None
+        run = PlantingRun(
+            tenant_key=tenant_key,
+            name=request.name or f"Quick planting {planted_on.isoformat()}",
+            run_type=PlantingRunType.MONOCULTURE,
+            status=PlantingRunStatus.ACTIVE,
+            planned_quantity=request.quantity,
+            actual_quantity=request.quantity,
+            location_key=location_key,
+            planned_start_date=planted_on,
+            planned_from=planted_on,
+            started_at=now,
+            plan_role=request.plan_role,
+            rotation_override_reason=request.rotation_override_reason,
+            source=SOURCE_FIELD_MODE,
+            notes=request.notes,
+        )
+        self._require_green_manure_species(run, [entry])
+
+        slots, warnings = self._quick_layout(location, entry, request, tenant_key=tenant_key)
+        existing_ids = self._repo.get_existing_ids_at_location(location_key)
+        specs = self._engine.generate_plant_ids(location_key, [entry], existing_ids)
+        phase_key, phase_name = self._resolve_initial_phase(request.species_key)
+        plants = [
+            QuickPlantedPlant(
+                plant=PlantInstance(
+                    tenant_key=tenant_key,
+                    instance_id=spec["instance_id"],
+                    species_key=spec["species_key"],
+                    cultivar_key=spec.get("cultivar_key"),
+                    site_key=location.site_key,
+                    location_key=location_key,
+                    planted_on=planted_on,
+                    current_phase_key=phase_key or None,
+                    current_phase_started_at=now,
+                ),
+                slot_index=index if index < len(slots) else None,
+                history=self._history_of(phase_key, phase_name, now),
+            )
+            for index, spec in enumerate(specs)
+        ]
+        run.current_phase_key = phase_key or None
+        run.current_phase_started_at = now
+        outcome = self._reservation_repo.quick_plant(
+            QuickPlantWrite(
+                location_key=location_key,
+                run=run,
+                entry=entry,
+                slots=slots[: len(plants)],
+                plants=plants,
+                run_history=self._history_of(phase_key, phase_name, now),
+            )
+        )
+        # REQ-022 — every plant gets its care profile, best-effort per plant (as ``create_plants`` does).
+        if self._care_profile_bootstrap is not None:
+            for item, plant_key in zip(plants, outcome.plant_keys, strict=True):
+                try:
+                    self._care_profile_bootstrap(item.plant.model_copy(update={"key": plant_key}))
+                except Exception:  # noqa: BLE001
+                    logger.error("care_profile_bootstrap_failed", plant_key=plant_key, exc_info=True)
+        logger.info(
+            "planting_run.quick_planted",
+            run_key=outcome.run_key,
+            location_key=location_key,
+            plants=len(outcome.plant_keys),
+            slots=len(outcome.created_slot_keys),
+        )
+        return QuickPlantingResult(
+            run_key=outcome.run_key,
+            entry_key=outcome.entry_key,
+            created_slot_keys=outcome.created_slot_keys,
+            plant_keys=outcome.plant_keys,
+            instance_ids=[p.plant.instance_id for p in plants],
+            warnings=warnings,
+        )
+
+    def _readable_species(self, species_key: str, tenant_key: str) -> Any:
+        """The species the tenant may read, or 404 (#1871 B11)."""
+        if self._species_resolver is None:
+            raise NotFoundError("Species", species_key)
+        return self._species_resolver(species_key, tenant_key=tenant_key)
+
+    @staticmethod
+    def _id_prefix_of(species: Any) -> str:
+        """Three capitals from the scientific name (``Solanum lycopersicum`` -> ``SOL``); ``PLT`` without one."""
+        letters = "".join(ch for ch in str(getattr(species, "scientific_name", "") or "").upper() if "A" <= ch <= "Z")
+        return letters[:3] if len(letters) >= 2 else "PLT"
+
+    @staticmethod
+    def _history_of(phase_key: str, phase_name: str, now: datetime) -> PhaseHistory | None:
+        if not phase_key:
+            return None
+        return PhaseHistory(phase_key=phase_key, phase_name=phase_name, entered_at=now, transition_reason="initial")
+
+    def _quick_layout(
+        self, location: Any, entry: PlantingRunEntry, request: QuickPlantingInput, *, tenant_key: str
+    ) -> tuple[list[Slot], list[str]]:
+        """The slots of a quick planting and the warnings: a layout when the bed and the request allow one."""
+        if request.layout_strategy is None or request.spacing_cm is None or self._reservations is None:
+            return [], []
+        if location.geometry is None:
+            return [], ["layout.bed_without_geometry"]
+        prepared = self._reservations.prepare_layout(location, [entry], tenant_key=tenant_key)
+        if prepared is None:
+            return [], []
+        slots = [item.slot for item in prepared.slots][: request.quantity]
+        warnings = [w.code for w in prepared.warnings]
+        if len(slots) < request.quantity:
+            warnings.append("layout.capacity_exceeded")
+        for slot in slots:
+            slot.currently_occupied = True
+        return slots, warnings
 
     def adopt_plants(self, run_key: PlantingRunKey, plant_keys: list[str], *, tenant_key: str) -> dict:
         """Adopt existing standalone PlantInstances into the run.
@@ -781,10 +1053,83 @@ class PlantingRunService:
         if not location_key or not self._site_repo:
             return []
         slots = self._site_repo.get_slots_by_location(location_key)
+        # Archived slots are the history of a cleared bed (GP-FR-055): never a place to plant again.
         return sorted(
-            [s for s in slots if not s.currently_occupied and s.key],
+            [s for s in slots if not s.currently_occupied and s.key and s.archived_at is None],
             key=lambda s: s.slot_id,
         )
+
+    def _slots_for_specs(
+        self, run: PlantingRun, plant_specs: list[dict[str, Any]], *, assign_to_slots: bool
+    ) -> list[Slot | None]:
+        """The slot of each plant spec, in spec order (``None`` = no slot) — REQ-053 GP-FR-066.
+
+        The run's reserved slots come first, per entry in ``sequence`` order; a row or zone slot takes up to its
+        ``capacity_plants`` plants, a position one. Once an entry's reservation is used up its plants fall back
+        to the free slots of the bed, which never include a slot another live run has reserved.
+        """
+        if not assign_to_slots:
+            return [None] * len(plant_specs)
+        reserved = self._reserved_slots_by_entry(run)
+        reserved_by_others = self._slots_reserved_by_other_runs(run)
+        free = [slot for slot in self._get_available_slots(run.location_key) if slot.key not in reserved_by_others]
+        used: dict[str, int] = {}
+        free_cursor = 0
+        slots: list[Slot | None] = []
+        for spec in plant_specs:
+            queue = reserved.get(spec.get("entry_key") or "", [])
+            chosen: Slot | None = None
+            while queue and chosen is None:
+                head = queue[0]
+                if used.get(head.key or "", 0) < (head.capacity_plants if head.slot_role.value != "position" else 1):
+                    chosen = head
+                else:
+                    queue.pop(0)
+            if chosen is None:
+                while free_cursor < len(free) and (free[free_cursor].key or "") in used:
+                    free_cursor += 1
+                if free_cursor < len(free):
+                    chosen = free[free_cursor]
+                    free_cursor += 1
+            if chosen is not None:
+                used[chosen.key or ""] = used.get(chosen.key or "", 0) + 1
+            slots.append(chosen)
+        return slots
+
+    def _reserved_slots_by_entry(self, run: PlantingRun) -> dict[str, list[Slot]]:
+        """The run's reserved slots per entry in ``sequence`` order; archived or foreign-bed slots are dropped."""
+        if self._reservation_repo is None or self._site_repo is None or not run.key or not run.location_key:
+            return {}
+        by_entry: dict[str, list[Slot]] = {}
+        reservations = self._reservation_repo.reservations_of_run(run.key, tenant_key=run.tenant_key)
+        # A position slot that still holds an earlier run's plant (a follow-up crop planned for later) is skipped.
+        standing = {
+            plant.slot_key
+            for plant in self._reservation_repo.active_plants_in(
+                [r.slot_key for r in reservations], tenant_key=run.tenant_key
+            )
+            if plant.run_key != run.key
+        }
+        bed_slots = {slot.key: slot for slot in self._site_repo.get_slots_by_location(run.location_key) if slot.key}
+        for reservation in sorted(reservations, key=lambda r: (r.entry_key, r.sequence)):
+            slot = bed_slots.get(reservation.slot_key)
+            if slot is None or slot.archived_at is not None:
+                continue  # gone, archived, or never a slot of this bed
+            if slot.slot_role.value == "position" and slot.key in standing:
+                continue
+            by_entry.setdefault(reservation.entry_key, []).append(slot)
+        return by_entry
+
+    def _slots_reserved_by_other_runs(self, run: PlantingRun) -> set[str]:
+        """Slots of the run's bed that another live run has reserved (the free-slot fallback keeps off them)."""
+        if self._reservation_repo is None or self._site_repo is None or not run.location_key:
+            return set()
+        slot_keys = [s.key for s in self._site_repo.get_slots_by_location(run.location_key) if s.key]
+        return {
+            r.slot_key
+            for r in self._reservation_repo.reservations_for(slot_keys, tenant_key=run.tenant_key)
+            if r.run_key != run.key and r.run_status in LIVE_RUN_STATUSES
+        }
 
     def _owned_run_plant_rows(self, run_key: PlantingRunKey, tenant_key: str) -> list[dict[str, Any]]:
         """The run's attached plant rows whose plant belongs to ``tenant_key`` (#2107 review SEC-001).
@@ -949,6 +1294,9 @@ class PlantingRunService:
         run.status = final
         run.completed_at = datetime.now(UTC)
         self._repo.update(run_key, run)
+        # A run that ended reserves nothing any more (GP-FR-066).
+        if self._reservation_repo is not None:
+            self._reservation_repo.drop_run_reservations(run_key, remove_layout_slots=False)
 
         return {
             "run_key": run_key,

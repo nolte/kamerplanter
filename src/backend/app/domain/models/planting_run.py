@@ -4,7 +4,15 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlantingRunStatus, PlantingRunType, RowDirection
+from app.common.enums import (
+    DepthKind,
+    LayoutStrategy,
+    PlacementHint,
+    PlanRole,
+    PlantingRunStatus,
+    PlantingRunType,
+    RowDirection,
+)
 
 #: GP-FR-060: ``spacing_cm`` / ``row_spacing_cm`` reach 1 500 cm (woody plants, orchards — W-004).
 MAX_SPACING_CM = 1_500.0
@@ -15,6 +23,15 @@ MIN_ROW_SPACING_CM = MIN_SPACING_CM
 MAX_EDGE_MARGIN_CM = 200.0
 #: GP-FR-060: ``depth_cm`` 0–100 cm.
 MAX_DEPTH_CM = 100.0
+
+#: ``PlantingRun.source`` (REQ-013 §2): a free string with a service allowlist, not an enum — an enum member can
+#: never be retired (the ``Task.entity_type`` precedent). ``None`` reads as ``manual``. ``field_mode`` is the
+#: quick-planting path of the field mode (GP-UX-027); ``crop_planner`` the REQ-054 acceptance.
+RUN_SOURCES: frozenset[str] = frozenset(
+    {"manual", "plan_editor", "succession", "allocation", "season_copy", "field_mode", "crop_planner"}
+)
+SOURCE_FIELD_MODE = "field_mode"
+MAX_ROTATION_OVERRIDE_REASON = 500
 
 ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
     PlantingRunStatus.PLANNED: [PlantingRunStatus.ACTIVE, PlantingRunStatus.CANCELLED],
@@ -119,6 +136,17 @@ class PlantingRun(BaseModel):
     clone_from_run_key: str | None = None
     succession_sequence: int | None = None
     succession_total: int | None = None
+    # ── Garden plan (REQ-053 §16.3, §20.6, GP-FR-065/132) ──
+    #: The role of the run in the crop rotation. ``fallow`` has no run — only ``CropRotationPlan`` carries it.
+    plan_role: PlanRole = PlanRole.MAIN_CROP
+    #: The reason a grower planted against a rotation hint ("Trotzdem pflanzen", GP-FR-132).
+    rotation_override_reason: str | None = Field(default=None, max_length=MAX_ROTATION_OVERRIDE_REASON)
+    #: An area reservation before any slot exists (REQ-054 O-04); V-08 treats it like occupied slots of that area.
+    reserved_area_m2: float | None = Field(default=None, gt=0)
+    #: The reservation window of the run; the same dates are stamped on its ``run_planned_at`` edges.
+    planned_from: date | None = None
+    planned_until: date | None = None
+    source: str | None = Field(default=None, max_length=50)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -129,6 +157,26 @@ class PlantingRun(BaseModel):
         if self.run_type == PlantingRunType.CLONE and not self.source_plant_key:
             raise ValueError("Clone runs require a source_plant_key.")
         return self
+
+    @model_validator(mode="after")
+    def validate_reservation_window(self) -> PlantingRun:
+        if self.planned_from and self.planned_until and self.planned_until < self.planned_from:
+            raise ValueError("planned_until must not lie before planned_from.")
+        return self
+
+    @field_validator("plan_role")
+    @classmethod
+    def validate_plan_role(cls, value: PlanRole) -> PlanRole:
+        if value is PlanRole.FALLOW:
+            raise ValueError("A fallow period has no planting run (plan_role 'fallow' belongs to the rotation plan).")
+        return value
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str | None) -> str | None:
+        if value is not None and value not in RUN_SOURCES:
+            raise ValueError(f"Unknown run source '{value}'.")
+        return value
 
     @field_validator("status")
     @classmethod
