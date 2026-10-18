@@ -335,6 +335,37 @@ def test_the_inventory_is_not_vacuous() -> None:
     } <= names
 
 
+# ── REQ-053 WP 4.3 (#2413): the atomic completion transition takes the tenant strictly ──────────────
+#
+# ``complete_task``, ``reopen_task`` and ``batch_status_change`` load by key (``get_task``) and, since WP 4.3, write the
+# task, the care-log line and the specialist document in one stream transaction. The selector derives them already;
+# this pins that it keeps seeing them — a refactor that moved the load behind a differently named helper would drop
+# them from the inventory and the rule would pass by finding nothing — and that each takes the tenant keyword-only
+# without a default, never positionally next to the task key.
+
+_COMPLETION_TRANSITION = (
+    "TaskService.complete_task",
+    "TaskService.reopen_task",
+    "TaskService.batch_status_change",
+)
+
+
+def test_the_task_completion_transition_is_a_keyed_write_and_takes_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert set(_COMPLETION_TRANSITION) <= set(shapes), sorted(set(_COMPLETION_TRANSITION) - set(shapes))
+    assert {name: shapes[name] for name in _COMPLETION_TRANSITION} == dict.fromkeys(_COMPLETION_TRANSITION, "strict")
+    assert not set(_COMPLETION_TRANSITION) & _REMAINING
+
+
+def test_the_completion_repository_takes_the_tenant_in_every_method() -> None:
+    """The port's methods are keyword-only on the tenant too: a transposed pair of keys is invisible to mypy."""
+    tree = ast.parse((_APP / "domain" / "interfaces" / "task_completion_repository.py").read_text(encoding="utf-8"))
+    (port,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "ITaskCompletionRepository"]
+    methods = [n for n in port.body if isinstance(n, ast.FunctionDef)]
+    assert {m.name for m in methods} >= {"complete", "reopen", "task_event", "plant_location", "plants_in_locations"}
+    assert [m.name for m in methods if not _takes_tenant_strictly(m)] == []
+
+
 # ── Whole classes: no method takes the tenant positionally ───────────────────────────────────────────
 #
 # The rule above sees only keyed writes. In a service whose every signature read

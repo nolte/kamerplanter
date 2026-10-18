@@ -647,6 +647,11 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     def update_task(self, key: TaskKey, task: Task) -> Task:
         return super().update(key, task)
 
+    def clear_parked_recurrence(self, key: TaskKey) -> None:
+        # ``keep_none=False`` removes an attribute set to ``null``; the field is no model field, so no other writer
+        # of the task touches it. Absent attribute: the update is a no-op apart from the unchanged document.
+        self.collection.update({"_key": key, "recurrence_rule_unconvertible": None}, keep_none=False)
+
     def delete_task(self, key: TaskKey) -> bool:
         task_id = f"{col.TASKS}/{key}"
         # Cascade-delete comments and audit entries for this task

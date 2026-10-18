@@ -212,6 +212,44 @@ class HarvestService:
 
         return self._repo.create_batch(batch)
 
+    def require_karenz_clear(self, plant_keys: list[str], harvest_date: datetime, *, tenant_key: str) -> None:
+        """The Karenz gate of :meth:`create_harvest_batch` for every plant of a bed-level harvest.
+
+        Used by the atomic task completion (REQ-053 WP 4.3), which writes the batch inside its own transaction and
+        must not bypass the safety interval. A foreign plant answers 404 (``IpmService._require_own_plant``).
+
+        Raises:
+            KarenzViolationError: a treatment's safety interval still runs on one of the plants.
+        """
+        if not tenant_key:
+            raise ValueError("require_karenz_clear is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        when = ensure_aware_utc(harvest_date) or now_utc()
+        for plant_key in plant_keys:
+            can_harvest, blocking = self._ipm.check_harvest_safety(plant_key, when, tenant_key=tenant_key)
+            if not can_harvest:
+                first_blocker = blocking[0]
+                raise KarenzViolationError(first_blocker["active_ingredient"], first_blocker["days_remaining"])
+
+    def next_batch_id(
+        self, plant_key: str, harvest_date: datetime, *, tenant_key: str, taken: set[str] | None = None
+    ) -> str:
+        """The generated ``batch_id`` a blank-labelled batch gets, skipping ``taken`` (ids of the same write).
+
+        ``taken`` lets a caller that stores several batches in one transaction keep them apart before any of them
+        is in the database; the unique ``(tenant_key, batch_id)`` index stays the backstop against a concurrent race.
+        """
+        if not tenant_key:
+            raise ValueError("next_batch_id is tenant-scoped and requires a non-empty tenant_key (#2107).")
+        used = taken if taken is not None else set()
+        base = self._generate_batch_id(plant_key, ensure_aware_utc(harvest_date) or now_utc(), tenant_key=tenant_key)
+        candidate = base
+        suffix = 2
+        while candidate in used:
+            candidate = f"{base}-t{suffix}"
+            suffix += 1
+        used.add(candidate)
+        return candidate
+
     def _generate_batch_id(self, plant_key: str, harvest_date: datetime, *, tenant_key: str) -> str:
         """Build a deterministic, collision-free ``batch_id`` for a blank input.
 

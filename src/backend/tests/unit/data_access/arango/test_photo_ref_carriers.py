@@ -146,6 +146,8 @@ _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
     "CareEvent.source_ref": "{collection, key} of the specialist event it mirrors (§20.10), not an attachment",
     "CareEventOrigin.source_ref": "the server-side form of CareEvent.source_ref (WP 4.1), not an attachment",
     "_CareEventFields.product_ref": "{kind, key} of a fertilizer in the request (WP 4.1), not an attachment",
+    "TaskCompletionDetails.product_ref": "{kind, key} of a fertilizer in the completion request (WP 4.3)",
+    "CompletedTask.domain_ref": "{collection, key} of the specialist document a completion wrote (WP 4.3)",
     "Task.source_run_ref": "points at a PlantingRun, not an attachment",
     "Task.external_ref": "an external system's identifier (InvenTree et al.), not a document key",
     "WeatherSourcePublicConfig.api_key_ref": "names a secret in the key store, not an attachment",

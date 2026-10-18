@@ -17,7 +17,7 @@ from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTi
 from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
 from app.domain.models.calendar import CalendarFeed
-from app.domain.models.care_event import CareEvent
+from app.domain.models.care_event import ACCOUNT_FIELDS, CareEvent
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlanAuditRecord
@@ -538,6 +538,27 @@ class TestErasureEngine:
         # The document itself is kept — it belongs to the plant record of a
         # possibly shared tenant. Anonymised, therefore never deleted.
         assert "plant_diary_entries" not in plan.delete
+
+    def test_care_event_free_texts_are_kept_exactly_like_the_diary_text(self):
+        """#2411 item 3 — free texts of an erased member in a shared tenant are treated as ``plant_diary_entries``.
+
+        The precedent (REQ-050 section 7.4): the document survives, every account reference becomes the shared
+        marker, **no free-text field is cleared** (the text stays in the tenant's history). The care log does the
+        same: five account references, the marker, no ``clear_fields``, never deleted. A rule that cleared a text
+        or used another marker would be a second policy for the same situation.
+        """
+        engine = ErasureEngine()
+        plan = engine.build_erasure_plan("u1")
+
+        care = [rule for rule in plan.anonymize if rule.collection == "care_events"]
+        diary = [rule for rule in plan.anonymize if rule.collection == "plant_diary_entries"]
+
+        assert {rule.user_field for rule in care} == set(ACCOUNT_FIELDS)
+        assert {(rule.replacement_strategy, rule.anonymized_value) for rule in care} == {
+            (rule.replacement_strategy, rule.anonymized_value) for rule in diary
+        }
+        assert all(rule.clear_fields == [] and rule.rename_fields == [] for rule in [*care, *diary])
+        assert "care_events" not in plan.delete
 
     def test_anonymisation_rules_address_fields_that_exist(self):
         """A rule pointing at a missing field silently anonymises nothing.

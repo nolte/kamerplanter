@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, Response
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 
 from app.api.mapping import to_response
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tasks.schemas import (
     BatchAssignRequest,
     BatchDeleteRequest,
@@ -45,9 +46,11 @@ from app.common.enums import TaskCategory, TaskOrigin, TaskStatus
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
+from app.domain.models.task_completion import CompletionActor
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
 from app.domain.services.species_service import SpeciesService
@@ -600,14 +603,26 @@ def validate_hst(
 
 
 @router.post("/batch/status", response_model=BatchResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
 def batch_status_change(
+    request: Request,
     body: BatchStatusRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Apply a status change to a batch of tasks."""
+    """Apply a status change to a batch of tasks.
+
+    `action = complete` is the atomic transition (GP-API-032): the care fields of the body go into one care event
+    per task, all in one transaction; an unknown or foreign task key answers 404 for the whole batch and nothing is
+    written; at most 200 tasks.
+    """
     succeeded, failed = service.batch_status_change(
-        body.task_keys, body.action, body.completion_notes, tenant_key=ctx.tenant_key
+        body.task_keys,
+        body.action,
+        body.completion_notes,
+        tenant_key=ctx.tenant_key,
+        details=body.details(),
+        actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
@@ -685,13 +700,21 @@ def start_task(
 
 
 @router.post("/{key}/complete", response_model=TaskResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
 def complete_task(
+    request: Request,
     key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskCompleteRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Complete a task, propagating care-reminder confirmations where applicable."""
+    """Complete a task (GP-API-031) — ONE transaction over the task, the care-log line and the specialist document.
+
+    A task bound to a bed also writes a `care_event` (`trigger = task`) from the care fields of the body and, per
+    category, a `watering_events` / `feeding_events` / `harvest_batches` document; an error in any of them leaves the
+    task as it was. `performed_at` may lie a year back, not ahead (422 `care_event.too_old` /
+    `care_event.performed_in_future`). Care-reminder confirmations are propagated where applicable.
+    """
     completed = service.complete_task(
         key,
         body.completion_notes,
@@ -700,6 +723,8 @@ def complete_task(
         body.difficulty_rating,
         body.quality_rating,
         tenant_key=ctx.tenant_key,
+        details=body.details(),
+        actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
     # The care-state consequences of a completed care-reminder task are domain
     # logic and live in the service (NFR-001): confirmation + edges, the
@@ -764,14 +789,28 @@ def clone_task(
 
 
 @router.post("/{key}/reopen", response_model=TaskResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
 def reopen_task(
+    request: Request,
     key: Annotated[str, Path(description="Document key of the task to reopen.")],
     body: TaskReopenRequest | None = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Reopen a completed or skipped task."""
-    return _task_response(service.reopen_task(key, tenant_key=ctx.tenant_key))
+    """Reopen a completed or skipped task.
+
+    With `{"undo": true}` (the field-mode snackbar, GP-FR-149) the task's care-log line is voided with
+    `void_reason = undo` in the same transaction: the author within ten minutes, a lead any time (403 otherwise).
+    """
+    undo = bool(body and body.undo)
+    return _task_response(
+        service.reopen_task(
+            key,
+            tenant_key=ctx.tenant_key,
+            undo=undo,
+            actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
+        )
+    )
 
 
 @router.get("/{task_key}/comments", response_model=list[TaskCommentResponse])

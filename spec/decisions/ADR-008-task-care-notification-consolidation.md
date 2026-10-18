@@ -47,6 +47,12 @@ auf REQ-053 §12/§13. Der Umfang der Annahme ist bewusst **geteilt**:
   `care_events`, Fachcollection, Edges). Die Erinnerungs-Seite des Übergangs
   („bestätigt", „übersprungen" an `care_confirmations`) und die
   Notification-Seite sind **nicht** Teil von REQ-053.
+  *Umgesetzt (2026-10-18, REQ-053 WP 4.3, #2413):* `ITaskCompletionRepository`
+  führt Task, `care_events`-Zeile, Fachdokument (`watering_events`,
+  `feeding_events`, `harvest_batches`) und Edges in **einer** Stream-Transaktion;
+  `reopen` mit `undo` storniert den Task-Abschluss und die Protokollzeile in
+  einer Transaktion. Wiederholung, abhängige Tasks und Benachrichtigung folgen
+  weiterhin nach dem Commit (eigener Strang).
 - **Die 11 Kadenz-Vorschübe (a) und der eine Notification-Write (b)** aus
   `.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md` bleiben ein
   **eigener ADR-008-Strang** (Phasen 1, 2, 4 und der Rest von Phase 3) mit

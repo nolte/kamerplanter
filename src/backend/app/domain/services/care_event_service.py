@@ -30,12 +30,13 @@ caller's ``user_key``; a supersede keeps the predecessor's performer and records
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
 import structlog
 
-from app.common.enums import TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
+from app.common.enums import AdminScope, TenantRole
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.care_event_repository import (
@@ -47,6 +48,7 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.care_event import (
+    ANONYMIZED_MARKER,
     BACKFILL_MAX_AGE_DAYS,
     FUTURE_TOLERANCE_MINUTES,
     MAX_AGE_DAYS,
@@ -95,6 +97,48 @@ def _subtree(locations: list[Location], root_key: str) -> list[str]:
     return found
 
 
+def check_void_allowed(event: CareEvent, *, reason: str, user_key: str, role: TenantRole) -> None:
+    """The cancellation predicate of GP-API-037, shared with the atomic undo of a task completion (GP-FR-149).
+
+    The lead may cancel any entry. A grower may take back their *own* entry within ten minutes of ``created_at``
+    with ``reason = "undo"`` and nothing else.
+
+    Raises:
+        ForbiddenError: the caller may not cancel this entry.
+    """
+    if MembershipEngine.can_delete_resource(role):
+        return
+    within_window = event.created_at is not None and datetime.now(UTC) - event.created_at <= timedelta(
+        minutes=UNDO_WINDOW_MINUTES
+    )
+    if not (event.created_by == user_key and reason == UNDO_REASON and within_window):
+        raise ForbiddenError("Only a lead may cancel this entry; you may undo your own within ten minutes.")
+
+
+def check_performed_instant(performed_at: datetime, *, max_age_days: int = MAX_AGE_DAYS) -> None:
+    """V-11: at most five minutes ahead, at most ``max_age_days`` back (a year for a client, GP-ACC-025).
+
+    A function of its own so a caller that has no bed to log into — a task outside the care log — holds the
+    instant of its completion to the same window.
+    """
+    now = datetime.now(UTC)
+    if performed_at > now + timedelta(minutes=FUTURE_TOLERANCE_MINUTES):
+        raise PlanError(
+            ERROR_PERFORMED_IN_FUTURE,
+            "performed_at lies in the future.",
+            status_code=422,
+            field="performed_at",
+        )
+    if performed_at < now - timedelta(days=max_age_days):
+        raise PlanError(
+            ERROR_TOO_OLD,
+            f"performed_at lies more than {max_age_days} days back.",
+            status_code=422,
+            field="performed_at",
+            max_age_days=max_age_days,
+        )
+
+
 class CareEventService:
     def __init__(
         self,
@@ -128,23 +172,12 @@ class CareEventService:
 
     @staticmethod
     def _check_performed_at(performed_at: datetime, *, max_age_days: int) -> None:
-        """V-11: at most five minutes ahead, at most ``max_age_days`` back."""
-        now = datetime.now(UTC)
-        if performed_at > now + timedelta(minutes=FUTURE_TOLERANCE_MINUTES):
-            raise PlanError(
-                ERROR_PERFORMED_IN_FUTURE,
-                "performed_at lies in the future.",
-                status_code=422,
-                field="performed_at",
-            )
-        if performed_at < now - timedelta(days=max_age_days):
-            raise PlanError(
-                ERROR_TOO_OLD,
-                f"performed_at lies more than {max_age_days} days back.",
-                status_code=422,
-                field="performed_at",
-                max_age_days=max_age_days,
-            )
+        check_performed_instant(performed_at, max_age_days=max_age_days)
+
+    def location_subtree(self, location_key: str, *, tenant_key: str) -> list[str]:
+        """``location_key`` and every location below it, for a bed the tenant owns (404 otherwise)."""
+        location = resolve_owned_location(self._sites, location_key, tenant_key)
+        return _subtree(self._sites.get_locations_by_site(location.site_key), location.key or location_key)
 
     def _check_plants(self, plant_keys: list[str], location: Location, *, tenant_key: str) -> None:
         """``plant_keys`` ⊆ the tenant's plants standing in the bed's subtree (GP-NFR-058)."""
@@ -269,13 +302,32 @@ class CareEventService:
         *,
         tenant_key: str,
         user_key: str,
+        role: TenantRole,
+        admin_scopes: Sequence[AdminScope] = (),
         offset: int,
         limit: int,
     ) -> list[CareEventView]:
         """The tenant's care log, newest first (GP-API-034, GP-FR-107).
 
-        The last 90 days when neither a range nor a bed / plant filter is given.
+        The last 90 days when neither a range nor a bed / plant filter is given. ``performed_by`` is the caller's
+        own account for a viewer or grower; only a lead or a member with the ``management`` scope may filter by
+        another member (403 otherwise; #2411 item 1, SR-020).
         """
+        if criteria.performed_by == ANONYMIZED_MARKER:
+            # The marker bundles every erased member of the tenant: a filter on it is a timeline of a person who
+            # asked to be forgotten (GDPR review of #2411, Art. 17 / recital 26), whoever asks.
+            raise ValidationError(
+                "The care log cannot be filtered by an erased member.",
+                details=[{"field": "performed_by", "message": "erased members cannot be filtered"}],
+            )
+        if (
+            criteria.performed_by is not None
+            and criteria.performed_by != user_key
+            and not MembershipEngine.can_filter_care_log_by_member(role, list(admin_scopes))
+        ):
+            raise ForbiddenError(
+                "Only a lead or a member with the management scope may filter the care log by another member."
+            )
         if criteria.location_key:
             resolve_owned_location(self._sites, criteria.location_key, tenant_key)
         # The tenant-wide history shows 90 days by default (GP-FR-107); the history of one bed or one plant is the
@@ -444,12 +496,7 @@ class CareEventService:
         event = self._repo.get(key, tenant_key=tenant_key)
         if event is None:
             raise NotFoundError("CareEvent", key)
-        if not MembershipEngine.can_delete_resource(role):
-            within_window = event.created_at is not None and datetime.now(UTC) - event.created_at <= timedelta(
-                minutes=UNDO_WINDOW_MINUTES
-            )
-            if not (event.created_by == user_key and reason == UNDO_REASON and within_window):
-                raise ForbiddenError("Only a lead may cancel this entry; you may undo your own within ten minutes.")
+        check_void_allowed(event, reason=reason, user_key=user_key, role=role)
         voided = self._repo.void(key, tenant_key=tenant_key, voided_by=user_key, reason=reason, at=datetime.now(UTC))
         logger.info("care_event.voided", event_key=voided.key, category=voided.category, undo=reason == UNDO_REASON)
         return self._stored_view(key, tenant_key=tenant_key, user_key=user_key)

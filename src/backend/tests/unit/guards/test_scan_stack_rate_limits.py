@@ -112,6 +112,10 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "Authenticated care-log writes (POST /t/{slug}/care-events and its supersede / void siblings): "
         "401 x 25 anonymously."
     ),
+    "rate_limit_task_completion": (
+        "Authenticated task completion (POST /t/{slug}/tasks/{key}/complete, …/tasks/batch/status, …/{key}/reopen): "
+        "401 x 25 anonymously."
+    ),
     "rate_limit_plan_batch": (
         "Authenticated garden-plan writes (POST /t/{slug}/sites/{key}/plan/batch, PUT …/plan/boundary): "
         "401 x 25 anonymously."

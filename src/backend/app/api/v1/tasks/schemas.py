@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.attachments.schemas import ThumbnailUris
 from app.common.enums import WorkflowTargetType
+from app.domain.models.task_completion import TaskCompletionDetails
 
 # ── Checklist ──
 
@@ -328,12 +329,23 @@ class PhotoUploadResponse(BaseModel):
     size_bytes: int
 
 
-class TaskCompleteRequest(BaseModel):
+class TaskCompleteRequest(TaskCompletionDetails):
+    """The body of ``POST /tasks/{key}/complete`` (GP-API-031).
+
+    The task fields as before, plus the care fields of :class:`TaskCompletionDetails` (``performed_at``,
+    ``plant_keys``, ``reason``, ``product_ref`` …) that go into the care-log line when the task is bound to a bed.
+    ``extra="forbid"``: ``trigger``, ``task_key``, ``source_ref`` and the performer are the server's (SR-009).
+    """
+
     completion_notes: str | None = None
     actual_duration_minutes: int | None = None
     photo_refs: list[str] = Field(default_factory=list)
     difficulty_rating: int | None = Field(default=None, ge=1, le=5)
     quality_rating: int | None = Field(default=None, ge=1, le=5)
+
+    def details(self) -> TaskCompletionDetails:
+        """The care fields alone, as the service takes them."""
+        return TaskCompletionDetails.model_validate(self.model_dump(include=set(TaskCompletionDetails.model_fields)))
 
 
 class TaskCloneRequest(BaseModel):
@@ -343,16 +355,32 @@ class TaskCloneRequest(BaseModel):
 
 
 class TaskReopenRequest(BaseModel):
-    """Empty body — action is implied by the endpoint."""
+    """Optional body of ``POST /tasks/{key}/reopen``; the action is implied by the endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The field-mode "Rückgängig" snackbar (GP-FR-149): the task's care-log line is voided with
+    #: ``void_reason = undo`` in the same transaction as the reopen.
+    undo: bool = False
 
 
 # ── Batch Operations ──
 
 
-class BatchStatusRequest(BaseModel):
+class BatchStatusRequest(TaskCompletionDetails):
+    """The body of ``POST /tasks/batch/status`` (GP-API-032).
+
+    ``action = complete`` takes the care fields of :class:`TaskCompletionDetails` for every task (one care event per
+    task, at most 200 tasks, an unknown or foreign key is a 404 for the whole batch).
+    """
+
     task_keys: list[str] = Field(min_length=1)
     action: str = Field(description="start, complete, or skip")
     completion_notes: str | None = None
+
+    def details(self) -> TaskCompletionDetails:
+        """The care fields alone, as the service takes them."""
+        return TaskCompletionDetails.model_validate(self.model_dump(include=set(TaskCompletionDetails.model_fields)))
 
 
 class BatchDeleteRequest(BaseModel):

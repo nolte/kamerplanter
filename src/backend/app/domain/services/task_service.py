@@ -1,18 +1,24 @@
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
+from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import AttachmentCategory, TaskOrigin, WorkflowTargetType
-from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, WorkflowTargetType
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.recurrence_engine import RecurrenceEngine
+from app.domain.engines.task_completion_engine import TaskCompletionEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
+from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.models.care_event import UNDO_REASON, CareEvent, CareEventInput, CareEventOrigin
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -23,7 +29,20 @@ from app.domain.models.task import (
     WorkflowPhase,
     WorkflowTemplate,
 )
+from app.domain.models.task_completion import (
+    MAX_BATCH_COMPLETION,
+    CompletionActor,
+    CompletionWrite,
+    DomainDocument,
+    TaskCompletionDetails,
+    UndoWrite,
+)
+from app.domain.services.care_event_service import check_performed_instant, check_void_allowed
 from app.domain.services.notification_propagation_service import NotificationPropagationService
+
+if TYPE_CHECKING:
+    from app.domain.services.care_event_service import CareEventService
+    from app.domain.services.harvest_service import HarvestService
 
 logger = structlog.get_logger(__name__)
 
@@ -227,8 +246,19 @@ class TaskService:
         notification_propagation: NotificationPropagationService | None = None,
         attachment_repo: IAttachmentRepository | None = None,
         membership_lookup: Callable[[str, str], Any] | None = None,
+        completion: ITaskCompletionRepository | None = None,
+        care_events: CareEventService | None = None,
+        harvests: HarvestService | None = None,
+        fertilizers: IFertilizerRepository | None = None,
     ) -> None:
         self._repo = repo
+        # The atomic completion transition (REQ-053 WP 4.3, ADR-008 phase 3 for tasks). All three are supplied by
+        # the DI factory; a service built without them (unit tests, the Celery beat) keeps the plain
+        # single-document completion and writes no care-log line.
+        self._completion = completion
+        self._care_events = care_events
+        self._harvests = harvests
+        self._completion_engine = TaskCompletionEngine(fertilizers)
         # ``(user_key, tenant_key) -> membership | None`` — decides who a task may
         # be assigned to (#1871 B9). Without it an assignment is refused.
         self._membership_lookup = membership_lookup
@@ -1231,7 +1261,12 @@ class TaskService:
         prev_assignee = previous.assigned_to_user_key if previous is not None else None
         if task.assigned_to_user_key != prev_assignee:
             self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
+        rule_changed = previous is None or task.recurrence_rule != previous.recurrence_rule
         updated = self._repo.update_task(key, task)
+        if rule_changed and task.recurrence_rule:
+            # #2411 item 4: a new RRULE answers the question the migration parked (v0097 kept the unconvertible
+            # original in ``recurrence_rule_unconvertible``); no API field, no notification.
+            self._repo.clear_parked_recurrence(key)
         self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
         if prev_assignee != updated.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
@@ -1362,6 +1397,237 @@ class TaskService:
                     details=[{"field": "photo_refs", "message": f"unknown task attachment '{ref}'"}],
                 )
 
+    # ── Completion: the one transition (ADR-008 phase 3 for tasks, REQ-053 GP-FR-083) ──
+
+    @staticmethod
+    def _require_completable(task: Task) -> None:
+        if task.status not in ("pending", "in_progress"):
+            raise ValidationError(f"Cannot complete task in status '{task.status}'.")
+
+    def _bed_of(self, task: Task, *, tenant_key: str) -> str | None:
+        """The bed this task's completion is logged in, or ``None`` for a task outside the care log (GP-FR-083)."""
+        entity = TaskCompletionEngine.bed_entity(task)
+        if entity is None or self._completion is None or self._care_events is None:
+            return None
+        kind, entity_key = entity
+        if kind == "location":
+            return entity_key
+        return self._completion.plant_location(entity_key, tenant_key=tenant_key)
+
+    @staticmethod
+    def _care_input(
+        task: Task,
+        location_key: str,
+        details: TaskCompletionDetails,
+        *,
+        performed_at: datetime,
+        completion_notes: str | None,
+        photo_refs: list[str],
+    ) -> CareEventInput:
+        """The care event a completion logs, in the vocabulary of GP-FR-100; all fields but the instant optional."""
+        try:
+            return CareEventInput(
+                location_key=location_key,
+                category=task.category.value,
+                summary=task.name,
+                performed_at=performed_at,
+                plant_keys=list(details.plant_keys),
+                reason=details.reason,
+                product_ref=details.product_ref,
+                product_label=details.product_label,
+                quantity=details.quantity,
+                unit=details.unit,
+                material=details.material,
+                measurements=details.measurements,
+                # The completion note is the log's note: it fills the outcome text when the client gave none.
+                observed_outcome=details.observed_outcome or (completion_notes[:2000] if completion_notes else None),
+                outcome_rating=details.outcome_rating,
+                photo_refs=photo_refs,
+            )
+        except PydanticValidationError as exc:
+            raise ValidationError(
+                "The care fields of the completion are not valid.",
+                details=[
+                    {"field": ".".join(str(part) for part in err["loc"]), "message": err["msg"]}
+                    for err in exc.errors(include_url=False, include_input=False, include_context=False)
+                ],
+            ) from exc
+
+    def _event_plants(self, event: CareEvent, *, tenant_key: str) -> list[str]:
+        """The plants the specialist document is attributed to: the event's own, else the plants standing in the bed."""
+        if event.plant_keys:
+            return list(event.plant_keys)
+        if self._completion is None or self._care_events is None:
+            return []
+        subtree = self._care_events.location_subtree(event.location_key, tenant_key=tenant_key)
+        return self._completion.plants_in_locations(subtree, tenant_key=tenant_key)
+
+    def _prepare_completion(
+        self,
+        task: Task,
+        *,
+        completion_notes: str | None,
+        actual_minutes: int | None,
+        photo_refs: list[str] | None,
+        difficulty_rating: int | None,
+        quality_rating: int | None,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        tenant_key: str,
+        taken_batch_ids: set[str],
+    ) -> CompletionWrite:
+        """Validate one completion and compute everything its transaction writes; nothing is stored here."""
+        self._require_completable(task)
+        if task.requires_photo and not task.photo_refs and not photo_refs:
+            raise ValidationError("This task requires at least one photo before completion.")
+        details = details or TaskCompletionDetails()
+        new_photos: list[str] = []
+        if photo_refs:
+            self._verify_photo_refs(photo_refs, task.photo_refs, tenant_key=tenant_key)
+            # Order-preserving dedup across what is already stored and what arrives. The completion form seeds its
+            # list from the task's own `photo_refs`, so reopening a completed task and completing it again used to
+            # append every existing ref a second time — `[a, a, b]` in the document and duplicate React keys in the
+            # gallery (#1339 review).
+            known = set(task.photo_refs)
+            new_photos = [ref for ref in dict.fromkeys(photo_refs) if ref not in known]
+            task.photo_refs.extend(new_photos)
+
+        performed_at = details.performed_at or datetime.now(UTC)
+        location_key = self._bed_of(task, tenant_key=tenant_key) if actor is not None else None
+        event: CareEvent | None = None
+        domain: DomainDocument | None = None
+        if location_key is not None and actor is not None and self._care_events is not None:
+            event = self._build_event(
+                task,
+                location_key,
+                details,
+                actor=actor,
+                performed_at=performed_at,
+                completion_notes=completion_notes,
+                photo_refs=new_photos,
+                tenant_key=tenant_key,
+            )
+            if event is not None:
+                domain = self._domain_document(task, event, tenant_key=tenant_key, taken_batch_ids=taken_batch_ids)
+        elif details.carries_care_fields:
+            raise PlanError(
+                "task.no_bed_context",
+                "This task is not bound to a bed, so there is no care log to write the care fields into.",
+                status_code=422,
+                field="plant_keys",
+            )
+        if event is None and details.performed_at is not None:
+            check_performed_instant(performed_at)  # V-11 holds the instant of a completion outside the care log too
+
+        task.status = TaskStatus.COMPLETED
+        task.completed_at = performed_at
+        if completion_notes:
+            task.completion_notes = completion_notes
+        if actual_minutes is not None:
+            task.actual_duration_minutes = actual_minutes
+        if difficulty_rating is not None:
+            task.difficulty_rating = difficulty_rating
+        if quality_rating is not None:
+            task.quality_rating = quality_rating
+        patch = task.model_dump(
+            mode="json",
+            include={
+                "status",
+                "completed_at",
+                "completion_notes",
+                "actual_duration_minutes",
+                "difficulty_rating",
+                "quality_rating",
+                "photo_refs",
+            },
+            exclude_none=True,
+        )
+        return CompletionWrite(task_key=task.key or "", task_patch=patch, event=event, domain=domain)
+
+    def _build_event(
+        self,
+        task: Task,
+        location_key: str,
+        details: TaskCompletionDetails,
+        *,
+        actor: CompletionActor,
+        performed_at: datetime,
+        completion_notes: str | None,
+        photo_refs: list[str],
+        tenant_key: str,
+    ) -> CareEvent | None:
+        """The validated care event of the completion; ``None`` when the task's bed is gone (the task still closes)."""
+        assert self._care_events is not None  # noqa: S101 — guarded by the caller; narrows the optional for mypy
+        data = self._care_input(
+            task,
+            location_key,
+            details,
+            performed_at=performed_at,
+            completion_notes=completion_notes,
+            photo_refs=photo_refs,
+        )
+        try:
+            return self._care_events.build_event(
+                data,
+                tenant_key=tenant_key,
+                user_key=actor.user_key,
+                role=actor.role,
+                origin=CareEventOrigin(trigger="task", task_key=task.key),
+            )
+        except NotFoundError:
+            # The task points at a bed that no longer exists (or is not the tenant's): the task is still done, there
+            # is just no bed to log it in. A body that named plants for that bed cannot be honoured.
+            if details.carries_care_fields:
+                raise
+            check_performed_instant(performed_at)
+            return None
+
+    def _domain_document(
+        self, task: Task, event: CareEvent, *, tenant_key: str, taken_batch_ids: set[str]
+    ) -> DomainDocument | None:
+        """The specialist document of the event (§12.1), with the checks its own service would have made."""
+        wants_plants = event.category in (
+            TaskCategory.WATERING.value,
+            TaskCategory.FEEDING.value,
+            TaskCategory.SOIL_AMENDMENT.value,
+            TaskCategory.HARVEST.value,
+        )
+        plants = self._event_plants(event, tenant_key=tenant_key) if wants_plants else []
+        domain = self._completion_engine.domain_document(task, event, plant_keys=plants)
+        if domain is None or domain.collection != "harvest_batches":
+            return domain
+        if self._harvests is None:
+            return None  # no harvest service wired: no batch is written rather than one that skipped the Karenz gate
+        self._harvests.require_karenz_clear(plants, event.performed_at, tenant_key=tenant_key)
+        plant_key = str(domain.document.get("plant_key", ""))
+        batch_id = self._harvests.next_batch_id(
+            plant_key, event.performed_at, tenant_key=tenant_key, taken=taken_batch_ids
+        )
+        return replace(domain, document={**domain.document, "batch_id": batch_id})
+
+    def _commit_completions(self, writes: list[CompletionWrite], tasks: list[Task], *, tenant_key: str) -> list[Task]:
+        """Store the prepared completions; one transaction when the transition is wired, else task by task."""
+        if self._completion is not None:
+            self._completion.complete(writes, tenant_key=tenant_key)
+            return [self._repo.get_task_or_raise(write.task_key) for write in writes]
+        return [self._repo.update_task(task.key or "", task) for task in tasks]
+
+    def _after_completion(self, completed: Task, as_stored: Task) -> None:
+        """What follows the committed completion: dependents, the next occurrence, the notification (not atomic)."""
+        # Reschedule dependents if late. Coerce both operands to timezone-aware UTC first: a date-only due_date is
+        # stored naive and would otherwise crash the comparison (and abort the recurrence spawn below).
+        due_aware = _as_aware_utc(as_stored.due_date)
+        completed_aware = _as_aware_utc(as_stored.completed_at)
+        if due_aware and completed_aware and completed_aware > due_aware:
+            self._reschedule_dependents(as_stored.key or "", as_stored)
+
+        # Create next recurring task if applicable
+        if as_stored.recurrence_rule:
+            self._create_next_recurring_task(completed)
+
+        # Mark the task's open due notification done (badge drops, #742).
+        self._propagate(lambda p: p.on_task_completed(completed))
+
     def complete_task(
         self,
         key: str,
@@ -1372,52 +1638,32 @@ class TaskService:
         quality_rating: int | None = None,
         *,
         tenant_key: str,
+        details: TaskCompletionDetails | None = None,
+        actor: CompletionActor | None = None,
     ) -> Task:
+        """Complete a task: ONE transition over the task, the care-log line and the specialist document.
+
+        With an ``actor`` and a task bound to a bed the care event (``trigger = task``) and — per §12.1 — the
+        ``watering_events`` / ``feeding_events`` / ``harvest_batches`` document are written in the same stream
+        transaction as the status change (GP-FR-083, GP-ACC-024): an error in any of them leaves the task as it was.
+        A task without a bed, or a caller without an actor, closes the task alone. The recurrence spawn, the
+        dependents and the notification follow the commit (their own ADR-008 strand, E-02).
+        """
         task = self.get_task(key, tenant_key=tenant_key)
-        if task.status not in ("pending", "in_progress"):
-            raise ValidationError(f"Cannot complete task in status '{task.status}'.")
-
-        if task.requires_photo and not task.photo_refs and not photo_refs:
-            raise ValidationError("This task requires at least one photo before completion.")
-
-        if photo_refs:
-            self._verify_photo_refs(photo_refs, task.photo_refs, tenant_key=tenant_key)
-            # Order-preserving dedup across what is already stored and what
-            # arrives. The completion form seeds its list from the task's own
-            # `photo_refs`, so reopening a completed task and completing it again
-            # used to append every existing ref a second time — `[a, a, b]` in the
-            # document and duplicate React keys in the gallery (#1339 review).
-            known = set(task.photo_refs)
-            task.photo_refs.extend(ref for ref in dict.fromkeys(photo_refs) if ref not in known)
-
-        task.status = "completed"
-        task.completed_at = datetime.now(UTC)
-        if completion_notes:
-            task.completion_notes = completion_notes
-        if actual_minutes is not None:
-            task.actual_duration_minutes = actual_minutes
-        if difficulty_rating is not None:
-            task.difficulty_rating = difficulty_rating
-        if quality_rating is not None:
-            task.quality_rating = quality_rating
-
-        updated = self._repo.update_task(key, task)
-
-        # Reschedule dependents if late. Coerce both operands to timezone-aware
-        # UTC first: a date-only due_date is stored naive and would otherwise
-        # crash the comparison (and abort the recurrence spawn below).
-        due_aware = _as_aware_utc(task.due_date)
-        completed_aware = _as_aware_utc(task.completed_at)
-        if due_aware and completed_aware and completed_aware > due_aware:
-            self._reschedule_dependents(key, task)
-
-        # Create next recurring task if applicable
-        if task.recurrence_rule:
-            self._create_next_recurring_task(updated)
-
-        # Mark the task's open due notification done (badge drops, #742).
-        self._propagate(lambda p: p.on_task_completed(updated))
-
+        prepared = self._prepare_completion(
+            task,
+            completion_notes=completion_notes,
+            actual_minutes=actual_minutes,
+            photo_refs=photo_refs,
+            difficulty_rating=difficulty_rating,
+            quality_rating=quality_rating,
+            details=details,
+            actor=actor,
+            tenant_key=tenant_key,
+            taken_batch_ids=set(),
+        )
+        updated = self._commit_completions([prepared], [task], tenant_key=tenant_key)[0]
+        self._after_completion(updated, task)
         return updated
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
@@ -1565,7 +1811,22 @@ class TaskService:
 
     # ── Reopen ──
 
-    def reopen_task(self, key: str, *, tenant_key: str) -> Task:
+    def reopen_task(
+        self,
+        key: str,
+        *,
+        tenant_key: str,
+        undo: bool = False,
+        actor: CompletionActor | None = None,
+    ) -> Task:
+        """Reopen a completed or skipped task.
+
+        ``undo`` is the field-mode snackbar (GP-FR-149): the task's care-log line is voided with
+        ``void_reason = undo`` in the same transaction as the reopen — the lead any time, the author within ten
+        minutes (the predicate of ``POST /care-events/{key}/void``, GP-API-037). It needs the ``actor``.
+        """
+        if undo and actor is None:
+            raise ValueError("reopen_task(undo=True) needs the actor: the void is held to the caller's role.")
         task = self.get_task(key, tenant_key=tenant_key)
         if task.status not in ("completed", "skipped"):
             raise ValidationError(
@@ -1591,12 +1852,39 @@ class TaskService:
         if task.reopened_from_status != "completed":
             task.reopened_from_status = task.status
         task.reopened_at = datetime.now(UTC)
-        task.status = "pending"
+        task.status = TaskStatus.PENDING
         task.completed_at = None
         task.actual_duration_minutes = None
         task.completion_notes = None
         task.difficulty_rating = None
         task.quality_rating = None
+        if undo and actor is not None and self._completion is not None and self._care_events is not None:
+            event = self._completion.task_event(key, tenant_key=tenant_key)
+            if event is not None:
+                check_void_allowed(event, reason=UNDO_REASON, user_key=actor.user_key, role=actor.role)
+            self._completion.reopen(
+                UndoWrite(
+                    task_key=key,
+                    task_patch=task.model_dump(
+                        mode="json",
+                        include={
+                            "status",
+                            "reopened_at",
+                            "reopened_from_status",
+                            "completed_at",
+                            "actual_duration_minutes",
+                            "completion_notes",
+                            "difficulty_rating",
+                            "quality_rating",
+                        },
+                    ),
+                    event_key=event.key if event else None,
+                    voided_by=actor.user_key,
+                    voided_at=datetime.now(UTC),
+                ),
+                tenant_key=tenant_key,
+            )
+            return self._repo.get_task_or_raise(key)
         return self._repo.update_task(key, task)
 
     # ── Batch Operations ──
@@ -1619,7 +1907,20 @@ class TaskService:
         completion_notes: str | None = None,
         *,
         tenant_key: str,
+        details: TaskCompletionDetails | None = None,
+        actor: CompletionActor | None = None,
     ) -> tuple[list[str], list[dict]]:
+        """Apply ``start`` / ``complete`` / ``skip`` to many tasks.
+
+        ``complete`` is the atomic transition (GP-FR-088, GP-API-032): every key is resolved first — an unknown or
+        foreign one answers 404 for the **whole** batch and nothing is written — then the completable tasks are
+        completed in ONE transaction, one care event each. A task that cannot be completed (wrong status, missing
+        photo) is reported in ``failed`` and left out. The other actions keep their per-key result.
+        """
+        if action == "complete":
+            return self._batch_complete(
+                task_keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor
+            )
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
@@ -1630,8 +1931,6 @@ class TaskService:
                 self.get_task(tk, tenant_key=tenant_key)
                 if action == "start":
                     self.start_task(tk, tenant_key=tenant_key)
-                elif action == "complete":
-                    self.complete_task(tk, completion_notes=completion_notes, tenant_key=tenant_key)
                 elif action == "skip":
                     self.skip_task(tk, tenant_key=tenant_key)
                 else:
@@ -1641,6 +1940,54 @@ class TaskService:
             except (NotFoundError, ValidationError) as e:
                 failed.append({"key": tk, "error": str(e)})
         return succeeded, failed
+
+    def _batch_complete(
+        self,
+        task_keys: list[str],
+        completion_notes: str | None,
+        *,
+        tenant_key: str,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+    ) -> tuple[list[str], list[dict[str, str]]]:
+        keys = list(dict.fromkeys(task_keys))
+        if len(keys) > MAX_BATCH_COMPLETION:
+            raise ValidationError(
+                f"A batch completes at most {MAX_BATCH_COMPLETION} tasks.",
+                details=[{"field": "task_keys", "message": f"at most {MAX_BATCH_COMPLETION}"}],
+            )
+        # All keys first: a foreign or unknown one is a 404 for the whole batch (GP-API-032) — before any write and
+        # before any status is judged, so the answer cannot tell a foreign task from an absent one.
+        tasks = [self.get_task(key, tenant_key=tenant_key) for key in keys]
+        failed: list[dict[str, str]] = []
+        prepared: list[CompletionWrite] = []
+        ready: list[Task] = []
+        taken_batch_ids: set[str] = set()
+        for task in tasks:
+            try:
+                prepared.append(
+                    self._prepare_completion(
+                        task,
+                        completion_notes=completion_notes,
+                        actual_minutes=None,
+                        photo_refs=None,
+                        difficulty_rating=None,
+                        quality_rating=None,
+                        details=details,
+                        actor=actor,
+                        tenant_key=tenant_key,
+                        taken_batch_ids=taken_batch_ids,
+                    )
+                )
+                ready.append(task)
+            except ValidationError as e:
+                failed.append({"key": task.key or "", "error": str(e)})
+        if not ready:
+            return [], failed
+        stored = self._commit_completions(prepared, ready, tenant_key=tenant_key)
+        for completed, as_stored in zip(stored, ready, strict=True):
+            self._after_completion(completed, as_stored)
+        return [task.key or "" for task in stored], failed
 
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
