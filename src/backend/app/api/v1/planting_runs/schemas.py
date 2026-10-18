@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
 from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, RowDirection
@@ -9,6 +9,7 @@ from app.domain.models.planting_run import (
     MAX_EDGE_MARGIN_CM,
     MAX_SPACING_CM,
     MIN_ROW_SPACING_CM,
+    check_row_assignment,
 )
 
 # ── Phase summary ────────────────────────────────────────────────────
@@ -69,6 +70,11 @@ class EntryCreate(BaseModel):
     row_assignment: list[int] | None = None
     notes: str | None = None
 
+    @field_validator("row_assignment")
+    @classmethod
+    def validate_row_assignment(cls, value: list[int] | None) -> list[int] | None:
+        return check_row_assignment(value)
+
 
 class EntryUpdate(BaseModel):
     species_key: str | None = None
@@ -88,6 +94,11 @@ class EntryUpdate(BaseModel):
     placement_hint: PlacementHint | None = None
     row_assignment: list[int] | None = None
     notes: str | None = None
+
+    @field_validator("row_assignment")
+    @classmethod
+    def validate_row_assignment(cls, value: list[int] | None) -> list[int] | None:
+        return check_row_assignment(value)
 
 
 class EntryResponse(BaseModel):

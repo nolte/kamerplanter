@@ -62,7 +62,7 @@ def test_an_explicit_null_clears_a_layout_field() -> None:
     assert (updated.row_assignment, updated.edge_margin_along_cm, updated.row_spacing_cm) == (None, None, 80)
 
 
-@pytest.mark.parametrize("patch", [{"row_spacing_cm": 4}, {"spacing_cm": 1600}, {"row_assignment": [1, 1]}])
+@pytest.mark.parametrize("patch", [{"row_spacing_cm": 4}, {"depth_cm": 500}, {"row_assignment": [1, 1]}])
 def test_a_merged_value_outside_its_range_is_refused(patch: dict) -> None:
     repo = _Repo()
     service = _service(repo)

@@ -8,8 +8,9 @@ from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlantingR
 
 #: GP-FR-060: ``spacing_cm`` / ``row_spacing_cm`` reach 1 500 cm (woody plants, orchards — W-004).
 MAX_SPACING_CM = 1_500.0
-#: GP-FR-060: ``row_spacing_cm`` starts at 5 cm.
-MIN_ROW_SPACING_CM = 5.0
+#: GP-FR-060: ``spacing_cm`` / ``row_spacing_cm`` start at 5 cm (the layout calculator refuses less).
+MIN_SPACING_CM = 5.0
+MIN_ROW_SPACING_CM = MIN_SPACING_CM
 #: GP-FR-060: ``edge_margin_along_cm`` / ``edge_margin_across_cm`` 0–200 cm.
 MAX_EDGE_MARGIN_CM = 200.0
 #: GP-FR-060: ``depth_cm`` 0–100 cm.
@@ -22,6 +23,23 @@ ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
     PlantingRunStatus.COMPLETED: [],
     PlantingRunStatus.CANCELLED: [],
 }
+
+
+#: GP-FR-062: positions one layout may carry bound the rows an entry can name.
+MAX_ROW_ASSIGNMENTS = 2_000
+
+
+def check_row_assignment(value: list[int] | None) -> list[int] | None:
+    """Row indices (0-based) an entry occupies: non-negative, distinct, at most :data:`MAX_ROW_ASSIGNMENTS`."""
+    if value is None:
+        return None
+    if len(value) > MAX_ROW_ASSIGNMENTS:
+        raise ValueError(f"row_assignment names at most {MAX_ROW_ASSIGNMENTS} rows")
+    if any(index < 0 for index in value):
+        raise ValueError("row_assignment holds row indices of 0 or more")
+    if len(set(value)) != len(value):
+        raise ValueError("row_assignment must not repeat a row")
+    return value
 
 
 class PlantingRunEntry(BaseModel):
@@ -43,7 +61,9 @@ class PlantingRunEntry(BaseModel):
     cultivar_key: str | None = None
     quantity: int = Field(ge=1)
     id_prefix: str = Field(pattern=r"^[A-Z]{2,5}$")
-    spacing_cm: float | None = Field(default=None, ge=0, le=MAX_SPACING_CM)
+    #: The upper bound of 1 500 cm is enforced at the API (``EntryCreate``/``EntryUpdate``), not here: a stored
+    #: entry that predates it must keep loading.
+    spacing_cm: float | None = Field(default=None, ge=0)
     # ── Layout (REQ-053 GP-FR-060) — all optional: an entry without them has no planned layout ──
     row_spacing_cm: float | None = Field(default=None, ge=MIN_ROW_SPACING_CM, le=MAX_SPACING_CM)
     row_direction: RowDirection | None = None
@@ -70,13 +90,7 @@ class PlantingRunEntry(BaseModel):
     @field_validator("row_assignment")
     @classmethod
     def validate_row_assignment(cls, value: list[int] | None) -> list[int] | None:
-        if value is None:
-            return None
-        if any(index < 0 for index in value):
-            raise ValueError("row_assignment holds row indices of 0 or more")
-        if len(set(value)) != len(value):
-            raise ValueError("row_assignment must not repeat a row")
-        return value
+        return check_row_assignment(value)
 
 
 class PlantingRun(BaseModel):

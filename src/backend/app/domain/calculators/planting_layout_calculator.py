@@ -35,7 +35,15 @@ the edge when both margins are 0 (GP-ACC-018).
 **before** a single point exists; more than 2 000 positions is 422
 ``layout.too_many_positions {estimated, limit}``. That is O(1) in the bed size, which is what
 makes a 1 000 m x 1 000 m bed at 5 cm answerable in < 50 ms (GP-ACC-043). Two further guards
-keep a thin diagonal polygon (small area, huge bounding box) from walking a huge candidate grid.
+keep a thin diagonal polygon (small area, huge bounding box) from walking a huge candidate grid,
+and cap the real result. The cap bounds **generated positions**: ``zone`` and ``free`` generate none
+(a zone's ``capacity_plants`` is a plant count of one slot, not a number of slots), so they are not
+refused. An entry with a ``row_assignment`` takes only some rows and is bounded by the candidate
+walk and its real count instead of the whole-area estimate.
+
+**V-07.** ``planting.spacing_below_minimum`` is raised whenever two planned positions are closer
+than ``spacing_cm`` - also for a ``rows`` layout whose ``row_spacing_cm`` is below ``spacing_cm``;
+it is a hint, never an error.
 
 Output coordinates are rounded to the storage precision of 0.001 m (GP-FR-004) with the
 rounding of :func:`app.domain.models.geometry.round_length`, so the TypeScript port matches.
@@ -52,19 +60,18 @@ from app.domain.calculators.geometry_calculator import (
     CircleShape,
     VertexShape,
     area_m2,
+    shoelace_area,
     signed_distance_to_polygon,
     to_local_shape,
 )
 from app.domain.calculators.slot_capacity_calculator import TRIANGULAR_ROW_FACTOR
 from app.domain.models.geometry import Geometry, Point2D, round_length
+from app.domain.models.planting_run import MAX_SPACING_CM, MIN_SPACING_CM
 
 #: GP-FR-062 / V-22: positions one layout (and one slot batch) may carry.
 MAX_LAYOUT_POSITIONS = 2_000
 #: Candidates the grid walk may visit (5x the position cap); a guard for slivers whose bounding box dwarfs their area.
 MAX_LAYOUT_CANDIDATES = 10_000
-#: GP-FR-060: ``spacing_cm`` / ``row_spacing_cm`` bounds (centimetres).
-MIN_SPACING_CM = 5.0
-MAX_SPACING_CM = 1_500.0
 #: GP-FR-062: ``spacing < mature_width x 0.7`` is worth a warning.
 MATURE_WIDTH_FACTOR = 0.7
 #: Numerical noise floor for the margin tests, well below the storage precision.
@@ -331,7 +338,9 @@ def compute_layout(bed: Geometry, entry: EntryLayout, max_count: int | None = No
     if strategy is LayoutStrategy.ZONE:
         return _zone_layout(shape, entry, max_count, warnings)
 
-    if estimated > MAX_LAYOUT_POSITIONS:
+    # An entry that takes only some rows (GP-FR-070) holds a fraction of the area estimate, so it is
+    # bounded by the candidate walk and the count of the real result instead.
+    if estimated > MAX_LAYOUT_POSITIONS and entry.row_assignment is None:
         raise _too_many(estimated)
     return _point_layout(shape, entry, max_count, warnings)
 
@@ -405,23 +414,27 @@ def _point_layout(
 
 def _zone_outline(
     shape: VertexShape | CircleShape, margin_x: float, margin_y: float
-) -> tuple[tuple[Point2D, ...], bool]:
-    """The outline of a zone slot and whether the requested margins were applied to it."""
+) -> tuple[tuple[Point2D, ...], float, bool]:
+    """The outline of a zone slot, the area it stands for and whether the requested margins were applied.
+
+    A circle is drawn as a polygon, but its area is the circle's, so the capacity agrees with
+    :func:`estimate_positions` and ``area_m2`` of the same bed.
+    """
     insets = margin_x > 0.0 or margin_y > 0.0
     if isinstance(shape, CircleShape):
         cx, cy = shape.center
         steps = _CIRCLE_ZONE_VERTICES
         angles = [2.0 * math.pi * i / steps for i in range(steps)]
         outline = tuple((cx + shape.radius_m * math.cos(a), cy + shape.radius_m * math.sin(a)) for a in angles)
-        return (outline, not insets)
+        return (outline, math.pi * shape.radius_m**2, not insets)
     x_min, y_min, x_max, y_max = _bbox(shape)
     if _is_axis_aligned_rect(shape.vertices, (x_min, y_min, x_max, y_max)):
         lo_x, hi_x = x_min + margin_x, x_max - margin_x
         lo_y, hi_y = y_min + margin_y, y_max - margin_y
         if hi_x <= lo_x or hi_y <= lo_y:
-            return ((), True)
-        return (((lo_x, lo_y), (hi_x, lo_y), (hi_x, hi_y), (lo_x, hi_y)), True)
-    return (shape.vertices, not insets)
+            return ((), 0.0, True)
+        return (((lo_x, lo_y), (hi_x, lo_y), (hi_x, hi_y), (lo_x, hi_y)), (hi_x - lo_x) * (hi_y - lo_y), True)
+    return (shape.vertices, shoelace_area(shape.vertices), not insets)
 
 
 def _is_axis_aligned_rect(vertices: tuple[Point2D, ...], box: tuple[float, float, float, float]) -> bool:
@@ -429,17 +442,6 @@ def _is_axis_aligned_rect(vertices: tuple[Point2D, ...], box: tuple[float, float
     x_min, y_min, x_max, y_max = box
     corners = {(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)}
     return len(vertices) == 4 and set(vertices) == corners
-
-
-def area_of_vertices(vertices: tuple[Point2D, ...]) -> float:
-    """Unsigned shoelace area of a closed outline (kept local so the rect test needs no rounding)."""
-    count = len(vertices)
-    total = 0.0
-    for i in range(count):
-        x1, y1 = vertices[i]
-        x2, y2 = vertices[(i + 1) % count]
-        total += x1 * y2 - x2 * y1
-    return abs(total) / 2.0
 
 
 def _zone_layout(
@@ -455,11 +457,10 @@ def _zone_layout(
     rows_along_x = (entry.row_direction is RowDirection.ALONG_LENGTH) == longer_is_x
     margin_x, margin_y = (margin_along, margin_across) if rows_along_x else (margin_across, margin_along)
 
-    outline, applied = _zone_outline(shape, margin_x, margin_y)
+    outline, zone_area, applied = _zone_outline(shape, margin_x, margin_y)
     if not applied:
         warnings = [*warnings, LayoutWarning(WARNING_ZONE_INSET_NOT_APPLIED)]
     cell = (entry.spacing_cm / 100.0) * row_spacing
-    zone_area = area_of_vertices(outline) if len(outline) >= 3 else 0.0
     capacity_max = math.floor(zone_area / cell + _COUNT_EPSILON) if cell > 0.0 else 0
     if capacity_max == 0:
         return LayoutResult(

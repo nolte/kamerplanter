@@ -235,6 +235,41 @@ class TestTheUpperBound:
         assert time.perf_counter() - started < 0.05
 
 
+class TestRowAssignmentIsBoundedByTheRealCount:
+    def test_an_entry_taking_one_row_is_not_refused_by_the_whole_area_estimate(self) -> None:
+        bed = rect(8.0, 1.0)
+        everything = EntryLayout(
+            LayoutStrategy.ROWS, spacing_cm=5, row_spacing_cm=5, edge_margin_along_cm=0, edge_margin_across_cm=0
+        )
+        with pytest.raises(PlanError):
+            compute_layout(bed, everything)
+        one_row = EntryLayout(
+            LayoutStrategy.ROWS,
+            spacing_cm=5,
+            row_spacing_cm=5,
+            edge_margin_along_cm=0,
+            edge_margin_across_cm=0,
+            row_assignment=(0,),
+        )
+        assert compute_layout(bed, one_row).count == 161
+
+    def test_a_huge_bed_is_still_refused_with_a_row_assignment(self) -> None:
+        field = parse_geometry({"kind": "rect", "origin": [0, 0], "width_m": 1000, "length_m": 1000})
+        started = time.perf_counter()
+        with pytest.raises(PlanError) as raised:
+            compute_layout(field, EntryLayout(LayoutStrategy.GRID, spacing_cm=5, row_assignment=(0,)))
+        assert code(raised) == "layout.too_many_positions"
+        assert time.perf_counter() - started < 0.05
+
+
+class TestZoneCapacity:
+    def test_a_circular_zone_agrees_with_the_free_estimate_of_the_same_bed(self) -> None:
+        bed = parse_geometry({"kind": "circle", "origin": [5.0, 5.0], "radius_m": 2.0})
+        zone = compute_layout(bed, EntryLayout(LayoutStrategy.ZONE, spacing_cm=7))
+        free = compute_layout(bed, EntryLayout(LayoutStrategy.FREE, spacing_cm=7))
+        assert zone.capacity_max == free.capacity_max
+
+
 class TestRefusals:
     @pytest.mark.parametrize("spacing", [0, 4.99, 1500.01, -3])
     def test_a_spacing_outside_5_to_1500_cm_is_refused(self, spacing: float) -> None:
@@ -306,10 +341,26 @@ class TestPlantingRunEntryLayoutFields:
         assert entry.layout_strategy is LayoutStrategy.ROWS
         assert entry.placement_hint is PlacementHint.INTERIOR
 
-    def test_spacing_reaches_1500_cm_for_woody_plants(self) -> None:
-        assert PlantingRunEntry(**self.base, spacing_cm=1500).spacing_cm == 1500
-        with pytest.raises(ValidationError):
-            PlantingRunEntry(**self.base, spacing_cm=1501)
+    def test_a_stored_spacing_above_1500_cm_still_loads(self) -> None:
+        """The 1 500 cm bound is the API's (``EntryCreate``); a row stored before it must keep loading."""
+        assert PlantingRunEntry(**self.base, spacing_cm=2000).spacing_cm == 2000
+
+    def test_the_api_allows_1500_cm_for_woody_plants_and_refuses_more(self) -> None:
+        from app.api.v1.planting_runs.schemas import EntryCreate, EntryUpdate
+
+        assert EntryCreate(**self.base, spacing_cm=1500).spacing_cm == 1500
+        for schema in (EntryCreate, EntryUpdate):
+            with pytest.raises(ValidationError):
+                schema(**self.base, spacing_cm=1501)
+
+    @pytest.mark.parametrize("assignment", [[-1], [0, 0]])
+    def test_the_api_refuses_a_bad_row_assignment_instead_of_failing_later(self, assignment: list[int]) -> None:
+        """Validated at the request, not only in the domain model: a model error after parsing is a 500."""
+        from app.api.v1.planting_runs.schemas import EntryCreate, EntryUpdate
+
+        for schema in (EntryCreate, EntryUpdate):
+            with pytest.raises(ValidationError):
+                schema(**self.base, row_assignment=assignment)
 
     @pytest.mark.parametrize(
         "field",

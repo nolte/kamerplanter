@@ -15,6 +15,7 @@
 import {
   areaM2,
   roundLength,
+  shoelaceArea,
   signedDistanceToPolygon,
   toLocalShape,
   type Shape,
@@ -341,7 +342,9 @@ export function computeLayout(
     return { slots: [], count: 0, capacity_max: estimated, warnings };
   }
   if (entry.layout_strategy === 'zone') return zoneLayout(shape, entry, maxCount, warnings);
-  if (estimated > MAX_LAYOUT_POSITIONS) throw tooMany(estimated);
+  // An entry that takes only some rows (GP-FR-070) holds a fraction of the area estimate, so it is
+  // bounded by the candidate walk and the count of the real result instead.
+  if (estimated > MAX_LAYOUT_POSITIONS && !entry.row_assignment) throw tooMany(estimated);
   return pointLayout(shape, entry, maxCount, warnings);
 }
 
@@ -428,19 +431,8 @@ function isAxisAlignedRect(vertices: Point[], box: Box): boolean {
   return vertices.length === 4 && own.size === 4 && [...own].every((corner) => corners.has(corner));
 }
 
-function areaOfVertices(vertices: readonly Point[]): number {
-  const count = vertices.length;
-  let total = 0;
-  for (let i = 0; i < count; i += 1) {
-    const [x1, y1] = vertices[i];
-    const [x2, y2] = vertices[(i + 1) % count];
-    total += x1 * y2 - x2 * y1;
-  }
-  return Math.abs(total) / 2;
-}
-
 /** The outline of a zone slot and whether the requested margins were applied to it. */
-function zoneOutline(shape: Shape, marginX: number, marginY: number): [Point[], boolean] {
+function zoneOutline(shape: Shape, marginX: number, marginY: number): [Point[], number, boolean] {
   const insets = marginX > 0 || marginY > 0;
   if (shape.kind === 'circle') {
     const [cx, cy] = shape.center;
@@ -449,7 +441,7 @@ function zoneOutline(shape: Shape, marginX: number, marginY: number): [Point[], 
       const angle = (2 * Math.PI * i) / CIRCLE_ZONE_VERTICES;
       outline.push([cx + shape.radiusM * Math.cos(angle), cy + shape.radiusM * Math.sin(angle)]);
     }
-    return [outline, !insets];
+    return [outline, Math.PI * shape.radiusM ** 2, !insets];
   }
   const vertexShape: VertexShape = shape;
   const box = shapeBox(shape);
@@ -459,7 +451,7 @@ function zoneOutline(shape: Shape, marginX: number, marginY: number): [Point[], 
     const hiX = xMax - marginX;
     const loY = yMin + marginY;
     const hiY = yMax - marginY;
-    if (hiX <= loX || hiY <= loY) return [[], true];
+    if (hiX <= loX || hiY <= loY) return [[], 0, true];
     return [
       [
         [loX, loY],
@@ -467,10 +459,11 @@ function zoneOutline(shape: Shape, marginX: number, marginY: number): [Point[], 
         [hiX, hiY],
         [loX, hiY],
       ],
+      (hiX - loX) * (hiY - loY),
       true,
     ];
   }
-  return [vertexShape.vertices, !insets];
+  return [vertexShape.vertices, shoelaceArea(vertexShape.vertices), !insets];
 }
 
 function zoneLayout(
@@ -484,11 +477,10 @@ function zoneLayout(
   const { rowsAlongX } = axesOf(shape, entry);
   const [marginX, marginY] = rowsAlongX ? [marginAlong, marginAcross] : [marginAcross, marginAlong];
 
-  const [outline, applied] = zoneOutline(shape, marginX, marginY);
+  const [outline, zoneArea, applied] = zoneOutline(shape, marginX, marginY);
   const resultWarnings = [...warnings];
   if (!applied) resultWarnings.push({ code: WARNING_ZONE_INSET_NOT_APPLIED, detail: {} });
   const cell = (entry.spacing_cm / 100) * rowSpacing;
-  const zoneArea = outline.length >= 3 ? areaOfVertices(outline) : 0;
   const capacityMax = cell > 0 ? Math.floor(zoneArea / cell + COUNT_EPSILON) : 0;
   if (capacityMax === 0) {
     resultWarnings.push({ code: WARNING_NO_POSITION_FITS, detail: {} });

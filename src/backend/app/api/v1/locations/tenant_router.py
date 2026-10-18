@@ -15,8 +15,6 @@ from app.api.v1.locations.schemas import (
     LocationStatusRequest,
     PlantingLayoutPreviewRequest,
     PlantingLayoutPreviewResponse,
-    PlantingLayoutSlotResponse,
-    PlantingLayoutWarningResponse,
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
@@ -31,7 +29,6 @@ from app.common.openapi_responses import (
 )
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
-from app.domain.calculators.planting_layout_calculator import EntryLayout
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
@@ -276,40 +273,10 @@ def preview_planting_layout(
     ``spacing_cm`` (V-07), nothing fits, a zone margin that could not be applied. The server answer is
     authoritative over the client-side preview (GP-FR-063).
     """
-    entry = body.entry
-    layout = EntryLayout(
-        layout_strategy=entry.layout_strategy,
-        spacing_cm=entry.spacing_cm,
-        row_spacing_cm=entry.row_spacing_cm,
-        row_direction=entry.row_direction,
-        edge_margin_along_cm=entry.edge_margin_along_cm,
-        edge_margin_across_cm=entry.edge_margin_across_cm,
-        row_assignment=None if entry.row_assignment is None else tuple(entry.row_assignment),
-        mature_width_cm=entry.mature_width_cm,
+    result = service.preview_planting_layout(
+        key, tenant_key=ctx.tenant_key, entry=body.entry.to_layout(), max_count=body.entry.max_count
     )
-    result = service.preview_planting_layout(key, tenant_key=ctx.tenant_key, entry=layout, max_count=entry.max_count)
-    slots = [
-        PlantingLayoutSlotResponse.model_validate(
-            {
-                "slot_role": slot.slot_role,
-                "geometry": (
-                    {"kind": "point", "origin": list(slot.point)}
-                    if slot.point is not None
-                    else {"kind": "polygon", "points": [list(p) for p in slot.outline or ()]}
-                ),
-                "row_index": slot.row_index,
-                "sequence": slot.sequence,
-                "capacity_plants": slot.capacity_plants,
-            }
-        )
-        for slot in result.slots
-    ]
-    return PlantingLayoutPreviewResponse(
-        slots=slots,
-        count=result.count,
-        capacity_max=result.capacity_max,
-        warnings=[PlantingLayoutWarningResponse(code=w.code, detail=w.detail) for w in result.warnings],
-    )
+    return PlantingLayoutPreviewResponse.from_result(result)
 
 
 # ── Sensors ──────────────────────────────────────────────────────────
