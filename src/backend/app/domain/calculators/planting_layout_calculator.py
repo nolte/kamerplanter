@@ -65,11 +65,12 @@ from app.domain.calculators.geometry_calculator import (
     to_local_shape,
 )
 from app.domain.calculators.slot_capacity_calculator import TRIANGULAR_ROW_FACTOR
+from app.domain.models.garden_plan import MAX_SLOTS_PER_BATCH
 from app.domain.models.geometry import Geometry, Point2D, round_length
 from app.domain.models.planting_run import MAX_SPACING_CM, MIN_SPACING_CM
 
-#: GP-FR-062 / V-22: positions one layout (and one slot batch) may carry.
-MAX_LAYOUT_POSITIONS = 2_000
+#: GP-FR-062 / V-22: positions one layout (and one slot batch) may carry - one number for both.
+MAX_LAYOUT_POSITIONS = MAX_SLOTS_PER_BATCH
 #: Candidates the grid walk may visit (5x the position cap); a guard for slivers whose bounding box dwarfs their area.
 MAX_LAYOUT_CANDIDATES = 10_000
 #: GP-FR-062: ``spacing < mature_width x 0.7`` is worth a warning.
