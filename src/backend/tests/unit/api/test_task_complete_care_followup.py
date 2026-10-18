@@ -19,6 +19,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from starlette.requests import Request
 
 from app.api.v1.tasks.schemas import TaskCompleteRequest
 from app.api.v1.tasks.tenant_router import complete_task
@@ -53,6 +54,11 @@ def _completed_watering_task() -> Task:
         due_date=datetime.now(UTC) - timedelta(days=1),
         completed_at=datetime.now(UTC),
     )
+
+
+def _request() -> Request:
+    """The limiter wraps the handler and wants a real request; a bare scope is enough to be counted."""
+    return Request({"type": "http", "method": "POST", "path": "/", "headers": [], "query_string": b""})
 
 
 class _TaskServiceStub:
@@ -108,6 +114,7 @@ def test_completing_a_watering_task_schedules_the_next_occurrence(monkeypatch, c
     completed = task_store.store[0]
 
     response = complete_task(
+        _request(),
         TASK_KEY,
         TaskCompleteRequest(),
         ctx=_ctx(),

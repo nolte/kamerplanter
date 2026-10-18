@@ -40,6 +40,9 @@ _DOCUMENTS = (
     col.HARVEST_BATCHES,
     col.FERTILIZERS,
     col.LOCATIONS,
+    col.QUALITY_ASSESSMENTS,
+    col.YIELD_METRICS,
+    col.POST_HARVEST_BATCHES,
 )
 _EDGES = (
     col.CARE_EVENT_AT,
@@ -325,6 +328,105 @@ class TestUndo:
 
         assert db.collection(col.TASKS).get("t1")["status"] == "completed"
         assert db.collection(col.CARE_EVENTS).get(foreign_event).get("voided_at") is None
+
+
+class TestWithdrawal:
+    """The undo is the inverse of the completion: the specialist document goes with the care line (GP-FR-149)."""
+
+    @staticmethod
+    def completed(repo, domain: DomainDocument, task_key: str = "t1") -> tuple[str, dict[str, str]]:
+        (done,) = repo.complete([completion(task_key, domain=domain)], tenant_key=A)
+        return done.event_key or "", done.domain_ref or {}
+
+    @staticmethod
+    def undo(event_key: str, task_key: str = "t1") -> UndoWrite:
+        return TestUndo().write(event_key, task_key)
+
+    def test_the_undo_removes_the_watering_event_and_its_edges(self, db, repo) -> None:
+        event_key, ref = self.completed(repo, watering_document())
+        assert count(db, col.WATERED_PLANT) == 2
+
+        repo.reopen(self.undo(event_key), tenant_key=A)
+
+        assert db.collection(col.WATERING_EVENTS).get(ref["key"]) is None
+        assert count(db, col.WATERED_PLANT) == 0
+        assert db.collection(col.CARE_EVENTS).get(event_key)["void_reason"] == "undo"  # the voided line stays
+        assert db.collection(col.TASKS).get("t1")["status"] == "pending"
+
+    def test_the_undo_removes_a_feeding_event_with_both_kinds_of_edge(self, db, repo) -> None:
+        feeding = DomainDocument(
+            collection=col.FEEDING_EVENTS,
+            document={"tenant_key": A, "plant_key": "pi_1", "volume_applied_liters": 5.0},
+            edges_out=((col.FEEDING_USED, "fertilizers/fert_x", {"ml_applied": 5000.0}),),
+            edges_in=((col.FED_BY, "plant_instances/pi_1", {}),),
+        )
+        event_key, ref = self.completed(repo, feeding)
+
+        repo.reopen(self.undo(event_key), tenant_key=A)
+
+        assert db.collection(col.FEEDING_EVENTS).get(ref["key"]) is None
+        assert count(db, col.FEEDING_USED) == 0 and count(db, col.FED_BY) == 0
+
+    def harvest(self) -> DomainDocument:
+        return DomainDocument(
+            collection=col.HARVEST_BATCHES,
+            document={"tenant_key": A, "plant_key": "pi_1", "batch_id": "HARVEST-1"},
+            edges_in=((col.HARVESTED_AS, "plant_instances/pi_1", {}),),
+        )
+
+    def test_the_undo_removes_a_bare_harvest_batch(self, db, repo) -> None:
+        event_key, ref = self.completed(repo, self.harvest())
+
+        repo.reopen(self.undo(event_key), tenant_key=A)
+
+        assert db.collection(col.HARVEST_BATCHES).get(ref["key"]) is None
+        assert count(db, col.HARVESTED_AS) == 0
+
+    def test_a_harvest_batch_with_follow_up_records_blocks_the_undo_and_nothing_changes(self, db, repo) -> None:
+        event_key, ref = self.completed(repo, self.harvest())
+        db.collection(col.QUALITY_ASSESSMENTS).insert({"batch_key": ref["key"]})
+
+        with pytest.raises(PlanError) as exc:
+            repo.reopen(self.undo(event_key), tenant_key=A)
+
+        assert exc.value.details[0]["code"] == "task.undo_blocked"
+        assert db.collection(col.HARVEST_BATCHES).get(ref["key"]) is not None
+        assert db.collection(col.TASKS).get("t1")["status"] == "completed"
+        assert db.collection(col.CARE_EVENTS).get(event_key).get("voided_at") is None
+
+    def test_a_document_of_another_tenant_is_never_removed(self, db, repo) -> None:
+        event_key, ref = self.completed(repo, watering_document())
+        db.collection(col.WATERING_EVENTS).update({"_key": ref["key"], "tenant_key": B})  # the pointer lies
+
+        repo.reopen(self.undo(event_key), tenant_key=A)
+
+        assert db.collection(col.WATERING_EVENTS).get(ref["key"]) is not None
+        assert db.collection(col.TASKS).get("t1")["status"] == "pending"
+
+    def test_completing_again_after_a_plain_reopen_replaces_the_earlier_line_and_document(self, db, repo) -> None:
+        first_event, first_ref = self.completed(repo, watering_document())
+        db.collection(col.TASKS).update({"_key": "t1", "status": "pending"})  # a plain reopen: the line stays
+
+        second_event, second_ref = self.completed(repo, watering_document(volume_liters=7.0))
+
+        first = db.collection(col.CARE_EVENTS).get(first_event)
+        assert (first["void_reason"], first["voided_by"]) == ("reopened", USER)
+        assert db.collection(col.WATERING_EVENTS).get(first_ref["key"]) is None
+        assert db.collection(col.WATERING_EVENTS).get(second_ref["key"])["volume_liters"] == 7.0
+        assert db.collection(col.CARE_EVENTS).get(second_event).get("voided_at") is None
+        assert count(db, col.WATERED_PLANT) == 2  # only the second document's edges are left
+        assert repo.task_event("t1", tenant_key=A).key == second_event  # one open line per task
+
+    def test_a_harvest_batch_with_follow_up_records_survives_a_re_completion(self, db, repo) -> None:
+        first_event, first_ref = self.completed(repo, self.harvest())
+        db.collection(col.YIELD_METRICS).insert({"batch_key": first_ref["key"]})
+        db.collection(col.TASKS).update({"_key": "t1", "status": "pending"})
+
+        second_event, _ = self.completed(repo, watering_document())
+
+        assert db.collection(col.HARVEST_BATCHES).get(first_ref["key"]) is not None
+        assert db.collection(col.CARE_EVENTS).get(first_event)["void_reason"] == "reopened"
+        assert db.collection(col.CARE_EVENTS).get(second_event).get("voided_at") is None
 
 
 class TestReads:

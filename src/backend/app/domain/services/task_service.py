@@ -7,13 +7,13 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, WorkflowTargetType
-from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, ValidationError
+from app.common.exceptions import ForbiddenError, KarenzViolationError, NotFoundError, PlanError, ValidationError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.recurrence_engine import RecurrenceEngine
-from app.domain.engines.task_completion_engine import TaskCompletionEngine
+from app.domain.engines.task_completion_engine import HARVEST_BATCHES, TaskCompletionEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
@@ -1594,7 +1594,7 @@ class TaskService:
         )
         plants = self._event_plants(event, tenant_key=tenant_key) if wants_plants else []
         domain = self._completion_engine.domain_document(task, event, plant_keys=plants)
-        if domain is None or domain.collection != "harvest_batches":
+        if domain is None or domain.collection != HARVEST_BATCHES:
             return domain
         if self._harvests is None:
             return None  # no harvest service wired: no batch is written rather than one that skipped the Karenz gate
@@ -1917,6 +1917,11 @@ class TaskService:
         completed in ONE transaction, one care event each. A task that cannot be completed (wrong status, missing
         photo) is reported in ``failed`` and left out. The other actions keep their per-key result.
         """
+        if action != "complete" and details is not None and (details.carries_care_fields or details.performed_at):
+            raise ValidationError(
+                "Care fields belong to action 'complete'.",
+                details=[{"field": "action", "message": "performed_at and care fields apply to 'complete' only"}],
+            )
         if action == "complete":
             return self._batch_complete(
                 task_keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor
@@ -1980,13 +1985,23 @@ class TaskService:
                     )
                 )
                 ready.append(task)
-            except ValidationError as e:
+            except (ValidationError, KarenzViolationError) as e:
+                # Not completable (status, missing photo) or a harvest inside its safety interval: this task is
+                # reported and left out. A refused reference of the care fields (a plant outside the bed) is the
+                # request's error and fails the whole batch with its own code.
                 failed.append({"key": task.key or "", "error": str(e)})
         if not ready:
             return [], failed
         stored = self._commit_completions(prepared, ready, tenant_key=tenant_key)
         for completed, as_stored in zip(stored, ready, strict=True):
-            self._after_completion(completed, as_stored)
+            # The batch is committed: one task's follow-up (next occurrence, notification) failing must not turn the
+            # answer into a 500 for tasks that are completed, nor starve the follow-up of the rest.
+            try:
+                self._after_completion(completed, as_stored)
+            except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
+                logger.warning(
+                    "task_completion.follow_up_failed", task_key=completed.key, error_type=type(exc).__name__
+                )
         return [task.key or "" for task in stored], failed
 
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:

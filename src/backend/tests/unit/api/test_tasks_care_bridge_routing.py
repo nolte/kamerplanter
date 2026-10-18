@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from starlette.requests import Request
 
 from app.api.v1.tasks.schemas import TaskCompleteRequest
 from app.api.v1.tasks.tenant_router import complete_task, skip_task
@@ -49,6 +50,11 @@ def _care_task(status: TaskStatus) -> Task:
         status=status,
         due_date=datetime.now(UTC),
     )
+
+
+def _request() -> Request:
+    """The limiter wraps the handler and wants a real request; a bare scope is enough to be counted."""
+    return Request({"type": "http", "method": "POST", "path": "/", "headers": [], "query_string": b""})
 
 
 class _TaskServiceStub:
@@ -124,7 +130,7 @@ def test_complete_delegates_to_the_service_with_the_request_tenant(care_stub: _C
     task = _care_task(TaskStatus.COMPLETED)
     service = _TaskServiceStub(task)
 
-    complete_task("task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
+    complete_task(_request(), "task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
 
     assert [(t.key, tenant) for t, tenant in care_stub.completions] == [("task-1", TENANT)]
 
@@ -136,7 +142,7 @@ def test_plain_task_never_builds_a_care_service(care_stub: _CareServiceStub) -> 
     service = _TaskServiceStub(task)
 
     skip_task("task-1", ctx=_ctx(), service=service)  # type: ignore[arg-type]
-    complete_task("task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
+    complete_task(_request(), "task-1", TaskCompleteRequest(), ctx=_ctx(), service=service)  # type: ignore[arg-type]
 
     assert care_stub.skips == []
     assert care_stub.completions == []

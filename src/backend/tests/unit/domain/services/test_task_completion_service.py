@@ -441,6 +441,55 @@ class TestBatch:
         ids = [w.domain.document["batch_id"] for w in completion.completed]
         assert len(set(ids)) == 2
 
+    def test_a_harvest_inside_its_karenz_is_reported_and_the_rest_completes(self, world):
+        service, tasks, completion, _, harvests = world
+        harvests.refuse = True
+
+        succeeded, failed = service.batch_status_change(
+            ["t1", "t_harvest"],
+            "complete",
+            tenant_key=TENANT,
+            details=TaskCompletionDetails(quantity=1, unit="kg", plant_keys=["pi_here"]),
+            actor=GROWER,
+        )
+
+        assert succeeded == ["t1"]
+        assert [item["key"] for item in failed] == ["t_harvest"]
+        assert tasks.store["t_harvest"].status == TaskStatus.PENDING
+
+    def test_care_fields_belong_to_complete_only(self, world):
+        service, _, completion, *_ = world
+
+        with pytest.raises(ValidationError):
+            service.batch_status_change(
+                ["t1"], "skip", tenant_key=TENANT, details=TaskCompletionDetails(plant_keys=["pi_here"]), actor=GROWER
+            )
+        with pytest.raises(ValidationError):
+            service.batch_status_change(
+                ["t1"],
+                "start",
+                tenant_key=TENANT,
+                details=TaskCompletionDetails(performed_at=datetime.now(UTC)),
+                actor=GROWER,
+            )
+
+        assert completion.calls == 0
+
+    def test_a_follow_up_that_fails_after_the_commit_does_not_turn_the_batch_into_an_error(self, world):
+        # The transaction is committed; the next-occurrence spawn of task 1 raising must not hide that both are done.
+        service, tasks, completion, *_ = world
+        tasks.store["t1"] = tasks.store["t1"].model_copy(update={"recurrence_rule": "FREQ=DAILY"})
+
+        def boom(_task):
+            raise RuntimeError("spawn failed")
+
+        service._create_next_recurring_task = boom  # noqa: SLF001 — the follow-up under test
+
+        succeeded, failed = service.batch_status_change(["t1", "t2"], "complete", tenant_key=TENANT, actor=GROWER)
+
+        assert succeeded == ["t1", "t2"] and failed == []
+        assert len(completion.completed) == 2
+
     def test_a_duplicated_key_completes_once(self, world):
         service, _, completion, *_ = world
 

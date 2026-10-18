@@ -41,7 +41,41 @@ _DOMAIN_WRITE: tuple[str, ...] = (
 )
 
 _COMPLETION_WRITE: tuple[str, ...] = (col.TASKS, *CARE_EVENT_WRITE_COLLECTIONS, *_DOMAIN_WRITE)
-_UNDO_WRITE: tuple[str, ...] = (col.TASKS, col.CARE_EVENTS)
+_UNDO_WRITE: tuple[str, ...] = (col.TASKS, col.CARE_EVENTS, *_DOMAIN_WRITE)
+
+#: The documents a completion writes, with the edges that hang off them: ``(edge collection, direction)`` where
+#: ``out`` means the document is the edge's ``_from``. What the withdrawal of a completion removes with the document.
+_WITHDRAWABLE: dict[str, tuple[tuple[str, str], ...]] = {
+    col.WATERING_EVENTS: ((col.WATERED_PLANT, "out"),),
+    col.FEEDING_EVENTS: ((col.FEEDING_USED, "out"), (col.FED_BY, "in")),
+    col.HARVEST_BATCHES: ((col.HARVESTED_AS, "in"),),
+}
+
+#: Records that hang off a harvest batch; a batch that has one is no longer the bare result of the completion.
+_HARVEST_DEPENDENTS: tuple[tuple[str, str], ...] = (
+    (col.QUALITY_ASSESSMENTS, "batch_key"),
+    (col.YIELD_METRICS, "batch_key"),
+    (col.POST_HARVEST_BATCHES, "harvest_batch_key"),
+)
+_UNDO_READ: tuple[str, ...] = tuple(collection for collection, _ in _HARVEST_DEPENDENTS)
+
+#: ``void_reason`` of a line a re-completion replaces (the task was reopened without an undo).
+REOPENED_REASON = "reopened"
+
+_OWNED_DOCUMENT_ID = (
+    'LET d = DOCUMENT(CONCAT(@collection, "/", @key)) FILTER d != null AND d.tenant_key == @tenant_key RETURN d._id'
+)
+_REMOVE_EDGES_FROM = "FOR e IN @@edge FILTER e._from == @id REMOVE e IN @@edge"
+_REMOVE_EDGES_TO = "FOR e IN @@edge FILTER e._to == @id REMOVE e IN @@edge"
+_DEPENDENT_BY_BATCH_KEY = "FOR d IN @@collection FILTER d.batch_key == @key LIMIT 1 RETURN 1"
+_DEPENDENT_BY_HARVEST_BATCH_KEY = "FOR d IN @@collection FILTER d.harvest_batch_key == @key LIMIT 1 RETURN 1"
+
+_OPEN_EVENTS_OF_TASK = """
+FOR e IN @@events
+    FILTER e.task_key == @task_key AND e.tenant_key == @tenant_key
+        AND e.voided_at == null AND e.superseded_by_key == null
+    RETURN e
+"""
 
 _TASK_STATUS = """
 FOR t IN @@tasks
@@ -146,13 +180,26 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
     def complete(self, writes: Sequence[CompletionWrite], *, tenant_key: str) -> list[CompletedTask]:
         self._require_tenant(tenant_key, "complete")
         completed: list[CompletedTask] = []
-        with stream_transaction(self._db, write=_COMPLETION_WRITE, entity="task_completion") as txn:
+        with stream_transaction(self._db, write=_COMPLETION_WRITE, read=_UNDO_READ, entity="task_completion") as txn:
             now = _now()
             for write in writes:
                 txn.check_budget()
                 status = self._stored_status(txn, write.task_key, tenant_key)
                 if status not in _COMPLETABLE:
                     raise ValidationError(f"Cannot complete task in status '{status}'.")
+                if write.event is not None:
+                    # The task was reopened without an undo and is completed again: the earlier line (and its
+                    # specialist document) described a completion that no longer holds; replace it, do not add to it.
+                    for earlier in self._open_events(txn, write.task_key, tenant_key):
+                        self._withdraw(
+                            txn,
+                            earlier,
+                            tenant_key=tenant_key,
+                            voided_by=write.event.performed_by_user_key or "",
+                            reason=REOPENED_REASON,
+                            at=now,
+                            strict=False,
+                        )
                 reference: dict[str, str] | None = None
                 if write.domain is not None:
                     reference = self._insert_domain(txn, write.domain, now)
@@ -174,14 +221,23 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
 
     def reopen(self, write: UndoWrite, *, tenant_key: str) -> None:
         self._require_tenant(tenant_key, "reopen")
-        with stream_transaction(self._db, write=_UNDO_WRITE, entity="task_completion") as txn:
+        with stream_transaction(self._db, write=_UNDO_WRITE, read=_UNDO_READ, entity="task_completion") as txn:
             status = self._stored_status(txn, write.task_key, tenant_key)
             if status not in write.expected_statuses:
                 raise ValidationError(
                     f"Cannot reopen task in status '{status}'. Only completed or skipped tasks can be reopened.",
                 )
             if write.event_key:
-                self._void_in(txn, write, tenant_key)
+                current = self._event_in(txn, write, tenant_key)
+                self._withdraw(
+                    txn,
+                    current,
+                    tenant_key=tenant_key,
+                    voided_by=write.voided_by,
+                    reason=write.void_reason,
+                    at=write.voided_at.astimezone(UTC).isoformat(),
+                    strict=True,
+                )
             # ``keep_none=False``: the reset fields (``completed_at`` …) are removed, as the plain reopen does.
             txn.collection(col.TASKS).update(
                 {"_key": write.task_key, **write.task_patch, "updated_at": _now()}, keep_none=False
@@ -189,7 +245,15 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
         logger.info("task_completion.reopened", undo=bool(write.event_key))
 
     @staticmethod
-    def _void_in(txn: StreamTransaction, write: UndoWrite, tenant_key: str) -> None:
+    def _open_events(txn: StreamTransaction, task_key: str, tenant_key: str) -> list[dict[str, Any]]:
+        cursor = txn.aql.execute(
+            _OPEN_EVENTS_OF_TASK,
+            bind_vars={"@events": col.CARE_EVENTS, "task_key": task_key, "tenant_key": tenant_key},
+        )
+        return [cast("dict[str, Any]", doc) for doc in cursor]
+
+    @staticmethod
+    def _event_in(txn: StreamTransaction, write: UndoWrite, tenant_key: str) -> dict[str, Any]:
         current = next(
             iter(
                 txn.aql.execute(
@@ -218,11 +282,79 @@ class ArangoTaskCompletionRepository(ITaskCompletionRepository):
                 status_code=422,
                 field="supersedes_key",
             )
+        return closed
+
+    @classmethod
+    def _withdraw(
+        cls,
+        txn: StreamTransaction,
+        event: dict[str, Any],
+        *,
+        tenant_key: str,
+        voided_by: str,
+        reason: str,
+        at: str,
+        strict: bool,
+    ) -> None:
+        """Void the care line and remove the specialist document the completion wrote with it, in this transaction.
+
+        The undo is the inverse of the completion: a watering or feeding row, or a harvest batch, that stayed behind
+        would keep counting a deed the author took back. A harvest batch that has collected follow-up records
+        (assessment, yield, post-harvest) is no longer the bare result of the completion: ``strict`` refuses the
+        undo then (409 ``task.undo_blocked``), the non-strict replacement of a re-completion keeps the batch.
+        """
+        reference = event.get("source_ref") or {}
+        collection, doc_key = reference.get("collection"), reference.get("key")
+        withdraw_document = collection in _WITHDRAWABLE and bool(doc_key)
+        if withdraw_document and collection == col.HARVEST_BATCHES and cls._has_dependents(txn, str(doc_key)):
+            if strict:
+                raise PlanError(
+                    "task.undo_blocked",
+                    "The harvest batch of this completion has follow-up records; remove them before taking it back.",
+                    status_code=409,
+                    field="task",
+                )
+            withdraw_document = False
         txn.collection(col.CARE_EVENTS).update(
             {
-                "_key": write.event_key,
-                "voided_at": write.voided_at.astimezone(UTC).isoformat(),
-                "voided_by": write.voided_by,
-                "void_reason": write.void_reason,
+                "_key": event["_key"],
+                "voided_at": at,
+                "voided_by": voided_by,
+                "void_reason": reason,
             }
         )
+        if not withdraw_document:
+            return
+        document = cast(
+            "dict[str, Any] | None",
+            next(
+                iter(
+                    txn.aql.execute(
+                        _OWNED_DOCUMENT_ID,
+                        bind_vars={"collection": collection, "key": doc_key, "tenant_key": tenant_key},
+                    )
+                ),
+                None,
+            ),
+        )
+        if document is None:
+            return
+        document_id = f"{collection}/{doc_key}"
+        for edge, direction in _WITHDRAWABLE[str(collection)]:
+            if direction == "out":
+                txn.aql.execute(_REMOVE_EDGES_FROM, bind_vars={"@edge": edge, "id": document_id})
+            else:
+                txn.aql.execute(_REMOVE_EDGES_TO, bind_vars={"@edge": edge, "id": document_id})
+        txn.collection(str(collection)).delete(str(doc_key))
+
+    @staticmethod
+    def _has_dependents(txn: StreamTransaction, batch_key: str) -> bool:
+        for collection, field in _HARVEST_DEPENDENTS:
+            bind = {"@collection": collection, "key": batch_key}
+            if field == "batch_key":
+                found = next(iter(txn.aql.execute(_DEPENDENT_BY_BATCH_KEY, bind_vars=bind)), None)
+            else:
+                found = next(iter(txn.aql.execute(_DEPENDENT_BY_HARVEST_BATCH_KEY, bind_vars=bind)), None)
+            if found is not None:
+                return True
+        return False

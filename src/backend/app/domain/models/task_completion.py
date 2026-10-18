@@ -89,6 +89,10 @@ class TaskCompletionDetails(BaseModel):
             raise ValueError("plant_keys must not repeat a key.")
         return self
 
+    def details(self) -> TaskCompletionDetails:
+        """The care fields alone: a request body that extends this model hands the service this plain value."""
+        return TaskCompletionDetails.model_validate(self.model_dump(include=set(TaskCompletionDetails.model_fields)))
+
     @property
     def carries_care_fields(self) -> bool:
         """Whether the client said anything beyond the instant (such a body needs a bed to log into)."""

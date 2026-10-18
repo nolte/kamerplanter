@@ -173,7 +173,16 @@ class TaskCompletionEngine:
         )
 
     def _feeding(self, task: Task, event: CareEvent, plant_keys: list[str], stamp: str) -> DomainDocument:
-        litres = _liters(event)
+        # What a dose means (the GP-FR-100 reading: ``quantity`` is the amount of the *product*):
+        #   * ``l`` / ``l_per_m2`` of a feeding — the applied liquid (the nettle tea of GP-ACC-024): its litres are
+        #     the applied volume and the product's ``ml_applied`` at once;
+        #   * ``ml`` of a feeding — the amount of concentrate; the water it was diluted in is unknown, so no volume;
+        #   * everything dry (``g`` / ``kg`` / ``g_per_m2``) and every soil amendment (compost "2 l" is a bulk
+        #     volume, not a drench) — no volume, a top dress with the dose in the dose fields.
+        is_feeding = event.category == TaskCategory.FEEDING.value
+        product_litres = _liters(event) if is_feeding else None
+        litres = product_litres if event.unit in ("l", "l_per_m2") else None
+        product_ml = product_litres * 1000 if product_litres is not None else None
         product_key = str(event.product_ref["key"]) if event.product_ref and event.product_ref.get("key") else None
         assert_fertilizers_visible(
             self._fertilizers,
@@ -183,13 +192,13 @@ class TaskCompletionEngine:
             owner="TaskCompletionEngine",
         )
         used: list[FeedingEventFertilizer] = []
-        if product_key and litres is not None and litres > 0:
-            used.append(FeedingEventFertilizer(fertilizer_key=product_key, ml_applied=round(litres * 1000, 3)))
+        if product_key and product_ml is not None and product_ml > 0:
+            used.append(FeedingEventFertilizer(fertilizer_key=product_key, ml_applied=round(product_ml, 3)))
         feeding = FeedingEvent(
             tenant_key=event.tenant_key,
             plant_key=plant_keys[0] if plant_keys else "",
             timestamp=event.performed_at,
-            application_method=ApplicationMethod.DRENCH if litres is not None else ApplicationMethod.TOP_DRESS,
+            application_method=ApplicationMethod.DRENCH if product_ml is not None else ApplicationMethod.TOP_DRESS,
             volume_applied_liters=litres if litres is not None and litres > 0 else None,
             fertilizers_used=used,
             location_key=event.location_key,

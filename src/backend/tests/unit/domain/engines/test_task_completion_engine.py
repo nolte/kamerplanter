@@ -172,6 +172,34 @@ class TestFeeding:
                 plant_keys=["p1"],
             )
 
+    def test_millilitres_of_a_feeding_are_the_concentrate_not_the_water(self):
+        # 5 ml of a product is the product's amount; the water it was diluted in is unknown, so no volume.
+        doc = ENGINE.domain_document(
+            task(TaskCategory.FEEDING),
+            event("feeding", quantity=5, unit="ml", product_ref={"kind": "fertilizer", "key": "fert_global"}),
+            plant_keys=["p1"],
+        )
+
+        assert doc is not None
+        parsed = FeedingEvent.model_validate(doc.document)
+        assert parsed.volume_applied_liters is None
+        assert [(line.fertilizer_key, line.ml_applied) for line in parsed.fertilizers_used] == [("fert_global", 5.0)]
+        assert parsed.application_method.value == "drench"
+
+    def test_a_bulk_volume_of_compost_is_not_a_drench(self):
+        # "2 l" of compost is a bulk volume of a soil amendment: no applied-water volume, no fertilizer line.
+        doc = ENGINE.domain_document(
+            task(TaskCategory.SOIL_AMENDMENT),
+            event("soil_amendment", material="compost", quantity=2, unit="l"),
+            plant_keys=[],
+        )
+
+        assert doc is not None
+        parsed = FeedingEvent.model_validate(doc.document)
+        assert parsed.volume_applied_liters is None and parsed.fertilizers_used == []
+        assert parsed.application_method.value == "top_dress"
+        assert (parsed.dose_quantity, parsed.dose_unit, parsed.material) == (2, "l", "compost")
+
     def test_a_dry_dose_has_no_volume_and_is_a_top_dress(self):
         doc = ENGINE.domain_document(
             task(TaskCategory.FEEDING),

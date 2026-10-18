@@ -343,10 +343,6 @@ class TaskCompleteRequest(TaskCompletionDetails):
     difficulty_rating: int | None = Field(default=None, ge=1, le=5)
     quality_rating: int | None = Field(default=None, ge=1, le=5)
 
-    def details(self) -> TaskCompletionDetails:
-        """The care fields alone, as the service takes them."""
-        return TaskCompletionDetails.model_validate(self.model_dump(include=set(TaskCompletionDetails.model_fields)))
-
 
 class TaskCloneRequest(BaseModel):
     target_entity_key: str | None = None
@@ -377,10 +373,6 @@ class BatchStatusRequest(TaskCompletionDetails):
     task_keys: list[str] = Field(min_length=1)
     action: str = Field(description="start, complete, or skip")
     completion_notes: str | None = None
-
-    def details(self) -> TaskCompletionDetails:
-        """The care fields alone, as the service takes them."""
-        return TaskCompletionDetails.model_validate(self.model_dump(include=set(TaskCompletionDetails.model_fields)))
 
 
 class BatchDeleteRequest(BaseModel):
