@@ -383,6 +383,13 @@ CASES: tuple[Case, ...] = (
         writes=True,
         owner_status=200,
     ),
+    # REQ-053 WP 3.1, GP-API-016: a pure compute over the bed's geometry - nothing is written, nothing leaks.
+    Case(
+        "preview_planting_layout",
+        "POST",
+        "/locations/bed_b/planting-layout/preview",
+        {"entry": {"layout_strategy": "grid", "spacing_cm": 30}},
+    ),
     # slots (WP 1.9 + the reads of the single resource)
     Case("list_slots", "GET", "/slots", params={"location_key": "bed_b"}),
     Case("get_slot", "GET", "/slots/slot_b"),
