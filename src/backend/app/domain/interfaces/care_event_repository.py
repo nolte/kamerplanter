@@ -35,13 +35,25 @@ class CareEventFilter:
     include_superseded: bool = False
 
 
+@dataclass(frozen=True)
+class PendingPhotos:
+    """The photos an anonymised event still lists; they are deleted first and the references cleared after."""
+
+    event_key: str
+    tenant_key: str
+    attachment_ids: tuple[str, ...]
+
+
 @dataclass
 class AnonymizedBatch:
-    """What one retention batch changed (NFR-011 R-25)."""
+    """What one retention batch selected and changed (NFR-011 R-25)."""
 
+    #: Rows read this batch (due and not yet finished); a batch shorter than the limit ends the run.
+    selected: int = 0
+    #: Rows anonymised for the first time.
     anonymized: int = 0
-    #: ``(tenant_key, attachment_id)`` of every photo the batch detached; the caller deletes the unreferenced ones.
-    detached_photos: list[tuple[str, str]] = field(default_factory=list)
+    #: Rows that still list photos: deleted by the caller, who then calls :meth:`clear_photo_refs`.
+    pending_photos: list[PendingPhotos] = field(default_factory=list)
 
 
 class ICareEventRepository(ABC):
@@ -106,4 +118,12 @@ class ICareEventRepository(ABC):
     def anonymize_expired(
         self, *, cutoff: datetime, pflschg_cutoff: datetime, now: datetime, batch: int
     ) -> AnonymizedBatch:
-        """Anonymise up to ``batch`` events past their period: person fields, free texts and photos go."""
+        """Anonymise up to ``batch`` events past their period: person fields and free texts go at once.
+
+        The photo references stay until the caller has deleted the objects and calls :meth:`clear_photo_refs`; a row
+        whose photos could not be deleted is selected again by the next run (it is not finished until it lists none).
+        """
+
+    @abstractmethod
+    def clear_photo_refs(self, event_keys: list[str]) -> int:
+        """Remove ``photo_refs`` from the named anonymised events once their objects are gone; the number cleared."""

@@ -22,6 +22,7 @@ from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, Plan
 from app.domain.interfaces.care_event_repository import CareEventFilter
 from app.domain.models.care_event import (
     REDACTED,
+    CareEvent,
     CareEventCorrection,
     CareEventInput,
     CareEventOrigin,
@@ -229,6 +230,44 @@ class TestPerformedAt:
     def test_a_naive_instant_is_read_as_utc(self):
         naive = datetime.now() - timedelta(hours=1)  # noqa: DTZ005 — the point of the test
         assert input_for(performed_at=naive).performed_at.tzinfo is UTC
+
+
+class TestCorrectingAnOldEntry:
+    def test_the_text_of_an_entry_older_than_a_year_can_be_fixed_with_its_instant_unchanged(self, world):
+        service, repo, *_ = world
+        old = datetime.now(UTC) - timedelta(days=500)
+        entry = repo._store(
+            CareEvent(
+                tenant_key=TENANT,
+                site_key=SITE,
+                location_key="bed",
+                category="clearing",
+                summary="Cleared",
+                performed_at=old,
+                performed_by_user_key=USER,
+                created_by=USER,
+                trigger="system",
+            )
+        )
+
+        fixed = service.supersede(
+            entry.key,
+            correction_for(summary="Cleared (typo fixed)", performed_at=old),
+            tenant_key=TENANT,
+            user_key=USER,
+            role=GROWER,
+        )
+        with pytest.raises(PlanError) as exc:
+            service.supersede(
+                fixed.event.key,
+                correction_for(performed_at=old - timedelta(days=1)),
+                tenant_key=TENANT,
+                user_key=USER,
+                role=GROWER,
+            )
+
+        assert fixed.event.supersedes_key == entry.key
+        assert exc.value.error_code == "care_event.too_old"  # a *moved* instant is held to V-11
 
 
 class TestReferencesAreResolvedUnderTheTenant:
@@ -549,6 +588,26 @@ class TestRedact:
 
         assert attachment_service.deleted == [(TENANT, "att_2")]
 
+    async def test_a_cancellation_reason_a_person_typed_is_redacted(self, chain):
+        service, repo, _, first, second = chain
+        service.void(second.key, reason="Frau Mueller war es", tenant_key=TENANT, user_key="u_lead", role=LEAD)
+
+        await service.redact(second.key, reason="x", tenant_key=TENANT, user_key="u_lead", role=LEAD)
+
+        assert repo.events[second.key].void_reason == REDACTED
+
+    async def test_a_storage_failure_after_the_commit_is_logged_and_does_not_fail_the_redaction(self, chain):
+        service, repo, attachment_service, _, second = chain
+
+        async def broken(attachment_id, tenant_key):
+            raise ConnectionError("storage down")
+
+        attachment_service.delete_if_unreferenced = broken
+
+        view = await service.redact(second.key, reason="x", tenant_key=TENANT, user_key="u_lead", role=LEAD)
+
+        assert view.event.summary == REDACTED and repo.audit  # committed, and answered
+
     async def test_only_a_lead_redacts_and_nothing_changes_otherwise(self, chain):
         service, repo, attachment_service, first, second = chain
 
@@ -626,6 +685,17 @@ class TestReads:
 
         assert [v.event.key for v in shown] == [recent.key]
         assert {v.event.key for v in explicit} == {recent.key, old.key}
+
+    def test_a_bed_or_plant_history_is_not_cut_at_ninety_days(self, world):
+        service, *_ = world
+        old = create(
+            service, input_for(plant_keys=["pi_here"], performed_at=datetime.now(UTC) - timedelta(days=200))
+        ).event
+
+        for criteria in (CareEventFilter(location_key="bed"), CareEventFilter(plant_key="pi_here")):
+            shown = service.list_window(criteria, tenant_key=TENANT, user_key=USER, offset=0, limit=50)
+            assert [v.event.key for v in shown] == [old.key]
+        assert service.list_window(CareEventFilter(), tenant_key=TENANT, user_key=USER, offset=0, limit=50) == []
 
     def test_the_list_of_another_tenant_is_empty_and_a_foreign_bed_filter_is_404(self, world):
         service, *_ = world

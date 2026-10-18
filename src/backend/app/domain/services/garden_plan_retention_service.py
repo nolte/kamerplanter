@@ -48,28 +48,42 @@ class GardenPlanRetentionService:
         self._retention = retention
 
     async def anonymize_expired_care_events(self, now: datetime) -> dict[str, int]:
-        """Anonymise the care events past R-25 and delete the photos they held (unless another carrier holds them)."""
+        """Anonymise the care events past R-25 and delete the photos they held (unless another carrier holds them).
+
+        Two phases per row so a storage failure loses nothing: the person fields and texts go first; the photo
+        references are cleared only after every object of the row is deleted (or kept because another carrier
+        references it). A row whose deletion failed lists its photos still and is selected again by the next run.
+        """
         cutoff = self._retention.care_event_anonymisation_cutoff(now)
         pflschg_cutoff = self._retention.care_event_pflschg_cutoff(now)
-        anonymized = 0
-        photos_deleted = 0
+        anonymized = photos_deleted = rows_pending = 0
         for _ in range(MAX_BATCHES):
             batch = self._care_events.anonymize_expired(
                 cutoff=cutoff, pflschg_cutoff=pflschg_cutoff, now=now, batch=BATCH_SIZE
             )
             anonymized += batch.anonymized
-            for tenant_key, attachment_id in batch.detached_photos:
-                if await self._attachments.delete_if_unreferenced(attachment_id, tenant_key):
-                    photos_deleted += 1
-            if batch.anonymized < BATCH_SIZE:
+            finished: list[str] = []
+            for pending in batch.pending_photos:
+                try:
+                    for attachment_id in pending.attachment_ids:
+                        if await self._attachments.delete_if_unreferenced(attachment_id, pending.tenant_key):
+                            photos_deleted += 1
+                except Exception as exc:  # noqa: BLE001 — the row stays listed and is retried by the next run
+                    rows_pending += 1
+                    logger.error("retention.anonymize_expired_care_events.photo_failed", error_type=type(exc).__name__)
+                    continue
+                finished.append(pending.event_key)
+            self._care_events.clear_photo_refs(finished)
+            if batch.selected < BATCH_SIZE:
                 break
         logger.info(
             "retention.anonymize_expired_care_events.completed",
             anonymized=anonymized,
             photos_deleted=photos_deleted,
+            rows_pending=rows_pending,
             retention_years=self._retention.care_event_retention_years,
         )
-        return {"anonymized": anonymized, "photos_deleted": photos_deleted}
+        return {"anonymized": anonymized, "photos_deleted": photos_deleted, "rows_pending": rows_pending}
 
     def purge_expired_garden_plan_audit(self, now: datetime) -> int:
         """Hard-delete the plan audit rows past R-26."""

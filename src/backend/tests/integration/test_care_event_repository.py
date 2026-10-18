@@ -193,6 +193,28 @@ class TestSupersede:
         listed = repo.list_events(CareEventFilter(), tenant_key=A, offset=0, limit=50)
         assert [r.event.key for r in listed] == [second.key]
 
+    def test_a_correction_of_a_task_entry_does_not_link_the_task_twice(self, db, repo) -> None:
+        first = repo.insert(event(task_key="task_9", trigger="task"), tenant_key=A)
+
+        second = repo.supersede(
+            first.key, event(supersedes_key=first.key, task_key="task_9", trigger="task"), tenant_key=A
+        )
+
+        assert second.task_key == "task_9"  # shown on the correction ...
+        (logged,) = edges(db, col.TASK_LOGGED_AS)  # ... but the task is logged as the first entry only
+        assert logged["_to"] == f"care_events/{first.key}"
+
+    def test_a_correction_that_names_another_bed_or_tenant_is_refused(self, db, repo) -> None:
+        first = repo.insert(event(), tenant_key=A)
+        documents = len(list(db.collection(col.CARE_EVENTS).all()))
+
+        with pytest.raises(PlanError):
+            repo.supersede(first.key, event(supersedes_key=first.key, location_key="other_bed"), tenant_key=A)
+        with pytest.raises(ValueError, match="another tenant"):
+            repo.supersede(first.key, event(B, supersedes_key=first.key), tenant_key=A)
+
+        assert len(list(db.collection(col.CARE_EVENTS).all())) == documents
+
     def test_a_branch_is_refused_and_writes_nothing(self, db, repo) -> None:
         first = repo.insert(event(), tenant_key=A)
         repo.supersede(first.key, event(supersedes_key=first.key), tenant_key=A)
@@ -247,6 +269,8 @@ class TestRedact:
         )
         bystander = repo.insert(event(summary="Unrelated"), tenant_key=A)
 
+        repo.void(second.key, tenant_key=A, voided_by="u_lead", reason="Frau Mueller war es", at=NOW)
+
         events, detached = repo.redact(second.key, tenant_key=A, redacted_by="u_lead", reason="names a person", at=NOW)
 
         assert sorted(e.key for e in events) == sorted([first.key, second.key])
@@ -255,6 +279,7 @@ class TestRedact:
             stored = repo.get(key, tenant_key=A)
             assert (stored.summary, stored.photo_refs, stored.redacted_by) == (REDACTED, [], "u_lead")
         assert repo.get(first.key, tenant_key=A).reason == REDACTED
+        assert repo.get(second.key, tenant_key=A).void_reason == REDACTED
         assert repo.get(bystander.key, tenant_key=A).summary == "Unrelated"
         (audit,) = db.collection(col.GARDEN_PLAN_AUDIT).all()
         assert (audit["op"], audit["entity"], audit["key"], audit["revision"], audit["tenant_key"]) == (
@@ -277,7 +302,7 @@ class TestRedact:
 
 
 class TestRetention:
-    """NFR-011 R-25 — the sweep anonymises exactly the expired rows, once."""
+    """NFR-011 R-25 — the sweep anonymises exactly the expired rows, once; the photos go in a second phase."""
 
     CUTOFF = NOW - timedelta(days=5 * 365)
 
@@ -285,7 +310,7 @@ class TestRetention:
         args = {"cutoff": self.CUTOFF, "pflschg_cutoff": self.CUTOFF, "now": NOW, "batch": 500, **overrides}
         return repo.anonymize_expired(**args)
 
-    def test_expired_rows_lose_persons_texts_and_photos_and_keep_the_cultivation_history(self, db, repo) -> None:
+    def test_expired_rows_lose_persons_and_texts_and_keep_the_cultivation_history(self, db, repo) -> None:
         expired = repo.insert(
             event(
                 performed_at=self.CUTOFF - timedelta(days=1),
@@ -303,23 +328,42 @@ class TestRetention:
 
         result = self.sweep(repo)
 
-        assert result.anonymized == 1
-        assert result.detached_photos == [(A, "att_9")]
+        assert (result.selected, result.anonymized) == (1, 1)
+        assert [(p.event_key, p.tenant_key, p.attachment_ids) for p in result.pending_photos] == [
+            (expired.key, A, ("att_9",))
+        ]
         gone = repo.get(expired.key, tenant_key=A)
         assert (gone.performed_by_user_key, gone.performed_for_user_key, gone.created_by) == (ANONYMIZED_MARKER,) * 3
-        assert (gone.summary, gone.reason, gone.photo_refs) == (REDACTED, REDACTED, [])
+        assert (gone.summary, gone.reason) == (REDACTED, REDACTED)
+        assert gone.photo_refs == ["att_9"]  # kept until the object is deleted
         assert (gone.category, gone.quantity, gone.location_key, gone.plant_keys) == ("watering", 2.0, "bed", ["pi_1"])
         assert gone.performed_at == expired.performed_at and gone.retention_anonymized_at == NOW
         kept = repo.get(fresh.key, tenant_key=A)
         assert (kept.summary, kept.performed_by_user_key) == ("Recent", USER)
 
-    def test_a_second_run_selects_nothing(self, repo) -> None:
-        repo.insert(event(performed_at=self.CUTOFF - timedelta(days=1), photo_refs=["att_9"]), tenant_key=A)
+    def test_a_row_whose_photos_are_not_cleared_is_selected_again_and_a_cleared_one_never(self, repo) -> None:
+        stored = repo.insert(event(performed_at=self.CUTOFF - timedelta(days=1), photo_refs=["att_9"]), tenant_key=A)
 
-        assert self.sweep(repo).anonymized == 1
-        again = self.sweep(repo)
+        first = self.sweep(repo)
+        again = self.sweep(repo)  # the storage failed: nothing was cleared
 
-        assert (again.anonymized, again.detached_photos) == (0, [])
+        assert (first.anonymized, again.anonymized) == (1, 0)  # anonymised once ...
+        assert [p.event_key for p in again.pending_photos] == [stored.key]  # ... and its photos are still pending
+        assert repo.clear_photo_refs([stored.key]) == 1
+        done = self.sweep(repo)
+        assert (done.selected, done.pending_photos) == (0, [])
+        assert repo.get(stored.key, tenant_key=A).photo_refs == []
+
+    def test_the_reasons_a_person_typed_are_redacted_but_undo_is_not(self, repo) -> None:
+        typed = repo.insert(event(performed_at=self.CUTOFF - timedelta(days=1)), tenant_key=A)
+        undone = repo.insert(event(performed_at=self.CUTOFF - timedelta(days=1)), tenant_key=A)
+        repo.void(typed.key, tenant_key=A, voided_by="u_lead", reason="Frau Mueller", at=NOW)
+        repo.void(undone.key, tenant_key=A, voided_by=USER, reason="undo", at=NOW)
+
+        self.sweep(repo)
+
+        assert repo.get(typed.key, tenant_key=A).void_reason == REDACTED
+        assert repo.get(undone.key, tenant_key=A).void_reason == "undo"
 
     def test_a_pest_control_entry_waits_for_its_later_cutoff(self, repo) -> None:
         general = self.CUTOFF - timedelta(days=1)

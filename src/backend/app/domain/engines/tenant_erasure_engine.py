@@ -110,11 +110,10 @@ class TenantErasureEngine:
         # REQ-053 garden plan (M1, #2323). garden_objects carry no tenant_key — the site
         # is the anchor (E-01); the other four are stamped and listed tenant-wide.
         _delete("garden_objects", _parent("site_key", "sites")),
-        # PLACEHOLDER (REQ-053 GP-NFR-055, needs-decision via #2323): rows with
-        # category pest_control/ipm carry the PflSchG reservation like
-        # treatment_applications (pseudonymize, R-17). The only writer so far is the bed-status
-        # change (category bed_status_change, WP 1.9), which carries no such reservation; the
-        # entry turns category-dependent with the care-event API (WP 4.x).
+        # REQ-053 GP-NFR-055 (WP 4.1, #2400): the care log is the protocol of the tenant's beds and goes with the
+        # tenant, pest_control / ipm lines included. The PflSchG section 11 proof of a treatment is the
+        # ``treatment_applications`` row, which the legal-retention rules (R-17, below) keep pseudonymised; the
+        # care-log line only mirrors it. Whether that reading holds is a question for the DPO (PR of WP 4.1).
         _delete("care_events"),
         _delete("irrigation_zones"),
         _delete("bed_templates"),  # rows with tenant_key null are global templates (§20.12) and stay

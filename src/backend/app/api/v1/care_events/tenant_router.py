@@ -7,7 +7,7 @@ correct their own entry, the author may undo within ten minutes, only the lead c
 the service's.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -36,6 +36,11 @@ from app.domain.services.care_event_service import CareEventService
 router = APIRouter(prefix="/care-events", tags=["care-events"], responses=NOT_FOUND_RESPONSE)
 
 _EVENT_KEY = Annotated[str, Path(description="Document key of the care event.")]
+
+
+def _as_utc(moment: datetime | None) -> datetime | None:
+    """A naive ``from`` / ``to`` is read as UTC, as ``performed_at`` is on the way in (§20.13)."""
+    return moment.replace(tzinfo=UTC) if moment is not None and moment.tzinfo is None else moment
 
 
 @router.get("", response_model=list[CareEventResponse], summary="List the care log")
@@ -67,8 +72,8 @@ def list_care_events(
         location_key=location_key,
         plant_key=plant_key,
         category=category,
-        performed_from=performed_from,
-        performed_to=performed_to,
+        performed_from=_as_utc(performed_from),
+        performed_to=_as_utc(performed_to),
         performed_by=performed_by,
         include_superseded=include_superseded,
     )
@@ -172,7 +177,9 @@ def void_care_event(
     summary="Redact a care event and its supersede chain",
     responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
 )
+@limiter.limit(settings.rate_limit_care_events, key_func=user_rate_limit_key)
 async def redact_care_event(
+    request: Request,
     key: _EVENT_KEY,
     body: CareEventRedactRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.CARE_EVENT, Action.DELETE)),
@@ -180,6 +187,9 @@ async def redact_care_event(
 ) -> CareEventResponse:
     """Lead only (GP-API-041, GP-FR-109): the free texts of the entry and its whole chain become `[redacted]`,
     the photos are detached and — unless another carrier holds them — deleted. Written to `garden_plan_audit`.
+
+    `reason` is stored on the entry and stays after the redaction: give the ground ("personal data of a third
+    party"), never the data itself.
     """
     view = await service.redact(
         key, reason=body.reason, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role

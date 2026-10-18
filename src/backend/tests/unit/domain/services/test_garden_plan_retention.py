@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.data_access.arango.care_event_repository import retention_patch
-from app.domain.interfaces.care_event_repository import AnonymizedBatch
+from app.domain.interfaces.care_event_repository import AnonymizedBatch, PendingPhotos
 from app.domain.models.care_event import ACCOUNT_FIELDS, ANONYMIZED_MARKER, FREE_TEXT_FIELDS, REDACTED
 from app.domain.services.garden_plan_retention_service import BATCH_SIZE, MAX_BATCHES, GardenPlanRetentionService
 from app.domain.services.retention_service import RetentionService
@@ -89,7 +89,8 @@ class TestThePatch:
             assert patch[name] == ANONYMIZED_MARKER
         for name in ("summary", "reason", "performed_by_label"):
             assert patch[name] == REDACTED
-        assert patch["photo_refs"] == [] and patch["retention_anonymized_at"] == "2026-10-18T04:55:00+00:00"
+        assert patch["retention_anonymized_at"] == "2026-10-18T04:55:00+00:00"
+        assert "photo_refs" not in patch  # cleared only after the objects are deleted
 
     def test_what_the_look_back_needs_is_not_in_the_patch(self) -> None:
         patch = retention_patch(self.DOC, "2026-10-18T04:55:00+00:00")
@@ -100,7 +101,14 @@ class TestThePatch:
     def test_an_absent_attribute_stays_absent_except_the_summary(self) -> None:
         patch = retention_patch({"_key": "ce_2"}, "t")
 
-        assert set(patch) == {"_key", "retention_anonymized_at", "photo_refs", "summary"}
+        assert set(patch) == {"_key", "retention_anonymized_at", "summary"}
+
+    def test_the_reasons_a_person_typed_for_a_cancellation_or_a_redaction_are_redacted_but_undo_is_not(self) -> None:
+        typed = retention_patch({"_key": "k", "void_reason": "Frau Mueller", "redaction_reason": "names her"}, "t")
+        undo = retention_patch({"_key": "k", "void_reason": "undo"}, "t")
+
+        assert typed["void_reason"] == typed["redaction_reason"] == REDACTED
+        assert "void_reason" not in undo
 
     def test_the_patch_covers_the_same_fields_as_the_redaction_and_the_erasure(self) -> None:
         full = {name: "x" for name in (*ACCOUNT_FIELDS, *FREE_TEXT_FIELDS)} | {"_key": "k"}
@@ -121,10 +129,15 @@ class _CareRepo:
     def __init__(self, batches: list[AnonymizedBatch]) -> None:
         self.batches = batches
         self.calls: list[dict] = []
+        self.cleared: list[list[str]] = []
 
     def anonymize_expired(self, **kwargs):
         self.calls.append(kwargs)
         return self.batches.pop(0) if self.batches else AnonymizedBatch()
+
+    def clear_photo_refs(self, event_keys):
+        self.cleared.append(list(event_keys))
+        return len(event_keys)
 
 
 class _PlanRepo:
@@ -156,16 +169,40 @@ def service(care=None, plan=None, attachments=None) -> GardenPlanRetentionServic
 
 
 class TestTheCareEventSweep:
-    async def test_it_works_in_batches_until_a_short_one_and_deletes_the_photos(self) -> None:
-        full = AnonymizedBatch(anonymized=BATCH_SIZE, detached_photos=[("t1", "att_1")])
-        short = AnonymizedBatch(anonymized=3, detached_photos=[("t2", "att_2"), ("t2", "att_3")])
+    async def test_it_works_in_batches_until_a_short_one_and_clears_the_photo_references_after_the_delete(self) -> None:
+        full = AnonymizedBatch(
+            selected=BATCH_SIZE, anonymized=BATCH_SIZE, pending_photos=[PendingPhotos("ce_1", "t1", ("att_1",))]
+        )
+        short = AnonymizedBatch(
+            selected=3, anonymized=3, pending_photos=[PendingPhotos("ce_2", "t2", ("att_2", "att_3"))]
+        )
         care, attachments = _CareRepo([full, short]), _Attachments(kept={"att_3"})
 
         result = await service(care, attachments=attachments).anonymize_expired_care_events(NOW)
 
-        assert result == {"anonymized": BATCH_SIZE + 3, "photos_deleted": 2}
+        assert result == {"anonymized": BATCH_SIZE + 3, "photos_deleted": 2, "rows_pending": 0}
         assert len(care.calls) == 2
         assert attachments.deleted == [("t1", "att_1"), ("t2", "att_2")]
+        assert care.cleared == [["ce_1"], ["ce_2"]]  # a photo another carrier keeps still leaves this event
+
+    async def test_a_storage_failure_keeps_the_reference_for_the_next_run(self) -> None:
+        batch = AnonymizedBatch(
+            selected=2,
+            anonymized=2,
+            pending_photos=[PendingPhotos("ce_1", "t1", ("att_bad",)), PendingPhotos("ce_2", "t1", ("att_ok",))],
+        )
+        care = _CareRepo([batch])
+
+        class Flaky(_Attachments):
+            async def delete_if_unreferenced(self, attachment_id, tenant_key):
+                if attachment_id == "att_bad":
+                    raise ConnectionError("storage down")
+                return await super().delete_if_unreferenced(attachment_id, tenant_key)
+
+        result = await service(care, attachments=Flaky()).anonymize_expired_care_events(NOW)
+
+        assert care.cleared == [["ce_2"]]  # ce_1 still lists its photo and is selected again tomorrow
+        assert result["rows_pending"] == 1 and result["photos_deleted"] == 1
 
     async def test_the_cutoffs_come_from_the_retention_service(self) -> None:
         care = _CareRepo([])
@@ -178,7 +215,7 @@ class TestTheCareEventSweep:
         assert call["batch"] == BATCH_SIZE and call["now"] == NOW
 
     async def test_a_run_is_bounded(self) -> None:
-        care = _CareRepo([AnonymizedBatch(anonymized=BATCH_SIZE) for _ in range(MAX_BATCHES + 5)])
+        care = _CareRepo([AnonymizedBatch(selected=BATCH_SIZE, anonymized=BATCH_SIZE) for _ in range(MAX_BATCHES + 5)])
 
         result = await service(care).anonymize_expired_care_events(NOW)
 

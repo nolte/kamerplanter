@@ -29,6 +29,7 @@ caller's ``user_key``; a supersede keeps the predecessor's performer and records
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import structlog
@@ -46,9 +47,11 @@ from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.membership_repository import IMembershipRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.care_event import (
+    BACKFILL_MAX_AGE_DAYS,
     FUTURE_TOLERANCE_MINUTES,
     MAX_AGE_DAYS,
     SERVER_ONLY_CATEGORIES,
+    UNDO_REASON,
     UNDO_WINDOW_MINUTES,
     CareEvent,
     CareEventCorrection,
@@ -64,8 +67,6 @@ from app.observability.garden_plan_metrics import record_care_event_created
 
 logger = structlog.get_logger()
 
-#: ``reason`` of an author's own cancellation inside the undo window (GP-API-037, GP-FR-149).
-UNDO_REASON = "undo"
 #: GP-FR-107: the tenant-wide history shows the last 90 days unless the caller says otherwise.
 DEFAULT_HISTORY_DAYS = 90
 
@@ -196,13 +197,15 @@ class CareEventService:
         user_key: str,
         already_photos: list[str],
         max_age_days: int,
+        check_instant: bool = True,
     ) -> dict[str, object]:
         """Every reference resolved under the tenant, V-11 applied; the stored descriptive columns of the event."""
         self._check_plants(data.plant_keys, location, tenant_key=tenant_key)
         self._check_product(data.product_ref.key if data.product_ref else None, tenant_key=tenant_key)
         self._check_performed_for(data.performed_for_user_key, tenant_key=tenant_key)
         self._check_photos(data.photo_refs, already_photos, tenant_key=tenant_key, user_key=user_key)
-        self._check_performed_at(data.performed_at, max_age_days=max_age_days)
+        if check_instant:
+            self._check_performed_at(data.performed_at, max_age_days=max_age_days)
         total, total_unit = self._quantity_total(data, location)
         return {
             "plant_keys": list(data.plant_keys),
@@ -269,10 +272,20 @@ class CareEventService:
         offset: int,
         limit: int,
     ) -> list[CareEventView]:
-        """The tenant's care log, newest first (GP-API-034, GP-FR-107); the last 90 days when no range is given."""
+        """The tenant's care log, newest first (GP-API-034, GP-FR-107).
+
+        The last 90 days when neither a range nor a bed / plant filter is given.
+        """
         if criteria.location_key:
             resolve_owned_location(self._sites, criteria.location_key, tenant_key)
-        if criteria.performed_from is None and criteria.performed_to is None:
+        # The tenant-wide history shows 90 days by default (GP-FR-107); the history of one bed or one plant is the
+        # whole look-back (GP-FR-102/103: up to five years), so a bed or plant filter carries no default window.
+        if (
+            criteria.performed_from is None
+            and criteria.performed_to is None
+            and not criteria.location_key
+            and not criteria.plant_key
+        ):
             criteria = CareEventFilter(
                 location_key=criteria.location_key,
                 plant_key=criteria.plant_key,
@@ -393,13 +406,16 @@ class CareEventService:
                 field="supersedes_key",
             )
         location = resolve_owned_location(self._sites, predecessor.location_key, tenant_key)
+        # V-11 holds a *corrected* instant; an entry older than a year can still have its text fixed (SR-009).
+        unchanged_instant = data.performed_at == predecessor.performed_at
         fields = self._validated_fields(
             data,
             location,
             tenant_key=tenant_key,
             user_key=user_key,
             already_photos=predecessor.photo_refs,
-            max_age_days=3650 if predecessor.trigger == "backfill" else MAX_AGE_DAYS,
+            max_age_days=BACKFILL_MAX_AGE_DAYS if predecessor.trigger == "backfill" else MAX_AGE_DAYS,
+            check_instant=not unchanged_instant,
         )
         event = CareEvent(
             tenant_key=tenant_key,
@@ -448,14 +464,27 @@ class CareEventService:
         carrier still references them (GP-FR-109, Art. 16/17).
         """
         self._require_lead(role)
-        if self._repo.get(key, tenant_key=tenant_key) is None:
+        # The database work is blocking; it runs off the event loop, like a ``def`` route would run it.
+        if await asyncio.to_thread(self._repo.get, key, tenant_key=tenant_key) is None:
             raise NotFoundError("CareEvent", key)
-        redacted, detached = self._repo.redact(
-            key, tenant_key=tenant_key, redacted_by=user_key, reason=reason, at=datetime.now(UTC)
+        redacted, detached = await asyncio.to_thread(
+            self._repo.redact, key, tenant_key=tenant_key, redacted_by=user_key, reason=reason, at=datetime.now(UTC)
         )
-        deleted = 0
+        # The redaction is committed. A storage failure must not turn it into a 500 the caller retries into a
+        # chain with no photo references left: it is logged and the object is left to the storage reconciliation.
+        deleted = failed = 0
         for attachment_id in detached:
-            if await self._attachments.delete_if_unreferenced(attachment_id, tenant_key):
-                deleted += 1
-        logger.info("care_event.redacted", event_key=key, chain_length=len(redacted), photos_deleted=deleted)
-        return self._stored_view(key, tenant_key=tenant_key, user_key=user_key)
+            try:
+                if await self._attachments.delete_if_unreferenced(attachment_id, tenant_key):
+                    deleted += 1
+            except Exception as exc:  # noqa: BLE001 — the redaction already happened; see above
+                failed += 1
+                logger.error("care_event.redact.photo_delete_failed", event_key=key, error_type=type(exc).__name__)
+        logger.info(
+            "care_event.redacted",
+            event_key=key,
+            chain_length=len(redacted),
+            photos_deleted=deleted,
+            photos_failed=failed,
+        )
+        return await asyncio.to_thread(self._stored_view, key, tenant_key=tenant_key, user_key=user_key)

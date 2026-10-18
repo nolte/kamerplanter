@@ -263,6 +263,21 @@ class TestReads:
             client().get(_OWN, params={"from": "2026-06-02T00:00:00Z", "to": "2026-06-01T00:00:00Z"}).status_code == 422
         )
 
+    def test_a_naive_range_is_read_as_utc(self, client, world) -> None:
+        entry = logged(client, performed_at="2026-06-01T10:00:00")
+        assert world.repo.events[entry["key"]].performed_at.tzinfo is not None
+
+        inside = client().get(_OWN, params={"from": "2026-06-01T09:00:00", "to": "2026-06-01T11:00:00"}).json()
+        outside = client().get(_OWN, params={"from": "2026-06-01T11:00:00", "to": "2026-06-01T12:00:00"}).json()
+
+        assert [row["key"] for row in inside] == [entry["key"]]
+        assert outside == []
+
+    def test_a_third_party_label_is_shown_beside_the_account_that_logged_it(self, client) -> None:
+        entry = logged(client, performed_by_label="the neighbour")
+
+        assert (entry["performed_by"], entry["performed_by_label"]) == ("Sabine", "the neighbour")
+
     def test_a_viewer_reads(self, client) -> None:
         entry = logged(client)
 

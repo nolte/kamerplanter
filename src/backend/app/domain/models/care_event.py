@@ -85,6 +85,8 @@ MAX_AGE_DAYS = 365
 BACKFILL_MAX_AGE_DAYS = 3650
 #: ``void`` with ``void_reason = undo`` by the author is a grower's right for this long (GP-API-037, GP-FR-149).
 UNDO_WINDOW_MINUTES = 10
+#: ``reason`` of an author taking back their own entry inside the window (GP-API-037, GP-FR-149).
+UNDO_REASON = "undo"
 
 MAX_PLANTS_PER_EVENT = 200
 MAX_PHOTOS_PER_EVENT = 10

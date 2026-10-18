@@ -146,6 +146,8 @@ class FakeCareEventRepo(ICareEventRepository):
             patch = {
                 name: REDACTED for name in FREE_TEXT_FIELDS if getattr(event, name) is not None or name == "summary"
             }
+            if event.void_reason not in (None, "undo"):
+                patch["void_reason"] = REDACTED
             updated = event.model_copy(
                 update={
                     **patch,
@@ -162,6 +164,9 @@ class FakeCareEventRepo(ICareEventRepository):
 
     def anonymize_expired(self, *, cutoff, pflschg_cutoff, now, batch):  # pragma: no cover - the sweep has its own test
         return AnonymizedBatch()
+
+    def clear_photo_refs(self, event_keys):  # pragma: no cover - the sweep has its own test
+        return len(event_keys)
 
 
 class FakeMemberships:

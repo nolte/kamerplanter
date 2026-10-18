@@ -61,9 +61,15 @@ class CareEventVoidRequest(BaseModel):
 
 
 class CareEventRedactRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"reason": "Names a neighbour"}]})
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"examples": [{"reason": "Personal data of a third party"}]}
+    )
 
-    reason: str = Field(min_length=1, max_length=500, description="Why the entry and its chain are redacted.")
+    reason: str = Field(
+        min_length=1,
+        max_length=500,
+        description="The ground of the redaction. It stays on the entry: name the ground, never the redacted data.",
+    )
 
 
 class CareEventResponse(BaseModel):
@@ -79,6 +85,8 @@ class CareEventResponse(BaseModel):
     #: Display name, the third party's label, or `anonymisiert`; never an account key.
     performed_by: str | None = None
     performed_for: str | None = None
+    #: A third party who did the work, typed by whoever logged it (no full names, SR-006); `[redacted]` afterwards.
+    performed_by_label: str | None = None
     created_by_me: bool = False
     trigger: str
     task_key: str | None = None
@@ -118,6 +126,7 @@ def care_event_to_response(view: CareEventView) -> CareEventResponse:
         performed_at=event.performed_at,
         performed_by=view.performed_by,
         performed_for=view.performed_for,
+        performed_by_label=event.performed_by_label,
         created_by_me=view.created_by_me,
         trigger=event.trigger,
         task_key=event.task_key,
