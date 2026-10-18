@@ -32,6 +32,7 @@ from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
+from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
@@ -43,6 +44,7 @@ from app.domain.models.garden_plan import (
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
+    SlotSpeciesHint,
     TaskCounter,
 )
 from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, Slot
@@ -334,6 +336,60 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             )
             for row in cursor
         }
+
+    def load_slot_species_hints(self, location_key: str, *, tenant_key: str) -> list[SlotSpeciesHint]:
+        if not tenant_key:
+            raise ValueError("load_slot_species_hints needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET l = DOCUMENT(CONCAT(@locations, @location_key))
+            FILTER l != null
+            LET site = DOCUMENT(CONCAT(@sites, l.site_key))
+            FILTER site != null AND site.tenant_key == @tenant_key
+            LET bed_slots = (
+                FOR s IN @@slots FILTER s.location_key == @location_key AND s.archived_at == null RETURN s._key
+            )
+            LET slot_ids = (FOR k IN bed_slots RETURN CONCAT(@slots, k))
+            LET from_plants = (
+                FOR p IN @@plants
+                    FILTER p.tenant_key == @tenant_key AND p.slot_key IN bed_slots AND p.removed_on == null
+                    RETURN {slot_key: p.slot_key, species_key: p.species_key}
+            )
+            LET from_runs = (
+                FOR e IN @@planned
+                    FILTER e._to IN slot_ids AND e.planned_species_key != null
+                        AND DOCUMENT(e._from).status IN @live_statuses
+                    RETURN {slot_key: PARSE_IDENTIFIER(e._to).key, species_key: e.planned_species_key}
+            )
+            FOR r IN APPEND(from_plants, from_runs)
+                LET sp = DOCUMENT(CONCAT(@species, r.species_key))
+                FILTER sp != null
+                RETURN {
+                    slot_key: r.slot_key,
+                    species_key: r.species_key,
+                    spacing_cm: sp.spacing_cm,
+                    row_spacing_cm: sp.row_spacing_cm,
+                    mature_width_cm: sp.mature_width_cm,
+                    growth_habit: sp.growth_habit
+                }
+            """,
+                bind_vars={
+                    "locations": f"{col.LOCATIONS}/",
+                    "sites": f"{col.SITES}/",
+                    "slots": f"{col.SLOTS}/",
+                    "species": f"{col.SPECIES}/",
+                    "@slots": col.SLOTS,
+                    "@plants": col.PLANT_INSTANCES,
+                    "@planned": col.RUN_PLANNED_AT,
+                    "location_key": location_key,
+                    "tenant_key": tenant_key,
+                    "live_statuses": sorted(LIVE_RUN_STATUSES),
+                },
+            ),
+        )
+        return [SlotSpeciesHint(**row) for row in cursor]
 
     def load_active_slots(
         self, site_key: SiteKey, location_keys: list[str], *, tenant_key: str, include_archived: bool = False

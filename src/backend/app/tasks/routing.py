@@ -121,6 +121,7 @@ BULK_TASKS: Final = frozenset(
 #: Routed to ``celery`` — listed rather than implied, so a new task needs a decision.
 DEFAULT_TASKS: Final = frozenset(
     {
+        "app.tasks.adjacency.adjacency_recompute",
         "app.tasks.auth_tasks.rotate_oidc_discovery",
         "app.tasks.auth_tasks.send_duplicate_registration_notice",
         "app.tasks.care_tasks.generate_due_care_reminders",
@@ -218,6 +219,8 @@ ACKS_LATE_TASKS: Final = frozenset(
         "pest_image.sweep_orphaned_prototypes",
         # deactivates overrides whose expiry has passed; switches nothing itself
         "app.tasks.actuator_tasks.expire_manual_overrides",
+        # re-derives adjacent_to from the stored slots and writes only the difference (REQ-053 GP-NFR-016)
+        "app.tasks.adjacency.adjacency_recompute",
     }
 )
 

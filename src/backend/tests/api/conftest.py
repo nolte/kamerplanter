@@ -28,6 +28,14 @@ def block_datastore_access(request: pytest.FixtureRequest, monkeypatch: pytest.M
 
 
 @pytest.fixture(autouse=True)
+def no_adjacency_broker(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record the beds a slot change asks the adjacency task for, instead of reaching the Celery broker (#2393)."""
+    sent: list[str] = []
+    monkeypatch.setattr("app.common.dependencies.dispatch_adjacency_recompute", sent.append)
+    return sent
+
+
+@pytest.fixture(autouse=True)
 def restore_dependency_overrides() -> Iterator[None]:
     """Hand every API test the app's real dependency graph, and hand it back (#1402).
 

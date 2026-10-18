@@ -259,7 +259,7 @@ class TestTheRouteOperand:
         consumer is the bed care tab's create dialog (WP 4.4, frontend), open — a reported candidate until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 859
+        assert len(checker.collect_operations(app)) == 861
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
