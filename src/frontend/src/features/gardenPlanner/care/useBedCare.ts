@@ -1,7 +1,8 @@
 /**
  * Loads what the care tab shows: the pending tasks of the bed and its plants (GP-API-030) and the
  * plants standing in it, which name the plant tasks. The plants are informational - a failed request
- * leaves the plant tasks with their own names instead of failing the tab.
+ * leaves `plants` null (unknown, not "none") and the plant tasks with their own names instead of
+ * failing the tab.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { parseApiError } from '@/api/errors';
@@ -11,7 +12,7 @@ import type { BedPlantRef, CareTask } from './careTypes';
 export type BedCareState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; tasks: CareTask[]; plants: BedPlantRef[]; loadedAt: number };
+  | { status: 'ready'; tasks: CareTask[]; plants: BedPlantRef[] | null; loadedAt: number };
 
 export interface BedCare {
   state: BedCareState;
@@ -25,7 +26,7 @@ export function useBedCare(bedKey: string): BedCare {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getBedQueue(bedKey), listActivePlants(bedKey).catch((): BedPlantRef[] => [])])
+    Promise.all([getBedQueue(bedKey), listActivePlants(bedKey).catch((): null => null)])
       .then(([tasks, plants]) => {
         if (!cancelled) setState({ status: 'ready', tasks, plants, loadedAt: Date.now() });
       })

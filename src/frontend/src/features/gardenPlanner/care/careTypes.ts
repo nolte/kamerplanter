@@ -69,5 +69,8 @@ export interface BedPlantRef {
 /** What a task is bound to, as the tab shows it. */
 export type TaskTarget = 'bed' | 'plant' | 'other';
 
-/** Where a task is created: on the bed itself, or on each plant standing in it (fan-out, GP-FR-081). */
-export type TaskScope = 'bed' | 'plants';
+/**
+ * Where a task is created: on the bed itself, or on each plant standing in it (fan-out, GP-FR-081).
+ * `bedOnly` reports a per-plant request whose fan-out failed after the bed task was created.
+ */
+export type TaskScope = 'bed' | 'plants' | 'bedOnly';

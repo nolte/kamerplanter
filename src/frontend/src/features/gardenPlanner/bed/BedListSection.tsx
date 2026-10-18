@@ -159,7 +159,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
             variant="body2"
             onClick={(event) => event.stopPropagation()}
             aria-label={t('pages.bed.list.careLink', { tasks: visible, name: bed.name })}
-            sx={{ display: 'inline-block', minHeight: 24 }}
+            sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', minHeight: 44, minWidth: 44 }}
             data-testid={`bed-list-care-${bed.key}`}
           >
             {visible}

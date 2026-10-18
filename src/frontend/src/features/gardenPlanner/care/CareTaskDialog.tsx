@@ -58,11 +58,19 @@ export default function CareTaskDialog({ bedKey, context, plantCount, onClose, o
         category,
         entity_type: 'location',
         entity_key: bedKey,
-        ...(due !== '' ? { due_date: new Date(`${due}T12:00:00`).toISOString() } : {}),
+        // A due day is due until its end: it is overdue the next morning, not at noon.
+        ...(due !== '' ? { due_date: new Date(`${due}T23:59:00`).toISOString() } : {}),
       });
       if (scope === 'plants') {
-        const clones = await fanOutBedTask(created.key);
-        onCreated(clones.length, 'plants');
+        try {
+          const clones = await fanOutBedTask(created.key);
+          // The server leaves the bed task open when no plant stands in the bed (or its sub-locations).
+          onCreated(clones.length, clones.length > 0 ? 'plants' : 'bed');
+        } catch (error) {
+          // The bed task exists and stays: the list shows it, and a second submit would add another.
+          handleError(error);
+          onCreated(1, 'bedOnly');
+        }
       } else {
         onCreated(1, 'bed');
       }
@@ -147,7 +155,7 @@ export default function CareTaskDialog({ bedKey, context, plantCount, onClose, o
           </FormHelperText>
         </FormControl>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
         <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
           {t('common.cancel')}
         </Button>

@@ -271,6 +271,8 @@ interface ShapeNodeProps {
 
 /** Radius of the task badge on a bed, in screen pixels. */
 const BADGE_RADIUS_PX = 11;
+/** Font size of the count, in screen pixels. */
+const BADGE_FONT_PX = 12;
 /** A bed narrower than this on screen shows no badge (the aria-label still carries the count). */
 const BADGE_MIN_BED_PX = 44;
 
@@ -430,13 +432,22 @@ const ShapeNode = memo(function ShapeNode({
         ? (() => {
             const location = entry.source as PlanLocation;
             if (location.open_task_count <= 0) return null;
+            // The top-right corner of the box, except on a circle, where that corner lies outside the bed: there
+            // the badge sits on the rim at 45 degrees.
+            const badgeCorner: Point =
+              entry.shape.kind === 'circle'
+                ? [
+                    entry.shape.center[0] + entry.shape.radiusM * Math.SQRT1_2,
+                    -(entry.shape.center[1] + entry.shape.radiusM * Math.SQRT1_2),
+                  ]
+                : [entry.bbox[2], -entry.bbox[3]];
             return (
               <TaskBadge
                 locationKey={entry.key}
                 openCount={location.open_task_count}
                 overdueCount={location.overdue_task_count}
-                x={entry.bbox[2]}
-                y={-entry.bbox[3]}
+                x={badgeCorner[0]}
+                y={badgeCorner[1]}
                 pxPerM={pxPerM}
                 palette={palette}
               />
@@ -453,7 +464,7 @@ interface TaskBadgeProps {
   locationKey: string;
   openCount: number;
   overdueCount: number;
-  /** The bed's top-right corner in drawing coordinates (y already flipped). */
+  /** Where the badge's top-right corner sits, in drawing coordinates (y already flipped). */
   x: number;
   y: number;
   pxPerM: number;
@@ -464,13 +475,15 @@ interface TaskBadgeProps {
  * The open-task badge of a bed (GP-FR-089): the count of open tasks, red when some are overdue. It is
  * decorative for assistive technology - the bed's accessible name already says how many tasks are open,
  * and the properties panel offers the care tab as a button. The `data-plan-badge` marker lets the editor
- * open the care tab when the pointer goes down on it (the canvas captures the pointer, so a click never
- * reaches the badge itself).
+ * recognise a click on it and open the care tab.
  */
 function TaskBadge({ locationKey, openCount, overdueCount, x, y, pxPerM, palette }: TaskBadgeProps) {
-  const radius = BADGE_RADIUS_PX / pxPerM;
   const colors = overdueCount > 0 ? palette.badgeOverdue : palette.badgeOpen;
   const text = openCount > 99 ? '99+' : String(openCount);
+  const height = (2 * BADGE_RADIUS_PX) / pxPerM;
+  // One digit is a circle; more grow into a pill so the number never spills out of its badge.
+  const width = Math.max(height, (text.length * BADGE_FONT_PX * 0.62 + 10) / pxPerM);
+  const left = x - width;
   return (
     <g
       className="gp-badge"
@@ -479,19 +492,21 @@ function TaskBadge({ locationKey, openCount, overdueCount, x, y, pxPerM, palette
       aria-hidden="true"
       style={{ cursor: 'pointer' }}
     >
-      <circle
-        cx={num(x - radius)}
-        cy={num(y + radius)}
-        r={num(radius)}
+      <rect
+        x={num(left)}
+        y={num(y)}
+        width={num(width)}
+        height={num(height)}
+        rx={num(height / 2)}
         fill={colors.fill}
         stroke={colors.text}
         strokeWidth={1}
         vectorEffect="non-scaling-stroke"
       />
       <text
-        x={num(x - radius)}
-        y={num(y + radius)}
-        fontSize={((BADGE_RADIUS_PX * 1.1) / pxPerM).toPrecision(4)}
+        x={num(left + width / 2)}
+        y={num(y + height / 2)}
+        fontSize={(BADGE_FONT_PX / pxPerM).toPrecision(4)}
         fontWeight="bold"
         textAnchor="middle"
         dominantBaseline="central"

@@ -17,7 +17,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedSummary } from '../bed/types';
-import { completeBedTask, reopenWithUndo, skipBedTask, voidCareEvent } from './careApi';
+import { completeBedTask, reopenBedTask, reopenWithUndo, skipBedTask, voidCareEvent } from './careApi';
 import { type CareContext } from './careCategories';
 import type { CareEventRef, CareTask, CompletionPayload, TaskScope } from './careTypes';
 import CareCompletionDialog from './CareCompletionDialog';
@@ -53,6 +53,14 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
   const [logging, setLogging] = useState(false);
   const lastSubmitAt = useRef(0);
   const savingRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** The row that opened a dialog may be gone after the reload; keep keyboard and screen-reader users in the tab. */
+  const restoreFocus = () => {
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) rootRef.current?.focus();
+    }, 0);
+  };
 
   const context = useMemo<CareContext>(
     () => ({ growingMedium: bed.soil_profile?.growing_medium_kind ?? null, locationTypeKey: bed.location_type_key }),
@@ -88,6 +96,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
       await completeBedTask(task.key, payload);
       setCompleting(null);
       changed();
+      restoreFocus();
       offerUndo({
         message: t('pages.bed.care.undo.completed', { name: taskName(task) }),
         undo: async () => {
@@ -109,10 +118,11 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
     try {
       await skipBedTask(task.key);
       changed();
+      restoreFocus();
       offerUndo({
         message: t('pages.bed.care.undo.dismissed', { name: taskName(task) }),
         undo: async () => {
-          await reopenWithUndo(task.key);
+          await reopenBedTask(task.key);
         },
         onUndone: changed,
       });
@@ -126,6 +136,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
   const onLogged = (event: CareEventRef, label: string) => {
     setLogging(false);
     onChanged();
+    restoreFocus();
     offerUndo({
       message: t('pages.bed.care.undo.logged', { category: label }),
       undo: () => voidCareEvent(event.key),
@@ -136,6 +147,8 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
   const onCreated = (count: number, scope: TaskScope) => {
     setCreating(false);
     changed();
+    restoreFocus();
+    if (scope === 'bedOnly') return; // the error toast of the failed fan-out is already up
     notification.success(
       scope === 'plants' ? t('pages.bed.care.create.createdPlants', { count }) : t('pages.bed.care.create.createdBed'),
     );
@@ -144,14 +157,19 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
   const total = sections.overdue.length + sections.open.length + sections.suggested.length;
 
   return (
-    <Box data-testid="bed-care-tab" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box
+      ref={rootRef}
+      tabIndex={-1}
+      data-testid="bed-care-tab"
+      sx={{ display: 'flex', flexDirection: 'column', gap: 3, outline: 'none' }}
+    >
       {canEdit && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
           <Button
             variant="outlined"
             startIcon={<AddTaskIcon />}
             onClick={() => setCreating(true)}
-            sx={{ minHeight: 48 }}
+            sx={{ minHeight: 48, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
             data-testid="care-create"
           >
             {t('pages.bed.care.create.open')}
@@ -160,7 +178,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
             variant="outlined"
             startIcon={<EditNoteIcon />}
             onClick={() => setLogging(true)}
-            sx={{ minHeight: 48 }}
+            sx={{ minHeight: 48, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
             data-testid="care-log"
           >
             {t('pages.bed.care.log.open')}
@@ -168,7 +186,11 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
         </Box>
       )}
 
-      {care.state.status === 'loading' && <LoadingSkeleton variant="card" />}
+      {care.state.status === 'loading' && (
+        <Box role="status" aria-busy="true" aria-label={t('pages.bed.care.loading')}>
+          <LoadingSkeleton variant="card" />
+        </Box>
+      )}
       {care.state.status === 'error' && <ErrorDisplay error={care.state.message} onRetry={reload} />}
       {ready && total === 0 && (
         <EmptyState
@@ -183,7 +205,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
               key={kind}
               kind={kind}
               tasks={sections[kind]}
-              plants={ready.plants}
+              plants={ready.plants ?? []}
               canEdit={canEdit}
               busy={saving}
               onComplete={setCompleting}
@@ -205,7 +227,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
         <CareTaskDialog
           bedKey={bed.key}
           context={context}
-          plantCount={ready?.plants.length ?? bed.active_plant_count}
+          plantCount={ready?.plants?.length ?? bed.active_plant_count}
           onClose={() => setCreating(false)}
           onCreated={onCreated}
         />

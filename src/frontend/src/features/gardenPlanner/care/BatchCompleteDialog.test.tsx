@@ -79,6 +79,53 @@ describe('BatchCompleteDialog', () => {
     expect(await screen.findByText('1 completed, 1 could not be completed.')).toBeInTheDocument();
   });
 
+  it('does not report a failed lookup as "nothing to do"', async () => {
+    useCareBackend([careTask('t1')]);
+    server.use(http.get(`${BASE}/tasks/queue`, () => HttpResponse.json({ detail: 'down' }, { status: 503 })));
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('care-batch-find'));
+    expect(await screen.findByTestId('care-batch-lookup-failed')).toHaveTextContent('could not be read');
+    expect(screen.queryByTestId('care-batch-none')).toBeNull();
+  });
+
+  it('takes the next 200 after the first batch instead of leaving them unmentioned', async () => {
+    const many = Array.from({ length: 230 }, (_, index) => careTask(`t${index}`));
+    const backend = useCareBackend(many);
+    const user = userEvent.setup();
+    let closed = false;
+    renderDialog(undefined, () => {
+      closed = true;
+    });
+    await user.click(screen.getByTestId('care-batch-find'));
+    expect(await screen.findByTestId('care-batch-found')).toHaveTextContent('230 open tasks');
+    await user.click(screen.getByTestId('care-batch-submit'));
+    await waitFor(() => expect(screen.getByTestId('care-batch-submit')).toHaveTextContent('Complete 30 tasks'));
+    expect(closed).toBe(false);
+    const first = backend.seen.find((call) => call.url === '/tasks/batch/status');
+    expect((first?.body as { task_keys: string[] }).task_keys).toHaveLength(200);
+  });
+
+  it('tries every task on undo, reloads whatever the outcome, and still reports a refusal', async () => {
+    const backend = useCareBackend([careTask('t1'), careTask('t2')]);
+    server.use(
+      http.post(`${BASE}/tasks/t2/reopen`, async ({ request }) => {
+        backend.seen.push({ url: '/tasks/t2/reopen', body: await request.json() });
+        return HttpResponse.json({ detail: 'too late' }, { status: 403 });
+      }),
+    );
+    const onChanged = vi.fn();
+    const user = userEvent.setup();
+    renderDialog(onChanged);
+    await user.click(screen.getByTestId('care-batch-find'));
+    await user.click(await screen.findByTestId('care-batch-submit'));
+    const undo = await screen.findByTestId('care-undo');
+    const before = onChanged.mock.calls.length;
+    await user.click(undo);
+    await waitFor(() => expect(backend.seen.filter((call) => call.url.endsWith('/reopen'))).toHaveLength(2));
+    await waitFor(() => expect(onChanged.mock.calls.length).toBeGreaterThan(before));
+  });
+
   it('needs at least one bed', async () => {
     useCareBackend([]);
     const user = userEvent.setup();

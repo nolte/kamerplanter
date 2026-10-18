@@ -6004,6 +6004,7 @@
         "doNowFor": "Jetzt erledigen: {{name}}",
         "dismiss": "Verwerfen",
         "dismissFor": "Verwerfen: {{name}}",
+        "loading": "Aufgaben werden geladen",
         "empty": {
           "title": "Hier ist nichts zu tun",
           "description": "Keine offenen Aufgaben für dieses Beet oder seine Pflanzen.",
@@ -6087,7 +6088,10 @@
           "back": "Zurück",
           "submit": "{{count}} Aufgaben erledigen",
           "partial": "{{done}} erledigt, {{failed}} konnten nicht erledigt werden.",
-          "findFailed": "Einige Beete konnten nicht gelesen werden; die Aufgaben der übrigen sind aufgelistet."
+          "findFailed": "Einige Beete konnten nicht gelesen werden; die Aufgaben der übrigen sind aufgelistet.",
+          "findFailedAll": "Die Aufgaben konnten nicht gelesen werden. Versuche es gleich noch einmal.",
+          "findFailedNone": "Auf den lesbaren Beeten gibt es keine offenen Aufgaben dieser Art ({{category}}); einige Beete konnten nicht gelesen werden.",
+          "continue": "Es sind noch {{count}} Aufgaben übrig. Erledige sie mit denselben Angaben oder ändere sie vorher."
         }
       }
     }

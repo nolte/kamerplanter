@@ -109,14 +109,14 @@ export default function CareTaskList({ kind, tasks, plants, canEdit, busy, onCom
                 )}
               </Box>
               {canEdit && (
-                <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                <Box sx={{ display: 'flex', gap: 1, flexShrink: 0, width: { xs: '100%', sm: 'auto' } }}>
                   {kind === 'suggested' && (
                     <Button
                       variant="outlined"
                       color="inherit"
                       onClick={() => onDismiss(task)}
                       disabled={busy}
-                      sx={{ minHeight: 48 }}
+                      sx={{ minHeight: 48, flex: { xs: 1, sm: 'none' } }}
                       data-testid={`care-dismiss-${task.key}`}
                       aria-label={t('pages.bed.care.dismissFor', { name: taskName(task) })}
                     >
@@ -127,7 +127,7 @@ export default function CareTaskList({ kind, tasks, plants, canEdit, busy, onCom
                     variant="contained"
                     onClick={() => onComplete(task)}
                     disabled={busy}
-                    sx={{ minHeight: 48, minWidth: 96 }}
+                    sx={{ minHeight: 48, minWidth: 96, flex: { xs: 1, sm: 'none' } }}
                     data-testid={`care-done-${task.key}`}
                     aria-label={t(kind === 'suggested' ? 'pages.bed.care.doNowFor' : 'pages.bed.care.doneFor', { name: taskName(task) })}
                   >

@@ -83,7 +83,7 @@ export default function CareCompletionDialog({
           testId="care-complete"
         />
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
         <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
           {t('common.cancel')}
         </Button>

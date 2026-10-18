@@ -79,6 +79,12 @@ export async function reopenWithUndo(key: string): Promise<TaskItem> {
   return data;
 }
 
+/** Reopen a skipped task (a dismissed suggestion has no care line to void). */
+export async function reopenBedTask(key: string): Promise<TaskItem> {
+  const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/reopen`, {});
+  return data;
+}
+
 export interface BedTaskBody {
   name: string;
   category: string;

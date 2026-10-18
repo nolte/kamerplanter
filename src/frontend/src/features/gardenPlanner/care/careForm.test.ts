@@ -102,6 +102,14 @@ describe('the instant (GP-FR-085)', () => {
     expect(performedAtProblem('', NOW)).toBe('invalid');
   });
 
+  it('rounds the lower bound up to the minute: a value the input offers is a value the validator takes', () => {
+    const withSeconds = new Date(2026, 5, 14, 18, 30, 42);
+    // The exact limit is 18:30:42 a year back; the input has no seconds, so its first value is 18:31.
+    expect(performedAtBounds(withSeconds).min).toBe('2025-06-14T18:31');
+    expect(performedAtProblem('2025-06-14T18:31', withSeconds)).toBeNull();
+    expect(performedAtProblem('2025-06-14T18:30', withSeconds)).toBe('tooOld');
+  });
+
   it('reports the problem only once the user has touched the field', () => {
     const untouched = form('watering', { performedAt: '2030-01-01T00:00' });
     expect(validateForm(untouched, NOW)).toEqual({});

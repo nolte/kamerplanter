@@ -37,9 +37,21 @@ export function toLocalInput(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+/**
+ * The earliest instant the field takes: a year back, rounded UP to the next full minute, because the input
+ * has no seconds and a value rounded down would lie before the server's limit (GP-FR-085).
+ */
+function earliestAllowed(now: Date): Date {
+  const earliest = new Date(now.getTime() - MAX_BACKDATE_DAYS * MS_PER_DAY);
+  earliest.setSeconds(0, 0);
+  return earliest.getTime() < now.getTime() - MAX_BACKDATE_DAYS * MS_PER_DAY
+    ? new Date(earliest.getTime() + 60_000)
+    : earliest;
+}
+
 /** The bounds of the instant field (GP-FR-085), for the input's `min` and `max`. */
 export function performedAtBounds(now: Date): { min: string; max: string } {
-  return { min: toLocalInput(new Date(now.getTime() - MAX_BACKDATE_DAYS * MS_PER_DAY)), max: toLocalInput(now) };
+  return { min: toLocalInput(earliestAllowed(now)), max: toLocalInput(now) };
 }
 
 export function emptyForm(now: Date = new Date()): CareFormState {
@@ -73,7 +85,7 @@ export function performedAtProblem(value: string, now: Date): 'future' | 'tooOld
   const at = new Date(value);
   if (Number.isNaN(at.getTime())) return 'invalid';
   if (at.getTime() > now.getTime()) return 'future';
-  if (at.getTime() < now.getTime() - MAX_BACKDATE_DAYS * MS_PER_DAY) return 'tooOld';
+  if (at.getTime() < earliestAllowed(now).getTime()) return 'tooOld';
   return null;
 }
 

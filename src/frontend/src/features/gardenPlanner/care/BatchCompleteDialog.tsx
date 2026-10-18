@@ -122,12 +122,26 @@ export default function BatchCompleteDialog({ beds, onClose, onChanged }: BatchC
         offerUndo({
           message: t('pages.bed.care.undo.batch', { count: result.succeeded.length }),
           undo: async () => {
-            await Promise.all(result.succeeded.map((key) => reopenWithUndo(key)));
+            // Every task is tried; the list reloads whatever the outcome, and a refusal is still reported.
+            const outcomes = await Promise.allSettled(result.succeeded.map((key) => reopenWithUndo(key)));
+            const refused = outcomes.find((outcome) => outcome.status === 'rejected');
+            if (refused) {
+              onChanged();
+              throw (refused as PromiseRejectedResult).reason;
+            }
           },
           onUndone: onChanged,
         });
       }
-      onClose();
+      const done = new Set(result.succeeded);
+      const rest = found.tasks.filter((task) => !done.has(task.key));
+      // More than one batch's worth was found: stay, with what is left, instead of leaving the rest unmentioned.
+      if (found.tasks.length > MAX_BATCH_TASKS && rest.length > 0) {
+        setFound({ ...found, tasks: rest });
+        notification.info(t('pages.bed.care.batch.continue', { count: rest.length }));
+      } else {
+        onClose();
+      }
     } catch (error) {
       handleError(error);
     } finally {
@@ -195,12 +209,21 @@ export default function BatchCompleteDialog({ beds, onClose, onChanged }: BatchC
             </Box>
           </>
         ) : found.tasks.length === 0 ? (
-          <Alert severity="info" data-testid="care-batch-none">
-            {t('pages.bed.care.batch.none', { category: categoryName })}
-          </Alert>
+          found.failedBeds > 0 ? (
+            // A lookup that failed is not "nothing to do"; saying so would send the user home.
+            <Alert severity="error" data-testid="care-batch-lookup-failed">
+              {t(found.bedCount === 0 ? 'pages.bed.care.batch.findFailedAll' : 'pages.bed.care.batch.findFailedNone', {
+                category: categoryName,
+              })}
+            </Alert>
+          ) : (
+            <Alert severity="info" data-testid="care-batch-none">
+              {t('pages.bed.care.batch.none', { category: categoryName })}
+            </Alert>
+          )
         ) : (
           <>
-            <Typography variant="body1" data-testid="care-batch-found">
+            <Typography variant="body1" role="status" data-testid="care-batch-found">
               {t('pages.bed.care.batch.found', { tasks: found.tasks.length, beds: found.bedCount })}
             </Typography>
             {found.failedBeds > 0 && <Alert severity="warning">{t('pages.bed.care.batch.findFailed')}</Alert>}
@@ -221,7 +244,7 @@ export default function BatchCompleteDialog({ beds, onClose, onChanged }: BatchC
           </>
         )}
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
         {found !== null && (
           <Button onClick={() => setFound(null)} disabled={busy} sx={{ minHeight: 48 }}>
             {t('pages.bed.care.batch.back')}

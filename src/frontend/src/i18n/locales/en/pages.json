@@ -6003,6 +6003,7 @@
         "doNowFor": "Do now: {{name}}",
         "dismiss": "Dismiss",
         "dismissFor": "Dismiss: {{name}}",
+        "loading": "Loading tasks",
         "empty": {
           "title": "Nothing to do here",
           "description": "No open tasks for this bed or its plants.",
@@ -6086,7 +6087,10 @@
           "back": "Back",
           "submit": "Complete {{count}} tasks",
           "partial": "{{done}} completed, {{failed}} could not be completed.",
-          "findFailed": "Some beds could not be read; the tasks of the others are listed."
+          "findFailed": "Some beds could not be read; the tasks of the others are listed.",
+          "findFailedAll": "The tasks could not be read. Try again in a moment.",
+          "findFailedNone": "No open {{category}} tasks were found on the beds that could be read; other beds could not be read.",
+          "continue": "{{count}} more tasks are left. Complete them with the same details or change them first."
         }
       }
     }

@@ -41,12 +41,19 @@ describe('task badge on the canvas', () => {
     canvas.appendChild(node);
     return node;
   }
+  const PRESS = { button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true };
 
-  it('opens the care tab when the pointer goes down on it, and starts no gesture', () => {
+  it('opens the care tab on the click, and the press that lands on it starts no gesture', () => {
     const onOpenCare = vi.fn<(locationKey: string) => void>();
     const t = setupEditor({ onOpenCare });
-    fireEvent.pointerDown(badgeNode(t.canvas(), 'b1'), { button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true });
-    expect(onOpenCare).toHaveBeenCalledWith('b1');
+    const badge = badgeNode(t.canvas(), 'b1');
+    fireEvent.pointerDown(badge, PRESS);
+    // Only the click opens it: a drag that starts on the badge (pan, pinch) never produces one.
+    expect(onOpenCare).not.toHaveBeenCalled();
+    expect(t.selected()).toEqual([]);
+    fireEvent.pointerUp(badge, PRESS);
+    fireEvent.click(badge);
+    expect(onOpenCare).toHaveBeenCalledExactlyOnceWith('b1');
     expect(t.selected()).toEqual([]);
   });
 
@@ -55,7 +62,9 @@ describe('task badge on the canvas', () => {
     const t = setupEditor({ onOpenCare });
     fireEvent.click(screen.getByRole('button', { name: /Pan/ }));
     expect(t.state().tool).toBe('pan');
-    fireEvent.pointerDown(badgeNode(t.canvas(), 'b1'), { button: 0, pointerId: 1, pointerType: 'mouse', isPrimary: true });
+    const badge = badgeNode(t.canvas(), 'b1');
+    fireEvent.pointerDown(badge, PRESS);
+    fireEvent.click(badge);
     expect(onOpenCare).not.toHaveBeenCalled();
   });
 });

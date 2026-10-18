@@ -4,13 +4,15 @@
  */
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
+import { server } from '@/test/mocks/server';
 import { bedSummary } from '../bed/bedTestKit';
 import type { BedSummary } from '../bed/types';
 import BedCareTab from './BedCareTab';
-import { careTask, useCareBackend } from './careTestKit';
+import { BASE, careTask, useCareBackend } from './careTestKit';
 
 const PLANTS = [
   { plant_key: 'pi_1', instance_id: 'TOM-1' },
@@ -180,6 +182,8 @@ describe('suggestions (GP-FR-086)', () => {
     expect(backend.seen[0].url).toBe('/tasks/t_sug/skip');
     await user.click(await screen.findByTestId('care-undo'));
     expect(await screen.findByTestId('care-task-t_sug')).toBeInTheDocument();
+    // A dismissal has no care line to void: the plain reopen, not the undo variant.
+    expect(backend.seen[backend.seen.length - 1]).toEqual({ url: '/tasks/t_sug/reopen', body: {} });
   });
 
   it('"Do now" opens the same completion dialog', async () => {
@@ -219,6 +223,56 @@ describe('creating a task (GP-FR-080/081)', () => {
     expect(backend.seen.map((call) => call.url)).toEqual(['/tasks', '/tasks/new_1/fan-out']);
     expect(backend.seen[1].body).toEqual({ include_children: true, keep_source: false });
     expect(await screen.findByText('2 tasks created, one per plant.')).toBeInTheDocument();
+  });
+
+  it('due day: the task is due until the end of that day, not at noon', async () => {
+    const backend = useCareBackend([], PLANTS);
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('care-create'));
+    const dialog = await screen.findByTestId('care-task-dialog');
+    await user.type(within(dialog).getByTestId('care-task-due'), '2030-03-05');
+    await user.click(within(dialog).getByTestId('care-task-submit'));
+    await waitFor(() => expect(backend.seen).toHaveLength(1));
+    expect((backend.seen[0].body as { due_date: string }).due_date).toBe(new Date('2030-03-05T23:59:00').toISOString());
+  });
+
+  it('keeps the bed task and closes the dialog when the fan-out fails, so a second submit cannot duplicate it', async () => {
+    const backend = useCareBackend([], PLANTS);
+    server.use(http.post(`${BASE}/tasks/:key/fan-out`, () => HttpResponse.json({ detail: 'nope' }, { status: 503 })));
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('care-create'));
+    const dialog = await screen.findByTestId('care-task-dialog');
+    await user.click(within(dialog).getByTestId('care-task-scope-plants'));
+    await user.click(within(dialog).getByTestId('care-task-submit'));
+    await waitFor(() => expect(screen.queryByTestId('care-task-dialog')).toBeNull());
+    expect(backend.seen.filter((call) => call.url === '/tasks')).toHaveLength(1);
+    expect(await screen.findByTestId('care-task-new_1')).toBeInTheDocument();
+    expect(screen.queryByText(/tasks created, one per plant/)).toBeNull();
+  });
+
+  it('says "created for the bed" when the fan-out finds no plant to clone onto', async () => {
+    useCareBackend([], PLANTS);
+    server.use(http.post(`${BASE}/tasks/:key/fan-out`, () => HttpResponse.json([], { status: 201 })));
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('care-create'));
+    const dialog = await screen.findByTestId('care-task-dialog');
+    await user.click(within(dialog).getByTestId('care-task-scope-plants'));
+    await user.click(within(dialog).getByTestId('care-task-submit'));
+    expect(await screen.findByText('Task created for the bed.')).toBeInTheDocument();
+  });
+
+  it('does not take a failed plant lookup for an empty bed: "every plant" stays on offer', async () => {
+    useCareBackend([], PLANTS);
+    server.use(http.get(`${BASE}/locations/:key/plantings`, () => HttpResponse.json({ detail: 'x' }, { status: 500 })));
+    const user = userEvent.setup();
+    renderTab(bedSummary({ active_plant_count: 6 }));
+    await screen.findByText('Nothing to do here');
+    await user.click(screen.getByTestId('care-create'));
+    const radio = within(await screen.findByTestId('care-task-scope-plants')).getByRole('radio');
+    expect(radio).toBeEnabled();
   });
 
   it('offers "every plant" only when plants stand in the bed', async () => {
