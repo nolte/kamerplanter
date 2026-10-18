@@ -30,6 +30,7 @@ import json
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -42,26 +43,45 @@ from structlog.testing import capture_logs
 from app.api.v1.auth.router import limiter
 from app.api.v1.tenant_scoped.router import tenant_scoped_router
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_garden_plan_service, get_garden_resource_service, get_site_service
+from app.common.dependencies import (
+    get_garden_plan_service,
+    get_garden_resource_service,
+    get_planting_reservation_service,
+    get_planting_run_service,
+    get_site_service,
+)
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import (
     _BATCH_WRITE,
     _SLOT_BATCH_WRITE,
     ArangoGardenPlanRepository,
 )
+from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.planting_reservation_repository import (
+    _CLEAR_WRITE,
+    _QUICK_WRITE,
+    ArangoPlantingReservationRepository,
+)
+from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
+from app.domain.services.planting_reservation_service import PlantingReservationService
+from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.site_service import SiteService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.care_event_fakes import FakeAttachmentRepo, FakeAttachmentService, FakeFertilizers, FakeMemberships
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -93,6 +113,8 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.TASKS,
             *_BATCH_WRITE,
             *_SLOT_BATCH_WRITE,
+            *_CLEAR_WRITE,
+            *_QUICK_WRITE,
         )
     )
 )
@@ -199,12 +221,40 @@ def db(database):
 # ── The application under test: real routes, real services, real repositories ──────────────────────
 
 
-def _services(db) -> tuple[GardenPlanService, GardenResourceService, SiteService]:
+def _services(
+    db,
+) -> tuple[GardenPlanService, GardenResourceService, SiteService, PlantingReservationService, PlantingRunService]:
     sites = ArangoSiteRepository(db)
     plan_repo = ArangoGardenPlanRepository(db)
     plan = GardenPlanService(sites, plan_repo)
     resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan)
-    return plan, resources, SiteService(sites)
+    run_repo = ArangoPlantingRunRepository(db)
+    reservation_repo = ArangoPlantingReservationRepository(db)
+    care = CareEventService(
+        ArangoCareEventRepository(db),
+        sites,
+        FakeMemberships(),
+        FakeFertilizers(),
+        FakeAttachmentRepo(),
+        FakeAttachmentService(),
+    )
+    reservations = PlantingReservationService(reservation_repo, run_repo, sites, plan_repo, care)
+
+    def species(key: str, *, tenant_key: str) -> SimpleNamespace:
+        if key != "sp":
+            raise NotFoundError("Species", key)
+        return SimpleNamespace(scientific_name="Solanum lycopersicum", green_manure_suitable=False)
+
+    runs = PlantingRunService(
+        run_repo,
+        ArangoPlantInstanceRepository(db),
+        PlantingRunEngine(),
+        site_repo=sites,
+        species_resolver=species,
+        reservations=reservations,
+        reservation_repo=reservation_repo,
+    )
+    return plan, resources, SiteService(sites), reservations, runs
 
 
 class _Unscoped:
@@ -231,9 +281,15 @@ class _Unscoped:
 
 
 def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped: bool = False) -> TestClient:
-    plan, resources, sites = _services(db)
+    plan, resources, sites, reservations, runs = _services(db)
     if unscoped:
-        plan, resources, sites = _Unscoped(plan), _Unscoped(resources), _Unscoped(sites)  # type: ignore[assignment]
+        plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
+            _Unscoped(plan),
+            _Unscoped(resources),
+            _Unscoped(sites),
+            _Unscoped(reservations),
+            _Unscoped(runs),
+        )
     app = FastAPI()
     app.state.limiter = limiter
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
@@ -244,6 +300,8 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_garden_plan_service] = lambda: plan
     app.dependency_overrides[get_garden_resource_service] = lambda: resources
     app.dependency_overrides[get_site_service] = lambda: sites
+    app.dependency_overrides[get_planting_reservation_service] = lambda: reservations
+    app.dependency_overrides[get_planting_run_service] = lambda: runs
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -389,6 +447,17 @@ CASES: tuple[Case, ...] = (
         "POST",
         "/locations/bed_b/planting-layout/preview",
         {"entry": {"layout_strategy": "grid", "spacing_cm": 30}},
+    ),
+    # REQ-053 WP 3.2, GP-API-024 / GP-API-019 / GP-API-017: the plantings of a bed, clearing it, quick planting.
+    Case("list_plantings", "GET", "/locations/bed_b/plantings"),
+    Case("clear_bed", "POST", "/locations/bed_b/clear", {"termination_type": "senesced"}, writes=True),
+    Case(
+        "quick_planting",
+        "POST",
+        "/locations/bed_b/quick-planting",
+        {"species_key": "sp", "quantity": 2, "layout_strategy": "grid", "spacing_cm": 50},
+        owner_status=201,
+        writes=True,
     ),
     # slots (WP 1.9 + the reads of the single resource)
     Case("list_slots", "GET", "/slots", params={"location_key": "bed_b"}),
