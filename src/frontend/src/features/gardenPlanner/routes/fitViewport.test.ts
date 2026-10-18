@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import { normalizePlan } from '../model/planModel';
-import { fitViewport, planContentBounds } from './fitViewport';
+import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
 
 describe('planContentBounds', () => {
   it('is the box around the boundary, the beds and the garden objects', () => {
@@ -69,5 +69,35 @@ describe('fitViewport', () => {
     const viewport = fitViewport([3, 3, 3, 3], 600, 600);
     expect(Number.isFinite(viewport.pxPerM)).toBe(true);
     expect(viewport.widthPx).toBeGreaterThan(0);
+  });
+});
+
+describe('focusViewport (GP-ACC-016)', () => {
+  it('shows the whole bounding box, centred, at a zoom no lower than the fit of the plan', () => {
+    const bounds: [number, number, number, number] = [10, 20, 12, 21];
+    const { pxPerM, originM } = focusViewport(bounds, 800, 600, 4);
+    expect(pxPerM).toBeGreaterThanOrEqual(4);
+    // Every corner of the box lies inside the canvas.
+    for (const [x, y] of [[10, 20], [12, 21]]) {
+      const px = (x - originM[0]) * pxPerM;
+      const py = (originM[1] - y) * pxPerM;
+      expect(px).toBeGreaterThanOrEqual(0);
+      expect(px).toBeLessThanOrEqual(800);
+      expect(py).toBeGreaterThanOrEqual(0);
+      expect(py).toBeLessThanOrEqual(600);
+    }
+    // Centred: the same slack left and right.
+    const left = (10 - originM[0]) * pxPerM;
+    const right = 800 - (12 - originM[0]) * pxPerM;
+    expect(left).toBeCloseTo(right, 5);
+  });
+
+  it('does not zoom out past the fit of the whole plan for a bed larger than the canvas allows', () => {
+    const { pxPerM } = focusViewport([0, 0, 500, 500], 800, 600, 3);
+    expect(pxPerM).toBe(3);
+  });
+
+  it('caps the zoom for a tiny box', () => {
+    expect(focusViewport([0, 0, 0.01, 0.01], 800, 600, 1).pxPerM).toBe(200);
   });
 });

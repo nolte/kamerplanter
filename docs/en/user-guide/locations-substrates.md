@@ -262,6 +262,54 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 
 ---
 
+## Bed View {#bed-view}
+
+If you open a location whose type is a bed (Bed, Raised Bed, Greenhouse Bed, Cold Frame or Planter), Kamerplanter shows the bed view instead of the regular location page. It brings everything important about a bed together in one place.
+
+### Summary above the tabs
+
+Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. Use the **season selector** to switch the year; it appears in the address as `?year=`.
+
+!!! warning "Not yet implemented"
+    Showing the previous year's crop in the summary is not implemented yet. Until then, Kamerplanter shows a placeholder line there. **Clear bed** will also only be available in a later version.
+
+### The tabs
+
+The active tab is part of the address (e.g. `#plan` or `#soil`), so you can share links to a specific tab.
+
+| Tab | Content |
+|-----|---------|
+| Plan | Bed frame with places, rows or zones and plant markers, read-only. **Open in garden plan** takes you to the garden plan for editing. |
+| Planting, Care, History | Show an empty state for now. Existing runs and plants remain available under **Details**. |
+| Soil | The bed's soil profile (see below). |
+| Details | The previous location page, unchanged. |
+
+!!! warning "Not yet implemented"
+    The **Planting**, **Care** and **History** tabs exist but do not contain any content yet. In the future they will show plantings, care entries and the history of the bed.
+
+### Maintaining the soil profile
+
+In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. As a viewer (role "viewer") you see the profile read-only.
+
+### Changing the bed status
+
+- **Planned → Active**: possible from the "grower" role.
+- **Retire and reactivate**: only with the "lead" role.
+- To retire a bed you need a **reason**, and the bed must contain no plants. The reason is written to the care log.
+
+!!! tip "Tip: empty the bed first, then retire it"
+    If plants are still in the bed, Kamerplanter rejects retiring it. Remove or harvest them first.
+
+---
+
+## Bed List on the Garden Plan {#bed-list-on-the-garden-plan}
+
+Below the plan on the garden plan page, a table lists your beds: name (a link to the bed view), type, area, status, responsible person, plants, open tasks (including overdue ones) and next due date. Retired beds are hidden by default. The **My beds** switch filters to your own beds and requires that beds are assigned to you.
+
+If you click a row or press Enter, the bed is selected on the plan and the view zooms to it.
+
+---
+
 ## Tips for Location Structure
 
 !!! example "Example: Balcony gardener"

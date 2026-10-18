@@ -25,6 +25,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
+import { useNotification } from '@/hooks/useNotification';
 import { registerLazySlice } from '@/store/lazySlices';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -33,44 +34,30 @@ import {
   loadGardenPlan,
   resetGardenPlan,
   selectGardenPlanState,
+  setSelection,
   selectIsDirty,
 } from '../state/gardenPlanSlice';
 import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { GardenPlanEditor } from '../editor/GardenPlanEditor';
 import { EDITOR_SIDEBAR_RESERVE_PX } from '../editor/layout';
+import { EDITOR_ANCHORS } from '../editor/anchors';
 import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
-import { fitViewport, planContentBounds } from './fitViewport';
+import BedListSection from '../bed/BedListSection';
+import type { BedListItem } from '../bed/types';
+import { boundingBox } from '../model/geometry';
+import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
+import { useElementWidth } from './useElementWidth';
 
 // Register the slice before the first render of the page; idempotent, so a re-evaluated module
 // (tests, HMR) is harmless.
 registerLazySlice(gardenPlanSlice);
 
-/** Width used until the container has been measured (and where ResizeObserver does not exist). */
-const FALLBACK_WIDTH_PX = 640;
 /** The drawing may take this share of the viewport height before the page scrolls. */
 const MAX_HEIGHT_SHARE = 0.7;
 /** Both sides of the 1px canvas border; the drawing must fit inside it or the box scrolls sideways. */
 const CANVAS_BORDER_PX = 2;
-
-/** The width of the element the ref points at, kept up to date while it resizes. */
-function useElementWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
-  const ref = useRef<T | null>(null);
-  const [width, setWidth] = useState(FALLBACK_WIDTH_PX);
-  useEffect(() => {
-    const element = ref.current;
-    if (element === null || typeof ResizeObserver === 'undefined') return undefined;
-    const measure = () => {
-      if (element.clientWidth > 0) setWidth(element.clientWidth);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, width];
-}
 
 export default function GardenPlanRoute() {
   const { key } = useParams<{ key: string }>();
@@ -78,6 +65,7 @@ export default function GardenPlanRoute() {
   const { t } = useTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
+  const notification = useNotification();
   // From md up the properties panel sits beside the plan and takes its width from the drawing.
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
@@ -178,6 +166,28 @@ export default function GardenPlanRoute() {
   );
   const onFit = useCallback(() => setView(null), []);
 
+  // GP-ACC-016: a row of the bed list selects the bed and brings its bounding box into view.
+  const fittedWidth = fitted?.widthPx ?? 0;
+  const fittedHeight = fitted?.heightPx ?? 0;
+  const onSelectBed = useCallback(
+    (bed: BedListItem) => {
+      const placed = plan?.locations[bed.key];
+      const geometry = placed?.geometry ?? null;
+      if (!placed || !geometry) {
+        // A bed that is not drawn yet has nothing to highlight; say so instead of selecting a ghost.
+        notification.info(t('pages.bed.list.notPlaced', { name: bed.name }));
+        return;
+      }
+      dispatch(setSelection([{ entity: 'location', key: bed.key }]));
+      if (fittedWidth === 0) return;
+      const bounds = placed.bbox ?? boundingBox(geometry);
+      const next = focusViewport(bounds, fittedWidth, fittedHeight, minPxPerM);
+      setView({ siteKey: key, requestId: loadRequestId, ...next });
+      document.getElementById(EDITOR_ANCHORS.canvas)?.scrollIntoView?.({ block: 'nearest' });
+    },
+    [dispatch, plan, fittedWidth, fittedHeight, minPxPerM, key, loadRequestId, notification, t],
+  );
+
   const backLink = (
     <Button
       component={RouterLink}
@@ -236,6 +246,9 @@ export default function GardenPlanRoute() {
       <UnsavedChangesGuard dirty={dirty} />
       {/* The measured box exists in every state, so the first drawing already fits the width. */}
       <Box ref={canvasRef}>{content}</Box>
+      {key && plan !== null && (
+        <BedListSection siteKey={key} reloadToken={loadRequestId} onSelectBed={onSelectBed} />
+      )}
     </Box>
   );
 }

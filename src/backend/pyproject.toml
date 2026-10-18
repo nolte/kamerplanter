@@ -36,7 +36,7 @@ dependencies = [
     "zeroconf>=0.131.0,<1.0.0",
     "pywebpush>=2.0.0,<3.0.0",
     "boto3>=1.35,<2.0.0",
-    "pillow>=11.0,<13.0.0",
+    "pillow>=13,<13.1",
     # REQ-037 — FAO-56 Penman-Monteith / Hargreaves reference evapotranspiration.
     # BSD-3-Clause (a maintained fork of PyETo); verified importable on Python 3.14.
     "aquacropeto>=0.1.1,<1.0.0",

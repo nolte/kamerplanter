@@ -608,4 +608,60 @@ describe('LocationDetailPage', () => {
     );
     expect(mockNavigate).not.toHaveBeenCalledWith(-1);
   });
+
+  describe('as a bed (REQ-053 WP 3.5)', () => {
+    const summary = {
+      ...baseLocation,
+      is_bed: true,
+      bed_status: 'active',
+      sun_exposure: 'unknown',
+      season_state: 'empty',
+      active_plant_count: 0,
+      species_keys: [],
+      open_task_count: 0,
+      overdue_task_count: 0,
+      next_due_at: null,
+      last_care_at: null,
+      geometry: null,
+      soil_profile: null,
+    };
+
+    it('keeps the plain page for a location that is not a bed', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+          HttpResponse.json({ ...summary, is_bed: false }),
+        ),
+      );
+      renderPage();
+      expect(await screen.findByText('Run Alpha')).toBeTruthy();
+      expect(screen.queryByTestId('bed-view')).toBeNull();
+    });
+
+    it('wraps the same page in the bed view: header, tabs, and the unchanged details on their own tab', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () => HttpResponse.json(summary)),
+      );
+      renderWithProviders(<LocationDetailPage />, { store: createStoreWithSmartHome(), route: '/#details' });
+      expect(await screen.findByTestId('bed-view')).toBeTruthy();
+      expect(screen.getByTestId('bed-header')).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'Stammdaten' })).toHaveAttribute('aria-selected', 'true');
+      // Everything the page always had is still there.
+      expect(await screen.findByText('Run Alpha')).toBeTruthy();
+      expect(screen.getByTestId('create-slot-button')).toBeTruthy();
+    });
+
+    it('opens a bed on its plan tab by default', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () => HttpResponse.json(summary)),
+      );
+      renderPage();
+      expect(await screen.findByTestId('bed-view')).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'Plan' })).toHaveAttribute('aria-selected', 'true');
+      expect(await screen.findByTestId('bed-plan-tab')).toBeTruthy();
+      expect(screen.queryByText('Run Alpha')).toBeNull();
+    });
+  });
 });
