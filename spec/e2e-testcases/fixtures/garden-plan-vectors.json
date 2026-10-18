@@ -48,7 +48,8 @@
     "validate_model": "input.geometry (raw mapping), optional input.frame ('plan' | 'bed') -> expected {valid: boolean, normalized?: geometry}",
     "resolved_area": "input.geometry (rect | polygon) -> expected number (m2): shoelace over the resolved, rotated vertices",
     "layout": "input.bed (geometry), input.entry (layout fields in cm, optional max_count) -> expected {count, capacity_max, warnings: [codes], points: [[x, y]] in layout order, row_indices, zones: [{outline, capacity_plants}]} - planting_layout_calculator.compute_layout / model/layout.ts computeLayout",
-    "layout_error": "same input as layout -> expected {code, estimated?}: the refusal (422) compute_layout raises; estimated is exact"
+    "layout_error": "same input as layout -> expected {code, estimated?}: the refusal (422) compute_layout raises; estimated is exact",
+    "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)"
   },
   "cases": [
     {
@@ -3055,6 +3056,720 @@
         "code": "layout.too_many_positions",
         "estimated": 250500
       }
+    },
+    {
+      "id": "adjacency-001-grid-3x3-30cm",
+      "operation": "adjacency",
+      "spec": "GP-ACC-023, GP-FR-130 (slots 30 cm apart, factor 1.5: orthogonal 30 cm and diagonal 42.4 cm are neighbours, the knight move 67.1 cm is not)",
+      "input": {
+        "slots": [
+          {
+            "key": "p00",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.0,
+                0.0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p01",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0.0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p02",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.6,
+                0.0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p10",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.0,
+                0.3
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p11",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0.3
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p12",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.6,
+                0.3
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p20",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.0,
+                0.6
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p21",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0.6
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p22",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.6,
+                0.6
+              ]
+            },
+            "spacing_cm": 30
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": [
+        [
+          "p00",
+          "p01",
+          30.0
+        ],
+        [
+          "p00",
+          "p10",
+          30.0
+        ],
+        [
+          "p00",
+          "p11",
+          42.4
+        ],
+        [
+          "p01",
+          "p02",
+          30.0
+        ],
+        [
+          "p01",
+          "p10",
+          42.4
+        ],
+        [
+          "p01",
+          "p11",
+          30.0
+        ],
+        [
+          "p01",
+          "p12",
+          42.4
+        ],
+        [
+          "p02",
+          "p11",
+          42.4
+        ],
+        [
+          "p02",
+          "p12",
+          30.0
+        ],
+        [
+          "p10",
+          "p11",
+          30.0
+        ],
+        [
+          "p10",
+          "p20",
+          30.0
+        ],
+        [
+          "p10",
+          "p21",
+          42.4
+        ],
+        [
+          "p11",
+          "p12",
+          30.0
+        ],
+        [
+          "p11",
+          "p20",
+          42.4
+        ],
+        [
+          "p11",
+          "p21",
+          30.0
+        ],
+        [
+          "p11",
+          "p22",
+          42.4
+        ],
+        [
+          "p12",
+          "p21",
+          42.4
+        ],
+        [
+          "p12",
+          "p22",
+          30.0
+        ],
+        [
+          "p20",
+          "p21",
+          30.0
+        ],
+        [
+          "p21",
+          "p22",
+          30.0
+        ]
+      ]
+    },
+    {
+      "id": "adjacency-002-triangular-next-neighbour-excluded",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (triangular layout: the next neighbour at 1.73 x spacing is not adjacent)",
+      "input": {
+        "slots": [
+          {
+            "key": "a",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0,
+                0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "b",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "c",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.15,
+                0.26
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "d",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.45,
+                0.26
+              ]
+            },
+            "spacing_cm": 30
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": [
+        [
+          "a",
+          "b",
+          30.0
+        ],
+        [
+          "a",
+          "c",
+          30.0
+        ],
+        [
+          "b",
+          "c",
+          30.0
+        ],
+        [
+          "b",
+          "d",
+          30.0
+        ],
+        [
+          "c",
+          "d",
+          30.0
+        ]
+      ]
+    },
+    {
+      "id": "adjacency-003-rows-use-row-spacing",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (rows 80 cm apart with row_spacing 80: reach 120 cm)",
+      "input": {
+        "slots": [
+          {
+            "key": "r1",
+            "role": "row",
+            "geometry": {
+              "kind": "polyline",
+              "points": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ]
+              ],
+              "width_m": 0.05
+            },
+            "spacing_cm": 30,
+            "row_spacing_cm": 80
+          },
+          {
+            "key": "r2",
+            "role": "row",
+            "geometry": {
+              "kind": "polyline",
+              "points": [
+                [
+                  0,
+                  0.8
+                ],
+                [
+                  2,
+                  0.8
+                ]
+              ],
+              "width_m": 0.05
+            },
+            "spacing_cm": 30,
+            "row_spacing_cm": 80
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": [
+        [
+          "r1",
+          "r2",
+          80.0
+        ]
+      ]
+    },
+    {
+      "id": "adjacency-004-rows-without-row-spacing",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (the same rows without row_spacing: reach 45 cm, so not adjacent)",
+      "input": {
+        "slots": [
+          {
+            "key": "r1",
+            "role": "row",
+            "geometry": {
+              "kind": "polyline",
+              "points": [
+                [
+                  0,
+                  0
+                ],
+                [
+                  2,
+                  0
+                ]
+              ],
+              "width_m": 0.05
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "r2",
+            "role": "row",
+            "geometry": {
+              "kind": "polyline",
+              "points": [
+                [
+                  0,
+                  0.8
+                ],
+                [
+                  2,
+                  0.8
+                ]
+              ],
+              "width_m": 0.05
+            },
+            "spacing_cm": 30
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": []
+    },
+    {
+      "id": "adjacency-005-woody-interaction-radius",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (two shrubs of 100 cm width: reach (100+100)/2 x 2.0 = 200 cm; 190 cm apart)",
+      "input": {
+        "slots": [
+          {
+            "key": "s1",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0,
+                0
+              ]
+            },
+            "mature_width_cm": 100,
+            "growth_habit": "shrub"
+          },
+          {
+            "key": "s2",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                1.9,
+                0
+              ]
+            },
+            "mature_width_cm": 100,
+            "growth_habit": "shrub"
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": [
+        [
+          "s1",
+          "s2",
+          190.0
+        ]
+      ]
+    },
+    {
+      "id": "adjacency-006-herb-interaction-radius-out",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (two herbs of 100 cm width: reach 120 cm; 130 cm apart)",
+      "input": {
+        "slots": [
+          {
+            "key": "h1",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0,
+                0
+              ]
+            },
+            "mature_width_cm": 100,
+            "growth_habit": "herb"
+          },
+          {
+            "key": "h2",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                1.3,
+                0
+              ]
+            },
+            "mature_width_cm": 100,
+            "growth_habit": "herb"
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": []
+    },
+    {
+      "id": "adjacency-007-herb-interaction-radius-in",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (two herbs of 100 cm width: reach 120 cm; 120 cm apart, the boundary is inclusive)",
+      "input": {
+        "slots": [
+          {
+            "key": "h1",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0,
+                0
+              ]
+            },
+            "mature_width_cm": 100,
+            "growth_habit": "herb"
+          },
+          {
+            "key": "h2",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                1.2,
+                0
+              ]
+            },
+            "mature_width_cm": 100,
+            "growth_habit": "herb"
+          }
+        ],
+        "adjacency_factor": 1.5
+      },
+      "expected": [
+        [
+          "h1",
+          "h2",
+          120.0
+        ]
+      ]
+    },
+    {
+      "id": "adjacency-008-factor-one-drops-the-diagonal",
+      "operation": "adjacency",
+      "spec": "GP-FR-130 (adjacency_factor 1.0: only the 30 cm orthogonal neighbours of a 3x3 grid)",
+      "input": {
+        "slots": [
+          {
+            "key": "p00",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.0,
+                0.0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p01",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0.0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p02",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.6,
+                0.0
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p10",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.0,
+                0.3
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p11",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0.3
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p12",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.6,
+                0.3
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p20",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.0,
+                0.6
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p21",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.3,
+                0.6
+              ]
+            },
+            "spacing_cm": 30
+          },
+          {
+            "key": "p22",
+            "role": "position",
+            "geometry": {
+              "kind": "point",
+              "origin": [
+                0.6,
+                0.6
+              ]
+            },
+            "spacing_cm": 30
+          }
+        ],
+        "adjacency_factor": 1.0
+      },
+      "expected": [
+        [
+          "p00",
+          "p01",
+          30.0
+        ],
+        [
+          "p00",
+          "p10",
+          30.0
+        ],
+        [
+          "p01",
+          "p02",
+          30.0
+        ],
+        [
+          "p01",
+          "p11",
+          30.0
+        ],
+        [
+          "p02",
+          "p12",
+          30.0
+        ],
+        [
+          "p10",
+          "p11",
+          30.0
+        ],
+        [
+          "p10",
+          "p20",
+          30.0
+        ],
+        [
+          "p11",
+          "p12",
+          30.0
+        ],
+        [
+          "p11",
+          "p21",
+          30.0
+        ],
+        [
+          "p12",
+          "p22",
+          30.0
+        ],
+        [
+          "p20",
+          "p21",
+          30.0
+        ],
+        [
+          "p21",
+          "p22",
+          30.0
+        ]
+      ]
     }
   ]
 }

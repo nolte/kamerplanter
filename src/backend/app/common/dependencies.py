@@ -86,6 +86,7 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
+from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
@@ -443,6 +444,32 @@ def get_garden_plan_export_service() -> GardenPlanExportService:
     return GardenPlanExportService(get_site_repo(), get_garden_plan_repo(), get_garden_plan_service())
 
 
+def dispatch_adjacency_recompute(location_key: str) -> None:
+    """Queue ``adjacency_recompute`` for one bed (REQ-053 GP-NFR-016); the message carries only the bed key.
+
+    Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task object is not. The task
+    resolves site and tenant from the stored bed itself.
+    """
+    from app.tasks import celery_app
+
+    celery_app.send_task(
+        "app.tasks.adjacency.adjacency_recompute",
+        args=(location_key,),
+        retry=True,
+        retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1},
+    )
+
+
+def get_adjacency_dispatch() -> AdjacencyDispatch:
+    """The dispatcher a router hands to ``request_adjacency_recompute`` (looked up at call time)."""
+    return dispatch_adjacency_recompute
+
+
+def get_adjacency_service() -> AdjacencyService:
+    """REQ-053 WP 3.3 — derived and manual ``adjacent_to`` edges of a bed's slots."""
+    return AdjacencyService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
+
+
 def get_garden_resource_service() -> GardenResourceService:
     """REQ-053 WP 1.9 — beds, garden objects and slots as single resources."""
     return GardenResourceService(
@@ -450,6 +477,7 @@ def get_garden_resource_service() -> GardenResourceService:
         get_garden_plan_repo(),
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
+        dispatch_adjacency=dispatch_adjacency_recompute,
     )
 
 
@@ -744,6 +772,7 @@ def get_planting_reservation_service() -> PlantingReservationService:
         get_site_repo(),
         get_garden_plan_repo(),
         get_care_event_service(),
+        dispatch_adjacency=dispatch_adjacency_recompute,
     )
 
 

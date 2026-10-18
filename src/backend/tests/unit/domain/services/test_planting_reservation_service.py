@@ -106,8 +106,13 @@ def world():
     care = CareEventService(
         FakeCareEventRepo(), sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
     )
-    service = PlantingReservationService(repo, runs, sites, plan, care)
-    return type("World", (), {"service": service, "repo": repo, "plan": plan, "runs": runs, "sites": sites})
+    dispatched: list[str] = []  # the bed keys handed to the adjacency dispatcher (GP-NFR-016)
+    service = PlantingReservationService(repo, runs, sites, plan, care, dispatch_adjacency=dispatched.append)
+    return type(
+        "World",
+        (),
+        {"service": service, "repo": repo, "plan": plan, "runs": runs, "sites": sites, "dispatched": dispatched},
+    )
 
 
 def reserve(world, run_key: str, slot_key: str, start: date, end: date | None, entry: str = "e_a") -> None:
@@ -527,3 +532,51 @@ class TestPrepareLayout:
             world.service.place_layout(world.plan.locations["bed"], run, [entry], prepared, tenant_key=TENANT)
 
         assert world.repo.layout_writes == []
+
+
+class TestTheAdjacencyTrigger:
+    """GP-NFR-016: what changes the slots or their species of a bed asks for the recompute of that bed."""
+
+    def test_planning_slots_dispatches_the_bed(self, world) -> None:
+        world.service.plan_slots("run_b", tenant_key=TENANT, role=GROWER, entry_key="e_b", slot_keys=["s1"])
+        assert world.dispatched == ["bed"]
+
+    def test_a_refused_reservation_dispatches_nothing(self, world) -> None:
+        reserve(world, "run_a", "s1", D(2026, 5, 15), D(2026, 12, 31))
+        with pytest.raises(PlanError):
+            world.service.plan_slots("run_b", tenant_key=TENANT, role=GROWER, entry_key="e_b", slot_keys=["s1"])
+        assert world.dispatched == []
+
+    def test_releasing_a_slot_dispatches_the_bed(self, world) -> None:
+        world.service.plan_slots("run_b", tenant_key=TENANT, role=GROWER, entry_key="e_b", slot_keys=["s1"])
+        world.dispatched.clear()
+        world.service.release_slot("run_b", "s1", tenant_key=TENANT, role=GROWER)
+        assert world.dispatched == ["bed"]
+
+    def test_clearing_the_bed_dispatches_the_bed(self, world) -> None:
+        world.service.clear_bed(
+            "bed", tenant_key=TENANT, user_key=USER, role=GROWER, termination_type=TerminationType.SENESCED, reason=None
+        )
+        assert world.dispatched == ["bed"]
+
+    def test_a_refused_clearing_dispatches_nothing(self, world) -> None:
+        with pytest.raises(NotFoundError):
+            world.service.clear_bed(
+                "bed",
+                tenant_key=OTHER_TENANT,
+                user_key=USER,
+                role=LEAD,
+                termination_type=TerminationType.CANCELLED,
+                reason=None,
+            )
+        assert world.dispatched == []
+
+    def test_placing_the_layout_of_a_new_run_dispatches_the_bed(self, world) -> None:
+        run = make_run("run_new", planned_start_date=D(2026, 5, 15), planned_until=D(2026, 9, 30))
+        run.tenant_key = TENANT
+        entry = TestPrepareLayout().entry().model_copy(update={"key": "e_new"})
+        prepared = TestPrepareLayout().prepare(world, entry)
+
+        world.service.place_layout(world.plan.locations["bed"], run, [entry], prepared, tenant_key=TENANT)
+
+        assert world.dispatched == ["bed"]
