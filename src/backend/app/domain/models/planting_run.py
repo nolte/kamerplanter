@@ -4,7 +4,16 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from app.common.enums import PlantingRunStatus, PlantingRunType
+from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlantingRunStatus, PlantingRunType, RowDirection
+
+#: GP-FR-060: ``spacing_cm`` / ``row_spacing_cm`` reach 1 500 cm (woody plants, orchards — W-004).
+MAX_SPACING_CM = 1_500.0
+#: GP-FR-060: ``row_spacing_cm`` starts at 5 cm.
+MIN_ROW_SPACING_CM = 5.0
+#: GP-FR-060: ``edge_margin_along_cm`` / ``edge_margin_across_cm`` 0–200 cm.
+MAX_EDGE_MARGIN_CM = 200.0
+#: GP-FR-060: ``depth_cm`` 0–100 cm.
+MAX_DEPTH_CM = 100.0
 
 ALLOWED_STATUS_TRANSITIONS: dict[PlantingRunStatus, list[PlantingRunStatus]] = {
     PlantingRunStatus.PLANNED: [PlantingRunStatus.ACTIVE, PlantingRunStatus.CANCELLED],
@@ -34,12 +43,40 @@ class PlantingRunEntry(BaseModel):
     cultivar_key: str | None = None
     quantity: int = Field(ge=1)
     id_prefix: str = Field(pattern=r"^[A-Z]{2,5}$")
-    spacing_cm: float | None = Field(default=None, ge=0)
+    spacing_cm: float | None = Field(default=None, ge=0, le=MAX_SPACING_CM)
+    # ── Layout (REQ-053 GP-FR-060) — all optional: an entry without them has no planned layout ──
+    row_spacing_cm: float | None = Field(default=None, ge=MIN_ROW_SPACING_CM, le=MAX_SPACING_CM)
+    row_direction: RowDirection | None = None
+    #: Distance of the first position from the start of a row; the layout defaults it to ``spacing / 2``.
+    edge_margin_along_cm: float | None = Field(default=None, ge=0, le=MAX_EDGE_MARGIN_CM)
+    #: Distance of the first row from the bed side; the layout defaults it to ``row_spacing / 2``.
+    edge_margin_across_cm: float | None = Field(default=None, ge=0, le=MAX_EDGE_MARGIN_CM)
+    depth_cm: float | None = Field(default=None, ge=0, le=MAX_DEPTH_CM)
+    depth_kind: DepthKind | None = None
+    #: Direct sowing: seed spacing in the row, and the spacing the seedlings are thinned to.
+    sowing_spacing_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    layout_strategy: LayoutStrategy | None = None
+    placement_hint: PlacementHint | None = None
+    #: Row indices (0-based) this entry occupies when rows alternate between entries (GP-FR-070);
+    #: ``None`` for a monoculture.
+    row_assignment: list[int] | None = None
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("row_assignment")
+    @classmethod
+    def validate_row_assignment(cls, value: list[int] | None) -> list[int] | None:
+        if value is None:
+            return None
+        if any(index < 0 for index in value):
+            raise ValueError("row_assignment holds row indices of 0 or more")
+        if len(set(value)) != len(value):
+            raise ValueError("row_assignment must not repeat a row")
+        return value
 
 
 class PlantingRun(BaseModel):

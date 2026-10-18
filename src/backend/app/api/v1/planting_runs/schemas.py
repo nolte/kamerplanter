@@ -3,6 +3,13 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
+from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, RowDirection
+from app.domain.models.planting_run import (
+    MAX_DEPTH_CM,
+    MAX_EDGE_MARGIN_CM,
+    MAX_SPACING_CM,
+    MIN_ROW_SPACING_CM,
+)
 
 # ── Phase summary ────────────────────────────────────────────────────
 
@@ -48,7 +55,18 @@ class EntryCreate(BaseModel):
     cultivar_key: str | None = None
     quantity: int = Field(ge=1)
     id_prefix: str = Field(pattern=r"^[A-Z]{2,5}$")
-    spacing_cm: float | None = Field(default=None, ge=0)
+    spacing_cm: float | None = Field(default=None, ge=0, le=MAX_SPACING_CM)
+    row_spacing_cm: float | None = Field(default=None, ge=MIN_ROW_SPACING_CM, le=MAX_SPACING_CM)
+    row_direction: RowDirection | None = None
+    edge_margin_along_cm: float | None = Field(default=None, ge=0, le=MAX_EDGE_MARGIN_CM)
+    edge_margin_across_cm: float | None = Field(default=None, ge=0, le=MAX_EDGE_MARGIN_CM)
+    depth_cm: float | None = Field(default=None, ge=0, le=MAX_DEPTH_CM)
+    depth_kind: DepthKind | None = None
+    sowing_spacing_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    layout_strategy: LayoutStrategy | None = None
+    placement_hint: PlacementHint | None = None
+    row_assignment: list[int] | None = None
     notes: str | None = None
 
 
@@ -57,7 +75,18 @@ class EntryUpdate(BaseModel):
     cultivar_key: str | None = None
     quantity: int | None = Field(default=None, ge=1)
     id_prefix: str | None = Field(default=None, pattern=r"^[A-Z]{2,5}$")
-    spacing_cm: float | None = Field(default=None, ge=0)
+    spacing_cm: float | None = Field(default=None, ge=0, le=MAX_SPACING_CM)
+    row_spacing_cm: float | None = Field(default=None, ge=MIN_ROW_SPACING_CM, le=MAX_SPACING_CM)
+    row_direction: RowDirection | None = None
+    edge_margin_along_cm: float | None = Field(default=None, ge=0, le=MAX_EDGE_MARGIN_CM)
+    edge_margin_across_cm: float | None = Field(default=None, ge=0, le=MAX_EDGE_MARGIN_CM)
+    depth_cm: float | None = Field(default=None, ge=0, le=MAX_DEPTH_CM)
+    depth_kind: DepthKind | None = None
+    sowing_spacing_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    thinning_to_cm: float | None = Field(default=None, gt=0, le=MAX_SPACING_CM)
+    layout_strategy: LayoutStrategy | None = None
+    placement_hint: PlacementHint | None = None
+    row_assignment: list[int] | None = None
     notes: str | None = None
 
 
@@ -69,6 +98,17 @@ class EntryResponse(BaseModel):
     quantity: int
     id_prefix: str
     spacing_cm: float | None
+    row_spacing_cm: float | None = None
+    row_direction: RowDirection | None = None
+    edge_margin_along_cm: float | None = None
+    edge_margin_across_cm: float | None = None
+    depth_cm: float | None = None
+    depth_kind: DepthKind | None = None
+    sowing_spacing_cm: float | None = None
+    thinning_to_cm: float | None = None
+    layout_strategy: LayoutStrategy | None = None
+    placement_hint: PlacementHint | None = None
+    row_assignment: list[int] | None = None
     notes: str | None
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -8,17 +8,26 @@ from app.common.enums import (
     BedStatus,
     GrowingMediumKind,
     IrrigationSystem,
+    LayoutStrategy,
     LightType,
     Orientation,
     PhMethod,
+    RowDirection,
     SiteWaterRegime,
+    SlotRole,
     SoilConditionFlag,
     SoilDrainage,
     SoilTexture,
     SunExposure,
 )
+from app.domain.calculators.planting_layout_calculator import (
+    MAX_LAYOUT_POSITIONS,
+    MAX_SPACING_CM,
+    MIN_SPACING_CM,
+)
 from app.domain.models.garden_plan import LocationPatch
-from app.domain.models.geometry import Geometry
+from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 
@@ -241,3 +250,99 @@ class FrostWarningResponse(BaseModel):
     threshold_celsius: float
     source: str
     entity_id: str | None = None
+
+
+class PlantingLayoutEntryRequest(BaseModel):
+    """The layout fields of one planting-run entry, in centimetres (GP-API-016, GP-FR-060)."""
+
+    layout_strategy: LayoutStrategy = LayoutStrategy.GRID
+    spacing_cm: float = Field(ge=MIN_SPACING_CM, le=MAX_SPACING_CM)
+    row_spacing_cm: float | None = Field(
+        default=None,
+        ge=MIN_SPACING_CM,
+        le=MAX_SPACING_CM,
+        description="Required for `rows`; `grid` and `triangular` derive it from `spacing_cm`.",
+    )
+    row_direction: RowDirection = RowDirection.ALONG_LENGTH
+    edge_margin_along_cm: float | None = Field(
+        default=None, ge=0, le=MAX_EDGE_MARGIN_CM, description="Default `spacing_cm / 2` (0 for a zone)."
+    )
+    edge_margin_across_cm: float | None = Field(
+        default=None, ge=0, le=MAX_EDGE_MARGIN_CM, description="Default `row_spacing / 2` (0 for a zone)."
+    )
+    row_assignment: list[int] | None = Field(
+        default=None, max_length=MAX_LAYOUT_POSITIONS, description="Row indices (0-based) this entry occupies."
+    )
+    mature_width_cm: float | None = Field(
+        default=None, gt=0, le=MAX_SPACING_CM, description="Steckbrief width; only drives the spacing warning."
+    )
+    max_count: int | None = Field(default=None, ge=1, le=MAX_LAYOUT_POSITIONS)
+
+
+class PlantingLayoutPreviewRequest(BaseModel):
+    """``POST /locations/{key}/planting-layout/preview`` (GP-API-016)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "entry": {
+                        "layout_strategy": "rows",
+                        "spacing_cm": 30,
+                        "row_spacing_cm": 40,
+                        "edge_margin_along_cm": 15,
+                        "edge_margin_across_cm": 15,
+                    }
+                }
+            ]
+        }
+    )
+
+    entry: PlantingLayoutEntryRequest
+
+
+class PlantingLayoutSlotResponse(BaseModel):
+    """One planned slot: a `position` point or a `zone` polygon in the bed frame (§9.2)."""
+
+    slot_role: SlotRole
+    geometry: BedFrameGeometry
+    row_index: int | None = None
+    sequence: int
+    capacity_plants: int
+
+
+class PlantingLayoutWarningResponse(BaseModel):
+    """A hint that never blocks (GP-FR-062, V-07)."""
+
+    code: str
+    detail: dict[str, float] = Field(default_factory=dict)
+
+
+class PlantingLayoutPreviewResponse(BaseModel):
+    """What the bed would hold, without persisting anything (GP-API-016)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "slots": [
+                        {
+                            "slot_role": "position",
+                            "geometry": {"kind": "point", "origin": [0.15, 0.15]},
+                            "row_index": 0,
+                            "sequence": 1,
+                            "capacity_plants": 1,
+                        }
+                    ],
+                    "count": 30,
+                    "capacity_max": 30,
+                    "warnings": [],
+                }
+            ]
+        }
+    )
+
+    slots: list[PlantingLayoutSlotResponse]
+    count: int
+    capacity_max: int
+    warnings: list[PlantingLayoutWarningResponse]

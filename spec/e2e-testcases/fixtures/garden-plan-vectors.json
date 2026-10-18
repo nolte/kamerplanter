@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -31,7 +31,9 @@
     "overlaps(a, b, tolerance_m = 0.01): true only when the shapes penetrate by more than tolerance_m - beds sharing an edge do not overlap. bbox pre-test, then separating-axis test for convex polygons (projection overlap > tolerance on every axis), for concave ones: a proper edge crossing with all four ends more than the tolerance from the other line, or a vertex more than the tolerance inside the other, or an inward probe at tolerance/2 behind an edge midpoint that is at least tolerance/2 inside the other shape (identical and coincident-edge shapes). Both tests give the same verdict for parallel edges and corner penetration. Circles by distance formulas. point and polyline never overlap anything.",
     "is_simple (V-02): no two non-adjacent edges meet (a revisited vertex is a self-touch), no edge folds back onto its neighbour, no zero-length edge, area > 0. contains/overlaps assume V-02 passed.",
     "validate_model (V-01): expected.valid; when valid and expected.normalized is present, parsing must yield exactly that; input.frame ('plan' default | 'bed') selects the coordinate range.",
-    "resolved_area: shoelace over the vertices of the resolved (rotated) shape, rounded to 0.001 - the proof that rotation preserves area along the port's own transform path."
+    "resolved_area: shoelace over the vertices of the resolved (rotated) shape, rounded to 0.001 - the proof that rotation preserves area along the port's own transform path.",
+    "layout (planting_layout_calculator.compute_layout, REQ-053 GP-FR-060/062): positions in the bed frame, rounded like every stored length. Rows run along the axis selected by entry.row_direction - along_length = the longer side of the bed-frame bounding box (tie: x), along_width = the shorter one; the first position sits edge_margin_along from the start of its row, the first row edge_margin_across from the side (defaults spacing / 2 and row_spacing / 2; 0 for a zone). A position is kept when the box of half-extents (margin_along, margin_across) around it lies inside the bed (inside the polygon and no boundary edge entering the box; four box corners inside the disc for a circle); a position may sit on the edge when both margins are 0. grid: row_spacing = spacing; triangular: row_spacing = spacing x 0.866 and every second row shifted by spacing / 2; rows: entry.row_spacing_cm (required); zone: one slot, capacity = floor(area / (spacing x row_spacing)); free: capacity estimate only. Counts are floored after adding 1e-6. The pre-estimate floor(area / (spacing x row_spacing)) > 2000 is refused before any point exists (layout_error, estimated is exact); so is a bounding-box walk of more than 10 000 candidates and a result of more than 2000 positions. Warnings are compared by code, in order: layout.spacing_below_mature_width, planting.spacing_below_minimum (V-07), layout.no_position_fits, layout.zone_inset_not_applied.",
+    "layout_error: the same input as layout, expected {code, estimated?} - the 422 the Python reference raises as PlanError and the TypeScript port throws as LayoutError."
   ],
   "operations": {
     "area": "input.geometry -> expected number (m2)",
@@ -44,7 +46,9 @@
     "bed_to_plan": "input.bed, input.point (bed frame) -> expected [x, y] (plan frame)",
     "plan_to_bed": "input.bed, input.point (plan frame) -> expected [x, y] (bed frame)",
     "validate_model": "input.geometry (raw mapping), optional input.frame ('plan' | 'bed') -> expected {valid: boolean, normalized?: geometry}",
-    "resolved_area": "input.geometry (rect | polygon) -> expected number (m2): shoelace over the resolved, rotated vertices"
+    "resolved_area": "input.geometry (rect | polygon) -> expected number (m2): shoelace over the resolved, rotated vertices",
+    "layout": "input.bed (geometry), input.entry (layout fields in cm, optional max_count) -> expected {count, capacity_max, warnings: [codes], points: [[x, y]] in layout order, row_indices, zones: [{outline, capacity_plants}]} - planting_layout_calculator.compute_layout / model/layout.ts computeLayout",
+    "layout_error": "same input as layout -> expected {code, estimated?}: the refusal (422) compute_layout raises; estimated is exact"
   },
   "cases": [
     {
@@ -2150,6 +2154,766 @@
         }
       },
       "expected": 12.0
+    },
+    {
+      "id": "layout-001-acc-017-rows-rect",
+      "operation": "layout",
+      "spec": "GP-ACC-017 / GP-FR-062 (3 rows x 10 positions, y = 0.15/0.55/0.95, x = 0.15 .. 2.85)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30,
+          "row_spacing_cm": 40,
+          "edge_margin_along_cm": 15,
+          "edge_margin_across_cm": 15
+        }
+      },
+      "expected": {
+        "count": 30,
+        "capacity_max": 30,
+        "warnings": [],
+        "points": [
+          [0.15, 0.15], [0.45, 0.15], [0.75, 0.15], [1.05, 0.15], [1.35, 0.15],
+          [1.65, 0.15], [1.95, 0.15], [2.25, 0.15], [2.55, 0.15], [2.85, 0.15],
+          [0.15, 0.55], [0.45, 0.55], [0.75, 0.55], [1.05, 0.55], [1.35, 0.55],
+          [1.65, 0.55], [1.95, 0.55], [2.25, 0.55], [2.55, 0.55], [2.85, 0.55],
+          [0.15, 0.95], [0.45, 0.95], [0.75, 0.95], [1.05, 0.95], [1.35, 0.95],
+          [1.65, 0.95], [1.95, 0.95], [2.25, 0.95], [2.55, 0.95], [2.85, 0.95]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-002-grid-default-margins",
+      "operation": "layout",
+      "spec": "GP-FR-060 (grid: row_spacing = spacing; margins default to spacing / 2)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 50
+        }
+      },
+      "expected": {
+        "count": 4,
+        "capacity_max": 4,
+        "warnings": [],
+        "points": [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]],
+        "row_indices": [0, 0, 1, 1],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-003-acc-018-triangle-grid",
+      "operation": "layout",
+      "spec": "GP-ACC-018 (every position inside the triangle (0,0),(4,0),(0,3), margin 0, edge counts as inside)",
+      "input": {
+        "bed": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [0, 3]],
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 50,
+          "edge_margin_along_cm": 0,
+          "edge_margin_across_cm": 0
+        }
+      },
+      "expected": {
+        "count": 33,
+        "capacity_max": 33,
+        "warnings": [],
+        "points": [
+          [0.0, 0.0], [0.5, 0.0], [1.0, 0.0], [1.5, 0.0], [2.0, 0.0],
+          [2.5, 0.0], [3.0, 0.0], [3.5, 0.0], [4.0, 0.0], [0.0, 0.5],
+          [0.5, 0.5], [1.0, 0.5], [1.5, 0.5], [2.0, 0.5], [2.5, 0.5],
+          [3.0, 0.5], [0.0, 1.0], [0.5, 1.0], [1.0, 1.0], [1.5, 1.0],
+          [2.0, 1.0], [2.5, 1.0], [0.0, 1.5], [0.5, 1.5], [1.0, 1.5],
+          [1.5, 1.5], [2.0, 1.5], [0.0, 2.0], [0.5, 2.0], [1.0, 2.0],
+          [0.0, 2.5], [0.5, 2.5], [0.0, 3.0]
+        ],
+        "row_indices": [
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1,
+          1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3,
+          3, 3, 3, 4, 4, 4, 5, 5, 6
+        ],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-004-triangular-staggered",
+      "operation": "layout",
+      "spec": "GP-FR-060 (triangular: row_spacing = spacing x 0.866, every second row shifted by spacing / 2)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 2.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "triangular",
+          "spacing_cm": 40
+        }
+      },
+      "expected": {
+        "count": 9,
+        "capacity_max": 9,
+        "warnings": [],
+        "points": [
+          [0.2, 0.173], [0.6, 0.173], [1.0, 0.173], [1.4, 0.173], [1.8, 0.173],
+          [0.4, 0.52], [0.8, 0.52], [1.2, 0.52], [1.6, 0.52]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 1, 1, 1, 1],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-005-rows-along-length-of-tall-bed",
+      "operation": "layout",
+      "spec": "GP-FR-060 (along_length follows the longer side: the bed is 1.2 wide and 3.0 long, so rows run along y)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.2,
+          "length_m": 3.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30,
+          "row_spacing_cm": 40,
+          "edge_margin_along_cm": 15,
+          "edge_margin_across_cm": 15
+        }
+      },
+      "expected": {
+        "count": 30,
+        "capacity_max": 30,
+        "warnings": [],
+        "points": [
+          [0.15, 0.15], [0.15, 0.45], [0.15, 0.75], [0.15, 1.05], [0.15, 1.35],
+          [0.15, 1.65], [0.15, 1.95], [0.15, 2.25], [0.15, 2.55], [0.15, 2.85],
+          [0.55, 0.15], [0.55, 0.45], [0.55, 0.75], [0.55, 1.05], [0.55, 1.35],
+          [0.55, 1.65], [0.55, 1.95], [0.55, 2.25], [0.55, 2.55], [0.55, 2.85],
+          [0.95, 0.15], [0.95, 0.45], [0.95, 0.75], [0.95, 1.05], [0.95, 1.35],
+          [0.95, 1.65], [0.95, 1.95], [0.95, 2.25], [0.95, 2.55], [0.95, 2.85]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-006-rows-along-width-of-tall-bed",
+      "operation": "layout",
+      "spec": "GP-FR-060 (along_width follows the shorter side: rows run along x)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.2,
+          "length_m": 3.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30,
+          "row_spacing_cm": 40,
+          "row_direction": "along_width",
+          "edge_margin_along_cm": 15,
+          "edge_margin_across_cm": 15
+        }
+      },
+      "expected": {
+        "count": 28,
+        "capacity_max": 28,
+        "warnings": [],
+        "points": [
+          [0.15, 0.15], [0.45, 0.15], [0.75, 0.15], [1.05, 0.15], [0.15, 0.55],
+          [0.45, 0.55], [0.75, 0.55], [1.05, 0.55], [0.15, 0.95], [0.45, 0.95],
+          [0.75, 0.95], [1.05, 0.95], [0.15, 1.35], [0.45, 1.35], [0.75, 1.35],
+          [1.05, 1.35], [0.15, 1.75], [0.45, 1.75], [0.75, 1.75], [1.05, 1.75],
+          [0.15, 2.15], [0.45, 2.15], [0.75, 2.15], [1.05, 2.15], [0.15, 2.55],
+          [0.45, 2.55], [0.75, 2.55], [1.05, 2.55]
+        ],
+        "row_indices": [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-007-circle-grid",
+      "operation": "layout",
+      "spec": "GP-FR-062 (circle: the whole margin box must lie inside the disc)",
+      "input": {
+        "bed": {
+          "kind": "circle",
+          "origin": [5.0, 5.0],
+          "radius_m": 1.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 30
+        }
+      },
+      "expected": {
+        "count": 22,
+        "capacity_max": 22,
+        "warnings": [],
+        "points": [
+          [-0.55, -0.55], [-0.25, -0.55], [0.05, -0.55], [0.35, -0.55], [-0.55, -0.25],
+          [-0.25, -0.25], [0.05, -0.25], [0.35, -0.25], [0.65, -0.25], [-0.55, 0.05],
+          [-0.25, 0.05], [0.05, 0.05], [0.35, 0.05], [0.65, 0.05], [-0.55, 0.35],
+          [-0.25, 0.35], [0.05, 0.35], [0.35, 0.35], [0.65, 0.35], [-0.25, 0.65],
+          [0.05, 0.65], [0.35, 0.65]
+        ],
+        "row_indices": [1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-008-rotated-bed-same-frame",
+      "operation": "layout",
+      "spec": "GP-FR-062 / §9.2 (the layout lives in the bed frame: rotating the bed changes nothing)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 37.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30,
+          "row_spacing_cm": 40,
+          "edge_margin_along_cm": 15,
+          "edge_margin_across_cm": 15
+        }
+      },
+      "expected": {
+        "count": 30,
+        "capacity_max": 30,
+        "warnings": [],
+        "points": [
+          [0.15, 0.15], [0.45, 0.15], [0.75, 0.15], [1.05, 0.15], [1.35, 0.15],
+          [1.65, 0.15], [1.95, 0.15], [2.25, 0.15], [2.55, 0.15], [2.85, 0.15],
+          [0.15, 0.55], [0.45, 0.55], [0.75, 0.55], [1.05, 0.55], [1.35, 0.55],
+          [1.65, 0.55], [1.95, 0.55], [2.25, 0.55], [2.55, 0.55], [2.85, 0.55],
+          [0.15, 0.95], [0.45, 0.95], [0.75, 0.95], [1.05, 0.95], [1.35, 0.95],
+          [1.65, 0.95], [1.95, 0.95], [2.25, 0.95], [2.55, 0.95], [2.85, 0.95]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-009-max-count-truncates",
+      "operation": "layout",
+      "spec": "GP-FR-073 (max_count keeps the first n positions in layout order; capacity_max stays the maximum)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30,
+          "row_spacing_cm": 40,
+          "edge_margin_along_cm": 15,
+          "edge_margin_across_cm": 15,
+          "max_count": 12
+        }
+      },
+      "expected": {
+        "count": 12,
+        "capacity_max": 30,
+        "warnings": [],
+        "points": [
+          [0.15, 0.15], [0.45, 0.15], [0.75, 0.15], [1.05, 0.15], [1.35, 0.15],
+          [1.65, 0.15], [1.95, 0.15], [2.25, 0.15], [2.55, 0.15], [2.85, 0.15],
+          [0.15, 0.55], [0.45, 0.55]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-010-row-assignment-alternating",
+      "operation": "layout",
+      "spec": "GP-FR-070 (an entry occupying rows 0 and 2 leaves row 1 to another entry)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30,
+          "row_spacing_cm": 40,
+          "edge_margin_along_cm": 15,
+          "edge_margin_across_cm": 15,
+          "row_assignment": [0, 2]
+        }
+      },
+      "expected": {
+        "count": 20,
+        "capacity_max": 20,
+        "warnings": [],
+        "points": [
+          [0.15, 0.15], [0.45, 0.15], [0.75, 0.15], [1.05, 0.15], [1.35, 0.15],
+          [1.65, 0.15], [1.95, 0.15], [2.25, 0.15], [2.55, 0.15], [2.85, 0.15],
+          [0.15, 0.95], [0.45, 0.95], [0.75, 0.95], [1.05, 0.95], [1.35, 0.95],
+          [1.65, 0.95], [1.95, 0.95], [2.25, 0.95], [2.55, 0.95], [2.85, 0.95]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-011-zone-rect",
+      "operation": "layout",
+      "spec": "GP-FR-064 (zone: one slot; capacity = inset area / (spacing x spacing))",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "zone",
+          "spacing_cm": 10
+        }
+      },
+      "expected": {
+        "count": 360,
+        "capacity_max": 360,
+        "warnings": [],
+        "points": [],
+        "row_indices": [],
+        "zones": [
+          {
+            "outline": [[0.0, 0.0], [3.0, 0.0], [3.0, 1.2], [0.0, 1.2]],
+            "capacity_plants": 360
+          }
+        ]
+      }
+    },
+    {
+      "id": "layout-012-zone-polygon-margin-not-applied",
+      "operation": "layout",
+      "spec": "GP-FR-064 (a margin on a non-rectangular zone is reported, not silently dropped)",
+      "input": {
+        "bed": {
+          "kind": "polygon",
+          "points": [[0, 0], [4, 0], [0, 3]],
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "zone",
+          "spacing_cm": 20,
+          "edge_margin_along_cm": 10,
+          "edge_margin_across_cm": 10
+        }
+      },
+      "expected": {
+        "count": 150,
+        "capacity_max": 150,
+        "warnings": ["layout.zone_inset_not_applied"],
+        "points": [],
+        "row_indices": [],
+        "zones": [
+          {
+            "outline": [[0.0, 0.0], [4.0, 0.0], [0.0, 3.0]],
+            "capacity_plants": 150
+          }
+        ]
+      }
+    },
+    {
+      "id": "layout-013-free-capacity-only",
+      "operation": "layout",
+      "spec": "GP-FR-072 / GP-FR-073 (free: no generated positions, only the capacity estimate)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 3.0,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "free",
+          "spacing_cm": 60
+        }
+      },
+      "expected": {
+        "count": 0,
+        "capacity_max": 10,
+        "warnings": [],
+        "points": [],
+        "row_indices": [],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-014-warning-spacing-below-mature-width",
+      "operation": "layout",
+      "spec": "GP-FR-062 (spacing < mature_width x 0.7 is a warning: 30 < 50 x 0.7 = 35)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 30,
+          "mature_width_cm": 50
+        }
+      },
+      "expected": {
+        "count": 9,
+        "capacity_max": 9,
+        "warnings": ["layout.spacing_below_mature_width"],
+        "points": [
+          [0.15, 0.15], [0.45, 0.15], [0.75, 0.15], [0.15, 0.45], [0.45, 0.45],
+          [0.75, 0.45], [0.15, 0.75], [0.45, 0.75], [0.75, 0.75]
+        ],
+        "row_indices": [0, 0, 0, 1, 1, 1, 2, 2, 2],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-015-no-warning-at-mature-width-limit",
+      "operation": "layout",
+      "spec": "GP-FR-062 (spacing = mature_width x 0.7 is not below it)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 35,
+          "mature_width_cm": 50
+        }
+      },
+      "expected": {
+        "count": 4,
+        "capacity_max": 4,
+        "warnings": [],
+        "points": [[0.175, 0.175], [0.525, 0.175], [0.175, 0.525], [0.525, 0.525]],
+        "row_indices": [0, 0, 1, 1],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-016-warning-rows-closer-than-spacing",
+      "operation": "layout",
+      "spec": "V-07 (row_spacing 20 < spacing 40: neighbouring positions are closer than spacing_cm - a hint, not an error)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.2,
+          "length_m": 1.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 40,
+          "row_spacing_cm": 20,
+          "edge_margin_along_cm": 20,
+          "edge_margin_across_cm": 10
+        }
+      },
+      "expected": {
+        "count": 18,
+        "capacity_max": 18,
+        "warnings": ["planting.spacing_below_minimum"],
+        "points": [
+          [0.2, 0.1], [0.6, 0.1], [1.0, 0.1], [0.2, 0.3], [0.6, 0.3],
+          [1.0, 0.3], [0.2, 0.5], [0.6, 0.5], [1.0, 0.5], [0.2, 0.7],
+          [0.6, 0.7], [1.0, 0.7], [0.2, 0.9], [0.6, 0.9], [1.0, 0.9],
+          [0.2, 1.1], [0.6, 1.1], [1.0, 1.1]
+        ],
+        "row_indices": [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-017-no-position-fits",
+      "operation": "layout",
+      "spec": "GP-FR-062 (the margins leave no room: empty layout and a warning)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 0.2,
+          "length_m": 0.2,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 50
+        }
+      },
+      "expected": {
+        "count": 0,
+        "capacity_max": 0,
+        "warnings": ["layout.no_position_fits"],
+        "points": [],
+        "row_indices": [],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-018-l-shaped-bed-inset",
+      "operation": "layout",
+      "spec": "GP-FR-062 (inset = distance to the edge: a position near the reflex corner of an L-shaped bed is rejected)",
+      "input": {
+        "bed": {
+          "kind": "polygon",
+          "points": [[0, 0], [2, 0], [2, 1], [1, 1], [1, 2], [0, 2]],
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 40,
+          "edge_margin_along_cm": 20,
+          "edge_margin_across_cm": 20
+        }
+      },
+      "expected": {
+        "count": 16,
+        "capacity_max": 16,
+        "warnings": [],
+        "points": [
+          [0.2, 0.2], [0.6, 0.2], [1.0, 0.2], [1.4, 0.2], [1.8, 0.2],
+          [0.2, 0.6], [0.6, 0.6], [1.0, 0.6], [1.4, 0.6], [1.8, 0.6],
+          [0.2, 1.0], [0.6, 1.0], [0.2, 1.4], [0.6, 1.4], [0.2, 1.8],
+          [0.6, 1.8]
+        ],
+        "row_indices": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-019-anisotropic-margins",
+      "operation": "layout",
+      "spec": "GP-FR-060 (edge_margin_along and edge_margin_across differ: 30 cm at the row ends, 40 cm at the sides)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 2.0,
+          "length_m": 1.6,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 40,
+          "row_spacing_cm": 50,
+          "edge_margin_along_cm": 30,
+          "edge_margin_across_cm": 40
+        }
+      },
+      "expected": {
+        "count": 8,
+        "capacity_max": 8,
+        "warnings": [],
+        "points": [
+          [0.3, 0.4], [0.7, 0.4], [1.1, 0.4], [1.5, 0.4], [0.3, 0.9],
+          [0.7, 0.9], [1.1, 0.9], [1.5, 0.9]
+        ],
+        "row_indices": [0, 0, 0, 0, 1, 1, 1, 1],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-020-circle-bed-frame-negative-coordinates",
+      "operation": "layout",
+      "spec": "§9.2 (a circle's bed frame has its origin at the centre: coordinates are negative)",
+      "input": {
+        "bed": {
+          "kind": "circle",
+          "origin": [50.0, 50.0],
+          "radius_m": 0.6
+        },
+        "entry": {
+          "layout_strategy": "triangular",
+          "spacing_cm": 25
+        }
+      },
+      "expected": {
+        "count": 11,
+        "capacity_max": 11,
+        "warnings": [],
+        "points": [
+          [-0.1, -0.275], [0.15, -0.275], [-0.225, -0.059], [0.025, -0.059], [0.275, -0.059],
+          [-0.35, 0.158], [-0.1, 0.158], [0.15, 0.158], [0.4, 0.158], [-0.225, 0.374],
+          [0.025, 0.374]
+        ],
+        "row_indices": [1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4],
+        "zones": []
+      }
+    },
+    {
+      "id": "layout-error-001-acc-043-too-many-positions",
+      "operation": "layout_error",
+      "spec": "GP-ACC-043 / GP-FR-062 (1000 x 1000 m at 5 cm: estimated 4e8 positions, refused before any point exists)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [0.0, 0.0],
+          "width_m": 1000.0,
+          "length_m": 1000.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 5
+        }
+      },
+      "expected": {
+        "code": "layout.too_many_positions",
+        "estimated": 400000000
+      }
+    },
+    {
+      "id": "layout-error-002-just-over-the-limit",
+      "operation": "layout_error",
+      "spec": "GP-FR-062 (the estimate decides: 5.01 m2 / 0.0025 m2 = 2004 > 2000)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 5.01,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 5,
+          "edge_margin_along_cm": 0,
+          "edge_margin_across_cm": 0
+        }
+      },
+      "expected": {
+        "code": "layout.too_many_positions",
+        "estimated": 2004
+      }
+    },
+    {
+      "id": "layout-error-003-rows-need-row-spacing",
+      "operation": "layout_error",
+      "spec": "GP-FR-060 (rows without row_spacing_cm: no silent default)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "rows",
+          "spacing_cm": 30
+        }
+      },
+      "expected": {
+        "code": "layout.row_spacing_required"
+      }
+    },
+    {
+      "id": "layout-error-004-polyline-is-no-bed",
+      "operation": "layout_error",
+      "spec": "GP-FR-062 (a layout needs an area)",
+      "input": {
+        "bed": {
+          "kind": "polyline",
+          "points": [[0, 0], [3, 0]],
+          "width_m": 0.5
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 30
+        }
+      },
+      "expected": {
+        "code": "layout.bed_not_an_area"
+      }
+    },
+    {
+      "id": "layout-error-005-spacing-out-of-range",
+      "operation": "layout_error",
+      "spec": "GP-FR-060 (spacing_cm 5..1500)",
+      "input": {
+        "bed": {
+          "kind": "rect",
+          "origin": [2.0, 3.5],
+          "width_m": 1.0,
+          "length_m": 1.0,
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 3
+        }
+      },
+      "expected": {
+        "code": "layout.spacing_out_of_range"
+      }
+    },
+    {
+      "id": "layout-error-006-sliver-bounding-box",
+      "operation": "layout_error",
+      "spec": "GP-FR-062 (a thin diagonal polygon: small area, huge bounding box - refused by the candidate guard)",
+      "input": {
+        "bed": {
+          "kind": "polygon",
+          "points": [[0, 0], [100, 100], [100, 100.2]],
+          "rotation_deg": 0.0
+        },
+        "entry": {
+          "layout_strategy": "grid",
+          "spacing_cm": 20
+        }
+      },
+      "expected": {
+        "code": "layout.too_many_positions",
+        "estimated": 250500
+      }
     }
   ]
 }

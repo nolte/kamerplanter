@@ -36,6 +36,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.enums import BedStatus, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
+from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
 from app.domain.engines.garden_plan_engine import (
     ERROR_INVALID_BED_TRANSITION,
     ERROR_REFERENCE_NOT_FOUND,
@@ -616,6 +617,40 @@ class GardenResourceService:
             self._plan.update_slot_fields(key, fields)
         self._recompute_adjacency(location.key or "")
         return resolve_owned_slot(self._sites, key, tenant_key)[0]
+
+    # ── GP-API-016: POST /locations/{key}/planting-layout/preview ─────────────
+
+    def preview_planting_layout(
+        self,
+        key: LocationKey,
+        *,
+        tenant_key: str,
+        entry: EntryLayout,
+        max_count: int | None,
+    ) -> LayoutResult:
+        """The layout an entry would get in the bed, without persisting anything (GP-FR-063).
+
+        Pure compute over the bed's geometry: ownership is resolved first, nothing is written, so a
+        reader may call it (all roles, §21.8). The pre-estimate of :func:`compute_layout` refuses an
+        oversized request (422 ``layout.too_many_positions``) before a single point is generated.
+        """
+        location = self._owned_location(key, tenant_key=tenant_key)
+        if location.geometry is None:
+            raise PlanError(
+                "layout.bed_without_geometry",
+                "The bed has no geometry yet; draw it on the plan before planning a layout.",
+                status_code=422,
+                field="geometry",
+            )
+        result = compute_layout(location.geometry, entry, max_count)
+        logger.info(
+            "garden_resource.layout_previewed",
+            location_key=key,
+            strategy=entry.layout_strategy.value,
+            count=result.count,
+            capacity_max=result.capacity_max,
+        )
+        return result
 
     # ── GP-API-015: POST /locations/{key}/slots/batch ─────────────────────────
 

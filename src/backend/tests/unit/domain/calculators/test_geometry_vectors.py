@@ -29,7 +29,9 @@ if _REPO_ROOT is None:
 VECTORS_PATH = _REPO_ROOT / "spec" / "e2e-testcases" / "fixtures" / "garden-plan-vectors.json"
 VECTORS: dict[str, Any] = json.loads(VECTORS_PATH.read_text(encoding="utf-8"))
 DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
-CASES: list[dict[str, Any]] = VECTORS["cases"]
+#: The planting-layout operations live in the same file but run in ``test_planting_layout_vectors.py``.
+LAYOUT_OPERATIONS = frozenset({"layout", "layout_error"})
+CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] not in LAYOUT_OPERATIONS]
 
 
 def _cases() -> list[Any]:
@@ -111,11 +113,11 @@ def _run(case: dict[str, Any]) -> object:
 
 class TestVectorFile:
     def test_ids_are_unique(self) -> None:
-        ids = [case["id"] for case in CASES]
+        ids = [case["id"] for case in VECTORS["cases"]]
         assert len(ids) == len(set(ids))
 
     def test_every_operation_is_documented_and_exercised(self) -> None:
-        documented = set(VECTORS["operations"])
+        documented = set(VECTORS["operations"]) - LAYOUT_OPERATIONS
         used = {case["operation"] for case in CASES}
         assert used == documented
 
