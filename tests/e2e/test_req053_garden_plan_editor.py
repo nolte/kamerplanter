@@ -565,14 +565,6 @@ def test_tc_053_008_conflict_with_a_second_session_offers_reload(
 # ── TC-053-009 ──────────────────────────────────────────────────────────────
 
 
-def _axe_nodes(violations: list[dict]) -> set[tuple[str, str]]:
-    return {
-        (violation.get("id"), ", ".join(node.get("target", [])))
-        for violation in violations
-        for node in violation.get("nodes", [])
-    }
-
-
 def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
     plan: GardenPlanPage, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
@@ -642,13 +634,12 @@ def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
     )
     screenshot("053_009_04_selection_round_trip", "Auswahl auf dem Plan spiegelt sich in der Liste")
 
-    found = _axe_nodes(plan_violations) | _axe_nodes(list_violations)
     report = (
         "TC-053-009: axe-core (WCAG 2.x A/AA) must report no violation in the editor.\n"
         f"Plan view:\n{format_violations(plan_violations)}\n"
         f"List view:\n{format_violations(list_violations)}"
     )
-    assert not found, report
+    assert not (plan_violations or list_violations), report
 
 
 # ── TC-053-014 ──────────────────────────────────────────────────────────────
