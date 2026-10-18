@@ -255,6 +255,15 @@ class FrostWarningResponse(BaseModel):
 class PlantingLayoutEntryRequest(BaseModel):
     """The layout fields of one planting-run entry, in centimetres (GP-API-016, GP-FR-060)."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"layout_strategy": "triangular", "spacing_cm": 40, "mature_width_cm": 60, "max_count": 24},
+                {"layout_strategy": "rows", "spacing_cm": 30, "row_spacing_cm": 40, "row_assignment": [0, 2]},
+            ]
+        }
+    )
+
     layout_strategy: LayoutStrategy = LayoutStrategy.GRID
     spacing_cm: float = Field(ge=MIN_SPACING_CM, le=MAX_SPACING_CM)
     row_spacing_cm: float | None = Field(
@@ -322,6 +331,20 @@ class PlantingLayoutPreviewRequest(BaseModel):
 class PlantingLayoutSlotResponse(BaseModel):
     """One planned slot: a `position` point or a `zone` polygon in the bed frame (§9.2)."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "slot_role": "position",
+                    "geometry": {"kind": "point", "origin": [0.15, 0.55]},
+                    "row_index": 1,
+                    "sequence": 11,
+                    "capacity_plants": 1,
+                }
+            ]
+        }
+    )
+
     slot_role: SlotRole
     geometry: BedFrameGeometry
     row_index: int | None = None
@@ -331,6 +354,14 @@ class PlantingLayoutSlotResponse(BaseModel):
 
 class PlantingLayoutWarningResponse(BaseModel):
     """A hint that never blocks (GP-FR-062, V-07)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"code": "layout.spacing_below_mature_width", "detail": {"spacing_cm": 30.0, "mature_width_cm": 50.0}}
+            ]
+        }
+    )
 
     code: str
     detail: dict[str, float] = Field(default_factory=dict)
