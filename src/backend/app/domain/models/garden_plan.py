@@ -486,6 +486,8 @@ class GardenPlanView(BaseModel):
     slots: list[PlanSlotView] = Field(default_factory=list)
     plants: list[PlantShortInfo] = Field(default_factory=list)
     task_counters: dict[str, TaskCounter] = Field(default_factory=dict)
+    #: Keyed by garden-object key — a separate map because object and location keys come from different collections.
+    object_task_counters: dict[str, TaskCounter] = Field(default_factory=dict)
     season_states: dict[str, str] = Field(default_factory=dict)
     zones: list[dict[str, Any]] = Field(default_factory=list)
     included: list[str] = Field(default_factory=list)

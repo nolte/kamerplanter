@@ -22,7 +22,10 @@ class FakeTaskRepo:
     def __init__(self, *tasks: Task) -> None:
         self.store = {task.key: task for task in tasks}
         self.created: list[Task] = []
+        self.cloned_from: list[tuple[str, str]] = []
         self.cleared_parked: list[str] = []
+        #: ``plant key -> (tenant, location)``: what the location queue needs to find a plant's tasks.
+        self.plants: dict[str, tuple[str, str]] = {}
 
     def get_task_or_raise(self, key: str) -> Task:
         if key not in self.store:
@@ -43,8 +46,31 @@ class FakeTaskRepo:
         return []
 
     def create_task(self, task: Task) -> Task:
+        if task.key is None:
+            task = task.model_copy(update={"key": f"new_{len(self.created) + 1}"})
         self.created.append(task)
+        self.store[task.key] = task
         return task
+
+    def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
+        self.cloned_from.append((clone_key, source_key))
+
+    def get_pending_tasks_in_locations(self, location_keys, limit, *, tenant_key, category=None, origins=None):
+        found = []
+        for task in self.store.values():
+            if task.tenant_key != tenant_key or task.status != TaskStatus.PENDING:
+                continue
+            on_bed = task.entity_type == "location" and task.entity_key in location_keys
+            owner, where = self.plants.get(task.entity_key or "", (None, None))
+            on_plant = task.entity_type == "plant_instance" and owner == tenant_key and where in location_keys
+            if not (on_bed or on_plant):
+                continue
+            if category and task.category != category:
+                continue
+            if origins is not None and task.origin not in origins:
+                continue
+            found.append(task.model_copy(deep=True))
+        return found[:limit]
 
 
 class FakeCompletionRepo(ITaskCompletionRepository):

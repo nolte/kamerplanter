@@ -236,6 +236,24 @@ class ITaskRepository(ABC):
     ) -> tuple[list[Task], int]: ...
 
     @abstractmethod
+    def get_pending_tasks_in_locations(
+        self,
+        location_keys: Sequence[str],
+        limit: int,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """Pending tasks bound to one of ``location_keys`` or to a plant standing in one, inside ``tenant_key``."""
+        ...
+
+    @abstractmethod
+    def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
+        """Write the ``task_cloned_from`` edge clone → source."""
+        ...
+
+    @abstractmethod
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]: ...
 
     @abstractmethod

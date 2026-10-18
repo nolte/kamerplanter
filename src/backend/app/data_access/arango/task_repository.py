@@ -31,6 +31,17 @@ ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
     "tank": col.TANKS,
 }
 
+#: Entity types a **task** may hang off but a workflow execution may not (REQ-053 §20.9, K-5). Kept apart from
+#: :data:`ENTITY_TYPE_TO_COLLECTION` because that map doubles as the closed
+#: :class:`~app.common.enums.WorkflowTargetType` set (``wf_executing`` edge), and a garden object is never a workflow
+#: target. A plain string allowlist, not an enum: ``Task.entity_type`` stays a free string (Enum-Retirement trap).
+TASK_ONLY_ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
+    "garden_object": col.GARDEN_OBJECTS,
+}
+
+#: The full set a task's ``has_task`` edge can start from; the entity guard verifies exactly this set.
+TASK_ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {**ENTITY_TYPE_TO_COLLECTION, **TASK_ONLY_ENTITY_TYPE_TO_COLLECTION}
+
 
 #: The owner of a ``WorkflowExecution`` (bound to ``we``), as AQL ``LET``\ s.
 #:
@@ -213,7 +224,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
         items = [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
         if not count:
             return items, None
@@ -587,7 +598,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         entity_key = None
         target_type = None
         if task.entity_key and task.entity_type:
-            entity_collection = ENTITY_TYPE_TO_COLLECTION.get(task.entity_type)
+            entity_collection = TASK_ENTITY_TYPE_TO_COLLECTION.get(task.entity_type)
             entity_key = task.entity_key
             target_type = task.entity_type
 
@@ -658,10 +669,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         self.delete_comments_for_task(key)
         self._delete_audit_entries_for_task(key)
         # Delete outbound edges (instance_of, task_blocks from this task)
-        for edge_col in [col.INSTANCE_OF, col.TASK_BLOCKS]:
+        for edge_col in [col.INSTANCE_OF, col.TASK_BLOCKS, col.TASK_CLONED_FROM]:
             self.delete_edges(edge_col, task_id)
-        # Delete inbound edges (has_task, wf_generated, task_blocks to this task)
-        for edge_col in [col.HAS_TASK, col.WF_GENERATED, col.TASK_BLOCKS]:
+        # Delete inbound edges (has_task, wf_generated, task_blocks, task_cloned_from to this task)
+        for edge_col in [col.HAS_TASK, col.WF_GENERATED, col.TASK_BLOCKS, col.TASK_CLONED_FROM]:
             self.delete_edges(edge_col, task_id, direction="inbound")
         return super().delete(key)
 
@@ -817,6 +828,50 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if category:
             filters["category"] = category
         return self.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
+
+    def get_pending_tasks_in_locations(
+        self,
+        location_keys: Sequence[str],
+        limit: int,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """Pending tasks bound to one of ``location_keys`` or to a plant standing in one (GP-FR-080, GP-API-030).
+
+        The same two bindings the plan's badge counter adds up (``garden_plan_repository._task_counters``), so the
+        list a badge opens holds exactly the tasks it counted. The keys are the caller's already-verified subtree;
+        the tenant predicate is still in the query, and a removed plant's task does not surface.
+        An empty ``location_keys`` matches nothing (never "no filter").
+        """
+        self._require_tenant_key(tenant_key, "get_pending_tasks_in_locations")
+        if not location_keys:
+            return []
+        query = (
+            f"FOR doc IN {col.TASKS} "
+            "FILTER doc.tenant_key == @tenant_key AND doc.status == 'pending' "
+            "LET _plant = doc.entity_type == 'plant_instance' "
+            f"? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', doc.entity_key)) : null "
+            "FILTER (doc.entity_type == 'location' AND doc.entity_key IN @location_keys) "
+            "OR (_plant != null AND _plant.tenant_key == @tenant_key AND _plant.removed_on == null "
+            "AND _plant.location_key IN @location_keys)"
+        )
+        bind_vars: dict[str, Any] = {"tenant_key": tenant_key, "location_keys": list(location_keys)}
+        if category:
+            query += " FILTER doc.category == @category"
+            bind_vars["category"] = category
+        if origins is not None:
+            query += " FILTER doc.origin IN @origins"
+            bind_vars["origins"] = list(origins)
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC, doc._key ASC LIMIT @limit RETURN doc"
+        bind_vars["limit"] = limit
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
+        """Record that ``clone_key`` was cloned from ``source_key`` (``task_cloned_from``, clone → source)."""
+        self.create_edge(col.TASK_CLONED_FROM, f"{col.TASKS}/{clone_key}", f"{col.TASKS}/{source_key}")
 
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
         """Overdue tasks **of one tenant** (#927, found alongside the five).

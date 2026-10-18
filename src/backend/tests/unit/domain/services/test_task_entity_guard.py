@@ -29,6 +29,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.common.enums import GardenObjectType
 from app.common.exceptions import NotFoundError, ValidationError
 from app.data_access.arango import task_repository
 from app.domain.services.task_entity_guard import TaskEntityGuard
@@ -86,7 +87,20 @@ class _SiteService:
         return SimpleNamespace(key=key, tenant_key=self._site_owner)
 
 
-def _guard(*, owner: str = _MINE, site_owner: str = _MINE) -> TaskEntityGuard:
+class _GardenObjects:
+    """``GardenResourceService.get_garden_object``: the site carries the tenancy, a foreign object is a 404."""
+
+    def __init__(self, owner: str, object_type: str) -> None:
+        self._owner = owner
+        self._object_type = object_type
+
+    def get_garden_object(self, key, *, tenant_key):
+        if self._owner != tenant_key:
+            raise NotFoundError("GardenObject", key)
+        return SimpleNamespace(key=key, object_type=GardenObjectType(self._object_type))
+
+
+def _guard(*, owner: str = _MINE, site_owner: str = _MINE, object_type: str = "compost") -> TaskEntityGuard:
     # Factories, matching the production wiring: the guard resolves a collaborator
     # only when a binding needs it (#1102 follow-up).
     return TaskEntityGuard(
@@ -94,6 +108,7 @@ def _guard(*, owner: str = _MINE, site_owner: str = _MINE) -> TaskEntityGuard:
         lambda: _TenantScopedService(owner),
         lambda: _TenantScopedService(owner),
         lambda: _SiteService(site_owner),
+        lambda: _GardenObjects(owner, object_type),
     )
 
 
@@ -187,7 +202,7 @@ def test_a_key_under_a_type_that_writes_no_edge_is_refused_for_a_tenant(entity_t
     task, seeds), which run without a tenant — see the next test. A tenant caller
     naming a key under such a type stored an unresolved reference (#1872 C10).
     """
-    assert entity_type not in task_repository.ENTITY_TYPE_TO_COLLECTION
+    assert entity_type not in task_repository.TASK_ENTITY_TYPE_TO_COLLECTION
 
     with pytest.raises(ValidationError):
         _guard(owner=_THEIRS).verify(entity_type, "e1", tenant_key=_MINE)
@@ -213,7 +228,7 @@ def test_a_new_edge_writing_type_fails_closed(monkeypatch: pytest.MonkeyPatch) -
     extending `ENTITY_TYPE_TO_COLLECTION` gets an edge written to an entity no
     anchor was ever written for — silently, and in the permissive direction.
     """
-    monkeypatch.setitem(task_repository.ENTITY_TYPE_TO_COLLECTION, "greenhouse", "greenhouses")
+    monkeypatch.setitem(task_repository.TASK_ENTITY_TYPE_TO_COLLECTION, "greenhouse", "greenhouses")
 
     with pytest.raises(NotFoundError):
         _guard().verify("greenhouse", "gh_1", tenant_key=_MINE)
@@ -225,6 +240,54 @@ def test_every_instantiable_workflow_target_is_anchored_by_the_guard() -> None:
     set would be accepted and pass through unchecked, so the two sets must be
     the same set."""
     from app.common.enums import WorkflowTargetType
-    from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
+    from app.data_access.arango.task_repository import (
+        ENTITY_TYPE_TO_COLLECTION,
+        TASK_ENTITY_TYPE_TO_COLLECTION,
+    )
 
     assert {t.value for t in WorkflowTargetType} == set(ENTITY_TYPE_TO_COLLECTION)
+    # A garden object takes a task (R-7.2) but is never a workflow target.
+    assert set(TASK_ENTITY_TYPE_TO_COLLECTION) - set(ENTITY_TYPE_TO_COLLECTION) == {"garden_object"}
+
+
+# ── REQ-053 §20.9 / R-7.2: location and garden_object are task targets ────────
+
+
+@pytest.mark.parametrize("object_type", ["compost", "water_source", "storage"])
+def test_an_own_care_garden_object_takes_a_task(object_type: str) -> None:
+    _guard(object_type=object_type).verify("garden_object", "go_1", tenant_key=_MINE)
+
+
+@pytest.mark.parametrize("object_type", ["path", "tree", "fence", "lamp", "other"])
+def test_a_garden_object_of_another_class_is_a_422(object_type: str) -> None:
+    with pytest.raises(ValidationError):
+        _guard(object_type=object_type).verify("garden_object", "go_1", tenant_key=_MINE)
+
+
+def test_a_foreign_garden_object_is_a_404_not_a_422() -> None:
+    """Ownership first: the class of a foreign object must not be learnable from the answer."""
+    with pytest.raises(NotFoundError):
+        _guard(owner=_THEIRS, object_type="path").verify("garden_object", "go_1", tenant_key=_MINE)
+
+
+def test_a_garden_object_binding_without_the_service_fails_closed() -> None:
+    guard = TaskEntityGuard(lambda: None, lambda: None, lambda: None, lambda: None)  # type: ignore[arg-type,return-value]
+    with pytest.raises(NotFoundError):
+        guard.verify("garden_object", "go_1", tenant_key=_MINE)
+
+
+@pytest.mark.parametrize("entity_type", ["greenhouse", "plant", "Location"])
+def test_an_entity_type_outside_the_allowlist_is_a_422_even_without_a_key(entity_type: str) -> None:
+    with pytest.raises(ValidationError):
+        _guard().verify(entity_type, None, tenant_key=_MINE)
+
+
+def test_the_allowlist_is_the_service_not_a_new_enum() -> None:
+    """K-5: ``Task.entity_type`` stays a free string; the closed set lives in the service map."""
+    assert set(task_repository.TASK_ENTITY_TYPE_TO_COLLECTION) == {
+        "plant_instance",
+        "planting_run",
+        "location",
+        "tank",
+        "garden_object",
+    }

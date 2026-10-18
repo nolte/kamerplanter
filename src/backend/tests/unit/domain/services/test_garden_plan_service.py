@@ -785,12 +785,19 @@ class TestThePlanReadModel:
         repo.locations["bed"] = make_location("bed", geometry=rect(1, 1))
         repo.plants = [PlantShortInfo(key="p", instance_id="T-1", species_key="sp", location_key="bed")]
         repo.task_counters = {"bed": TaskCounter(open_task_count=2)}
+        repo.object_task_counters = {"go_1": TaskCounter(open_task_count=1, overdue_task_count=1)}
         everything = service.get_plan(SITE, tenant_key=TENANT)
         assert [p.key for p in everything.plants] == ["p"]
         assert everything.task_counters["bed"].open_task_count == 2
+        assert everything.object_task_counters["go_1"].overdue_task_count == 1
         assert everything.season_states == {"bed": "planted"}
         nothing = service.get_plan(SITE, tenant_key=TENANT, include=frozenset())
-        assert nothing.plants == [] and nothing.task_counters == {} and nothing.season_states == {}
+        assert (
+            nothing.plants == []
+            and nothing.task_counters == {}
+            and nothing.object_task_counters == {}
+            and nothing.season_states == {}
+        )
 
     def test_a_bed_without_a_plant_is_empty(self, world):
         service, repo, _ = world

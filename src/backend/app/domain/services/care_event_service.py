@@ -179,6 +179,13 @@ class CareEventService:
         location = resolve_owned_location(self._sites, location_key, tenant_key)
         return _subtree(self._sites.get_locations_by_site(location.site_key), location.key or location_key)
 
+    def location_scope(self, location_key: str, *, include_children: bool, tenant_key: str) -> list[str]:
+        """The location itself, plus everything below it when ``include_children`` (GP-API-030); 404 if foreign."""
+        if include_children:
+            return self.location_subtree(location_key, tenant_key=tenant_key)
+        location = resolve_owned_location(self._sites, location_key, tenant_key)
+        return [location.key or location_key]
+
     def _check_plants(self, plant_keys: list[str], location: Location, *, tenant_key: str) -> None:
         """``plant_keys`` ⊆ the tenant's plants standing in the bed's subtree (GP-NFR-058)."""
         if not plant_keys:

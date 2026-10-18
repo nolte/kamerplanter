@@ -27,6 +27,8 @@ class PlanReadData:
     slots: list[Slot] = field(default_factory=list)
     plants: list[PlantShortInfo] = field(default_factory=list)
     task_counters: dict[str, TaskCounter] = field(default_factory=dict)
+    #: Open tasks per garden object (compost, water source, storage; REQ-053 R-7.2), keyed by the object key.
+    object_task_counters: dict[str, TaskCounter] = field(default_factory=dict)
     #: Display name of the account that last changed the plan structure; ``None`` when unknown or erased.
     plan_updated_by_name: str | None = None
 
