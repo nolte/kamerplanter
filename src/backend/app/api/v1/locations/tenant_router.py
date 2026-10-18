@@ -7,19 +7,30 @@ from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.locations.schemas import (
     BedListItemResponse,
     BedSummaryResponse,
+    ClearBedRequest,
+    ClearBedResponse,
     FrostWarningResponse,
     LocationCreate,
     LocationPatch,
     LocationPatchResponse,
     LocationResponse,
     LocationStatusRequest,
+    PlantingItemResponse,
     PlantingLayoutPreviewRequest,
     PlantingLayoutPreviewResponse,
+    QuickPlantingRequest,
+    QuickPlantingResponse,
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_garden_resource_service, get_sensor_service, get_site_service
+from app.common.dependencies import (
+    get_garden_resource_service,
+    get_planting_reservation_service,
+    get_planting_run_service,
+    get_sensor_service,
+    get_site_service,
+)
 from app.common.enums import BedStatus
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
@@ -27,12 +38,15 @@ from app.common.openapi_responses import (
     NOT_FOUND_RESPONSE,
     VALIDATION_RESPONSE,
 )
+from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.planting_reservation_service import PlantingReservationService
+from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
 
@@ -277,6 +291,106 @@ def preview_planting_layout(
         key, tenant_key=ctx.tenant_key, entry=body.entry.to_layout(), max_count=body.entry.max_count
     )
     return PlantingLayoutPreviewResponse.from_result(result)
+
+
+@router.get("/{key}/plantings", response_model=list[PlantingItemResponse])
+def list_plantings(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    state: Annotated[
+        str | None,
+        Query(description="`planned`, `active`, `harvested` or `historical` (§11.3); all states when omitted."),
+    ] = None,
+    year: Annotated[
+        int | None, Query(ge=1900, le=2200, description="Only plantings whose time window touches this year.")
+    ] = None,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantingReservationService = Depends(get_planting_reservation_service),
+) -> list[PlantingItemResponse]:
+    """The planned positions and the plants of a bed by state (GP-API-024, §11.3), all roles.
+
+    `planned`: a reservation (`run_planned_at`) of a live run with no plant of that run in the slot yet.
+    `active`: a plant that stands. `harvested`: a plant that ended by harvest. `historical`: any plant that
+    has been removed. 422 `plantings.unknown_state` for another value of `state`.
+    """
+    rows = service.list_plantings(
+        key,
+        tenant_key=ctx.tenant_key,
+        state=state,
+        year=year,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    return [PlantingItemResponse.from_row(row) for row in rows]
+
+
+@router.post(
+    "/{key}/clear",
+    response_model=ClearBedResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_bed_actions, key_func=user_rate_limit_key)
+def clear_location(
+    request: Request,
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: ClearBedRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: PlantingReservationService = Depends(get_planting_reservation_service),
+) -> ClearBedResponse:
+    """Clear the bed at the end of the season (GP-API-019, GP-FR-055): one transaction.
+
+    Every standing plant gets `removed_on` = today and the chosen `termination_type`, every active or
+    harvesting run ends (`completed`, or `cancelled` for `cancelled`), the slots they used become history
+    (`archived_at`) unless a later run has reserved them, and a `clearing` care event is written. Planned runs
+    keep their reservations. Archived slots block neither V-06 nor V-08.
+    """
+    outcome = service.clear_bed(
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        termination_type=body.termination_type,
+        reason=body.reason,
+    )
+    return ClearBedResponse(
+        plants_removed=outcome.plants_removed,
+        runs_completed=outcome.runs_completed,
+        slots_archived=outcome.slots_archived,
+        slots_released=outcome.slots_released,
+        care_event_key=outcome.care_event_key,
+    )
+
+
+@router.post(
+    "/{key}/quick-planting",
+    response_model=QuickPlantingResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_bed_actions, key_func=user_rate_limit_key)
+def quick_plant(
+    request: Request,
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: QuickPlantingRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
+    service: PlantingRunService = Depends(get_planting_run_service),
+) -> QuickPlantingResponse:
+    """Field-mode shortcut: *I planted n of this species here* (GP-API-017, GP-UX-027).
+
+    Run, entry, slots and plants are created in one transaction outside the plan revision; the run is
+    `active` with `source = field_mode`. At most 500 plants (422 `plan.quota_exceeded`). With
+    `layout_strategy` and `spacing_cm` on a bed with geometry the plants stand on a computed layout; otherwise,
+    or beyond what the bed holds, they are recorded without a position and `warnings` says why.
+    """
+    result = service.quick_plant(key, tenant_key=ctx.tenant_key, role=ctx.role, request=body)
+    return QuickPlantingResponse(
+        run_key=result.run_key,
+        entry_key=result.entry_key,
+        slot_keys=result.created_slot_keys,
+        plant_keys=result.plant_keys,
+        instance_ids=result.instance_ids,
+        warnings=result.warnings,
+    )
 
 
 # ── Sensors ──────────────────────────────────────────────────────────

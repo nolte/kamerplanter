@@ -183,7 +183,7 @@ PlantingRun: "White Widow Klone Runde 3"
     - `rotation_override_reason: Optional[str]` (max 500; Pflichtgrund, wenn der Nutzer einen Fruchtfolge-Hinweis des Beet-Validators mit „Trotzdem pflanzen" uebersteuert — REQ-053 GP-FR-132, D-09. `null`, wenn kein Hinweis vorlag.)
     - `reserved_area_m2: Optional[float]` (**flaechige** Reservierung eines Beets, **bevor** Slots berechnet sind — vom Anbauplaner gesetzt (REQ-054 O-04), im Bepflanzen-Dialog durch `run_planned_at`-Slots ersetzt; Kapazitaetspruefung und REQ-053 V-08 behandeln sie wie belegte Slots derselben Flaeche.)
     - `planned_from: Optional[date]`, `planned_until: Optional[date]` (Zeitfenster der Reservierung am Run; `planned_from` entspricht `planned_start_date`, `planned_until` = geplantes Ende aus der Kulturdauer des Steckbriefs oder manuell, `null` = offen. Dieselben Werte werden auf die `run_planned_at`-Kanten gestempelt, REQ-053 GP-FR-065.)
-    - `source: Optional[str]` (Herkunft des Runs, freier String mit Service-Allowlist (kein Enum — Enum-Retirement-Falle, analog `Task.entity_type` REQ-053 §20.9): `manual` (Default, bestehender Dialog), `plan_editor` (REQ-053 Bepflanzen-Dialog), `succession` (Staffelanbau), `allocation` (REQ-054 Anbauplaner `materialised_as`), `season_copy` (REQ-053 GP-FR-078). Die Liste wird in REQ-053 Welle 3 festgezogen.)
+    - `source: Optional[str]` (Herkunft des Runs, freier String mit Service-Allowlist (kein Enum — Enum-Retirement-Falle, analog `Task.entity_type` REQ-053 §20.9): `manual` (Default, bestehender Dialog), `plan_editor` (REQ-053 Bepflanzen-Dialog), `succession` (Staffelanbau), `allocation` (REQ-054 Anbauplaner `materialised_as`), `season_copy` (REQ-053 GP-FR-078). Festgezogen in REQ-053 Welle 3 (WP 3.2): zusaetzlich `field_mode` (Quick-Planting, REQ-053 GP-UX-027) und `crop_planner` (REQ-054 `accept`). Ein anderer Wert → 422.)
     <!-- /Quelle: REQ-053 -->
     - `created_at: datetime`
     - `updated_at: datetime`
@@ -1151,10 +1151,12 @@ class BatchCreatePlantsRequest(BaseModel):
     """Erstellt N Pflanzen fuer einen PlantingRun"""
 
     assign_to_slots: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Slots zuweisen: zuerst die per run_planned_at reservierten Slots in sequence-Reihenfolge "
-            "(REQ-053 GP-FR-066), erst danach freie Slots am Standort (Bestandsverhalten)"
+            "(REQ-053 GP-FR-066), erst danach freie Slots am Standort (Bestandsverhalten). "
+            "Default True, weil create-plants schon immer freie Slots belegt hat; False erzeugt Pflanzen ohne Slot "
+            "(REQ-053 WP 3.2)."
         )
     )
     planted_on: Optional[date] = Field(

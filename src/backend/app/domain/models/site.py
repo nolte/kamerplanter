@@ -155,6 +155,13 @@ class SoilProfile(BaseModel):
         return value
 
 
+#: A ``position`` slot is one plant place (legacy tent grids held up to 20 pots per cell).
+MAX_POSITION_CAPACITY = 20
+#: A ``row`` or ``zone`` slot stands for an area: its capacity is the plants the layout fits (GP-FR-064). A bed of
+#: 1 000 m² sown at 5 cm holds far more than 20, so the bound is the batch ceiling of positions, not 20.
+MAX_AREA_CAPACITY = 100_000
+
+
 class Slot(BaseModel):
     """A plant place within a location.
 
@@ -180,7 +187,7 @@ class Slot(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     slot_id: str
     location_key: str = ""
-    capacity_plants: int = Field(default=1, ge=1, le=20)
+    capacity_plants: int = Field(default=1, ge=1, le=MAX_AREA_CAPACITY)
     currently_occupied: bool = False
     last_sanitization: datetime | None = None
     # ── Garden plan (REQ-053 §20.5) ──
@@ -211,6 +218,12 @@ class Slot(BaseModel):
         if "_" not in v:
             raise ValueError("Slot ID must follow format 'LOCATION_POSITION' (e.g., 'TENT01_A1')")
         return v
+
+    @model_validator(mode="after")
+    def validate_capacity_matches_role(self) -> Self:
+        if self.slot_role is SlotRole.POSITION and self.capacity_plants > MAX_POSITION_CAPACITY:
+            raise ValueError(f"A position slot holds at most {MAX_POSITION_CAPACITY} plants.")
+        return self
 
     @model_validator(mode="after")
     def validate_geometry_matches_role(self) -> Self:

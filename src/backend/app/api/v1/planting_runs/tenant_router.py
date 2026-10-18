@@ -15,6 +15,7 @@ from app.api.v1.planting_runs.diary_schemas import (
 from app.api.v1.planting_runs.schemas import (
     AdoptPlantsRequest,
     AdoptPlantsResponse,
+    BatchCreatePlantsRequest,
     BatchCreatePlantsResponse,
     BatchRemoveRequest,
     BatchRemoveResponse,
@@ -28,10 +29,13 @@ from app.api.v1.planting_runs.schemas import (
     NutrientPlanAssignRequest,
     NutrientPlanAssignResponse,
     PhaseSummary,
+    PlanSlotsRequest,
+    PlanSlotsResponse,
     PlantingRunCreate,
     PlantingRunResponse,
     PlantingRunUpdate,
     PlantInRunResponse,
+    ReservedSlotResponse,
     RunTransitionRequest,
     RunTransitionResponse,
     WateringScheduleCalendarResponse,
@@ -41,12 +45,13 @@ from app.common.dependencies import (
     get_nutrient_plan_service,
     get_plant_diary_service,
     get_plant_instance_service,
+    get_planting_reservation_service,
     get_planting_run_service,
     get_species_repo,
 )
 from app.common.enums import PlantingRunStatus
 from app.common.exceptions import NotFoundError
-from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.openapi_responses import CONFLICT_RESPONSE, FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -56,6 +61,7 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_diary_service import PlantDiaryService
 from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.species_visibility import readable_species
 
@@ -201,12 +207,65 @@ def delete_entry(
 @router.post("/{key}/create-plants", response_model=BatchCreatePlantsResponse, status_code=201)
 def batch_create_plants(
     key: Annotated[str, Path(description="Document key of the planting run.")],
+    body: BatchCreatePlantsRequest | None = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
-    """Create plant instances in bulk from a planting run's entries."""
-    result = service.create_plants(key, tenant_key=ctx.tenant_key)
+    """Create plant instances in bulk from a planting run's entries (GP-API-023).
+
+    With `assign_to_slots` (the default) the plants stand on the slots the run reserved, per entry in
+    `sequence` order, and on free slots of the bed after that; slots left over stay reserved.
+    """
+    options = body or BatchCreatePlantsRequest()
+    result = service.create_plants(
+        key, tenant_key=ctx.tenant_key, assign_to_slots=options.assign_to_slots, planted_on=options.planted_on
+    )
     return BatchCreatePlantsResponse(**result)
+
+
+@router.post(
+    "/{key}/plan-slots",
+    response_model=PlanSlotsResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+def plan_slots(
+    key: Annotated[str, Path(description="Document key of the planting run.")],
+    body: PlanSlotsRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
+    service: PlantingReservationService = Depends(get_planting_reservation_service),
+) -> PlanSlotsResponse:
+    """Set or replace the run's reservation of slots for one entry (GP-API-021, GP-FR-065).
+
+    `slot_keys` must be slots of the run's bed (422 `reference.not_found` otherwise). A slot another run reserves
+    in an overlapping time window, or where a plant stands whose run ends after `planned_from`, is 409
+    `slot.already_planned {conflicting_run_key, overlap_from, overlap_until}` (V-08); several runs may share a
+    slot at disjoint times. An empty list releases the entry's reservation.
+    """
+    planned = service.plan_slots(
+        key, tenant_key=ctx.tenant_key, role=ctx.role, entry_key=body.entry_key, slot_keys=body.slot_keys
+    )
+    return PlanSlotsResponse(
+        run_key=planned.run_key,
+        entry_key=planned.entry_key,
+        planned_from=planned.planned_from,
+        planned_until=planned.planned_until,
+        slots=[ReservedSlotResponse(slot_key=slot_key, sequence=sequence) for slot_key, sequence in planned.slots],
+    )
+
+
+@router.delete(
+    "/{key}/plan-slots/{slot_key}",
+    status_code=204,
+    responses={**FORBIDDEN_RESPONSE},
+)
+def release_plan_slot(
+    key: Annotated[str, Path(description="Document key of the planting run.")],
+    slot_key: Annotated[str, Path(description="Document key of the reserved slot.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
+    service: PlantingReservationService = Depends(get_planting_reservation_service),
+) -> None:
+    """Release one reserved slot (GP-API-022). A grower may while the run is `planned`; afterwards the lead (SR-010)."""
+    service.release_slot(key, slot_key, tenant_key=ctx.tenant_key, role=ctx.role)
 
 
 @router.post("/{key}/adopt-plants", response_model=AdoptPlantsResponse)

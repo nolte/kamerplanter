@@ -108,6 +108,9 @@ services:
       # account (light mode: one user) and the Erledigen / Rückgängig journeys of wave 4 complete in bursts; ten
       # times the production 120/minute, as for the other per-account limits.
       RATE_LIMIT_TASK_COMPLETION: "1200/minute"
+      # REQ-053 WP 3.2 bed actions (`POST /locations/{key}/quick-planting` and `…/clear`), per account. The suite
+      # is one account and plants and clears many beds in a minute; ten times the production 20/minute.
+      RATE_LIMIT_BED_ACTIONS: "200/minute"
     depends_on:
       arangodb:
         condition: service_healthy
@@ -372,6 +375,9 @@ services:
       # account (light mode: one user) and the Erledigen / Rückgängig journeys of wave 4 complete in bursts; ten
       # times the production 120/minute, as for the other per-account limits.
       RATE_LIMIT_TASK_COMPLETION: "1200/minute"
+      # REQ-053 WP 3.2 bed actions (`POST /locations/{key}/quick-planting` and `…/clear`), per account. The suite
+      # is one account and plants and clears many beds in a minute; ten times the production 20/minute.
+      RATE_LIMIT_BED_ACTIONS: "200/minute"
       # #1855 R3 W-5 — the take-over probe (`GET /system/takeover-status`) runs on every
       # full-mode app bootstrap (`LightModeTakeoverDialog` in `MainLayout`), so for this suite
       # it is as busy as the refresh path: every `page.open()` of one account. A refusal only

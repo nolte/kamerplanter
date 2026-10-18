@@ -384,6 +384,7 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "GardenPlanService": "garden_plan_service.py",
     "GardenResourceService": "garden_resource_service.py",
     "CareEventService": "care_event_service.py",
+    "PlantingReservationService": "planting_reservation_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -393,6 +394,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "GardenPlanService": 6,
     "GardenResourceService": 12,
     "CareEventService": 7,
+    "PlantingReservationService": 6,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -479,6 +481,11 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # create / supersede / void / redact too. ``build_event`` is no writer but is public API for the callers that
     # write in their own transaction, and it resolves the bed: it takes the tenant like the rest.
     "CareEventService": "care_event_service.py",
+    # REQ-053 WP 3.2 (#2392): reservations resolve the bed through ``resolve_owned_location`` and the run through
+    # ``verify_tenant_ownership`` on a run the service loaded with ``get_or_raise`` — the keyed-write selector sees
+    # the load but not the layout / clearing writers, which reach the repository through write sets. Every public
+    # method takes the tenant strictly.
+    "PlantingReservationService": "planting_reservation_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
@@ -496,6 +503,10 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "CareEventService.supersede",
         "CareEventService.void",
         "CareEventService.redact",
+        "PlantingReservationService.place_layout",
+        "PlantingReservationService.plan_slots",
+        "PlantingReservationService.release_slot",
+        "PlantingReservationService.clear_bed",
     }
 )
 

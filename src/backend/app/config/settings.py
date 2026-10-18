@@ -937,6 +937,11 @@ class Settings(BaseSettings):
     #: care-log line and its specialist document; a batch carries up to 200 tasks. 120 a minute covers a round of
     #: "Erledigt" taps and undo snackbars in the field (the UI debounces at 300 ms) and bounds a runaway client.
     rate_limit_task_completion: str = "120/minute"
+    #: ``POST /t/{slug}/locations/{key}/quick-planting`` and ``…/clear`` (REQ-053 GP-NFR-056, SR-017), per account.
+    #: Each call is one transaction that writes up to ``QUICK_PLANTING_MAX_QUANTITY`` plants (quick-planting) or
+    #: ends every run of a bed (clear); a grower in the garden taps through a few beds, not a stream, and a
+    #: retry after a dropped connection must fit. 20 a minute is the spec's figure.
+    rate_limit_bed_actions: str = "20/minute"
     #: ``POST /api/v1/admin/platform/tenant-imports`` (REQ-056 §8.4, #2138), per account: each call reads,
     #: verifies and stores an archive of up to ``TENANT_IMPORT_MAX_UPLOAD_MB``.
     rate_limit_tenant_import: str = "10/hour"

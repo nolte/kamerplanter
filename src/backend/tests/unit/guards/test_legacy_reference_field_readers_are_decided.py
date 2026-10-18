@@ -143,6 +143,11 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
     ),
     (_SLOTS, f"{_W}:WateringLogService.create_log"): (_ECHO, "resolves every slot under the log's tenant first"),
     (_SLOTS, f"{_W}:WateringLogService.update_log"): (_ECHO, "passes the stored keys to the domain-rule check"),
+    (_SLOTS, "app/api/v1/planting_runs/tenant_router.py:plan_slots"): (
+        _ECHO,
+        "hands the body's slot list of the reservation route on; no watering log is read, and the service resolves "
+        "every key under the run's tenant (GP-NFR-058)",
+    ),
     # -- feeds_from: no mirrored field, only the edge ---------------------------------------
     (_FEEDS, f"{_TK}:ArangoTankRepository.delete"): (_ECHO, "removes the edges with the tank"),
     (_FEEDS, f"{_TK}:ArangoTankRepository.link_feeds_from"): (
