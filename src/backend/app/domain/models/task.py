@@ -187,6 +187,10 @@ class Task(BaseModel):
     checklist: list[ChecklistItem] = Field(default_factory=list)
     assigned_to_user_key: str | None = None
     recurrence_rule: str | None = None
+    #: A legacy rule that is neither an RRULE nor a losslessly convertible cron line, parked
+    #: unchanged by migration v0097 (#2346); ``recurrence_rule`` is then ``None``. Never written
+    #: by the API; the owner sets an RRULE to resume recurrence.
+    recurrence_rule_unconvertible: str | None = None
     recurrence_end_date: datetime | None = None
     parent_recurring_task_key: str | None = None
     trigger_phase: str | None = None
