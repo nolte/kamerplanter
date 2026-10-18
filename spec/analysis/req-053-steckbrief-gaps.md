@@ -670,7 +670,7 @@ Zählung aus den Steckbriefen (Abschnitt 1.9/1.10/6.x, Parse der Tabellenzeilen;
 
 | Feld | gesetzt | Aufschlüsselung | n/a bzw. leer |
 |---|---|---|---|
-| `row_spacing_cm` | 93 | — | 94 n/a (Zimmerpflanzen, Stauden, Gehölze ohne Reihenkultur), 23 unbelegt |
+| `row_spacing_cm` | 88 | — (Stand 2026-10-18 nach Betreiberentscheidung #2371: −5 Obstgehölze) | 94 n/a (Zimmerpflanzen, Stauden, Gehölze ohne Reihenkultur), 28 unbelegt (23 + Prunus domestica, Pyrus communis, Ribes rubrum, Ribes uva-crispa, Rubus fruticosus) |
 | `light_requirement` | 156 | `full_sun` 99, `partial_shade` 57 (`shade` 0) | 54 `null` (Spanne ohne Vorzug bzw. keine Quelle) |
 | `nutrient_demand` | 50 | `light_feeder` 18, `medium_feeder` 15, `heavy_feeder` 17; Konfidenz high 10, medium 13, low 27 | 61 mit `DATEN FEHLEN`, davon 30 Nutzarten (Pflichtlücke, unten), 31 Zier-/Zimmerpflanzen (n/a); 90 Steckbriefe ohne Zehrer-Zeile (Zimmerpflanzen, bewusst n/a) |
 | `nitrogen_fixing` | 47 | `true` 8, `false` 39 | übrige null/n/a |
@@ -689,17 +689,41 @@ Quellenhinweis aus allen Batches: Gemüsebau-Listen (SBB, LKSH, NiG, LK NRW) rei
 
 Hinweis: Die Zuordnung Nutzart/Zierpflanze für die Zählung 30/31 erfolgte heuristisch aus dem `DATEN FEHLEN`-Text; Steckbriefe ohne Zehrer-Zeile (90) sind nicht einzeln geprüft.
 
-### Fehlende Familienwerte in `botanical_families.yaml`
+### Fehlende Familienwerte in `botanical_families.yaml` (Stand 2026-10-18, nach #2371)
 
-`rotation_pause_years` ist nur für Solanaceae, Apiaceae, Brassicaceae, Cucurbitaceae (je 4), Asteraceae (3) gesetzt. Folgende Familien tragen Nutzarten, haben aber keinen Wert:
+Entscheidung siehe Abschnitt „Betreiberentscheidung #2371“ unten. `rotation_pause_years` ist nun gesetzt für Solanaceae, Apiaceae, Brassicaceae, Cucurbitaceae (je 4), Lamiaceae (4), Asteraceae (3), Fabaceae (3). Weiterhin `null` (E-10, keine belastbare Familienquelle):
 
 | Familie | Status | Arten mit belegter Art-Abweichung / Hinweis |
 |---|---|---|
-| Lamiaceae | angelegt, `null` | Melissa 4, Mentha 4 (Art-Override); Thymus, Rosmarinus, Salvia, Origanum, Ocimum ohne Wert |
-| Fabaceae | angelegt, `null` | Pisum 5 (SBB 5–6, LKSH 6–7), Phaseolus 3, Trifolium 4, Vicia 4 (LfL 4–5); Batch 5 notierte noch 6 — Familienwert abstimmen |
-| Rosaceae | angelegt, `null` | Fragaria 4; Obstgehölze und Rosa ohne Quelle (Rosmüdigkeit nur im Bestand) |
-| Poaceae | angelegt, `null` | Avena 4; Mais und Sorghum „selbstverträglich“ ohne Zahl |
-| Cannabaceae | angelegt, `null` | Cannabis 3 (Art-Override) |
-| Polygonaceae | nicht angelegt | Rheum rhabarbarum |
-| Amaranthaceae | nicht angelegt | Spinacia (SBB nennt 3–4 für Gänsefußgewächse), Beta |
+| Rosaceae | angelegt, `null` | Fragaria 4 (Art-Override); WebSearch 2026-10-18 fand nur Ratgeberseiten (Erdbeere 3–4), keine Beratungsstelle mit Familienwert; Obstgehölze und Rosa ohne Quelle |
+| Poaceae | angelegt, `null` | Avena 4; WebSearch 2026-10-18: nur Anbauanteil-/Selbstfolgeregeln (GAP, Südtiroler Bio-Regel), keine Anbaupause je Jahr; Mais und Sorghum „selbstverträglich“ ohne Zahl |
+| Cannabaceae | angelegt, `null` | Cannabis 3 (Art-Override); keine Hopfen-Quelle |
+| Polygonaceae | nicht angelegt | Rheum rhabarbarum; kein erfundener Wert |
+| Amaranthaceae | nicht angelegt | Spinacia (SBB nennt 3–4 für Gänsefußgewächse, Familie nicht angelegt), Beta |
 | Ericaceae, Vitaceae, Tropaeolaceae | nicht angelegt | Dauerkulturen bzw. Zierpflanze ohne Quelle |
+
+## Betreiberentscheidung #2371 (2026-10-18) — umgesetzt
+
+Quelle: Kommentar des Betreibers in #2371 („source quality decides, conservative defaults“). Folgearbeit zu den Betreiberfragen der Batches 5–7.
+
+| Nr. | Entscheidung | Umsetzung |
+|---|---|---|
+| 1 | Familien-`rotation_pause_years` nur mit Quelle; Fabaceae 3; nicht angelegte Familien ohne erfundenen Wert | Fabaceae 3 (Untergrenze der Art-Spanne 3–5; Pisum 5, Vicia 4, Trifolium 4, Phaseolus 3 bleiben Art-Overrides). Lamiaceae 4 (LfL Bayern, Kulturanleitungen Zitronenmelisse und Pfefferminze: „vier- bis fünfjährige Anbaupause für alle Lippenblütler“, Untergrenze). Rosaceae, Poaceae, Cannabaceae `null` (WebSearch ohne belastbare Familienquelle, siehe Tabelle oben). Polygonaceae, Amaranthaceae, Ericaceae, Vitaceae, Tropaeolaceae nicht angelegt, kein Wert |
+| 2 | Bei Widerspruch gewinnt das quellenbelegte `nutrient_demand` über `nutrient_demand_level` | Konflikte unten; `nutrient_demand_level` bleibt als Altfeld (Kommentar im Seed, Zeile „Vorrang Zehrerfelder“ im Steckbrief), nichts gelöscht |
+| 3 | Obst-Reihenabstände aus Erwerbsanlagen nicht übernehmen | `row_spacing_cm` = `null` für Prunus domestica (400), Pyrus communis (350), Ribes rubrum (280), Ribes uva-crispa (280), Rubus fruticosus (280); keine Hausgarten-Quelle gelesen. Steckbrief §1.9 auf `DATEN FEHLEN` gesetzt |
+| 4 | Schwach belegte Werte bleiben mit `confidence: low`; Spinat `medium_feeder` / `full_sun` | Keine Datenänderung: Satureja (`light_feeder`, low), Sorghum (`heavy_feeder`, low), Spinat (`medium_feeder`, low; `full_sun`) |
+
+### Konflikte `nutrient_demand` gegen `nutrient_demand_level` (Vorrang: `nutrient_demand`)
+
+| Art | `nutrient_demand_level` (Altfeld, bleibt) | `nutrient_demand` (gilt, Konfidenz) |
+|---|---|---|
+| Mentha × piperita | medium_feeder | light_feeder (low; Sammelgruppe Kräuter, Gegenindiz LfL Entzug 42 kg N) |
+| Ocimum basilicum | light_feeder | medium_feeder (low; LWG Merkblatt 2151, abweichend LK NRW Kräuter = Schwachzehrer) |
+| Raphanus sativus | light_feeder | medium_feeder (low; 2 Quellen Mittelzehrer, 1 Schwachzehrer) |
+| Rheum rhabarbarum | heavy_feeder | medium_feeder (low; Arkansas „medium“, UConn „little to no“) |
+| Allium sativum | light_feeder | medium_feeder (siehe Batch 1–3) |
+| Asparagus officinalis | heavy_feeder | medium_feeder (siehe Batch 1–3) |
+| Trifolium pratense | nitrogen_fixer | light_feeder (`nitrogen_fixing` trägt die Fixierung) |
+| Vitis vinifera | medium_feeder | light_feeder (siehe Batch 6/7) |
+
+Ein Abgleich beider Felder im Seed (`plant_info_outdoor_*.yaml`) ergab 7 abweichende Arten in `plant_info_outdoor_*.yaml` plus Raphanus (Altfeld in `species.yaml`), zusammen 8; die Regel gilt für alle (die Betreiberentscheidung nannte Mentha, Ocimum, Raphanus ausdrücklich; Rheum aus Batch-6-Frage 3 und die übrigen folgen derselben Regel). Solanum: kein Widerspruch. Die Zeile „Vorrang Zehrerfelder“ steht nur in den Steckbriefen der drei ausdrücklich genannten Arten; für die übrigen fünf trägt der Seed-Kommentar den Hinweis (Nachziehen im Steckbrief ist Folgearbeit). `nutrient_demand_level` bleibt Laufzeitquelle der EC-Skalierung, bis die Angleichung erfolgt. Familienwerte Fabaceae 3 und Lamiaceae 4 gelten auch für Arten ohne Art-Override (z. B. Lens, Thymus); die Untergrenze ist bewusst konservativ.Hinweis: `nutrient_demand_level` skaliert weiterhin das EC-Ziel (`phase_resource_resolver`); eine Angleichung an `nutrient_demand` ist Folgearbeit außerhalb dieser Datenänderung.

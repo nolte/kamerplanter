@@ -118,7 +118,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Pflanzabstand in der Reihe (cm) | 250–350 | `species.spacing_cm` |
-| Reihenabstand (cm) | 280 | `species.row_spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: Wert 280 cm stammt aus Spindel-/Versuchsanlagen des Erwerbsobstbaus (Saechs. LfL) und gilt fuer den Hausgarten nicht; keine Hausgarten-Quelle gelesen (Betreiberentscheidung #2371, E-10) --> | `species.row_spacing_cm` |
 | Quelle Abstände | In der Reihe: RHS, „How to grow blackberries“, https://www.rhs.org.uk/fruit/blackberries/grow-your-own („2.5–3.5m (8–11ft) between plants“ bei mäßig starkwüchsigen Sorten, bis 4 m bei sehr starkwüchsigen). Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Brombeere ‚Loch Ness‘/‚Chester Thornless‘, Pflanzabstand 2,80 m × 0,75 bzw. 1,50 m, fächerförmige Erziehung; Versuchsanlage im Erwerbsanbau) | — |
 
 ### 1.10 Lichtbedarf

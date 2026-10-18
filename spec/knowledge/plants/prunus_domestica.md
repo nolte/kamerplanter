@@ -138,7 +138,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS „How to grow plums“ nennt keinen Abstand zwischen Bäumen; Sächs. LfL 4 × 2,5 m gilt nur für Spindelerziehung im Versuch; Bestandswert §1.6 (400–500 cm, freistehend) bleibt unverändert --> | `species.spacing_cm` |
-| Reihenabstand (cm) | 400 | `species.row_spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: Wert 400 cm stammt aus Spindel-/Versuchsanlagen des Erwerbsobstbaus (Saechs. LfL) und gilt fuer den Hausgarten nicht; keine Hausgarten-Quelle gelesen (Betreiberentscheidung #2371, E-10) --> | `species.row_spacing_cm` |
 | Quelle Abstände | Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Berichte aus dem Obstbau“, Schriftenreihe Heft 4/2004, https://publikationen.sachsen.de/bdb/artikel/14041/documents/16506 („Der Pflanzabstand beträgt 4 x 2,5 m. Die Bäume sind als Spindel erzogen“, Pflaumen-Sorten-/Unterlagenversuch; 4 m = Reihenabstand, 2,5 m = Baumabstand in der Reihe; Spindelanlage im Erwerbsobstbau-Versuch) | — |
 
 ### 1.10 Lichtbedarf
