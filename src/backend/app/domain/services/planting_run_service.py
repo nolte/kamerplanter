@@ -440,10 +440,12 @@ class PlantingRunService:
         # value itself has no such seam.
         if "location_key" in data:
             self._require_owned_location_key(data["location_key"], run.tenant_key)
-        self._require_window_not_reserved(run, data)
+        self._require_reservation_unmoved(run, data)
+        old_start = run.planned_start_date
         for field, value in data.items():
             if field in allowed_fields:
                 setattr(run, field, value)
+        self._follow_start_date(run, old_start)
         updated = self._repo.update(key, run)
 
         # When location changes on an active run, reassign plants to new slots
@@ -456,23 +458,44 @@ class PlantingRunService:
 
         return updated
 
-    def _require_window_not_reserved(self, run: PlantingRun, data: dict[str, Any]) -> None:
-        """A run with reservations keeps its start date: the edges carry the window (GP-FR-065), V-08 judged it.
+    def _require_reservation_unmoved(self, run: PlantingRun, data: dict[str, Any]) -> None:
+        """A run with reservations keeps its start date and its bed: the edges carry both (GP-FR-065).
 
-        Moving the date would leave the edges stating a window the run no longer has. Release the reservation
-        (``DELETE …/plan-slots/{slot}``) and plan again to move it.
+        V-08 judged the window and the slots belong to one bed; moving either would leave the edges stating
+        something the run no longer has. Release the reservation (``DELETE …/plan-slots/{slot}``) and plan again.
         """
-        if self._reservation_repo is None or not run.key or "planned_start_date" not in data:
+        if self._reservation_repo is None or not run.key:
             return
-        if data["planned_start_date"] == run.planned_start_date:
+        moves_start = "planned_start_date" in data and data["planned_start_date"] != run.planned_start_date
+        moves_bed = "location_key" in data and data["location_key"] != run.location_key
+        if not (moves_start or moves_bed):
             return
         if self._reservation_repo.reservations_of_run(run.key, tenant_key=run.tenant_key):
+            code, field = (
+                ("run.reserved_window_fixed", "planned_start_date")
+                if moves_start
+                else ("run.reserved_bed_fixed", "location_key")
+            )
             raise PlanError(
-                "run.reserved_window_fixed",
-                "The run reserves slots for its start date; release them before moving the start.",
+                code,
+                "The run reserves slots of its bed for its start date; release them before moving either.",
+                status_code=422,
+                field=field,
+            )
+
+    @staticmethod
+    def _follow_start_date(run: PlantingRun, old_start: date | None) -> None:
+        """``planned_from`` is the start date unless it was set apart (GP-FR-065): it follows a moved start."""
+        if run.planned_start_date == old_start or run.planned_from not in (None, old_start):
+            return
+        if run.planned_until and run.planned_start_date and run.planned_until < run.planned_start_date:
+            raise PlanError(
+                "run.window_reversed",
+                "The start date must not lie after the end of the reservation window.",
                 status_code=422,
                 field="planned_start_date",
             )
+        run.planned_from = run.planned_start_date
 
     def delete_run(self, key: PlantingRunKey, *, tenant_key: str) -> bool:
         run = self._owned_run(key, tenant_key=tenant_key)
@@ -1066,13 +1089,28 @@ class PlantingRunService:
 
         The run's reserved slots come first, per entry in ``sequence`` order; a row or zone slot takes up to its
         ``capacity_plants`` plants, a position one. Once an entry's reservation is used up its plants fall back
-        to the free slots of the bed, which never include a slot another live run has reserved.
+        to the free slots of the bed, which never include a slot any live run (this one for another entry too)
+        has reserved.
         """
         if not assign_to_slots:
             return [None] * len(plant_specs)
-        reserved = self._reserved_slots_by_entry(run)
-        reserved_by_others = self._slots_reserved_by_other_runs(run)
-        free = [slot for slot in self._get_available_slots(run.location_key) if slot.key not in reserved_by_others]
+        # The bed is read once; the reservations are asked for once per question (this run's, anyone's, the plants).
+        bed_slots = (
+            self._site_repo.get_slots_by_location(run.location_key) if self._site_repo and run.location_key else []
+        )
+        reserved = self._reserved_slots_by_entry(run, bed_slots)
+        reserved_anywhere = self._live_reserved_slot_keys(run, bed_slots)
+        free = sorted(
+            (
+                slot
+                for slot in bed_slots
+                if slot.key
+                and not slot.currently_occupied
+                and slot.archived_at is None
+                and slot.key not in reserved_anywhere
+            ),
+            key=lambda slot: slot.slot_id,
+        )
         used: dict[str, int] = {}
         free_cursor = 0
         slots: list[Slot | None] = []
@@ -1096,9 +1134,9 @@ class PlantingRunService:
             slots.append(chosen)
         return slots
 
-    def _reserved_slots_by_entry(self, run: PlantingRun) -> dict[str, list[Slot]]:
+    def _reserved_slots_by_entry(self, run: PlantingRun, bed_slots: list[Slot]) -> dict[str, list[Slot]]:
         """The run's reserved slots per entry in ``sequence`` order; archived or foreign-bed slots are dropped."""
-        if self._reservation_repo is None or self._site_repo is None or not run.key or not run.location_key:
+        if self._reservation_repo is None or not run.key or not run.location_key:
             return {}
         by_entry: dict[str, list[Slot]] = {}
         reservations = self._reservation_repo.reservations_of_run(run.key, tenant_key=run.tenant_key)
@@ -1110,9 +1148,9 @@ class PlantingRunService:
             )
             if plant.run_key != run.key
         }
-        bed_slots = {slot.key: slot for slot in self._site_repo.get_slots_by_location(run.location_key) if slot.key}
+        by_key = {slot.key: slot for slot in bed_slots if slot.key}
         for reservation in sorted(reservations, key=lambda r: (r.entry_key, r.sequence)):
-            slot = bed_slots.get(reservation.slot_key)
+            slot = by_key.get(reservation.slot_key)
             if slot is None or slot.archived_at is not None:
                 continue  # gone, archived, or never a slot of this bed
             if slot.slot_role.value == "position" and slot.key in standing:
@@ -1120,15 +1158,15 @@ class PlantingRunService:
             by_entry.setdefault(reservation.entry_key, []).append(slot)
         return by_entry
 
-    def _slots_reserved_by_other_runs(self, run: PlantingRun) -> set[str]:
-        """Slots of the run's bed that another live run has reserved (the free-slot fallback keeps off them)."""
-        if self._reservation_repo is None or self._site_repo is None or not run.location_key:
+    def _live_reserved_slot_keys(self, run: PlantingRun, bed_slots: list[Slot]) -> set[str]:
+        """Slots of the run's bed that a live run — any, this one included — has reserved (the fallback keeps off)."""
+        if self._reservation_repo is None:
             return set()
-        slot_keys = [s.key for s in self._site_repo.get_slots_by_location(run.location_key) if s.key]
+        slot_keys = [s.key for s in bed_slots if s.key]
         return {
             r.slot_key
             for r in self._reservation_repo.reservations_for(slot_keys, tenant_key=run.tenant_key)
-            if r.run_key != run.key and r.run_status in LIVE_RUN_STATUSES
+            if r.run_status in LIVE_RUN_STATUSES
         }
 
     def _owned_run_plant_rows(self, run_key: PlantingRunKey, tenant_key: str) -> list[dict[str, Any]]:

@@ -379,6 +379,7 @@ class PlantingReservationService:
             conflicts = find_conflicts(
                 slot_keys,
                 run_key=run_key,
+                entry_key=entry_key,
                 planned_from=planned_from,
                 planned_until=planned_until,
                 reservations=reads.reservations_for(slot_keys, tenant_key=tenant_key),

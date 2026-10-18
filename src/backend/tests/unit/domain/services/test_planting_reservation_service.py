@@ -165,6 +165,15 @@ class TestPlanSlots:
 
         assert [c["slot_key"] for c in caught.value.details[0]["conflicts"]] == ["s1", "s2"]
 
+    def test_a_slot_the_run_reserved_for_another_entry_is_taken(self, world) -> None:
+        reserve(world, "run_b", "s1", D(2026, 10, 5), None, entry="e_other")
+
+        with pytest.raises(PlanError) as caught:
+            world.service.plan_slots("run_b", tenant_key=TENANT, role=GROWER, entry_key="e_b", slot_keys=["s1"])
+
+        assert caught.value.details[0]["conflicting_run_key"] == "run_b"
+        assert world.repo.reservation_writes == []
+
     def test_replacing_a_runs_own_reservation_is_no_conflict(self, world) -> None:
         reserve(world, "run_b", "s1", D(2026, 10, 5), None, entry="e_b")
 

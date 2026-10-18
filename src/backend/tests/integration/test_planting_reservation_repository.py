@@ -235,6 +235,31 @@ class TestTheBedLock:
         )  # the positive control: the lock is free again
         assert len(keys) == 1
 
+    def test_a_release_waits_for_no_one_but_takes_the_same_lock(self, db, repo) -> None:
+        make_slot(db, "s1")
+        make_run(db, "run_a", location_key="bed")
+        reserve(db, "run_a", "s1", "2026-05-15", None)
+        holder = db.begin_transaction(write=[col.LOCATIONS])
+        try:
+            holder.collection(col.LOCATIONS).update({"_key": "bed", "name": "Bed 3 (held)"})
+
+            with pytest.raises(WriteConflictError):
+                repo.release_reservation("run_a", "s1")
+            with pytest.raises(WriteConflictError):
+                repo.drop_run_reservations("run_a", remove_layout_slots=False)
+        finally:
+            holder.abort_transaction()
+
+        assert len(edges(db, col.RUN_PLANNED_AT)) == 1  # the loser released nothing
+        assert repo.release_reservation("run_a", "s1") is True  # the lock is free again
+
+    def test_a_drop_for_a_bed_that_is_gone_still_goes_through(self, db, repo) -> None:
+        make_run(db, "run_a", location_key="ghost")
+        make_slot(db, "s1")
+        reserve(db, "run_a", "s1", "2026-05-15", None)
+
+        assert repo.drop_run_reservations("run_a", remove_layout_slots=False) == 1
+
 
 class TestReservationReads:
     def arrange(self, db) -> None:
@@ -490,6 +515,19 @@ class TestClearBed:
         ]
         assert [e["_to"] for e in edges(db, col.CARE_EVENT_AT)] == ["locations/bed"]
         assert sorted(outcome.removed_plant_keys) == ["pi_1", "pi_2", "pi_3", "pi_4"]
+
+    def test_a_run_with_plants_standing_in_another_bed_is_not_ended(self, db, repo) -> None:
+        self.arrange(db)
+        db.collection(col.LOCATIONS).insert({"_key": "bed_two", "site_key": "site_a", "name": "Bed 4"})
+        make_slot(db, "s_two", location="bed_two")
+        plant(db, "pi_far", "s_two", "run_1")  # run_1 also has a plant in the other bed
+
+        repo.clear_bed(self.write())
+
+        assert db.collection(col.PLANT_INSTANCES).get("pi_1")["removed_on"] == "2026-10-18"
+        assert db.collection(col.PLANTING_RUNS).get("run_1")["status"] == "active"  # its other plant still stands
+        assert db.collection(col.PLANT_INSTANCES).get("pi_far").get("removed_on") is None
+        assert db.collection(col.PLANTING_RUNS).get("run_2")["status"] == "completed"
 
     def test_a_cancelled_clearing_cancels_the_runs(self, db, repo) -> None:
         self.arrange(db)

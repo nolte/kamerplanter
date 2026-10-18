@@ -115,6 +115,17 @@ class TestFindConflicts:
             plants=[],
         )
 
+    def test_another_entry_of_the_same_run_conflicts_but_the_same_entry_does_not(self) -> None:
+        """One position cannot hold two entries of a run; replacing an entry's own reservation is the normal path."""
+        other_entry = Reservation("s1", "run_b", "e_other", "sp", 1, D(2026, 10, 5), None)
+        kwargs = {"run_key": "run_b", "planned_from": D(2026, 10, 5), "planned_until": None, "plants": []}
+
+        (conflict,) = find_conflicts(["s1"], reservations=[other_entry], entry_key="e_mine", **kwargs)
+        assert (conflict.kind, conflict.conflicting_run_key) == (CONFLICT_RESERVATION, "run_b")
+        assert find_conflicts(["s1"], reservations=[other_entry], entry_key="e_other", **kwargs) == []
+        # without an entry every reservation of the run is its own (the pre-WP-3.2 reading)
+        assert find_conflicts(["s1"], reservations=[other_entry], **kwargs) == []
+
     def test_a_reservation_of_an_ended_run_does_not_count(self) -> None:
         ended = reservation("s1", "run_a", D(2026, 5, 15), D(2026, 9, 30), status="completed")
         assert (

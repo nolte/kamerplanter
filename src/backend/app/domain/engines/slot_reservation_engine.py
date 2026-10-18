@@ -104,15 +104,18 @@ def find_conflicts(
     planned_until: date | None,
     reservations: list[Reservation],
     plants: list[ActivePlant],
+    entry_key: str | None = None,
 ) -> list[SlotConflict]:
     """The first conflict of each requested slot (V-08), in the order of ``slot_keys``.
 
-    The run's own reservations and its own plants never conflict with it: replacing a run's reservation
-    or placing its plants on its planned slots is the normal path.
+    The run's own plants never conflict with it, and neither does its own reservation of the *same entry*:
+    replacing that reservation is the normal path. A reservation of another entry of the same run does — one
+    position cannot hold two entries. Without ``entry_key`` every reservation of the run is its own.
     """
     by_slot: dict[str, list[Reservation]] = {}
     for reservation in reservations:
-        if reservation.run_key != run_key and reservation.run_status in LIVE_RUN_STATUSES:
+        own = reservation.run_key == run_key and (entry_key is None or reservation.entry_key == entry_key)
+        if not own and reservation.run_status in LIVE_RUN_STATUSES:
             by_slot.setdefault(reservation.slot_key, []).append(reservation)
     plants_by_slot: dict[str, list[ActivePlant]] = {}
     for plant in plants:

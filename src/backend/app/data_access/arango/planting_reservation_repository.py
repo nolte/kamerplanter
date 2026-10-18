@@ -73,8 +73,12 @@ _SLOT_EDGES = _edges_touching(col.SLOTS)
 _RESERVATION_WRITE = (col.LOCATIONS, col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT)
 _RESERVATION_READ = (col.PLANTING_RUNS, col.PLANT_INSTANCES, col.PLACED_IN, col.RUN_CONTAINS)
 #: A deleted layout slot takes every edge a slot may carry with it.
-_DROP_WRITE = tuple(dict.fromkeys((col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT, *(edge for edge, _ in _SLOT_EDGES))))
-_DROP_READ = tuple(c for c in (col.PLACED_IN,) if c not in _DROP_WRITE)
+_DROP_WRITE = tuple(
+    dict.fromkeys((col.LOCATIONS, col.SLOTS, col.HAS_SLOT, col.RUN_PLANNED_AT, *(edge for edge, _ in _SLOT_EDGES)))
+)
+_DROP_READ = tuple(c for c in (col.PLACED_IN, col.PLANTING_RUNS) if c not in _DROP_WRITE)
+_RELEASE_WRITE = (col.LOCATIONS, col.RUN_PLANNED_AT)
+_RELEASE_READ = (col.SLOTS,)
 _CLEAR_WRITE = (
     col.LOCATIONS,
     col.SLOTS,
@@ -405,15 +409,19 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
     # ── Locking ───────────────────────────────────────────────────────
 
     @staticmethod
-    def _lock_location(txn: StreamTransaction, location_key: str, now: str) -> None:
-        """Write the bed's own document first: two writers of one bed cannot both pass (see the module docstring)."""
+    def _lock_location(txn: StreamTransaction, location_key: str, now: str, *, must_exist: bool = True) -> None:
+        """Write the bed's own document first: two writers of one bed cannot both pass (see the module docstring).
+
+        ``must_exist=False`` for the writes that tidy up after a run (release, drop): a bed that is gone has
+        nothing left to serialise with, and the tidying must still go through.
+        """
         touched = list(
             txn.aql.execute(
                 "FOR l IN @@col FILTER l._key == @key UPDATE l WITH {updated_at: @now} IN @@col RETURN 1",
                 bind_vars={"@col": col.LOCATIONS, "key": location_key, "now": now},
             )
         )
-        if not touched:
+        if not touched and must_exist:
             raise NotFoundError("Location", location_key)
 
     @staticmethod
@@ -521,29 +529,41 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
             raise WriteConflictError("slots", "a slot to reserve was removed or archived concurrently")
 
     def release_reservation(self, run_key: str, slot_key: str) -> bool:
-        removed = list(
-            cast(
-                "Cursor",
-                self._db.aql.execute(
+        with stream_transaction(
+            self._db, write=_RELEASE_WRITE, read=_RELEASE_READ, entity="planting_run_reservation"
+        ) as txn:
+            for location_key in txn.aql.execute(
+                "RETURN DOCUMENT(CONCAT(@slots, @key)).location_key",
+                bind_vars={"slots": f"{col.SLOTS}/", "key": slot_key},
+            ):
+                if location_key:
+                    self._lock_location(txn, location_key, _now(), must_exist=False)
+            removed = list(
+                txn.aql.execute(
                     """
-                FOR e IN @@edges
-                    FILTER e._from == @run_id AND e._to == @slot_id
-                    REMOVE e IN @@edges
-                    RETURN 1
-                """,
+                    FOR e IN @@edges
+                        FILTER e._from == @run_id AND e._to == @slot_id
+                        REMOVE e IN @@edges
+                        RETURN 1
+                    """,
                     bind_vars={
                         "@edges": col.RUN_PLANNED_AT,
                         "run_id": f"{col.PLANTING_RUNS}/{run_key}",
                         "slot_id": f"{col.SLOTS}/{slot_key}",
                     },
-                ),
+                )
             )
-        )
         return bool(removed)
 
     def drop_run_reservations(self, run_key: str, *, remove_layout_slots: bool) -> int:
         run_id = f"{col.PLANTING_RUNS}/{run_key}"
         with stream_transaction(self._db, write=_DROP_WRITE, read=_DROP_READ, entity="planting_run_reservation") as txn:
+            for location_key in txn.aql.execute(
+                "RETURN DOCUMENT(CONCAT(@runs, @key)).location_key",
+                bind_vars={"runs": f"{col.PLANTING_RUNS}/", "key": run_key},
+            ):
+                if location_key:
+                    self._lock_location(txn, location_key, _now(), must_exist=False)
             slot_ids = list(
                 txn.aql.execute(
                     "FOR e IN @@edges FILTER e._from == @run_id RETURN e._to",
@@ -706,6 +726,15 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 )
                 FOR run IN APPEND(by_plant, by_place)
                     FILTER run != null AND run.tenant_key == @tenant_key AND run.status IN ['active', 'harvesting']
+                    LET standing_elsewhere = LENGTH(
+                        FOR e IN @@run_contains
+                            FILTER e._from == run._id AND e.detached_at == null AND e._to NOT IN @plant_ids
+                            LET other = DOCUMENT(e._to)
+                            FILTER other != null AND other.removed_on == null
+                            LIMIT 1
+                            RETURN 1
+                    )
+                    FILTER standing_elsewhere == 0
                     RETURN DISTINCT {id: run._id, key: run._key}
                 """,
                 bind_vars={

@@ -201,6 +201,32 @@ class TestCreatePlantsOnPlannedSlots:
         # s1 is the run's own; s2 is free; s3 is another live run's and is never taken as a "free" slot
         assert [p.slot_key for p in world.plants.created] == ["s1", "s2", None]
 
+    def test_the_fallback_keeps_off_the_slots_the_run_reserved_for_another_entry(self, world) -> None:
+        world.plan.slots = [
+            Slot(_key=key, slot_id=f"BED3_{n:03d}", location_key="bed")
+            for n, key in enumerate(("s1", "s2", "s3", "s4"), 1)
+        ]
+        # a run with two entries is stored directly: the monoculture rule of create_run would refuse it
+        run = world.runs.create(new_run().model_copy(update={"tenant_key": TENANT}))
+        for quantity in (3, 1):
+            world.runs.create_entry(
+                tomato_entry(layout_strategy=None, quantity=quantity).model_copy(
+                    update={"run_key": run.key, "tenant_key": TENANT}
+                )
+            )
+        world.service._engine.validate_run_type_constraints = lambda *args, **kwargs: None  # noqa: SLF001
+        first, second = sorted(world.runs.entries.values(), key=lambda e: e.key)
+        world.repo.reservations = [
+            Reservation("s2", run.key, first.key, "sp_tomato", 1, D(2026, 5, 15), None),
+            Reservation("s1", run.key, second.key, "sp_tomato", 1, D(2026, 5, 15), None),
+        ]
+
+        world.service.create_plants(run.key, tenant_key=TENANT)
+
+        # entry one: its reserved s2, then a *free* slot (s3, s4) — never entry two's reserved s1
+        assert [p.slot_key for p in world.plants.created][:3] == ["s2", "s3", "s4"]
+        assert world.plants.created[3].slot_key == "s1"
+
     def test_a_position_slot_still_holding_an_earlier_runs_plant_is_skipped(self, world) -> None:
         run_key = self.planned_run(world, slot_order=("s1", "s2"))
         world.repo.plants.append(ActivePlant("s1", "pi_old", "run_old", D(2026, 5, 10)))
@@ -252,6 +278,43 @@ class TestEndingARun:
             world.service.delete_run(run.key, tenant_key=OTHER_TENANT)
 
         assert world.repo.dropped == []
+
+    def test_a_reserved_run_keeps_its_bed(self, world) -> None:
+        run = world.service.create_run(new_run(), [tomato_entry()], tenant_key=TENANT)
+
+        with pytest.raises(PlanError) as caught:
+            world.service.update_run(run.key, {"location_key": "bed_nogeo"}, tenant_key=TENANT)
+
+        assert caught.value.error_code == "run.reserved_bed_fixed"
+
+    def test_an_unreserved_run_moves_its_window_with_its_start_date(self, world) -> None:
+        run = world.service.create_run(
+            new_run(planned_until=None), [tomato_entry(layout_strategy=None)], tenant_key=TENANT
+        )
+        assert run.planned_from == D(2026, 5, 15)
+
+        moved = world.service.update_run(run.key, {"planned_start_date": D(2026, 6, 1)}, tenant_key=TENANT)
+
+        assert (moved.planned_start_date, moved.planned_from) == (D(2026, 6, 1), D(2026, 6, 1))
+
+    def test_a_window_that_was_set_apart_stays_where_it_is(self, world) -> None:
+        run = world.service.create_run(
+            new_run(planned_from=D(2026, 5, 1), planned_until=None),
+            [tomato_entry(layout_strategy=None)],
+            tenant_key=TENANT,
+        )
+
+        moved = world.service.update_run(run.key, {"planned_start_date": D(2026, 6, 1)}, tenant_key=TENANT)
+
+        assert moved.planned_from == D(2026, 5, 1)
+
+    def test_a_start_after_the_end_of_the_window_is_422(self, world) -> None:
+        run = world.service.create_run(new_run(), [tomato_entry(layout_strategy=None)], tenant_key=TENANT)
+
+        with pytest.raises(PlanError) as caught:
+            world.service.update_run(run.key, {"planned_start_date": D(2026, 12, 1)}, tenant_key=TENANT)
+
+        assert caught.value.error_code == "run.window_reversed"
 
     def test_a_reserved_run_keeps_its_start_date(self, world) -> None:
         run = world.service.create_run(new_run(), [tomato_entry()], tenant_key=TENANT)
