@@ -86,7 +86,7 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
-from app.domain.services.adjacency_service import AdjacencyService
+from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
@@ -452,6 +452,11 @@ def dispatch_adjacency_recompute(location_key: str) -> None:
         retry=True,
         retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1},
     )
+
+
+def get_adjacency_dispatch() -> AdjacencyDispatch:
+    """The dispatcher a router hands to ``request_adjacency_recompute`` (looked up at call time)."""
+    return dispatch_adjacency_recompute
 
 
 def get_adjacency_service() -> AdjacencyService:

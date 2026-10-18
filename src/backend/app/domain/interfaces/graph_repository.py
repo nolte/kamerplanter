@@ -76,8 +76,9 @@ class IGraphRepository(ABC):
     def sync_derived_adjacency(self, slot_keys: list[str], pairs: list[tuple[str, str, float]]) -> AdjacencySync:
         """Make the derived ``adjacent_to`` edges among *slot_keys* exactly *pairs* ``(a, b, distance_cm)``.
 
-        Edges with ``source = manual`` are neither removed nor overwritten, and a pair that already has a
-        manual edge gets no derived one. Idempotent: running it twice with the same pairs changes nothing.
+        Only edges with ``source = derived`` are managed: manual edges and legacy edges without a source are
+        neither removed nor overwritten, and a pair that already has such an edge gets no derived one.
+        Idempotent: running it twice with the same pairs changes nothing.
         """
 
     @abstractmethod

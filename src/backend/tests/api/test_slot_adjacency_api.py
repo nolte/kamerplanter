@@ -163,3 +163,36 @@ class TestRemovingAManualEdge:
     def test_a_viewer_is_refused(self, client, graph) -> None:
         assert client(TenantRole.VIEWER).delete(f"{_BASE}/slots/a/adjacent/b").status_code == 403
         assert graph.removed == []
+
+
+class TestCreatingAndMovingSlotsAsksForARecompute:
+    """POST and PUT change the neighbourhood too: the old and the new bed are dispatched (GP-NFR-016)."""
+
+    @pytest.fixture
+    def site_service(self, client):
+        from unittest.mock import MagicMock
+
+        from app.common.dependencies import get_site_service
+        from app.main import app
+
+        service = MagicMock()
+        service.get_slot.return_value = _slot("a", "bed")
+        service.create_slot.return_value = _slot("n", "bed")
+        service.update_slot.return_value = _slot("a", "bed2")
+        app.dependency_overrides[get_site_service] = lambda: service
+        return service
+
+    def test_creating_a_slot_dispatches_its_bed(self, client, site_service, no_adjacency_broker) -> None:
+        response = client().post(f"{_BASE}/slots", json={"slot_id": "BED_N1", "location_key": "bed"})
+        assert response.status_code == 201
+        assert no_adjacency_broker == ["bed"]
+
+    def test_moving_a_slot_to_another_bed_dispatches_both(self, client, site_service, no_adjacency_broker) -> None:
+        response = client().put(f"{_BASE}/slots/a", json={"slot_id": "BED_A1", "location_key": "bed2"})
+        assert response.status_code == 200
+        assert no_adjacency_broker == ["bed", "bed2"]
+
+    def test_a_refused_write_dispatches_nothing(self, client, site_service, no_adjacency_broker) -> None:
+        site_service.create_slot.side_effect = NotFoundError("Location", "nope")
+        assert client().post(f"{_BASE}/slots", json={"slot_id": "BED_N1", "location_key": "nope"}).status_code == 404
+        assert no_adjacency_broker == []

@@ -189,6 +189,14 @@ class AdjacencyService:
                 status_code=422,
                 field="other_slot_key",
             )
+        for slot in (first, second):
+            if slot.archived_at is not None:
+                raise PlanError(
+                    "adjacency.slot_archived",
+                    "An archived slot is history; it cannot be given a neighbour.",
+                    status_code=422,
+                    field="other_slot_key",
+                )
         return first, second
 
     def set_manual_edge(

@@ -18,6 +18,7 @@ from typing import Any, cast
 
 import structlog
 
+from app.common.exceptions import NotFoundError
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -45,6 +46,9 @@ def adjacency_recompute(self: Any, location_key: str) -> dict[str, Any]:
         return {"status": "skipped", "reason": "tenant_not_active", "location_key": location_key}
     try:
         result = get_adjacency_service().recompute(location_key, tenant_key=site.tenant_key)
+    except NotFoundError:
+        # The bed vanished between the lookup and the call: permanent, not worth three retries.
+        return {"status": "skipped", "reason": "location_not_found", "location_key": location_key}
     except Exception as exc:
         logger.warning("adjacency.recompute_failed", location_key=location_key, error_type=type(exc).__name__)
         raise self.retry(exc=exc) from exc

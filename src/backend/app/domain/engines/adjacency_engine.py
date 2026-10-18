@@ -41,7 +41,7 @@ DEFAULT_SPACING_CM = 30.0
 #: Growth habits that take the woody interaction factor.
 WOODY_HABITS: frozenset[GrowthHabit] = frozenset({GrowthHabit.TREE, GrowthHabit.SHRUB})
 
-_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")  # a decimal comma is normalised before the search
 
 
 def lower_bound_cm(value: str | float | None) -> float | None:
@@ -50,7 +50,7 @@ def lower_bound_cm(value: str | float | None) -> float | None:
         return None
     if isinstance(value, int | float):
         return float(value) if value > 0 else None
-    match = _NUMBER.search(value)
+    match = _NUMBER.search(value.replace(",", "."))
     if match is None:
         return None
     number = float(match.group())

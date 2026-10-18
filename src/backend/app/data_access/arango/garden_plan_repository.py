@@ -311,13 +311,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             FILTER l != null
             LET site = DOCUMENT(CONCAT(@sites, l.site_key))
             FILTER site != null AND site.tenant_key == @tenant_key
-            LET slot_keys = (
+            LET bed_slots = (
                 FOR s IN @@slots FILTER s.location_key == @location_key AND s.archived_at == null RETURN s._key
             )
-            LET slot_ids = (FOR k IN slot_keys RETURN CONCAT(@slots, k))
+            LET slot_ids = (FOR k IN bed_slots RETURN CONCAT(@slots, k))
             LET from_plants = (
                 FOR p IN @@plants
-                    FILTER p.tenant_key == @tenant_key AND p.slot_key IN slot_keys AND p.removed_on == null
+                    FILTER p.tenant_key == @tenant_key AND p.slot_key IN bed_slots AND p.removed_on == null
                     RETURN {slot_key: p.slot_key, species_key: p.species_key}
             )
             LET from_runs = (

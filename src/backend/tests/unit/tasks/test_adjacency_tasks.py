@@ -101,3 +101,20 @@ def test_a_failure_is_retried_not_swallowed():
     finally:
         for p in patches:
             p.stop()
+
+
+def test_a_bed_that_vanishes_during_the_run_is_skipped_not_retried():
+    from app.common.exceptions import NotFoundError
+
+    gone = MagicMock(side_effect=NotFoundError("Location", "bed"))
+    patches, _service = _patched(location=LOCATION, site=SITE, recompute=gone)
+    for p in patches:
+        p.start()
+    try:
+        with patch.object(module.adjacency_recompute, "retry") as retry:
+            result = module.adjacency_recompute.run("bed")
+        retry.assert_not_called()
+        assert result["status"] == "skipped"
+    finally:
+        for p in patches:
+            p.stop()

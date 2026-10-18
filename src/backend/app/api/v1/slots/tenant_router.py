@@ -5,12 +5,17 @@ from fastapi import APIRouter, Depends, Path, Query
 from app.api.mapping import to_response
 from app.api.v1.slots.schemas import ManualAdjacencyRequest, SlotCreate, SlotPatch, SlotResponse
 from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_adjacency_service, get_garden_resource_service, get_site_service
+from app.common.dependencies import (
+    get_adjacency_dispatch,
+    get_adjacency_service,
+    get_garden_resource_service,
+    get_site_service,
+)
 from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 from app.core.permissions import Action, ResourceType
 from app.domain.models.site import Slot
 from app.domain.models.tenant_context import TenantContext
-from app.domain.services.adjacency_service import AdjacencyService
+from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService, request_adjacency_recompute
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.site_service import SiteService
 
@@ -53,10 +58,12 @@ def create_slot(
     body: SlotCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.CREATE)),
     service: SiteService = Depends(get_site_service),
+    dispatch: AdjacencyDispatch = Depends(get_adjacency_dispatch),
 ):
     """Create a slot within a location."""
     slot = Slot(**body.model_dump())
     created = service.create_slot(slot, tenant_key=ctx.tenant_key)
+    request_adjacency_recompute(dispatch, created.location_key)
     return to_response(created, SlotResponse)
 
 
@@ -66,13 +73,17 @@ def update_slot(
     body: SlotCreate,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: SiteService = Depends(get_site_service),
+    dispatch: AdjacencyDispatch = Depends(get_adjacency_dispatch),
 ):
     """Update a slot."""
     # The slot and the body's location are both resolved under the tenant in the
     # service (#1871 B1, #2107): storing the location as given re-parented the slot
     # into another tenant's location.
+    previous = _verify_slot_tenant(key, ctx, service)
     slot = Slot(**body.model_dump())
     updated = service.update_slot(key, slot, tenant_key=ctx.tenant_key)
+    for location_key in dict.fromkeys((previous.location_key, updated.location_key)):  # re-parenting: both beds
+        request_adjacency_recompute(dispatch, location_key)
     return to_response(updated, SlotResponse)
 
 

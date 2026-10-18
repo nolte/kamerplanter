@@ -79,6 +79,11 @@ _WRITES_NO_HYBRID_ROW: dict[str, str] = {
         "deletes the plant's own follows_plan edge, the plan is not written; the plant is verified in the "
         "repository (verify_entity_ownership, #2107)"
     ),
+    "AdjacencyService.remove_manual_edge": (
+        "removes a manual adjacent_to edge between two slots; the receiver is the graph repository, which also "
+        "holds the global companion edges, but no catalogue row is written, and both slots are resolved under "
+        "the tenant through the ownership anchor (SR-021)"
+    ),
     "UserPreferenceService.update_preferences": (
         "writes the caller's own preference row; the receiver is typed as a union that includes catalogue repositories"
     ),

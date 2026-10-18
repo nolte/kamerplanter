@@ -104,6 +104,18 @@ def test_a_manual_edge_survives_every_sync_and_blocks_a_derived_twin(db, graph) 
     assert set(edges) == manual
 
 
+def test_a_legacy_edge_without_a_source_is_not_managed(db, graph) -> None:
+    for a, b in (("a", "b"), ("b", "a")):
+        db.collection(col.ADJACENT_TO).insert({"_from": _slot(a), "_to": _slot(b)})
+
+    graph.sync_derived_adjacency(["a", "b"], [("a", "b", 30.0)])
+    graph.sync_derived_adjacency(["a", "b"], [])
+
+    edges = _edges(db)
+    assert set(edges) == {(_slot("a"), _slot("b")), (_slot("b"), _slot("a"))}
+    assert all("source" not in e for e in edges.values())
+
+
 def test_sync_leaves_edges_of_slots_outside_the_bed_alone(db, graph) -> None:
     graph.set_adjacent_slots("a", "z", distance_cm=40.0)
 

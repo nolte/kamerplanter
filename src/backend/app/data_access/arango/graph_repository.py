@@ -274,11 +274,11 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
                 ),
             )
         )
-        manual = {frozenset((e["_from"], e["_to"])) for e in existing if e.get("source") == ADJACENCY_SOURCE_MANUAL}
+        unmanaged = {frozenset((e["_from"], e["_to"])) for e in existing if e.get("source") != ADJACENCY_SOURCE_DERIVED}
         wanted: dict[tuple[str, str], float] = {}
         for first, second, distance in pairs:
             a_id, b_id = f"{col.SLOTS}/{first}", f"{col.SLOTS}/{second}"
-            if frozenset((a_id, b_id)) in manual:
+            if frozenset((a_id, b_id)) in unmanaged:
                 continue
             wanted[(a_id, b_id)] = distance
             wanted[(b_id, a_id)] = distance
@@ -286,7 +286,9 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         removed = updated = kept = 0
         present: set[tuple[str, str]] = set()
         for edge in existing:
-            if edge.get("source") == ADJACENCY_SOURCE_MANUAL:
+            # Only edges this derivation wrote are managed; a manual edge and a legacy edge without a
+            # ``source`` (set programmatically before GP-FR-130) are left exactly as they are.
+            if edge.get("source") != ADJACENCY_SOURCE_DERIVED:
                 continue
             direction = (edge["_from"], edge["_to"])
             if direction not in wanted or direction in present:
@@ -294,10 +296,8 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
                 removed += 1
                 continue
             present.add(direction)
-            if edge.get("distance_cm") != wanted[direction] or edge.get("source") != ADJACENCY_SOURCE_DERIVED:
-                edges.update(
-                    {"_key": edge["_key"], "distance_cm": wanted[direction], "source": ADJACENCY_SOURCE_DERIVED}
-                )
+            if edge.get("distance_cm") != wanted[direction]:
+                edges.update({"_key": edge["_key"], "distance_cm": wanted[direction]})
                 updated += 1
             else:
                 kept += 1

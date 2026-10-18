@@ -256,7 +256,7 @@ class TestTheRouteOperand:
         frontend), open — all five are reported candidates until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 858
+        assert len(checker.collect_operations(app)) == 860
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

@@ -195,6 +195,16 @@ class TestManualEdges:
             service.set_manual_edge("z", "a", tenant_key=TENANT, role=TenantRole.GROWER, distance_cm=None)
         assert graph.manual == []
 
+    def test_an_archived_slot_cannot_be_given_a_neighbour(self, world) -> None:
+        from datetime import UTC, datetime
+
+        service, repo, graph, _site = world
+        repo.slots[1] = repo.slots[1].model_copy(update={"archived_at": datetime.now(UTC)})
+        with pytest.raises(PlanError) as exc:
+            service.set_manual_edge("a", "b", tenant_key=TENANT, role=TenantRole.GROWER, distance_cm=None)
+        assert exc.value.details[0]["code"] == "adjacency.slot_archived"
+        assert graph.manual == []
+
     def test_a_slot_cannot_neighbour_itself(self, world) -> None:
         service, _repo, graph, _site = world
         with pytest.raises(PlanError) as exc:
