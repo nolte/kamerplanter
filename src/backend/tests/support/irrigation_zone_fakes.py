@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.common.exceptions import NotFoundError
+from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
 from tests.support.garden_plan_fakes import FakePlanRepo
@@ -28,6 +29,8 @@ class FakeZones(IIrrigationZoneRepository):
         #: What ``watering_facts`` answers, and the bed keys it was last asked about.
         self.facts = ZoneWateringFacts(last_watering=None, next_planned=None, consumption_liters=0.0)
         self.facts_asked: list[list[str]] = []
+        #: What ``bed_demands`` answers (REQ-037 demand of the day per bed).
+        self.demands: list[BedDemand] = []
 
     def add(self, zone: IrrigationZone) -> IrrigationZone:
         self.zones[zone.key or ""] = zone
@@ -111,3 +114,7 @@ class FakeZones(IIrrigationZoneRepository):
         assert tenant_key
         self.facts_asked.append(list(location_keys))
         return self.facts
+
+    def bed_demands(self, site_key, location_keys, *, tenant_key, on_date):
+        assert tenant_key
+        return [demand for demand in self.demands if demand.location_key in location_keys]

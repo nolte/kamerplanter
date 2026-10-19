@@ -22,7 +22,7 @@ it concurrently cannot leave a dead ``water_source_key``.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, cast
 
 import structlog
@@ -37,6 +37,7 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.data_access.arango.watering_queries import zone_watering_facts
+from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand, net_liters
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.garden_plan import PlanAuditRecord
@@ -286,6 +287,45 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
     def watering_facts(self, location_keys: list[LocationKey], *, tenant_key: str, now: datetime) -> ZoneWateringFacts:
         self._require_tenant_key(tenant_key, "watering_facts")
         return zone_watering_facts(self._db, location_keys, tenant_key=tenant_key, now=now)
+
+    def bed_demands(
+        self, site_key: SiteKey, location_keys: list[LocationKey], *, tenant_key: str, on_date: date
+    ) -> list[BedDemand]:
+        self._require_tenant_key(tenant_key, "bed_demands")
+        if not location_keys:
+            return []
+        rows = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR d IN @@demands
+                    FILTER d.tenant_key == @tenant_key AND d.site_key == @site_key AND d.demand_date == @on_date
+                        AND d.run_key != null
+                    LET run = DOCUMENT(CONCAT(@runs, d.run_key))
+                    FILTER run != null AND run.tenant_key == @tenant_key AND run.location_key IN @location_keys
+                    RETURN {location: run.location_key, net_demand_mm: d.net_demand_mm, area_m2: d.area_m2}
+                """,
+                bind_vars={
+                    "@demands": col.IRRIGATION_DEMANDS,
+                    "runs": f"{col.PLANTING_RUNS}/",
+                    "tenant_key": tenant_key,
+                    "site_key": site_key,
+                    "on_date": on_date.isoformat(),
+                    "location_keys": location_keys,
+                },
+            ),
+        )
+        best: dict[str, BedDemand] = {}
+        for row in rows:
+            demand = BedDemand(
+                location_key=row["location"],
+                net_demand_mm=float(row["net_demand_mm"] or 0.0),
+                area_m2=float(row["area_m2"] or 0.0),
+            )
+            current = best.get(demand.location_key)
+            if current is None or net_liters(demand) > net_liters(current):
+                best[demand.location_key] = demand
+        return sorted(best.values(), key=lambda item: item.location_key)
 
     def replace_zone_locations(
         self, key: IrrigationZoneKey, location_keys: list[LocationKey], *, tenant_key: str

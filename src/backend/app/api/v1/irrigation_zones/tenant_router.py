@@ -150,7 +150,9 @@ def get_irrigation_zone_status(
 
     `last_watering.allocation` says whether the quantity was measured or divided over the beds. `next_planned`
     is the oldest open `watering` task of the zone's beds; `overdue` follows the UTC calendar-day rule.
-    `demand_liters_today` stays `null` until a value with a source exists (E-10).
+    `demand_liters_today` is REQ-037's depth x area in net litres (`null` without a demand for today); the gross
+    value and its `application_efficiency` appear only when an efficiency is known (zone value or the drip
+    default) - never estimated (E-10). `hints` carry the water-source reserve in days and beds equipped otherwise.
     """
     return zone_status_to_response(service.zone_status(key, tenant_key=ctx.tenant_key))
 

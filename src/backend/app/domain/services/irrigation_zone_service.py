@@ -29,6 +29,12 @@ from pydantic import BaseModel
 from app.common.enums import CareEventAllocation, FlowRateSource, GardenObjectType, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import IrrigationZoneKey, SiteKey
+from app.domain.calculators.irrigation_zone_demand_calculator import (
+    ZoneDemand,
+    days_of_supply,
+    irrigation_system_differs,
+    zone_demand,
+)
 from app.domain.calculators.overdue_calculator import is_overdue
 from app.domain.calculators.zone_allocation_calculator import divide_volume
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
@@ -47,6 +53,7 @@ from app.domain.models.irrigation_zone import (
     IrrigationZoneView,
     NextPlannedView,
     ZoneCoverageChange,
+    ZoneHint,
     ZoneStatusView,
     ZoneWateringInput,
     ZoneWateringResult,
@@ -237,12 +244,18 @@ class IrrigationZoneService:
     # ── GP-API-052: the status ────────────────────────────────────────────
 
     def zone_status(self, key: IrrigationZoneKey, *, tenant_key: str, now: datetime | None = None) -> ZoneStatusView:
-        """Last and next watering and the 30-day consumption of the zone's beds (every member may read)."""
+        """Last and next watering, today's demand and the 30-day consumption of the zone's beds (every member).
+
+        Demand (WP 7.5) is REQ-037's depth x area per bed of the day (UTC calendar day, like the overdue rule),
+        net always and gross only with a known efficiency; nothing is estimated where a source is missing (E-10).
+        """
         moment = now or datetime.now(UTC)
         zone = self._zones.get_zone_or_raise(key, tenant_key=tenant_key)
         covered = self._zones.covered_location_keys([key], tenant_key=tenant_key).get(key, [])
         facts = self._zones.watering_facts(covered, tenant_key=tenant_key, now=moment)
         planned = facts.next_planned
+        bed_demands = self._zones.bed_demands(zone.site_key, covered, tenant_key=tenant_key, on_date=moment.date())
+        demand = zone_demand(zone.irrigation_type, zone.application_efficiency, bed_demands)
         return ZoneStatusView(
             zone_key=zone.key or key,
             last_watering=facts.last_watering,
@@ -254,9 +267,45 @@ class IrrigationZoneService:
             )
             if planned is not None
             else None,
-            demand_liters_today=None,
+            demand_liters_today=demand.net_liters if bed_demands else None,
             consumption_liters_30d=facts.consumption_liters,
+            demand_gross_liters_today=demand.gross_liters if bed_demands else None,
+            application_efficiency=demand.efficiency.value,
+            efficiency_source=demand.efficiency.source,
+            hints=self._hints(zone, covered, demand, tenant_key=tenant_key),
         )
+
+    def _hints(
+        self, zone: IrrigationZone, bed_keys: list[str], demand: ZoneDemand, *, tenant_key: str
+    ) -> tuple[ZoneHint, ...]:
+        """GP-FR-119: how many days the water source lasts, and beds equipped otherwise than the zone says."""
+        hints: list[ZoneHint] = []
+        daily = demand.gross_liters if demand.gross_liters is not None else demand.net_liters
+        if zone.water_source_key and daily > 0:
+            source = self._objects.get_garden_object_by_key(zone.water_source_key, tenant_key=tenant_key)
+            capacity = getattr(getattr(source, "props", None), "capacity_liters", None)
+            days = days_of_supply(capacity, daily)
+            if days is not None:
+                hints.append(
+                    ZoneHint(
+                        "water_source_lasts_days",
+                        {"days": days, "capacity_liters": float(capacity or 0), "daily_liters": daily},
+                    )
+                )
+        owned = find_owned_locations(self._sites, bed_keys, tenant_key)
+        differing = sorted(
+            key
+            for key, bed in owned.items()
+            if bed.site_key == zone.site_key and irrigation_system_differs(zone.irrigation_type, bed.irrigation_system)
+        )
+        if differing:
+            hints.append(
+                ZoneHint(
+                    "irrigation_system_differs",
+                    {"zone_type": zone.irrigation_type.value, "location_keys": differing},
+                )
+            )
+        return tuple(hints)
 
     # ── GP-API-053: a watering round ──────────────────────────────────────
 

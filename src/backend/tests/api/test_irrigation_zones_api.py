@@ -282,7 +282,11 @@ class TestStatusAndWateringRound:
             },
             "next_planned": None,
             "demand_liters_today": None,
+            "demand_gross_liters_today": None,
+            "application_efficiency": 0.88,
+            "efficiency_source": "type_default",
             "consumption_liters_30d": 12.5,
+            "hints": [],
         }
         assert foreign.status_code == 404
 

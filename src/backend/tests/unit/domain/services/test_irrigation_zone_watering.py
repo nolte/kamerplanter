@@ -11,8 +11,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.common.enums import CareEventAllocation, TenantRole
+from app.common.enums import CareEventAllocation, IrrigationSystem, IrrigationZoneType, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError
+from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.irrigation_zone import (
     IrrigationZone,
     LastWatering,
@@ -42,9 +44,26 @@ USER = "u_sabine"
 NOW = datetime(2026, 10, 19, 9, 30, tzinfo=UTC)
 
 
-class _NoObjects:
-    def get_garden_object_by_key(self, key, *, tenant_key):  # pragma: no cover - not reached here
-        return None
+class _Objects:
+    """The garden objects a test places by key; an absent key is an absent object."""
+
+    def __init__(self) -> None:
+        self.items: dict[str, GardenObject] = {}
+
+    def get_garden_object_by_key(self, key, *, tenant_key):
+        return self.items.get(key)
+
+
+def _barrel(capacity: float | None) -> GardenObject:
+    return GardenObject.model_validate(
+        {
+            "_key": "barrel",
+            "site_key": SITE,
+            "object_type": "water_source",
+            "geometry": {"kind": "point", "origin": [1.0, 1.0]},
+            "props": {"object_type": "water_source", "water_source_kind": "rain_barrel", "capacity_liters": capacity},
+        }
+    )
 
 
 class World:
@@ -61,7 +80,8 @@ class World:
         self.zones.add(IrrigationZone(_key="z_foreign", tenant_key=OTHER_TENANT, site_key="site_foreign", name="X"))
         self.zones.replace_zone_locations("z", ["bed_1", "bed_2", "bed_flat"], tenant_key=TENANT)
         self.care = FakeCareEventRepo()
-        self.service = IrrigationZoneService(self.zones, sites, _NoObjects(), self.care)  # type: ignore[arg-type]
+        self.objects = _Objects()
+        self.service = IrrigationZoneService(self.zones, sites, self.objects, self.care)  # type: ignore[arg-type]
 
     def log(self, **data):
         body = {"volume_liters": 40.0, "allocation": "by_area"} | data
@@ -201,3 +221,58 @@ class TestStatus:
         with pytest.raises(NotFoundError):
             world.service.zone_status("z_foreign", tenant_key=TENANT, now=NOW)
         assert world.zones.facts_asked == []
+
+
+class TestDemandInTheStatus:
+    def _with_demand(self, world) -> None:
+        world.zones.demands = [BedDemand("bed_1", 3.0, 6.0), BedDemand("bed_2", 2.5, 2.0)]
+
+    def test_drip_gets_net_and_gross_with_the_sourced_default(self, world) -> None:
+        self._with_demand(world)
+
+        status = world.service.zone_status("z", tenant_key=TENANT, now=NOW)
+
+        assert status.demand_liters_today == 23.0
+        assert (status.demand_gross_liters_today, status.application_efficiency) == (26.14, 0.88)
+        assert status.efficiency_source == "type_default"
+
+    def test_a_type_without_a_default_reports_net_only_and_unknown_efficiency(self, world) -> None:
+        self._with_demand(world)
+        world.zones.zones["z"] = world.zones.zones["z"].model_copy(
+            update={"irrigation_type": IrrigationZoneType.SPRINKLER}
+        )
+
+        status = world.service.zone_status("z", tenant_key=TENANT, now=NOW)
+
+        assert status.demand_liters_today == 23.0
+        assert (status.demand_gross_liters_today, status.application_efficiency, status.efficiency_source) == (
+            None,
+            None,
+            None,
+        )
+
+    def test_a_zone_without_a_demand_for_today_has_none_not_zero(self, world) -> None:
+        assert world.service.zone_status("z", tenant_key=TENANT, now=NOW).demand_liters_today is None
+
+    def test_the_hint_names_the_days_the_water_source_lasts_and_the_beds_equipped_otherwise(self, world) -> None:
+        self._with_demand(world)
+        world.zones.zones["z"] = world.zones.zones["z"].model_copy(update={"water_source_key": "barrel"})
+        world.objects.items["barrel"] = _barrel(200)
+        world.plan.locations["bed_2"] = world.plan.locations["bed_2"].model_copy(
+            update={"irrigation_system": IrrigationSystem.DRIP}
+        )
+
+        hints = {hint.code: hint.params for hint in world.service.zone_status("z", tenant_key=TENANT, now=NOW).hints}
+
+        assert hints["water_source_lasts_days"] == {"days": 7, "capacity_liters": 200.0, "daily_liters": 26.14}
+        # drip zone: the default `manual` bed 1 and bed_flat differ, the drip bed 2 does not
+        assert hints["irrigation_system_differs"]["location_keys"] == ["bed_1", "bed_flat"]
+
+    def test_no_hint_without_a_capacity(self, world) -> None:
+        self._with_demand(world)
+        world.zones.zones["z"] = world.zones.zones["z"].model_copy(update={"water_source_key": "barrel"})
+        world.objects.items["barrel"] = _barrel(None)
+
+        codes = {hint.code for hint in world.service.zone_status("z", tenant_key=TENANT, now=NOW).hints}
+
+        assert "water_source_lasts_days" not in codes

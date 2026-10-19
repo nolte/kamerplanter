@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from app.common.types import IrrigationZoneKey, LocationKey, SiteKey
+from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand
 from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
 
 
@@ -64,4 +65,14 @@ class IIrrigationZoneRepository(ABC):
         """Last watering, oldest open ``watering`` task and 30-day litres of ``location_keys`` (GP-API-052).
 
         The keys are the beds of a zone the caller resolved under the tenant; the read filters on the tenant too.
+        """
+
+    @abstractmethod
+    def bed_demands(
+        self, site_key: SiteKey, location_keys: list[LocationKey], *, tenant_key: str, on_date: date
+    ) -> list[BedDemand]:
+        """The REQ-037 demand of ``on_date`` for the run standing in each of ``location_keys``, one per bed.
+
+        A bed without a demand for that day is absent. Where several runs share a bed the one with the larger
+        litres is taken (a mixed bed is not divided by area share yet, GP-FR-113).
         """

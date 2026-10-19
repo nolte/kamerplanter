@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import CareEventAllocation, FlowRateSource, IrrigationZoneType
 from app.domain.models.irrigation_zone import (
@@ -164,6 +164,13 @@ class NextPlannedResponse(BaseModel):
     overdue: bool = False
 
 
+class ZoneHintResponse(BaseModel):
+    """A hint of the zone panel: `code` is stable (`water_source_lasts_days`, `irrigation_system_differs`)."""
+
+    code: str
+    params: dict[str, float | int | str | list[str]] = Field(default_factory=dict)
+
+
 class IrrigationZoneStatusResponse(BaseModel):
     """GP-API-052: what the zone's beds were given and what is planned; demand waits for a sourced value."""
 
@@ -183,8 +190,17 @@ class IrrigationZoneStatusResponse(BaseModel):
                         "due_date": "2026-10-21T00:00:00Z",
                         "overdue": False,
                     },
-                    "demand_liters_today": None,
+                    "demand_liters_today": 84.0,
+                    "demand_gross_liters_today": 95.45,
+                    "application_efficiency": 0.88,
+                    "efficiency_source": "type_default",
                     "consumption_liters_30d": 480.0,
+                    "hints": [
+                        {
+                            "code": "water_source_lasts_days",
+                            "params": {"days": 2, "capacity_liters": 200.0, "daily_liters": 95.45},
+                        }
+                    ],
                 }
             ]
         }
@@ -192,8 +208,15 @@ class IrrigationZoneStatusResponse(BaseModel):
 
     last_watering: LastWateringResponse | None = None
     next_planned: NextPlannedResponse | None = None
+    #: Net litres the beds need today (REQ-037 depth x area); `null` when no bed has a demand for today.
     demand_liters_today: float | None = None
+    #: Net / `application_efficiency`; `null` while the efficiency is unknown (only drip has a sourced default).
+    demand_gross_liters_today: float | None = None
+    application_efficiency: float | None = None
+    #: `zone` = set on the zone; `type_default` = the sourced default of the type (drip 0.88); `null` = unknown.
+    efficiency_source: Literal["zone", "type_default"] | None = None
     consumption_liters_30d: float = 0.0
+    hints: list[ZoneHintResponse] = Field(default_factory=list)
 
 
 class BedShareResponse(BaseModel):
@@ -232,7 +255,11 @@ def zone_status_to_response(view: ZoneStatusView) -> IrrigationZoneStatusRespons
         if planned is not None
         else None,
         demand_liters_today=view.demand_liters_today,
+        demand_gross_liters_today=view.demand_gross_liters_today,
+        application_efficiency=view.application_efficiency,
+        efficiency_source=view.efficiency_source,
         consumption_liters_30d=view.consumption_liters_30d,
+        hints=[ZoneHintResponse(code=hint.code, params=dict(hint.params)) for hint in view.hints],
     )
 
 

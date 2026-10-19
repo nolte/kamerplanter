@@ -273,12 +273,26 @@ class NextPlannedView:
 
 
 @dataclass(frozen=True)
+class ZoneHint:
+    """A hint the zone panel shows (GP-FR-119): a stable ``code`` for the client's wording and its figures."""
+
+    code: str
+    params: dict[str, float | int | str | list[str]]
+
+
+@dataclass(frozen=True)
 class ZoneStatusView:
     """GP-API-052: the zone's last and next watering, today's demand and the last 30 days' consumption."""
 
     zone_key: str
     last_watering: LastWatering | None
     next_planned: NextPlannedView | None
-    #: ``null`` until the demand calculator has a value that rests on a source (WP 7.5, E-10).
+    #: Net litres the zone's beds need today (REQ-037 depth x area); ``None`` when no bed has a demand for today.
     demand_liters_today: float | None
     consumption_liters_30d: float
+    #: Net / efficiency; ``None`` while the efficiency is unknown (E-10) - only drip has a sourced default.
+    demand_gross_liters_today: float | None = None
+    application_efficiency: float | None = None
+    #: ``zone`` (set by a person) or ``type_default`` (drip, R-005); ``None`` = efficiency unknown.
+    efficiency_source: Literal["zone", "type_default"] | None = None
+    hints: tuple[ZoneHint, ...] = ()
