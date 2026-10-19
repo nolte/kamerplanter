@@ -130,6 +130,9 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
     "rate_limit_plan_export_tenant": (
         "The per-tenant bucket of the same three authenticated routes: 401 x 25 anonymously."
     ),
+    "rate_limit_plan_import": (
+        "Authenticated garden-plan import (POST /t/{slug}/sites/{key}/plan/import), per tenant: 401 x 25 anonymously."
+    ),
     "rate_limit_upload": "Authenticated uploads (POST /t/{slug}/attachments): 401 x 40 anonymously.",
     "rate_limit_inference": (
         "Authenticated inference (POST /t/{slug}/diagnosis/analyze, /cv-diagnosis/diagnose): 401 x 40 anonymously."

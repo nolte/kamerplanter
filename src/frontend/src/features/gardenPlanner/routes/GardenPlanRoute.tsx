@@ -26,6 +26,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
 import { useNotification } from '@/hooks/useNotification';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { registerLazySlice } from '@/store/lazySlices';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -45,6 +46,7 @@ import { EDITOR_ANCHORS } from '../editor/anchors';
 import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
 import BedListSection from '../bed/BedListSection';
+import { PlanIoMenu } from '../io/PlanIoMenu';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
 import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
@@ -66,6 +68,7 @@ export default function GardenPlanRoute() {
   const theme = useTheme();
   const navigate = useNavigate();
   const notification = useNotification();
+  const { canDelete } = useTenantPermissions();
   // From md up the properties panel sits beside the plan and takes its width from the drawing.
   const sidebarBeside = useMediaQuery(theme.breakpoints.up('md'));
   const dispatch = useAppDispatch();
@@ -189,15 +192,27 @@ export default function GardenPlanRoute() {
   );
 
   const backLink = (
-    <Button
-      component={RouterLink}
-      to={`/standorte/sites/${key ?? ''}`}
-      startIcon={<ArrowBackIcon />}
-      data-testid="garden-plan-back-link"
-      sx={{ minHeight: 44 }}
-    >
-      {t('pages.gardenPlan.backToSite')}
-    </Button>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+      <Button
+        component={RouterLink}
+        to={`/standorte/sites/${key ?? ''}`}
+        startIcon={<ArrowBackIcon />}
+        data-testid="garden-plan-back-link"
+        sx={{ minHeight: 44 }}
+      >
+        {t('pages.gardenPlan.backToSite')}
+      </Button>
+      {key && (
+        <PlanIoMenu
+          siteKey={key}
+          siteName={plan?.siteName ?? ''}
+          canImport={canDelete}
+          dirty={dirty}
+          fieldMode={fieldMode}
+          onImported={load}
+        />
+      )}
+    </Box>
   );
 
   let content: React.ReactNode;

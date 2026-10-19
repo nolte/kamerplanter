@@ -119,6 +119,9 @@ class FakePlanRepo(IGardenPlanRepository):
         self.plants: list[PlantShortInfo] = []
         self.bed_types = {"bed": True, "raised_bed": True, "greenhouse": False}
         self.active_plants = 0
+        #: Locations in which a plant stands (the import's V-09 set); ``active_plants`` stays the delete-check count.
+        self.planted: set[str] = set()
+        self.snapshots: list[dict] = []
         self.applied: list[PlanBatchWrite] = []
         self.audit: list[PlanAuditEntry] = []
         self.editor_name: str | None = "Sabine"
@@ -179,6 +182,9 @@ class FakePlanRepo(IGardenPlanRepository):
     def count_active_plants(self, location_keys, *, tenant_key):
         return self.active_plants
 
+    def locations_with_active_plants(self, location_keys, *, tenant_key):
+        return {key for key in location_keys if key in self.planted}
+
     def list_audit(self, site_key, *, tenant_key, offset, limit):
         return self.audit[offset : offset + limit]
 
@@ -212,6 +218,12 @@ class FakePlanRepo(IGardenPlanRepository):
         self.care_events.extend(write.care_events)
         for key in write.location_deletes:
             self.locations.pop(key, None)
+            self.slots = [slot for slot in self.slots if slot.location_key != key]
+        for temp, slot in write.slot_inserts:
+            self._next += 1
+            self.slots.append(slot.model_copy(update={"key": f"slot_{self._next}", "location_key": key_map[temp]}))
+        if write.snapshot is not None:
+            self.snapshots.append(write.snapshot)
         for temp, garden_object in write.object_inserts:
             self._next += 1
             key_map[temp] = f"go_{self._next}"

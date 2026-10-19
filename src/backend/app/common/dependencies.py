@@ -97,6 +97,7 @@ from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -459,6 +460,17 @@ def dispatch_adjacency_recompute(location_key: str) -> None:
         args=(location_key,),
         retry=True,
         retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1},
+    )
+
+
+def get_garden_plan_import_service() -> GardenPlanImportService:
+    """REQ-053 WP 5.3 - the JSON import of a site's plan (dry run, snapshot, replace/merge)."""
+    return GardenPlanImportService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        get_garden_plan_export_service(),
+        dispatch_adjacency=dispatch_adjacency_recompute,
     )
 
 
