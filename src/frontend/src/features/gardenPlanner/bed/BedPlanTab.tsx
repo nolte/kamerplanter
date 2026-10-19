@@ -23,7 +23,7 @@ import { useRendererLabels } from '../renderer/useRendererLabels';
 import { fitViewport } from '../routes/fitViewport';
 import { useElementWidth } from '../routes/useElementWidth';
 import PlantActionHost, { type PlantActionTarget } from '../planting/PlantActionHost';
-import { usePhaseColors } from '../planting/phaseColors';
+import { phaseColor, usePhaseColors } from '../planting/phaseColors';
 import PlantInfoPopover from '../planting/PlantInfoPopover';
 import PlantStateLegend from '../planting/PlantStateLegend';
 import { usePlantInfoHover } from '../planting/usePlantInfoHover';
@@ -131,7 +131,16 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
     () => (model ? Object.values(model.plants).map((plant) => plant.phase_key) : []),
     [model],
   );
-  const phaseColors = usePhaseColors(plantPhases);
+  const fetchedPhaseColors = usePhaseColors(plantPhases);
+  // A plant on a phase-sequence species carries an entry key that `/growth-phases/{key}` does not know: the
+  // plant-states answer names the phase, which is enough to colour it. The fetched colour wins where there is one.
+  const phaseColors = useMemo(() => {
+    const named: Record<string, string> = {};
+    for (const view of Object.values(states)) {
+      if (view.phase?.name) named[view.phase.key] = phaseColor(view.phase.name);
+    }
+    return { ...named, ...fetchedPhaseColors };
+  }, [states, fetchedPhaseColors]);
   const markerStates = useMemo(
     () => Object.fromEntries(Object.entries(states).map(([key, view]) => [key, stateText.marker(view)])),
     [states, stateText],
@@ -151,6 +160,7 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const hover = usePlantInfoHover({ keyAt: plantAt });
   const { openByFocus } = hover;
   const openView = hover.open ? (states[hover.open.key] ?? null) : null;
+  const openKey = openView?.plant_key ?? null;
   const sheetView = sheetKey ? (states[sheetKey] ?? null) : null;
   const onFocusKey = useCallback(
     (key: string) => {
@@ -166,12 +176,12 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
             enteredLocationKey: bedKey,
             phaseColors,
             plantStates: markerStates,
-            describedPlantKey: openView?.plant_key ?? null,
+            describedPlantKey: openKey,
             onFocusKey,
             onActivateKey: (key) => setSelectedKey((current) => (current === key ? null : key)),
           })
         : null,
-    [renderer, model, viewport, selection, labels, bedKey, phaseColors, markerStates, openView, onFocusKey],
+    [renderer, model, viewport, selection, labels, bedKey, phaseColors, markerStates, openKey, onFocusKey],
   );
 
   // A pointer or a tap on a plant marker selects it; the panel below offers the plant's actions. A tap on touch

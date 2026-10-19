@@ -55,6 +55,28 @@ describe('usePlantInfoHover', () => {
     expect(result.current.open).toBeNull();
   });
 
+  it('ignores the plants under the bubble while the pointer is on it (WCAG 1.4.13 persistent)', () => {
+    const { result } = setup();
+    under = 'pl_1';
+    act(() => result.current.onPointerMove(mouse));
+    act(() => vi.advanceTimersByTime(HOVER_DELAY_MS));
+    act(() => result.current.onBubbleEnter());
+    under = 'pl_2'; // the bubble covers a neighbour
+    act(() => result.current.onPointerMove(mouse));
+    act(() => vi.advanceTimersByTime(5000));
+    expect(result.current.open?.key).toBe('pl_1');
+  });
+
+  it('drops a dwell that was running when the pointer entered the bubble', () => {
+    const { result } = setup();
+    under = 'pl_2';
+    act(() => result.current.onPointerMove(mouse));
+    act(() => vi.advanceTimersByTime(HOVER_DELAY_MS - 50));
+    act(() => result.current.onBubbleEnter());
+    act(() => vi.advanceTimersByTime(1000));
+    expect(result.current.open).toBeNull();
+  });
+
   it('closes on Esc and does not reopen for the same marker until the pointer has left it', () => {
     const { result } = setup();
     under = 'pl_1';

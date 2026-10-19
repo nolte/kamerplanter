@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /** How long the pointer rests on a marker before the bubble appears (GP-UX-058). */
 export const HOVER_DELAY_MS = 300;
@@ -104,7 +104,8 @@ export function usePlantInfoHover({ keyAt, suppressed = false }: Options): Plant
 
   const onPointerMove = useCallback(
     (event: { clientX: number; clientY: number; pointerType: string }) => {
-      if (suppressed || event.pointerType === 'touch') return;
+      // The bubble is a child of the canvas: a move over it must not start the dwell of a plant under it.
+      if (suppressed || event.pointerType === 'touch' || overBubble.current) return;
       const key = keyAt(event.clientX, event.clientY);
       if (key !== dismissed.current) dismissed.current = null;
       if (key === null) {
@@ -131,35 +132,36 @@ export function usePlantInfoHover({ keyAt, suppressed = false }: Options): Plant
     [apply, clearClose, clearPending, keyAt, scheduleClose, suppressed],
   );
 
-  return {
-    open,
-    onPointerMove,
-    onPointerLeave: useCallback(() => {
+  const onPointerLeave = useCallback(() => {
+    clearPending();
+    dismissed.current = null;
+    if (openRef.current?.source === 'hover') scheduleClose();
+  }, [clearPending, scheduleClose]);
+  const onBubbleEnter = useCallback(() => {
+    overBubble.current = true;
+    clearPending();
+    clearClose();
+  }, [clearClose, clearPending]);
+  const onBubbleLeave = useCallback(() => {
+    overBubble.current = false;
+    scheduleClose();
+  }, [scheduleClose]);
+  const openByFocus = useCallback(
+    (key: string) => {
+      if (suppressed) return;
       clearPending();
-      dismissed.current = null;
-      if (openRef.current?.source === 'hover') scheduleClose();
-    }, [clearPending, scheduleClose]),
-    onBubbleEnter: useCallback(() => {
-      overBubble.current = true;
       clearClose();
-    }, [clearClose]),
-    onBubbleLeave: useCallback(() => {
-      overBubble.current = false;
-      scheduleClose();
-    }, [scheduleClose]),
-    openByFocus: useCallback(
-      (key: string) => {
-        if (suppressed) return;
-        clearPending();
-        clearClose();
-        dismissed.current = null;
-        apply({ key, source: 'focus' });
-      },
-      [apply, clearClose, clearPending, suppressed],
-    ),
-    closeFocus: useCallback(() => {
-      if (openRef.current?.source === 'focus') apply(null);
-    }, [apply]),
-    close,
-  };
+      dismissed.current = null;
+      apply({ key, source: 'focus' });
+    },
+    [apply, clearClose, clearPending, suppressed],
+  );
+  const closeFocus = useCallback(() => {
+    if (openRef.current?.source === 'focus') apply(null);
+  }, [apply]);
+
+  return useMemo(
+    () => ({ open, onPointerMove, onPointerLeave, onBubbleEnter, onBubbleLeave, openByFocus, closeFocus, close }),
+    [open, onPointerMove, onPointerLeave, onBubbleEnter, onBubbleLeave, openByFocus, closeFocus, close],
+  );
 }

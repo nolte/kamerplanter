@@ -25,12 +25,24 @@ export default function PlantInfoSheet({ view, onClose }: PlantInfoSheetProps) {
   const text = usePlantStateText();
   const name = view ? text.name(view) : '';
   return (
-    <Drawer anchor="bottom" open={view !== null} onClose={onClose} data-testid="plant-info-sheet">
+    <Drawer
+      anchor="bottom"
+      open={view !== null}
+      onClose={onClose}
+      data-testid="plant-info-sheet"
+      slotProps={{ paper: { sx: { maxHeight: '85vh' } } }}
+    >
       {view ? (
         <Box
           role="region"
           aria-label={t('pages.gardenPlan.plantState.info.sheetTitle', { name })}
-          sx={{ p: 2, pb: 3, display: 'flex', flexDirection: 'column', gap: 1.5 }}
+          sx={{
+            p: 2,
+            pb: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+            overflowY: 'auto',
+            display: 'flex', flexDirection: 'column',
+            gap: 1.5,
+          }}
         >
           <Typography variant="overline" color="text.secondary" component="h2">
             {text.lifecycle(view.visual.lifecycle)}
@@ -49,11 +61,11 @@ export default function PlantInfoSheet({ view, onClose }: PlantInfoSheetProps) {
               <PlantInfoContent view={view} />
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-            <Button component={RouterLink} to={plantDetailPath(view.plant_key)} sx={{ minHeight: 44 }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-end' }}>
+            <Button component={RouterLink} to={plantDetailPath(view.plant_key)} sx={{ minHeight: 44, minWidth: 44 }}>
               {t('pages.gardenPlan.plantState.info.details')}
             </Button>
-            <Button onClick={onClose} variant="contained" sx={{ minHeight: 44 }} autoFocus>
+            <Button onClick={onClose} variant="contained" sx={{ minHeight: 44, minWidth: 44 }} autoFocus>
               {t('pages.gardenPlan.plantState.info.close')}
             </Button>
           </Box>

@@ -33,7 +33,7 @@ export function PlantInfoContent({ view }: PlantInfoContentProps) {
   const lines = text.lines(view);
   const subtitle = [view.scientific_name, view.cultivar_name].filter(Boolean).join(' · ');
   return (
-    <Box data-testid="plant-info-content">
+    <Box data-testid="plant-info-content" sx={{ overflowWrap: 'anywhere' }}>
       <Typography variant="subtitle2" component="p" sx={{ lineHeight: 1.3 }}>
         {text.name(view)}
         <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
@@ -65,6 +65,8 @@ export function PlantInfoContent({ view }: PlantInfoContentProps) {
 
 const BUBBLE_WIDTH_PX = 280;
 const GAP_PX = 10;
+/** Distance the bubble keeps to the canvas edge on a narrow screen. */
+const GUTTER_PX = 16;
 
 interface PlantInfoPopoverProps {
   view: PlantStateView;
@@ -76,15 +78,18 @@ interface PlantInfoPopoverProps {
 
 /** Where the bubble goes: beside the marker (right, else left), inside the canvas, never on the marker. */
 function place(marker: DOMRect, box: DOMRect, bubbleHeight: number): CSSProperties {
+  // On a canvas narrower than bubble + gutters the bubble shrinks instead of running out of the canvas.
+  const width = Math.max(0, Math.min(BUBBLE_WIDTH_PX, box.width - 2 * GUTTER_PX));
+  const gutter = width < BUBBLE_WIDTH_PX ? GUTTER_PX : 0;
   const markerLeft = marker.left - box.left;
   const markerRight = marker.right - box.left;
   const markerTop = marker.top - box.top;
-  const fitsRight = markerRight + GAP_PX + BUBBLE_WIDTH_PX <= box.width;
+  const fitsRight = markerRight + GAP_PX + width <= box.width - gutter;
   const left = fitsRight
     ? markerRight + GAP_PX
-    : Math.max(0, Math.min(box.width - BUBBLE_WIDTH_PX, markerLeft - GAP_PX - BUBBLE_WIDTH_PX));
+    : Math.max(gutter, Math.min(box.width - width - gutter, markerLeft - GAP_PX - width));
   const top = Math.max(0, Math.min(Math.max(0, box.height - bubbleHeight), markerTop - 12));
-  return { left, top };
+  return { left, top, width };
 }
 
 export default function PlantInfoPopover({ view, container, onPointerEnter, onPointerLeave }: PlantInfoPopoverProps) {

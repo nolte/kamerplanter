@@ -47,6 +47,13 @@ describe('PlantInfoSheet', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('offers the details link and focuses the close button', async () => {
+    renderWithProviders(<PlantInfoSheet view={view} onClose={() => undefined} />);
+    await screen.findByRole('region', { name: 'Plant Tomato' });
+    expect(screen.getByRole('link', { name: 'Details' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
+  });
+
   it('renders nothing without a plant', () => {
     renderWithProviders(<PlantInfoSheet view={null} onClose={() => undefined} />);
     expect(screen.queryByRole('region')).toBeNull();

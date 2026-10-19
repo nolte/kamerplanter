@@ -7,7 +7,9 @@ happens to name this bed's or a plant's key is never part of the answer. The slo
 it belongs to the requested bed.
 
 Five statements for a window of plants, whatever its size: the plants (with species, cultivar, slot and phase
-joined in), their open tasks, the watering/feeding care events, the open findings, the harvest batches.
+joined in), their open tasks, the watering/feeding care events, the open findings, the harvest batches. A phase is
+looked up in the phase-sequence key space first and in the legacy growth-phase key space second, the order of
+``PhaseKeyResolver`` (#579): a plant on a sequence-driven species carries an entry key.
 """
 
 from __future__ import annotations
@@ -96,6 +98,8 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             "cultivars": col.CULTIVARS,
             "slots": col.SLOTS,
             "phases": col.GROWTH_PHASES,
+            "entries": col.PHASE_SEQUENCE_ENTRIES,
+            "definitions": col.PHASE_DEFINITIONS,
             "tenant_key": tenant_key,
             "location_key": location_key,
             "offset": offset,
@@ -112,7 +116,11 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 LET species = DOCUMENT(@species, p.species_key)
                 LET cultivar = p.cultivar_key == null ? null : DOCUMENT(@cultivars, p.cultivar_key)
                 LET slot = p.slot_key == null ? null : DOCUMENT(@slots, p.slot_key)
-                LET phase = p.current_phase_key == null ? null : DOCUMENT(@phases, p.current_phase_key)
+                LET entry = p.current_phase_key == null ? null : DOCUMENT(@entries, p.current_phase_key)
+                LET definition = entry == null ? null : DOCUMENT(@definitions, entry.phase_definition_key)
+                LET legacy = (p.current_phase_key == null OR entry != null)
+                    ? null
+                    : DOCUMENT(@phases, p.current_phase_key)
                 LET run_key = FIRST(
                     FOR e IN @@run_contains
                         FILTER e._to == p._id AND e.detached_at == null
@@ -132,11 +140,20 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                     scientific_name: species == null ? null : species.scientific_name,
                     cultivar_name: cultivar == null ? null : cultivar.name,
                     phase_key: p.current_phase_key,
-                    phase_name: phase == null ? null : (phase.display_name || phase.name),
+                    phase_name: entry != null
+                        ? (definition == null ? null : (definition.display_name || definition.name))
+                        : (legacy == null ? null : (legacy.display_name || legacy.name)),
                     phase_started_at: p.current_phase_started_at,
-                    phase_typical_days: phase == null ? null : phase.typical_duration_days,
-                    phase_allows_harvest: phase == null ? false : phase.allows_harvest == true,
-                    phase_is_terminal: phase == null ? false : phase.is_terminal == true,
+                    phase_typical_days: entry != null
+                        ? (entry.override_duration_days
+                            || (definition == null ? null : definition.typical_duration_days))
+                        : (legacy == null ? null : legacy.typical_duration_days),
+                    phase_allows_harvest: entry != null
+                        ? entry.allows_harvest == true
+                        : (legacy != null AND legacy.allows_harvest == true),
+                    phase_is_terminal: entry != null
+                        ? entry.is_terminal == true
+                        : (legacy != null AND legacy.is_terminal == true),
                     cover_photo_ref: p.cover_photo_ref || FIRST(p.photo_refs),
                     run_key: run_key
                 }
@@ -193,6 +210,7 @@ class ArangoPlantStateRepository(IPlantStateRepository):
             FOR e IN @@events
                 FILTER e.tenant_key == @tenant_key AND e.location_key == @location_key
                     AND e.voided_at == null
+                    AND e.superseded_by_key == null
                     AND e.category IN @categories
                     AND DATE_TIMESTAMP(e.performed_at) >= DATE_TIMESTAMP(@since)
                 LET targets = LENGTH(e.plant_keys) == 0 ? [null] : e.plant_keys
@@ -295,11 +313,16 @@ class ArangoPlantStateRepository(IPlantStateRepository):
     ) -> PlantStateSource:
         plant_key = row["plant_key"]
         run_key = row["run_key"]
+        # A task scoped to another plant of the run (it carries the run key too) is that plant's, not this one's.
         mine = [
             task
             for task in tasks
             if (task["entity_type"] == "plant_instance" and task["entity_key"] == plant_key)
-            or (run_key is not None and (task["run_key"] == run_key or task["entity_key"] == run_key))
+            or (
+                run_key is not None
+                and task["entity_type"] != "plant_instance"
+                and (task["run_key"] == run_key or task["entity_key"] == run_key)
+            )
         ]
         open_tasks = tuple(OpenTask(str(task["category"] or ""), _date(task["due"])) for task in mine)
         dated = sorted(

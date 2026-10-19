@@ -6050,7 +6050,7 @@
         "legend": {
           "title": "Pflanzenzustand",
           "intro": "Die Farbe der Scheibe zeigt die Wachstumsphase, der Buchstabe die Art. Ring und Zeichen bleiben auch ohne Farbe unterscheidbar.",
-          "ring": "Ring",
+          "ring": "Ring um die Scheibe (zeigt, wie weit die Pflanze ist)",
           "badge": "Zeichen oben rechts (höchstens eines pro Pflanze, das dringendste)",
           "ringPlanned": "gestrichelt, blass: geplant",
           "ringSown": "gepunktet mit Saatpunkten: gesät",

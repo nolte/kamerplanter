@@ -36,13 +36,29 @@ export default function PlantStateLegend() {
     <Box
       component="details"
       data-testid="plant-state-legend"
-      sx={{ mt: 1, '& summary': { cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' } }}
+      sx={{
+        mt: 1,
+        '& summary': {
+          cursor: 'pointer',
+          minHeight: 44,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderRadius: 1,
+          '&::before': { content: '"\\25B8"', display: 'inline-block', transition: 'transform 0.15s' },
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+        },
+        '&[open] > summary::before': { transform: 'rotate(90deg)' },
+      }}
     >
       <Typography component="summary" variant="subtitle2">
         {t('pages.gardenPlan.plantState.legend.title')}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         {t('pages.gardenPlan.plantState.legend.intro')}
+      </Typography>
+      <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
+        {t('pages.gardenPlan.plantState.legend.ring')}
       </Typography>
       <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 0.75 }}>
         {LEGEND_RINGS.map(({ lifecycle, key }) => (

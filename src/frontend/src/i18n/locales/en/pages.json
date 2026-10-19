@@ -6049,7 +6049,7 @@
         "legend": {
           "title": "Plant state",
           "intro": "The colour of the disc shows the growth phase, the letter the species. Ring and sign stay distinguishable without colour.",
-          "ring": "Ring",
+          "ring": "Ring around the disc (shows how far the plant is)",
           "badge": "Sign at the top right (at most one per plant, the most urgent)",
           "ringPlanned": "dashed, faint: planned",
           "ringSown": "dotted with seed dots: sown",

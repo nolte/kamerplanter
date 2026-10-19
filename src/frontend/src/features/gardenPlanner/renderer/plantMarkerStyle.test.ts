@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ATTENTION_PRIORITY, LIFECYCLES } from '../model/plantState';
+import { progressArc } from './PlantMarker';
 import { BADGE_OUTLINE, BADGE_STYLES, RING_STYLES } from './plantMarkerStyle';
 
 /**
@@ -56,5 +57,33 @@ describe('badge styles', () => {
     // Luminance, not hue: the badge shape differs anyway, but no two fills may collapse to one grey.
     const greys = ATTENTION_PRIORITY.map((code) => Math.round(luminance(BADGE_STYLES[code].fill) * 100));
     expect(new Set(greys).size).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('progress arc', () => {
+  const END = /A[\d.]+ [\d.]+ 0 (\d) 1 (-?[\d.]+) (-?[\d.]+)$/;
+  const endOf = (path: string) => {
+    const match = END.exec(path);
+    if (!match) throw new Error(`not an arc: ${path}`);
+    return { large: match[1], x: Number(match[2]), y: Number(match[3]) };
+  };
+
+  it('ends a quarter turn clockwise from twelve o\'clock at 25 %', () => {
+    const end = endOf(progressArc(0, 0, 10, 0.25));
+    expect(end.large).toBe('0');
+    expect(end.x).toBeCloseTo(10, 3);
+    expect(end.y).toBeCloseTo(0, 3);
+  });
+
+  it('takes the long way round beyond half a circle and ends at the bottom at 50 %', () => {
+    expect(endOf(progressArc(0, 0, 10, 0.75)).large).toBe('1');
+    const half = endOf(progressArc(0, 0, 10, 0.5));
+    expect(half.x).toBeCloseTo(0, 3);
+    expect(half.y).toBeCloseTo(10, 3);
+  });
+
+  it('closes the circle at 100 % with two arcs', () => {
+    expect(progressArc(0, 0, 10, 1).match(/A/g)).toHaveLength(2);
+    expect(progressArc(0, 0, 10, 7).match(/A/g)).toHaveLength(2);
   });
 });

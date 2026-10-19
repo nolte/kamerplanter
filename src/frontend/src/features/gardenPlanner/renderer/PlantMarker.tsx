@@ -19,6 +19,22 @@ function num(value: number): string {
   return value.toFixed(4);
 }
 
+/**
+ * An arc from twelve o'clock clockwise by `fraction` of the circle. A real path rather than a dashed circle:
+ * with `non-scaling-stroke` a dash is measured in screen pixels, so a dash pattern would not follow the fraction.
+ */
+export function progressArc(cx: number, cy: number, r: number, fraction: number): string {
+  const share = Math.min(Math.max(fraction, 0), 1);
+  if (share >= 1) {
+    // A full circle is two half arcs: one arc cannot start and end at the same point.
+    return `M${num(cx)} ${num(cy - r)}A${num(r)} ${num(r)} 0 1 1 ${num(cx)} ${num(cy + r)}A${num(r)} ${num(r)} 0 1 1 ${num(cx)} ${num(cy - r)}`;
+  }
+  const angle = share * 2 * Math.PI;
+  const x = cx + r * Math.sin(angle);
+  const y = cy - r * Math.cos(angle);
+  return `M${num(cx)} ${num(cy - r)}A${num(r)} ${num(r)} 0 ${share > 0.5 ? 1 : 0} 1 ${num(x)} ${num(y)}`;
+}
+
 interface BadgeProps {
   code: AttentionCode;
   x: number;
@@ -143,18 +159,13 @@ export function PlantMarkerBody({
           aria-hidden="true"
         />
       ) : null}
-      {detail && state.progress !== null && !ring.cross ? (
-        <circle
-          cx={num(cx)}
-          cy={num(cy)}
-          r={num(radius + 5 * px)}
+      {detail && state.progress !== null && !ring.cross && state.progress > 0 ? (
+        <path
+          d={progressArc(cx, cy, radius + 5 * px, state.progress)}
           fill="none"
           stroke={fill}
           strokeWidth={3}
           strokeLinecap="round"
-          pathLength={100}
-          strokeDasharray={`${(state.progress * 100).toFixed(1)} 100`}
-          transform={`rotate(-90 ${num(cx)} ${num(cy)})`}
           vectorEffect="non-scaling-stroke"
           data-plan-progress={state.progress.toFixed(2)}
           aria-hidden="true"

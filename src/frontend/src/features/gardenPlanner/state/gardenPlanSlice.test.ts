@@ -454,15 +454,24 @@ describe('save', () => {
       ),
     );
     await store.dispatch(saveGardenPlan());
-    expect(store.getState().gardenPlan.saveFailureKeys).toEqual(['loc_a']);
+    expect(store.getState().gardenPlan.saveFailureOpIds).toHaveLength(1);
     expect([...selectInvalidKeys(store.getState())]).toEqual(['loc_a']);
     // The same set instance while nothing changed: the renderer redraws on identity.
     expect(selectInvalidKeys(store.getState())).toBe(selectInvalidKeys(store.getState()));
 
+    // Undoing the refused change takes its outline away; another object's pending edit does not inherit it.
+    store.dispatch(applyAction([move('loc_b', 3, 3)]));
+    expect([...selectInvalidKeys(store.getState())]).toEqual(['loc_a']);
+    store.dispatch(undo());
+    store.dispatch(undo());
+    expect(selectInvalidKeys(store.getState()).size).toBe(0);
+    store.dispatch(redo());
+    store.dispatch(redo());
+
     // Retrying clears the outline; a network failure names no object.
     applyPlanBatch.mockRejectedValue(new Error('Network Error'));
     await store.dispatch(saveGardenPlan());
-    expect(store.getState().gardenPlan.saveFailureKeys).toEqual([]);
+    expect(store.getState().gardenPlan.saveFailureOpIds).toEqual([]);
     expect(selectInvalidKeys(store.getState()).size).toBe(0);
   });
 

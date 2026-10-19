@@ -7,6 +7,20 @@ import type { PlantStateView } from './usePlantStates';
 
 const PREFIX = 'pages.gardenPlan.plantState';
 
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A stored day as a short local date. A date without a time is a calendar day, not an instant: it is shown as
+ * that day in every time zone (UTC midnight formatted in UTC), where an instant keeps the viewer's zone.
+ */
+export function formatDay(value: string | null | undefined, language: string): string | null {
+  if (!value) return null;
+  if (!DATE_ONLY.test(value)) return formatBedDate(value, language);
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
+}
+
 export interface PlantInfoLine {
   key: string;
   text: string;
@@ -60,7 +74,7 @@ export function usePlantStateText(): PlantStateText {
   const { t, i18n } = useTranslation();
   return useMemo(() => {
     const language = i18n.language;
-    const day = (value: string | null | undefined) => formatBedDate(value, language);
+    const day = (value: string | null | undefined) => formatDay(value, language);
     const lifecycle = (value: Lifecycle) => t(`${PREFIX}.lifecycle.${value}`);
     const attention = (reason: AttentionCode, count: number, findingLabel?: string | null) => {
       if (reason === 'problem') {

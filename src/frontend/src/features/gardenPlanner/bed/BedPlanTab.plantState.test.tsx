@@ -161,6 +161,17 @@ describe('marker channels', () => {
   });
 });
 
+describe('phase colour', () => {
+  it('colours a plant of a phase-sequence species by the phase name the states carry', async () => {
+    usePlan([wire({ phase: { key: 'ph_flower', name: 'Flowering', elapsed_d: 21, typical_d: 60, fraction: 0.35 } })]);
+    // `/growth-phases/{key}` does not know the entry key of a sequence-driven species.
+    server.use(http.get('/api/v1/growth-phases/:key', () => HttpResponse.json({}, { status: 404 })));
+    const { container } = renderTab();
+    const element = await marker(container);
+    await waitFor(() => expect(element.querySelector('circle')?.getAttribute('fill')).toBe('#AB47BC'));
+  });
+});
+
 describe('plant info (GP-FR-190, GP-ACC-051)', () => {
   it('appears on keyboard focus with the facts of the plant and without any further request', async () => {
     usePlan();

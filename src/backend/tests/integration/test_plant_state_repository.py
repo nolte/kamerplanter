@@ -27,6 +27,8 @@ _DOCUMENTS = [
     col.CULTIVARS,
     col.SLOTS,
     col.GROWTH_PHASES,
+    col.PHASE_SEQUENCE_ENTRIES,
+    col.PHASE_DEFINITIONS,
     col.PLANT_INSTANCES,
     col.PLANTING_RUNS,
     col.TASKS,
@@ -289,6 +291,75 @@ class TestFacts:
         assert (source.harvest_batch_count, source.harvested_total_g) == (2, 150.5)
         assert source.cover_photo_ref == "att1"
 
+    def test_a_superseded_watering_is_not_the_last_one(self, world) -> None:
+        db = world
+        _insert(db, col.PLANT_INSTANCES, _plant("p1"))
+        _insert(
+            db,
+            col.CARE_EVENTS,
+            {
+                "_key": "old",
+                "tenant_key": A,
+                "location_key": "bed",
+                "category": "watering",
+                "plant_keys": ["p1"],
+                "performed_at": "2026-06-09T07:00:00+00:00",
+                "voided_at": None,
+                "superseded_by_key": "new",
+            },
+            {
+                "_key": "new",
+                "tenant_key": A,
+                "location_key": "bed",
+                "category": "watering",
+                "plant_keys": ["p1"],
+                "performed_at": "2026-06-03T07:00:00+00:00",
+                "voided_at": None,
+                "superseded_by_key": None,
+            },
+        )
+        [source] = _read(db)
+        assert source.last_watering_at == datetime(2026, 6, 3, 7, 0, tzinfo=UTC)
+
+    def test_a_task_of_another_plant_of_the_run_is_not_inherited(self, world) -> None:
+        db = world
+        _insert(db, col.PLANT_INSTANCES, _plant("p1"), _plant("p2"))
+        for plant in ("p1", "p2"):
+            db.collection(col.RUN_CONTAINS).insert(
+                {"_from": f"{col.PLANTING_RUNS}/run1", "_to": f"{col.PLANT_INSTANCES}/{plant}"}
+            )
+        _insert(
+            db,
+            col.TASKS,
+            {
+                "_key": "own",
+                "tenant_key": A,
+                "status": "pending",
+                "entity_type": "plant_instance",
+                "entity_key": "p1",
+                "planting_run_key": "run1",
+                "name": "Only p1",
+                "category": "pruning",
+                "due_date": "2026-06-01T00:00:00+00:00",
+            },
+            {
+                "_key": "wide",
+                "tenant_key": A,
+                "status": "pending",
+                "entity_type": "planting_run",
+                "entity_key": "run1",
+                "planting_run_key": "run1",
+                "name": "Water all",
+                "category": "watering",
+                "due_date": "2026-06-10T00:00:00+00:00",
+            },
+        )
+
+        first, second = _read(db)
+
+        assert sorted(task.category for task in first.open_tasks) == ["pruning", "watering"]
+        assert [task.category for task in second.open_tasks] == ["watering"]
+
     def test_a_plant_without_any_extras_has_empty_facts(self, world) -> None:
         _insert(world, col.PLANT_INSTANCES, _plant("p1"))
         [source] = _read(world)
@@ -308,6 +379,51 @@ class TestFacts:
     def test_removed_plants_are_not_listed(self, world) -> None:
         _insert(world, col.PLANT_INSTANCES, _plant("p1"), _plant("p2", removed_on="2026-05-01"))
         assert [source.plant_key for source in _read(world)] == ["p1"]
+
+
+class TestPhaseKeySpaces:
+    """A plant carries a growth-phase key or, on a sequence-driven species, a phase-sequence entry key (#579)."""
+
+    def test_a_phase_sequence_entry_resolves_through_its_definition(self, world) -> None:
+        db = world
+        _insert(
+            db,
+            col.PHASE_DEFINITIONS,
+            {"_key": "def1", "name": "fruiting", "display_name": "Fruiting", "typical_duration_days": 45},
+        )
+        _insert(
+            db,
+            col.PHASE_SEQUENCE_ENTRIES,
+            {"_key": "ent1", "phase_definition_key": "def1", "allows_harvest": True, "is_terminal": False},
+            {
+                "_key": "ent2",
+                "phase_definition_key": "def1",
+                "override_duration_days": 20,
+                "allows_harvest": False,
+                "is_terminal": True,
+            },
+        )
+        _insert(
+            db,
+            col.PLANT_INSTANCES,
+            _plant("p1", current_phase_key="ent1", current_phase_started_at="2026-06-01T08:00:00+00:00"),
+            _plant("p2", current_phase_key="ent2"),
+        )
+
+        first, second = _read(db)
+
+        assert (first.phase_key, first.phase_name, first.phase_typical_days) == ("ent1", "Fruiting", 45)
+        assert (first.phase_allows_harvest, first.phase_is_terminal) == (True, False)
+        assert (second.phase_typical_days, second.phase_allows_harvest, second.phase_is_terminal) == (20, False, True)
+
+    def test_a_growth_phase_key_still_resolves_and_an_unknown_key_has_no_facts(self, world) -> None:
+        db = world
+        _insert(db, col.PLANT_INSTANCES, _plant("p1", current_phase_key="ph"), _plant("p2", current_phase_key="gone"))
+
+        known, unknown = _read(db)
+
+        assert (known.phase_name, known.phase_typical_days) == ("Flowering", 60)
+        assert (unknown.phase_name, unknown.phase_typical_days, unknown.phase_allows_harvest) == (None, None, False)
 
 
 class TestWindow:

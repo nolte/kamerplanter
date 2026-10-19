@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  computePlantState,
-  type PhaseFacts,
-  type PlantVisualState,
-} from '../model/plantState';
+import { computePlantState, utcDay, type PhaseFacts, type PlantVisualState } from '../model/plantState';
 import { listPlantStates, type PlantStateWire } from './plantStateApi';
 
 /** A plant of the answer with the state the port computed at the current instant (GP-FR-192). */
@@ -13,6 +9,9 @@ export interface PlantStateView extends PlantStateWire {
 
 /** The calendar day rolls over at midnight UTC; a minute is fine-grained enough and cheap. */
 const TICK_MS = 60_000;
+
+/** The state only changes with the day (GP-FR-192 works on UTC calendar days), so only a new day recomputes it. */
+const today = () => utcDay(new Date().toISOString());
 
 export function visualOf(wire: PlantStateWire, now: string): PlantVisualState {
   const phase: PhaseFacts | null = wire.inputs.phase
@@ -54,7 +53,7 @@ export interface UsePlantStates {
 export function usePlantStates(bedKey: string | null, enabled = true): UsePlantStates {
   const [wires, setWires] = useState<{ bedKey: string; items: PlantStateWire[]; loadedAt: number } | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [tick, setTick] = useState(0);
+  const [day, setDay] = useState(today);
 
   useEffect(() => {
     if (!enabled || !bedKey) return undefined;
@@ -71,7 +70,7 @@ export function usePlantStates(bedKey: string | null, enabled = true): UsePlantS
 
   useEffect(() => {
     if (!enabled) return undefined;
-    const timer = window.setInterval(() => setTick((value) => value + 1), TICK_MS);
+    const timer = window.setInterval(() => setDay(today()), TICK_MS);
     const onVisible = () => {
       if (document.visibilityState === 'visible') setAttempt((value) => value + 1);
     };
@@ -86,12 +85,12 @@ export function usePlantStates(bedKey: string | null, enabled = true): UsePlantS
   const current = wires && wires.bedKey === bedKey ? wires : null;
   const states = useMemo(() => {
     if (!current) return {};
-    // `tick` only re-evaluates the clock.
-    void tick;
-    const now = new Date().toISOString();
+    // `day` is the clock: the state is recomputed when the answer or the day changes, not every minute.
+    const now = `${day}T12:00:00Z`;
     return Object.fromEntries(
       current.items.map((wire): [string, PlantStateView] => [wire.plant_key, { ...wire, visual: visualOf(wire, now) }]),
     );
-  }, [current, tick]);
-  return { states, loadedAt: current?.loadedAt ?? null, refresh };
+  }, [current, day]);
+  const loadedAt = current?.loadedAt ?? null;
+  return useMemo(() => ({ states, loadedAt, refresh }), [states, loadedAt, refresh]);
 }

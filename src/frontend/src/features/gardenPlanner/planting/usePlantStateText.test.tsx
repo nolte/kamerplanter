@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { MAX_INFO_LINES, usePlantStateText } from './usePlantStateText';
+import { afterEach, describe, expect, it } from 'vitest';
+import { formatDay, MAX_INFO_LINES, usePlantStateText } from './usePlantStateText';
 import type { PlantStateWire } from './plantStateApi';
 import { visualOf, type PlantStateView } from './usePlantStates';
 
@@ -89,5 +89,32 @@ describe('usePlantStateText', () => {
     expect(marker.badge).toBe('problem');
     expect(marker.initial).toBe('T');
     expect(marker.progress).toBeCloseTo(0.35, 2);
+  });
+});
+
+describe('formatDay', () => {
+  const zone = process.env.TZ;
+  afterEach(() => {
+    if (zone === undefined) delete process.env.TZ;
+    else process.env.TZ = zone;
+  });
+
+  it.each(['America/Los_Angeles', 'UTC', 'Pacific/Auckland'])(
+    'shows a date without a time as that very day in %s (a calendar day is not an instant)',
+    (timeZone) => {
+      process.env.TZ = timeZone;
+      expect(formatDay('2026-06-15', 'en')).toBe('Jun 15, 2026');
+    },
+  );
+
+  it('keeps the viewer\'s zone for an instant', () => {
+    process.env.TZ = 'America/Los_Angeles';
+    expect(formatDay('2026-06-15T03:00:00Z', 'en')).toBe('Jun 14, 2026');
+  });
+
+  it('answers nothing for a missing or unreadable value', () => {
+    expect(formatDay(null, 'en')).toBeNull();
+    expect(formatDay('', 'en')).toBeNull();
+    expect(formatDay('2026-13-45', 'en')).toBeNull();
   });
 });

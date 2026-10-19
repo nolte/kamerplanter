@@ -62,20 +62,20 @@ export interface PendingOperation {
   op: PlanOperation;
 }
 
-/** Keys of the beds and objects a refusal's findings name; `sent` operations of `pending` were on the wire. */
-function failedKeys(
+/** Ids of the pending operations a refusal's findings name; `sent` operations of `pending` were on the wire. */
+function failedOpIds(
   failure: Exclude<PlanSaveFailure, { kind: 'conflict' }>,
   pending: readonly PendingOperation[],
   sent: number,
-): string[] {
+): number[] {
   if (failure.kind !== 'rejected') return [];
-  const keys = new Set<string>();
+  const ids = new Set<number>();
   for (const finding of failure.findings) {
     if (finding.opIndex === null || finding.opIndex >= sent) continue;
-    const op = pending[finding.opIndex]?.op;
-    if (op && 'key' in op && typeof op.key === 'string') keys.add(op.key);
+    const item = pending[finding.opIndex];
+    if (item) ids.add(item.id);
   }
-  return [...keys];
+  return [...ids];
 }
 
 /** One user action (GP-FR-155). */
@@ -119,8 +119,8 @@ export interface GardenPlanState {
   saveStatus: SaveStatus;
   /** The refusal of the last save that was not a conflict. */
   saveFailure: Exclude<PlanSaveFailure, { kind: 'conflict' }> | null;
-  /** Keys of the beds and objects the refusal's findings name (GP-UX-017): they are drawn with a red outline. */
-  saveFailureKeys: string[];
+  /** Ids of the pending operations a refusal's findings name (GP-UX-017); their objects are drawn with a red outline. */
+  saveFailureOpIds: number[];
   conflict: PlanConflict | null;
   /** How many `pending` operations the request on the wire carries. */
   inFlight: number;
@@ -142,7 +142,7 @@ export const initialState: GardenPlanState = {
   pending: [],
   saveStatus: 'idle',
   saveFailure: null,
-  saveFailureKeys: [],
+  saveFailureOpIds: [],
   conflict: null,
   inFlight: 0,
   editError: null,
@@ -380,7 +380,7 @@ export const gardenPlanSlice = createSlice({
         state.pending = [];
         state.saveStatus = 'idle';
         state.saveFailure = null;
-        state.saveFailureKeys = [];
+        state.saveFailureOpIds = [];
         state.conflict = null;
         state.inFlight = 0;
         state.editError = null;
@@ -396,7 +396,7 @@ export const gardenPlanSlice = createSlice({
       .addCase(saveGardenPlan.pending, (state) => {
         state.saveStatus = 'saving';
         state.saveFailure = null;
-        state.saveFailureKeys = [];
+        state.saveFailureOpIds = [];
         state.inFlight = state.pending.length;
       })
       .addCase(saveGardenPlan.fulfilled, (state, action) => {
@@ -454,7 +454,7 @@ export const gardenPlanSlice = createSlice({
         }
         state.saveStatus = 'error';
         state.saveFailure = failure;
-        state.saveFailureKeys = failedKeys(failure, state.pending, sent);
+        state.saveFailureOpIds = failedOpIds(failure, state.pending, sent);
       });
   },
 });
@@ -487,14 +487,24 @@ const NO_KEYS: ReadonlySet<string> = new Set();
 
 /**
  * Objects a refused save named, while the refusal still stands (GP-UX-017): the renderer draws them with a
- * red outline. Empty once the pending changes are gone or saved. Memoised: the renderer redraws on identity.
+ * red outline. Derived from the refused operations that are still pending - undo the change, or save it, and
+ * the outline goes; a later edit of another object never inherits it. Memoised: the renderer redraws on identity.
  */
 export const selectInvalidKeys = createSelector(
   [
-    (state: RootWithPlan) => planState(state).saveFailureKeys,
-    (state: RootWithPlan) => planState(state).saveStatus === 'error' && planState(state).pending.length > 0,
+    (state: RootWithPlan) => planState(state).saveFailureOpIds,
+    (state: RootWithPlan) => planState(state).pending,
+    (state: RootWithPlan) => planState(state).saveStatus === 'error',
   ],
-  (keys, standing): ReadonlySet<string> => (standing && keys.length > 0 ? new Set(keys) : NO_KEYS),
+  (opIds, pending, standing): ReadonlySet<string> => {
+    if (!standing || opIds.length === 0) return NO_KEYS;
+    const refused = new Set(opIds);
+    const keys = new Set<string>();
+    for (const item of pending) {
+      if (refused.has(item.id) && 'key' in item.op && typeof item.op.key === 'string') keys.add(item.op.key);
+    }
+    return keys.size > 0 ? keys : NO_KEYS;
+  },
 );
 
 /** The dirty flag of GP-NFR-005. */

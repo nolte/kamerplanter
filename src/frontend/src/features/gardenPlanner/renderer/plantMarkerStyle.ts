@@ -80,8 +80,11 @@ export const BADGE_STYLES: Readonly<Record<AttentionCode, BadgeStyle>> = {
 /** Share of the marker radius that the badge radius takes, and where its centre sits (upper right). */
 export const BADGE_RADIUS_SHARE = 0.62;
 export const BADGE_OFFSET_SHARE = 0.85;
-/** Marker radius when it carries a state: large enough for a badge and the species initial. */
-export const STATE_MARKER_RADIUS_PX = 9;
+/**
+ * Marker radius when it carries a state: large enough for a badge and the species initial, and not beyond the
+ * pointer's hit radius (`MARKER_HIT_RADIUS_PX`), so everything solid on the disc answers hover and tap.
+ */
+export const STATE_MARKER_RADIUS_PX = 8;
 /** From this zoom (px/m) the ring also shows the phase progress (R-014). */
 export const DETAIL_PX_PER_M = 100;
 
