@@ -100,7 +100,6 @@ export interface GardenPlanEditorProps {
   viewport: Viewport;
   renderer: PlanRenderer;
   labels: RendererLabels;
-  fieldMode: boolean;
   /** The pan tool moved the view by this many pixels; the route owns the viewport. */
   onPan: (dxPx: number, dyPx: number) => void;
   /** Zoom to `pxPerM` keeping the model point under `anchorPx` (canvas pixels) in place (WP 2.5); also the pinch. */
@@ -171,7 +170,6 @@ export function GardenPlanEditor({
   viewport,
   renderer,
   labels,
-  fieldMode,
   onPan,
   onZoom,
   onFit,
@@ -701,8 +699,8 @@ export function GardenPlanEditor({
 
   // The renderer output depends on the plan, view and selection only - not on the pointer.
   const rendered = useMemo(
-    () => renderer.render(plan, viewport, selectedKeys, { labels, fieldMode, onActivateKey, invalidKeys }),
-    [renderer, plan, viewport, selectedKeys, labels, fieldMode, onActivateKey, invalidKeys],
+    () => renderer.render(plan, viewport, selectedKeys, { labels, onActivateKey, invalidKeys }),
+    [renderer, plan, viewport, selectedKeys, labels, onActivateKey, invalidKeys],
   );
 
   const selectChooseTool = useCallback(

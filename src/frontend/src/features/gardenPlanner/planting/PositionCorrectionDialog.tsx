@@ -44,6 +44,17 @@ interface PositionCorrectionDialogProps {
   plantLabel: string;
   onClose: () => void;
   onCorrected: () => void;
+  /** Stepper step in cm; field mode moves by 10 cm (§18.1 step 9, F-16). */
+  stepCm?: number;
+  /** Edge of the stepper and action buttons in px; field mode passes the kiosk target (64 px, GP-UX-020). */
+  touchTarget?: number;
+  /** Hold time before the marker can be dragged; field mode needs a 500 ms long press (GP-UX-023). */
+  dragHoldMs?: number;
+  /**
+   * Offer the ±{@link BIG_STEP_CM} cm buttons next to the stepper. Field mode turns them off: its 10 cm
+   * step is already coarser (§18.1 step 9).
+   */
+  showBigSteps?: boolean;
 }
 
 type Loaded =
@@ -64,6 +75,10 @@ export default function PositionCorrectionDialog({
   plantLabel,
   onClose,
   onCorrected,
+  stepCm = STEP_CM,
+  touchTarget = 48,
+  dragHoldMs,
+  showBigSteps = true,
 }: PositionCorrectionDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -151,7 +166,7 @@ export default function PositionCorrectionDialog({
     <IconButton
       aria-label={label}
       onClick={() => step(dx, dy)}
-      sx={{ width: 48, height: 48, border: 1, borderColor: 'divider' }}
+      sx={{ width: touchTarget, height: touchTarget, border: 1, borderColor: 'divider' }}
       data-testid={testId}
     >
       {icon}
@@ -190,41 +205,46 @@ export default function PositionCorrectionDialog({
               interactiveLayerId="plant"
               selected={{ layerId: 'plant', index: 0 }}
               onMove={(_, __, next) => moveTo(next)}
+              dragHoldMs={dragHoldMs}
               testId="position-canvas"
             />
             <Box
-              sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 48px)', gap: 1, justifyContent: 'center' }}
+              sx={{ display: 'grid', gridTemplateColumns: `repeat(3, ${touchTarget}px)`, gap: 1, justifyContent: 'center' }}
               role="group"
               aria-label={t('pages.bed.planting.position.stepper')}
             >
               <span />
-              {stepButton(t('pages.bed.planting.position.up'), 0, STEP_CM, <ArrowUpwardIcon />, 'position-up')}
+              {stepButton(t('pages.bed.planting.position.up'), 0, stepCm, <ArrowUpwardIcon />, 'position-up')}
               <span />
-              {stepButton(t('pages.bed.planting.position.left'), -STEP_CM, 0, <ArrowBackIcon />, 'position-left')}
+              {stepButton(t('pages.bed.planting.position.left'), -stepCm, 0, <ArrowBackIcon />, 'position-left')}
               <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', textAlign: 'center' }} aria-hidden="true">
-                {STEP_CM} cm
+                {stepCm} cm
               </Typography>
-              {stepButton(t('pages.bed.planting.position.right'), STEP_CM, 0, <ArrowForwardIcon />, 'position-right')}
+              {stepButton(t('pages.bed.planting.position.right'), stepCm, 0, <ArrowForwardIcon />, 'position-right')}
               <span />
-              {stepButton(t('pages.bed.planting.position.down'), 0, -STEP_CM, <ArrowDownwardIcon />, 'position-down')}
+              {stepButton(t('pages.bed.planting.position.down'), 0, -stepCm, <ArrowDownwardIcon />, 'position-down')}
               <span />
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-              <Button
-                onClick={() => step(-BIG_STEP_CM, 0)}
-                sx={{ minHeight: 48 }}
-                aria-label={t('pages.bed.planting.position.bigLeft', { cm: BIG_STEP_CM })}
-              >
-                −{BIG_STEP_CM} cm ←
-              </Button>
-              <Button
-                onClick={() => step(BIG_STEP_CM, 0)}
-                sx={{ minHeight: 48 }}
-                aria-label={t('pages.bed.planting.position.bigRight', { cm: BIG_STEP_CM })}
-              >
-                → +{BIG_STEP_CM} cm
-              </Button>
-            </Box>
+            {showBigSteps && (
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                <Button
+                  onClick={() => step(-BIG_STEP_CM, 0)}
+                  sx={{ minHeight: touchTarget }}
+                  aria-label={t('pages.bed.planting.position.bigLeft', { cm: BIG_STEP_CM })}
+                  data-testid="position-big-left"
+                >
+                  −{BIG_STEP_CM} cm ←
+                </Button>
+                <Button
+                  onClick={() => step(BIG_STEP_CM, 0)}
+                  sx={{ minHeight: touchTarget }}
+                  aria-label={t('pages.bed.planting.position.bigRight', { cm: BIG_STEP_CM })}
+                  data-testid="position-big-right"
+                >
+                  → +{BIG_STEP_CM} cm
+                </Button>
+              </Box>
+            )}
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 label={t('pages.bed.planting.position.x')}
@@ -259,14 +279,14 @@ export default function PositionCorrectionDialog({
         ) : null}
       </DialogContent>
       <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2 }}>
-        <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ minHeight: touchTarget }}>
           {t('common.cancel')}
         </Button>
         <Button
           variant="contained"
           onClick={() => void save()}
           disabled={saving || !changed}
-          sx={{ minHeight: 48 }}
+          sx={{ minHeight: touchTarget, minWidth: touchTarget }}
           data-testid="position-save"
         >
           {t('pages.bed.planting.position.save')}

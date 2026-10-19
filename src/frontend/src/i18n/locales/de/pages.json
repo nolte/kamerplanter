@@ -5289,7 +5289,6 @@
       "backToSite": "Zurück zum Standort",
       "open": "Gartenplan öffnen",
       "openHint": "Beete und Gartenobjekte dieses Standorts als Plan ansehen.",
-      "fieldModeHint": "Der Feldmodus für unterwegs ist noch nicht verfügbar. Du siehst den normalen Plan.",
       "empty": {
         "title": "Noch kein Gartenplan",
         "description": "Für diesen Standort ist noch kein Plan angelegt. Sobald es einen gibt, siehst du hier deine Beete und Gartenobjekte von oben."
@@ -5859,8 +5858,7 @@
           "export": "Plan exportieren …",
           "import": "Sicherung einspielen …",
           "leadOnly": "Nur die Leitung darf eine Sicherung einspielen.",
-          "unsaved": "Speichere oder verwirf zuerst deine Änderungen am Plan.",
-          "fieldMode": "Im Feldmodus nicht verfügbar – öffne den Plan am Schreibtisch."
+          "unsaved": "Speichere oder verwirf zuerst deine Änderungen am Plan."
         },
         "export": {
           "title": "Plan exportieren",
@@ -6103,6 +6101,80 @@
           "save": "Speichern",
           "cancel": "Abbrechen",
           "saved": "Sonne und Schatten gespeichert."
+        }
+      },
+      "field": {
+        "title": "Feldmodus",
+        "toPlanning": "Planungsmodus",
+        "toField": "Feldmodus",
+        "offline": "Keine Verbindung. Erledigen und Protokollieren sind gesperrt, bis du wieder online bist – so geht nichts verloren.",
+        "finish": "Fertig",
+        "planted_one": "{{count}} Pflanze eingetragen.",
+        "planted_other": "{{count}} Pflanzen eingetragen.",
+        "photoSaved": "Foto bei {{plant}} gespeichert.",
+        "tabs": {
+          "label": "Ansicht im Feldmodus",
+          "list": "Meine Beete · heute fällig",
+          "map": "Karte"
+        },
+        "list": {
+          "label": "Beete, deine zuerst, nach Fälligkeit sortiert",
+          "loading": "Beete werden geladen",
+          "empty": "Noch keine Beete",
+          "emptyHint": "Lege Beete im Planungsmodus an, dann erscheinen sie hier.",
+          "mine": "Meins",
+          "counts": "Pflanzen: {{plants}} · Offene Aufgaben: {{tasks}}",
+          "overdue_one": "{{count}} Aufgabe überfällig",
+          "overdue_other": "{{count}} Aufgaben überfällig",
+          "dueToday": "Heute fällig",
+          "next": "Nächste Fälligkeit: {{date}}",
+          "reloadFailed": "Die Beete konnten nicht aktualisiert werden. Du siehst den zuletzt geladenen Stand."
+        },
+        "map": {
+          "toolbar": "Kartenansicht",
+          "zoomIn": "Vergrößern",
+          "zoomOut": "Verkleinern",
+          "fit": "Ganzer Plan",
+          "loading": "Plan wird geladen"
+        },
+        "sheet": {
+          "close": "Beet schließen",
+          "loading": "Beet wird geladen"
+        },
+        "quick": {
+          "title": "Schnellprotokoll",
+          "chips": {
+            "watering": "Gegossen",
+            "harvest": "Geerntet",
+            "sowing": "Gesät",
+            "weeding": "Gejätet/Gemulcht",
+            "planted": "Gepflanzt",
+            "note": "Notiz"
+          },
+          "plantedNeedsGeometry": "„Gepflanzt“ geht erst, wenn das Beet im Plan eingezeichnet ist."
+        },
+        "tasks": {
+          "title": "Aufgaben ({{count}})",
+          "empty": "Hier ist gerade nichts zu tun.",
+          "sections": {
+            "overdue": "Überfällig ({{count}})",
+            "today": "Heute fällig ({{count}})",
+            "later": "Später ({{count}})"
+          }
+        },
+        "plants": {
+          "title": "Pflanzen ({{count}})",
+          "unknown": "Die Pflanzen konnten gerade nicht geladen werden.",
+          "empty": "In diesem Beet steht noch nichts.",
+          "group": "{{species}} · {{count}}",
+          "phase": "Phase: {{phase}}",
+          "noPhase": "Phase unbekannt",
+          "show": "Pflanzen zeigen",
+          "hide": "Pflanzen ausblenden",
+          "correct": "Position korrigieren",
+          "correctFor": "Position von {{plant}} korrigieren",
+          "photo": "Foto",
+          "photoFor": "Foto von {{plant}} aufnehmen"
         }
       }
     },
