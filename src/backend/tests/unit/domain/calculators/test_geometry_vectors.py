@@ -30,7 +30,7 @@ VECTORS_PATH = _REPO_ROOT / "spec" / "e2e-testcases" / "fixtures" / "garden-plan
 VECTORS: dict[str, Any] = json.loads(VECTORS_PATH.read_text(encoding="utf-8"))
 DEFAULT_TOLERANCE: float = VECTORS["default_tolerance"]
 #: The planting-layout and adjacency operations live in the same file but run in their own test modules.
-LAYOUT_OPERATIONS = frozenset({"layout", "layout_error", "adjacency", "plant_state", "site_fit", "overdue"})  # own modules
+LAYOUT_OPERATIONS = frozenset({"layout", "layout_error", "adjacency", "plant_state", "site_fit", "overdue"})
 CASES: list[dict[str, Any]] = [case for case in VECTORS["cases"] if case["operation"] not in LAYOUT_OPERATIONS]
 
 
