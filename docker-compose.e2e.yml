@@ -116,6 +116,8 @@ services:
       # production 10/minute (account) and 30/minute (tenant), as for the other per-account limits.
       RATE_LIMIT_PLAN_EXPORT: "100/minute"
       RATE_LIMIT_PLAN_EXPORT_TENANT: "300/minute"
+      # REQ-053 WP 5.3 plan import, per tenant: the wizard is two requests and the journeys import more than once.
+      RATE_LIMIT_PLAN_IMPORT: "30/minute"
     depends_on:
       arangodb:
         condition: service_healthy
@@ -388,6 +390,8 @@ services:
       # production 10/minute (account) and 30/minute (tenant), as for the other per-account limits.
       RATE_LIMIT_PLAN_EXPORT: "100/minute"
       RATE_LIMIT_PLAN_EXPORT_TENANT: "300/minute"
+      # REQ-053 WP 5.3 plan import, per tenant: the wizard is two requests and the journeys import more than once.
+      RATE_LIMIT_PLAN_IMPORT: "30/minute"
       # #1855 R3 W-5 — the take-over probe (`GET /system/takeover-status`) runs on every
       # full-mode app bootstrap (`LightModeTakeoverDialog` in `MainLayout`), so for this suite
       # it is as busy as the refresh path: every `page.open()` of one account. A refusal only

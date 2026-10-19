@@ -47,6 +47,7 @@ from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
     get_garden_plan_export_service,
+    get_garden_plan_import_service,
     get_garden_plan_service,
     get_garden_resource_service,
     get_planting_reservation_service,
@@ -80,6 +81,7 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
@@ -309,9 +311,11 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
     )
     export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
+    importer: Any = GardenPlanImportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export)
     if unscoped:
         adjacency = _Unscoped(adjacency)
         export = _Unscoped(export)
+        importer = _Unscoped(importer)
         plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
             _Unscoped(plan),
             _Unscoped(resources),
@@ -333,6 +337,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_planting_run_service] = lambda: runs
     app.dependency_overrides[get_adjacency_service] = lambda: adjacency
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
+    app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
 
@@ -395,6 +400,22 @@ _BATCH_OP = {
     "fields": {"label": "Taken over"},
 }
 
+_IMPORT_FILE = {
+    "schema_version": "1",
+    "exported_at": "2026-10-18T09:30:00Z",
+    "site": {"name": "Bobs Garten", "type": "outdoor"},
+    "locations": [],
+    "slots": [],
+    "garden_objects": [],
+}
+_IMPORT_DRY_RUN = {"mode": "replace", "dry_run": True, "document": _IMPORT_FILE}
+_IMPORT_REPLACE = {
+    "mode": "replace",
+    "dry_run": False,
+    "confirm_site_name": "Bobs Garten",
+    "document": _IMPORT_FILE,
+}
+
 #: The owner's keys: ``site_b``, ``bed_b``, ``slot_b``, ``obj_b``. Replaced by the absent twin below.
 CASES: tuple[Case, ...] = (
     # garden_plan (WP 1.8)
@@ -403,6 +424,10 @@ CASES: tuple[Case, ...] = (
     # REQ-053 WP 5.2, GP-API-004 / GP-API-006: the JSON backup and the SVG read a whole site - a foreign one is a 404.
     Case("export_plan", "GET", "/sites/site_b/plan/export"),
     Case("render_plan_svg", "GET", "/sites/site_b/plan/render.svg"),
+    # REQ-053 WP 5.3, GP-API-005: the import deletes and inserts a whole plan - a foreign site is a 404 before the
+    # file is read, in the dry run as in the replace, and the replace writes nothing.
+    Case("import_plan_dry_run", "POST", "/sites/site_b/plan/import", _IMPORT_DRY_RUN),
+    Case("import_plan_replace", "POST", "/sites/site_b/plan/import", _IMPORT_REPLACE, writes=True),
     Case(
         "put_boundary",
         "PUT",

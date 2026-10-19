@@ -261,9 +261,12 @@ class TestTheRouteOperand:
         +3: the garden-plan exports (REQ-053 WP 5.2, #2431): ``GET /t/{slug}/sites/{key}/plan/render.svg``,
         ``GET …/plan/export`` and ``GET /t/{slug}/print/garden-plan/{site_key}``. Their consumer is the export dialog
         (WP 5.3, frontend), open — all three are reported candidates until it lands.
+
+        +1: the plan import (REQ-053 WP 5.3, #2432): ``POST /t/{slug}/sites/{key}/plan/import``. Its consumer is the
+        import wizard (``features/gardenPlanner/io``), which lands in the same change - the operation is consumed.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 864
+        assert len(checker.collect_operations(app)) == 865
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

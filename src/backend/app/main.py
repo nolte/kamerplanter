@@ -12,7 +12,12 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1.auth.router import limiter, process_memory_limiter
 from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
-from app.common.body_limit import RequestBodyLimitMiddleware, RouteBodyCeiling, request_body_limit_bytes
+from app.common.body_limit import (
+    RequestBodyLimitMiddleware,
+    RouteBodyCeiling,
+    RoutePatternCeiling,
+    request_body_limit_bytes,
+)
 from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
 from app.common.error_handlers import (
     app_error_handler,
@@ -419,6 +424,19 @@ def _route_body_ceilings() -> tuple[RouteBodyCeiling, ...]:
     )
 
 
+def _route_pattern_ceilings() -> tuple[RoutePatternCeiling, ...]:
+    """REQ-053 GP-NFR-051 - the garden-plan import takes a 5 MB JSON file (the global JSON ceiling is 1 MiB)."""
+    from app.api.v1.garden_plan.tenant_router import PLAN_IMPORT_MAX_BODY_BYTES, PLAN_IMPORT_PATH_PATTERN
+
+    return (
+        RoutePatternCeiling(
+            method="POST",
+            pattern=re.compile(r"/api/v[0-9]+" + PLAN_IMPORT_PATH_PATTERN),
+            max_body_bytes=PLAN_IMPORT_MAX_BODY_BYTES,
+        ),
+    )
+
+
 # #2254 — body ceiling and upload spool budget, enforced before FastAPI parses a
 # multipart body (which it does before any route code or dependency runs).
 # Registered first, so it is the innermost user middleware: its 413/503 answers
@@ -429,6 +447,7 @@ app.add_middleware(
     spool_budget_bytes=settings.upload_spool_budget_mb * 1024 * 1024,
     spool_wait_seconds=settings.upload_spool_wait_seconds,
     route_ceilings=_route_body_ceilings(),
+    pattern_ceilings=_route_pattern_ceilings(),
 )
 
 

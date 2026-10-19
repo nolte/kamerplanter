@@ -77,6 +77,13 @@ class IGardenPlanRepository(ABC):
         """Plants of ``tenant_key`` with ``removed_on = null`` standing in any of the locations (V-09)."""
 
     @abstractmethod
+    def locations_with_active_plants(self, location_keys: list[str], *, tenant_key: str) -> set[str]:
+        """The locations among ``location_keys`` in which a plant of ``tenant_key`` with ``removed_on = null`` stands.
+
+        The import's "empty bed" condition (GP-API-005) and the set it must keep with ``force`` (V-09).
+        """
+
+    @abstractmethod
     def apply_plan_batch(self, write: PlanBatchWrite) -> PlanBatchOutcome:
         """Write the set in one transaction, after re-checking the revision inside it (GP-NFR-013).
 

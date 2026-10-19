@@ -5848,6 +5848,163 @@
           "reload": "Reload",
           "downloaded": "The copy was downloaded. You can reload now."
         }
+      },
+      "io": {
+        "menu": {
+          "open": "Export & import",
+          "export": "Export plan …",
+          "import": "Restore a backup …",
+          "leadOnly": "Only a lead can restore a backup.",
+          "unsaved": "Save or discard your changes to the plan first.",
+          "fieldMode": "Not available in field mode – open the plan at your desk."
+        },
+        "export": {
+          "title": "Export plan",
+          "format": "Format",
+          "formats": {
+            "pdf": "PDF",
+            "svg": "SVG",
+            "json": "Backup (JSON)"
+          },
+          "formatHints": {
+            "pdf": "The plan to scale on paper – to print and take along.",
+            "svg": "The drawing as a vector graphic, for editing in a drawing program.",
+            "json": "All beds, garden objects and plant places – to restore or to move. Without plants and tasks."
+          },
+          "paper": "Paper",
+          "orientation": "Orientation",
+          "orientations": {
+            "landscape": "Landscape",
+            "portrait": "Portrait"
+          },
+          "scale": "Scale",
+          "scaleAuto": "Automatic",
+          "scaleHelp": "Automatic picks the finest scale that fits the sheet.",
+          "scaleChosen": "Chosen: {{scale}}",
+          "layers": "Layers",
+          "layerNames": {
+            "grid": "Grid",
+            "beds": "Beds",
+            "objects": "Garden objects",
+            "slots": "Plant places",
+            "plants": "Plants",
+            "labels": "Labels"
+          },
+          "bedList": "Bed list as a second page",
+          "privacy": "The export holds no member names, no assignments and no notes of other people.",
+          "phoneNote": "On a phone the standard settings apply (A4, landscape, automatic scale). More options are available on a larger screen.",
+          "preview": "Preview",
+          "previewLoading": "Preview is being created",
+          "previewAlt": "Preview of the garden plan, scale {{scale}}",
+          "previewUnavailable": "There is no preview for this selection.",
+          "jsonSummary": "The backup holds {{locations}} locations, {{objects}} garden objects and {{slots}} plant places ({{size}}).",
+          "suggestA3": "On A4 the scale gets coarser than 1:200. A3 keeps the plan easier to read.",
+          "download": "Download",
+          "errors": {
+            "empty": "The plan is still empty. Draw a garden boundary or a bed first.",
+            "doesNotFit": "The plan does not fit the sheet at this scale. Choose a coarser scale or A3.",
+            "rateLimited": "You asked for many exports in a short time. Wait a minute and try again.",
+            "forbidden": "You may not export this plan.",
+            "failed": "The export did not work. Try again."
+          }
+        },
+        "import": {
+          "title": "Restore a backup",
+          "stepsLabel": "Steps of the import",
+          "steps": {
+            "file": "Choose file",
+            "report": "Check report",
+            "mode": "Mode"
+          },
+          "working": "One moment …",
+          "fileHelp": "Choose a backup (JSON) that you created here with “Export plan”. The file may be at most 5 MB. Before anything is written, we check it and show you the result.",
+          "chooseFile": "Choose file",
+          "chosen": "Chosen: {{name}}",
+          "fileErrors": {
+            "tooLarge": "The file is larger than 5 MB.",
+            "notJson": "The file is not valid JSON.",
+            "notABackup": "The file is not a garden plan backup."
+          },
+          "failures": {
+            "failed": "That did not work. Try again.",
+            "rateLimited": "There were too many imports in a short time. Wait a minute.",
+            "notFound": "The site was not found.",
+            "import_forbidden": "Only a lead can restore a backup.",
+            "import_not_empty": "This plan has beds with active plants. Remove the plants or confirm that these beds stay.",
+            "import_schema_version_missing": "The file has no version and is not a backup.",
+            "import_schema_version_unsupported": "This version of the backup cannot be read here.",
+            "import_unknown_keys": "The file holds parts this version does not know. Update Kamerplanter or export the backup again.",
+            "import_site_name_mismatch": "The name you typed does not match the site.",
+            "plan_revision_conflict": "Someone changed the plan while you were importing. Reload the plan and check the file again.",
+            "REQUEST_BODY_TOO_LARGE": "The file is larger than 5 MB.",
+            "VALIDATION_ERROR": "The file breaks rules of the plan. The list below names the places."
+          },
+          "reportTitle": "Check report for “{{name}}”",
+          "create": "Will be created",
+          "delete": "Will be deleted",
+          "counts": "{{locations}} locations, {{objects}} garden objects, {{slots}} plant places",
+          "kept_one": "{{count}} location with active plants stays.",
+          "kept_other": "{{count}} locations (with active plants and what lies above them) stay.",
+          "noErrors": "The file can be imported.",
+          "errorsTitle_one": "{{count}} problem",
+          "errorsTitle_other": "{{count}} problems",
+          "more": "… and {{count}} more",
+          "codes": {
+            "import_not_empty": "A bed holds active plants.",
+            "import_duplicate_key": "A key appears twice in the file.",
+            "import_parent_cycle": "Two locations are nested in each other.",
+            "import_too_deep": "Nesting goes deeper than 10 levels.",
+            "import_duplicate_slot_id": "Two plant places of one bed have the same ID.",
+            "plan_quota_exceeded": "The limit for locations, garden objects or plant places would be exceeded.",
+            "geometry_invalid": "A shape is invalid.",
+            "geometry_self_intersecting": "An area crosses itself.",
+            "geometry_outside_parent": "Something lies outside its area.",
+            "bed_overlap": "Two beds overlap.",
+            "slot_outside_bed": "A plant place lies outside its bed.",
+            "slot_overlap": "Two zones of a bed overlap.",
+            "boundary_shrinks_below_objects": "The garden boundary would leave existing beds outside.",
+            "validation_invalid": "A value is invalid."
+          },
+          "dropped": {
+            "title_one": "{{count}} reference was not carried over",
+            "title_other": "{{count}} references were not carried over",
+            "hint": "These references do not exist here or belong to another site. The rest of the file is imported.",
+            "row": "{{entity}}: {{field}} dropped ({{reason}})",
+            "entities": {
+              "location": "Location",
+              "garden_object": "Garden object",
+              "slot": "Plant place"
+            },
+            "reasons": {
+              "not_found": "not found",
+              "not_in_site": "belongs to another site",
+              "always_dropped": "links to devices are never carried over"
+            }
+          },
+          "mode": "How should the backup be restored?",
+          "modes": {
+            "replace": "Replace",
+            "merge": "Add"
+          },
+          "modeHints": {
+            "replace": "The plan of this site is replaced by the backup. Beds with active plants are never deleted.",
+            "merge": "The backup is added to the existing plan. Nothing is deleted; overlaps are reported as a problem."
+          },
+          "force": "Beds with active plants (and the locations above them) stay, everything else is replaced.",
+          "recheckHint": "You changed the selection. Check the file again before you import it.",
+          "check": "Check again",
+          "snapshotNotice": "Before replacing, the current plan is saved as a snapshot in the change log. That is no substitute for a backup: download one first to be safe.",
+          "backupFirst": "Download current backup",
+          "confirmName": "To confirm, type the name of the site: {{name}}",
+          "confirmNameHelp": "The name has to match exactly.",
+          "confirmNameMismatch": "The name does not match yet.",
+          "apply": {
+            "replace": "Replace plan",
+            "merge": "Add"
+          },
+          "done": "Done: {{locations}} locations, {{objects}} garden objects and {{slots}} plant places were created.",
+          "doneSnapshot": "The previous state is in the change log."
+        }
       }
     },
     "bed": {
