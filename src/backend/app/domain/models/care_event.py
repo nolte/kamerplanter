@@ -23,7 +23,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.common.enums import TaskCategory
+from app.common.enums import PlanRole, TaskCategory
 
 #: The erasure marker of an account key (mirrors ``ErasureEngine``; the model layer may not import an engine).
 ANONYMIZED_MARKER = "_anonymized"
@@ -83,6 +83,8 @@ ACCOUNT_FIELDS: tuple[str, ...] = (
 FUTURE_TOLERANCE_MINUTES = 5
 MAX_AGE_DAYS = 365
 BACKFILL_MAX_AGE_DAYS = 3650
+#: A backfilled year is a calendar year (GP-API-042): ``current year - 10`` mid-season can lie this far back.
+BACKFILL_YEAR_WINDOW_DAYS = BACKFILL_MAX_AGE_DAYS + 366
 #: ``void`` with ``void_reason = undo`` by the author is a grower's right for this long (GP-API-037, GP-FR-149).
 UNDO_WINDOW_MINUTES = 10
 #: ``reason`` of an author taking back their own entry inside the window (GP-API-037, GP-FR-149).
@@ -90,6 +92,33 @@ UNDO_REASON = "undo"
 
 MAX_PLANTS_PER_EVENT = 200
 MAX_PHOTOS_PER_EVENT = 10
+
+
+#: Seasons of a backfilled year (GP-API-042): the ``performed_at`` the server stamps is the middle of the season.
+BACKFILL_SEASONS: tuple[str, ...] = ("spring", "main", "autumn")
+
+
+class RotationEntry(BaseModel):
+    """What a backfilled ``planting`` event says about the bed: the family that stood there (GP-API-042, GP-FR-131).
+
+    Server-set only (a client body cannot carry it: :class:`CareEventInput` has no such field), so the crop-rotation
+    history cannot be forged through ``POST /care-events`` (SR-009). ``family_key`` is ``None`` for a fallow year
+    only, which occupies the bed with no family.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    year: int = Field(ge=1900, le=2200)
+    season: Literal["spring", "main", "autumn"] | None = None
+    family_key: str | None = Field(default=None, min_length=1, max_length=200)
+    species_key: str | None = Field(default=None, min_length=1, max_length=200)
+    plan_role: PlanRole = PlanRole.MAIN_CROP
+
+    @model_validator(mode="after")
+    def _family_unless_fallow(self) -> Self:
+        if self.family_key is None and self.plan_role != PlanRole.FALLOW:
+            raise ValueError("A planted year names the family that stood in the bed.")
+        return self
 
 
 class CareEvent(BaseModel):
@@ -121,6 +150,8 @@ class CareEvent(BaseModel):
     outcome_rating: str = "unknown"
     photo_refs: list[str] = Field(default_factory=list)
     source_ref: dict[str, Any] | None = None
+    #: The family / species / role of a backfilled ``planting`` event (WP 3.4); ``None`` on every other event.
+    rotation_entry: RotationEntry | None = None
     supersedes_key: str | None = None
     superseded_by_key: str | None = None
     voided_at: datetime | None = None
@@ -291,12 +322,16 @@ class CareEventOrigin:
     source_ref: dict[str, str] | None = None
     #: V-11 exempts server-made backfill events (GP-API-042, GP-FR-105): they reach ten years back.
     max_age_days: int = MAX_AGE_DAYS
+    #: Set by the backfill (WP 3.4) only; the family the bed carried that year.
+    rotation_entry: RotationEntry | None = None
 
     def __post_init__(self) -> None:
         if self.trigger not in CARE_EVENT_TRIGGERS:
             raise ValueError(f"Unknown care event trigger '{self.trigger}'.")
-        if self.max_age_days > BACKFILL_MAX_AGE_DAYS:
-            raise ValueError("A backfill reaches ten years back at most.")
+        if self.max_age_days > BACKFILL_YEAR_WINDOW_DAYS:
+            raise ValueError("A backfill reaches ten calendar years back at most.")
+        if self.rotation_entry is not None and self.trigger != "backfill":
+            raise ValueError("Only a backfill carries a rotation entry.")
 
 
 #: What the API shows for an account that is erased or gone (GP-API-034).

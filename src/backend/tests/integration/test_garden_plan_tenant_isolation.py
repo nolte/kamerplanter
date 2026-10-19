@@ -30,6 +30,7 @@ import json
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 
@@ -46,6 +47,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
+    get_bed_rotation_service,
     get_garden_plan_export_service,
     get_garden_plan_service,
     get_garden_resource_service,
@@ -57,6 +59,7 @@ from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.data_access.arango import collections as col
+from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import (
@@ -72,12 +75,16 @@ from app.data_access.arango.planting_reservation_repository import (
     ArangoPlantingReservationRepository,
 )
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
+from app.data_access.arango.rotation_history_repository import ArangoRotationHistoryRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.data_access.arango.species_repository import ArangoSpeciesRepository
+from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyService
+from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -106,6 +113,7 @@ B_SECRETS = (
     "slot2_b",
     "obj_b",
     "zone_b",
+    "ev_b",
     B,
 )
 _BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 20, "length_m": 20, "rotation_deg": 0}
@@ -128,6 +136,8 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.LOCATION_TYPES,
             col.USERS,
             col.PLANT_INSTANCES,
+            col.SPECIES,
+            col.BOTANICAL_FAMILIES,
             col.TASKS,
             *_BATCH_WRITE,
             *_SLOT_BATCH_WRITE,
@@ -238,6 +248,31 @@ def db(database):
             {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot2_{suffix}"}
         )
         database.collection(col.GARDEN_OBJECTS).insert(_tree(f"obj_{suffix}", site, tree_name))
+    # WP 3.4: a global species and family for the rotation hints, and one backfilled year of tenant B's bed
+    database.collection(col.SPECIES).insert(
+        {
+            "_key": "sp",
+            "scientific_name": "Solanum lycopersicum",
+            "genus": "Solanum",
+            "family_key": "fam",
+            "tenant_key": "",
+        }
+    )
+    database.collection(col.BOTANICAL_FAMILIES).insert({"_key": "fam", "name": "Solanaceae", "rotation_pause_years": 3})
+    database.collection(col.CARE_EVENTS).insert(
+        {
+            "_key": "ev_b",
+            "tenant_key": B,
+            "site_key": "site_b",
+            "location_key": "bed_b",
+            "category": "planting",
+            "summary": "Backfill",
+            "performed_at": "2024-07-01T12:00:00Z",
+            "trigger": "backfill",
+            "created_by": USER,
+            "rotation_entry": {"year": 2024, "family_key": "fam", "plan_role": "main_crop"},
+        }
+    )
     return database
 
 
@@ -303,14 +338,36 @@ class _Unscoped:
         return call
 
 
+def _rotation_service(db) -> BedRotationService:
+    sites = ArangoSiteRepository(db)
+    species = ArangoSpeciesRepository(db)
+    families = ArangoBotanicalFamilyRepository(db)
+    graph = ArangoGraphRepository(db)
+    care_repo = ArangoCareEventRepository(db)
+    care = CareEventService(
+        care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
+    )
+    validator = CropRotationValidator(
+        ArangoPlantInstanceRepository(db),
+        species,
+        graph,
+        site_repo=sites,
+        family_repo=families,
+        history_repo=ArangoRotationHistoryRepository(db),
+    )
+    return BedRotationService(sites, ArangoGardenPlanRepository(db), graph, species, families, care, validator)
+
+
 def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped: bool = False) -> TestClient:
     plan, resources, sites, reservations, runs = _services(db)
+    rotation: Any = _rotation_service(db)
     adjacency: Any = AdjacencyService(
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
     )
     export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
     if unscoped:
         adjacency = _Unscoped(adjacency)
+        rotation = _Unscoped(rotation)
         export = _Unscoped(export)
         plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
             _Unscoped(plan),
@@ -332,6 +389,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_planting_reservation_service] = lambda: reservations
     app.dependency_overrides[get_planting_run_service] = lambda: runs
     app.dependency_overrides[get_adjacency_service] = lambda: adjacency
+    app.dependency_overrides[get_bed_rotation_service] = lambda: rotation
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
@@ -494,6 +552,18 @@ CASES: tuple[Case, ...] = (
         owner_status=201,
         writes=True,
     ),
+    # REQ-053 WP 3.4, GP-API-025 / 039 / 042: rotation hints, the timeline and the history backfill of a bed.
+    Case("validate_planting", "POST", "/locations/bed_b/validate-planting", {"species_key": "sp"}),
+    Case("get_rotation", "GET", "/locations/bed_b/rotation"),
+    Case(
+        "backfill_history",
+        "POST",
+        "/locations/bed_b/history/backfill",
+        {"year": date.today().year - 2, "family_key": "fam"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case("cancel_backfill", "DELETE", "/locations/bed_b/history/backfill/ev_b", owner_status=204, writes=True),
     # slots (WP 1.9 + the reads of the single resource)
     Case("list_slots", "GET", "/slots", params={"location_key": "bed_b"}),
     Case("get_slot", "GET", "/slots/slot_b"),
@@ -526,6 +596,7 @@ _ABSENT = {
     "slot_b": "slot_gone",
     "slot2_b": "slot2_gone",
     "obj_b": "obj_gone",
+    "ev_b": "ev_gone",
 }
 
 

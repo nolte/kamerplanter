@@ -390,6 +390,7 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # lost its ``tenant_key`` would hand out another tenant's plan. Read-only, hence no entry among the writers.
     "GardenPlanExportService": "garden_plan_export_service.py",
     "AdjacencyService": "adjacency_service.py",
+    "BedRotationService": "bed_rotation_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -402,6 +403,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "PlantingReservationService": 6,
     "GardenPlanExportService": 5,
     "AdjacencyService": 3,
+    "BedRotationService": 4,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -499,6 +501,12 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # ``get…_by_key`` on a repository, so the keyed-write selector is blind to all three. The Celery task that
     # triggers ``recompute`` finds the tenant on the stored site and passes it in; nothing in the message does.
     "AdjacencyService": "adjacency_service.py",
+    # REQ-053 WP 3.4 (#2394): bed-level rotation hints and the history backfill. ``backfill`` resolves the bed through
+    # ``resolve_owned_location`` and writes through ``CareEventService.create``, ``cancel_backfill`` loads the event
+    # with ``repo.get`` and voids it — neither names a ``get…_by_key``, so the keyed-write selector is blind to both.
+    # The reads (``validate_planting``, ``rotation_timeline``) take the tenant like the writers: the history of a bed
+    # names the families a tenant grew.
+    "BedRotationService": "bed_rotation_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
@@ -523,6 +531,8 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "AdjacencyService.recompute",
         "AdjacencyService.set_manual_edge",
         "AdjacencyService.remove_manual_edge",
+        "BedRotationService.backfill",
+        "BedRotationService.cancel_backfill",
     }
 )
 

@@ -39,6 +39,7 @@ from app.data_access.arango.planting_reservation_repository import ArangoPlantin
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.post_harvest_repository import ArangoPostHarvestRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
+from app.data_access.arango.rotation_history_repository import ArangoRotationHistoryRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
@@ -88,6 +89,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
+from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.companion_edge_service import CompanionEdgeService
@@ -468,6 +470,27 @@ def get_adjacency_dispatch() -> AdjacencyDispatch:
 def get_adjacency_service() -> AdjacencyService:
     """REQ-053 WP 3.3 — derived and manual ``adjacent_to`` edges of a bed's slots."""
     return AdjacencyService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
+
+
+def get_bed_rotation_service() -> BedRotationService:
+    """REQ-053 WP 3.4 — bed-level crop rotation, companion hints and the history backfill."""
+    validator = CropRotationValidator(
+        get_plant_repo(),
+        get_species_repo(),
+        get_graph_repo(),
+        site_repo=get_site_repo(),
+        family_repo=get_family_repo(),
+        history_repo=ArangoRotationHistoryRepository(get_db()),
+    )
+    return BedRotationService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_graph_repo(),
+        get_species_repo(),
+        get_family_repo(),
+        get_care_event_service(),
+        validator,
+    )
 
 
 def get_garden_resource_service() -> GardenResourceService:
