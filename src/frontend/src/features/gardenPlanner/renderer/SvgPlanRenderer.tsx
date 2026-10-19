@@ -6,7 +6,7 @@ import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/type
 import { BasePlanRenderer } from './BasePlanRenderer';
 import { OBJECT_ICON_PATHS } from './icons';
 import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
-import type { ShapeEntry } from './planIndex';
+import type { MarkerEntry, ShapeEntry } from './planIndex';
 import {
   buildScene,
   type SceneCluster,
@@ -108,7 +108,7 @@ interface PlanSvgProps {
 
 function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) {
   const theme = useTheme();
-  const { enteredLocationKey, fieldMode, labels, onFocusKey, onActivateKey } = options;
+  const { enteredLocationKey, fieldMode, labels, onFocusKey, onActivateKey, phaseColors } = options;
   const scene = useMemo(
     () => buildScene(model, viewport, selection, { enteredLocationKey }),
     [model, viewport, selection, enteredLocationKey],
@@ -154,7 +154,13 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
         />
       ))}
       {scene.markerBatches.map((batch) => (
-        <MarkerBatchNode key={batch.locationKey} batch={batch} pxPerM={pxPerM} palette={palette} />
+        <MarkerBatchNode
+          key={batch.locationKey}
+          batch={batch}
+          pxPerM={pxPerM}
+          palette={palette}
+          phaseColors={phaseColors}
+        />
       ))}
       {scene.markers.map((marker) => (
         <MarkerNode
@@ -163,6 +169,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
           pxPerM={pxPerM}
           labels={labels}
           palette={palette}
+          phaseColors={phaseColors}
           onFocusKey={onFocusKey}
           onActivateKey={onActivateKey}
         />
@@ -526,8 +533,14 @@ interface MarkerNodeProps {
   pxPerM: number;
   labels: RendererLabels;
   palette: PlanPalette;
+  phaseColors?: Readonly<Record<string, string>>;
   onFocusKey?: (key: string) => void;
   onActivateKey?: (key: string) => void;
+}
+
+/** The fill of a plant marker: its phase's colour, else the plant default. */
+function markerFill(phaseKey: string | null | undefined, palette: PlanPalette, phaseColors?: Readonly<Record<string, string>>) {
+  return (phaseKey && phaseColors?.[phaseKey]) || palette.plant;
 }
 
 const MarkerNode = memo(function MarkerNode({
@@ -535,11 +548,13 @@ const MarkerNode = memo(function MarkerNode({
   pxPerM,
   labels,
   palette,
+  phaseColors,
   onFocusKey,
   onActivateKey,
 }: MarkerNodeProps) {
   const { entry, selected, interactive, tabStop } = marker;
   const plant = entry.kind === 'plant';
+  const radius = (selected ? MARKER_RADIUS_PX * 1.5 : MARKER_RADIUS_PX) / pxPerM;
   const circle = (
     <circle
       className="gp-shape"
@@ -547,10 +562,13 @@ const MarkerNode = memo(function MarkerNode({
       data-plan-kind={interactive ? undefined : entry.kind}
       cx={num(entry.x)}
       cy={num(-entry.y)}
-      r={num((selected ? MARKER_RADIUS_PX * 1.5 : MARKER_RADIUS_PX) / pxPerM)}
-      fill={plant ? palette.plant : 'none'}
-      stroke={selected ? palette.selected : plant ? palette.plant : palette.slot}
+      r={num(radius)}
+      fill={plant ? markerFill(entry.phaseKey, palette, phaseColors) : 'none'}
+      // A standing plant has a solid ring in the text colour (never the fill alone); an empty or
+      // planned position is dashed.
+      stroke={selected ? palette.selected : plant ? palette.text : palette.slot}
       strokeWidth={selected ? 3 : 1}
+      strokeDasharray={plant ? undefined : '2 2'}
       vectorEffect="non-scaling-stroke"
       aria-hidden={interactive ? undefined : 'true'}
     />
@@ -579,6 +597,7 @@ interface MarkerBatchNodeProps {
   batch: SceneMarkerBatch;
   pxPerM: number;
   palette: PlanPalette;
+  phaseColors?: Readonly<Record<string, string>>;
 }
 
 /** `r`-radius circles as path commands: two arcs per circle. */
@@ -595,28 +614,41 @@ const MarkerBatchNode = memo(function MarkerBatchNode({
   batch,
   pxPerM,
   palette,
+  phaseColors,
 }: MarkerBatchNodeProps) {
   const radius = MARKER_RADIUS_PX / pxPerM;
-  const plants = circlesPath(
-    batch.markers.filter((m) => m.kind === 'plant'),
-    radius,
-  );
+  // One path per fill: a bed in several phases keeps the batch cheap (a handful of paths, not one per plant).
+  const byFill = new Map<string, MarkerEntry[]>();
+  for (const marker of batch.markers) {
+    if (marker.kind !== 'plant') continue;
+    const fill = markerFill(marker.phaseKey, palette, phaseColors);
+    const group = byFill.get(fill);
+    if (group) group.push(marker);
+    else byFill.set(fill, [marker]);
+  }
   const slots = circlesPath(
     batch.markers.filter((m) => m.kind === 'slot'),
     radius,
   );
   return (
     <g data-plan-markers={batch.locationKey} aria-hidden="true" pointerEvents="none">
-      {plants ? (
+      {[...byFill].map(([fill, markers]) => (
         <path
-          d={plants}
-          fill={palette.plant}
-          stroke={palette.plant}
+          key={fill}
+          d={circlesPath(markers, radius)}
+          fill={fill}
+          stroke={palette.text}
           vectorEffect="non-scaling-stroke"
         />
-      ) : null}
+      ))}
       {slots ? (
-        <path d={slots} fill="none" stroke={palette.slot} vectorEffect="non-scaling-stroke" />
+        <path
+          d={slots}
+          fill="none"
+          stroke={palette.slot}
+          strokeDasharray="2 2"
+          vectorEffect="non-scaling-stroke"
+        />
       ) : null}
     </g>
   );

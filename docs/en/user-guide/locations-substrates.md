@@ -279,14 +279,41 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 
 | Tab | Content |
 |-----|---------|
-| Plan | Bed frame with places, rows or zones and plant markers, read-only. **Open in garden plan** takes you to the garden plan for editing. |
+| Plan | Bed frame with places, rows or zones and plant markers. Tap a plant and the bed offers **Correct position** and **Transplant to …**. **Open in garden plan** takes you to the garden plan for editing the bed frame. |
 | Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
-| Planting, History | Show an empty state for now. Existing runs and plants remain available under **Details**. |
+| Planting | Planned and standing plants of the bed, the **Plant** button and the actions on a plant (see [Planting a bed](#planting-a-bed)). |
+| History | Shows an empty state for now. Existing runs and plants remain available under **Details**. |
 | Soil | The bed's soil profile (see below). |
 | Details | The previous location page, unchanged. |
 
 !!! warning "Not yet implemented"
-    The **Planting** and **History** tabs exist but do not contain any content yet. In the future they will show the plantings and the history of the bed.
+    The **History** tab exists but does not contain any content yet. In the future it will show the history of the bed.
+
+### Planting a bed {#planting-a-bed}
+
+On the **Planting** tab, **Plant** opens the planting dialog. It is available from the "grower" role and needs the bed to be drawn on the garden plan. The bed must not be retired.
+
+1. **Choose species and cultivar.** Your favourites come first. Below the choice you see the species' mature height and width and whether it needs a support.
+2. **Read the hints.** As soon as you have chosen a species, Kamerplanter checks **crop rotation** and the **neighbours** in the bed. Every hint has a strength (no issue, info, warning, critical) and a reason, for example "The family Solanaceae stood in this bed 1 year(s) ago. The rotation pause is 4 years". A hint blocks nothing.
+3. **Choose number and layout.** Either **As many as fit** or a fixed number. The layout is **Grid**, **Rows**, **Staggered**, **Zone** (for direct sowing) or **Free positions** (for woody plants).
+4. **Check the spacings.** Kamerplanter prefills the plant spacing and row spacing from the species profile and says where the value comes from. If the profile has none, Kamerplanter uses the value you used last for this species. If there is none either, the field stays empty and you enter the spacing yourself. Under **More options** you set the row direction and the edge margins.
+5. **Look at the preview.** The bed shows at once where the plants would stand, and below it you see how many there are and how many fit at most. The server confirms the number a moment later. If its answer differs, its answer counts.
+6. **Plan or record.** **Plan planting** creates a planned run and reserves the places from the planting date. If you have planted already, switch on **I have planted already**. The plants are then created at once on the calculated positions.
+
+**Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. If Kamerplanter rates a combination as incompatible, a hint appears.
+
+**Free positions.** With **Free positions** you tap the planting places onto the bed. Dragging moves a place, a number below the preview deletes it. If two places are closer together than the minimum spacing, both get a **yellow ring**. That is a hint; you can still plant.
+
+**Plant anyway.** From the strength **warning** on, you switch on **Plant anyway** and give a **reason**. The reason is stored with the planting, and the bed carries the **Crop rotation hint** in its overview for as long as the planting runs.
+
+**Pot volume.** For species with a recommended pot volume you can enter the volume of your pot under **More options**. If it is smaller than recommended, Kamerplanter warns you.
+
+**Correct position.** For a standing plant (on the **Planting** tab or after a tap on the plan), **Correct position** moves its place: by dragging, with the arrow buttons in steps of 1 cm, or by typing the coordinates. The care log records the correction together with the plant. Plants in a zone have no single place and cannot be moved.
+
+**Transplant to …** You do not move a plant to another bed by dragging. **Transplant to …** creates the "Transplant" task for the plant, with the target bed in its text. You complete it once you have moved the plant.
+
+!!! warning "Not yet implemented"
+    The **Crop rotation hint** appears only in the bed overview so far, not on the bed in the garden plan. It is set only for plantings you started despite a hint. Planned, still empty places appear on the plan as dashed circles without species and date. Your browser, not your account, remembers the spacings you used last. A bed that is not on the garden plan cannot be planted through the dialog yet. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
 
 ### Care on the bed {#care-on-the-bed}
 

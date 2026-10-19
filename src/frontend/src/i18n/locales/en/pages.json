@@ -6044,7 +6044,9 @@
         "none": "None",
         "unknown": "Not set",
         "year": "Season",
-        "previousYear": "Previous year ({{year}}): this bed's growing history appears here once it has been recorded."
+        "previousYear": "Previous year ({{year}}): this bed's growing history appears here once it has been recorded.",
+        "rotationHint": "Crop rotation hint",
+        "rotationReason": "Planted anyway: {{reason}}"
       },
       "status": {
         "title": "Change bed status",
@@ -6102,14 +6104,10 @@
         "notPlaced": {
           "title": "This bed is not on the garden plan yet",
           "description": "Once you draw it on the garden plan, you see its frame, the places and the plants here."
-        }
+        },
+        "plantPanel": "Plant {{id}}"
       },
       "placeholder": {
-        "planting": {
-          "title": "Planting is coming",
-          "description": "Soon you plan here what grows in this bed. Until then, the existing runs and plants are on the details tab.",
-          "action": "Go to details"
-        },
         "history": {
           "title": "History is coming",
           "description": "Soon you see here what grew in this bed in past years."
@@ -6248,6 +6246,193 @@
           "findFailedAll": "The tasks could not be read. Try again in a moment.",
           "findFailedNone": "No open {{category}} tasks were found on the beds that could be read; other beds could not be read.",
           "continue": "{{count}} more tasks are left. Complete them with the same details or change them first."
+        }
+      },
+      "planting": {
+        "planned_one": "Planting planned: {{count}} plant.",
+        "planned_other": "Planting planned: {{count}} plants.",
+        "recorded_one": "{{count}} plant recorded.",
+        "recorded_other": "{{count}} plants recorded.",
+        "tab": {
+          "title": "Planting",
+          "plant": "Plant",
+          "notPlaced": "The bed has to be on the garden plan before you can plant it. Draw it there first.",
+          "retired": "A retired bed cannot be planted. Activate it again first.",
+          "empty": {
+            "title": "Nothing planted yet",
+            "description": "\"Plant\" plans what grows in this bed. You see right away how many plants fit."
+          },
+          "planned_one": "Planned ({{count}})",
+          "planned_other": "Planned ({{count}})",
+          "active_one": "In the bed ({{count}})",
+          "active_other": "In the bed ({{count}})",
+          "finished_one": "{{count}} plant is harvested or removed and is in the history.",
+          "finished_other": "{{count}} plants are harvested or removed and are in the history.",
+          "from": "from {{date}}",
+          "correct": "Correct position",
+          "transplant": "Transplant to …"
+        },
+        "dialog": {
+          "title": "Plant: {{bed}}",
+          "intro": "Choose a species. Then we check crop rotation and the neighbours in the bed and work out how many plants fit.",
+          "speciesFailed": "The species could not be loaded. Close the dialog and try again.",
+          "addEntry": "Add another species",
+          "alternateRows": "Alternate the rows between the species",
+          "preview": "Preview on the bed",
+          "canvasLabel": "Preview of the planting positions in bed {{bed}}",
+          "freeCanvasHelp": "Tap the bed to set a position. Drag a position to move it. A yellow ring shows two positions closer than the plant spacing. You can still plant.",
+          "plantedFrom": "Planting date",
+          "alreadyPlanted": "I have planted already",
+          "alreadyPlantedHelp": "The plants are created at once and stand on the calculated positions.",
+          "plan": "Plan planting",
+          "recordPlanted": "Record planted",
+          "plantAnyway": "Plant anyway",
+          "partial_one": "One planting was created already and could not be taken back. You find it under planting runs. Delete or complete it there.",
+          "partial_other": "{{count}} plantings were created already and could not be taken back. You find them under planting runs. Delete or complete them there.",
+          "alreadyPlantedMargins": "\"I have planted already\" ignores edge margins. Clear them if you want the plants created at once.",
+          "submitWaiting": "The crop rotation and neighbour hints are still being checked. You can continue afterwards."
+        },
+        "species": {
+          "favorites": "Favourites",
+          "others": "All species",
+          "none": "No matching species found"
+        },
+        "entry": {
+          "title": "Species {{n}}",
+          "shape": {
+            "circle": "circle",
+            "square": "square",
+            "diamond": "diamond",
+            "triangle": "triangle"
+          },
+          "remove": "Remove species {{n}}",
+          "species": "Species",
+          "cultivar": "Cultivar",
+          "noCultivar": "No cultivar",
+          "height": "Mature height {{value}} cm",
+          "width": "Mature width {{value}} cm",
+          "supportRequired": "Needs a support",
+          "count": "Number",
+          "asManyAsFit": "As many as fit",
+          "exactCount": "Fixed number",
+          "countField": "Number of plants",
+          "layout": "Layout",
+          "sharedRows": "This species shares the rows with species 1.",
+          "spacing": "Plant spacing",
+          "minSpacing": "Minimum spacing",
+          "minSpacingHelp": "Positions closer together get a yellow ring. They are not blocked.",
+          "rowSpacing": "Row spacing",
+          "derivedRowSpacing": "Row spacing (calculated): {{value}} cm",
+          "fromSpecies": "Taken from the species profile.",
+          "fromLastUsed": "Last used for this species.",
+          "empty": "The species profile gives no value. Enter the spacing yourself.",
+          "moreOptions": "More options",
+          "lessOptions": "Fewer options",
+          "rowDirection": "Row direction",
+          "edgeAlong": "Edge margin along the row",
+          "edgeAcross": "Edge margin across the row",
+          "edgeHelp": "Leave empty for the default (half the spacing).",
+          "containerVolume": "Pot volume",
+          "containerHelp": "The species profile recommends at least {{value}} l.",
+          "containerBelow": "The pot is smaller than the recommended {{value}} l. The plant will probably not develop fully there.",
+          "minDepth": "Minimum depth per species profile: {{value}} cm.",
+          "freeHelp": "Set the positions on the bed by tapping. Tap a number below to delete that position.",
+          "pointCount_one": "{{count}} position set",
+          "pointCount_other": "{{count}} positions set",
+          "tooClose_one": "{{count}} too close",
+          "tooClose_other": "{{count}} too close",
+          "removePoint": "Delete position {{n}} (x {{x}} cm, y {{y}} cm)",
+          "addPointCentre": "Set a position at the centre of the bed",
+          "nudgeGroup": "Move the last position",
+          "nudgeHelp": "The arrows move the most recently set position by {{cm}} cm.",
+          "result": "{{count}} plants, at most {{max}} fit",
+          "confirming": "checking"
+        },
+        "layoutHelp": {
+          "grid": "Square grid, row spacing equals plant spacing.",
+          "rows": "Rows with their own row spacing.",
+          "triangular": "Staggered rows. This saves space; the row spacing follows from the plant spacing.",
+          "zone": "One area with a capacity, suited to direct sowing.",
+          "free": "You set every position yourself, suited to woody plants."
+        },
+        "errors": {
+          "speciesRequired": "Choose a species.",
+          "spacingRequired": "Enter the plant spacing.",
+          "spacingRange": "The spacing must be between 5 and 1500 cm.",
+          "rowSpacingRequired": "Enter the row spacing.",
+          "rowSpacingRange": "The row spacing must be between 5 and 1500 cm.",
+          "countRequired": "Enter a whole number from 1 to 2000.",
+          "marginRange": "The edge margin must be between 0 and 200 cm.",
+          "noPoints": "Set at least one position on the bed."
+        },
+        "layoutErrors": {
+          "layout_too_many_positions": "That would be more than 2000 positions. Increase the spacing.",
+          "layout_bed_not_an_area": "This bed does not enclose an area. Draw it as a rectangle, circle or polygon.",
+          "layout_row_spacing_required": "Enter the row spacing.",
+          "layout_spacing_out_of_range": "The spacing must be between 5 and 1500 cm."
+        },
+        "warnings": {
+          "belowMatureWidth": "A spacing of {{spacing_cm}} cm is below 70 % of the mature width ({{mature_width_cm}} cm). The plants will crowd each other.",
+          "belowMinimum": "Some positions are closer than {{spacing_cm}} cm to each other (closest {{closest_cm}} cm).",
+          "noPositionFits": "No plant fits in the bed with these spacings.",
+          "zoneInsetNotApplied": "The margin of the area could not be kept."
+        },
+        "hints": {
+          "title": "Crop rotation and neighbours",
+          "checking": "Checking {{name}} …",
+          "unavailable": "{{name}}: Crop rotation could not be checked ({{message}}). That is not an all-clear.",
+          "notApplicable": "{{name}}: No crop rotation check applies to this bed (pot, tent, shelf or perennial crop).",
+          "allClear": "{{name}}: No hint on crop rotation or neighbours.",
+          "forSpecies": "{{name}}: {{strength}} hint",
+          "pauseNotElapsed": "The family {{family}} stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",
+          "pauseSource": {
+            "species": "value of the species",
+            "family": "value of the family",
+            "default": "default value"
+          },
+          "pestRisk": "High pest risk with the family {{family}}, which stood here recently.",
+          "noFamily": "This species has no family on record. Crop rotation cannot be checked.",
+          "noHistory": "No history is recorded for this bed. Crop rotation cannot be checked.",
+          "incompatibleNeighbour": "Unfavourable neighbour in the bed: {{name}}.",
+          "compatibleNeighbour": "Good neighbour in the bed: {{name}}.",
+          "mixIncompatible": "{{a}} and {{b}} do not get along.",
+          "mixCompatible": "{{a}} and {{b}} go well together.",
+          "plantAnyway": "Plant anyway",
+          "reason": "Reason",
+          "reasonHelp": "The reason is stored with the planting.",
+          "reasonRequired": "Give a reason to plant anyway.",
+          "confirmToContinue": "Confirm \"Plant anyway\" to continue."
+        },
+        "position": {
+          "title": "Correct position: {{plant}}",
+          "help": "Drag the plant on the bed or move it with the arrows. Each step is 1 cm.",
+          "zone": "This plant stands in an area and has no single position. It cannot be moved.",
+          "failed": "The position could not be loaded.",
+          "canvasLabel": "Position of the plant in bed {{bed}}",
+          "stepper": "Move plant",
+          "up": "Up",
+          "down": "Down",
+          "left": "Left",
+          "right": "Right",
+          "bigLeft": "{{cm}} cm to the left",
+          "bigRight": "{{cm}} cm to the right",
+          "x": "Position along (x)",
+          "y": "Position across (y)",
+          "save": "Save position",
+          "done": "Position of {{plant}} corrected.",
+          "invalid": "Enter a number in cm.",
+          "outside": "This position lies outside the bed. Move it into the bed to save it."
+        },
+        "transplant": {
+          "title": "Transplant: {{plant}}",
+          "help": "Moving to another bed is a task. You complete it once you have moved the plant.",
+          "failed": "The beds could not be loaded.",
+          "noBeds": "There is no other bed in this garden.",
+          "target": "Target bed",
+          "create": "Create task",
+          "taskName": "Transplant {{plant}} to {{bed}}",
+          "taskInstruction": "Transplant plant {{plant}} into bed {{bed}}.",
+          "done": "Task created: transplant {{plant}} to {{bed}}."
         }
       }
     }
