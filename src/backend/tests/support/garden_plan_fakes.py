@@ -8,6 +8,8 @@ reached the repository at all. Shared by the unit tier and the API tier.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.common.exceptions import DuplicateError, PlanError, PlanRevisionConflictError, WriteConflictError
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
@@ -135,6 +137,8 @@ class FakePlanRepo(IGardenPlanRepository):
         self.object_task_counters: dict[str, TaskCounter] = {}
         self.counters: dict[str, BedCounters] = {}
         self.care_events: list[CareEvent] = []
+        #: Newest watering per bed (WP 7.3), what ``load_read_model`` hands the plan with the task counters.
+        self.last_watered: dict[str, datetime] = {}
         self.zones: dict[str, tuple[str, str]] = {"zone_1": (TENANT, SITE)}
         #: What the import wrote (WP 7.2): the zones it created by their new key, and the zone keys it deleted.
         self.imported_zones: dict[str, IrrigationZone] = {}
@@ -164,6 +168,7 @@ class FakePlanRepo(IGardenPlanRepository):
             plants=list(self.plants) if include_plants else [],
             task_counters=dict(self.task_counters) if include_tasks else {},
             object_task_counters=dict(self.object_task_counters) if include_tasks else {},
+            last_watered=dict(self.last_watered) if include_tasks else {},
             plan_updated_by_name=self.editor_name,
         )
 

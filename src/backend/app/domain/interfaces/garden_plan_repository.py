@@ -30,6 +30,9 @@ class PlanReadData:
     task_counters: dict[str, TaskCounter] = field(default_factory=dict)
     #: Open tasks per garden object (compost, water source, storage; REQ-053 R-7.2), keyed by the object key.
     object_task_counters: dict[str, TaskCounter] = field(default_factory=dict)
+    #: Newest watering per bed (care event or ``watering_events``, within a year), keyed by location key; filled
+    #: together with the task counters (REQ-053 GP-UX-006, WP 7.3). A bed never watered is absent.
+    last_watered: dict[str, datetime] = field(default_factory=dict)
     #: Display name of the account that last changed the plan structure; ``None`` when unknown or erased.
     plan_updated_by_name: str | None = None
 

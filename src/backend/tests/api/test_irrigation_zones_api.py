@@ -10,6 +10,7 @@ does all of that except delete.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -20,9 +21,10 @@ from app.common.dependencies import get_irrigation_zone_service, get_tenant_serv
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.garden_object import GardenObject
-from app.domain.models.irrigation_zone import IrrigationZone
+from app.domain.models.irrigation_zone import IrrigationZone, LastWatering, ZoneWateringFacts
 from app.domain.models.user import User
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
+from tests.support.care_event_fakes import FakeCareEventRepo
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     SITE,
@@ -75,11 +77,16 @@ def zones() -> FakeZones:
 
 
 @pytest.fixture
-def client(zones: FakeZones) -> Iterator[Callable[..., TestClient]]:
+def care() -> FakeCareEventRepo:
+    return FakeCareEventRepo()
+
+
+@pytest.fixture
+def client(zones: FakeZones, care: FakeCareEventRepo) -> Iterator[Callable[..., TestClient]]:
     from app.main import app
 
     repo = zones._repo
-    service = IrrigationZoneService(zones, repo._sites, FakeObjects(repo))
+    service = IrrigationZoneService(zones, repo._sites, FakeObjects(repo), care)
 
     def build(role: TenantRole = TenantRole.GROWER) -> TestClient:
         _Tenants.role = role
@@ -242,3 +249,84 @@ class TestRefusals:
         response = client(TenantRole.VIEWER).get(f"{_BASE}/sites/{SITE}/irrigation-zones", params={"limit": 201})
 
         assert response.status_code == 422
+
+
+class TestStatusAndWateringRound:
+    def _cover(self, zones: FakeZones) -> None:
+        zones.replace_zone_locations("zone_1", ["bed", "bed_2"], tenant_key=TENANT)
+        zones._repo.locations["bed"] = zones._repo.locations["bed"].model_copy(update={"area_m2": 3.0})
+        zones._repo.locations["bed_2"] = zones._repo.locations["bed_2"].model_copy(update={"area_m2": 1.0})
+
+    def test_every_member_reads_the_status_and_a_foreign_zone_is_a_404(self, client, zones: FakeZones) -> None:
+        zones.facts = ZoneWateringFacts(
+            last_watering=LastWatering(
+                at=datetime(2026, 10, 19, 6, 30, tzinfo=UTC),
+                source="care_event",
+                location_key="bed",
+                allocation="equal",
+            ),
+            next_planned=None,
+            consumption_liters=12.5,
+        )
+
+        found = client(TenantRole.VIEWER).get(f"{_BASE}/irrigation-zones/zone_1/status")
+        foreign = client(TenantRole.LEAD).get(f"{_BASE}/irrigation-zones/zone_foreign/status")
+
+        assert found.status_code == 200, found.text
+        assert found.json() == {
+            "last_watering": {
+                "at": "2026-10-19T06:30:00Z",
+                "source": "care_event",
+                "location_key": "bed",
+                "allocation": "equal",
+            },
+            "next_planned": None,
+            "demand_liters_today": None,
+            "consumption_liters_30d": 12.5,
+        }
+        assert foreign.status_code == 404
+
+    def test_a_grower_logs_a_round_and_the_viewer_cannot(self, client, zones: FakeZones, care) -> None:
+        self._cover(zones)
+
+        denied = client(TenantRole.VIEWER).post(
+            f"{_BASE}/irrigation-zones/zone_1/log-watering", json={"volume_liters": 20, "allocation": "by_area"}
+        )
+        logged = client(TenantRole.GROWER).post(
+            f"{_BASE}/irrigation-zones/zone_1/log-watering",
+            json={"volume_liters": 20, "allocation": "by_area", "summary": "Morning"},
+        )
+
+        assert denied.status_code == 403 and len(care.inserted) == 2
+        assert logged.status_code == 201, logged.text
+        body = logged.json()
+        assert {s["location_key"]: s["liters"] for s in body["shares"]} == {"bed": 15.0, "bed_2": 5.0}
+        assert (body["allocation"], body["skipped_location_keys"], len(body["event_keys"])) == ("by_area", [], 2)
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"volume_liters": 20, "allocation": "measured"},
+            {"volume_liters": 0, "allocation": "equal"},
+            {"volume_liters": 20},
+            {"volume_liters": 20, "allocation": "equal", "tenant_key": "x"},
+        ],
+    )
+    def test_a_malformed_body_is_a_422_and_writes_nothing(self, client, zones: FakeZones, care, body) -> None:
+        self._cover(zones)
+
+        response = client(TenantRole.GROWER).post(f"{_BASE}/irrigation-zones/zone_1/log-watering", json=body)
+
+        assert response.status_code == 422 and care.inserted == []
+
+    def test_a_foreign_zone_is_a_404_and_a_zone_without_beds_a_422(self, client, zones: FakeZones, care) -> None:
+        foreign = client(TenantRole.LEAD).post(
+            f"{_BASE}/irrigation-zones/zone_foreign/log-watering", json={"volume_liters": 5, "allocation": "equal"}
+        )
+        empty = client(TenantRole.GROWER).post(
+            f"{_BASE}/irrigation-zones/zone_1/log-watering", json={"volume_liters": 5, "allocation": "equal"}
+        )
+
+        assert foreign.status_code == 404
+        assert empty.status_code == 422 and _code(empty) == "irrigation_zone.no_beds"
+        assert care.inserted == []

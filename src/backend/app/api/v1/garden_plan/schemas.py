@@ -176,6 +176,9 @@ class PlanLocationResponse(BaseModel):
     season_state: str | None = Field(default=None, description="Derived (§7.4): empty or planted until WP 3.x/4.x.")
     open_task_count: int = 0
     overdue_task_count: int = 0
+    last_watered_at: datetime | None = Field(
+        default=None, description="Newest watering of the bed within a year (`include=tasks`); never as 'needs water'."
+    )
 
 
 class PlanGardenObjectResponse(GardenObjectResponse):

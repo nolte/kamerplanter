@@ -275,6 +275,7 @@ class GardenPlanService:
             task_counters=data.task_counters if "tasks" in include else {},
             object_task_counters=data.object_task_counters if "tasks" in include else {},
             season_states=season_states,
+            last_watered=data.last_watered if "tasks" in include else {},
             zones=self.zone_rows(site_key, tenant_key=tenant_key) if "zones" in include else [],
             included=sorted(include),
         )

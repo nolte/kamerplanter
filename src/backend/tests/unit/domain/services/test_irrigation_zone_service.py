@@ -29,6 +29,7 @@ from app.domain.models.irrigation_zone import (
 )
 from app.domain.models.site import Site
 from app.domain.services.irrigation_zone_service import ERROR_COUPLING_NOT_AVAILABLE, IrrigationZoneService
+from tests.support.care_event_fakes import FakeCareEventRepo
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     SITE,
@@ -88,7 +89,8 @@ def world() -> tuple[IrrigationZoneService, FakeZones, FakePlanRepo]:
     )
     zones.add(IrrigationZone(_key="zone_b", tenant_key=TENANT, site_key=SITE, name="Hand round"))
     zones.add(IrrigationZone(_key="zone_foreign", tenant_key=OTHER_TENANT, site_key=FOREIGN_SITE, name="Theirs"))
-    service = IrrigationZoneService(zones, sites, FakeObjects(repo))
+    care = FakeCareEventRepo()
+    service = IrrigationZoneService(zones, sites, FakeObjects(repo), care)
     return service, zones, repo
 
 

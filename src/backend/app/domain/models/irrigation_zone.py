@@ -25,12 +25,12 @@ type defaults with a source (drip 0.88, R-005) are WP 7.5, nothing here invents 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Self
+from datetime import UTC, datetime
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.common.enums import FlowRateSource, IrrigationZoneType
+from app.common.enums import CareEventAllocation, FlowRateSource, IrrigationZoneType
 from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE
 
 #: ``color`` (§20.11): a six-digit hex colour, the outline/hatching of the zone on the plan (GP-FR-110).
@@ -179,3 +179,106 @@ class ZoneCoverageChange:
     removed: tuple[str, ...]
     #: location key → the zone it was taken from ("a bed is in at most one zone").
     moved_from: dict[str, str]
+
+
+@dataclass(frozen=True)
+class LastWatering:
+    """The newest watering of a bed or a zone (GP-FR-112): when, from which record, and how it was measured."""
+
+    at: datetime
+    source: Literal["care_event", "watering_event"]
+    location_key: str | None
+    #: ``measured`` unless a zone round split a total over its beds (GP-FR-117): never shown as measured then.
+    allocation: str = "measured"
+
+
+@dataclass(frozen=True)
+class NextPlannedWatering:
+    """The oldest open ``watering`` task of a zone's beds; ``due_date`` is ``None`` for a task without a date."""
+
+    task_key: str
+    location_key: str
+    due_date: datetime | None
+
+
+@dataclass(frozen=True)
+class ZoneWateringFacts:
+    """What the stores say about a zone's beds; the service adds the demand (WP 7.5)."""
+
+    last_watering: LastWatering | None
+    next_planned: NextPlannedWatering | None
+    consumption_liters: float
+
+
+#: One watering round is a garden's worth of water, not a reservoir's: the ceiling catches a typo (10 000 000 L).
+MAX_ROUND_LITERS = 100_000.0
+
+
+class ZoneWateringInput(_Strict):
+    """``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): one total, divided over the zone's beds."""
+
+    volume_liters: float = Field(gt=0, le=MAX_ROUND_LITERS)
+    #: ``by_area`` divides by ``Location.area_m2``, ``equal`` evenly. ``by_demand`` waits for WP 7.5 (#2466 item 1).
+    allocation: CareEventAllocation
+    performed_at: datetime | None = None
+    summary: str | None = Field(default=None, max_length=500)
+
+    @field_validator("allocation")
+    @classmethod
+    def refuse_measured(cls, value: CareEventAllocation) -> CareEventAllocation:
+        if value is CareEventAllocation.MEASURED:
+            raise ValueError("A divided total is `by_area` or `equal`; `measured` is a value taken per bed.")
+        return value
+
+    @field_validator("performed_at")
+    @classmethod
+    def aware_utc(cls, value: datetime | None) -> datetime | None:
+        """A naive instant is read as UTC (§20.13: ``performed_at`` is UTC)."""
+        if value is None:
+            return None
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+    @field_validator("summary")
+    @classmethod
+    def strip_summary(cls, value: str | None) -> str | None:
+        return _stripped_or_none(value)
+
+
+@dataclass(frozen=True)
+class BedShare:
+    """What one bed of the round received."""
+
+    location_key: str
+    liters: float
+
+
+@dataclass(frozen=True)
+class ZoneWateringResult:
+    """The round: one care event per bed that got a share, and the beds `by_area` could not place (no area)."""
+
+    event_keys: tuple[str, ...]
+    shares: tuple[BedShare, ...]
+    allocation: CareEventAllocation
+    performed_at: datetime
+    skipped_location_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class NextPlannedView:
+    task_key: str
+    location_key: str
+    due_date: datetime | None
+    #: The UTC calendar-day rule of #2461 (:func:`~app.domain.calculators.overdue_calculator.is_overdue`).
+    overdue: bool
+
+
+@dataclass(frozen=True)
+class ZoneStatusView:
+    """GP-API-052: the zone's last and next watering, today's demand and the last 30 days' consumption."""
+
+    zone_key: str
+    last_watering: LastWatering | None
+    next_planned: NextPlannedView | None
+    #: ``null`` until the demand calculator has a value that rests on a source (WP 7.5, E-10).
+    demand_liters_today: float | None
+    consumption_liters_30d: float

@@ -17,6 +17,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.config import JsonDict
 
+from app.common.enums import CareEventAllocation
 from app.domain.models.care_event import CareEventCorrection, CareEventInput, CareEventView
 
 _EXAMPLE: JsonDict = {
@@ -97,6 +98,8 @@ class CareEventResponse(BaseModel):
     unit: str | None = None
     quantity_total: float | None = None
     quantity_total_unit: str | None = None
+    #: `measured` unless a zone watering round divided a total over its beds (`by_area`, `equal`).
+    allocation: CareEventAllocation = CareEventAllocation.MEASURED
     material: str | None = None
     measurements: list[dict[str, Any]] | None = None
     observed_outcome: str | None = None
@@ -137,6 +140,7 @@ def care_event_to_response(view: CareEventView) -> CareEventResponse:
         unit=event.unit,
         quantity_total=event.quantity_total,
         quantity_total_unit=event.quantity_total_unit,
+        allocation=event.allocation,
         material=event.material,
         measurements=event.measurements,
         observed_outcome=event.observed_outcome,

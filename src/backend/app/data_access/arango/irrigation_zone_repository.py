@@ -36,10 +36,11 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
+from app.data_access.arango.watering_queries import zone_watering_facts
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.garden_plan import PlanAuditRecord
-from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange
+from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
 
 logger = structlog.get_logger()
 
@@ -281,6 +282,10 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
             )
             txn.collection(col.GARDEN_PLAN_AUDIT).insert(_dump(audit, mode="json"))
         return released
+
+    def watering_facts(self, location_keys: list[LocationKey], *, tenant_key: str, now: datetime) -> ZoneWateringFacts:
+        self._require_tenant_key(tenant_key, "watering_facts")
+        return zone_watering_facts(self._db, location_keys, tenant_key=tenant_key, now=now)
 
     def replace_zone_locations(
         self, key: IrrigationZoneKey, location_keys: list[LocationKey], *, tenant_key: str

@@ -39,6 +39,7 @@ from app.data_access.arango.garden_object_repository import ArangoGardenObjectRe
 from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
+from app.data_access.arango.watering_queries import last_waterings
 from app.domain.calculators.overdue_calculator import start_of_utc_day
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
@@ -227,6 +228,12 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             data.plants = self._plants(location_keys, tenant_key)
         if include_tasks and location_keys:
             data.task_counters = self._task_counters(location_keys, tenant_key)
+            data.last_watered = {
+                key: found.at
+                for key, found in last_waterings(
+                    self._db, location_keys, tenant_key=tenant_key, now=datetime.now(UTC)
+                ).items()
+            }
         object_keys = [obj.key for obj in objects if obj.key]
         if include_tasks and object_keys:
             data.object_task_counters = self._object_task_counters(object_keys, tenant_key)

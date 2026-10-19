@@ -412,7 +412,10 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     importer: Any = GardenPlanImportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export)
     plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
     zones: Any = IrrigationZoneService(
-        ArangoIrrigationZoneRepository(db), ArangoSiteRepository(db), ArangoGardenObjectRepository(db)
+        ArangoIrrigationZoneRepository(db),
+        ArangoSiteRepository(db),
+        ArangoGardenObjectRepository(db),
+        ArangoCareEventRepository(db),
     )
     if unscoped:
         zones = _Unscoped(zones)

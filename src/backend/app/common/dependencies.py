@@ -538,6 +538,7 @@ def get_irrigation_zone_service() -> IrrigationZoneService:
         ArangoIrrigationZoneRepository(get_db()),
         get_site_repo(),
         ArangoGardenObjectRepository(get_db()),
+        ArangoCareEventRepository(get_db()),
     )
 
 

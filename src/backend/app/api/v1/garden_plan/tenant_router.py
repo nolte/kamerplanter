@@ -109,6 +109,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 season_state=view.season_states.get(location.key or ""),
                 open_task_count=view.task_counters.get(location.key or "", _NO_TASKS).open_task_count,
                 overdue_task_count=view.task_counters.get(location.key or "", _NO_TASKS).overdue_task_count,
+                last_watered_at=view.last_watered.get(location.key or ""),
             )
             for location in view.locations
         ],

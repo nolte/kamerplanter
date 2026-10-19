@@ -12,7 +12,7 @@ from typing import Any
 
 from app.common.exceptions import NotFoundError
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
-from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange
+from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
 from tests.support.garden_plan_fakes import FakePlanRepo
 
 
@@ -25,6 +25,9 @@ class FakeZones(IIrrigationZoneRepository):
         self.audit: list[dict[str, Any]] = []
         self.updates: list[tuple[str, dict[str, Any]]] = []
         self._next = 0
+        #: What ``watering_facts`` answers, and the bed keys it was last asked about.
+        self.facts = ZoneWateringFacts(last_watering=None, next_planned=None, consumption_liters=0.0)
+        self.facts_asked: list[list[str]] = []
 
     def add(self, zone: IrrigationZone) -> IrrigationZone:
         self.zones[zone.key or ""] = zone
@@ -103,3 +106,8 @@ class FakeZones(IIrrigationZoneRepository):
             self.covers[loc] = key
             self._set_bed_zone(loc, key)
         return ZoneCoverageChange(added=tuple(added), removed=tuple(removed), moved_from=moved)
+
+    def watering_facts(self, location_keys, *, tenant_key, now):
+        assert tenant_key
+        self.facts_asked.append(list(location_keys))
+        return self.facts

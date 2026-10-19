@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Any
 
 from app.common.types import IrrigationZoneKey, LocationKey, SiteKey
-from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange
+from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
 
 
 class IIrrigationZoneRepository(ABC):
@@ -56,4 +57,11 @@ class IIrrigationZoneRepository(ABC):
 
         The caller has resolved every key to a location of the zone's site. A bed that another zone covered
         is taken from it (a bed is in at most one zone).
+        """
+
+    @abstractmethod
+    def watering_facts(self, location_keys: list[LocationKey], *, tenant_key: str, now: datetime) -> ZoneWateringFacts:
+        """Last watering, oldest open ``watering`` task and 30-day litres of ``location_keys`` (GP-API-052).
+
+        The keys are the beds of a zone the caller resolved under the tenant; the read filters on the tenant too.
         """
