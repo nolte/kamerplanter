@@ -5325,7 +5325,9 @@
           "door": "Tür",
           "furniture": "Möbel",
           "lamp": "Lampe"
-        }
+        },
+        "clusterSummary_one": "{{count}} Pflanze · {{attention}} mit Handlungsbedarf",
+        "clusterSummary_other": "{{count}} Pflanzen · {{attention}} mit Handlungsbedarf"
       },
       "editor": {
         "toolbar": {
@@ -6006,6 +6008,60 @@
           },
           "done": "Fertig: {{locations}} Standorte, {{objects}} Gartenobjekte und {{slots}} Pflanzplätze wurden angelegt.",
           "doneSnapshot": "Der vorherige Stand liegt im Änderungsprotokoll."
+        }
+      },
+      "plantState": {
+        "lifecycle": {
+          "planned": "Geplant",
+          "sown": "Gesät",
+          "active": "Wächst",
+          "harvesting": "In Ernte",
+          "failed": "Ausgefallen",
+          "historic": "Abgeschlossen"
+        },
+        "attention": {
+          "problem": "Befund: {{label}}",
+          "problemUnnamed": "Offener Befund",
+          "frost": "Frostgefahr",
+          "overdue_one": "{{count}} Aufgabe überfällig",
+          "overdue_other": "{{count}} Aufgaben überfällig",
+          "water": "Gießen fällig",
+          "harvest": "Erntereif"
+        },
+        "info": {
+          "label": "Pflanzen-Info: {{name}}",
+          "phase": "Phase: {{phase}} · {{elapsed}} von {{typical}} Tagen",
+          "phaseOpen": "Phase: {{phase}} · seit {{elapsed}} Tagen",
+          "nextPhase": "Nächste Phase voraussichtlich {{date}}",
+          "age": "Gepflanzt am {{date}} · {{days}} Tage",
+          "position": "Platz {{slot}}",
+          "watered": "Zuletzt gegossen: {{date}}",
+          "fed": "Zuletzt gedüngt: {{date}}",
+          "nextTask": "Nächste Aufgabe: {{name}} · {{date}}",
+          "nextTaskUndated": "Nächste Aufgabe: {{name}}",
+          "harvestReadyFrom": "Erntereif seit {{date}}",
+          "harvestedTotal": "Bisher geerntet: {{grams}} g",
+          "needsAttention": "Handlungsbedarf",
+          "details": "Details",
+          "close": "Schließen",
+          "photo": "Titelbild von {{name}}",
+          "sheetTitle": "Pflanze {{name}}"
+        },
+        "legend": {
+          "title": "Pflanzenzustand",
+          "intro": "Die Farbe der Scheibe zeigt die Wachstumsphase, der Buchstabe die Art. Ring und Zeichen bleiben auch ohne Farbe unterscheidbar.",
+          "ring": "Ring um die Scheibe (zeigt, wie weit die Pflanze ist)",
+          "badge": "Zeichen oben rechts (höchstens eines pro Pflanze, das dringendste)",
+          "ringPlanned": "gestrichelt, blass: geplant",
+          "ringSown": "gepunktet mit Saatpunkten: gesät",
+          "ringActive": "durchgezogen: wächst",
+          "ringHarvesting": "doppelter Ring: in Ernte",
+          "ringFailed": "Kreuz auf leerem Ring: ausgefallen",
+          "badgeProblem": "Dreieck: offener Befund",
+          "badgeFrost": "Sechseck mit Stern: Frostgefahr",
+          "badgeOverdue": "Kreis mit Ausrufezeichen: Aufgabe überfällig",
+          "badgeWater": "Tropfen: Gießen fällig",
+          "badgeHarvest": "Quadrat mit Haken: erntereif"
         }
       },
       "sun": {

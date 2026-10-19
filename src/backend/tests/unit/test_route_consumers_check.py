@@ -273,9 +273,13 @@ class TestTheRouteOperand:
 
         +1: the plan import (REQ-053 WP 5.3, #2432): ``POST /t/{slug}/sites/{key}/plan/import``. Its consumer is the
         import wizard (``features/gardenPlanner/io``), which lands in the same change - the operation is consumed.
+
+        +1: the plant states of a bed (REQ-053 WP 3.7, #2397): ``GET /t/{slug}/locations/{key}/plant-states``. Its
+        consumer is the bed view's plan tab (``features/gardenPlanner/planting/plantStateApi.ts``), which lands in the
+        same change - the operation is consumed.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 870
+        assert len(checker.collect_operations(app)) == 871
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

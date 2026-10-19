@@ -53,6 +53,7 @@ from app.common.dependencies import (
     get_garden_plan_import_service,
     get_garden_plan_service,
     get_garden_resource_service,
+    get_plant_state_service,
     get_planting_reservation_service,
     get_planting_run_service,
     get_site_service,
@@ -72,6 +73,7 @@ from app.data_access.arango.garden_plan_repository import (
 )
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
 from app.data_access.arango.planting_reservation_repository import (
     _CLEAR_WRITE,
     _QUICK_WRITE,
@@ -95,6 +97,7 @@ from app.domain.services.garden_plan_import_service import GardenPlanImportServi
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
+from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.site_service import SiteService
@@ -376,7 +379,9 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     )
     export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
     importer: Any = GardenPlanImportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export)
+    plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
     if unscoped:
+        plant_states = _Unscoped(plant_states)
         adjacency = _Unscoped(adjacency)
         rotation = _Unscoped(rotation)
         history = _Unscoped(history)
@@ -403,6 +408,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_planting_run_service] = lambda: runs
     app.dependency_overrides[get_adjacency_service] = lambda: adjacency
     app.dependency_overrides[get_bed_rotation_service] = lambda: rotation
+    app.dependency_overrides[get_plant_state_service] = lambda: plant_states
     app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
@@ -589,6 +595,8 @@ CASES: tuple[Case, ...] = (
     ),
     # REQ-053 WP 3.2, GP-API-024 / GP-API-019 / GP-API-017: the plantings of a bed, clearing it, quick planting.
     Case("list_plantings", "GET", "/locations/bed_b/plantings"),
+    # REQ-053 WP 3.7, GP-API-054: the visual state and info-bubble facts of a bed's plants.
+    Case("list_plant_states", "GET", "/locations/bed_b/plant-states"),
     Case("clear_bed", "POST", "/locations/bed_b/clear", {"termination_type": "senesced"}, writes=True),
     Case(
         "quick_planting",

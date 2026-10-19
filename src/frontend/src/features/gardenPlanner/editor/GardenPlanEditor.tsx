@@ -48,6 +48,7 @@ import {
   applyAction,
   clearEditError,
   selectGardenPlanState,
+  selectInvalidKeys,
   setSelection,
   setStack,
   setTool,
@@ -188,6 +189,7 @@ export function GardenPlanEditor({
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
   const { selection, stack, tool, editError, past, future } = useAppSelector(selectGardenPlanState);
+  const invalidKeys = useAppSelector(selectInvalidKeys);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
   const [notice, setNotice] = useState<string | null>(null);
@@ -699,8 +701,8 @@ export function GardenPlanEditor({
 
   // The renderer output depends on the plan, view and selection only - not on the pointer.
   const rendered = useMemo(
-    () => renderer.render(plan, viewport, selectedKeys, { labels, fieldMode, onActivateKey }),
-    [renderer, plan, viewport, selectedKeys, labels, fieldMode, onActivateKey],
+    () => renderer.render(plan, viewport, selectedKeys, { labels, fieldMode, onActivateKey, invalidKeys }),
+    [renderer, plan, viewport, selectedKeys, labels, fieldMode, onActivateKey, invalidKeys],
   );
 
   const selectChooseTool = useCallback(
