@@ -445,7 +445,7 @@ def get_garden_plan_repo() -> ArangoGardenPlanRepository:
 
 def get_garden_plan_service() -> GardenPlanService:
     """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch."""
-    return GardenPlanService(get_site_repo(), get_garden_plan_repo())
+    return GardenPlanService(get_site_repo(), get_garden_plan_repo(), ArangoIrrigationZoneRepository(get_db()))
 
 
 def get_garden_plan_export_service() -> GardenPlanExportService:

@@ -36,6 +36,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
+from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
 from app.domain.calculators.overdue_calculator import start_of_utc_day
@@ -106,6 +107,8 @@ _BATCH_WRITE = tuple(
             col.GARDEN_PLAN_AUDIT,
             # A deleted water source is unlinked from its zones (``water_source_key``), REQ-053 WP 7.1.
             col.IRRIGATION_ZONES,
+            # The import (WP 7.2) creates and replaces zones: the zone, its site edge and every edge on it.
+            *(edge for edge, _ in ZONE_EDGES),
             *CARE_EVENT_WRITE_COLLECTIONS,
             col.CONTAINS,
             col.HAS_GARDEN_OBJECT,
@@ -543,10 +546,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 self._delete_locations(txn, write)
                 txn.check_budget()
                 self._delete_objects(txn, write)
+                self._delete_zones(txn, write)
+                self._insert_zones(txn, write, key_map, now)
                 self._insert_locations(txn, write, key_map, now)
                 self._insert_slots(txn, write, key_map, now)
                 self._update_locations(txn, write, now)
                 self._insert_objects(txn, write, key_map, now)
+                self._link_zone_water_sources(txn, write, key_map, now)
                 self._update_objects(txn, write, now)
                 txn.check_budget()
                 self._write_site(txn, write, stored_plan, new_revision, now)
@@ -752,18 +758,104 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             bind_vars={"@col": col.GARDEN_OBJECTS, "keys": keys},
         )
 
+    @staticmethod
+    def _delete_zones(txn: StreamTransaction, write: PlanBatchWrite) -> None:
+        """The zones a ``replace`` import removes (WP 7.2): the document and every edge on it.
+
+        Under the write's tenant and site only. The service chose zones that cover no bed that stays; a bed that
+        stays and was assigned to one meanwhile (``zone_covers`` survives the location delete above) makes this
+        a conflict instead of a bed that names a zone that is gone.
+        """
+        keys = write.zone_deletes
+        if not keys:
+            return
+        ids = [f"{col.IRRIGATION_ZONES}/{key}" for key in keys]
+        still_covering = list(
+            txn.aql.execute(
+                "FOR e IN @@covers FILTER e._from IN @ids LIMIT 1 RETURN 1",
+                bind_vars={"@covers": col.ZONE_COVERS, "ids": ids},
+            )
+        )
+        if still_covering:
+            raise WriteConflictError("garden_plan", "a bed was assigned to a zone of the replaced plan concurrently")
+        for edge, field in ZONE_EDGES:
+            ArangoGardenPlanRepository._remove_edges(txn, edge, field, ids)
+        txn.aql.execute(
+            """
+            FOR z IN @@zones
+                FILTER z._key IN @keys AND z.tenant_key == @tenant_key AND z.site_key == @site_key
+                REMOVE z IN @@zones
+            """,
+            bind_vars={
+                "@zones": col.IRRIGATION_ZONES,
+                "keys": keys,
+                "tenant_key": write.tenant_key,
+                "site_key": write.site_key,
+            },
+        )
+
+    @staticmethod
+    def _insert_zones(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
+        """The zones of an import, under the write's tenant and site, with their ``has_irrigation_zone`` edge.
+
+        The water source is linked after the objects exist (:meth:`_link_zone_water_sources`); the technical
+        coupling is never part of an import (GP-FR-141), so the stored coupling fields keep their defaults.
+        """
+        if not write.zone_inserts:
+            return
+        zones = txn.collection(col.IRRIGATION_ZONES)
+        has_zone = txn.collection(col.HAS_IRRIGATION_ZONE)
+        for temp_key, zone in write.zone_inserts:
+            doc = _dump(zone, by_alias=True, exclude_none=True, mode="json")
+            for name in ("_key", "water_source_key", "actuator_key", "flow_rate_ha_entity_id"):
+                doc.pop(name, None)
+            doc["flow_rate_source"] = "manual"
+            doc["tenant_key"] = write.tenant_key
+            doc["site_key"] = write.site_key
+            doc["created_at"] = doc["updated_at"] = now
+            key = zones.insert(doc, return_new=False)["_key"]
+            key_map[temp_key] = key
+            has_zone.insert(
+                {"_from": f"{col.SITES}/{write.site_key}", "_to": f"{col.IRRIGATION_ZONES}/{key}", "created_at": now}
+            )
+            txn.check_budget()
+
+    @staticmethod
+    def _link_zone_water_sources(
+        txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str
+    ) -> None:
+        """Point each imported zone at the water source it names in the file (a temp key of this write)."""
+        for temp_key, zone in write.zone_inserts:
+            source = key_map.get(zone.water_source_key or "")
+            if source is None:
+                continue
+            zone_key = key_map[temp_key]
+            txn.aql.execute(
+                "UPDATE @key WITH { water_source_key: @source } IN @@zones",
+                bind_vars={"@zones": col.IRRIGATION_ZONES, "key": zone_key, "source": source},
+            )
+            txn.collection(col.ZONE_SUPPLIED_BY).insert(
+                {
+                    "_from": f"{col.IRRIGATION_ZONES}/{zone_key}",
+                    "_to": f"{col.GARDEN_OBJECTS}/{source}",
+                    "created_at": now,
+                }
+            )
+
     def _insert_locations(
         self, txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str
     ) -> None:
         collection = txn.collection(col.LOCATIONS)
         contains = txn.collection(col.CONTAINS)
-        self._take_import_zones(txn, write, now)
+        self._take_import_zones(txn, write, key_map, now)
         for temp_key, location in write.location_inserts:
             doc = _insert_doc(location)
             parent = doc.get("parent_location_key")
             if parent in key_map:
                 parent = doc["parent_location_key"] = key_map[parent]
             doc["site_key"] = write.site_key
+            if doc.get("irrigation_zone_key") in key_map:  # a zone of this write: its temp key becomes the real one
+                doc["irrigation_zone_key"] = key_map[doc["irrigation_zone_key"]]
             doc["created_at"] = doc["updated_at"] = now
             created = collection.insert(doc, return_new=True)
             key = created["_key"]
@@ -779,7 +871,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             txn.check_budget()
 
     @staticmethod
-    def _take_import_zones(txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
+    def _take_import_zones(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
         """Take every zone the inserted beds name, inside the transaction and under the write's tenant and site.
 
         The import service resolved the zones before the transaction (GP-NFR-058); a zone deleted since then — or a
@@ -790,7 +882,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             {
                 str(location.irrigation_zone_key)
                 for _, location in write.location_inserts
-                if location.irrigation_zone_key
+                if location.irrigation_zone_key and location.irrigation_zone_key not in key_map
             }
         )
         if not zone_keys:

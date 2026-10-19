@@ -37,6 +37,7 @@ from app.api.v1.garden_plan.schemas import (
     PlanSettingsResponse,
     PlanSlotGeometry,
     PlanSlotResponse,
+    PlanZoneResponse,
 )
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
@@ -121,7 +122,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
         ],
         slots=[_slot_response(slot) for slot in view.slots],
         plants=[_plant_response(plant) for plant in view.plants],
-        zones=view.zones,
+        zones=[PlanZoneResponse.model_validate(zone) for zone in view.zones],
     )
 
 

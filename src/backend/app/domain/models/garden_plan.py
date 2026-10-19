@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Annotated, Any, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
@@ -24,6 +24,9 @@ from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.site import Location, Microclimate, SiteConditions, SitePlan, Slot, SoilProfile, SunProfile
+
+if TYPE_CHECKING:
+    from app.domain.models.irrigation_zone import IrrigationZone
 
 #: Request-local name for an object created in the same batch (``tmp1``); the server answers with ``key_map``.
 TempKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
@@ -43,6 +46,8 @@ MAX_BATCH_BODY_BYTES = 2 * 1024 * 1024
 BATCH_TIME_BUDGET_SECONDS = 10.0
 #: GP-NFR-017 (SR-004): locations plus garden objects per site.
 MAX_PLAN_OBJECTS_PER_SITE = 500
+#: Irrigation zones the plan read model, the export and the import carry per site (creating them has no quota, #2466).
+MAX_PLAN_ZONES = 500
 #: GP-NFR-017 (SR-004): slots per site (read-only here; slot routes enforce it).
 MAX_SLOTS_PER_SITE = 8_000
 
@@ -250,6 +255,12 @@ class PlanBatchWrite:
     #: ``(location temp_key or key, slot)`` — slots of freshly inserted locations, written in the same transaction
     #: (the plan import, GP-API-005); the batch routes never set it.
     slot_inserts: list[tuple[str, Slot]] = field(default_factory=list)
+    #: ``(temp_key, zone)`` - the irrigation zones of an import (WP 7.2), inserted with their ``has_irrigation_zone``
+    #: edge before the locations. ``water_source_key`` names an object of ``object_inserts`` by its temp key (or
+    #: ``None``); a location names its zone by the zone's temp key. The batch routes never set it.
+    zone_inserts: list[tuple[str, IrrigationZone]] = field(default_factory=list)
+    #: Zones a ``replace`` import removes with every edge on them (the beds they covered are deleted by it too).
+    zone_deletes: list[str] = field(default_factory=list)
     #: The state a ``replace`` import overwrites, stored with its audit row in the same transaction (SR-011).
     snapshot: dict[str, Any] | None = None
     #: Summary of the snapshot row (counts only, never a name — GP-NFR-060).

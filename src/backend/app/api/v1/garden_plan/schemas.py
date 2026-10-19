@@ -15,7 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
-from app.common.enums import BedStatus, SlotRole, SunExposure
+from app.common.enums import BedStatus, FlowRateSource, IrrigationZoneType, SlotRole, SunExposure
 from app.domain.models.garden_plan import MAX_OPERATIONS
 from app.domain.models.garden_plan_import import PlanImportReport
 from app.domain.models.geometry import Geometry
@@ -276,6 +276,41 @@ class PlanSettingsResponse(BaseModel):
     plan_updated_by_name: str | None = Field(default=None, description="Display name, never the account key (§22.1).")
 
 
+class PlanZoneResponse(BaseModel):
+    """An irrigation zone as the plan shows it (GP-API-001, GP-FR-110): the grouping, not the technical coupling.
+
+    The bound Home Assistant entity is not part of it (SR-014); ``actuator_key`` is, as on the zone's own route.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "zone_sued",
+                    "name": "South zone (drip line)",
+                    "irrigation_type": "drip",
+                    "water_source_key": "go_91ab",
+                    "flow_rate_source": "manual",
+                    "color": "#2E7D32",
+                    "location_keys": ["loc_bed_1", "loc_bed_2"],
+                }
+            ]
+        }
+    )
+
+    key: str
+    name: str
+    irrigation_type: IrrigationZoneType
+    water_source_key: str | None = None
+    actuator_key: str | None = None
+    flow_rate_l_per_min: float | None = None
+    flow_rate_source: FlowRateSource = FlowRateSource.MANUAL
+    application_efficiency: float | None = None
+    color: str
+    schedule_hint: str | None = None
+    location_keys: list[str] = Field(default_factory=list)
+
+
 class GardenPlanResponse(BaseModel):
     """GP-API-001: the whole plan in one response."""
 
@@ -310,8 +345,8 @@ class GardenPlanResponse(BaseModel):
     garden_objects: list[PlanGardenObjectResponse] = Field(default_factory=list)
     slots: list[PlanSlotResponse] = Field(default_factory=list)
     plants: list[PlanPlantResponse] = Field(default_factory=list)
-    zones: list[dict[str, Any]] = Field(
-        default_factory=list, description="Irrigation zones (WP 7.x); empty until then."
+    zones: list[PlanZoneResponse] = Field(
+        default_factory=list, description="Irrigation zones of the site with the beds they cover (`include=zones`)."
     )
 
 
