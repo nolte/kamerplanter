@@ -528,6 +528,7 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "PlantingReservationService.plan_slots",
         "PlantingReservationService.release_slot",
         "PlantingReservationService.clear_bed",
+        "PlantingReservationService.record_position_correction",
         "AdjacencyService.recompute",
         "AdjacencyService.set_manual_edge",
         "AdjacencyService.remove_manual_edge",

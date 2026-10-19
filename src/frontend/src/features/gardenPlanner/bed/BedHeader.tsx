@@ -28,6 +28,8 @@ interface BedHeaderProps {
   onYearChange: (year: number) => void;
   /** `null` hides the control (a viewer cannot change the status). */
   onChangeStatus: (() => void) | null;
+  /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
+  rotationReasons?: readonly string[];
 }
 
 function Fact({ label, children, testId }: { label: string; children: ReactNode; testId: string }) {
@@ -51,6 +53,7 @@ export default function BedHeader({
   years,
   onYearChange,
   onChangeStatus,
+  rotationReasons = [],
 }: BedHeaderProps) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -98,6 +101,14 @@ export default function BedHeader({
                 </Button>
               )}
             </Box>
+            {rotationReasons.length > 0 && (
+              <Box sx={{ mt: 0.5 }} data-testid="bed-rotation-badge">
+                <Chip size="small" color="warning" label={t('pages.bed.header.rotationHint')} />
+                <Typography variant="caption" color="text.secondary" component="div">
+                  {t('pages.bed.header.rotationReason', { reason: rotationReasons[0] })}
+                </Typography>
+              </Box>
+            )}
           </Fact>
           <Fact label={t('pages.bed.header.soil')} testId="bed-header-soil">
             {soil && soil.soil_texture !== 'unknown' ? t(`enums.soilTexture.${soil.soil_texture}`) : notSet}

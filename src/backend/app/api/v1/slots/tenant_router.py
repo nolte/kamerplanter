@@ -9,6 +9,7 @@ from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
     get_garden_resource_service,
+    get_planting_reservation_service,
     get_site_service,
 )
 from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
@@ -17,6 +18,7 @@ from app.domain.models.site import Slot
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService, request_adjacency_recompute
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.site_service import SiteService
 
 router = APIRouter(prefix="/slots", tags=["slots"], responses=NOT_FOUND_RESPONSE)
@@ -93,13 +95,18 @@ def patch_slot(
     body: SlotPatch,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
     service: GardenResourceService = Depends(get_garden_resource_service),
+    reservations: PlantingReservationService = Depends(get_planting_reservation_service),
 ) -> SlotResponse:
     """Correct a slot's geometry (bed frame), role or capacity (GP-API-014).
 
     Outside the plan revision (GP-NFR-007). 422 ``slot.outside_bed`` (V-04) or ``slot.overlap`` (V-06)
-    when the new geometry breaks a rule. Triggers the adjacency recompute (GP-NFR-016).
+    when the new geometry breaks a rule. Triggers the adjacency recompute (GP-NFR-016). A new geometry
+    under a standing plant is "Correct position" (GP-FR-068): it logs ``care_event(position_corrected)``
+    with the plant.
     """
     slot = service.patch_slot(key, tenant_key=ctx.tenant_key, role=ctx.role, patch=body)
+    if "geometry" in body.model_fields_set:
+        reservations.record_position_correction(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
     return to_response(slot, SlotResponse)
 
 

@@ -16,6 +16,7 @@ import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import BedHeader from './BedHeader';
 import BedPlaceholderPanel from './BedPlaceholderPanel';
+import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
 import SoilProfileForm from './SoilProfileForm';
 import { allowedBedTransitions } from './bedStatus';
@@ -28,6 +29,8 @@ import { useYearParam } from './useYearParam';
 const BedPlanTab = lazy(() => import('./BedPlanTab'));
 // The care tab brings its dialogs (completion, task, log); they load when the tab opens.
 const BedCareTab = lazy(() => import('../care/BedCareTab'));
+// The planting tab brings the planting dialog and the plant actions; they load when the tab opens.
+const BedPlantingTab = lazy(() => import('../planting/BedPlantingTab'));
 
 const ID_PREFIX = 'bed';
 const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'details'] as const;
@@ -54,13 +57,14 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
   const assignments = useBedAssignments(true);
   const { year, years, setYear } = useYearParam();
   const [statusOpen, setStatusOpen] = useState(false);
+  const [plantingVersion, setPlantingVersion] = useState(0);
+  const rotationBadge = useRotationBadge(summary.key, plantingVersion);
 
   const targets = useMemo(
     () => (canEdit ? allowedBedTransitions(summary.bed_status, canDelete) : []),
     [canEdit, canDelete, summary.bed_status],
   );
   const assignees = assignments.byLocation.get(summary.key) ?? [];
-  const showDetails = () => setTabIndex(tabIds.indexOf('details'));
 
   const panelFor = (id: BedTab): ReactNode => {
     switch (id) {
@@ -71,7 +75,17 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
           </Suspense>
         );
       case 'planting':
-        return <BedPlaceholderPanel tab="planting" onShowDetails={showDetails} />;
+        return (
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <BedPlantingTab
+              bed={summary}
+              onChanged={() => {
+                setPlantingVersion((value) => value + 1);
+                void onReload();
+              }}
+            />
+          </Suspense>
+        );
       case 'care':
         return (
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
@@ -104,6 +118,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         years={years}
         onYearChange={setYear}
         onChangeStatus={targets.length > 0 ? () => setStatusOpen(true) : null}
+        rotationReasons={rotationBadge?.reasons}
       />
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

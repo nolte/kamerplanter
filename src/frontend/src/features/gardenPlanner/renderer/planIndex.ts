@@ -158,6 +158,8 @@ export interface MarkerEntry {
   locationKey: string;
   x: number;
   y: number;
+  /** Phase definition of the plant (`kind = 'plant'`); the renderer colours the marker by it (GP-FR-067). */
+  phaseKey?: string | null;
 }
 
 export interface BedMarkers {
@@ -207,6 +209,7 @@ function buildMarkerIndex(
       locationKey: slot.location_key,
       x: origin[0],
       y: origin[1],
+      phaseKey: plant?.phase_key ?? null,
     };
     const list = perBed.get(slot.location_key);
     if (list) list.push(marker);

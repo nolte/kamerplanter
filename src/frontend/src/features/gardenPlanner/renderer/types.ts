@@ -52,6 +52,11 @@ export interface RenderOptions {
   fieldMode?: boolean;
   /** The bed whose plants are the current focus level (GP-NFR-068: Enter enters a bed). */
   enteredLocationKey?: string | null;
+  /**
+   * Fill of a plant marker by the plant's phase definition key (GP-FR-067). Absent or unknown = the
+   * default plant colour. The marker also carries a ring, so the phase colour is never the only cue.
+   */
+  phaseColors?: Readonly<Record<string, string>>;
   /** An object received focus (keyboard or pointer). */
   onFocusKey?: (key: string) => void;
   /** Enter or Space on a focused object. */

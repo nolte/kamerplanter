@@ -4,7 +4,7 @@
  * subtree and draws it read-only with the same renderer as the garden plan; editing stays on the
  * garden plan page, which this tab links to.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -14,6 +14,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { parseApiError } from '@/api/errors';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { getGardenPlan } from '../api/gardenPlan';
 import { boundingBox } from '../model/geometry';
 import { locationSubtree, normalizePlan, type PlanModel } from '../model/planModel';
@@ -21,6 +22,8 @@ import { SvgPlanRenderer } from '../renderer/SvgPlanRenderer';
 import { useRendererLabels } from '../renderer/useRendererLabels';
 import { fitViewport } from '../routes/fitViewport';
 import { useElementWidth } from '../routes/useElementWidth';
+import PlantActionHost, { type PlantActionTarget } from '../planting/PlantActionHost';
+import { usePhaseColors } from '../planting/phaseColors';
 import type { BedSummary } from './types';
 
 /** The drawing may take this share of the window height before the page scrolls. */
@@ -64,6 +67,10 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
   const [state, setState] = useState<PlanState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const { canEdit } = useTenantPermissions();
+  const canvasBoxRef = useRef<HTMLDivElement>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [target, setTarget] = useState<PlantActionTarget | null>(null);
   const placed = Boolean(bed.geometry);
   const siteKey = bed.site_key;
   const bedKey = bed.key;
@@ -97,14 +104,38 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
     const windowHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
     return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, windowHeight * MAX_HEIGHT_SHARE));
   }, [location, geometry, canvasWidth]);
-  const selection = useMemo(() => ({ selectedKeys: new Set([bedKey]) }), [bedKey]);
+  const selectedPlant = selectedKey && model ? (model.plants[selectedKey] ?? null) : null;
+  const selection = useMemo(
+    () => ({ selectedKeys: new Set(selectedPlant ? [bedKey, selectedPlant.key] : [bedKey]) }),
+    [bedKey, selectedPlant],
+  );
+  const plantPhases = useMemo(
+    () => (model ? Object.values(model.plants).map((plant) => plant.phase_key) : []),
+    [model],
+  );
+  const phaseColors = usePhaseColors(plantPhases);
   const rendered = useMemo(
     () =>
       model && viewport
-        ? renderer.render(model, viewport, selection, { labels, enteredLocationKey: bedKey })
+        ? renderer.render(model, viewport, selection, {
+            labels,
+            enteredLocationKey: bedKey,
+            phaseColors,
+            onActivateKey: (key) => setSelectedKey((current) => (current === key ? null : key)),
+          })
         : null,
-    [renderer, model, viewport, selection, labels, bedKey],
+    [renderer, model, viewport, selection, labels, bedKey, phaseColors],
   );
+
+  // A pointer or a tap on a plant marker selects it; the panel below offers the plant's actions.
+  const onCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
+    const box = canvasBoxRef.current;
+    if (!box || !model) return;
+    const rect = box.getBoundingClientRect();
+    const key = renderer.hitTest([event.clientX - rect.left, event.clientY - rect.top]);
+    if (key && model.plants[key]) setSelectedKey((current) => (current === key ? null : key));
+    else setSelectedKey(null);
+  };
 
   const planLink = planLinkVisible ? (
     <Button
@@ -153,6 +184,8 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           <LoadingSkeleton variant="card" />
         ) : (
           <Box
+            ref={canvasBoxRef}
+            onClick={onCanvasClick}
             data-testid="bed-plan-canvas"
             sx={{
               position: 'relative',
@@ -169,6 +202,51 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           </Box>
         )}
       </Box>
+      {selectedPlant ? (
+        <Box
+          component="section"
+          aria-label={t('pages.bed.plan.plantPanel', { id: selectedPlant.instance_id })}
+          data-testid="bed-plan-plant-panel"
+          sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}
+        >
+          <Typography variant="subtitle2" component="h3" sx={{ flex: '1 1 auto' }}>
+            {t('pages.bed.plan.plantPanel', { id: selectedPlant.instance_id })}
+          </Typography>
+          {canEdit && selectedPlant.slot_key ? (
+            <Button
+              onClick={() =>
+                setTarget({
+                  action: 'correct',
+                  plantKey: selectedPlant.key,
+                  slotKey: selectedPlant.slot_key ?? null,
+                  plantLabel: selectedPlant.instance_id,
+                })
+              }
+              sx={{ minHeight: 44 }}
+              data-testid="bed-plan-correct"
+            >
+              {t('pages.bed.planting.tab.correct')}
+            </Button>
+          ) : null}
+          {canEdit ? (
+            <Button
+              onClick={() =>
+                setTarget({
+                  action: 'transplant',
+                  plantKey: selectedPlant.key,
+                  slotKey: selectedPlant.slot_key ?? null,
+                  plantLabel: selectedPlant.instance_id,
+                })
+              }
+              sx={{ minHeight: 44 }}
+              data-testid="bed-plan-transplant"
+            >
+              {t('pages.bed.planting.tab.transplant')}
+            </Button>
+          ) : null}
+        </Box>
+      ) : null}
+      <PlantActionHost bed={bed} target={target} onClose={() => setTarget(null)} onChanged={retry} />
     </Box>
   );
 }

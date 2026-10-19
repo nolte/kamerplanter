@@ -103,15 +103,24 @@ def world():
         _key="e_a", run_key="run_a", tenant_key=TENANT, species_key="sp_tomato", quantity=2, id_prefix="TOM"
     )
     repo = FakeReservationRepo(plan, runs)
+    care_repo = FakeCareEventRepo()
     care = CareEventService(
-        FakeCareEventRepo(), sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
+        care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
     )
     dispatched: list[str] = []  # the bed keys handed to the adjacency dispatcher (GP-NFR-016)
     service = PlantingReservationService(repo, runs, sites, plan, care, dispatch_adjacency=dispatched.append)
     return type(
         "World",
         (),
-        {"service": service, "repo": repo, "plan": plan, "runs": runs, "sites": sites, "dispatched": dispatched},
+        {
+            "service": service,
+            "repo": repo,
+            "plan": plan,
+            "runs": runs,
+            "sites": sites,
+            "dispatched": dispatched,
+            "care_repo": care_repo,
+        },
     )
 
 
@@ -332,6 +341,45 @@ class TestListPlantings:
             world.service.list_plantings("loc_foreign", tenant_key=TENANT, state=None, year=None, offset=0, limit=10)
         with pytest.raises(NotFoundError):
             world.service.list_plantings("bed", tenant_key=OTHER_TENANT, state=None, year=None, offset=0, limit=10)
+
+
+class TestPositionCorrection:
+    """GP-FR-068 / GP-ACC-022: moving a plant's slot logs ``position_corrected`` with the plant."""
+
+    def test_it_logs_a_server_made_event_naming_the_plant(self, world) -> None:
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+        world.care_repo.plants["pi_1"] = (TENANT, "bed")
+
+        key = world.service.record_position_correction("s1", tenant_key=TENANT, user_key=USER, role=GROWER)
+
+        (event,) = world.care_repo.inserted
+        assert key is not None
+        assert (event.category, event.trigger, event.location_key, event.tenant_key) == (
+            "position_corrected",
+            "system",
+            "bed",
+            TENANT,
+        )
+        assert event.plant_keys == ["pi_1"]
+        assert event.performed_by_user_key == USER
+
+    def test_a_slot_nobody_stands_in_logs_nothing(self, world) -> None:
+        assert world.service.record_position_correction("s1", tenant_key=TENANT, user_key=USER, role=GROWER) is None
+        assert world.care_repo.inserted == []
+
+    def test_a_viewer_logs_nothing(self, world) -> None:
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+
+        with pytest.raises(ForbiddenError):
+            world.service.record_position_correction("s1", tenant_key=TENANT, user_key=USER, role=VIEWER)
+
+        assert world.care_repo.inserted == []
+
+    def test_another_tenants_slot_is_404_and_logs_nothing(self, world) -> None:
+        with pytest.raises(NotFoundError):
+            world.service.record_position_correction("s1", tenant_key=OTHER_TENANT, user_key=USER, role=GROWER)
+
+        assert world.care_repo.inserted == []
 
 
 class TestClearBed:

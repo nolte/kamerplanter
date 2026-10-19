@@ -23,6 +23,7 @@ function store(role: 'viewer' | 'grower' | 'lead' = 'lead') {
 
 function useBackend(extra: Parameters<typeof server.use> = []) {
   server.use(
+    ...extra,
     http.get('/api/v1/location-types', () =>
       HttpResponse.json([{ key: 'raised_bed', name: 'Hochbeet', name_en: 'Raised bed' }]),
     ),
@@ -46,7 +47,12 @@ function useBackend(extra: Parameters<typeof server.use> = []) {
         }),
       ),
     ),
-    ...extra,
+    // The planting tab and the rotation badge of the header.
+    http.get(`${BASE}/locations/:key/plantings`, () => HttpResponse.json([])),
+    http.get(`${BASE}/planting-runs`, () => HttpResponse.json([])),
+    http.get('/api/v1/growth-phases/:key', () =>
+      HttpResponse.json({ key: 'ph_veg', name: 'Vegetative', display_name: 'Vegetative' }),
+    ),
   );
 }
 
@@ -96,14 +102,36 @@ describe('BedView', () => {
     expect(screen.queryByTestId('bed-plan-canvas')).toBeNull();
   });
 
-  it('keeps the tab in the URL hash: a deep link opens the planting placeholder, which points at the details', async () => {
+  it('keeps the tab in the URL hash: a deep link opens the planting tab with its Plant button', async () => {
     useBackend();
-    const user = userEvent.setup();
     renderBed(bedSummary(), '/standorte/locations/loc_b03#planting');
     expect(await screen.findByTestId('bed-planting-tab')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Planting' })).toHaveAttribute('aria-selected', 'true');
-    await user.click(screen.getByRole('button', { name: 'Go to details' }));
-    expect(await screen.findByTestId('details-stub')).toBeInTheDocument();
+    expect(await screen.findByTestId('bed-plant-button')).toBeEnabled();
+  });
+
+  it('shows a badge on the bed while a planting under way was started despite a crop-rotation hint (GP-FR-132)', async () => {
+    useBackend([
+      http.get(`${BASE}/planting-runs`, () =>
+        HttpResponse.json([
+          { key: 'run_1', status: 'planned', rotation_override_reason: 'No other bed is free' },
+          { key: 'run_2', status: 'completed', rotation_override_reason: 'Last year, long over' },
+          { key: 'run_3', status: 'active', rotation_override_reason: null },
+        ]),
+      ),
+    ]);
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    const badge = await screen.findByTestId('bed-rotation-badge');
+    expect(badge).toHaveTextContent('Crop rotation hint');
+    expect(badge).toHaveTextContent('Planted anyway: No other bed is free');
+    expect(badge).not.toHaveTextContent('long over');
+  });
+
+  it('shows no badge when no planting overrides a hint, and none when the runs cannot be read', async () => {
+    useBackend([http.get(`${BASE}/planting-runs`, () => HttpResponse.json({}, { status: 500 }))]);
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    await screen.findByTestId('bed-header');
+    await waitFor(() => expect(screen.queryByTestId('bed-rotation-badge')).toBeNull());
   });
 
   it('opens the care tab with the open tasks of the bed (GP-FR-083) and keeps history an honest empty state', async () => {

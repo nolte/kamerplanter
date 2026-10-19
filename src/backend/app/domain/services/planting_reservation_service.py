@@ -95,6 +95,8 @@ ERROR_QUOTA = "plan.quota_exceeded"
 MAX_RESERVED_SLOTS = MAX_SLOTS_PER_BATCH
 #: Summary of the ``clearing`` care event; the UI renders the localised text from ``category`` and ``reason``.
 CLEARING_SUMMARY = "Bed cleared ({termination_type})"
+#: Summary of the ``position_corrected`` care event (GP-FR-068); the UI renders the localised text from ``category``.
+POSITION_CORRECTED_SUMMARY = "Position corrected ({slot_id})"
 
 
 @dataclass(frozen=True)
@@ -500,6 +502,43 @@ class PlantingReservationService:
             raise PlanValidationError([(None, "state", "plantings.unknown_state", {"allowed": list(PLANTING_STATES)})])
         rows = self._repo.list_plantings(location_key, tenant_key=tenant_key, state=state, year=year)
         return rows[offset : offset + limit]
+
+    # ── GP-FR-068: the care event of a corrected plant position ───────
+
+    def record_position_correction(
+        self,
+        slot_key: str,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+    ) -> str | None:
+        """Log ``care_event(position_corrected)`` for the plants standing in the slot; its key, or ``None``.
+
+        "Correct position" moves the slot of a plant (slot and plant are 1:1, GP-FR-068), so the history
+        names the plant. A slot nobody stands in (a planned or empty position) moved no plant: nothing to log.
+        The event is server-only (``trigger = system``), a client cannot write it (SR-009).
+        """
+        self._require_editor(role)
+        slot, location = resolve_owned_slot(self._sites, slot_key, tenant_key)
+        plants = self._repo.active_plants_in([slot.key or slot_key], tenant_key=tenant_key)
+        if not plants:
+            return None
+        view = self._care_events.create(
+            CareEventInput(
+                location_key=location.key or "",
+                category="position_corrected",
+                summary=POSITION_CORRECTED_SUMMARY.format(slot_id=slot.slot_id),
+                plant_keys=sorted({plant.plant_key for plant in plants}),
+                performed_at=datetime.now(UTC),
+            ),
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            origin=CareEventOrigin(trigger="system"),
+        )
+        logger.info("planting_reservation.position_corrected", slot_key=slot_key, plants=len(plants))
+        return view.event.key
 
     # ── GP-API-019: POST /locations/{key}/clear ───────────────────────
 
