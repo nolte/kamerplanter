@@ -1842,6 +1842,12 @@ CARE_EVENT_TASK_INDEX_FIELDS = ["task_key"]
 #: (#2029, ``test_tenant_unique_indexes_are_scoped``), and a source event belongs to
 #: exactly one tenant, so the constraint is not weakened.
 CARE_EVENT_SOURCE_REF_INDEX_FIELDS = ["tenant_key", "source_ref.collection", "source_ref.key"]
+#: A site's irrigation zones (GP-API-050, §20.11; v0099). ``tenant_key`` leads: the zone carries it (E-01).
+IRRIGATION_ZONE_SITE_INDEX_FIELDS = ["tenant_key", "site_key"]
+#: A bed is in at most one irrigation zone (§14.1, WP 7.1; v0099): ``zone_covers`` is unique on its target.
+#: An edge collection carries no ``tenant_key``; the location it points at has exactly one site, so the
+#: constraint holds per tenant as well.
+ZONE_COVERS_TARGET_INDEX_FIELDS = ["_to"]
 
 
 #: Fields of the canonical species dedup index (REQ-048 Stufe 1 / SEC-003).
@@ -2877,6 +2883,13 @@ def ensure_collections(db: StandardDatabase) -> None:
     care_events_col.add_persistent_index(
         fields=CARE_EVENT_SOURCE_REF_INDEX_FIELDS, unique=True, sparse=True, in_background=True
     )
+    # REQ-053 WP 7.1 (v0099): the zones of a site, and one zone per bed.
+    db.collection(IRRIGATION_ZONES).add_persistent_index(
+        fields=IRRIGATION_ZONE_SITE_INDEX_FIELDS, unique=False, in_background=True
+    )
+    # Unique: one zone per bed. Created only when clean — this runs before the migrations, and a volume with two
+    # edges to one bed must still boot so v0099 can report them (the v0070 shape, ``ensure_unique_index_when_clean``).
+    ensure_unique_index_when_clean(db.collection(ZONE_COVERS), ZONE_COVERS_TARGET_INDEX_FIELDS)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

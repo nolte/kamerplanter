@@ -53,6 +53,7 @@ from app.common.dependencies import (
     get_garden_plan_import_service,
     get_garden_plan_service,
     get_garden_resource_service,
+    get_irrigation_zone_service,
     get_plant_state_service,
     get_planting_reservation_service,
     get_planting_run_service,
@@ -72,6 +73,12 @@ from app.data_access.arango.garden_plan_repository import (
     ArangoGardenPlanRepository,
 )
 from app.data_access.arango.graph_repository import ArangoGraphRepository
+from app.data_access.arango.irrigation_zone_repository import (
+    COVERAGE_WRITE,
+    DELETE_WRITE,
+    ZONE_WRITE,
+    ArangoIrrigationZoneRepository,
+)
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
 from app.data_access.arango.planting_reservation_repository import (
@@ -96,6 +103,7 @@ from app.domain.services.garden_plan_export_service import GardenPlanExportServi
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
@@ -121,6 +129,8 @@ B_SECRETS = (
     "slot2_b",
     "obj_b",
     "zone_b",
+    "Bobs Tropfzone",
+    "barrel_b",
     "ev_b",
     B,
 )
@@ -151,6 +161,9 @@ _TOUCHED: tuple[str, ...] = tuple(
             *_SLOT_BATCH_WRITE,
             *_CLEAR_WRITE,
             *_QUICK_WRITE,
+            *ZONE_WRITE,
+            *COVERAGE_WRITE,
+            *DELETE_WRITE,
         )
     )
 )
@@ -224,6 +237,21 @@ def _tree(key: str, site: str, label: str) -> dict[str, Any]:
     }
 
 
+def _barrel(key: str, site: str) -> dict[str, Any]:
+    return {
+        "_key": key,
+        "site_key": site,
+        "object_type": "water_source",
+        "label": "",
+        # Inside the 15 m boundary of the ``put_boundary`` case, so that case's positive control still saves.
+        "geometry": {"kind": "point", "origin": [12, 3]},
+        "props": {"object_type": "water_source", "water_source_kind": "rain_barrel"},
+        "off_site": False,
+        "locked": False,
+        "z_order": 0,
+    }
+
+
 @pytest.fixture(autouse=True)
 def _no_rate_limit(monkeypatch):
     """The rate limit is not under test, and the repeated calls of one case would trip it."""
@@ -238,8 +266,9 @@ def db(database):
     database.collection(col.LOCATION_TYPES).insert({"_key": "bed", "name": "Bed", "is_bed": True})
     for site, tenant, name in (("site_a", A, "Alices Garten"), ("site_b", B, "Bobs Garten")):
         database.collection(col.SITES).insert(_site(site, tenant, name))
+        zone_name = "Alices Zone" if tenant == A else "Bobs Tropfzone"
         database.collection(col.IRRIGATION_ZONES).insert(
-            {"_key": f"zone_{site[-1]}", "tenant_key": tenant, "site_key": site}
+            {"_key": f"zone_{site[-1]}", "tenant_key": tenant, "site_key": site, "name": zone_name}
         )
     for suffix, site, bed_name, tree_name in (
         ("a", "site_a", "Alices Beet", "Alices Birke"),
@@ -256,6 +285,8 @@ def db(database):
             {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot2_{suffix}"}
         )
         database.collection(col.GARDEN_OBJECTS).insert(_tree(f"obj_{suffix}", site, tree_name))
+        # WP 7.1: a water source per tenant, the target of a zone's ``water_source_key`` (GP-NFR-058).
+        database.collection(col.GARDEN_OBJECTS).insert(_barrel(f"barrel_{suffix}", site))
     # WP 3.4: a global species and family for the rotation hints, and one backfilled year of tenant B's bed
     database.collection(col.SPECIES).insert(
         {
@@ -380,7 +411,11 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
     importer: Any = GardenPlanImportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export)
     plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
+    zones: Any = IrrigationZoneService(
+        ArangoIrrigationZoneRepository(db), ArangoSiteRepository(db), ArangoGardenObjectRepository(db)
+    )
     if unscoped:
+        zones = _Unscoped(zones)
         plant_states = _Unscoped(plant_states)
         adjacency = _Unscoped(adjacency)
         rotation = _Unscoped(rotation)
@@ -412,6 +447,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
+    app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
 
@@ -644,6 +680,26 @@ CASES: tuple[Case, ...] = (
         writes=True,
     ),
     Case("remove_manual_adjacency", "DELETE", "/slots/slot_b/adjacent/slot2_b", owner_status=204, writes=True),
+    # REQ-053 WP 7.1, GP-API-050/051: the irrigation zones of a site and the beds they cover.
+    Case("list_irrigation_zones", "GET", "/sites/site_b/irrigation-zones"),
+    Case(
+        "create_irrigation_zone",
+        "POST",
+        "/sites/site_b/irrigation-zones",
+        {"name": "Intruder zone", "water_source_key": "barrel_b"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case("get_irrigation_zone", "GET", "/irrigation-zones/zone_b"),
+    Case("patch_irrigation_zone", "PATCH", "/irrigation-zones/zone_b", {"name": "Taken over"}, writes=True),
+    Case(
+        "replace_irrigation_zone_locations",
+        "PUT",
+        "/irrigation-zones/zone_b/locations",
+        {"location_keys": ["bed_b"]},
+        writes=True,
+    ),
+    Case("delete_irrigation_zone", "DELETE", "/irrigation-zones/zone_b", owner_status=204, writes=True),
 )
 
 _ABSENT = {
@@ -653,6 +709,8 @@ _ABSENT = {
     "slot2_b": "slot2_gone",
     "obj_b": "obj_gone",
     "ev_b": "ev_gone",
+    "zone_b": "zone_gone",
+    "barrel_b": "barrel_gone",
 }
 
 
@@ -736,11 +794,12 @@ def _route_pattern(path: str) -> re.Pattern[str]:
 def _routes_of_the_four_routers() -> set[tuple[str, str]]:
     from app.api.v1.garden_objects.tenant_router import router as garden_objects
     from app.api.v1.garden_plan.tenant_router import router as garden_plan
+    from app.api.v1.irrigation_zones.tenant_router import router as irrigation_zones
     from app.api.v1.locations.tenant_router import router as locations
     from app.api.v1.slots.tenant_router import router as slots
 
     found: set[tuple[str, str]] = set()
-    for router in (garden_plan, garden_objects, locations, slots):
+    for router in (garden_plan, garden_objects, locations, slots, irrigation_zones):
         for route in router.routes:
             path = f"{router.prefix}{route.path.removeprefix(router.prefix)}"
             found.update((method, path) for method in route.methods)
@@ -937,6 +996,37 @@ REFERENCE_CASES: tuple[ReferenceCase, ...] = (
         "zone_a",
         "zone_gone",
     ),
+    # REQ-053 WP 7.1, GP-ACC-041 (zone part): the beds of a zone and its water source.
+    ReferenceCase(
+        "zone.location_keys",
+        "PUT",
+        "/irrigation-zones/zone_a/locations",
+        "location_keys[0]",
+        lambda key: {"location_keys": [key]},
+        "bed_b",
+        "bed_a",
+        "bed_gone",
+    ),
+    ReferenceCase(
+        "zone_create.water_source_key",
+        "POST",
+        "/sites/site_a/irrigation-zones",
+        "water_source_key",
+        lambda key: {"name": "Zone", "water_source_key": key},
+        "barrel_b",
+        "barrel_a",
+        "barrel_gone",
+    ),
+    ReferenceCase(
+        "zone_patch.water_source_key",
+        "PATCH",
+        "/irrigation-zones/zone_a",
+        "water_source_key",
+        lambda key: {"water_source_key": key},
+        "barrel_b",
+        "barrel_a",
+        "barrel_gone",
+    ),
 )
 
 
@@ -1005,8 +1095,23 @@ class TestTheReferenceChecksCanFail:
         def any_zone(self, zone_key, *, tenant_key):
             return "site_a" if db.collection(col.IRRIGATION_ZONES).has(zone_key) else None
 
+        def no_resolution(self, *args, **kwargs):
+            return None
+
         monkeypatch.setattr(ArangoGardenPlanRepository, "load_structure", every_structure)
         monkeypatch.setattr(ArangoGardenPlanRepository, "irrigation_zone_site_key", any_zone)
+
+        def unchecked_fields(self, location_key, fields):
+            # The column write without the in-transaction zone predicate (what WP 7.1's review closed).
+            db.collection(col.LOCATIONS).update({"_key": location_key, **fields}, merge=False, keep_none=False)
+
+        # WP 7.1: a zone service that skipped its reference resolution (the beds, the water source) — and, because the
+        # writes re-check the zone and the water source inside their transaction, those second checks as well; with
+        # either layer alone in place the refusal still holds, so the falsification must switch off both.
+        monkeypatch.setattr(IrrigationZoneService, "_resolve_locations", no_resolution)
+        monkeypatch.setattr(IrrigationZoneService, "_resolve_water_source", no_resolution)
+        monkeypatch.setattr(ArangoIrrigationZoneRepository, "_take_water_source", staticmethod(no_resolution))
+        monkeypatch.setattr(ArangoGardenPlanRepository, "update_location_fields", unchecked_fields)
 
     @pytest.mark.parametrize("case", REFERENCE_CASES, ids=lambda case: case.name)
     def test_an_unscoped_resolution_is_caught(self, db, unscoped_references, case: ReferenceCase) -> None:

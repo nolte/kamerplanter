@@ -63,6 +63,11 @@ class FakeSites:
     def get_location_by_key(self, key):
         return self.repo.locations.get(key) if self.repo is not None else None
 
+    def get_locations_by_keys(self, keys):
+        return [
+            self.repo.locations[key] for key in sorted(keys) if self.repo is not None and key in self.repo.locations
+        ]
+
     def get_slot_by_key(self, key):
         if self.repo is None:
             return None

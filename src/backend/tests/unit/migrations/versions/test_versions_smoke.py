@@ -98,6 +98,10 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
             # also v0092 (#1534): tasks.(tenant_key, status) is bootstrapped on a fresh volume
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
+            # v0099 (REQ-053 WP 7.1): irrigation_zones.(tenant_key, site_key) and the unique zone_covers._to
+            # are bootstrapped on a fresh volume.
+            {"type": "persistent", "fields": col.IRRIGATION_ZONE_SITE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.ZONE_COVERS_TARGET_INDEX_FIELDS, "unique": True},
             {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
             # v0019 actuators (tenant_key, name) lookup index

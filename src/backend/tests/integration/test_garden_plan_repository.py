@@ -38,6 +38,8 @@ _DOCUMENTS = (
     col.GARDEN_OBJECTS,
     col.GARDEN_PLAN_AUDIT,
     col.CARE_EVENTS,
+    # The batch unlinks a deleted water source from its zones (REQ-053 WP 7.1), so the transaction declares it.
+    col.IRRIGATION_ZONES,
     col.LOCATION_TYPES,
     col.USERS,
     col.PLANT_INSTANCES,

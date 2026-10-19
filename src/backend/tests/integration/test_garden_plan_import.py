@@ -524,6 +524,9 @@ class TestReferencesGpFr141:
         }
         stored = {d["name"]: d for d in db.collection(col.LOCATIONS).find({"site_key": "site_c"})}
         assert stored[beds[2]["name"]]["irrigation_zone_key"] == "z_here"  # the positive control: a valid one is kept
+        # WP 7.1: the kept zone covers the imported bed by edge as well, and only that one (field and edge in step).
+        covers = [(e["_from"], e["_to"]) for e in db.collection(col.ZONE_COVERS).all()]
+        assert covers == [("irrigation_zones/z_here", f"locations/{stored[beds[2]['name']]['_key']}")]
         assert stored[beds[1]["name"]]["soil_profile"]["substrate_key"] == "sub_global"
         for bed in (beds[0], beds[1], beds[3]):
             assert (

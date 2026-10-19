@@ -128,3 +128,38 @@ def find_owned_location(
         return resolve_owned_location(source, location_key, tenant_key)
     except NotFoundError:
         return None
+
+
+class SiteAnchorBatchSource(SiteAnchorSource, Protocol):
+    """The anchor reads plus one read of many locations by key (REQ-053 WP 7.1)."""
+
+    def get_locations_by_keys(self, keys: list[str]) -> list[Location]: ...
+
+
+def find_owned_locations(
+    source: SiteAnchorBatchSource,
+    location_keys: list[str],
+    tenant_key: str,
+) -> dict[str, Location]:
+    """:func:`find_owned_location` for a set of keys: the owned ones by key, in one location read.
+
+    The predicate is the same — the location's site exists and belongs to ``tenant_key`` — and each distinct
+    site is resolved once through :func:`require_owned_site`. Absent, site-less and foreign keys are simply not
+    in the answer; a caller that must name them compares against what it asked for.
+    """
+    wanted = sorted({key for key in location_keys if key})
+    if not wanted or not tenant_key:
+        return {}
+    owned_site: dict[str, bool] = {}
+    found: dict[str, Location] = {}
+    for location in source.get_locations_by_keys(wanted):
+        site_key = location.site_key
+        if site_key not in owned_site:
+            try:
+                require_owned_site(source, site_key, tenant_key, "Location", location.key or "")
+                owned_site[site_key] = True
+            except NotFoundError:
+                owned_site[site_key] = False
+        if owned_site[site_key] and location.key and location.key in wanted:
+            found[location.key] = location
+    return found
