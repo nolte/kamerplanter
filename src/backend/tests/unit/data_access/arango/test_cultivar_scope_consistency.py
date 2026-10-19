@@ -226,6 +226,11 @@ _MODULES_TOUCHING_CULTIVARS: dict[str, str] = {
         "``cultivar_key`` to render its name. System context by analysis decision — "
         "the anchor row carries the tenant, the cultivar is only resolved."
     ),
+    "data_access/arango/plant_state_repository.py": (
+        "``DOCUMENT()`` dereference of a plant's *already tenant-filtered* ``cultivar_key`` to show its name in the "
+        "plant info (REQ-053 WP 3.7). System context: the plant row carries the tenant, the cultivar is only resolved; "
+        "nothing is listed or searched."
+    ),
     "data_access/arango/succession_plan_repository.py": (
         "Write-path reference guard (SEC-006, #1112): declares ``cultivar_key`` as an "
         "owned reference so a plan cannot point at a foreign tenant's cultivar. "
