@@ -1,0 +1,130 @@
+import { render } from '@testing-library/react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import type { ReactNode } from 'react';
+import { describe, expect, it } from 'vitest';
+import { smallPlan } from '@/test/gardenPlanFixtures';
+import { SvgPlanRenderer } from './SvgPlanRenderer';
+import {
+  NO_SELECTION,
+  TEST_LABELS,
+  bed,
+  options,
+  plantedBed,
+  viewportAt,
+} from './rendererTestKit';
+import type { PlantMarkerState } from './types';
+
+/**
+ * The state channels of a plant marker and the red outline of a refused object (REQ-053 WP 3.7:
+ * GP-UX-059/060/062, GP-FR-190 cluster summary, GP-UX-017).
+ */
+const theme = createTheme();
+const wrap = (node: ReactNode) => <ThemeProvider theme={theme}>{node}</ThemeProvider>;
+
+function state(overrides: Partial<PlantMarkerState> = {}): PlantMarkerState {
+  return {
+    lifecycle: 'active',
+    badge: null,
+    initial: 'T',
+    progress: 0.5,
+    ariaLabel: 'Tomato, Flowering',
+    ...overrides,
+  };
+}
+
+function model(count = 3) {
+  const { slots, plants } = plantedBed('loc_a', 1, 1, count, 0.5);
+  return smallPlan({ slots, plants, locations: [bed('loc_a', 1, 1)], garden_objects: [] });
+}
+
+function mount(pxPerM: number, opts = options()) {
+  const view = render(
+    wrap(new SvgPlanRenderer().render(model(), viewportAt(0, 10, pxPerM), NO_SELECTION, opts)),
+  );
+  return view.container.querySelector('svg') as SVGSVGElement;
+}
+
+describe('plant marker channels', () => {
+  it('uses the state label, the initial and one badge on a stated marker of the entered bed', () => {
+    const svg = mount(
+      100,
+      options({
+        enteredLocationKey: 'loc_a',
+        plantStates: { loc_a_p0: state({ badge: 'overdue', ariaLabel: 'Tomato, 2 tasks overdue' }) },
+      }),
+    );
+    const marker = svg.querySelector('g[data-plan-key="loc_a_p0"]') as SVGGElement;
+    expect(marker.getAttribute('aria-label')).toBe('Tomato, 2 tasks overdue');
+    expect(marker.querySelector('text')?.textContent).toBe('T');
+    expect(marker.querySelectorAll('[data-plan-badge-reason]')).toHaveLength(1);
+    // the plants without a state keep the plain label and no badge
+    const plain = svg.querySelector('g[data-plan-key="loc_a_p1"]') as SVGGElement;
+    expect(plain.getAttribute('aria-label')).toBe('Plant LOC_A-1');
+    expect(plain.querySelector('[data-plan-badge-reason]')).toBeNull();
+  });
+
+  it('draws the phase progress arc only from the detail zoom on (R-014)', () => {
+    const opts = options({ enteredLocationKey: 'loc_a', plantStates: { loc_a_p0: state() } });
+    expect(mount(99, opts).querySelector('[data-plan-progress]')).toBeNull();
+    expect(mount(100, opts).querySelector('[data-plan-progress="0.50"]')).not.toBeNull();
+  });
+
+  it('points the marker at the open bubble with aria-describedby (GP-UX-058)', () => {
+    const svg = mount(
+      100,
+      options({
+        enteredLocationKey: 'loc_a',
+        plantStates: { loc_a_p0: state() },
+        describedPlantKey: 'loc_a_p0',
+      }),
+    );
+    expect(svg.querySelector('g[data-plan-key="loc_a_p0"]')?.getAttribute('aria-describedby')).toBe('gp-plant-info');
+    expect(svg.querySelector('g[data-plan-key="loc_a_p1"]')?.getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('summarises a dense bed as "n plants, m need attention" with the top reason (GP-FR-190, GP-UX-060)', () => {
+    const labels = {
+      ...TEST_LABELS,
+      clusterSummary: ({ count, attention }: { count: number; attention: number }) =>
+        `${count} plants - ${attention} need attention`,
+    };
+    const svg = mount(
+      10, // 0.5 m = 5 px: below the marker threshold, one cluster
+      options({
+        labels,
+        plantStates: {
+          loc_a_p0: state({ badge: 'water' }),
+          loc_a_p1: state({ badge: 'problem' }),
+          loc_a_p2: state(),
+        },
+      }),
+    );
+    const cluster = svg.querySelector('[data-plan-cluster="loc_a"]') as SVGGElement;
+    expect(cluster.getAttribute('aria-label')).toBe('3 plants - 2 need attention');
+    // the badge shows the highest priority among them: problem beats water
+    expect(cluster.querySelector('[data-plan-badge-reason]')?.getAttribute('data-plan-badge-reason')).toBe('problem');
+  });
+
+  it('keeps the plain cluster text when no state of the bed is known', () => {
+    const svg = mount(10, options());
+    const cluster = svg.querySelector('[data-plan-cluster="loc_a"]') as SVGGElement;
+    expect(cluster.getAttribute('aria-label')).toBe(TEST_LABELS.cluster({ count: 3 }));
+    expect(cluster.querySelector('[data-plan-badge-reason]')).toBeNull();
+  });
+});
+
+describe('objects a refused save named (GP-UX-017)', () => {
+  it('draws a heavy red outline on exactly those objects', () => {
+    const svg = mount(
+      100,
+      options({ invalidKeys: new Set(['loc_a']) }),
+    );
+    const flagged = svg.querySelector('g[data-plan-key="loc_a"]') as SVGGElement;
+    expect(flagged.getAttribute('data-plan-invalid')).toBe('true');
+    const outline = flagged.querySelector('path') as SVGPathElement;
+    expect(outline.getAttribute('stroke')).toBe(theme.palette.error.main);
+    expect(Number(outline.getAttribute('stroke-width'))).toBeGreaterThan(3);
+    const other = svg.querySelector('g[data-plan-key="__boundary__"]');
+    expect(other?.getAttribute('data-plan-invalid')).toBeNull();
+  });
+});

@@ -36,6 +36,7 @@ from app.data_access.arango.overwintering_profile_template_repository import (
     ArangoOverwinteringProfileTemplateRepository,
 )
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
 from app.data_access.arango.planting_reservation_repository import ArangoPlantingReservationRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.post_harvest_repository import ArangoPostHarvestRepository
@@ -110,6 +111,7 @@ from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.post_harvest_service import PostHarvestService
@@ -505,6 +507,11 @@ def get_bed_rotation_service() -> BedRotationService:
         get_care_event_service(),
         validator,
     )
+
+
+def get_plant_state_service() -> PlantStateService:
+    """REQ-053 WP 3.7 — the visual state and the info-bubble facts of the plants of a bed."""
+    return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()))
 
 
 def get_bed_history_service() -> BedHistoryService:

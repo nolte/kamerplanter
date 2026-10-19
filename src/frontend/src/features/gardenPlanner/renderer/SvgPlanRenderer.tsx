@@ -6,6 +6,8 @@ import type { BedStatus, GardenObject, PlanLocation, Point } from '../model/type
 import { BasePlanRenderer } from './BasePlanRenderer';
 import { OBJECT_ICON_PATHS } from './icons';
 import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
+import { PlantBadge, PlantMarkerBody } from './PlantMarker';
+import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
 import type { MarkerEntry, ShapeEntry } from './planIndex';
 import {
   buildScene,
@@ -14,7 +16,7 @@ import {
   type SceneMarkerBatch,
   type SceneShape,
 } from './scene';
-import type { RenderOptions, RenderSelection, RendererLabels, Viewport } from './types';
+import type { PlantMarkerState, RenderOptions, RenderSelection, RendererLabels, Viewport } from './types';
 
 /**
  * The MVP renderer (D-01): SVG in React behind the {@link PlanRenderer} boundary.
@@ -108,10 +110,20 @@ interface PlanSvgProps {
 
 function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) {
   const theme = useTheme();
-  const { enteredLocationKey, fieldMode, labels, onFocusKey, onActivateKey, phaseColors } = options;
+  const {
+    enteredLocationKey,
+    fieldMode,
+    labels,
+    onFocusKey,
+    onActivateKey,
+    phaseColors,
+    plantStates,
+    describedPlantKey,
+    invalidKeys,
+  } = options;
   const scene = useMemo(
-    () => buildScene(model, viewport, selection, { enteredLocationKey }),
-    [model, viewport, selection, enteredLocationKey],
+    () => buildScene(model, viewport, selection, { enteredLocationKey, plantStates, invalidKeys }),
+    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys],
   );
   const palette = useMemo(() => planPalette(theme), [theme]);
   const { pxPerM } = viewport;
@@ -170,6 +182,8 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
           labels={labels}
           palette={palette}
           phaseColors={phaseColors}
+          state={plantStates?.[marker.entry.key]}
+          described={describedPlantKey === marker.entry.key}
           onFocusKey={onFocusKey}
           onActivateKey={onActivateKey}
         />
@@ -193,6 +207,8 @@ export interface PlanPalette {
   water: string;
   plant: string;
   slot: string;
+  /** Outline of an object a refused save named (GP-UX-017). */
+  invalid: string;
   /** Task badge on a bed (GP-FR-089): overdue tasks, otherwise open tasks; the text is the contrast of the fill. */
   badgeOverdue: { fill: string; text: string };
   badgeOpen: { fill: string; text: string };
@@ -219,6 +235,7 @@ export function planPalette(theme: Theme): PlanPalette {
     water: alpha(palette.info.main, 0.4),
     plant: palette.success.dark,
     slot: palette.text.secondary,
+    invalid: palette.error.main,
     badgeOverdue: { fill: palette.error.main, text: palette.getContrastText(palette.error.main) },
     badgeOpen: { fill: palette.primary.main, text: palette.getContrastText(palette.primary.main) },
   };
@@ -283,7 +300,7 @@ const BADGE_FONT_PX = 12;
 /** A bed narrower than this on screen shows no badge (the aria-label still carries the count). */
 const BADGE_MIN_BED_PX = 44;
 
-function shapeStyle(entry: ShapeEntry, selected: boolean, palette: PlanPalette) {
+function shapeStyle(entry: ShapeEntry, selected: boolean, invalid: boolean, palette: PlanPalette) {
   const location = entry.kind === 'location' ? (entry.source as PlanLocation) : null;
   const object = entry.kind === 'gardenObject' ? (entry.source as GardenObject) : null;
   const bed = location ? palette.bed[location.bed_status] : null;
@@ -294,13 +311,15 @@ function shapeStyle(entry: ShapeEntry, selected: boolean, palette: PlanPalette) 
         : bed
           ? bed.fill
           : objectFill(object as GardenObject, palette),
-    stroke: selected
-      ? palette.selected
-      : entry.kind === 'boundary'
-        ? palette.boundary
-        : palette.stroke,
-    strokeWidth: selected ? 3 : entry.kind === 'boundary' ? 2 : 1,
-    strokeDasharray: entry.kind === 'boundary' ? '10 6' : bed?.dash,
+    stroke: invalid
+      ? palette.invalid
+      : selected
+        ? palette.selected
+        : entry.kind === 'boundary'
+          ? palette.boundary
+          : palette.stroke,
+    strokeWidth: invalid ? 4 : selected ? 3 : entry.kind === 'boundary' ? 2 : 1,
+    strokeDasharray: invalid ? undefined : entry.kind === 'boundary' ? '10 6' : bed?.dash,
   };
 }
 
@@ -314,7 +333,7 @@ const ShapeNode = memo(function ShapeNode({
   onActivateKey,
 }: ShapeNodeProps) {
   const { entry, selected } = item;
-  const style = shapeStyle(entry, selected, palette);
+  const style = shapeStyle(entry, selected, item.invalid, palette);
   const d = useMemo(() => pathData(entry), [entry]);
   const centre = useMemo(() => centroid(entry.geometry), [entry]);
   const fontSize = fontPx / pxPerM;
@@ -359,6 +378,7 @@ const ShapeNode = memo(function ShapeNode({
       className="gp-obj"
       data-plan-key={entry.key}
       data-plan-kind={entry.kind}
+      data-plan-invalid={item.invalid ? 'true' : undefined}
       role="button"
       tabIndex={item.tabStop ? 0 : -1}
       aria-label={ariaLabel}
@@ -534,6 +554,10 @@ interface MarkerNodeProps {
   labels: RendererLabels;
   palette: PlanPalette;
   phaseColors?: Readonly<Record<string, string>>;
+  /** The plant's state (GP-UX-059); without one the plain marker is drawn. */
+  state?: PlantMarkerState;
+  /** The info bubble of this plant is open: point at it (GP-UX-058). */
+  described?: boolean;
   onFocusKey?: (key: string) => void;
   onActivateKey?: (key: string) => void;
 }
@@ -549,13 +573,32 @@ const MarkerNode = memo(function MarkerNode({
   labels,
   palette,
   phaseColors,
+  state,
+  described,
   onFocusKey,
   onActivateKey,
 }: MarkerNodeProps) {
   const { entry, selected, interactive, tabStop } = marker;
+  const theme = useTheme();
   const plant = entry.kind === 'plant';
-  const radius = (selected ? MARKER_RADIUS_PX * 1.5 : MARKER_RADIUS_PX) / pxPerM;
-  const circle = (
+  const stated = plant && interactive && state !== undefined;
+  const baseRadiusPx = stated ? STATE_MARKER_RADIUS_PX : MARKER_RADIUS_PX;
+  const radius = (selected ? baseRadiusPx * 1.5 : baseRadiusPx) / pxPerM;
+  const fill = markerFill(entry.phaseKey, palette, phaseColors);
+  const circle = stated ? (
+    <PlantMarkerBody
+      entry={entry}
+      state={state}
+      radius={radius}
+      pxPerM={pxPerM}
+      fill={fill}
+      ringColor={palette.text}
+      initialColor={theme.palette.getContrastText(fill)}
+      selectedColor={palette.selected}
+      selected={selected}
+      detail={pxPerM >= DETAIL_PX_PER_M}
+    />
+  ) : (
     <circle
       className="gp-shape"
       data-plan-key={interactive ? undefined : entry.key}
@@ -582,8 +625,9 @@ const MarkerNode = memo(function MarkerNode({
       role="button"
       tabIndex={tabStop ? 0 : -1}
       aria-label={
-        plant ? labels.plant({ id: entry.displayId }) : labels.slot({ id: entry.displayId })
+        plant ? (state?.ariaLabel ?? labels.plant({ id: entry.displayId })) : labels.slot({ id: entry.displayId })
       }
+      aria-describedby={described ? PLANT_INFO_ID : undefined}
       aria-pressed={selected}
       onFocus={onFocusKey ? () => onFocusKey(entry.key) : undefined}
       onKeyDown={onActivateKey ? activationKeys(onActivateKey, entry.key) : undefined}
@@ -674,7 +718,11 @@ const ClusterNode = memo(function ClusterNode({
     <g
       data-plan-cluster={cluster.locationKey}
       role="img"
-      aria-label={labels.cluster({ count: cluster.count })}
+      aria-label={
+        cluster.attention !== null && labels.clusterSummary
+          ? labels.clusterSummary({ count: cluster.count, attention: cluster.attention })
+          : labels.cluster({ count: cluster.count })
+      }
       pointerEvents="none"
     >
       <circle
@@ -694,6 +742,9 @@ const ClusterNode = memo(function ClusterNode({
       >
         {cluster.count}
       </text>
+      {cluster.attention && cluster.topBadge ? (
+        <PlantBadge code={cluster.topBadge} x={cluster.x + radius * 0.85} y={-cluster.y - radius * 0.85} radius={radius * 0.55} />
+      ) : null}
     </g>
   );
 });

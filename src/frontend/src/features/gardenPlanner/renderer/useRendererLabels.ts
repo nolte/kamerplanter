@@ -40,6 +40,7 @@ export function useRendererLabels(): RendererLabels {
       plant: ({ id }) => t(`${prefix}.plant`, { id }),
       slot: ({ id }) => t(`${prefix}.slot`, { id }),
       cluster: ({ count }) => t(`${prefix}.plantCount`, { count }),
+      clusterSummary: ({ count, attention }) => t(`${prefix}.clusterSummary`, { count, attention }),
       objectType: (type) => t(`${prefix}.objectType.${type}`),
       size,
     };

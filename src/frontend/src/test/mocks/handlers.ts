@@ -400,6 +400,8 @@ export const handlers = [
   http.get('/api/v1/t/:tenant/locations', () => {
     return HttpResponse.json(mockLocations);
   }),
+  // REQ-053 WP 3.7: the plant states of a bed (GP-API-054); none unless a test brings its own.
+  http.get('/api/v1/t/:tenant/locations/:key/plant-states', () => HttpResponse.json([])),
   http.get('/api/v1/t/:tenant/locations/:key', ({ params }) => {
     const loc = mockLocations.find((l) => l.key === params.key);
     if (!loc) return HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 });

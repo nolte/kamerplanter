@@ -6,6 +6,7 @@
  */
 import type { ReactNode } from 'react';
 import type { PlanModel } from '../model/planModel';
+import type { AttentionCode, Lifecycle } from '../model/plantState';
 import type { Geometry, GardenObjectType, Point } from '../model/types';
 
 /**
@@ -29,6 +30,22 @@ export interface RenderSelection {
   focusKey?: string | null;
 }
 
+/**
+ * What a plant marker shows of its state (REQ-053 GP-UX-059/060/062), prepared by the caller from the
+ * plant-states answer and the i18n texts: the renderer draws it and prints `ariaLabel`, nothing else.
+ */
+export interface PlantMarkerState {
+  lifecycle: Lifecycle;
+  /** The one badge: the highest-priority reason that needs attention (GP-UX-060), else `null`. */
+  badge: AttentionCode | null;
+  /** Species initial on the disc (GP-UX-015). */
+  initial: string;
+  /** Phase progress 0…1 for the ring segment at detail zoom; `null` when the phase has no typical length. */
+  progress: number | null;
+  /** Species, phase and what needs attention, e.g. "Tomate, Blüte, 2 Aufgaben überfällig" (GP-UX-062). */
+  ariaLabel: string;
+}
+
 /** Everything the renderer prints as text. Provided by the caller from i18n (no strings here). */
 export interface RendererLabels {
   /** `aria-label` of the drawing surface. */
@@ -41,6 +58,8 @@ export interface RendererLabels {
   plant: (params: { id: string }) => string;
   slot: (params: { id: string }) => string;
   cluster: (params: { count: number }) => string;
+  /** "{n} Pflanzen · {m} mit Handlungsbedarf" for a cluster whose plant states are known (GP-FR-190). */
+  clusterSummary?: (params: { count: number; attention: number }) => string;
   objectType: (type: GardenObjectType) => string;
   /** Short dimension text: "2 × 1 m", "Ø 3 m" or "4 m²". */
   size: (geometry: Geometry, areaM2: number) => string;
@@ -57,6 +76,18 @@ export interface RenderOptions {
    * default plant colour. The marker also carries a ring, so the phase colour is never the only cue.
    */
   phaseColors?: Readonly<Record<string, string>>;
+  /**
+   * The state of the plants of the entered bed by plant key (GP-UX-059). A plant without an entry keeps the
+   * plain marker; a bed whose states are known shows "{n} Pflanzen · {m} mit Handlungsbedarf" as a cluster.
+   */
+  plantStates?: Readonly<Record<string, PlantMarkerState>>;
+  /**
+   * Keys of objects a refused save named (GP-UX-017): drawn with a red outline, and the panel explains why.
+   * Never colour alone - the outline is also heavier.
+   */
+  invalidKeys?: ReadonlySet<string>;
+  /** The plant whose info bubble is open; its marker points at it with `aria-describedby` (GP-UX-058). */
+  describedPlantKey?: string | null;
   /** An object received focus (keyboard or pointer). */
   onFocusKey?: (key: string) => void;
   /** Enter or Space on a focused object. */
