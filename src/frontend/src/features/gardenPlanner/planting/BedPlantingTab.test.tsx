@@ -152,6 +152,31 @@ describe('Correct position (GP-FR-068, GP-ACC-022)', () => {
     expect(backend.writes[0].body).toEqual({ geometry: { kind: 'point', origin: [0.6, 0.9] } });
   });
 
+  it('does not save what the field does not say: unreadable text has no position, and a place outside the bed is refused', async () => {
+    const backend = useTabBackend();
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('planting-correct-pl_1'));
+    const dialog = await screen.findByTestId('position-dialog');
+    const x = await within(dialog).findByTestId('position-x');
+
+    await user.clear(x);
+    await user.type(x, 'abc');
+    expect(within(dialog).getByText('Enter a number in cm.')).toBeInTheDocument();
+    expect(within(dialog).getByTestId('position-save')).toBeDisabled();
+
+    await user.clear(x);
+    await user.type(x, '500'); // 5 m in a bed 1.2 m wide
+    expect(await within(dialog).findByTestId('position-outside')).toBeInTheDocument();
+    expect(within(dialog).getByTestId('position-save')).toBeDisabled();
+
+    await user.clear(x);
+    await user.type(x, '40');
+    expect(within(dialog).queryByTestId('position-outside')).toBeNull();
+    expect(within(dialog).getByTestId('position-save')).toBeEnabled();
+    expect(backend.writes).toEqual([]);
+  });
+
   it('explains that a plant in a zone has no single position and offers no way to move it', async () => {
     useTabBackend(PLANTINGS, { kind: 'polygon', points: [[0, 0], [1, 0], [1, 1]] });
     const user = userEvent.setup();

@@ -71,6 +71,10 @@ interface BackendOptions {
   preview?: (entry: EntryLayout) => PreviewResponse;
   favorites?: string[];
   incompatible?: Record<string, { species_key: string; reason: string }[]>;
+  /** The nth run creation (1-based) answers 500. */
+  failRun?: number;
+  /** Deleting a run answers 403 (lead only). */
+  deleteForbidden?: boolean;
 }
 
 function toPreviewResponse(result: ReturnType<typeof computeLayout>): PreviewResponse {
@@ -93,6 +97,7 @@ function toPreviewResponse(result: ReturnType<typeof computeLayout>): PreviewRes
 /** Install the handlers of the planting dialog; the preview answers like the Python reference (the port). */
 export function usePlantingBackend(options: BackendOptions = {}): PlantingBackend {
   const backend: PlantingBackend = { seen: [], previews: [] };
+  const runs = new Map<string, unknown[]>();
   const items = options.species ?? [species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm: '80' })];
   const record = async (request: Request) => {
     const text = await request.text();
@@ -144,17 +149,22 @@ export function usePlantingBackend(options: BackendOptions = {}): PlantingBacken
       );
     }),
     http.post(`${BASE}/planting-runs`, async ({ request }) => {
-      await record(request);
-      return HttpResponse.json({ key: 'run_1', name: 'run', status: 'planned' }, { status: 201 });
+      const body = (await record(request)) as { entries: unknown[] };
+      if (options.failRun === backend.seen.filter((s) => s.url === '/planting-runs').length) {
+        return HttpResponse.json({ error_code: 'INTERNAL', message: 'boom', details: [] }, { status: 500 });
+      }
+      const key = `run_${runs.size + 1}`;
+      runs.set(key, body.entries);
+      return HttpResponse.json({ key, name: 'run', status: 'planned' }, { status: 201 });
     }),
-    http.get(`${BASE}/planting-runs/:key/entries`, () =>
-      HttpResponse.json(
-        backend.seen
-          .filter((s) => s.url === '/planting-runs')
-          .flatMap((s) => (s.body as { entries: unknown[] }).entries)
-          .map((_, index) => ({ key: `entry_${index + 1}` })),
-      ),
+    http.get(`${BASE}/planting-runs/:key/entries`, ({ params }) =>
+      HttpResponse.json((runs.get(String(params.key)) ?? []).map((_, index) => ({ key: `${String(params.key)}_entry_${index + 1}` }))),
     ),
+    http.delete(`${BASE}/planting-runs/:key`, ({ params }) => {
+      backend.seen.push({ url: `/planting-runs/${String(params.key)}`, body: 'DELETE' });
+      if (options.deleteForbidden) return HttpResponse.json({ error_code: 'FORBIDDEN', message: 'lead only', details: [] }, { status: 403 });
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.post(`${BASE}/locations/:key/slots/batch`, async ({ request }) => {
       const body = (await record(request)) as { slots: unknown[] };
       return HttpResponse.json({

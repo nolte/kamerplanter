@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
@@ -20,6 +21,8 @@ from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencySe
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.site_service import SiteService
+
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/slots", tags=["slots"], responses=NOT_FOUND_RESPONSE)
 
@@ -104,9 +107,26 @@ def patch_slot(
     under a standing plant is "Correct position" (GP-FR-068): it logs ``care_event(position_corrected)``
     with the plant.
     """
+    previous = service.get_owned_slot(key, tenant_key=ctx.tenant_key)
     slot = service.patch_slot(key, tenant_key=ctx.tenant_key, role=ctx.role, patch=body)
-    if "geometry" in body.model_fields_set:
-        reservations.record_position_correction(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+    if "geometry" in body.model_fields_set and slot.geometry != previous.geometry:
+        try:
+            reservations.record_position_correction(
+                key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role
+            )
+        except Exception:
+            # The correction and its history line belong together: a move without the line would stay unlogged
+            # for good, because a retry of the same geometry changes nothing and logs nothing. Put the slot back
+            # and let the error through, so the client sees the move as not done.
+            logger.exception("slot.position_correction_not_logged", slot_key=key)
+            if previous.geometry is not None:
+                service.patch_slot(
+                    key,
+                    tenant_key=ctx.tenant_key,
+                    role=ctx.role,
+                    patch=SlotPatch(geometry=previous.geometry),
+                )
+            raise
     return to_response(slot, SlotResponse)
 
 

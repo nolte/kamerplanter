@@ -1,5 +1,5 @@
 import { tenantClient } from '@/api/client';
-import { createPlantingRun, listEntries } from '@/api/endpoints/plantingRuns';
+import { createPlantingRun, deletePlantingRun as removePlantingRun, listEntries } from '@/api/endpoints/plantingRuns';
 import { createTask } from '@/api/endpoints/tasks';
 import type { PlantingRun, PlantingRunCreate, PlantingRunEntry, TaskItem } from '@/api/types';
 import type {
@@ -59,6 +59,11 @@ export async function listPlantings(
 /** The run of the dialog; the server lays the entries out on the bed and reserves the slots (GP-FR-064/065). */
 export async function createRun(payload: PlantingRunCreate): Promise<PlantingRun> {
   return createPlantingRun(payload);
+}
+
+/** Take a planned run back (with its reservations and the layout slots only it used); the lead role may. */
+export async function deletePlantingRun(runKey: string): Promise<void> {
+  await removePlantingRun(runKey);
 }
 
 export async function runEntries(runKey: string): Promise<PlantingRunEntry[]> {

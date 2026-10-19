@@ -28,6 +28,7 @@ import { useApiError } from '@/hooks/useApiError';
 import type { Geometry, Point } from '../model/types';
 import LayoutCanvas from './LayoutCanvas';
 import { correctSlotPosition, getSlot, listBedSlots } from './plantingApi';
+import { insideBed } from './plantingLogic';
 
 /** Stepper step in centimetres; the long press of the field uses the larger one. */
 export const STEP_CM = 1;
@@ -69,7 +70,6 @@ export default function PositionCorrectionDialog({
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
   const [loaded, setLoaded] = useState<Loaded>({ status: 'loading' });
-  const [point, setPoint] = useState<Point | null>(null);
   const [others, setOthers] = useState<Point[]>([]);
   const [xText, setXText] = useState('');
   const [yText, setYText] = useState('');
@@ -82,7 +82,6 @@ export default function PositionCorrectionDialog({
         if (cancelled) return;
         if (slot.geometry?.kind === 'point') {
           setLoaded({ status: 'ready', origin: slot.geometry.origin });
-          setPoint(slot.geometry.origin);
           setXText(cmText(slot.geometry.origin[0]));
           setYText(cmText(slot.geometry.origin[1]));
           setOthers(
@@ -104,39 +103,42 @@ export default function PositionCorrectionDialog({
     };
   }, [slotKey, bedKey]);
 
+  // The two fields are the truth: what they say is what is saved. A text that is not a number has no position.
+  const parsed = useMemo<Point | null>(() => {
+    const x = Number(xText.trim().replace(',', '.'));
+    const y = Number(yText.trim().replace(',', '.'));
+    return xText.trim() !== '' && yText.trim() !== '' && Number.isFinite(x) && Number.isFinite(y)
+      ? [x / CM, y / CM]
+      : null;
+  }, [xText, yText]);
+  const inside = parsed !== null && insideBed(bedGeometry, parsed);
+  const shown: Point | null = parsed ?? (loaded.status === 'ready' ? loaded.origin : null);
+
   const moveTo = useCallback((next: Point) => {
-    setPoint(next);
     setXText(cmText(next[0]));
     setYText(cmText(next[1]));
   }, []);
 
   const step = (dxCm: number, dyCm: number) => {
-    if (!point) return;
-    moveTo([Math.round((point[0] + dxCm / CM) * CM) / CM, Math.round((point[1] + dyCm / CM) * CM) / CM]);
-  };
-
-  const typed = (axis: 0 | 1, text: string) => {
-    if (axis === 0) setXText(text);
-    else setYText(text);
-    const value = Number(text.replace(',', '.'));
-    if (text.trim() !== '' && Number.isFinite(value) && point) {
-      const next: Point = axis === 0 ? [value / CM, point[1]] : [point[0], value / CM];
-      setPoint(next);
-    }
+    if (!shown) return;
+    moveTo([Math.round((shown[0] + dxCm / CM) * CM) / CM, Math.round((shown[1] + dyCm / CM) * CM) / CM]);
   };
 
   const changed =
-    loaded.status === 'ready' && point !== null && (point[0] !== loaded.origin[0] || point[1] !== loaded.origin[1]);
+    loaded.status === 'ready' &&
+    parsed !== null &&
+    inside &&
+    (Math.abs(parsed[0] - loaded.origin[0]) > 1e-9 || Math.abs(parsed[1] - loaded.origin[1]) > 1e-9);
   const layers = useMemo(
-    () => (point ? [{ id: 'plant', shape: 'circle' as const, color: theme.palette.success.dark, positions: [point] }] : []),
-    [point, theme],
+    () => (shown ? [{ id: 'plant', shape: 'circle' as const, color: theme.palette.success.dark, positions: [shown] }] : []),
+    [shown, theme],
   );
 
   const save = async () => {
-    if (!point || !changed) return;
+    if (!parsed || !changed) return;
     setSaving(true);
     try {
-      await correctSlotPosition(slotKey, { kind: 'point', origin: point });
+      await correctSlotPosition(slotKey, { kind: 'point', origin: [Math.round(parsed[0] * CM) / CM, Math.round(parsed[1] * CM) / CM] });
       onCorrected();
     } catch (error) {
       handleError(error);
@@ -175,7 +177,7 @@ export default function PositionCorrectionDialog({
           </Alert>
         ) : null}
         {loaded.status === 'error' ? <Alert severity="error">{t('pages.bed.planting.position.failed')}</Alert> : null}
-        {loaded.status === 'ready' && point ? (
+        {loaded.status === 'ready' && shown ? (
           <>
             <Typography variant="body2" color="text.secondary">
               {t('pages.bed.planting.position.help')}
@@ -191,7 +193,7 @@ export default function PositionCorrectionDialog({
               testId="position-canvas"
             />
             <Box
-              sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 48px)', gap: 0.5, justifyContent: 'center' }}
+              sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 48px)', gap: 1, justifyContent: 'center' }}
               role="group"
               aria-label={t('pages.bed.planting.position.stepper')}
             >
@@ -227,7 +229,9 @@ export default function PositionCorrectionDialog({
               <TextField
                 label={t('pages.bed.planting.position.x')}
                 value={xText}
-                onChange={(event) => typed(0, event.target.value)}
+                onChange={(event) => setXText(event.target.value)}
+                error={parsed === null}
+                helperText={parsed === null ? t('pages.bed.planting.position.invalid') : undefined}
                 slotProps={{
                   input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
                   htmlInput: { inputMode: 'decimal', 'data-testid': 'position-x' },
@@ -237,7 +241,8 @@ export default function PositionCorrectionDialog({
               <TextField
                 label={t('pages.bed.planting.position.y')}
                 value={yText}
-                onChange={(event) => typed(1, event.target.value)}
+                onChange={(event) => setYText(event.target.value)}
+                error={parsed === null}
                 slotProps={{
                   input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
                   htmlInput: { inputMode: 'decimal', 'data-testid': 'position-y' },
@@ -245,6 +250,11 @@ export default function PositionCorrectionDialog({
                 sx={{ flex: 1 }}
               />
             </Box>
+            {parsed !== null && !inside ? (
+              <Alert severity="warning" data-testid="position-outside">
+                {t('pages.bed.planting.position.outside')}
+              </Alert>
+            ) : null}
           </>
         ) : null}
       </DialogContent>

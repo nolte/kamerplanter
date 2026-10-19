@@ -231,6 +231,7 @@ export default function BedPlantingTab({ bed, onChanged }: BedPlantingTabProps) 
             geometry={bed.geometry}
             onClose={() => setPlanting(false)}
             onPlanted={onPlanted}
+            onPartial={reload}
           />
         </Suspense>
       ) : null}

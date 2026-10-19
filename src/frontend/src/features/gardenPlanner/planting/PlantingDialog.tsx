@@ -24,7 +24,9 @@ import { listAllSpecies } from '@/api/endpoints/species';
 import type { Species } from '@/api/types';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useApiError } from '@/hooks/useApiError';
+import { useNotification } from '@/hooks/useNotification';
 import { useServerFavorites } from '@/hooks/useServerFavorites';
+import { toLocalShape } from '../model/geometry';
 import { computeLayout } from '../model/layout';
 import type { Geometry, Point } from '../model/types';
 import EntryCard from './EntryCard';
@@ -36,6 +38,7 @@ import {
   canAlternate,
   emptyEntry,
   hasErrors,
+  insideBed,
   MAX_ENTRIES,
   needsOverrideReason,
   parseLowerBound,
@@ -49,14 +52,14 @@ import {
   type EntryFormState,
   type Prefill,
 } from './plantingLogic';
-import { quickBody, readLastUsed, submitQuick, submitRun, writeLastUsed } from './plantingSubmit';
+import { PartialPlantingError, quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from './plantingSubmit';
 import type { RotationSeverity } from './plantingTypes';
 import { speciesLabel } from './SpeciesPicker';
 import { useBedHints, useMixedCompatibility } from './useBedHints';
 import { useEntryPreviews, type EntryPreview, type PreviewRequest } from './useEntryPreviews';
 
 export interface PlantedResult {
-  runKey: string;
+  runKeys: string[];
   plantCount: number;
   /** The field-mode shortcut was used: the plants exist already. */
   quick: boolean;
@@ -68,6 +71,8 @@ interface PlantingDialogProps {
   geometry: Geometry;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
+  /** Runs were created although a later step failed and they could not be taken back: reload what shows them. */
+  onPartial: () => void;
 }
 
 function todayText(): string {
@@ -103,11 +108,12 @@ const IDLE_PREVIEW: EntryPreview = {
   error: null,
 };
 
-export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onPlanted }: PlantingDialogProps) {
+export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onPlanted, onPartial }: PlantingDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { handleError } = useApiError();
+  const notification = useNotification();
   const { favorites } = useServerFavorites('species');
 
   const [catalogue, setCatalogue] = useState<{ status: 'loading' } | { status: 'ready'; items: Species[] } | { status: 'error' }>({
@@ -295,13 +301,20 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
 
   const quickAllowed =
     forms.length === 1 && ROW_STRATEGIES.includes(forms[0].layout) && forms[0].speciesKey !== null;
-  const quick = alreadyPlanted && quickAllowed;
+  // The shortcut has no edge-margin fields: with margins set the plants would not stand where the preview shows.
+  const marginsSet = forms[0].edgeAlong.trim() !== '' || forms[0].edgeAcross.trim() !== '';
+  const quick = alreadyPlanted && quickAllowed && !marginsSet;
 
   const errorsByEntry = useMemo(
     () => Object.fromEntries(effective.map((form) => [form.id, validateEntry(form)])),
     [effective],
   );
   const mustGiveReason = needsOverrideReason(severity);
+  // The strength is only known once every chosen species has been checked; a failed check is "unknown", shown
+  // as such, and does not hold the grower back (D-09) - but a check still running does.
+  const hintsPending = hintSpecies.some((hint) => !hint.state || hint.state.status === 'loading');
+
+  const waitingForHints = catalogue.status === 'ready' && hintsPending;
 
   const submit = async () => {
     const invalid = effective.some((form) => hasErrors(errorsByEntry[form.id]));
@@ -320,10 +333,9 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
         const chosen = speciesByKey.get(form.speciesKey ?? '');
         if (!chosen) return;
         const response = await submitQuick(bedKey, quickBody(form, chosen, previews[form.id], plantedFrom, reason));
-        result = { runKey: response.run_key, plantCount: response.plant_keys.length, quick: true };
+        result = { runKeys: [response.run_key], plantCount: response.plant_keys.length, quick: true };
       } else {
-        const first = speciesByKey.get(effective[0].speciesKey ?? '');
-        const outcome = await submitRun({
+        const outcome = await submitRuns({
           bedKey,
           bedName,
           forms: effective,
@@ -332,25 +344,57 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
           rowAssignments,
           plantedFrom,
           overrideReason: reason,
-          runName: `${first ? (first.common_names?.[0] ?? first.scientific_name) : ''} – ${bedName}`.slice(0, 200),
         });
         result = { ...outcome, quick: false };
       }
       writeLastUsed(effective);
       onPlanted(result);
     } catch (error) {
-      handleError(error);
+      if (error instanceof PartialPlantingError) {
+        handleError(error.reason);
+        notification.warning(t('pages.bed.planting.dialog.partial', { count: error.created.length }));
+        onPartial();
+      } else {
+        handleError(error);
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  // A position outside the bed frame would be refused by the server (V-04); the canvas simply does not take it.
   const onAddPoint = (point: Point) => {
-    if (freeForm) change(freeForm.id, { freePoints: [...freeForm.freePoints, point] });
+    if (freeForm && insideBed(geometry, point)) {
+      change(freeForm.id, { freePoints: [...freeForm.freePoints, point] });
+    }
   };
   const onMovePoint = (layerId: string, index: number, point: Point) => {
     const form = forms.find((candidate) => candidate.id === layerId);
-    if (form) change(layerId, { freePoints: form.freePoints.map((p, i) => (i === index ? point : p)) });
+    if (form && insideBed(geometry, point)) {
+      change(layerId, { freePoints: form.freePoints.map((p, i) => (i === index ? point : p)) });
+    }
+  };
+
+  // Keyboard and switch access to free positions: a point at the centre, then moved with the arrow buttons.
+  const bedCentre = useMemo<Point>(() => {
+    const shape = toLocalShape(geometry);
+    if (shape.kind === 'circle') return shape.center;
+    const xs = shape.vertices.map((v) => v[0]);
+    const ys = shape.vertices.map((v) => v[1]);
+    return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+  }, [geometry]);
+  const roundCm = (value: number) => Math.round(value * 100) / 100;
+  const addCentre = (id: string) => {
+    const form = forms.find((candidate) => candidate.id === id);
+    const point: Point = [roundCm(bedCentre[0]), roundCm(bedCentre[1])];
+    if (form && insideBed(geometry, point)) change(id, { freePoints: [...form.freePoints, point] });
+  };
+  const nudgeLast = (id: string, dx: number, dy: number) => {
+    const form = forms.find((candidate) => candidate.id === id);
+    if (!form || form.freePoints.length === 0) return;
+    const last = form.freePoints[form.freePoints.length - 1];
+    const next: Point = [roundCm(last[0] + dx), roundCm(last[1] + dy)];
+    if (insideBed(geometry, next)) change(id, { freePoints: [...form.freePoints.slice(0, -1), next] });
   };
 
   const hintsVisible = hintSpecies.length > 0;
@@ -416,6 +460,8 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
                     onChange={(patch) => change(form.id, patch)}
                     onSpecies={(key) => chooseSpecies(form.id, key)}
                     onRemove={effective.length > 1 ? () => removeEntry(form.id) : null}
+                    onAddCentre={() => addCentre(form.id)}
+                    onNudgeLast={(dx, dy) => nudgeLast(form.id, dx, dy)}
                     onRemovePoint={(pointIndex) =>
                       change(form.id, { freePoints: forms[index].freePoints.filter((_, i) => i !== pointIndex) })
                     }
@@ -483,6 +529,7 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
                   control={
                     <Switch
                       checked={alreadyPlanted}
+                      disabled={marginsSet}
                       onChange={(event) => setAlreadyPlanted(event.target.checked)}
                       slotProps={{ input: { 'data-testid': 'planting-already' } as object }}
                     />
@@ -490,6 +537,11 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
                   label={t('pages.bed.planting.dialog.alreadyPlanted')}
                   sx={{ minHeight: 48 }}
                 />
+              ) : null}
+              {quickAllowed && marginsSet ? (
+                <Typography variant="caption" color="text.secondary" data-testid="planting-already-margins">
+                  {t('pages.bed.planting.dialog.alreadyPlantedMargins')}
+                </Typography>
               ) : null}
               {quick ? (
                 <Typography variant="caption" color="text.secondary">
@@ -500,14 +552,29 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
           </Box>
         ) : null}
       </DialogContent>
-      <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+      <DialogActions
+        sx={{ px: { xs: 2, sm: 3 }, py: 1.5, flexWrap: 'wrap', rowGap: 1, borderTop: 1, borderColor: 'divider' }}
+      >
+        {waitingForHints ? (
+          <Typography
+            id="planting-submit-reason"
+            variant="body2"
+            color="text.secondary"
+            role="status"
+            sx={{ flex: '1 1 100%' }}
+            data-testid="planting-submit-reason"
+          >
+            {t('pages.bed.planting.dialog.submitWaiting')}
+          </Typography>
+        ) : null}
         <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
           {t('common.cancel')}
         </Button>
         <Button
           variant="contained"
           onClick={() => void submit()}
-          disabled={saving || catalogue.status !== 'ready'}
+          disabled={saving || catalogue.status !== 'ready' || hintsPending}
+          aria-describedby={waitingForHints ? 'planting-submit-reason' : undefined}
           sx={{ minHeight: 48 }}
           data-testid="planting-submit"
         >

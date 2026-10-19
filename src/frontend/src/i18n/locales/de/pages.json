@@ -6130,7 +6130,11 @@
           "alreadyPlantedHelp": "Die Pflanzen werden sofort angelegt und stehen auf den berechneten Positionen.",
           "plan": "Pflanzung planen",
           "recordPlanted": "Gepflanzt erfassen",
-          "plantAnyway": "Trotzdem pflanzen"
+          "plantAnyway": "Trotzdem pflanzen",
+          "partial_one": "Eine Pflanzung wurde schon angelegt und ließ sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
+          "partial_other": "{{count}} Pflanzungen wurden schon angelegt und ließen sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
+          "alreadyPlantedMargins": "Randabstände übernimmt „Ich habe schon gepflanzt“ nicht. Leere sie, wenn du die Pflanzen sofort anlegen willst.",
+          "submitWaiting": "Die Hinweise zu Fruchtfolge und Nachbarn werden noch geprüft. Danach kannst du fortfahren."
         },
         "species": {
           "favorites": "Favoriten",
@@ -6182,6 +6186,9 @@
           "tooClose_one": "{{count}} zu nah",
           "tooClose_other": "{{count}} zu nah",
           "removePoint": "Position {{n}} löschen (x {{x}} cm, y {{y}} cm)",
+          "addPointCentre": "Position in der Beetmitte setzen",
+          "nudgeGroup": "Letzte Position verschieben",
+          "nudgeHelp": "Die Pfeile verschieben die zuletzt gesetzte Position um {{cm}} cm.",
           "result": "{{count}} Pflanzen, höchstens {{max}} passen",
           "confirming": "wird geprüft"
         },
@@ -6256,7 +6263,9 @@
           "x": "Position längs (x)",
           "y": "Position quer (y)",
           "save": "Position speichern",
-          "done": "Position von {{plant}} korrigiert."
+          "done": "Position von {{plant}} korrigiert.",
+          "invalid": "Trage eine Zahl in cm ein.",
+          "outside": "Diese Position liegt außerhalb des Beets. Schiebe sie ins Beet, um sie zu speichern."
         },
         "transplant": {
           "title": "Umpflanzen: {{plant}}",

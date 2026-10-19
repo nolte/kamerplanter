@@ -18,6 +18,10 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import DeleteIcon from '@mui/icons-material/Delete';
 import type { Species } from '@/api/types';
 import { TRIANGULAR_ROW_FACTOR, type RowDirection } from '../model/layout';
@@ -54,7 +58,14 @@ interface EntryCardProps {
   onSpecies: (key: string | null) => void;
   onRemove: (() => void) | null;
   onRemovePoint: (pointIndex: number) => void;
+  /** Keyboard route for free positions: set a point at the centre of the bed. */
+  onAddCentre: () => void;
+  /** Move the most recently set free point by (dx, dy) metres. */
+  onNudgeLast: (dx: number, dy: number) => void;
 }
+
+/** Step of the arrow buttons that move the last free position, in centimetres. */
+export const NUDGE_CM = 5;
 
 const WARNING_KEYS: Record<string, string> = {
   'layout.spacing_below_mature_width': 'belowMatureWidth',
@@ -87,6 +98,8 @@ export default function EntryCard({
   onSpecies,
   onRemove,
   onRemovePoint,
+  onAddCentre,
+  onNudgeLast,
 }: EntryCardProps) {
   const { t } = useTranslation();
   const cultivars = useCultivars(form.speciesKey);
@@ -143,7 +156,7 @@ export default function EntryCard({
           favorites={favorites}
           label={t('pages.bed.planting.entry.species')}
           error={errorText(errors.species)}
-          autoFocus={index === 0}
+          autoFocus={index === total - 1}
           testId={`${testPrefix}-species`}
           onChange={onSpecies}
         />
@@ -243,7 +256,8 @@ export default function EntryCard({
             label={t('pages.bed.planting.entry.minSpacing')}
             value={form.spacing}
             onChange={(event) => onChange({ spacing: event.target.value })}
-            helperText={t('pages.bed.planting.entry.minSpacingHelp')}
+            error={Boolean(errors.spacing)}
+            helperText={errorText(errors.spacing) ?? t('pages.bed.planting.entry.minSpacingHelp')}
             slotProps={{
               input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
               htmlInput: { inputMode: 'decimal', 'data-testid': `${testPrefix}-spacing` },
@@ -377,6 +391,47 @@ export default function EntryCard({
                 {errorText(errors.points)}
               </Typography>
             ) : null}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, my: 1 }}>
+              <Button
+                variant="outlined"
+                onClick={onAddCentre}
+                sx={{ minHeight: 48 }}
+                data-testid={`${testPrefix}-add-centre`}
+              >
+                {t('pages.bed.planting.entry.addPointCentre')}
+              </Button>
+            </Box>
+            {form.freePoints.length > 0 ? (
+              <Box sx={{ mb: 1 }}>
+                <Box
+                  role="group"
+                  aria-label={t('pages.bed.planting.entry.nudgeGroup')}
+                  sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}
+                >
+                  {(
+                    [
+                      ['up', 0, 1, <ArrowUpwardIcon key="u" />],
+                      ['down', 0, -1, <ArrowDownwardIcon key="d" />],
+                      ['left', -1, 0, <ArrowBackIcon key="l" />],
+                      ['right', 1, 0, <ArrowForwardIcon key="r" />],
+                    ] as const
+                  ).map(([name, dx, dy, icon]) => (
+                    <IconButton
+                      key={name}
+                      aria-label={`${t('pages.bed.planting.entry.nudgeGroup')}: ${t(`pages.bed.planting.position.${name}`)}`}
+                      onClick={() => onNudgeLast((dx * NUDGE_CM) / 100, (dy * NUDGE_CM) / 100)}
+                      sx={{ width: 48, height: 48, border: 1, borderColor: 'divider' }}
+                      data-testid={`${testPrefix}-nudge-${name}`}
+                    >
+                      {icon}
+                    </IconButton>
+                  ))}
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.bed.planting.entry.nudgeHelp', { cm: NUDGE_CM })}
+                </Typography>
+              </Box>
+            ) : null}
             <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
               {form.freePoints.map((point, pointIndex) => (
                 <li key={`${point[0]}-${point[1]}-${pointIndex}`}>
@@ -389,7 +444,7 @@ export default function EntryCard({
                       x: Math.round(point[0] * 100),
                       y: Math.round(point[1] * 100),
                     })}
-                    sx={{ minHeight: 44 }}
+                    sx={{ minHeight: 44, minWidth: 44 }}
                   >
                     {pointIndex + 1}
                   </Button>

@@ -3,7 +3,7 @@
  * the server's answer follows after a short debounce and replaces it - the server is authoritative
  * wherever the two differ. A refusal (`layout.too_many_positions` ...) is a result, not an exception.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { parseApiError } from '@/api/errors';
 import { computeLayout, LayoutError, type EntryLayout, type LayoutResult } from '../model/layout';
 import type { Geometry, Point } from '../model/types';
@@ -115,6 +115,10 @@ export function useEntryPreviews(
     () => Object.fromEntries(requests.map((r) => [r.id, localPreview(bed, r)])),
     [bed, requests],
   );
+  const localRef = useRef(local);
+  useEffect(() => {
+    localRef.current = local;
+  }, [local]);
   const signatures = useMemo(
     () => Object.fromEntries(requests.map((r) => [r.id, signatureOf(r)])),
     [requests],
@@ -128,28 +132,39 @@ export function useEntryPreviews(
     [requests, local, signatures],
   );
   const askKey = JSON.stringify(askable.map((a) => [a.id, a.signature]));
+  // What was asked already, by entry: an entry whose content did not change is not asked again when another
+  // one changes. An answer that arrives late is kept - it is only read where its signature still matches.
+  const asked = useRef<Record<string, string>>({});
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    if (askable.length === 0) return undefined;
-    let cancelled = false;
+    const pending = askable.filter((item) => asked.current[item.id] !== item.signature);
+    if (pending.length === 0) return undefined;
     const handle = setTimeout(() => {
-      askable.forEach((item) => {
+      pending.forEach((item) => {
+        asked.current[item.id] = item.signature;
         previewLayout(bedKey, item.entry)
           .then((response) => {
-            if (cancelled) return;
+            if (!mounted.current) return;
             setAnswers((current) => ({
               ...current,
               [item.id]: { signature: item.signature, preview: fromServer(response) },
             }));
           })
           .catch((error: unknown) => {
-            if (cancelled) return;
+            if (!mounted.current) return;
             setAnswers((current) => ({
               ...current,
               [item.id]: {
                 signature: item.signature,
                 preview: {
-                  ...local[item.id],
+                  ...localRef.current[item.id],
                   pending: false,
                   error: { code: null, message: parseApiError(error) },
                 },
@@ -158,10 +173,7 @@ export function useEntryPreviews(
           });
       });
     }, debounceMs);
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
+    return () => clearTimeout(handle);
     // `askKey` stands for the content of `askable`; `local` only feeds the error fallback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bedKey, askKey, debounceMs]);

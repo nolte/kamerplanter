@@ -15,7 +15,8 @@ import {
   type LayoutStrategy,
   type RowDirection,
 } from '../model/layout';
-import type { Point } from '../model/types';
+import { pointInPolygon, toLocalShape } from '../model/geometry';
+import type { Geometry, Point } from '../model/types';
 import type { PreviewEntry, RotationSeverity } from './plantingTypes';
 
 /** Strategies that lay out counted plants in rows; only these alternate (GP-FR-070). */
@@ -154,8 +155,10 @@ export function validateEntry(form: EntryFormState): EntryErrors {
   const errors: EntryErrors = {};
   if (!form.speciesKey) errors.species = 'speciesRequired';
   const spacing = numberOrNull(form.spacing);
-  if (spacing === null) errors.spacing = 'spacingRequired';
-  else if (spacing < MIN_SPACING_CM || spacing > MAX_SPACING_CM) errors.spacing = 'spacingRange';
+  // Freely placed positions need no spacing: it only sets the yellow ring (GP-FR-072); if given it must be sane.
+  if (spacing === null) {
+    if (form.layout !== 'free' || form.spacing.trim() !== '') errors.spacing = 'spacingRequired';
+  } else if (spacing < MIN_SPACING_CM || spacing > MAX_SPACING_CM) errors.spacing = 'spacingRange';
   if (form.layout === 'rows') {
     const rowSpacing = numberOrNull(form.rowSpacing);
     if (rowSpacing === null) errors.rowSpacing = 'rowSpacingRequired';
@@ -268,6 +271,15 @@ export function tooClosePoints(points: readonly Point[], spacingCm: number): num
     }
   }
   return [...flagged].sort((a, b) => a - b);
+}
+
+/** Whether `point` (bed frame, metres) lies inside the bed - the server refuses a slot outside it (V-04). */
+export function insideBed(bed: Geometry, point: Point): boolean {
+  const shape = toLocalShape(bed);
+  if (shape.kind === 'circle') {
+    return Math.hypot(point[0] - shape.center[0], point[1] - shape.center[1]) <= shape.radiusM;
+  }
+  return shape.closed && pointInPolygon(point, shape.vertices);
 }
 
 // ── Container volume (W-016.5) ──────────────────────────────────────────────

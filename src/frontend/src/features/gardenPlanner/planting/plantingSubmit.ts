@@ -9,6 +9,7 @@ import { getActiveTenantSlug } from '@/api/client';
 import {
   appendSlots,
   createRun,
+  deletePlantingRun,
   planSlots,
   quickPlant,
   runEntries,
@@ -68,7 +69,6 @@ export interface RunInput {
   plantedFrom: string;
   /** The reason of "Trotzdem pflanzen"; `null` when no hint was overridden. */
   overrideReason: string | null;
-  runName: string;
 }
 
 function speciesOf(input: RunInput, form: EntryFormState): Species {
@@ -77,9 +77,20 @@ function speciesOf(input: RunInput, form: EntryFormState): Species {
   return species;
 }
 
-export function runPayload(input: RunInput): PlantingRunCreate {
+/** `Tomato - Raised bed 3`: what the run list shows. */
+export function runName(species: Species, bedName: string): string {
+  return `${species.common_names?.[0] || species.scientific_name} – ${bedName}`.slice(0, 200);
+}
+
+/**
+ * One run per species: a mixed culture is separate runs per species (REQ-013 §2 - the phases, nutrient
+ * plans and care differ), and a monoculture run holds exactly one entry. The alternating rows tie the runs
+ * together on the bed: their `row_assignment`s are disjoint.
+ */
+export function runPayload(input: RunInput, form: EntryFormState): PlantingRunCreate {
+  const species = speciesOf(input, form);
   return {
-    name: input.runName,
+    name: runName(species, input.bedName),
     run_type: 'monoculture',
     location_key: input.bedKey,
     planned_start_date: input.plantedFrom,
@@ -87,9 +98,7 @@ export function runPayload(input: RunInput): PlantingRunCreate {
     plan_role: 'main_crop',
     source: 'manual',
     ...(input.overrideReason ? { rotation_override_reason: input.overrideReason } : {}),
-    entries: input.forms.map((form) =>
-      entryPayload(form, speciesOf(input, form), input.previews[form.id], input.rowAssignments[form.id] ?? null),
-    ),
+    entries: [entryPayload(form, species, input.previews[form.id], input.rowAssignments[form.id] ?? null)],
   };
 }
 
@@ -115,34 +124,58 @@ export function freeSlotItems(form: EntryFormState, prefix: string): SlotBatchIt
 }
 
 export interface RunOutcome {
-  runKey: string;
+  runKeys: string[];
   plantCount: number;
 }
 
+/** Some runs of the submit exist although a later step failed and they could not be taken back. */
+export class PartialPlantingError extends Error {
+  constructor(
+    readonly created: readonly string[],
+    readonly reason: unknown,
+  ) {
+    super('A planting was created in part.');
+    this.name = 'PartialPlantingError';
+  }
+}
+
 /**
- * Create the planned run; place and reserve the freely set points of every `free` entry after it.
- * The run exists once its call has answered, so a failure of the second step is reported with the run
- * key and the caller offers to open the bed - nothing is retried behind the grower's back.
+ * Create one planned run per entry; place and reserve the freely set points of a `free` entry after its
+ * run. If a step fails, the runs this submit created are taken back (a planned run goes with its layout
+ * slots); the ones that cannot be - deleting a run needs the lead role - are named in the
+ * {@link PartialPlantingError}, so nothing is left behind unannounced and nothing is retried on its own.
  */
-export async function submitRun(input: RunInput): Promise<RunOutcome> {
-  const run = await createRun(runPayload(input));
-  const freeForms = input.forms.filter((form) => form.layout === 'free');
-  if (freeForms.length > 0) {
-    const entries = await runEntries(run.key);
-    const prefix = slotIdPrefixOf(input.bedName, input.bedKey);
-    for (const form of freeForms) {
-      const position = input.forms.indexOf(form);
-      const entry = entries[position];
-      if (!entry) throw new Error('The run lost an entry.');
-      const created = await appendSlots(input.bedKey, freeSlotItems(form, prefix));
-      await planSlots(run.key, entry.key, created.created_keys);
+export async function submitRuns(input: RunInput): Promise<RunOutcome> {
+  const created: string[] = [];
+  const prefix = slotIdPrefixOf(input.bedName, input.bedKey);
+  try {
+    for (const form of input.forms) {
+      const run = await createRun(runPayload(input, form));
+      created.push(run.key);
+      if (form.layout === 'free') {
+        const [entry] = await runEntries(run.key);
+        if (!entry) throw new Error('The run lost its entry.');
+        const slots = await appendSlots(input.bedKey, freeSlotItems(form, prefix));
+        await planSlots(run.key, entry.key, slots.created_keys);
+      }
     }
+  } catch (error) {
+    const left: string[] = [];
+    for (const key of [...created].reverse()) {
+      try {
+        await deletePlantingRun(key);
+      } catch {
+        left.push(key);
+      }
+    }
+    if (left.length > 0) throw new PartialPlantingError(left, error);
+    throw error;
   }
   const plantCount = input.forms.reduce(
-    (sum, form) => sum + (form.layout === 'free' ? form.freePoints.length : input.previews[form.id]?.count ?? 0),
+    (sum, form) => sum + (form.layout === 'free' ? form.freePoints.length : (input.previews[form.id]?.count ?? 0)),
     0,
   );
-  return { runKey: run.key, plantCount };
+  return { runKeys: created, plantCount };
 }
 
 export function quickBody(

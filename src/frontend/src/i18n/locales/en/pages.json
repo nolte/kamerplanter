@@ -6129,7 +6129,11 @@
           "alreadyPlantedHelp": "The plants are created at once and stand on the calculated positions.",
           "plan": "Plan planting",
           "recordPlanted": "Record planted",
-          "plantAnyway": "Plant anyway"
+          "plantAnyway": "Plant anyway",
+          "partial_one": "One planting was created already and could not be taken back. You find it under planting runs. Delete or complete it there.",
+          "partial_other": "{{count}} plantings were created already and could not be taken back. You find them under planting runs. Delete or complete them there.",
+          "alreadyPlantedMargins": "\"I have planted already\" ignores edge margins. Clear them if you want the plants created at once.",
+          "submitWaiting": "The crop rotation and neighbour hints are still being checked. You can continue afterwards."
         },
         "species": {
           "favorites": "Favourites",
@@ -6181,6 +6185,9 @@
           "tooClose_one": "{{count}} too close",
           "tooClose_other": "{{count}} too close",
           "removePoint": "Delete position {{n}} (x {{x}} cm, y {{y}} cm)",
+          "addPointCentre": "Set a position at the centre of the bed",
+          "nudgeGroup": "Move the last position",
+          "nudgeHelp": "The arrows move the most recently set position by {{cm}} cm.",
           "result": "{{count}} plants, at most {{max}} fit",
           "confirming": "checking"
         },
@@ -6255,7 +6262,9 @@
           "x": "Position along (x)",
           "y": "Position across (y)",
           "save": "Save position",
-          "done": "Position of {{plant}} corrected."
+          "done": "Position of {{plant}} corrected.",
+          "invalid": "Enter a number in cm.",
+          "outside": "This position lies outside the bed. Move it into the bed to save it."
         },
         "transplant": {
           "title": "Transplant: {{plant}}",

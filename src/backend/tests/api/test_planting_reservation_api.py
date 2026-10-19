@@ -24,7 +24,7 @@ from app.common.dependencies import (
     get_tenant_service,
 )
 from app.common.enums import PlantingRunStatus, TenantRole
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, PlanError
 from app.domain.engines.slot_reservation_engine import ActivePlant, Reservation
 from app.domain.models.planting_reservation import PlantingRow
 from app.domain.models.planting_run import PlantingRunEntry
@@ -534,3 +534,28 @@ class TestPositionCorrection:
 
         assert response.status_code == 404
         assert world.care_repo.inserted == []
+
+    def test_the_same_geometry_again_logs_nothing(self, client, world) -> None:
+        world.plan.slots[0] = Slot(
+            _key="s1", slot_id="BED3_001", location_key="bed", geometry={"kind": "point", "origin": [0.6, 0.9]}
+        )
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+        world.care_repo.plants["pi_1"] = (TENANT, "bed")
+
+        assert self.move(client).status_code == 200
+        assert world.care_repo.inserted == []
+
+    def test_a_move_whose_event_cannot_be_written_is_put_back_and_fails(self, client, world, monkeypatch) -> None:
+        world.plan.slots[0] = Slot(
+            _key="s1", slot_id="BED3_001", location_key="bed", geometry={"kind": "point", "origin": [0.3, 0.9]}
+        )
+
+        def boom(*args, **kwargs):
+            raise PlanError("care.unavailable", "The care log is unavailable.", status_code=503)
+
+        monkeypatch.setattr(world.reservations, "record_position_correction", boom)
+        response = self.move(client)
+
+        assert response.status_code == 503
+        stored = next(slot for slot in world.plan.slots if slot.key == "s1")
+        assert list(stored.geometry.origin) == [0.3, 0.9]

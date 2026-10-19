@@ -124,6 +124,32 @@ describe('useEntryPreviews', () => {
     expect(api.previewLayout).toHaveBeenCalledTimes(1);
   });
 
+  it('asks again only for the entry that changed, not for the ones that rest', async () => {
+    vi.mocked(api.previewLayout).mockResolvedValue(serverAnswer(2));
+    const second: EntryLayout = { layout_strategy: 'grid', spacing_cm: 40 };
+    const { rerender } = render([
+      { id: 'e1', layout: ROWS, maxCount: null },
+      { id: 'e2', layout: second, maxCount: null },
+    ]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
+    });
+    expect(api.previewLayout).toHaveBeenCalledTimes(2);
+
+    rerender({
+      requests: [
+        { id: 'e1', layout: { ...ROWS, spacing_cm: 35 }, maxCount: null },
+        { id: 'e2', layout: { ...second }, maxCount: null },
+      ],
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
+    });
+
+    expect(api.previewLayout).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(api.previewLayout).mock.calls[2][1]).toMatchObject({ spacing_cm: 35 });
+  });
+
   it('reports a refusal of the port as a result and never calls the server for it', async () => {
     const outOfRange: EntryLayout = { layout_strategy: 'grid', spacing_cm: 2 };
     const { result } = render([{ id: 'e1', layout: outOfRange, maxCount: null }]);

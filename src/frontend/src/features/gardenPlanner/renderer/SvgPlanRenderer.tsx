@@ -622,7 +622,9 @@ const MarkerBatchNode = memo(function MarkerBatchNode({
   for (const marker of batch.markers) {
     if (marker.kind !== 'plant') continue;
     const fill = markerFill(marker.phaseKey, palette, phaseColors);
-    byFill.set(fill, [...(byFill.get(fill) ?? []), marker]);
+    const group = byFill.get(fill);
+    if (group) group.push(marker);
+    else byFill.set(fill, [marker]);
   }
   const slots = circlesPath(
     batch.markers.filter((m) => m.kind === 'slot'),

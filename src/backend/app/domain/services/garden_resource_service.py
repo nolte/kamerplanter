@@ -568,6 +568,10 @@ class GardenResourceService:
 
     # ── GP-API-014: PATCH /slots/{key} ────────────────────────────────────────
 
+    def get_owned_slot(self, key: SlotKey, *, tenant_key: str) -> Slot:
+        """The slot ``key`` if its bed belongs to the tenant, else 404 - what a caller reads before it patches."""
+        return resolve_owned_slot(self._sites, key, tenant_key)[0]
+
     def patch_slot(self, key: SlotKey, *, tenant_key: str, role: TenantRole, patch: SlotPatch) -> Slot:
         """Correct a slot's geometry, role or capacity — outside the plan revision (GP-NFR-007).
 

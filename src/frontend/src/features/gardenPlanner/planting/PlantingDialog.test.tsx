@@ -5,12 +5,15 @@
  */
 import { act, cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { getActiveTenantSlug } from '@/api/client';
+import { server } from '@/test/mocks/server';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import PlantingDialog from './PlantingDialog';
 import {
+  BASE,
   BED_GEOMETRY,
   hint,
   species,
@@ -22,7 +25,7 @@ const TOMATO = species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm
 const CARROT = species('sp_carrot', 'Carrot', { spacing_cm: '5', row_spacing_cm: '80' });
 const BARE = species('sp_bare', 'Rhubarb');
 
-function renderDialog(onPlanted = vi.fn(), onClose = vi.fn()) {
+function renderDialog(onPlanted = vi.fn(), onClose = vi.fn(), onPartial = vi.fn()) {
   const view = renderWithProviders(
     <PlantingDialog
       bedKey="loc_b03"
@@ -30,10 +33,11 @@ function renderDialog(onPlanted = vi.fn(), onClose = vi.fn()) {
       geometry={BED_GEOMETRY}
       onClose={onClose}
       onPlanted={onPlanted}
+      onPartial={onPartial}
     />,
     { store: createTestStore({ ...tenantState('grower'), ...authState() }) },
   );
-  return { ...view, onPlanted, onClose };
+  return { ...view, onPlanted, onClose, onPartial };
 }
 
 async function choose(user: ReturnType<typeof userEvent.setup>, card: number, name: string) {
@@ -45,6 +49,12 @@ async function choose(user: ReturnType<typeof userEvent.setup>, card: number, na
 }
 
 const lastUsedKey = () => `kp.gardenPlanner.planting.lastUsed.${getActiveTenantSlug() ?? 'default'}`;
+/** Wait until every chosen species has been checked: the dialog does not submit before. */
+async function hintsDone() {
+  await waitFor(() => expect(screen.queryByText(/^Checking /)).toBeNull());
+  await waitFor(() => expect(screen.getByTestId('planting-submit')).toBeEnabled());
+}
+
 const runPosts = (backend: PlantingBackend) => backend.seen.filter((s) => s.url === '/planting-runs');
 
 beforeEach(() => localStorage.clear());
@@ -176,6 +186,7 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     await choose(user, 0, 'Tomato');
     await screen.findByTestId('planting-hint-sp_tomato');
     await screen.findByText(/plants, at most/);
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
     expect(runPosts(backend)).toHaveLength(0);
@@ -206,10 +217,11 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     await screen.findByText(/No hint on crop rotation or neighbours/);
     await screen.findByText(/plants, at most/);
     expect(screen.queryByTestId('planting-override-check')).toBeNull();
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
-    await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ runKey: 'run_1', quick: false })));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ runKeys: ['run_1'], quick: false })));
     expect(runPosts(backend)[0].body).not.toHaveProperty('rotation_override_reason');
   });
 
@@ -239,6 +251,7 @@ describe('what is sent', () => {
     await choose(user, 0, 'Tomato');
     const result = await screen.findByTestId('planting-entry-0-result');
     const fit = Number(/at most (\d+) fit/.exec(result.textContent ?? '')?.[1]);
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
@@ -262,6 +275,7 @@ describe('what is sent', () => {
     await user.click(screen.getByTestId('planting-entry-0-count-number'));
     await user.type(screen.getByTestId('planting-entry-0-count'), '3');
     await screen.findByText('3 plants, at most', { exact: false });
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
@@ -274,6 +288,7 @@ describe('what is sent', () => {
     const user = userEvent.setup();
     renderDialog();
     await choose(user, 0, 'Rhubarb');
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
@@ -288,6 +303,7 @@ describe('what is sent', () => {
     await choose(user, 0, 'Rhubarb');
     await user.type(screen.getByTestId('planting-entry-0-spacing'), '45');
     await screen.findByText(/plants, at most/);
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
@@ -304,38 +320,129 @@ describe('what is sent', () => {
     await choose(user, 0, 'Tomato');
     await screen.findByText(/plants, at most/);
 
+    await hintsDone();
     await user.click(screen.getByTestId('planting-already'));
     await user.click(screen.getByTestId('planting-submit'));
 
-    await waitFor(() => expect(onPlanted).toHaveBeenCalledWith({ runKey: 'run_q', plantCount: 2, quick: true }));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalledWith({ runKeys: ['run_q'], plantCount: 2, quick: true }));
     const post = backend.seen.find((s) => s.url === '/locations/loc_b03/quick-planting');
     expect(post?.body).toMatchObject({ species_key: 'sp_tomato', spacing_cm: 60, layout_strategy: 'grid' });
     expect(runPosts(backend)).toHaveLength(0);
   });
 });
 
-describe('mixed culture (GP-FR-070)', () => {
-  it('shares the rows between two species: disjoint row assignments, one row spacing', async () => {
-    const backend = usePlantingBackend({ species: [TOMATO, CARROT] });
+describe('submit waits for the hints', () => {
+  it('cannot be pressed while a species is still being checked, so a warning cannot be skipped', async () => {
+    const { server } = await import('@/test/mocks/server');
+    const { http, HttpResponse, delay } = await import('msw');
+    const backend = usePlantingBackend({ species: [TOMATO] });
+    server.use(
+      http.post('/api/v1/t/:tenant/locations/:key/validate-planting', async () => {
+        await delay(400);
+        return HttpResponse.json(hint({ species_key: 'sp_tomato', severity: 'CRITICAL' }));
+      }),
+    );
     const user = userEvent.setup();
     renderDialog();
     await choose(user, 0, 'Tomato');
+
+    expect(screen.getByTestId('planting-submit')).toBeDisabled();
+    await hintsDone();
+    expect(runPosts(backend)).toHaveLength(0);
+  });
+
+  it('is not held back by a check that failed: the hint is shown as unknown', async () => {
+    usePlantingBackend({ species: [TOMATO] });
+    const { server } = await import('@/test/mocks/server');
+    const { http, HttpResponse } = await import('msw');
+    server.use(
+      http.post('/api/v1/t/:tenant/locations/:key/validate-planting', () =>
+        HttpResponse.json({ error_code: 'INTERNAL', message: 'boom', details: [] }, { status: 500 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Tomato');
+    await screen.findByText(/Crop rotation could not be checked/);
+
+    expect(screen.getByTestId('planting-submit')).toBeEnabled();
+  });
+});
+
+describe('already planted and edge margins', () => {
+  it('cannot be combined: the shortcut has no margin fields, so the plants would not stand where the preview shows', async () => {
+    usePlantingBackend({ species: [TOMATO] });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Tomato');
+    await user.click(screen.getByTestId('planting-entry-0-more'));
+    const margin = await screen.findByLabelText('Edge margin along the row');
+    await user.type(margin, '10');
+
+    expect(screen.getByTestId('planting-already')).toBeDisabled();
+    expect(screen.getByTestId('planting-already-margins')).toBeInTheDocument();
+  });
+});
+
+describe('mixed culture (GP-FR-070)', () => {
+  it('creates one run per species - a monoculture run holds one entry - with disjoint rows and the same row spacing', async () => {
+    const backend = usePlantingBackend({ species: [TOMATO, CARROT] });
+    const user = userEvent.setup();
+    const { onPlanted } = renderDialog();
+    await choose(user, 0, 'Tomato');
     await user.click(screen.getByTestId('planting-add-entry'));
     await choose(user, 1, 'Carrot');
-    await screen.findByTestId('planting-entry-1-result');
-
+    await waitFor(() =>
+      expect(within(screen.getByTestId('planting-entry-1')).getByTestId('planting-entry-1-result')).toHaveTextContent(/plants/),
+    );
     // The second entry has no layout of its own while the rows alternate.
     expect(within(screen.getByTestId('planting-entry-1')).getByText('This species shares the rows with species 1.')).toBeInTheDocument();
-    await waitFor(() => expect(within(screen.getByTestId('planting-entry-1')).getByTestId('planting-entry-1-result')).toHaveTextContent(/plants/));
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
-    await waitFor(() => expect(runPosts(backend)).toHaveLength(1));
-    const [first, second] = (runPosts(backend)[0].body as { entries: { row_assignment: number[]; layout_strategy: string }[] }).entries;
+    await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ runKeys: ['run_1', 'run_2'] })));
+    const posts = runPosts(backend).map((post) => post.body as { run_type: string; entries: { row_assignment: number[]; layout_strategy: string; species_key: string }[] });
+    expect(posts).toHaveLength(2);
+    expect(posts.map((post) => [post.run_type, post.entries.length])).toEqual([['monoculture', 1], ['monoculture', 1]]);
+    const [first, second] = posts.map((post) => post.entries[0]);
+    expect([first.species_key, second.species_key]).toEqual(['sp_tomato', 'sp_carrot']);
     expect(first.row_assignment.length).toBeGreaterThan(0);
     expect(second.row_assignment.length).toBeGreaterThan(0);
     expect(first.row_assignment.filter((row) => second.row_assignment.includes(row))).toEqual([]);
     expect(second.layout_strategy).toBe(first.layout_strategy);
+  });
+
+  it('takes the first run back when the second cannot be created, and plants nothing', async () => {
+    const backend = usePlantingBackend({ species: [TOMATO, CARROT], failRun: 2 });
+    const user = userEvent.setup();
+    const { onPlanted, onPartial } = renderDialog();
+    await choose(user, 0, 'Tomato');
+    await user.click(screen.getByTestId('planting-add-entry'));
+    await choose(user, 1, 'Carrot');
+    await hintsDone();
+
+    await user.click(screen.getByTestId('planting-submit'));
+
+    await waitFor(() => expect(backend.seen.some((s) => s.url === '/planting-runs/run_1' && s.body === 'DELETE')).toBe(true));
+    expect(onPlanted).not.toHaveBeenCalled();
+    expect(onPartial).not.toHaveBeenCalled();
+  });
+
+  it('says which runs remain when they cannot be taken back (deleting needs the lead role)', async () => {
+    usePlantingBackend({ species: [TOMATO, CARROT], failRun: 2, deleteForbidden: true });
+    const user = userEvent.setup();
+    const { onPlanted, onPartial } = renderDialog();
+    await choose(user, 0, 'Tomato');
+    await user.click(screen.getByTestId('planting-add-entry'));
+    await choose(user, 1, 'Carrot');
+    await hintsDone();
+
+    await user.click(screen.getByTestId('planting-submit'));
+
+    await waitFor(() => expect(onPartial).toHaveBeenCalledTimes(1));
+    expect(onPlanted).not.toHaveBeenCalled();
+    expect(await screen.findByText(/One planting was created already and could not be taken back/)).toBeInTheDocument();
   });
 
   it('tells the grower when two chosen species do not get along', async () => {
@@ -385,6 +492,7 @@ describe('free positions (GP-FR-072)', () => {
     expect(await screen.findByText('3 positions set · 2 too close')).toBeInTheDocument();
     expect(screen.getAllByTestId('planting-canvas-ring')).toHaveLength(2);
 
+    await hintsDone();
     await user.click(screen.getByTestId('planting-submit'));
 
     await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ plantCount: 3 })));
@@ -397,8 +505,83 @@ describe('free positions (GP-FR-072)', () => {
     ]);
     expect(items.every((item) => /^RAISEDBED3_F[0-9A-Z]+$/.test(item.slot_id))).toBe(true);
     const plan = backend.seen.find((s) => s.url === '/planting-runs/run_1/plan-slots');
-    expect(plan?.body).toEqual({ entry_key: 'entry_1', slot_keys: ['slot_1', 'slot_2', 'slot_3'] });
+    expect(plan?.body).toEqual({ entry_key: 'run_1_entry_1', slot_keys: ['slot_1', 'slot_2', 'slot_3'] });
     rect.mockRestore();
+  });
+
+  it('plants free positions without any spacing: the minimum spacing only draws the ring', async () => {
+    const backend = usePlantingBackend({ species: [BARE] });
+    const rect = mockCanvasRect();
+    const user = userEvent.setup();
+    const { onPlanted } = renderDialog();
+    await choose(user, 0, 'Rhubarb');
+    await user.click(within(screen.getByTestId('planting-entry-0')).getByRole('combobox', { name: 'Layout' }));
+    await user.click(await screen.findByRole('option', { name: 'Free positions' }));
+    tapCanvas(200, 200);
+    await hintsDone();
+
+    await user.click(screen.getByTestId('planting-submit'));
+
+    await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+    expect(backend.seen.some((s) => s.url === '/locations/loc_b03/slots/batch')).toBe(true);
+    rect.mockRestore();
+  });
+
+  it('does not take a position outside the bed - the server would refuse it (V-04)', async () => {
+    usePlantingBackend({ species: [TOMATO] });
+    const rect = mockCanvasRect();
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Tomato');
+    await user.click(within(screen.getByTestId('planting-entry-0')).getByRole('combobox', { name: 'Layout' }));
+    await user.click(await screen.findByRole('option', { name: 'Free positions' }));
+
+    tapCanvas(5, 5); // in the padding around the bed
+    tapCanvas(200, 200);
+
+    expect(await screen.findByText('1 position set')).toBeInTheDocument();
+    rect.mockRestore();
+  });
+
+  it('sets a point at the bed centre by button and moves it with the arrows (keyboard route)', async () => {
+    const backend = usePlantingBackend({ species: [TOMATO] });
+    const user = userEvent.setup();
+    const { onPlanted } = renderDialog();
+    await choose(user, 0, 'Tomato');
+    await user.click(within(screen.getByTestId('planting-entry-0')).getByRole('combobox', { name: 'Layout' }));
+    await user.click(await screen.findByRole('option', { name: 'Free positions' }));
+
+    expect(screen.queryByTestId('planting-entry-0-nudge-up')).toBeNull();
+    await user.click(screen.getByTestId('planting-entry-0-add-centre'));
+    expect(await screen.findByText('1 position set')).toBeInTheDocument();
+    await user.click(screen.getByTestId('planting-entry-0-nudge-right'));
+    await user.click(screen.getByTestId('planting-entry-0-nudge-up'));
+    expect(screen.getByText('1 position set')).toBeInTheDocument();
+
+    await hintsDone();
+    await user.click(screen.getByTestId('planting-submit'));
+    await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ plantCount: 1 })));
+    const slots = backend.seen.find((s) => s.url === '/locations/loc_b03/slots/batch');
+    const origin = (slots?.body as { slots: { geometry: { origin: number[] } }[] }).slots[0].geometry.origin;
+    expect(origin).toEqual([0.65, 1.05]); // centre (0.60, 1.00) + 5 cm right + 5 cm up
+  });
+
+  it('names the reason while the hints are still being checked', async () => {
+    usePlantingBackend({ species: [TOMATO] });
+    server.use(
+      http.post(`${BASE}/locations/:key/validate-planting`, async () => {
+        await delay(150);
+        return HttpResponse.json(hint());
+      }),
+    );
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Tomato');
+
+    expect(await screen.findByTestId('planting-submit-reason')).toHaveTextContent('still being checked');
+    expect(screen.getByTestId('planting-submit')).toBeDisabled();
+    await hintsDone();
+    expect(screen.queryByTestId('planting-submit-reason')).toBeNull();
   });
 
   it('refuses to plan with no point set', async () => {
@@ -408,6 +591,7 @@ describe('free positions (GP-FR-072)', () => {
     await choose(user, 0, 'Tomato');
     await user.click(within(screen.getByTestId('planting-entry-0')).getByRole('combobox', { name: 'Layout' }));
     await user.click(await screen.findByRole('option', { name: 'Free positions' }));
+    await hintsDone();
 
     await user.click(screen.getByTestId('planting-submit'));
 
