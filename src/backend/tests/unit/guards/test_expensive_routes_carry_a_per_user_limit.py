@@ -50,6 +50,9 @@ _EXPENSIVE_PROVIDER_NAMES = frozenset(
         "get_identification_service",
         "get_reference_image_service",
         "get_print_service",
+        # REQ-053 WP 5.2 (#2431) — the garden-plan JSON backup, SVG and PDF read every document of a site (and
+        # the PDF renders it), so the three routes behind this provider are budgeted like the other renders.
+        "get_garden_plan_export_service",
         # #2110 (MT-013) — the services that put a prompt in front of an LLM.
         "get_ai_assistant_service",
         "get_glossary_service",
@@ -126,6 +129,9 @@ _EXPECTED_LIMITED = frozenset(
         "GET /api/v1/t/{tenant_slug}/print/nutrient-plan/{plan_key}",
         "GET /api/v1/t/{tenant_slug}/print/care-checklist",
         "GET /api/v1/t/{tenant_slug}/print/plant-labels",
+        "GET /api/v1/t/{tenant_slug}/print/garden-plan/{site_key}",
+        "GET /api/v1/t/{tenant_slug}/sites/{key}/plan/render.svg",
+        "GET /api/v1/t/{tenant_slug}/sites/{key}/plan/export",
         # #2110 (MT-013) — every route that puts a prompt in front of an LLM.
         "POST /api/v1/t/{tenant_slug}/ai/tips/refresh",
         "POST /api/v1/t/{tenant_slug}/ai/daily-tip/refresh",
