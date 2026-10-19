@@ -39,7 +39,6 @@ function Harness({
       viewport={VIEWPORT}
       renderer={renderer}
       labels={TEST_LABELS}
-      fieldMode={false}
       onPan={onPan}
     />
   );

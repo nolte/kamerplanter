@@ -5288,7 +5288,6 @@
       "backToSite": "Back to site",
       "open": "Open garden plan",
       "openHint": "See the beds and garden objects of this site as a plan.",
-      "fieldModeHint": "Field mode for use on the go is not available yet. You are seeing the regular plan.",
       "empty": {
         "title": "No garden plan yet",
         "description": "No plan has been created for this site yet. Once there is one, you will see your beds and garden objects from above here."
@@ -5858,8 +5857,7 @@
           "export": "Export plan …",
           "import": "Restore a backup …",
           "leadOnly": "Only a lead can restore a backup.",
-          "unsaved": "Save or discard your changes to the plan first.",
-          "fieldMode": "Not available in field mode – open the plan at your desk."
+          "unsaved": "Save or discard your changes to the plan first."
         },
         "export": {
           "title": "Export plan",
@@ -6102,6 +6100,80 @@
           "save": "Save",
           "cancel": "Cancel",
           "saved": "Sun and shade saved."
+        }
+      },
+      "field": {
+        "title": "Field mode",
+        "toPlanning": "Planning mode",
+        "toField": "Field mode",
+        "offline": "No connection. Completing and logging are locked until you are back online, so nothing gets lost.",
+        "finish": "Finish",
+        "planted_one": "{{count}} plant recorded.",
+        "planted_other": "{{count}} plants recorded.",
+        "photoSaved": "Photo saved for {{plant}}.",
+        "tabs": {
+          "label": "Field mode view",
+          "list": "My beds · due today",
+          "map": "Map"
+        },
+        "list": {
+          "label": "Beds, yours first, sorted by due date",
+          "loading": "Loading beds",
+          "empty": "No beds yet",
+          "emptyHint": "Create beds in planning mode and they appear here.",
+          "mine": "Mine",
+          "counts": "Plants: {{plants}} · Open tasks: {{tasks}}",
+          "overdue_one": "{{count}} task overdue",
+          "overdue_other": "{{count}} tasks overdue",
+          "dueToday": "Due today",
+          "next": "Next due: {{date}}",
+          "reloadFailed": "The beds could not be refreshed. You are seeing the last loaded state."
+        },
+        "map": {
+          "toolbar": "Map view",
+          "zoomIn": "Zoom in",
+          "zoomOut": "Zoom out",
+          "fit": "Whole plan",
+          "loading": "Loading plan"
+        },
+        "sheet": {
+          "close": "Close bed",
+          "loading": "Loading bed"
+        },
+        "quick": {
+          "title": "Quick log",
+          "chips": {
+            "watering": "Watered",
+            "harvest": "Harvested",
+            "sowing": "Sown",
+            "weeding": "Weeded/Mulched",
+            "planted": "Planted",
+            "note": "Note"
+          },
+          "plantedNeedsGeometry": "“Planted” is available once the bed is drawn on the plan."
+        },
+        "tasks": {
+          "title": "Tasks ({{count}})",
+          "empty": "Nothing to do here right now.",
+          "sections": {
+            "overdue": "Overdue ({{count}})",
+            "today": "Due today ({{count}})",
+            "later": "Later ({{count}})"
+          }
+        },
+        "plants": {
+          "title": "Plants ({{count}})",
+          "unknown": "The plants could not be loaded right now.",
+          "empty": "Nothing is planted in this bed yet.",
+          "group": "{{species}} · {{count}}",
+          "phase": "Phase: {{phase}}",
+          "noPhase": "Phase unknown",
+          "show": "Show plants",
+          "hide": "Hide plants",
+          "correct": "Correct position",
+          "correctFor": "Correct the position of {{plant}}",
+          "photo": "Photo",
+          "photoFor": "Take a photo of {{plant}}"
         }
       }
     },

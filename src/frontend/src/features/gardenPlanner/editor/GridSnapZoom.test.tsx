@@ -52,7 +52,6 @@ function Harness({ renderer }: { renderer: HeadlessPlanRenderer }) {
       viewport={viewport}
       renderer={renderer}
       labels={TEST_LABELS}
-      fieldMode={false}
       onPan={() => undefined}
       onZoom={onZoom}
       onFit={onFit}
