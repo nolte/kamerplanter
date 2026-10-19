@@ -67,17 +67,7 @@ class ArangoRotationHistoryRepository(IRotationHistoryRepository):
                 },
             ),
         )
-        return [
-            PlantedRow(
-                plant_key=row["plant_key"],
-                species_key=row["species_key"],
-                planted_on=date.fromisoformat(row["planted_on"][:10]),
-                removed_on=date.fromisoformat(row["removed_on"][:10]) if row.get("removed_on") else None,
-                plan_role=row["plan_role"],
-            )
-            for row in cursor
-            if row.get("planted_on") and row.get("species_key")
-        ]
+        return [_planted(row) for row in cursor if row["planted_on"] and row["species_key"]]
 
     def list_backfills(self, location_key: str, *, since: datetime, tenant_key: str) -> list[BackfillRow]:
         self._require_tenant(tenant_key, "list_backfills")
@@ -107,15 +97,24 @@ class ArangoRotationHistoryRepository(IRotationHistoryRepository):
                 },
             ),
         )
-        rows: list[BackfillRow] = []
-        for row in cursor:
-            data: dict[str, Any] = row
-            rows.append(
-                BackfillRow(
-                    event_key=data["event_key"],
-                    performed_at=datetime.fromisoformat(data["performed_at"]),
-                    entry=RotationEntry.model_validate(data["rotation_entry"]),
-                    created_by=data.get("created_by"),
-                )
-            )
-        return rows
+        return [_backfill(row) for row in cursor]
+
+
+def _planted(row: dict[str, Any]) -> PlantedRow:
+    removed = row["removed_on"]
+    return PlantedRow(
+        plant_key=row["plant_key"],
+        species_key=row["species_key"],
+        planted_on=date.fromisoformat(row["planted_on"][:10]),
+        removed_on=date.fromisoformat(removed[:10]) if removed else None,
+        plan_role=row["plan_role"],
+    )
+
+
+def _backfill(row: dict[str, Any]) -> BackfillRow:
+    return BackfillRow(
+        event_key=row["event_key"],
+        performed_at=datetime.fromisoformat(row["performed_at"]),
+        entry=RotationEntry.model_validate(row["rotation_entry"]),
+        created_by=row["created_by"],
+    )

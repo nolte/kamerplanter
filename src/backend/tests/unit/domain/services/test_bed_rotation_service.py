@@ -46,6 +46,14 @@ from tests.support.rotation_fakes import (
 )
 
 TODAY = date(2026, 6, 1)
+
+
+@pytest.fixture(autouse=True)
+def _frozen_today():
+    with freeze_time("2026-06-01"):
+        yield
+
+
 THIS_YEAR = datetime.now(UTC).year
 GROWER = TenantRole.GROWER
 LEAD = TenantRole.LEAD
@@ -82,9 +90,7 @@ def world():
     )
     history = FakeRotationHistory(care_repo)
     graph = FakeRotationGraph()
-    validator = CropRotationValidator(
-        None, species, graph, site_repo=sites, family_repo=families, history_repo=history, today=lambda: TODAY
-    )
+    validator = CropRotationValidator(None, species, graph, site_repo=sites, family_repo=families, history_repo=history)
     service = BedRotationService(sites, plan, graph, species, families, care, validator)
     return service, plan, graph, care_repo, history
 

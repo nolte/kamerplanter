@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -440,9 +441,9 @@ def validate_planting(
         not_applicable_reason=result.rotation.not_applicable_reason,
         rotation_window_years=result.rotation.rotation_window_years,
         rotation_reset_at=result.rotation.rotation_reset_at,
-        rotation=[RotationFindingResponse.model_validate(f, from_attributes=True) for f in result.rotation.findings],
+        rotation=[RotationFindingResponse(**asdict(f)) for f in result.rotation.findings],
         neighbour_scope=result.neighbour_scope,
-        neighbours=[NeighbourHintResponse.model_validate(h, from_attributes=True) for h in result.neighbours],
+        neighbours=[NeighbourHintResponse(**asdict(h)) for h in result.neighbours],
     )
 
 

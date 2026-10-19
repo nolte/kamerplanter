@@ -16,6 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_bed_rotation_service, get_tenant_service
@@ -51,6 +52,12 @@ from tests.support.rotation_fakes import (
 
 _BASE = "/api/v1/t/own"
 TODAY = date(2026, 6, 1)
+
+
+@pytest.fixture(autouse=True)
+def _frozen_today():
+    with freeze_time("2026-06-01"):
+        yield
 
 
 class _Tenants:
@@ -91,9 +98,7 @@ def world() -> SimpleNamespace:
     )
     history = FakeRotationHistory(care_repo)
     graph = FakeRotationGraph()
-    validator = CropRotationValidator(
-        None, species, graph, site_repo=sites, family_repo=families, history_repo=history, today=lambda: TODAY
-    )
+    validator = CropRotationValidator(None, species, graph, site_repo=sites, family_repo=families, history_repo=history)
     service = BedRotationService(sites, plan, graph, species, families, care, validator)
     return SimpleNamespace(service=service, history=history, care_repo=care_repo, plan=plan)
 

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Literal, Protocol
@@ -146,6 +146,60 @@ def not_applicable_reason(location: Location) -> str | None:
     return None
 
 
+def get_field(row: Mapping[str, Any], key: str, default: Any = None) -> Any:
+    """``row[key]`` or ``default`` — a graph row is a plain mapping."""
+    return row[key] if key in row else default  # noqa: SIM401 — one resolved site instead of a dict call per use
+
+
+def _pause_of(holder: Species | BotanicalFamily | None) -> int | None:
+    """The pause a species or a family names, ``None`` when it names none."""
+    return holder.rotation_pause_years if holder is not None else None
+
+
+def _pause_finding(
+    family_key: str, pause: int, source: PauseSource, same: list[HistoryEntry], today_year: int
+) -> RotationFinding | None:
+    """The finding for the most recent year the same family stood in the bed, if the pause has not elapsed."""
+    if not same:
+        return None
+    last = max(same, key=lambda e: e.year)
+    years_since = today_year - last.year
+    if years_since >= pause:
+        return None
+    when = "this year" if years_since == 0 else f"{years_since} year(s) ago"
+    role = " as green manure" if last.plan_role == PlanRole.GREEN_MANURE.value else ""
+    return RotationFinding(
+        pause_severity(years_since, pause),
+        "rotation.pause_not_elapsed",
+        f"Family '{family_key}' grew in this bed{role} {when}; the pause is {pause} year(s) ({source}).",
+        family_key=family_key,
+        species_key=last.species_key,
+        last_year=last.year,
+        years_since=years_since,
+        pause_years=pause,
+        pause_source=source,
+        plan_role=last.plan_role,
+    )
+
+
+def _pest_finding(family_key: str, risk: Mapping[str, Any], recent: set[str | None]) -> RotationFinding | None:
+    """A high shared-pest risk with a family that grew in the bed within the pause."""
+    other = get_field(get_field(risk, "family", {}), "_key", "")
+    if other not in recent or get_field(risk, "risk_level") != "high":
+        return None
+    return RotationFinding(
+        "WARNING",
+        "rotation.pest_risk",
+        f"High pest risk between '{family_key}' and '{other}', which grew in this bed recently.",
+        family_key=other,
+        pest_risk={
+            "shared_pests": get_field(risk, "shared_pests", []),
+            "shared_diseases": get_field(risk, "shared_diseases", []),
+            "risk_level": get_field(risk, "risk_level"),
+        },
+    )
+
+
 class CropRotationValidator:
     """Validates crop rotation rules for a slot — and, since REQ-053 WP 3.4, for a whole bed.
 
@@ -163,15 +217,13 @@ class CropRotationValidator:
         site_repo: ISiteRepository | None = None,
         family_repo: FamilySource | None = None,
         history_repo: IRotationHistoryRepository | None = None,
-        today: Callable[[], date] = today_utc,
     ) -> None:
         self._plant_repo = plant_repo
         self._species_repo = species_repo
         self._graph_repo = graph_repo
-        self._sites = site_repo
-        self._families = family_repo
-        self._history = history_repo
-        self._today = today
+        self._sites: ISiteRepository | None = site_repo
+        self._families: FamilySource | None = family_repo
+        self._history: IRotationHistoryRepository | None = history_repo
 
     def validate_planting(
         self,
@@ -334,6 +386,14 @@ class CropRotationValidator:
                 limit=MAX_ROTATION_WINDOW_YEARS,
             )
 
+    def _family_cached(self, key: str, cache: dict[str, BotanicalFamily | None]) -> BotanicalFamily | None:
+        if key not in cache:
+            cache[key] = self._family_source().get_by_key(key)
+        return cache[key]
+
+    def _family_source(self) -> FamilySource:
+        return self._bed_collaborators()[1]
+
     def _family_of(self, species_key: str, cache: dict[str, str | None], tenant_key: str) -> str | None:
         """The family of a stored species key, resolved under the tenant (a legacy key may name a foreign species)."""
         if species_key not in cache:
@@ -350,8 +410,8 @@ class CropRotationValidator:
         a green manure counts with its family; a mixed bed contributes every family of the year. A backfill counts
         for its calendar year. Duplicates (ten tomato plants in one year) collapse into one entry.
         """
-        _, _, history = self._bed_collaborators()
-        today = self._today()
+        history: IRotationHistoryRepository = self._bed_collaborators()[2]
+        today: date = today_utc()
         reset_at = location.soil_profile.rotation_reset_at if location.soil_profile is not None else None
         since = date(from_year, 1, 1)
         if reset_at is not None and reset_at > since:
@@ -380,8 +440,8 @@ class CropRotationValidator:
             )
             found[(row.event_key,)] = entry
         entries = [e for e in found.values() if e.year >= from_year]
-        entries.sort(key=lambda e: (-e.year, e.family_key or "", e.species_key or "", e.source))
-        return entries, reset_at
+        ordered = sorted(entries, key=lambda e: (-e.year, e.family_key or "", e.species_key or "", e.source))
+        return ordered, reset_at
 
     def validate_planting_in_location(
         self,
@@ -407,7 +467,8 @@ class CropRotationValidator:
             PlanValidationError: ``species_key`` is unknown or not visible (422 ``reference.not_found``).
             PlanError: ``rotation_window_years`` lies outside 1..8 (422 ``rotation.window_out_of_range``).
         """
-        sites, families, _ = self._bed_collaborators()
+        sites: ISiteRepository = self._bed_collaborators()[0]
+        families: FamilySource = self._bed_collaborators()[1]
         location = resolve_owned_location(sites, location_key, tenant_key)
         self._check_window(rotation_window_years)
         species = self.visible_species(species_key, tenant_key=tenant_key)
@@ -428,10 +489,10 @@ class CropRotationValidator:
 
         family = families.get_by_key(species.family_key)
         pause, source = resolve_pause_years(species, family, rotation_window_years)
-        today_year = self._today().year
+        today_year = today_utc().year
         entries, reset_at = self._bed_history(location, from_year=today_year - max(pause, 1), tenant_key=tenant_key)
         findings = self._rotation_findings(species.family_key, pause, source, entries, today_year)
-        findings.sort(key=lambda f: SEVERITY_ORDER[f.severity])
+        findings = sorted(findings, key=lambda f: SEVERITY_ORDER[f.severity])
         severity = findings[0].severity if findings else "OK"
         return BedRotationResult(
             location_key, species_key, True, None, severity, findings, rotation_window_years, reset_at
@@ -445,52 +506,26 @@ class CropRotationValidator:
         entries: list[HistoryEntry],
         today_year: int,
     ) -> list[RotationFinding]:
-        findings: list[RotationFinding] = []
         if pause == 0:  # "no pause needed" (rotation_pause_years = 0): nothing to check, nothing to verify
-            return findings
+            return []
         occupied = [e for e in entries if e.family_key is not None and e.plan_role != PlanRole.FALLOW.value]
         same = [e for e in occupied if e.family_key == family_key]
-        if same:
-            last = max(same, key=lambda e: e.year)
-            years_since = today_year - last.year
-            if years_since < pause:
-                when = "this year" if years_since == 0 else f"{years_since} year(s) ago"
-                role = " as green manure" if last.plan_role == PlanRole.GREEN_MANURE.value else ""
-                findings.append(
-                    RotationFinding(
-                        pause_severity(years_since, pause),
-                        "rotation.pause_not_elapsed",
-                        f"Family '{family_key}' grew in this bed{role} {when}; "
-                        f"the pause is {pause} year(s) ({source}).",
-                        family_key=family_key,
-                        species_key=last.species_key,
-                        last_year=last.year,
-                        years_since=years_since,
-                        pause_years=pause,
-                        pause_source=source,
-                        plan_role=last.plan_role,
-                    )
+        pause_finding = _pause_finding(family_key, pause, source, same, today_year)
+        recent = {e.family_key for e in occupied if today_year - e.year < pause and e.family_key != family_key}
+        pest_findings = (
+            [
+                f
+                for f in (
+                    _pest_finding(family_key, risk, recent) for risk in self._graph_repo.get_pest_risks(family_key)
                 )
-        if self._graph_repo is not None:
-            recent = {e.family_key for e in occupied if today_year - e.year < pause and e.family_key != family_key}
-            for risk in self._graph_repo.get_pest_risks(family_key):
-                other = risk["family"].get("_key", "")
-                if other in recent and risk.get("risk_level") == "high":
-                    findings.append(
-                        RotationFinding(
-                            "WARNING",
-                            "rotation.pest_risk",
-                            f"High pest risk between '{family_key}' and '{other}', which grew in this bed recently.",
-                            family_key=other,
-                            pest_risk={
-                                "shared_pests": risk.get("shared_pests", []),
-                                "shared_diseases": risk.get("shared_diseases", []),
-                                "risk_level": risk.get("risk_level"),
-                            },
-                        )
-                    )
+                if f
+            ]
+            if self._graph_repo is not None
+            else []
+        )
+        findings = ([pause_finding] if pause_finding else []) + pest_findings
         if not occupied and not findings:
-            findings.append(
+            return [
                 RotationFinding(
                     "INFO",
                     "rotation.no_history",
@@ -500,15 +535,36 @@ class CropRotationValidator:
                     pause_years=pause,
                     pause_source=source,
                 )
-            )
+            ]
         return findings
+
+    @staticmethod
+    def _timeline_row(entry: HistoryEntry, fam: BotanicalFamily | None, species: Species | None) -> TimelineEntry:
+        """One row: demand from the species, else the family; none for a green manure or a fallow year."""
+        demand: str | None = None
+        if entry.plan_role == PlanRole.MAIN_CROP.value and entry.family_key is not None:
+            if species is not None and species.nutrient_demand is not None:
+                demand = species.nutrient_demand.value
+            elif fam is not None:
+                demand = fam.typical_nutrient_demand.value
+        return TimelineEntry(
+            entry.year,
+            entry.season,
+            entry.family_key,
+            fam.name if fam is not None else None,
+            entry.species_key,
+            demand,
+            entry.plan_role,
+            entry.source,
+            entry.event_key,
+        )
 
     def rotation_timeline(self, location_key: str, *, tenant_key: str, years: int | None = None) -> RotationTimeline:
         """Family, nutrient demand and plan role per year for a bed (GP-API-039, GP-FR-103, GP-ACC-028).
 
         ``years`` defaults to ``max(rotation_pause_years of the families involved, 5)`` and is at most 10.
         """
-        sites, families, _ = self._bed_collaborators()
+        sites: ISiteRepository = self._bed_collaborators()[0]
         location = resolve_owned_location(sites, location_key, tenant_key)
         if years is not None and not 1 <= years <= MAX_ROTATION_TIMELINE_YEARS:
             raise PlanError(
@@ -518,18 +574,14 @@ class CropRotationValidator:
                 field="years",
                 limit=MAX_ROTATION_TIMELINE_YEARS,
             )
-        today_year = self._today().year
+        today_year = today_utc().year
         entries, reset_at = self._bed_history(
             location, from_year=today_year - MAX_ROTATION_TIMELINE_YEARS + 1, tenant_key=tenant_key
         )
         family_cache: dict[str, BotanicalFamily | None] = {}
 
         def family(key: str | None) -> BotanicalFamily | None:
-            if key is None:
-                return None
-            if key not in family_cache:
-                family_cache[key] = families.get_by_key(key)
-            return family_cache[key]
+            return self._family_cached(key, family_cache) if key is not None else None
 
         species_cache: dict[str, Species | None] = {}
 
@@ -543,43 +595,20 @@ class CropRotationValidator:
         if years is None:
             # The longest pause a family or a species override names (an unsourced family adds nothing): the
             # look-back must reach as far as the validator does.
-            pauses: list[int] = []
-            for e in entries:
-                species, fam = species_of(e.species_key), family(e.family_key)
-                for named in (
-                    species.rotation_pause_years if species is not None else None,
-                    fam.rotation_pause_years if fam is not None else None,
-                ):
-                    if named is not None:
-                        pauses.append(named)
+            pauses = [
+                named
+                for e in entries
+                for named in (_pause_of(species_of(e.species_key)), _pause_of(family(e.family_key)))
+                if named is not None
+            ]
             years = min(max([*pauses, MIN_ROTATION_TIMELINE_YEARS]), MAX_ROTATION_TIMELINE_YEARS)
         from_year = today_year - years + 1
 
-        rows: list[TimelineEntry] = []
-        for entry in entries:
-            if entry.year < from_year:
-                continue
-            fam = family(entry.family_key)
-            demand: str | None = None
-            if entry.plan_role == PlanRole.MAIN_CROP.value and entry.family_key is not None:
-                species = species_of(entry.species_key)
-                if species is not None and species.nutrient_demand is not None:
-                    demand = species.nutrient_demand.value
-                elif fam is not None:
-                    demand = fam.typical_nutrient_demand.value
-            rows.append(
-                TimelineEntry(
-                    entry.year,
-                    entry.season,
-                    entry.family_key,
-                    fam.name if fam is not None else None,
-                    entry.species_key,
-                    demand,
-                    entry.plan_role,
-                    entry.source,
-                    entry.event_key,
-                )
-            )
+        rows = [
+            self._timeline_row(entry, family(entry.family_key), species_of(entry.species_key))
+            for entry in entries
+            if entry.year >= from_year
+        ]
         return RotationTimeline(
             location_key,
             years,

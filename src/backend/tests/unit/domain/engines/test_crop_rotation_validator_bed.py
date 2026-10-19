@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from freezegun import freeze_time
 
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
 from app.domain.engines.crop_rotation_validator import (
@@ -37,6 +38,12 @@ from tests.support.rotation_fakes import (
 )
 
 TODAY = date(2026, 6, 1)
+
+
+@pytest.fixture(autouse=True)
+def _frozen_today():
+    with freeze_time("2026-06-01"):
+        yield
 
 
 @pytest.fixture
@@ -74,7 +81,6 @@ def world():
         site_repo=sites,
         family_repo=families,
         history_repo=history,
-        today=lambda: TODAY,
     )
     return validator, plan, history, graph, species
 

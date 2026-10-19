@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Any, Literal
 
 import structlog
 
@@ -33,6 +33,7 @@ from app.domain.engines.crop_rotation_validator import (
     FamilySource,
     RotationTimeline,
     Severity,
+    get_field,
 )
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
@@ -155,7 +156,7 @@ class BedRotationService:
                 raise _not_found("slot_key")
             scope = "slot"
             neighbour_slots = {
-                row["slot"].get("_key", "") for row in self._graph.get_adjacent_slots(slot.key or slot_key)
+                get_field(row["slot"], "_key", "") for row in self._graph.get_adjacent_slots(slot.key or slot_key)
             } - {""}
         hints = self._neighbour_hints(
             location.key or location_key, species_key, scope, neighbour_slots, tenant_key=tenant_key
@@ -179,40 +180,41 @@ class BedRotationService:
         if not present:
             return []
         incompatible = {
-            row["species"].get("_key", "")
+            get_field(row["species"], "_key", "")
             for row in self._graph.get_incompatible_species(species_key, tenant_key=tenant_key)
         }
         compatible = {
-            row["species"].get("_key", ""): row.get("score")
+            get_field(row["species"], "_key", ""): get_field(row, "score")
             for row in self._graph.get_compatible_species(species_key, tenant_key=tenant_key)
         }
         warn: Severity = "WARNING" if scope == "slot" else "INFO"
-        hints: list[NeighbourHint] = []
-        for other, slots in sorted(present.items()):
-            name = self._species_name(other, tenant_key=tenant_key)
-            if other in incompatible:
-                hints.append(
-                    NeighbourHint(
-                        warn,
-                        "companion.incompatible",
-                        f"Incompatible neighbour: {name}.",
-                        other,
-                        sorted(set(slots)),
-                    )
-                )
-            elif other in compatible:
-                hints.append(
-                    NeighbourHint(
-                        "OK",
-                        "companion.compatible",
-                        f"Compatible neighbour: {name}.",
-                        other,
-                        sorted(set(slots)),
-                        score=compatible[other],
-                    )
-                )
-        hints.sort(key=lambda h: (SEVERITY_ORDER[h.severity], h.species_key))
-        return hints
+        hints = [
+            found
+            for other, slots in sorted(present.items())
+            if (found := self._hint(other, slots, other in incompatible, compatible, warn, tenant_key=tenant_key))
+            is not None
+        ]
+        return sorted(hints, key=lambda h: (SEVERITY_ORDER[h.severity], h.species_key))
+
+    def _hint(
+        self,
+        other: str,
+        slots: list[str],
+        is_incompatible: bool,
+        compatible: dict[str, Any],
+        warn: Severity,
+        *,
+        tenant_key: str,
+    ) -> NeighbourHint | None:
+        if not is_incompatible and other not in compatible:
+            return None
+        name = self._species_name(other, tenant_key=tenant_key)
+        slot_keys = sorted(set(slots))
+        if is_incompatible:
+            return NeighbourHint(warn, "companion.incompatible", f"Incompatible neighbour: {name}.", other, slot_keys)
+        return NeighbourHint(
+            "OK", "companion.compatible", f"Compatible neighbour: {name}.", other, slot_keys, score=compatible[other]
+        )
 
     def _species_name(self, species_key: str, *, tenant_key: str) -> str:
         """The name of a stored species key, only if the tenant may read it (else the key itself, #2082)."""
