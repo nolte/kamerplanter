@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: integration
 status: measured
-measured_on: '2026-10-13'
-measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
-replay_seconds: 2575
+measured_on: '2026-10-19'
+measured_at_commit: 9707e38f25ac49ca63a853b106af67915341f4da
+replay_seconds: 2766
 job_spec_sha256: e536e82a39c292017b34784d666dc1e6abc5c7b22f87d7c4de195e5b6ea96c0c
 invocations:
 - command: task test:backend:integration
@@ -28,7 +28,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 4658
+  untracked_reads_dropped: 4945
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -42,7 +42,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 141
+  untracked_reads_dropped: 142
 subprocesses:
 - collect2
 - gcc
@@ -153,6 +153,10 @@ reads:
 - src/backend/app/api/v1/calendar/feed_router.py
 - src/backend/app/api/v1/calendar/schemas.py
 - src/backend/app/api/v1/calendar/tenant_router.py
+- src/backend/app/api/v1/care_events/
+- src/backend/app/api/v1/care_events/__init__.py
+- src/backend/app/api/v1/care_events/schemas.py
+- src/backend/app/api/v1/care_events/tenant_router.py
 - src/backend/app/api/v1/care_reminders/
 - src/backend/app/api/v1/care_reminders/__init__.py
 - src/backend/app/api/v1/care_reminders/router.py
@@ -209,6 +213,15 @@ reads:
 - src/backend/app/api/v1/fish_species/
 - src/backend/app/api/v1/fish_species/__init__.py
 - src/backend/app/api/v1/fish_species/router.py
+- src/backend/app/api/v1/garden_objects/
+- src/backend/app/api/v1/garden_objects/__init__.py
+- src/backend/app/api/v1/garden_objects/schemas.py
+- src/backend/app/api/v1/garden_objects/tenant_router.py
+- src/backend/app/api/v1/garden_plan/
+- src/backend/app/api/v1/garden_plan/__init__.py
+- src/backend/app/api/v1/garden_plan/export_options.py
+- src/backend/app/api/v1/garden_plan/schemas.py
+- src/backend/app/api/v1/garden_plan/tenant_router.py
 - src/backend/app/api/v1/glossar/
 - src/backend/app/api/v1/glossar/__init__.py
 - src/backend/app/api/v1/glossar/admin_router.py
@@ -488,13 +501,16 @@ reads:
 - src/backend/app/data_access/arango/attachment_repository.py
 - src/backend/app/data_access/arango/auth_provider_repository.py
 - src/backend/app/data_access/arango/base_repository.py
+- src/backend/app/data_access/arango/bed_history_repository.py
 - src/backend/app/data_access/arango/botanical_family_repository.py
 - src/backend/app/data_access/arango/calendar_feed_repository.py
 - src/backend/app/data_access/arango/calendar_source_repository.py
+- src/backend/app/data_access/arango/care_event_repository.py
 - src/backend/app/data_access/arango/care_reminder_repository.py
 - src/backend/app/data_access/arango/climate_normal_repository.py
 - src/backend/app/data_access/arango/collection_entity_names.py
 - src/backend/app/data_access/arango/collections.py
+- src/backend/app/data_access/arango/conflicts.py
 - src/backend/app/data_access/arango/connection.py
 - src/backend/app/data_access/arango/consent_repository.py
 - src/backend/app/data_access/arango/data_export_repository.py
@@ -505,6 +521,8 @@ reads:
 - src/backend/app/data_access/arango/favorites_repository.py
 - src/backend/app/data_access/arango/feeding_repository.py
 - src/backend/app/data_access/arango/fertilizer_repository.py
+- src/backend/app/data_access/arango/garden_object_repository.py
+- src/backend/app/data_access/arango/garden_plan_repository.py
 - src/backend/app/data_access/arango/glossary_repository.py
 - src/backend/app/data_access/arango/graph_repository.py
 - src/backend/app/data_access/arango/ha_entity_grant_repository.py
@@ -540,12 +558,14 @@ reads:
 - src/backend/app/data_access/arango/plant_diagnosis_repository.py
 - src/backend/app/data_access/arango/plant_diary_repository.py
 - src/backend/app/data_access/arango/plant_instance_repository.py
+- src/backend/app/data_access/arango/planting_reservation_repository.py
 - src/backend/app/data_access/arango/planting_run_repository.py
 - src/backend/app/data_access/arango/post_harvest_repository.py
 - src/backend/app/data_access/arango/processing_restriction_repository.py
 - src/backend/app/data_access/arango/query_builder.py
 - src/backend/app/data_access/arango/reference_image_repository.py
 - src/backend/app/data_access/arango/refresh_token_repository.py
+- src/backend/app/data_access/arango/rotation_history_repository.py
 - src/backend/app/data_access/arango/season_state_repository.py
 - src/backend/app/data_access/arango/security_audit_repository.py
 - src/backend/app/data_access/arango/sensor_repository.py
@@ -556,6 +576,7 @@ reads:
 - src/backend/app/data_access/arango/succession_plan_repository.py
 - src/backend/app/data_access/arango/system_settings_repository.py
 - src/backend/app/data_access/arango/tank_repository.py
+- src/backend/app/data_access/arango/task_completion_repository.py
 - src/backend/app/data_access/arango/task_repository.py
 - src/backend/app/data_access/arango/tenant_erasure_executor.py
 - src/backend/app/data_access/arango/tenant_erasure_repository.py
@@ -563,6 +584,7 @@ reads:
 - src/backend/app/data_access/arango/tenant_ownership.py
 - src/backend/app/data_access/arango/tenant_repository.py
 - src/backend/app/data_access/arango/tenant_scope.py
+- src/backend/app/data_access/arango/transactions.py
 - src/backend/app/data_access/arango/user_repository.py
 - src/backend/app/data_access/arango/watering_log_repository.py
 - src/backend/app/data_access/arango/watering_repository.py
@@ -648,10 +670,14 @@ reads:
 - src/backend/app/domain/calculators/drying_calculator.py
 - src/backend/app/domain/calculators/evapotranspiration_calculator.py
 - src/backend/app/domain/calculators/gdd_calculator.py
+- src/backend/app/domain/calculators/geometry_calculator.py
 - src/backend/app/domain/calculators/image_preprocessor.py
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/photoperiod_calculator.py
+- src/backend/app/domain/calculators/planting_layout_calculator.py
+- src/backend/app/domain/calculators/range_parser.py
 - src/backend/app/domain/calculators/scientific_name.py
+- src/backend/app/domain/calculators/site_fit_calculator.py
 - src/backend/app/domain/calculators/slot_capacity_calculator.py
 - src/backend/app/domain/calculators/sun_calculator.py
 - src/backend/app/domain/calculators/vpd_calculator.py
@@ -659,6 +685,7 @@ reads:
 - src/backend/app/domain/engines/__init__.py
 - src/backend/app/domain/engines/activity_plan_engine.py
 - src/backend/app/domain/engines/actuator_control_engine.py
+- src/backend/app/domain/engines/adjacency_engine.py
 - src/backend/app/domain/engines/ai_explain_engine.py
 - src/backend/app/domain/engines/ai_tip_engine.py
 - src/backend/app/domain/engines/apprise_url_secrets.py
@@ -687,6 +714,7 @@ reads:
 - src/backend/app/domain/engines/frost_exposure_resolver.py
 - src/backend/app/domain/engines/frost_warning_engine.py
 - src/backend/app/domain/engines/full_auth_provider.py
+- src/backend/app/domain/engines/garden_plan_engine.py
 - src/backend/app/domain/engines/hardiness_zone_resolver.py
 - src/backend/app/domain/engines/hst_validator.py
 - src/backend/app/domain/engines/hydro_system_monitor.py
@@ -718,6 +746,7 @@ reads:
 - src/backend/app/domain/engines/phase_transition_engine.py
 - src/backend/app/domain/engines/photo_quality_assessor.py
 - src/backend/app/domain/engines/photoperiod_manager.py
+- src/backend/app/domain/engines/plan_svg_engine.py
 - src/backend/app/domain/engines/planting_run_engine.py
 - src/backend/app/domain/engines/post_harvest_stage_engine.py
 - src/backend/app/domain/engines/print_engine.py
@@ -733,6 +762,7 @@ reads:
 - src/backend/app/domain/engines/season_overview_engine.py
 - src/backend/app/domain/engines/season_state_engine.py
 - src/backend/app/domain/engines/sensor_metrics.py
+- src/backend/app/domain/engines/slot_reservation_engine.py
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
@@ -747,6 +777,7 @@ reads:
 - src/backend/app/domain/engines/substrate_mix_engine.py
 - src/backend/app/domain/engines/succession_plan_engine.py
 - src/backend/app/domain/engines/tank_engine.py
+- src/backend/app/domain/engines/task_completion_engine.py
 - src/backend/app/domain/engines/tenant_engine.py
 - src/backend/app/domain/engines/tenant_erasure_engine.py
 - src/backend/app/domain/engines/tenant_export_engine.py
@@ -773,8 +804,10 @@ reads:
 - src/backend/app/domain/interfaces/attachment_repository.py
 - src/backend/app/domain/interfaces/auth_provider.py
 - src/backend/app/domain/interfaces/auth_provider_repository.py
+- src/backend/app/domain/interfaces/bed_history_repository.py
 - src/backend/app/domain/interfaces/calendar_feed_repository.py
 - src/backend/app/domain/interfaces/calendar_source_repository.py
+- src/backend/app/domain/interfaces/care_event_repository.py
 - src/backend/app/domain/interfaces/care_reminder_repository.py
 - src/backend/app/domain/interfaces/climate_normal_repository.py
 - src/backend/app/domain/interfaces/consent_repository.py
@@ -792,6 +825,8 @@ reads:
 - src/backend/app/domain/interfaces/favorites_repository.py
 - src/backend/app/domain/interfaces/feeding_repository.py
 - src/backend/app/domain/interfaces/fertilizer_repository.py
+- src/backend/app/domain/interfaces/garden_object_repository.py
+- src/backend/app/domain/interfaces/garden_plan_repository.py
 - src/backend/app/domain/interfaces/graph_repository.py
 - src/backend/app/domain/interfaces/ha_entity_gate.py
 - src/backend/app/domain/interfaces/ha_entity_grant_repository.py
@@ -832,6 +867,7 @@ reads:
 - src/backend/app/domain/interfaces/plant_diary_repository.py
 - src/backend/app/domain/interfaces/plant_identification_adapter.py
 - src/backend/app/domain/interfaces/plant_instance_repository.py
+- src/backend/app/domain/interfaces/planting_reservation_repository.py
 - src/backend/app/domain/interfaces/planting_run_repository.py
 - src/backend/app/domain/interfaces/post_harvest_repository.py
 - src/backend/app/domain/interfaces/processing_restriction_repository.py
@@ -840,6 +876,7 @@ reads:
 - src/backend/app/domain/interfaces/refresh_token_repository.py
 - src/backend/app/domain/interfaces/registration_notice_store.py
 - src/backend/app/domain/interfaces/rendition_dispatch_claims.py
+- src/backend/app/domain/interfaces/rotation_history_repository.py
 - src/backend/app/domain/interfaces/season_state_repository.py
 - src/backend/app/domain/interfaces/security_audit_repository.py
 - src/backend/app/domain/interfaces/sensor_repository.py
@@ -850,6 +887,7 @@ reads:
 - src/backend/app/domain/interfaces/substrate_repository.py
 - src/backend/app/domain/interfaces/succession_plan_repository.py
 - src/backend/app/domain/interfaces/tank_repository.py
+- src/backend/app/domain/interfaces/task_completion_repository.py
 - src/backend/app/domain/interfaces/task_repository.py
 - src/backend/app/domain/interfaces/tenant_erasure_executor.py
 - src/backend/app/domain/interfaces/tenant_erasure_repository.py
@@ -873,11 +911,17 @@ reads:
 - src/backend/app/domain/models/beneficial.py
 - src/backend/app/domain/models/botanical_family.py
 - src/backend/app/domain/models/calendar.py
+- src/backend/app/domain/models/care_event.py
 - src/backend/app/domain/models/care_reminder.py
 - src/backend/app/domain/models/diagnosis.py
 - src/backend/app/domain/models/enrichment.py
 - src/backend/app/domain/models/feeding_event.py
 - src/backend/app/domain/models/fertilizer.py
+- src/backend/app/domain/models/garden_object.py
+- src/backend/app/domain/models/garden_plan.py
+- src/backend/app/domain/models/garden_plan_export.py
+- src/backend/app/domain/models/garden_plan_import.py
+- src/backend/app/domain/models/geometry.py
 - src/backend/app/domain/models/glossary_term.py
 - src/backend/app/domain/models/ha_entity_grant.py
 - src/backend/app/domain/models/ha_publish_setting.py
@@ -912,6 +956,7 @@ reads:
 - src/backend/app/domain/models/plant_diagnosis_request.py
 - src/backend/app/domain/models/plant_diary_entry.py
 - src/backend/app/domain/models/plant_instance.py
+- src/backend/app/domain/models/planting_reservation.py
 - src/backend/app/domain/models/planting_run.py
 - src/backend/app/domain/models/post_harvest.py
 - src/backend/app/domain/models/print_models.py
@@ -932,6 +977,7 @@ reads:
 - src/backend/app/domain/models/system_settings.py
 - src/backend/app/domain/models/tank.py
 - src/backend/app/domain/models/task.py
+- src/backend/app/domain/models/task_completion.py
 - src/backend/app/domain/models/tenant.py
 - src/backend/app/domain/models/tenant_context.py
 - src/backend/app/domain/models/tenant_erasure.py
@@ -947,6 +993,7 @@ reads:
 - src/backend/app/domain/services/activity_service.py
 - src/backend/app/domain/services/actuator_service.py
 - src/backend/app/domain/services/adapter_registry.py
+- src/backend/app/domain/services/adjacency_service.py
 - src/backend/app/domain/services/ai_assistant_service.py
 - src/backend/app/domain/services/ai_audit_logger.py
 - src/backend/app/domain/services/ai_call_budget.py
@@ -955,7 +1002,10 @@ reads:
 - src/backend/app/domain/services/aquaponik_service.py
 - src/backend/app/domain/services/attachment_service.py
 - src/backend/app/domain/services/auth_service.py
+- src/backend/app/domain/services/bed_history_service.py
+- src/backend/app/domain/services/bed_rotation_service.py
 - src/backend/app/domain/services/calendar_service.py
+- src/backend/app/domain/services/care_event_service.py
 - src/backend/app/domain/services/care_reminder_service.py
 - src/backend/app/domain/services/catalogue_authorization.py
 - src/backend/app/domain/services/climate_normal_fetcher.py
@@ -975,6 +1025,11 @@ reads:
 - src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
 - src/backend/app/domain/services/fields_kept_on_edit.py
+- src/backend/app/domain/services/garden_plan_export_service.py
+- src/backend/app/domain/services/garden_plan_import_service.py
+- src/backend/app/domain/services/garden_plan_retention_service.py
+- src/backend/app/domain/services/garden_plan_service.py
+- src/backend/app/domain/services/garden_resource_service.py
 - src/backend/app/domain/services/glossary_service.py
 - src/backend/app/domain/services/ha_entity_grant_service.py
 - src/backend/app/domain/services/ha_publish_service.py
@@ -1014,6 +1069,7 @@ reads:
 - src/backend/app/domain/services/plant_diary_service.py
 - src/backend/app/domain/services/plant_instance_service.py
 - src/backend/app/domain/services/plant_photo_service.py
+- src/backend/app/domain/services/planting_reservation_service.py
 - src/backend/app/domain/services/planting_run_service.py
 - src/backend/app/domain/services/post_harvest_service.py
 - src/backend/app/domain/services/print_service.py
@@ -1208,6 +1264,8 @@ reads:
 - src/backend/app/migrations/support/
 - src/backend/app/migrations/support/__init__.py
 - src/backend/app/migrations/support/care_profile_recompute.py
+- src/backend/app/migrations/support/cron_to_rrule.py
+- src/backend/app/migrations/support/garden_plan_geometry.py
 - src/backend/app/migrations/support/legacy_foreign_fields.py
 - src/backend/app/migrations/support/legacy_foreign_references.py
 - src/backend/app/migrations/support/legacy_indexes.py
@@ -1307,16 +1365,24 @@ reads:
 - src/backend/app/migrations/versions/v0090_hash_calendar_feed_tokens.py
 - src/backend/app/migrations/versions/v0091_tenant_plan_key.py
 - src/backend/app/migrations/versions/v0092_task_tenant_status_index.py
+- src/backend/app/migrations/versions/v0093_garden_plan_geometry.py
+- src/backend/app/migrations/versions/v0094_location_type_bed_flags.py
+- src/backend/app/migrations/versions/v0095_task_suggested_flag.py
+- src/backend/app/migrations/versions/v0096_nutrient_demand_split.py
+- src/backend/app/migrations/versions/v0097_recurrence_cron_to_rrule.py
+- src/backend/app/migrations/versions/v0098_location_site_conditions.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
 - src/backend/app/observability/error_tracking.py
 - src/backend/app/observability/event_user.py
+- src/backend/app/observability/garden_plan_metrics.py
 - src/backend/app/observability/metrics.py
 - src/backend/app/observability/queue_metrics.py
 - src/backend/app/tasks/
 - src/backend/app/tasks/__init__.py
 - src/backend/app/tasks/actuator_tasks.py
+- src/backend/app/tasks/adjacency.py
 - src/backend/app/tasks/ai_tasks.py
 - src/backend/app/tasks/auth_tasks.py
 - src/backend/app/tasks/care_tasks.py
@@ -1364,16 +1430,20 @@ reads:
 - src/backend/tests/integration/conftest.py
 - src/backend/tests/integration/test_account_erasure_reach.py
 - src/backend/tests/integration/test_active_phase_histories_query.py
+- src/backend/tests/integration/test_adjacency_edges.py
 - src/backend/tests/integration/test_admin_tenant_step_up_reach.py
 - src/backend/tests/integration/test_ai_provider_system_default_reach.py
 - src/backend/tests/integration/test_aql_reference_normalisation.py
 - src/backend/tests/integration/test_arango_app_scoped_account.py
 - src/backend/tests/integration/test_arango_integration.py
+- src/backend/tests/integration/test_arango_transactions.py
 - src/backend/tests/integration/test_attachment_dedup_ownership.py
 - src/backend/tests/integration/test_attachment_renditions_failed_marker.py
+- src/backend/tests/integration/test_bed_history.py
 - src/backend/tests/integration/test_calendar_feed_token_at_rest.py
 - src/backend/tests/integration/test_calendar_source_repository.py
 - src/backend/tests/integration/test_calendar_tenant_isolation.py
+- src/backend/tests/integration/test_care_event_repository.py
 - src/backend/tests/integration/test_care_profile_edge_concurrency.py
 - src/backend/tests/integration/test_care_profile_null_clearing.py
 - src/backend/tests/integration/test_care_reminder_species_tenant_scope.py
@@ -1399,6 +1469,10 @@ reads:
 - src/backend/tests/integration/test_fertilizer_incompatibility_list_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_nutrient_plan_usage_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
+- src/backend/tests/integration/test_garden_plan_import.py
+- src/backend/tests/integration/test_garden_plan_repository.py
+- src/backend/tests/integration/test_garden_plan_tenant_isolation.py
+- src/backend/tests/integration/test_garden_resource_repository.py
 - src/backend/tests/integration/test_get_all_pages.py
 - src/backend/tests/integration/test_ha_entity_grants_reach.py
 - src/backend/tests/integration/test_identifier_tenant_scope.py
@@ -1440,6 +1514,8 @@ reads:
 - src/backend/tests/integration/test_plan_store_hardening_reach.py
 - src/backend/tests/integration/test_plant_chill_day_increment.py
 - src/backend/tests/integration/test_plant_scoped_route_residue_tenant_scope.py
+- src/backend/tests/integration/test_planting_reservation_flow.py
+- src/backend/tests/integration/test_planting_reservation_repository.py
 - src/backend/tests/integration/test_privacy_export_garden_readings_timescale.py
 - src/backend/tests/integration/test_privacy_export_personal_tenant.py
 - src/backend/tests/integration/test_privacy_export_tombstone.py
@@ -1450,6 +1526,7 @@ reads:
 - src/backend/tests/integration/test_registration_mode_reach.py
 - src/backend/tests/integration/test_retention_instant_comparisons.py
 - src/backend/tests/integration/test_retired_index_catalogue.py
+- src/backend/tests/integration/test_rotation_history.py
 - src/backend/tests/integration/test_run_plants_species_name_tenant_scope.py
 - src/backend/tests/integration/test_runs_at_site_tenant_scope.py
 - src/backend/tests/integration/test_security_audit_log_reach.py
@@ -1473,6 +1550,8 @@ reads:
 - src/backend/tests/integration/test_storage_reconciliation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
+- src/backend/tests/integration/test_task_completion_repository.py
+- src/backend/tests/integration/test_task_location_queue.py
 - src/backend/tests/integration/test_task_photo_delete_state.py
 - src/backend/tests/integration/test_task_queue_tenant_status_index.py
 - src/backend/tests/integration/test_tenant_erasure_batches.py
@@ -1522,6 +1601,10 @@ reads:
 - src/backend/tests/integration/test_v0088_drop_ipm_catalogue_tenant_stamp.py
 - src/backend/tests/integration/test_v0089_revoke_unchecked_platform_lead_invitations.py
 - src/backend/tests/integration/test_v0091_tenant_plan_key.py
+- src/backend/tests/integration/test_v0093_garden_plan_geometry.py
+- src/backend/tests/integration/test_v0094_v0095_req053_m2_m3.py
+- src/backend/tests/integration/test_v0096_v0097_req053_m5_m6.py
+- src/backend/tests/integration/test_v0098_location_site_conditions.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/
@@ -1529,9 +1612,11 @@ reads:
 - src/backend/tests/support/arango_integration.py
 - src/backend/tests/support/boundary_harness.py
 - src/backend/tests/support/calendar_feed_owner.py
+- src/backend/tests/support/care_event_fakes.py
 - src/backend/tests/support/care_reminder_store.py
 - src/backend/tests/support/execution_guards.py
 - src/backend/tests/support/fake_inference_service.py
+- src/backend/tests/support/garden_plan_fakes.py
 - src/backend/tests/support/onboarding_wiring.py
 - src/backend/tests/support/privacy_doubles.py
 - src/backend/tests/support/seed_boot.py
@@ -1544,16 +1629,20 @@ reads:
 test_modules:
 - src/backend/tests/integration/test_account_erasure_reach.py
 - src/backend/tests/integration/test_active_phase_histories_query.py
+- src/backend/tests/integration/test_adjacency_edges.py
 - src/backend/tests/integration/test_admin_tenant_step_up_reach.py
 - src/backend/tests/integration/test_ai_provider_system_default_reach.py
 - src/backend/tests/integration/test_aql_reference_normalisation.py
 - src/backend/tests/integration/test_arango_app_scoped_account.py
 - src/backend/tests/integration/test_arango_integration.py
+- src/backend/tests/integration/test_arango_transactions.py
 - src/backend/tests/integration/test_attachment_dedup_ownership.py
 - src/backend/tests/integration/test_attachment_renditions_failed_marker.py
+- src/backend/tests/integration/test_bed_history.py
 - src/backend/tests/integration/test_calendar_feed_token_at_rest.py
 - src/backend/tests/integration/test_calendar_source_repository.py
 - src/backend/tests/integration/test_calendar_tenant_isolation.py
+- src/backend/tests/integration/test_care_event_repository.py
 - src/backend/tests/integration/test_care_profile_edge_concurrency.py
 - src/backend/tests/integration/test_care_profile_null_clearing.py
 - src/backend/tests/integration/test_care_reminder_species_tenant_scope.py
@@ -1579,6 +1668,10 @@ test_modules:
 - src/backend/tests/integration/test_fertilizer_incompatibility_list_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_nutrient_plan_usage_tenant_scope.py
 - src/backend/tests/integration/test_fertilizer_reference_tenant_visibility.py
+- src/backend/tests/integration/test_garden_plan_import.py
+- src/backend/tests/integration/test_garden_plan_repository.py
+- src/backend/tests/integration/test_garden_plan_tenant_isolation.py
+- src/backend/tests/integration/test_garden_resource_repository.py
 - src/backend/tests/integration/test_get_all_pages.py
 - src/backend/tests/integration/test_ha_entity_grants_reach.py
 - src/backend/tests/integration/test_identifier_tenant_scope.py
@@ -1620,6 +1713,8 @@ test_modules:
 - src/backend/tests/integration/test_plan_store_hardening_reach.py
 - src/backend/tests/integration/test_plant_chill_day_increment.py
 - src/backend/tests/integration/test_plant_scoped_route_residue_tenant_scope.py
+- src/backend/tests/integration/test_planting_reservation_flow.py
+- src/backend/tests/integration/test_planting_reservation_repository.py
 - src/backend/tests/integration/test_privacy_export_garden_readings_timescale.py
 - src/backend/tests/integration/test_privacy_export_personal_tenant.py
 - src/backend/tests/integration/test_privacy_export_tombstone.py
@@ -1630,6 +1725,7 @@ test_modules:
 - src/backend/tests/integration/test_registration_mode_reach.py
 - src/backend/tests/integration/test_retention_instant_comparisons.py
 - src/backend/tests/integration/test_retired_index_catalogue.py
+- src/backend/tests/integration/test_rotation_history.py
 - src/backend/tests/integration/test_run_plants_species_name_tenant_scope.py
 - src/backend/tests/integration/test_runs_at_site_tenant_scope.py
 - src/backend/tests/integration/test_security_audit_log_reach.py
@@ -1653,6 +1749,8 @@ test_modules:
 - src/backend/tests/integration/test_storage_reconciliation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
+- src/backend/tests/integration/test_task_completion_repository.py
+- src/backend/tests/integration/test_task_location_queue.py
 - src/backend/tests/integration/test_task_photo_delete_state.py
 - src/backend/tests/integration/test_task_queue_tenant_status_index.py
 - src/backend/tests/integration/test_tenant_erasure_batches.py
@@ -1702,6 +1800,10 @@ test_modules:
 - src/backend/tests/integration/test_v0088_drop_ipm_catalogue_tenant_stamp.py
 - src/backend/tests/integration/test_v0089_revoke_unchecked_platform_lead_invitations.py
 - src/backend/tests/integration/test_v0091_tenant_plan_key.py
+- src/backend/tests/integration/test_v0093_garden_plan_geometry.py
+- src/backend/tests/integration/test_v0094_v0095_req053_m2_m3.py
+- src/backend/tests/integration/test_v0096_v0097_req053_m5_m6.py
+- src/backend/tests/integration/test_v0098_location_site_conditions.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 readers: {}
