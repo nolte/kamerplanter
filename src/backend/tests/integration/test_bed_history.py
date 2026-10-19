@@ -224,6 +224,15 @@ class TestTheFilters:
 
         assert sorted(_ids(rows)) == ["care:w_new", "plant_planted:new"]
 
+    def test_a_lower_bound_inside_the_day_still_shows_a_plant_put_in_that_day(self, db, repo, bed) -> None:
+        """Plants carry a date, not an instant: ``from = 12 May 05:00Z`` (a viewer at UTC-5) keeps 12 May."""
+        _plant(db, "same_day", planted="2025-05-12", removed="2025-05-12")
+        _plant(db, "day_before", planted="2025-05-11")
+
+        rows = _page(repo, BedHistoryFilter(performed_from=datetime(2025, 5, 12, 5, tzinfo=UTC)))
+
+        assert sorted(_ids(rows)) == ["plant_planted:same_day", "plant_removed:same_day"]
+
     def test_the_plant_filter_keeps_that_plants_events_and_drops_runs(self, db, repo, bed) -> None:
         _plant(db, "p1")
         _plant(db, "p2")

@@ -152,16 +152,19 @@ export default function HistoryList({ pages, bedName, filtered, testIdPrefix }: 
             : t('pages.bed.history.shown', { count: state.items.length })}
         </Typography>
       </Box>
-      {state.moreError && <ErrorDisplay error={state.moreError} onRetry={pages.loadMore} />}
-      {state.hasMore && !state.moreError && (
+      {state.moreError && <ErrorDisplay error={state.moreError} />}
+      {state.hasMore && (
         <Button
           variant="outlined"
-          onClick={pages.loadMore}
-          disabled={state.loadingMore}
+          onClick={() => {
+            // Not `disabled`: a disabled button drops the keyboard focus; the click is ignored while it runs.
+            if (!state.loadingMore) pages.loadMore();
+          }}
+          aria-disabled={state.loadingMore}
           sx={{ minHeight: 48, alignSelf: 'flex-start' }}
           data-testid={`${testIdPrefix}-more`}
         >
-          {t('pages.bed.history.loadMore')}
+          {state.moreError ? t('pages.bed.history.retryMore') : t('pages.bed.history.loadMore')}
         </Button>
       )}
     </Box>

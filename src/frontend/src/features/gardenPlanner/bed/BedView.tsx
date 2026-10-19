@@ -83,7 +83,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
       case 'history':
         return (
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
-            <BedHistoryTab bed={summary} />
+            <BedHistoryTab key={summary.key} bed={summary} />
           </Suspense>
         );
       case 'soil':

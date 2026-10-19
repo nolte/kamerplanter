@@ -25,6 +25,8 @@ import { cancelBackfill, getBedHistory, listBedPlantOptions } from './historyApi
 import { activeFilterCount, emptyFilters, toQuery, isRangeInverted, type HistoryFilters } from './historyFilters';
 import type { BackfillResult, FilterOption } from './historyTypes';
 import { useHistoryPages } from './useHistoryPages';
+
+const historyItemId = (item: { id: string }) => item.id;
 import { usePersonOptions } from './usePersonOptions';
 import { useRotationTimeline } from './useRotationTimeline';
 
@@ -69,7 +71,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
     (offset: number) => (inverted ? Promise.resolve([]) : getBedHistory(bed.key, query, offset)),
     [bed.key, query, inverted],
   );
-  const pages = useHistoryPages(fetchPage, `${bed.key}:${resetKey}`);
+  const pages = useHistoryPages(fetchPage, `${bed.key}:${resetKey}`, historyItemId);
   const { reload: reloadHistory } = pages;
   const { reload: reloadTimeline } = timeline;
 

@@ -12,7 +12,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import { getCareEvents, listAllBedOptions, listBedPlantOptions } from './historyApi';
 import HistoryFilterBar from './HistoryFilterBar';
 import HistoryList from './HistoryList';
-import { careLineToItem, isCorrectionLine } from './historyFormat';
+import { careLineToItem } from './historyFormat';
 import { activeFilterCount, emptyFilters, isRangeInverted, toQuery, type HistoryFilters } from './historyFilters';
 import type { FilterOption } from './historyTypes';
 import { useHistoryPages } from './useHistoryPages';
@@ -21,6 +21,7 @@ import { usePersonOptions } from './usePersonOptions';
 /** GP-FR-107: the tenant-wide history shows 90 days unless the caller says otherwise. */
 const DEFAULTS: HistoryFilters = emptyFilters('90d');
 const NO_OPTIONS: FilterOption[] = [];
+const historyItemId = (item: { id: string }) => item.id;
 
 export default function CareHistoryPage() {
   const { t } = useTranslation();
@@ -69,14 +70,7 @@ export default function CareHistoryPage() {
     },
     [query, inverted],
   );
-  const raw = useHistoryPages(fetchPage, JSON.stringify(query));
-  // The server lists `position_corrected` lines like any other; they are corrections of the plan and stay
-  // hidden unless asked for. The page size is the server's, so the "more" test above keeps using the raw page.
-  const pages = useMemo(() => {
-    if (raw.state.status !== 'ready' || filters.includeCorrections) return raw;
-    return { ...raw, state: { ...raw.state, items: raw.state.items.filter((item) => !isCorrectionLine(item)) } };
-  }, [raw, filters.includeCorrections]);
-
+  const pages = useHistoryPages(fetchPage, JSON.stringify(query), historyItemId);
   const bedNames = useMemo(() => new Map(beds.map((bed) => [bed.key, bed.label])), [beds]);
   const bedName = useCallback((key: string) => bedNames.get(key), [bedNames]);
 

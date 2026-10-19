@@ -118,10 +118,16 @@ FOR x IN UNION(care, planted, removed, started, completed)
 """
 
 
-def _window(field: str) -> str:
-    """The ``from`` / ``to`` clauses over one timestamp field of a derived event."""
+def _window(field: str, *, date_only: bool = False) -> str:
+    """The ``from`` / ``to`` clauses over one timestamp field of a derived event.
+
+    A date-only field (``planted_on``, ``removed_on``) is ordered at 00:00 UTC of its day, so the lower bound is
+    cut to the start of *its* UTC day: a viewer west of UTC who picks "from 12 May" sends ``12 May 05:00Z`` and must
+    still see a plant put in on 12 May. Day-level inclusive can show one day more at the edge, never one less.
+    """
+    lower = 'DATE_TRUNC(@performed_from, "day")' if date_only else "@performed_from"
     return (
-        f"FILTER @performed_from == null OR DATE_TIMESTAMP({field}) >= DATE_TIMESTAMP(@performed_from) "
+        f"FILTER @performed_from == null OR DATE_TIMESTAMP({field}) >= DATE_TIMESTAMP({lower}) "
         f"FILTER @performed_to == null OR DATE_TIMESTAMP({field}) <= DATE_TIMESTAMP(@performed_to)"
     )
 
@@ -181,8 +187,8 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
             binds["performed_by"] = criteria.performed_by
         query = _HISTORY_AQL.format(
             care_filters=self._care_filters(criteria),
-            planted_window=_window("p.planted_on"),
-            removed_window=_window("p.removed_on"),
+            planted_window=_window("p.planted_on", date_only=True),
+            removed_window=_window("p.removed_on", date_only=True),
             started_window=_window("r.started_at"),
             completed_window=_window("r.completed_at"),
         )

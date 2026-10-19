@@ -60,25 +60,22 @@ describe('CareHistoryPage', () => {
     expect(backend.seen.map((request) => request.params.offset)).toEqual(['0', '50']);
   });
 
-  it('hides position corrections until "Show corrections" and then asks for superseded entries too', async () => {
+  it('hides superseded entries until "Show corrections", and lists position corrections like any entry', async () => {
     const backend = useHistoryBackend({
-      careEvents: [
-        careLine('w1', { summary: 'Watered' }),
-        careLine('p1', { category: 'position_corrected', summary: 'Moved a plant' }),
-        careLine('old', { summary: 'Typo', superseded_by_key: 'w1' }),
-      ],
+      careEvents: [careLine('w1', { summary: 'Watered' }), careLine('p1', { category: 'position_corrected', summary: 'Moved a plant' })],
     });
     const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByTestId('care-history-item-care:w1')).toBeInTheDocument();
-    expect(screen.queryByTestId('care-history-item-care:p1')).toBeNull();
-    expect(screen.queryByTestId('care-history-item-care:old')).toBeNull();
+    // The log lists what the server sends; a full page is never cut down on the client (the page would end up
+    // short or empty while the server still has more).
+    expect(screen.getByTestId('care-history-item-care:p1')).toBeInTheDocument();
+    expect(backend.seen[0].params.include_superseded).toBeUndefined();
 
     await user.click(screen.getByRole('switch', { name: 'Show corrections' }));
 
-    expect(await screen.findByTestId('care-history-item-care:p1')).toBeInTheDocument();
-    expect(backend.seen.some((request) => request.params.include_superseded === 'true')).toBe(true);
+    await waitFor(() => expect(backend.seen.some((request) => request.params.include_superseded === 'true')).toBe(true));
   });
 
   it('filters by bed, then by that bed\'s plants', async () => {

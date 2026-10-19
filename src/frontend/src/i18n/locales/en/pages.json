@@ -6101,6 +6101,7 @@
         "shown_one": "{{count}} entry shown",
         "shown_other": "{{count}} entries shown",
         "loadMore": "Load more",
+        "retryMore": "Try again",
         "allBeds": "History of all beds",
         "by": "by {{name}}",
         "category": {

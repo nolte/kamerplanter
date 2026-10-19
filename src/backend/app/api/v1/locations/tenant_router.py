@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -36,6 +36,7 @@ from app.api.v1.locations.schemas import (
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission
+from app.common.datetimes import utc_range
 from app.common.dependencies import (
     get_bed_history_service,
     get_bed_rotation_service,
@@ -71,11 +72,6 @@ from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
 
 router = APIRouter(prefix="/locations", tags=["locations"], responses=NOT_FOUND_RESPONSE)
-
-
-def _as_utc(moment: datetime | None) -> datetime | None:
-    """A naive ``from`` / ``to`` is read as UTC, as ``performed_at`` is on the way in (§20.13)."""
-    return moment.replace(tzinfo=UTC) if moment is not None and moment.tzinfo is None else moment
 
 
 def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) -> Location:
@@ -494,11 +490,7 @@ def get_bed_history(
         raise ValidationError(
             f"Unknown category '{category}'.", details=[{"field": "category", "message": "unknown category"}]
         )
-    performed_from, performed_to = _as_utc(performed_from), _as_utc(performed_to)
-    if performed_from and performed_to and performed_to < performed_from:
-        raise ValidationError(
-            "'to' lies before 'from'.", details=[{"field": "to", "message": "must not be before 'from'"}]
-        )
+    performed_from, performed_to = utc_range(performed_from, performed_to)
     criteria = BedHistoryFilter(
         category=category,
         plant_key=plant_key,

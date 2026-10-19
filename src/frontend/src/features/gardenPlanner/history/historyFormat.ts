@@ -61,9 +61,3 @@ export function careLineToItem(line: CareEventLine): HistoryItem {
     run_status: null,
   };
 }
-
-/** Whether the line is a correction of the grower's own bed layout, hidden unless asked for. */
-export function isCorrectionLine(item: HistoryItem): boolean {
-  const line = item.care_event;
-  return line !== null && (line.category === 'position_corrected' || line.superseded_by_key !== null);
-}

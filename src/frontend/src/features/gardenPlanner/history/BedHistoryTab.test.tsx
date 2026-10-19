@@ -6,7 +6,7 @@
  */
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
@@ -159,6 +159,75 @@ describe('BedHistoryTab - the list (GP-ACC-027)', () => {
     expect(await screen.findByText('The end lies before the start.')).toBeInTheDocument();
     const withRange = backend.seen.filter((request) => request.params.to !== undefined && request.params.from !== undefined);
     expect(withRange).toHaveLength(0);
+  });
+});
+
+describe('BedHistoryTab - paging that survives writes and failures', () => {
+  it('shows a row once when a write between two pages shifted the window', async () => {
+    const items = sixtyEvents();
+    // The server answers the second page one row early: the last row of page 1 comes again.
+    useHistoryBackend({ items: [], timeline: timeline(FIVE_YEARS) });
+    server.use(
+      http.get(`${BASE}/locations/:key/history`, ({ request }) => {
+        const offset = Number(new URL(request.url).searchParams.get('offset') ?? 0);
+        return HttpResponse.json(offset === 0 ? items.slice(0, 50) : items.slice(49, 60));
+      }),
+    );
+    const user = userEvent.setup();
+    renderTab();
+    await screen.findByTestId('history-list');
+
+    await user.click(screen.getByTestId('history-more'));
+
+    await waitFor(() => expect(within(screen.getByTestId('history-list')).getAllByRole('listitem')).toHaveLength(60));
+  });
+
+  it('keeps the button, the focus and the rows when the next page fails, and tries again', async () => {
+    const items = sixtyEvents();
+    useHistoryBackend({ items: [], timeline: timeline(FIVE_YEARS) });
+    let fail = true;
+    server.use(
+      http.get(`${BASE}/locations/:key/history`, async ({ request }) => {
+        const offset = Number(new URL(request.url).searchParams.get('offset') ?? 0);
+        if (offset > 0) await delay(150);
+        if (offset > 0 && fail) return HttpResponse.json({ detail: 'down' }, { status: 500 });
+        return HttpResponse.json(items.slice(offset, offset + 50));
+      }),
+    );
+    const user = userEvent.setup();
+    renderTab();
+    await screen.findByTestId('history-list');
+    const more = screen.getByTestId('history-more');
+    more.focus();
+
+    await user.click(more);
+
+    // While the page loads the button is inert but not `disabled`: a disabled button drops the keyboard focus.
+    expect(more).toHaveAttribute('aria-disabled', 'true');
+    expect(more).not.toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBe(more);
+    expect(more).toHaveFocus();
+    expect(within(screen.getByTestId('history-list')).getAllByRole('listitem')).toHaveLength(50);
+    fail = false;
+    await user.click(more);
+    await waitFor(() => expect(within(screen.getByTestId('history-list')).getAllByRole('listitem')).toHaveLength(60));
+  });
+
+  it('keeps the rows on screen when a reload after a backfill fails', async () => {
+    useHistoryBackend({ items: [careItem('a', { summary: 'Mulched' })], timeline: timeline(FIVE_YEARS) });
+    const user = userEvent.setup();
+    renderTab();
+    await screen.findByTestId('history-item-care:a');
+    server.use(http.get(`${BASE}/locations/:key/history`, () => HttpResponse.json({ detail: 'down' }, { status: 500 })));
+
+    await user.click(await screen.findByTestId(`timeline-add-${THIS_YEAR - 1}`));
+    const dialog = await screen.findByTestId('backfill-dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: /What was it/ }));
+    await user.click(await screen.findByRole('option', { name: 'Fallow (nothing grew)' }));
+    await user.click(within(dialog).getByTestId('backfill-submit'));
+
+    await waitFor(() => expect(screen.queryByTestId('backfill-dialog')).toBeNull());
+    expect(await screen.findByTestId('history-item-care:a')).toHaveTextContent('Mulched');
   });
 });
 

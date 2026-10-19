@@ -6102,6 +6102,7 @@
         "shown_one": "{{count}} Eintrag angezeigt",
         "shown_other": "{{count}} Einträge angezeigt",
         "loadMore": "Mehr laden",
+        "retryMore": "Erneut versuchen",
         "allBeds": "Historie aller Beete",
         "by": "von {{name}}",
         "category": {

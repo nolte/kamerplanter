@@ -23,10 +23,12 @@ export interface HistoryPages<T> {
 export function useHistoryPages<T>(
   fetchPage: (offset: number) => Promise<T[]>,
   resetKey: string,
+  idOf: (item: T) => string,
 ): HistoryPages<T> {
   const [state, setState] = useState<HistoryPagesState<T>>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const fetchRef = useRef(fetchPage);
+  const idRef = useRef(idOf);
   const stateRef = useRef(state);
   const generation = useRef(0);
   const lastKey = useRef(resetKey);
@@ -34,6 +36,7 @@ export function useHistoryPages<T>(
   // The latest callback and state for the effects and handlers below; written after the render, never during it.
   useEffect(() => {
     fetchRef.current = fetchPage;
+    idRef.current = idOf;
     stateRef.current = state;
   });
 
@@ -58,7 +61,13 @@ export function useHistoryPages<T>(
         }
       })
       .catch((error: unknown) => {
-        if (generation.current === mine) setState({ status: 'error', message: parseApiError(error) });
+        if (generation.current !== mine) return;
+        // A reload that fails keeps the rows the user is reading and says so; only a first load is an error state.
+        setState((latest) =>
+          latest.status === 'ready'
+            ? { ...latest, loadingMore: false, moreError: parseApiError(error) }
+            : { status: 'error', message: parseApiError(error) },
+        );
       });
     return () => {
       generation.current += 1;
@@ -78,7 +87,8 @@ export function useHistoryPages<T>(
           latest.status === 'ready'
             ? {
                 status: 'ready',
-                items: [...latest.items, ...page],
+                // A write between two pages shifts the window; a row seen twice is shown once.
+                items: [...latest.items, ...page.filter((item) => !latest.items.some((seen) => idRef.current(seen) === idRef.current(item)))],
                 hasMore: page.length >= HISTORY_PAGE_SIZE,
                 loadingMore: false,
                 moreError: null,
