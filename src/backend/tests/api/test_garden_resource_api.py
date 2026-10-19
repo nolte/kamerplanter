@@ -17,7 +17,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
-from app.common.dependencies import get_garden_resource_service, get_site_service, get_tenant_service
+from app.common.dependencies import (
+    get_garden_resource_service,
+    get_planting_reservation_service,
+    get_site_service,
+    get_tenant_service,
+)
 from app.common.enums import BedStatus, TenantRole
 from app.common.exceptions import NotFoundError
 from app.domain.models.garden_plan import BedCounters
@@ -91,6 +96,11 @@ def client(repo: FakePlanRepo) -> Iterator[Callable[..., TestClient]]:
     app.dependency_overrides[get_tenant_service] = _Tenants
     app.dependency_overrides[get_garden_resource_service] = lambda: service
     app.dependency_overrides[get_site_service] = lambda: SiteService(repo._sites)
+    # The slot correction asks the reservation service for the position event (GP-FR-068); the event is pinned in
+    # ``test_planting_reservation_api.py``, here the call is the stub of a bed nobody stands in.
+    app.dependency_overrides[get_planting_reservation_service] = lambda: SimpleNamespace(
+        record_position_correction=lambda *args, **kwargs: None
+    )
     try:
         yield build
     finally:

@@ -6045,7 +6045,9 @@
         "none": "Keine",
         "unknown": "Nicht angegeben",
         "year": "Saison",
-        "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird."
+        "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird.",
+        "rotationHint": "Fruchtfolge-Hinweis",
+        "rotationReason": "Trotzdem gepflanzt: {{reason}}"
       },
       "status": {
         "title": "Status des Beets ändern",
@@ -6103,14 +6105,10 @@
         "notPlaced": {
           "title": "Dieses Beet ist noch nicht im Gartenplan",
           "description": "Sobald du es im Gartenplan zeichnest, siehst du hier seinen Rahmen, die Plätze und die Pflanzen."
-        }
+        },
+        "plantPanel": "Pflanze {{id}}"
       },
       "placeholder": {
-        "planting": {
-          "title": "Pflanzung folgt",
-          "description": "Hier planst du bald, was in diesem Beet wächst. Die bestehenden Durchläufe und Pflanzen findest du solange in den Stammdaten.",
-          "action": "Zu den Stammdaten"
-        },
         "history": {
           "title": "Historie folgt",
           "description": "Hier siehst du bald, was in den vergangenen Jahren in diesem Beet stand."
@@ -6383,6 +6381,193 @@
         "page": {
           "title": "Pflegehistorie",
           "description": "Was in allen Beeten dieses Gartens gemacht wurde, die neuesten zuerst. Es werden die letzten 90 Tage gezeigt, solange du keinen anderen Zeitraum wählst."
+        }
+      },
+      "planting": {
+        "planned_one": "Pflanzung geplant: {{count}} Pflanze.",
+        "planned_other": "Pflanzung geplant: {{count}} Pflanzen.",
+        "recorded_one": "{{count}} Pflanze erfasst.",
+        "recorded_other": "{{count}} Pflanzen erfasst.",
+        "tab": {
+          "title": "Bepflanzung",
+          "plant": "Bepflanzen",
+          "notPlaced": "Zum Bepflanzen muss das Beet im Gartenplan liegen. Zeichne es zuerst dort ein.",
+          "retired": "Ein stillgelegtes Beet lässt sich nicht bepflanzen. Aktiviere es zuerst wieder.",
+          "empty": {
+            "title": "Noch nichts gepflanzt",
+            "description": "Mit „Bepflanzen“ planst du, was in diesem Beet wächst. Du siehst gleich, wie viele Pflanzen passen."
+          },
+          "planned_one": "Geplant ({{count}})",
+          "planned_other": "Geplant ({{count}})",
+          "active_one": "Im Beet ({{count}})",
+          "active_other": "Im Beet ({{count}})",
+          "finished_one": "{{count}} Pflanze ist geerntet oder entfernt und steht in der Historie.",
+          "finished_other": "{{count}} Pflanzen sind geerntet oder entfernt und stehen in der Historie.",
+          "from": "ab {{date}}",
+          "correct": "Position korrigieren",
+          "transplant": "Umpflanzen nach …"
+        },
+        "dialog": {
+          "title": "Bepflanzen: {{bed}}",
+          "intro": "Wähle eine Art. Danach prüfen wir Fruchtfolge und Nachbarn im Beet und berechnen, wie viele Pflanzen passen.",
+          "speciesFailed": "Die Arten konnten nicht geladen werden. Schließe den Dialog und versuche es erneut.",
+          "addEntry": "Weitere Art hinzufügen",
+          "alternateRows": "Reihen abwechselnd auf die Arten verteilen",
+          "preview": "Vorschau auf dem Beet",
+          "canvasLabel": "Vorschau der Pflanzpositionen im Beet {{bed}}",
+          "freeCanvasHelp": "Tippe ins Beet, um eine Position zu setzen. Ziehe eine Position, um sie zu verschieben. Ein gelber Ring zeigt, dass zwei Positionen näher als der Pflanzabstand liegen. Du kannst trotzdem pflanzen.",
+          "plantedFrom": "Pflanzdatum",
+          "alreadyPlanted": "Ich habe schon gepflanzt",
+          "alreadyPlantedHelp": "Die Pflanzen werden sofort angelegt und stehen auf den berechneten Positionen.",
+          "plan": "Pflanzung planen",
+          "recordPlanted": "Gepflanzt erfassen",
+          "plantAnyway": "Trotzdem pflanzen",
+          "partial_one": "Eine Pflanzung wurde schon angelegt und ließ sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
+          "partial_other": "{{count}} Pflanzungen wurden schon angelegt und ließen sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
+          "alreadyPlantedMargins": "Randabstände übernimmt „Ich habe schon gepflanzt“ nicht. Leere sie, wenn du die Pflanzen sofort anlegen willst.",
+          "submitWaiting": "Die Hinweise zu Fruchtfolge und Nachbarn werden noch geprüft. Danach kannst du fortfahren."
+        },
+        "species": {
+          "favorites": "Favoriten",
+          "others": "Alle Arten",
+          "none": "Keine passende Art gefunden"
+        },
+        "entry": {
+          "title": "Art {{n}}",
+          "shape": {
+            "circle": "Kreis",
+            "square": "Quadrat",
+            "diamond": "Raute",
+            "triangle": "Dreieck"
+          },
+          "remove": "Art {{n}} entfernen",
+          "species": "Art",
+          "cultivar": "Sorte",
+          "noCultivar": "Keine Sorte",
+          "height": "Endhöhe {{value}} cm",
+          "width": "Endbreite {{value}} cm",
+          "supportRequired": "Braucht eine Rankhilfe",
+          "count": "Anzahl",
+          "asManyAsFit": "So viele wie passen",
+          "exactCount": "Feste Anzahl",
+          "countField": "Anzahl Pflanzen",
+          "layout": "Anordnung",
+          "sharedRows": "Die Reihen teilt sich diese Art mit Art 1.",
+          "spacing": "Pflanzabstand",
+          "minSpacing": "Mindestabstand",
+          "minSpacingHelp": "Positionen, die näher beieinander liegen, bekommen einen gelben Ring. Gesperrt werden sie nicht.",
+          "rowSpacing": "Reihenabstand",
+          "derivedRowSpacing": "Reihenabstand (berechnet): {{value}} cm",
+          "fromSpecies": "Aus dem Steckbrief übernommen.",
+          "fromLastUsed": "Zuletzt für diese Art verwendet.",
+          "empty": "Der Steckbrief nennt keinen Wert. Trage den Abstand selbst ein.",
+          "moreOptions": "Mehr Optionen",
+          "lessOptions": "Weniger Optionen",
+          "rowDirection": "Reihenrichtung",
+          "edgeAlong": "Randabstand längs der Reihe",
+          "edgeAcross": "Randabstand quer zur Reihe",
+          "edgeHelp": "Leer lassen für den Standard (halber Abstand).",
+          "containerVolume": "Topfvolumen",
+          "containerHelp": "Der Steckbrief empfiehlt mindestens {{value}} l.",
+          "containerBelow": "Der Topf ist kleiner als die empfohlenen {{value}} l. Die Pflanze wird dort wahrscheinlich nicht voll austreiben.",
+          "minDepth": "Mindesttiefe laut Steckbrief: {{value}} cm.",
+          "freeHelp": "Setze die Positionen im Beet per Tipp. Tippe unten auf eine Nummer, um die Position zu löschen.",
+          "pointCount_one": "{{count}} Position gesetzt",
+          "pointCount_other": "{{count}} Positionen gesetzt",
+          "tooClose_one": "{{count}} zu nah",
+          "tooClose_other": "{{count}} zu nah",
+          "removePoint": "Position {{n}} löschen (x {{x}} cm, y {{y}} cm)",
+          "addPointCentre": "Position in der Beetmitte setzen",
+          "nudgeGroup": "Letzte Position verschieben",
+          "nudgeHelp": "Die Pfeile verschieben die zuletzt gesetzte Position um {{cm}} cm.",
+          "result": "{{count}} Pflanzen, höchstens {{max}} passen",
+          "confirming": "wird geprüft"
+        },
+        "layoutHelp": {
+          "grid": "Quadratisches Raster, Reihenabstand wie Pflanzabstand.",
+          "rows": "Reihen mit eigenem Reihenabstand.",
+          "triangular": "Versetzte Reihen. Das spart Platz, der Reihenabstand ergibt sich aus dem Pflanzabstand.",
+          "zone": "Eine Fläche mit Kapazität, passend für Direktsaat.",
+          "free": "Du setzt jede Position selbst, passend für Gehölze."
+        },
+        "errors": {
+          "speciesRequired": "Wähle eine Art.",
+          "spacingRequired": "Trage den Pflanzabstand ein.",
+          "spacingRange": "Der Abstand muss zwischen 5 und 1500 cm liegen.",
+          "rowSpacingRequired": "Trage den Reihenabstand ein.",
+          "rowSpacingRange": "Der Reihenabstand muss zwischen 5 und 1500 cm liegen.",
+          "countRequired": "Trage eine ganze Zahl von 1 bis 2000 ein.",
+          "marginRange": "Der Randabstand muss zwischen 0 und 200 cm liegen.",
+          "noPoints": "Setze mindestens eine Position im Beet."
+        },
+        "layoutErrors": {
+          "layout_too_many_positions": "Das wären mehr als 2000 Positionen. Vergrößere den Abstand.",
+          "layout_bed_not_an_area": "Dieses Beet schließt keine Fläche ein. Zeichne es als Rechteck, Kreis oder Vieleck.",
+          "layout_row_spacing_required": "Trage den Reihenabstand ein.",
+          "layout_spacing_out_of_range": "Der Abstand muss zwischen 5 und 1500 cm liegen."
+        },
+        "warnings": {
+          "belowMatureWidth": "Der Abstand von {{spacing_cm}} cm ist kleiner als 70 % der Endbreite ({{mature_width_cm}} cm). Die Pflanzen werden sich bedrängen.",
+          "belowMinimum": "Manche Positionen liegen näher als {{spacing_cm}} cm beieinander (kleinster Abstand {{closest_cm}} cm).",
+          "noPositionFits": "Mit diesen Abständen passt keine Pflanze ins Beet.",
+          "zoneInsetNotApplied": "Der Rand der Fläche konnte nicht eingehalten werden."
+        },
+        "hints": {
+          "title": "Fruchtfolge und Nachbarn",
+          "checking": "Prüfe {{name}} …",
+          "unavailable": "{{name}}: Die Fruchtfolge konnte nicht geprüft werden ({{message}}). Das ist kein grünes Licht.",
+          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal oder Dauerkultur).",
+          "allClear": "{{name}}: Kein Hinweis zu Fruchtfolge oder Nachbarn.",
+          "forSpecies": "{{name}}: Hinweis {{strength}}",
+          "pauseNotElapsed": "Die Familie {{family}} stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
+          "pauseSource": {
+            "species": "Wert der Art",
+            "family": "Wert der Familie",
+            "default": "Standardwert"
+          },
+          "pestRisk": "Hohes Schädlingsrisiko mit der Familie {{family}}, die hier kürzlich stand.",
+          "noFamily": "Für diese Art ist keine Familie hinterlegt. Die Fruchtfolge lässt sich nicht prüfen.",
+          "noHistory": "Für dieses Beet ist keine Vorgeschichte erfasst. Die Fruchtfolge lässt sich nicht prüfen.",
+          "incompatibleNeighbour": "Ungünstiger Nachbar im Beet: {{name}}.",
+          "compatibleNeighbour": "Guter Nachbar im Beet: {{name}}.",
+          "mixIncompatible": "{{a}} und {{b}} vertragen sich nicht.",
+          "mixCompatible": "{{a}} und {{b}} passen gut zusammen.",
+          "plantAnyway": "Trotzdem pflanzen",
+          "reason": "Grund",
+          "reasonHelp": "Der Grund wird an der Pflanzung gespeichert.",
+          "reasonRequired": "Nenne einen Grund, um trotzdem zu pflanzen.",
+          "confirmToContinue": "Bestätige „Trotzdem pflanzen“, um fortzufahren."
+        },
+        "position": {
+          "title": "Position korrigieren: {{plant}}",
+          "help": "Ziehe die Pflanze im Beet oder verschiebe sie mit den Pfeilen. Jeder Schritt ist 1 cm.",
+          "zone": "Diese Pflanze steht in einer Fläche und hat keine einzelne Position, deshalb lässt sie sich nicht verschieben.",
+          "failed": "Die Position konnte nicht geladen werden.",
+          "canvasLabel": "Position der Pflanze im Beet {{bed}}",
+          "stepper": "Pflanze verschieben",
+          "up": "Nach oben",
+          "down": "Nach unten",
+          "left": "Nach links",
+          "right": "Nach rechts",
+          "bigLeft": "{{cm}} cm nach links",
+          "bigRight": "{{cm}} cm nach rechts",
+          "x": "Position längs (x)",
+          "y": "Position quer (y)",
+          "save": "Position speichern",
+          "done": "Position von {{plant}} korrigiert.",
+          "invalid": "Trage eine Zahl in cm ein.",
+          "outside": "Diese Position liegt außerhalb des Beets. Schiebe sie ins Beet, um sie zu speichern."
+        },
+        "transplant": {
+          "title": "Umpflanzen: {{plant}}",
+          "help": "Das Umpflanzen in ein anderes Beet ist eine Aufgabe. Du erledigst sie, sobald du die Pflanze versetzt hast.",
+          "failed": "Die Beete konnten nicht geladen werden.",
+          "noBeds": "Es gibt kein anderes Beet in diesem Garten.",
+          "target": "Zielbeet",
+          "create": "Aufgabe anlegen",
+          "taskName": "{{plant}} nach {{bed}} umpflanzen",
+          "taskInstruction": "Pflanze {{plant}} in das Beet {{bed}} umpflanzen.",
+          "done": "Aufgabe angelegt: {{plant}} nach {{bed}} umpflanzen."
         }
       }
     }

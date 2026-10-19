@@ -40,7 +40,7 @@ export const TRIANGULAR_ROW_FACTOR = 0.866;
 
 const EPSILON = 1e-9;
 const COUNT_EPSILON = 1e-6;
-const SPACING_TOLERANCE_M = 0.002;
+export const SPACING_TOLERANCE_M = 0.002;
 const CIRCLE_ZONE_VERTICES = 32;
 
 export const CODE_TOO_MANY_POSITIONS = 'layout.too_many_positions';

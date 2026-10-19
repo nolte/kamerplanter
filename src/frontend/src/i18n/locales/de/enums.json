@@ -1175,6 +1175,23 @@
       "net": "Netz",
       "foil": "Folie",
       "frost_cover": "Frostschutz"
+    },
+    "rotationSeverity": {
+      "OK": "unauffällig",
+      "INFO": "Info",
+      "WARNING": "Warnung",
+      "CRITICAL": "kritisch"
+    },
+    "layoutStrategy": {
+      "grid": "Raster",
+      "rows": "Reihen",
+      "triangular": "Versetzt (Dreiecksraster)",
+      "zone": "Fläche",
+      "free": "Freie Positionen"
+    },
+    "rowDirection": {
+      "along_length": "Entlang der Länge",
+      "along_width": "Entlang der Breite"
     }
   }
 }

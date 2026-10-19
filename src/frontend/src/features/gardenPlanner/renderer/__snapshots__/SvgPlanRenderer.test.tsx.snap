@@ -41,7 +41,7 @@ exports[`SvgPlanRenderer - structure > draws the small plan (snapshot) 1`] = `
 <text x="4.6" y="-1.96" font-size="0.1200" text-anchor="middle" fill="rgba(0, 0, 0, 0.87)" pointer-events="none" aria-hidden="true">Bed loc_b</text>
 </g>
 <g data-plan-markers="loc_a" aria-hidden="true" pointer-events="none">
-<path d="M1.26 -1.3a0.04 0.04 0 1 0 0.08 0a0.04 0.04 0 1 0 -0.08 0" fill="#1b5e20" stroke="#1b5e20" vector-effect="non-scaling-stroke">
+<path d="M1.26 -1.3a0.04 0.04 0 1 0 0.08 0a0.04 0.04 0 1 0 -0.08 0" fill="#1b5e20" stroke="rgba(0, 0, 0, 0.87)" vector-effect="non-scaling-stroke">
 </path>
 </g>"
 `;

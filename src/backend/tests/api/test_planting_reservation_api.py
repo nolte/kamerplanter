@@ -18,18 +18,21 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
 from app.common.dependencies import (
+    get_garden_resource_service,
     get_planting_reservation_service,
     get_planting_run_service,
     get_tenant_service,
 )
 from app.common.enums import PlantingRunStatus, TenantRole
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, PlanError
 from app.domain.engines.slot_reservation_engine import ActivePlant, Reservation
 from app.domain.models.planting_reservation import PlantingRow
 from app.domain.models.planting_run import PlantingRunEntry
 from app.domain.models.site import Slot
 from app.domain.models.user import User
-from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_resource_service import GardenResourceService
+from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT, FakeObjects
 from tests.support.planting_reservation_fakes import build_world
 
 _OWN = "/api/v1/t/own"
@@ -78,6 +81,9 @@ def client(world) -> Iterator[Callable[..., TestClient]]:
     app.dependency_overrides[get_tenant_service] = _Tenants
     app.dependency_overrides[get_planting_run_service] = lambda: world.service
     app.dependency_overrides[get_planting_reservation_service] = lambda: world.reservations
+    app.dependency_overrides[get_garden_resource_service] = lambda: GardenResourceService(
+        world.sites, world.plan, FakeObjects(world.plan), GardenPlanService(world.sites, world.plan)
+    )
     try:
         yield build
     finally:
@@ -480,3 +486,76 @@ class TestQuickPlanting:
         assert client().post(f"{_OTHER}/locations/bed/quick-planting", json=body).status_code == 404
         assert client().post(f"{_OWN}/locations/loc_foreign/quick-planting", json=body).status_code == 404
         assert world.repo.quick_writes == []
+
+
+class TestPositionCorrection:
+    """GP-FR-068 / GP-ACC-022: correcting the slot of a standing plant writes ``position_corrected``."""
+
+    @staticmethod
+    def move(client, slot: str = "s1", role: TenantRole = TenantRole.GROWER):
+        return client(role).patch(f"{_OWN}/slots/{slot}", json={"geometry": {"kind": "point", "origin": [0.6, 0.9]}})
+
+    def test_the_move_logs_an_event_naming_the_plant(self, client, world) -> None:
+        world.plan.slots[0] = Slot(
+            _key="s1", slot_id="BED3_001", location_key="bed", geometry={"kind": "point", "origin": [0.3, 0.9]}
+        )
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+        world.care_repo.plants["pi_1"] = (TENANT, "bed")
+
+        response = self.move(client)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["geometry"]["origin"] == [0.6, 0.9]
+        (event,) = world.care_repo.inserted
+        assert (event.category, event.plant_keys, event.trigger) == ("position_corrected", ["pi_1"], "system")
+
+    def test_a_slot_without_a_plant_logs_nothing(self, client, world) -> None:
+        assert self.move(client).status_code == 200
+        assert world.care_repo.inserted == []
+
+    def test_a_change_of_capacity_alone_logs_nothing(self, client, world) -> None:
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+        world.care_repo.plants["pi_1"] = (TENANT, "bed")
+
+        assert client().patch(f"{_OWN}/slots/s1", json={"capacity_plants": 2}).status_code == 200
+        assert world.care_repo.inserted == []
+
+    def test_a_viewer_is_refused_and_nothing_is_logged(self, client, world) -> None:
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+
+        assert self.move(client, role=TenantRole.VIEWER).status_code == 403
+        assert world.care_repo.inserted == []
+
+    def test_another_tenants_slot_is_404_and_logs_nothing(self, client, world) -> None:
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+        world.care_repo.plants["pi_1"] = (TENANT, "bed")
+
+        response = client().patch(f"{_OTHER}/slots/s1", json={"geometry": {"kind": "point", "origin": [0.6, 0.9]}})
+
+        assert response.status_code == 404
+        assert world.care_repo.inserted == []
+
+    def test_the_same_geometry_again_logs_nothing(self, client, world) -> None:
+        world.plan.slots[0] = Slot(
+            _key="s1", slot_id="BED3_001", location_key="bed", geometry={"kind": "point", "origin": [0.6, 0.9]}
+        )
+        world.repo.plants.append(ActivePlant("s1", "pi_1", "run_a", None))
+        world.care_repo.plants["pi_1"] = (TENANT, "bed")
+
+        assert self.move(client).status_code == 200
+        assert world.care_repo.inserted == []
+
+    def test_a_move_whose_event_cannot_be_written_is_put_back_and_fails(self, client, world, monkeypatch) -> None:
+        world.plan.slots[0] = Slot(
+            _key="s1", slot_id="BED3_001", location_key="bed", geometry={"kind": "point", "origin": [0.3, 0.9]}
+        )
+
+        def boom(*args, **kwargs):
+            raise PlanError("care.unavailable", "The care log is unavailable.", status_code=503)
+
+        monkeypatch.setattr(world.reservations, "record_position_correction", boom)
+        response = self.move(client)
+
+        assert response.status_code == 503
+        stored = next(slot for slot in world.plan.slots if slot.key == "s1")
+        assert list(stored.geometry.origin) == [0.3, 0.9]

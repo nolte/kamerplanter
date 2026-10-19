@@ -1175,6 +1175,23 @@
       "net": "Net",
       "foil": "Foil",
       "frost_cover": "Frost cover"
+    },
+    "rotationSeverity": {
+      "OK": "no issue",
+      "INFO": "info",
+      "WARNING": "warning",
+      "CRITICAL": "critical"
+    },
+    "layoutStrategy": {
+      "grid": "Grid",
+      "rows": "Rows",
+      "triangular": "Staggered (triangular)",
+      "zone": "Zone",
+      "free": "Free positions"
+    },
+    "rowDirection": {
+      "along_length": "Along the length",
+      "along_width": "Along the width"
     }
   }
 }

@@ -279,8 +279,9 @@ def build_world() -> SimpleNamespace:
     )
     runs = FakeRunRepo()
     reservation_repo = FakeReservationRepo(plan, FakeRuns())
+    care_repo = FakeCareEventRepo()
     care = CareEventService(
-        FakeCareEventRepo(), sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
+        care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
     )
     reservations = PlantingReservationService(reservation_repo, runs, sites, plan, care)
     plants = FakePlants()
@@ -315,4 +316,5 @@ def build_world() -> SimpleNamespace:
         plants=plants,
         slot_updates=updates,
         reservations=reservations,
+        care_repo=care_repo,
     )

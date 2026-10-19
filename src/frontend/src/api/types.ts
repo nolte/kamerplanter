@@ -357,6 +357,8 @@ export interface Species {
   mature_height_cm: string | null;
   mature_width_cm: string | null;
   spacing_cm: string | null;
+  /** REQ-053 GP-FR-061 - range string like `spacing_cm`; the lower bound is the default. */
+  row_spacing_cm?: string | null;
   indoor_suitable: Suitability | null;
   balcony_suitable: Suitability | null;
   greenhouse_recommended: boolean;
@@ -1280,6 +1282,13 @@ export interface PlantingRunEntryCreate {
   id_prefix: string;
   spacing_cm?: number | null;
   notes?: string | null;
+  // REQ-053 GP-FR-060 - the layout of the entry in the bed.
+  row_spacing_cm?: number | null;
+  row_direction?: 'along_length' | 'along_width' | null;
+  edge_margin_along_cm?: number | null;
+  edge_margin_across_cm?: number | null;
+  layout_strategy?: 'grid' | 'rows' | 'triangular' | 'zone' | 'free' | null;
+  row_assignment?: number[] | null;
 }
 
 /**
@@ -1586,6 +1595,12 @@ export interface PlantingRun {
   succession_sequence?: number | null;
   succession_total?: number | null;
   clone_from_run_key?: string | null;
+  // REQ-053 GP-FR-065/132 - the planning window and the reason a crop-rotation hint was overridden.
+  plan_role?: 'main_crop' | 'green_manure' | 'fallow';
+  rotation_override_reason?: string | null;
+  planned_from?: string | null;
+  planned_until?: string | null;
+  source?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1599,6 +1614,12 @@ export interface PlantingRunCreate {
   source_plant_key?: string | null;
   notes?: string | null;
   entries?: PlantingRunEntryCreate[];
+  // REQ-053 GP-FR-065/132
+  plan_role?: 'main_crop' | 'green_manure';
+  rotation_override_reason?: string | null;
+  planned_from?: string | null;
+  planned_until?: string | null;
+  source?: string | null;
 }
 
 export interface PlantingRunUpdate {
