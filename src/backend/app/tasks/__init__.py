@@ -351,6 +351,7 @@ celery_app = Celery(
 celery_app.conf.update(
     include=[
         "app.tasks.actuator_tasks",
+        "app.tasks.adjacency",
         "app.tasks.ai_tasks",
         "app.tasks.auth_tasks",
         "app.tasks.care_tasks",

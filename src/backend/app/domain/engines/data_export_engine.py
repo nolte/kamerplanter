@@ -579,6 +579,8 @@ class DataExportEngine:
                 "description",
                 "site_key",
                 "parent_location_key",
+                # REQ-053 GP-FR-147: the JSON plan backup is part of this disclosure, so every field of it is here.
+                "location_type_key",
                 "area_m2",
                 "light_type",
                 "geometry",

@@ -69,6 +69,7 @@ from app.domain.models.garden_plan import (
 )
 from app.domain.models.geometry import Geometry
 from app.domain.models.site import Location, Site, Slot
+from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import (
     require_owned_site,
@@ -122,11 +123,13 @@ class GardenResourceService:
         plan_repo: IGardenPlanRepository,
         object_repo: IGardenObjectRepository,
         plan_service: GardenPlanService,
+        dispatch_adjacency: AdjacencyDispatch | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
         self._objects = object_repo
         self._plan_service = plan_service
+        self._dispatch_adjacency = dispatch_adjacency
 
     # ── Anchor and roles ──────────────────────────────────────────────────────
 
@@ -615,7 +618,7 @@ class GardenResourceService:
         fields = {name: now.get(name) for name in _SLOT_PATCH_COLUMNS if now.get(name) != before.get(name)}
         if fields:
             self._plan.update_slot_fields(key, fields)
-        self._recompute_adjacency(location.key or "")
+            self._recompute_adjacency(location.key or "")
         return resolve_owned_slot(self._sites, key, tenant_key)[0]
 
     # ── GP-API-016: POST /locations/{key}/planting-layout/preview ─────────────
@@ -794,5 +797,5 @@ class GardenResourceService:
             raise PlanValidationError(findings)
 
     def _recompute_adjacency(self, location_key: str) -> None:
-        """Hook for the adjacency recompute a slot change triggers (GP-API-014). A no-op until wave 3 (§17)."""
-        del location_key
+        """The adjacency recompute a slot change triggers (GP-API-014, GP-NFR-016)."""
+        request_adjacency_recompute(self._dispatch_adjacency, location_key)

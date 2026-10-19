@@ -12,10 +12,12 @@ from time import perf_counter
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.responses import Response
 
 from app.api.mapping import to_response
-from app.api.v1.auth.router import limiter, user_rate_limit_key
+from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
 from app.api.v1.garden_objects.schemas import garden_object_to_response
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_svg_options
 from app.api.v1.garden_plan.schemas import (
     SCHEMA_VERSION,
     DerivedGeometrySchema,
@@ -32,8 +34,8 @@ from app.api.v1.garden_plan.schemas import (
     PlanSlotGeometry,
     PlanSlotResponse,
 )
-from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_garden_plan_service
+from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
+from app.common.dependencies import get_garden_plan_export_service, get_garden_plan_service
 from app.common.enums import SlotRole
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
 from app.common.openapi_responses import (
@@ -46,8 +48,11 @@ from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.calculators.geometry_calculator import area_m2
+from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
+from app.domain.models.garden_plan_export import GardenPlanExport
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
@@ -289,3 +294,78 @@ def list_plan_audit(
     """Newest first; the editor is named by display name (GP-API-008, SR-011)."""
     entries = service.list_audit(key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
     return [to_response(entry, PlanAuditEntryResponse) for entry in entries]
+
+
+#: Headers of a downloadable SVG (GP-NFR-052 (e)): never rendered inline by the browser, never sniffed into
+#: another type, and — should it be opened anyway — allowed to load nothing and run nothing.
+SVG_DOWNLOAD_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+}
+
+
+@router.get(
+    "/{key}/plan/render.svg",
+    summary="Draw the plan as an SVG to scale",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/svg+xml": {}}, "description": "The plan; millimetre viewBox, 1 m = 1 000 units."}
+    },
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
+def render_plan_svg(
+    request: Request,
+    key: _SITE_KEY,
+    options: PlanSvgOptions = Depends(plan_svg_options),
+    ctx: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanExportService = Depends(get_garden_plan_export_service),
+) -> Response:
+    """A self-contained SVG (GP-API-006, GP-FR-143): layers as ``<g id="layer-…">``, objects with ``data-key``.
+
+    Delivered as an attachment with ``nosniff`` and a deny-all CSP. ``X-Plan-Scale`` names the scale used and
+    ``X-Plan-Suggested-Paper`` is ``a3`` when A4 would need a scale coarser than 1:200. 422 ``plan.empty`` when
+    there is nothing to draw.
+    """
+    rendered = service.render_svg(key, tenant_key=ctx.tenant_key, options=options)
+    headers = {
+        **SVG_DOWNLOAD_HEADERS,
+        "Content-Disposition": f'attachment; filename="garden-plan-{safe_filename_part(key)}.svg"',
+        "X-Plan-Scale": f"1:{rendered.scale}",
+    }
+    if rendered.suggest_a3:
+        headers["X-Plan-Suggested-Paper"] = "a3"
+    return Response(content=rendered.svg, media_type="image/svg+xml", headers=headers)
+
+
+@router.get(
+    "/{key}/plan/export",
+    response_model=GardenPlanExport,
+    summary="Back up the plan structure as JSON",
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
+def export_plan(
+    request: Request,
+    key: _SITE_KEY,
+    ctx: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanExportService = Depends(get_garden_plan_export_service),
+) -> Response:
+    """Site plan, locations with geometry and soil profile, garden objects and slots, ``schema_version: "1"``
+    (GP-API-004, GP-FR-140). No plants, tasks, care events or photos, and no ``*_by`` or account reference.
+
+    Delivered as an attachment: it is a file to keep, and the same data is part of the GDPR export.
+    """
+    document = service.export_json(key, tenant_key=ctx.tenant_key)
+    return Response(
+        content=document.model_dump_json(),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="garden-plan-{safe_filename_part(key)}.json"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )

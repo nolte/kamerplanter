@@ -13,6 +13,7 @@ from app.domain.models.garden_plan import (
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
+    SlotSpeciesHint,
     TaskCounter,
 )
 from app.domain.models.site import Location, Slot
@@ -58,6 +59,13 @@ class IGardenPlanRepository(ABC):
         """Slots (``archived_at`` null, or all with ``include_archived``) of the named locations (V-04, V-06, V-20).
 
         The locations must belong to the tenant's site; a key of another site or tenant yields nothing.
+        """
+
+    @abstractmethod
+    def load_slot_species_hints(self, location_key: str, *, tenant_key: str) -> list[SlotSpeciesHint]:
+        """The species of the active plants and of the live run reservations in a bed's slots (GP-FR-130).
+
+        Empty when the bed does not belong to the tenant's site. Several rows may name one slot.
         """
 
     @abstractmethod

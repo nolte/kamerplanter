@@ -1,7 +1,23 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 from app.common.types import SpeciesKey
+
+#: ``adjacent_to.source`` of an edge the adjacency engine derived from geometry (GP-FR-130).
+ADJACENCY_SOURCE_DERIVED = "derived"
+#: ``adjacent_to.source`` of an edge a user set; the derivation never touches it.
+ADJACENCY_SOURCE_MANUAL = "manual"
+
+
+@dataclass(frozen=True)
+class AdjacencySync:
+    """What :meth:`IGraphRepository.sync_derived_adjacency` changed, in directed edges."""
+
+    created: int = 0
+    updated: int = 0
+    removed: int = 0
+    kept: int = 0
 
 
 class IGraphRepository(ABC):
@@ -46,7 +62,28 @@ class IGraphRepository(ABC):
     def get_adjacent_slots(self, slot_key: str) -> list[dict[str, Any]]: ...
 
     @abstractmethod
-    def set_adjacent_slots(self, slot_a_key: str, slot_b_key: str) -> None: ...
+    def set_adjacent_slots(
+        self,
+        slot_a_key: str,
+        slot_b_key: str,
+        *,
+        distance_cm: float | None = None,
+        source: str = ADJACENCY_SOURCE_DERIVED,
+    ) -> None:
+        """Set the neighbourhood of two slots in both directions, replacing an edge between them (GP-FR-130)."""
+
+    @abstractmethod
+    def sync_derived_adjacency(self, slot_keys: list[str], pairs: list[tuple[str, str, float]]) -> AdjacencySync:
+        """Make the derived ``adjacent_to`` edges among *slot_keys* exactly *pairs* ``(a, b, distance_cm)``.
+
+        Only edges with ``source = derived`` are managed: manual edges and legacy edges without a source are
+        neither removed nor overwritten, and a pair that already has such an edge gets no derived one.
+        Idempotent: running it twice with the same pairs changes nothing.
+        """
+
+    @abstractmethod
+    def remove_manual_adjacency(self, slot_a_key: str, slot_b_key: str) -> int:
+        """Delete the manual edge(s) between two slots; the number removed (derived edges stay)."""
 
     # ── Family-level edges ─────────────────────────────────────────────
 

@@ -450,7 +450,10 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     # CDN-based Swagger UI; relaxing CSP for them would defeat the
     # purpose, so the deployment is expected to disable those endpoints
     # in production (NFR-014 §3.2 / kamerplanter-debug-endpoints.yaml).
-    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    # A default, not an override: the garden-plan SVG download names its own policy (REQ-053 GP-NFR-052 (e),
+    # ``default-src 'none'; style-src 'unsafe-inline'``), and a middleware that wrote last would have discarded it.
+    if "content-security-policy" not in response.headers:
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     # MT-044 (#2144): tenant-private JSON must not be kept by a shared proxy or the
     # browser cache after logout or a tenant switch. A default, not an override: a
@@ -472,6 +475,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
+    # The garden-plan exports report their scale and an A3 suggestion in headers (REQ-053 WP 5.2); a cross-origin
+    # SPA reads response headers only when they are exposed.
+    expose_headers=["Content-Disposition", "X-Plan-Scale", "X-Plan-Suggested-Paper"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

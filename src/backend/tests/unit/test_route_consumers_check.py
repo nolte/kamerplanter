@@ -257,9 +257,13 @@ class TestTheRouteOperand:
 
         +1: the "for every plant" fan-out (REQ-053 WP 4.2, #2412): ``POST /t/{slug}/tasks/{key}/fan-out``. Its
         consumer is the bed care tab's create dialog (WP 4.4, frontend), open — a reported candidate until it lands.
+
+        +3: the garden-plan exports (REQ-053 WP 5.2, #2431): ``GET /t/{slug}/sites/{key}/plan/render.svg``,
+        ``GET …/plan/export`` and ``GET /t/{slug}/print/garden-plan/{site_key}``. Their consumer is the export dialog
+        (WP 5.3, frontend), open — all three are reported candidates until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 859
+        assert len(checker.collect_operations(app)) == 864
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

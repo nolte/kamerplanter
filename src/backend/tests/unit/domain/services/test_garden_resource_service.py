@@ -63,7 +63,10 @@ def world():
     sites = FakeSites(site, foreign)
     repo = FakePlanRepo(sites)
     repo.locations["bed"] = make_location("bed", name="Bed", geometry=rect(1, 1, 2, 1))
-    service = GardenResourceService(sites, repo, FakeObjects(repo), GardenPlanService(sites, repo))
+    repo.dispatched = []  # the bed keys handed to the adjacency dispatcher (GP-NFR-016)
+    service = GardenResourceService(
+        sites, repo, FakeObjects(repo), GardenPlanService(sites, repo), dispatch_adjacency=repo.dispatched.append
+    )
     return service, repo, site
 
 
@@ -1090,3 +1093,52 @@ class TestThePlantingLayoutPreview:
         parameter = inspect.signature(GardenResourceService.preview_planting_layout).parameters["tenant_key"]
         assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
         assert parameter.default is inspect.Parameter.empty
+
+
+class TestTheAdjacencyTrigger:
+    """GP-API-014/015, GP-NFR-016: a stored slot change asks for the recompute of its bed — a refusal does not."""
+
+    @pytest.fixture(autouse=True)
+    def slots(self, world):
+        _, repo, _ = world
+        repo.slots = [slot("s1", "BED_P1"), slot("s2", "BED_P2", geometry=as_point(1.5, 0.5))]
+
+    def test_a_geometry_correction_dispatches_the_bed(self, world) -> None:
+        service, repo, _ = world
+        patch_slot(service, geometry=as_point(1.0, 0.25))
+        assert repo.dispatched == ["bed"]
+
+    def test_a_patch_that_changes_nothing_dispatches_nothing(self, world) -> None:
+        service, repo, _ = world
+        patch_slot(service, capacity_plants=1)
+        assert repo.dispatched == []
+
+    def test_a_refused_patch_dispatches_nothing(self, world) -> None:
+        service, repo, _ = world
+        with pytest.raises(PlanValidationError):
+            patch_slot(service, geometry=as_point(2.6, 0.5))
+        with pytest.raises(NotFoundError):
+            patch_slot(service, tenant=OTHER_TENANT, geometry=as_point(1.0, 0.25))
+        assert repo.dispatched == []
+
+    def test_the_batch_dispatches_the_bed_once(self, world) -> None:
+        service, repo, _ = world
+        run_batch(service, batch("append", item("BED_N1"), item("BED_N2", as_point(1, 0.75))))
+        assert repo.dispatched == ["bed"]
+
+    def test_a_refused_batch_dispatches_nothing(self, world) -> None:
+        service, repo, _ = world
+        with pytest.raises(PlanValidationError):
+            run_batch(service, batch("append", item("BED_P1")))  # V-20: the id is taken
+        assert repo.dispatched == []
+
+    def test_a_broker_that_is_down_does_not_undo_the_stored_slot(self, world) -> None:
+        _, repo, _ = world
+
+        def down(_key: str) -> None:
+            raise ConnectionError("broker down")
+
+        service = GardenResourceService(
+            repo._sites, repo, FakeObjects(repo), GardenPlanService(repo._sites, repo), dispatch_adjacency=down
+        )
+        assert patch_slot(service, geometry=as_point(1.0, 0.25)).geometry.origin == (1.0, 0.25)

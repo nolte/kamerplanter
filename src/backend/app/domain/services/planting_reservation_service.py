@@ -81,6 +81,7 @@ from app.domain.models.planting_reservation import (
 )
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.models.site import Location, Slot
+from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
 
@@ -162,12 +163,14 @@ class PlantingReservationService:
         site_repo: ISiteRepository,
         plan_repo: IGardenPlanRepository,
         care_events: CareEventService,
+        dispatch_adjacency: AdjacencyDispatch | None = None,
     ) -> None:
         self._repo = repo
         self._runs = run_repo
         self._sites = site_repo
         self._plan = plan_repo
         self._care_events = care_events
+        self._dispatch_adjacency = dispatch_adjacency
 
     # ── Roles ─────────────────────────────────────────────────────────
 
@@ -345,6 +348,7 @@ class PlantingReservationService:
             )
         )
         logger.info("planting_reservation.layout_placed", run_key=run.key, location_key=location.key, slots=len(keys))
+        request_adjacency_recompute(self._dispatch_adjacency, location.key or "")
         return keys
 
     # ── GP-API-021: POST /planting-runs/{key}/plan-slots ──────────────
@@ -404,6 +408,7 @@ class PlantingReservationService:
             verify,
         )
         logger.info("planting_reservation.slots_planned", run_key=run_key, entry_key=entry_key, slots=len(slot_keys))
+        request_adjacency_recompute(self._dispatch_adjacency, location.key or "")
         return PlannedSlots(
             run_key=run_key,
             entry_key=entry_key,
@@ -475,6 +480,7 @@ class PlantingReservationService:
         if not self._repo.release_reservation(run_key, slot.key or slot_key):
             raise NotFoundError("Slot", slot_key)
         logger.info("planting_reservation.slot_released", run_key=run_key, slot_key=slot_key)
+        request_adjacency_recompute(self._dispatch_adjacency, location.key or "")
 
     # ── GP-API-024: GET /locations/{key}/plantings ────────────────────
 
@@ -545,6 +551,7 @@ class PlantingReservationService:
             runs=outcome.runs_completed,
             archived=outcome.slots_archived,
         )
+        request_adjacency_recompute(self._dispatch_adjacency, location.key or location_key)
         return outcome
 
 
