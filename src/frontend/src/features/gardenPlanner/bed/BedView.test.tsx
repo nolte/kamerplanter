@@ -11,6 +11,7 @@ import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import BedView from './BedView';
+import { careTask, useCareBackend } from '../care/careTestKit';
 import { bedSummary } from './bedTestKit';
 import type { BedSummary } from './types';
 
@@ -105,13 +106,28 @@ describe('BedView', () => {
     expect(await screen.findByTestId('details-stub')).toBeInTheDocument();
   });
 
-  it('offers care and history as honest empty states', async () => {
+  it('opens the care tab with the open tasks of the bed (GP-FR-083) and keeps history an honest empty state', async () => {
     useBackend();
+    useCareBackend([careTask('t1', { name: 'Water the bed' })]);
     const user = userEvent.setup();
     renderBed(bedSummary(), '/standorte/locations/loc_b03#care');
-    expect(await screen.findByTestId('bed-care-tab')).toHaveTextContent('Care is coming');
+    expect(await screen.findByTestId('care-task-t1')).toHaveTextContent('Water the bed');
+    expect(screen.getByRole('tab', { name: 'Care' })).toHaveAttribute('aria-selected', 'true');
     await user.click(screen.getByRole('tab', { name: 'History' }));
     expect(await screen.findByTestId('bed-history-tab')).toHaveTextContent('History is coming');
+  });
+
+  it('reloads the summary after a task was completed, so the head counters follow', async () => {
+    useBackend();
+    useCareBackend([careTask('t1', { name: 'Weed', category: 'weeding' })]);
+    const user = userEvent.setup();
+    let reloads = 0;
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#care', 'lead', () => {
+      reloads += 1;
+    });
+    await user.click(await screen.findByTestId('care-done-t1'));
+    await user.click(await screen.findByTestId('care-complete-submit'));
+    await waitFor(() => expect(reloads).toBeGreaterThan(0));
   });
 
   it('hides the plan tab when the garden planner module is switched off', async () => {

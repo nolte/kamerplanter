@@ -1150,6 +1150,31 @@
       "cacl2": "CaCl2 solution",
       "h2o": "Water",
       "probe_unknown": "Probe, method unknown"
+    },
+    "careUnit": {
+      "l": "Litres",
+      "ml": "Millilitres",
+      "g": "Grams",
+      "kg": "Kilograms",
+      "l_per_m2": "Litres per m²",
+      "g_per_m2": "Grams per m²",
+      "cm": "Centimetres",
+      "pieces": "Pieces"
+    },
+    "careMaterial": {
+      "compost": "Compost",
+      "manure": "Manure",
+      "horn_shavings": "Horn shavings",
+      "straw": "Straw",
+      "grass_clippings": "Grass clippings",
+      "bark_mulch": "Bark mulch",
+      "wood_chips": "Wood chips",
+      "leaves": "Leaves",
+      "cardboard": "Cardboard",
+      "fleece": "Fleece",
+      "net": "Net",
+      "foil": "Foil",
+      "frost_cover": "Frost cover"
     }
   }
 }
