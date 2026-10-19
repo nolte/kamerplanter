@@ -35,18 +35,18 @@ export interface SiteFitResult {
   steps: number;
 }
 
-/** Position on the ladder; the higher, the sunnier. `unknown` is not on it. */
-const LADDER: Readonly<Record<string, number>> = {
-  deep_shade: 0,
-  shade: 1,
-  partial_shade: 2,
-  full_sun: 3,
-};
+/** Position on the ladder; the higher, the sunnier. `unknown` is not on it. A Map: a plain object would answer `constructor`. */
+const LADDER: ReadonlyMap<string, number> = new Map([
+  ['deep_shade', 0],
+  ['shade', 1],
+  ['partial_shade', 2],
+  ['full_sun', 3],
+]);
 const REQUIREMENTS: ReadonlySet<string> = new Set(['full_sun', 'partial_shade', 'shade']);
 
 function rank(value: string | null | undefined): number | null {
   if (value === null || value === undefined) return null;
-  return LADDER[value] ?? null;
+  return LADDER.get(value) ?? null;
 }
 
 export function assessSiteFit(

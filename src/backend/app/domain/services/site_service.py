@@ -6,7 +6,7 @@ from app.common.types import LocationKey, SiteKey, SlotKey
 from app.domain.engines.frost_exposure_resolver import frost_risk_from_exposed
 from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourceWarning
 from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.site import Location, Microclimate, Site, SiteConditions, SiteWaterConfig, Slot
+from app.domain.models.site import Location, Site, SiteConditions, SiteWaterConfig, Slot
 from app.domain.models.tank import Tank
 from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.location_ownership import require_owned_site, resolve_owned_slot
@@ -58,21 +58,8 @@ def mirror_frost_exposed(location: Location, stored: Location | None) -> None:
     before = stored.frost_exposed if stored is not None else None
     if location.frost_exposed == before:
         return
-    current: SiteConditions = location.site_conditions or SiteConditions()
-    # A fresh value, so the stored row the caller still holds is not changed through a shared reference.
-    location.site_conditions = SiteConditions(
-        sun_profile=current.sun_profile,
-        microclimate=Microclimate(
-            frost_risk=frost_risk_from_exposed(location.frost_exposed),
-            cold_air_pocket=current.microclimate.cold_air_pocket,
-            heat_retention=current.microclimate.heat_retention,
-        ),
-        wind_exposure=current.wind_exposure,
-        slope_deg=current.slope_deg,
-        aspect_deg=current.aspect_deg,
-        access_sides=list(current.access_sides),
-        flags=list(current.flags),
-    )
+    current = location.site_conditions or SiteConditions()
+    location.site_conditions = current.with_frost_risk(frost_risk_from_exposed(location.frost_exposed))
 
 
 def place_in_tree(location: Location, parent: Location | None) -> None:

@@ -6012,7 +6012,6 @@
         "title": "Sonne und Schatten",
         "group": "Sonne und Schatten am Beet",
         "hint": "Wähle, wie viel direktes Sonnenlicht das Beet an einem Sommertag bekommt. Die Angabe hilft dir bei der Pflanzenwahl.",
-        "current": "Aktuell: {{value}}",
         "options": {
           "full_sun": {
             "label": "Volle Sonne",
@@ -6039,15 +6038,15 @@
           "title": "Sonne für alle gewählten Beete setzen",
           "hint": "Gilt für {{count}} gewählte Beete. Gesperrte Beete bleiben unverändert. Du kannst den Schritt mit „Rückgängig“ zurücknehmen.",
           "locked": "Alle gewählten Beete sind gesperrt. Entsperre sie, um die Sonne zu setzen.",
-          "mixed": "Die gewählten Beete haben unterschiedliche Werte."
+          "mixed": "Die gewählten Beete haben unterschiedliche Werte.",
+          "result_one": "{{count}} Beet auf „{{sun}}“ gesetzt.",
+          "result_other": "{{count}} Beete auf „{{sun}}“ gesetzt. Bereits passende Beete blieben unverändert."
         },
-        "change": "Ändern",
         "dialog": {
           "title": "Sonne und Schatten: {{bed}}",
           "save": "Speichern",
           "cancel": "Abbrechen",
-          "saved": "Sonne und Schatten gespeichert.",
-          "failed": "Die Angabe konnte nicht gespeichert werden."
+          "saved": "Sonne und Schatten gespeichert."
         }
       }
     },
@@ -6613,7 +6612,6 @@
           "done": "Aufgabe angelegt: {{plant}} nach {{bed}} umpflanzen."
         },
         "siteFit": {
-          "title": "Standort",
           "fit": {
             "ok": "gut geeignet",
             "marginal": "bedingt geeignet",
@@ -6632,8 +6630,7 @@
             "tolerance_unknown": "Toleranz unbekannt: Für diese Art ist nicht erfasst, wie viel Schatten sie verträgt.",
             "too_sunny": "Das Beet ist zu sonnig. Es drohen Verbrennungen und Trockenstress."
           },
-          "summary": "{{name}}: Standort {{fit}}",
-          "doesNotBlock": "Das ist ein Hinweis. Du kannst trotzdem pflanzen."
+          "summary": "{{name}}: Standort {{fit}}"
         }
       }
     }

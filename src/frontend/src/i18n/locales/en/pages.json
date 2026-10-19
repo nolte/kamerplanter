@@ -6011,7 +6011,6 @@
         "title": "Sun and shade",
         "group": "Sun and shade of the bed",
         "hint": "Choose how much direct sunlight the bed gets on a summer day. It helps you pick plants.",
-        "current": "Current: {{value}}",
         "options": {
           "full_sun": {
             "label": "Full sun",
@@ -6038,15 +6037,15 @@
           "title": "Set the sun for all selected beds",
           "hint": "Applies to {{count}} selected beds. Locked beds stay as they are. You can take the step back with Undo.",
           "locked": "All selected beds are locked. Unlock them to set the sun.",
-          "mixed": "The selected beds have different values."
+          "mixed": "The selected beds have different values.",
+          "result_one": "{{count}} bed set to “{{sun}}”.",
+          "result_other": "{{count}} beds set to “{{sun}}”. Beds that already matched were left as they are."
         },
-        "change": "Change",
         "dialog": {
           "title": "Sun and shade: {{bed}}",
           "save": "Save",
           "cancel": "Cancel",
-          "saved": "Sun and shade saved.",
-          "failed": "The value could not be saved."
+          "saved": "Sun and shade saved."
         }
       }
     },
@@ -6612,7 +6611,6 @@
           "done": "Task created: transplant {{plant}} to {{bed}}."
         },
         "siteFit": {
-          "title": "Site",
           "fit": {
             "ok": "well suited",
             "marginal": "only partly suited",
@@ -6631,8 +6629,7 @@
             "tolerance_unknown": "Tolerance unknown: it is not recorded how much shade this species takes.",
             "too_sunny": "The bed is too sunny. Scorch and drought stress are likely."
           },
-          "summary": "{{name}}: site {{fit}}",
-          "doesNotBlock": "This is a hint. You can still plant."
+          "summary": "{{name}}: site {{fit}}"
         }
       }
     }

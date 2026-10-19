@@ -72,9 +72,12 @@ RETURN LENGTH(FOR l IN @@collection FILTER l.frost_exposed == null RETURN 1)
 """
 
 # A nested object in the patch is merged into the stored one (``mergeObjects`` is the default), so the
-# other keys of ``site_conditions`` and ``microclimate`` survive.
+# other keys of ``site_conditions`` and ``microclimate`` survive. The FILTER re-reads the risk: a bed whose
+# risk was entered between the scan and this statement is not overwritten.
 _APPLY = """
 FOR u IN @updates
+  LET current = DOCUMENT(@collection_name, u._key).site_conditions.microclimate.frost_risk
+  FILTER current == null OR current == "unknown"
   UPDATE u._key WITH { site_conditions: { microclimate: { frost_risk: u.frost_risk } } } IN @@collection
 """
 
@@ -92,7 +95,9 @@ def _count(db: StandardDatabase, query: str) -> int:
 def _apply(db: StandardDatabase, updates: Sequence[dict[str, Any]]) -> None:
     for start in range(0, len(updates), _BATCH_SIZE):
         chunk = list(updates[start : start + _BATCH_SIZE])
-        db.aql.execute(_APPLY, bind_vars={"@collection": col.LOCATIONS, "updates": chunk})
+        db.aql.execute(
+            _APPLY, bind_vars={"@collection": col.LOCATIONS, "collection_name": col.LOCATIONS, "updates": chunk}
+        )
 
 
 def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], int]:

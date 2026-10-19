@@ -220,8 +220,11 @@ class TestReferencesAndFields:
         assert stored.sun_profile.sun_window == "afternoon" and stored.sun_profile.foliage_shade_in_summer is True
         assert (stored.microclimate.frost_risk, stored.microclimate.cold_air_pocket) == ("high", True)
         assert (stored.wind_exposure, [side.value for side in stored.access_sides]) == ("exposed", ["N", "S"])
+        # The winter readers still read ``frost_exposed``; the file has none, so it follows the risk.
+        assert {loc.name: loc for loc in repo.locations.values()}["Beet 1"].frost_exposed is True
         # A bed without the key stays without it - the import invents nothing.
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].site_conditions is None
+        assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].frost_exposed is None
 
     def test_an_invalid_site_condition_is_a_finding_not_a_crash(self, rig, repo) -> None:
         document = rig.file()

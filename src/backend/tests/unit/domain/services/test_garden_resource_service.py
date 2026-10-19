@@ -365,6 +365,53 @@ class TestPatchingALocation:
 
         assert repo.locations["bed"].frost_exposed is True
 
+    def test_a_partial_site_condition_changes_only_the_keys_sent(self, world) -> None:
+        """A PATCH ``{"wind_exposure": …}`` must not reset the sun window, the risk or the slope (review of WP 3.9)."""
+        service, repo, _ = world
+        patch_location(
+            service,
+            site_conditions={
+                "sun_profile": {"sun_window": "morning", "foliage_shade_in_summer": True},
+                "microclimate": {"frost_risk": "high", "cold_air_pocket": True},
+                "slope_deg": 12.5,
+                "flags": ["root_competition"],
+            },
+        )
+
+        patch_location(
+            service,
+            site_conditions={"wind_exposure": "exposed", "sun_profile": {"direct_sun_hours_summer": 5.5}},
+        )
+
+        stored = repo.locations["bed"].site_conditions
+        assert stored is not None
+        assert stored.wind_exposure == "exposed"
+        assert (stored.sun_profile.sun_window, stored.sun_profile.foliage_shade_in_summer) == ("morning", True)
+        assert stored.sun_profile.direct_sun_hours_summer == 5.5
+        assert (stored.microclimate.frost_risk, stored.microclimate.cold_air_pocket) == ("high", True)
+        assert stored.slope_deg == 12.5 and [flag.value for flag in stored.flags] == ["root_competition"]
+        # the untouched risk leaves the legacy boolean alone
+        assert repo.locations["bed"].frost_exposed is True
+
+    def test_a_list_is_replaced_whole_and_an_empty_one_clears_it(self, world) -> None:
+        service, repo, _ = world
+        patch_location(service, site_conditions={"access_sides": ["N", "E"]})
+        patch_location(service, site_conditions={"access_sides": []})
+
+        assert repo.locations["bed"].site_conditions.access_sides == []
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            {"wind_exposures": "exposed"},
+            {"sun_profile": {"sun_windows": "morning"}},
+            {"microclimate": {"frost": "high"}},
+        ],
+    )
+    def test_a_misspelt_key_is_refused_instead_of_dropped(self, bad) -> None:
+        with pytest.raises(ValueError, match="site_conditions"):
+            LocationPatch.model_validate({"site_conditions": bad})
+
     def test_an_unchanged_frost_risk_leaves_the_boolean_alone(self, world) -> None:
         service, repo, _ = world
         repo.locations["bed"] = repo.locations["bed"].model_copy(update={"frost_exposed": True})

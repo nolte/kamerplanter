@@ -157,3 +157,17 @@ def test_the_dry_run_reports_and_writes_nothing(db) -> None:  # type: ignore[no-
     assert sorted(report.details["listed_keys"]) == sorted([keys["corner"], keys["niche"], keys["sunny"]])
     assert _revs(db) == before
     assert _read(db, keys["corner"]).site_conditions is None
+
+
+def test_a_risk_entered_after_the_scan_is_not_overwritten(db) -> None:  # type: ignore[no-untyped-def]
+    """The apply statement re-reads the risk (review of WP 3.9): the scan is a snapshot, the write is not."""
+    from app.migrations.versions import v0098_location_site_conditions as module
+
+    keys = _fixture(db)
+    scanned_update = {"_key": keys["disagree"], "frost_risk": "high"}  # the scan saw it unset; now it says "normal"
+    unset_update = {"_key": keys["corner"], "frost_risk": "high"}
+
+    module._apply(db, [scanned_update, unset_update])
+
+    assert _read(db, keys["disagree"]).site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
+    assert _read(db, keys["corner"]).site_conditions.microclimate.frost_risk is FrostRisk.HIGH  # type: ignore[union-attr]

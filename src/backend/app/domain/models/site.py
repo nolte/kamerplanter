@@ -202,6 +202,13 @@ class SiteConditions(BaseModel):
     access_sides: list[AccessSide] = Field(default_factory=list)
     flags: list[SiteFlag] = Field(default_factory=list)
 
+    def with_frost_risk(self, frost_risk: FrostRisk) -> Self:
+        """A copy with ``microclimate.frost_risk`` set; everything else (also fields added later) is carried over."""
+        values = {name: getattr(self, name) for name in SiteConditions.model_fields}
+        part = {name: getattr(self.microclimate, name) for name in Microclimate.model_fields}
+        values["microclimate"] = Microclimate(**{**part, "frost_risk": frost_risk})
+        return type(self)(**values)
+
     @field_validator("access_sides", "flags")
     @classmethod
     def _no_repeats(cls, value: list[AccessSide] | list[SiteFlag]) -> list[AccessSide] | list[SiteFlag]:

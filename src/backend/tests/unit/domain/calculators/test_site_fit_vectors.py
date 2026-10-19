@@ -84,6 +84,12 @@ class TestRules:
     def test_a_requirement_outside_the_enum_is_treated_as_missing(self) -> None:
         assert compute("full_sun", "deep_shade", None) is SiteFit.UNKNOWN
 
+    def test_a_value_that_is_not_a_step_is_missing_as_in_the_port(self) -> None:
+        """The TypeScript port is tested with inherited property names; the reference answers the same."""
+        assert assess("constructor", "full_sun", None).reason == "bed_unknown"
+        assert assess("full_sun", "constructor", None).reason == "requirement_unknown"
+        assert assess("partial_shade", "full_sun", "__proto__").reason == "tolerance_unknown"
+
     def test_steps_are_negative_when_the_bed_is_shadier(self) -> None:
         assert assess("shade", "partial_shade", "shade").steps == -1
         assert assess("full_sun", "shade", None).steps == 2

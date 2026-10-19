@@ -62,6 +62,7 @@ from app.domain.models.garden_plan import (
     GardenObjectPatch,
     LocationPatch,
     PlanBatchWrite,
+    SiteConditionsPatch,
     SlotBatchItem,
     SlotBatchRequest,
     SlotBatchResult,
@@ -69,7 +70,7 @@ from app.domain.models.garden_plan import (
     SlotPatch,
 )
 from app.domain.models.geometry import Geometry
-from app.domain.models.site import Location, Site, Slot
+from app.domain.models.site import Location, Site, SiteConditions, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import (
@@ -107,6 +108,15 @@ _PATCH_COLUMNS: tuple[str, ...] = (
 
 #: What ``PATCH /slots/{key}`` writes (GP-API-014).
 _SLOT_PATCH_COLUMNS: tuple[str, ...] = ("slot_role", "geometry", "capacity_plants", "geometry_source")
+
+
+#: The two parts of ``SiteConditions`` that are objects of their own (merged key by key on a PATCH).
+_NESTED_SITE_PARTS: frozenset[str] = frozenset({"sun_profile", "microclimate"})
+
+
+def _sent_fields(model: Any) -> dict[str, Any]:
+    """The fields a request body set explicitly (``model_fields_set``), by name."""
+    return {name: getattr(model, name) for name in model.model_fields_set}
 
 
 def _dump(model: Any, **options: Any) -> dict[str, Any]:
@@ -315,26 +325,48 @@ class GardenResourceService:
             raise _not_found("soil_profile.substrate_key")
 
     @staticmethod
-    def _mirror_frost_risk(location: Location, patch: LocationPatch, provided: dict[str, Any]) -> None:
+    def _merged_site_conditions(stored: SiteConditions | None, sent: SiteConditionsPatch) -> SiteConditions:
+        """The stored value with exactly the keys of ``sent`` laid over it (WP 3.9).
+
+        A PATCH that sends ``{"wind_exposure": "exposed"}`` changes the wind and nothing else: a replace
+        would reset the sun window, the risk and the slope to their defaults. The two nested parts are
+        merged by their own sent keys; a list (``access_sides``, ``flags``) is replaced whole.
+        """
+        merged = _dump(stored if stored is not None else SiteConditions())
+        for name in sent.model_fields_set:
+            value = getattr(sent, name)
+            if name in _NESTED_SITE_PARTS:
+                merged[name] = {**merged[name], **_sent_fields(value)}
+            else:
+                merged[name] = value
+        return SiteConditions(**merged)
+
+    @staticmethod
+    def _mirror_frost_risk(location: Location, provided: dict[str, Any]) -> None:
         """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9).
 
-        Only a *change* counts: a patch that sends the other site conditions (the sun window …) with an
-        untouched risk must not reset an override somebody set on the old field. Clearing the whole value
-        (``site_conditions: null``) is a change to ``unknown`` when a risk was stored.
+        Only a *change* counts: a patch that sends other site conditions with an untouched risk must not
+        reset an override somebody set on the old field. Clearing the whole value (``site_conditions:
+        null``) is a change to ``unknown`` when a risk was stored. ``normal`` and ``unknown`` mean "no
+        override" and therefore also clear the boolean: the new field is the one that was edited, and the
+        site type decides again.
         """
-        if "site_conditions" not in patch.model_fields_set:
+        if "site_conditions" not in provided:
             return
-        sent = patch.site_conditions.microclimate.frost_risk if patch.site_conditions else FrostRisk.UNKNOWN
+        sent = provided["site_conditions"]
+        sent_risk = sent.microclimate.frost_risk if sent is not None else FrostRisk.UNKNOWN
         stored = location.site_conditions.microclimate.frost_risk if location.site_conditions else FrostRisk.UNKNOWN
-        if sent is not stored:
-            provided["frost_exposed"] = frost_exposed_from_risk(sent)
+        if sent_risk is not stored:
+            provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""
         provided = {name: getattr(patch, name) for name in patch.model_fields_set if name in set(_PATCH_COLUMNS)}
         if not provided:
             return {}
-        self._mirror_frost_risk(location, patch, provided)
+        if patch.site_conditions is not None:
+            provided["site_conditions"] = self._merged_site_conditions(location.site_conditions, patch.site_conditions)
+        self._mirror_frost_risk(location, provided)
         try:
             updated = Location.model_validate({**_dump(location, by_alias=True), **provided})
         except PydanticValidationError as exc:

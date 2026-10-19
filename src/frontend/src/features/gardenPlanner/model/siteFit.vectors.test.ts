@@ -68,6 +68,13 @@ describe('site_fit rules stated apart from the file', () => {
     expect(assessSiteFit('full_sun', 'deep_shade', null).fit).toBe('unknown');
   });
 
+  it('treats a value that is not a step as missing, also an inherited property name', () => {
+    expect(assessSiteFit('constructor', 'full_sun', null).fit).toBe('unknown');
+    expect(assessSiteFit('toString', 'full_sun', null).reason).toBe('bed_unknown');
+    expect(assessSiteFit('full_sun', 'constructor', null).reason).toBe('requirement_unknown');
+    expect(assessSiteFit('partial_shade', 'full_sun', '__proto__').reason).toBe('tolerance_unknown');
+  });
+
   it('reports the steps, negative when the bed is shadier', () => {
     expect(assessSiteFit('shade', 'partial_shade', 'shade').steps).toBe(-1);
     expect(assessSiteFit('full_sun', 'shade', null).steps).toBe(2);

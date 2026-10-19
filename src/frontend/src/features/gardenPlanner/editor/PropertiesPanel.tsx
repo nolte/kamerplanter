@@ -473,6 +473,7 @@ function SunBulk({
   onCommit,
 }: Pick<PropertiesPanelProps, 'plan' | 'selection' | 'onCommit'>) {
   const { t } = useTranslation();
+  const [result, setResult] = useState<{ changed: number; sun: SunExposure } | null>(null);
   const beds = selection
     .filter((ref) => ref.entity === 'location')
     .map((ref) => plan.locations[ref.key])
@@ -492,6 +493,7 @@ function SunBulk({
         fields: { sun_exposure: sun },
       }));
     if (ops.length > 0) onCommit(ops, 'edit');
+    setResult({ changed: ops.length, sun });
   };
 
   return (
@@ -514,6 +516,20 @@ function SunBulk({
           onChange={apply}
         />
       </Suspense>
+      <Typography
+        variant="body2"
+        role="status"
+        aria-live="polite"
+        sx={{ mt: 1 }}
+        data-testid="garden-plan-panel-sun-bulk-result"
+      >
+        {result
+          ? t(`${SUN_PREFIX}.bulk.result`, {
+              count: result.changed,
+              sun: t(`enums.sunExposure.${result.sun}`),
+            })
+          : ''}
+      </Typography>
     </Box>
   );
 }

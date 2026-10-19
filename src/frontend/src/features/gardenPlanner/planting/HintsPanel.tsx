@@ -3,6 +3,7 @@
  * dialog before the layout is chosen, never as a blocker. From a warning on, the grower plants anyway
  * only with a reason ("Trotzdem pflanzen"), which the run stores as `rotation_override_reason`.
  */
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -105,6 +106,75 @@ export default function HintsPanel({
   const mustGiveReason = needsOverrideReason(severity);
   const nameOf = (key: string) => speciesNames.get(key) ?? key;
 
+  /** The rotation and neighbour hints of one species, or the reason there are none. */
+  const rotationBlock = (key: string, name: string, state: HintState | undefined) => {
+    if (!state || state.status === 'loading') {
+      return (
+        <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }} role="status">
+          <CircularProgress size={16} />
+          <Typography variant="body2">{t('pages.bed.planting.hints.checking', { name })}</Typography>
+        </Box>
+      );
+    }
+    if (state.status === 'error') {
+      return (
+        <Alert key={key} severity="info" data-testid={`planting-hint-${key}`}>
+          {t('pages.bed.planting.hints.unavailable', { name, message: state.message })}
+        </Alert>
+      );
+    }
+    const { data } = state;
+    if (!data.rotation_applicable) {
+      return (
+        <Alert key={key} severity="info" data-testid={`planting-hint-${key}`}>
+          {t('pages.bed.planting.hints.notApplicable', { name })}
+        </Alert>
+      );
+    }
+    const lines = [
+      ...data.rotation.map((finding) => ({
+        id: `${finding.code}-${finding.family_key ?? ''}`,
+        severity: finding.severity,
+        text: findingText(finding, t),
+      })),
+      ...data.neighbours.map((hint) => ({
+        id: `${hint.code}-${hint.species_key}`,
+        severity: hint.severity,
+        text: neighbourText(hint, speciesNames, t),
+      })),
+    ];
+    if (lines.length === 0) {
+      return (
+        <Alert key={key} severity="success" data-testid={`planting-hint-${key}`}>
+          {t('pages.bed.planting.hints.allClear', { name })}
+        </Alert>
+      );
+    }
+    return (
+      <Alert key={key} severity={ALERT_SEVERITY[data.severity]} data-testid={`planting-hint-${key}`}>
+        <Typography variant="subtitle2" component="div">
+          {t('pages.bed.planting.hints.forSpecies', {
+            name,
+            strength: t(`enums.rotationSeverity.${data.severity}`),
+          })}
+        </Typography>
+        <Box component="ul" sx={{ m: 0, pl: 2 }}>
+          {lines.map((line) => (
+            <li key={line.id}>
+              {line.text}
+              {line.severity !== data.severity ? (
+                <Typography component="span" variant="caption" color="text.secondary">
+                  {' '}
+                  ({t(`enums.rotationSeverity.${line.severity}`)})
+                </Typography>
+              ) : null}
+            </li>
+          ))}
+        </Box>
+      </Alert>
+    );
+  };
+
   return (
     <Box
       component="section"
@@ -115,86 +185,21 @@ export default function HintsPanel({
       <Typography variant="subtitle1" component="h3">
         {t('pages.bed.planting.hints.title')}
       </Typography>
-      {species.map(({ key, name, state }) => {
-        if (!state || state.status === 'loading') {
-          return (
-            <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }} role="status">
-              <CircularProgress size={16} />
-              <Typography variant="body2">{t('pages.bed.planting.hints.checking', { name })}</Typography>
-            </Box>
-          );
-        }
-        if (state.status === 'error') {
-          return (
-            <Alert key={key} severity="info" data-testid={`planting-hint-${key}`}>
-              {t('pages.bed.planting.hints.unavailable', { name, message: state.message })}
-            </Alert>
-          );
-        }
-        const { data } = state;
-        if (!data.rotation_applicable) {
-          return (
-            <Alert key={key} severity="info" data-testid={`planting-hint-${key}`}>
-              {t('pages.bed.planting.hints.notApplicable', { name })}
-            </Alert>
-          );
-        }
-        const lines = [
-          ...data.rotation.map((finding) => ({
-            id: `${finding.code}-${finding.family_key ?? ''}`,
-            severity: finding.severity,
-            text: findingText(finding, t),
-          })),
-          ...data.neighbours.map((hint) => ({
-            id: `${hint.code}-${hint.species_key}`,
-            severity: hint.severity,
-            text: neighbourText(hint, speciesNames, t),
-          })),
-        ];
-        if (lines.length === 0) {
-          return (
-            <Alert key={key} severity="success" data-testid={`planting-hint-${key}`}>
-              {t('pages.bed.planting.hints.allClear', { name })}
-            </Alert>
-          );
-        }
-        return (
-          <Alert key={key} severity={ALERT_SEVERITY[data.severity]} data-testid={`planting-hint-${key}`}>
-            <Typography variant="subtitle2" component="div">
-              {t('pages.bed.planting.hints.forSpecies', {
-                name,
-                strength: t(`enums.rotationSeverity.${data.severity}`),
-              })}
-            </Typography>
-            <Box component="ul" sx={{ m: 0, pl: 2 }}>
-              {lines.map((line) => (
-                <li key={line.id}>
-                  {line.text}
-                  {line.severity !== data.severity ? (
-                    <Typography component="span" variant="caption" color="text.secondary">
-                      {' '}
-                      ({t(`enums.rotationSeverity.${line.severity}`)})
-                    </Typography>
-                  ) : null}
-                </li>
-              ))}
-            </Box>
-          </Alert>
-        );
-      })}
-      {species.map(({ key, name, siteFit }) =>
-        siteFit ? (
-          <SiteFitHint
-            key={`site-fit-${key}`}
-            speciesKey={key}
-            speciesName={name}
-            bedSun={bedSun}
-            lightRequirement={siteFit.lightRequirement}
-            shadeTolerance={siteFit.shadeTolerance}
-            result={siteFit.result}
-          />
-        ) : null,
-      )}
+      {species.map(({ key, name, state, siteFit }) => (
+        <Fragment key={key}>
+          {rotationBlock(key, name, state)}
+          {siteFit ? (
+            <SiteFitHint
+              speciesKey={key}
+              speciesName={name}
+              bedSun={bedSun}
+              lightRequirement={siteFit.lightRequirement}
+              shadeTolerance={siteFit.shadeTolerance}
+              result={siteFit.result}
+            />
+          ) : null}
+        </Fragment>
+      ))}
       {mix.map((pair) => (
         <Alert
           key={`${pair.a}|${pair.b}`}

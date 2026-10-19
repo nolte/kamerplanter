@@ -23,7 +23,7 @@ from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRo
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
-from app.domain.models.site import Location, SiteConditions, SitePlan, Slot, SoilProfile
+from app.domain.models.site import Location, Microclimate, SiteConditions, SitePlan, Slot, SoilProfile, SunProfile
 
 #: Request-local name for an object created in the same batch (``tmp1``); the server answers with ``key_map``.
 TempKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
@@ -315,6 +315,27 @@ def _no_null_for(model: BaseModel, names: tuple[str, ...]) -> None:
             raise ValueError(f"{name} cannot be null.")
 
 
+class _StrictSunProfile(SunProfile):
+    model_config = ConfigDict(extra="forbid")
+
+
+class _StrictMicroclimate(Microclimate):
+    model_config = ConfigDict(extra="forbid")
+
+
+class SiteConditionsPatch(SiteConditions):
+    """The ``site_conditions`` of ``PATCH /locations/{key}``: the keys present are changed, the others kept (WP 3.9).
+
+    A misspelt key is a 422 instead of a silently dropped value. ``model_fields_set`` of the value and of its two
+    nested parts say what was sent; :func:`GardenResourceService._merged_site_conditions` merges exactly that.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    sun_profile: _StrictSunProfile = Field(default_factory=_StrictSunProfile)
+    microclimate: _StrictMicroclimate = Field(default_factory=_StrictMicroclimate)
+
+
 class LocationPatch(_Strict):
     """``PATCH /locations/{key}`` (GP-API-010): only the fields present are changed; an explicit ``null`` clears
     the ones that can be cleared (description, notes, height, irrigation zone, soil profile)."""
@@ -326,8 +347,9 @@ class LocationPatch(_Strict):
     sun_exposure: SunExposure | None = None
     geometry: Geometry | None = None
     soil_profile: SoilProfile | None = None
-    #: Sun profile, microclimate, wind … (§10.2, WP 3.9); an explicit ``null`` clears all of it.
-    site_conditions: SiteConditions | None = None
+    #: Sun profile, microclimate, wind … (§10.2, WP 3.9): the keys sent are merged into the stored value;
+    #: an explicit ``null`` clears all of it.
+    site_conditions: SiteConditionsPatch | None = None
     irrigation_zone_key: str | None = Field(default=None, min_length=1, max_length=200)
     locked: bool | None = None
     z_order: int | None = Field(default=None, ge=-10_000, le=10_000)
