@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 
 from ._journey_helpers import _api_request
 
@@ -259,6 +260,321 @@ def read_plan(base_url: str, seed: dict, site_key: str) -> dict:
     status, body = _api_request(f"{api}/sites/{site_key}/plan", "GET", token)
     _require(status, body, (200,), f"GET /sites/{site_key}/plan")
     return body
+
+
+def bed_rect(width: float, length: float) -> dict:
+    """A bed of *width* x *length* metres in the middle of the 10 x 10 m garden."""
+    return rect(5.0 - width / 2, 5.0 - length / 2, width, length)
+
+
+# ── Planting (wave 3: WP 3.2 / 3.6 / 3.7) ────────────────────────────────────
+#
+# The planting tests arrange runs, slots, plants, tasks and a previous year
+# through the same routes the planting dialog, the run page and the history tab
+# call (`test-pyramid-foundation` §"Arrangement-Treue"):
+#
+# * ``GET /species`` (global catalogue) resolves a seeded species by its
+#   scientific name — the tests never create a species, the catalogue is seed;
+# * ``POST /locations/{key}/slots/batch`` + ``POST /planting-runs`` +
+#   ``POST /planting-runs/{key}/plan-slots`` + ``POST …/create-plants`` put a
+#   plant on an exact bed-frame position — the dialog's own "freely placed"
+#   path (GP-API-015/021/023);
+# * ``POST /locations/{key}/history/backfill`` records "what stood here last
+#   year" (GP-API-042), the precondition of the crop-rotation hint;
+# * ``POST /tasks`` hangs an overdue task on a plant (REQ-006).
+
+#: Species resolved per (base URL, scientific name): the catalogue is seed data
+#: and does not change during a run.
+_SPECIES_CACHE: dict[tuple[str, str], dict] = {}
+
+
+def _global_api(base_url: str, seed: dict) -> tuple[str, str | None]:
+    from .conftest import _fresh_access_token
+
+    return f"{base_url.rstrip('/')}/api/v1", _fresh_access_token(seed, base_url)
+
+
+def _is_seed(item: dict) -> bool:
+    """A global catalogue entry: ``tenant_key == ""`` where the answer carries it, else ``origin`` ``system``."""
+    if "tenant_key" in item:
+        return item["tenant_key"] in ("", None)
+    return item.get("origin", "system") in ("system", "enrichment")
+
+
+def species(base_url: str, seed: dict, scientific_name: str) -> dict:
+    """The seeded species *scientific_name* (exact match, seed entry preferred); loud when it is missing."""
+    cached = _SPECIES_CACHE.get((base_url, scientific_name))
+    if cached is not None:
+        return cached
+    api, token = _global_api(base_url, seed)
+    status, body = _api_request(f"{api}/species?limit=1000", "GET", token)
+    _require(status, body, (200,), "GET /species")
+    # The list is the seed catalogue *plus* the caller's own species (F-5): a tenant species of the same
+    # scientific name must not shadow the seed entry, so a seed entry always wins over a tenant one.
+    for item in body.get("items") or []:
+        key = (base_url, item.get("scientific_name", ""))
+        if key not in _SPECIES_CACHE or (_is_seed(item) and not _is_seed(_SPECIES_CACHE[key])):
+            _SPECIES_CACHE[key] = item
+    found = _SPECIES_CACHE.get((base_url, scientific_name))
+    if found is None:
+        raise AssertionError(
+            f"Self-provisioning failed: the species catalogue has no {scientific_name!r} "
+            f"(seed data `species.yaml`); {len(body.get('items') or [])} species listed"
+        )
+    return found
+
+
+def tenant_get(base_url: str, seed: dict, path: str) -> object:
+    """``GET`` a tenant-scoped *path* (``/locations/...``); loud on anything but 200."""
+    api, token = _api(base_url, seed)
+    status, body = _api_request(f"{api}{path}", "GET", token)
+    _require(status, body, (200,), f"GET {path}")
+    return body
+
+
+def _tenant_post(base_url: str, seed: dict, path: str, data: dict, expected=(200, 201)) -> dict:
+    api, token = _api(base_url, seed)
+    status, body = _api_request(f"{api}{path}", "POST", token, data)
+    _require(status, body, expected, f"POST {path}")
+    return body
+
+
+def utc_today() -> date:
+    """Today as the backend counts it (UTC calendar day), not the test runner's local day."""
+    return datetime.now(UTC).date()
+
+
+def run_payload(
+    *,
+    bed_key: str,
+    species_key: str,
+    id_prefix: str,
+    quantity: int,
+    entry: dict,
+    name: str,
+) -> dict:
+    """A planned monoculture run on *bed_key*, as the planting dialog sends it (`runPayload`)."""
+    today = utc_today().isoformat()
+    return {
+        "name": name,
+        "run_type": "monoculture",
+        "location_key": bed_key,
+        "planned_start_date": today,
+        "planned_from": today,
+        "plan_role": "main_crop",
+        "source": "manual",
+        "entries": [
+            {"species_key": species_key, "quantity": quantity, "id_prefix": id_prefix, **entry}
+        ],
+    }
+
+
+def planned_run_with_layout(
+    base_url: str,
+    seed: dict,
+    *,
+    bed_key: str,
+    species_key: str,
+    id_prefix: str,
+    quantity: int,
+    spacing_cm: float,
+    row_spacing_cm: float,
+) -> str:
+    """A planned run whose rows layout the server lays out and reserves on the bed (GP-FR-064/065)."""
+    run = _tenant_post(
+        base_url,
+        seed,
+        "/planting-runs",
+        run_payload(
+            bed_key=bed_key,
+            species_key=species_key,
+            id_prefix=id_prefix,
+            quantity=quantity,
+            name=f"E2E-GP-run-{unique_tag()}",
+            entry={
+                "spacing_cm": float(spacing_cm),
+                "row_spacing_cm": float(row_spacing_cm),
+                "layout_strategy": "rows",
+                "row_direction": "along_length",
+            },
+        ),
+        expected=(201,),
+    )
+    return run["key"]
+
+
+def create_plants(base_url: str, seed: dict, run_key: str) -> list[str]:
+    """``create-plants`` onto the run's reserved slots (GP-API-023); the new plant keys."""
+    result = _tenant_post(
+        base_url, seed, f"/planting-runs/{run_key}/create-plants", {"assign_to_slots": True}
+    )
+    keys = list(result.get("plant_keys") or [])
+    if not keys:
+        raise AssertionError(f"Self-provisioning failed: create-plants made no plant: {result!r}")
+    return keys
+
+
+def plantings(base_url: str, seed: dict, bed_key: str, state: str) -> list[dict]:
+    """``GET /locations/{key}/plantings?state=`` (GP-API-024): what the planting tab lists."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/plantings?state={state}&limit=200")
+    if not isinstance(body, list):
+        raise AssertionError(f"plantings of {bed_key!r} is not a list: {body!r}")
+    return body
+
+
+def bed_slots(base_url: str, seed: dict, bed_key: str) -> list[dict]:
+    """The live (unarchived) slots of a bed, bed frame."""
+    body = tenant_get(base_url, seed, f"/slots?location_key={bed_key}")
+    if not isinstance(body, list):
+        raise AssertionError(f"slots of {bed_key!r} is not a list: {body!r}")
+    return [slot for slot in body if not slot.get("archived_at")]
+
+
+def runs_of_bed(base_url: str, seed: dict, bed_key: str) -> list[dict]:
+    body = tenant_get(base_url, seed, f"/planting-runs?location_key={bed_key}&limit=200")
+    if not isinstance(body, list):
+        raise AssertionError(f"runs of {bed_key!r} is not a list: {body!r}")
+    return body
+
+
+@dataclass(frozen=True)
+class PlantedBed:
+    """Plants a test put on exact positions: ``plant_by_slot`` maps slot key -> plant key."""
+
+    run_key: str
+    point_slots: tuple[str, ...]
+    zone_slots: tuple[str, ...]
+    plant_by_slot: dict[str, str]
+
+    def plant_on(self, slot_key: str) -> str:
+        if slot_key not in self.plant_by_slot:
+            raise AssertionError(f"no plant stands on slot {slot_key!r}: {self.plant_by_slot!r}")
+        return self.plant_by_slot[slot_key]
+
+
+def plant_on_positions(
+    base_url: str,
+    seed: dict,
+    *,
+    bed_key: str,
+    species_key: str,
+    id_prefix: str,
+    points: tuple[tuple[float, float], ...] = (),
+    zones: tuple[tuple[tuple[float, float], ...], ...] = (),
+) -> PlantedBed:
+    """Put one plant on each bed-frame *point* and in each *zone* polygon.
+
+    The dialog's "freely placed" path end to end: the slots first, then a
+    planned run with a ``free`` entry (the server lays nothing out for it), the
+    reservation of exactly those slots, and ``create-plants`` onto them.
+    """
+    tag = unique_tag().upper()
+    items: list[dict] = [
+        {
+            "slot_id": f"S{tag}_P{n:02d}",
+            "slot_role": "position",
+            "geometry": {"kind": "point", "origin": [float(x), float(y)]},
+            "capacity_plants": 1,
+            "sequence": n,
+        }
+        for n, (x, y) in enumerate(points, start=1)
+    ]
+    items += [
+        {
+            "slot_id": f"S{tag}_Z{n:02d}",
+            "slot_role": "zone",
+            "geometry": {"kind": "polygon", "points": [[float(x), float(y)] for x, y in zone]},
+            "capacity_plants": 1,
+            "sequence": len(points) + n,
+        }
+        for n, zone in enumerate(zones, start=1)
+    ]
+    created = _tenant_post(
+        base_url, seed, f"/locations/{bed_key}/slots/batch", {"mode": "append", "slots": items}
+    )
+    slot_keys = list(created.get("created_keys") or [])
+    if len(slot_keys) != len(items):
+        raise AssertionError(
+            f"Self-provisioning failed: asked for {len(items)} slots, got {created!r}"
+        )
+    run = _tenant_post(
+        base_url,
+        seed,
+        "/planting-runs",
+        run_payload(
+            bed_key=bed_key,
+            species_key=species_key,
+            id_prefix=id_prefix,
+            quantity=len(items),
+            name=f"E2E-GP-run-{unique_tag()}",
+            entry={"spacing_cm": 30.0, "layout_strategy": "free"},
+        ),
+        expected=(201,),
+    )
+    run_key = run["key"]
+    entries = tenant_get(base_url, seed, f"/planting-runs/{run_key}/entries")
+    if not isinstance(entries, list) or len(entries) != 1:
+        raise AssertionError(f"Self-provisioning failed: run {run_key!r} has entries {entries!r}")
+    _tenant_post(
+        base_url,
+        seed,
+        f"/planting-runs/{run_key}/plan-slots",
+        {"entry_key": entries[0]["key"], "slot_keys": slot_keys},
+    )
+    result = _tenant_post(
+        base_url, seed, f"/planting-runs/{run_key}/create-plants", {"assign_to_slots": True}
+    )
+    if int(result.get("created_count") or 0) != len(items):
+        raise AssertionError(
+            f"Self-provisioning failed: create-plants made {result!r} for {len(items)} slots"
+        )
+    active = plantings(base_url, seed, bed_key, "active")
+    by_slot = {item["slot_key"]: item["plant_key"] for item in active if item.get("slot_key")}
+    missing = [key for key in slot_keys if key not in by_slot]
+    if missing:
+        raise AssertionError(
+            f"Self-provisioning failed: no plant on slots {missing}; active plantings {active!r}"
+        )
+    return PlantedBed(
+        run_key=run_key,
+        point_slots=tuple(slot_keys[: len(points)]),
+        zone_slots=tuple(slot_keys[len(points) :]),
+        plant_by_slot={key: by_slot[key] for key in slot_keys},
+    )
+
+
+def backfill_last_year(base_url: str, seed: dict, bed_key: str, species_key: str) -> int:
+    """Record that *species_key* stood in the bed last year (GP-API-042); return that year."""
+    year = utc_today().year - 1
+    _tenant_post(
+        base_url,
+        seed,
+        f"/locations/{bed_key}/history/backfill",
+        {"year": year, "species_key": species_key, "plan_role": "main_crop"},
+    )
+    return year
+
+
+def overdue_task(base_url: str, seed: dict, plant_key: str, name: str, days_ago: int) -> str:
+    """An open task on *plant_key* that fell due *days_ago* days ago (overdue = due before today, UTC)."""
+    from datetime import timedelta
+
+    due = (datetime.now(UTC) - timedelta(days=days_ago)).replace(hour=9, minute=0, second=0)
+    task = _tenant_post(
+        base_url,
+        seed,
+        "/tasks",
+        {
+            "name": name,
+            "category": "observation",
+            "priority": "medium",
+            "entity_type": "plant_instance",
+            "entity_key": plant_key,
+            "due_date": due.isoformat(),
+        },
+        expected=(201,),
+    )
+    return task["key"]
 
 
 def stored_origin(plan: dict, location_key: str) -> tuple[float, float]:

@@ -29,6 +29,9 @@ from app.domain.models.site import Slot
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     TENANT,
+    make_location,
+    make_site,
+    rect,
 )
 from tests.support.planting_reservation_fakes import build_world
 
@@ -165,6 +168,40 @@ class TestCreatePlantsOnPlannedSlots:
         assert result["assigned_slots"] == ["s3", "s1"]
         assert result["slots_assigned"] == 2
         assert world.runs.runs[run_key].status is PlantingRunStatus.ACTIVE
+
+    @pytest.mark.parametrize("assign", [True, False])
+    def test_the_plants_carry_the_beds_location_and_garden(self, world, assign) -> None:
+        """Every bed read finds a bed's plants by ``location_key`` (plant states, the ``position_corrected`` plant
+        check), so a plant created here names its bed and garden as a quick-planted one does - with or without a
+        slot. Found by the wave-3 E2E (#2398): the plants stood on their slots but were invisible to the bed."""
+        run_key = self.planned_run(world)
+
+        world.service.create_plants(run_key, tenant_key=TENANT, assign_to_slots=assign)
+
+        assert {(p.location_key, p.site_key) for p in world.plants.created} == {
+            ("bed", world.plan.locations["bed"].site_key)
+        }
+
+    def test_moving_an_active_run_moves_its_plants_to_the_new_bed(self, world) -> None:
+        """A run moved to another location (``PATCH`` ``location_key``) takes its plants along: slot, bed and
+        garden. Before, only ``slot_key`` followed, so the moved plants still named the old bed."""
+        # A second garden of the same tenant: the move has to carry the site along, not only the bed.
+        world.sites.sites["site_2"] = make_site().model_copy(update={"key": "site_2"})
+        world.plan.locations["bed2"] = make_location("bed2", name="Bed 4", geometry=rect(0, 0, 2, 1)).model_copy(
+            update={"site_key": "site_2"}
+        )
+        world.plan.slots = [Slot(_key="n1", slot_id="BED4_001", location_key="bed2")]
+        run = world.service.create_run(
+            new_run(planned_until=None), [tomato_entry(layout_strategy=None, quantity=2)], tenant_key=TENANT
+        )
+        world.service.create_plants(run.key, tenant_key=TENANT, assign_to_slots=False)
+
+        world.service.update_run(run.key, {"location_key": "bed2"}, tenant_key=TENANT)
+
+        assert [(p.location_key, p.site_key, p.slot_key) for p in world.plants.created] == [
+            ("bed2", "site_2", "n1"),  # onto the new bed's free slot
+            ("bed2", "site_2", None),  # more plants than slots: in the bed, without a position
+        ]
 
     def test_the_surplus_reservation_stays(self, world) -> None:
         run_key = self.planned_run(world)

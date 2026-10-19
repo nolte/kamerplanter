@@ -47,12 +47,17 @@ def resolve_frost_exposure(location: Location | None, site: Site) -> bool:
 def frost_risk_from_exposed(frost_exposed: bool | None) -> FrostRisk:
     """The bed-level risk a legacy ``frost_exposed`` override stands for (REQ-053 §10.2, migration v0098).
 
-    ``True`` → ``high`` (the spec's mapping); ``False`` — "forced protected" — → ``low``;
-    ``None`` ("inherit from the site type") → ``unknown``.
+    ``True`` → ``high`` (the spec's mapping); ``False`` — "forced protected" — → ``normal`` (operator
+    decision 2026-10-19, #2454 item 1 / #2464); ``None`` ("inherit from the site type") → ``unknown``.
+
+    Not the inverse of :func:`frost_exposed_from_risk`: ``normal`` forces no boolean there (#2454 item 2),
+    so a protected bed keeps its ``False`` only while its risk is not *changed* to ``normal``. ``PUT`` and
+    ``PATCH /locations`` act on a change only; the plan import derives the boolean from the sent risk
+    unconditionally, so a restored ``False``/``normal`` bed loses its override (open question #2503).
     """
     if frost_exposed is None:
         return FrostRisk.UNKNOWN
-    return FrostRisk.HIGH if frost_exposed else FrostRisk.LOW
+    return FrostRisk.HIGH if frost_exposed else FrostRisk.NORMAL
 
 
 def frost_exposed_from_risk(frost_risk: FrostRisk) -> bool | None:

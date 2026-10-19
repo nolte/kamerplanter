@@ -147,6 +147,23 @@ class TestFrostExposedMirror:
 
         assert written.site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
 
+    def test_a_migrated_protected_bed_keeps_both_fields_on_the_next_save(self) -> None:
+        """#2464 (4): the location form sends the stored ``False`` back; v0098's ``normal`` stays, so does ``False``."""
+        repo = _Repo()
+        repo.location = Location.model_validate(
+            {
+                **repo.location.model_dump(by_alias=True),
+                "frost_exposed": False,
+                "site_conditions": {"microclimate": {"frost_risk": "normal"}},
+            }
+        )
+        body = Location(name="Hochbeet 3 (renamed)", site_key="site_1", area_m2=0.0, frost_exposed=False)
+
+        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert written.frost_exposed is False
+        assert written.site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
+
     def test_clearing_the_boolean_resets_the_risk_to_unknown(self) -> None:
         repo = _Repo()
         repo.location = Location.model_validate({**repo.location.model_dump(by_alias=True), "frost_exposed": False})
@@ -165,7 +182,7 @@ class TestFrostExposedMirror:
         created = _service(repo).create_location(body, tenant_key=TENANT)
 
         assert created.site_conditions is not None
-        assert created.site_conditions.microclimate.frost_risk is FrostRisk.LOW
+        assert created.site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # #2464: false → normal
 
 
 class TestUpdateSlot:

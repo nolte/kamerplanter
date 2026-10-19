@@ -423,6 +423,26 @@ If you click a row or press Enter, the bed is selected on the plan and the view 
 
 ---
 
+## Field mode in the garden {#field-mode-in-the-garden}
+
+Field mode is made for the phone at the bed: large buttons (at least 64 pixels), strong contrast for sunlight and only what you need outside. On a narrow screen (below 600 pixels wide) the garden plan page opens in field mode right away. On any device you switch with **Field mode** or **Planning mode** at the top of the page; the address then carries `?mode=field` or `?mode=plan`.
+
+**My beds · due today.** Field mode starts with the list of your beds. Beds assigned to you come first (marked **Mine**), then beds with overdue tasks or tasks due today, then the rest by their next due date. A task is overdue when its due day lies before today; a task due today does not count as overdue yet. Retired beds are left out. The **Map** tab shows the plan without tools, grid or handles. **Zoom in**, **Zoom out** and **Whole plan** change the view. If you tap a bed, or just next to it, the map zooms to the bed and opens it.
+
+**The bed sheet.** A tap on a bed opens a sheet at the bottom with the bed's name, the quick log, the tasks and the plants. Tasks come in the order **Overdue**, **Due today**, **Later**. Plants are grouped by species, count and phase; the phase colour always has a black outline and the phase name next to it.
+
+- **Done** opens the short dialog with the optional fields (quantity, note). **Finish** saves. That is two taps after choosing the bed. A double tap counts once, and the buttons stay locked until the answer has arrived.
+- **Quick log:** **Watered**, **Sown** and **Weeded/Mulched** save a care entry with one tap. **Harvested** and **Note** open the short form (quantity or text; for the note you can use your keyboard's voice input). **Planted** opens the planting dialog with **I have planted already** switched on; the plants are created at once. This needs a bed that is drawn on the plan.
+- After **Done** and after every quick log entry you see **Undo** for eight seconds. It takes the entry back.
+- **Show plants** lists the single plants of a group. **Correct position** moves a plant with the arrows in 10 cm steps; you can drag the marker only after holding it for half a second. **Photo** takes a picture for the plant's gallery.
+
+Deleting, clearing a bed, export and import are not available in field mode; switch to planning mode for them. With the "viewer" role you see tasks and plants read-only. Your browser, not your account, remembers the tenant, site, tab and map view; if someone else signs in on the device, field mode starts fresh for them. If a remembered map view would show hardly any of the plan on the current screen – after turning the phone, for example – the map opens on the whole plan.
+
+!!! warning "Not implemented yet"
+    Without a connection field mode shows a notice and locks **Done** and the quick log; entries are not yet stored on the device and sent later. Photos are attached to a plant for now, not to the bed. **Planted** has no **Undo**. GPS help, the QR code on the bed and the "last watered" layer follow later. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+
+---
+
 ## Export the plan and restore a backup {#plan-export-import}
 
 On the garden plan page, **Export & import** opens two dialogs.

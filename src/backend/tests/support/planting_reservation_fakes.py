@@ -249,7 +249,8 @@ class FakeRunRepo:
         self.plant_links.append((run_key, plant_key))
 
     def get_run_plants(self, run_key, include_detached=False):
-        return []
+        """The plants ``create_plants`` linked to the run (``run_contains``), as key rows."""
+        return [{"_key": plant_key} for linked_run, plant_key in self.plant_links if linked_run == run_key]
 
 
 class FakePlants:

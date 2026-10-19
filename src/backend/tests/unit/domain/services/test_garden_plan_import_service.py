@@ -226,6 +226,23 @@ class TestReferencesAndFields:
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].site_conditions is None
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].frost_exposed is None
 
+    def test_a_normal_risk_imports_without_an_override(self, rig, repo) -> None:
+        """#2464 (4): the file carries no ``frost_exposed`` and ``normal`` forces none (#2454 item 2).
+
+        A bed v0098 moved from ``frost_exposed = false`` to ``normal`` therefore comes back from its own
+        backup inheriting from the site type — the protection is not part of the export.
+        """
+        document = rig.file()
+        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": "normal"}}
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"]
+        assert restored.site_conditions is not None
+        assert restored.site_conditions.microclimate.frost_risk == "normal"
+        assert restored.frost_exposed is None
+
     def test_an_invalid_site_condition_is_a_finding_not_a_crash(self, rig, repo) -> None:
         document = rig.file()
         document["locations"][0]["site_conditions"] = {"slope_deg": 400}
