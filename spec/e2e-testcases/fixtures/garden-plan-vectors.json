@@ -51,7 +51,8 @@
     "layout_error": "same input as layout -> expected {code, estimated?}: the refusal (422) compute_layout raises; estimated is exact",
     "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)",
     "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)",
-    "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)"
+    "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)",
+    "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)"
   },
   "cases": [
     {
@@ -4269,6 +4270,106 @@
         "fit": "unknown",
         "reason": "bed_unknown"
       }
+    },
+    {
+      "id": "overdue-due-today-0000",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: due today 00:00 UTC is not overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-19T00:00:00Z"
+      },
+      "expected": false
+    },
+    {
+      "id": "overdue-due-today-2359",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: due today 23:59 UTC is not overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-19T23:59:00Z"
+      },
+      "expected": false
+    },
+    {
+      "id": "overdue-due-yesterday-2359",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: due yesterday 23:59:59 UTC is overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-18T23:59:59Z"
+      },
+      "expected": true
+    },
+    {
+      "id": "overdue-due-yesterday-0000",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: due yesterday 00:00 UTC is overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-18T00:00:00Z"
+      },
+      "expected": true
+    },
+    {
+      "id": "overdue-due-tomorrow-0000",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: due tomorrow 00:00 UTC is not overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-20T00:00:00Z"
+      },
+      "expected": false
+    },
+    {
+      "id": "overdue-due-offset-previous-utc-day",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: 01:00+02:00 today is 23:00Z yesterday: the UTC day decides, overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-19T01:00:00+02:00"
+      },
+      "expected": true
+    },
+    {
+      "id": "overdue-due-offset-same-utc-day",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: 23:30-02:00 yesterday is 01:30Z today: not overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-18T23:30:00-02:00"
+      },
+      "expected": false
+    },
+    {
+      "id": "overdue-due-naive-read-as-utc",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: a naive value is read as UTC",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": "2026-10-19T08:00:00"
+      },
+      "expected": false
+    },
+    {
+      "id": "overdue-due-null",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: no due date is never overdue",
+      "input": {
+        "now": "2026-10-19T15:30:00Z",
+        "due": null
+      },
+      "expected": false
+    },
+    {
+      "id": "overdue-now-late-evening",
+      "operation": "overdue",
+      "spec": "GP-FR-192, #2461: now 23:59:59 UTC, due today 00:00 is still not overdue",
+      "input": {
+        "now": "2026-10-19T23:59:59Z",
+        "due": "2026-10-19T00:00:00Z"
+      },
+      "expected": false
     }
   ]
 }

@@ -21,6 +21,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.domain.calculators.overdue_calculator import utc_day
 from app.domain.calculators.plant_state_calculator import OpenTask
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, NextTask, PlantStateSource
 
@@ -48,6 +49,11 @@ def _date(value: Any) -> date | None:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+def _due_day(value: Any) -> date | None:
+    """The UTC calendar day a task is due: the one definition of "overdue" (#2461), not the date prefix."""
+    return utc_day(value or None)
 
 
 def _datetime(value: Any) -> datetime | None:
@@ -324,16 +330,16 @@ class ArangoPlantStateRepository(IPlantStateRepository):
                 and (task["run_key"] == run_key or task["entity_key"] == run_key)
             )
         ]
-        open_tasks = tuple(OpenTask(str(task["category"] or ""), _date(task["due"])) for task in mine)
+        open_tasks = tuple(OpenTask(str(task["category"] or ""), _due_day(task["due"])) for task in mine)
         dated = sorted(
-            (task for task in mine if _date(task["due"]) is not None),
-            key=lambda task: (_date(task["due"]) or date.max, str(task["name"] or "")),
+            (task for task in mine if _due_day(task["due"]) is not None),
+            key=lambda task: (_due_day(task["due"]) or date.max, str(task["name"] or "")),
         )
         first = dated[0] if dated else (mine[0] if mine else None)
         next_task = (
             None
             if first is None
-            else NextTask(str(first["name"] or ""), str(first["category"] or ""), _date(first["due"]))
+            else NextTask(str(first["name"] or ""), str(first["category"] or ""), _due_day(first["due"]))
         )
 
         finding_count, finding_label = findings.get(plant_key, (0, None))

@@ -8,13 +8,11 @@
  */
 import type { BedListItem } from '../bed/types';
 import type { CareTask } from '../care/careTypes';
+import { utcDayOfValue } from '../model/overdue';
 
 /** The UTC calendar day (`YYYY-MM-DD`) of an ISO value, or `null` when it is absent or unreadable. */
 export function utcDayOf(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const time = Date.parse(value);
-  if (Number.isNaN(time)) return null;
-  return new Date(time).toISOString().slice(0, 10);
+  return utcDayOfValue(value);
 }
 
 /** Today as a UTC calendar day. */

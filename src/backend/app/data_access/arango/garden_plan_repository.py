@@ -38,6 +38,7 @@ from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
+from app.domain.calculators.overdue_calculator import start_of_utc_day
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
@@ -290,7 +291,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     : DOCUMENT(CONCAT(@plants, t.entity_key)).location_key
                 FILTER loc IN @location_keys
                 COLLECT location = loc AGGREGATE open_count = COUNT(1), next_due = MIN(t.due_date),
-                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@now) ? 1 : 0)
+                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@today_start)
+                        ? 1 : 0)
                 RETURN {location, open_count, overdue, next_due}
             """,
                 bind_vars={
@@ -299,7 +301,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     "open": list(_OPEN_TASK_STATUSES),
                     "plants": f"{col.PLANT_INSTANCES}/",
                     "location_keys": location_keys,
-                    "now": _now(),
+                    "today_start": start_of_utc_day(datetime.now(UTC)).isoformat(),
                 },
             ),
         )
@@ -325,7 +327,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     AND t.entity_type == "garden_object"
                     AND t.entity_key IN @object_keys
                 COLLECT object = t.entity_key AGGREGATE open_count = COUNT(1), next_due = MIN(t.due_date),
-                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@now) ? 1 : 0)
+                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@today_start)
+                        ? 1 : 0)
                 RETURN {object, open_count, overdue, next_due}
             """,
                 bind_vars={
@@ -333,7 +336,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     "tenant_key": tenant_key,
                     "open": list(_OPEN_TASK_STATUSES),
                     "object_keys": object_keys,
-                    "now": _now(),
+                    "today_start": start_of_utc_day(datetime.now(UTC)).isoformat(),
                 },
             ),
         )
