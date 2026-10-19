@@ -26,6 +26,7 @@ from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.ipm_repository import ArangoIpmRepository
+from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
@@ -106,6 +107,7 @@ from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
+from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -527,6 +529,15 @@ def get_garden_resource_service() -> GardenResourceService:
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
+    )
+
+
+def get_irrigation_zone_service() -> IrrigationZoneService:
+    """REQ-053 WP 7.1 — the irrigation zones of a site and the beds they cover."""
+    return IrrigationZoneService(
+        ArangoIrrigationZoneRepository(get_db()),
+        get_site_repo(),
+        ArangoGardenObjectRepository(get_db()),
     )
 
 

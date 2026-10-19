@@ -31,6 +31,7 @@ from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_rout
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.inventree.tenant_router import router as tenant_inventree_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
+from app.api.v1.irrigation_zones.tenant_router import router as tenant_irrigation_zones_router
 from app.api.v1.ki_assistent.tenant_router import router as tenant_ai_router
 from app.api.v1.locations.tenant_router import router as tenant_locations_router
 from app.api.v1.notifications.tenant_router import router as tenant_notifications_router
@@ -80,6 +81,8 @@ tenant_scoped_router.include_router(tenant_sites_router)
 tenant_scoped_router.include_router(tenant_garden_plan_router)
 # REQ-053 WP 1.9 — garden-object CRUD (/sites/{key}/garden-objects, /garden-objects/{key}).
 tenant_scoped_router.include_router(tenant_garden_objects_router)
+# REQ-053 WP 7.1 — irrigation zones (/sites/{key}/irrigation-zones, /irrigation-zones/{key}[/locations]).
+tenant_scoped_router.include_router(tenant_irrigation_zones_router)
 # REQ-053 WP 4.1 — the care log (/care-events).
 tenant_scoped_router.include_router(tenant_care_events_router)
 # REQ-023 §5b (#2137) — the tenant's service accounts (lead ∧ technical, step-up on every write).

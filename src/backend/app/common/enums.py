@@ -2222,6 +2222,32 @@ class WaterSourceKind(StrEnum):
     HOSE_REEL = "hose_reel"
 
 
+class IrrigationZoneType(StrEnum):
+    """How the beds of an irrigation zone are watered (REQ-053 §14.1, §20.11). Additive (M-9).
+
+    A separate value set from :class:`IrrigationSystem` (a bed's own property, §14.1): the zone groups
+    beds for one watering round, the bed keeps how it is equipped. Only ``manual`` and ``drip`` occur in
+    both; the conflict hint between the two (GP-FR-119) is WP 7.5.
+    """
+
+    MANUAL = "manual"
+    DRIP = "drip"
+    SPRINKLER = "sprinkler"
+    SOAKER_HOSE = "soaker_hose"
+    SUB_IRRIGATION = "sub_irrigation"
+
+
+class FlowRateSource(StrEnum):
+    """Where an irrigation zone's flow rate comes from (REQ-053 §14.1, O-13). Additive (M-9).
+
+    ``ha_entity`` is written from WP 7.4 on (SR-014: Technik scope, granted entity); until then only
+    ``manual`` is accepted.
+    """
+
+    MANUAL = "manual"
+    HA_ENTITY = "ha_entity"
+
+
 class PathSurface(StrEnum):
     """Surface of a ``path`` garden object (REQ-053 §20.4)."""
 

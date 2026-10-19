@@ -118,7 +118,9 @@ class IGardenPlanRepository(ABC):
         """Write *only* ``fields`` (``None`` removes a stored value) — outside the plan revision (GP-API-010).
 
         The caller has resolved the location under the tenant through ``location_ownership``; the repository
-        does not know the tenant (a location carries none, E-01).
+        does not know the tenant (a location carries none, E-01). A change of ``irrigation_zone_key`` moves the
+        bed's ``zone_covers`` edge in the same transaction (REQ-053 WP 7.1); the caller has resolved the zone
+        to one of the bed's site.
         """
 
     @abstractmethod

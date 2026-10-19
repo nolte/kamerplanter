@@ -454,7 +454,8 @@ class PlanAuditRecord(BaseModel):
     user_key: str
     #: ``delete``, ``delete_cascade``, ``set_boundary``, ``retire`` or ``reactivate`` (a bed's lifecycle, §7.4).
     op: str
-    #: ``location``, ``garden_object`` or ``site``.
+    #: ``location``, ``garden_object``, ``site``, ``care_event`` (a redaction) or ``irrigation_zone`` (a zone delete,
+    #: REQ-053 WP 7.1).
     entity: str
     key: str
     summary: str = Field(default="", max_length=200)
