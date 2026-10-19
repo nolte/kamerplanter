@@ -94,6 +94,7 @@ from app.domain.services.companion_edge_service import CompanionEdgeService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
+from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -436,6 +437,11 @@ def get_garden_plan_repo() -> ArangoGardenPlanRepository:
 def get_garden_plan_service() -> GardenPlanService:
     """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch."""
     return GardenPlanService(get_site_repo(), get_garden_plan_repo())
+
+
+def get_garden_plan_export_service() -> GardenPlanExportService:
+    """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan."""
+    return GardenPlanExportService(get_site_repo(), get_garden_plan_repo(), get_garden_plan_service())
 
 
 def dispatch_adjacency_recompute(location_key: str) -> None:

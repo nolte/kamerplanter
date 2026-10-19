@@ -123,6 +123,13 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "Authenticated garden-plan writes (POST /t/{slug}/sites/{key}/plan/batch, PUT …/plan/boundary): "
         "401 x 25 anonymously."
     ),
+    "rate_limit_plan_export": (
+        "Authenticated garden-plan exports (GET /t/{slug}/sites/{key}/plan/render.svg, …/plan/export, "
+        "/t/{slug}/print/garden-plan/{site_key}), per account: 401 x 25 anonymously."
+    ),
+    "rate_limit_plan_export_tenant": (
+        "The per-tenant bucket of the same three authenticated routes: 401 x 25 anonymously."
+    ),
     "rate_limit_upload": "Authenticated uploads (POST /t/{slug}/attachments): 401 x 40 anonymously.",
     "rate_limit_inference": (
         "Authenticated inference (POST /t/{slug}/diagnosis/analyze, /cv-diagnosis/diagnose): 401 x 40 anonymously."
@@ -130,7 +137,7 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
 }
 
 #: A ``RATE_LIMIT_*`` setting applied by a route decorator, from either limiter.
-_DECORATOR = re.compile(r"@(?:limiter|process_memory_limiter)\.limit\(\s*settings\.(rate_limit_[a-z_]+)")
+_DECORATOR = re.compile(r"@(?:limiter|process_memory_limiter)\.(?:shared_)?limit\(\s*settings\.(rate_limit_[a-z_]+)")
 
 
 def _limits_gating_a_route() -> set[str]:
