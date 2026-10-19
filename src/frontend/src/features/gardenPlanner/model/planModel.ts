@@ -11,6 +11,7 @@ import {
   type DerivedGeometry,
   type GardenObject,
   type GardenPlanResponse,
+  type Geometry,
   type PlanLocation,
   type PlanPlant,
   type PlanSettings,
@@ -29,6 +30,14 @@ export interface PlanModel {
   gardenObjects: Record<string, GardenObject>;
   slots: Record<string, PlanSlot>;
   plants: Record<string, PlanPlant>;
+  /**
+   * The geometry each bed had when `slots` were delivered: the frame their `plan_geometry` is
+   * expressed in. `applyOperation` never touches this map or `slots` (GP-ACC-033: copying 3 000 slots
+   * per move breaks the 1 ms budget); `planIndex` derives the current plan position of a slot from
+   * the bed's current geometry relative to this frame. Absent = every slot is already in the bed's
+   * current frame (hand-built models in tests).
+   */
+  slotFrames?: Record<string, Geometry>;
   /** Irrigation zones (WP 7.x); opaque until then. */
   zones: Record<string, unknown>[];
 }
@@ -47,6 +56,15 @@ function byKey<T extends { key: string }>(items: readonly T[]): Record<string, T
   return map;
 }
 
+/** The frame of each placed bed at load time - what the server's slot `plan_geometry` is relative to. */
+function slotFramesOf(locations: readonly PlanLocation[]): Record<string, Geometry> {
+  const frames: Record<string, Geometry> = {};
+  for (const location of locations) {
+    if (location.geometry) frames[location.key] = location.geometry;
+  }
+  return frames;
+}
+
 /** Normalise a plan response; throws {@link UnsupportedPlanSchemaError} for another `schema_version`. */
 export function normalizePlan(response: GardenPlanResponse): PlanModel {
   if (response.schema_version !== PLAN_SCHEMA_VERSION) {
@@ -62,6 +80,7 @@ export function normalizePlan(response: GardenPlanResponse): PlanModel {
     gardenObjects: byKey(response.garden_objects),
     slots: byKey(response.slots),
     plants: byKey(response.plants),
+    slotFrames: slotFramesOf(response.locations),
     zones: response.zones,
   };
 }
