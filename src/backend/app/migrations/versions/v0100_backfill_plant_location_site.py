@@ -116,6 +116,12 @@ def _tenant_reason(row: dict[str, Any], location_tenant: str | None) -> str | No
     return None
 
 
+def _site_of(row: dict[str, Any], field: str) -> str | None:
+    """The site a scan row carries under ``field`` (``None`` when absent or empty)."""
+    value: str | None = row.get(field)
+    return value or None
+
+
 def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], int]:
     cursor = cast(
         Cursor,
@@ -138,7 +144,7 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
                 bucket["listed"].append(str(row["_key"]))
             continue
         has_location = row["location_key"] is not None
-        site = (row.get("own_site_key") if has_location else row.get("location_site_key")) or None
+        site = _site_of(row, "own_site_key" if has_location else "location_site_key")
         update: dict[str, Any] = {"_key": row["_key"], "location_key": None, "site_key": None}
         if not has_location:
             sets_location += 1
