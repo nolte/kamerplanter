@@ -443,7 +443,8 @@
     "gardenPlan": "Gartenplan",
     "phasen": "Phasen",
     "detail": "Details",
-    "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
+    "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten",
+    "careHistory": "Pflegehistorie"
   },
   "errors": {
     "network": "Netzwerkfehler. Bitte überprüfe deine Verbindung.",

@@ -282,12 +282,9 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 | Plan | Bed frame with places, rows or zones and plant markers. Tap a plant and the bed offers **Correct position** and **Transplant to …**. **Open in garden plan** takes you to the garden plan for editing the bed frame. |
 | Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
 | Planting | Planned and standing plants of the bed, the **Plant** button and the actions on a plant (see [Planting a bed](#planting-a-bed)). |
-| History | Shows an empty state for now. Existing runs and plants remain available under **Details**. |
+| History | A timeline of what stood in the bed in earlier years, and the list of all care entries and plantings (see [History of the bed](#history-of-the-bed)). |
 | Soil | The bed's soil profile (see below). |
 | Details | The previous location page, unchanged. |
-
-!!! warning "Not yet implemented"
-    The **History** tab exists but does not contain any content yet. In the future it will show the history of the bed.
 
 ### Planting a bed {#planting-a-bed}
 
@@ -372,6 +369,21 @@ The hours follow the Royal Horticultural Society definition, measured at midsumm
 
 !!! note "Frost risk"
     The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes low); until then, the frost exposure setting stays the one that counts. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
+### History of the bed {#history-of-the-bed}
+
+The **History** tab has two parts: the **timeline** on top and the **list** below it.
+
+**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off; the history is still kept.
+
+**What stood here?** To fill in a year from before you used the app, tap **Fill in {year}** at the year or **What stood here?** at the top. You choose the year, the plant family (or a species, which brings its family), the role (main crop, green manure or fallow) and optionally the season. The last ten years up to last year are allowed. A message with **Undo** follows. You take a filled-in entry back later with the **x** on the entry, as its author or in the "lead" role. It then stays in the care log as cancelled. Viewers see the timeline read-only.
+
+**List.** The newest entries come first, 50 per page; **Load more** fetches the next ones. The list mixes care entries with planting events: plant planted or removed, run started or completed. You can filter by **category**, **period**, **plant** and **person**. Corrections are hidden at first: replaced entries and "Position corrected". **Show corrections** brings them back, marked "Corrected" or "Correction".
+
+!!! info "Who may filter by person"
+    The person filter is an activity profile and therefore restricted. With the "viewer" and "grower" roles you filter only by yourself. The "lead" role and members with the `management` admin scope can filter by any member. Members who left show as "anonymised" and cannot be filtered.
+
+**History of all beds.** **History of all beds** opens the care history of the whole tenant at `/standorte/historie`. It shows the last 90 days unless you choose another period and offers the same filters plus **Bed**. The plant filter is available once a bed is chosen.
 
 ### Maintaining the soil profile
 

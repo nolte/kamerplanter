@@ -443,7 +443,8 @@
     "gardenPlan": "Garden plan",
     "phasen": "Phases",
     "detail": "Details",
-    "beginnerHint": "Unlock more features in the settings"
+    "beginnerHint": "Unlock more features in the settings",
+    "careHistory": "Care history"
   },
   "errors": {
     "network": "Network error. Please check your connection.",

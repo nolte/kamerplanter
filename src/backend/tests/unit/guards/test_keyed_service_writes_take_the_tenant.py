@@ -394,6 +394,8 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # structure through the repository's site join - no ``get…_by_key`` - while it deletes and inserts a whole plan.
     "GardenPlanImportService": "garden_plan_import_service.py",
     "BedRotationService": "bed_rotation_service.py",
+    # REQ-053 WP 4.5 (#2423): the combined history of a bed. Read-only; it takes the tenant like the other readers.
+    "BedHistoryService": "bed_history_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -408,6 +410,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "AdjacencyService": 3,
     "GardenPlanImportService": 5,
     "BedRotationService": 4,
+    "BedHistoryService": 1,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 

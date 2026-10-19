@@ -319,14 +319,15 @@ class GardenResourceService:
         """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9).
 
         Only a *change* counts: a patch that sends the other site conditions (the sun window …) with an
-        untouched risk must not reset an override somebody set on the old field.
+        untouched risk must not reset an override somebody set on the old field. Clearing the whole value
+        (``site_conditions: null``) is a change to ``unknown`` when a risk was stored.
         """
-        sent = patch.site_conditions
-        if sent is None:
+        if "site_conditions" not in patch.model_fields_set:
             return
+        sent = patch.site_conditions.microclimate.frost_risk if patch.site_conditions else FrostRisk.UNKNOWN
         stored = location.site_conditions.microclimate.frost_risk if location.site_conditions else FrostRisk.UNKNOWN
-        if sent.microclimate.frost_risk is not stored:
-            provided["frost_exposed"] = frost_exposed_from_risk(sent.microclimate.frost_risk)
+        if sent is not stored:
+            provided["frost_exposed"] = frost_exposed_from_risk(sent)
 
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""

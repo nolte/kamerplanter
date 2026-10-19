@@ -347,6 +347,24 @@ class TestPatchingALocation:
         patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
         assert repo.locations["bed"].frost_exposed is None  # normal says nothing: inherit from the site type
 
+    def test_clearing_the_site_conditions_clears_a_stored_risk_and_its_boolean(self, world) -> None:
+        service, repo, _ = world
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "high"}})
+        assert repo.locations["bed"].frost_exposed is True
+
+        patch_location(service, site_conditions=None)
+
+        assert repo.locations["bed"].site_conditions is None
+        assert repo.locations["bed"].frost_exposed is None
+
+    def test_clearing_nothing_stored_touches_no_boolean(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"frost_exposed": True})
+
+        patch_location(service, site_conditions=None)
+
+        assert repo.locations["bed"].frost_exposed is True
+
     def test_an_unchanged_frost_risk_leaves_the_boolean_alone(self, world) -> None:
         service, repo, _ = world
         repo.locations["bed"] = repo.locations["bed"].model_copy(update={"frost_exposed": True})

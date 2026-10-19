@@ -79,8 +79,14 @@ FOR u IN @updates
 """
 
 
-def _rows(db: StandardDatabase, query: str) -> list[Any]:
+def _rows(db: StandardDatabase, query: str) -> list[dict[str, Any]]:
     return list(cast(Cursor, db.aql.execute(query, bind_vars={"@collection": col.LOCATIONS})))
+
+
+def _count(db: StandardDatabase, query: str) -> int:
+    """The one number a ``RETURN LENGTH(…)`` query answers (0 on the empty cursor of a bare fake)."""
+    cursor = cast(Cursor, db.aql.execute(query, bind_vars={"@collection": col.LOCATIONS}))
+    return next((int(value) for value in cursor), 0)
 
 
 def _apply(db: StandardDatabase, updates: Sequence[dict[str, Any]]) -> None:
@@ -91,15 +97,16 @@ def _apply(db: StandardDatabase, updates: Sequence[dict[str, Any]]) -> None:
 
 def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], int]:
     updates: list[dict[str, Any]] = []
-    by_value: dict[str, int] = {risk: 0 for risk in FROST_RISK_MAP.values()}  # noqa: C420
+    by_value: dict[str, int] = {"high": 0, "low": 0}
     conflicts: list[str] = []
     conflict_count = 0
     already_in_step = 0
     scanned = 0
-    for row in _rows(db, _SCAN):
+    scan: list[dict[str, Any]] = _rows(db, _SCAN)
+    for row in scan:
         scanned += 1
         target = FROST_RISK_MAP[bool(row["frost_exposed"])]
-        current = row.get("frost_risk")
+        current = row["frost_risk"]
         if current in _UNSET_RISKS:
             updates.append({"_key": row["_key"], "frost_risk": target})
             by_value[target] += 1
@@ -109,8 +116,7 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
             conflict_count += 1
             if len(conflicts) < _LISTED:
                 conflicts.append(str(row["_key"]))
-    inherit_rows = _rows(db, _INHERIT_COUNT)
-    inherit = int(inherit_rows[0]) if inherit_rows else 0
+    inherit = _count(db, _INHERIT_COUNT)
     details: dict[str, Any] = {
         "scanned_with_frost_exposed": scanned,
         "by_target": by_value,
