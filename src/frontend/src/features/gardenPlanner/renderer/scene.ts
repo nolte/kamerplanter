@@ -5,6 +5,7 @@
  */
 import { ICON_MIN_PX, LABEL_MIN_PX, markersVisible } from './lod';
 import { markerIndex, shapeEntries, type MarkerEntry, type ShapeEntry } from './planIndex';
+import { ATTENTION_PRIORITY, type AttentionCode } from '../model/plantState';
 import type { PlanModel } from '../model/planModel';
 import type { RenderOptions, RenderSelection, Viewport } from './types';
 import { cullBoundsM, intersects } from './viewport';
@@ -12,6 +13,8 @@ import { cullBoundsM, intersects } from './viewport';
 export interface SceneShape {
   entry: ShapeEntry;
   selected: boolean;
+  /** A refused save named this object (GP-UX-017). */
+  invalid: boolean;
   /** Roving tabindex 0 (GP-NFR-068); every other object is -1. */
   tabStop: boolean;
   showLabel: boolean;
@@ -48,6 +51,10 @@ export interface SceneCluster {
   /** The centre of the bed, in metres. */
   x: number;
   y: number;
+  /** Plants of the bed that need attention, when their states are known (GP-FR-190); else `null`. */
+  attention: number | null;
+  /** The highest-priority reason among them (GP-UX-060). */
+  topBadge: AttentionCode | null;
 }
 
 export interface Scene {
@@ -74,11 +81,32 @@ function screenSize(entry: ShapeEntry, pxPerM: number): [number, number] {
   return [(entry.bbox[2] - entry.bbox[0]) * pxPerM, (entry.bbox[3] - entry.bbox[1]) * pxPerM];
 }
 
+/** Plants that need attention among the markers (`null` when no plant of the bed has a known state) and the top reason. */
+function attentionOf(
+  markers: readonly MarkerEntry[],
+  states: RenderOptions['plantStates'],
+): Pick<SceneCluster, 'attention' | 'topBadge'> {
+  if (!states) return { attention: null, topBadge: null };
+  let known = 0;
+  let attention = 0;
+  let top: AttentionCode | null = null;
+  for (const marker of markers) {
+    if (marker.kind !== 'plant') continue;
+    const state = states[marker.key];
+    if (!state) continue;
+    known += 1;
+    if (state.badge === null) continue;
+    attention += 1;
+    if (top === null || ATTENTION_PRIORITY.indexOf(state.badge) < ATTENTION_PRIORITY.indexOf(top)) top = state.badge;
+  }
+  return { attention: known > 0 ? attention : null, topBadge: top };
+}
+
 export function buildScene(
   model: PlanModel,
   viewport: Viewport,
   selection: RenderSelection,
-  options: Pick<RenderOptions, 'enteredLocationKey'>,
+  options: Pick<RenderOptions, 'enteredLocationKey' | 'plantStates' | 'invalidKeys'>,
 ): Scene {
   const cull = cullBoundsM(viewport);
   const { pxPerM } = viewport;
@@ -123,6 +151,7 @@ export function buildScene(
         count: bed.plantCount,
         x: (entry.bbox[0] + entry.bbox[2]) / 2,
         y: (entry.bbox[1] + entry.bbox[3]) / 2,
+        ...attentionOf(bed.markers, options.plantStates),
       });
     }
   }
@@ -133,6 +162,7 @@ export function buildScene(
     return {
       entry,
       selected: selected.has(entry.key),
+      invalid: options.invalidKeys?.has(entry.key) ?? false,
       tabStop: false,
       showLabel: entry.kind !== 'boundary' && widthPx >= LABEL_MIN_PX,
       showIcon: isObject && Math.max(widthPx, heightPx) >= ICON_MIN_PX,

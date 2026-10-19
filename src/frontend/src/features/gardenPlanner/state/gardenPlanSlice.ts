@@ -20,7 +20,7 @@
  * (`registerLazySlice(gardenPlanSlice)`, REQ-053 WP 2.3). Until then `state.gardenPlan` is
  * absent, which is why the selectors fall back to the initial state.
  */
-import { createAsyncThunk, createSlice, original, type PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSelector, createSlice, original, type PayloadAction } from '@reduxjs/toolkit';
 import {
   applyOperations,
   PlanOperationError,
@@ -60,6 +60,22 @@ export interface SelectionStack {
 export interface PendingOperation {
   id: number;
   op: PlanOperation;
+}
+
+/** Keys of the beds and objects a refusal's findings name; `sent` operations of `pending` were on the wire. */
+function failedKeys(
+  failure: Exclude<PlanSaveFailure, { kind: 'conflict' }>,
+  pending: readonly PendingOperation[],
+  sent: number,
+): string[] {
+  if (failure.kind !== 'rejected') return [];
+  const keys = new Set<string>();
+  for (const finding of failure.findings) {
+    if (finding.opIndex === null || finding.opIndex >= sent) continue;
+    const op = pending[finding.opIndex]?.op;
+    if (op && 'key' in op && typeof op.key === 'string') keys.add(op.key);
+  }
+  return [...keys];
 }
 
 /** One user action (GP-FR-155). */
@@ -103,6 +119,8 @@ export interface GardenPlanState {
   saveStatus: SaveStatus;
   /** The refusal of the last save that was not a conflict. */
   saveFailure: Exclude<PlanSaveFailure, { kind: 'conflict' }> | null;
+  /** Keys of the beds and objects the refusal's findings name (GP-UX-017): they are drawn with a red outline. */
+  saveFailureKeys: string[];
   conflict: PlanConflict | null;
   /** How many `pending` operations the request on the wire carries. */
   inFlight: number;
@@ -124,6 +142,7 @@ export const initialState: GardenPlanState = {
   pending: [],
   saveStatus: 'idle',
   saveFailure: null,
+  saveFailureKeys: [],
   conflict: null,
   inFlight: 0,
   editError: null,
@@ -361,6 +380,7 @@ export const gardenPlanSlice = createSlice({
         state.pending = [];
         state.saveStatus = 'idle';
         state.saveFailure = null;
+        state.saveFailureKeys = [];
         state.conflict = null;
         state.inFlight = 0;
         state.editError = null;
@@ -376,6 +396,7 @@ export const gardenPlanSlice = createSlice({
       .addCase(saveGardenPlan.pending, (state) => {
         state.saveStatus = 'saving';
         state.saveFailure = null;
+        state.saveFailureKeys = [];
         state.inFlight = state.pending.length;
       })
       .addCase(saveGardenPlan.fulfilled, (state, action) => {
@@ -413,6 +434,7 @@ export const gardenPlanSlice = createSlice({
       .addCase(saveGardenPlan.rejected, (state, action) => {
         // A save the `condition` skipped never reached `pending`: nothing to undo here.
         if (action.meta.condition) return;
+        const sent = state.inFlight;
         state.inFlight = 0;
         const failure = action.payload ?? {
           kind: 'failed' as const,
@@ -432,6 +454,7 @@ export const gardenPlanSlice = createSlice({
         }
         state.saveStatus = 'error';
         state.saveFailure = failure;
+        state.saveFailureKeys = failedKeys(failure, state.pending, sent);
       });
   },
 });
@@ -459,6 +482,20 @@ type RootWithPlan = { gardenPlan?: GardenPlanState };
 export const selectGardenPlanState = (state: RootWithPlan): GardenPlanState =>
   state.gardenPlan ?? initialState;
 const planState = selectGardenPlanState;
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+/**
+ * Objects a refused save named, while the refusal still stands (GP-UX-017): the renderer draws them with a
+ * red outline. Empty once the pending changes are gone or saved. Memoised: the renderer redraws on identity.
+ */
+export const selectInvalidKeys = createSelector(
+  [
+    (state: RootWithPlan) => planState(state).saveFailureKeys,
+    (state: RootWithPlan) => planState(state).saveStatus === 'error' && planState(state).pending.length > 0,
+  ],
+  (keys, standing): ReadonlySet<string> => (standing && keys.length > 0 ? new Set(keys) : NO_KEYS),
+);
 
 /** The dirty flag of GP-NFR-005. */
 export const selectIsDirty = (state: RootWithPlan): boolean => planState(state).pending.length > 0;

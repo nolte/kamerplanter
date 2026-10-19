@@ -13,6 +13,7 @@ import gardenPlanReducer, {
   saveGardenPlan,
   selectCanRedo,
   selectCanUndo,
+  selectInvalidKeys,
   selectIsDirty,
   selectPendingCount,
   clearSelection,
@@ -433,6 +434,36 @@ describe('save', () => {
     applyPlanBatch.mockResolvedValue(ok());
     await store.dispatch(saveGardenPlan());
     expect(store.getState().gardenPlan.saveStatus).toBe('idle');
+  });
+
+  it('names the objects a refusal points at, only while the refusal stands (GP-UX-017)', async () => {
+    const store = await loaded();
+    store.dispatch(applyAction([move('loc_a', 5, 5)]));
+    applyPlanBatch.mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'e3',
+          error_code: 'geometry.outside_parent',
+          message: 'outside',
+          details: [{ field: 'geometry', reason: 'outside', code: 'geometry.outside_parent', op_index: 0 } as never],
+          timestamp: '',
+          path: '',
+          method: 'POST',
+        },
+        422,
+      ),
+    );
+    await store.dispatch(saveGardenPlan());
+    expect(store.getState().gardenPlan.saveFailureKeys).toEqual(['loc_a']);
+    expect([...selectInvalidKeys(store.getState())]).toEqual(['loc_a']);
+    // The same set instance while nothing changed: the renderer redraws on identity.
+    expect(selectInvalidKeys(store.getState())).toBe(selectInvalidKeys(store.getState()));
+
+    // Retrying clears the outline; a network failure names no object.
+    applyPlanBatch.mockRejectedValue(new Error('Network Error'));
+    await store.dispatch(saveGardenPlan());
+    expect(store.getState().gardenPlan.saveFailureKeys).toEqual([]);
+    expect(selectInvalidKeys(store.getState()).size).toBe(0);
   });
 
   it('turns a network failure into a plain failed state', async () => {

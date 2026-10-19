@@ -323,6 +323,21 @@ Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab 
 !!! warning "Noch nicht implementiert"
     Der Hinweis **Fruchtfolge-Hinweis** erscheint bisher nur in der Beetübersicht, nicht am Beet im Gartenplan. Er wird nur für Pflanzungen gesetzt, die du trotz eines Hinweises begonnen hast. Geplante, noch leere Plätze zeigt der Plan als gestrichelte Kreise ohne Art und Datum. Die zuletzt verwendeten Abstände merkt sich dein Browser, nicht dein Konto. Ein Beet ohne Platz im Gartenplan lässt sich noch nicht über den Dialog bepflanzen. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
 
+### Pflanzenzustand und Pflanzen-Info {#pflanzenzustand}
+
+Im Tab **Plan** zeigt jede stehende Pflanze ihren Zustand direkt am Marker. Du musst nichts öffnen, um zu sehen, ob du hier etwas tun musst.
+
+- **Scheibe:** Die Farbe zeigt die Wachstumsphase, der Buchstabe die Art. Bei starkem Hineinzoomen zeigt ein Bogen um die Scheibe, wie weit die Phase fortgeschritten ist.
+- **Ring:** Er zeigt den Zustand der Pflanzung. Gestrichelt und blass heißt geplant, gepunktet mit Saatpunkten gesät, durchgezogen wächst, ein doppelter Ring bedeutet in Ernte, und ein Kreuz auf leerem Ring bedeutet ausgefallen.
+- **Zeichen oben rechts:** Es erscheint höchstens eines, und zwar das dringendste: Dreieck für einen offenen Befund, Sechseck mit Stern für Frostgefahr, Kreis mit Ausrufezeichen für eine überfällige Aufgabe, Tropfen für fälliges Gießen und Quadrat mit Haken für erntereif. Alle weiteren Gründe stehen in der Pflanzen-Info.
+
+Ring und Zeichen unterscheiden sich auch ohne Farbe, du erkennst sie also in Graustufen und bei Rot-Grün-Schwäche. Unter dem Plan erklärt die aufklappbare **Legende** alle Zeichen.
+
+**Pflanzen-Info.** Bleibst du mit der Maus 0,3 Sekunden auf einer Pflanze, erscheint eine Info-Blase mit Art, Sorte, Phase und Fortschritt, Alter, Platz, letzter Pflege, nächster Aufgabe und den Gründen für den Handlungsbedarf. Die Blase bleibt stehen, solange du mit dem Zeiger auf Pflanze oder Blase bleibst, und verschwindet mit **Esc**. Mit der Tastatur erreichst du dieselbe Info über den Fokus auf dem Marker. Auf dem Touchscreen tippst du die Pflanze an, dann öffnet sich unten ein Blatt mit Titelbild und der Schaltfläche **Details**. Das Überfahren löst keine Abfrage aus: Kamerplanter lädt die Zustände aller Pflanzen eines Beets einmal, nach jeder Aktion am Beet und wenn du zum Tab zurückkehrst.
+
+!!! warning "Noch nicht implementiert"
+    **Frostgefahr** wird noch nicht angezeigt, sie kommt mit den Standortmerkmalen des Beets. **Fälliges Gießen** entsteht bisher nur aus einer Gießaufgabe, die heute fällig ist, nicht aus dem Bewässerungsbedarf. Die Ebene „Pflanzenzustand" mit dem Filter „nur Pflanzen mit Handlungsbedarf" im Gartenplan folgt später, und geplante Plätze zeigt der Plan weiter ohne Art und Datum. <!-- REQ-053 GP-FR-190, GP-UX-061 -->
+
 ### Pflege am Beet {#pflege-am-beet}
 
 Der Tab **Pflege** zeigt alle offenen Aufgaben, die am Beet oder an einer Pflanze in diesem Beet hängen. **Überfällige** Aufgaben stehen oben und sind rot markiert, darunter die übrigen offenen Aufgaben. Wer die Rolle „viewer" hat, sieht die Liste nur lesend.

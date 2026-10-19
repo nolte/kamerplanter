@@ -24,6 +24,7 @@ from app.common.enums import (
     TerminationType,
 )
 from app.config.constants import MAX_ROTATION_WINDOW_YEARS
+from app.domain.calculators.plant_state_calculator import AttentionCode, Lifecycle
 from app.domain.calculators.planting_layout_calculator import (
     MAX_LAYOUT_POSITIONS,
     EntryLayout,
@@ -33,6 +34,7 @@ from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
+from app.domain.services.plant_state_service import PlantStateEntry, phase_facts
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 
@@ -838,3 +840,241 @@ class BackfillResponse(BaseModel):
     family_key: str | None = None
     species_key: str | None = None
     plan_role: Literal["main_crop", "green_manure", "fallow"]
+
+
+# ── Plant states of a bed (REQ-053 WP 3.7, GP-API-054) ───────────────────────────────────────────
+
+
+class PlantPhaseResponse(BaseModel):
+    """The plant's current phase with its progress (GP-FR-190 "Phase")."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "1432",
+                    "name": "Flowering",
+                    "elapsed_d": 21,
+                    "typical_d": 60,
+                    "fraction": 0.35,
+                    "next_phase_eta": "2026-07-19",
+                }
+            ]
+        }
+    )
+
+    key: str
+    name: str | None = None
+    elapsed_d: int = Field(ge=0, description="Whole days since the phase started (UTC calendar days).")
+    typical_d: int | None = Field(default=None, description="The phase's usual length; `null` when not known.")
+    fraction: float | None = Field(default=None, ge=0, le=1, description="`elapsed_d / typical_d`, at most 1.")
+    next_phase_eta: date | None = Field(default=None, description="Start of the phase plus its usual length.")
+
+
+class PlantAttentionResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"reason": "overdue", "count": 2}]})
+    reason: AttentionCode
+    count: int = Field(ge=1)
+
+
+class PlantLastCareResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"watering": "2026-06-09T07:00:00Z", "feeding": "2026-06-01T07:00:00Z"}]}
+    )
+    watering: datetime | None = None
+    feeding: datetime | None = None
+
+
+class PlantNextTaskResponse(BaseModel):
+    """Name, category and due day of the next open task; never its instruction or comments."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"name": "Prune suckers", "category": "pruning", "due": "2026-06-12"}]}
+    )
+
+    name: str
+    category: str
+    due: date | None = None
+
+
+class PlantHarvestResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"ready": True, "ready_from": "2026-06-01", "harvested_total_g": 150.5}]}
+    )
+    ready: bool
+    ready_from: date | None = None
+    harvested_total_g: float | None = None
+
+
+class PlantOpenTaskResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"category": "watering", "due": "2026-06-10"}]})
+    category: str
+    due: date | None = None
+
+
+class PlantStatePhaseInputResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "1432",
+                    "started_on": "2026-05-20",
+                    "typical_days": 60,
+                    "allows_harvest": False,
+                    "is_terminal": False,
+                }
+            ]
+        }
+    )
+    key: str
+    started_on: date
+    typical_days: int | None = None
+    allows_harvest: bool = False
+    is_terminal: bool = False
+
+
+class PlantStateInputsResponse(BaseModel):
+    """What the state was computed from, so the client port recomputes it at its own `now` (GP-FR-192).
+
+    Categories and due days only — no task names, instructions or comments.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "open_tasks": [{"category": "watering", "due": "2026-06-10"}],
+                    "open_findings": 1,
+                    "frost_risk": False,
+                    "harvest_batches": 0,
+                    "phase": {
+                        "key": "1432",
+                        "started_on": "2026-05-20",
+                        "typical_days": 60,
+                        "allows_harvest": False,
+                        "is_terminal": False,
+                    },
+                }
+            ]
+        }
+    )
+
+    open_tasks: list[PlantOpenTaskResponse]
+    open_findings: int = Field(ge=0)
+    frost_risk: bool
+    harvest_batches: int = Field(ge=0)
+    phase: PlantStatePhaseInputResponse | None = None
+
+
+class PlantStateResponse(BaseModel):
+    """One standing plant of a bed with its visual state and the facts of the info bubble (GP-FR-190, GP-API-054).
+
+    Only the fields of the plant info: no notes, no user names (SR-006/SR-020).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "plant_key": "7710",
+                    "slot_key": "8841",
+                    "slot_id": "BEET3_011",
+                    "instance_id": "TOM-2026-004",
+                    "species_key": "5120",
+                    "species_name": "Tomato",
+                    "scientific_name": "Solanum lycopersicum",
+                    "cultivar_name": "Roma",
+                    "planted_on": "2026-05-15",
+                    "lifecycle": "active",
+                    "phase": {"key": "1432", "name": "Flowering", "elapsed_d": 21, "typical_d": 60, "fraction": 0.35},
+                    "last_care": {"watering": "2026-06-09T07:00:00Z"},
+                    "attention": [{"reason": "problem", "count": 1}, {"reason": "overdue", "count": 2}],
+                    "finding_label": "Aphids",
+                    "harvest": {"ready": False},
+                    "inputs": {
+                        "open_tasks": [{"category": "watering", "due": "2026-06-07"}],
+                        "open_findings": 1,
+                        "frost_risk": False,
+                        "harvest_batches": 0,
+                        "phase": {"key": "1432", "started_on": "2026-05-20", "typical_days": 60},
+                    },
+                }
+            ]
+        }
+    )
+
+    plant_key: str
+    slot_key: str | None = None
+    slot_id: str | None = None
+    instance_id: str
+    species_key: str
+    species_name: str | None = None
+    scientific_name: str | None = None
+    cultivar_name: str | None = None
+    planted_on: date
+    lifecycle: Lifecycle
+    phase: PlantPhaseResponse | None = None
+    last_care: PlantLastCareResponse
+    next_task: PlantNextTaskResponse | None = None
+    attention: list[PlantAttentionResponse]
+    finding_label: str | None = Field(default=None, description="Label of the newest open finding, if any.")
+    harvest: PlantHarvestResponse
+    cover_photo_ref: str | None = Field(default=None, description="Attachment id of the cover photo, if any.")
+    inputs: PlantStateInputsResponse
+
+    @classmethod
+    def from_entry(cls, entry: PlantStateEntry) -> PlantStateResponse:
+        source, state = entry.source, entry.state
+        phase = phase_facts(source)
+        progress = state.phase_progress
+        return cls(
+            plant_key=source.plant_key,
+            slot_key=source.slot_key,
+            slot_id=source.slot_id,
+            instance_id=source.instance_id,
+            species_key=source.species_key,
+            species_name=source.species_name,
+            scientific_name=source.scientific_name,
+            cultivar_name=source.cultivar_name,
+            planted_on=source.planted_on,
+            lifecycle=state.lifecycle,
+            phase=None
+            if state.phase_key is None or progress is None
+            else PlantPhaseResponse(
+                key=state.phase_key,
+                name=source.phase_name,
+                elapsed_d=progress.elapsed_d,
+                typical_d=progress.typical_d,
+                fraction=progress.fraction,
+                next_phase_eta=progress.next_phase_eta,
+            ),
+            last_care=PlantLastCareResponse(watering=source.last_watering_at, feeding=source.last_feeding_at),
+            next_task=None
+            if source.next_task is None
+            else PlantNextTaskResponse(
+                name=source.next_task.name, category=source.next_task.category, due=source.next_task.due
+            ),
+            attention=[PlantAttentionResponse(reason=item.reason, count=item.count) for item in state.attention],
+            finding_label=source.finding_label,
+            harvest=PlantHarvestResponse(
+                ready=state.harvest_ready,
+                ready_from=state.harvest_ready_from,
+                harvested_total_g=source.harvested_total_g,
+            ),
+            cover_photo_ref=source.cover_photo_ref,
+            inputs=PlantStateInputsResponse(
+                open_tasks=[PlantOpenTaskResponse(category=task.category, due=task.due) for task in source.open_tasks],
+                open_findings=source.open_finding_count,
+                frost_risk=entry.frost_risk,
+                harvest_batches=source.harvest_batch_count,
+                phase=None
+                if phase is None
+                else PlantStatePhaseInputResponse(
+                    key=phase.key,
+                    started_on=phase.started_on,
+                    typical_days=phase.typical_days,
+                    allows_harvest=phase.allows_harvest,
+                    is_terminal=phase.is_terminal,
+                ),
+            ),
+        )

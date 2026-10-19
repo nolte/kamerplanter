@@ -4,7 +4,7 @@
  * subtree and draws it read-only with the same renderer as the garden plan; editing stays on the
  * garden plan page, which this tab links to.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -24,7 +24,14 @@ import { fitViewport } from '../routes/fitViewport';
 import { useElementWidth } from '../routes/useElementWidth';
 import PlantActionHost, { type PlantActionTarget } from '../planting/PlantActionHost';
 import { usePhaseColors } from '../planting/phaseColors';
+import PlantInfoPopover from '../planting/PlantInfoPopover';
+import PlantStateLegend from '../planting/PlantStateLegend';
+import { usePlantInfoHover } from '../planting/usePlantInfoHover';
+import { usePlantStates } from '../planting/usePlantStates';
+import { usePlantStateText } from '../planting/usePlantStateText';
 import type { BedSummary } from './types';
+
+const PlantInfoSheet = lazy(() => import('../planting/PlantInfoSheet'));
 
 /** The drawing may take this share of the window height before the page scrolls. */
 const MAX_HEIGHT_SHARE = 0.6;
@@ -68,12 +75,22 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const [state, setState] = useState<PlanState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const { canEdit } = useTenantPermissions();
-  const canvasBoxRef = useRef<HTMLDivElement>(null);
+  const canvasBoxRef = useRef<HTMLDivElement | null>(null);
+  // The bubble is placed inside the canvas: it needs the element in render, the handlers read the ref.
+  const [canvasBox, setCanvasBox] = useState<HTMLDivElement | null>(null);
+  const canvasBoxCallback = useCallback((element: HTMLDivElement | null) => {
+    canvasBoxRef.current = element;
+    setCanvasBox(element);
+  }, []);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [target, setTarget] = useState<PlantActionTarget | null>(null);
+  const [sheetKey, setSheetKey] = useState<string | null>(null);
+  const lastPointerType = useRef('mouse');
   const placed = Boolean(bed.geometry);
   const siteKey = bed.site_key;
   const bedKey = bed.key;
+  const { states, refresh: refreshStates } = usePlantStates(bedKey, placed);
+  const stateText = usePlantStateText();
 
   useEffect(() => {
     if (!placed) return undefined;
@@ -93,7 +110,8 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const retry = useCallback(() => {
     setState({ status: 'loading' });
     setAttempt((value) => value + 1);
-  }, []);
+    refreshStates();
+  }, [refreshStates]);
 
   const model = state.status === 'ready' ? state.model : null;
   const location = model?.locations[bedKey] ?? null;
@@ -114,6 +132,32 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
     [model],
   );
   const phaseColors = usePhaseColors(plantPhases);
+  const markerStates = useMemo(
+    () => Object.fromEntries(Object.entries(states).map(([key, view]) => [key, stateText.marker(view)])),
+    [states, stateText],
+  );
+
+  // The plant under a client point: the hover bubble reads the local state, it never requests anything.
+  const plantAt = useCallback(
+    (clientX: number, clientY: number): string | null => {
+      const box = canvasBoxRef.current;
+      if (!box || !model) return null;
+      const rect = box.getBoundingClientRect();
+      const key = renderer.hitTest([clientX - rect.left, clientY - rect.top]);
+      return key && model.plants[key] ? key : null;
+    },
+    [renderer, model],
+  );
+  const hover = usePlantInfoHover({ keyAt: plantAt });
+  const { openByFocus } = hover;
+  const openView = hover.open ? (states[hover.open.key] ?? null) : null;
+  const sheetView = sheetKey ? (states[sheetKey] ?? null) : null;
+  const onFocusKey = useCallback(
+    (key: string) => {
+      if (key in states) openByFocus(key);
+    },
+    [states, openByFocus],
+  );
   const rendered = useMemo(
     () =>
       model && viewport
@@ -121,20 +165,32 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
             labels,
             enteredLocationKey: bedKey,
             phaseColors,
+            plantStates: markerStates,
+            describedPlantKey: openView?.plant_key ?? null,
+            onFocusKey,
             onActivateKey: (key) => setSelectedKey((current) => (current === key ? null : key)),
           })
         : null,
-    [renderer, model, viewport, selection, labels, bedKey, phaseColors],
+    [renderer, model, viewport, selection, labels, bedKey, phaseColors, markerStates, openView, onFocusKey],
   );
 
-  // A pointer or a tap on a plant marker selects it; the panel below offers the plant's actions.
+  // A pointer or a tap on a plant marker selects it; the panel below offers the plant's actions. A tap on touch
+  // also opens the plant info as a sheet (GP-UX-040); the mouse gets the hover bubble instead.
   const onCanvasClick = (event: MouseEvent<HTMLDivElement>) => {
-    const box = canvasBoxRef.current;
-    if (!box || !model) return;
-    const rect = box.getBoundingClientRect();
-    const key = renderer.hitTest([event.clientX - rect.left, event.clientY - rect.top]);
-    if (key && model.plants[key]) setSelectedKey((current) => (current === key ? null : key));
+    const key = plantAt(event.clientX, event.clientY);
+    if (key) setSelectedKey((current) => (current === key ? null : key));
     else setSelectedKey(null);
+    if (key && lastPointerType.current !== 'mouse' && key in states) {
+      hover.close();
+      setSheetKey(key);
+    }
+  };
+  const onCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    lastPointerType.current = event.pointerType;
+  };
+  const onCanvasBlur = (event: FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget;
+    if (!(next instanceof Node) || !event.currentTarget.contains(next)) hover.closeFocus();
   };
 
   const planLink = planLinkVisible ? (
@@ -184,8 +240,12 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
           <LoadingSkeleton variant="card" />
         ) : (
           <Box
-            ref={canvasBoxRef}
+            ref={canvasBoxCallback}
             onClick={onCanvasClick}
+            onPointerDown={onCanvasPointerDown}
+            onPointerMove={hover.onPointerMove}
+            onPointerLeave={hover.onPointerLeave}
+            onBlur={onCanvasBlur}
             data-testid="bed-plan-canvas"
             sx={{
               position: 'relative',
@@ -199,9 +259,18 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
             }}
           >
             {rendered}
+            {openView ? (
+              <PlantInfoPopover
+                view={openView}
+                container={canvasBox}
+                onPointerEnter={hover.onBubbleEnter}
+                onPointerLeave={hover.onBubbleLeave}
+              />
+            ) : null}
           </Box>
         )}
       </Box>
+      {Object.keys(states).length > 0 ? <PlantStateLegend /> : null}
       {selectedPlant ? (
         <Box
           component="section"
@@ -247,6 +316,11 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
         </Box>
       ) : null}
       <PlantActionHost bed={bed} target={target} onClose={() => setTarget(null)} onChanged={retry} />
+      {sheetView ? (
+        <Suspense fallback={null}>
+          <PlantInfoSheet view={sheetView} onClose={() => setSheetKey(null)} />
+        </Suspense>
+      ) : null}
     </Box>
   );
 }

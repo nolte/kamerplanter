@@ -394,6 +394,10 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # structure through the repository's site join - no ``get…_by_key`` - while it deletes and inserts a whole plan.
     "GardenPlanImportService": "garden_plan_import_service.py",
     "BedRotationService": "bed_rotation_service.py",
+    # REQ-053 WP 3.7 (#2397): the plant states of a bed. Read-only and resolved through ``resolve_owned_location`` —
+    # no ``get…_by_key`` — so a ``list_plant_states`` that lost its ``tenant_key`` would hand out the plants, tasks
+    # and findings of another tenant's bed and no selector above would notice.
+    "PlantStateService": "plant_state_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -408,6 +412,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "AdjacencyService": 3,
     "GardenPlanImportService": 5,
     "BedRotationService": 4,
+    "PlantStateService": 1,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -513,6 +518,9 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # The reads (``validate_planting``, ``rotation_timeline``) take the tenant like the writers: the history of a bed
     # names the families a tenant grew.
     "BedRotationService": "bed_rotation_service.py",
+    # REQ-053 WP 3.7 (#2397): ``list_plant_states`` resolves the bed through ``resolve_owned_location``; the class
+    # has no writer, so it adds nothing to the expected set below, but its one public method takes the tenant strictly.
+    "PlantStateService": "plant_state_service.py",
 }
 _EXPECTED_ANCHORED_WRITERS = frozenset(
     {

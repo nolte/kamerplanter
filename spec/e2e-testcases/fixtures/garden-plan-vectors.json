@@ -49,7 +49,8 @@
     "resolved_area": "input.geometry (rect | polygon) -> expected number (m2): shoelace over the resolved, rotated vertices",
     "layout": "input.bed (geometry), input.entry (layout fields in cm, optional max_count) -> expected {count, capacity_max, warnings: [codes], points: [[x, y]] in layout order, row_indices, zones: [{outline, capacity_plants}]} - planting_layout_calculator.compute_layout / model/layout.ts computeLayout",
     "layout_error": "same input as layout -> expected {code, estimated?}: the refusal (422) compute_layout raises; estimated is exact",
-    "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)"
+    "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)",
+    "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)"
   },
   "cases": [
     {
@@ -3770,6 +3771,181 @@
           30.0
         ]
       ]
+    },
+    {
+      "id": "plant-state-001",
+      "operation": "plant_state",
+      "spec": "GP-ACC-050, GP-UX-060: flowering plant, two overdue tasks and an open finding",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-07"}, {"category": "pruning", "due": "2026-06-09"}], "open_findings": 1, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "problem", "count": 1}, {"reason": "overdue", "count": 2}], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-002",
+      "operation": "plant_state",
+      "spec": "GP-UX-060: all five reasons arrive in priority order problem > frost > overdue > water > harvest",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": true, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-10"}, {"category": "feeding", "due": "2026-06-01"}], "open_findings": 2, "frost_risk": true, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "problem", "count": 2}, {"reason": "frost", "count": 1}, {"reason": "overdue", "count": 1}, {"reason": "water", "count": 1}, {"reason": "harvest", "count": 1}], "harvest_ready": true, "harvest_ready_from": "2026-05-20"}
+    },
+    {
+      "id": "plant-state-003",
+      "operation": "plant_state",
+      "spec": "GP-UX-060: no reason at all gives an empty attention list",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-004",
+      "operation": "plant_state",
+      "spec": "§11.3 planned: a reservation without a plant has no phase, progress or attention",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "planned", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-01"}], "open_findings": 3, "frost_risk": true, "harvest_batches": 0},
+      "expected": {"lifecycle": "planned", "phase_key": null, "phase_progress": null, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-005",
+      "operation": "plant_state",
+      "spec": "§11.3 sown: direct sowing before emergence has no phase, progress or attention",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "sown", "removed_on": null, "termination_type": null}, "phase": null, "tasks": [], "open_findings": 0, "frost_risk": true, "harvest_batches": 0},
+      "expected": {"lifecycle": "sown", "phase_key": null, "phase_progress": null, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-006",
+      "operation": "plant_state",
+      "spec": "§11.3 harvesting: a partial harvest batch makes the standing plant harvesting and harvest-ready in a harvest phase",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-harvest", "started_on": "2026-06-01", "typical_days": 30, "allows_harvest": true, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 2},
+      "expected": {"lifecycle": "harvesting", "phase_key": "ph-harvest", "phase_progress": {"elapsed_d": 9, "typical_d": 30, "fraction": 0.3, "next_phase_eta": "2026-07-01"}, "attention": [{"reason": "harvest", "count": 1}], "harvest_ready": true, "harvest_ready_from": "2026-06-01"}
+    },
+    {
+      "id": "plant-state-007",
+      "operation": "plant_state",
+      "spec": "§11.3 failed: termination died",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": "died"}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 1, "frost_risk": true, "harvest_batches": 0},
+      "expected": {"lifecycle": "failed", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-008",
+      "operation": "plant_state",
+      "spec": "§11.3 failed: termination senesced",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": "senesced"}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "failed", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-009",
+      "operation": "plant_state",
+      "spec": "§11.3 historic: harvested and removed",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": "harvested"}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": true, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "historic", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-010",
+      "operation": "plant_state",
+      "spec": "§11.3 historic: cancelled",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": "cancelled"}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "historic", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-011",
+      "operation": "plant_state",
+      "spec": "§11.3 historic: removed without a termination type",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "historic", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-012",
+      "operation": "plant_state",
+      "spec": "water: a watering task due today is `water`, not `overdue`",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-10"}], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "water", "count": 1}], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-013",
+      "operation": "plant_state",
+      "spec": "a task that is not watering and is due today gives no reason",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "pruning", "due": "2026-06-10"}], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-014",
+      "operation": "plant_state",
+      "spec": "a task without a due date is never overdue",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": null}], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-015",
+      "operation": "plant_state",
+      "spec": "a task due tomorrow is neither overdue nor water",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-11"}], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-016",
+      "operation": "plant_state",
+      "spec": "phase progress: half of a 30-day phase",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-veg", "started_on": "2026-05-26", "typical_days": 30, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-veg", "phase_progress": {"elapsed_d": 15, "typical_d": 30, "fraction": 0.5, "next_phase_eta": "2026-06-25"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-017",
+      "operation": "plant_state",
+      "spec": "phase progress: overrun phase is clamped to 1.0",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-veg", "started_on": "2026-04-01", "typical_days": 30, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-veg", "phase_progress": {"elapsed_d": 70, "typical_d": 30, "fraction": 1.0, "next_phase_eta": "2026-05-01"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-018",
+      "operation": "plant_state",
+      "spec": "phase progress: a phase without a typical length has no fraction and no ETA",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-veg", "started_on": "2026-05-26", "typical_days": null, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-veg", "phase_progress": {"elapsed_d": 15, "typical_d": null, "fraction": null, "next_phase_eta": null}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-019",
+      "operation": "plant_state",
+      "spec": "phase progress: a terminal phase has no next phase",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-last", "started_on": "2026-05-26", "typical_days": 30, "allows_harvest": false, "is_terminal": true}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-last", "phase_progress": {"elapsed_d": 15, "typical_d": 30, "fraction": 0.5, "next_phase_eta": null}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-020",
+      "operation": "plant_state",
+      "spec": "phase progress: a phase entered in the future has zero elapsed days",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-veg", "started_on": "2026-06-20", "typical_days": 30, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-veg", "phase_progress": {"elapsed_d": 0, "typical_d": 30, "fraction": 0.0, "next_phase_eta": "2026-07-20"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-021",
+      "operation": "plant_state",
+      "spec": "UTC calendar day: 23:30 at UTC-2 is the next UTC day, so a task due that day is `water`",
+      "input": {"now": "2026-06-09T23:30:00-02:00", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-10"}], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "water", "count": 1}], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-022",
+      "operation": "plant_state",
+      "spec": "no phase known: no phase key, no progress, never harvest-ready",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": null, "tasks": [], "open_findings": 1, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": null, "phase_progress": null, "attention": [{"reason": "problem", "count": 1}], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-023",
+      "operation": "plant_state",
+      "spec": "a harvest phase does not make an ended plant harvest-ready",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": "2026-06-05", "termination_type": "harvested"}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": true, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": true, "harvest_batches": 0},
+      "expected": {"lifecycle": "historic", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-024",
+      "operation": "plant_state",
+      "spec": "an overdue count includes every category",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [{"category": "watering", "due": "2026-06-09"}, {"category": "feeding", "due": "2026-06-09"}, {"category": "ipm", "due": "2026-05-01"}], "open_findings": 0, "frost_risk": false, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "overdue", "count": 3}], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "plant-state-025",
+      "operation": "plant_state",
+      "spec": "frost alone is `frost`",
+      "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": true, "harvest_batches": 0},
+      "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "frost", "count": 1}], "harvest_ready": false, "harvest_ready_from": null}
     }
   ]
 }

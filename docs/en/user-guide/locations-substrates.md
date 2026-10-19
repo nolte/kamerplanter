@@ -315,6 +315,21 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 !!! warning "Not yet implemented"
     The **Crop rotation hint** appears only in the bed overview so far, not on the bed in the garden plan. It is set only for plantings you started despite a hint. Planned, still empty places appear on the plan as dashed circles without species and date. Your browser, not your account, remembers the spacings you used last. A bed that is not on the garden plan cannot be planted through the dialog yet. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
 
+### Plant state and plant info {#plant-state}
+
+On the **Plan** tab every standing plant shows its state right on the marker, so you see at a glance whether something needs doing.
+
+- **Disc:** the colour is the growth phase, the letter the species. Zoomed in far, an arc around the disc shows how far the phase has progressed.
+- **Ring:** it tells the state of the planting. Dashed and faint means planned, dotted with seed dots means sown, solid means growing, a double ring means harvesting, and a cross on an empty ring means failed.
+- **Sign at the top right:** at most one appears, the most urgent: a triangle for an open finding, a hexagon with a star for frost risk, a circle with an exclamation mark for an overdue task, a drop for watering due and a square with a check mark for ready to harvest. All other reasons are listed in the plant info.
+
+Ring and sign differ without colour too, so you can tell them apart in greyscale and with red-green weakness. The collapsible **Legend** under the plan explains every sign.
+
+**Plant info.** Rest the mouse on a plant for 0.3 seconds and an info bubble shows species, cultivar, phase and progress, age, position, last care, next task and the reasons it needs attention. The bubble stays while the pointer is on the plant or the bubble and closes with **Esc**. With the keyboard you get the same info through focus on the marker. On a touch screen, tap the plant to open a sheet at the bottom with the cover photo and a **Details** button. Hovering sends no request: Kamerplanter loads the states of all plants of a bed once, after every action on the bed and when you come back to the tab.
+
+!!! warning "Not implemented yet"
+    **Frost risk** is not shown yet; it arrives with the bed's site features. **Watering due** currently comes only from a watering task that is due today, not from the irrigation demand. The "plant state" layer with the filter "only plants that need attention" on the garden plan follows later, and planned places are still drawn without species and date. <!-- REQ-053 GP-FR-190, GP-UX-061 -->
+
 ### Care on the bed {#care-on-the-bed}
 
 The **Care** tab lists every open task attached to the bed or to a plant in it. **Overdue** tasks come first and are marked red, followed by the other open tasks. With the "viewer" role you see the list read-only.

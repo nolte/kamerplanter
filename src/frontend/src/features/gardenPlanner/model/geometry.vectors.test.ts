@@ -25,7 +25,7 @@ import { loadVectors, type VectorCase } from '@/test/gardenPlanVectors';
  */
 const ALL_VECTORS = loadVectors();
 /** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3). */
-const LAYOUT_OPERATIONS = new Set(['layout', 'layout_error', 'adjacency']);
+const LAYOUT_OPERATIONS = new Set(['layout', 'layout_error', 'adjacency', 'plant_state']);
 const VECTORS = {
   ...ALL_VECTORS,
   cases: ALL_VECTORS.cases.filter((vector) => !LAYOUT_OPERATIONS.has(vector.operation)),

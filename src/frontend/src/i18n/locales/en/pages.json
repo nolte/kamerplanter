@@ -5324,7 +5324,9 @@
           "door": "Door",
           "furniture": "Furniture",
           "lamp": "Lamp"
-        }
+        },
+        "clusterSummary_one": "{{count}} plant · {{attention}} need attention",
+        "clusterSummary_other": "{{count}} plants · {{attention}} need attention"
       },
       "editor": {
         "toolbar": {
@@ -6005,6 +6007,60 @@
           },
           "done": "Done: {{locations}} locations, {{objects}} garden objects and {{slots}} plant places were created.",
           "doneSnapshot": "The previous state is in the change log."
+        }
+      },
+      "plantState": {
+        "lifecycle": {
+          "planned": "Planned",
+          "sown": "Sown",
+          "active": "Growing",
+          "harvesting": "Harvesting",
+          "failed": "Failed",
+          "historic": "Finished"
+        },
+        "attention": {
+          "problem": "Finding: {{label}}",
+          "problemUnnamed": "Open finding",
+          "frost": "Frost risk",
+          "overdue_one": "{{count}} task overdue",
+          "overdue_other": "{{count}} tasks overdue",
+          "water": "Watering due",
+          "harvest": "Ready to harvest"
+        },
+        "info": {
+          "label": "Plant info: {{name}}",
+          "phase": "Phase: {{phase}} · {{elapsed}} of {{typical}} days",
+          "phaseOpen": "Phase: {{phase}} · {{elapsed}} days so far",
+          "nextPhase": "Next phase expected {{date}}",
+          "age": "Planted on {{date}} · {{days}} days",
+          "position": "Position {{slot}}",
+          "watered": "Last watered: {{date}}",
+          "fed": "Last fed: {{date}}",
+          "nextTask": "Next task: {{name}} · {{date}}",
+          "nextTaskUndated": "Next task: {{name}}",
+          "harvestReadyFrom": "Ready to harvest since {{date}}",
+          "harvestedTotal": "Harvested so far: {{grams}} g",
+          "needsAttention": "Needs attention",
+          "details": "Details",
+          "close": "Close",
+          "photo": "Cover photo of {{name}}",
+          "sheetTitle": "Plant {{name}}"
+        },
+        "legend": {
+          "title": "Plant state",
+          "intro": "The colour of the disc shows the growth phase, the letter the species. Ring and sign stay distinguishable without colour.",
+          "ring": "Ring",
+          "badge": "Sign at the top right (at most one per plant, the most urgent)",
+          "ringPlanned": "dashed, faint: planned",
+          "ringSown": "dotted with seed dots: sown",
+          "ringActive": "solid: growing",
+          "ringHarvesting": "double ring: harvesting",
+          "ringFailed": "cross on an empty ring: failed",
+          "badgeProblem": "triangle: open finding",
+          "badgeFrost": "hexagon with a star: frost risk",
+          "badgeOverdue": "circle with an exclamation mark: task overdue",
+          "badgeWater": "drop: watering due",
+          "badgeHarvest": "square with a check mark: ready to harvest"
         }
       }
     },

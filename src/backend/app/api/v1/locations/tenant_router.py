@@ -22,6 +22,7 @@ from app.api.v1.locations.schemas import (
     PlantingItemResponse,
     PlantingLayoutPreviewRequest,
     PlantingLayoutPreviewResponse,
+    PlantStateResponse,
     QuickPlantingRequest,
     QuickPlantingResponse,
     RotationFindingResponse,
@@ -37,6 +38,7 @@ from app.common.auth import get_current_tenant, require_permission
 from app.common.dependencies import (
     get_bed_rotation_service,
     get_garden_resource_service,
+    get_plant_state_service,
     get_planting_reservation_service,
     get_planting_run_service,
     get_sensor_service,
@@ -58,6 +60,7 @@ from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.plant_state_service import PlantStateService
 from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.sensor_service import SensorService
@@ -335,6 +338,25 @@ def list_plantings(
         limit=pagination.limit,
     )
     return [PlantingItemResponse.from_row(row) for row in rows]
+
+
+@router.get("/{key}/plant-states", response_model=list[PlantStateResponse])
+def list_plant_states(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantStateService = Depends(get_plant_state_service),
+) -> list[PlantStateResponse]:
+    """The standing plants of a bed with their visual state and the facts of the info bubble (GP-API-054), all roles.
+
+    One request per bed instead of one per plant (GP-FR-191): the plan draws the marker channels and answers
+    hover, focus and tap from this list. Ordered by plant key; `limit` is at most 200 and a client pages until a
+    page comes back shorter. Only the fields of the plant info are returned — no notes, no user names.
+    """
+    entries = service.list_plant_states(
+        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+    )
+    return [PlantStateResponse.from_entry(entry) for entry in entries]
 
 
 @router.post(
