@@ -50,6 +50,8 @@ FOR p IN @@plants
   LET slot = p.slot_key == null ? null : DOCUMENT(@slots, p.slot_key)
   LET location = slot == null OR slot.location_key == null ? null : DOCUMENT(@locations, slot.location_key)
   LET own = p.location_key == null ? null : DOCUMENT(@locations, p.location_key)
+  LET slot_site = location == null OR location.site_key == null ? null : DOCUMENT(@sites, location.site_key)
+  LET own_site = own == null OR own.site_key == null ? null : DOCUMENT(@sites, own.site_key)
   RETURN {
     _key: p._key,
     tenant_key: p.tenant_key,
@@ -59,10 +61,10 @@ FOR p IN @@plants
     slot_found: slot != null,
     slot_location_key: slot == null ? null : slot.location_key,
     location_found: location != null,
-    location_tenant_key: location == null ? null : location.tenant_key,
+    location_site_tenant_key: slot_site == null ? null : slot_site.tenant_key,
     location_site_key: location == null ? null : location.site_key,
     own_found: own != null,
-    own_tenant_key: own == null ? null : own.tenant_key,
+    own_site_tenant_key: own_site == null ? null : own_site.tenant_key,
     own_site_key: own == null ? null : own.site_key
   }
 """
@@ -96,7 +98,7 @@ def _reason(row: dict[str, Any]) -> str | None:
     if row.get("location_key") is not None:
         if not row["own_found"]:
             return "location_missing"
-        return _tenant_reason(row, row.get("own_tenant_key"))
+        return _tenant_reason(row, row.get("own_site_tenant_key"))
     if not row.get("slot_key"):
         return "no_slot"
     if not row["slot_found"]:
@@ -105,13 +107,18 @@ def _reason(row: dict[str, Any]) -> str | None:
         return "slot_without_location"
     if not row["location_found"]:
         return "location_missing"
-    return _tenant_reason(row, row.get("location_tenant_key"))
+    return _tenant_reason(row, row.get("location_site_tenant_key"))
 
 
-def _tenant_reason(row: dict[str, Any], location_tenant: str | None) -> str | None:
-    """A plant without a tenant matches no location."""
+def _tenant_reason(row: dict[str, Any], site_tenant: str | None) -> str | None:
+    """Same-tenant check through the site that anchors the location (#1397).
+
+    ``Location.tenant_key`` / ``Slot.tenant_key`` are never filled by the write path, so the tenant is the
+    anchoring site's. A plant without a tenant, a location without a (resolvable) site and a site of another
+    tenant all match nothing.
+    """
     plant_tenant = row.get("tenant_key")
-    if not plant_tenant or location_tenant != plant_tenant:
+    if not plant_tenant or site_tenant != plant_tenant:
         return "cross_tenant"
     return None
 
@@ -126,7 +133,13 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
     cursor = cast(
         Cursor,
         db.aql.execute(
-            _SCAN, bind_vars={"@plants": col.PLANT_INSTANCES, "slots": col.SLOTS, "locations": col.LOCATIONS}
+            _SCAN,
+            bind_vars={
+                "@plants": col.PLANT_INSTANCES,
+                "slots": col.SLOTS,
+                "locations": col.LOCATIONS,
+                "sites": col.SITES,
+            },
         ),
     )
     rows: list[dict[str, Any]] = list(cursor)

@@ -43,9 +43,16 @@ def db():  # type: ignore[no-untyped-def]
 def _seed(db) -> None:  # type: ignore[no-untyped-def]
     db.collection(col.LOCATIONS).insert_many(
         [
-            {"_key": "L1", "tenant_key": "t1", "site_key": "S1"},
-            {"_key": "L2", "tenant_key": "t2", "site_key": "S2"},
-            {"_key": "L4", "tenant_key": "t1", "site_key": "S4"},
+            {"_key": "L1", "site_key": "S1"},
+            {"_key": "L2", "site_key": "S2"},
+            {"_key": "L4", "site_key": "S4"},
+        ]
+    )
+    db.collection(col.SITES).insert_many(
+        [
+            {"_key": "S1", "tenant_key": "t1"},
+            {"_key": "S2", "tenant_key": "t2"},
+            {"_key": "S4", "tenant_key": "t1"},
         ]
     )
     db.collection(col.SLOTS).insert_many([{"_key": "s1", "location_key": "L1"}, {"_key": "s2", "location_key": "L2"}])

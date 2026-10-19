@@ -46,10 +46,10 @@ class _FakeAql:
                     "slot_found": slot is not None,
                     "slot_location_key": slot.get("location_key") if slot else None,
                     "location_found": loc is not None,
-                    "location_tenant_key": loc.get("tenant_key") if loc else None,
+                    "location_site_tenant_key": self.db.site_tenant(loc),
                     "location_site_key": loc.get("site_key") if loc else None,
                     "own_found": own is not None,
-                    "own_tenant_key": own.get("tenant_key") if own else None,
+                    "own_site_tenant_key": self.db.site_tenant(own),
                     "own_site_key": own.get("site_key") if own else None,
                 }
             )
@@ -57,12 +57,18 @@ class _FakeAql:
 
 
 class _FakeDb:
-    def __init__(self, plants, slots, locations, *, present: bool = True) -> None:
+    def __init__(self, plants, slots, locations, sites=(), *, present: bool = True) -> None:
+        self.sites = {d["_key"]: dict(d) for d in sites}
         self.plants = {d["_key"]: dict(d) for d in plants}
         self.slots = {d["_key"]: dict(d) for d in slots}
         self.locations = {d["_key"]: dict(d) for d in locations}
         self.present = present
         self.aql = _FakeAql(self)
+
+    def site_tenant(self, location):
+        """The tenant of the site anchoring ``location`` (locations carry no tenant of their own, #1397)."""
+        site = self.sites.get(location.get("site_key")) if location else None
+        return site.get("tenant_key") if site else None
 
     def has_collection(self, name: str) -> bool:
         return self.present and name == col.PLANT_INSTANCES
@@ -89,12 +95,17 @@ def _volume() -> _FakeDb:
         {"_key": "s3"},
     ]
     locations = [
-        {"_key": "L1", "tenant_key": "t1", "site_key": "S1"},
-        {"_key": "L2", "tenant_key": "t2", "site_key": "S2"},
-        {"_key": "L4", "tenant_key": "t1", "site_key": "S4"},
-        {"_key": "L5", "tenant_key": "t1"},
+        {"_key": "L1", "site_key": "S1"},
+        {"_key": "L2", "site_key": "S2"},
+        {"_key": "L4", "site_key": "S4"},
+        {"_key": "L5"},
     ]
-    return _FakeDb(plants, slots, locations)
+    sites = [
+        {"_key": "S1", "tenant_key": "t1"},
+        {"_key": "S2", "tenant_key": "t2"},
+        {"_key": "S4", "tenant_key": "t1"},
+    ]
+    return _FakeDb(plants, slots, locations, sites)
 
 
 def test_dry_run_reports_and_writes_nothing() -> None:
@@ -104,14 +115,14 @@ def test_dry_run_reports_and_writes_nothing() -> None:
     assert db.plants == before
     assert report.dry_run is True and report.changed == 0
     d = report.details
-    assert d["will_update"] == 3  # ok, half, keep (nosite has nothing to set)
-    assert d["location_without_site_key"] == 1
+    assert d["will_update"] == 3  # ok, half, keep
+    assert d["location_without_site_key"] == 0  # a site-less location is cross_tenant, not an update
     assert d["unresolved"]["no_slot"] == {"count": 1, "listed": ["noslot"]}
     assert d["unresolved"]["slot_missing"]["listed"] == ["ghost"]
-    assert sorted(d["unresolved"]["cross_tenant"]["listed"]) == ["foreign", "foreignown", "notenant"]
+    assert sorted(d["unresolved"]["cross_tenant"]["listed"]) == ["foreign", "foreignown", "nosite", "notenant"]
     assert d["unresolved"]["location_missing"]["listed"] == ["ghostloc"]
     assert d["unresolved"]["slot_without_location"]["listed"] == ["nolocslot"]
-    assert d["unresolved_count"] == 7
+    assert d["unresolved_count"] == 8
 
 
 def test_apply_fills_nulls_and_never_overwrites() -> None:
@@ -125,7 +136,7 @@ def test_apply_fills_nulls_and_never_overwrites() -> None:
     # N2: own location missing / cross-tenant -> untouched
     assert (db.plants["ghostloc"]["location_key"], db.plants["ghostloc"]["site_key"]) == ("OTHER", None)
     assert (db.plants["foreignown"]["location_key"], db.plants["foreignown"]["site_key"]) == ("L2", None)
-    # N4: location set, location without site -> no update
+    # location without a site has no anchor: unresolved, no update (N4)
     assert db.plants["nosite"]["site_key"] is None
     # N3: plant without a tenant never matches a location
     assert db.plants["notenant"]["location_key"] is None
