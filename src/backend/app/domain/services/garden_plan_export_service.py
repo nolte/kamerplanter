@@ -104,7 +104,7 @@ class GardenPlanExportService:
             locations=[ExportLocation.model_validate(location) for location in data.locations],
             slots=[ExportSlot.model_validate(slot) for slot in data.slots if slot.key and slot.archived_at is None],
             garden_objects=[ExportGardenObject.model_validate(obj) for obj in data.garden_objects],
-            zones=[ExportZone.model_validate(row) for row in self._plans.zone_rows(site_key, tenant_key=tenant_key)],
+            zones=[ExportZone(**row) for row in self._plans.zone_rows(site_key, tenant_key=tenant_key)],
         )
 
     # ── GP-API-006: the SVG ───────────────────────────────────────────────────

@@ -408,11 +408,9 @@ class IrrigationZoneService:
         and the reading is at most 24 h old, else the manual rate. The rate in force *now* is applied to the whole
         window; with neither a rate nor a runtime the actuator contributes nothing (no value without a source).
         """
-        parts: list[ConsumptionPart] = []
-        if logged_liters > 0:
-            parts.append(ConsumptionPart("manual_log", logged_liters))
+        logged = (ConsumptionPart("manual_log", logged_liters),) if logged_liters > 0 else ()
         if zone.actuator_key is None:
-            return tuple(parts)
+            return logged
         reading: FlowReading | None = None
         entity = zone.flow_rate_ha_entity_id
         if (
@@ -426,30 +424,28 @@ class IrrigationZoneService:
                 reading = None
         rate = resolve_flow_rate(zone.flow_rate_source, zone.flow_rate_l_per_min, reading, now)
         if rate is None:
-            return tuple(parts)
+            return logged
         since = now - timedelta(days=CONSUMPTION_DAYS)
         changes = self._zones.actuator_state_changes(zone.actuator_key, tenant_key=tenant_key, since=since, until=now)
         liters = runtime_liters(runtime_seconds(changes, start=since, end=now), rate)
-        if liters > 0:
-            parts.append(ConsumptionPart(source_of(rate), liters))
-        return tuple(parts)
+        return (*logged, ConsumptionPart(source_of(rate), liters)) if liters > 0 else logged
 
     def _hints(
         self, zone: IrrigationZone, bed_keys: list[str], demand: ZoneDemand, *, tenant_key: str
     ) -> tuple[ZoneHint, ...]:
         """GP-FR-119: how many days the water source lasts, and beds equipped otherwise than the zone says."""
-        hints: list[ZoneHint] = []
         daily = demand.gross_liters if demand.gross_liters is not None else demand.net_liters
+        reserve: tuple[ZoneHint, ...] = ()
         if zone.water_source_key and daily > 0:
             source = self._objects.get_garden_object_by_key(zone.water_source_key, tenant_key=tenant_key)
             capacity = getattr(getattr(source, "props", None), "capacity_liters", None)
             days = days_of_supply(capacity, daily)
             if days is not None:
-                hints.append(
+                reserve = (
                     ZoneHint(
                         "water_source_lasts_days",
                         {"days": days, "capacity_liters": float(capacity or 0), "daily_liters": daily},
-                    )
+                    ),
                 )
         owned = find_owned_locations(self._sites, bed_keys, tenant_key)
         differing = sorted(
@@ -457,14 +453,14 @@ class IrrigationZoneService:
             for key, bed in owned.items()
             if bed.site_key == zone.site_key and irrigation_system_differs(zone.irrigation_type, bed.irrigation_system)
         )
-        if differing:
-            hints.append(
-                ZoneHint(
-                    "irrigation_system_differs",
-                    {"zone_type": zone.irrigation_type.value, "location_keys": differing},
-                )
-            )
-        return tuple(hints)
+        if not differing:
+            return reserve
+        return (
+            *reserve,
+            ZoneHint(
+                "irrigation_system_differs", {"zone_type": zone.irrigation_type.value, "location_keys": differing}
+            ),
+        )
 
     # ── GP-API-053: a watering round ──────────────────────────────────────
 

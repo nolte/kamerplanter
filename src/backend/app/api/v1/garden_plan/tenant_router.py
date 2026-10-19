@@ -123,7 +123,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
         ],
         slots=[_slot_response(slot) for slot in view.slots],
         plants=[_plant_response(plant) for plant in view.plants],
-        zones=[PlanZoneResponse.model_validate(zone) for zone in view.zones],
+        zones=[PlanZoneResponse(**zone) for zone in view.zones],
     )
 
 

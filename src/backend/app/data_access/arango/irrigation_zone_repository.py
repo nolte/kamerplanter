@@ -126,6 +126,15 @@ def _dump(model: BaseModel, **options: Any) -> dict[str, Any]:
     return model.model_dump(**options)
 
 
+def _state_change(row: dict[str, Any]) -> StateChange | None:
+    """One ``control_events`` row as a switch; an unreadable instant is skipped."""
+    try:
+        moment = datetime.fromisoformat(row["at"])
+    except TypeError, ValueError:
+        return None
+    return StateChange(at=moment if moment.tzinfo else moment.replace(tzinfo=UTC), new_state=str(row["state"]))
+
+
 def _zone_id(key: str) -> str:
     return f"{col.IRRIGATION_ZONES}/{key}"
 
@@ -373,16 +382,7 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
                 bind_vars=bind_vars,
             ),
         )
-        changes: list[StateChange] = []
-        for row in rows:
-            try:
-                moment = datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
-            except ValueError:
-                continue
-            changes.append(
-                StateChange(at=moment if moment.tzinfo else moment.replace(tzinfo=UTC), new_state=str(row["state"]))
-            )
-        return changes
+        return [change for row in rows if (change := _state_change(row)) is not None]
 
     def bed_demands(
         self, site_key: SiteKey, location_keys: list[LocationKey], *, tenant_key: str, on_date: date

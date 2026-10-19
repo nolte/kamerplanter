@@ -15,7 +15,7 @@ which cannot import each other.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
@@ -52,6 +52,42 @@ FOR w IN @@watering
 """
 
 
+_SLOTS_OF = "FOR s IN @@slots FILTER s.location_key IN @location_keys RETURN {key: s._key, location: s.location_key}"
+
+_NEXT_PLANNED = """
+FOR t IN @@tasks
+    FILTER t.tenant_key == @tenant_key AND t.status IN @open AND t.suggested != true
+        AND t.category == "watering" AND t.entity_type IN ["location", "plant_instance"]
+    LET loc = t.entity_type == "location"
+        ? t.entity_key
+        : DOCUMENT(CONCAT(@plants, t.entity_key)).location_key
+    FILTER loc IN @location_keys
+    SORT t.due_date == null ASC, DATE_TIMESTAMP(t.due_date) ASC, t._key ASC
+    LIMIT 1
+    RETURN {task_key: t._key, location: loc, due_date: t.due_date}
+"""
+
+_LOGGED_LITERS = """
+RETURN SUM(
+    FOR e IN @@events
+        FILTER e.tenant_key == @tenant_key AND e.location_key IN @location_keys
+            AND e.category == "watering" AND e.trigger != "task"
+            AND DATE_TIMESTAMP(e.performed_at) >= DATE_TIMESTAMP(@since)
+            AND e.voided_at == null AND e.superseded_by_key == null AND e.unit == "l"
+        RETURN e.quantity || 0
+)
+"""
+
+_MEASURED_LITERS = """
+RETURN SUM(
+    FOR w IN @@watering
+        FILTER w.tenant_key == @tenant_key AND DATE_TIMESTAMP(w.watered_at) >= DATE_TIMESTAMP(@since)
+            AND LENGTH(INTERSECTION(w.slot_keys, @slot_keys)) > 0
+        RETURN w.volume_liters
+)
+"""
+
+
 def _parse(value: object) -> datetime | None:
     if not value:
         return None
@@ -62,22 +98,15 @@ def _parse(value: object) -> datetime | None:
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
-def _rows(db: StandardDatabase, query: str, bind_vars: dict[str, Any]) -> list[dict[str, Any]]:
-    return list(cast("Cursor", db.aql.execute(query, bind_vars=bind_vars)))
-
-
 def _slots_of(db: StandardDatabase, location_keys: list[str]) -> dict[str, str]:
     """slot key → bed key, for the beds named (the keys come from an owned zone or plan)."""
-    rows = _rows(
-        db,
-        "FOR s IN @@slots FILTER s.location_key IN @location_keys RETURN {key: s._key, location: s.location_key}",
-        {"@slots": col.SLOTS, "location_keys": location_keys},
-    )
+    rows = cast("Cursor", db.aql.execute(_SLOTS_OF, bind_vars={"@slots": col.SLOTS, "location_keys": location_keys}))
     return {row["key"]: row["location"] for row in rows}
 
 
 def _since(now: datetime, days: int) -> str:
-    return (now.astimezone(UTC) - timedelta(days=days)).isoformat()
+    start: datetime = now.astimezone(UTC) - timedelta(days=days)
+    return start.isoformat()
 
 
 def last_waterings(
@@ -88,11 +117,19 @@ def last_waterings(
         return {}
     since = _since(now, LOOKBACK_DAYS)
     found: dict[str, LastWatering] = {}
-    for row in _rows(
-        db,
-        _CARE_LAST,
-        {"@events": col.CARE_EVENTS, "tenant_key": tenant_key, "location_keys": location_keys, "since": since},
-    ):
+    care_rows = cast(
+        "Cursor",
+        db.aql.execute(
+            _CARE_LAST,
+            bind_vars={
+                "@events": col.CARE_EVENTS,
+                "tenant_key": tenant_key,
+                "location_keys": location_keys,
+                "since": since,
+            },
+        ),
+    )
+    for row in care_rows:
         moment = _parse(row["at"])
         if moment is not None:
             found[row["location"]] = LastWatering(
@@ -100,16 +137,19 @@ def last_waterings(
             )
     slot_to_bed = _slots_of(db, location_keys)
     if slot_to_bed:
-        for row in _rows(
-            db,
-            _SLOT_LAST,
-            {
-                "@watering": col.WATERING_EVENTS,
-                "tenant_key": tenant_key,
-                "slot_keys": list(slot_to_bed),
-                "since": since,
-            },
-        ):
+        slot_rows = cast(
+            "Cursor",
+            db.aql.execute(
+                _SLOT_LAST,
+                bind_vars={
+                    "@watering": col.WATERING_EVENTS,
+                    "tenant_key": tenant_key,
+                    "slot_keys": list(slot_to_bed),
+                    "since": since,
+                },
+            ),
+        )
+        for row in slot_rows:
             moment = datetime.fromtimestamp(float(row["at"]) / 1000, UTC) if row["at"] is not None else None
             bed = slot_to_bed.get(row["slot"])
             if moment is not None and bed is not None and (bed not in found or moment > found[bed].at):
@@ -119,31 +159,22 @@ def last_waterings(
 
 def _next_planned(db: StandardDatabase, location_keys: list[str], *, tenant_key: str) -> NextPlannedWatering | None:
     """The oldest open ``watering`` task of the beds (on the bed itself or on a plant standing in it)."""
-    rows = _rows(
-        db,
-        """
-        FOR t IN @@tasks
-            FILTER t.tenant_key == @tenant_key AND t.status IN @open AND t.suggested != true
-                AND t.category == "watering" AND t.entity_type IN ["location", "plant_instance"]
-            LET loc = t.entity_type == "location"
-                ? t.entity_key
-                : DOCUMENT(CONCAT(@plants, t.entity_key)).location_key
-            FILTER loc IN @location_keys
-            SORT t.due_date == null ASC, DATE_TIMESTAMP(t.due_date) ASC, t._key ASC
-            LIMIT 1
-            RETURN {task_key: t._key, location: loc, due_date: t.due_date}
-        """,
-        {
-            "@tasks": col.TASKS,
-            "tenant_key": tenant_key,
-            "open": list(OPEN_TASK_STATUSES),
-            "plants": f"{col.PLANT_INSTANCES}/",
-            "location_keys": location_keys,
-        },
+    rows = cast(
+        "Cursor",
+        db.aql.execute(
+            _NEXT_PLANNED,
+            bind_vars={
+                "@tasks": col.TASKS,
+                "tenant_key": tenant_key,
+                "open": list(OPEN_TASK_STATUSES),
+                "plants": f"{col.PLANT_INSTANCES}/",
+                "location_keys": location_keys,
+            },
+        ),
     )
-    if not rows:
+    row = next(rows, None)
+    if row is None:
         return None
-    row = rows[0]
     return NextPlannedWatering(task_key=row["task_key"], location_key=row["location"], due_date=_parse(row["due_date"]))
 
 
@@ -156,38 +187,35 @@ def _consumption_liters(
     counted twice. A ``watering_events`` row that waters slots of several beds of the zone counts once.
     """
     since = _since(now, CONSUMPTION_DAYS)
-    bind = {"tenant_key": tenant_key, "since": since}
-    logged = _rows(
-        db,
-        """
-        RETURN SUM(
-            FOR e IN @@events
-                FILTER e.tenant_key == @tenant_key AND e.location_key IN @location_keys
-                    AND e.category == "watering" AND e.trigger != "task"
-                    AND DATE_TIMESTAMP(e.performed_at) >= DATE_TIMESTAMP(@since)
-                    AND e.voided_at == null AND e.superseded_by_key == null AND e.unit == "l"
-                RETURN e.quantity || 0
-        )
-        """,
-        {**bind, "@events": col.CARE_EVENTS, "location_keys": location_keys},
+    logged = cast(
+        "Cursor",
+        db.aql.execute(
+            _LOGGED_LITERS,
+            bind_vars={
+                "@events": col.CARE_EVENTS,
+                "tenant_key": tenant_key,
+                "location_keys": location_keys,
+                "since": since,
+            },
+        ),
     )
     measured = (
-        _rows(
-            db,
-            """
-            RETURN SUM(
-                FOR w IN @@watering
-                    FILTER w.tenant_key == @tenant_key AND DATE_TIMESTAMP(w.watered_at) >= DATE_TIMESTAMP(@since)
-                        AND LENGTH(INTERSECTION(w.slot_keys, @slot_keys)) > 0
-                    RETURN w.volume_liters
-            )
-            """,
-            {**bind, "@watering": col.WATERING_EVENTS, "slot_keys": slot_keys},
+        cast(
+            "Cursor",
+            db.aql.execute(
+                _MEASURED_LITERS,
+                bind_vars={
+                    "@watering": col.WATERING_EVENTS,
+                    "tenant_key": tenant_key,
+                    "slot_keys": slot_keys,
+                    "since": since,
+                },
+            ),
         )
         if slot_keys
-        else [0]
+        else iter([0])
     )
-    return round(float(logged[0] or 0) + float(measured[0] or 0), 3)
+    return round(float(next(logged, 0) or 0) + float(next(measured, 0) or 0), 3)
 
 
 def zone_watering_facts(

@@ -22,6 +22,7 @@ from app.domain.interfaces.flow_rate_sensor import FlowReading
 
 #: How old a Home Assistant reading may be and still override the manual rate (O-13).
 HA_READING_MAX_AGE = timedelta(hours=24)
+_SECOND = timedelta(seconds=1)
 
 type FlowRateOrigin = Literal["manual", "ha"]
 type ConsumptionSource = Literal["manual_log", "actuator_runtime_manual_rate", "actuator_runtime_ha_rate"]
@@ -74,10 +75,10 @@ def runtime_seconds(
         if change.new_state == "on" and on_since is None:
             on_since = moment
         elif change.new_state != "on" and on_since is not None:
-            total += (moment - on_since).total_seconds()
+            total += (moment - on_since) / _SECOND
             on_since = None
     if on_since is not None:
-        total += (end - on_since).total_seconds()
+        total += (end - on_since) / _SECOND
     return total
 
 
