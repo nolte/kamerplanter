@@ -39,13 +39,14 @@ from app.api.v1.garden_plan.schemas import (
     PlanSlotResponse,
 )
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
+from app.common.body_limit import read_bounded_body
 from app.common.dependencies import (
     get_garden_plan_export_service,
     get_garden_plan_import_service,
     get_garden_plan_service,
 )
 from app.common.enums import SlotRole
-from app.common.exceptions import PlanRevisionConflictError, RequestBodyTooLargeError, ValidationError
+from app.common.exceptions import PlanRevisionConflictError, ValidationError
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
@@ -415,9 +416,7 @@ async def import_plan(
     change log first, needs `confirm_site_name`, and refuses with 409 `import.not_empty` while a bed holds an active
     plant (`force` lifts that, and those beds then stay). Keys of the file are never kept (GP-NFR-051).
     """
-    raw = await request.body()
-    if len(raw) > PLAN_IMPORT_MAX_BODY_BYTES:
-        raise RequestBodyTooLargeError(PLAN_IMPORT_MAX_BODY_BYTES)
+    raw = await read_bounded_body(request, PLAN_IMPORT_MAX_BODY_BYTES)
     try:
         envelope = PlanImportRequest.model_validate_json(raw)
     except PydanticValidationError as exc:

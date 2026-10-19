@@ -136,6 +136,20 @@ class RoutePatternCeiling:
     max_body_bytes: int
 
 
+async def read_bounded_body(request: Request, limit_bytes: int) -> bytes:
+    """The request body, read in chunks and refused (413) the moment it passes ``limit_bytes``.
+
+    For a route that takes a JSON body above the global 1 MiB ceiling (``RoutePatternCeiling``) and reads it itself,
+    after authentication: the route states its own bound instead of buffering whatever the stream holds.
+    """
+    received = bytearray()
+    async for chunk in request.stream():
+        received.extend(chunk)
+        if len(received) > limit_bytes:
+            raise RequestBodyTooLargeError(limit_bytes)
+    return bytes(received)
+
+
 class _AbortBodyError(Exception):
     """Raised from the counting ``receive`` to stop the application's read."""
 
@@ -338,5 +352,6 @@ __all__ = [
     "SpoolBudget",
     "declared_length",
     "is_multipart",
+    "read_bounded_body",
     "request_body_limit_bytes",
 ]
