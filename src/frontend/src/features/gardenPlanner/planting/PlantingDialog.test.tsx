@@ -12,6 +12,7 @@ import { getActiveTenantSlug } from '@/api/client';
 import { server } from '@/test/mocks/server';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import PlantingDialog from './PlantingDialog';
+import type { SunExposure } from '../model/types';
 import {
   BASE,
   BED_GEOMETRY,
@@ -25,12 +26,18 @@ const TOMATO = species('sp_tomato', 'Tomato', { spacing_cm: '60', row_spacing_cm
 const CARROT = species('sp_carrot', 'Carrot', { spacing_cm: '5', row_spacing_cm: '80' });
 const BARE = species('sp_bare', 'Rhubarb');
 
-function renderDialog(onPlanted = vi.fn(), onClose = vi.fn(), onPartial = vi.fn()) {
+function renderDialog(
+  onPlanted = vi.fn(),
+  onClose = vi.fn(),
+  onPartial = vi.fn(),
+  sunExposure: SunExposure = 'unknown',
+) {
   const view = renderWithProviders(
     <PlantingDialog
       bedKey="loc_b03"
       bedName="Raised bed 3"
       geometry={BED_GEOMETRY}
+      sunExposure={sunExposure}
       onClose={onClose}
       onPlanted={onPlanted}
       onPartial={onPartial}
@@ -328,6 +335,80 @@ describe('what is sent', () => {
     const post = backend.seen.find((s) => s.url === '/locations/loc_b03/quick-planting');
     expect(post?.body).toMatchObject({ species_key: 'sp_tomato', spacing_cm: 60, layout_strategy: 'grid' });
     expect(runPosts(backend)).toHaveLength(0);
+  });
+});
+
+describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
+  const SUNNY = species('sp_tomato', 'Tomato', { spacing_cm: '60', light_requirement: 'full_sun' });
+
+  it('shows a red verdict in words for a full-sun crop on a shade bed, and does not block', async () => {
+    const backend = usePlantingBackend({ species: [SUNNY] });
+    const user = userEvent.setup();
+    const { onPlanted } = renderDialog(vi.fn(), vi.fn(), vi.fn(), 'shade');
+    await choose(user, 0, 'Tomato');
+
+    const verdict = await screen.findByTestId('planting-site-fit-sp_tomato');
+    expect(verdict).toHaveTextContent('site poorly suited');
+    expect(verdict).toHaveTextContent(/Bed: Shade — Tomato .* needs full sun\./);
+    expect(verdict).toHaveTextContent('The bed is too shady.');
+    expect(verdict).toHaveAttribute('role', 'alert');
+
+    await screen.findByText(/plants, at most/);
+    await hintsDone();
+    await user.click(screen.getByTestId('planting-submit'));
+
+    // No reason is asked for, nothing is refused: a site hint is advice only.
+    await waitFor(() => expect(onPlanted).toHaveBeenCalled());
+    expect(runPosts(backend)[0].body).not.toHaveProperty('rotation_override_reason');
+  });
+
+  it('gives no hint when the bed class is unknown', async () => {
+    usePlantingBackend({ species: [SUNNY] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'unknown');
+    await choose(user, 0, 'Tomato');
+    await screen.findByTestId('planting-hint-sp_tomato');
+
+    expect(screen.queryByTestId('planting-site-fit-sp_tomato')).toBeNull();
+  });
+
+  it('gives no hint when the species has no recorded light requirement, whatever its tolerance says (E-05)', async () => {
+    const tolerant = species('sp_tomato', 'Tomato', { spacing_cm: '60', shade_tolerance: 'deep_shade' });
+    usePlantingBackend({ species: [tolerant] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'shade');
+    await choose(user, 0, 'Tomato');
+    await screen.findByTestId('planting-hint-sp_tomato');
+
+    expect(screen.queryByTestId('planting-site-fit-sp_tomato')).toBeNull();
+  });
+
+  it('widens to yellow when the tolerance covers the bed, and says when it is not recorded', async () => {
+    usePlantingBackend({
+      species: [species('sp_tomato', 'Tomato', { spacing_cm: '60', light_requirement: 'full_sun', shade_tolerance: 'partial_shade' })],
+    });
+    const user = userEvent.setup();
+    const first = renderDialog(vi.fn(), vi.fn(), vi.fn(), 'partial_shade');
+    await choose(user, 0, 'Tomato');
+    const covered = await screen.findByTestId('planting-site-fit-sp_tomato');
+    expect(covered).toHaveTextContent('site only partly suited');
+    expect(covered).toHaveTextContent('it grows down to Partial shade');
+    first.unmount();
+
+    usePlantingBackend({ species: [SUNNY] });
+    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'partial_shade');
+    await choose(user, 0, 'Tomato');
+    const unknown = await screen.findByTestId('planting-site-fit-sp_tomato');
+    expect(unknown).toHaveTextContent('Tolerance unknown');
+  });
+
+  it('is green on the matching bed', async () => {
+    usePlantingBackend({ species: [SUNNY] });
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'full_sun');
+    await choose(user, 0, 'Tomato');
+
+    expect(await screen.findByTestId('planting-site-fit-sp_tomato')).toHaveTextContent('site well suited');
   });
 });
 

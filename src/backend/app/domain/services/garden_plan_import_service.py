@@ -40,6 +40,7 @@ from app.common.enums import TenantRole
 from app.common.exceptions import PlanError, PlanValidationError
 from app.common.types import SiteKey
 from app.domain.calculators.geometry_calculator import area_m2, validate_geometry
+from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_SLOT_OUTSIDE_BED,
     ERROR_SLOT_OVERLAP,
@@ -479,6 +480,7 @@ class GardenPlanImportService:
                 )
                 zone_key = None
         soil = _copied(item.soil_profile) if item.soil_profile is not None else None
+        site_conditions = _copied(item.site_conditions) if item.site_conditions is not None else None
         if soil is not None and soil.substrate_key:
             if soil.substrate_key not in substrate_cache:
                 substrate_cache[soil.substrate_key] = self._plan.substrate_visible(
@@ -505,6 +507,11 @@ class GardenPlanImportService:
             "bed_status": item.bed_status,
             "sun_exposure": item.sun_exposure,
             "soil_profile": soil,
+            "site_conditions": site_conditions,
+            # The file carries no ``frost_exposed``; the winter readers still read it (WP 3.9), so it follows the risk.
+            "frost_exposed": frost_exposed_from_risk(site_conditions.microclimate.frost_risk)
+            if site_conditions is not None
+            else None,
             "irrigation_zone_key": zone_key,
             "locked": item.locked,
             "z_order": item.z_order,

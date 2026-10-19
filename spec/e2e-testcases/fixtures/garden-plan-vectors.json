@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -50,7 +50,8 @@
     "layout": "input.bed (geometry), input.entry (layout fields in cm, optional max_count) -> expected {count, capacity_max, warnings: [codes], points: [[x, y]] in layout order, row_indices, zones: [{outline, capacity_plants}]} - planting_layout_calculator.compute_layout / model/layout.ts computeLayout",
     "layout_error": "same input as layout -> expected {code, estimated?}: the refusal (422) compute_layout raises; estimated is exact",
     "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)",
-    "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)"
+    "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)",
+    "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)"
   },
   "cases": [
     {
@@ -3946,6 +3947,328 @@
       "spec": "frost alone is `frost`",
       "input": {"now": "2026-06-10T12:00:00Z", "plant": {"kind": "plant", "removed_on": null, "termination_type": null}, "phase": {"key": "ph-flower", "started_on": "2026-05-20", "typical_days": 60, "allows_harvest": false, "is_terminal": false}, "tasks": [], "open_findings": 0, "frost_risk": true, "harvest_batches": 0},
       "expected": {"lifecycle": "active", "phase_key": "ph-flower", "phase_progress": {"elapsed_d": 21, "typical_d": 60, "fraction": 0.35, "next_phase_eta": "2026-07-19"}, "attention": [{"reason": "frost", "count": 1}], "harvest_ready": false, "harvest_ready_from": null}
+    },
+    {
+      "id": "site-fit-ok-full-sun",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 equal step: full_sun bed, full_sun demand",
+      "input": {
+        "sun_exposure": "full_sun",
+        "light_requirement": "full_sun",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "ok",
+        "reason": "match"
+      }
+    },
+    {
+      "id": "site-fit-ok-partial-shade",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 equal step: partial_shade bed, partial_shade demand (tolerance irrelevant)",
+      "input": {
+        "sun_exposure": "partial_shade",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": "full_sun"
+      },
+      "expected": {
+        "fit": "ok",
+        "reason": "match"
+      }
+    },
+    {
+      "id": "site-fit-ok-shade",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 equal step: shade bed, shade demand",
+      "input": {
+        "sun_exposure": "shade",
+        "light_requirement": "shade",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "ok",
+        "reason": "match"
+      }
+    },
+    {
+      "id": "site-fit-sunnier-one-step-fs-on-ps",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 sunnier by one step: full_sun bed, partial_shade demand -> marginal",
+      "input": {
+        "sun_exposure": "full_sun",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "too_sunny"
+      }
+    },
+    {
+      "id": "site-fit-sunnier-one-step-ps-on-shade",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 sunnier by one step: partial_shade bed, shade demand (woodruff) -> marginal",
+      "input": {
+        "sun_exposure": "partial_shade",
+        "light_requirement": "shade",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "too_sunny"
+      }
+    },
+    {
+      "id": "site-fit-sunnier-two-steps",
+      "operation": "site_fit",
+      "spec": "GP-FR-160/GP-ACC-053 sunnier by two steps: shade demand on a full_sun bed -> poor",
+      "input": {
+        "sun_exposure": "full_sun",
+        "light_requirement": "shade",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_sunny"
+      }
+    },
+    {
+      "id": "site-fit-sunnier-ignores-tolerance",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 the tolerance only widens the shady side: full_sun bed, partial_shade demand, deep_shade tolerance -> still marginal",
+      "input": {
+        "sun_exposure": "full_sun",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": "deep_shade"
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "too_sunny"
+      }
+    },
+    {
+      "id": "site-fit-shadier-one-step-covered",
+      "operation": "site_fit",
+      "spec": "GP-ACC-053 one step shadier, tolerance covers: partial_shade bed, full_sun demand, partial_shade tolerance -> marginal",
+      "input": {
+        "sun_exposure": "partial_shade",
+        "light_requirement": "full_sun",
+        "shade_tolerance": "partial_shade"
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerated"
+      }
+    },
+    {
+      "id": "site-fit-shadier-one-step-covered-deeper",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 tolerance reaching deeper than the bed also covers: partial_shade bed, full_sun demand, shade tolerance -> marginal",
+      "input": {
+        "sun_exposure": "partial_shade",
+        "light_requirement": "full_sun",
+        "shade_tolerance": "shade"
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerated"
+      }
+    },
+    {
+      "id": "site-fit-shadier-one-step-not-covered",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 one step shadier, tolerance stops above the bed: partial_shade bed, full_sun demand, full_sun tolerance -> poor",
+      "input": {
+        "sun_exposure": "partial_shade",
+        "light_requirement": "full_sun",
+        "shade_tolerance": "full_sun"
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_shady"
+      }
+    },
+    {
+      "id": "site-fit-shadier-one-step-tolerance-unknown",
+      "operation": "site_fit",
+      "spec": "GP-ACC-053 one step shadier and shade_tolerance = null -> marginal with the reason tolerance_unknown (no silent poor)",
+      "input": {
+        "sun_exposure": "partial_shade",
+        "light_requirement": "full_sun",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerance_unknown"
+      }
+    },
+    {
+      "id": "site-fit-shadier-shade-on-ps-covered",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 shade bed, partial_shade demand, shade tolerance -> marginal",
+      "input": {
+        "sun_exposure": "shade",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": "shade"
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerated"
+      }
+    },
+    {
+      "id": "site-fit-shadier-shade-on-ps-not-covered",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 shade bed, partial_shade demand, partial_shade tolerance -> poor",
+      "input": {
+        "sun_exposure": "shade",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": "partial_shade"
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_shady"
+      }
+    },
+    {
+      "id": "site-fit-shadier-shade-on-ps-tolerance-unknown",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 shade bed, partial_shade demand, no tolerance -> marginal, tolerance_unknown",
+      "input": {
+        "sun_exposure": "shade",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerance_unknown"
+      }
+    },
+    {
+      "id": "site-fit-shadier-deep-on-shade-covered",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 deep_shade bed, shade demand, deep_shade tolerance -> marginal",
+      "input": {
+        "sun_exposure": "deep_shade",
+        "light_requirement": "shade",
+        "shade_tolerance": "deep_shade"
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerated"
+      }
+    },
+    {
+      "id": "site-fit-shadier-deep-on-shade-not-covered",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 deep_shade bed, shade demand, shade tolerance -> poor",
+      "input": {
+        "sun_exposure": "deep_shade",
+        "light_requirement": "shade",
+        "shade_tolerance": "shade"
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_shady"
+      }
+    },
+    {
+      "id": "site-fit-shadier-deep-on-shade-tolerance-unknown",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 deep_shade bed, shade demand, no tolerance -> marginal, tolerance_unknown",
+      "input": {
+        "sun_exposure": "deep_shade",
+        "light_requirement": "shade",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "marginal",
+        "reason": "tolerance_unknown"
+      }
+    },
+    {
+      "id": "site-fit-shadier-two-steps",
+      "operation": "site_fit",
+      "spec": "GP-ACC-053 two steps shadier: full_sun demand on a shade bed -> poor, whatever the tolerance",
+      "input": {
+        "sun_exposure": "shade",
+        "light_requirement": "full_sun",
+        "shade_tolerance": "shade"
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_shady"
+      }
+    },
+    {
+      "id": "site-fit-shadier-two-steps-deep-on-ps",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 two steps shadier: partial_shade demand on a deep_shade bed, deep_shade tolerance -> poor",
+      "input": {
+        "sun_exposure": "deep_shade",
+        "light_requirement": "partial_shade",
+        "shade_tolerance": "deep_shade"
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_shady"
+      }
+    },
+    {
+      "id": "site-fit-shadier-three-steps",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 three steps shadier: full_sun demand on a deep_shade bed -> poor",
+      "input": {
+        "sun_exposure": "deep_shade",
+        "light_requirement": "full_sun",
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "poor",
+        "reason": "too_shady"
+      }
+    },
+    {
+      "id": "site-fit-unknown-bed",
+      "operation": "site_fit",
+      "spec": "GP-FR-160/GP-ACC-053 bed sun_exposure unknown -> unknown, no hint",
+      "input": {
+        "sun_exposure": "unknown",
+        "light_requirement": "full_sun",
+        "shade_tolerance": "partial_shade"
+      },
+      "expected": {
+        "fit": "unknown",
+        "reason": "bed_unknown"
+      }
+    },
+    {
+      "id": "site-fit-unknown-requirement",
+      "operation": "site_fit",
+      "spec": "GP-FR-160/GP-ACC-053 light_requirement null -> unknown, no hint (shade_tolerance never derives it, E-05)",
+      "input": {
+        "sun_exposure": "full_sun",
+        "light_requirement": null,
+        "shade_tolerance": "shade"
+      },
+      "expected": {
+        "fit": "unknown",
+        "reason": "requirement_unknown"
+      }
+    },
+    {
+      "id": "site-fit-unknown-both",
+      "operation": "site_fit",
+      "spec": "GP-FR-160 both sides missing -> unknown",
+      "input": {
+        "sun_exposure": "unknown",
+        "light_requirement": null,
+        "shade_tolerance": null
+      },
+      "expected": {
+        "fit": "unknown",
+        "reason": "bed_unknown"
+      }
     }
   ]
 }

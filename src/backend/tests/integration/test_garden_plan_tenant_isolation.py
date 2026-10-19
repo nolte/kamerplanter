@@ -556,6 +556,17 @@ CASES: tuple[Case, ...] = (
     Case("list_location_children", "GET", "/locations/bed_b/children"),
     Case("get_location_summary", "GET", "/locations/bed_b/summary"),
     Case("patch_location", "PATCH", "/locations/bed_b", {"name": "Taken over"}, writes=True),
+    # WP 3.9: the site features and the sun class are written by the same route - a foreign bed takes neither.
+    Case(
+        "patch_location_site_conditions",
+        "PATCH",
+        "/locations/bed_b",
+        {
+            "sun_exposure": "shade",
+            "site_conditions": {"microclimate": {"frost_risk": "high"}, "wind_exposure": "exposed"},
+        },
+        writes=True,
+    ),
     Case(
         "change_location_status",
         "POST",

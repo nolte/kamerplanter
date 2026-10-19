@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SiteType, SlotRole, SunExposure
 from app.domain.models.garden_object import GardenObjectProps
 from app.domain.models.geometry import BedFrameGeometry, Geometry
-from app.domain.models.site import SoilProfile
+from app.domain.models.site import SiteConditions, SoilProfile
 
 SCHEMA_VERSION = "1"
 
@@ -61,6 +61,7 @@ class ExportLocation(_ExportModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     soil_profile: SoilProfile | None = None
+    site_conditions: SiteConditions | None = None
     irrigation_zone_key: str | None = None
     locked: bool = False
     z_order: int = 0

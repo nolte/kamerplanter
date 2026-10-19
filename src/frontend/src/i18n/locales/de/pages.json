@@ -6063,6 +6063,47 @@
           "badgeWater": "Tropfen: Gießen fällig",
           "badgeHarvest": "Quadrat mit Haken: erntereif"
         }
+      },
+      "sun": {
+        "title": "Sonne und Schatten",
+        "group": "Sonne und Schatten am Beet",
+        "hint": "Wähle, wie viel direktes Sonnenlicht das Beet an einem Sommertag bekommt. Die Angabe hilft dir bei der Pflanzenwahl.",
+        "options": {
+          "full_sun": {
+            "label": "Volle Sonne",
+            "help": "Mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag"
+          },
+          "partial_shade": {
+            "label": "Halbschatten",
+            "help": "3–6 Stunden direktes Sonnenlicht"
+          },
+          "shade": {
+            "label": "Schatten",
+            "help": "2–3 Stunden direktes Sonnenlicht"
+          },
+          "deep_shade": {
+            "label": "Tiefschatten",
+            "help": "Weniger als 2 Stunden direktes Sonnenlicht"
+          },
+          "unknown": {
+            "label": "Unbekannt",
+            "help": "Noch nicht erfasst"
+          }
+        },
+        "bulk": {
+          "title": "Sonne für alle gewählten Beete setzen",
+          "hint": "Gilt für {{count}} gewählte Beete. Gesperrte Beete bleiben unverändert. Du kannst den Schritt mit „Rückgängig“ zurücknehmen.",
+          "locked": "Alle gewählten Beete sind gesperrt. Entsperre sie, um die Sonne zu setzen.",
+          "mixed": "Die gewählten Beete haben unterschiedliche Werte.",
+          "result_one": "{{count}} Beet auf „{{sun}}“ gesetzt.",
+          "result_other": "{{count}} Beete auf „{{sun}}“ gesetzt. Bereits passende Beete blieben unverändert."
+        },
+        "dialog": {
+          "title": "Sonne und Schatten: {{bed}}",
+          "save": "Speichern",
+          "cancel": "Abbrechen",
+          "saved": "Sonne und Schatten gespeichert."
+        }
       }
     },
     "bed": {
@@ -6103,7 +6144,8 @@
         "year": "Saison",
         "previousYear": "Vorjahr ({{year}}): Die Anbauhistorie dieses Beets steht hier, sobald sie erfasst wird.",
         "rotationHint": "Fruchtfolge-Hinweis",
-        "rotationReason": "Trotzdem gepflanzt: {{reason}}"
+        "rotationReason": "Trotzdem gepflanzt: {{reason}}",
+        "changeSun": "Sonne ändern"
       },
       "status": {
         "title": "Status des Beets ändern",
@@ -6569,7 +6611,7 @@
           "zoneInsetNotApplied": "Der Rand der Fläche konnte nicht eingehalten werden."
         },
         "hints": {
-          "title": "Fruchtfolge und Nachbarn",
+          "title": "Fruchtfolge, Nachbarn und Standort",
           "checking": "Prüfe {{name}} …",
           "unavailable": "{{name}}: Die Fruchtfolge konnte nicht geprüft werden ({{message}}). Das ist kein grünes Licht.",
           "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal oder Dauerkultur).",
@@ -6624,6 +6666,27 @@
           "taskName": "{{plant}} nach {{bed}} umpflanzen",
           "taskInstruction": "Pflanze {{plant}} in das Beet {{bed}} umpflanzen.",
           "done": "Aufgabe angelegt: {{plant}} nach {{bed}} umpflanzen."
+        },
+        "siteFit": {
+          "fit": {
+            "ok": "gut geeignet",
+            "marginal": "bedingt geeignet",
+            "poor": "schlecht geeignet"
+          },
+          "line": "Beet: {{bed}} — {{name}} braucht {{need}}.",
+          "needs": {
+            "full_sun": "Vollsonne",
+            "partial_shade": "Halbschatten",
+            "shade": "Schatten"
+          },
+          "reason": {
+            "match": "Das passt zum Beet.",
+            "too_shady": "Das Beet ist zu schattig.",
+            "tolerated": "Das Beet liegt noch in der Schattentoleranz der Art (bis {{tolerance}}).",
+            "tolerance_unknown": "Toleranz unbekannt: Für diese Art ist nicht erfasst, wie viel Schatten sie verträgt.",
+            "too_sunny": "Das Beet ist zu sonnig. Es drohen Verbrennungen und Trockenstress."
+          },
+          "summary": "{{name}}: Standort {{fit}}"
         }
       }
     }

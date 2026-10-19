@@ -15,8 +15,10 @@ from app.common.enums import (
 )
 from app.domain.models.species import (
     GrowingPeriod,
+    LightRequirement,
     PhotosynthesisType,
     PropagationConfig,
+    ShadeTolerance,
     WateringGuide,
 )
 
@@ -105,6 +107,12 @@ class SpeciesResponse(BaseModel):
     mature_height_cm: str | None = None
     mature_width_cm: str | None = None
     spacing_cm: str | None = None
+    #: REQ-053 GP-FR-061: the Steckbrief row spacing (range string) the planting dialog prefills from.
+    row_spacing_cm: str | None = None
+    #: What a bed must offer (GP-FR-160, E-05) — the demand side of ``site_fit``.
+    light_requirement: LightRequirement | None = None
+    #: How far down the sun ladder the species still grows (the yellow zone of ``site_fit``).
+    shade_tolerance: ShadeTolerance | None = None
     indoor_suitable: Suitability | None = None
     balcony_suitable: Suitability | None = None
     greenhouse_recommended: bool = False

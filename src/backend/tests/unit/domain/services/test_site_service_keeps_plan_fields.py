@@ -9,7 +9,7 @@ receives — the same object the write serialises.
 
 from __future__ import annotations
 
-from app.common.enums import BedStatus, SlotRole, SunExposure
+from app.common.enums import BedStatus, FrostRisk, SlotRole, SunExposure, SunWindow
 from app.domain.models.site import Location, Site, Slot
 from app.domain.services.site_service import LOCATION_FIELDS_KEPT_ON_EDIT, SLOT_FIELDS_KEPT_ON_EDIT, SiteService
 
@@ -31,6 +31,7 @@ class _Repo:
             sun_exposure=SunExposure.FULL_SUN,
             irrigation_zone_key="zone_1",
             soil_profile={"soil_texture": "loam", "ph": 6.8},
+            site_conditions={"sun_profile": {"sun_window": "afternoon"}, "wind_exposure": "exposed"},
             notes="Tomaten wegen Dachüberstand.",
             description="Lärchenholz",
             locked=True,
@@ -114,6 +115,57 @@ class TestUpdateLocation:
         plan_fields = set(Location.model_fields) - set(LocationCreate.model_fields)
         plan_fields -= {"key", "created_at", "updated_at", "depth", "path", "area_m2"}
         assert plan_fields == set(LOCATION_FIELDS_KEPT_ON_EDIT)
+
+
+class TestFrostExposedMirror:
+    """WP 3.9: the legacy boolean and ``microclimate.frost_risk`` move together on ``PUT /locations``."""
+
+    def test_a_changed_boolean_sets_the_risk_and_keeps_the_other_site_conditions(self) -> None:
+        repo = _Repo()
+        body = Location(name="Hochbeet 3", site_key="site_1", area_m2=0.0, frost_exposed=True)
+
+        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert written.site_conditions is not None
+        assert written.site_conditions.microclimate.frost_risk is FrostRisk.HIGH
+        assert written.site_conditions.sun_profile.sun_window is SunWindow.AFTERNOON
+        # the stored row is not touched: the mirror works on a copy
+        assert repo.location.site_conditions.microclimate.frost_risk is FrostRisk.UNKNOWN  # type: ignore[union-attr]
+
+    def test_an_unchanged_boolean_leaves_an_entered_risk_alone(self) -> None:
+        repo = _Repo()
+        repo.location = repo.location.model_copy(
+            update={
+                "frost_exposed": True,
+                "site_conditions": {"microclimate": {"frost_risk": "normal"}},
+            }
+        )
+        repo.location = Location.model_validate(repo.location.model_dump(by_alias=True))
+        body = Location(name="Hochbeet 3", site_key="site_1", area_m2=0.0, frost_exposed=True)
+
+        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert written.site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
+
+    def test_clearing_the_boolean_resets_the_risk_to_unknown(self) -> None:
+        repo = _Repo()
+        repo.location = Location.model_validate({**repo.location.model_dump(by_alias=True), "frost_exposed": False})
+        body = Location(name="Hochbeet 3", site_key="site_1", area_m2=0.0, frost_exposed=None)
+
+        written = _service(repo).update_location("loc_1", body, tenant_key=TENANT)
+
+        assert written.site_conditions.microclimate.frost_risk is FrostRisk.UNKNOWN  # type: ignore[union-attr]
+
+    def test_create_with_a_boolean_writes_the_risk(self) -> None:
+        repo = _Repo()
+        repo.created = []  # type: ignore[attr-defined]
+        repo.create_location = lambda location: repo.created.append(location) or location  # type: ignore[attr-defined,method-assign]
+        body = Location(name="Neues Beet", site_key="site_1", area_m2=1.0, frost_exposed=False)
+
+        created = _service(repo).create_location(body, tenant_key=TENANT)
+
+        assert created.site_conditions is not None
+        assert created.site_conditions.microclimate.frost_risk is FrostRisk.LOW
 
 
 class TestUpdateSlot:
