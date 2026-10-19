@@ -186,6 +186,9 @@ export interface PlanPalette {
   water: string;
   plant: string;
   slot: string;
+  /** Task badge on a bed (GP-FR-089): overdue tasks, otherwise open tasks; the text is the contrast of the fill. */
+  badgeOverdue: { fill: string; text: string };
+  badgeOpen: { fill: string; text: string };
 }
 
 export function planPalette(theme: Theme): PlanPalette {
@@ -209,6 +212,8 @@ export function planPalette(theme: Theme): PlanPalette {
     water: alpha(palette.info.main, 0.4),
     plant: palette.success.dark,
     slot: palette.text.secondary,
+    badgeOverdue: { fill: palette.error.main, text: palette.getContrastText(palette.error.main) },
+    badgeOpen: { fill: palette.primary.main, text: palette.getContrastText(palette.primary.main) },
   };
 }
 
@@ -263,6 +268,13 @@ interface ShapeNodeProps {
   onFocusKey?: (key: string) => void;
   onActivateKey?: (key: string) => void;
 }
+
+/** Radius of the task badge on a bed, in screen pixels. */
+const BADGE_RADIUS_PX = 11;
+/** Font size of the count, in screen pixels. */
+const BADGE_FONT_PX = 12;
+/** A bed narrower than this on screen shows no badge (the aria-label still carries the count). */
+const BADGE_MIN_BED_PX = 44;
 
 function shapeStyle(entry: ShapeEntry, selected: boolean, palette: PlanPalette) {
   const location = entry.kind === 'location' ? (entry.source as PlanLocation) : null;
@@ -416,9 +428,96 @@ const ShapeNode = memo(function ShapeNode({
           {size}
         </text>
       ) : null}
+      {entry.kind === 'location' && widthPx >= BADGE_MIN_BED_PX
+        ? (() => {
+            const location = entry.source as PlanLocation;
+            if (location.open_task_count <= 0) return null;
+            // The top-right corner of the box, except on a circle, where that corner lies outside the bed: there
+            // the badge sits on the rim at 45 degrees.
+            const badgeCorner: Point =
+              entry.shape.kind === 'circle'
+                ? [
+                    entry.shape.center[0] + entry.shape.radiusM * Math.SQRT1_2,
+                    -(entry.shape.center[1] + entry.shape.radiusM * Math.SQRT1_2),
+                  ]
+                : [entry.bbox[2], -entry.bbox[3]];
+            return (
+              <TaskBadge
+                locationKey={entry.key}
+                openCount={location.open_task_count}
+                overdueCount={location.overdue_task_count}
+                x={badgeCorner[0]}
+                y={badgeCorner[1]}
+                pxPerM={pxPerM}
+                palette={palette}
+              />
+            );
+          })()
+        : null}
     </g>
   );
 });
+
+// ── Task badge ───────────────────────────────────────────────────────────────
+
+interface TaskBadgeProps {
+  locationKey: string;
+  openCount: number;
+  overdueCount: number;
+  /** Where the badge's top-right corner sits, in drawing coordinates (y already flipped). */
+  x: number;
+  y: number;
+  pxPerM: number;
+  palette: PlanPalette;
+}
+
+/**
+ * The open-task badge of a bed (GP-FR-089): the count of open tasks, red when some are overdue. It is
+ * decorative for assistive technology - the bed's accessible name already says how many tasks are open,
+ * and the properties panel offers the care tab as a button. The `data-plan-badge` marker lets the editor
+ * recognise a click on it and open the care tab.
+ */
+function TaskBadge({ locationKey, openCount, overdueCount, x, y, pxPerM, palette }: TaskBadgeProps) {
+  const colors = overdueCount > 0 ? palette.badgeOverdue : palette.badgeOpen;
+  const text = openCount > 99 ? '99+' : String(openCount);
+  const height = (2 * BADGE_RADIUS_PX) / pxPerM;
+  // One digit is a circle; more grow into a pill so the number never spills out of its badge.
+  const width = Math.max(height, (text.length * BADGE_FONT_PX * 0.62 + 10) / pxPerM);
+  const left = x - width;
+  return (
+    <g
+      className="gp-badge"
+      data-plan-badge={locationKey}
+      data-overdue={overdueCount > 0 ? 'true' : 'false'}
+      aria-hidden="true"
+      style={{ cursor: 'pointer' }}
+    >
+      <rect
+        x={num(left)}
+        y={num(y)}
+        width={num(width)}
+        height={num(height)}
+        rx={num(height / 2)}
+        fill={colors.fill}
+        stroke={colors.text}
+        strokeWidth={1}
+        vectorEffect="non-scaling-stroke"
+      />
+      <text
+        x={num(left + width / 2)}
+        y={num(y + height / 2)}
+        fontSize={(BADGE_FONT_PX / pxPerM).toPrecision(4)}
+        fontWeight="bold"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={colors.text}
+        pointerEvents="none"
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
 
 // ── Markers and clusters ─────────────────────────────────────────────────────
 

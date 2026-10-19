@@ -5643,7 +5643,8 @@
           "region": "Properties",
           "geometryTitle": "Position and size",
           "geometryHint": "Sizes in metres, rotation in degrees. The position is the corner of the object (the centre for circles); x points right, y points up.",
-          "fieldInvalid": "Please enter a valid number."
+          "fieldInvalid": "Please enter a valid number.",
+          "openCare": "Care: {{open}} open, {{overdue}} overdue"
         },
         "contextMenu": {
           "label": "Actions for the selection",
@@ -5952,10 +5953,6 @@
           "description": "Soon you plan here what grows in this bed. Until then, the existing runs and plants are on the details tab.",
           "action": "Go to details"
         },
-        "care": {
-          "title": "Care is coming",
-          "description": "Soon you see the tasks and the care log of this bed here."
-        },
         "history": {
           "title": "History is coming",
           "description": "Soon you see here what grew in this bed in past years."
@@ -5980,7 +5977,121 @@
         "empty": "No beds yet",
         "emptyDescription": "Draw a bed on the garden plan and it appears here.",
         "onlyMineNone": "No beds are assigned to you yet.",
-        "notPlaced": "\"{{name}}\" is not drawn on the garden plan yet."
+        "notPlaced": "\"{{name}}\" is not drawn on the garden plan yet.",
+        "batchOpen": "Complete tasks on several beds",
+        "careLink": "{{tasks}}: open the care tab of {{name}}"
+      },
+      "care": {
+        "sections": {
+          "overdue": "Overdue ({{count}})",
+          "open": "Open ({{count}})",
+          "suggested": "Suggestions ({{count}})",
+          "suggestedHint": "The system proposes these tasks. Do one now or dismiss it; nothing happens until you decide.",
+          "suggestedNoReason": "No reason given."
+        },
+        "target": {
+          "bed": "Whole bed",
+          "plant": "Plant {{name}}",
+          "plantUnknown": "in this bed",
+          "other": "Other"
+        },
+        "due": "Due {{date}}",
+        "dueOverdue": "Overdue since {{date}}",
+        "done": "Done",
+        "doneFor": "Done: {{name}}",
+        "doNow": "Do now",
+        "doNowFor": "Do now: {{name}}",
+        "dismiss": "Dismiss",
+        "dismissFor": "Dismiss: {{name}}",
+        "loading": "Loading tasks",
+        "empty": {
+          "title": "Nothing to do here",
+          "description": "No open tasks for this bed or its plants.",
+          "descriptionEdit": "No open tasks for this bed or its plants. Create a task, or log what you have just done."
+        },
+        "undo": {
+          "action": "Undo",
+          "completed": "Done: {{name}}",
+          "dismissed": "Dismissed: {{name}}",
+          "logged": "Logged: {{category}}",
+          "batch": "{{count}} tasks completed"
+        },
+        "complete": {
+          "title": "Complete: {{category}}",
+          "optionalHint": "Everything below is optional. You can complete the task without entering anything.",
+          "submit": "Complete"
+        },
+        "form": {
+          "note": "Note",
+          "quantity": {
+            "watering": "Amount",
+            "rainfall": "Rainfall",
+            "feeding": "Amount",
+            "amendment": "Amount",
+            "mulching": "Thickness",
+            "harvest": "Weight",
+            "amount": "Amount"
+          },
+          "unit": "Unit",
+          "source": "Water source",
+          "sourceUnknown": "Not specified",
+          "material": "Material",
+          "product": "Product",
+          "productHint": "Pick a fertilizer from the catalogue or type a name.",
+          "performedAt": "When",
+          "performedAtHint": "Defaults to now. You can backdate up to 365 days, never into the future."
+        },
+        "errors": {
+          "future": "The time lies in the future.",
+          "tooOld": "The time is more than 365 days ago.",
+          "invalid": "Enter a valid date and time.",
+          "quantity": "Enter a number of 0 or more.",
+          "tooLong": "This text is too long."
+        },
+        "create": {
+          "open": "New task",
+          "title": "New task for this bed",
+          "category": "Category",
+          "name": "Name",
+          "nameHint": "Optional. Without a name the category is used.",
+          "due": "Due date",
+          "scope": "Applies to",
+          "scopeBed": "The whole bed (one task)",
+          "scopePlants": "Every plant in the bed (one task per plant)",
+          "scopePlantsHint": "{{count}} plants stand in this bed. Each gets its own task; the bed task is not kept.",
+          "scopeNoPlants": "No plants stand in this bed.",
+          "submit": "Create task",
+          "createdBed": "Task created for the bed.",
+          "createdPlants_one": "{{count}} task created for the plant.",
+          "createdPlants_other": "{{count}} tasks created, one per plant."
+        },
+        "log": {
+          "open": "Log care",
+          "title": "Log care without a task",
+          "category": "What did you do?",
+          "categoryHint": "Plant protection treatments are not logged here; use the plant protection form.",
+          "noteCategory": "Note",
+          "noteText": "Note",
+          "submit": "Log"
+        },
+        "batch": {
+          "title": "Complete tasks on several beds",
+          "intro": "Pick a kind of task and the beds. All open tasks of that kind on these beds (and their plants) are completed in one step.",
+          "category": "Kind of task",
+          "beds": "Beds",
+          "noBeds": "Pick at least one bed.",
+          "find": "Find tasks",
+          "none": "There are no open {{category}} tasks on the chosen beds.",
+          "found": "{{tasks}} open tasks on {{beds}} beds.",
+          "tooMany": "Only the first {{max}} tasks are completed; run the step again for the rest.",
+          "back": "Back",
+          "submit": "Complete {{count}} tasks",
+          "partial": "{{done}} completed, {{failed}} could not be completed.",
+          "findFailed": "Some beds could not be read; the tasks of the others are listed.",
+          "findFailedAll": "The tasks could not be read. Try again in a moment.",
+          "findFailedNone": "No open {{category}} tasks were found on the beds that could be read; other beds could not be read.",
+          "continue": "{{count}} more tasks are left. Complete them with the same details or change them first."
+        }
       }
     }
   }

@@ -271,3 +271,68 @@ describe('SvgPlanRenderer - boundary stays in the plan', () => {
     expect(boundary?.querySelector('path')).toHaveAttribute('stroke-dasharray', '10 6');
   });
 });
+
+describe('SvgPlanRenderer - task badge (GP-FR-089)', () => {
+  const planWith = (counts: { open: number; overdue: number }, width = 1.2) =>
+    smallPlan({
+      locations: [
+        bed('loc_a', 1, 1, {
+          open_task_count: counts.open,
+          overdue_task_count: counts.overdue,
+          geometry: { kind: 'rect', origin: [1, 1], width_m: width, length_m: 2, rotation_deg: 0 },
+          bbox: [1, 1, 1 + width, 3],
+        }),
+      ],
+      garden_objects: [],
+    });
+
+  it('draws the count of open tasks at the corner of the bed, decorative for assistive technology', () => {
+    const { svg } = mount(new SvgPlanRenderer(), planWith({ open: 3, overdue: 0 }));
+    const badge = svg.querySelector('[data-plan-badge="loc_a"]');
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toBe('3');
+    expect(badge?.getAttribute('data-overdue')).toBe('false');
+    expect(badge?.getAttribute('aria-hidden')).toBe('true');
+    // The bed's accessible name already carries the count.
+    expect(svg.querySelector('[data-plan-key="loc_a"]')?.getAttribute('aria-label')).toContain('3 tasks');
+  });
+
+  it('marks a bed with overdue tasks and caps the number at 99+', () => {
+    const { svg } = mount(new SvgPlanRenderer(), planWith({ open: 120, overdue: 2 }));
+    const badge = svg.querySelector('[data-plan-badge="loc_a"]');
+    expect(badge?.getAttribute('data-overdue')).toBe('true');
+    expect(badge?.textContent).toBe('99+');
+  });
+
+  it('draws no badge for a bed without open tasks, or one too narrow on screen', () => {
+    expect(mount(new SvgPlanRenderer(), planWith({ open: 0, overdue: 0 })).svg.querySelector('[data-plan-badge]')).toBeNull();
+    // 1.2 m at 30 px/m = 36 px, below the 44 px a badge needs.
+    expect(
+      mount(new SvgPlanRenderer(), planWith({ open: 2, overdue: 0 }), viewportAt(0, 10, 30)).svg.querySelector('[data-plan-badge]'),
+    ).toBeNull();
+  });
+
+  it('puts the badge on the rim of a circular bed, where its box corner would float in the air', () => {
+    const circle = bed('loc_a', 1, 1, {
+      open_task_count: 1,
+      overdue_task_count: 0,
+      geometry: { kind: 'circle', origin: [3, 3], radius_m: 1 },
+      bbox: [2, 2, 4, 4],
+    });
+    const { svg } = mount(new SvgPlanRenderer(), smallPlan({ locations: [circle], garden_objects: [] }));
+    const rect = svg.querySelector('[data-plan-badge="loc_a"] rect') as SVGRectElement;
+    const right = Number(rect.getAttribute('x')) + Number(rect.getAttribute('width'));
+    // The corner of the box would be x = 4; the rim point at 45 degrees is 3 + cos(45) = 3.707.
+    expect(right).toBeCloseTo(3.707, 2);
+  });
+
+  it('grows into a pill for a two-digit count so the number stays inside its badge', () => {
+    const width = (open: number) => {
+      const { svg } = mount(new SvgPlanRenderer(), planWith({ open, overdue: 0 }));
+      const rect = svg.querySelector('[data-plan-badge] rect') as SVGRectElement;
+      return Number(rect.getAttribute('width'));
+    };
+    expect(width(12)).toBeGreaterThan(width(3));
+    expect(width(150)).toBeGreaterThan(width(12));
+  });
+});
