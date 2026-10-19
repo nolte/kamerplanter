@@ -1,4 +1,4 @@
-"""v0101 (#2499): plant location/site backfill planned and applied on a fake volume.
+"""v0100 (#2499): plant location/site backfill planned and applied on a fake volume.
 
 The fake evaluates the scan from plain dicts and applies the batched ``UPDATE`` with the same
 "never overwrite a set field" rule as the AQL. The real AQL is exercised by the integration suite.
@@ -12,7 +12,7 @@ import pytest
 
 from app.data_access.arango import collections as col
 from app.migrations.framework.report import IrreversibleMigrationError
-from app.migrations.versions.v0101_backfill_plant_location_site import migration
+from app.migrations.versions.v0100_backfill_plant_location_site import migration
 
 
 class _FakeAql:

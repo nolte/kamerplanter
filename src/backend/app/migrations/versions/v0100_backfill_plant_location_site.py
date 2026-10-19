@@ -1,4 +1,4 @@
-"""v0101 — #2499 (REQ-053 WP 3.8 follow-up): backfill ``location_key`` / ``site_key`` on plants of a planting run.
+"""v0100 — #2499 (REQ-053 WP 3.8 follow-up): backfill ``location_key`` / ``site_key`` on plants of a planting run.
 
 **What.** ``planting_run_service.create_plants`` wrote plants with ``slot_key`` set but ``location_key`` and
 ``site_key`` ``null`` until WP 3.8 fixed the writer. Every bed read finds a bed's plants by ``location_key``
@@ -139,7 +139,7 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
 
 
 class BackfillPlantLocationSiteMigration(Migration):
-    version = "0101"
+    version = "0100"
     name = "backfill_plant_location_site"
     description = (
         "#2499: derive location_key and site_key of plants written by create_plants before the WP 3.8 fix "

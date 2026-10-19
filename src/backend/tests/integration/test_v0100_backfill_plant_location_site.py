@@ -1,4 +1,4 @@
-"""#2499 — v0101 measured on a real ArangoDB (prod point P-2): the AQL scan and the batched UPDATE.
+"""#2499 — v0100 measured on a real ArangoDB (prod point P-2): the AQL scan and the batched UPDATE.
 
 Plants written by ``create_plants`` before the WP 3.8 fix carry ``slot_key`` but no ``location_key`` /
 ``site_key``. The fixture inserts that stored shape directly (the production writer now stamps both).
@@ -6,7 +6,7 @@ Plants written by ``create_plants`` before the WP 3.8 fix carry ``slot_key`` but
 Locally it needs a database::
 
     docker run -d -p 127.0.0.1:8529:8529 -e ARANGO_ROOT_PASSWORD=rootpassword arangodb:3.12
-    pytest tests/integration/test_v0101_backfill_plant_location_site.py -v
+    pytest tests/integration/test_v0100_backfill_plant_location_site.py -v
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.collections import ensure_collections
-from app.migrations.versions.v0101_backfill_plant_location_site import migration
+from app.migrations.versions.v0100_backfill_plant_location_site import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
 pytestmark = [
@@ -24,7 +24,7 @@ pytestmark = [
     pytest.mark.allow_db_connection("the migration's scan and batched UPDATE are AQL over a real server"),
 ]
 
-_DB_NAME = run_database_name("v0101_backfill_plant_location_site")
+_DB_NAME = run_database_name("v0100_backfill_plant_location_site")
 
 
 @pytest.fixture
