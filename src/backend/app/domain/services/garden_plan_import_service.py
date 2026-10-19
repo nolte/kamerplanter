@@ -26,12 +26,15 @@ condition and nothing else. ``merge`` only adds.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Any
 
 import structlog
+from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import ErrorDetails
 
 from app.common.enums import TenantRole
 from app.common.exceptions import PlanError, PlanValidationError
@@ -89,6 +92,7 @@ ERROR_QUOTA = "plan.quota_exceeded"
 _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width_m", "length_m", "radius_m"})
 #: How much of a file's own key an error may echo back.
 _KEY_ECHO = 64
+_TEMP_PREFIX = "imp_"
 
 _LOCATION = "location"
 _OBJECT = "garden_object"
@@ -117,6 +121,38 @@ class _Prepared:
     boundary_changed: bool = False
     settings_written: bool = False
     snapshot_wanted: bool = False
+
+    def add_finding(self, finding: ImportFinding) -> None:
+        self.findings.append(finding)
+
+    def add_findings(self, findings: Iterable[ImportFinding]) -> None:
+        self.findings.extend(findings)
+
+    def drop(self, reference: DroppedReference) -> None:
+        self.dropped.append(reference)
+
+    def add_slot(self, location: str, slot: Slot) -> None:
+        self.slots.append((location, slot))
+
+
+def _copied[TModel: BaseModel](model: TModel) -> TModel:
+    return model.model_copy(deep=True)
+
+
+def _dumped(model: BaseModel) -> dict[str, Any]:
+    return model.model_dump(mode="json")
+
+
+def _is_temp(key: str) -> bool:
+    return key.startswith(_TEMP_PREFIX)
+
+
+def _value(mapping: dict[str, Any], name: str) -> Any:
+    return mapping.get(name)
+
+
+def _errors_of(error: PydanticValidationError) -> list[ErrorDetails]:
+    return error.errors()
 
 
 def _echo(key: object) -> str | None:
@@ -278,7 +314,7 @@ class GardenPlanImportService:
         try:
             return GardenPlanExport.model_validate(document)
         except PydanticValidationError as exc:
-            findings = [_finding_of(error, document) for error in exc.errors()]
+            findings = [_finding_of(error, document) for error in _errors_of(exc)]
             raise PlanValidationError(
                 [
                     (None, finding.field, finding.code, {"key": finding.key} if finding.key else {})
@@ -345,12 +381,12 @@ class GardenPlanImportService:
     ) -> None:
         """What stays and what goes of the plan that is there now."""
         if mode == "merge":
-            prepared.locations = {key: loc.model_copy(deep=True) for key, loc in stored.items()}
-            prepared.objects = {obj.key: obj.model_copy(deep=True) for obj in existing_objects if obj.key}
+            prepared.locations = {key: _copied(loc) for key, loc in stored.items()}
+            prepared.objects = {obj.key: _copied(obj) for obj in existing_objects if obj.key}
             return
         planted = self._plan.locations_with_active_plants(sorted(stored), tenant_key=tenant_key)
         if planted and not force:
-            prepared.findings.append(ImportFinding(field="mode", code=ERROR_NOT_EMPTY))
+            prepared.add_finding(ImportFinding(field="mode", code=ERROR_NOT_EMPTY))
         keep: set[str] = set()
         for key in planted:  # V-09: a bed with a plant stays, and so does everything above it
             current: str | None = key
@@ -358,7 +394,7 @@ class GardenPlanImportService:
                 keep.add(current)
                 current = stored[current].parent_location_key
         prepared.kept = len(keep)
-        prepared.locations = {key: stored[key].model_copy(deep=True) for key in keep}
+        prepared.locations = {key: _copied(stored[key]) for key in keep}
         prepared.delete_locations = sorted(set(stored) - keep)
         prepared.deleted_names = {key: stored[key].name for key in prepared.delete_locations}
         prepared.delete_objects = sorted(obj.key for obj in existing_objects if obj.key)
@@ -373,7 +409,7 @@ class GardenPlanImportService:
         index_of: dict[str, int] = {}
         for position, item in enumerate(locations):
             if item.key in index_of:
-                prepared.findings.append(
+                prepared.add_finding(
                     ImportFinding(field=f"locations[{position}].key", code=ERROR_DUPLICATE_KEY, key=_echo(item.key))
                 )
                 continue
@@ -396,7 +432,7 @@ class GardenPlanImportService:
                 parent = locations[current].parent_location_key
                 current = index_of.get(parent) if parent is not None else None
             if current is not None and state.get(current) == 1:
-                prepared.findings.append(
+                prepared.add_finding(
                     ImportFinding(
                         field=f"locations[{current}].parent_location_key",
                         code=ERROR_PARENT_CYCLE,
@@ -427,7 +463,7 @@ class GardenPlanImportService:
 
         type_key = item.location_type_key
         if type_key and type_key not in flags:
-            prepared.dropped.append(
+            prepared.drop(
                 DroppedReference(entity=_LOCATION, key=item.key, field="location_type_key", reason="not_found")
             )
             type_key = ""
@@ -438,18 +474,18 @@ class GardenPlanImportService:
             zone_site = zone_cache[zone_key]
             if zone_site != site_key:
                 reason = "not_found" if zone_site is None else "not_in_site"
-                prepared.dropped.append(
+                prepared.drop(
                     DroppedReference(entity=_LOCATION, key=item.key, field="irrigation_zone_key", reason=reason)
                 )
                 zone_key = None
-        soil = item.soil_profile.model_copy(deep=True) if item.soil_profile is not None else None
+        soil = _copied(item.soil_profile) if item.soil_profile is not None else None
         if soil is not None and soil.substrate_key:
             if soil.substrate_key not in substrate_cache:
                 substrate_cache[soil.substrate_key] = self._plan.substrate_visible(
                     soil.substrate_key, tenant_key=tenant_key
                 )
             if not substrate_cache[soil.substrate_key]:
-                prepared.dropped.append(
+                prepared.drop(
                     DroppedReference(
                         entity=_LOCATION, key=item.key, field="soil_profile.substrate_key", reason="not_found"
                     )
@@ -478,14 +514,14 @@ class GardenPlanImportService:
         try:
             location = Location(**fields)
         except PydanticValidationError as exc:
-            prepared.findings.extend(
+            prepared.add_findings(
                 ImportFinding(field=f"locations[{position}].{_path(e['loc'])}", code=_code_of(e), key=_echo(item.key))
-                for e in exc.errors()
+                for e in _errors_of(exc)
             )
             return
         place_in_tree(location, parent)
         if location.depth >= MAX_IMPORT_NESTING:
-            prepared.findings.append(
+            prepared.add_finding(
                 ImportFinding(
                     field=f"locations[{position}].parent_location_key", code=ERROR_TOO_DEEP, key=_echo(item.key)
                 )
@@ -512,12 +548,10 @@ class GardenPlanImportService:
             # A parent that could not be built has a finding already; here it is simply absent.
             temp = f"imp_loc_{position}"
             return temp if temp in prepared.locations else None
-        if parent in prepared.locations and not parent.startswith("imp_"):
+        if parent in prepared.locations and not _is_temp(parent):
             return parent
         entity = _LOCATION if isinstance(item, ExportLocation) else _OBJECT
-        prepared.dropped.append(
-            DroppedReference(entity=entity, key=item.key, field="parent_location_key", reason="not_found")
-        )
+        prepared.drop(DroppedReference(entity=entity, key=item.key, field="parent_location_key", reason="not_found"))
         return None
 
     def _add_object(
@@ -547,11 +581,11 @@ class GardenPlanImportService:
                 created_by=user_key,
             )
         except PydanticValidationError as exc:
-            prepared.findings.extend(
+            prepared.add_findings(
                 ImportFinding(
                     field=f"garden_objects[{position}].{_path(e['loc'])}", code=_code_of(e), key=_echo(item.key)
                 )
-                for e in exc.errors()
+                for e in _errors_of(exc)
             )
             return
         prepared.objects[temp] = garden_object
@@ -564,12 +598,10 @@ class GardenPlanImportService:
         for position, item in enumerate(slots):
             bed = by_file_key.get(item.location_key)
             if bed is None:
-                prepared.dropped.append(
-                    DroppedReference(entity=_SLOT, key=item.key, field="location_key", reason="not_found")
-                )
+                prepared.drop(DroppedReference(entity=_SLOT, key=item.key, field="location_key", reason="not_found"))
                 continue
             if (bed, item.slot_id) in seen:
-                prepared.findings.append(
+                prepared.add_finding(
                     ImportFinding(field=f"slots[{position}].slot_id", code=ERROR_DUPLICATE_SLOT_ID, key=_echo(item.key))
                 )
                 continue
@@ -588,12 +620,12 @@ class GardenPlanImportService:
                     planned_spacing_cm=item.planned_spacing_cm,
                 )
             except PydanticValidationError as exc:
-                prepared.findings.extend(
+                prepared.add_findings(
                     ImportFinding(field=f"slots[{position}].{_path(e['loc'])}", code=_code_of(e), key=_echo(item.key))
-                    for e in exc.errors()
+                    for e in _errors_of(exc)
                 )
                 continue
-            prepared.slots.append((bed, slot))
+            prepared.add_slot(bed, slot)
             prepared.file_key[f"imp_slot_{len(prepared.slots) - 1}"] = item.key
 
     @staticmethod
@@ -607,32 +639,30 @@ class GardenPlanImportService:
                 if not isinstance(item, dict):
                     continue
                 for name in ALWAYS_DROPPED_FIELDS:
-                    if item.get(name) is not None:
-                        key = _echo(item.get("key")) or ""
-                        prepared.dropped.append(
-                            DroppedReference(entity=entity, key=key, field=name, reason="always_dropped")
-                        )
+                    if _value(item, name) is not None:
+                        key = _echo(_value(item, "key")) or ""
+                        prepared.drop(DroppedReference(entity=entity, key=key, field=name, reason="always_dropped"))
 
     def _check_quotas(self, prepared: _Prepared, site_key: str, *, tenant_key: str, mode: ImportMode) -> None:
         """GP-NFR-017: ≤ 500 locations and garden objects per site, ≤ 8 000 slots, ≤ 2 000 per bed."""
         total = len(prepared.locations) + len(prepared.objects)
         if total > MAX_PLAN_OBJECTS_PER_SITE:
-            prepared.findings.append(ImportFinding(field="locations", code=ERROR_QUOTA))
+            prepared.add_finding(ImportFinding(field="locations", code=ERROR_QUOTA))
         per_bed: dict[str, int] = {}
         for bed, _ in prepared.slots:
             per_bed[bed] = per_bed.get(bed, 0) + 1
         for bed, count in per_bed.items():
             if count > MAX_SLOTS_PER_BATCH:
-                prepared.findings.append(
+                prepared.add_finding(
                     ImportFinding(field="slots", code=ERROR_QUOTA, key=_echo(prepared.file_key.get(bed)))
                 )
         if mode == "merge":
             standing = self._plan.count_active_slots(site_key, tenant_key=tenant_key)
         else:
-            kept = [key for key in prepared.locations if not key.startswith("imp_")]
+            kept = [key for key in prepared.locations if not _is_temp(key)]
             standing = len(self._plan.load_active_slots(site_key, kept, tenant_key=tenant_key)) if kept else 0
         if standing + len(prepared.slots) > MAX_SLOTS_PER_SITE:
-            prepared.findings.append(ImportFinding(field="slots", code=ERROR_QUOTA))
+            prepared.add_finding(ImportFinding(field="slots", code=ERROR_QUOTA))
 
     @staticmethod
     def _check_settings(
@@ -655,13 +685,13 @@ class GardenPlanImportService:
                 adjacency_factor=document.adjacency_factor,
             )
         except PydanticValidationError as exc:
-            prepared.findings.extend(
-                ImportFinding(field=f"plan.{_path(e['loc'])}", code=_code_of(e)) for e in exc.errors()
+            prepared.add_findings(
+                ImportFinding(field=f"plan.{_path(e['loc'])}", code=_code_of(e)) for e in _errors_of(exc)
             )
             return
         if candidate.boundary is not None:
             for code in validate_geometry(candidate.boundary):
-                prepared.findings.append(ImportFinding(field="plan.boundary", code=code))
+                prepared.add_finding(ImportFinding(field="plan.boundary", code=code))
             prepared.boundary = candidate.boundary
             prepared.boundary_changed = True
         prepared.settings_written = True
@@ -680,7 +710,7 @@ class GardenPlanImportService:
         )
         for index, name, code, extra in findings:
             if index is None:
-                prepared.findings.append(ImportFinding(field="plan.boundary", code=code))
+                prepared.add_finding(ImportFinding(field="plan.boundary", code=code))
                 continue
             if index < len(prepared.imported_locations):
                 temp = prepared.imported_locations[index]
@@ -688,10 +718,8 @@ class GardenPlanImportService:
             else:
                 temp = prepared.imported_objects[index - len(prepared.imported_locations)]
                 path = f"garden_objects[{temp.removeprefix('imp_obj_')}].{name}"
-            other = extra.get("key")
-            prepared.findings.append(
-                ImportFinding(field=path, code=code, key=_echo(prepared.file_key.get(temp) or other))
-            )
+            other = _value(extra, "key")
+            prepared.add_finding(ImportFinding(field=path, code=code, key=_echo(prepared.file_key.get(temp) or other)))
         self._check_slot_geometry(prepared)
 
     @staticmethod
@@ -705,13 +733,13 @@ class GardenPlanImportService:
             bed_geometry = prepared.locations[bed].geometry
             if bed_geometry is not None:
                 for temp in slots_outside_bed(bed_geometry, placed):
-                    prepared.findings.append(
+                    prepared.add_finding(
                         ImportFinding(
                             field="slots", code=ERROR_SLOT_OUTSIDE_BED, key=_echo(prepared.file_key.get(temp))
                         )
                     )
             for first, _second in overlapping_zones(placed):
-                prepared.findings.append(
+                prepared.add_finding(
                     ImportFinding(field="slots", code=ERROR_SLOT_OVERLAP, key=_echo(prepared.file_key.get(first)))
                 )
 
@@ -770,7 +798,8 @@ class GardenPlanImportService:
         audit.append({"op": f"import_{mode}", "entity": "site", "key": site_key, "summary": summary})
         snapshot: dict[str, Any] | None = None
         if prepared.snapshot_wanted:
-            snapshot = self._export.export_json(site_key, tenant_key=tenant_key).model_dump(mode="json")
+            backup = self._export.export_json(site_key, tenant_key=tenant_key)
+            snapshot = _dumped(backup)
         plan = parsed.plan if prepared.settings_written else None
         return PlanBatchWrite(
             site_key=site_key,
