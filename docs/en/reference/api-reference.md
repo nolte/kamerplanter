@@ -127,6 +127,37 @@ curl -X GET \
 
 ---
 
+### Bed history and care log (REQ-053)
+
+Read endpoints of the bed history. All need a valid JWT and are open to every member of the tenant; a bed or entry of another tenant answers like a missing one with `404`.
+
+```
+GET    /api/v1/t/{slug}/locations/{key}/history                       # care entries + planting events
+GET    /api/v1/t/{slug}/locations/{key}/rotation                      # timeline per year (family, nutrient demand, role)
+POST   /api/v1/t/{slug}/locations/{key}/history/backfill              # fill in an earlier year (grower and above)
+DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # take a backfilled year back
+GET    /api/v1/t/{slug}/care-events                                   # care log of the whole tenant
+```
+
+**`GET …/history`** returns the stored care entries of the bed and the planting events **derived** from plants and runs in one list, newest first. Every item carries `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` and `category` (`planting` or `removal` for planting events). For `care_event` the whole entry is in `care_event`.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `category` | – | Only this category (`422` for an unknown one) |
+| `plant_key` | – | Only entries that name this plant (runs drop out) |
+| `from`, `to` | – | Period, inclusive; `to` before `from` is `422`. An instant without a time zone is read as UTC |
+| `performed_by` | – | Account key of a member. Role `viewer`/`grower`: only your own account (`403` otherwise); `lead` and the `management` scope: any member. The `_anonymized` marker cannot be filtered (`422`). Planting events have no performer and drop out |
+| `include_corrections` | `false` | Also replaced entries and `position_corrected` |
+| `offset`, `limit` | `0`, `50` | Page; `limit` at most 200 |
+
+**`GET …/rotation`** returns for each year the families that stood in the bed (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` or `backfill`). `years` defaults to `max(rotation pause of the families involved, 5)`, at most 10 (`422` above).
+
+**`POST …/history/backfill`** takes `{year, season?, species_key?, family_key?, plan_role}`. `year` lies between the current year minus 10 and minus 1 (`422 backfill.year_out_of_range`). A species names its family; a differing `family_key` is `422 backfill.family_mismatch`. Only a fallow year (`plan_role: fallow`) needs no family. The server writes the care entry itself; a client cannot set the `trigger`.
+
+**`GET /care-events`** is the care log of the whole tenant with the same filters plus `location_key` and `include_superseded`. Without a period, bed or plant filter it shows the last 90 days.
+
+---
+
 ### Garden Plan (PDF, SVG, JSON backup)
 
 Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.

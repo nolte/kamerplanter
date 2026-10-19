@@ -127,6 +127,37 @@ curl -X GET \
 
 ---
 
+### Beet-Historie und Pflegeprotokoll (REQ-053)
+
+Lesende Endpunkte der Beet-Historie. Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen; ein Beet oder Eintrag eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`.
+
+```
+GET    /api/v1/t/{slug}/locations/{key}/history                       # Pflegeeinträge + Pflanzungsereignisse
+GET    /api/v1/t/{slug}/locations/{key}/rotation                      # Zeitstrahl je Jahr (Familie, Nährstoffbedarf, Rolle)
+POST   /api/v1/t/{slug}/locations/{key}/history/backfill              # Vorjahr nachtragen (ab Rolle grower)
+DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # Nachtrag zurücknehmen
+GET    /api/v1/t/{slug}/care-events                                   # Pflegeprotokoll des ganzen Mandanten
+```
+
+**`GET …/history`** liefert die gespeicherten Pflegeeinträge des Beets und die aus Pflanzen und Durchläufen **abgeleiteten** Pflanzungsereignisse in einer Liste, neueste zuerst. Jeder Eintrag trägt `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` und `category` (bei Pflanzungsereignissen `planting` oder `removal`). Bei `care_event` steht der ganze Eintrag in `care_event`.
+
+| Parameter | Standard | Beschreibung |
+|-----------|----------|--------------|
+| `category` | – | Nur diese Kategorie (`422` bei unbekannter) |
+| `plant_key` | – | Nur Einträge, die diese Pflanze nennen (Durchläufe entfallen) |
+| `from`, `to` | – | Zeitraum, einschließlich; `to` vor `from` ergibt `422`. Ein Zeitpunkt ohne Zeitzone gilt als UTC |
+| `performed_by` | – | Konto-Schlüssel eines Mitglieds. Rolle `viewer`/`grower`: nur das eigene Konto (`403` sonst); `lead` und der Bereich `management`: jedes Mitglied. Der Marker `_anonymized` ist nicht filterbar (`422`). Pflanzungsereignisse haben keine ausführende Person und entfallen |
+| `include_corrections` | `false` | Auch ersetzte Einträge und `position_corrected` |
+| `offset`, `limit` | `0`, `50` | Seite; `limit` höchstens 200 |
+
+**`GET …/rotation`** liefert je Jahr die Familien, die im Beet standen (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` oder `backfill`). `years` ist standardmäßig `max(Anbaupause der beteiligten Familien, 5)`, höchstens 10 (`422` darüber).
+
+**`POST …/history/backfill`** nimmt `{year, season?, species_key?, family_key?, plan_role}`. `year` liegt zwischen dem laufenden Jahr minus 10 und minus 1 (`422 backfill.year_out_of_range`). Eine Art bestimmt ihre Familie; eine abweichende `family_key` ergibt `422 backfill.family_mismatch`. Nur eine Brache (`plan_role: fallow`) braucht keine Familie. Der Server schreibt den Pflegeeintrag selbst; den `trigger` kann der Client nicht setzen.
+
+**`GET /care-events`** ist das Pflegeprotokoll des ganzen Mandanten mit denselben Filtern plus `location_key` und `include_superseded`. Ohne Zeitraum, Beet- und Pflanzenfilter zeigt es die letzten 90 Tage.
+
+---
+
 ### Gartenplan (PDF, SVG, JSON-Sicherung)
 
 Drei Exporte des Gartenplans eines Standorts (REQ-053). Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen. Ein Standort eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`. Je Route gelten `RATE_LIMIT_PLAN_EXPORT` Anfragen je Konto (Standard 10 pro Minute) und `RATE_LIMIT_PLAN_EXPORT_TENANT` je Mandant (Standard 30 pro Minute); darüber antwortet die API mit `429` und `Retry-After`.

@@ -289,12 +289,13 @@ Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Link
 |-----|--------|
 | Plan | Beetrahmen mit Plätzen, Reihen bzw. Zonen und Pflanzenmarkern, nur lesend. Über **Im Gartenplan öffnen** wechselst du zum Bearbeiten in den Gartenplan. |
 | Pflege | Offene und überfällige Aufgaben des Beets und seiner Pflanzen, Erledigen, Vorschläge und Pflegeprotokoll (siehe [Pflege am Beet](#pflege-am-beet)). |
-| Pflanzung, Historie | Zeigen vorerst einen Leerzustand. Bestehende Durchläufe und Pflanzen findest du weiterhin unter **Stammdaten**. |
+| Historie | Zeitstrahl, was in den Jahren zuvor im Beet stand, und die Liste aller Pflegeeinträge und Pflanzungen (siehe [Historie des Beets](#historie-des-beets)). |
+| Pflanzung | Zeigt vorerst einen Leerzustand. Bestehende Durchläufe und Pflanzen findest du weiterhin unter **Stammdaten**. |
 | Boden | Bodenprofil des Beets (siehe unten). |
 | Stammdaten | Die bisherige Standortseite, unverändert. |
 
 !!! warning "Noch nicht implementiert"
-    Die Tabs **Pflanzung** und **Historie** sind angelegt, enthalten aber noch keine Inhalte. Sie werden künftig die Pflanzungen und den Verlauf des Beets zeigen.
+    Der Tab **Pflanzung** ist angelegt, enthält aber noch keine Inhalte. Er wird künftig die Pflanzungen des Beets zeigen.
 
 ### Pflege am Beet {#pflege-am-beet}
 
@@ -331,6 +332,21 @@ Alle Felder sind freiwillig. Du kannst also auch ohne Eingabe auf **Erledigen** 
 
 !!! info "Farbe nach Priorität"
     Der Zähler unterscheidet bisher nur „offen" und „überfällig". Eine Färbung nach Priorität der Aufgaben folgt, sobald der Plan die Priorität mitliefert.
+
+### Historie des Beets {#historie-des-beets}
+
+Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Liste**.
+
+**Zeitstrahl.** Er zeigt für jedes Jahr, welche Pflanzenfamilien im Beet standen, mindestens die letzten fünf Jahre, bei langen Anbaupausen bis zu zehn. Jede Familie hat eine eigene Farbe und steht immer auch mit ihrem Namen auf dem Eintrag. Gründüngung und Brache sind gekennzeichnet. Der Zeitstrahl ist die Grundlage der Fruchtfolge-Prüfung. Für Töpfe, Zelte und Regale ist diese Prüfung aus; die Historie bleibt trotzdem erhalten.
+
+**Was stand hier?** Wenn du ein Jahr nachtragen willst, in dem du die App noch nicht genutzt hast, tippe bei dem Jahr auf **{Jahr} nachtragen** oder oben auf **Was stand hier?**. Du wählst Jahr, Pflanzenfamilie (oder eine Art, die ihre Familie mitbringt), die Rolle (Hauptkultur, Gründüngung oder Brache) und optional die Saison. Erlaubt sind die letzten zehn Jahre bis zum Vorjahr. Danach erscheint die Meldung mit **Rückgängig**. Einen nachgetragenen Eintrag nimmst du später mit dem **x** am Eintrag zurück, als Autor oder in der Rolle „lead". Er bleibt dann als storniert im Pflegeprotokoll stehen. Beobachter (Rolle „viewer") sehen den Zeitstrahl nur lesend.
+
+**Liste.** Die neuesten Einträge stehen oben, 50 pro Seite; mit **Mehr laden** holst du die nächsten. Die Liste mischt Pflegeeinträge mit Pflanzungsereignissen: Pflanze gesetzt oder entfernt, Durchlauf gestartet oder abgeschlossen. Du kannst nach **Kategorie**, **Zeitraum**, **Pflanze** und **Person** filtern. Korrekturen sind zunächst ausgeblendet: ersetzte Einträge und „Position korrigiert". Mit **Korrekturen anzeigen** siehst du sie wieder, jeweils als „Korrigiert" oder „Korrektur" gekennzeichnet.
+
+!!! info "Wer nach Personen filtern darf"
+    Der Personenfilter ist ein Aktivitätsprofil und deshalb eingeschränkt. In den Rollen „viewer" und „grower" filterst du nur nach dir selbst. Die Rolle „lead" und Mitglieder mit dem Verwaltungsbereich `management` können nach jedem Mitglied filtern. Ausgeschiedene Mitglieder erscheinen als „anonymisiert" und sind nicht filterbar.
+
+**Historie aller Beete.** Über **Historie aller Beete** öffnest du die Pflegehistorie des ganzen Mandanten unter `/standorte/historie`. Sie zeigt die letzten 90 Tage, solange du keinen anderen Zeitraum wählst, und kennt dieselben Filter plus **Beet**. Die Pflanze lässt sich wählen, sobald ein Beet gewählt ist.
 
 ### Bodenprofil pflegen
 

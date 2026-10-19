@@ -76,6 +76,7 @@ def list_care_events(
         raise ValidationError(
             f"Unknown category '{category}'.", details=[{"field": "category", "message": "unknown category"}]
         )
+    performed_from, performed_to = _as_utc(performed_from), _as_utc(performed_to)
     if performed_from and performed_to and performed_to < performed_from:
         raise ValidationError(
             "'to' lies before 'from'.", details=[{"field": "to", "message": "must not be before 'from'"}]
@@ -84,8 +85,8 @@ def list_care_events(
         location_key=location_key,
         plant_key=plant_key,
         category=category,
-        performed_from=_as_utc(performed_from),
-        performed_to=_as_utc(performed_to),
+        performed_from=performed_from,
+        performed_to=performed_to,
         performed_by=performed_by,
         include_superseded=include_superseded,
     )

@@ -120,6 +120,52 @@ def check_void_allowed(event: CareEvent, *, reason: str, user_key: str, role: Te
         raise ForbiddenError("Only a lead may cancel this entry; you may undo your own within ten minutes.")
 
 
+def check_performed_by_filter(
+    performed_by: str | None, *, user_key: str, role: TenantRole, admin_scopes: Sequence[AdminScope] = ()
+) -> None:
+    """Who may filter a care log by a member (GP-API-034, E-16, #2411 item 1, SR-020).
+
+    The caller's own account is always allowed; another member needs the lead role or the ``management`` scope
+    (403 otherwise); the erased-member marker is filterable by nobody (422). Shared by the tenant-wide log and the
+    history of a bed, so the two cannot drift apart.
+
+    Raises:
+        ValidationError: ``performed_by`` is the erased-member marker.
+        ForbiddenError: the caller may not filter by another member.
+    """
+    if performed_by == ANONYMIZED_MARKER:
+        # The marker bundles every erased member of the tenant: a filter on it is a timeline of a person who
+        # asked to be forgotten (GDPR review of #2411, Art. 17 / recital 26), whoever asks.
+        raise ValidationError(
+            "The care log cannot be filtered by an erased member.",
+            details=[{"field": "performed_by", "message": "erased members cannot be filtered"}],
+        )
+    if (
+        performed_by is not None
+        and performed_by != user_key
+        and not MembershipEngine.can_filter_care_log_by_member(role, list(admin_scopes))
+    ):
+        raise ForbiddenError(
+            "Only a lead or a member with the management scope may filter the care log by another member."
+        )
+
+
+def view_of_row(row: CareEventRow, viewer_user_key: str, chain_keys: list[str] | None = None) -> CareEventView:
+    """The readable view of a stored row: display names, never account keys (GP-API-034)."""
+    event = row.event
+    return CareEventView(
+        event=event,
+        performed_by=display_performer(event.performed_by_user_key, row.performed_by_name, event.performed_by_label),
+        performed_for=(
+            display_performer(event.performed_for_user_key, row.performed_for_name)
+            if event.performed_for_user_key
+            else None
+        ),
+        created_by_me=event.created_by is not None and event.created_by == viewer_user_key,
+        chain_keys=chain_keys or [],
+    )
+
+
 def check_performed_instant(performed_at: datetime, *, max_age_days: int = MAX_AGE_DAYS) -> None:
     """V-11: at most five minutes ahead, at most ``max_age_days`` back (a year for a client, GP-ACC-025).
 
@@ -277,20 +323,7 @@ class CareEventService:
 
     @staticmethod
     def _view(row: CareEventRow, viewer_user_key: str, chain_keys: list[str] | None = None) -> CareEventView:
-        event = row.event
-        return CareEventView(
-            event=event,
-            performed_by=display_performer(
-                event.performed_by_user_key, row.performed_by_name, event.performed_by_label
-            ),
-            performed_for=(
-                display_performer(event.performed_for_user_key, row.performed_for_name)
-                if event.performed_for_user_key
-                else None
-            ),
-            created_by_me=event.created_by is not None and event.created_by == viewer_user_key,
-            chain_keys=chain_keys or [],
-        )
+        return view_of_row(row, viewer_user_key, chain_keys)
 
     def _stored_view(self, key: str, *, tenant_key: str, user_key: str) -> CareEventView:
         row = self._repo.get_row(key, tenant_key=tenant_key)
@@ -325,21 +358,7 @@ class CareEventService:
         own account for a viewer or grower; only a lead or a member with the ``management`` scope may filter by
         another member (403 otherwise; #2411 item 1, SR-020).
         """
-        if criteria.performed_by == ANONYMIZED_MARKER:
-            # The marker bundles every erased member of the tenant: a filter on it is a timeline of a person who
-            # asked to be forgotten (GDPR review of #2411, Art. 17 / recital 26), whoever asks.
-            raise ValidationError(
-                "The care log cannot be filtered by an erased member.",
-                details=[{"field": "performed_by", "message": "erased members cannot be filtered"}],
-            )
-        if (
-            criteria.performed_by is not None
-            and criteria.performed_by != user_key
-            and not MembershipEngine.can_filter_care_log_by_member(role, list(admin_scopes))
-        ):
-            raise ForbiddenError(
-                "Only a lead or a member with the management scope may filter the care log by another member."
-            )
+        check_performed_by_filter(criteria.performed_by, user_key=user_key, role=role, admin_scopes=admin_scopes)
         if criteria.location_key:
             resolve_owned_location(self._sites, criteria.location_key, tenant_key)
         # The tenant-wide history shows 90 days by default (GP-FR-107); the history of one bed or one plant is the

@@ -6092,6 +6092,137 @@
           "findFailedNone": "No open {{category}} tasks were found on the beds that could be read; other beds could not be read.",
           "continue": "{{count}} more tasks are left. Complete them with the same details or change them first."
         }
+      },
+      "history": {
+        "title": "History",
+        "list": "History entries",
+        "loading": "Loading the history ...",
+        "loadingMore": "Loading more ...",
+        "shown_one": "{{count}} entry shown",
+        "shown_other": "{{count}} entries shown",
+        "loadMore": "Load more",
+        "allBeds": "History of all beds",
+        "by": "by {{name}}",
+        "category": {
+          "note": "Note",
+          "planting": "Planting",
+          "removal": "Removal",
+          "clearing": "Bed cleared",
+          "bed_status_change": "Status change",
+          "position_corrected": "Position corrected"
+        },
+        "state": {
+          "corrected": "Corrected",
+          "correction": "Correction",
+          "voided": "Cancelled",
+          "redacted": "Redacted",
+          "backfill": "Recorded afterwards"
+        },
+        "event": {
+          "plantPlanted": "{{name}} planted",
+          "plantRemoved": "{{name}} removed",
+          "plantRemovedHow": "{{name}} removed ({{how}})",
+          "runStarted": "Run \"{{name}}\" started",
+          "runCompleted": "Run \"{{name}}\" completed",
+          "runCancelled": "Run \"{{name}}\" cancelled"
+        },
+        "termination": {
+          "harvested": "harvested",
+          "senesced": "died back",
+          "died": "died",
+          "cancelled": "cancelled"
+        },
+        "empty": {
+          "title": "Nothing logged yet",
+          "description": "Care you log and plants you plant show up here, newest first.",
+          "filteredTitle": "No entry matches",
+          "filteredDescription": "Loosen a filter or reset them to see more."
+        },
+        "filters": {
+          "label": "Filter the history",
+          "category": "Category",
+          "allCategories": "All categories",
+          "period": "Period",
+          "periods": {
+            "30d": "Last 30 days",
+            "90d": "Last 90 days",
+            "365d": "Last 12 months",
+            "all": "All time",
+            "custom": "Custom range"
+          },
+          "from": "From",
+          "to": "To",
+          "rangeInverted": "The end lies before the start.",
+          "bed": "Bed",
+          "allBeds": "All beds",
+          "plant": "Plant",
+          "allPlants": "All plants",
+          "person": "Person",
+          "everyone": "Everyone",
+          "me": "Me",
+          "personOwnOnly": "You can filter by yourself; leads see every member.",
+          "corrections": "Show corrections",
+          "reset": "Reset filters"
+        },
+        "timeline": {
+          "title": "What grew here",
+          "hint": "Per year the plant families that stood in this bed. They are the basis of the crop rotation.",
+          "loading": "Loading the planting timeline ...",
+          "list": "Planting timeline by year",
+          "whatStood": "What stood here?",
+          "nothingRecorded": "Nothing recorded",
+          "addYear": "Fill in {{year}}",
+          "recordedLater": "recorded afterwards",
+          "cancelYear": "Take back the entry for {{year}}",
+          "cancelTitle": "Take back the entry for {{year}}?",
+          "cancelMessage": "The year is removed from the timeline and the crop rotation check no longer counts it. The entry stays in the care log as cancelled.",
+          "cancelConfirm": "Take back",
+          "fallow": "Fallow",
+          "greenManure": "Green manure",
+          "seasons": {
+            "spring": "Spring",
+            "main": "Main season",
+            "autumn": "Autumn"
+          },
+          "notApplicable": {
+            "container": "The crop rotation check is off for pots, tents and shelves. The history is still kept.",
+            "rotation_exempt": "This bed is exempt from the crop rotation check. The history is still kept.",
+            "unknown": "The crop rotation check is off for this bed."
+          }
+        },
+        "backfill": {
+          "title": "What stood here in {{year}}?",
+          "description": "Fill in a year before you used the app, so the crop rotation check knows the history of this bed.",
+          "year": "Year",
+          "role": "What was it?",
+          "roles": {
+            "main_crop": "Main crop",
+            "green_manure": "Green manure",
+            "fallow": "Fallow (nothing grew)"
+          },
+          "roleHints": {
+            "main_crop": "The crop you grew in that year.",
+            "green_manure": "A cover crop sown to improve the soil.",
+            "fallow": "The bed lay fallow; no family needed."
+          },
+          "species": "Species (optional)",
+          "speciesHint": "A species names its family. Without one, pick the family.",
+          "family": "Plant family",
+          "familyFromSpecies": "Taken from the species.",
+          "noFamily": "Choose a family",
+          "errors": {
+            "family": "Choose a plant family or a species."
+          },
+          "season": "Season",
+          "seasonHint": "Leave empty if you do not know. The entry is dated mid-season.",
+          "seasonNone": "Not specified",
+          "submit": "Save",
+          "saved": "Recorded {{year}} for this bed."
+        },
+        "page": {
+          "title": "Care history",
+          "description": "What was done in all beds of this garden, newest first. The last 90 days are shown unless you choose another period."
+        }
       }
     }
   }

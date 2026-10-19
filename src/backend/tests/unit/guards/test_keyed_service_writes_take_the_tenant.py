@@ -391,6 +391,8 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "GardenPlanExportService": "garden_plan_export_service.py",
     "AdjacencyService": "adjacency_service.py",
     "BedRotationService": "bed_rotation_service.py",
+    # REQ-053 WP 4.5 (#2423): the combined history of a bed. Read-only; it takes the tenant like the other readers.
+    "BedHistoryService": "bed_history_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -404,6 +406,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "GardenPlanExportService": 5,
     "AdjacencyService": 3,
     "BedRotationService": 4,
+    "BedHistoryService": 1,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 

@@ -47,6 +47,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
+    get_bed_history_service,
     get_bed_rotation_service,
     get_garden_plan_export_service,
     get_garden_plan_service,
@@ -59,6 +60,7 @@ from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
 from app.data_access.arango import collections as col
+from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
@@ -84,6 +86,7 @@ from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyService
+from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
@@ -358,9 +361,14 @@ def _rotation_service(db) -> BedRotationService:
     return BedRotationService(sites, ArangoGardenPlanRepository(db), graph, species, families, care, validator)
 
 
+def _history_service(db) -> BedHistoryService:
+    return BedHistoryService(ArangoSiteRepository(db), ArangoBedHistoryRepository(db))
+
+
 def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped: bool = False) -> TestClient:
     plan, resources, sites, reservations, runs = _services(db)
     rotation: Any = _rotation_service(db)
+    history: Any = _history_service(db)
     adjacency: Any = AdjacencyService(
         ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
     )
@@ -368,6 +376,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     if unscoped:
         adjacency = _Unscoped(adjacency)
         rotation = _Unscoped(rotation)
+        history = _Unscoped(history)
         export = _Unscoped(export)
         plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
             _Unscoped(plan),
@@ -390,6 +399,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_planting_run_service] = lambda: runs
     app.dependency_overrides[get_adjacency_service] = lambda: adjacency
     app.dependency_overrides[get_bed_rotation_service] = lambda: rotation
+    app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
@@ -555,6 +565,8 @@ CASES: tuple[Case, ...] = (
     # REQ-053 WP 3.4, GP-API-025 / 039 / 042: rotation hints, the timeline and the history backfill of a bed.
     Case("validate_planting", "POST", "/locations/bed_b/validate-planting", {"species_key": "sp"}),
     Case("get_rotation", "GET", "/locations/bed_b/rotation"),
+    # REQ-053 WP 4.5, GP-API-038: the combined history of a bed (care events + derived planting events).
+    Case("get_bed_history", "GET", "/locations/bed_b/history"),
     Case(
         "backfill_history",
         "POST",

@@ -28,6 +28,8 @@ import { useYearParam } from './useYearParam';
 const BedPlanTab = lazy(() => import('./BedPlanTab'));
 // The care tab brings its dialogs (completion, task, log); they load when the tab opens.
 const BedCareTab = lazy(() => import('../care/BedCareTab'));
+// The history tab brings the timeline, the filters and the backfill dialog; it loads when the tab opens.
+const BedHistoryTab = lazy(() => import('../history/BedHistoryTab'));
 
 const ID_PREFIX = 'bed';
 const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'details'] as const;
@@ -79,7 +81,11 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
           </Suspense>
         );
       case 'history':
-        return <BedPlaceholderPanel tab="history" />;
+        return (
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <BedHistoryTab bed={summary} />
+          </Suspense>
+        );
       case 'soil':
         return (
           <SoilProfileForm
