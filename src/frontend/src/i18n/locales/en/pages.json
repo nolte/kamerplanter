@@ -5727,8 +5727,8 @@
           "toggleHint": "Show or hide the grid (G). The snap raster stays active.",
           "unit": "Length unit",
           "unitOption": {
-            "m": "Metres (m)",
-            "cm": "Centimetres (cm)"
+            "m": "m: Metres",
+            "cm": "cm: Centimetres"
           }
         },
         "snap": {

@@ -3,8 +3,10 @@
  * shows text must carry that text in its accessible name, or a speech-input user who says what
  * they see ("click cm") cannot reach it. axe cannot check this here: the tool short text is only
  * displayed from `lg` up, and jsdom lays out no breakpoint. So the DOM is read directly, with the
- * short text present, and compared the way axe's `label-content-name-mismatch` does (lower case,
- * whole words).
+ * short text present, and compared the way axe's `label-content-name-mismatch` does (axe-core
+ * >= 4.11, `isLabelContainedInName`): lower case, parenthesised text REMOVED from both sides, then
+ * the visible words must be a contiguous run of the name's words. "Zentimeter (cm)" therefore
+ * does not contain "cm" (#2497: the first fix of #2388 used that form and stayed red in the E2E).
  */
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -13,7 +15,19 @@ import { ThemeContextProvider } from '@/theme';
 import { EditorToolbar } from './EditorToolbar';
 import { ViewBar } from './ViewBar';
 
-const words = (text: string): string[] => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+const words = (text: string): string[] => {
+  let previous: string;
+  let stripped = text.toLowerCase();
+  do {
+    previous = stripped;
+    stripped = stripped.replace(/\([^()]*\)/g, '');
+  } while (stripped !== previous);
+  return stripped.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+};
+
+const containsRun = (haystack: string[], needle: string[]): boolean =>
+  needle.length === 0 ||
+  haystack.some((_, start) => needle.every((word, offset) => haystack[start + offset] === word));
 
 function labelInNameViolations(root: HTMLElement): string[] {
   const broken: string[] = [];
@@ -21,7 +35,7 @@ function labelInNameViolations(root: HTMLElement): string[] {
     const visible = (button.textContent ?? '').trim();
     if (!visible) continue;
     const name = words(button.getAttribute('aria-label') ?? '');
-    if (!words(visible).every((word) => name.includes(word))) {
+    if (!containsRun(name, words(visible))) {
       broken.push(
         `${button.getAttribute('data-testid') ?? button.outerHTML}: text "${visible}", name "${button.getAttribute('aria-label')}"`,
       );
@@ -75,6 +89,14 @@ beforeEach(() => cleanup());
 afterEach(async () => {
   cleanup();
   await i18n.changeLanguage(original);
+});
+
+describe('label in name matcher', () => {
+  it('rejects a name that only holds the visible text in parentheses (axe drops it)', () => {
+    const button = document.createElement('div');
+    button.innerHTML = '<button aria-label="Zentimeter (cm)">cm</button><button aria-label="cm: Zentimeter">cm</button>';
+    expect(labelInNameViolations(button)).toHaveLength(1);
+  });
 });
 
 describe('label in name of the editor toggles (WCAG 2.5.3, #2388)', () => {
