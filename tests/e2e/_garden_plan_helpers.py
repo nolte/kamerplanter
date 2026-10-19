@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from ._journey_helpers import _api_request
 
@@ -557,8 +557,6 @@ def backfill_last_year(base_url: str, seed: dict, bed_key: str, species_key: str
 
 def overdue_task(base_url: str, seed: dict, plant_key: str, name: str, days_ago: int) -> str:
     """An open task on *plant_key* that fell due *days_ago* days ago (overdue = due before today, UTC)."""
-    from datetime import timedelta
-
     due = (datetime.now(UTC) - timedelta(days=days_ago)).replace(hour=9, minute=0, second=0)
     task = _tenant_post(
         base_url,
@@ -590,3 +588,110 @@ def stored_origin(plan: dict, location_key: str) -> tuple[float, float]:
             return float(origin[0]), float(origin[1])
     keys = [loc.get("key") for loc in plan.get("locations") or []]
     raise AssertionError(f"location {location_key!r} is not in the stored plan; locations={keys}")
+
+
+# ── Care events: the log lines of wave 4 (WP 4.1-4.5) ───────────────────────
+
+
+def tenant_request(
+    base_url: str, seed: dict, method: str, path: str, data: dict | None = None
+) -> tuple[int, object]:
+    """Any tenant-scoped call; the status and body, for a test that asserts a refusal."""
+    api, token = _api(base_url, seed)
+    return _api_request(f"{api}{path}", method, token, data)
+
+
+def utc_stamp(moment: datetime) -> str:
+    """``2026-10-20T08:30:00Z`` - a query-safe instant (a ``+00:00`` offset would lose its ``+`` in a URL)."""
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def log_care_event(
+    base_url: str,
+    seed: dict,
+    *,
+    bed_key: str,
+    category: str,
+    summary: str,
+    days_ago: float = 0.0,
+    **fields: object,
+) -> dict:
+    """``POST /care-events`` (GP-API-033): a care line without a task, *days_ago* days back (at most 365)."""
+    performed_at = datetime.now(UTC) - timedelta(days=days_ago, minutes=1)
+    return _tenant_post(
+        base_url,
+        seed,
+        "/care-events",
+        {
+            "location_key": bed_key,
+            "category": category,
+            "summary": summary,
+            "performed_at": utc_stamp(performed_at),
+            **fields,
+        },
+        expected=(201,),
+    )
+
+
+def care_events(
+    base_url: str,
+    seed: dict,
+    bed_key: str,
+    *,
+    include_superseded: bool = False,
+    category: str | None = None,
+) -> list[dict]:
+    """``GET /care-events`` of one bed over the last 400 days (the default window is 90), newest first."""
+    query = (
+        f"location_key={bed_key}&limit=200"
+        f"&from={utc_stamp(datetime.now(UTC) - timedelta(days=400))}"
+        f"&include_superseded={'true' if include_superseded else 'false'}"
+    )
+    if category:
+        query += f"&category={category}"
+    body = tenant_get(base_url, seed, f"/care-events?{query}")
+    if not isinstance(body, list):
+        raise AssertionError(f"care events of {bed_key!r} is not a list: {body!r}")
+    return body
+
+
+def supersede_care_event(base_url: str, seed: dict, event_key: str, correction: dict) -> dict:
+    """``POST /care-events/{key}/supersede`` (GP-API-036): the corrected entry, created beside the original."""
+    return _tenant_post(
+        base_url, seed, f"/care-events/{event_key}/supersede", correction, expected=(201,)
+    )
+
+
+def redact_care_event(base_url: str, seed: dict, event_key: str, reason: str) -> dict:
+    """``POST /care-events/{key}/redact`` (GP-API-041): the free texts of the entry and its chain."""
+    return _tenant_post(base_url, seed, f"/care-events/{event_key}/redact", {"reason": reason})
+
+
+def create_bed_task(
+    base_url: str, seed: dict, *, bed_key: str, name: str, category: str, days_ahead: int = 0
+) -> str:
+    """An open task on the bed itself (``entity_type = location``), due *days_ahead* days from today."""
+    due = (datetime.now(UTC) + timedelta(days=days_ahead)).replace(hour=23, minute=0, second=0)
+    task = _tenant_post(
+        base_url,
+        seed,
+        "/tasks",
+        {
+            "name": name,
+            "category": category,
+            "priority": "medium",
+            "entity_type": "location",
+            "entity_key": bed_key,
+            "due_date": due.isoformat(),
+        },
+        expected=(201,),
+    )
+    return task["key"]
+
+
+def task_state(base_url: str, seed: dict, task_key: str) -> dict:
+    """``GET /tasks/{key}``: the task as the server holds it."""
+    body = tenant_get(base_url, seed, f"/tasks/{task_key}")
+    if not isinstance(body, dict):
+        raise AssertionError(f"task {task_key!r} is not an object: {body!r}")
+    return body
