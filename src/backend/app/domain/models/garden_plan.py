@@ -247,6 +247,13 @@ class PlanBatchWrite:
     #: and refuses (409 ``bed_status.changed``) when it is another one — the revision alone does not protect a
     #: check that ran against a location read *before* the revision was read.
     status_from: dict[str, str] = field(default_factory=dict)
+    #: ``(location temp_key or key, slot)`` — slots of freshly inserted locations, written in the same transaction
+    #: (the plan import, GP-API-005); the batch routes never set it.
+    slot_inserts: list[tuple[str, Slot]] = field(default_factory=list)
+    #: The state a ``replace`` import overwrites, stored with its audit row in the same transaction (SR-011).
+    snapshot: dict[str, Any] | None = None
+    #: Summary of the snapshot row (counts only, never a name — GP-NFR-060).
+    snapshot_summary: str = ""
     time_budget_seconds: float = BATCH_TIME_BUDGET_SECONDS
 
 
@@ -428,6 +435,9 @@ class PlanAuditRecord(BaseModel):
     key: str
     summary: str = Field(default="", max_length=200)
     at: datetime
+    #: Only on the row a ``replace`` import writes (``import_snapshot``): the plan as it was, in the shape of
+    #: ``GET /plan/export``. The change-log route lists the row (op, summary) but never the payload.
+    snapshot: dict[str, Any] | None = None
 
 
 class PlanAuditEntry(BaseModel):

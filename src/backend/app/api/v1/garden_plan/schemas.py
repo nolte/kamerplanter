@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
 from app.common.enums import BedStatus, SlotRole, SunExposure
 from app.domain.models.garden_plan import MAX_OPERATIONS
+from app.domain.models.garden_plan_import import PlanImportReport
 from app.domain.models.geometry import Geometry
 
 SCHEMA_VERSION = "1"
@@ -338,3 +339,54 @@ class PlanAuditEntryResponse(BaseModel):
     summary: str = ""
     at: datetime
     changed_by_name: str | None = Field(default=None, description="Display name; ``null`` once the account is erased.")
+
+
+class PlanImportRequest(BaseModel):
+    """The envelope of ``POST /sites/{key}/plan/import``; ``document`` is a ``GET /plan/export`` file, as is.
+
+    ``document`` stays a raw mapping on purpose: the service checks ``schema_version`` and the top-level keys of an
+    untrusted file *before* Pydantic reads it (GP-NFR-051), and answers with the file's own paths.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["replace", "merge"] = Field(
+        description="`replace` swaps the site's structure for the file's (writes a snapshot first); `merge` adds."
+    )
+    dry_run: bool = Field(default=False, description="Check the file and report; write nothing.")
+    force: bool = Field(
+        default=False,
+        description="Lifts only the condition that no bed holds an active plant; those beds then stay (V-09).",
+    )
+    confirm_site_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="`replace` (not a dry run) needs the name of the site, typed by the person who confirms.",
+    )
+    document: dict[str, Any] = Field(description='The backup file, `schema_version: "1"`.')
+
+
+class PlanImportResponse(PlanImportReport):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "mode": "replace",
+                    "dry_run": True,
+                    "would_create": {"locations": 5, "garden_objects": 3, "slots": 20, "plan_settings": 0},
+                    "would_update": {"locations": 0, "garden_objects": 0, "slots": 0, "plan_settings": 1},
+                    "would_delete": {"locations": 4, "garden_objects": 2, "slots": 12, "plan_settings": 0},
+                    "kept_locations": 0,
+                    "dropped_references": [
+                        {"entity": "location", "key": "loc_7", "field": "irrigation_zone_key", "reason": "not_found"}
+                    ],
+                    "dropped_references_total": 1,
+                    "errors": [],
+                    "errors_total": 0,
+                    "applied": False,
+                    "plan_revision": None,
+                    "snapshot_written": False,
+                }
+            ]
+        }
+    )

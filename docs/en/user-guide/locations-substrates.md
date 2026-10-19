@@ -363,6 +363,27 @@ If you click a row or press Enter, the bed is selected on the plan and the view 
 
 ---
 
+## Export the plan and restore a backup {#plan-export-import}
+
+On the garden plan page, **Export & import** opens two dialogs.
+
+**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers; a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
+
+The **backup** holds beds, garden objects, plant places, soil profiles and the garden boundary, but no plants and no tasks.
+
+**Restore a backup** leads through the import in three steps. Only a lead can do this.
+
+1. **Choose file:** The file may be at most 5 MB. Kamerplanter checks it right away without writing anything.
+2. **Check report:** You see how much would be created and deleted, which references are not carried over (for example an irrigation zone that does not exist here) and which problems the file has, such as overlapping beds. With problems you cannot continue.
+3. **Mode:** *Add* creates the backup in addition to the existing plan. *Replace* swaps the plan of this site. For that you type the name of the site. Before that, Kamerplanter saves the previous plan as a snapshot in the change log. Download a current backup first anyway, to be safe.
+
+!!! warning "Beds with active plants"
+    A bed with a plant in it is never deleted. While such beds exist, *Replace* rejects the file. If you choose the option to keep those beds, they stay together with the locations above them, and the rest is replaced.
+
+All keys are newly assigned on import. Links to Home Assistant and to actuators are never carried over; set them up again afterwards. If you have unsaved changes to the plan, save or discard them first. In field mode, export and import are hidden.
+
+---
+
 ## Tips for Location Structure
 
 !!! example "Example: Balcony gardener"

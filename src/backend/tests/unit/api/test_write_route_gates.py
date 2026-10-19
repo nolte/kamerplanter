@@ -807,6 +807,10 @@ _MORE_THAN_MEMBERSHIP: frozenset[str] = frozenset(
 #: app that matches neither set — the obsolescence rule the allowlists already
 #: follow, applied one level up to the vocabulary itself.
 _NOT_AUTHORISATION: dict[str, str] = {
+    "get_budgeted_tenant": (
+        "`get_current_tenant` plus a record of the verified tenant for the per-tenant rate limit (GP-NFR-056); it "
+        "refuses nobody the wrapped dependency would admit - the import route's gate is `require_permission`"
+    ),
     "require_mcp_enabled": "operator feature flag; 404s when MCP is off, authorises nobody when on",
     "require_ai_tenant_enabled": "REQ-031 feature flag, not a caller check",
     "require_ai_feature_flag": "REQ-031 operator flag, not a caller check",

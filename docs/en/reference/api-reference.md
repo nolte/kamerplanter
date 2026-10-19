@@ -195,6 +195,53 @@ The PDF contains no member names, assignments, notes or coordinates. The SVG use
 
 ---
 
+### Garden Plan import (JSON backup)
+
+Restores a plan from the JSON backup above (REQ-053). **Only a lead** may import; a grower or viewer gets `403` before the file is read. A site of another tenant answers `404`. The route allows `RATE_LIMIT_PLAN_IMPORT` requests per tenant (default 3 a minute) and a body of up to 5 MB.
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/import
+```
+
+```json
+{
+  "mode": "replace",
+  "dry_run": true,
+  "force": false,
+  "confirm_site_name": null,
+  "document": { "schema_version": "1", "...": "the file from GET …/plan/export" }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `mode` | `replace` swaps the site's locations and garden objects for the file's and writes the state it overwrites to the change log first (a snapshot); `merge` only adds |
+| `dry_run` | `true` checks the file and answers the report; nothing is written |
+| `force` | Lifts only the condition that no bed holds an active plant. Those beds, and the locations above them, then stay |
+| `confirm_site_name` | `replace` (not a dry run) needs the exact name of the site |
+| `document` | The backup file |
+
+The answer is the same report for a dry run and an applied import: `would_create`, `would_update` and `would_delete` (counts of `locations`, `garden_objects`, `slots`, `plan_settings`), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. A dry run lists geometry and limit violations in `errors[]` with status `200`; an applied import with errors answers `422`.
+
+Keys of the file are never kept: every location, garden object and slot gets a new key. A reference that leaves the file is resolved against the target site only, otherwise it is set to empty and reported in `dropped_references[]`. Links to Home Assistant entities and actuators are never imported.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `import.forbidden` | Not a lead |
+| `404` | `ENTITY_NOT_FOUND` | Site not found (or not in this tenant) |
+| `409` | `import.not_empty` | `replace` while a bed holds an active plant; remove the plants or send `force` |
+| `409` | `plan.revision_conflict` | Someone saved the plan while the import ran |
+| `413` | `REQUEST_BODY_TOO_LARGE` | More than 5 MB |
+| `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | The file is no backup of a version this installation reads |
+| `422` | `import.unknown_keys` | The file holds top-level parts this version does not know (a newer file) |
+| `422` | `import.site_name_mismatch` | `replace` without the exact site name |
+| `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | The file breaks a limit or a geometry rule |
+| `429` | | Import budget of the tenant used up; `Retry-After` names the wait |
+
+---
+
 ### List Available Templates
 
 Returns a list of all registered print templates.

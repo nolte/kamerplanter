@@ -938,6 +938,11 @@ class Settings(BaseSettings):
     #: (one bucket), so a club of thirty parcel holders cannot together keep the renderer busy while each stays
     #: inside the per-account budget.
     rate_limit_plan_export_tenant: str = "30/minute"
+    #: ``POST /t/{slug}/sites/{key}/plan/import`` (REQ-053 GP-NFR-056, SR-017), per **tenant**: an import reads up to
+    #: 5 MB, checks every entity against the plan and, applied, rewrites the whole structure in one transaction. The
+    #: assistant needs two requests (the dry run, then the write) and a retry after a refused file; three a minute
+    #: covers that for one person and keeps a club's members from queueing imports behind each other.
+    rate_limit_plan_import: str = "3/minute"
     #: ``POST /t/{slug}/care-events`` and its supersede / void / redact siblings (REQ-053 GP-NFR-056, SR-017),
     #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in
     #: the field with room for a retry, and bounds a runaway client.

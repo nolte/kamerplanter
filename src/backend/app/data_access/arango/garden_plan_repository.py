@@ -457,6 +457,26 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         return int(next(cursor, 0))
 
+    def locations_with_active_plants(self, location_keys: list[str], *, tenant_key: str) -> set[str]:
+        if not tenant_key:
+            raise ValueError("locations_with_active_plants needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return set()
+        # No ``tenant_key`` filter, like ``count_active_plants``: the keys come from the site's owned structure and a
+        # plant whose own stamp is missing or wrong must still keep its bed from being deleted (V-09).
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@col
+                FILTER p.removed_on == null AND p.location_key IN @location_keys
+                RETURN DISTINCT p.location_key
+            """,
+                bind_vars={"@col": col.PLANT_INSTANCES, "location_keys": location_keys},
+            ),
+        )
+        return set(cursor)
+
     def list_audit(self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int) -> list[PlanAuditEntry]:
         if not tenant_key:
             raise ValueError("list_audit needs a tenant_key (an empty tenant is no tenant, #2107).")
@@ -512,6 +532,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 txn.check_budget()
                 self._delete_objects(txn, write.object_deletes)
                 self._insert_locations(txn, write, key_map, now)
+                self._insert_slots(txn, write, key_map, now)
                 self._update_locations(txn, write, now)
                 self._insert_objects(txn, write, key_map, now)
                 self._update_objects(txn, write, now)
@@ -721,6 +742,32 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             contains.insert({"_from": origin, "_to": f"{col.LOCATIONS}/{key}", "created_at": now})
             txn.check_budget()
 
+    @staticmethod
+    def _insert_slots(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
+        """Slots of the locations this write inserted (the plan import): two bulk inserts, not 8 000 round trips."""
+        if not write.slot_inserts:
+            return
+        docs: list[dict[str, Any]] = []
+        for location_key, slot in write.slot_inserts:
+            doc = _dump(slot, by_alias=True, exclude_none=True, mode="json")
+            doc.pop("_key", None)
+            doc["location_key"] = key_map[location_key]
+            doc["created_at"] = doc["updated_at"] = now
+            docs.append(doc)
+        created = txn.collection(col.SLOTS).insert_many(docs, return_new=False)
+        txn.check_budget()
+        txn.collection(col.HAS_SLOT).insert_many(
+            [
+                {
+                    "_from": f"{col.LOCATIONS}/{doc['location_key']}",
+                    "_to": f"{col.SLOTS}/{meta['_key']}",
+                    "created_at": now,
+                }
+                for doc, meta in zip(docs, created, strict=True)
+            ]
+        )
+        txn.check_budget()
+
     def _update_locations(self, txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
         collection = txn.collection(col.LOCATIONS)
         for key, fields in write.location_updates:
@@ -813,9 +860,21 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             write_care_event(txn, event, now)
 
     def _write_audit(self, txn: StreamTransaction, write: PlanBatchWrite, revision: int, now: str) -> None:
-        if not write.audit:
-            return
         audit = txn.collection(col.GARDEN_PLAN_AUDIT)
+        if write.snapshot is not None:
+            snapshot = PlanAuditRecord(
+                tenant_key=write.tenant_key,
+                site_key=write.site_key,
+                revision=revision,
+                user_key=write.editor_key,
+                op="import_snapshot",
+                entity="site",
+                key=write.site_key,
+                summary=write.snapshot_summary,
+                at=datetime.fromisoformat(now),
+                snapshot=write.snapshot,
+            )
+            audit.insert(_dump(snapshot, mode="json"))
         entry: dict[str, str]
         for entry in write.audit:
             record = PlanAuditRecord(

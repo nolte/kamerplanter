@@ -195,6 +195,53 @@ Das PDF enthält keine Mitgliedsnamen, Zuweisungen, Notizen oder Koordinaten. Da
 
 ---
 
+### Gartenplan importieren (JSON-Sicherung)
+
+Spielt einen Plan aus der obigen JSON-Sicherung zurück (REQ-053). **Nur die Leitung** darf importieren; Gärtner und Betrachter bekommen `403`, bevor die Datei gelesen wird. Ein Standort eines anderen Mandanten antwortet `404`. Die Route erlaubt `RATE_LIMIT_PLAN_IMPORT` Anfragen je Mandant (Standard 3 pro Minute) und einen Body bis 5 MB.
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/import
+```
+
+```json
+{
+  "mode": "replace",
+  "dry_run": true,
+  "force": false,
+  "confirm_site_name": null,
+  "document": { "schema_version": "1", "...": "die Datei aus GET …/plan/export" }
+}
+```
+
+| Feld | Beschreibung |
+|------|--------------|
+| `mode` | `replace` ersetzt Standorte und Gartenobjekte der Site durch die der Datei und schreibt vorher den Stand, den es überschreibt, ins Änderungsprotokoll (Snapshot); `merge` fügt nur hinzu |
+| `dry_run` | `true` prüft die Datei und antwortet mit dem Bericht; nichts wird geschrieben |
+| `force` | Hebt nur die Bedingung auf, dass kein Beet eine aktive Pflanze trägt. Diese Beete und die Standorte darüber bleiben dann stehen |
+| `confirm_site_name` | `replace` (kein Dry-Run) verlangt den genauen Namen der Site |
+| `document` | Die Sicherungsdatei |
+
+Die Antwort ist für Dry-Run und ausgeführten Import derselbe Bericht: `would_create`, `would_update` und `would_delete` (Zähler für `locations`, `garden_objects`, `slots`, `plan_settings`), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. Ein Dry-Run listet Geometrie- und Grenzverletzungen in `errors[]` mit Status `200`; ein ausgeführter Import mit Fehlern antwortet `422`.
+
+Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt und jeder Pflanzplatz bekommt einen neuen Schlüssel. Ein Verweis, der die Datei verlässt, wird nur gegen die Ziel-Site aufgelöst, sonst geleert und in `dropped_references[]` gemeldet. Verknüpfungen zu Home-Assistant-Entitäten und Aktoren werden nie importiert.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `import.forbidden` | Keine Leitung |
+| `404` | `ENTITY_NOT_FOUND` | Standort nicht gefunden (oder nicht in diesem Mandanten) |
+| `409` | `import.not_empty` | `replace`, solange ein Beet eine aktive Pflanze trägt; Pflanzen entfernen oder `force` senden |
+| `409` | `plan.revision_conflict` | Jemand hat den Plan während des Imports gespeichert |
+| `413` | `REQUEST_BODY_TOO_LARGE` | Mehr als 5 MB |
+| `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | Die Datei ist keine Sicherung einer Version, die diese Installation liest |
+| `422` | `import.unknown_keys` | Die Datei enthält Teile auf oberster Ebene, die diese Version nicht kennt (neuere Datei) |
+| `422` | `import.site_name_mismatch` | `replace` ohne den genauen Site-Namen |
+| `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | Die Datei verletzt eine Grenze oder Geometrieregel |
+| `429` | | Importbudget des Mandanten aufgebraucht; `Retry-After` nennt die Wartezeit |
+
+---
+
 ### Verfügbare Templates auflisten
 
 Gibt eine Liste aller registrierten Print-Templates zurück.
