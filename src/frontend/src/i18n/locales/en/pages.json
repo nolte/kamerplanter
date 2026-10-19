@@ -6006,6 +6006,48 @@
           "done": "Done: {{locations}} locations, {{objects}} garden objects and {{slots}} plant places were created.",
           "doneSnapshot": "The previous state is in the change log."
         }
+      },
+      "sun": {
+        "title": "Sun and shade",
+        "group": "Sun and shade of the bed",
+        "hint": "Choose how much direct sunlight the bed gets on a summer day. It helps you pick plants.",
+        "current": "Current: {{value}}",
+        "options": {
+          "full_sun": {
+            "label": "Full sun",
+            "help": "More than 6 hours of direct sunlight on a summer day"
+          },
+          "partial_shade": {
+            "label": "Partial shade",
+            "help": "3–6 hours of direct sunlight"
+          },
+          "shade": {
+            "label": "Shade",
+            "help": "2–3 hours of direct sunlight"
+          },
+          "deep_shade": {
+            "label": "Deep shade",
+            "help": "Less than 2 hours of direct sunlight"
+          },
+          "unknown": {
+            "label": "Unknown",
+            "help": "Not recorded yet"
+          }
+        },
+        "bulk": {
+          "title": "Set the sun for all selected beds",
+          "hint": "Applies to {{count}} selected beds. Locked beds stay as they are. You can take the step back with Undo.",
+          "locked": "All selected beds are locked. Unlock them to set the sun.",
+          "mixed": "The selected beds have different values."
+        },
+        "change": "Change",
+        "dialog": {
+          "title": "Sun and shade: {{bed}}",
+          "save": "Save",
+          "cancel": "Cancel",
+          "saved": "Sun and shade saved.",
+          "failed": "The value could not be saved."
+        }
       }
     },
     "bed": {
@@ -6046,7 +6088,8 @@
         "year": "Season",
         "previousYear": "Previous year ({{year}}): this bed's growing history appears here once it has been recorded.",
         "rotationHint": "Crop rotation hint",
-        "rotationReason": "Planted anyway: {{reason}}"
+        "rotationReason": "Planted anyway: {{reason}}",
+        "changeSun": "Change sun"
       },
       "status": {
         "title": "Change bed status",
@@ -6378,7 +6421,7 @@
           "zoneInsetNotApplied": "The margin of the area could not be kept."
         },
         "hints": {
-          "title": "Crop rotation and neighbours",
+          "title": "Crop rotation, neighbours and site",
           "checking": "Checking {{name}} …",
           "unavailable": "{{name}}: Crop rotation could not be checked ({{message}}). That is not an all-clear.",
           "notApplicable": "{{name}}: No crop rotation check applies to this bed (pot, tent, shelf or perennial crop).",
@@ -6433,6 +6476,29 @@
           "taskName": "Transplant {{plant}} to {{bed}}",
           "taskInstruction": "Transplant plant {{plant}} into bed {{bed}}.",
           "done": "Task created: transplant {{plant}} to {{bed}}."
+        },
+        "siteFit": {
+          "title": "Site",
+          "fit": {
+            "ok": "well suited",
+            "marginal": "only partly suited",
+            "poor": "poorly suited"
+          },
+          "line": "Bed: {{bed}} — {{name}} needs {{need}}.",
+          "needs": {
+            "full_sun": "full sun",
+            "partial_shade": "partial shade",
+            "shade": "shade"
+          },
+          "reason": {
+            "match": "This suits the bed.",
+            "too_shady": "The bed is too shady.",
+            "tolerated": "The species still copes with it: it grows down to {{tolerance}}.",
+            "tolerance_unknown": "Tolerance unknown: it is not recorded how much shade this species takes.",
+            "too_sunny": "The bed is too sunny. Scorch and drought stress are likely."
+          },
+          "summary": "{{name}}: site {{fit}}",
+          "doesNotBlock": "This is a hint. You can still plant."
         }
       }
     }

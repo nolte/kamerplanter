@@ -307,6 +307,55 @@ class TestPatchingALocation:
         assert repo.locations["bed"].soil_profile.ph == 6.5
         assert repo.field_updates[0][1]["soil_profile"]["soil_texture"] == "loam"
 
+    def test_site_conditions_are_stored_whole_and_null_clears_them(self, world) -> None:
+        service, repo, _ = world
+        patch_location(service, site_conditions={"sun_profile": {"sun_window": "morning"}, "wind_exposure": "exposed"})
+
+        stored = repo.locations["bed"].site_conditions
+        assert stored is not None and stored.sun_profile.sun_window == "morning"
+        assert repo.field_updates[0][1]["site_conditions"]["wind_exposure"] == "exposed"
+
+        patch_location(service, site_conditions=None)
+        assert repo.locations["bed"].site_conditions is None
+        assert repo.field_updates[-1] == ("bed", {"site_conditions": None})
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            {"slope_deg": 120},
+            {"aspect_deg": 360},
+            {"access_sides": ["N", "N"]},
+            {"wind_exposure": "gale"},
+            {"sun_profile": {"direct_sun_hours_summer": 30}},
+            {"unknown_field_is_ignored_but_the_rest": 1, "flags": ["root_competition", "root_competition"]},
+        ],
+    )
+    def test_an_invalid_site_condition_is_refused_at_the_body(self, bad) -> None:
+        with pytest.raises(ValueError, match="site_conditions"):
+            LocationPatch.model_validate({"site_conditions": bad})
+
+    def test_a_changed_frost_risk_moves_the_legacy_boolean_with_it(self, world) -> None:
+        service, repo, _ = world
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "high"}})
+
+        assert repo.locations["bed"].frost_exposed is True
+        assert repo.field_updates[0][1]["frost_exposed"] is True
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "low"}})
+        assert repo.locations["bed"].frost_exposed is False
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+        assert repo.locations["bed"].frost_exposed is None  # normal says nothing: inherit from the site type
+
+    def test_an_unchanged_frost_risk_leaves_the_boolean_alone(self, world) -> None:
+        service, repo, _ = world
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"frost_exposed": True})
+
+        patch_location(service, site_conditions={"sun_profile": {"sun_window": "midday"}})
+
+        assert repo.locations["bed"].frost_exposed is True
+        assert "frost_exposed" not in repo.field_updates[-1][1]
+
     def test_a_viewer_is_refused_before_anything_is_looked_at(self, world) -> None:
         service, repo, _ = world
         with pytest.raises(ForbiddenError):

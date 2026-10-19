@@ -12,6 +12,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import type { HintState, MixPair } from './useBedHints';
+import SiteFitHint from './SiteFitHint';
+import type { SpeciesSiteFit } from './siteFitOf';
+import type { SunExposure } from '../model/types';
 import { needsOverrideReason } from './plantingLogic';
 import type { NeighbourHint, RotationFinding, RotationSeverity } from './plantingTypes';
 
@@ -26,7 +29,15 @@ export const MAX_OVERRIDE_REASON = 500;
 
 interface HintsPanelProps {
   /** Entries in the dialog's order: the species, its display name and the state of its request. */
-  species: readonly { key: string; name: string; state: HintState | undefined }[];
+  species: readonly {
+    key: string;
+    name: string;
+    state: HintState | undefined;
+    /** The site-fit hint of the species on this bed; `null` = nothing to say (GP-FR-160). */
+    siteFit?: SpeciesSiteFit | null;
+  }[];
+  /** The sun class of the bed, named in the site-fit line. */
+  bedSun?: SunExposure;
   /** Names of species by key, for the neighbours the server names. */
   speciesNames: ReadonlyMap<string, string>;
   mix: readonly MixPair[];
@@ -81,6 +92,7 @@ function neighbourText(
 export default function HintsPanel({
   species,
   speciesNames,
+  bedSun = 'unknown',
   mix,
   overrideChecked,
   overrideReason,
@@ -170,6 +182,19 @@ export default function HintsPanel({
           </Alert>
         );
       })}
+      {species.map(({ key, name, siteFit }) =>
+        siteFit ? (
+          <SiteFitHint
+            key={`site-fit-${key}`}
+            speciesKey={key}
+            speciesName={name}
+            bedSun={bedSun}
+            lightRequirement={siteFit.lightRequirement}
+            shadeTolerance={siteFit.shadeTolerance}
+            result={siteFit.result}
+          />
+        ) : null,
+      )}
       {mix.map((pair) => (
         <Alert
           key={`${pair.a}|${pair.b}`}

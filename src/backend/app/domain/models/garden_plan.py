@@ -23,7 +23,7 @@ from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SlotRo
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
-from app.domain.models.site import Location, SitePlan, Slot, SoilProfile
+from app.domain.models.site import Location, SiteConditions, SitePlan, Slot, SoilProfile
 
 #: Request-local name for an object created in the same batch (``tmp1``); the server answers with ``key_map``.
 TempKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
@@ -326,6 +326,8 @@ class LocationPatch(_Strict):
     sun_exposure: SunExposure | None = None
     geometry: Geometry | None = None
     soil_profile: SoilProfile | None = None
+    #: Sun profile, microclimate, wind … (§10.2, WP 3.9); an explicit ``null`` clears all of it.
+    site_conditions: SiteConditions | None = None
     irrigation_zone_key: str | None = Field(default=None, min_length=1, max_length=200)
     locked: bool | None = None
     z_order: int | None = Field(default=None, ge=-10_000, le=10_000)

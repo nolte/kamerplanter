@@ -590,6 +590,7 @@ class DataExportEngine:
                 "sun_exposure",
                 "irrigation_zone_key",
                 "soil_profile",
+                "site_conditions",
                 "notes",
                 "locked",
                 "z_order",

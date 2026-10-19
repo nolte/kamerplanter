@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from app.common.enums import OVERWINTERING_SITE_TYPES
+from app.common.enums import OVERWINTERING_SITE_TYPES, FrostRisk
 
 if TYPE_CHECKING:
     from app.domain.models.site import Location, Site
@@ -42,3 +42,28 @@ def resolve_frost_exposure(location: Location | None, site: Site) -> bool:
     if location is not None and location.frost_exposed is not None:
         return location.frost_exposed
     return site.type in OVERWINTERING_SITE_TYPES
+
+
+def frost_risk_from_exposed(frost_exposed: bool | None) -> FrostRisk:
+    """The bed-level risk a legacy ``frost_exposed`` override stands for (REQ-053 §10.2, migration v0098).
+
+    ``True`` → ``high`` (the spec's mapping); ``False`` — "forced protected" — → ``low``;
+    ``None`` ("inherit from the site type") → ``unknown``.
+    """
+    if frost_exposed is None:
+        return FrostRisk.UNKNOWN
+    return FrostRisk.HIGH if frost_exposed else FrostRisk.LOW
+
+
+def frost_exposed_from_risk(frost_risk: FrostRisk) -> bool | None:
+    """The legacy override a bed-level risk implies: ``high`` → ``True``, ``low`` → ``False``, else inherit.
+
+    ``normal`` and ``unknown`` say nothing about the site-type fallback, so they never force a value. The
+    boolean stays what every winter reader reads until those are moved to ``microclimate.frost_risk``;
+    the write paths keep the two in step (``PUT /locations``, ``PATCH /locations``).
+    """
+    if frost_risk is FrostRisk.HIGH:
+        return True
+    if frost_risk is FrostRisk.LOW:
+        return False
+    return None

@@ -33,6 +33,7 @@ from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
+from app.domain.models.site import SiteConditions
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 
@@ -106,6 +107,7 @@ class LocationResponse(BaseModel):
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
     soil_profile: SoilProfileSchema | None = None
+    site_conditions: SiteConditions | None = None
     notes: str | None = None
     locked: bool = False
     z_order: int = 0

@@ -6,7 +6,7 @@
  * live validation (containment, simple polygon) marks the field red and explains it before anything
  * reaches the plan (GP-UX-053); the server stays the authority.
  */
-import { useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -31,7 +31,7 @@ import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import type { PlanModel } from '../model/planModel';
-import type { Geometry, PlanEntity, PlanOperation } from '../model/types';
+import type { Geometry, PlanEntity, PlanOperation, SunExposure } from '../model/types';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
 import { EDITOR_ANCHORS } from './anchors';
@@ -52,7 +52,14 @@ import { stackRefs } from './tools/selection';
 import type { ZMove } from './tools/zOrder';
 import { firstViolation } from './tools/validation';
 
+// The tiles load when a bed is selected: the panel is part of the editor chunk, the tiles are not (E-12 budget).
+const SunTileSelector = lazy(() => import('../bed/SunTileSelector'));
+
 const PREFIX = 'pages.gardenPlan.editor';
+const SUN_PREFIX = 'pages.gardenPlan.sun';
+
+/** A tile-sized placeholder while the lazy tiles load, so the panel does not jump. */
+const SUN_FALLBACK = <Box sx={{ minHeight: 72 }} aria-hidden />;
 
 /** Axis and turn symbols of GP-UX-054, in front of the field labels. */
 const FIELD_SYMBOL: Record<FieldId, string> = {
@@ -169,6 +176,14 @@ function EntityForm({
     onCommit([op], 'edit');
   };
 
+  const commitSun = (sun: SunExposure) => {
+    if (entity !== 'location' || plan.locations[entityKey]?.sun_exposure === sun) return;
+    onCommit(
+      [{ op: 'update_fields', entity: 'location', key: entityKey, fields: { sun_exposure: sun } }],
+      'edit',
+    );
+  };
+
   const fields = geometry ? geometryFields(geometry) : [];
   const points = geometry ? pointList(geometry) : [];
   const typeLabel =
@@ -215,6 +230,21 @@ function EntityForm({
       <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-type">
         {t(`${PREFIX}.panel.type`, { type: typeLabel })}
       </Typography>
+
+      {entity === 'location' && (
+        <Box component="section" aria-labelledby="garden-plan-panel-sun-title" data-testid="garden-plan-panel-sun">
+          <Typography variant="subtitle2" component="h4" id="garden-plan-panel-sun-title" sx={{ mb: 0.5 }}>
+            {t(`${SUN_PREFIX}.title`)}
+          </Typography>
+          <Suspense fallback={SUN_FALLBACK}>
+            <SunTileSelector
+              value={plan.locations[entityKey]?.sun_exposure ?? 'unknown'}
+              disabled={locked}
+              onChange={commitSun}
+            />
+          </Suspense>
+        </Box>
+      )}
 
       {geometry === null && (
         <Typography variant="body2" color="text.secondary">
@@ -431,6 +461,63 @@ function EntityForm({
   );
 }
 
+/**
+ * "Sonne für alle gewählten Beete setzen" (GP-FR-157, TC-053-036): one tile choice for every selected,
+ * unlocked bed, as ONE undo step. A bed that already has the value is not touched; a lock guards the
+ * structure only (GP-NFR-007) but the panel takes no input on a locked object (GP-FR-156), so locked
+ * beds stay as they are.
+ */
+function SunBulk({
+  plan,
+  selection,
+  onCommit,
+}: Pick<PropertiesPanelProps, 'plan' | 'selection' | 'onCommit'>) {
+  const { t } = useTranslation();
+  const beds = selection
+    .filter((ref) => ref.entity === 'location')
+    .map((ref) => plan.locations[ref.key])
+    .filter((location) => location !== undefined);
+  const open = beds.filter((location) => !location.locked);
+  if (beds.length === 0) return null;
+  const values = new Set(open.map((location) => location.sun_exposure));
+  const common: SunExposure | null = values.size === 1 ? [...values][0] : null;
+
+  const apply = (sun: SunExposure) => {
+    const ops: PlanOperation[] = open
+      .filter((location) => location.sun_exposure !== sun)
+      .map((location) => ({
+        op: 'update_fields',
+        entity: 'location',
+        key: location.key,
+        fields: { sun_exposure: sun },
+      }));
+    if (ops.length > 0) onCommit(ops, 'edit');
+  };
+
+  return (
+    <Box component="section" aria-labelledby="garden-plan-panel-sun-bulk" data-testid="garden-plan-panel-sun-bulk">
+      <Typography variant="subtitle2" component="h4" id="garden-plan-panel-sun-bulk">
+        {t(`${SUN_PREFIX}.bulk.title`)}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        {open.length === 0
+          ? t(`${SUN_PREFIX}.bulk.locked`)
+          : t(`${SUN_PREFIX}.bulk.hint`, { count: open.length })}
+        {open.length > 1 && common === null ? ` ${t(`${SUN_PREFIX}.bulk.mixed`)}` : ''}
+      </Typography>
+      <Suspense fallback={SUN_FALLBACK}>
+        <SunTileSelector
+          value={common}
+          disabled={open.length === 0}
+          label={t(`${SUN_PREFIX}.bulk.title`)}
+          testId="sun-tile-selector-bulk"
+          onChange={apply}
+        />
+      </Suspense>
+    </Box>
+  );
+}
+
 /** "Objekte an dieser Stelle (n)" / "Pflanzen in der Nähe (n)" (GP-UX-033/034). */
 function StackList({
   plan,
@@ -518,6 +605,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         <Typography variant="body2" color="text.secondary">
           {t(`${PREFIX}.panel.multiHint`)}
         </Typography>
+        <SunBulk plan={plan} selection={selection} onCommit={props.onCommit} />
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
           <Button
             startIcon={<ContentCopyIcon />}

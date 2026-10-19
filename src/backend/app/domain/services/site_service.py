@@ -3,9 +3,10 @@ from typing import Protocol
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, SiteKey, SlotKey
+from app.domain.engines.frost_exposure_resolver import frost_risk_from_exposed
 from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourceWarning
 from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.site import Location, Site, SiteWaterConfig, Slot
+from app.domain.models.site import Location, Site, SiteConditions, SiteWaterConfig, Slot
 from app.domain.models.tank import Tank
 from app.domain.services.fields_kept_on_edit import keep_stored_fields
 from app.domain.services.location_ownership import require_owned_site, resolve_owned_slot
@@ -26,6 +27,7 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "notes",
     "pitch_m",
     "rotation_exempt",
+    "site_conditions",
     "soil_profile",
     "sun_exposure",
     "z_order",
@@ -45,6 +47,20 @@ SLOT_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "slot_role",
     "sown_at",
 )
+
+
+def mirror_frost_exposed(location: Location, stored: Location | None) -> None:
+    """Carry a changed legacy ``frost_exposed`` into ``site_conditions.microclimate.frost_risk`` (WP 3.9).
+
+    ``stored`` is the location as it was (``None`` on create). Only a change counts, so an edit that sends
+    the unchanged boolean never overwrites a risk somebody entered on the new field.
+    """
+    before = stored.frost_exposed if stored is not None else None
+    if location.frost_exposed == before:
+        return
+    conditions = location.site_conditions.model_copy(deep=True) if location.site_conditions else SiteConditions()
+    conditions.microclimate.frost_risk = frost_risk_from_exposed(location.frost_exposed)
+    location.site_conditions = conditions
 
 
 def place_in_tree(location: Location, parent: Location | None) -> None:
@@ -175,6 +191,7 @@ class SiteService:
         self.get_site(location.site_key, tenant_key=tenant_key)
         if location.tank_key:
             self._require_owned_tank(location.tank_key, tenant_key)
+        mirror_frost_exposed(location, None)
         return self._repo.create_location(location)
 
     @staticmethod
@@ -202,6 +219,7 @@ class SiteService:
         """
         existing = self.get_location(key, tenant_key=tenant_key)
         keep_stored_fields(location, existing, LOCATION_FIELDS_KEPT_ON_EDIT)
+        mirror_frost_exposed(location, existing)
         location = Location.model_validate(location.model_dump(by_alias=True))
         parent: Location | None = None
         # The body's site too (#2107): the router used to check it before this call.

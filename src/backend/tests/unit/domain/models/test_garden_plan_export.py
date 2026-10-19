@@ -55,6 +55,8 @@ class TestWhatTheBackupNeverHolds:
         names = _property_names(GardenPlanExport.model_json_schema())
 
         assert {"soil_profile", "ph", "crown_radius_m", "boundary", "default_grid_m"} <= names
+        # WP 3.9: the site features of a bed (sun profile, microclimate …) are part of the backup
+        assert {"site_conditions", "sun_window", "frost_risk", "wind_exposure"} <= names
 
     def test_the_site_contributes_its_name_and_type_only(self) -> None:
         assert set(ExportSite.model_fields) == {"name", "type"}

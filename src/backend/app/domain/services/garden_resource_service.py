@@ -33,10 +33,11 @@ from typing import Any
 import structlog
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import BedStatus, TenantRole
+from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import ForbiddenError, PlanError, PlanValidationError
 from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
 from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
+from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_INVALID_BED_TRANSITION,
     ERROR_REFERENCE_NOT_FOUND,
@@ -98,7 +99,9 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "height_m",
     "sun_exposure",
     "soil_profile",
+    "site_conditions",
     "irrigation_zone_key",
+    "frost_exposed",
 )
 
 
@@ -311,15 +314,26 @@ class GardenResourceService:
         if substrate and not self._plan.substrate_visible(substrate, tenant_key=tenant_key):
             raise _not_found("soil_profile.substrate_key")
 
+    @staticmethod
+    def _mirror_frost_risk(location: Location, patch: LocationPatch, provided: dict[str, Any]) -> None:
+        """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9).
+
+        Only a *change* counts: a patch that sends the other site conditions (the sun window …) with an
+        untouched risk must not reset an override somebody set on the old field.
+        """
+        sent = patch.site_conditions
+        if sent is None:
+            return
+        stored = location.site_conditions.microclimate.frost_risk if location.site_conditions else FrostRisk.UNKNOWN
+        if sent.microclimate.frost_risk is not stored:
+            provided["frost_exposed"] = frost_exposed_from_risk(sent.microclimate.frost_risk)
+
     def _field_changes(self, location: Location, patch: LocationPatch) -> dict[str, Any]:
         """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value."""
-        provided = {
-            name: getattr(patch, name)
-            for name in patch.model_fields_set
-            if name in set(_PATCH_COLUMNS) | {"soil_profile"}
-        }
+        provided = {name: getattr(patch, name) for name in patch.model_fields_set if name in set(_PATCH_COLUMNS)}
         if not provided:
             return {}
+        self._mirror_frost_risk(location, patch, provided)
         try:
             updated = Location.model_validate({**_dump(location, by_alias=True), **provided})
         except PydanticValidationError as exc:

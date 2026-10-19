@@ -253,6 +253,74 @@ describe('empty bed (GP-UX-049)', () => {
   });
 });
 
+describe('sun and shade tiles (GP-FR-157, TC-053-036)', () => {
+  it('shows the five tiles for a selected bed and stores a choice as ONE undo step', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    const group = await screen.findByRole('radiogroup', { name: 'Sun and shade of the bed' });
+    expect(within(group).getAllByRole('radio')).toHaveLength(5);
+    expect(within(group).getByRole('radio', { name: 'Unknown' })).toBeChecked();
+
+    const before = t.state().past.length;
+    t.after(() => fireEvent.click(within(group).getByRole('radio', { name: 'Partial shade' })));
+
+    expect(t.state().plan!.locations.b1.sun_exposure).toBe('partial_shade');
+    expect(t.state().past).toHaveLength(before + 1);
+    expect(t.state().past[t.state().past.length - 1].label).toBe('pages.gardenPlan.editor.actions.edit');
+    // The change is unsaved until the save bar is used (planning mode).
+    expect(t.state().plan!.locations.b2.sun_exposure).toBe('unknown');
+  });
+
+  it('takes no input on a locked bed', async () => {
+    const t = setupEditor();
+    t.click(15, 9);
+    const group = await screen.findByRole('radiogroup', { name: 'Sun and shade of the bed' });
+
+    for (const radio of within(group).getAllByRole('radio')) expect(radio).toBeDisabled();
+  });
+
+  it('sets the sun for all selected beds at once, as one undo step, and leaves a locked bed alone', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    t.click(7, 4, { shiftKey: true });
+    t.click(15, 9, { shiftKey: true });
+    expect(t.selected()).toHaveLength(3);
+    const bulk = await screen.findByTestId('garden-plan-panel-sun-bulk');
+    expect(bulk).toHaveTextContent('Set the sun for all selected beds');
+    expect(bulk).toHaveTextContent('Applies to 2 selected beds. Locked beds stay as they are.');
+
+    const before = t.state().past.length;
+    t.after(() => fireEvent.click(within(bulk).getByRole('radio', { name: 'Full sun' })));
+
+    const { locations } = t.state().plan!;
+    expect([locations.b1.sun_exposure, locations.b2.sun_exposure]).toEqual(['full_sun', 'full_sun']);
+    expect(locations.lock.sun_exposure).toBe('unknown');
+    expect(t.state().past).toHaveLength(before + 1);
+  });
+
+  it('says so and takes no input when every selected bed is locked', async () => {
+    const base = testPlan();
+    const plan: PlanModel = {
+      ...base,
+      locations: { ...base.locations, b1: { ...base.locations.b1, locked: true } },
+    };
+    const t = setupEditor({ plan });
+    t.click(4, 4);
+    t.click(15, 9, { shiftKey: true });
+    const bulk = await screen.findByTestId('garden-plan-panel-sun-bulk');
+
+    expect(bulk).toHaveTextContent('All selected beds are locked. Unlock them to set the sun.');
+    for (const radio of within(bulk).getAllByRole('radio')) expect(radio).toBeDisabled();
+  });
+
+  it('has no accessibility violations with the tiles shown', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    await screen.findByRole('radiogroup', { name: 'Sun and shade of the bed' });
+    await expectNoA11yViolations(t.view.container);
+  });
+});
+
 describe('several objects and a plant', () => {
   it('shows the count and the actions that work on many', () => {
     const t = setupEditor();

@@ -2055,6 +2055,76 @@ class SunExposure(StrEnum):
     UNKNOWN = "unknown"
 
 
+class SunWindow(StrEnum):
+    """When the direct sun reaches a bed (REQ-053 §10.2, GP-FR-158)."""
+
+    MORNING = "morning"
+    MIDDAY = "midday"
+    AFTERNOON = "afternoon"
+    ALL_DAY = "all_day"
+    MIXED = "mixed"
+    UNKNOWN = "unknown"
+
+
+class SunProfileSource(StrEnum):
+    """Where a sun profile comes from (§10.2); ``computed`` arrives with the shading work of §29."""
+
+    MANUAL = "manual"
+    COMPUTED = "computed"
+
+
+class FrostRisk(StrEnum):
+    """Frost risk of one bed (REQ-053 §10.2, GP-FR-162); replaces the boolean ``Location.frost_exposed``."""
+
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    UNKNOWN = "unknown"
+
+
+class HeatRetention(StrEnum):
+    """Stored heat at a bed: a wall or a building gives it back at night (REQ-053 §10.2)."""
+
+    NONE = "none"
+    WALL = "wall"
+    BUILDING = "building"
+    UNKNOWN = "unknown"
+
+
+class WindExposure(StrEnum):
+    """Wind load on a bed (REQ-053 §10.2, GP-FR-163); entered by hand, nothing is derived yet."""
+
+    SHELTERED = "sheltered"
+    NORMAL = "normal"
+    EXPOSED = "exposed"
+    UNKNOWN = "unknown"
+
+
+class AccessSide(StrEnum):
+    """Side of a bed from which it is tended (REQ-053 §10.2)."""
+
+    NORTH = "N"
+    EAST = "E"
+    SOUTH = "S"
+    WEST = "W"
+
+
+class SiteFlag(StrEnum):
+    """Competition hints for a bed under woody plants (REQ-053 §10.2, GP-FR-165); no calculation."""
+
+    ROOT_COMPETITION = "root_competition"
+    ALLELOPATHY_RISK = "allelopathy_risk"
+
+
+class SiteFit(StrEnum):
+    """Traffic light of a bed against a species' light requirement (REQ-053 GP-FR-160)."""
+
+    OK = "ok"
+    MARGINAL = "marginal"
+    POOR = "poor"
+    UNKNOWN = "unknown"
+
+
 class GrowingMediumKind(StrEnum):
     """What fills a bed (REQ-053 §15.1, K-002) — one of three soil axes."""
 

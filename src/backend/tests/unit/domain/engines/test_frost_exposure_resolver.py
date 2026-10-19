@@ -9,8 +9,14 @@ fallback to site type (legacy behaviour). ``None`` values never collapse to
 ``False``; they fall through to the next layer (site type).
 """
 
-from app.common.enums import SiteType
-from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
+import pytest
+
+from app.common.enums import FrostRisk, SiteType
+from app.domain.engines.frost_exposure_resolver import (
+    frost_exposed_from_risk,
+    frost_risk_from_exposed,
+    resolve_frost_exposure,
+)
 from app.domain.models.site import Location, Site
 
 
@@ -115,3 +121,33 @@ class TestNoneLocationFrostExposedFallback:
         location = _location(frost_exposed=None)
         site = _site(site_type=SiteType.BALCONY)
         assert resolve_frost_exposure(location, site) is True
+
+
+class TestFrostRiskMirror:
+    """WP 3.9 / migration v0098: the legacy boolean and ``microclimate.frost_risk`` map onto each other."""
+
+    @pytest.mark.parametrize(
+        ("exposed", "risk"),
+        [(True, FrostRisk.HIGH), (False, FrostRisk.LOW), (None, FrostRisk.UNKNOWN)],
+    )
+    def test_boolean_to_risk(self, exposed: bool | None, risk: FrostRisk) -> None:
+        assert frost_risk_from_exposed(exposed) is risk
+
+    @pytest.mark.parametrize(
+        ("risk", "exposed"),
+        [
+            (FrostRisk.HIGH, True),
+            (FrostRisk.LOW, False),
+            (FrostRisk.NORMAL, None),
+            (FrostRisk.UNKNOWN, None),
+        ],
+    )
+    def test_risk_to_boolean_never_forces_a_value_for_normal_or_unknown(
+        self, risk: FrostRisk, exposed: bool | None
+    ) -> None:
+        assert frost_exposed_from_risk(risk) is exposed
+
+    def test_the_migration_map_is_the_same_mapping(self) -> None:
+        from app.migrations.versions.v0098_location_site_conditions import FROST_RISK_MAP
+
+        assert {flag: frost_risk_from_exposed(flag).value for flag in (True, False)} == FROST_RISK_MAP

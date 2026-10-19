@@ -24,8 +24,8 @@ import { loadVectors, type VectorCase } from '@/test/gardenPlanVectors';
  * cases inline would certify nothing.
  */
 const ALL_VECTORS = loadVectors();
-/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3). */
-const LAYOUT_OPERATIONS = new Set(['layout', 'layout_error', 'adjacency']);
+/** The planting-layout operations run in `layout.vectors.test.ts`; `adjacency` is derived server-side only (WP 3.3); `site_fit` runs in `siteFit.vectors.test.ts`. */
+const LAYOUT_OPERATIONS = new Set(['layout', 'layout_error', 'adjacency', 'site_fit']);
 const VECTORS = {
   ...ALL_VECTORS,
   cases: ALL_VECTORS.cases.filter((vector) => !LAYOUT_OPERATIONS.has(vector.operation)),

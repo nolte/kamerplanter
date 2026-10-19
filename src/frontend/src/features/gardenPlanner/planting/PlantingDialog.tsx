@@ -28,9 +28,10 @@ import { useNotification } from '@/hooks/useNotification';
 import { useServerFavorites } from '@/hooks/useServerFavorites';
 import { toLocalShape } from '../model/geometry';
 import { computeLayout } from '../model/layout';
-import type { Geometry, Point } from '../model/types';
+import type { Geometry, Point, SunExposure } from '../model/types';
 import EntryCard from './EntryCard';
 import HintsPanel from './HintsPanel';
+import { siteFitOf } from './siteFitOf';
 import LayoutCanvas, { MARKER_SHAPES, type CanvasLayer } from './LayoutCanvas';
 import { listBedSlots } from './plantingApi';
 import {
@@ -69,6 +70,8 @@ interface PlantingDialogProps {
   bedKey: string;
   bedName: string;
   geometry: Geometry;
+  /** The sun class of the bed (GP-FR-157); with the species' light requirement it gives the `site_fit` hint. */
+  sunExposure?: SunExposure;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
   /** Runs were created although a later step failed and they could not be taken back: reload what shows them. */
@@ -108,7 +111,15 @@ const IDLE_PREVIEW: EntryPreview = {
   error: null,
 };
 
-export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onPlanted, onPartial }: PlantingDialogProps) {
+export default function PlantingDialog({
+  bedKey,
+  bedName,
+  geometry,
+  sunExposure = 'unknown',
+  onClose,
+  onPlanted,
+  onPartial,
+}: PlantingDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -235,8 +246,9 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
         key,
         name: speciesNames.get(key) ?? key,
         state: hintStates[key],
+        siteFit: siteFitOf(speciesByKey.get(key), sunExposure),
       })),
-    [speciesKeys, speciesNames, hintStates],
+    [speciesKeys, speciesNames, hintStates, speciesByKey, sunExposure],
   );
 
   const layers = useMemo<CanvasLayer[]>(
@@ -429,6 +441,7 @@ export default function PlantingDialog({ bedKey, bedName, geometry, onClose, onP
               {hintsVisible ? (
                 <HintsPanel
                   species={hintSpecies}
+                  bedSun={sunExposure}
                   speciesNames={speciesNames}
                   mix={mix}
                   severity={severity}

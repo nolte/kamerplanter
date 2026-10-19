@@ -505,6 +505,7 @@ class GardenPlanImportService:
             "bed_status": item.bed_status,
             "sun_exposure": item.sun_exposure,
             "soil_profile": soil,
+            "site_conditions": item.site_conditions,
             "irrigation_zone_key": zone_key,
             "locked": item.locked,
             "z_order": item.z_order,
