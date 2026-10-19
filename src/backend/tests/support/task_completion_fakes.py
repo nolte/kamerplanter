@@ -22,6 +22,7 @@ class FakeTaskRepo:
     def __init__(self, *tasks: Task) -> None:
         self.store = {task.key: task for task in tasks}
         self.created: list[Task] = []
+        self.atomic_batches: list[int] = []
         self.cloned_from: list[tuple[str, str]] = []
         self.cleared_parked: list[str] = []
         #: ``plant key -> (tenant, location)``: what the location queue needs to find a plant's tasks.
@@ -51,6 +52,13 @@ class FakeTaskRepo:
         self.created.append(task)
         self.store[task.key] = task
         return task
+
+    def create_tasks_atomic(self, tasks, *, tenant_key):
+        """All or nothing, like the stream transaction: a foreign task writes none of the batch."""
+        if any(task.tenant_key != tenant_key for task in tasks):
+            raise ValueError("create_tasks_atomic writes only tasks of the given tenant.")
+        self.atomic_batches.append(len(tasks))
+        return [self.create_task(task) for task in tasks]
 
     def get_clone_entity_keys(self, source_key, *, tenant_key):
         clones = {clone for clone, source in self.cloned_from if source == source_key}

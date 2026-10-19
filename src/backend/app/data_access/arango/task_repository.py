@@ -13,6 +13,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.tenant_scope import tenant_union_predicate
+from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import (
     Task,
@@ -889,6 +890,31 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
         """Record that ``clone_key`` was cloned from ``source_key`` (``task_cloned_from``, clone → source)."""
         self.create_edge(col.TASK_CLONED_FROM, f"{col.TASKS}/{clone_key}", f"{col.TASKS}/{source_key}")
+
+    def create_tasks_atomic(self, tasks: Sequence[Task], *, tenant_key: str) -> list[Task]:
+        """The tasks and their ``has_task`` edges in one stream transaction (#2462): all of them, or none."""
+        self._require_tenant_key(tenant_key, "create_tasks_atomic")
+        if any(task.tenant_key != tenant_key for task in tasks):
+            raise ValueError("create_tasks_atomic writes only tasks of the given tenant.")
+        with stream_transaction(self._db, write=(col.TASKS, col.HAS_TASK), entity="task") as txn:
+            stored_docs = [self._insert_in(txn, task) for task in tasks]
+        return [self.wrap_document(doc) for doc in stored_docs]
+
+    def _insert_in(self, txn: StreamTransaction, task: Task) -> dict[str, Any]:
+        """One task and its ``has_task`` edge inside the transaction; the stored task document."""
+        txn.check_budget()
+        stored = txn.collection(col.TASKS).insert(self.insert_payload(task), return_new=True)["new"]
+        entity_type = task.entity_type or ""
+        if task.entity_key and entity_type in TASK_ENTITY_TYPE_TO_COLLECTION:
+            txn.collection(col.HAS_TASK).insert(
+                {
+                    "_from": f"{TASK_ENTITY_TYPE_TO_COLLECTION[entity_type]}/{task.entity_key}",
+                    "_to": f"{col.TASKS}/{stored['_key']}",
+                    "created_at": stored["created_at"],
+                    "target_type": entity_type,
+                }
+            )
+        return stored
 
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
         """Overdue tasks **of one tenant** (#927, found alongside the five).

@@ -261,6 +261,116 @@ class TestFanOutToPlants:
             service.fan_out_to_plants("t_bed", tenant_key="")
 
 
+class TestCreateTasksForEachPlant:
+    """``POST /tasks`` with ``for_each_plant`` (#2462): only the plant tasks, in one atomic batch."""
+
+    @staticmethod
+    def template(**overrides):
+        return bed_task(None, **overrides)
+
+    def test_one_task_per_plant_and_none_for_the_bed(self, world):
+        service, tasks = world
+
+        created = service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT)
+
+        assert sorted(c.entity_key for c in created) == ["pi_child", "pi_here"]
+        assert {c.entity_type for c in created} == {"plant_instance"}
+        assert {c.status for c in created} == {TaskStatus.PENDING}
+        assert "location" not in {t.entity_type for t in tasks.created}
+
+    def test_the_whole_set_is_one_atomic_write(self, world):
+        service, tasks = world
+
+        service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT)
+
+        assert tasks.atomic_batches == [2]
+
+    def test_no_clone_edge_is_written_because_there_is_no_bed_task(self, world):
+        service, tasks = world
+
+        service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT)
+
+        assert tasks.cloned_from == []
+
+    def test_without_children_only_the_beds_own_plants(self, world):
+        service, _ = world
+
+        created = service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT, include_children=False)
+
+        assert [c.entity_key for c in created] == ["pi_here"]
+
+    def test_a_bed_without_plants_creates_nothing(self, world):
+        service, tasks = world
+        service._completion.plants.clear()
+
+        assert service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT) == []
+        assert tasks.created == [] and tasks.atomic_batches == []
+
+    def test_a_foreign_plant_standing_on_the_bed_key_is_never_tasked(self, world):
+        service, _ = world
+
+        created = service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT)
+
+        assert "pi_foreign" not in {c.entity_key for c in created}
+        assert {c.tenant_key for c in created} == {TENANT}
+
+    def test_a_foreign_bed_is_a_404_and_writes_nothing(self, world):
+        service, tasks = world
+
+        with pytest.raises(NotFoundError):
+            service.create_tasks_for_each_plant(self.template(entity_key="loc_foreign"), tenant_key=TENANT)
+
+        assert tasks.created == []
+
+    def test_the_foreign_tenant_cannot_reach_the_bed_either(self, world):
+        service, tasks = world
+
+        with pytest.raises(NotFoundError):
+            service.create_tasks_for_each_plant(self.template(tenant_key=OTHER_TENANT), tenant_key=OTHER_TENANT)
+
+        assert tasks.created == []
+
+    def test_the_template_cannot_smuggle_another_tenant_in(self, world):
+        service, _ = world
+
+        created = service.create_tasks_for_each_plant(self.template(tenant_key=OTHER_TENANT), tenant_key=TENANT)
+
+        assert {c.tenant_key for c in created} == {TENANT}
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"entity_type": "plant_instance", "entity_key": "pi_here"},
+            {"entity_type": "planting_run", "entity_key": "run_1"},
+            {"entity_type": None, "entity_key": None},
+            {"category": "care_reminder"},
+            {"recurrence_rule": "FREQ=DAILY"},
+        ],
+    )
+    def test_the_limits_of_the_fan_out_apply(self, world, overrides):
+        service, tasks = world
+
+        with pytest.raises(ValidationError):
+            service.create_tasks_for_each_plant(self.template(**overrides), tenant_key=TENANT)
+
+        assert tasks.created == []
+
+    def test_a_bed_past_the_cap_is_refused_before_anything_is_written(self, world):
+        service, tasks = world
+        service._completion.plants = {f"pi_{i}": (TENANT, "bed") for i in range(MAX_FAN_OUT + 1)}
+
+        with pytest.raises(ValidationError):
+            service.create_tasks_for_each_plant(self.template(), tenant_key=TENANT)
+
+        assert tasks.created == []
+
+    def test_the_tenant_cannot_be_left_empty(self, world):
+        service, _ = world
+
+        with pytest.raises(ValueError, match="tenant_key"):
+            service.create_tasks_for_each_plant(self.template(), tenant_key="")
+
+
 class TestCloneWritesTheEdge:
     def test_a_plain_clone_is_linked_to_its_source_too(self, world):
         service, tasks = world

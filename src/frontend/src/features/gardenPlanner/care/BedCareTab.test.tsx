@@ -211,7 +211,7 @@ describe('creating a task (GP-FR-080/081)', () => {
     });
   });
 
-  it('"for every plant" creates the bed task and fans it out', async () => {
+  it('"for every plant" creates only the plant tasks in one request, with no bed task and no fan-out', async () => {
     const backend = useCareBackend([], PLANTS);
     const user = userEvent.setup();
     renderTab();
@@ -220,8 +220,8 @@ describe('creating a task (GP-FR-080/081)', () => {
     await user.click(within(dialog).getByTestId('care-task-scope-plants'));
     await user.click(within(dialog).getByTestId('care-task-submit'));
     await waitFor(() => expect(screen.queryByTestId('care-task-dialog')).toBeNull());
-    expect(backend.seen.map((call) => call.url)).toEqual(['/tasks', '/tasks/new_1/fan-out']);
-    expect(backend.seen[1].body).toEqual({ include_children: true, keep_source: false });
+    expect(backend.seen.map((call) => call.url)).toEqual(['/tasks']);
+    expect(backend.seen[0].body).toMatchObject({ entity_type: 'location', entity_key: 'loc_b03', for_each_plant: true });
     expect(await screen.findByText('2 tasks created, one per plant.')).toBeInTheDocument();
   });
 
@@ -237,24 +237,31 @@ describe('creating a task (GP-FR-080/081)', () => {
     expect((backend.seen[0].body as { due_date: string }).due_date).toBe(new Date('2030-03-05T23:59:00').toISOString());
   });
 
-  it('keeps the bed task and closes the dialog when the fan-out fails, so a second submit cannot duplicate it', async () => {
+  it('keeps the dialog open and creates nothing when the per-plant request fails, so a retry cannot duplicate', async () => {
     const backend = useCareBackend([], PLANTS);
-    server.use(http.post(`${BASE}/tasks/:key/fan-out`, () => HttpResponse.json({ detail: 'nope' }, { status: 503 })));
+    server.use(http.post(`${BASE}/tasks`, () => HttpResponse.json({ detail: 'nope' }, { status: 503 })));
     const user = userEvent.setup();
     renderTab();
     await user.click(await screen.findByTestId('care-create'));
     const dialog = await screen.findByTestId('care-task-dialog');
     await user.click(within(dialog).getByTestId('care-task-scope-plants'));
     await user.click(within(dialog).getByTestId('care-task-submit'));
-    await waitFor(() => expect(screen.queryByTestId('care-task-dialog')).toBeNull());
-    expect(backend.seen.filter((call) => call.url === '/tasks')).toHaveLength(1);
-    expect(await screen.findByTestId('care-task-new_1')).toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByTestId('care-task-submit')).toBeEnabled());
+    expect(screen.getByTestId('care-task-dialog')).toBeInTheDocument();
+    expect(backend.queue.size).toBe(0);
     expect(screen.queryByText(/tasks created, one per plant/)).toBeNull();
   });
 
-  it('says "created for the bed" when the fan-out finds no plant to clone onto', async () => {
+  it('puts the task on the bed when the server finds no plant to create it for', async () => {
     useCareBackend([], PLANTS);
-    server.use(http.post(`${BASE}/tasks/:key/fan-out`, () => HttpResponse.json([], { status: 201 })));
+    server.use(
+      http.post(`${BASE}/tasks`, async ({ request }) => {
+        const body = (await request.json()) as { for_each_plant?: boolean };
+        return body.for_each_plant
+          ? HttpResponse.json([], { status: 201 })
+          : HttpResponse.json(careTask('new_bed', { name: 'Watering' }), { status: 201 });
+      }),
+    );
     const user = userEvent.setup();
     renderTab();
     await user.click(await screen.findByTestId('care-create'));
