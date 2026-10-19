@@ -5850,6 +5850,163 @@
           "reload": "Neu laden",
           "downloaded": "Die Kopie wurde heruntergeladen. Du kannst jetzt neu laden."
         }
+      },
+      "io": {
+        "menu": {
+          "open": "Export & Import",
+          "export": "Plan exportieren …",
+          "import": "Sicherung einspielen …",
+          "leadOnly": "Nur die Leitung darf eine Sicherung einspielen.",
+          "unsaved": "Speichere oder verwirf zuerst deine Änderungen am Plan.",
+          "fieldMode": "Im Feldmodus nicht verfügbar – öffne den Plan am Schreibtisch."
+        },
+        "export": {
+          "title": "Plan exportieren",
+          "format": "Format",
+          "formats": {
+            "pdf": "PDF",
+            "svg": "SVG",
+            "json": "Sicherung (JSON)"
+          },
+          "formatHints": {
+            "pdf": "Der Plan im Maßstab auf Papier – zum Ausdrucken und Mitnehmen.",
+            "svg": "Die Zeichnung als Vektorgrafik, zum Weiterbearbeiten in einem Zeichenprogramm.",
+            "json": "Alle Beete, Gartenobjekte und Pflanzplätze – zum Wiederherstellen oder Umziehen. Ohne Pflanzen und Aufgaben."
+          },
+          "paper": "Papier",
+          "orientation": "Ausrichtung",
+          "orientations": {
+            "landscape": "Querformat",
+            "portrait": "Hochformat"
+          },
+          "scale": "Maßstab",
+          "scaleAuto": "Automatisch",
+          "scaleHelp": "Automatisch wählt den feinsten Maßstab, der aufs Blatt passt.",
+          "scaleChosen": "Gewählt: {{scale}}",
+          "layers": "Ebenen",
+          "layerNames": {
+            "grid": "Raster",
+            "beds": "Beete",
+            "objects": "Gartenobjekte",
+            "slots": "Pflanzplätze",
+            "plants": "Pflanzen",
+            "labels": "Beschriftungen"
+          },
+          "bedList": "Beetliste als zweite Seite",
+          "privacy": "Der Export enthält keine Namen von Mitgliedern, keine Zuweisungen und keine Notizen anderer Personen.",
+          "phoneNote": "Auf dem Handy gelten die Standardeinstellungen (A4, Querformat, automatischer Maßstab). Weitere Optionen gibt es auf einem größeren Bildschirm.",
+          "preview": "Vorschau",
+          "previewLoading": "Vorschau wird erstellt",
+          "previewAlt": "Vorschau des Gartenplans, Maßstab {{scale}}",
+          "previewUnavailable": "Für diese Auswahl gibt es keine Vorschau.",
+          "jsonSummary": "Die Sicherung enthält {{locations}} Standorte, {{objects}} Gartenobjekte und {{slots}} Pflanzplätze ({{size}}).",
+          "suggestA3": "Auf A4 wird der Maßstab gröber als 1:200. Mit A3 bleibt der Plan besser lesbar.",
+          "download": "Herunterladen",
+          "errors": {
+            "empty": "Der Plan ist noch leer. Zeichne zuerst eine Gartengrenze oder ein Beet.",
+            "doesNotFit": "Der Plan passt in diesem Maßstab nicht aufs Blatt. Wähle einen gröberen Maßstab oder A3.",
+            "rateLimited": "Du hast in kurzer Zeit viele Exporte angefordert. Warte eine Minute und versuche es noch einmal.",
+            "forbidden": "Du darfst diesen Plan nicht exportieren.",
+            "failed": "Der Export hat nicht geklappt. Versuche es noch einmal."
+          }
+        },
+        "import": {
+          "title": "Sicherung einspielen",
+          "stepsLabel": "Schritte des Imports",
+          "steps": {
+            "file": "Datei wählen",
+            "report": "Prüfbericht",
+            "mode": "Modus"
+          },
+          "working": "Einen Moment …",
+          "fileHelp": "Wähle eine Sicherung (JSON), die du hier über „Plan exportieren“ erstellt hast. Die Datei darf höchstens 5 MB groß sein. Bevor etwas geschrieben wird, prüfen wir sie und zeigen dir das Ergebnis.",
+          "chooseFile": "Datei wählen",
+          "chosen": "Gewählt: {{name}}",
+          "fileErrors": {
+            "tooLarge": "Die Datei ist größer als 5 MB.",
+            "notJson": "Die Datei ist kein gültiges JSON.",
+            "notABackup": "Die Datei ist keine Gartenplan-Sicherung."
+          },
+          "failures": {
+            "failed": "Das hat nicht geklappt. Versuche es noch einmal.",
+            "rateLimited": "Es gab zu viele Importe in kurzer Zeit. Warte eine Minute.",
+            "notFound": "Der Standort wurde nicht gefunden.",
+            "import_forbidden": "Nur die Leitung darf eine Sicherung einspielen.",
+            "import_not_empty": "In diesem Plan stehen Beete mit aktiven Pflanzen. Entferne die Pflanzen oder bestätige, dass diese Beete erhalten bleiben.",
+            "import_schema_version_missing": "Die Datei hat keine Versionsangabe und ist keine Sicherung.",
+            "import_schema_version_unsupported": "Diese Version der Sicherung kann hier nicht gelesen werden.",
+            "import_unknown_keys": "Die Datei enthält Teile, die diese Version nicht kennt. Aktualisiere Kamerplanter oder exportiere die Sicherung neu.",
+            "import_site_name_mismatch": "Der eingegebene Name stimmt nicht mit dem Standort überein.",
+            "plan_revision_conflict": "Jemand hat den Plan geändert, während du importiert hast. Lade den Plan neu und prüfe die Datei noch einmal.",
+            "REQUEST_BODY_TOO_LARGE": "Die Datei ist größer als 5 MB.",
+            "VALIDATION_ERROR": "Die Datei verletzt Regeln des Plans. Die Liste unten nennt die Stellen."
+          },
+          "reportTitle": "Prüfbericht für „{{name}}“",
+          "create": "Wird angelegt",
+          "delete": "Wird gelöscht",
+          "counts": "{{locations}} Standorte, {{objects}} Gartenobjekte, {{slots}} Pflanzplätze",
+          "kept_one": "{{count}} Standort mit aktiven Pflanzen bleibt erhalten.",
+          "kept_other": "{{count}} Standorte (mit aktiven Pflanzen und was darüber liegt) bleiben erhalten.",
+          "noErrors": "Die Datei lässt sich einspielen.",
+          "errorsTitle_one": "{{count}} Problem",
+          "errorsTitle_other": "{{count}} Probleme",
+          "more": "… und {{count}} weitere",
+          "codes": {
+            "import_not_empty": "Ein Beet trägt aktive Pflanzen.",
+            "import_duplicate_key": "Ein Schlüssel kommt in der Datei doppelt vor.",
+            "import_parent_cycle": "Zwei Standorte sind ineinander verschachtelt.",
+            "import_too_deep": "Die Verschachtelung ist tiefer als 10 Ebenen.",
+            "import_duplicate_slot_id": "Zwei Pflanzplätze eines Beets haben dieselbe ID.",
+            "plan_quota_exceeded": "Die Grenze für Standorte, Gartenobjekte oder Pflanzplätze wäre überschritten.",
+            "geometry_invalid": "Eine Form ist ungültig.",
+            "geometry_self_intersecting": "Eine Fläche überschneidet sich selbst.",
+            "geometry_outside_parent": "Etwas liegt außerhalb seiner Fläche.",
+            "bed_overlap": "Zwei Beete überlappen sich.",
+            "slot_outside_bed": "Ein Pflanzplatz liegt außerhalb seines Beets.",
+            "slot_overlap": "Zwei Zonen eines Beets überlappen sich.",
+            "boundary_shrinks_below_objects": "Die Gartengrenze würde bestehende Beete ausschließen.",
+            "validation_invalid": "Ein Wert ist ungültig."
+          },
+          "dropped": {
+            "title_one": "{{count}} Verweis wurde nicht übernommen",
+            "title_other": "{{count}} Verweise wurden nicht übernommen",
+            "hint": "Diese Verweise gibt es hier nicht oder sie gehören nicht zu diesem Standort. Der Rest der Datei wird eingespielt.",
+            "row": "{{entity}}: {{field}} entfällt ({{reason}})",
+            "entities": {
+              "location": "Standort",
+              "garden_object": "Gartenobjekt",
+              "slot": "Pflanzplatz"
+            },
+            "reasons": {
+              "not_found": "nicht gefunden",
+              "not_in_site": "gehört zu einem anderen Standort",
+              "always_dropped": "Kopplungen an Technik werden nie übernommen"
+            }
+          },
+          "mode": "Wie soll die Sicherung eingespielt werden?",
+          "modes": {
+            "replace": "Ersetzen",
+            "merge": "Hinzufügen"
+          },
+          "modeHints": {
+            "replace": "Der Plan dieses Standorts wird durch die Sicherung ersetzt. Beete mit aktiven Pflanzen werden nie gelöscht.",
+            "merge": "Die Sicherung wird zusätzlich zum bestehenden Plan angelegt. Nichts wird gelöscht; Überlappungen werden als Problem gemeldet."
+          },
+          "force": "Beete mit aktiven Pflanzen (und die Standorte darüber) bleiben erhalten, alles andere wird ersetzt.",
+          "recheckHint": "Du hast die Auswahl geändert. Prüfe die Datei noch einmal, bevor du sie einspielst.",
+          "check": "Erneut prüfen",
+          "snapshotNotice": "Vor dem Ersetzen wird der aktuelle Plan als Snapshot im Änderungsprotokoll gespeichert. Das ersetzt keine Sicherung: Lade dir zur Sicherheit vorher eine herunter.",
+          "backupFirst": "Aktuelle Sicherung herunterladen",
+          "confirmName": "Zur Bestätigung den Namen des Standorts eingeben: {{name}}",
+          "confirmNameHelp": "Der Name muss genau stimmen.",
+          "confirmNameMismatch": "Der Name stimmt noch nicht.",
+          "apply": {
+            "replace": "Plan ersetzen",
+            "merge": "Hinzufügen"
+          },
+          "done": "Fertig: {{locations}} Standorte, {{objects}} Gartenobjekte und {{slots}} Pflanzplätze wurden angelegt.",
+          "doneSnapshot": "Der vorherige Stand liegt im Änderungsprotokoll."
+        }
       }
     },
     "bed": {

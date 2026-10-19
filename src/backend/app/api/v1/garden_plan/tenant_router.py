@@ -12,7 +12,9 @@ from time import perf_counter
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
+from pydantic import ValidationError as PydanticValidationError
 
 from app.api.mapping import to_response
 from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
@@ -28,6 +30,8 @@ from app.api.v1.garden_plan.schemas import (
     PlanBoundaryRequest,
     PlanBoundaryResponse,
     PlanGardenObjectResponse,
+    PlanImportRequest,
+    PlanImportResponse,
     PlanLocationResponse,
     PlanPlantResponse,
     PlanSettingsResponse,
@@ -35,7 +39,12 @@ from app.api.v1.garden_plan.schemas import (
     PlanSlotResponse,
 )
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
-from app.common.dependencies import get_garden_plan_export_service, get_garden_plan_service
+from app.common.body_limit import read_bounded_body
+from app.common.dependencies import (
+    get_garden_plan_export_service,
+    get_garden_plan_import_service,
+    get_garden_plan_service,
+)
 from app.common.enums import SlotRole
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
 from app.common.openapi_responses import (
@@ -51,8 +60,10 @@ from app.domain.calculators.geometry_calculator import area_m2
 from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
 from app.domain.models.garden_plan_export import GardenPlanExport
+from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPORT_BYTES
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
@@ -369,3 +380,67 @@ def export_plan(
             "X-Content-Type-Options": "nosniff",
         },
     )
+
+
+#: The path of the import below the API prefix, as the ASGI layer sees it. The body ceiling of the import (5 MB for
+#: the file, GP-NFR-051) is matched on it - see ``app.main._route_body_ceilings``.
+PLAN_IMPORT_PATH_PATTERN = r"/t/[^/]+/sites/[^/]+/plan/import"
+PLAN_IMPORT_MAX_BODY_BYTES = MAX_IMPORT_BYTES + IMPORT_ENVELOPE_BYTES
+
+
+@router.post(
+    "/{key}/plan/import",
+    response_model=PlanImportResponse,
+    summary="Restore a plan from a JSON backup (dry run, snapshot, replace or merge)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": PlanImportRequest.model_json_schema()}},
+        }
+    },
+)
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+async def import_plan(
+    request: Request,
+    key: _SITE_KEY,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanImportService = Depends(get_garden_plan_import_service),
+) -> PlanImportResponse:
+    """Lead only (SR-010). The body is read **here**, after authentication, the role gate and the rate limit, so an
+    anonymous or under-privileged caller never makes the server buffer up to 5 MB (GP-NFR-051).
+
+    `dry_run: true` checks the file and answers `would_create` / `would_update` / `would_delete`,
+    `dropped_references[]` and `errors[]`; nothing is written. `replace` writes the plan it overwrites into the
+    change log first, needs `confirm_site_name`, and refuses with 409 `import.not_empty` while a bed holds an active
+    plant (`force` lifts that, and those beds then stay). Keys of the file are never kept (GP-NFR-051).
+    """
+    raw = await read_bounded_body(request, PLAN_IMPORT_MAX_BODY_BYTES)
+    try:
+        envelope = PlanImportRequest.model_validate_json(raw)
+    except PydanticValidationError as exc:
+        raise ValidationError(
+            "The import request is invalid.",
+            details=[
+                {
+                    "field": ".".join(str(part) for part in error["loc"]) or "request",
+                    "reason": error["type"],
+                    "code": "validation.invalid",
+                }
+                for error in exc.errors()[:20]
+            ],
+        ) from None
+    report = await run_in_threadpool(
+        service.import_plan,
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        mode=envelope.mode,
+        dry_run=envelope.dry_run,
+        force=envelope.force,
+        confirm_site_name=envelope.confirm_site_name,
+        document=envelope.document,
+    )
+    return PlanImportResponse(**report.model_dump())

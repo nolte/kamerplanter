@@ -390,6 +390,9 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # lost its ``tenant_key`` would hand out another tenant's plan. Read-only, hence no entry among the writers.
     "GardenPlanExportService": "garden_plan_export_service.py",
     "AdjacencyService": "adjacency_service.py",
+    # REQ-053 WP 5.3 (#2432): the plan import resolves the site through ``require_owned_site`` and walks the
+    # structure through the repository's site join - no ``get…_by_key`` - while it deletes and inserts a whole plan.
+    "GardenPlanImportService": "garden_plan_import_service.py",
     "BedRotationService": "bed_rotation_service.py",
 }
 
@@ -403,6 +406,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "PlantingReservationService": 6,
     "GardenPlanExportService": 5,
     "AdjacencyService": 3,
+    "GardenPlanImportService": 5,
     "BedRotationService": 4,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
@@ -501,6 +505,8 @@ _ANCHORED_SERVICES: dict[str, str] = {
     # ``get…_by_key`` on a repository, so the keyed-write selector is blind to all three. The Celery task that
     # triggers ``recompute`` finds the tenant on the stored site and passes it in; nothing in the message does.
     "AdjacencyService": "adjacency_service.py",
+    # REQ-053 WP 5.3 (#2432): ``import_plan`` anchors on ``require_owned_site`` and deletes/inserts a whole plan.
+    "GardenPlanImportService": "garden_plan_import_service.py",
     # REQ-053 WP 3.4 (#2394): bed-level rotation hints and the history backfill. ``backfill`` resolves the bed through
     # ``resolve_owned_location`` and writes through ``CareEventService.create``, ``cancel_backfill`` loads the event
     # with ``repo.get`` and voids it — neither names a ``get…_by_key``, so the keyed-write selector is blind to both.
@@ -532,6 +538,7 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "AdjacencyService.recompute",
         "AdjacencyService.set_manual_edge",
         "AdjacencyService.remove_manual_edge",
+        "GardenPlanImportService.import_plan",
         "BedRotationService.backfill",
         "BedRotationService.cancel_backfill",
     }

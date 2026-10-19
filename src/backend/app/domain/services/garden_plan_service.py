@@ -938,6 +938,43 @@ class GardenPlanService:
             for slot_key in slots_outside_bed(bed, placed):
                 work.findings.append((reshaped[bed_key], "geometry", ERROR_SLOT_OUTSIDE_BED, {"key": slot_key}))
 
+    # ── the plan import (GP-API-005) ──────────────────────────────────────────
+
+    def check_imported_structure(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        locations: dict[str, Location],
+        objects: dict[str, GardenObject],
+        imported_locations: list[str],
+        imported_objects: list[str],
+        boundary: Geometry | None,
+        boundary_changed: bool,
+    ) -> list[_Finding]:
+        """V-01…V-05, V-19 on the plan an import would leave: the same rules, the same engine as a batch.
+
+        ``locations`` and ``objects`` are the whole resulting structure (kept documents and imported ones, the
+        latter under their temporary keys); ``imported_*`` name the entities to check, in file order. The finding's
+        op index is the position in ``imported_locations`` followed by ``imported_objects`` (``None`` for the
+        boundary), which the import maps back to a path in the file.
+        """
+        work = _Work(
+            locations=locations,
+            objects=objects,
+            boundary=boundary,
+            stored_locations={},
+            stored_objects={},
+        )
+        for index, key in enumerate(imported_locations):
+            work.moved[(_ENTITY_LOCATION, key)] = index
+        for index, key in enumerate(imported_objects, start=len(imported_locations)):
+            work.moved[(_ENTITY_OBJECT, key)] = index
+        if boundary_changed:
+            work.boundary_op = -1
+        self._validate_geometry(work)
+        return [(None if index == -1 else index, name, code, extra) for index, name, code, extra in work.findings]
+
     # ── the write set and the answer ──────────────────────────────────────────
 
     def _build_write(
