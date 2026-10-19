@@ -29,6 +29,11 @@ interface PlantPhotoUploadDialogProps {
   onClose: () => void;
   /** Called after a successful upload so the gallery can refresh. */
   onUploaded: () => void;
+  /**
+   * Minimum edge in px of the dialog's buttons (close, retake, cancel, upload); the garden plan's field
+   * mode passes the kiosk target (64 px, REQ-053 GP-UX-020). Unset keeps the regular sizes.
+   */
+  touchTarget?: number;
 }
 
 /**
@@ -49,6 +54,7 @@ export default function PlantPhotoUploadDialog({
   plantInstanceKey,
   onClose,
   onUploaded,
+  touchTarget,
 }: PlantPhotoUploadDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -64,6 +70,7 @@ export default function PlantPhotoUploadDialog({
   // Ref to the confirm button so we can focus it once a preview is ready
   // (UI-NFR-008 R-010: autofocus on the primary action when file is ready).
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const targetSx = touchTarget ? { minHeight: touchTarget, minWidth: touchTarget } : {};
 
   // Reset all state and revoke any preview URL when the dialog closes/unmounts
   // (effect cleanup runs on close, avoiding a synchronous setState in the body).
@@ -132,13 +139,18 @@ export default function PlantPhotoUploadDialog({
       data-testid="plant-photo-upload-dialog"
       aria-labelledby="plant-photo-upload-title"
     >
-      <DialogTitle id="plant-photo-upload-title" sx={{ pr: 6 }}>
+      <DialogTitle id="plant-photo-upload-title" sx={{ pr: touchTarget ? 10 : 6 }}>
         {t('pages.plantPhotos.uploadTitle')}
         <IconButton
           onClick={onClose}
           disabled={uploading}
           aria-label={t('common.close')}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
+          sx={{
+            position: 'absolute',
+            right: 8,
+            top: 8,
+            ...(touchTarget ? { width: touchTarget, height: touchTarget } : {}),
+          }}
           data-testid="plant-photo-upload-close"
         >
           <CloseIcon />
@@ -192,6 +204,7 @@ export default function PlantPhotoUploadDialog({
                 startIcon={<ReplayIcon />}
                 onClick={handleRetake}
                 disabled={uploading}
+                sx={targetSx}
                 data-testid="plant-photo-upload-retake"
               >
                 {t('pages.plantPhotos.retake')}
@@ -213,6 +226,7 @@ export default function PlantPhotoUploadDialog({
         <Button
           onClick={onClose}
           disabled={uploading}
+          sx={targetSx}
           data-testid="plant-photo-upload-cancel"
         >
           {t('common.cancel')}
@@ -230,7 +244,7 @@ export default function PlantPhotoUploadDialog({
             )
           }
           /* Minimum 44px touch target on mobile (UI-NFR-001 R-008) */
-          sx={{ minHeight: 44 }}
+          sx={{ minHeight: 44, ...targetSx }}
           data-testid="plant-photo-upload-confirm"
         >
           {uploading ? t('pages.plantPhotos.uploading') : t('pages.plantPhotos.upload')}

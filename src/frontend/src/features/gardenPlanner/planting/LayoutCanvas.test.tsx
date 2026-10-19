@@ -90,6 +90,43 @@ describe('LayoutCanvas', () => {
     vi.runAllTimers();
   });
 
+  it('with a hold time moves the point only after the long press (field mode, GP-UX-023)', () => {
+    vi.useFakeTimers();
+    const moves: [number, number][] = [];
+    render(
+      <LayoutCanvas
+        bed={BED_GEOMETRY}
+        label="Bed"
+        layers={[{ id: 'plant', shape: 'circle', color: '#080', positions: [[0.6, 1]] }]}
+        interactiveLayerId="plant"
+        onMove={(_, __, point) => moves.push(point)}
+        dragHoldMs={500}
+      />,
+    );
+    const handle = screen.getByTestId('layout-canvas-point-0');
+    // A short touch that slides does not move the plant.
+    pointer(handle, 'pointerdown', 200, 200);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    pointer(handle, 'pointermove', 100, 300);
+    pointer(handle, 'pointerup', 100, 300);
+    expect(moves).toEqual([]);
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    // Held for 500 ms, the drag follows the pointer.
+    pointer(handle, 'pointerdown', 200, 200);
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    pointer(handle, 'pointermove', 100, 300);
+    pointer(handle, 'pointerup', 100, 300);
+    expect(moves).toEqual([[0.24, 0.44]]);
+    vi.runAllTimers();
+  });
+
   it('is named for assistive technology and has no violations', async () => {
     render(
       <LayoutCanvas
