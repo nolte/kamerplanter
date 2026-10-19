@@ -5728,8 +5728,8 @@
           "toggleHint": "Raster ein- oder ausblenden (G). Das Einrast-Raster bleibt aktiv.",
           "unit": "Längeneinheit",
           "unitOption": {
-            "m": "Meter (m)",
-            "cm": "Zentimeter (cm)"
+            "m": "m: Meter",
+            "cm": "cm: Zentimeter"
           }
         },
         "snap": {
