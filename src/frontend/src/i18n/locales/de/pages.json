@@ -6305,6 +6305,140 @@
           "continue": "Es sind noch {{count}} Aufgaben übrig. Erledige sie mit denselben Angaben oder ändere sie vorher."
         }
       },
+      "history": {
+        "title": "Historie",
+        "list": "Einträge der Historie",
+        "loading": "Historie wird geladen ...",
+        "loadingMore": "Weitere Einträge werden geladen ...",
+        "shown_one": "{{count}} Eintrag angezeigt",
+        "shown_other": "{{count}} Einträge angezeigt",
+        "loadMore": "Mehr laden",
+        "retryMore": "Erneut versuchen",
+        "allBeds": "Historie aller Beete",
+        "by": "von {{name}}",
+        "category": {
+          "note": "Notiz",
+          "planting": "Pflanzung",
+          "removal": "Entfernt",
+          "clearing": "Beet geräumt",
+          "bed_status_change": "Statuswechsel",
+          "position_corrected": "Position korrigiert"
+        },
+        "state": {
+          "corrected": "Korrigiert",
+          "correction": "Korrektur",
+          "voided": "Storniert",
+          "redacted": "Geschwärzt",
+          "backfill": "Nachträglich erfasst"
+        },
+        "event": {
+          "plantPlanted": "{{name}} gepflanzt",
+          "plantRemoved": "{{name}} entfernt",
+          "plantRemovedHow": "{{name}} entfernt ({{how}})",
+          "runStarted": "Durchlauf „{{name}}“ gestartet",
+          "runCompleted": "Durchlauf „{{name}}“ abgeschlossen",
+          "runCancelled": "Durchlauf „{{name}}“ abgebrochen"
+        },
+        "termination": {
+          "harvested": "geerntet",
+          "senesced": "abgestorben (planmäßig)",
+          "died": "eingegangen",
+          "cancelled": "abgebrochen"
+        },
+        "empty": {
+          "title": "Noch nichts protokolliert",
+          "description": "Pflege, die du protokollierst, und Pflanzen, die du setzt, erscheinen hier, die neuesten zuerst.",
+          "filteredTitle": "Kein Eintrag passt",
+          "filteredDescription": "Lockere einen Filter oder setze sie zurück, um mehr zu sehen."
+        },
+        "filters": {
+          "label": "Historie filtern",
+          "category": "Kategorie",
+          "allCategories": "Alle Kategorien",
+          "period": "Zeitraum",
+          "periods": {
+            "30d": "Letzte 30 Tage",
+            "90d": "Letzte 90 Tage",
+            "365d": "Letzte 12 Monate",
+            "all": "Gesamter Zeitraum",
+            "custom": "Eigener Zeitraum"
+          },
+          "from": "Von",
+          "to": "Bis",
+          "rangeInverted": "Das Ende liegt vor dem Anfang.",
+          "bed": "Beet",
+          "allBeds": "Alle Beete",
+          "plant": "Pflanze",
+          "allPlants": "Alle Pflanzen",
+          "person": "Person",
+          "everyone": "Alle",
+          "me": "Ich",
+          "personOwnOnly": "Du kannst nach dir selbst filtern; die Leitung sieht alle Mitglieder.",
+          "corrections": "Korrekturen anzeigen",
+          "reset": "Filter zurücksetzen",
+          "toggle": "Filter",
+          "toggleActive": "Filter ({{count}} aktiv)"
+        },
+        "timeline": {
+          "title": "Was hier wuchs",
+          "hint": "Je Jahr die Pflanzenfamilien, die in diesem Beet standen – die Grundlage der Fruchtfolge.",
+          "loading": "Pflanzungs-Zeitstrahl wird geladen ...",
+          "list": "Pflanzungs-Zeitstrahl nach Jahren",
+          "whatStood": "Was stand hier?",
+          "nothingRecorded": "Nichts erfasst",
+          "addYear": "{{year}} nachtragen",
+          "recordedLater": "nachträglich erfasst",
+          "cancelYear": "Eintrag für {{year}} zurücknehmen",
+          "cancelTitle": "Eintrag für {{year}} zurücknehmen?",
+          "cancelMessage": "Das Jahr verschwindet aus dem Zeitstrahl und die Fruchtfolge-Prüfung zählt es nicht mehr. Der Eintrag bleibt im Pflegeprotokoll als storniert stehen.",
+          "cancelConfirm": "Zurücknehmen",
+          "fallow": "Brache",
+          "greenManure": "Gründüngung",
+          "seasons": {
+            "spring": "Frühjahr",
+            "main": "Hauptsaison",
+            "autumn": "Herbst"
+          },
+          "notApplicable": {
+            "container": "Die Fruchtfolge-Prüfung ist für Töpfe, Zelte und Regale aus. Die Historie bleibt trotzdem erhalten.",
+            "rotation_exempt": "Dieses Beet ist von der Fruchtfolge-Prüfung ausgenommen. Die Historie bleibt trotzdem erhalten.",
+            "unknown": "Die Fruchtfolge-Prüfung ist für dieses Beet aus."
+          }
+        },
+        "backfill": {
+          "title": "Was stand hier {{year}}?",
+          "description": "Trage ein Jahr nach, in dem du die App noch nicht genutzt hast, damit die Fruchtfolge-Prüfung die Geschichte dieses Beets kennt.",
+          "year": "Jahr",
+          "role": "Was war es?",
+          "roles": {
+            "main_crop": "Hauptkultur",
+            "green_manure": "Gründüngung",
+            "fallow": "Brache (nichts gewachsen)"
+          },
+          "roleHints": {
+            "main_crop": "Die Kultur, die du in dem Jahr angebaut hast.",
+            "green_manure": "Eine Deckfrucht, die den Boden verbessern soll.",
+            "fallow": "Das Beet lag brach; eine Familie ist nicht nötig."
+          },
+          "species": "Art (optional)",
+          "speciesHint": "Eine Art bestimmt ihre Familie. Ohne Art wähle die Familie.",
+          "family": "Pflanzenfamilie",
+          "familyFromSpecies": "Aus der Art übernommen.",
+          "noFamily": "Familie wählen",
+          "errors": {
+            "family": "Wähle eine Pflanzenfamilie oder eine Art."
+          },
+          "season": "Saison",
+          "seasonHint": "Leer lassen, wenn du es nicht weißt. Der Eintrag wird auf die Saisonmitte datiert.",
+          "seasonNone": "Nicht angegeben",
+          "submit": "Speichern",
+          "saved": "{{year}} für dieses Beet erfasst."
+        },
+        "page": {
+          "title": "Pflegehistorie",
+          "description": "Was in allen Beeten dieses Gartens gemacht wurde, die neuesten zuerst. Es werden die letzten 90 Tage gezeigt, solange du keinen anderen Zeitraum wählst."
+        }
+      },
       "planting": {
         "planned_one": "Pflanzung geplant: {{count}} Pflanze.",
         "planned_other": "Pflanzung geplant: {{count}} Pflanzen.",

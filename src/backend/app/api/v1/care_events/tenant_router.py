@@ -7,7 +7,7 @@ correct their own entry, the author may undo within ten minutes, only the lead c
 the service's.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -22,6 +22,7 @@ from app.api.v1.care_events.schemas import (
     care_event_to_response,
 )
 from app.common.auth import get_current_tenant, require_permission
+from app.common.datetimes import utc_range
 from app.common.dependencies import get_care_event_service
 from app.common.exceptions import ValidationError
 from app.common.openapi_responses import FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
@@ -36,11 +37,6 @@ from app.domain.services.care_event_service import CareEventService
 router = APIRouter(prefix="/care-events", tags=["care-events"], responses=NOT_FOUND_RESPONSE)
 
 _EVENT_KEY = Annotated[str, Path(description="Document key of the care event.")]
-
-
-def _as_utc(moment: datetime | None) -> datetime | None:
-    """A naive ``from`` / ``to`` is read as UTC, as ``performed_at`` is on the way in (§20.13)."""
-    return moment.replace(tzinfo=UTC) if moment is not None and moment.tzinfo is None else moment
 
 
 @router.get(
@@ -76,16 +72,13 @@ def list_care_events(
         raise ValidationError(
             f"Unknown category '{category}'.", details=[{"field": "category", "message": "unknown category"}]
         )
-    if performed_from and performed_to and performed_to < performed_from:
-        raise ValidationError(
-            "'to' lies before 'from'.", details=[{"field": "to", "message": "must not be before 'from'"}]
-        )
+    performed_from, performed_to = utc_range(performed_from, performed_to)
     criteria = CareEventFilter(
         location_key=location_key,
         plant_key=plant_key,
         category=category,
-        performed_from=_as_utc(performed_from),
-        performed_to=_as_utc(performed_to),
+        performed_from=performed_from,
+        performed_to=performed_to,
         performed_by=performed_by,
         include_superseded=include_superseded,
     )

@@ -285,6 +285,18 @@ class TestReads:
         assert client(TenantRole.VIEWER).get(_OWN).status_code == 200
 
 
+class TestRangeBounds:
+    def test_a_naive_and_an_aware_bound_are_compared_as_utc_not_a_500(self, client) -> None:
+        response = client().get(_OWN, params={"from": "2026-06-01T00:00:00", "to": "2026-06-02T00:00:00Z"})
+
+        assert response.status_code == 200
+
+    def test_a_to_before_from_is_422(self, client) -> None:
+        response = client().get(_OWN, params={"from": "2026-06-02T00:00:00", "to": "2026-06-01T00:00:00Z"})
+
+        assert response.status_code == 422
+
+
 class TestFilterByMember:
     """#2411 item 1 (SR-020): a viewer or grower filters by themselves only; a lead (or management) by anyone."""
 

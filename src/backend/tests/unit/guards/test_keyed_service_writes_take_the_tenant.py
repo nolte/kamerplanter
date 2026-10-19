@@ -398,6 +398,8 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # no ``get…_by_key`` — so a ``list_plant_states`` that lost its ``tenant_key`` would hand out the plants, tasks
     # and findings of another tenant's bed and no selector above would notice.
     "PlantStateService": "plant_state_service.py",
+    # REQ-053 WP 4.5 (#2423): the combined history of a bed. Read-only; it takes the tenant like the other readers.
+    "BedHistoryService": "bed_history_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -413,6 +415,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "GardenPlanImportService": 5,
     "BedRotationService": 4,
     "PlantStateService": 1,
+    "BedHistoryService": 1,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 

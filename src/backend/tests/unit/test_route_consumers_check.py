@@ -267,6 +267,10 @@ class TestTheRouteOperand:
         consumers are the planting dialog (WP 3.6) and the history tab (WP 4.5, frontend), open — all four are
         reported candidates until it lands.
 
+        +1: the combined bed history (REQ-053 WP 4.5, #2423): ``GET /t/{slug}/locations/{key}/history``. The history
+        tab (``features/gardenPlanner/history/``) consumes it, so it is no candidate; the count is of mounted
+        operations, which is why it still rises. The same tab consumes ``GET …/rotation`` and the backfill pair.
+
         +1: the plan import (REQ-053 WP 5.3, #2432): ``POST /t/{slug}/sites/{key}/plan/import``. Its consumer is the
         import wizard (``features/gardenPlanner/io``), which lands in the same change - the operation is consumed.
 
@@ -275,7 +279,7 @@ class TestTheRouteOperand:
         same change - the operation is consumed.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 870
+        assert len(checker.collect_operations(app)) == 871
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

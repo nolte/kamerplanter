@@ -95,6 +95,8 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
     '/standorte/sites',
     '/standorte/locations',
     '/standorte/slots',
+    // REQ-053 WP 4.5: the care history of the whole tenant (all beds).
+    '/standorte/historie',
   ]),
   settings: def('settings', 'core', 'beginner', true, ['/settings']),
   onboarding: def('onboarding', 'core', 'beginner', true, ['/onboarding']),

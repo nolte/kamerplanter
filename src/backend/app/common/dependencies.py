@@ -8,6 +8,7 @@ from arango.database import StandardDatabase
 
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
+from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
@@ -90,6 +91,7 @@ from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
+from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
@@ -510,6 +512,11 @@ def get_bed_rotation_service() -> BedRotationService:
 def get_plant_state_service() -> PlantStateService:
     """REQ-053 WP 3.7 — the visual state and the info-bubble facts of the plants of a bed."""
     return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()))
+
+
+def get_bed_history_service() -> BedHistoryService:
+    """REQ-053 WP 4.5 — the combined history of a bed: care events and derived planting events."""
+    return BedHistoryService(get_site_repo(), ArangoBedHistoryRepository(get_db()))
 
 
 def get_garden_resource_service() -> GardenResourceService:

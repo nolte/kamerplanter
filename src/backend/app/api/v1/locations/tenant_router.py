@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -8,6 +9,7 @@ from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.locations.schemas import (
     BackfillRequest,
     BackfillResponse,
+    BedHistoryItemResponse,
     BedListItemResponse,
     BedSummaryResponse,
     ClearBedRequest,
@@ -35,7 +37,9 @@ from app.api.v1.locations.schemas import (
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission
+from app.common.datetimes import utc_range
 from app.common.dependencies import (
+    get_bed_history_service,
     get_bed_rotation_service,
     get_garden_resource_service,
     get_plant_state_service,
@@ -45,6 +49,7 @@ from app.common.dependencies import (
     get_site_service,
 )
 from app.common.enums import BedStatus
+from app.common.exceptions import ValidationError
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
     FORBIDDEN_RESPONSE,
@@ -55,9 +60,12 @@ from app.common.pagination import PaginationParams, get_pagination
 from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
+from app.domain.interfaces.bed_history_repository import BedHistoryFilter
+from app.domain.models.care_event import CARE_EVENT_CATEGORIES
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.plant_state_service import PlantStateService
@@ -467,6 +475,63 @@ def validate_planting(
         neighbour_scope=result.neighbour_scope,
         neighbours=[NeighbourHintResponse(**asdict(h)) for h in result.neighbours],
     )
+
+
+@router.get("/{key}/history", response_model=list[BedHistoryItemResponse], responses={**VALIDATION_RESPONSE})
+def get_bed_history(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    category: str | None = Query(
+        None, description="Only this category (`planting` / `removal` for plant and run events)."
+    ),
+    plant_key: str | None = Query(None, description="Only the events that name this plant."),
+    performed_from: datetime | None = Query(None, alias="from", description="Events from this instant (inclusive)."),
+    performed_to: datetime | None = Query(None, alias="to", description="Events until this instant (inclusive)."),
+    performed_by: str | None = Query(
+        None,
+        description=(
+            "Account key of a member, as the member list names it. A viewer or grower may name only themselves; "
+            "a lead or a member with the management scope may name anyone (403 otherwise). Plant and run events "
+            "have no performer and are left out."
+        ),
+    ),
+    include_corrections: bool = Query(
+        False, description="Also the entries a correction replaced and the `position_corrected` entries."
+    ),
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: BedHistoryService = Depends(get_bed_history_service),
+) -> list[BedHistoryItemResponse]:
+    """The history of a bed, newest first, 50 per page (GP-API-038, GP-FR-102), all roles.
+
+    The stored care events of the bed and the planting events derived from its plants and runs (`plant_planted`,
+    `plant_removed`, `run_started`, `run_completed`) in one list. `performed_by` follows the care log's rule
+    (E-16): a viewer or grower names only themselves. 404 for a foreign or absent bed; 422 for an unknown
+    category or a `to` before `from`.
+    """
+    if category is not None and category not in CARE_EVENT_CATEGORIES:
+        raise ValidationError(
+            f"Unknown category '{category}'.", details=[{"field": "category", "message": "unknown category"}]
+        )
+    performed_from, performed_to = utc_range(performed_from, performed_to)
+    criteria = BedHistoryFilter(
+        category=category,
+        plant_key=plant_key,
+        performed_from=performed_from,
+        performed_to=performed_to,
+        performed_by=performed_by,
+        include_corrections=include_corrections,
+    )
+    items = service.list_history(
+        key,
+        criteria,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        admin_scopes=ctx.admin_scopes,
+        offset=pagination.offset,
+        limit=pagination.limit,
+    )
+    return [BedHistoryItemResponse.from_item(item) for item in items]
 
 
 @router.get("/{key}/rotation", response_model=RotationTimelineResponse, responses={**VALIDATION_RESPONSE})

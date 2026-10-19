@@ -15,7 +15,6 @@ import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import BedHeader from './BedHeader';
-import BedPlaceholderPanel from './BedPlaceholderPanel';
 import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
 import SoilProfileForm from './SoilProfileForm';
@@ -29,6 +28,8 @@ import { useYearParam } from './useYearParam';
 const BedPlanTab = lazy(() => import('./BedPlanTab'));
 // The care tab brings its dialogs (completion, task, log); they load when the tab opens.
 const BedCareTab = lazy(() => import('../care/BedCareTab'));
+// The history tab brings the timeline, the filters and the backfill dialog; it loads when the tab opens.
+const BedHistoryTab = lazy(() => import('../history/BedHistoryTab'));
 // The planting tab brings the planting dialog and the plant actions; they load when the tab opens.
 const BedPlantingTab = lazy(() => import('../planting/BedPlantingTab'));
 
@@ -93,7 +94,11 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
           </Suspense>
         );
       case 'history':
-        return <BedPlaceholderPanel tab="history" />;
+        return (
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <BedHistoryTab key={summary.key} bed={summary} />
+          </Suspense>
+        );
       case 'soil':
         return (
           <SoilProfileForm

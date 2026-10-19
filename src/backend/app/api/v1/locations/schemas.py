@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.api.v1.care_events.schemas import CareEventResponse, care_event_to_response
 from app.common.enums import (
     BedStatus,
     GrowingMediumKind,
@@ -34,6 +35,7 @@ from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInput
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
+from app.domain.services.bed_history_service import BedHistoryItem
 from app.domain.services.plant_state_service import PlantStateEntry, phase_facts
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
@@ -840,6 +842,75 @@ class BackfillResponse(BaseModel):
     family_key: str | None = None
     species_key: str | None = None
     plan_role: Literal["main_crop", "green_manure", "fallow"]
+
+
+BedHistoryKind = Literal["care_event", "plant_planted", "plant_removed", "run_started", "run_completed"]
+
+
+class BedHistoryItemResponse(BaseModel):
+    """One line of `GET /locations/{key}/history` (GP-API-038): a care event, or a derived planting event."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "id": "plant_planted:pi_tom_003",
+                    "kind": "plant_planted",
+                    "at": "2026-05-12T00:00:00Z",
+                    "category": "planting",
+                    "plant_key": "pi_tom_003",
+                    "species_key": "5120",
+                    "plant_name": "Tomato 'Black Krim' #3",
+                }
+            ]
+        }
+    )
+
+    #: Stable per line: `care:{key}`, `plant_planted:{plant}`, `plant_removed:{plant}`, `run_started:{run}`,
+    #: `run_completed:{run}`.
+    id: str
+    kind: BedHistoryKind
+    at: datetime
+    #: The care category, or `planting` / `removal` for a derived event.
+    category: str
+    #: Set for `kind = care_event` only: the whole entry, as `GET /care-events/{key}` shows it.
+    care_event: CareEventResponse | None = None
+    plant_key: str | None = None
+    species_key: str | None = None
+    plant_name: str | None = None
+    termination_type: str | None = None
+    run_key: str | None = None
+    run_name: str | None = None
+    run_status: str | None = None
+
+    @classmethod
+    def from_item(cls, item: BedHistoryItem) -> BedHistoryItemResponse:
+        if item.care is not None:
+            event = item.care.event
+            return cls(
+                id=f"care:{event.key}",
+                kind="care_event",
+                at=event.performed_at,
+                category=event.category,
+                care_event=care_event_to_response(item.care),
+            )
+        planting = item.planting
+        if planting is None:  # an item is exactly one of the two; this keeps the type honest
+            raise ValueError("A history item carries a care event or a planting event.")
+        ref = planting.plant_key if planting.plant_key is not None else planting.run_key
+        return cls(
+            id=f"{planting.kind}:{ref}",
+            kind=planting.kind,
+            at=planting.at,
+            category=planting.category,
+            plant_key=planting.plant_key,
+            species_key=planting.species_key,
+            plant_name=planting.plant_name,
+            termination_type=planting.termination_type,
+            run_key=planting.run_key,
+            run_name=planting.run_name,
+            run_status=planting.run_status,
+        )
 
 
 # ── Plant states of a bed (REQ-053 WP 3.7, GP-API-054) ───────────────────────────────────────────

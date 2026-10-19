@@ -12,6 +12,7 @@ import { authState, createTestStore, renderWithProviders, tenantState } from '@/
 import { server } from '@/test/mocks/server';
 import BedView from './BedView';
 import { careTask, useCareBackend } from '../care/careTestKit';
+import { careItem, timeline, useHistoryBackend, year } from '../history/historyTestKit';
 import { bedSummary } from './bedTestKit';
 import type { BedSummary } from './types';
 
@@ -134,15 +135,17 @@ describe('BedView', () => {
     await waitFor(() => expect(screen.queryByTestId('bed-rotation-badge')).toBeNull());
   });
 
-  it('opens the care tab with the open tasks of the bed (GP-FR-083) and keeps history an honest empty state', async () => {
+  it('opens the care tab with the open tasks of the bed (GP-FR-083) and the history tab with its timeline (GP-FR-102)', async () => {
     useBackend();
+    useHistoryBackend({ items: [careItem('h1', { summary: 'Mulched' })], timeline: timeline([year(2026), year(2025), year(2024), year(2023), year(2022)]) });
     useCareBackend([careTask('t1', { name: 'Water the bed' })]);
     const user = userEvent.setup();
     renderBed(bedSummary(), '/standorte/locations/loc_b03#care');
     expect(await screen.findByTestId('care-task-t1')).toHaveTextContent('Water the bed');
     expect(screen.getByRole('tab', { name: 'Care' })).toHaveAttribute('aria-selected', 'true');
     await user.click(screen.getByRole('tab', { name: 'History' }));
-    expect(await screen.findByTestId('bed-history-tab')).toHaveTextContent('History is coming');
+    expect(await screen.findByTestId('bed-history-tab')).toHaveTextContent('What grew here');
+    expect(await screen.findByTestId('history-item-care:h1')).toHaveTextContent('Mulched');
   });
 
   it('reloads the summary after a task was completed, so the head counters follow', async () => {
