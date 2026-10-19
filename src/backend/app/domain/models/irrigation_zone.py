@@ -13,10 +13,10 @@ document afterwards (§22.3 T-01) — never from a request body.
 ``Location.irrigation_zone_key``. The edge answers "which beds does this zone water", the field answers
 "which zone waters this bed" without a traversal.
 
-**What is written from WP 7.4 on.** ``actuator_key`` and the ``flow_rate_*`` fields belong to the stored
-shape (§20.11) but are a technical coupling (SR-014: scope ``technical``, a granted Home Assistant entity, an
-actuator of the same site). Until WP 7.4 a request that sets one of them is refused (422
-``irrigation_zone.coupling_not_available``); the stored defaults are ``null`` / ``manual``.
+**The technical coupling (WP 7.4, SR-014).** ``actuator_key`` (an actuator of the tenant at a location of the same
+site, edge ``zone_actuated_by``), ``flow_rate_source`` ``ha_entity`` and ``flow_rate_ha_entity_id`` (a granted
+Home Assistant entity with ``device_class`` water or volume_flow_rate) are written by a caller with the
+``technical`` admin scope only; the service decides it. The stored defaults are ``null`` / ``manual``.
 
 **Agronomic values (E-10).** ``application_efficiency`` is stored as sent and stays ``null`` otherwise — the
 type defaults with a source (drip 0.88, R-005) are WP 7.5, nothing here invents one.
@@ -42,14 +42,6 @@ DEFAULT_ZONE_COLOR = "#2E7D32"
 #: ``PUT /irrigation-zones/{key}/locations``: a site holds at most this many locations and objects together
 #: (GP-NFR-017), so a zone cannot cover more beds than that.
 MAX_ZONE_LOCATIONS = MAX_PLAN_OBJECTS_PER_SITE
-
-#: The fields of the technical coupling (§14.1, SR-014): stored, but written from WP 7.4 on.
-COUPLING_FIELDS: tuple[str, ...] = (
-    "actuator_key",
-    "flow_rate_l_per_min",
-    "flow_rate_source",
-    "flow_rate_ha_entity_id",
-)
 
 
 def _stripped_or_none(value: str | None) -> str | None:
@@ -111,7 +103,7 @@ class IrrigationZoneInput(_Strict):
     color: str = Field(default=DEFAULT_ZONE_COLOR, pattern=COLOR_PATTERN)
     schedule_hint: str | None = Field(default=None, max_length=500)
     application_efficiency: float | None = Field(default=None, gt=0, le=1)
-    #: Part of the contract, refused with 422 until WP 7.4 when set (see the module docstring).
+    #: The technical coupling: needs the ``technical`` admin scope (see the module docstring).
     actuator_key: str | None = Field(default=None, max_length=200)
     flow_rate_l_per_min: float | None = Field(default=None, gt=0)
     flow_rate_source: FlowRateSource | None = None
@@ -273,6 +265,14 @@ class NextPlannedView:
 
 
 @dataclass(frozen=True)
+class ConsumptionPart:
+    """Litres of the last 30 days from one kind of source (GP-FR-114): the provenance travels with the figure."""
+
+    source: Literal["manual_log", "actuator_runtime_manual_rate", "actuator_runtime_ha_rate"]
+    liters: float
+
+
+@dataclass(frozen=True)
 class ZoneHint:
     """A hint the zone panel shows (GP-FR-119): a stable ``code`` for the client's wording and its figures."""
 
@@ -296,3 +296,5 @@ class ZoneStatusView:
     #: ``zone`` (set by a person) or ``type_default`` (drip, R-005); ``None`` = efficiency unknown.
     efficiency_source: Literal["zone", "type_default"] | None = None
     hints: tuple[ZoneHint, ...] = ()
+    #: Where ``consumption_liters_30d`` comes from; the parts add up to it. Empty when nothing was recorded.
+    consumption: tuple[ConsumptionPart, ...] = ()

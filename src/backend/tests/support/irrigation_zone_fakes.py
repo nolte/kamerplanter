@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.common.exceptions import NotFoundError
+from app.domain.calculators.irrigation_zone_consumption_calculator import StateChange
 from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
@@ -31,6 +32,9 @@ class FakeZones(IIrrigationZoneRepository):
         self.facts_asked: list[list[str]] = []
         #: What ``bed_demands`` answers (REQ-037 demand of the day per bed).
         self.demands: list[BedDemand] = []
+        #: actuator key -> (tenant, location) and its recorded switches (WP 7.4).
+        self.actuators: dict[str, tuple[str, str]] = {}
+        self.switches: dict[str, list[StateChange]] = {}
 
     def add(self, zone: IrrigationZone) -> IrrigationZone:
         self.zones[zone.key or ""] = zone
@@ -118,3 +122,11 @@ class FakeZones(IIrrigationZoneRepository):
     def bed_demands(self, site_key, location_keys, *, tenant_key, on_date):
         assert tenant_key
         return [demand for demand in self.demands if demand.location_key in location_keys]
+
+    def actuator_location_key(self, actuator_key, *, tenant_key):
+        found = self.actuators.get(actuator_key)
+        return found[1] if found is not None and found[0] == tenant_key else None
+
+    def actuator_state_changes(self, actuator_key, *, tenant_key, since, until):
+        assert tenant_key
+        return list(self.switches.get(actuator_key, []))

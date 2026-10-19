@@ -71,10 +71,13 @@ def create_irrigation_zone(
 ) -> IrrigationZoneResponse:
     """Create a zone on the site (GP-API-050, from grower).
 
-    422 ``reference.not_found`` when ``water_source_key`` is not a water source of this site; 422
-    ``irrigation_zone.coupling_not_available`` for ``actuator_key`` / ``flow_rate_*`` (written from WP 7.4 on).
+    422 ``reference.not_found`` when ``water_source_key`` is not a water source of this site or ``actuator_key``
+    is not an actuator of the tenant at a location of this site. The technical coupling (``actuator_key``,
+    ``flow_rate_source`` ``ha_entity``, ``flow_rate_ha_entity_id``) needs the ``technical`` admin scope (403); a
+    flow entity that is not granted to the tenant is 422 ``HA_ENTITY_NOT_GRANTED``, one that is no flow sensor 422
+    ``irrigation_zone.flow_entity_device_class``.
     """
-    view = service.create_zone(key, tenant_key=ctx.tenant_key, role=ctx.role, data=body)
+    view = service.create_zone(key, tenant_key=ctx.tenant_key, role=ctx.role, data=body, admin_scopes=ctx.admin_scopes)
     return zone_to_response(view)
 
 
@@ -99,8 +102,12 @@ def patch_irrigation_zone(
     ctx: TenantContext = Depends(require_permission(ResourceType.IRRIGATION_ZONE, Action.UPDATE)),
     service: IrrigationZoneService = Depends(get_irrigation_zone_service),
 ) -> IrrigationZoneResponse:
-    """Change the fields present (GP-API-050, from grower); ``water_source_key: null`` unlinks the source."""
-    view = service.patch_zone(key, tenant_key=ctx.tenant_key, role=ctx.role, patch=body)
+    """Change the fields present (GP-API-050, from grower); ``water_source_key: null`` unlinks the source.
+
+    A change of ``actuator_key`` / ``flow_rate_source`` / ``flow_rate_ha_entity_id`` needs the ``technical`` admin
+    scope (403, SR-014); the checks of the create route apply to the new values.
+    """
+    view = service.patch_zone(key, tenant_key=ctx.tenant_key, role=ctx.role, patch=body, admin_scopes=ctx.admin_scopes)
     return zone_to_response(view)
 
 

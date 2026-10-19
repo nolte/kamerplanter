@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Any
 
 from app.common.types import IrrigationZoneKey, LocationKey, SiteKey
+from app.domain.calculators.irrigation_zone_consumption_calculator import StateChange
 from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand
 from app.domain.models.irrigation_zone import IrrigationZone, ZoneCoverageChange, ZoneWateringFacts
 
@@ -76,3 +77,13 @@ class IIrrigationZoneRepository(ABC):
         A bed without a demand for that day is absent. Where several runs share a bed the one with the larger
         litres is taken (a mixed bed is not divided by area share yet, GP-FR-113).
         """
+
+    @abstractmethod
+    def actuator_location_key(self, actuator_key: str, *, tenant_key: str) -> LocationKey | None:
+        """``location_key`` of the tenant's actuator; ``None`` when absent or another tenant's (WP 7.4)."""
+
+    @abstractmethod
+    def actuator_state_changes(
+        self, actuator_key: str, *, tenant_key: str, since: datetime, until: datetime
+    ) -> list[StateChange]:
+        """Successful switches of the tenant's actuator in ``[since, until)`` plus the last one before ``since``."""

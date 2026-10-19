@@ -37,6 +37,7 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.data_access.arango.watering_queries import zone_watering_facts
+from app.domain.calculators.irrigation_zone_consumption_calculator import StateChange
 from app.domain.calculators.irrigation_zone_demand_calculator import BedDemand, net_liters
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
@@ -67,7 +68,14 @@ ZONE_EDGES = _edges_touching_zones()
 
 #: What creating or editing a zone writes: the zone, its site edge, its water-source edge — and the water source
 #: itself, which is taken inside the transaction so a plan batch deleting it concurrently conflicts.
-ZONE_WRITE: tuple[str, ...] = (col.IRRIGATION_ZONES, col.HAS_IRRIGATION_ZONE, col.ZONE_SUPPLIED_BY, col.GARDEN_OBJECTS)
+ZONE_WRITE: tuple[str, ...] = (
+    col.IRRIGATION_ZONES,
+    col.HAS_IRRIGATION_ZONE,
+    col.ZONE_SUPPLIED_BY,
+    col.GARDEN_OBJECTS,
+    col.ZONE_ACTUATED_BY,
+    col.ACTUATORS,
+)
 #: What a coverage replacement writes: the zone (taken first), the beds' field and the edges.
 COVERAGE_WRITE: tuple[str, ...] = (col.IRRIGATION_ZONES, col.LOCATIONS, col.ZONE_COVERS)
 #: What the delete writes: the zone, the beds it releases, every edge on the zone and the audit row.
@@ -89,6 +97,14 @@ FOR o IN @@objects
     LET site = DOCUMENT(CONCAT(@sites, o.site_key))
     FILTER site != null AND site.tenant_key == @tenant_key
     UPDATE o WITH { updated_at: @now } IN @@objects
+    RETURN 1
+"""
+
+#: Take the actuator inside a transaction (WP 7.4): the tenant's own, so a foreign or deleted one never gets an edge.
+_TAKE_ACTUATOR = """
+FOR a IN @@actuators
+    FILTER a._key == @key AND a.tenant_key == @tenant_key
+    UPDATE a WITH { updated_at: @now } IN @@actuators
     RETURN 1
 """
 
@@ -230,6 +246,9 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
             if zone.water_source_key:
                 self._take_water_source(txn, zone.water_source_key, zone.site_key, tenant_key, now)
                 self._link_water_source(txn, zone_id, zone.water_source_key, now)
+            if zone.actuator_key:
+                self._take_actuator(txn, zone.actuator_key, tenant_key, now)
+                self._link_actuator(txn, zone_id, zone.actuator_key, now)
         return self._wrapped(created)
 
     def update_zone(self, key: IrrigationZoneKey, fields: dict[str, Any], *, tenant_key: str) -> IrrigationZone:
@@ -239,6 +258,8 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
             taken = self._take_zone(txn, key, tenant_key, now)
             if fields.get("water_source_key"):
                 self._take_water_source(txn, str(fields["water_source_key"]), str(taken["site_key"]), tenant_key, now)
+            if fields.get("actuator_key"):
+                self._take_actuator(txn, str(fields["actuator_key"]), tenant_key, now)
             updated = txn.collection(col.IRRIGATION_ZONES).update(
                 {"_key": key, **fields, "updated_at": now}, merge=False, keep_none=False, return_new=True
             )["new"]
@@ -247,6 +268,11 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
                 self._remove_edges(txn, col.ZONE_SUPPLIED_BY, "_from", [zone_id])
                 if fields["water_source_key"]:
                     self._link_water_source(txn, zone_id, str(fields["water_source_key"]), now)
+            if "actuator_key" in fields:
+                zone_id = _zone_id(key)
+                self._remove_edges(txn, col.ZONE_ACTUATED_BY, "_from", [zone_id])
+                if fields["actuator_key"]:
+                    self._link_actuator(txn, zone_id, str(fields["actuator_key"]), now)
         return self._wrapped(updated)
 
     def delete_zone(self, key: IrrigationZoneKey, *, tenant_key: str, user_key: str) -> list[LocationKey]:
@@ -287,6 +313,76 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
     def watering_facts(self, location_keys: list[LocationKey], *, tenant_key: str, now: datetime) -> ZoneWateringFacts:
         self._require_tenant_key(tenant_key, "watering_facts")
         return zone_watering_facts(self._db, location_keys, tenant_key=tenant_key, now=now)
+
+    def actuator_location_key(self, actuator_key: str, *, tenant_key: str) -> LocationKey | None:
+        self._require_tenant_key(tenant_key, "actuator_location_key")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR a IN @@actuators
+                    FILTER a._key == @key AND a.tenant_key == @tenant_key
+                    RETURN a.location_key
+                """,
+                bind_vars={"@actuators": col.ACTUATORS, "key": actuator_key, "tenant_key": tenant_key},
+            ),
+        )
+        found = next(cursor, None)
+        return str(found) if found else None
+
+    def actuator_state_changes(
+        self, actuator_key: str, *, tenant_key: str, since: datetime, until: datetime
+    ) -> list[StateChange]:
+        """The actuator's successful switches in the window, plus the last one before it (the state at ``since``).
+
+        At most 5 000 in the window: a zone valve switches a few times a day, a flapping rule is cut off rather
+        than read without bound.
+        """
+        self._require_tenant_key(tenant_key, "actuator_state_changes")
+        bind_vars: dict[str, Any] = {
+            "@events": col.CONTROL_EVENTS,
+            "tenant_key": tenant_key,
+            "actuator_key": actuator_key,
+            "since": since.astimezone(UTC).isoformat(),
+            "until": until.astimezone(UTC).isoformat(),
+        }
+        rows = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                LET before = (
+                    FOR e IN @@events
+                        FILTER e.tenant_key == @tenant_key AND e.actuator_key == @actuator_key AND e.success == true
+                            AND DATE_TIMESTAMP(e.timestamp) < DATE_TIMESTAMP(@since)
+                        SORT DATE_TIMESTAMP(e.timestamp) DESC
+                        LIMIT 1
+                        RETURN { at: e.timestamp, state: e.new_state }
+                )
+                LET inside = (
+                    FOR e IN @@events
+                        FILTER e.tenant_key == @tenant_key AND e.actuator_key == @actuator_key AND e.success == true
+                            AND DATE_TIMESTAMP(e.timestamp) >= DATE_TIMESTAMP(@since)
+                            AND DATE_TIMESTAMP(e.timestamp) < DATE_TIMESTAMP(@until)
+                        SORT DATE_TIMESTAMP(e.timestamp) ASC
+                        LIMIT 5000
+                        RETURN { at: e.timestamp, state: e.new_state }
+                )
+                FOR row IN APPEND(before, inside)
+                    RETURN row
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        changes: list[StateChange] = []
+        for row in rows:
+            try:
+                moment = datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            changes.append(
+                StateChange(at=moment if moment.tzinfo else moment.replace(tzinfo=UTC), new_state=str(row["state"]))
+            )
+        return changes
 
     def bed_demands(
         self, site_key: SiteKey, location_keys: list[LocationKey], *, tenant_key: str, on_date: date
@@ -471,6 +567,24 @@ class ArangoIrrigationZoneRepository(BaseArangoRepository[IrrigationZone], IIrri
         )
         if not taken:
             raise PlanValidationError([(None, "water_source_key", ERROR_REFERENCE_NOT_FOUND, {})])
+
+    @staticmethod
+    def _take_actuator(txn: StreamTransaction, actuator_key: str, tenant_key: str, now: str) -> None:
+        """The actuator still exists under the tenant - else 422 ``reference.not_found`` (it was deleted meanwhile)."""
+        taken = list(
+            txn.aql.execute(
+                _TAKE_ACTUATOR,
+                bind_vars={"@actuators": col.ACTUATORS, "key": actuator_key, "tenant_key": tenant_key, "now": now},
+            )
+        )
+        if not taken:
+            raise PlanValidationError([(None, "actuator_key", ERROR_REFERENCE_NOT_FOUND, {})])
+
+    @staticmethod
+    def _link_actuator(txn: StreamTransaction, zone_id: str, actuator_key: str, now: str) -> None:
+        txn.collection(col.ZONE_ACTUATED_BY).insert(
+            {"_from": zone_id, "_to": f"{col.ACTUATORS}/{actuator_key}", "created_at": now}
+        )
 
     @staticmethod
     def _link_water_source(txn: StreamTransaction, zone_id: str, object_key: str, now: str) -> None:

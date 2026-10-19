@@ -1,8 +1,9 @@
 """Request/response schemas of the irrigation zones (REQ-053 §20.11, §21.6 GP-API-050/051; WP 7.1, #2467).
 
 ``site_key`` and ``tenant_key`` are absent from every body (T-01, ``check_tenant_body_field``): the site is the
-path's on create and the stored document's afterwards. ``flow_rate_ha_entity_id`` is not part of the response:
-which members may read the bound entity is decided with the coupling itself (WP 7.4, SR-014, GP-NFR-060).
+path's on create and the stored document's afterwards. ``flow_rate_ha_entity_id`` is accepted on a write (scope
+``technical``, a granted entity, WP 7.4, SR-014) but is never part of a response: members see only
+``flow_rate_ha_entity_bound`` (GP-NFR-060).
 """
 
 from __future__ import annotations
@@ -37,7 +38,10 @@ class IrrigationZoneCreate(IrrigationZoneInput):
                     "color": "#2E7D32",
                     "schedule_hint": "mornings, 20 min",
                 }
-            ]
+            ],
+            "description": "`actuator_key`, `flow_rate_source` = `ha_entity` and `flow_rate_ha_entity_id` need the "
+            "`technical` admin scope (403 otherwise); the entity must be granted to the tenant (422) and be a flow "
+            "sensor (`device_class` water or volume_flow_rate).",
         },
     )
 
@@ -86,6 +90,8 @@ class IrrigationZoneResponse(BaseModel):
     actuator_key: str | None = None
     flow_rate_l_per_min: float | None = None
     flow_rate_source: FlowRateSource = FlowRateSource.MANUAL
+    #: Whether a Home Assistant flow entity is bound; the entity id itself is never returned (SR-014).
+    flow_rate_ha_entity_bound: bool = False
     application_efficiency: float | None = None
     color: str
     schedule_hint: str | None = None
@@ -120,6 +126,7 @@ def zone_to_response(view: IrrigationZoneView) -> IrrigationZoneResponse:
         actuator_key=zone.actuator_key,
         flow_rate_l_per_min=zone.flow_rate_l_per_min,
         flow_rate_source=zone.flow_rate_source,
+        flow_rate_ha_entity_bound=zone.flow_rate_ha_entity_id is not None,
         application_efficiency=zone.application_efficiency,
         color=zone.color,
         schedule_hint=zone.schedule_hint,
@@ -164,6 +171,11 @@ class NextPlannedResponse(BaseModel):
     overdue: bool = False
 
 
+class ConsumptionPartResponse(BaseModel):
+    source: Literal["manual_log", "actuator_runtime_manual_rate", "actuator_runtime_ha_rate"]
+    liters: float
+
+
 class ZoneHintResponse(BaseModel):
     """A hint of the zone panel: `code` is stable (`water_source_lasts_days`, `irrigation_system_differs`)."""
 
@@ -195,6 +207,10 @@ class IrrigationZoneStatusResponse(BaseModel):
                     "application_efficiency": 0.88,
                     "efficiency_source": "type_default",
                     "consumption_liters_30d": 480.0,
+                    "consumption_sources": [
+                        {"source": "manual_log", "liters": 300.0},
+                        {"source": "actuator_runtime_manual_rate", "liters": 180.0},
+                    ],
                     "hints": [
                         {
                             "code": "water_source_lasts_days",
@@ -216,6 +232,8 @@ class IrrigationZoneStatusResponse(BaseModel):
     #: `zone` = set on the zone; `type_default` = the sourced default of the type (drip 0.88); `null` = unknown.
     efficiency_source: Literal["zone", "type_default"] | None = None
     consumption_liters_30d: float = 0.0
+    #: Provenance of the consumption: `manual_log`, `actuator_runtime_manual_rate`, `actuator_runtime_ha_rate`.
+    consumption_sources: list[ConsumptionPartResponse] = Field(default_factory=list)
     hints: list[ZoneHintResponse] = Field(default_factory=list)
 
 
@@ -259,6 +277,9 @@ def zone_status_to_response(view: ZoneStatusView) -> IrrigationZoneStatusRespons
         application_efficiency=view.application_efficiency,
         efficiency_source=view.efficiency_source,
         consumption_liters_30d=view.consumption_liters_30d,
+        consumption_sources=[
+            ConsumptionPartResponse(source=part.source, liters=part.liters) for part in view.consumption
+        ],
         hints=[ZoneHintResponse(code=hint.code, params=dict(hint.params)) for hint in view.hints],
     )
 
