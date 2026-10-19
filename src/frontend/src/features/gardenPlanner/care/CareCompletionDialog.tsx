@@ -25,6 +25,10 @@ interface CareCompletionDialogProps {
   saving: boolean;
   onSubmit: (payload: CompletionPayload) => void;
   onClose: () => void;
+  /** Edge of the action buttons in px; field mode passes the kiosk target (64 px, GP-UX-020). */
+  touchTarget?: number;
+  /** Label of the submit button; field mode says "Finish" (§18.1 step 5). */
+  submitLabel?: string;
 }
 
 export default function CareCompletionDialog({
@@ -33,6 +37,8 @@ export default function CareCompletionDialog({
   saving,
   onSubmit,
   onClose,
+  touchTarget = 48,
+  submitLabel,
 }: CareCompletionDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -84,17 +90,17 @@ export default function CareCompletionDialog({
         />
       </DialogContent>
       <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
-        <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ minHeight: touchTarget }}>
           {t('common.cancel')}
         </Button>
         <Button
           variant="contained"
           onClick={submit}
           loading={saving}
-          sx={{ minHeight: 48 }}
+          sx={{ minHeight: touchTarget, minWidth: touchTarget }}
           data-testid="care-complete-submit"
         >
-          {t('pages.bed.care.complete.submit')}
+          {submitLabel ?? t('pages.bed.care.complete.submit')}
         </Button>
       </DialogActions>
     </Dialog>

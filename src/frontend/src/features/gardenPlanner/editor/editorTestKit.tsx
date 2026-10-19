@@ -72,7 +72,6 @@ export function setupEditor(options: SetupOptions = {}) {
           viewport={VIEWPORT}
           renderer={renderer}
           labels={TEST_LABELS}
-          fieldMode={false}
           onPan={onPan}
           onZoom={onZoom}
           onOpenLocation={onOpenLocation}

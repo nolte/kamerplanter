@@ -16,6 +16,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useApiError } from '@/hooks/useApiError';
 import { categoriesFor, formKindOf, NOTE_CATEGORY, type CareContext } from './careCategories';
+import { careCategoryLabel } from './careLabels';
 import { buildLogBody, defaultUnit, emptyForm, validateForm, type CareFormState } from './careForm';
 import { logCareEvent } from './careApi';
 import CareFormFields from './CareFormFields';
@@ -27,15 +28,32 @@ interface CareLogDialogProps {
   onClose: () => void;
   /** The line was stored; `label` is its category's name for the confirmation. */
   onLogged: (event: CareEventRef, label: string) => void;
+  /**
+   * Log exactly this category, without the category list: the field-mode chips "harvested" and "note"
+   * (GP-UX-029) open the short form of their category directly.
+   */
+  fixedCategory?: string;
+  /** Edge of the action buttons in px; field mode passes the kiosk target (64 px, GP-UX-020). */
+  touchTarget?: number;
 }
 
-export default function CareLogDialog({ bedKey, context, onClose, onLogged }: CareLogDialogProps) {
+export default function CareLogDialog({
+  bedKey,
+  context,
+  onClose,
+  onLogged,
+  fixedCategory,
+  touchTarget = 48,
+}: CareLogDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
   const now = useMemo(() => new Date(), []);
-  const categories = useMemo(() => categoriesFor(context, 'log'), [context]);
+  const categories = useMemo(
+    () => (fixedCategory ? [fixedCategory] : categoriesFor(context, 'log')),
+    [context, fixedCategory],
+  );
   const [category, setCategory] = useState<string>(categories[0] ?? NOTE_CATEGORY);
   const [state, setState] = useState<CareFormState>(() => ({
     ...emptyForm(now),
@@ -44,8 +62,7 @@ export default function CareLogDialog({ bedKey, context, onClose, onLogged }: Ca
   const [showErrors, setShowErrors] = useState(false);
   const [saving, setSaving] = useState(false);
   const errors = showErrors ? validateForm(state, new Date()) : {};
-  const label = (value: string) =>
-    value === NOTE_CATEGORY ? t('pages.bed.care.log.noteCategory') : t(`enums.taskCategory.${value}`);
+  const label = (value: string) => careCategoryLabel(t, value);
 
   const changeCategory = (next: string) => {
     setCategory(next);
@@ -86,24 +103,28 @@ export default function CareLogDialog({ bedKey, context, onClose, onLogged }: Ca
       aria-labelledby="care-log-title"
       data-testid="care-log-dialog"
     >
-      <DialogTitle id="care-log-title">{t('pages.bed.care.log.title')}</DialogTitle>
+      <DialogTitle id="care-log-title">
+        {fixedCategory ? label(fixedCategory) : t('pages.bed.care.log.title')}
+      </DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-        <TextField
-          select
-          autoFocus
-          label={t('pages.bed.care.log.category')}
-          value={category}
-          onChange={(event) => changeCategory(event.target.value)}
-          helperText={t('pages.bed.care.log.categoryHint')}
-          sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
-          slotProps={{ htmlInput: { 'data-testid': 'care-log-category' } }}
-        >
-          {categories.map((value) => (
-            <MenuItem key={value} value={value}>
-              {label(value)}
-            </MenuItem>
-          ))}
-        </TextField>
+        {!fixedCategory && (
+          <TextField
+            select
+            autoFocus
+            label={t('pages.bed.care.log.category')}
+            value={category}
+            onChange={(event) => changeCategory(event.target.value)}
+            helperText={t('pages.bed.care.log.categoryHint')}
+            sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+            slotProps={{ htmlInput: { 'data-testid': 'care-log-category' } }}
+          >
+            {categories.map((value) => (
+              <MenuItem key={value} value={value}>
+                {label(value)}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
         <CareFormFields
           category={category}
           state={state}
@@ -115,14 +136,14 @@ export default function CareLogDialog({ bedKey, context, onClose, onLogged }: Ca
         />
       </DialogContent>
       <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
-        <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ minHeight: touchTarget }}>
           {t('common.cancel')}
         </Button>
         <Button
           variant="contained"
           onClick={() => void submit()}
           loading={saving}
-          sx={{ minHeight: 48 }}
+          sx={{ minHeight: touchTarget, minWidth: touchTarget }}
           data-testid="care-log-submit"
         >
           {t('pages.bed.care.log.submit')}

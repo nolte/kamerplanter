@@ -15,7 +15,6 @@ function renderMenu(props: Partial<Parameters<typeof PlanIoMenu>[0]> = {}) {
       siteName="Mein Garten"
       canImport
       dirty={false}
-      fieldMode={false}
       onImported={vi.fn()}
       {...props}
     />,
@@ -50,15 +49,6 @@ describe('PlanIoMenu', () => {
 
     expect(screen.getByTestId('garden-plan-io-import')).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText('Save or discard your changes to the plan first.')).toBeInTheDocument();
-  });
-
-  it('is off in field mode with the reason in the menu', async () => {
-    const user = renderMenu({ fieldMode: true });
-    await user.click(screen.getByTestId('garden-plan-io-menu'));
-
-    expect(screen.getByTestId('garden-plan-io-export')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByTestId('garden-plan-io-import')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getAllByText(/Not available in field mode/)).toHaveLength(2);
   });
 
   it('loads the dialogs only when they are opened', async () => {

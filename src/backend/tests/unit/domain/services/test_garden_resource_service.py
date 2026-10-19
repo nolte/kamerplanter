@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.common.enums import BedStatus, TenantRole
+from app.common.enums import BedStatus, FrostRisk, TenantRole
 from app.common.exceptions import (
     DuplicateError,
     ForbiddenError,
@@ -39,7 +39,7 @@ from app.domain.models.garden_plan import (
     SlotBatchRequest,
     SlotPatch,
 )
-from app.domain.models.site import Slot
+from app.domain.models.site import Microclimate, SiteConditions, Slot
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from tests.support.garden_plan_fakes import (
@@ -420,6 +420,46 @@ class TestPatchingALocation:
 
         assert repo.locations["bed"].frost_exposed is True
         assert "frost_exposed" not in repo.field_updates[-1][1]
+
+    @staticmethod
+    def _migrated_protected_bed(repo) -> None:
+        """What v0098 leaves for ``frost_exposed = false`` (#2464): the boolean plus ``frost_risk = normal``."""
+        repo.locations["bed"] = repo.locations["bed"].model_copy(
+            update={
+                "frost_exposed": False,
+                "site_conditions": SiteConditions(microclimate=Microclimate(frost_risk=FrostRisk.NORMAL)),
+            }
+        )
+
+    @pytest.mark.parametrize(
+        "sent",
+        [
+            {"sun_profile": {"sun_window": "midday"}},
+            {"microclimate": {"frost_risk": "normal"}},  # the risk the form shows, sent back unchanged
+            {"microclimate": {"cold_air_pocket": True}},
+        ],
+    )
+    def test_a_migrated_protected_bed_keeps_its_protection_on_the_next_save(self, world, sent) -> None:
+        """#2464 (4): ``normal`` clears the boolean only as a *change*, so saving a migrated bed keeps ``False``."""
+        service, repo, _ = world
+        self._migrated_protected_bed(repo)
+
+        patch_location(service, site_conditions=sent)
+
+        assert repo.locations["bed"].frost_exposed is False
+        # a body that repeats the stored value writes no column at all
+        assert all("frost_exposed" not in columns for _, columns in repo.field_updates)
+        assert repo.locations["bed"].site_conditions.microclimate.frost_risk is FrostRisk.NORMAL
+
+    def test_a_migrated_protected_bed_changed_away_and_back_to_normal_inherits_again(self, world) -> None:
+        """#2464 (4), the documented edge: a deliberate change *to* ``normal`` means "no override" (#2454 item 2)."""
+        service, repo, _ = world
+        self._migrated_protected_bed(repo)
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "high"}})
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is None
 
     def test_a_viewer_is_refused_before_anything_is_looked_at(self, world) -> None:
         service, repo, _ = world
