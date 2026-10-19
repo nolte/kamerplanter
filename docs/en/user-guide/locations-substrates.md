@@ -280,12 +280,49 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 | Tab | Content |
 |-----|---------|
 | Plan | Bed frame with places, rows or zones and plant markers, read-only. **Open in garden plan** takes you to the garden plan for editing. |
-| Planting, Care, History | Show an empty state for now. Existing runs and plants remain available under **Details**. |
+| Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
+| Planting, History | Show an empty state for now. Existing runs and plants remain available under **Details**. |
 | Soil | The bed's soil profile (see below). |
 | Details | The previous location page, unchanged. |
 
 !!! warning "Not yet implemented"
-    The **Planting**, **Care** and **History** tabs exist but do not contain any content yet. In the future they will show plantings, care entries and the history of the bed.
+    The **Planting** and **History** tabs exist but do not contain any content yet. In the future they will show the plantings and the history of the bed.
+
+### Care on the bed {#care-on-the-bed}
+
+The **Care** tab lists every open task attached to the bed or to a plant in it. **Overdue** tasks come first and are marked red, followed by the other open tasks. With the "viewer" role you see the list read-only.
+
+**Completing a task.** Tap **Done**. A short dialog opens that asks only for what fits the kind of task:
+
+| Kind of task | Fields |
+|--------------|--------|
+| Watering, flushing | Amount (litres, millilitres or litres per m²) and water source |
+| Feeding | Product (from the catalogue or free text), amount and unit |
+| Soil amendment, liming | Material, amount and unit |
+| Mulching | Material and thickness in centimetres |
+| Covering, uncovering | Material (fleece, net, foil, frost cover) |
+| Harvest | Weight |
+| All others | Note |
+
+Every field is optional, so you can tap **Complete** without entering anything. **When** defaults to now; you can backdate up to 365 days, but never into the future. The details go into the bed's care log. A double tap counts once.
+
+**Undo.** After every action a message with **Undo** stays for eight seconds. It reopens the task and takes the log entry back. As the author you can do this for ten minutes; the "lead" role can do it at any time.
+
+**New task.** **New task** creates a task for the bed. If you choose **Every plant in the bed**, each plant standing there gets its own task and the task for the whole bed is dropped. The categories on offer follow the bed: flushing, EC check and pH adjustment exist only for beds with a substrate, hilling, tillage and liming not for pure substrate beds, ventilating only in a greenhouse, cold frame or tent.
+
+**Logging care without a task.** **Log care** records what you just did ("I mulched") when no task exists for it. Plant protection treatments are not logged here; use the plant protection form, because the care log is not proof of a treatment.
+
+**Suggestions.** Tasks proposed by the system appear in their own **Suggestions** section with the reason. **Do now** carries out the suggestion and completes it, **Dismiss** rejects it. Nothing happens until you decide.
+
+!!! warning "Partly available: suggestions"
+    The system does not generate suggestions yet. The section is in place and appears as soon as suggestions exist. A separate **Accept** without completing at the same time is not possible yet. <!-- REQ-053 GP-FR-086 -->
+
+**Several beds at once.** On the garden plan page, the button **Complete tasks on several beds** sits above the bed list. You pick a kind of task (for example watering) and the beds. Kamerplanter finds every open task of that kind on those beds and their plants and completes them in one step with the same details for all. One step takes at most 200 tasks; Kamerplanter reports whatever could not be completed.
+
+**Task counter on the plan.** On the garden plan, each bed with open tasks shows a number in its top-right corner, red if tasks are overdue. A tap on it opens the bed's Care tab. By keyboard you reach it through the **Care** button in the properties of the selected bed, or through the number in the "Open tasks" column of the bed list. <!-- REQ-053 GP-FR-083, GP-FR-088, GP-FR-089, GP-FR-090 -->
+
+!!! info "Colour by priority"
+    The counter distinguishes only "open" and "overdue" so far. Colouring by task priority follows once the plan delivers the priority.
 
 ### Maintaining the soil profile
 
@@ -306,7 +343,7 @@ In the **Soil** tab you record: filling, soil type (with a finger test as help i
 
 Below the plan on the garden plan page, a table lists your beds: name (a link to the bed view), type, area, status, responsible person, plants, open tasks (including overdue ones) and next due date. Retired beds are hidden by default. The **My beds** switch filters to your own beds and requires that beds are assigned to you.
 
-If you click a row or press Enter, the bed is selected on the plan and the view zooms to it.
+If you click a row or press Enter, the bed is selected on the plan and the view zooms to it. The number in the "Open tasks" column is a link to the bed's Care tab. From the "grower" role on, the button **Complete tasks on several beds** sits above the table (see [Care on the bed](#care-on-the-bed)).
 
 ---
 

@@ -239,6 +239,7 @@ export default function GardenPlanRoute() {
         fieldMode={fieldMode}
         onPan={onPan}
         onOpenLocation={(locationKey) => navigate(`/standorte/locations/${locationKey}`)}
+        onOpenCare={(locationKey) => navigate(`/standorte/locations/${locationKey}#care`)}
         onZoom={onZoom}
         onFit={onFit}
         minPxPerM={minPxPerM}

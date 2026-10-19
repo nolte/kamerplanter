@@ -85,6 +85,8 @@ export interface PropertiesPanelProps {
   onDrawBed: () => void;
   /** Opens the detail page of a bed ("Details öffnen" / "Bepflanzen"); absent = no such page. */
   onOpenLocation?: (locationKey: string) => void;
+  /** Opens the care tab of a bed (GP-FR-089); absent = no such tab (module switched off). */
+  onOpenCare?: (locationKey: string) => void;
 }
 
 interface Described {
@@ -119,12 +121,13 @@ function EntityForm({
   labels,
   onCommit,
   onOpenLocation,
+  onOpenCare,
   onDuplicate,
   onDelete,
   onZOrder,
 }: Pick<
   PropertiesPanelProps,
-  'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onDuplicate' | 'onDelete' | 'onZOrder'
+  'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onOpenCare' | 'onDuplicate' | 'onDelete' | 'onZOrder'
 > & { entity: PlanEntity; entityKey: string }) {
   const { t } = useTranslation();
   const source = sourceOf(plan, entity, entityKey);
@@ -410,6 +413,20 @@ function EntityForm({
           {t(`${PREFIX}.panel.openDetails`)}
         </Button>
       )}
+      {entity === 'location' && onOpenCare && (plan.locations[entityKey]?.open_task_count ?? 0) > 0 && (
+        <Button
+          variant="text"
+          color={(plan.locations[entityKey]?.overdue_task_count ?? 0) > 0 ? 'error' : 'primary'}
+          onClick={() => onOpenCare(entityKey)}
+          sx={{ minHeight: 48, alignSelf: 'flex-start' }}
+          data-testid="garden-plan-panel-care"
+        >
+          {t(`${PREFIX}.panel.openCare`, {
+            open: plan.locations[entityKey]?.open_task_count ?? 0,
+            overdue: plan.locations[entityKey]?.overdue_task_count ?? 0,
+          })}
+        </Button>
+      )}
     </Stack>
   );
 }
@@ -477,6 +494,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         labels={labels}
         onCommit={props.onCommit}
         onOpenLocation={props.onOpenLocation}
+        onOpenCare={props.onOpenCare}
         onDuplicate={props.onDuplicate}
         onDelete={props.onDelete}
         onZOrder={props.onZOrder}

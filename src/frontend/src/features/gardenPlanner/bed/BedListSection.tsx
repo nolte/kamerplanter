@@ -4,10 +4,11 @@
  * the bed on the plan and brings it into view (GP-ACC-016); the name links to the bed view. "My
  * beds" narrows the list to the beds assigned to the signed-in user.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Link from '@mui/material/Link';
@@ -20,12 +21,16 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import MobileCard from '@/components/common/MobileCard';
 import { parseApiError } from '@/api/errors';
 import { useTableLocalState } from '@/hooks/useTableState';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedStatus } from '../model/types';
 import { listBeds } from './bedApi';
 import { BED_STATUS_COLOR, formatBedDate, isOverdue } from './bedFormat';
 import type { BedListItem } from './types';
 import { useBedAssignments } from './useBedAssignments';
 import { useLocationTypeNames } from './useLocationTypeNames';
+
+// The batch dialog (GP-FR-088) is rare; it loads when it is opened.
+const BatchCompleteDialog = lazy(() => import('../care/BatchCompleteDialog'));
 
 type StatusFilter = 'open' | 'all' | BedStatus;
 
@@ -56,6 +61,8 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
   const [attempt, setAttempt] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [onlyMine, setOnlyMine] = useState(false);
+  const { canEdit } = useTenantPermissions();
+  const [batchOpen, setBatchOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,17 +146,26 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
       label: t('pages.bed.list.tasks'),
       searchValue: (bed) => String(count(bed.open_task_count)),
       align: 'right',
-      render: (bed) =>
-        count(bed.overdue_task_count) > 0 ? (
-          <Typography component="span" color="error" variant="body2">
-            {t('pages.bed.list.tasksOverdue', {
-              open: count(bed.open_task_count),
-              overdue: count(bed.overdue_task_count),
-            })}
-          </Typography>
-        ) : (
-          count(bed.open_task_count)
-        ),
+      render: (bed) => {
+        const overdue = count(bed.overdue_task_count) > 0;
+        const visible = overdue
+          ? t('pages.bed.list.tasksOverdue', { open: count(bed.open_task_count), overdue: count(bed.overdue_task_count) })
+          : String(count(bed.open_task_count));
+        return (
+          <Link
+            component={RouterLink}
+            to={`/standorte/locations/${bed.key}#care`}
+            color={overdue ? 'error' : 'inherit'}
+            variant="body2"
+            onClick={(event) => event.stopPropagation()}
+            aria-label={t('pages.bed.list.careLink', { tasks: visible, name: bed.name })}
+            sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', minHeight: 44, minWidth: 44 }}
+            data-testid={`bed-list-care-${bed.key}`}
+          >
+            {visible}
+          </Link>
+        );
+      },
     },
     {
       id: 'nextDue',
@@ -199,6 +215,17 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
           }
           label={t('pages.bed.list.onlyMine')}
         />
+        {canEdit && (
+          <Button
+            variant="outlined"
+            onClick={() => setBatchOpen(true)}
+            disabled={rows.length === 0}
+            sx={{ minHeight: 44 }}
+            data-testid="bed-list-batch"
+          >
+            {t('pages.bed.list.batchOpen')}
+          </Button>
+        )}
         {assignments.ready && assignments.mine.size === 0 && (
           <Typography variant="caption" color="text.secondary" data-testid="bed-list-only-mine-hint">
             {t('pages.bed.list.onlyMineNone')}
@@ -273,6 +300,15 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed }: Be
             />
           )}
         />
+      )}
+      {batchOpen && (
+        <Suspense fallback={null}>
+          <BatchCompleteDialog
+            beds={rows.filter((bed) => bed.bed_status !== 'retired')}
+            onClose={() => setBatchOpen(false)}
+            onChanged={() => setAttempt((value) => value + 1)}
+          />
+        </Suspense>
       )}
     </Box>
   );

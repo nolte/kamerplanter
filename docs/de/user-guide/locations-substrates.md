@@ -288,12 +288,49 @@ Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Link
 | Tab | Inhalt |
 |-----|--------|
 | Plan | Beetrahmen mit Plätzen, Reihen bzw. Zonen und Pflanzenmarkern, nur lesend. Über **Im Gartenplan öffnen** wechselst du zum Bearbeiten in den Gartenplan. |
-| Pflanzung, Pflege, Historie | Zeigen vorerst einen Leerzustand. Bestehende Durchläufe und Pflanzen findest du weiterhin unter **Stammdaten**. |
+| Pflege | Offene und überfällige Aufgaben des Beets und seiner Pflanzen, Erledigen, Vorschläge und Pflegeprotokoll (siehe [Pflege am Beet](#pflege-am-beet)). |
+| Pflanzung, Historie | Zeigen vorerst einen Leerzustand. Bestehende Durchläufe und Pflanzen findest du weiterhin unter **Stammdaten**. |
 | Boden | Bodenprofil des Beets (siehe unten). |
 | Stammdaten | Die bisherige Standortseite, unverändert. |
 
 !!! warning "Noch nicht implementiert"
-    Die Tabs **Pflanzung**, **Pflege** und **Historie** sind angelegt, enthalten aber noch keine Inhalte. Sie werden künftig Pflanzungen, Pflegeeinträge und den Verlauf des Beets zeigen.
+    Die Tabs **Pflanzung** und **Historie** sind angelegt, enthalten aber noch keine Inhalte. Sie werden künftig die Pflanzungen und den Verlauf des Beets zeigen.
+
+### Pflege am Beet {#pflege-am-beet}
+
+Der Tab **Pflege** zeigt alle offenen Aufgaben, die am Beet oder an einer Pflanze in diesem Beet hängen. **Überfällige** Aufgaben stehen oben und sind rot markiert, darunter die übrigen offenen Aufgaben. Wer die Rolle „viewer" hat, sieht die Liste nur lesend.
+
+**Aufgabe erledigen.** Tippe auf **Erledigt**. Es öffnet sich ein kurzer Dialog, der nur nach dem fragt, was zur Art der Aufgabe passt:
+
+| Art der Aufgabe | Felder |
+|-----------------|--------|
+| Gießen, Spülen | Menge (Liter, Milliliter oder Liter pro m²) und Wasserquelle |
+| Düngen | Produkt (aus dem Katalog oder als Freitext), Menge und Einheit |
+| Bodenverbesserung, Kalken | Material, Menge und Einheit |
+| Mulchen | Material und Dicke in Zentimetern |
+| Abdecken, Abdeckung entfernen | Material (Vlies, Netz, Folie, Frostschutz) |
+| Ernten | Gewicht |
+| Alle anderen | Notiz |
+
+Alle Felder sind freiwillig. Du kannst also auch ohne Eingabe auf **Erledigen** tippen. Unter **Wann** steht standardmäßig der aktuelle Zeitpunkt; du kannst bis zu 365 Tage zurückdatieren, aber nie in die Zukunft. Die Angaben landen im Pflegeprotokoll des Beets. Ein doppelter Tipp zählt nur einmal.
+
+**Rückgängig.** Nach jeder Aktion erscheint acht Sekunden lang eine Meldung mit **Rückgängig**. Damit öffnest du die Aufgabe wieder und nimmst den Protokolleintrag zurück. Als Autor geht das zehn Minuten lang, die Rolle „lead" kann es jederzeit.
+
+**Neue Aufgabe.** Mit **Neue Aufgabe** legst du eine Aufgabe für das Beet an. Wählst du **Jede Pflanze im Beet**, bekommt jede dort stehende Pflanze eine eigene Aufgabe, und die Aufgabe für das ganze Beet entfällt. Die angebotenen Kategorien richten sich nach dem Beet: Spülen, EC-Kontrolle und pH-Korrektur gibt es nur bei Beeten mit Substrat, Anhäufeln, Umbrechen und Kalken nicht bei reinen Substratbeeten, Lüften nur in Gewächshaus, Frühbeet und Zelt.
+
+**Pflege ohne Aufgabe protokollieren.** Mit **Pflege protokollieren** hältst du fest, was du gerade getan hast („Ich habe gemulcht"), ohne dass dafür eine Aufgabe existiert. Pflanzenschutz-Behandlungen protokollierst du hier nicht, sondern über das Pflanzenschutz-Formular; das Pflegeprotokoll ist dafür kein Nachweis.
+
+**Vorschläge.** Aufgaben, die das System vorschlägt, stehen in einem eigenen Abschnitt **Vorschläge** mit dem Grund. Mit **Jetzt erledigen** führst du den Vorschlag aus und erledigst ihn dabei, mit **Verwerfen** lehnst du ihn ab. Ohne deine Entscheidung passiert nichts.
+
+!!! warning "Teilweise verfügbar: Vorschläge"
+    Das System erzeugt noch keine Vorschläge. Der Abschnitt ist vorbereitet und erscheint, sobald Vorschläge vorliegen. Ein eigenes **Annehmen** ohne gleichzeitiges Erledigen ist noch nicht möglich. <!-- REQ-053 GP-FR-086 -->
+
+**Mehrere Beete auf einmal.** Auf der Gartenplan-Seite findest du über der Beetliste die Schaltfläche **Aufgaben auf mehreren Beeten erledigen**. Du wählst eine Aufgabenart (zum Beispiel Gießen) und die Beete. Kamerplanter sucht alle offenen Aufgaben dieser Art auf diesen Beeten und ihren Pflanzen und erledigt sie in einem Schritt, mit denselben Angaben für alle. Pro Schritt sind höchstens 200 Aufgaben möglich; was nicht erledigt werden konnte, meldet Kamerplanter dir.
+
+**Aufgaben-Zähler im Plan.** Auf dem Gartenplan zeigt jedes Beet mit offenen Aufgaben eine Zahl in der oberen rechten Ecke, rot, wenn Aufgaben überfällig sind. Ein Tipp darauf öffnet den Pflege-Tab des Beets. Per Tastatur erreichst du ihn über die Schaltfläche **Pflege** in den Eigenschaften des gewählten Beets oder über die Zahl in der Spalte „Offene Aufgaben" der Beetliste. <!-- REQ-053 GP-FR-083, GP-FR-088, GP-FR-089, GP-FR-090 -->
+
+!!! info "Farbe nach Priorität"
+    Der Zähler unterscheidet bisher nur „offen" und „überfällig". Eine Färbung nach Priorität der Aufgaben folgt, sobald der Plan die Priorität mitliefert.
 
 ### Bodenprofil pflegen
 
@@ -314,7 +351,7 @@ Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe,
 
 Unter dem Plan auf der Gartenplan-Seite listet eine Tabelle deine Beete: Name (als Link zur Beetansicht), Typ, Fläche, Status, Zuständige, Pflanzen, offene Aufgaben (mit überfälligen) und nächste Fälligkeit. Stillgelegte Beete sind standardmäßig ausgeblendet. Der Schalter **Meine Beete** filtert auf deine Beete und setzt voraus, dass dir Beete zugewiesen sind.
 
-Klickst du auf eine Zeile oder drückst die Eingabetaste, wird das Beet im Plan ausgewählt und die Ansicht zoomt darauf.
+Klickst du auf eine Zeile oder drückst die Eingabetaste, wird das Beet im Plan ausgewählt und die Ansicht zoomt darauf. Die Zahl in der Spalte „Offene Aufgaben" ist ein Link zum Pflege-Tab des Beets. Ab der Rolle „grower" findest du über der Tabelle die Schaltfläche **Aufgaben auf mehreren Beeten erledigen** (siehe [Pflege am Beet](#pflege-am-beet)).
 
 ---
 

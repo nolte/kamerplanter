@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -109,10 +110,18 @@ export interface GardenPlanEditorProps {
   minPxPerM?: number;
   /** Opens the detail page of a bed ("Details öffnen" / "Bepflanzen"). */
   onOpenLocation?: (locationKey: string) => void;
+  /** Opens the care tab of a bed: the task badge on the plan and the panel button (GP-FR-089). */
+  onOpenCare?: (locationKey: string) => void;
 }
 
 /** The wheel zooms stepless: `exp(-deltaY * this)` per event (the buttons and + / - use the fixed levels). */
 const WHEEL_ZOOM_PER_PX = 0.0015;
+
+/** The bed whose task badge the event hit (`data-plan-badge`, drawn by the renderer), or `null`. */
+function badgeKeyOf(event: { target: EventTarget | null }): string | null {
+  const badge = event.target instanceof Element ? event.target.closest('[data-plan-badge]') : null;
+  return badge?.getAttribute('data-plan-badge') ?? null;
+}
 
 function pointerKind(type: string): SnapPointerType {
   return type === 'touch' || type === 'pen' ? type : 'mouse';
@@ -167,6 +176,7 @@ export function GardenPlanEditor({
   onFit,
   minPxPerM = 0,
   onOpenLocation,
+  onOpenCare,
 }: GardenPlanEditorProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -423,7 +433,6 @@ export function GardenPlanEditor({
     },
     [toolPointerUp],
   );
-
   const onPlantsNearby = useCallback(
     (keys: string[], pointPx: Point) => {
       // Never a guessed single hit: the finger gets the list (GP-UX-034).
@@ -803,6 +812,7 @@ export function GardenPlanEditor({
       onZOrder={moveInZ}
       onDrawBed={() => dispatch(setTool('bed'))}
       onOpenLocation={onOpenLocation}
+      onOpenCare={onOpenCare}
     />
   );
 
@@ -826,6 +836,27 @@ export function GardenPlanEditor({
     />
   );
 
+  // A task badge on a bed opens its care tab (GP-FR-089). The press that lands on it starts no gesture (a pan or the
+  // first finger of a pinch would otherwise select or drag the bed), and the tab opens on the click that follows:
+  // a click exists only when the pointer went down and up on the badge itself, so a drag that merely starts there
+  // opens nothing. The canvas would capture the pointer and swallow that click, which is why the press is not
+  // handed to the tools at all.
+  const touchPointerDown = touch.containerProps.onPointerDown;
+  const onCanvasPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (onOpenCare && tool === 'select' && event.button === 0 && badgeKeyOf(event) !== null) return;
+      touchPointerDown(event);
+    },
+    [onOpenCare, tool, touchPointerDown],
+  );
+  const onCanvasClick = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      const key = badgeKeyOf(event);
+      if (key && onOpenCare && tool === 'select') onOpenCare(key);
+    },
+    [onOpenCare, tool],
+  );
+
   const listShown = view === 'list';
   const canvasSurface = (
     <Box
@@ -837,6 +868,8 @@ export function GardenPlanEditor({
       // The region takes the editor's keys (arrows, Esc, Del, Ctrl+A); it must be reachable by keyboard (WCAG 2.1.1).
       tabIndex={0}
       {...touch.containerProps}
+      onPointerDown={onCanvasPointerDown}
+      onClick={onCanvasClick}
       onPointerLeave={onPointerLeave}
       onContextMenu={onContextMenu}
       sx={{
