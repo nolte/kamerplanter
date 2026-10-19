@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -12,6 +13,7 @@ from app.common.enums import (
     LightType,
     Orientation,
     PhMethod,
+    PlanRole,
     RowDirection,
     SiteWaterRegime,
     SlotRole,
@@ -21,6 +23,7 @@ from app.common.enums import (
     SunExposure,
     TerminationType,
 )
+from app.config.constants import MAX_ROTATION_WINDOW_YEARS
 from app.domain.calculators.planting_layout_calculator import (
     MAX_LAYOUT_POSITIONS,
     EntryLayout,
@@ -69,6 +72,8 @@ class SoilProfileSchema(BaseModel):
     ph_method: PhMethod | None = None
     ec_ms_cm: float | None = Field(default=None, ge=0.0)
     humus_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    #: Substrate change: the crop-rotation history starts on this day (GP-FR-131).
+    rotation_reset_at: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
 
 
@@ -556,3 +561,280 @@ class QuickPlantingResponse(BaseModel):
         default_factory=list,
         description="Hints that never block, e.g. `layout.bed_without_geometry`, `layout.capacity_exceeded`.",
     )
+
+
+# ── Crop rotation and companion hints (REQ-053 WP 3.4) ────────────────────────────────────────────────────
+
+RotationSeverityLiteral = Literal["OK", "INFO", "WARNING", "CRITICAL"]
+
+
+class ValidatePlantingRequest(BaseModel):
+    """Body of `POST /locations/{key}/validate-planting` (GP-API-025)."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"species_key": "5120"},
+                {"species_key": "5120", "slot_key": "8841", "rotation_window_years": 4},
+            ]
+        },
+    )
+
+    species_key: str = Field(min_length=1, max_length=200)
+    slot_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        description="A slot of this bed: its neighbours (`adjacent_to`) are checked instead of the whole bed.",
+    )
+    rotation_window_years: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_ROTATION_WINDOW_YEARS,
+        description="Fallback pause when neither the species nor its family names one (default 3, at most 8).",
+    )
+
+
+class RotationFindingResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "severity": "WARNING",
+                    "code": "rotation.pause_not_elapsed",
+                    "message": "Family 'Solanaceae' grew in this bed 3 year(s) ago; the pause is 4 year(s) (family).",
+                    "family_key": "Solanaceae",
+                    "species_key": "5120",
+                    "last_year": 2023,
+                    "years_since": 3,
+                    "pause_years": 4,
+                    "pause_source": "family",
+                    "plan_role": "main_crop",
+                }
+            ]
+        }
+    )
+
+    severity: RotationSeverityLiteral
+    code: str
+    message: str
+    family_key: str | None = None
+    species_key: str | None = None
+    last_year: int | None = None
+    years_since: int | None = None
+    pause_years: int | None = None
+    pause_source: Literal["species", "family", "default"] | None = None
+    plan_role: str | None = None
+    pest_risk: dict[str, Any] | None = None
+
+
+class NeighbourHintResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "severity": "WARNING",
+                    "code": "companion.incompatible",
+                    "message": "Incompatible neighbour: Foeniculum vulgare.",
+                    "species_key": "5188",
+                    "slot_keys": ["8842"],
+                }
+            ]
+        }
+    )
+
+    severity: RotationSeverityLiteral
+    code: str
+    message: str
+    species_key: str
+    slot_keys: list[str]
+    score: float | None = None
+
+
+class ValidatePlantingResponse(BaseModel):
+    """Hints with a strength, never a blocker (D-09, GP-FR-132)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "8801",
+                    "species_key": "5120",
+                    "severity": "CRITICAL",
+                    "rotation_applicable": True,
+                    "not_applicable_reason": None,
+                    "rotation_window_years": 3,
+                    "rotation_reset_at": None,
+                    "rotation": [
+                        {
+                            "severity": "CRITICAL",
+                            "code": "rotation.pause_not_elapsed",
+                            "message": "Family 'Brassicaceae' grew here 1 year(s) ago; the pause is 4 year(s).",
+                            "family_key": "Brassicaceae",
+                            "last_year": 2025,
+                            "years_since": 1,
+                            "pause_years": 4,
+                            "pause_source": "family",
+                        }
+                    ],
+                    "neighbour_scope": "bed",
+                    "neighbours": [],
+                }
+            ]
+        }
+    )
+
+    location_key: str
+    species_key: str
+    severity: RotationSeverityLiteral
+    rotation_applicable: bool
+    not_applicable_reason: str | None = None
+    rotation_window_years: int
+    rotation_reset_at: date | None = None
+    rotation: list[RotationFindingResponse]
+    neighbour_scope: Literal["slot", "bed"]
+    neighbours: list[NeighbourHintResponse]
+
+
+class RotationPlantingResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "season": "main",
+                    "family_key": "Solanaceae",
+                    "family_name": "Solanaceae",
+                    "species_key": "5120",
+                    "nutrient_demand": "heavy_feeder",
+                    "plan_role": "main_crop",
+                    "source": "backfill",
+                    "care_event_key": "9500",
+                }
+            ]
+        }
+    )
+
+    season: Literal["spring", "main", "autumn"] | None = None
+    family_key: str | None = None
+    family_name: str | None = None
+    species_key: str | None = None
+    nutrient_demand: str | None = Field(
+        default=None, description="Species value, else the family's; `null` for a green manure and a fallow year."
+    )
+    plan_role: Literal["main_crop", "green_manure", "fallow"]
+    source: Literal["plant", "backfill"]
+    care_event_key: str | None = Field(
+        default=None, description="The backfill event; cancel it with `DELETE …/history/backfill/{key}`."
+    )
+
+
+class RotationYearResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "year": 2025,
+                    "plantings": [
+                        {
+                            "family_key": "Fabaceae",
+                            "nutrient_demand": "light_feeder",
+                            "plan_role": "main_crop",
+                            "source": "plant",
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    year: int
+    plantings: list[RotationPlantingResponse]
+
+
+class RotationTimelineResponse(BaseModel):
+    """`GET /locations/{key}/rotation` (GP-API-039): what stood in the bed per year, newest first (GP-ACC-028)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "8801",
+                    "years": 5,
+                    "rotation_applicable": True,
+                    "not_applicable_reason": None,
+                    "rotation_reset_at": None,
+                    "timeline": [
+                        {
+                            "year": 2025,
+                            "plantings": [
+                                {
+                                    "family_key": "Fabaceae",
+                                    "nutrient_demand": "light_feeder",
+                                    "plan_role": "main_crop",
+                                    "source": "plant",
+                                }
+                            ],
+                        },
+                        {"year": 2024, "plantings": []},
+                    ],
+                }
+            ]
+        }
+    )
+
+    location_key: str
+    years: int
+    rotation_applicable: bool
+    not_applicable_reason: str | None = None
+    rotation_reset_at: date | None = None
+    timeline: list[RotationYearResponse]
+
+
+class BackfillRequest(BaseModel):
+    """Body of `POST /locations/{key}/history/backfill` (GP-API-042): *what stood here in {year}?*"""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"year": 2024, "family_key": "Solanaceae", "plan_role": "main_crop"},
+                {"year": 2023, "season": "spring", "species_key": "5120", "plan_role": "green_manure"},
+            ]
+        },
+    )
+
+    year: int = Field(description="Between the current year minus 10 and the current year minus 1.")
+    season: Literal["spring", "main", "autumn"] | None = None
+    species_key: str | None = Field(default=None, min_length=1, max_length=200)
+    family_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        description="Required unless a species names it or the year was a fallow year.",
+    )
+    plan_role: PlanRole = PlanRole.MAIN_CROP
+
+
+class BackfillResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "care_event_key": "9500",
+                    "year": 2024,
+                    "performed_at": "2024-07-01T12:00:00Z",
+                    "family_key": "Solanaceae",
+                    "plan_role": "main_crop",
+                }
+            ]
+        }
+    )
+
+    care_event_key: str
+    year: int
+    season: Literal["spring", "main", "autumn"] | None = None
+    performed_at: datetime
+    family_key: str | None = None
+    species_key: str | None = None
+    plan_role: Literal["main_crop", "green_manure", "fallow"]

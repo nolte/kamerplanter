@@ -3,7 +3,15 @@
  * it was built from, so an edit that replaces one entry (structural sharing in `applyOperation`)
  * keeps the other indexes - and the entry objects the memoised SVG nodes compare by identity.
  */
-import { boundingBox, toShape, type Shape } from '../model/geometry';
+import {
+  anchor,
+  boundingBox,
+  rotationDeg,
+  toShape,
+  transformBedToPlan,
+  transformPlanToBed,
+  type Shape,
+} from '../model/geometry';
 import type { PlanModel } from '../model/planModel';
 import type {
   BoundingBox,
@@ -229,7 +237,54 @@ function buildMarkerIndex(
   return index;
 }
 
+/** Same pivot and rotation = same bed frame: a resize or a change of other fields moves no slot. */
+function sameFrame(a: Geometry, b: Geometry): boolean {
+  if (a === b) return true;
+  const [ax, ay] = anchor(a);
+  const [bx, by] = anchor(b);
+  return ax === bx && ay === by && rotationDeg(a) === rotationDeg(b);
+}
+
+function rebase(markers: BedMarkers, from: Geometry, to: Geometry): BedMarkers {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const moved = markers.markers.map((marker) => {
+    const [x, y] = transformBedToPlan(transformPlanToBed([marker.x, marker.y], from), to);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
+    return { ...marker, x, y };
+  });
+  // A rigid motion keeps every distance, so the spacing and the plant count carry over.
+  return { ...markers, markers: moved, bbox: [minX, minY, maxX, maxY] };
+}
+
+/**
+ * Slot positions are bed-local; the server delivers them in the plan frame of the bed as loaded
+ * (`model.slotFrames`). A move or rotation of the bed replaces only its `locations` entry, so the
+ * plan position is derived here: the marker is taken back into the bed frame it was delivered in and
+ * out again through the bed's current geometry. Only beds whose frame differs are recomputed; the
+ * other `BedMarkers` objects are reused as they are.
+ */
+function deriveMarkerIndex(base: MarkerIndex, model: PlanModel): MarkerIndex {
+  const frames = model.slotFrames;
+  if (!frames) return base;
+  let derived: MarkerIndex | null = null;
+  for (const [locationKey, bed] of base) {
+    const from = frames[locationKey];
+    const to = model.locations[locationKey]?.geometry;
+    if (!from || !to || sameFrame(from, to)) continue;
+    derived ??= new Map(base);
+    derived.set(locationKey, rebase(bed, from, to));
+  }
+  return derived ?? base;
+}
+
 const markerCache = new WeakMap<object, WeakMap<object, MarkerIndex>>();
+const derivedCache = new WeakMap<object, WeakMap<object, MarkerIndex>>();
 
 /** Markers grouped by bed, with the per-bed plant count and marker spacing the LOD rule needs. */
 export function markerIndex(model: PlanModel): MarkerIndex {
@@ -238,10 +293,20 @@ export function markerIndex(model: PlanModel): MarkerIndex {
     byPlants = new WeakMap();
     markerCache.set(model.slots, byPlants);
   }
-  let index = byPlants.get(model.plants);
+  let base = byPlants.get(model.plants);
+  if (!base) {
+    base = buildMarkerIndex(model.slots, model.plants);
+    byPlants.set(model.plants, base);
+  }
+  let byLocations = derivedCache.get(base);
+  if (!byLocations) {
+    byLocations = new WeakMap();
+    derivedCache.set(base, byLocations);
+  }
+  let index = byLocations.get(model.locations);
   if (!index) {
-    index = buildMarkerIndex(model.slots, model.plants);
-    byPlants.set(model.plants, index);
+    index = deriveMarkerIndex(base, model);
+    byLocations.set(model.locations, index);
   }
   return index;
 }

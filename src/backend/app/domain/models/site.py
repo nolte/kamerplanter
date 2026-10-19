@@ -145,6 +145,8 @@ class SoilProfile(BaseModel):
     ph_method: PhMethod | None = None
     ec_ms_cm: float | None = Field(default=None, ge=0.0)
     humus_percent: float | None = Field(default=None, ge=0.0, le=100.0)
+    #: A substrate change resets the crop-rotation history: plantings before this day do not count (GP-FR-131).
+    rotation_reset_at: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
 
     @field_validator("conditions")

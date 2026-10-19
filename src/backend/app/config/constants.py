@@ -10,6 +10,15 @@ seed_data/substrate_defaults.yaml.
 # Default rotation window in years
 DEFAULT_ROTATION_WINDOW_YEARS: int = 3
 
+# REQ-053 GP-FR-131 (K-004): the fallback window and any per-family pause stop at 8 years; longer lock-out periods
+# after an infestation (club root, potato cyst nematodes) belong to ``soil_hazards`` (REQ-054 H-10), not here.
+MAX_ROTATION_WINDOW_YEARS: int = 8
+
+# REQ-053 GP-API-039: the look-back of ``GET /locations/{key}/rotation`` is at least this many years by default, at
+# most ``MAX_ROTATION_TIMELINE_YEARS`` (a larger ``years`` is a 422).
+MIN_ROTATION_TIMELINE_YEARS: int = 5
+MAX_ROTATION_TIMELINE_YEARS: int = 10
+
 # NFR-011 §4: the erasure tombstone salt (ERASURE_TOMBSTONE_SALT) must be a
 # high-entropy secret; a value shorter than this is treated as unset/insecure.
 # Read by the API start-up gate (app.main) and the worker start-up gate (app.tasks).

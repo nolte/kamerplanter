@@ -556,6 +556,9 @@ class TenantExportEngine:
         "care_events": {
             "supersedes_key": _internal("care_events"),
             "superseded_by_key": _internal("care_events"),
+            # WP 3.4 (#2394): a backfilled year names the family (global catalogue) and, optionally, the species.
+            "rotation_entry.family_key": _global("botanical_families"),
+            "rotation_entry.species_key": _internal("species"),
         },
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
         "fish_stocks": {"species_key": _global("fish_species")},
