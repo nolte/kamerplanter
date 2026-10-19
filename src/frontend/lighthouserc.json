@@ -1,6 +1,8 @@
 {
   "ci": {
     "collect": {
+      "_planRouteNote": "REQ-053 GP-NFR-040 / WP 5.4: the garden plan route is measured next to the root. It is the field-mode URL (`?mode=field`), the mode a phone gets by default, so the lazily loaded GardenPlanRoute chunk is fetched. Honest scope: this runs over the static ./dist with no backend, so the page behind the chunk is the app's error surface (no tenant, no plan) - what the audit certifies for this URL is the route chunk's weight, the shell's accessibility and the mobile budgets, not a rendered plan. A rendered, authenticated plan needs the E2E stack (Lighthouse's puppeteerScript against `docker-compose.e2e.yml`); that is not wired. The plan's own bundle budget stays `routeChunks.gardenPlanner` in bundle-budget.json. LHCI's JSON parser tolerates unknown keys, so this note is auditable in-file.",
+      "url": ["/", "/standorte/sites/lhci/plan?mode=field"],
       "staticDistDir": "./dist",
       "isSinglePageApplication": true,
       "numberOfRuns": 3,
