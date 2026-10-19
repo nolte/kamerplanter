@@ -436,7 +436,7 @@ class PlanAuditRecord(BaseModel):
     summary: str = Field(default="", max_length=200)
     at: datetime
     #: Only on the row a ``replace`` import writes (``import_snapshot``): the plan as it was, in the shape of
-    #: ``GET /plan/export``. Never listed by the change-log route.
+    #: ``GET /plan/export``. The change-log route lists the row (op, summary) but never the payload.
     snapshot: dict[str, Any] | None = None
 
 

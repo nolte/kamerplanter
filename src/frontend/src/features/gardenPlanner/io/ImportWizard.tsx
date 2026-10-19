@@ -342,7 +342,7 @@ export default function ImportWizard({ open, siteKey, siteName, onClose, onImpor
                   </RadioGroup>
                 </FormControl>
 
-                {mode === 'replace' && needsForce && (
+                {mode === 'replace' && (needsForce || force) && (
                   <FormControlLabel
                     control={
                       <Checkbox

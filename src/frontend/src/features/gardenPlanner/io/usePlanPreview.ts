@@ -36,9 +36,11 @@ function countOf(value: unknown): number {
  * no state is set from the effect body.
  */
 export function usePlanPreview(siteKey: string, options: ExportOptions, enabled: boolean): PlanPreview {
-  const { format, paper, orientation, scale } = options;
+  const { paper, orientation, scale } = options;
+  // SVG and PDF share one preview (the SVG the PDF embeds): switching between them must not refetch or revoke it.
+  const kind = options.format === 'json' ? 'json' : 'svg';
   const layers = options.layers.join(',');
-  const key = `${siteKey}|${format === 'json' ? 'json' : `svg|${paper}|${orientation}|${scale}|${layers}`}`;
+  const key = `${siteKey}|${kind === 'json' ? 'json' : `svg|${paper}|${orientation}|${scale}|${layers}`}`;
   const [settled, setSettled] = useState<Settled | null>(null);
 
   useEffect(() => {
@@ -47,7 +49,7 @@ export function usePlanPreview(siteKey: string, options: ExportOptions, enabled:
     let objectUrl: string | null = null;
     const timer = setTimeout(() => {
       const request: ExportOptions = {
-        format: format === 'json' ? 'json' : 'svg',
+        format: kind,
         paper,
         orientation,
         scale,
@@ -57,7 +59,7 @@ export function usePlanPreview(siteKey: string, options: ExportOptions, enabled:
       fetchPlanExport(siteKey, request, controller.signal)
         .then(async (download) => {
           if (controller.signal.aborted) return;
-          if (format === 'json') {
+          if (kind === 'json') {
             const parsed = JSON.parse(await download.blob.text()) as Record<string, unknown>;
             setSettled({
               key,
@@ -93,7 +95,7 @@ export function usePlanPreview(siteKey: string, options: ExportOptions, enabled:
       controller.abort();
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
     };
-  }, [key, enabled, siteKey, format, paper, orientation, scale, layers]);
+  }, [key, enabled, siteKey, kind, paper, orientation, scale, layers]);
 
   if (!enabled) return { status: 'idle' };
   return settled !== null && settled.key === key ? settled.preview : { status: 'loading' };
