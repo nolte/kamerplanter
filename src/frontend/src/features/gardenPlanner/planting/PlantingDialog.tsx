@@ -170,6 +170,14 @@ export default function PlantingDialog({
   const species = useMemo(() => (catalogue.status === 'ready' ? catalogue.items : []), [catalogue]);
   const speciesByKey = useMemo(() => new Map(species.map((s) => [s.key, s])), [species]);
   const speciesNames = useMemo(() => new Map(species.map((s) => [s.key, speciesLabel(s)])), [species]);
+  // The rotation finding names a family by its key; the catalogue knows the name of every family it uses.
+  const familyNames = useMemo(
+    () =>
+      new Map(
+        species.flatMap((s): [string, string][] => (s.family_key && s.family_name ? [[s.family_key, s.family_name]] : [])),
+      ),
+    [species],
+  );
 
   const sharing = alternate && canAlternate(forms);
   const effective = useMemo(() => (sharing ? shareRows(forms) : forms), [sharing, forms]);
@@ -443,6 +451,7 @@ export default function PlantingDialog({
                   species={hintSpecies}
                   bedSun={sunExposure}
                   speciesNames={speciesNames}
+                  familyNames={familyNames}
                   mix={mix}
                   severity={severity}
                   overrideChecked={overrideChecked}

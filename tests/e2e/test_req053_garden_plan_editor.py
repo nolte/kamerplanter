@@ -6,7 +6,6 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, GP-ACC from the co
   TC-053-004  ->  undo / redo of a move by keyboard                             (GP-ACC-007)
   TC-053-005  ->  move a bed by keyboard only, live-region announcement         (GP-ACC-008)
   TC-053-006  ->  planting positions follow a moved and rotated bed             (GP-ACC-005)
-                  xfail(strict) on the known defect #2381
   TC-053-007  ->  save status, Ctrl+S, leave dialog (cancel / discard)          (UC-02/GP-UX-003)
   TC-053-008  ->  conflict with a second browser session, "Neu laden"           (GP-ACC-011)
   TC-053-009  ->  "Als Liste": all objects reachable, keyboard, axe             (GP-ACC-032)
@@ -325,10 +324,6 @@ def test_tc_053_005_move_bed_with_keyboard_only_and_hear_the_position(
 _ROW_SLOTS = tuple((x, y) for y in (0.3, 0.7) for x in (0.2, 0.5, 0.8, 1.1, 1.4, 1.7))
 
 
-class SlotMarkersDidNotFollow(AssertionError):
-    """The markers stayed where the bed was — the #2381 defect, and only that."""
-
-
 def _in_plan(origin: tuple[float, float], rotation_deg: float, local: tuple[float, float]):
     """A bed-frame point in plan coordinates (rotation CCW about the bed origin)."""
     rad = math.radians(rotation_deg)
@@ -339,16 +334,6 @@ def _in_plan(origin: tuple[float, float], rotation_deg: float, local: tuple[floa
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=SlotMarkersDidNotFollow,
-    reason=(
-        "#2381: slot markers stay at the old plan position after a bed move/rotate "
-        "until reload. strict: an XPASS fails the run once #2381 is fixed - then "
-        "remove this marker. Only SlotMarkersDidNotFollow counts; any other failure "
-        "of this test fails it for real."
-    ),
-)
 def test_tc_053_006_planting_positions_follow_a_moved_and_rotated_bed(
     plan: GardenPlanPage, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
@@ -356,7 +341,7 @@ def test_tc_053_006_planting_positions_follow_a_moved_and_rotated_bed(
 
     The positions are read from the drawn markers before the change (positive
     control: the reader sees all 12 where the bed frame puts them) and after it
-    (the defect: they stay behind). Breaks if any position loses its place
+    (the fixed defect #2381: they stayed behind). Breaks if any position loses its place
     relative to the bed frame.
 
     Not covered: step 4 (bed view ``bed-plan-tab``) — there is no bed detail page
@@ -390,11 +375,10 @@ def test_tc_053_006_planting_positions_follow_a_moved_and_rotated_bed(
 
     after = sorted(plan.marker_centres(bed))
     expected_after = sorted(_in_plan(moved, 90.0, s) for s in _ROW_SLOTS)
-    if after != expected_after:
-        raise SlotMarkersDidNotFollow(
-            f"TC-053-006: the 12 positions did not move and turn with the bed; drawn "
-            f"{after}, expected {expected_after}"
-        )
+    assert after == expected_after, (
+        f"TC-053-006: the 12 positions did not move and turn with the bed (#2381); drawn "
+        f"{after}, expected {expected_after}"
+    )
 
     plan.save_with_button()
     plan.reload(garden.site_key)
