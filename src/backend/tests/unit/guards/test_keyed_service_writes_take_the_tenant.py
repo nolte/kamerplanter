@@ -400,6 +400,9 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "PlantStateService": "plant_state_service.py",
     # REQ-053 WP 4.5 (#2423): the combined history of a bed. Read-only; it takes the tenant like the other readers.
     "BedHistoryService": "bed_history_service.py",
+    # REQ-053 WP 7.1 (#2467, GP-ACC-046): the irrigation zones. The zone carries its tenant; the site, the beds and the
+    # water source of a body are resolved under it inside the service, never in the router.
+    "IrrigationZoneService": "irrigation_zone_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
@@ -416,6 +419,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "BedRotationService": 4,
     "PlantStateService": 1,
     "BedHistoryService": 1,
+    "IrrigationZoneService": 9,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -738,3 +742,32 @@ def test_the_strictness_check_tells_the_shapes_apart() -> None:
     assert not _takes_tenant_strictly(fn("def f(self, tenant_key, key): ..."))
     assert not _takes_tenant_strictly(fn("def f(self, key, *, tenant_key=''): ..."))
     assert not _takes_tenant_strictly(fn("def f(self, key): ..."))
+
+
+# ── REQ-053 GP-ACC-046: the guard lists the garden-plan services ──────────────────────────────────────────
+#
+# GP-ACC-046 (spec v1.6) names ``garden_plan_service``, ``care_event_service`` and ``irrigation_zone_service``. The
+# first two resolve their beds through ``location_ownership`` (no ``get…_by_key``), so the keyed-write selector does
+# not see them and the whole-class rule above holds them; the zone service loads its zone by key, so it is held by
+# both. Pinned by name, so a refactor that hid a load behind a helper the selector does not follow fails here
+# instead of passing by finding nothing; each write takes the tenant keyword-only without a default.
+
+_GP_ACC_046_SERVICES = ("GardenPlanService", "CareEventService", "IrrigationZoneService")
+_ZONE_KEYED_WRITES = (
+    "IrrigationZoneService.create_zone",
+    "IrrigationZoneService.patch_zone",
+    "IrrigationZoneService.delete_zone",
+    "IrrigationZoneService.replace_locations",
+)
+
+
+def test_gp_acc_046_the_garden_plan_services_are_listed() -> None:
+    assert set(_GP_ACC_046_SERVICES) <= set(_WHOLE_CLASS_KEYWORD_ONLY)
+
+
+def test_gp_acc_046_the_zone_services_keyed_writes_are_seen_and_strict() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+
+    assert set(_ZONE_KEYED_WRITES) <= set(shapes), sorted(set(_ZONE_KEYED_WRITES) - set(shapes))
+    assert {name: shapes[name] for name in _ZONE_KEYED_WRITES} == dict.fromkeys(_ZONE_KEYED_WRITES, "strict")
+    assert not set(_ZONE_KEYED_WRITES) & _REMAINING

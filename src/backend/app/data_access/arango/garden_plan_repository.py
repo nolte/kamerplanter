@@ -24,7 +24,13 @@ from arango.database import StandardDatabase
 from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
 from pydantic import BaseModel
 
-from app.common.exceptions import NotFoundError, PlanError, PlanRevisionConflictError, WriteConflictError
+from app.common.exceptions import (
+    NotFoundError,
+    PlanError,
+    PlanRevisionConflictError,
+    PlanValidationError,
+    WriteConflictError,
+)
 from app.common.types import SiteKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
@@ -32,6 +38,7 @@ from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
+from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
 from app.domain.models.garden_object import GardenObject
@@ -96,6 +103,8 @@ _BATCH_WRITE = tuple(
             col.SLOTS,
             col.GARDEN_OBJECTS,
             col.GARDEN_PLAN_AUDIT,
+            # A deleted water source is unlinked from its zones (``water_source_key``), REQ-053 WP 7.1.
+            col.IRRIGATION_ZONES,
             *CARE_EVENT_WRITE_COLLECTIONS,
             col.CONTAINS,
             col.HAS_GARDEN_OBJECT,
@@ -530,7 +539,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 )
                 self._delete_locations(txn, write)
                 txn.check_budget()
-                self._delete_objects(txn, write.object_deletes)
+                self._delete_objects(txn, write)
                 self._insert_locations(txn, write, key_map, now)
                 self._insert_slots(txn, write, key_map, now)
                 self._update_locations(txn, write, now)
@@ -712,12 +721,29 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             bind_vars={"@edges": edge_collection, "ids": ids},
         )
 
-    def _delete_objects(self, txn: StreamTransaction, keys: list[str]) -> None:
+    def _delete_objects(self, txn: StreamTransaction, write: PlanBatchWrite) -> None:
+        keys = write.object_deletes
         if not keys:
             return
         ids = [f"{col.GARDEN_OBJECTS}/{key}" for key in keys]
         for edge, field in _OBJECT_EDGES:
             self._remove_edges(txn, edge, field, ids)
+        # The edge cascade above cut ``zone_supplied_by``; the zone's own ``water_source_key`` goes with it, so a
+        # zone never names a water source that is gone (REQ-053 §20.11, WP 7.1).
+        txn.aql.execute(
+            """
+            FOR z IN @@zones
+                FILTER z.tenant_key == @tenant_key AND z.site_key == @site_key AND z.water_source_key IN @keys
+                UPDATE z WITH { water_source_key: null, updated_at: @now } IN @@zones OPTIONS { keepNull: false }
+            """,
+            bind_vars={
+                "@zones": col.IRRIGATION_ZONES,
+                "tenant_key": write.tenant_key,
+                "site_key": write.site_key,
+                "keys": keys,
+                "now": _now(),
+            },
+        )
         txn.aql.execute(
             "FOR o IN @@col FILTER o._key IN @keys REMOVE o IN @@col",
             bind_vars={"@col": col.GARDEN_OBJECTS, "keys": keys},
@@ -728,6 +754,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
     ) -> None:
         collection = txn.collection(col.LOCATIONS)
         contains = txn.collection(col.CONTAINS)
+        self._take_import_zones(txn, write, now)
         for temp_key, location in write.location_inserts:
             doc = _insert_doc(location)
             parent = doc.get("parent_location_key")
@@ -740,7 +767,50 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             key_map[temp_key] = key
             origin = f"{col.LOCATIONS}/{parent}" if parent else f"{col.SITES}/{write.site_key}"
             contains.insert({"_from": origin, "_to": f"{col.LOCATIONS}/{key}", "created_at": now})
+            zone_key = doc.get("irrigation_zone_key")
+            if zone_key:
+                # The import keeps a zone of this site, taken above in this transaction; the edge follows the field.
+                txn.collection(col.ZONE_COVERS).insert(
+                    {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": f"{col.LOCATIONS}/{key}", "created_at": now}
+                )
             txn.check_budget()
+
+    @staticmethod
+    def _take_import_zones(txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
+        """Take every zone the inserted beds name, inside the transaction and under the write's tenant and site.
+
+        The import service resolved the zones before the transaction (GP-NFR-058); a zone deleted since then — or a
+        delete running right now, which holds the zone's document — must not leave a bed naming it and an edge on a
+        zone that is gone. The ``UPDATE`` makes a concurrent ``delete_zone`` conflict; a zone that vanished is a 409.
+        """
+        zone_keys = sorted(
+            {
+                str(location.irrigation_zone_key)
+                for _, location in write.location_inserts
+                if location.irrigation_zone_key
+            }
+        )
+        if not zone_keys:
+            return
+        taken = list(
+            txn.aql.execute(
+                """
+            FOR z IN @@zones
+                FILTER z._key IN @keys AND z.tenant_key == @tenant_key AND z.site_key == @site_key
+                UPDATE z WITH { updated_at: @now } IN @@zones
+                RETURN NEW._key
+            """,
+                bind_vars={
+                    "@zones": col.IRRIGATION_ZONES,
+                    "keys": zone_keys,
+                    "tenant_key": write.tenant_key,
+                    "site_key": write.site_key,
+                    "now": now,
+                },
+            )
+        )
+        if len(taken) != len(zone_keys):
+            raise WriteConflictError("garden_plan", "an irrigation zone of the imported plan was removed concurrently")
 
     @staticmethod
     def _insert_slots(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
@@ -994,6 +1064,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         return int(next(cursor, 0))
 
     def update_location_fields(self, location_key: str, fields: dict[str, Any]) -> None:
+        if "irrigation_zone_key" in fields:
+            self._update_location_fields_with_zone(location_key, fields)
+            return
         try:
             self._db.collection(col.LOCATIONS).update(
                 {"_key": location_key, **fields, "updated_at": _now()}, merge=False, keep_none=False
@@ -1002,6 +1075,64 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             if exc.error_code == 1202:  # document not found: removed after the service read it
                 raise NotFoundError("Location", location_key) from exc
             raise
+
+    def _update_location_fields_with_zone(self, location_key: str, fields: dict[str, Any]) -> None:
+        """The column write of a PATCH that changes the bed's zone, with its ``zone_covers`` edge (WP 7.1).
+
+        One transaction: the new zone's document is taken first (a zone deleted after the service resolved it is
+        422 ``reference.not_found``, a zone being deleted right now conflicts), then the bed's columns, then the
+        edge — the bed's old edge is removed whichever zone held it, so a bed stays in at most one zone.
+
+        The zone is taken **under the bed's own site and that site's tenant** (read from the stored bed inside the
+        transaction): the method takes no tenant (a location carries none, E-01), so the predicate is the bed's
+        anchor — a zone of another site or another tenant is ``reference.not_found`` and nothing is written.
+        """
+        zone_key = fields["irrigation_zone_key"]
+        location_id = f"{col.LOCATIONS}/{location_key}"
+        now = _now()
+        with stream_transaction(
+            self._db,
+            write=(col.IRRIGATION_ZONES, col.LOCATIONS, col.ZONE_COVERS),
+            read=(col.SITES,),
+            entity="location",
+        ) as txn:
+            if zone_key:
+                taken = list(
+                    txn.aql.execute(
+                        """
+                    LET bed = DOCUMENT(CONCAT(@locations, @location_key))
+                    LET site = bed == null ? null : DOCUMENT(CONCAT(@sites, bed.site_key))
+                    FOR z IN @@zones
+                        FILTER site != null AND z._key == @key
+                            AND z.site_key == bed.site_key AND z.tenant_key == site.tenant_key
+                        UPDATE z WITH { updated_at: @now } IN @@zones
+                        RETURN 1
+                    """,
+                        bind_vars={
+                            "@zones": col.IRRIGATION_ZONES,
+                            "locations": f"{col.LOCATIONS}/",
+                            "sites": f"{col.SITES}/",
+                            "location_key": location_key,
+                            "key": zone_key,
+                            "now": now,
+                        },
+                    )
+                )
+                if not taken:
+                    raise PlanValidationError([(None, "irrigation_zone_key", ERROR_REFERENCE_NOT_FOUND, {})])
+            try:
+                txn.collection(col.LOCATIONS).update(
+                    {"_key": location_key, **fields, "updated_at": now}, merge=False, keep_none=False
+                )
+            except DocumentUpdateError as exc:
+                if exc.error_code == 1202:  # document not found: removed after the service read it
+                    raise NotFoundError("Location", location_key) from exc
+                raise
+            self._remove_edges(txn, col.ZONE_COVERS, "_to", [location_id])
+            if zone_key:
+                txn.collection(col.ZONE_COVERS).insert(
+                    {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": location_id, "created_at": now}
+                )
 
     def update_slot_fields(self, slot_key: str, fields: dict[str, Any]) -> None:
         try:

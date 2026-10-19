@@ -560,6 +560,8 @@ class TenantExportEngine:
             "rotation_entry.family_key": _global("botanical_families"),
             "rotation_entry.species_key": _internal("species"),
         },
+        # REQ-053 §20.11 (WP 7.1, #2467): a zone's water source is a garden object of the same site.
+        "irrigation_zones": {"water_source_key": _internal("garden_objects")},
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
         "fish_stocks": {"species_key": _global("fish_species")},
         "phase_histories": {"phase_key": _global("growth_phases", "phase_definitions")},

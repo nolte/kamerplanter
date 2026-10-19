@@ -256,6 +256,13 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "care_event.CareEvent.performed_for_user_key": _V,
     "care_event.CareEvent.supersedes_key": _V,
     "care_event.CareEvent.superseded_by_key": _I,
+    # REQ-053 §20.11 (WP 7.1, #2467): `IrrigationZoneService` takes the site from the path through `require_owned_site`
+    # (T-01) and resolves `water_source_key` to a `water_source` garden object of the zone's own site under the tenant
+    # (GP-NFR-058, GP-ACC-041). `actuator_key` is refused with 422 on every request until WP 7.4 (#2470) brings its
+    # resolution (an actuator of the tenant at a location of the same site) — no write path can store one today.
+    "irrigation_zone.IrrigationZone.site_key": _V,
+    "irrigation_zone.IrrigationZone.water_source_key": _V,
+    "irrigation_zone.IrrigationZone.actuator_key": _I,
     "actuator.Actuator.location_key": _V,
     "actuator.ControlEvent.actuator_key": _I,
     "actuator.ControlEvent.location_key": _I,

@@ -49,6 +49,11 @@ class ISiteRepository(ABC):
     def get_location_by_key(self, key: LocationKey) -> Location | None: ...
 
     @abstractmethod
+    def get_locations_by_keys(self, keys: list[LocationKey]) -> list[Location]:
+        """The locations behind ``keys`` in one read; absent keys are left out. No tenant: the caller anchors them
+        on their site (``location_ownership.find_owned_locations``)."""
+
+    @abstractmethod
     def get_location_or_raise(self, key: LocationKey) -> Location: ...
 
     @abstractmethod

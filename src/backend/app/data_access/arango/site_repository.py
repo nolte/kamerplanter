@@ -1,8 +1,13 @@
+from typing import cast
+
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
+from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.site import Location, Site, Slot
 
@@ -123,7 +128,37 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             location_key = location_doc.get("_key", location_doc.get("_id", "").split("/")[-1])
             self.delete_location(location_key)
         self.delete_edges(col.CONTAINS, from_id=site_id)
+        self._delete_irrigation_zones(key)
         return super().delete(key)
+
+    def _delete_irrigation_zones(self, site_key: SiteKey) -> None:
+        """The site's irrigation zones and every edge on them (REQ-053 WP 7.1) — a zone without its site is an orphan.
+
+        Selected by ``site_key`` **and** the site's own tenant (the zone carries one, E-01), read from the site
+        document before it goes; the edge set is the zone repository's derivation, so ``has_irrigation_zone``,
+        ``zone_covers``, ``zone_supplied_by`` and ``zone_actuated_by`` go together.
+        """
+        cursor = self._db.aql.execute(
+            """
+            LET site = DOCUMENT(CONCAT(@sites, @site_key))
+            FOR z IN @@zones
+                FILTER site != null AND z.site_key == @site_key AND z.tenant_key == site.tenant_key
+                RETURN z._id
+            """,
+            bind_vars={"@zones": col.IRRIGATION_ZONES, "sites": f"{col.SITES}/", "site_key": site_key},
+        )
+        zone_ids = [str(zone_id) for zone_id in cast("Cursor", cursor)]
+        if not zone_ids:
+            return
+        for edge, field_name in ZONE_EDGES:
+            self._db.aql.execute(
+                f"FOR e IN @@edges FILTER e.{aql_field(field_name)} IN @ids REMOVE e IN @@edges",
+                bind_vars={"@edges": edge, "ids": zone_ids},
+            )
+        self._db.aql.execute(
+            "FOR z IN @@zones FILTER z._id IN @ids REMOVE z IN @@zones",
+            bind_vars={"@zones": col.IRRIGATION_ZONES, "ids": zone_ids},
+        )
 
     # ── Location CRUD ─────────────────────────────────────────────────
 
@@ -134,6 +169,15 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def get_location_by_key(self, key: LocationKey) -> Location | None:
         return self._locations.get_by_key(key)
+
+    def get_locations_by_keys(self, keys: list[LocationKey]) -> list[Location]:
+        if not keys:
+            return []
+        cursor = self._db.aql.execute(
+            "FOR l IN @@locations FILTER l._key IN @keys SORT l._key RETURN l",
+            bind_vars={"@locations": col.LOCATIONS, "keys": list(keys)},
+        )
+        return [Location(**self._from_doc(doc)) for doc in cast("Cursor", cursor)]
 
     def get_location_or_raise(self, key: LocationKey) -> Location:
         return self._locations.get_or_raise(key)
@@ -172,6 +216,8 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         self.delete_edges(col.CONTAINS, from_id=location_id)
         # Remove inbound CONTAINS edge (from parent site or parent location)
         self.delete_edges(col.CONTAINS, location_id, direction="inbound")
+        # REQ-053 WP 7.1: the bed leaves its irrigation zone (the field goes with the document).
+        self.delete_edges(col.ZONE_COVERS, vertex_id=location_id, direction="inbound")
         return self._locations.delete(key)
 
     def get_location_children(self, parent_key: LocationKey) -> list[Location]:
