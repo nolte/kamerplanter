@@ -218,6 +218,8 @@ export const UNGATED_ROUTES: readonly string[] = [
   'stammdaten/activities',
   'stammdaten/activities/:key',
   'stammdaten/import',
+  // REQ-053 WP 4.5 (GP-FR-107) — a read of the tenant's care log, open to every member; the list has no write.
+  'standorte/historie',
   'standorte/substrates',
   'standorte/substrates/:key',
   'standorte/substrates/batches/:key',

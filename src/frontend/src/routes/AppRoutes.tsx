@@ -62,6 +62,7 @@ const SubstrateListPage = lazy(() => import('@/pages/standorte/SubstrateListPage
 const SubstrateDetailPage = lazy(() => import('@/pages/standorte/SubstrateDetailPage'));
 const BatchDetailPage = lazy(() => import('@/pages/standorte/BatchDetailPage'));
 const GardenPlanRoute = lazy(() => import('@/features/gardenPlanner/routes/GardenPlanRoute'));
+const CareHistoryPage = lazy(() => import('@/features/gardenPlanner/history/CareHistoryPage'));
 const SlotDetailPage = lazy(() => import('@/pages/standorte/SlotDetailPage'));
 const PlantInstanceListPage = lazy(() => import('@/pages/pflanzen/PlantInstanceListPage'));
 const PlantInstanceDetailPage = lazy(() => import('@/pages/pflanzen/PlantInstanceDetailPage'));
@@ -557,6 +558,15 @@ export const router = createBrowserRouter(
                   <GardenPlanRoute />
                 </Suspense>
               </ModuleGuard>
+            }
+          />
+          {/* REQ-053 WP 4.5 — Pflegehistorie des Mandanten (GP-FR-107): Lesen steht jedem Mitglied offen. */}
+          <Route
+            path="standorte/historie"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <CareHistoryPage />
+              </Suspense>
             }
           />
           <Route
