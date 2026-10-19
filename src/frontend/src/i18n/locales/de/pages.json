@@ -6164,7 +6164,9 @@
           "me": "Ich",
           "personOwnOnly": "Du kannst nach dir selbst filtern; die Leitung sieht alle Mitglieder.",
           "corrections": "Korrekturen anzeigen",
-          "reset": "Filter zurücksetzen"
+          "reset": "Filter zurücksetzen",
+          "toggle": "Filter",
+          "toggleActive": "Filter ({{count}} aktiv)"
         },
         "timeline": {
           "title": "Was hier wuchs",

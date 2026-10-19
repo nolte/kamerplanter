@@ -3,12 +3,19 @@
  * category, period, plant, person and bed, plus the "Show corrections" switch. The same bar serves
  * both lists; the tenant-wide page adds the bed filter, the bed tab the plant filter.
  */
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
+import Collapse from '@mui/material/Collapse';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import Box from '@mui/material/Box';
 import Form from '@/components/form/Form';
 import { categoryLabel } from './historyFormat';
 import {
@@ -51,6 +58,12 @@ export default function HistoryFilterBar({
   const active = activeFilterCount(filters, defaults);
   const inverted = isRangeInverted(filters);
   const id = (name: string) => `${testIdPrefix}-${name}`;
+  const theme = useTheme();
+  // On a phone six controls would push the list off the screen: they fold away behind one button.
+  const compact = useMediaQuery(theme.breakpoints.down('sm'));
+  const [open, setOpen] = useState(false);
+  const regionId = useId();
+  const expanded = !compact || open;
 
   return (
     <Form
@@ -58,8 +71,25 @@ export default function HistoryFilterBar({
       aria-label={t('pages.bed.history.filters.label')}
       onSubmit={(event) => event.preventDefault()}
       data-testid={id('filters')}
-      sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
     >
+      {compact && (
+        <Button
+          variant="outlined"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          aria-controls={regionId}
+          endIcon={open ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          sx={{ minHeight: 48, justifyContent: 'space-between' }}
+          data-testid={id('filters-toggle')}
+        >
+          {active > 0
+            ? t('pages.bed.history.filters.toggleActive', { count: active })
+            : t('pages.bed.history.filters.toggle')}
+        </Button>
+      )}
+      <Collapse in={expanded} unmountOnExit={false} id={regionId}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', pt: compact ? 1 : 0 }}>
       <TextField
         select
         size="small"
@@ -192,6 +222,8 @@ export default function HistoryFilterBar({
           {t('pages.bed.history.filters.reset')}
         </Button>
       )}
+        </Box>
+      </Collapse>
     </Form>
   );
 }

@@ -6163,7 +6163,9 @@
           "me": "Me",
           "personOwnOnly": "You can filter by yourself; leads see every member.",
           "corrections": "Show corrections",
-          "reset": "Reset filters"
+          "reset": "Reset filters",
+          "toggle": "Filters",
+          "toggleActive": "Filters ({{count}} active)"
         },
         "timeline": {
           "title": "What grew here",

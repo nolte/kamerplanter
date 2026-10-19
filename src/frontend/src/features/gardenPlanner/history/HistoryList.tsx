@@ -62,22 +62,26 @@ function HistoryRow({ item, bedLabel, locale, testIdPrefix }: { item: HistoryIte
       data-testid={`${testIdPrefix}-item-${item.id}`}
       sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0.5, py: 1.5, px: 0 }}
     >
+      <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
+        {itemHeadline(t, item)}
+      </Typography>
+      {details.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          {details.join(' \u00B7 ')}
+        </Typography>
+      )}
+      <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+        <time dateTime={item.at}>{dateOnly ? dayOf(item.at, locale) : timeOf(item.at, locale)}</time>
+        {who ? ` \u00B7 ${t('pages.bed.history.by', { name: who })}` : ''}
+        {bedLabel && (
+          <>
+            {' \u00B7 '}
+            <span>{bedLabel}</span>
+          </>
+        )}
+      </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
         <Chip size="small" variant="outlined" label={categoryLabel(t, item.category)} />
-        <Typography
-          component="time"
-          dateTime={item.at}
-          variant="body2"
-          color="text.secondary"
-          sx={{ whiteSpace: 'nowrap' }}
-        >
-          {dateOnly ? dayOf(item.at, locale) : timeOf(item.at, locale)}
-        </Typography>
-        {bedLabel && (
-          <Typography variant="body2" color="text.secondary">
-            {bedLabel}
-          </Typography>
-        )}
         {line?.superseded_by_key && (
           <Chip size="small" color="warning" variant="outlined" label={t('pages.bed.history.state.corrected')} />
         )}
@@ -94,14 +98,6 @@ function HistoryRow({ item, bedLabel, locale, testIdPrefix }: { item: HistoryIte
           <Chip size="small" variant="outlined" label={t('pages.bed.history.state.backfill')} />
         )}
       </Box>
-      <Typography variant="body1" sx={{ overflowWrap: 'anywhere' }}>
-        {itemHeadline(t, item)}
-      </Typography>
-      {(details.length > 0 || who) && (
-        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-          {[...details, who ? t('pages.bed.history.by', { name: who }) : null].filter(Boolean).join(' · ')}
-        </Typography>
-      )}
       {line?.reason && (
         <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
           {line.reason}

@@ -461,3 +461,40 @@ describe('BedHistoryTab - accessibility', () => {
     await expectNoA11yViolations(dialog, { minElements: 10 });
   });
 });
+
+describe('BedHistoryTab - filters on a phone', () => {
+  it('folds the filters behind one button with the active count and unfolds them by keyboard', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    try {
+      useHistoryBackend({ items: [careItem('a')], timeline: timeline(FIVE_YEARS) });
+      const user = userEvent.setup();
+      renderTab();
+      await screen.findByTestId('history-list');
+
+      const toggle = screen.getByTestId('history-filters-toggle');
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).toHaveTextContent('Filters');
+      expect(screen.queryByRole('combobox', { name: 'Category' })).toBeNull();
+
+      toggle.focus();
+      await user.keyboard('{Enter}');
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(await screen.findByRole('combobox', { name: 'Category' })).toBeVisible();
+
+      await user.click(screen.getByRole('switch', { name: 'Show corrections' }));
+      expect(toggle).toHaveTextContent('Filters (1 active)');
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+});

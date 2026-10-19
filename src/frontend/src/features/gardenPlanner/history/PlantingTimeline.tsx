@@ -15,7 +15,7 @@ import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { familyColors } from './familyColor';
 import type { RotationPlanting, RotationYear } from './historyTypes';
 import type { TimelineState } from './useRotationTimeline';
@@ -28,6 +28,9 @@ interface PlantingTimelineProps {
   /** Take a backfilled year back. */
   onCancel: (careEventKey: string, year: number) => void;
   onRetry: () => void;
+  /** A year to move the keyboard focus to once its row has been refreshed (after a dialog closed). */
+  focusYear?: number | null;
+  onFocusHandled?: () => void;
 }
 
 function PlantingChip({
@@ -59,7 +62,7 @@ function PlantingChip({
   const cancelKey = planting.care_event_key;
 
   return (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', maxWidth: '100%' }}>
       <Chip
         variant={fallow ? 'outlined' : 'filled'}
         label={
@@ -101,10 +104,10 @@ function PlantingChip({
           size="small"
           onClick={() => onCancel(cancelKey, year)}
           aria-label={t('pages.bed.history.timeline.cancelYear', { year })}
-          sx={{ minWidth: 44, minHeight: 44 }}
+          sx={{ minWidth: 48, minHeight: 48 }}
           data-testid={`timeline-cancel-${cancelKey}`}
         >
-          <CloseIcon fontSize="small" />
+          <CloseIcon fontSize="small" aria-hidden="true" />
         </IconButton>
       )}
     </Box>
@@ -117,7 +120,11 @@ function YearRow({
   canEdit,
   onBackfill,
   onCancel,
+  focusYear,
+  onFocusHandled,
 }: {
+  focusYear?: number | null;
+  onFocusHandled?: () => void;
   entry: RotationYear;
   colors: ReadonlyMap<string, string>;
   canEdit: boolean;
@@ -127,9 +134,22 @@ function YearRow({
   const { t } = useTranslation();
   const empty = entry.plantings.length === 0;
   const current = entry.year === new Date().getFullYear();
+  const rowRef = useRef<HTMLLIElement>(null);
+  const seen = useRef(entry);
+  useEffect(() => {
+    // The trigger of the dialog may be gone (a taken-back chip): focus lands on the refreshed row,
+    // not on the page top.
+    if (focusYear === entry.year && seen.current !== entry) {
+      rowRef.current?.focus();
+      onFocusHandled?.();
+    }
+    seen.current = entry;
+  }, [entry, focusYear, onFocusHandled]);
   return (
     <Box
       component="li"
+      ref={rowRef}
+      tabIndex={-1}
       data-testid={`timeline-year-${entry.year}`}
       sx={{
         display: 'flex',
@@ -140,6 +160,7 @@ function YearRow({
         borderBottom: 1,
         borderColor: 'divider',
         listStyle: 'none',
+        '&:focus-visible': { outline: 2, outlineStyle: 'solid', outlineColor: 'primary.main' },
       }}
     >
       <Typography component="span" variant="subtitle2" sx={{ width: 56, flex: 'none' }}>
@@ -179,7 +200,7 @@ function YearRow({
   );
 }
 
-export default function PlantingTimeline({ state, canEdit, onBackfill, onCancel, onRetry }: PlantingTimelineProps) {
+export default function PlantingTimeline({ state, canEdit, onBackfill, onCancel, onRetry, focusYear, onFocusHandled }: PlantingTimelineProps) {
   const { t } = useTranslation();
   const colors = useMemo(
     () =>
@@ -227,7 +248,16 @@ export default function PlantingTimeline({ state, canEdit, onBackfill, onCancel,
           )}
           <Box component="ol" sx={{ m: 0, p: 0 }} aria-label={t('pages.bed.history.timeline.list')}>
             {state.timeline.timeline.map((entry) => (
-              <YearRow key={entry.year} entry={entry} colors={colors} canEdit={canEdit} onBackfill={onBackfill} onCancel={onCancel} />
+              <YearRow
+                key={entry.year}
+                entry={entry}
+                colors={colors}
+                canEdit={canEdit}
+                onBackfill={onBackfill}
+                onCancel={onCancel}
+                focusYear={focusYear}
+                onFocusHandled={onFocusHandled}
+              />
             ))}
           </Box>
         </>

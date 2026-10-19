@@ -48,6 +48,8 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
   const [backfillYearChoice, setBackfillYearChoice] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState<{ key: string; year: number } | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [focusYear, setFocusYear] = useState<number | null>(null);
+  const clearFocusYear = useCallback(() => setFocusYear(null), []);
   const timeline = useRotationTimeline(bed.key);
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
 
   const onSaved = (result: BackfillResult) => {
     setBackfillYearChoice(null);
+    setFocusYear(result.year);
     changed();
     offerUndo({
       message: t('pages.bed.history.backfill.saved', { year: result.year }),
@@ -95,6 +98,7 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
     setCancelBusy(true);
     try {
       await cancelBackfill(bed.key, cancelling.key);
+      setFocusYear(cancelling.year);
       setCancelling(null);
       changed();
     } catch (error) {
@@ -115,6 +119,8 @@ export default function BedHistoryTab({ bed }: BedHistoryTabProps) {
         onBackfill={(year) => setBackfillYearChoice(year ?? startYear)}
         onCancel={(key, year) => setCancelling({ key, year })}
         onRetry={reloadTimeline}
+        focusYear={focusYear}
+        onFocusHandled={clearFocusYear}
       />
 
       <Box component="section" aria-labelledby="bed-history-title" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
