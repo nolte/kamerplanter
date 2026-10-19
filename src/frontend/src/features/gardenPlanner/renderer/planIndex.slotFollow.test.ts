@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
+import { transformPlanToBed } from '../model/geometry';
 import { applyOperation } from '../model/applyOperation';
 import { normalizePlan } from '../model/planModel';
 import { applyUndoPatch, diffPlans } from '../model/undoPatch';
-import type { PlanOperation } from '../model/types';
+import type { Geometry, PlanOperation } from '../model/types';
 import { hitTestAll } from './hitTest';
 import { markerIndex } from './planIndex';
 import { buildScene } from './scene';
@@ -16,7 +17,12 @@ import { largePlacedPlan, NO_SELECTION, plantedBed, viewportAt } from './rendere
 function twoBeds() {
   const { slots, plants } = plantedBed('a', 1, 1, 3, 0.5); // slots at (1.1 + 0.5 i, 1.5)
   return normalizePlan(
-    planResponse({ locations: [bed('a', 1, 1), bed('b', 8, 8)], garden_objects: [], slots, plants }),
+    planResponse({
+      locations: [bed('a', 1, 1), bed('b', 8, 8)],
+      garden_objects: [],
+      slots,
+      plants,
+    }),
   );
 }
 
@@ -135,19 +141,98 @@ describe('slot markers follow their bed (#2381)', () => {
   });
 });
 
-describe.runIf(process.env.GP_BENCHMARK === '1')('marker derivation after a move (benchmark lane)', () => {
-  it('derives the moved bed on top of a warm index in well under a frame', () => {
-    const start = largePlacedPlan();
-    markerIndex(start);
-    const samples: number[] = [];
-    for (let run = 0; run < 100; run += 1) {
-      const plan = applyOperation(start, moveTo(`loc_${run % 150}`, [run, 2], run)).plan;
-      const t0 = performance.now();
-      markerIndex(plan);
-      samples.push(performance.now() - t0);
-    }
-    samples.sort((a, b) => a - b);
-    console.info(`markerIndex after move median ${samples[50].toFixed(4)} ms`);
-    expect(samples[50]).toBeLessThanOrEqual(2);
+describe('bed-local invariant (#2381)', () => {
+  it('keeps every marker at the same bed-local point for a bed loaded rotated, moved and rotated again', () => {
+    const loaded: Geometry = {
+      kind: 'rect',
+      origin: [5, 3],
+      width_m: 1.2,
+      length_m: 2,
+      rotation_deg: 45,
+    };
+    const { slots, plants } = plantedBed('a', 0, 0, 3, 0.5);
+    const plan = normalizePlan(
+      planResponse({
+        locations: [bed('a', 5, 3, { geometry: loaded })],
+        garden_objects: [],
+        slots,
+        plants,
+      }),
+    );
+    const local = (p: typeof plan, geometry: Geometry) =>
+      markerIndex(p)
+        .get('a')!
+        .markers.map((m) => transformPlanToBed([m.x, m.y], geometry));
+    const expected = local(plan, loaded);
+    const next: Geometry = { ...loaded, origin: [-2, 9], rotation_deg: 200 };
+    const moved = applyOperation(plan, {
+      op: 'update_geometry',
+      entity: 'location',
+      key: 'a',
+      geometry: next,
+    }).plan;
+    local(moved, next).forEach(([x, y], i) => {
+      expect(x).toBeCloseTo(expected[i][0], 9);
+      expect(y).toBeCloseTo(expected[i][1], 9);
+    });
+  });
+
+  it('moves with the first vertex of a polygon bed, like the server frame (anchor = points[0])', () => {
+    const polygon: Geometry = {
+      kind: 'polygon',
+      points: [
+        [0, 0],
+        [4, 0],
+        [4, 3],
+      ],
+      rotation_deg: 0,
+    };
+    const { slots, plants } = plantedBed('a', 0, 0, 2, 0.5);
+    const plan = normalizePlan(
+      planResponse({
+        locations: [bed('a', 0, 0, { geometry: polygon })],
+        garden_objects: [],
+        slots,
+        plants,
+      }),
+    );
+    const shifted: Geometry = {
+      ...polygon,
+      points: [
+        [1, 2],
+        [4, 0],
+        [4, 3],
+      ],
+    };
+    const moved = applyOperation(plan, {
+      op: 'update_geometry',
+      entity: 'location',
+      key: 'a',
+      geometry: shifted,
+    }).plan;
+    const before = markerIndex(plan).get('a')!.markers[0];
+    const after = markerIndex(moved).get('a')!.markers[0];
+    expect(after.x - before.x).toBeCloseTo(1);
+    expect(after.y - before.y).toBeCloseTo(2);
   });
 });
+
+describe.runIf(process.env.GP_BENCHMARK === '1')(
+  'marker derivation after a move (benchmark lane)',
+  () => {
+    it('derives the moved bed on top of a warm index in well under a frame', () => {
+      const start = largePlacedPlan();
+      markerIndex(start);
+      const samples: number[] = [];
+      for (let run = 0; run < 100; run += 1) {
+        const plan = applyOperation(start, moveTo(`loc_${run % 150}`, [run, 2], run)).plan;
+        const t0 = performance.now();
+        markerIndex(plan);
+        samples.push(performance.now() - t0);
+      }
+      samples.sort((a, b) => a - b);
+      console.info(`markerIndex after move median ${samples[50].toFixed(4)} ms`);
+      expect(samples[50]).toBeLessThanOrEqual(2);
+    });
+  },
+);
