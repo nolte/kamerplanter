@@ -16,11 +16,4 @@ export function formatBedDate(value: string | null | undefined, language: string
   return new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(date);
 }
 
-/** Whether the due date lies before today (a task due today is not overdue, whatever the time of day). */
-export function isOverdue(value: string | null | undefined, now: Date = new Date()): boolean {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return date.getTime() < startOfToday.getTime();
-}
+export { isOverdue } from '../model/overdue';
