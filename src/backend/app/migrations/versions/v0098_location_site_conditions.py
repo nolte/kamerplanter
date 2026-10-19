@@ -6,8 +6,8 @@ four-step ``site_conditions.microclimate.frost_risk`` (``low`` | ``normal`` | ``
 sun tiles — ships in the same change; this version copies the **stored** override over:
 
 * ``frost_exposed == true``  → ``frost_risk = high`` (the spec's mapping, §10.2),
-* ``frost_exposed == false`` → ``frost_risk = low`` (the override meant "forced protected";
-  ``low`` is the nearest step — an operator question, see the needs-decision issue of WP 3.9),
+* ``frost_exposed == false`` → ``frost_risk = normal`` (operator decision 2026-10-19, #2454 item 1;
+  the first draft wrote ``low``, changed before the production run by #2464),
 * ``frost_exposed == null``/absent → untouched (it meant "inherit from the site type"; there is no
   step for that, ``unknown`` is the default and nothing is written).
 
@@ -20,7 +20,9 @@ the nested key ``site_conditions.microclimate.frost_risk`` is created, merged in
 **Idempotent (M-3).** Only locations whose ``frost_risk`` is missing or ``unknown`` match; a second run
 matches nothing. A location whose ``frost_risk`` is already set (``low``/``normal``/``high``) is never
 overwritten — when it disagrees with ``frost_exposed`` it is **counted and listed** as a conflict, not
-guessed (the readers keep using ``frost_exposed`` until they are moved over).
+guessed (the readers keep using ``frost_exposed`` until they are moved over). That includes a
+``false``/``low`` pair the first draft of this version (or a ``PUT /locations`` of the same build) left on a
+development database: nothing tells it apart from a ``low`` entered on purpose, so it is listed, not rewritten.
 
 **Dry run (M-5).** Full report, nothing written. Operators read ``location_site_conditions_dry_run``
 before the production run (plan §8, P-2): ``will_update`` split by target value, the first
@@ -46,7 +48,7 @@ from app.migrations.framework.report import MigrationReport
 logger = structlog.get_logger(__name__)
 
 #: ``frost_exposed → frost_risk``. Frozen here (M-7) — ``FrostRisk`` may grow.
-FROST_RISK_MAP: dict[bool, str] = {True: "high", False: "low"}
+FROST_RISK_MAP: dict[bool, str] = {True: "high", False: "normal"}
 
 #: Risks that count as "nobody has entered a risk yet".
 _UNSET_RISKS = (None, "unknown")
@@ -102,7 +104,7 @@ def _apply(db: StandardDatabase, updates: Sequence[dict[str, Any]]) -> None:
 
 def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], int]:
     updates: list[dict[str, Any]] = []
-    by_value: dict[str, int] = {"high": 0, "low": 0}
+    by_value: dict[str, int] = {target: 0 for target in FROST_RISK_MAP.values()}
     conflicts: list[str] = []
     conflict_count = 0
     already_in_step = 0
@@ -137,7 +139,7 @@ class LocationSiteConditionsMigration(Migration):
     version = "0098"
     name = "location_site_conditions"
     description = (
-        "REQ-053 issue 75: copy Location.frost_exposed (true → high, false → low) into "
+        "REQ-053 issue 75: copy Location.frost_exposed (true → high, false → normal) into "
         "site_conditions.microclimate.frost_risk; additive — frost_exposed stays, a set frost_risk is never "
         "overwritten (conflicts listed), null overrides untouched (#2399)."
     )

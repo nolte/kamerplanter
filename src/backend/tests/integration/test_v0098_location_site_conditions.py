@@ -5,7 +5,7 @@ production writer (``ArangoSiteRepository.create_location``), so the stored shap
 wrote, and the result is read back through the production ``Location`` model — a migration that put
 ``frost_risk`` one level too high, or dropped the neighbours of the nested object, fails here.
 
-* ``true`` → ``high``, ``false`` → ``low``; ``null`` overrides stay untouched;
+* ``true`` → ``high``, ``false`` → ``normal`` (#2464); ``null`` overrides stay untouched;
 * a sun window already entered through the new UI survives the merge;
 * a ``frost_risk`` that is already set is never overwritten — a disagreeing one is listed as a conflict;
 * a second run changes no document (``_rev`` stays), a dry run writes nothing;
@@ -100,10 +100,10 @@ def test_the_legacy_override_is_copied_through_the_production_model(db) -> None:
     report = migration.up(db)
 
     assert _read(db, keys["corner"]).site_conditions.microclimate.frost_risk is FrostRisk.HIGH  # type: ignore[union-attr]
-    assert _read(db, keys["niche"]).site_conditions.microclimate.frost_risk is FrostRisk.LOW  # type: ignore[union-attr]
+    assert _read(db, keys["niche"]).site_conditions.microclimate.frost_risk is FrostRisk.NORMAL  # type: ignore[union-attr]
     assert _read(db, keys["plain"]).site_conditions is None
     assert report.changed == 3  # corner, niche, sunny
-    assert report.details["by_target"] == {"high": 2, "low": 1}
+    assert report.details["by_target"] == {"high": 2, "normal": 1}
     assert report.details["untouched_inherit"] == 1
 
 
@@ -154,9 +154,32 @@ def test_the_dry_run_reports_and_writes_nothing(db) -> None:  # type: ignore[no-
 
     assert report.dry_run is True and report.changed == 0
     assert report.details["will_update"] == 3
+    assert report.details["by_target"] == {"high": 2, "normal": 1}
+    assert report.details["untouched_inherit"] == 1
+    assert report.details["conflicts"] == {"count": 1, "listed": [keys["disagree"]]}
     assert sorted(report.details["listed_keys"]) == sorted([keys["corner"], keys["niche"], keys["sunny"]])
     assert _revs(db) == before
     assert _read(db, keys["corner"]).site_conditions is None
+
+
+def test_a_low_left_by_the_first_mapping_is_listed_not_rewritten(db) -> None:  # type: ignore[no-untyped-def]
+    """#2464: a development database that ran the first draft (``false`` → ``low``) keeps that pair.
+
+    Nothing marks it as written by the migration — ``PUT /locations`` of the same build and a ``low``
+    entered on purpose store the same pair — so it is a conflict for the operator, not a guess.
+    """
+    leftover = _location(
+        db,
+        "Migrated by the first draft",
+        frost_exposed=False,
+        site_conditions=SiteConditions(microclimate=Microclimate(frost_risk=FrostRisk.LOW)),
+    )
+
+    report = migration.up(db)
+
+    assert _read(db, leftover).site_conditions.microclimate.frost_risk is FrostRisk.LOW  # type: ignore[union-attr]
+    assert report.changed == 0
+    assert report.details["conflicts"] == {"count": 1, "listed": [leftover]}
 
 
 def test_a_risk_entered_after_the_scan_is_not_overwritten(db) -> None:  # type: ignore[no-untyped-def]
