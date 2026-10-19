@@ -9,8 +9,8 @@ job: node-version
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-13'
-measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
+measured_on: '2026-10-19'
+measured_at_commit: 9707e38f25ac49ca63a853b106af67915341f4da
 replay_seconds: 1
 job_spec_sha256: a7c440ac88d6206de0e021fc6ef2f8905dd758edfd0ec1b17fbdcf75b1325003
 invocations:
