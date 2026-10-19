@@ -45,6 +45,7 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
         [
             {"_key": "L1", "tenant_key": "t1", "site_key": "S1"},
             {"_key": "L2", "tenant_key": "t2", "site_key": "S2"},
+            {"_key": "L4", "tenant_key": "t1", "site_key": "S4"},
         ]
     )
     db.collection(col.SLOTS).insert_many([{"_key": "s1", "location_key": "L1"}, {"_key": "s2", "location_key": "L2"}])
@@ -52,7 +53,8 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
     db.collection(col.PLANT_INSTANCES).insert_many(
         [
             {**plant, "_key": "ok", "slot_key": "s1"},
-            {**plant, "_key": "keep", "slot_key": "s1", "location_key": "OTHER"},
+            {**plant, "_key": "keep", "slot_key": "s1", "location_key": "L4"},
+            {**plant, "_key": "ghostloc", "slot_key": "s1", "location_key": "OTHER"},
             {**plant, "_key": "noslot", "slot_key": None},
             {**plant, "_key": "foreign", "slot_key": "s2"},
             {**plant, "_key": "done", "slot_key": "s1", "location_key": "L1", "site_key": "S1"},
@@ -71,9 +73,10 @@ def test_dry_run_reports_and_writes_nothing(db) -> None:  # type: ignore[no-unty
     report = migration.up(db, dry_run=True)
 
     assert {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()} == revs
-    assert report.details["will_update"] == 2
+    assert report.details["will_update"] == 2  # ok, keep
     assert report.details["unresolved"]["no_slot"]["listed"] == ["noslot"]
     assert report.details["unresolved"]["cross_tenant"]["listed"] == ["foreign"]
+    assert report.details["unresolved"]["location_missing"]["listed"] == ["ghostloc"]
 
 
 def test_apply_derives_both_keys_and_never_overwrites(db) -> None:  # type: ignore[no-untyped-def]
@@ -83,7 +86,11 @@ def test_apply_derives_both_keys_and_never_overwrites(db) -> None:  # type: igno
 
     assert report.changed == 2
     assert (_plant(db, "ok")["location_key"], _plant(db, "ok")["site_key"]) == ("L1", "S1")
-    assert (_plant(db, "keep")["location_key"], _plant(db, "keep")["site_key"]) == ("OTHER", "S1")
+    assert (_plant(db, "keep")["location_key"], _plant(db, "keep")["site_key"]) == (
+        "L4",
+        "S4",
+    )  # site from its own location, not the slot's
+    assert (_plant(db, "ghostloc")["location_key"], _plant(db, "ghostloc")["site_key"]) == ("OTHER", None)
     assert _plant(db, "noslot")["location_key"] is None
     assert _plant(db, "foreign")["site_key"] is None
 

@@ -8,7 +8,9 @@ version derives both from the plant's own slot: ``slot.location_key``, then that
 **Never guesses.** A field that is already set is never overwritten. A plant is only repaired when the chain
 ``plant.slot_key → slot.location_key → location.site_key`` resolves *and* the location belongs to the plant's
 own tenant. Everything else is counted and listed under its reason (``no_slot``, ``slot_missing``,
-``slot_without_location``, ``location_missing``, ``cross_tenant``) and left untouched.
+``slot_without_location``, ``location_missing``, ``cross_tenant``) and left untouched. A plant that already has a
+``location_key`` takes ``site_key`` from that own location (same-tenant check), not from its slot; a plant
+without a tenant is ``cross_tenant``. Only plants that actually receive a field count as updated.
 
 **Idempotent (M-3).** Only plants with a null ``location_key`` or ``site_key`` match; after a run the repaired
 ones no longer do, so a second run matches the same unresolvable remainder and changes nothing.
@@ -47,6 +49,7 @@ FOR p IN @@plants
   FILTER p.location_key == null OR p.site_key == null
   LET slot = p.slot_key == null ? null : DOCUMENT(@slots, p.slot_key)
   LET location = slot == null OR slot.location_key == null ? null : DOCUMENT(@locations, slot.location_key)
+  LET own = p.location_key == null ? null : DOCUMENT(@locations, p.location_key)
   RETURN {
     _key: p._key,
     tenant_key: p.tenant_key,
@@ -57,7 +60,10 @@ FOR p IN @@plants
     slot_location_key: slot == null ? null : slot.location_key,
     location_found: location != null,
     location_tenant_key: location == null ? null : location.tenant_key,
-    location_site_key: location == null ? null : location.site_key
+    location_site_key: location == null ? null : location.site_key,
+    own_found: own != null,
+    own_tenant_key: own == null ? null : own.tenant_key,
+    own_site_key: own == null ? null : own.site_key
   }
 """
 
@@ -82,7 +88,15 @@ def _apply(db: StandardDatabase, updates: Sequence[dict[str, Any]]) -> None:
 
 
 def _reason(row: dict[str, Any]) -> str | None:
-    """Why the plant cannot be repaired (``None`` = it can)."""
+    """Why the plant cannot be repaired (``None`` = it can).
+
+    A plant that already has a ``location_key`` takes its site from that very location, never from the slot's:
+    the two may disagree and a plant must not end up in one location and another location's site.
+    """
+    if row.get("location_key") is not None:
+        if not row["own_found"]:
+            return "location_missing"
+        return _tenant_reason(row, row.get("own_tenant_key"))
     if not row.get("slot_key"):
         return "no_slot"
     if not row["slot_found"]:
@@ -91,7 +105,13 @@ def _reason(row: dict[str, Any]) -> str | None:
         return "slot_without_location"
     if not row["location_found"]:
         return "location_missing"
-    if (row.get("location_tenant_key") or "") != (row.get("tenant_key") or ""):
+    return _tenant_reason(row, row.get("location_tenant_key"))
+
+
+def _tenant_reason(row: dict[str, Any], location_tenant: str | None) -> str | None:
+    """A plant without a tenant matches no location."""
+    plant_tenant = row.get("tenant_key")
+    if not plant_tenant or location_tenant != plant_tenant:
         return "cross_tenant"
     return None
 
@@ -117,15 +137,20 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
             if len(bucket["listed"]) < _LISTED:
                 bucket["listed"].append(str(row["_key"]))
             continue
-        site = row.get("location_site_key") or None
-        if row["location_key"] is None:
+        has_location = row["location_key"] is not None
+        site = (row.get("own_site_key") if has_location else row.get("location_site_key")) or None
+        update: dict[str, Any] = {"_key": row["_key"], "location_key": None, "site_key": None}
+        if not has_location:
             sets_location += 1
+            update["location_key"] = row["slot_location_key"]
         if row["site_key"] is None:
             if site is None:
                 no_site_on_location += 1
             else:
                 sets_site += 1
-        updates.append({"_key": row["_key"], "location_key": row["slot_location_key"], "site_key": site})
+                update["site_key"] = site
+        if update["location_key"] is not None or update["site_key"] is not None:
+            updates.append(update)
     details: dict[str, Any] = {
         "scanned_missing_location_or_site": len(rows),
         "sets_location_key": sets_location,

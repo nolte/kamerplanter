@@ -35,6 +35,7 @@ class _FakeAql:
                 continue
             slot = self.db.slots.get(p["slot_key"]) if p.get("slot_key") else None
             loc = self.db.locations.get(slot["location_key"]) if slot and slot.get("location_key") else None
+            own = self.db.locations.get(p["location_key"]) if p.get("location_key") else None
             rows.append(
                 {
                     "_key": p["_key"],
@@ -47,6 +48,9 @@ class _FakeAql:
                     "location_found": loc is not None,
                     "location_tenant_key": loc.get("tenant_key") if loc else None,
                     "location_site_key": loc.get("site_key") if loc else None,
+                    "own_found": own is not None,
+                    "own_tenant_key": own.get("tenant_key") if own else None,
+                    "own_site_key": own.get("site_key") if own else None,
                 }
             )
         return iter(rows)
@@ -69,7 +73,11 @@ def _volume() -> _FakeDb:
         {"_key": "ok", "tenant_key": "t1", "slot_key": "s1", "location_key": None, "site_key": None},
         {"_key": "half", "tenant_key": "t1", "slot_key": "s1", "location_key": "L1", "site_key": None},
         {"_key": "done", "tenant_key": "t1", "slot_key": "s1", "location_key": "L1", "site_key": "S1"},
-        {"_key": "keep", "tenant_key": "t1", "slot_key": "s1", "location_key": "OTHER", "site_key": None},
+        {"_key": "keep", "tenant_key": "t1", "slot_key": "s1", "location_key": "L4", "site_key": None},
+        {"_key": "ghostloc", "tenant_key": "t1", "slot_key": "s1", "location_key": "OTHER", "site_key": None},
+        {"_key": "foreignown", "tenant_key": "t1", "slot_key": "s1", "location_key": "L2", "site_key": None},
+        {"_key": "nosite", "tenant_key": "t1", "slot_key": "s1", "location_key": "L5", "site_key": None},
+        {"_key": "notenant", "slot_key": "s1", "location_key": None, "site_key": None},
         {"_key": "noslot", "tenant_key": "t1", "slot_key": None, "location_key": None, "site_key": None},
         {"_key": "ghost", "tenant_key": "t1", "slot_key": "gone", "location_key": None, "site_key": None},
         {"_key": "foreign", "tenant_key": "t1", "slot_key": "s2", "location_key": None, "site_key": None},
@@ -83,6 +91,8 @@ def _volume() -> _FakeDb:
     locations = [
         {"_key": "L1", "tenant_key": "t1", "site_key": "S1"},
         {"_key": "L2", "tenant_key": "t2", "site_key": "S2"},
+        {"_key": "L4", "tenant_key": "t1", "site_key": "S4"},
+        {"_key": "L5", "tenant_key": "t1"},
     ]
     return _FakeDb(plants, slots, locations)
 
@@ -94,12 +104,14 @@ def test_dry_run_reports_and_writes_nothing() -> None:
     assert db.plants == before
     assert report.dry_run is True and report.changed == 0
     d = report.details
-    assert d["will_update"] == 3  # ok, half, keep
+    assert d["will_update"] == 3  # ok, half, keep (nosite has nothing to set)
+    assert d["location_without_site_key"] == 1
     assert d["unresolved"]["no_slot"] == {"count": 1, "listed": ["noslot"]}
     assert d["unresolved"]["slot_missing"]["listed"] == ["ghost"]
-    assert d["unresolved"]["cross_tenant"]["listed"] == ["foreign"]
+    assert sorted(d["unresolved"]["cross_tenant"]["listed"]) == ["foreign", "foreignown", "notenant"]
+    assert d["unresolved"]["location_missing"]["listed"] == ["ghostloc"]
     assert d["unresolved"]["slot_without_location"]["listed"] == ["nolocslot"]
-    assert d["unresolved_count"] == 4
+    assert d["unresolved_count"] == 7
 
 
 def test_apply_fills_nulls_and_never_overwrites() -> None:
@@ -108,8 +120,15 @@ def test_apply_fills_nulls_and_never_overwrites() -> None:
     assert report.changed == 3
     assert (db.plants["ok"]["location_key"], db.plants["ok"]["site_key"]) == ("L1", "S1")
     assert (db.plants["half"]["location_key"], db.plants["half"]["site_key"]) == ("L1", "S1")
-    assert db.plants["keep"]["location_key"] == "OTHER"
-    assert db.plants["keep"]["site_key"] == "S1"
+    # N2: site comes from the plant's own location, not from the slot's (L1 / S1)
+    assert (db.plants["keep"]["location_key"], db.plants["keep"]["site_key"]) == ("L4", "S4")
+    # N2: own location missing / cross-tenant -> untouched
+    assert (db.plants["ghostloc"]["location_key"], db.plants["ghostloc"]["site_key"]) == ("OTHER", None)
+    assert (db.plants["foreignown"]["location_key"], db.plants["foreignown"]["site_key"]) == ("L2", None)
+    # N4: location set, location without site -> no update
+    assert db.plants["nosite"]["site_key"] is None
+    # N3: plant without a tenant never matches a location
+    assert db.plants["notenant"]["location_key"] is None
     for key in ("noslot", "ghost", "foreign", "nolocslot"):
         assert db.plants[key]["location_key"] is None and db.plants[key]["site_key"] is None
 
