@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-13'
-measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
-replay_seconds: 52
+measured_on: '2026-10-19'
+measured_at_commit: 9707e38f25ac49ca63a853b106af67915341f4da
+replay_seconds: 55
 job_spec_sha256: 2f1bff7392a716c560eae9f1f5f5609f163c03d53b2487ffac5fe2ecd62284d4
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 3121
+  untracked_reads_dropped: 3172
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -128,6 +128,10 @@ reads:
 - src/backend/app/api/v1/calendar/feed_router.py
 - src/backend/app/api/v1/calendar/schemas.py
 - src/backend/app/api/v1/calendar/tenant_router.py
+- src/backend/app/api/v1/care_events/
+- src/backend/app/api/v1/care_events/__init__.py
+- src/backend/app/api/v1/care_events/schemas.py
+- src/backend/app/api/v1/care_events/tenant_router.py
 - src/backend/app/api/v1/care_reminders/
 - src/backend/app/api/v1/care_reminders/__init__.py
 - src/backend/app/api/v1/care_reminders/router.py
@@ -183,6 +187,15 @@ reads:
 - src/backend/app/api/v1/fish_species/
 - src/backend/app/api/v1/fish_species/__init__.py
 - src/backend/app/api/v1/fish_species/router.py
+- src/backend/app/api/v1/garden_objects/
+- src/backend/app/api/v1/garden_objects/__init__.py
+- src/backend/app/api/v1/garden_objects/schemas.py
+- src/backend/app/api/v1/garden_objects/tenant_router.py
+- src/backend/app/api/v1/garden_plan/
+- src/backend/app/api/v1/garden_plan/__init__.py
+- src/backend/app/api/v1/garden_plan/export_options.py
+- src/backend/app/api/v1/garden_plan/schemas.py
+- src/backend/app/api/v1/garden_plan/tenant_router.py
 - src/backend/app/api/v1/glossar/
 - src/backend/app/api/v1/glossar/__init__.py
 - src/backend/app/api/v1/glossar/admin_router.py
@@ -455,16 +468,21 @@ reads:
 - src/backend/app/data_access/arango/aquaponik_repository.py
 - src/backend/app/data_access/arango/auth_provider_repository.py
 - src/backend/app/data_access/arango/base_repository.py
+- src/backend/app/data_access/arango/bed_history_repository.py
 - src/backend/app/data_access/arango/botanical_family_repository.py
+- src/backend/app/data_access/arango/care_event_repository.py
 - src/backend/app/data_access/arango/care_reminder_repository.py
 - src/backend/app/data_access/arango/collection_entity_names.py
 - src/backend/app/data_access/arango/collections.py
+- src/backend/app/data_access/arango/conflicts.py
 - src/backend/app/data_access/arango/connection.py
 - src/backend/app/data_access/arango/consent_repository.py
 - src/backend/app/data_access/arango/enrichment_repository.py
 - src/backend/app/data_access/arango/erasure_executor.py
 - src/backend/app/data_access/arango/feeding_repository.py
 - src/backend/app/data_access/arango/fertilizer_repository.py
+- src/backend/app/data_access/arango/garden_object_repository.py
+- src/backend/app/data_access/arango/garden_plan_repository.py
 - src/backend/app/data_access/arango/glossary_repository.py
 - src/backend/app/data_access/arango/graph_repository.py
 - src/backend/app/data_access/arango/hardiness_zone_repository.py
@@ -482,10 +500,12 @@ reads:
 - src/backend/app/data_access/arango/overwintering_profile_repository.py
 - src/backend/app/data_access/arango/overwintering_profile_template_repository.py
 - src/backend/app/data_access/arango/plant_instance_repository.py
+- src/backend/app/data_access/arango/planting_reservation_repository.py
 - src/backend/app/data_access/arango/planting_run_repository.py
 - src/backend/app/data_access/arango/post_harvest_repository.py
 - src/backend/app/data_access/arango/query_builder.py
 - src/backend/app/data_access/arango/refresh_token_repository.py
+- src/backend/app/data_access/arango/rotation_history_repository.py
 - src/backend/app/data_access/arango/site_repository.py
 - src/backend/app/data_access/arango/species_repository.py
 - src/backend/app/data_access/arango/starter_kit_repository.py
@@ -493,10 +513,12 @@ reads:
 - src/backend/app/data_access/arango/succession_plan_repository.py
 - src/backend/app/data_access/arango/system_settings_repository.py
 - src/backend/app/data_access/arango/tank_repository.py
+- src/backend/app/data_access/arango/task_completion_repository.py
 - src/backend/app/data_access/arango/task_repository.py
 - src/backend/app/data_access/arango/tenant_ownership.py
 - src/backend/app/data_access/arango/tenant_repository.py
 - src/backend/app/data_access/arango/tenant_scope.py
+- src/backend/app/data_access/arango/transactions.py
 - src/backend/app/data_access/arango/user_repository.py
 - src/backend/app/data_access/arango/watering_log_repository.py
 - src/backend/app/data_access/arango/watering_repository.py
@@ -542,9 +564,11 @@ reads:
 - src/backend/app/domain/calculators/__init__.py
 - src/backend/app/domain/calculators/drying_calculator.py
 - src/backend/app/domain/calculators/gdd_calculator.py
+- src/backend/app/domain/calculators/geometry_calculator.py
 - src/backend/app/domain/calculators/image_preprocessor.py
 - src/backend/app/domain/calculators/image_tiler.py
 - src/backend/app/domain/calculators/photoperiod_calculator.py
+- src/backend/app/domain/calculators/planting_layout_calculator.py
 - src/backend/app/domain/calculators/scientific_name.py
 - src/backend/app/domain/calculators/slot_capacity_calculator.py
 - src/backend/app/domain/calculators/sun_calculator.py
@@ -553,6 +577,7 @@ reads:
 - src/backend/app/domain/engines/__init__.py
 - src/backend/app/domain/engines/activity_plan_engine.py
 - src/backend/app/domain/engines/actuator_control_engine.py
+- src/backend/app/domain/engines/adjacency_engine.py
 - src/backend/app/domain/engines/ai_explain_engine.py
 - src/backend/app/domain/engines/ai_tip_engine.py
 - src/backend/app/domain/engines/apprise_url_secrets.py
@@ -580,6 +605,7 @@ reads:
 - src/backend/app/domain/engines/frost_exposure_resolver.py
 - src/backend/app/domain/engines/frost_warning_engine.py
 - src/backend/app/domain/engines/full_auth_provider.py
+- src/backend/app/domain/engines/garden_plan_engine.py
 - src/backend/app/domain/engines/hardiness_zone_resolver.py
 - src/backend/app/domain/engines/hst_validator.py
 - src/backend/app/domain/engines/hydro_system_monitor.py
@@ -607,6 +633,7 @@ reads:
 - src/backend/app/domain/engines/phase_sequence_resolver.py
 - src/backend/app/domain/engines/phase_transition_engine.py
 - src/backend/app/domain/engines/photo_quality_assessor.py
+- src/backend/app/domain/engines/plan_svg_engine.py
 - src/backend/app/domain/engines/planting_run_engine.py
 - src/backend/app/domain/engines/post_harvest_stage_engine.py
 - src/backend/app/domain/engines/print_engine.py
@@ -621,6 +648,7 @@ reads:
 - src/backend/app/domain/engines/season_overview_engine.py
 - src/backend/app/domain/engines/season_state_engine.py
 - src/backend/app/domain/engines/sensor_metrics.py
+- src/backend/app/domain/engines/slot_reservation_engine.py
 - src/backend/app/domain/engines/sowing_calendar_engine.py
 - src/backend/app/domain/engines/storage/
 - src/backend/app/domain/engines/storage/__init__.py
@@ -634,6 +662,7 @@ reads:
 - src/backend/app/domain/engines/substrate_mix_engine.py
 - src/backend/app/domain/engines/succession_plan_engine.py
 - src/backend/app/domain/engines/tank_engine.py
+- src/backend/app/domain/engines/task_completion_engine.py
 - src/backend/app/domain/engines/tenant_engine.py
 - src/backend/app/domain/engines/tenant_erasure_engine.py
 - src/backend/app/domain/engines/tenant_export_engine.py
@@ -656,8 +685,10 @@ reads:
 - src/backend/app/domain/interfaces/attachment_repository.py
 - src/backend/app/domain/interfaces/auth_provider.py
 - src/backend/app/domain/interfaces/auth_provider_repository.py
+- src/backend/app/domain/interfaces/bed_history_repository.py
 - src/backend/app/domain/interfaces/calendar_feed_repository.py
 - src/backend/app/domain/interfaces/calendar_source_repository.py
+- src/backend/app/domain/interfaces/care_event_repository.py
 - src/backend/app/domain/interfaces/care_reminder_repository.py
 - src/backend/app/domain/interfaces/climate_normal_repository.py
 - src/backend/app/domain/interfaces/consent_repository.py
@@ -675,6 +706,8 @@ reads:
 - src/backend/app/domain/interfaces/favorites_repository.py
 - src/backend/app/domain/interfaces/feeding_repository.py
 - src/backend/app/domain/interfaces/fertilizer_repository.py
+- src/backend/app/domain/interfaces/garden_object_repository.py
+- src/backend/app/domain/interfaces/garden_plan_repository.py
 - src/backend/app/domain/interfaces/graph_repository.py
 - src/backend/app/domain/interfaces/ha_entity_gate.py
 - src/backend/app/domain/interfaces/ha_entity_grant_repository.py
@@ -712,6 +745,7 @@ reads:
 - src/backend/app/domain/interfaces/plant_diary_repository.py
 - src/backend/app/domain/interfaces/plant_identification_adapter.py
 - src/backend/app/domain/interfaces/plant_instance_repository.py
+- src/backend/app/domain/interfaces/planting_reservation_repository.py
 - src/backend/app/domain/interfaces/planting_run_repository.py
 - src/backend/app/domain/interfaces/post_harvest_repository.py
 - src/backend/app/domain/interfaces/processing_restriction_repository.py
@@ -719,6 +753,7 @@ reads:
 - src/backend/app/domain/interfaces/reference_index_store.py
 - src/backend/app/domain/interfaces/refresh_token_repository.py
 - src/backend/app/domain/interfaces/rendition_dispatch_claims.py
+- src/backend/app/domain/interfaces/rotation_history_repository.py
 - src/backend/app/domain/interfaces/security_audit_repository.py
 - src/backend/app/domain/interfaces/sensor_repository.py
 - src/backend/app/domain/interfaces/site_repository.py
@@ -728,6 +763,7 @@ reads:
 - src/backend/app/domain/interfaces/substrate_repository.py
 - src/backend/app/domain/interfaces/succession_plan_repository.py
 - src/backend/app/domain/interfaces/tank_repository.py
+- src/backend/app/domain/interfaces/task_completion_repository.py
 - src/backend/app/domain/interfaces/task_repository.py
 - src/backend/app/domain/interfaces/tenant_erasure_executor.py
 - src/backend/app/domain/interfaces/tenant_erasure_repository.py
@@ -750,11 +786,17 @@ reads:
 - src/backend/app/domain/models/beneficial.py
 - src/backend/app/domain/models/botanical_family.py
 - src/backend/app/domain/models/calendar.py
+- src/backend/app/domain/models/care_event.py
 - src/backend/app/domain/models/care_reminder.py
 - src/backend/app/domain/models/diagnosis.py
 - src/backend/app/domain/models/enrichment.py
 - src/backend/app/domain/models/feeding_event.py
 - src/backend/app/domain/models/fertilizer.py
+- src/backend/app/domain/models/garden_object.py
+- src/backend/app/domain/models/garden_plan.py
+- src/backend/app/domain/models/garden_plan_export.py
+- src/backend/app/domain/models/garden_plan_import.py
+- src/backend/app/domain/models/geometry.py
 - src/backend/app/domain/models/glossary_term.py
 - src/backend/app/domain/models/ha_entity_grant.py
 - src/backend/app/domain/models/ha_publish_setting.py
@@ -788,6 +830,7 @@ reads:
 - src/backend/app/domain/models/plant_diagnosis_request.py
 - src/backend/app/domain/models/plant_diary_entry.py
 - src/backend/app/domain/models/plant_instance.py
+- src/backend/app/domain/models/planting_reservation.py
 - src/backend/app/domain/models/planting_run.py
 - src/backend/app/domain/models/post_harvest.py
 - src/backend/app/domain/models/privacy.py
@@ -807,6 +850,7 @@ reads:
 - src/backend/app/domain/models/system_settings.py
 - src/backend/app/domain/models/tank.py
 - src/backend/app/domain/models/task.py
+- src/backend/app/domain/models/task_completion.py
 - src/backend/app/domain/models/tenant.py
 - src/backend/app/domain/models/tenant_context.py
 - src/backend/app/domain/models/tenant_erasure.py
@@ -822,6 +866,7 @@ reads:
 - src/backend/app/domain/services/activity_service.py
 - src/backend/app/domain/services/actuator_service.py
 - src/backend/app/domain/services/adapter_registry.py
+- src/backend/app/domain/services/adjacency_service.py
 - src/backend/app/domain/services/ai_assistant_service.py
 - src/backend/app/domain/services/ai_audit_logger.py
 - src/backend/app/domain/services/ai_call_budget.py
@@ -830,7 +875,10 @@ reads:
 - src/backend/app/domain/services/aquaponik_service.py
 - src/backend/app/domain/services/attachment_service.py
 - src/backend/app/domain/services/auth_service.py
+- src/backend/app/domain/services/bed_history_service.py
+- src/backend/app/domain/services/bed_rotation_service.py
 - src/backend/app/domain/services/calendar_service.py
+- src/backend/app/domain/services/care_event_service.py
 - src/backend/app/domain/services/care_reminder_service.py
 - src/backend/app/domain/services/catalogue_authorization.py
 - src/backend/app/domain/services/climate_normal_fetcher.py
@@ -848,6 +896,11 @@ reads:
 - src/backend/app/domain/services/fertilizer_references.py
 - src/backend/app/domain/services/fertilizer_service.py
 - src/backend/app/domain/services/fields_kept_on_edit.py
+- src/backend/app/domain/services/garden_plan_export_service.py
+- src/backend/app/domain/services/garden_plan_import_service.py
+- src/backend/app/domain/services/garden_plan_retention_service.py
+- src/backend/app/domain/services/garden_plan_service.py
+- src/backend/app/domain/services/garden_resource_service.py
 - src/backend/app/domain/services/glossary_service.py
 - src/backend/app/domain/services/ha_entity_grant_service.py
 - src/backend/app/domain/services/ha_publish_service.py
@@ -881,6 +934,7 @@ reads:
 - src/backend/app/domain/services/plant_diary_service.py
 - src/backend/app/domain/services/plant_instance_service.py
 - src/backend/app/domain/services/plant_photo_service.py
+- src/backend/app/domain/services/planting_reservation_service.py
 - src/backend/app/domain/services/planting_run_service.py
 - src/backend/app/domain/services/post_harvest_service.py
 - src/backend/app/domain/services/print_service.py
@@ -939,6 +993,7 @@ reads:
 - src/backend/app/observability/__init__.py
 - src/backend/app/observability/error_tracking.py
 - src/backend/app/observability/event_user.py
+- src/backend/app/observability/garden_plan_metrics.py
 - src/backend/app/observability/metrics.py
 - src/backend/app/observability/queue_metrics.py
 - src/backend/app/tasks/

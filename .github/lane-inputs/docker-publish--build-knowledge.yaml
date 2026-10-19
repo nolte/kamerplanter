@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: knowledge
 status: derived
-measured_on: '2026-10-13'
-measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
+measured_on: '2026-10-19'
+measured_at_commit: 9707e38f25ac49ca63a853b106af67915341f4da
 replay_seconds: 4
 job_spec_sha256: 7249586f6fe030ee81eb9fccbec40b7676fc6b20e3bc0b03155eb3a6c5e8797d
 invocations:
@@ -21,7 +21,7 @@ invocations:
     COPY/ADD sources
   copy_sources:
   - spec/knowledge/rag/
-  context_files_after_dockerignore: 5441
+  context_files_after_dockerignore: 5843
 subprocesses: []
 accepted_gaps: []
 reads:
