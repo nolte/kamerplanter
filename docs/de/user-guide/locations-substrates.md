@@ -299,7 +299,7 @@ Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Link
 Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab der Rolle „grower" verfügbar und setzt voraus, dass das Beet im Gartenplan eingezeichnet ist. Das Beet darf nicht stillgelegt sein.
 
 1. **Art und Sorte wählen.** Deine Favoriten stehen oben. Unter der Auswahl siehst du Endhöhe und Endbreite der Art und ob sie eine Rankhilfe braucht.
-2. **Hinweise lesen.** Sobald du eine Art gewählt hast, prüft Kamerplanter die **Fruchtfolge** und die **Nachbarn** im Beet. Jeder Hinweis hat eine Stärke (unauffällig, Info, Warnung, kritisch) und einen Grund, zum Beispiel „Die Familie Solanaceae stand vor 1 Jahr(en) in diesem Beet. Die Anbaupause beträgt 4 Jahre". Ein Hinweis sperrt nichts.
+2. **Hinweise lesen.** Sobald du eine Art gewählt hast, prüft Kamerplanter die **Fruchtfolge** und die **Nachbarn** im Beet. Jeder Hinweis hat eine Stärke (unauffällig, Info, Warnung, kritisch) und einen Grund, zum Beispiel „Die Familie Solanaceae stand vor 1 Jahr(en) in diesem Beet. Die Anbaupause beträgt 4 Jahre". Ein Hinweis sperrt nichts. Dazu kommt der Hinweis **Standort**, siehe [Sonne und Schatten am Beet](#sonne-und-schatten-am-beet).
 3. **Anzahl und Anordnung wählen.** Entweder **So viele wie passen** oder eine feste Anzahl. Die Anordnung ist **Raster**, **Reihen**, **Versetzt**, **Fläche** (für Direktsaat) oder **Freie Positionen** (für Gehölze).
 4. **Abstände prüfen.** Kamerplanter füllt den Pflanzabstand und den Reihenabstand aus dem Steckbrief der Art vor und schreibt dazu, woher der Wert kommt. Fehlt er dort, nimmt Kamerplanter den Wert, den du zuletzt für diese Art verwendet hast. Gibt es auch den nicht, bleibt das Feld leer, und du trägst den Abstand selbst ein. Unter **Mehr Optionen** stellst du Reihenrichtung und Randabstände ein.
 5. **Vorschau ansehen.** Das Beet zeigt sofort, wo die Pflanzen stehen würden, und darunter steht, wie viele es sind und wie viele höchstens passen. Der Server bestätigt die Zahl kurz darauf. Weicht seine Antwort ab, gilt seine.
@@ -356,6 +356,28 @@ Alle Felder sind freiwillig. Du kannst also auch ohne Eingabe auf **Erledigen** 
 !!! info "Farbe nach Priorität"
     Der Zähler unterscheidet bisher nur „offen" und „überfällig". Eine Färbung nach Priorität der Aufgaben folgt, sobald der Plan die Priorität mitliefert.
 
+### Sonne und Schatten am Beet {#sonne-und-schatten-am-beet}
+
+Wie viel direktes Sonnenlicht ein Beet bekommt, hältst du mit fünf **Kacheln** fest. Jede Kachel zeigt ein Symbol, den Namen und die Definition:
+
+| Kachel | Bedeutung |
+|--------|-----------|
+| Volle Sonne | mehr als 6 Stunden direktes Sonnenlicht an einem Sommertag |
+| Halbschatten | 3–6 Stunden |
+| Schatten | 2–3 Stunden |
+| Tiefschatten | weniger als 2 Stunden |
+| Unbekannt | noch nicht erfasst (Standard) |
+
+Die Stundenwerte folgen der Definition der Royal Horticultural Society, bezogen auf den Hochsommer.
+
+- **In der Beetansicht:** Neben der Sonnenexposition in der Übersicht öffnet **Sonne ändern** die Kacheln. Das geht ab der Rolle „grower".
+- **Im Gartenplan:** Wählst du ein Beet, zeigt das Eigenschaften-Feld die Kacheln. Wählst du mehrere Beete (Rahmenauswahl oder Umschalttaste), setzt **Sonne für alle gewählten Beete setzen** den Wert auf einmal. Gesperrte Beete bleiben unverändert. Der Schritt lässt sich mit **Rückgängig** zurücknehmen und gilt erst, wenn du den Plan speicherst.
+
+**Standort-Hinweis beim Bepflanzen.** Im Pflanzdialog vergleicht Kamerplanter die Sonne des Beets mit dem **Lichtbedarf** der Art (Volle Sonne, Halbschatten oder Schatten) und zeigt eine Ampel mit Klartext, etwa „Beet: Schatten — Tomate braucht Vollsonne". Grün heißt gut geeignet, gelb bedingt geeignet, rot schlecht geeignet. Gelb gibt es auch, wenn das Beet eine Stufe schattiger ist als der Bedarf und die Art laut Steckbrief so viel Schatten verträgt; fehlt diese Angabe, steht dort „Toleranz unbekannt". Ist die Sonne des Beets oder der Lichtbedarf der Art nicht erfasst, erscheint kein Hinweis. Der Hinweis sperrt nichts und verlangt keinen Grund.
+
+!!! note "Frostrisiko"
+    Das Frostrisiko eines Beets (niedrig, normal, hoch) wird künftig neben der Sonne am Beet gepflegt. Bestehende Angaben aus **Frostexposition** übernimmt Kamerplanter dafür automatisch (ja wird hoch, nein wird niedrig); die Frostexposition selbst bleibt bis dahin die maßgebliche Einstellung. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
 ### Historie des Beets {#historie-des-beets}
 
 Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Liste**.
@@ -400,7 +422,7 @@ Auf der Gartenplan-Seite öffnet **Export & Import** zwei Dialoge.
 
 **Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen; eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen.
 
-Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile und die Gartengrenze, aber keine Pflanzen und keine Aufgaben.
+Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben.
 
 **Sicherung einspielen** führt in drei Schritten durch den Import. Das darf nur die Leitung.
 

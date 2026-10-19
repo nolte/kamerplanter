@@ -237,6 +237,70 @@ describe('BedView', () => {
     });
   });
 
+  describe('sun and shade (GP-FR-157)', () => {
+    it('changes the class from the head through PATCH and reloads the summary', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower', () => {
+        reloaded += 1;
+      });
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      expect(within(dialog).getByRole('radio', { name: 'Partial shade' })).toBeChecked();
+      await user.click(within(dialog).getByRole('radio', { name: 'Full sun' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(body).toEqual({ sun_exposure: 'full_sun' }));
+      await waitFor(() => expect(reloaded).toBe(1));
+      await waitFor(() => expect(screen.queryByTestId('bed-sun-dialog')).toBeNull());
+    });
+
+    it('sends nothing when the class is left as it was', async () => {
+      let patched = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          patched += 1;
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      await user.click(await screen.findByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(screen.queryByTestId('bed-sun-dialog')).toBeNull());
+      expect(patched).toBe(0);
+    });
+
+    it('offers a viewer no way to change it', async () => {
+      useBackend();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+      const header = await screen.findByTestId('bed-header');
+
+      expect(within(header).getByTestId('bed-header-sun')).toHaveTextContent('Partial shade');
+      expect(screen.queryByTestId('bed-sun-change-button')).toBeNull();
+    });
+
+    it('has no critical accessibility violations in the dialog', async () => {
+      useBackend();
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+
+      await expectNoA11yViolations(dialog);
+    });
+  });
+
   describe('status change (GP-FR-046, GP-API-018)', () => {
     it('needs a reason to retire a bed and posts it', async () => {
       let body: unknown = null;

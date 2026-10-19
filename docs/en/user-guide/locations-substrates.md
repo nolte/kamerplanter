@@ -291,7 +291,7 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 On the **Planting** tab, **Plant** opens the planting dialog. It is available from the "grower" role and needs the bed to be drawn on the garden plan. The bed must not be retired.
 
 1. **Choose species and cultivar.** Your favourites come first. Below the choice you see the species' mature height and width and whether it needs a support.
-2. **Read the hints.** As soon as you have chosen a species, Kamerplanter checks **crop rotation** and the **neighbours** in the bed. Every hint has a strength (no issue, info, warning, critical) and a reason, for example "The family Solanaceae stood in this bed 1 year(s) ago. The rotation pause is 4 years". A hint blocks nothing.
+2. **Read the hints.** As soon as you have chosen a species, Kamerplanter checks **crop rotation** and the **neighbours** in the bed. Every hint has a strength (no issue, info, warning, critical) and a reason, for example "The family Solanaceae stood in this bed 1 year(s) ago. The rotation pause is 4 years". A hint blocks nothing. A **site** hint comes with them, see [Sun and shade of a bed](#sun-and-shade-of-a-bed).
 3. **Choose number and layout.** Either **As many as fit** or a fixed number. The layout is **Grid**, **Rows**, **Staggered**, **Zone** (for direct sowing) or **Free positions** (for woody plants).
 4. **Check the spacings.** Kamerplanter prefills the plant spacing and row spacing from the species profile and says where the value comes from. If the profile has none, Kamerplanter uses the value you used last for this species. If there is none either, the field stays empty and you enter the spacing yourself. Under **More options** you set the row direction and the edge margins.
 5. **Look at the preview.** The bed shows at once where the plants would stand, and below it you see how many there are and how many fit at most. The server confirms the number a moment later. If its answer differs, its answer counts.
@@ -348,6 +348,28 @@ Every field is optional, so you can tap **Complete** without entering anything. 
 !!! info "Colour by priority"
     The counter distinguishes only "open" and "overdue" so far. Colouring by task priority follows once the plan delivers the priority.
 
+### Sun and shade of a bed {#sun-and-shade-of-a-bed}
+
+You record how much direct sunlight a bed gets with five **tiles**. Each tile shows an icon, the name and the definition:
+
+| Tile | Meaning |
+|------|---------|
+| Full sun | more than 6 hours of direct sunlight on a summer day |
+| Partial shade | 3–6 hours |
+| Shade | 2–3 hours |
+| Deep shade | less than 2 hours |
+| Unknown | not recorded yet (default) |
+
+The hours follow the Royal Horticultural Society definition, measured at midsummer.
+
+- **In the bed view:** next to the sun exposure in the overview, **Change sun** opens the tiles. This needs the "grower" role.
+- **In the garden plan:** when you select a bed, the properties panel shows the tiles. When you select several beds (frame selection or the Shift key), **Set the sun for all selected beds** sets the value at once. Locked beds stay as they are. You can take the step back with **Undo**, and it only counts once you save the plan.
+
+**Site hint when planting.** In the planting dialog Kamerplanter compares the sun of the bed with the **light requirement** of the species (full sun, partial shade or shade) and shows a traffic light with plain text, for example "Bed: Shade — Tomato needs full sun". Green means well suited, yellow only partly suited, red poorly suited. Yellow also appears when the bed is one step shadier than the requirement and the species profile says the species takes that much shade; if that value is missing, the text says "Tolerance unknown". If the sun of the bed or the light requirement of the species is not recorded, no hint appears. The hint blocks nothing and asks for no reason.
+
+!!! note "Frost risk"
+    The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes low); until then, the frost exposure setting stays the one that counts. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
 ### History of the bed {#history-of-the-bed}
 
 The **History** tab has two parts: the **timeline** on top and the **list** below it.
@@ -392,7 +414,7 @@ On the garden plan page, **Export & import** opens two dialogs.
 
 **Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers; a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
 
-The **backup** holds beds, garden objects, plant places, soil profiles and the garden boundary, but no plants and no tasks.
+The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks.
 
 **Restore a backup** leads through the import in three steps. Only a lead can do this.
 

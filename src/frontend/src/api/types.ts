@@ -359,6 +359,10 @@ export interface Species {
   spacing_cm: string | null;
   /** REQ-053 GP-FR-061 - range string like `spacing_cm`; the lower bound is the default. */
   row_spacing_cm?: string | null;
+  /** REQ-053 GP-FR-160 (E-05) - what a bed must offer; the demand side of `site_fit`. */
+  light_requirement?: 'full_sun' | 'partial_shade' | 'shade' | null;
+  /** How far down the sun ladder the species still grows; widens the yellow zone of `site_fit`. */
+  shade_tolerance?: 'full_sun' | 'partial_shade' | 'shade' | 'deep_shade' | null;
   indoor_suitable: Suitability | null;
   balcony_suitable: Suitability | null;
   greenhouse_recommended: boolean;

@@ -14,6 +14,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import type { BedAssignee, BedSummary } from './types';
 import { BED_STATUS_COLOR, formatBedDate, isOverdue } from './bedFormat';
 
@@ -28,6 +29,8 @@ interface BedHeaderProps {
   onYearChange: (year: number) => void;
   /** `null` hides the control (a viewer cannot change the status). */
   onChangeStatus: (() => void) | null;
+  /** `null` hides the control (a viewer cannot change the sun class, GP-FR-157). */
+  onChangeSun?: (() => void) | null;
   /** Reasons given when a planting went ahead despite a crop-rotation hint (GP-FR-132); empty = no badge. */
   rotationReasons?: readonly string[];
 }
@@ -53,6 +56,7 @@ export default function BedHeader({
   years,
   onYearChange,
   onChangeStatus,
+  onChangeSun = null,
   rotationReasons = [],
 }: BedHeaderProps) {
   const { t, i18n } = useTranslation();
@@ -114,7 +118,20 @@ export default function BedHeader({
             {soil && soil.soil_texture !== 'unknown' ? t(`enums.soilTexture.${soil.soil_texture}`) : notSet}
           </Fact>
           <Fact label={t('pages.bed.header.sun')} testId="bed-header-sun">
-            {summary.sun_exposure !== 'unknown' ? t(`enums.sunExposure.${summary.sun_exposure}`) : notSet}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {summary.sun_exposure !== 'unknown' ? t(`enums.sunExposure.${summary.sun_exposure}`) : notSet}
+              {onChangeSun && (
+                <Button
+                  size="small"
+                  startIcon={<WbSunnyOutlinedIcon />}
+                  onClick={onChangeSun}
+                  data-testid="bed-sun-change-button"
+                  sx={{ minHeight: 44 }}
+                >
+                  {t('pages.bed.header.changeSun')}
+                </Button>
+              )}
+            </Box>
           </Fact>
           <Fact label={t('pages.bed.header.plants')} testId="bed-header-plants">
             {t('pages.bed.header.plantCount', { count: summary.active_plant_count })}

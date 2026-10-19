@@ -5,14 +5,18 @@ from typing import Literal, Self
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
+    AccessSide,
     BedStatus,
+    FrostRisk,
     GeometryKind,
     GeometrySource,
     GrowingMediumKind,
+    HeatRetention,
     IrrigationSystem,
     LightType,
     Orientation,
     PhMethod,
+    SiteFlag,
     SiteType,
     SiteWaterRegime,
     SlotRole,
@@ -20,6 +24,9 @@ from app.common.enums import (
     SoilDrainage,
     SoilTexture,
     SunExposure,
+    SunProfileSource,
+    SunWindow,
+    WindExposure,
 )
 from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bounding_box
 from app.domain.models.geometry import (
@@ -154,6 +161,59 @@ class SoilProfile(BaseModel):
     def validate_conditions_unique(cls, value: list[SoilConditionFlag]) -> list[SoilConditionFlag]:
         if len(set(value)) != len(value):
             raise ValueError("conditions must not repeat a flag")
+        return value
+
+
+class SunProfile(BaseModel):
+    """When and how long a bed gets direct sun (REQ-053 §10.2, GP-FR-158/159).
+
+    Every field is optional and defaults to *unknown*; nothing here is derived yet (the shading
+    calculation is §29). The coarse class itself stays :attr:`Location.sun_exposure`.
+    """
+
+    sun_window: SunWindow = SunWindow.UNKNOWN
+    direct_sun_hours_summer: float | None = Field(default=None, ge=0.0, le=24.0)
+    #: Leaf shade: sunny in spring, shaded in summer (GP-FR-159).
+    foliage_shade_in_summer: bool = False
+    source: SunProfileSource = SunProfileSource.MANUAL
+
+
+class Microclimate(BaseModel):
+    """Local climate of a bed (REQ-053 §10.2, GP-FR-162)."""
+
+    frost_risk: FrostRisk = FrostRisk.UNKNOWN
+    cold_air_pocket: bool = False
+    heat_retention: HeatRetention = HeatRetention.UNKNOWN
+
+
+class SiteConditions(BaseModel):
+    """Site features of a bed beyond the sun class (REQ-053 §10.2, issue 75), an embedded value type.
+
+    All optional, default *unknown*. It replaces the boolean :attr:`Location.frost_exposed` by
+    ``microclimate.frost_risk`` (migration v0098 copies the old value; the old field stays until the
+    frost readers are moved over, see ``app.domain.engines.frost_exposure_resolver``).
+    """
+
+    sun_profile: SunProfile = Field(default_factory=SunProfile)
+    microclimate: Microclimate = Field(default_factory=Microclimate)
+    wind_exposure: WindExposure = WindExposure.UNKNOWN
+    slope_deg: float | None = Field(default=None, ge=0.0, le=90.0)
+    aspect_deg: float | None = Field(default=None, ge=0.0, lt=360.0)
+    access_sides: list[AccessSide] = Field(default_factory=list)
+    flags: list[SiteFlag] = Field(default_factory=list)
+
+    def with_frost_risk(self, frost_risk: FrostRisk) -> Self:
+        """A copy with ``microclimate.frost_risk`` set; everything else (also fields added later) is carried over."""
+        values = {name: getattr(self, name) for name in SiteConditions.model_fields}
+        part = {name: getattr(self.microclimate, name) for name in Microclimate.model_fields}
+        values["microclimate"] = Microclimate(**{**part, "frost_risk": frost_risk})
+        return type(self)(**values)
+
+    @field_validator("access_sides", "flags")
+    @classmethod
+    def _no_repeats(cls, value: list[AccessSide] | list[SiteFlag]) -> list[AccessSide] | list[SiteFlag]:
+        if len(set(value)) != len(value):
+            raise ValueError("a list of site features must not repeat an entry")
         return value
 
 
@@ -292,6 +352,8 @@ class Location(BaseModel):
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
     soil_profile: SoilProfile | None = None
+    #: Sun profile, microclimate, wind, slope … of the bed (§10.2, WP 3.9); ``None`` = nothing entered.
+    site_conditions: SiteConditions | None = None
     #: Free text, no markdown (§10.1).
     notes: str | None = Field(default=None, max_length=4000)
     #: Locked against accidental moves in the editor (GP-FR-032).

@@ -32,6 +32,8 @@ const BedCareTab = lazy(() => import('../care/BedCareTab'));
 const BedHistoryTab = lazy(() => import('../history/BedHistoryTab'));
 // The planting tab brings the planting dialog and the plant actions; they load when the tab opens.
 const BedPlantingTab = lazy(() => import('../planting/BedPlantingTab'));
+// The sun tiles load when the dialog opens (GP-FR-157).
+const SunDialog = lazy(() => import('./SunDialog'));
 
 const ID_PREFIX = 'bed';
 const TABS_WITH_PLAN = ['plan', 'planting', 'care', 'soil', 'history', 'details'] as const;
@@ -58,6 +60,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
   const assignments = useBedAssignments(true);
   const { year, years, setYear } = useYearParam();
   const [statusOpen, setStatusOpen] = useState(false);
+  const [sunOpen, setSunOpen] = useState(false);
   const [plantingVersion, setPlantingVersion] = useState(0);
   const rotationBadge = useRotationBadge(summary.key, plantingVersion);
 
@@ -123,6 +126,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
         years={years}
         onYearChange={setYear}
         onChangeStatus={targets.length > 0 ? () => setStatusOpen(true) : null}
+        onChangeSun={canEdit ? () => setSunOpen(true) : null}
         rotationReasons={rotationBadge?.reasons}
       />
 
@@ -151,6 +155,21 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
           {panelFor(id)}
         </TabPanel>
       ))}
+
+      {sunOpen && (
+        <Suspense fallback={null}>
+          <SunDialog
+            bedKey={summary.key}
+            bedName={summary.name}
+            current={summary.sun_exposure}
+            onClose={() => setSunOpen(false)}
+            onChanged={() => {
+              setSunOpen(false);
+              void onReload();
+            }}
+          />
+        </Suspense>
+      )}
 
       {statusOpen && (
         <BedStatusDialog

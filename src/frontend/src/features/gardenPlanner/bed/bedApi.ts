@@ -1,5 +1,5 @@
 import { tenantClient } from '@/api/client';
-import type { BedStatus } from '../model/types';
+import type { BedStatus, SunExposure } from '../model/types';
 import type { BedListItem, BedPatchResult, BedSummary, SoilProfile } from './types';
 
 /**
@@ -30,6 +30,14 @@ export async function patchSoilProfile(
 ): Promise<BedPatchResult> {
   const { data } = await tenantClient.patch<BedPatchResult>(`${LOCATIONS}/${key}`, {
     soil_profile: soilProfile,
+  });
+  return data;
+}
+
+/** GP-API-010: write the sun and shade class of the bed (GP-FR-157). */
+export async function patchSunExposure(key: string, sunExposure: SunExposure): Promise<BedPatchResult> {
+  const { data } = await tenantClient.patch<BedPatchResult>(`${LOCATIONS}/${key}`, {
+    sun_exposure: sunExposure,
   });
   return data;
 }

@@ -202,6 +202,38 @@ class TestReferencesAndFields:
         assert stored["Beet 2"].soil_profile.substrate_key == "sub_own"
         assert stored["Beet 1"].soil_profile.substrate_key is None
 
+    def test_site_conditions_come_through_the_import_unchanged(self, rig, repo) -> None:
+        """WP 3.9: a backup that carries the site features restores them (a restore must not lose the sun profile)."""
+        document = rig.file()
+        document["locations"][0]["site_conditions"] = {
+            "sun_profile": {"sun_window": "afternoon", "foliage_shade_in_summer": True},
+            "microclimate": {"frost_risk": "high", "cold_air_pocket": True},
+            "wind_exposure": "exposed",
+            "access_sides": ["N", "S"],
+        }
+
+        report = rig.run(document)
+
+        assert report.applied
+        stored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"].site_conditions
+        assert stored is not None
+        assert stored.sun_profile.sun_window == "afternoon" and stored.sun_profile.foliage_shade_in_summer is True
+        assert (stored.microclimate.frost_risk, stored.microclimate.cold_air_pocket) == ("high", True)
+        assert (stored.wind_exposure, [side.value for side in stored.access_sides]) == ("exposed", ["N", "S"])
+        # The winter readers still read ``frost_exposed``; the file has none, so it follows the risk.
+        assert {loc.name: loc for loc in repo.locations.values()}["Beet 1"].frost_exposed is True
+        # A bed without the key stays without it - the import invents nothing.
+        assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].site_conditions is None
+        assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].frost_exposed is None
+
+    def test_an_invalid_site_condition_is_a_finding_not_a_crash(self, rig, repo) -> None:
+        document = rig.file()
+        document["locations"][0]["site_conditions"] = {"slope_deg": 400}
+
+        with pytest.raises(PlanValidationError):
+            rig.run(document)
+        assert repo.applied == []
+
     def test_a_slot_that_names_a_bed_outside_the_file_is_dropped(self, rig, repo) -> None:
         document = rig.file()
         document["slots"][0]["location_key"] = "bed_of_someone_else"
