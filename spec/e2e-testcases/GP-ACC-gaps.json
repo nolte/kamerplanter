@@ -1,0 +1,10 @@
+{
+  "054": {
+    "reason": "mixed-culture runs are not checked for disjoint row_assignment sets (no 422); behaviour missing in production code",
+    "issue": 2544
+  },
+  "055": {
+    "reason": "rotation check is off for planter/tent/shelf with no per-bed switch-on (GP-FR-137 'je Beet einschaltbar'); behaviour missing",
+    "issue": 2544
+  }
+}

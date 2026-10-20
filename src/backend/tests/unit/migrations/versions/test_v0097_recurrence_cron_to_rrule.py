@@ -135,7 +135,7 @@ class TestConversion:
         assert db.snapshot() == before and db.aql.updates == [] and db.aql.parks == []
 
     def test_mixed_volume_converts_parks_and_records(self) -> None:
-        """RRULE, convertible cron, free text, ``@daily``, six-field cron: nothing halts the chain."""
+        """GP-ACC-059: RRULE, convertible cron, free text, ``@daily``, six-field cron: nothing halts the chain."""
         db = _volume(with_refusal=True)
 
         report = migration.up(db)
