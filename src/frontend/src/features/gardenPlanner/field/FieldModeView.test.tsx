@@ -562,3 +562,191 @@ describe('field mode accessibility', () => {
     await expectNoA11yViolations(document.body, { minElements: 40 });
   });
 });
+
+describe('sun window in the bed sheet (REQ-053 GP-FR-158/159, GP-UX-057, WP 7.20)', () => {
+  const SUN_BEDS: BedListItem[] = [
+    bedListItem('loc_a', {
+      name: 'Raised bed 1',
+      site_conditions: { sun_profile: { sun_window: 'morning', foliage_shade_in_summer: false } },
+    }),
+  ];
+
+  function useSunPatch() {
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ key: 'loc_a', bed_status: 'active', plan_revision: 5 });
+      }),
+    );
+    return bodies;
+  }
+
+  it('shows the stored window and keeps the chips and the switch at 64 px', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const section = await within(sheet).findByTestId('field-mode-sun-section');
+
+    expect(await within(section).findByRole('radio', { name: 'Morning' })).toBeChecked();
+    for (const option of ['morning', 'midday', 'afternoon', 'all_day', 'mixed', 'unknown']) {
+      expect(within(section).getByTestId(`field-mode-sun-profile-window-${option}`)).toHaveStyle({
+        minHeight: `${KIOSK_TOUCH_TARGET}px`,
+        minWidth: `${KIOSK_TOUCH_TARGET}px`,
+      });
+    }
+    expect(within(section).getByRole('switch', { name: 'Leaf shade in summer' }).closest('label')).toHaveStyle({
+      minHeight: `${KIOSK_TOUCH_TARGET}px`,
+    });
+  });
+
+  it('stores a tapped chip and the leaf-shade switch at once, one changed key per request', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies = useSunPatch();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    await user.click(await within(sheet).findByRole('radio', { name: 'Afternoon' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ site_conditions: { sun_profile: { sun_window: 'afternoon' } } });
+
+    await waitFor(() => expect(within(sheet).getByRole('switch', { name: 'Leaf shade in summer' })).toBeEnabled());
+    await user.click(within(sheet).getByRole('switch', { name: 'Leaf shade in summer' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toEqual({ site_conditions: { sun_profile: { foliage_shade_in_summer: true } } });
+  });
+
+  it('keeps focus on the chip group after a save so the arrow keys can go on', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies = useSunPatch();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const morning = await within(sheet).findByRole('radio', { name: 'Morning' });
+
+    morning.focus();
+    await user.keyboard('{ArrowRight}');
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ site_conditions: { sun_profile: { sun_window: 'midday' } } });
+    // The static test backend still answers "morning" after the reload; what counts here is the focus.
+    expect(document.activeElement).toBe(within(sheet).getByRole('radio', { name: 'Midday' }));
+    await user.keyboard('{ArrowRight}');
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toEqual({ site_conditions: { sun_profile: { sun_window: 'afternoon' } } });
+  });
+
+  it('stores hours typed and a chip tapped right after as two requests, none is lost', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies: unknown[] = [];
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+        bodies.push(await request.json());
+        if (bodies.length === 1) await gate; // the first save is still running when the chip is tapped
+        return HttpResponse.json({ key: 'loc_a', bed_status: 'active', plan_revision: 5 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const hours = await within(sheet).findByRole('textbox', { name: 'Hours of direct sun in summer (optional)' });
+
+    await user.type(hours, '6');
+    await user.click(within(sheet).getByRole('radio', { name: 'All day' })); // blur saves the hours first
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(within(sheet).getByRole('radio', { name: 'All day' })).toBeChecked();
+    act(() => release());
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[0]).toEqual({ site_conditions: { sun_profile: { direct_sun_hours_summer: 6 } } });
+    expect(bodies[1]).toEqual({ site_conditions: { sun_profile: { sun_window: 'all_day' } } });
+  });
+
+  it('puts the chip back when the server refuses the change (422)', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    let refused = 0;
+    server.use(
+      http.patch(`${BASE}/locations/:key`, () => {
+        refused += 1;
+        return HttpResponse.json({ detail: 'refused' }, { status: 422 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    await user.click(await within(sheet).findByRole('radio', { name: 'Afternoon' }));
+
+    await waitFor(() => expect(refused).toBe(1));
+    await waitFor(() => expect(within(sheet).getByRole('radio', { name: 'Morning' })).toBeChecked());
+    expect(within(sheet).getByRole('radio', { name: 'Afternoon' })).not.toBeChecked();
+    expect(screen.getByTestId('field-bed-sheet')).toBeInTheDocument();
+  });
+
+  it('puts the switch back when the network fails', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    server.use(http.patch(`${BASE}/locations/:key`, () => HttpResponse.error()));
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const toggle = await within(sheet).findByRole('switch', { name: 'Leaf shade in summer' });
+
+    await user.click(toggle);
+
+    await waitFor(() => expect(toggle).not.toBeChecked());
+    expect(screen.getByTestId('field-bed-sheet')).toBeInTheDocument();
+  });
+
+  it('stores the summer sun hours from the sheet', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies = useSunPatch();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const hours = await within(sheet).findByRole('textbox', { name: 'Hours of direct sun in summer (optional)' });
+
+    await user.type(hours, '7{Enter}');
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ site_conditions: { sun_profile: { direct_sun_hours_summer: 7 } } });
+  });
+
+  it('shows a viewer the values and takes no input', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies = useSunPatch();
+    renderField('viewer');
+    const sheet = await openBed('Raised bed 1');
+
+    const chip = await within(sheet).findByRole('radio', { name: 'Morning' });
+    expect(chip).toBeChecked();
+    expect(chip).toBeDisabled();
+    expect(within(sheet).getByRole('switch', { name: 'Leaf shade in summer' })).toBeDisabled();
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('locks the controls while offline instead of losing the entry', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const chip = await within(sheet).findByRole('radio', { name: 'Midday' });
+    expect(chip).toBeEnabled();
+
+    setOnline(false);
+
+    expect(chip).toBeDisabled();
+  });
+
+  it('has no accessibility violations in the sheet', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    await within(sheet).findByRole('radio', { name: 'Morning' });
+
+    await expectNoA11yViolations(sheet);
+  });
+});

@@ -6426,6 +6426,31 @@
             "help": "Not recorded yet"
           }
         },
+        "window": {
+          "title": "When does the sun reach the bed?",
+          "fieldTitle": "Sun on this bed",
+          "hint": "Pick the time of day with direct sun. You do not need to count hours.",
+          "options": {
+            "morning": "Morning",
+            "midday": "Midday",
+            "afternoon": "Afternoon",
+            "all_day": "All day",
+            "mixed": "Changing",
+            "unknown": "Not known"
+          },
+          "summary": "Sun: {{window}}",
+          "saved": "Sun window saved."
+        },
+        "hours": {
+          "label": "Hours of direct sun in summer (optional)",
+          "help": "A rough guess is fine, 0 to 24. Leave empty if you do not know.",
+          "invalid": "Enter a number between 0 and 24, or leave the field empty.",
+          "summary": "about {{hours, number}} h of direct sun"
+        },
+        "foliage": {
+          "label": "Leaf shade in summer",
+          "help": "Sunny in spring, shaded once the trees are in leaf. This is a note only: it does not change the site-fit hint yet."
+        },
         "bulk": {
           "title": "Set the sun for all selected beds",
           "hint": "Applies to {{count}} selected beds. Locked beds stay as they are. You can take the step back with Undo.",

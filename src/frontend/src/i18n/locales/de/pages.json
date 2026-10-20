@@ -6427,6 +6427,31 @@
             "help": "Noch nicht erfasst"
           }
         },
+        "window": {
+          "title": "Wann erreicht die Sonne das Beet?",
+          "fieldTitle": "Sonne am Beet",
+          "hint": "Wähle die Tageszeit mit direkter Sonne. Stunden musst du nicht zählen.",
+          "options": {
+            "morning": "Morgens",
+            "midday": "Mittags",
+            "afternoon": "Nachmittags",
+            "all_day": "Ganztägig",
+            "mixed": "Wechselnd",
+            "unknown": "Nicht bekannt"
+          },
+          "summary": "Sonne: {{window}}",
+          "saved": "Sonnenzeit gespeichert."
+        },
+        "hours": {
+          "label": "Stunden direkter Sonne im Sommer (optional)",
+          "help": "Eine grobe Schätzung genügt, 0 bis 24. Leer lassen, wenn du es nicht weißt.",
+          "invalid": "Gib eine Zahl zwischen 0 und 24 ein oder lass das Feld leer.",
+          "summary": "etwa {{hours, number}} h direkte Sonne"
+        },
+        "foliage": {
+          "label": "Laubschatten im Sommer",
+          "help": "Im Frühjahr sonnig, später im Laub der Bäume beschattet. Das ist nur ein Vermerk: Er ändert den Hinweis zur Standorteignung noch nicht."
+        },
         "bulk": {
           "title": "Sonne für alle gewählten Beete setzen",
           "hint": "Gilt für {{count}} gewählte Beete. Gesperrte Beete bleiben unverändert. Du kannst den Schritt mit „Rückgängig“ zurücknehmen.",
