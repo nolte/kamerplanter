@@ -5979,13 +5979,60 @@
             "sys_planter_d0_5": "Kübel Ø 0,5 m"
           }
         },
+        "underlay": {
+          "open": "Unterlage",
+          "title": "Unterlage zum Abzeichnen",
+          "intro": "Lade ein Foto, eine Skizze oder ein Luftbild hoch und eiche es mit zwei Punkten und einer bekannten Strecke. Die Unterlage liegt unter allen Objekten, dient nur zum Abzeichnen, steht nicht im JSON-Export und kommt nur auf Wunsch in den PDF-Druck. Luftbilder können verraten, wo du wohnst.",
+          "choose": "Bild wählen",
+          "pictureAlt": "Unterlage: Klicke zwei Punkte an, deren Abstand du kennst",
+          "marking": {
+            "label": "Welchen Punkt setzt der nächste Klick?",
+            "p1": "Punkt 1 setzen",
+            "p2": "Punkt 2 setzen"
+          },
+          "calibration": {
+            "title": "Eichung: zwei Punkte und ihr Abstand",
+            "p1x": "Punkt 1, x",
+            "p1y": "Punkt 1, y",
+            "p2x": "Punkt 2, x",
+            "p2y": "Punkt 2, y",
+            "distance": "Abstand der Punkte",
+            "scale": "Maßstab: {{pxPerM}} Pixel pro Meter",
+            "scaleMissing": "Noch kein Maßstab: zwei verschiedene Punkte und einen Abstand über 0 m angeben.",
+            "outside": "Ein Punkt liegt außerhalb des Bildes."
+          },
+          "placement": {
+            "title": "Lage auf dem Plan",
+            "originX": "Obere linke Ecke, x",
+            "originY": "Obere linke Ecke, y",
+            "rotation": "Drehung gegen den Uhrzeigersinn"
+          },
+          "opacity": "Deckkraft",
+          "save": "Speichern",
+          "close": "Schließen",
+          "remove": "Unterlage entfernen",
+          "saved": "Die Unterlage ist gespeichert.",
+          "removed": "Die Unterlage wurde entfernt.",
+          "error": {
+            "generic": "Das hat nicht geklappt. Versuche es noch einmal.",
+            "forbidden": "Dafür brauchst du mindestens die Rolle Gärtner:in.",
+            "tooLarge": "Die Datei ist zu groß.",
+            "wrongType": "Dieses Dateiformat ist nicht erlaubt. Nutze JPEG, PNG oder WebP.",
+            "rateLimited": "Zu viele Anfragen. Warte einen Moment.",
+            "planRequired": "Lege zuerst die Gartengrenze an, dann kannst du eine Unterlage setzen.",
+            "invalid": "Die Angaben sind nicht gültig. Prüfe Punkte, Abstand und Lage.",
+            "loadFailed": "Die gespeicherte Unterlage konnte nicht geladen werden."
+          }
+        },
         "zones": {
           "layers": {
             "group": "Ebenen",
             "zones": "Bewässerungszonen anzeigen",
             "zonesHint": "Zonen als Umriss mit Schraffur über ihren Beeten ein- oder ausblenden.",
             "lastWatered": "Zuletzt gegossen anzeigen",
-            "lastWateredHint": "Tage seit dem letzten Gießen je Beet als Schraffur ein- oder ausblenden."
+            "lastWateredHint": "Tage seit dem letzten Gießen je Beet als Schraffur ein- oder ausblenden.",
+            "underlay": "Unterlage anzeigen",
+            "underlayHint": "Die Unterlage zum Abzeichnen unter dem Plan ein- oder ausblenden (nur für dich)."
           },
           "legend": {
             "title": "Legende der Ebenen",

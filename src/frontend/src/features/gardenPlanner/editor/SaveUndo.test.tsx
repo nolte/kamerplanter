@@ -479,7 +479,12 @@ describe('layer switch (GP-FR-031)', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     t.after(() => fireEvent.click(toggle));
     expect(screen.getByTestId('garden-plan-grid-toggle')).toHaveAttribute('aria-pressed', 'false');
-    expect(JSON.parse(window.localStorage.getItem('kp_garden_plan_layers')!)).toEqual({ grid: false, zones: false, lastWatered: false });
+    expect(JSON.parse(window.localStorage.getItem('kp_garden_plan_layers')!)).toEqual({
+      grid: false,
+      zones: false,
+      lastWatered: false,
+      underlay: true,
+    });
     cleanup();
     setupEditor({ plan: plan() });
     expect(screen.getByTestId('garden-plan-grid-toggle')).toHaveAttribute('aria-pressed', 'false');
