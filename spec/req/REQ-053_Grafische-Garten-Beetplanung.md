@@ -1234,7 +1234,7 @@ Edges: `has_garden_object` (sites → garden_objects). `belongs_to_tenant` wird 
 
 `capacity_plants`: bei `position` 1–20 (Bestand), bei `row` und `zone` die Pflanzenzahl, die das Layout fasst (bis 100 000, nicht auf 20 begrenzt; v1.5 Nachtrag WP 3.2).
 
-`position` (Rasterzelle) **entfällt** (O-01, §9.2a): Migration M1 leitet daraus `geometry` ab und füllt `row_index`/`sequence`; danach wird das Feld aus Modell, Schema und Frontend entfernt (`geometry_source ∈ {editor, layout, migrated_grid}` dokumentiert die Herkunft). `pitch_m` (neu an Location, Standard 0,30) ist nur die Migrations-Annahme für Alt-Slots. `slot_role ∈ {position, row, zone}`; Standard `position`. Neu außerdem `container_volume_l` (Topfvolumen, W-016), `sown_at` (Direktsaat-Zustand, §11.3), `archived_at` (Slot eines abgeschlossenen Runs, GP-FR-055). Für `row`: `geometry.kind = polyline`; für `zone`: `polygon`.
+`position` (Rasterzelle) **entfällt** (O-01, §9.2a): Migration M1 leitet daraus `geometry` ab und füllt `row_index`/`sequence`; danach wird das Feld aus Modell, Schema und Frontend entfernt (`geometry_source ∈ {editor, layout, migrated_grid, season_copy}`; `season_copy` markiert einen Slot, den „Neue Saison aus Vorjahr“ (GP-FR-171) aus einem archivierten Slot des Vorjahres neu angelegt hat, dokumentiert die Herkunft). `pitch_m` (neu an Location, Standard 0,30) ist nur die Migrations-Annahme für Alt-Slots. `slot_role ∈ {position, row, zone}`; Standard `position`. Neu außerdem `container_volume_l` (Topfvolumen, W-016), `sown_at` (Direktsaat-Zustand, §11.3), `archived_at` (Slot eines abgeschlossenen Runs, GP-FR-055). Für `row`: `geometry.kind = polyline`; für `zone`: `polygon`.
 
 ### 20.6 PlantingRun / Entry (bestehend, additiv) und geplante Belegung
 

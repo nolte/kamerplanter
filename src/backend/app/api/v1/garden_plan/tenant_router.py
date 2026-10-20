@@ -35,6 +35,8 @@ from app.api.v1.garden_plan.schemas import (
     PlanImportResponse,
     PlanLocationResponse,
     PlanPlantResponse,
+    PlanSeasonRequest,
+    PlanSeasonResponse,
     PlanSettingsResponse,
     PlanSlotGeometry,
     PlanSlotResponse,
@@ -47,6 +49,7 @@ from app.common.body_limit import read_bounded_body
 from app.common.dependencies import (
     get_garden_plan_export_service,
     get_garden_plan_import_service,
+    get_garden_plan_season_service,
     get_garden_plan_service,
 )
 from app.common.enums import SlotRole
@@ -68,6 +71,7 @@ from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPO
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
+from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
@@ -556,3 +560,36 @@ def restore_plan_snapshot(
         confirm_site_name=body.confirm_site_name,
     )
     return to_response(report, PlanImportResponse)
+
+
+@router.post(
+    "/{key}/plan/new-season",
+    response_model=PlanSeasonResponse,
+    summary="New season from the previous year: last year's slot places as free slots (lead only)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+def new_plan_season(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanSeasonRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanSeasonService = Depends(get_garden_plan_season_service),
+) -> PlanSeasonResponse:
+    """GP-FR-171, same site, lead only. Per bed without an active plant, the slot places of the runs that ended in
+    `year - 1` are re-created as unoccupied slots (`geometry_source: season_copy`); a bed with an active plant (or a
+    retired one) is skipped and listed. Zones are not touched, no plant and no run is created, history and rotation
+    hints stay as they are. One transaction with the revision check and an audit row; a bed ends at 2 000 slots.
+    `dry_run` (the default) answers the same report and writes nothing; `expected_revision` makes a plan changed in
+    between a 409."""
+    report = service.new_season(
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        year=body.year,
+        dry_run=body.dry_run,
+        expected_revision=body.expected_revision,
+    )
+    return to_response(report, PlanSeasonResponse)

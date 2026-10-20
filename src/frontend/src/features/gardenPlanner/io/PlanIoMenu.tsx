@@ -12,12 +12,14 @@ import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import EventRepeatOutlinedIcon from '@mui/icons-material/EventRepeatOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import type { PlanSelection } from './types';
 
 const ExportDialog = lazy(() => import('./ExportDialog'));
 const ImportWizard = lazy(() => import('./ImportWizard'));
+const NewSeasonDialog = lazy(() => import('../season/NewSeasonDialog'));
 
 const PREFIX = 'pages.gardenPlan.io';
 
@@ -32,19 +34,21 @@ interface PlanIoMenuProps {
   onImported: () => void;
   /** What is selected on the plan, so the backup can be limited to it (GP-FR-172). */
   selection?: PlanSelection;
+  /** Bed names by key, so the new-season report can name the beds it lists (WP 7.17). */
+  bedNames?: Record<string, string>;
 }
 
-export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, selection }: PlanIoMenuProps) {
+export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, selection, bedNames }: PlanIoMenuProps) {
   const { t } = useTranslation();
   const menuId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const [dialog, setDialog] = useState<'export' | 'import' | null>(null);
+  const [dialog, setDialog] = useState<'export' | 'import' | 'season' | null>(null);
 
   let importOff: string | null = null;
   if (!canImport) importOff = t(`${PREFIX}.menu.leadOnly`);
   else if (dirty) importOff = t(`${PREFIX}.menu.unsaved`);
 
-  const open = (which: 'export' | 'import') => {
+  const open = (which: 'export' | 'import' | 'season') => {
     setAnchor(null);
     setDialog(which);
   };
@@ -90,6 +94,20 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, se
           </ListItemIcon>
           <ListItemText primary={t(`${PREFIX}.menu.import`)} secondary={importOff} />
         </MenuItem>
+        <MenuItem
+          onClick={() => open('season')}
+          disabled={importOff !== null}
+          sx={{ minHeight: 48 }}
+          data-testid="garden-plan-io-season"
+        >
+          <ListItemIcon>
+            <EventRepeatOutlinedIcon />
+          </ListItemIcon>
+          <ListItemText
+            primary={t(`${PREFIX}.menu.season`)}
+            secondary={!canImport ? t(`${PREFIX}.menu.seasonLeadOnly`) : importOff}
+          />
+        </MenuItem>
       </Menu>
       <Suspense fallback={null}>
         {dialog === 'export' && (
@@ -102,6 +120,15 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, se
             siteName={siteName}
             onClose={() => setDialog(null)}
             onImported={onImported}
+          />
+        )}
+        {dialog === 'season' && (
+          <NewSeasonDialog
+            open
+            siteKey={siteKey}
+            bedNames={bedNames ?? {}}
+            onClose={() => setDialog(null)}
+            onApplied={onImported}
           />
         )}
       </Suspense>
