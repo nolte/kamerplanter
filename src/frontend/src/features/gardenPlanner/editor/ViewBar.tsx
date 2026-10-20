@@ -5,6 +5,7 @@
  */
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import type { ReactNode } from 'react';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
@@ -29,7 +30,19 @@ import { Compass } from './Compass';
 const PREFIX = 'pages.gardenPlan.editor';
 const TARGET_PX = 44;
 
+/** A layer switch of the registry (`layers.ts`) other than the grid: icon only, so its name is the aria-label. */
+export interface LayerToggle {
+  id: string;
+  label: string;
+  hint: string;
+  icon: ReactNode;
+  visible: boolean;
+}
+
 export interface ViewBarProps {
+  /** The registry layers with a toggle of their own (zones, last watered, later more). */
+  layerToggles?: readonly LayerToggle[];
+  onLayer?: (id: string, visible: boolean) => void;
   gridStepM: number;
   onGridStep: (stepM: number) => void;
   gridVisible: boolean;
@@ -110,6 +123,28 @@ export function ViewBar(props: ViewBarProps) {
           </ToggleButton>
         </Tooltip>
       </ToggleButtonGroup>
+
+      {props.layerToggles && props.layerToggles.length > 0 && (
+        <Divider orientation="vertical" flexItem sx={dividerSx} />
+      )}
+      {props.layerToggles && props.layerToggles.length > 0 && (
+        <ToggleButtonGroup size="small" aria-label={t(`${PREFIX}.zones.layers.group`)} data-testid="garden-plan-layer-toggles">
+          {props.layerToggles.map((layer) => (
+            <Tooltip key={layer.id} title={layer.hint}>
+              <ToggleButton
+                value={layer.id}
+                selected={layer.visible}
+                onChange={() => props.onLayer?.(layer.id, !layer.visible)}
+                aria-label={layer.label}
+                data-testid={`garden-plan-layer-${layer.id}`}
+                sx={buttonSx}
+              >
+                {layer.icon}
+              </ToggleButton>
+            </Tooltip>
+          ))}
+        </ToggleButtonGroup>
+      )}
 
       <Divider orientation="vertical" flexItem sx={dividerSx} />
 

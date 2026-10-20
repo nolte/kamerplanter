@@ -5849,6 +5849,161 @@
           "download": "Keep my changes as a copy (download JSON)",
           "reload": "Reload",
           "downloaded": "The copy was downloaded. You can reload now."
+        },
+        "zones": {
+          "layers": {
+            "group": "Layers",
+            "zones": "Show irrigation zones",
+            "zonesHint": "Show or hide the zones as an outline with hatching over their beds.",
+            "lastWatered": "Show last watered",
+            "lastWateredHint": "Show or hide the days since the last watering of each bed as hatching."
+          },
+          "legend": {
+            "title": "Layer legend",
+            "zonesTitle": "Irrigation zones",
+            "zonesNone": "No zone has been created yet.",
+            "zoneEntry": "{{name}}, {{type}}",
+            "wateredTitle": "Days since the last watering",
+            "class": {
+              "d0_1": "0 to 1 day since",
+              "d2_3": "2 to 3 days since",
+              "d4_7": "4 to 7 days since",
+              "d8plus": "More than 7 days since"
+            },
+            "wateredNone": "No hatching: no watering recorded.",
+            "wateredNote": "This is the time since the last recorded watering. The plan does not say whether a bed needs water."
+          },
+          "wateredDays_one": "{{count}} day since",
+          "wateredDays_other": "{{count}} days since",
+          "open": "Manage irrigation zones",
+          "panel": {
+            "title": "Irrigation zones",
+            "close": "Close the zones area",
+            "listLabel": "Zones of this site",
+            "loadFailed": "The zones could not be loaded. The plan stays usable.",
+            "retry": "Load again",
+            "empty": "No zone yet. A zone groups beds that are watered together.",
+            "readOnly": "You can view zones but not change them.",
+            "new": "New zone",
+            "bedCount_one": "{{count}} bed",
+            "bedCount_other": "{{count}} beds",
+            "newTitle": "New zone",
+            "editTitle": "Zone {{name}}"
+          },
+          "form": {
+            "name": "Zone name",
+            "type": "Type of irrigation",
+            "color": "Zone colour",
+            "colorHint": "You recognise a zone by its pattern, not by colour alone.",
+            "scheduleHint": "Schedule note",
+            "waterSource": "Water source",
+            "waterSourceNone": "No water source",
+            "flowRate": "Flow rate in litres per minute",
+            "beds": "Beds of the zone",
+            "bedsHint": "A bed belongs to at most one zone. If you pick one from another zone, it moves here.",
+            "bedsNone": "No beds are drawn on the plan yet.",
+            "bedsUseSelection": "Take over selection from the plan",
+            "bedsSelectionEmpty": "No bed is selected on the plan.",
+            "bedInZone": "belongs to {{zone}}",
+            "save": "Save zone",
+            "saving": "Saving …",
+            "cancel": "Cancel",
+            "delete": "Delete zone",
+            "deleteTitle": "Delete zone {{name}}?",
+            "deleteMessage": "The beds stay as they are and then belong to no zone. The watering log is kept.",
+            "deleteConfirm": "Delete",
+            "created": "Zone {{name}} created.",
+            "saved": "Zone {{name}} saved.",
+            "deleted": "Zone {{name}} deleted.",
+            "moved": "Taken over from another zone: {{beds}}."
+          },
+          "errors": {
+            "forbidden": "You do not have permission for this.",
+            "quota": "This site has reached the maximum number of zones.",
+            "notFound": "The zone no longer exists. The list is reloaded.",
+            "invalid": "The input was rejected. Check name, colour and flow rate.",
+            "generic": "That did not work. Please try again."
+          },
+          "status": {
+            "title": "Zone status",
+            "loading": "Loading the status …",
+            "failed": "The zone status could not be loaded.",
+            "lastWatering": "Last watered",
+            "lastWateringNone": "No watering recorded yet.",
+            "lastWateringValue": "{{date}}, {{days}}",
+            "lastWateringBed": "Bed {{bed}}",
+            "nextPlanned": "Next planned watering",
+            "nextPlannedNone": "No watering planned.",
+            "nextPlannedValue": "{{bed}}, due {{date}}",
+            "nextPlannedOverdue": "{{bed}}, overdue since {{date}}",
+            "demand": "Demand today",
+            "demandNet": "{{liters}} litres net",
+            "demandGross": "{{liters}} litres gross",
+            "efficiency": "Efficiency {{percent}} %",
+            "efficiencySource": {
+              "zone": "set on the zone",
+              "type_default": "default of the irrigation type"
+            },
+            "consumption": "Consumption of the last 30 days",
+            "consumptionValue": "{{liters}} litres",
+            "consumptionSources": "Where the consumption comes from",
+            "consumptionSource": {
+              "manual_log": "Logged watering",
+              "actuator_runtime_manual_rate": "Actuator run time with the entered flow rate",
+              "actuator_runtime_ha_rate": "Actuator run time with the flow rate from Home Assistant"
+            },
+            "technical": "Technical",
+            "flowRate": "Flow rate",
+            "flowRateValue": "{{value}} litres per minute",
+            "flowRateNone": "not entered",
+            "flowSource": "Source of the flow rate",
+            "flowSourceValue": {
+              "manual": "Entered",
+              "ha_entity": "Home Assistant entity"
+            },
+            "haBound": "Home Assistant entity linked",
+            "haNotBound": "No Home Assistant entity linked",
+            "hints": "Hints"
+          },
+          "hints": {
+            "water_source_lasts_days_one": "At this daily demand the water source lasts about {{count}} day ({{capacity}} litres capacity, {{daily}} litres a day).",
+            "water_source_lasts_days_other": "At this daily demand the water source lasts about {{count}} days ({{capacity}} litres capacity, {{daily}} litres a day).",
+            "irrigation_system_differs": "The zone is set up as {{type}}, these beds are equipped differently: {{beds}}. The zone applies to demand and consumption.",
+            "unknown": "Hint {{code}}"
+          },
+          "round": {
+            "open": "Log a watering round",
+            "title": "Watering round for {{name}}",
+            "volume": "Total amount in litres",
+            "allocation": "Division over the beds",
+            "allocationOption": {
+              "by_area": "By bed area",
+              "equal": "Equal parts"
+            },
+            "allocationHelp": {
+              "by_area": "Each bed gets a share by its area. Beds without an area are left out.",
+              "equal": "Each bed gets the same amount, whatever its area."
+            },
+            "summary": "Note on the round",
+            "marker": "The amount is divided over the beds and not measured. The log marks it that way.",
+            "noAreaBeds": "Without an area, left out of the division by area: {{beds}}.",
+            "noBeds": "The zone has no bed yet. Assign beds to it first.",
+            "submit": "Save watering round",
+            "submitting": "Saving …",
+            "cancel": "Cancel",
+            "close": "Close",
+            "invalidVolume": "Enter an amount above 0 litres.",
+            "noBedArea": "No bed of the zone has an area. Choose \"Equal parts\" or enter areas.",
+            "resultTitle": "Watering round saved",
+            "resultMarker": "{{allocation}}: these amounts are divided, not measured.",
+            "share": "{{bed}}: {{liters}} litres",
+            "skipped": "Left out because they have no area: {{beds}}."
+          },
+          "bed": {
+            "zone": "Irrigation zone: {{name}}",
+            "wateredNone": "No watering recorded.",
+            "watered": "Last watered: {{days}}"
+          }
         }
       },
       "io": {

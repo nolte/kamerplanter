@@ -6,6 +6,7 @@
  *
  * Plain JSON-serialisable data only - it lives in the Redux store.
  */
+import type { PlanZone } from '../zones/zoneTypes';
 import {
   PLAN_SCHEMA_VERSION,
   type DerivedGeometry,
@@ -38,8 +39,8 @@ export interface PlanModel {
    * current frame (hand-built models in tests).
    */
   slotFrames?: Record<string, Geometry>;
-  /** Irrigation zones (WP 7.x); opaque until then. */
-  zones: Record<string, unknown>[];
+  /** Irrigation zones of the site as the plan response carries them (WP 7.6). */
+  zones: PlanZone[];
 }
 
 /** The response carries a DTO version this client does not read. */

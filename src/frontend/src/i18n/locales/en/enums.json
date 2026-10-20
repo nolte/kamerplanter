@@ -1192,6 +1192,18 @@
     "rowDirection": {
       "along_length": "Along the length",
       "along_width": "Along the width"
+    },
+    "irrigationType": {
+      "manual": "By hand",
+      "drip": "Drip irrigation",
+      "sprinkler": "Sprinkler",
+      "soaker_hose": "Soaker hose",
+      "sub_irrigation": "Sub-irrigation"
+    },
+    "careEventAllocation": {
+      "measured": "Measured",
+      "by_area": "Divided by area",
+      "equal": "Divided in equal parts"
     }
   }
 }

@@ -10,6 +10,8 @@
  * seams marked in `useEditorTools`.
  */
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -18,6 +20,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
@@ -26,6 +29,8 @@ import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
+import LayersIcon from '@mui/icons-material/Layers';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -75,11 +80,16 @@ import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
 import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
-import { ViewBar } from './ViewBar';
+import { ViewBar, type LayerToggle } from './ViewBar';
+import { BedZoneInfo } from '../zones/BedZoneInfo';
+import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
+import { useZoneLayers } from '../zones/useZoneLayers';
+import { ZoneLegend } from '../zones/ZoneLegend';
 import { useAnnouncement } from './useAnnouncement';
 import { useBedTypes } from './useBedTypes';
 import { useEditorKeyboard } from './useEditorKeyboard';
 import { useEditorShortcuts } from './useEditorShortcuts';
+import { TOGGLE_LAYERS, type LayerId } from './layers';
 import { useLayerPrefs } from './useLayerPrefs';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
@@ -128,6 +138,16 @@ function pointerKind(type: string): SnapPointerType {
 }
 
 const PREFIX = 'pages.gardenPlan.editor';
+const ZONES = `${PREFIX}.zones`;
+
+// The zone panel is its own chunk (UI-NFR-003): the route chunk only carries the switch that mounts it.
+const ZonePanel = lazy(() => import('../zones/ZonePanel'));
+
+/** Icon of each registry layer that has a toggle; the texts come from `pages.gardenPlan.editor.zones.layers.<id>`. */
+const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
+  zones: <LayersIcon />,
+  lastWatered: <WaterDropIcon />,
+};
 
 function cursorOf(tool: PlanTool): string {
   if (tool === 'pan') return 'grab';
@@ -198,6 +218,31 @@ export function GardenPlanEditor({
   const setGridVisible = useCallback(
     (visible: boolean) => setLayer('grid', visible),
     [setLayer],
+  );
+  const setLayerById = useCallback((id: string, visible: boolean) => setLayer(id as LayerId, visible), [setLayer]);
+  // The irrigation layers (WP 7.6 / 7.7): zones come with the plan; the endpoint is read once the panel opens.
+  const [zonesOpen, setZonesOpen] = useState(false);
+  const [layerRefresh, setLayerRefresh] = useState(0);
+  const [nowMs] = useState(() => Date.now());
+  const zoneData = useIrrigationZones(plan.siteKey, plan.zones, zonesOpen);
+  const lastWateredAt = useLastWatered(plan.siteKey, plan.locations, layerRefresh);
+  const zoneLayers = useZoneLayers({
+    zones: zoneData.zones,
+    showZones: layerPrefs.zones,
+    showLastWatered: layerPrefs.lastWatered,
+    lastWateredAt,
+    nowMs,
+  });
+  const layerToggles = useMemo<LayerToggle[]>(
+    () =>
+      (TOGGLE_LAYERS as readonly Exclude<LayerId, 'grid'>[]).map((id) => ({
+        id,
+        label: t(`${ZONES}.layers.${id}`),
+        hint: t(`${ZONES}.layers.${id}Hint`),
+        icon: LAYER_ICONS[id],
+        visible: layerPrefs[id],
+      })),
+    [layerPrefs, t],
   );
   const onShortcut = useEditorShortcuts();
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -699,8 +744,8 @@ export function GardenPlanEditor({
 
   // The renderer output depends on the plan, view and selection only - not on the pointer.
   const rendered = useMemo(
-    () => renderer.render(plan, viewport, selectedKeys, { labels, onActivateKey, invalidKeys }),
-    [renderer, plan, viewport, selectedKeys, labels, onActivateKey, invalidKeys],
+    () => renderer.render(plan, viewport, selectedKeys, { labels, onActivateKey, invalidKeys, ...zoneLayers }),
+    [renderer, plan, viewport, selectedKeys, labels, onActivateKey, invalidKeys, zoneLayers],
   );
 
   const selectChooseTool = useCallback(
@@ -789,6 +834,17 @@ export function GardenPlanEditor({
     />
   ) : null;
 
+  const bedInfo = useCallback(
+    (bedKey: string) => (
+      <BedZoneInfo bedKey={bedKey} zones={zoneData.zones} lastWateredAt={lastWateredAt[bedKey]} nowMs={nowMs} />
+    ),
+    [zoneData.zones, lastWateredAt, nowMs],
+  );
+  const selectedBedKeys = useMemo(
+    () => selection.filter((ref) => ref.entity === 'location').map((ref) => ref.key),
+    [selection],
+  );
+
   const stackLists = stack !== null && stack.keys.length >= 2;
   const sheetOpen = toolbarBelow && (selection.length > 0 || stackLists);
   const panel = (layout: 'sidebar' | 'sheet') => (
@@ -813,11 +869,14 @@ export function GardenPlanEditor({
       onDrawBed={() => dispatch(setTool('bed'))}
       onOpenLocation={onOpenLocation}
       onOpenCare={onOpenCare}
+      bedInfo={bedInfo}
     />
   );
 
   const viewBar = (
     <ViewBar
+      layerToggles={layerToggles}
+      onLayer={setLayerById}
       gridStepM={gridStepM}
       onGridStep={setGridStepM}
       gridVisible={gridVisible}
@@ -971,10 +1030,23 @@ export function GardenPlanEditor({
         >
           {t(`${PREFIX}.keyboard.open`)}
         </Button>
+        <Button
+          startIcon={<WaterDropIcon />}
+          onClick={() => setZonesOpen((open) => !open)}
+          aria-expanded={zonesOpen}
+          aria-controls="garden-plan-zone-panel-region"
+          sx={{ minHeight: 44 }}
+          data-testid="garden-plan-zones-open"
+        >
+          {t(`${ZONES}.open`)}
+        </Button>
       </Box>
       <SaveBar />
       <EditorHeaderActions onAddWithDimensions={() => setAddOpen(true)} onSelectAll={doSelectAll} />
       {!listShown && viewBar}
+      {!listShown && (
+        <ZoneLegend zones={zoneData.zones} showZones={layerPrefs.zones} showLastWatered={layerPrefs.lastWatered} />
+      )}
       {!listShown && !toolbarBelow && toolbar}
       {!listShown && !toolbarBelow && touchBar}
       {!listShown && drawing && (
@@ -1033,6 +1105,19 @@ export function GardenPlanEditor({
           canvasSurface
         )}
         {!toolbarBelow && panel('sidebar')}
+      </Box>
+      <Box id="garden-plan-zone-panel-region">
+        {zonesOpen && (
+          <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
+            <ZonePanel
+              plan={plan}
+              zoneData={zoneData}
+              selectedBedKeys={selectedBedKeys}
+              onChanged={() => setLayerRefresh((value) => value + 1)}
+              onClose={() => setZonesOpen(false)}
+            />
+          </Suspense>
+        )}
       </Box>
       {toolbarBelow && (!listShown || sheetOpen) && (
         <Box
