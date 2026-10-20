@@ -21,6 +21,7 @@ import type {
   PlanPlant,
   PlanSettings,
   PlanSlot,
+  Point,
 } from '../model/types';
 
 /** Stand-in key of the garden boundary, which has no key of its own (GP-UX-032 lists it as a hit class). */
@@ -145,6 +146,69 @@ export function shapeEntries(model: PlanModel): ShapeEntry[] {
   const located = locationEntries(model.locations);
   const objects = objectEntries(model.gardenObjects);
   return boundary ? [boundary, ...located, ...objects] : [...located, ...objects];
+}
+
+// ── Snap candidates (GP-FR-012, GP-FR-154) ───────────────────────────────────
+
+/**
+ * The corners and edges the object snap can land on (the editor's `SnapCandidates`, declared there; the
+ * renderer must not import the editor, so the shape is repeated and the two stay structurally equal).
+ */
+export interface ShapeSnapCandidates {
+  corners: Point[];
+  edges: [Point, Point][];
+}
+
+const candidateCache = new WeakMap<ShapeEntry, ShapeSnapCandidates>();
+
+function candidatesOf(entry: ShapeEntry): ShapeSnapCandidates {
+  let cached = candidateCache.get(entry);
+  if (!cached) {
+    const { shape } = entry;
+    if (shape.kind === 'circle') {
+      // A circle has no corners: its four quadrant points are the ones worth landing on.
+      const [cx, cy] = shape.center;
+      const r = shape.radiusM;
+      cached = {
+        corners: [
+          [cx + r, cy],
+          [cx - r, cy],
+          [cx, cy + r],
+          [cx, cy - r],
+        ],
+        edges: [],
+      };
+    } else {
+      const { vertices } = shape;
+      const edges: [Point, Point][] = [];
+      const last = shape.closed ? vertices.length : vertices.length - 1;
+      for (let i = 0; i < last; i += 1)
+        edges.push([vertices[i], vertices[(i + 1) % vertices.length]]);
+      cached = { corners: vertices.slice(), edges };
+    }
+    candidateCache.set(entry, cached);
+  }
+  return cached;
+}
+
+/**
+ * Corners and edges of every visible object of `model` (beds, garden objects and the boundary), except the
+ * keys in `exclude` - the objects being moved must not snap to themselves. The per-object lists are cached with
+ * the shape entries, so an edit only recomputes what changed.
+ */
+export function snapCandidates(
+  model: PlanModel,
+  exclude: ReadonlySet<string> = new Set(),
+): ShapeSnapCandidates {
+  const corners: Point[] = [];
+  const edges: [Point, Point][] = [];
+  for (const entry of shapeEntries(model)) {
+    if (exclude.has(entry.key)) continue;
+    const found = candidatesOf(entry);
+    corners.push(...found.corners);
+    edges.push(...found.edges);
+  }
+  return { corners, edges };
 }
 
 // ── Plant and slot markers ───────────────────────────────────────────────────

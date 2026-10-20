@@ -17,6 +17,9 @@ export const PLAN_SCHEMA_VERSION = '1';
 /** Operations per batch (V-17, GP-API-003). */
 export const MAX_BATCH_OPERATIONS = 500;
 
+/** Locations plus garden objects per site (GP-NFR-017, SR-004); beyond it the server answers 422 `plan.quota_exceeded`. */
+export const MAX_PLAN_OBJECTS_PER_SITE = 500;
+
 /** `[x, y]` in metres. */
 export type Point = [number, number];
 
@@ -457,4 +460,37 @@ export interface PlanAuditEntry {
   summary: string;
   at: string;
   changed_by_name?: string | null;
+}
+
+// ── Bed templates (§20.12, §21.7; WP 7.8 / 7.9) ──────────────────────────────
+
+/**
+ * A bed template as `GET /bed-templates` answers it. `default_geometry` is in the bed frame: the anchor of
+ * the shape (lower-left corner of a rectangle, centre of a circle, first vertex of a polygon) sits at the
+ * origin. `is_system` marks a global template (the standard sizes of GP-FR-045), which a tenant cannot change.
+ */
+export interface BedTemplate {
+  key: string;
+  name: string;
+  location_type_key: string;
+  default_geometry: Geometry;
+  height_m?: number | null;
+  recurring_task_templates: string[];
+  is_system: boolean;
+}
+
+/** `POST /bed-templates`: what "Save as template" sends. */
+export interface BedTemplateInput {
+  name: string;
+  location_type_key: string;
+  default_geometry: Geometry;
+  height_m?: number;
+}
+
+/** `POST /sites/{key}/plan/place-template` (GP-API, §21.7). */
+export interface PlaceTemplateRequest {
+  template_key: string;
+  origin: Point;
+  rotation_deg: number;
+  expected_revision: number;
 }

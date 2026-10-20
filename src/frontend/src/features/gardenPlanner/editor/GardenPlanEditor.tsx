@@ -35,6 +35,8 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
+import ContentCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import FlipToBackIcon from '@mui/icons-material/FlipToBack';
@@ -42,16 +44,21 @@ import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import YardIcon from '@mui/icons-material/Yard';
+import { isApiError } from '@/api/errors';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
 import { nearestGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
+import { snapCandidates } from '../renderer/planIndex';
+import { planContentBounds } from '../routes/fitViewport';
 import {
   applyAction,
   clearEditError,
+  placeTemplateAt,
   selectGardenPlanState,
   selectInvalidKeys,
   setSelection,
@@ -61,6 +68,7 @@ import {
 } from '../state/gardenPlanSlice';
 import { AddWithDimensionsDialog } from './AddWithDimensionsDialog';
 import { EDITOR_ANCHORS } from './anchors';
+import { ALIGN_MODES, DISTRIBUTE_AXES } from './AlignMenu';
 import { ContextMenu, type MenuAction, type MenuAnchor } from './ContextMenu';
 import { DimensionLabels, type DimensionItem } from './DimensionLabels';
 import { ConflictDialog } from './ConflictDialog';
@@ -68,6 +76,8 @@ import { EditorHeaderActions } from './EditorHeaderActions';
 import { EditorOverlay } from './EditorOverlay';
 import { EditorToolbar, type AngleStep, type EditorTool } from './EditorToolbar';
 import { Grid } from './Grid';
+import { MiniMap } from './MiniMap';
+import { miniMapVisible, panToCentre } from './miniMap';
 import { KeyboardHelp } from './KeyboardHelp';
 import { LiveRegion } from './LiveRegion';
 import { NewTypeSelect } from './NewTypeSelect';
@@ -78,6 +88,9 @@ import { SaveBar } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
+import { bedFrameGeometry } from '../templates/placeGeometry';
+import { TemplateGhost } from '../templates/TemplateGhost';
+import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
 import { ViewBar, type LayerToggle } from './ViewBar';
@@ -94,8 +107,15 @@ import { useLayerPrefs } from './useLayerPrefs';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
-import { duplicateSelection } from './tools/duplicate';
-import { deleteImpact, isPlanEntity, type DeleteImpact } from './tools/hierarchy';
+import {
+  alignAvailability,
+  alignSelection,
+  distributeSelection,
+  type AlignMode,
+  type DistributeAxis,
+} from './tools/align';
+import { duplicateSelection, multiDuplicate, type MultiDuplicateOptions } from './tools/duplicate';
+import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
@@ -148,6 +168,23 @@ const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
   zones: <LayersIcon />,
   lastWatered: <WaterDropIcon />,
 };
+
+// The template picker, the "save as template" dialog and the multi-duplicate dialog are their own chunks:
+// the plan route's budget (UI-NFR-003) carries none of them until they are opened.
+const TemplatePanel = lazy(() => import('../templates/TemplatePanel'));
+const SaveAsTemplateDialog = lazy(() => import('../templates/SaveAsTemplateDialog'));
+const MultiDuplicateDialog = lazy(() => import('./MultiDuplicateDialog'));
+
+const NO_KEYS: ReadonlySet<string> = new Set();
+
+/** The turn a click on "Rotate" adds to the template being placed (GP-FR-044). */
+const TEMPLATE_TURN_DEG = 90;
+
+/** Where the bed template tool stands: the template picked (or none yet) and its turn. */
+interface TemplateMode {
+  templateKey: string | null;
+  rotationDeg: number;
+}
 
 function cursorOf(tool: PlanTool): string {
   if (tool === 'pan') return 'grab';
@@ -206,7 +243,8 @@ export function GardenPlanEditor({
   const touchUi = toolbarBelow || coarsePointer;
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
-  const { selection, stack, tool, editError, past, future } = useAppSelector(selectGardenPlanState);
+  const { selection, stack, tool, editError, past, future, pending } =
+    useAppSelector(selectGardenPlanState);
   const invalidKeys = useAppSelector(selectInvalidKeys);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
@@ -261,6 +299,12 @@ export function GardenPlanEditor({
   const [objectType, setObjectType] = useState<GardenObjectType>('other');
   const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [templateMode, setTemplateMode] = useState<TemplateMode | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [ghostPoint, setGhostPoint] = useState<Point | null>(null);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [multiOpen, setMultiOpen] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
   const deleteTexts = useDeleteTexts(pendingDelete, plan, labels);
   const [view, setView] = useState<'plan' | 'list'>('plan');
   const [helpOpen, setHelpOpen] = useState(false);
@@ -274,6 +318,7 @@ export function GardenPlanEditor({
   const pendingFocus = useRef<{ key: string } | 'plan' | 'list' | null>(null);
 
   const bedTypes = useBedTypes(tool === 'bed' || addOpen);
+  const templateCatalogue = useBedTemplates(templateMode !== null);
   const fallbackBedType = useMemo(() => commonBedTypeKey(plan), [plan]);
   const bedTypeKey = bedTypeChoice ?? fallbackBedType;
 
@@ -334,13 +379,32 @@ export function GardenPlanEditor({
     onHelp: openHelp,
   });
 
-  // The seam of the tool machines for grid and snap (GP-FR-012, GP-FR-154). Object snap (corner,
-  // edge) is a SHOULD and not wired in the MVP: no candidates are handed to the resolver.
+  // The seam of the tool machines for grid and snap (GP-FR-012, GP-FR-154). Object snap lands on the
+  // corners and edges of the other visible objects (priority corner -> edge -> grid); what is being moved
+  // is left out, or it would snap to itself.
   const pxPerM = viewport.pxPerM;
+  const movingKeys = useMemo(
+    () =>
+      tool === 'select' && templateMode === null
+        ? new Set(moveTargets(plan, selection).map((entry) => entry.key))
+        : NO_KEYS,
+    [plan, selection, templateMode, tool],
+  );
+  const candidates = useMemo(
+    () => (snapEnabled ? snapCandidates(plan, movingKeys) : undefined),
+    [plan, movingKeys, snapEnabled],
+  );
   const snapPoint = useCallback(
-    (point: Point, bypass: boolean) =>
-      resolveSnap(point, { gridM: gridStepM, gridEnabled: snapEnabled, bypass, pxPerM }).point,
-    [gridStepM, snapEnabled, pxPerM],
+    (point: Point, bypass: boolean, pointerType: SnapPointerType = 'mouse') =>
+      resolveSnap(point, {
+        gridM: gridStepM,
+        gridEnabled: snapEnabled,
+        bypass,
+        pxPerM,
+        pointerType,
+        candidates,
+      }).point,
+    [candidates, gridStepM, snapEnabled, pxPerM],
   );
 
   const tools = useEditorTools({
@@ -410,6 +474,13 @@ export function GardenPlanEditor({
   const toolKeyDown = tools.containerProps.onKeyDown;
   const onKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
+      // Esc ends the template tool before anything else takes it (the bar's tools end it the same way).
+      if (event.key === 'Escape' && templateMode !== null) {
+        event.preventDefault();
+        setTemplateMode(null);
+        setGhostPoint(null);
+        return;
+      }
       // Arrows, PageUp/Down and ? first (WP 2.7); they report whether they took the key.
       if (keyboard.handleKey(event)) return;
       // The single printable keys of the view (WP 2.5) obey the WCAG 2.1.4 switch like `?` does.
@@ -437,47 +508,81 @@ export function GardenPlanEditor({
       }
       toolKeyDown(event);
     },
-    [fit, gridVisible, keyboard, setGridVisible, shortcuts.enabled, toolKeyDown, zoomIn, zoomOut],
+    [
+      fit,
+      gridVisible,
+      keyboard,
+      setGridVisible,
+      shortcuts.enabled,
+      templateMode,
+      toolKeyDown,
+      zoomIn,
+      zoomOut,
+    ],
   );
 
-  // The snap marker follows the pointer of the draw tools (where the next point will land).
+  // The snap marker follows the pointer of the draw tools, of the template tool and of a move under way
+  // (where the next point will land); on an object edge it draws that edge as a guide (GP-FR-154).
   const drawTool = tool === 'bed' || tool === 'garden_object';
+  const templateTool = templateMode !== null;
   const { onPointerMove: toolPointerMove, onPointerUp: toolPointerUp } = tools.containerProps;
+  const toolBusy = tools.busy;
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
-      if (!drawTool || !snapEnabled || event.altKey) {
+      const box = event.currentTarget.getBoundingClientRect();
+      const pointM = renderer.toModel([
+        event.clientX - box.left - event.currentTarget.clientLeft,
+        event.clientY - box.top - event.currentTarget.clientTop,
+      ]);
+      if (templateTool) {
+        // The ghost sits where the click would put the template: on the snapped point.
+        const landing = snapPoint(pointM, event.altKey, pointerKind(event.pointerType));
+        setGhostPoint((previous) =>
+          previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
+        );
+      }
+      if (!(drawTool || templateTool || toolBusy) || !snapEnabled || event.altKey) {
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
-      const box = event.currentTarget.getBoundingClientRect();
-      const result = resolveSnap(
-        renderer.toModel([
-          event.clientX - box.left - event.currentTarget.clientLeft,
-          event.clientY - box.top - event.currentTarget.clientTop,
-        ]),
-        {
-          gridM: gridStepM,
-          gridEnabled: true,
-          bypass: false,
-          pxPerM,
-          pointerType: pointerKind(event.pointerType),
-        },
-      );
+      const result = resolveSnap(pointM, {
+        gridM: gridStepM,
+        gridEnabled: true,
+        bypass: false,
+        pxPerM,
+        pointerType: pointerKind(event.pointerType),
+        candidates,
+      });
       setSnapMark((previous) =>
         previous &&
         previous.kind === result.kind &&
         previous.point[0] === result.point[0] &&
-        previous.point[1] === result.point[1]
+        previous.point[1] === result.point[1] &&
+        previous.guide === result.guide
           ? previous
           : result.kind === 'none'
             ? null
-            : { point: result.point, kind: result.kind },
+            : { point: result.point, kind: result.kind, guide: result.guide },
       );
     },
-    [drawTool, gridStepM, pxPerM, renderer, snapEnabled, toolPointerMove],
+    [
+      candidates,
+      drawTool,
+      gridStepM,
+      pxPerM,
+      renderer,
+      snapEnabled,
+      snapPoint,
+      templateTool,
+      toolBusy,
+      toolPointerMove,
+    ],
   );
-  const onPointerLeave = useCallback(() => setSnapMark(null), []);
+  const onPointerLeave = useCallback(() => {
+    setSnapMark(null);
+    setGhostPoint(null);
+  }, []);
   const onPointerUp = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerUp(event);
@@ -576,6 +681,120 @@ export function GardenPlanEditor({
     dispatch(setStack(null));
   }, [dispatch, onCommit, plan, selection, t]);
 
+  /** Align / distribute: one batch of `update_geometry`, one undo step; a refusal says why (GP-FR-029). */
+  const availability = useMemo(() => alignAvailability(plan, selection), [plan, selection]);
+  const commitArrangement = useCallback(
+    (outcome: ReturnType<typeof alignSelection>, label: 'align' | 'distribute') => {
+      if (!outcome.ok) {
+        if (outcome.code !== 'nothing') setNotice(outcome.code);
+        return;
+      }
+      onCommit(outcome.ops, label);
+    },
+    [onCommit],
+  );
+  const align = useCallback(
+    (mode: AlignMode) => commitArrangement(alignSelection(plan, selection, mode), 'align'),
+    [commitArrangement, plan, selection],
+  );
+  const distribute = useCallback(
+    (axis: DistributeAxis) =>
+      commitArrangement(distributeSelection(plan, selection, axis), 'distribute'),
+    [commitArrangement, plan, selection],
+  );
+
+  /** Duplicate several times (GP-FR-025): one undo step; the dialog shows a refusal. */
+  const runMultiDuplicate = useCallback(
+    (options: MultiDuplicateOptions): string | null => {
+      const outcome = multiDuplicate(plan, selection, { ...options, pendingCount: pending.length });
+      if (!outcome.ok) return outcome.code;
+      onCommit(outcome.value.ops, 'multiDuplicate');
+      dispatch(setSelection(outcome.value.selection));
+      dispatch(setStack(null));
+      setMultiOpen(false);
+      return null;
+    },
+    [dispatch, onCommit, pending.length, plan, selection],
+  );
+  const multiRoots = useMemo(
+    () =>
+      selectionRoots(plan, selection).filter(
+        (ref) => ref.entity === 'location' && plan.locations[ref.key]?.geometry != null,
+      ).length,
+    [plan, selection],
+  );
+
+  // ── Bed templates (GP-FR-044/045) ──────────────────────────────────────────
+
+  const singleBed = useMemo(() => {
+    const ref = selection.length === 1 ? selection[0] : null;
+    const location = ref?.entity === 'location' ? plan.locations[ref.key] : undefined;
+    return location?.geometry && bedFrameGeometry(location.geometry) ? location : null;
+  }, [plan, selection]);
+
+  const toggleTemplateTool = useCallback(() => {
+    setTemplateMode((previous) => (previous ? null : { templateKey: null, rotationDeg: 0 }));
+    setGhostPoint(null);
+    setSnapMark(null);
+    dispatch(setTool('select'));
+  }, [dispatch]);
+
+  const placeTemplate = useCallback(
+    async (originM: Point) => {
+      const mode = templateMode;
+      if (mode?.templateKey == null || placing) return;
+      setPlacing(true);
+      try {
+        const outcome = await dispatch(
+          placeTemplateAt({
+            templateKey: mode.templateKey,
+            origin: originM,
+            rotationDeg: mode.rotationDeg,
+          }),
+        ).unwrap();
+        if (outcome.ok) {
+          setNotice(null);
+          setInfo(t(`${PREFIX}.templates.placed`));
+          if (outcome.locationKey) {
+            dispatch(setSelection([{ entity: 'location', key: outcome.locationKey }]));
+          }
+        } else {
+          setInfo(null);
+          setNotice(outcome.code);
+        }
+      } finally {
+        setPlacing(false);
+      }
+    },
+    [dispatch, placing, t, templateMode],
+  );
+
+  const saveAsTemplate = useCallback(
+    async (name: string): Promise<string | null> => {
+      if (!singleBed?.geometry) return 'generic';
+      const geometry = bedFrameGeometry(singleBed.geometry);
+      if (!geometry) return 'generic';
+      const height = singleBed.height_m;
+      try {
+        await createBedTemplate({
+          name,
+          location_type_key: singleBed.location_type_key,
+          default_geometry: geometry,
+          // A height outside the catalogue's range (GP-FR-043) is left out rather than refused.
+          ...(height != null && height >= 0.1 && height <= 1.5 ? { height_m: height } : {}),
+        });
+      } catch (error) {
+        if (isApiError(error)) return error.statusCode === 403 ? 'forbidden' : error.errorCode;
+        return 'generic';
+      }
+      templateCatalogue.reload();
+      setSaveTemplateOpen(false);
+      setInfo(t(`${PREFIX}.templates.save.done`, { name }));
+      return null;
+    },
+    [singleBed, t, templateCatalogue],
+  );
+
   const setLocked = useCallback(
     (locked: boolean) => {
       const ops: PlanOperation[] = selection.filter(isPlanEntity).map((ref) => ({
@@ -638,7 +857,39 @@ export function GardenPlanEditor({
         icon: <ContentCopyIcon fontSize="small" />,
         onClick: duplicate,
       },
+      {
+        id: 'multiDuplicate',
+        label: t(`${PREFIX}.contextMenu.multiDuplicate`),
+        icon: <ContentCopyOutlinedIcon fontSize="small" />,
+        onClick: () => setMultiOpen(true),
+      },
     ];
+    if (singleBed) {
+      actions.push({
+        id: 'saveTemplate',
+        label: t(`${PREFIX}.templates.save.button`),
+        icon: <BookmarkAddOutlinedIcon fontSize="small" />,
+        onClick: () => setSaveTemplateOpen(true),
+      });
+    }
+    if (availability.align) {
+      for (const [index, mode] of ALIGN_MODES.entries()) {
+        actions.push({
+          id: `align-${mode}`,
+          label: t(`${PREFIX}.align.mode.${mode}`),
+          onClick: () => align(mode),
+          separated: index === 0,
+        });
+      }
+      for (const axis of DISTRIBUTE_AXES) {
+        actions.push({
+          id: `distribute-${axis}`,
+          label: t(`${PREFIX}.align.distribute.${axis}`),
+          onClick: () => distribute(axis),
+          disabled: !availability.distribute,
+        });
+      }
+    }
     if (single?.entity === 'location' && onOpenLocation) {
       actions.push({
         id: 'plant',
@@ -676,6 +927,9 @@ export function GardenPlanEditor({
     );
     return actions;
   }, [
+    align,
+    availability,
+    distribute,
     duplicate,
     focusPanel,
     moveInZ,
@@ -684,8 +938,22 @@ export function GardenPlanEditor({
     requestDelete,
     selection,
     setLocked,
+    singleBed,
     t,
   ]);
+
+  const headerExtraItems = useMemo<MenuAction[]>(
+    () => [
+      {
+        id: 'multiDuplicate',
+        label: t(`${PREFIX}.contextMenu.multiDuplicate`),
+        icon: <ContentCopyOutlinedIcon fontSize="small" />,
+        onClick: () => setMultiOpen(true),
+        disabled: !selection.some(isPlanEntity),
+      },
+    ],
+    [selection, t],
+  );
 
   /** Right click (mouse and pen): the object under the pointer, in a menu at the pointer (GP-FR-027). */
   const onContextMenu = useCallback(
@@ -758,6 +1026,8 @@ export function GardenPlanEditor({
   const selectChooseTool = useCallback(
     (next: EditorTool) => {
       dispatch(setTool(next));
+      setTemplateMode(null);
+      setGhostPoint(null);
       if (next === 'bed' && drawShape === 'polyline') setDrawShape('rect');
     },
     [dispatch, drawShape],
@@ -823,6 +1093,16 @@ export function GardenPlanEditor({
       canDeleteVertex={tools.vertex !== null}
       onDeleteVertex={thenFocusPlan(tools.deleteVertex)}
       onInsertVertex={thenFocusPlan(tools.insertVertexAfter)}
+      templateActive={templateTool}
+      onTemplate={toggleTemplateTool}
+      canSaveTemplate={singleBed !== null}
+      onSaveTemplate={() => setSaveTemplateOpen(true)}
+      align={{
+        canAlign: availability.align,
+        canDistribute: availability.distribute,
+        onAlign: align,
+        onDistribute: distribute,
+      }}
     />
   );
 
@@ -907,20 +1187,54 @@ export function GardenPlanEditor({
   // a click exists only when the pointer went down and up on the badge itself, so a drag that merely starts there
   // opens nothing. The canvas would capture the pointer and swallow that click, which is why the press is not
   // handed to the tools at all.
+  // The template tool takes the press the same way: the click that follows places the template, so no
+  // gesture (selection, marquee, pan) may start under it.
   const touchPointerDown = touch.containerProps.onPointerDown;
   const onCanvasPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
+      if (templateTool && event.button === 0) return;
       if (onOpenCare && tool === 'select' && event.button === 0 && badgeKeyOf(event) !== null) return;
       touchPointerDown(event);
     },
-    [onOpenCare, tool, touchPointerDown],
+    [onOpenCare, templateTool, tool, touchPointerDown],
   );
   const onCanvasClick = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {
+      if (templateTool) {
+        const box = event.currentTarget.getBoundingClientRect();
+        const pointM = renderer.toModel([
+          event.clientX - box.left - event.currentTarget.clientLeft,
+          event.clientY - box.top - event.currentTarget.clientTop,
+        ]);
+        // The same tolerance as the ghost shown under the pointer (a finger or a pen snaps wider).
+        const kind = 'pointerType' in event.nativeEvent ? String(event.nativeEvent.pointerType) : 'mouse';
+        void placeTemplate(snapPoint(pointM, event.altKey, pointerKind(kind)));
+        return;
+      }
       const key = badgeKeyOf(event);
       if (key && onOpenCare && tool === 'select') onOpenCare(key);
     },
-    [onOpenCare, tool],
+    [onOpenCare, placeTemplate, renderer, snapPoint, templateTool, tool],
+  );
+
+  const selectedTemplate = useMemo(
+    () => templateCatalogue.templates.find((item) => item.key === templateMode?.templateKey) ?? null,
+    [templateCatalogue.templates, templateMode?.templateKey],
+  );
+  const closeTemplateTool = useCallback(() => {
+    setTemplateMode(null);
+    setGhostPoint(null);
+  }, []);
+
+  // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6).
+  const extent = useMemo(() => planContentBounds(plan), [plan]);
+  const showMiniMap = extent !== null && miniMapVisible(extent, viewport);
+  const jumpTo = useCallback(
+    (target: Point) => {
+      const [dx, dy] = panToCentre(viewport, target);
+      onPan(dx, dy);
+    },
+    [onPan, viewport],
   );
 
   const listShown = view === 'list';
@@ -973,6 +1287,15 @@ export function GardenPlanEditor({
           toScreen={renderer.toScreen.bind(renderer)}
           unit={unit}
         />
+        {selectedTemplate && ghostPoint && templateMode && (
+          <TemplateGhost
+            template={selectedTemplate}
+            originM={ghostPoint}
+            rotationDeg={templateMode.rotationDeg}
+            toScreen={renderer.toScreen.bind(renderer)}
+            pxPerM={pxPerM}
+          />
+        )}
         {snapMark && (
           <SnapMarker
             mark={snapMark}
@@ -983,6 +1306,9 @@ export function GardenPlanEditor({
         )}
       </EditorOverlay>
       <ScaleBar pxPerM={pxPerM} />
+      {showMiniMap && extent && (
+        <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} />
+      )}
       <TouchOverlay
         ring={touch.ring}
         crosshair={touchUi && drawing ? centerPx : null}
@@ -1050,7 +1376,11 @@ export function GardenPlanEditor({
         </Button>
       </Box>
       <SaveBar />
-      <EditorHeaderActions onAddWithDimensions={() => setAddOpen(true)} onSelectAll={doSelectAll} />
+      <EditorHeaderActions
+        onAddWithDimensions={() => setAddOpen(true)}
+        onSelectAll={doSelectAll}
+        extraItems={headerExtraItems}
+      />
       {!listShown && viewBar}
       {!listShown && (
         <ZoneLegend zones={zoneData.zones} showZones={layerPrefs.zones} showLastWatered={layerPrefs.lastWatered} />
@@ -1067,6 +1397,28 @@ export function GardenPlanEditor({
           objectType={objectType}
           onObjectType={setObjectType}
         />
+      )}
+      {!listShown && templateMode && (
+        <Suspense fallback={null}>
+          <TemplatePanel
+            catalogue={templateCatalogue}
+            templateKey={templateMode.templateKey}
+            onTemplateKey={(key) =>
+              setTemplateMode((previous) => (previous ? { ...previous, templateKey: key } : previous))
+            }
+            rotationDeg={templateMode.rotationDeg}
+            onRotate={() =>
+              setTemplateMode((previous) =>
+                previous
+                  ? { ...previous, rotationDeg: (previous.rotationDeg + TEMPLATE_TURN_DEG) % 360 }
+                  : previous,
+              )
+            }
+            busy={placing}
+            onPlaceCenter={() => void placeTemplate(snapPoint(renderer.toModel(centerPx), false))}
+            onClose={closeTemplateTool}
+          />
+        </Suspense>
       )}
       {!listShown && hintKey && (
         <Typography
@@ -1089,6 +1441,16 @@ export function GardenPlanEditor({
           }}
         >
           {noticeText}
+        </Alert>
+      )}
+      {info && (
+        <Alert
+          severity="success"
+          role="status"
+          data-testid="garden-plan-info"
+          onClose={() => setInfo(null)}
+        >
+          {info}
         </Alert>
       )}
       {!listShown && singleTooSmall && (
@@ -1176,6 +1538,26 @@ export function GardenPlanEditor({
         onAdd={addWithDimensions}
         onClose={() => setAddOpen(false)}
       />
+      {saveTemplateOpen && (
+        <Suspense fallback={null}>
+          <SaveAsTemplateDialog
+            open
+            defaultName={singleBed?.name ?? ''}
+            onSave={saveAsTemplate}
+            onClose={() => setSaveTemplateOpen(false)}
+          />
+        </Suspense>
+      )}
+      {multiOpen && (
+        <Suspense fallback={null}>
+          <MultiDuplicateDialog
+            open
+            rootBeds={multiRoots}
+            onRun={runMultiDuplicate}
+            onClose={() => setMultiOpen(false)}
+          />
+        </Suspense>
+      )}
       <ConflictDialog />
       <ConfirmDialog
         open={pendingDelete !== null}

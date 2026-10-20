@@ -28,6 +28,8 @@ export interface DimensionValues {
   radius: number | null;
   rotation: number | null;
   strokeWidth: number | null;
+  /** Height of a bed in metres (GP-FR-043); `null`/absent = not stated. */
+  heightM?: number | null;
   /** Polygon and polyline points; `null` = a field that is not a number yet. */
   points: ([number, number] | null)[];
 }
@@ -119,6 +121,7 @@ export function addWithDimensions(
             location_type_key: values.bedTypeKey,
             geometry,
             ...(parentKey ? { parent_location_key: parentKey } : {}),
+            ...(values.heightM != null ? { height_m: roundLength(values.heightM) } : {}),
           },
         },
       ],

@@ -82,6 +82,16 @@ function renderBars() {
         canDeleteVertex={false}
         onDeleteVertex={() => undefined}
         onInsertVertex={() => undefined}
+        templateActive
+        onTemplate={() => undefined}
+        canSaveTemplate
+        onSaveTemplate={() => undefined}
+        align={{
+          canAlign: true,
+          canDistribute: true,
+          onAlign: () => undefined,
+          onDistribute: () => undefined,
+        }}
       />
     </ThemeContextProvider>,
   );
@@ -109,6 +119,7 @@ describe('label in name of the editor toggles (WCAG 2.5.3, #2388)', () => {
     // The short form is in the DOM (only hidden by CSS below lg): the guard really looks at it.
     expect(screen.getByTestId('garden-plan-tool-garden_object')).toHaveTextContent(/\S/);
     expect(screen.getByTestId('garden-plan-unit-cm')).toHaveTextContent('cm');
+    expect(screen.getByTestId('garden-plan-tool-template')).toHaveTextContent(/\S/);
     expect(labelInNameViolations(document.body)).toEqual([]);
   });
 });

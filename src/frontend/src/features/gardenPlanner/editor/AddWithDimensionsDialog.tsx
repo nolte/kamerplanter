@@ -5,7 +5,7 @@
  * explained inside the dialog and nothing is created. A reference-object distance ("2 m from the
  * fence") is not part of this version.
  */
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -26,6 +26,7 @@ import { useTheme } from '@mui/material/styles';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import type { LocationType } from '@/api/types';
 import type { PlanModel } from '../model/planModel';
+import type { StandardSize } from '../templates/standardSizes';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef } from '../state/gardenPlanSlice';
@@ -40,6 +41,9 @@ import { OBJECT_TYPES } from './tools/objectTypes';
 import { parseDecimal } from './tools/panelFields';
 
 const PREFIX = 'pages.gardenPlan.editor';
+
+// The standard-size choice is its own chunk (GP-FR-045): the route budget does not carry the catalogue.
+const StandardSizes = lazy(() => import('../templates/StandardSizes'));
 
 interface AddWithDimensionsDialogProps {
   open: boolean;
@@ -69,6 +73,8 @@ interface Draft {
   radius: string;
   rotation: string;
   strokeWidth: string;
+  /** Height of a bed in metres; empty = not stated. */
+  height: string;
   points: { x: string; y: string }[];
 }
 
@@ -88,6 +94,7 @@ function initialDraft(defaultPosition: Point, bedTypeKey: string): Draft {
     radius: '1',
     rotation: '0',
     strokeWidth: '0.3',
+    height: '',
     points: [
       { x: '', y: '' },
       { x: '', y: '' },
@@ -110,6 +117,7 @@ function valuesOf(draft: Draft): DimensionValues {
     radius: num(draft.radius),
     rotation: num(draft.rotation),
     strokeWidth: num(draft.strokeWidth),
+    heightM: draft.target === 'bed' ? num(draft.height) : null,
     points: draft.points.map((p): Point | null => {
       const x = num(p.x);
       const y = num(p.y);
@@ -173,6 +181,21 @@ function DimensionsForm({
       />
     ) : null;
 
+  const pickStandard = (size: StandardSize) => {
+    setDraft((previous) => ({
+      ...previous,
+      target: 'bed',
+      shape: size.shape,
+      bedTypeKey: size.bedTypeKey,
+      width: size.width === null ? previous.width : String(size.width),
+      length: size.length === null ? previous.length : String(size.length),
+      radius: size.radius === null ? previous.radius : String(size.radius),
+      rotation: '0',
+      height: size.heightM === null ? '' : String(size.heightM),
+    }));
+    setError(null);
+  };
+
   const submit = () => {
     const outcome = addWithDimensions(
       plan,
@@ -228,6 +251,12 @@ function DimensionsForm({
               {t(`${PREFIX}.addWithDimensions.object`)}
             </ToggleButton>
           </ToggleButtonGroup>
+
+          {draft.target === 'bed' && (
+            <Suspense fallback={null}>
+              <StandardSizes onPick={pickStandard} />
+            </Suspense>
+          )}
 
           {draft.target === 'bed' ? (
             <TextField
@@ -313,6 +342,25 @@ function DimensionsForm({
             {numberField('radius', 'm')}
             {numberField('rotation', '°')}
             {numberField('strokeWidth', 'm')}
+            {draft.target === 'bed' && (
+              <TextField
+                size="small"
+                label={t(`${PREFIX}.addWithDimensions.fields.height`)}
+                value={draft.height}
+                onChange={(event) => set('height', event.target.value)}
+                error={draft.height !== '' && num(draft.height) === null}
+                helperText={
+                  draft.height !== '' && num(draft.height) === null
+                    ? t(`${PREFIX}.addWithDimensions.fieldInvalid`)
+                    : undefined
+                }
+                slotProps={{
+                  htmlInput: { inputMode: 'decimal', 'data-testid': 'garden-plan-add-height' },
+                  input: { endAdornment: 'm' },
+                }}
+                sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+              />
+            )}
           </Box>
 
           {fields.includes('points') && (
