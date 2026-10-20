@@ -371,7 +371,7 @@ class TestOffsetAndTargetWp718:
 
         assert [d.field for d in same.dropped_references] == []
         for report in (other, tenant):
-            assert [(d.field, d.reason) for d in report.dropped_references] == [("parent_location_key", "not_found")]
+            assert [(d.field, d.reason) for d in report.dropped_references] == [("parent_location_key", "outside_file")]
             assert report.target != "same_site"
 
     def test_the_target_does_not_widen_who_may_import(self, rig) -> None:

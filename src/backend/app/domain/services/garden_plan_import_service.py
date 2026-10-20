@@ -75,6 +75,7 @@ from app.domain.models.garden_plan_import import (
     MAX_REPORTED,
     SUPPORTED_SCHEMA_VERSIONS,
     DroppedReference,
+    DropReason,
     ImportCounts,
     ImportFinding,
     ImportMode,
@@ -157,6 +158,12 @@ class _Prepared:
 
     def add_slot(self, location: str, slot: Slot) -> None:
         self.slots.append((location, slot))
+
+
+def _missing_reason(prepared: _Prepared) -> DropReason:
+    """Why a reference to something that is not in the file is dropped: for a file that comes from elsewhere
+    (``other_site`` / ``other_tenant``) it never resolves against the target, whatever the target holds."""
+    return "outside_file" if prepared.file_only else "not_found"
 
 
 def _copied[TModel: BaseModel](model: TModel) -> TModel:
@@ -548,7 +555,12 @@ class GardenPlanImportService:
                 garden_object = prepared.objects.get(candidate or "")
                 if garden_object is None or garden_object.object_type is not GardenObjectType.WATER_SOURCE:
                     prepared.drop(
-                        DroppedReference(entity=_ZONE, key=item.key, field="water_source_key", reason="not_found")
+                        DroppedReference(
+                            entity=_ZONE,
+                            key=item.key,
+                            field="water_source_key",
+                            reason=_missing_reason(prepared) if candidate is None else "not_found",
+                        )
                     )
                 else:
                     source = candidate
@@ -739,7 +751,9 @@ class GardenPlanImportService:
         if parent in prepared.locations and not _is_temp(parent) and not prepared.file_only:
             return parent
         entity = _LOCATION if isinstance(item, ExportLocation) else _OBJECT
-        prepared.drop(DroppedReference(entity=entity, key=item.key, field="parent_location_key", reason="not_found"))
+        prepared.drop(
+            DroppedReference(entity=entity, key=item.key, field="parent_location_key", reason=_missing_reason(prepared))
+        )
         return None
 
     def _add_object(
@@ -786,7 +800,9 @@ class GardenPlanImportService:
         for position, item in enumerate(slots):
             bed = by_file_key.get(item.location_key)
             if bed is None:
-                prepared.drop(DroppedReference(entity=_SLOT, key=item.key, field="location_key", reason="not_found"))
+                prepared.drop(
+                    DroppedReference(entity=_SLOT, key=item.key, field="location_key", reason=_missing_reason(prepared))
+                )
                 continue
             if (bed, item.slot_id) in seen:
                 prepared.add_finding(

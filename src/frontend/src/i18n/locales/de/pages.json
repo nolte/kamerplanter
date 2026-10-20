@@ -6334,7 +6334,7 @@
           "help": "Beim Ersetzen wird der bisherige Plan als Stand gespeichert (ein Jahr lang). Wähle einen Stand, prüfe, was sich ändern würde, und stelle ihn wieder her.",
           "empty": "Es gibt noch keinen früheren Stand. Er entsteht, wenn du einen Plan ersetzt.",
           "counts": "{{locations}} Standorte, {{objects}} Gartenobjekte, {{slots}} Pflanzplätze",
-          "notice": "Der jetzige Plan wird vorher selbst als Stand gespeichert, die Wiederherstellung lässt sich also wieder zurücknehmen. Beete mit aktiven Pflanzen werden nie gelöscht.",
+          "notice": "Der jetzige Plan wird vorher selbst als Stand gespeichert, die Wiederherstellung lässt sich also zurücknehmen. Beete mit aktiven Pflanzen werden nie gelöscht. Bewässerungszonen, die der Stand nicht nennt, werden entfernt, und technische Zonen-Kopplungen (Aktor, Home-Assistant-Durchfluss) werden nicht wiederhergestellt: richte sie danach neu ein.",
           "restore": "Diesen Stand wiederherstellen",
           "failures": {
             "failed": "Das hat nicht geklappt. Versuche es noch einmal.",

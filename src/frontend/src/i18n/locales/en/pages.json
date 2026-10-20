@@ -6333,7 +6333,7 @@
           "help": "Replacing a plan saves the plan it overwrites as a state (for one year). Pick a state, check what would change and restore it.",
           "empty": "There is no earlier state yet. One is made when you replace a plan.",
           "counts": "{{locations}} locations, {{objects}} garden objects, {{slots}} planting slots",
-          "notice": "The current plan is saved as a state of its own first, so the restore can be undone. Beds with active plants are never deleted.",
+          "notice": "The current plan is saved as a state of its own first, so the restore can be undone. Beds with active plants are never deleted. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored: set them up again afterwards.",
           "restore": "Restore this state",
           "failures": {
             "failed": "That did not work. Try again.",

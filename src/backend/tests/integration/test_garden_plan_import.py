@@ -839,7 +839,7 @@ class TestImportTargetAndOffsetWp718:
 
         assert [d.field for d in same.dropped_references if d.entity == "location"] == []
         for report in (other, tenant):
-            assert [(d.field, d.reason) for d in report.dropped_references] == [("parent_location_key", "not_found")]
+            assert [(d.field, d.reason) for d in report.dropped_references] == [("parent_location_key", "outside_file")]
 
     def test_a_zone_of_the_target_site_is_not_claimed_by_a_file_for_another_site(self, rig) -> None:
         keys = build_source_plan(rig)

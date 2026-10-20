@@ -100,6 +100,20 @@ describe('ImportWizard', () => {
     expect((calls.bodies[0].document as { schema_version: string }).schema_version).toBe('1');
   });
 
+  it('names a reference that left the file as "not in the file"', async () => {
+    useBackend(calls, () =>
+      report({
+        dropped_references_total: 1,
+        dropped_references: [{ entity: 'location', key: 'b5', field: 'parent_location_key', reason: 'outside_file' }],
+      }),
+    );
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+
+    expect(await screen.findByTestId('plan-import-dropped')).toHaveTextContent('is not in the file');
+  });
+
   it('refuses a file that is too large, not JSON, or not a backup, without asking the server', async () => {
     useBackend(calls, () => report());
     const user = userEvent.setup();
