@@ -17,14 +17,23 @@ step (exit 1). A 401, or a request that dies before an answer, voids the run
 "no leak found" (NFR-018 §1).
 
 Each route is first sent once as tenant A, the owner. That answer must not be
-401/403/405, so a green result cannot come from a mistyped path or a dead
-token. Tenant A's own answer may still be 404/422 for a made-up child key; only
-the foreign answer carries the verdict.
+0/401/403/405, so a dead token cannot read as green. The owner answer MAY be 404
+or 422 (a made-up child key, a plan without the referenced entity), and that is
+acceptable ONLY because the guard test
+src/backend/tests/unit/guards/test_zap_plan_cross_tenant.py proves that every
+entry of ROUTES (method + path template) is mounted under
+/api/v1/t/{tenant_slug}/sites/{key}/... A renamed or mistyped route therefore
+fails the guard instead of answering 404 to both tenants and passing here.
+Only the foreign answer carries the verdict.
 
-Every body is harmless on purpose: the import is a dry run and the batch deletes
-a key that does not exist. Nothing here may change tenant A's data when the
-isolation holds; the only write is tenant A's own boundary, which also gives the
-site the plan the other routes need.
+Bodies are kept small: the import is a dry run and the batch deletes a key that
+does not exist. This runs against the EPHEMERAL stack only: tenant A's own
+boundary write and the place-template bed (when the template exists) do change
+tenant A's data there. Under intact isolation tenant B changes nothing.
+
+Redirects are never followed (urllib would replay a POST as GET and forward the
+Authorization header); a 3xx is treated as a non-refusal. A 5xx for tenant B is
+reported separately as "isolation unproven" and still fails (exit 1).
 
 Routes sent (all tenant-scoped, site-keyed, in app/api/v1/garden_plan):
     PUT  plan/boundary          POST plan/batch
@@ -38,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any
@@ -55,6 +65,11 @@ class Route:
     method: str
     suffix: str
     body: dict[str, Any]
+    template: str = ""  # path template below /sites/{key}/, parameters as {name}
+
+    @property
+    def path_template(self) -> str:
+        return self.template or self.suffix
 
 
 ROUTES: tuple[Route, ...] = (
@@ -87,8 +102,17 @@ ROUTES: tuple[Route, ...] = (
         "POST",
         "plan/snapshots/zap_probe_audit/restore",
         {"dry_run": True, "force": False},
+        "plan/snapshots/{audit_key}/restore",
     ),
 )
+
+
+class _NoRedirect(request.HTTPRedirectHandler):
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:  # noqa: ARG002
+        return None
+
+
+_OPENER = request.build_opener(_NoRedirect)
 
 
 def send(method: str, url: str, token: str, body: dict[str, Any], timeout: float) -> int:
@@ -96,7 +120,7 @@ def send(method: str, url: str, token: str, body: dict[str, Any], timeout: float
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Content-Type", "application/json")
     try:
-        with request.urlopen(req, timeout=timeout) as resp:
+        with _OPENER.open(req, timeout=timeout) as resp:
             return resp.status
     except error.HTTPError as exc:
         return exc.code
@@ -133,6 +157,10 @@ def evaluate(
             status = sender(route.method, url, token_b, route.body, timeout)
             if status in VOID:
                 void.append(f"{route.method} {route.name} [{label}] - tenant B token answered {status}")
+            elif status >= 500:
+                leaks.append(
+                    f"{route.method} {route.name} [{label}] - server error {status}, isolation unproven"
+                )
             elif status not in REFUSED:
                 leaks.append(f"{route.method} {route.name} [{label}] - foreign tenant got {status}, want 403/404")
     return leaks, void
@@ -144,10 +172,14 @@ def main() -> int:
     parser.add_argument("--tenant-a-slug", required=True)
     parser.add_argument("--tenant-b-slug", required=True)
     parser.add_argument("--site-key", required=True, help="a site of tenant A")
-    parser.add_argument("--token-a", required=True)
-    parser.add_argument("--token-b", required=True)
+    # Tokens come from the environment, not argv (argv shows in the process list).
     parser.add_argument("--timeout", type=float, default=30.0)
     args = parser.parse_args()
+    token_a = os.environ.get("TOKEN_A", "")
+    token_b = os.environ.get("TOKEN_B", "")
+    if not token_a or not token_b:
+        print("::error::TOKEN_A and TOKEN_B must be set in the environment.")
+        return 2
 
     leaks, void = evaluate(
         ROUTES,
@@ -155,13 +187,14 @@ def main() -> int:
         slug_a=args.tenant_a_slug,
         slug_b=args.tenant_b_slug,
         site_a=args.site_key,
-        token_a=args.token_a,
-        token_b=args.token_b,
+        token_a=token_a,
+        token_b=token_b,
         timeout=args.timeout,
     )
     print(f"Plan routes probed: {len(ROUTES)} x 2 foreign requests (url-space, object).")
     for line in leaks:
-        print(f"::error::CROSS-TENANT LEAK {line}")
+        label = "ISOLATION UNPROVEN" if "isolation unproven" in line else "CROSS-TENANT LEAK"
+        print(f"::error::{label} {line}")
     for line in void:
         print(f"::error::VOID RUN {line}")
     if leaks:

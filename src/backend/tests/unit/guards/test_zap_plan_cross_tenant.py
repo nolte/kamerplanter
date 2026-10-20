@@ -7,11 +7,13 @@ pins what it counts as a leak and what as a void run, without a network.
 from __future__ import annotations
 
 import importlib.util
+import re
 import sys
 from pathlib import Path
 
 import pytest
 
+from app.api.v1.router import api_router
 from tests.support.repo_scripts import find_repo_root
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
@@ -27,7 +29,15 @@ probe = importlib.util.module_from_spec(_spec)
 sys.modules["_zap_plan_cross_tenant_under_test"] = probe
 _spec.loader.exec_module(probe)
 
-_KW = {"base": "http://x", "slug_a": "a", "slug_b": "b", "site_a": "s1", "token_a": "TA", "token_b": "TB", "timeout": 1.0}
+_KW = {
+    "base": "http://x",
+    "slug_a": "a",
+    "slug_b": "b",
+    "site_a": "s1",
+    "token_a": "TA",
+    "token_b": "TB",
+    "timeout": 1.0,
+}
 
 
 def _run(foreign: int, control: int = 200):
@@ -70,3 +80,44 @@ def test_dead_owner_control_voids_the_run(control: int) -> None:
 def test_nightly_runs_the_probe_before_the_scan() -> None:
     text = _WORKFLOW.read_text(encoding="utf-8")
     assert text.index("zap_plan_cross_tenant.py") < text.index("zap-full-scan.py")
+
+
+def _mounted() -> set[tuple[str, str]]:
+    """(METHOD, path with every {param} reduced to {}) for each route the v1 router mounts."""
+    found: set[tuple[str, str]] = set()
+
+    def walk(router, prefix: str = "") -> None:
+        for route in getattr(router, "routes", []):
+            included = getattr(route, "original_router", None)
+            if included is not None:
+                context = getattr(route, "include_context", None)
+                walk(included, prefix + (getattr(context, "prefix", "") or ""))
+                continue
+            path = prefix + (getattr(route, "path", "") or "")
+            for method in getattr(route, "methods", ()) or ():
+                found.add((method, re.sub(r"\{[^}]+\}", "{}", path)))
+
+    walk(api_router)
+    return found
+
+
+@pytest.mark.parametrize("route", probe.ROUTES, ids=lambda r: r.name)
+def test_every_probed_route_is_mounted(route) -> None:
+    """The owner control may answer 404/422, so this is what proves the route exists (NFR-018 §1)."""
+    expected = re.sub(r"\{[^}]+\}", "{}", f"/api/v1/t/{{tenant_slug}}/sites/{{key}}/{route.path_template}")
+    assert (route.method, expected) in _mounted(), f"{route.method} {expected} is not mounted"
+
+
+def test_a_renamed_route_would_fail_the_existence_check() -> None:
+    assert ("POST", "/api/v1/t/{}/sites/{}/plan/bacth") not in _mounted()
+
+
+def test_server_error_is_reported_as_unproven() -> None:
+    leaks, void = _run(500)
+    assert void == []
+    assert all("isolation unproven" in line for line in leaks)
+
+
+def test_redirects_are_not_followed() -> None:
+    handler = probe._NoRedirect()
+    assert handler.redirect_request(None, None, 302, "Found", {}, "http://x/y") is None
