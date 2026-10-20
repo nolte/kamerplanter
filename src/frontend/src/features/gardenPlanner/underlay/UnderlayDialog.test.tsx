@@ -48,11 +48,14 @@ function loadPicture(width = 800, height = 400) {
   return image;
 }
 
-async function fillCalibration(user: ReturnType<typeof userEvent.setup>, values: Record<string, string>) {
+/**
+ * Set fields the way a paste does: one change event per field. Typing them key by key re-renders the whole dialog
+ * for every character, which made the saving test take 5.6 s on a loaded CI runner - past the 5 s test timeout -
+ * while the behaviour under test (what is sent) does not depend on how the text got into the field.
+ */
+function fillCalibration(values: Record<string, string>) {
   for (const [id, value] of Object.entries(values)) {
-    const input = screen.getByTestId(`underlay-${id}`);
-    await user.clear(input);
-    await user.type(input, value);
+    fireEvent.change(screen.getByTestId(`underlay-${id}`), { target: { value } });
   }
 }
 
@@ -61,7 +64,7 @@ describe('calibration', () => {
     const user = userEvent.setup();
     renderDialog(null);
     await user.upload(screen.getByTestId('underlay-file'), PNG);
-    await fillCalibration(user, { p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
 
     expect(screen.getByTestId('underlay-scale')).toHaveTextContent('100');
   });
@@ -72,9 +75,9 @@ describe('calibration', () => {
     expect(screen.getByTestId('underlay-save')).toBeDisabled();
     await user.upload(screen.getByTestId('underlay-file'), PNG);
     expect(screen.getByTestId('underlay-save')).toBeDisabled();
-    await fillCalibration(user, { p1x: '100', p1y: '200', p2x: '100', p2y: '200', distance: '4' });
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '100', p2y: '200', distance: '4' });
     expect(screen.getByTestId('underlay-save')).toBeDisabled();
-    await fillCalibration(user, { p2x: '500' });
+    fillCalibration({ p2x: '500' });
     expect(screen.getByTestId('underlay-save')).toBeEnabled();
   });
 
@@ -82,9 +85,9 @@ describe('calibration', () => {
     const user = userEvent.setup();
     renderDialog(null);
     await user.upload(screen.getByTestId('underlay-file'), PNG);
-    await fillCalibration(user, { p1x: '0', p1y: '0', p2x: '400', p2y: '0', distance: '-3' });
+    fillCalibration({ p1x: '0', p1y: '0', p2x: '400', p2y: '0', distance: '-3' });
     expect(screen.getByTestId('underlay-save')).toBeDisabled();
-    await fillCalibration(user, { distance: 'Infinity' });
+    fillCalibration({ distance: 'Infinity' });
     expect(screen.getByTestId('underlay-save')).toBeDisabled();
   });
 
@@ -126,7 +129,7 @@ describe('save and remove', () => {
     );
     const { onSaved, onClose } = renderDialog(null);
     await user.upload(screen.getByTestId('underlay-file'), PNG);
-    await fillCalibration(user, { p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
     await user.click(screen.getByTestId('underlay-save'));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
@@ -154,7 +157,7 @@ describe('save and remove', () => {
     );
     const { onSaved, onClose } = renderDialog(null);
     await user.upload(screen.getByTestId('underlay-file'), PNG);
-    await fillCalibration(user, { p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
     await user.click(screen.getByTestId('underlay-save'));
 
     expect(await screen.findByTestId('underlay-error')).toBeInTheDocument();
@@ -238,11 +241,14 @@ describe('a viewer', () => {
 });
 
 describe('accessibility', () => {
-  it('has no axe violations, empty or calibrated', async () => {
-    server.use(http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })));
-    const empty = renderDialog(null);
+  // Two tests, not one: each runs axe over a whole MUI dialog, and one test doing both came close to the 5 s limit.
+  it('has no axe violations while empty', async () => {
+    renderDialog(null);
     await expectNoA11yViolations(document.body);
-    empty.unmount();
+  });
+
+  it('has no axe violations with a stored calibration', async () => {
+    server.use(http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })));
     renderDialog(STORED);
     await waitFor(() => expect(screen.getByTestId('underlay-picture')).toBeInTheDocument());
     await expectNoA11yViolations(document.body);
