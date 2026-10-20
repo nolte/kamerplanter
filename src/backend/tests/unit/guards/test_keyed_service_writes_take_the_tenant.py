@@ -366,6 +366,22 @@ def test_the_completion_repository_takes_the_tenant_in_every_method() -> None:
     assert [m.name for m in methods if not _takes_tenant_strictly(m)] == []
 
 
+# ── #2462: the "for each plant" batch create takes the tenant strictly ──────────────────────────────
+#
+# ``create_tasks_for_each_plant`` resolves a bed through ``location_scope`` and the plants through the completion
+# repository, neither of which the keyed-load selector above names (``get…by_key`` / ``get…or_raise``), so the
+# inventory cannot see it. The bed key it addresses is the caller's, so the tenant is pinned here by name: keyword-only,
+# no default, and checked non-empty inside the method.
+
+
+def test_the_for_each_plant_create_takes_the_tenant_keyword_only_without_a_default() -> None:
+    tree = ast.parse((_SERVICES / "task_service.py").read_text(encoding="utf-8"))
+    (klass,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TaskService"]
+    (method,) = [n for n in klass.body if isinstance(n, ast.FunctionDef) and n.name == "create_tasks_for_each_plant"]
+    assert _shape(method) == "strict"
+    assert "_require_tenant_key" in ast.unparse(method)
+
+
 # ── Whole classes: no method takes the tenant positionally ───────────────────────────────────────────
 #
 # The rule above sees only keyed writes. In a service whose every signature read

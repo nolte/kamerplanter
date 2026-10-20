@@ -249,6 +249,15 @@ class TaskCreate(BaseModel):
     recurrence_rule: str | None = None
     recurrence_end_date: datetime | None = None
     trigger_phase: str | None = None
+    for_each_plant: bool = Field(
+        default=False,
+        description=(
+            "With `entity_type = location`: create one task per plant standing in the bed instead of one for the "
+            "bed (REQ-053 GP-FR-081), in one transaction, and answer the list of the created tasks. At most 200 "
+            "plants; a care reminder, a recurring task or a machine-produced task is a 422. A bed without plants "
+            "creates nothing."
+        ),
+    )
 
 
 class TaskUpdate(BaseModel):

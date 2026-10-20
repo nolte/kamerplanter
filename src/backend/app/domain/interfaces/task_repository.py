@@ -259,6 +259,14 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
+    def create_tasks_atomic(self, tasks: Sequence[Task], *, tenant_key: str) -> list[Task]:
+        """Insert ``tasks`` with their ``has_task`` edges in ONE transaction: all of them, or none (#2462).
+
+        Every task must carry ``tenant_key``; a task of another tenant raises ``ValueError`` and writes nothing.
+        """
+        ...
+
+    @abstractmethod
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]: ...
 
     @abstractmethod

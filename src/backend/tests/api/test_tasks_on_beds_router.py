@@ -215,6 +215,72 @@ class TestFanOut:
         assert tasks.created == []
 
 
+class TestForEachPlant:
+    """``POST /tasks`` with ``for_each_plant`` (#2462)."""
+
+    BODY = {"name": "Mulch", "category": "maintenance", "entity_type": "location", "entity_key": "bed"}
+
+    def test_only_the_plant_tasks_are_created_and_listed(self, api):
+        client, tasks = api
+
+        resp = client.post(url("/tasks"), json={**self.BODY, "for_each_plant": True})
+
+        assert resp.status_code == 201
+        assert sorted(t["entity_key"] for t in resp.json()) == ["pi_child", "pi_here"]
+        assert {t["entity_type"] for t in resp.json()} == {"plant_instance"}
+        assert {t.entity_type for t in tasks.created} == {"plant_instance"}
+        assert tasks.atomic_batches == [2]
+
+    def test_without_the_flag_one_bed_task_is_created_as_before(self, api):
+        client, tasks = api
+
+        resp = client.post(url("/tasks"), json=self.BODY)
+
+        assert resp.status_code == 201
+        assert resp.json()["entity_type"] == "location"
+        assert tasks.atomic_batches == []
+
+    def test_a_foreign_bed_is_a_404_and_writes_nothing(self, api):
+        client, tasks = api
+
+        resp = client.post(url("/tasks"), json={**self.BODY, "entity_key": "loc_foreign", "for_each_plant": True})
+
+        assert resp.status_code == 404
+        assert tasks.created == []
+
+    def test_a_foreign_tenants_plants_are_never_tasked(self, api):
+        client, _ = api
+
+        resp = client.post(url("/tasks"), json={**self.BODY, "for_each_plant": True})
+
+        assert "pi_foreign" not in {t["entity_key"] for t in resp.json()}
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"entity_type": "garden_object", "entity_key": "go_compost"},
+            {"category": "care_reminder"},
+            {"recurrence_rule": "FREQ=DAILY"},
+        ],
+    )
+    def test_what_the_fan_out_refuses_is_a_422(self, api, overrides):
+        client, tasks = api
+
+        resp = client.post(url("/tasks"), json={**self.BODY, **overrides, "for_each_plant": True})
+
+        assert resp.status_code == 422
+        assert tasks.created == []
+
+    def test_a_machine_producer_cannot_use_it(self, api):
+        client, tasks = api
+        client.app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(key="svc", account_type="service")
+
+        resp = client.post(url("/tasks"), json={**self.BODY, "for_each_plant": True})
+
+        assert resp.status_code == 422
+        assert tasks.created == []
+
+
 class TestBindingTypes:
     @pytest.mark.parametrize("key", ["bed", "bed_child"])
     def test_a_task_binds_to_an_own_location(self, api, key):
