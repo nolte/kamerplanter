@@ -58,6 +58,10 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
     (col.PLANT_INSTANCES, "cover_photo_ref"),
     (col.PEST_IMAGE_CONTRIBUTIONS, "attachment_id"),
     (col.PESTS, "reference_image_refs"),
+    # REQ-053 GP-FR-033 (WP 7.14): the background picture of a site plan. Two sites can name one attachment (the
+    # upload dedupes per sha256), so the picture of a replaced or removed underlay is deleted only when no site
+    # still names it - the sweep and ``delete_if_unreferenced`` see it through this entry. A dotted path.
+    (col.SITES, "plan.underlay.attachment_key"),
 )
 
 #: Which of the collections above are tenant-scoped, and may therefore have their
@@ -90,6 +94,7 @@ TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
         col.INSPECTIONS,
         col.PEST_IMAGE_CONTRIBUTIONS,
         col.CARE_EVENTS,  # CareEvent.tenant_key is required (REQ-053 §20.13)
+        col.SITES,  # Site.tenant_key (the underlay of a site plan, REQ-053 GP-FR-033)
     }
 )
 

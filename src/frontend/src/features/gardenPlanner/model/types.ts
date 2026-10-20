@@ -276,6 +276,25 @@ export interface PlanPlant {
   location_key?: string | null;
 }
 
+/** Two points of the underlay picture (pixels) and the real distance between them (metres): the scale (GP-FR-033). */
+export interface UnderlayCalibration {
+  p1_px: [number, number];
+  p2_px: [number, number];
+  distance_m: number;
+}
+
+/**
+ * The background picture of the plan to trace over (GP-FR-033). `origin` is the plan position (metres) of the
+ * picture's top-left pixel, `rotation_deg` turns it counter-clockwise about that pixel. Never part of the export.
+ */
+export interface PlanUnderlay {
+  attachment_key: string;
+  calibration: UnderlayCalibration;
+  origin: [number, number];
+  rotation_deg: number;
+  opacity: number;
+}
+
 export interface PlanSettings {
   boundary?: Geometry | null;
   north_angle_deg: number;
@@ -285,6 +304,8 @@ export interface PlanSettings {
   plan_updated_at?: string | null;
   /** Display name, never the account key (§22.1). */
   plan_updated_by_name?: string | null;
+  /** The background picture to trace over; one per site, the same for every member (GP-FR-033). */
+  underlay?: PlanUnderlay | null;
 }
 
 export interface GardenPlanResponse {

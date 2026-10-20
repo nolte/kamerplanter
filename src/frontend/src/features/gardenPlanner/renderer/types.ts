@@ -7,7 +7,7 @@
 import type { ReactNode } from 'react';
 import type { PlanModel } from '../model/planModel';
 import type { AttentionCode, Lifecycle } from '../model/plantState';
-import type { Geometry, GardenObjectType, Point } from '../model/types';
+import type { Geometry, GardenObjectType, PlanUnderlay, Point } from '../model/types';
 
 /**
  * What the screen shows. Screen space has its origin top-left with y pointing down; model space is
@@ -82,8 +82,18 @@ export interface WateredLayerEntry {
   wateredClass: 'd0_1' | 'd2_3' | 'd4_7' | 'd8plus';
 }
 
+/** The background picture as the renderer draws it (GP-FR-033): a loaded `blob:` URL, its size in pixels and the placement. */
+export interface UnderlayRenderEntry {
+  href: string;
+  widthPx: number;
+  heightPx: number;
+  underlay: PlanUnderlay;
+}
+
 export interface RenderOptions {
   labels: RendererLabels;
+  /** The underlay layer; absent = hidden (or no picture). Drawn below every object, in the editor only. */
+  underlayLayer?: UnderlayRenderEntry;
   /** The zone layer; absent = hidden. Decorative: the zone of a bed is also written in the properties panel. */
   zoneLayer?: readonly ZoneLayerEntry[];
   /**

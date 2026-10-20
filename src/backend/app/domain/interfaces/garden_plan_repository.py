@@ -17,7 +17,7 @@ from app.domain.models.garden_plan import (
     SlotSpeciesHint,
     TaskCounter,
 )
-from app.domain.models.site import Location, Slot
+from app.domain.models.site import Location, SiteUnderlay, Slot
 
 
 @dataclass
@@ -135,6 +135,17 @@ class IGardenPlanRepository(ABC):
         does not know the tenant (a location carries none, E-01). A change of ``irrigation_zone_key`` moves the
         bed's ``zone_covers`` edge in the same transaction (REQ-053 WP 7.1); the caller has resolved the zone
         to one of the bed's site.
+        """
+
+    @abstractmethod
+    def set_site_underlay(
+        self, site_key: SiteKey, *, tenant_key: str, underlay: SiteUnderlay | None
+    ) -> tuple[bool, str | None]:
+        """Replace (or, with ``None``, remove) the underlay of the tenant's site plan - outside the plan revision.
+
+        The picture is presentation, not structure (GP-NFR-007 counts structure), so neither the revision nor the
+        audit log moves. Returns ``(written, previous_attachment_key)``: ``written`` is false when the site is
+        another tenant's, absent or has no plan; ``previous_attachment_key`` is the picture the write replaced.
         """
 
     @abstractmethod

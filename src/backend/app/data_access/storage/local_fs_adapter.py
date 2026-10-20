@@ -589,6 +589,7 @@ def _erasure_scope_categories():  # type: ignore[no-untyped-def]
             AttachmentCategory.POST_HARVEST,
             AttachmentCategory.TASK,
             AttachmentCategory.PLANT,
+            AttachmentCategory.GARDEN_PLAN_UNDERLAY,
         ),
         # Hard-delete scope: REQ-010 user-contributed pest reference images.
         # No retention obligation, so the binary objects are removed outright
@@ -620,7 +621,8 @@ def _scope_to_categories(scope: str):  # type: ignore[no-untyped-def]
     - ``user_diary_attachments`` → documentation photos that stay attached to
       the tenant record and are only anonymised (``diary``, ``ipm``,
       ``harvest``, ``post_harvest``, ``task``, ``plant`` — ``plant`` is the
-      REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5).
+      REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5; ``garden_plan_underlay`` is the
+      plan's background picture, GP-FR-033).
     - ``user_pest_reference_images`` → REQ-010 user-contributed pest reference
       images (``pest_reference``). Hard-deleted (no retention obligation).
 
