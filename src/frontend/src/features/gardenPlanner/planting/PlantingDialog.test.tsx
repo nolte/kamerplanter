@@ -164,6 +164,7 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
         code: 'rotation.pause_not_elapsed',
         message: 'english server text',
         family_key: 'Solanaceae',
+        family_name: 'Solanaceae',
         years_since: 1,
         pause_years: 4,
         pause_source: 'family',
@@ -186,26 +187,27 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     expect(panel.compareDocumentPosition(layout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('names the family of the finding by its name, not by its database key', async () => {
-    // The server names the family by its document key (a number in a seeded catalogue); the species catalogue the
-    // dialog loaded carries the name of every family it uses.
-    const cauliflower = species('sp_cauli', 'Cauliflower', { spacing_cm: '50', family_key: '5504', family_name: 'Brassicaceae' });
-    const byKey = hint({
+  const findingOf = (code: string, family: { family_key: string; family_name?: string | null }) =>
+    hint({
       species_key: 'sp_cauli',
       severity: 'WARNING',
       rotation: [
         {
           severity: 'WARNING',
-          code: 'rotation.pause_not_elapsed',
+          code,
           message: 'english server text',
-          family_key: '5504',
+          ...family,
           years_since: 1,
           pause_years: 4,
           pause_source: 'family',
         },
       ],
     });
-    usePlantingBackend({ species: [cauliflower], hints: { sp_cauli: byKey } });
+
+  it('names the family of the finding by the name the server sends, not by its database key', async () => {
+    const cauliflower = species('sp_cauli', 'Cauliflower', { spacing_cm: '50' });
+    const named = findingOf('rotation.pause_not_elapsed', { family_key: '5504', family_name: 'Brassicaceae' });
+    usePlantingBackend({ species: [cauliflower], hints: { sp_cauli: named } });
     const user = userEvent.setup();
     renderDialog();
     await choose(user, 0, 'Cauliflower');
@@ -213,6 +215,28 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     const panel = await screen.findByTestId('planting-hint-sp_cauli');
     expect(panel).toHaveTextContent('The family Brassicaceae stood in this bed 1 year(s) ago');
     expect(panel).not.toHaveTextContent('5504');
+  });
+
+  it.each([
+    ['rotation.pause_not_elapsed', 'The same family stood in this bed 1 year(s) ago'],
+    ['rotation.pest_risk', 'High pest risk with a family that stood here recently'],
+  ])('leaves the family out of the %s sentence when it has no name and never shows the key', async (code, text) => {
+    // The catalogue knows the name of the family, but the server sent none: the client does not look it up.
+    const cauliflower = species('sp_cauli', 'Cauliflower', {
+      spacing_cm: '50',
+      family_key: '5504',
+      family_name: 'Brassicaceae',
+    });
+    const unnamed = findingOf(code, { family_key: '5504', family_name: null });
+    usePlantingBackend({ species: [cauliflower], hints: { sp_cauli: unnamed } });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Cauliflower');
+
+    const panel = await screen.findByTestId('planting-hint-sp_cauli');
+    expect(panel).toHaveTextContent(text);
+    expect(panel).not.toHaveTextContent('5504');
+    expect(panel).not.toHaveTextContent('Brassicaceae');
   });
 
   it('plants nothing until "Plant anyway" is confirmed with a reason, then stores the reason on the run', async () => {

@@ -141,6 +141,7 @@ class TestValidatePlanting:
             4,
         )
         assert "1 year(s) ago" in finding["message"]
+        assert finding["family_name"] == "Brassicaaceae"
 
     def test_every_role_may_ask(self, client) -> None:
         for role in (TenantRole.VIEWER, TenantRole.GROWER, TenantRole.LEAD):

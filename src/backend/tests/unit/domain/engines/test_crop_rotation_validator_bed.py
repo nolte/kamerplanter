@@ -107,6 +107,50 @@ class TestPauseAndStrength:
         assert "2 year(s) ago" in finding.message
         assert result.severity == finding.severity == "CRITICAL"
 
+    def test_a_finding_carries_the_name_of_the_family_next_to_its_key(self, world) -> None:
+        validator, _plan, history, *_ = world
+        history.add_plant("bed", "kale", date(2024, 5, 1), removed_on=date(2024, 9, 1))
+
+        (finding,) = check(validator).findings
+
+        assert (finding.family_key, finding.family_name) == ("brassica", "Brassicaaceae")
+        assert "Brassicaaceae" in finding.message
+
+    def test_a_family_outside_the_catalogue_has_no_name_and_the_key_is_not_shown_as_one(self, world) -> None:
+        validator, _plan, history, _graph, species = world
+        species.by_key["cabbage"] = make_species("cabbage", "ghostfam")
+        species.by_key["kale"] = make_species("kale", "ghostfam")
+        history.add_plant("bed", "kale", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+
+        (finding,) = check(validator).findings
+
+        assert (finding.code, finding.family_key, finding.family_name) == (
+            "rotation.pause_not_elapsed",
+            "ghostfam",
+            None,
+        )
+        assert "ghostfam" not in finding.message
+
+    def test_a_pest_finding_names_the_other_family_from_the_catalogue(self, world) -> None:
+        validator, _plan, history, graph, _species = world
+        graph.pest_risks["brassica"] = [{"family": {"_key": "solanum"}, "risk_level": "high"}]
+        history.add_plant("bed", "tomato", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+
+        (finding,) = check(validator).findings
+
+        assert (finding.family_key, finding.family_name) == ("solanum", "Solanumaceae")
+
+    def test_a_pest_finding_for_an_unlisted_family_has_no_name(self, world) -> None:
+        validator, _plan, history, graph, species = world
+        species.by_key["tomato"] = make_species("tomato", "ghostfam")
+        graph.pest_risks["brassica"] = [{"family": {"_key": "ghostfam"}, "risk_level": "high"}]
+        history.add_plant("bed", "tomato", date(2025, 5, 1), removed_on=date(2025, 9, 1))
+
+        (finding,) = check(validator).findings
+
+        assert (finding.family_key, finding.family_name) == ("ghostfam", None)
+        assert "ghostfam" not in finding.message
+
     def test_a_pause_that_has_elapsed_is_ok(self, world) -> None:
         validator, _plan, history, *_ = world
         history.add_plant("bed", "kale", date(2022, 5, 1), removed_on=date(2022, 9, 1))

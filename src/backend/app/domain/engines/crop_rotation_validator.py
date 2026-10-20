@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Literal, Protocol
@@ -62,6 +62,9 @@ class RotationFinding:
     code: str
     message: str
     family_key: str | None = None
+    #: Display name of ``family_key`` from the family catalogue; ``None`` when the family is unknown or unnamed.
+    #: Consumers must never show ``family_key`` as a name in its place.
+    family_name: str | None = None
     species_key: str | None = None
     last_year: int | None = None
     years_since: int | None = None
@@ -156,8 +159,18 @@ def _pause_of(holder: Species | BotanicalFamily | None) -> int | None:
     return holder.rotation_pause_years if holder is not None else None
 
 
+def _name_or_none(name: str | None) -> str | None:
+    """A usable family name, ``None`` for a missing or blank one."""
+    return name.strip() or None if name else None
+
+
 def _pause_finding(
-    family_key: str, pause: int, source: PauseSource, same: list[HistoryEntry], today_year: int
+    family_key: str,
+    family_name: str | None,
+    pause: int,
+    source: PauseSource,
+    same: list[HistoryEntry],
+    today_year: int,
 ) -> RotationFinding | None:
     """The finding for the most recent year the same family stood in the bed, if the pause has not elapsed."""
     if not same:
@@ -171,8 +184,9 @@ def _pause_finding(
     return RotationFinding(
         pause_severity(years_since, pause),
         "rotation.pause_not_elapsed",
-        f"Family '{family_key}' grew in this bed{role} {when}; the pause is {pause} year(s) ({source}).",
+        f"{_family_phrase(family_name)} grew in this bed{role} {when}; the pause is {pause} year(s) ({source}).",
         family_key=family_key,
+        family_name=family_name,
         species_key=last.species_key,
         last_year=last.year,
         years_since=years_since,
@@ -182,16 +196,32 @@ def _pause_finding(
     )
 
 
-def _pest_finding(family_key: str, risk: Mapping[str, Any], recent: set[str | None]) -> RotationFinding | None:
+def _family_phrase(family_name: str | None) -> str:
+    """The family in an English message: its name, never its database key."""
+    return f"Family '{family_name}'" if family_name else "The same family"
+
+
+def _pest_finding(
+    family_key: str,
+    family_name: str | None,
+    risk: Mapping[str, Any],
+    recent: set[str | None],
+    other_name: Callable[[str], str | None],
+) -> RotationFinding | None:
     """A high shared-pest risk with a family that grew in the bed within the pause."""
     other = get_field(get_field(risk, "family", {}), "_key", "")
     if other not in recent or get_field(risk, "risk_level") != "high":
         return None
+    other_family = get_field(risk, "family", {})
+    name = _name_or_none(get_field(other_family, "name", None)) or other_name(other)
+    own = f"'{family_name}'" if family_name else "this family"
+    theirs = f"'{name}'" if name else "another family"
     return RotationFinding(
         "WARNING",
         "rotation.pest_risk",
-        f"High pest risk between '{family_key}' and '{other}', which grew in this bed recently.",
+        f"High pest risk between {own} and {theirs}, which grew in this bed recently.",
         family_key=other,
+        family_name=name,
         pest_risk={
             "shared_pests": get_field(risk, "shared_pests", []),
             "shared_diseases": get_field(risk, "shared_diseases", []),
@@ -491,7 +521,14 @@ class CropRotationValidator:
         pause, source = resolve_pause_years(species, family, rotation_window_years)
         today_year = today_utc().year
         entries, reset_at = self._bed_history(location, from_year=today_year - max(pause, 1), tenant_key=tenant_key)
-        findings = self._rotation_findings(species.family_key, pause, source, entries, today_year)
+        findings = self._rotation_findings(
+            species.family_key,
+            _name_or_none(family.name if family is not None else None),
+            pause,
+            source,
+            entries,
+            today_year,
+        )
         findings = sorted(findings, key=lambda f: SEVERITY_ORDER[f.severity])
         severity = findings[0].severity if findings else "OK"
         return BedRotationResult(
@@ -501,6 +538,7 @@ class CropRotationValidator:
     def _rotation_findings(
         self,
         family_key: str,
+        family_name: str | None,
         pause: int,
         source: PauseSource,
         entries: list[HistoryEntry],
@@ -510,13 +548,14 @@ class CropRotationValidator:
             return []
         occupied = [e for e in entries if e.family_key is not None and e.plan_role != PlanRole.FALLOW.value]
         same = [e for e in occupied if e.family_key == family_key]
-        pause_finding = _pause_finding(family_key, pause, source, same, today_year)
+        pause_finding = _pause_finding(family_key, family_name, pause, source, same, today_year)
         recent = {e.family_key for e in occupied if today_year - e.year < pause and e.family_key != family_key}
         pest_findings = (
             [
                 f
                 for f in (
-                    _pest_finding(family_key, risk, recent) for risk in self._graph_repo.get_pest_risks(family_key)
+                    _pest_finding(family_key, family_name, risk, recent, self._name_of_family)
+                    for risk in self._graph_repo.get_pest_risks(family_key)
                 )
                 if f
             ]
@@ -532,11 +571,17 @@ class CropRotationValidator:
                     f"No planting is recorded for this bed in the last {pause} year(s) — the rotation cannot be "
                     "verified. Record earlier years with the history backfill.",
                     family_key=family_key,
+                    family_name=family_name,
                     pause_years=pause,
                     pause_source=source,
                 )
             ]
         return findings
+
+    def _name_of_family(self, key: str) -> str | None:
+        """The catalogue name of a family key, ``None`` when it is not in the catalogue."""
+        family = self._family_source().get_by_key(key)
+        return _name_or_none(family.name if family is not None else None)
 
     @staticmethod
     def _timeline_row(entry: HistoryEntry, fam: BotanicalFamily | None, species: Species | None) -> TimelineEntry:
