@@ -43,6 +43,25 @@ tasks:
     cmds:
       - npx vitest run {{.CLI_ARGS}}
 
+  test:frontend:bench:
+    desc: |
+      Garden planner performance benchmarks as assertions (REQ-053 GP-NFR-040, WP 5.4):
+      `applyOperation(move)` median <= 1 ms on the large plan (GP-ACC-033), the marker
+      derivation after a move, the renderer frame cost and the client layout of 200
+      positions (GP-NFR-036). Not in the lane: `plantState.benchmark.test.ts` (GP-NFR-073,
+      a single 5 000-plant batch against 50 ms) - it failed 4 of 8 runs on a quiet
+      developer machine (54-68 ms), so it is a flake in waiting, not an assertion.
+      The wall-clock cases are skipped unless
+      GP_BENCHMARK=1, because a loaded runner makes them flaky in the shared suite; this
+      target sets it, and the advisory `Garden planner benchmarks` job in frontend.yml
+      runs it. The server half is `tests/unit/domain/calculators/test_plan_calculators_benchmark.py`
+      and the `GET /plan` case of `tests/integration/test_garden_plan_repository.py`.
+    dir: src/frontend
+    env:
+      GP_BENCHMARK: "1"
+    cmds:
+      - npx vitest run applyOperation.benchmark layout.benchmark renderer.benchmark planIndex.slotFollow {{.CLI_ARGS}}
+
   build:frontend:
     desc: Production build — the CI gate's exact invocation
     dir: src/frontend

@@ -134,10 +134,14 @@ class BedViewPage(BasePage):
     HISTORY_LIST = _tid("history-list")
     HISTORY_CORRECTIONS = _tid("history-corrections")
 
+    # ── Care tab (WP 4.4) ──────────────────────────────────────────────
+    CARE_TAB = _tid("bed-care-tab")
+
     #: The tab is part of the URL hash (``useTabUrl``).
     TAB_CONTENT = {
         "plan": PLAN_TAB,
         "planting": PLANTING_TAB,
+        "care": CARE_TAB,
         "history": HISTORY_TAB,
     }
 
