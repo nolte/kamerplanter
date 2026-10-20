@@ -6,6 +6,8 @@ import * as api from '../api/gardenPlan';
 import type { PlanBatchResponse } from '../model/types';
 import gardenPlanReducer, {
   applyAction,
+  refreshGardenPlan,
+  undo,
   saveGardenPlan,
   selectAutoSaveReady,
   loadGardenPlan,
@@ -172,7 +174,7 @@ describe('edits made while the server changes the plan', () => {
     expect(selectGardenPlanState(store.getState()).placing).toBe(false);
   });
 
-  it('B1: an edit made while a save is in flight is kept and goes with the next save', async () => {
+  it('B1: an edit during a save is refused visibly, not dropped; afterwards it applies and undoes', async () => {
     const store = await loaded();
     const keys = Object.keys(selectGardenPlanState(store.getState()).plan!.locations);
     store.dispatch(applyAction([lock(keys[0])], null));
@@ -180,26 +182,30 @@ describe('edits made while the server changes the plan', () => {
     applyPlanBatch.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
     const saving = store.dispatch(saveGardenPlan());
     expect(selectGardenPlanState(store.getState()).saveStatus).toBe('saving');
-    store.dispatch(applyAction([lock(keys[1] ?? keys[0])], null));
-    expect(selectGardenPlanState(store.getState()).pending).toHaveLength(2);
+    store.dispatch(applyAction([lock(keys[1])], null));
+    const during = selectGardenPlanState(store.getState());
+    expect(during.editError).toBe('plan.saving');
+    expect(during.pending).toHaveLength(1);
+    expect(during.plan!.locations[keys[1]].locked).toBe(false);
     release({ plan_revision: 8, key_map: {}, updated: [], deleted: [], derived: {} });
     await saving;
+    store.dispatch(applyAction([lock(keys[1])], null));
     const after = selectGardenPlanState(store.getState());
+    expect(after.editError).toBeNull();
     expect(after.pending).toHaveLength(1);
-    expect(after.pending[0].op).toMatchObject({ op: 'set_locked' });
-    expect(selectAutoSaveReady(store.getState())).toBe(true);
-    applyPlanBatch.mockResolvedValueOnce({
-      plan_revision: 9,
-      key_map: {},
-      updated: [],
-      deleted: [],
-      derived: {},
-    });
-    await store.dispatch(saveGardenPlan());
-    expect(applyPlanBatch).toHaveBeenLastCalledWith('site_1', {
-      expected_revision: 8,
-      operations: [expect.objectContaining({ op: 'set_locked' })],
-    });
-    expect(selectGardenPlanState(store.getState()).pending).toHaveLength(0);
+    expect(after.pending[0].op).toMatchObject({ op: 'set_locked', key: keys[1], locked: true });
+    store.dispatch(undo());
+    const undone = selectGardenPlanState(store.getState());
+    expect(undone.plan!.locations[keys[1]].locked).toBe(false);
+    expect(undone.pending).toHaveLength(0);
+  });
+
+  it('ignores a late refresh answer for another site', async () => {
+    const store = await loaded();
+    const before = selectGardenPlanState(store.getState()).plan;
+    const other = { ...planResponse(), site_key: 'site_other' } as never;
+    getGardenPlan.mockResolvedValue(other);
+    await store.dispatch(refreshGardenPlan('site_other'));
+    expect(selectGardenPlanState(store.getState()).plan).toBe(before);
   });
 });

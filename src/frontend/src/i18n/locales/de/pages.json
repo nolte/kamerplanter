@@ -5442,7 +5442,8 @@
           },
           "plan": {
             "revision_conflict": "Der Plan wurde zwischenzeitlich geändert und neu geladen. Platziere die Vorlage noch einmal.",
-            "quota_exceeded": "So viele Beete und Objekte passen nicht in diesen Garten (höchstens 500). Es wurde nichts angelegt."
+            "quota_exceeded": "So viele Beete und Objekte passen nicht in diesen Garten (höchstens 500). Es wurde nichts angelegt.",
+            "saving": "Speichern läuft – bitte gleich noch einmal versuchen. Diese Änderung wurde nicht übernommen."
           },
           "template": {
             "save_first": "Die ungespeicherten Änderungen konnten nicht gespeichert werden. Speichere zuerst, dann setze die Vorlage.",

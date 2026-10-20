@@ -347,7 +347,7 @@ describe('save', () => {
     expect(state.pending).toEqual([]);
   });
 
-  it('takes new edits while a save is in flight, but not undo (the wire owns those operations)', async () => {
+  it('is read-only while a save is in flight, and says so', async () => {
     const store = await loaded();
     store.dispatch(applyAction([move('loc_a', 5, 5)]));
     let finish: (value: PlanBatchResponse) => void = () => undefined;
@@ -355,13 +355,13 @@ describe('save', () => {
     const saving = store.dispatch(saveGardenPlan());
     expect(store.getState().gardenPlan.saveStatus).toBe('saving');
     store.dispatch(applyAction([move('loc_b', 9, 9)]));
+    expect(store.getState().gardenPlan.editError).toBe('plan.saving');
     store.dispatch(undo());
     expect(selectCanUndo(store.getState())).toBe(false);
-    expect(selectPendingCount(store.getState())).toBe(2);
+    expect(selectPendingCount(store.getState())).toBe(1);
     finish(ok());
     await saving;
     expect(store.getState().gardenPlan.saveStatus).toBe('idle');
-    expect(selectPendingCount(store.getState())).toBe(1);
   });
 
   it('409 plan.revision_conflict keeps pending, empties the history and opens the conflict (GP-NFR-006, GP-FR-026)', async () => {
@@ -446,7 +446,14 @@ describe('save', () => {
           error_id: 'e3',
           error_code: 'geometry.outside_parent',
           message: 'outside',
-          details: [{ field: 'geometry', reason: 'outside', code: 'geometry.outside_parent', op_index: 0 } as never],
+          details: [
+            {
+              field: 'geometry',
+              reason: 'outside',
+              code: 'geometry.outside_parent',
+              op_index: 0,
+            } as never,
+          ],
           timestamp: '',
           path: '',
           method: 'POST',

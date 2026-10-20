@@ -20,7 +20,13 @@
  * (`registerLazySlice(gardenPlanSlice)`, REQ-053 WP 2.3). Until then `state.gardenPlan` is
  * absent, which is why the selectors fall back to the initial state.
  */
-import { createAsyncThunk, createSelector, createSlice, original, type PayloadAction } from '@reduxjs/toolkit';
+import {
+  createAsyncThunk,
+  createSelector,
+  createSlice,
+  original,
+  type PayloadAction,
+} from '@reduxjs/toolkit';
 import {
   applyOperations,
   PlanOperationError,
@@ -108,7 +114,9 @@ export type PlanEditError =
   | 'undo.not_reversible'
   | 'redo.failed'
   /** An edit while a template is being placed (the server is changing the plan). */
-  | 'template.busy';
+  | 'template.busy'
+  /** An edit while a save is in flight: refused visibly, the user tries again in a moment. */
+  | 'plan.saving';
 
 export interface GardenPlanState {
   plan: PlanModel | null;
@@ -239,7 +247,8 @@ export interface PlaceTemplateArg {
 }
 
 /** `code` is a `notice.*` key of the editor: a server code (`bed.overlap`, ...) or one of the `template.*` codes. */
-export type PlaceTemplateOutcome = { ok: true; locationKey: string | null } | { ok: false; code: string };
+export type PlaceTemplateOutcome =
+  { ok: true; locationKey: string | null } | { ok: false; code: string };
 
 /**
  * Place a bed from a template. The server creates the bed in its own transaction (`POST .../plan/place-template`)
@@ -274,7 +283,8 @@ export const placeTemplateAt = createAsyncThunk<
     });
     const refreshed = await dispatch(refreshGardenPlan(siteKey));
     // The bed exists on the server; without the refreshed model the editor would not show it.
-    if (refreshGardenPlan.rejected.match(refreshed)) return { ok: false, code: 'template.refresh_failed' };
+    if (refreshGardenPlan.rejected.match(refreshed))
+      return { ok: false, code: 'template.refresh_failed' };
     return { ok: true, locationKey: response.key_map.template_bed ?? null };
   } catch (error) {
     const failure = api.toPlanSaveFailure(error);
@@ -298,17 +308,17 @@ function plainPlan(state: GardenPlanState): PlanModel | null {
 }
 
 /**
- * A new edit is taken in during a save in flight: `saveGardenPlan.fulfilled` cuts exactly the `inFlight`
- * operations off the front of `pending`, so what is queued meanwhile waits for the next save. Not during a
- * conflict (only a reload leaves it) and not while a template is placed.
+ * Edits wait for a save in flight: `saveGardenPlan.fulfilled` rebases the whole history onto the saved state,
+ * which would strip the undo of an entry whose operations are still pending behind the request (GP-FR-155).
+ * Not during a conflict (only a reload leaves it) and not while a template is placed.
  */
-function canEdit(state: GardenPlanState): boolean {
-  return state.plan !== null && state.saveStatus !== 'conflict' && !state.placing;
-}
-
-/** Undo and redo also wait for a save in flight: their history entries own the operations on the wire. */
 function isEditable(state: GardenPlanState): boolean {
-  return canEdit(state) && state.saveStatus !== 'saving';
+  return (
+    state.plan !== null &&
+    state.saveStatus !== 'saving' &&
+    state.saveStatus !== 'conflict' &&
+    !state.placing
+  );
 }
 
 function queue(state: GardenPlanState, ops: readonly PlanOperation[]): number[] {
@@ -378,7 +388,12 @@ export const gardenPlanSlice = createSlice({
           state.editError = 'template.busy';
           return;
         }
-        if (!canEdit(state)) return;
+        if (state.saveStatus === 'saving') {
+          // Visible, short-lived: the edit is not applied, and the user is told instead of losing it silently.
+          state.editError = 'plan.saving';
+          return;
+        }
+        if (!isEditable(state)) return;
         try {
           const applied = applyOperations(plan, ops);
           state.sequence += 1;
@@ -502,6 +517,8 @@ export const gardenPlanSlice = createSlice({
       })
       .addCase(refreshGardenPlan.fulfilled, (state, action) => {
         // Nothing may be pending here (the caller saved first); an edit made since stays where it is.
+        // A late answer for another site (the user left or switched meanwhile) is not this plan.
+        if (state.plan?.siteKey !== action.payload.siteKey) return;
         if (state.pending.length > 0 || state.saveStatus === 'saving') return;
         state.plan = action.payload;
         state.past = [];
@@ -624,7 +641,8 @@ export const selectInvalidKeys = createSelector(
     const refused = new Set(opIds);
     const keys = new Set<string>();
     for (const item of pending) {
-      if (refused.has(item.id) && 'key' in item.op && typeof item.op.key === 'string') keys.add(item.op.key);
+      if (refused.has(item.id) && 'key' in item.op && typeof item.op.key === 'string')
+        keys.add(item.op.key);
     }
     return keys.size > 0 ? keys : NO_KEYS;
   },
