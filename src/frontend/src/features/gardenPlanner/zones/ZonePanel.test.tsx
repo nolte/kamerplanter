@@ -10,7 +10,7 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import ZonePanel from './ZonePanel';
-import { BASE, status, useStatus, zone, zoneData, zonePlan } from './zonesTestKit';
+import { BASE, status, mockStatus, zone, zoneData, zonePlan } from './zonesTestKit';
 import type { IrrigationZone } from './zoneTypes';
 
 afterEach(() => cleanup());
@@ -115,12 +115,12 @@ describe('create and assign beds', () => {
 describe('delete', () => {
   it('is offered to the lead only', async () => {
     const user = userEvent.setup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     renderPanel([zone('z1')], 'grower');
     await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
     expect(screen.queryByTestId('garden-plan-zone-delete')).toBeNull();
     cleanup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     renderPanel([zone('z1')], 'lead');
     await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
     expect(screen.getByTestId('garden-plan-zone-delete')).toBeInTheDocument();
@@ -128,7 +128,7 @@ describe('delete', () => {
 
   it('asks before it deletes', async () => {
     const user = userEvent.setup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     const deleted = vi.fn();
     server.use(
       http.delete(`${BASE}/irrigation-zones/z1`, () => {
@@ -149,7 +149,7 @@ describe('status', () => {
   it('words the last watering as days since, marks an allocated value, and hides an absent demand', async () => {
     const user = userEvent.setup();
     const yesterday = new Date(Date.now() - 86_400_000).toISOString();
-    useStatus(
+    mockStatus(
       'z1',
       status({
         last_watering: { at: yesterday, source: 'care_event', location_key: 'loc_a', allocation: 'by_area' },
@@ -171,7 +171,7 @@ describe('status', () => {
 
   it('shows the demand, the gross value and the efficiency when the backend sourced them', async () => {
     const user = userEvent.setup();
-    useStatus(
+    mockStatus(
       'z1',
       status({
         demand_liters_today: 84,
@@ -191,7 +191,7 @@ describe('status', () => {
 
   it('translates the hint codes the backend returns, and names one it does not know', async () => {
     const user = userEvent.setup();
-    useStatus(
+    mockStatus(
       'z1',
       status({
         hints: [
@@ -214,14 +214,14 @@ describe('status', () => {
     const user = userEvent.setup();
     const answer = status({ consumption_sources: [{ source: 'actuator_runtime_ha_rate', liters: 30 }] });
     const record = zone('z1', { flow_rate_l_per_min: 4, flow_rate_source: 'ha_entity', flow_rate_ha_entity_bound: true });
-    useStatus('z1', answer);
+    mockStatus('z1', answer);
     renderPanel([record], 'grower');
     await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
     await screen.findByTestId('garden-plan-zone-consumption');
     expect(screen.queryByTestId('garden-plan-zone-technical')).toBeNull();
     expect(screen.queryByTestId('garden-plan-zone-flow-rate-input')).toBeNull();
     cleanup();
-    useStatus('z1', answer);
+    mockStatus('z1', answer);
     renderPanel([record], 'grower', ['technical']);
     await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
     const technical = await screen.findByTestId('garden-plan-zone-technical');
@@ -234,7 +234,7 @@ describe('status', () => {
 describe('watering round', () => {
   it('divides by area, marks the amount as allocated, lists beds without an area and the skipped ones', async () => {
     const user = userEvent.setup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     const sent: unknown[] = [];
     server.use(
       http.post(`${BASE}/irrigation-zones/z1/log-watering`, async ({ request }) => {
@@ -271,8 +271,8 @@ describe('watering round', () => {
 
   it('sends equal parts when chosen and refuses a zone without beds', async () => {
     const user = userEvent.setup();
-    useStatus('z1', status());
-    useStatus('z2', status());
+    mockStatus('z1', status());
+    mockStatus('z2', status());
     const sent: unknown[] = [];
     server.use(
       http.post(`${BASE}/irrigation-zones/z1/log-watering`, async ({ request }) => {
@@ -345,7 +345,7 @@ describe('partial failure and unsaved beds', () => {
 
   it('shows the moved notice and leaves the form of a zone that is gone', async () => {
     const user = userEvent.setup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     server.use(
       http.put(`${BASE}/irrigation-zones/z1/locations`, () =>
         HttpResponse.json({ ...zone('z1'), added: ['loc_a'], removed: [], moved_from: { loc_a: 'z0' } }),
@@ -357,7 +357,7 @@ describe('partial failure and unsaved beds', () => {
     await user.click(screen.getByTestId('garden-plan-zone-save'));
     expect(await screen.findByText(/Taken over from another zone: North bed/)).toBeInTheDocument();
     cleanup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     server.use(http.patch(`${BASE}/irrigation-zones/z1`, () => errorBody('x', 404)));
     renderPanel([zone('z1')]);
     await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
@@ -388,7 +388,7 @@ describe('partial failure and unsaved beds', () => {
 describe('watering round errors', () => {
   async function openRound() {
     const user = userEvent.setup();
-    useStatus('z1', status());
+    mockStatus('z1', status());
     renderPanel([zone('z1', { location_keys: ['loc_a'] })]);
     await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
     await user.click(await screen.findByTestId('garden-plan-zone-round-open'));

@@ -51,6 +51,6 @@ export function status(overrides: Partial<ZoneStatus> = {}): ZoneStatus {
   return { consumption_liters_30d: 0, consumption_sources: [], hints: [], ...overrides };
 }
 
-export function useStatus(zoneKey: string, answer: ZoneStatus): void {
+export function mockStatus(zoneKey: string, answer: ZoneStatus): void {
   server.use(http.get(`${BASE}/irrigation-zones/${zoneKey}/status`, () => HttpResponse.json(answer)));
 }
