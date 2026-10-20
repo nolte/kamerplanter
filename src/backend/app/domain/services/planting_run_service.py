@@ -32,6 +32,10 @@ from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import (
     QUICK_PLANTING_MAX_QUANTITY,
+    MixedRunDraft,
+    MixedRunSlot,
+    MixedRunsWrite,
+    MixedRunWrite,
     QuickPlantedPlant,
     QuickPlantingInput,
     QuickPlantingResult,
@@ -40,7 +44,7 @@ from app.domain.models.planting_reservation import (
 from app.domain.models.planting_run import SOURCE_FIELD_MODE, PlantingRun, PlantingRunEntry
 from app.domain.models.site import Location, Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
-from app.domain.services.planting_reservation_service import PlantingReservationService
+from app.domain.services.planting_reservation_service import FreePlacement, PlantingReservationService
 
 logger = structlog.get_logger()
 
@@ -239,6 +243,93 @@ class PlantingRunService:
                 self._repo.delete(created.key)
                 raise
         return created
+
+    def create_mixed_culture(
+        self,
+        location_key: str,
+        drafts: list[MixedRunDraft],
+        *,
+        tenant_key: str,
+        role: TenantRole,
+    ) -> list[PlantingRun]:
+        """Create the per-species runs of a mixed culture on one bed in **one** transaction (REQ-013 §2, #2463).
+
+        A mixed culture is separate monoculture runs per species; the bed's layout is computed for all of them
+        together (one id sequence, one quota and overlap check) and the runs, entries, layout slots and
+        reservations are written in one database transaction. Every check runs before the write, so a refusal
+        — or a failed write — leaves **nothing** behind and the caller never has to take a run back (which
+        needs the lead role).
+        """
+        if not tenant_key:
+            raise ValueError("create_mixed_culture is tenant-scoped and requires a non-empty tenant_key (#2463).")
+        if self._site_repo is None or self._reservations is None:
+            raise NotFoundError("Location", location_key)
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+        location = resolve_owned_location(self._site_repo, location_key, tenant_key)
+        for draft in drafts:
+            self._stamp_mixed_draft(draft, location_key, tenant_key)
+        entries = [draft.entry for draft in drafts]
+        free = [
+            FreePlacement(
+                entry_index=index,
+                points=draft.free_points,
+                spacing_cm=draft.entry.spacing_cm,
+                container_volume_l=draft.container_volume_l,
+            )
+            for index, draft in enumerate(drafts)
+            if draft.free_points
+        ]
+        prepared = self._reservations.prepare_layout(location, entries, tenant_key=tenant_key, free=free)
+        if free and prepared is None:
+            # Points need a bed with a frame to lie in; "no layout" would silently drop them.
+            raise PlanValidationError([(None, "runs", "geometry.invalid", {})])
+        reserved = prepared.slots if prepared is not None else []
+        writes = [
+            MixedRunWrite(
+                run=draft.run,
+                entry=draft.entry,
+                planned_from=draft.run.planned_from or today_utc(),
+                planned_until=draft.run.planned_until,
+                slots=[
+                    MixedRunSlot(slot=item.slot, sequence=item.sequence)
+                    for item in reserved
+                    if item.entry_index == index
+                ],
+            )
+            for index, draft in enumerate(drafts)
+        ]
+        outcome = self._reservations.place_mixed_runs(
+            MixedRunsWrite(location_key=location_key, runs=writes), tenant_key=tenant_key
+        )
+        return [self._repo.get_or_raise(run_key) for run_key in outcome.run_keys]
+
+    def _stamp_mixed_draft(self, draft: MixedRunDraft, location_key: str, tenant_key: str) -> None:
+        """The run and entry of one species as the transaction stores them, after the reference checks.
+
+        Everything that can refuse a single run refuses here, before any layout is computed or anything is
+        written: the tenant is the caller's (never the body's), the species is readable, the cultivar is the
+        tenant's, a green-manure run has suited species and the entry fits a monoculture run.
+        """
+        run, entry = draft.run, draft.entry
+        run.tenant_key = tenant_key
+        run.status = PlantingRunStatus.PLANNED
+        run.run_type = PlantingRunType.MONOCULTURE
+        run.location_key = location_key
+        run.planned_quantity = entry.quantity
+        run.planned_from = run.planned_from or run.planned_start_date
+        entry.tenant_key = tenant_key
+        # A key of the body is a reference: foreign and absent alike are 422 ``reference.not_found`` (GP-NFR-058).
+        try:
+            self._require_readable_species(entry.species_key, tenant_key)
+        except NotFoundError:
+            raise PlanValidationError([(None, "entry.species_key", "reference.not_found", {})]) from None
+        try:
+            self._repo.verify_entry_references(entry)
+        except NotFoundError:
+            raise PlanValidationError([(None, "entry.cultivar_key", "reference.not_found", {})]) from None
+        self._require_green_manure_species(run, [entry])
+        self._engine.validate_run_type_constraints(run.run_type, [entry], None)
 
     def _prepare_layout(self, run: PlantingRun, entries: list[PlantingRunEntry]):  # type: ignore[no-untyped-def]
         """``(bed, prepared slots)`` for a run on a bed with geometry whose entries plan a layout, else nothing."""

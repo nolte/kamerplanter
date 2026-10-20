@@ -9,6 +9,8 @@
  * Lengths are metres, angles degrees counter-clockwise about +x (§9.2).
  */
 
+import type { PlanZone } from '../zones/zoneTypes';
+
 /** The only plan DTO version this client reads (GP-API-001 `schema_version`). */
 export const PLAN_SCHEMA_VERSION = '1';
 
@@ -212,6 +214,8 @@ export interface PlanLocation {
   season_state?: string | null;
   open_task_count: number;
   overdue_task_count: number;
+  /** Newest watering of the bed within a year (ISO instant); absent = none. Shown as "days since", never as a need. */
+  last_watered_at?: string | null;
   /**
    * Not part of the lean read model: present only after an `update_fields` of this client set them
    * (the single-bed endpoints, GP-API-012, carry them).
@@ -291,7 +295,7 @@ export interface GardenPlanResponse {
   garden_objects: GardenObject[];
   slots: PlanSlot[];
   plants: PlanPlant[];
-  zones: Record<string, unknown>[];
+  zones: PlanZone[];
 }
 
 // ── Plan operations (GP-API-003, closed list) ────────────────────────────────

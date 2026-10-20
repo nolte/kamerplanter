@@ -94,6 +94,8 @@ export interface PropertiesPanelProps {
   onOpenLocation?: (locationKey: string) => void;
   /** Opens the care tab of a bed (GP-FR-089); absent = no such tab (module switched off). */
   onOpenCare?: (locationKey: string) => void;
+  /** Extra facts under the type of a bed: its irrigation zone and the days since its last watering (WP 7.7). */
+  bedInfo?: (locationKey: string) => ReactNode;
 }
 
 interface Described {
@@ -132,9 +134,10 @@ function EntityForm({
   onDuplicate,
   onDelete,
   onZOrder,
+  bedInfo,
 }: Pick<
   PropertiesPanelProps,
-  'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onOpenCare' | 'onDuplicate' | 'onDelete' | 'onZOrder'
+  'plan' | 'labels' | 'onCommit' | 'onOpenLocation' | 'onOpenCare' | 'onDuplicate' | 'onDelete' | 'onZOrder' | 'bedInfo'
 > & { entity: PlanEntity; entityKey: string }) {
   const { t } = useTranslation();
   const source = sourceOf(plan, entity, entityKey);
@@ -230,6 +233,7 @@ function EntityForm({
       <Typography variant="body2" color="text.secondary" data-testid="garden-plan-panel-type">
         {t(`${PREFIX}.panel.type`, { type: typeLabel })}
       </Typography>
+      {entity === 'location' && bedInfo?.(entityKey)}
 
       {entity === 'location' && (
         <Box component="section" aria-labelledby="garden-plan-panel-sun-title" data-testid="garden-plan-panel-sun">
@@ -598,6 +602,7 @@ export function PropertiesPanel(props: PropertiesPanelProps) {
         onCommit={props.onCommit}
         onOpenLocation={props.onOpenLocation}
         onOpenCare={props.onOpenCare}
+        bedInfo={props.bedInfo}
         onDuplicate={props.onDuplicate}
         onDelete={props.onDelete}
         onZOrder={props.onZOrder}

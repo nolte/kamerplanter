@@ -62,6 +62,9 @@ function renderBars() {
         unit="cm"
         onUnit={() => undefined}
         northAngleDeg={0}
+        layerToggles={[
+          { id: 'zones', label: 'Show irrigation zones', hint: 'hint', icon: <svg aria-hidden="true" />, visible: false },
+        ]}
       />
       <EditorToolbar
         tool="select"

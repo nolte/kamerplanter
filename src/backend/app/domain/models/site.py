@@ -261,7 +261,7 @@ class Slot(BaseModel):
     sequence: int | None = Field(default=None, ge=1)
     geometry_source: GeometrySource | None = None
     #: Pot volume in litres (W-016): in a tent the pot, not the spacing, limits the plant.
-    container_volume_l: float | None = Field(default=None, gt=0)
+    container_volume_l: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     #: Direct sowing recorded on a ``row``/``zone`` slot before plants exist (§11.3 "gesät").
     sown_at: date | None = None
     #: Set when the run that used the slot was closed (GP-FR-055); archived slots are history.

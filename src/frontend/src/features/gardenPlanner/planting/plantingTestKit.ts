@@ -71,10 +71,8 @@ interface BackendOptions {
   preview?: (entry: EntryLayout) => PreviewResponse;
   favorites?: string[];
   incompatible?: Record<string, { species_key: string; reason: string }[]>;
-  /** The nth run creation (1-based) answers 500. */
-  failRun?: number;
-  /** Deleting a run answers 403 (lead only). */
-  deleteForbidden?: boolean;
+  /** The mixed-culture request answers 500 (and, being one transaction, creates nothing). */
+  failRun?: boolean;
 }
 
 function toPreviewResponse(result: ReturnType<typeof computeLayout>): PreviewResponse {
@@ -148,34 +146,17 @@ export function usePlantingBackend(options: BackendOptions = {}): PlantingBacken
         options.hints?.[body.species_key] ?? hint({ species_key: body.species_key }),
       );
     }),
-    http.post(`${BASE}/planting-runs`, async ({ request }) => {
-      const body = (await record(request)) as { entries: unknown[] };
-      if (options.failRun === backend.seen.filter((s) => s.url === '/planting-runs').length) {
+    http.post(`${BASE}/planting-runs/mixed-culture`, async ({ request }) => {
+      const body = (await record(request)) as { runs: { entry: unknown }[] };
+      if (options.failRun) {
         return HttpResponse.json({ error_code: 'INTERNAL', message: 'boom', details: [] }, { status: 500 });
       }
-      const key = `run_${runs.size + 1}`;
-      runs.set(key, body.entries);
-      return HttpResponse.json({ key, name: 'run', status: 'planned' }, { status: 201 });
-    }),
-    http.get(`${BASE}/planting-runs/:key/entries`, ({ params }) =>
-      HttpResponse.json((runs.get(String(params.key)) ?? []).map((_, index) => ({ key: `${String(params.key)}_entry_${index + 1}` }))),
-    ),
-    http.delete(`${BASE}/planting-runs/:key`, ({ params }) => {
-      backend.seen.push({ url: `/planting-runs/${String(params.key)}`, body: 'DELETE' });
-      if (options.deleteForbidden) return HttpResponse.json({ error_code: 'FORBIDDEN', message: 'lead only', details: [] }, { status: 403 });
-      return new HttpResponse(null, { status: 204 });
-    }),
-    http.post(`${BASE}/locations/:key/slots/batch`, async ({ request }) => {
-      const body = (await record(request)) as { slots: unknown[] };
-      return HttpResponse.json({
-        created_keys: body.slots.map((_, index) => `slot_${index + 1}`),
-        deleted_count: 0,
-        kept_count: 0,
+      const created = body.runs.map((item, index) => {
+        const key = `run_${runs.size + index + 1}`;
+        return { key, name: 'run', status: 'planned', entry: item.entry };
       });
-    }),
-    http.post(`${BASE}/planting-runs/:key/plan-slots`, async ({ request }) => {
-      await record(request);
-      return HttpResponse.json({ run_key: 'run_1' });
+      created.forEach((run) => runs.set(run.key, [run.entry]));
+      return HttpResponse.json({ runs: created.map(({ key, name, status }) => ({ key, name, status })) }, { status: 201 });
     }),
     http.post(`${BASE}/locations/:key/quick-planting`, async ({ request }) => {
       await record(request);
