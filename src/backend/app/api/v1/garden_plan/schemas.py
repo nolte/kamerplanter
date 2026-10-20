@@ -10,14 +10,14 @@ last editor is named by display name (§22.1).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
 from app.common.enums import BedStatus, FlowRateSource, IrrigationZoneType, SlotRole, SunExposure
 from app.domain.models.garden_plan import MAX_OPERATIONS
-from app.domain.models.garden_plan_import import PlanImportReport
+from app.domain.models.garden_plan_import import MAX_OFFSET_M, ImportTarget, PlanImportReport
 from app.domain.models.geometry import Geometry
 
 SCHEMA_VERSION = "1"
@@ -411,6 +411,10 @@ class PlanAuditEntryResponse(BaseModel):
     changed_by_name: str | None = Field(default=None, description="Display name; ``null`` once the account is erased.")
 
 
+#: One axis of ``offset_m``: finite (``inf`` / ``nan`` are a 422, never a 500, #2529) and inside the plan frame.
+_OffsetM = Annotated[float, Field(allow_inf_nan=False, ge=-MAX_OFFSET_M, le=MAX_OFFSET_M)]
+
+
 class PlanImportRequest(BaseModel):
     """The envelope of ``POST /sites/{key}/plan/import``; ``document`` is a ``GET /plan/export`` file, as is.
 
@@ -433,6 +437,21 @@ class PlanImportRequest(BaseModel):
         max_length=200,
         description="`replace` (not a dry run) needs the name of the site, typed by the person who confirms.",
     )
+    target: ImportTarget = Field(
+        default="same_site",
+        description=(
+            "Where the file goes relative to where it came from (GP-FR-172). Keys of the file are always "
+            "replaced by new ones. `same_site` lets a reference that is not in the file resolve against this site; "
+            "`other_site` and "
+            "`other_tenant` never do - such a reference becomes `null` and is listed in `dropped_references[]`. "
+            "`other_tenant` needs the lead role of *this* tenant only: the file is the transport, nothing is read "
+            "across tenants."
+        ),
+    )
+    offset_m: tuple[_OffsetM, _OffsetM] | None = Field(
+        default=None,
+        description="`merge` only: `[dx, dy]` in metres added to every geometry of the file (422 for `replace`).",
+    )
     document: dict[str, Any] = Field(description='The backup file, `schema_version: "1"`.')
 
 
@@ -443,6 +462,8 @@ class PlanImportResponse(PlanImportReport):
                 {
                     "mode": "replace",
                     "dry_run": True,
+                    "target": "same_site",
+                    "offset_m": None,
                     "would_create": {"locations": 5, "garden_objects": 3, "slots": 20, "plan_settings": 0},
                     "would_update": {"locations": 0, "garden_objects": 0, "slots": 0, "plan_settings": 1},
                     "would_delete": {"locations": 4, "garden_objects": 2, "slots": 12, "plan_settings": 0},
@@ -459,4 +480,53 @@ class PlanImportResponse(PlanImportReport):
                 }
             ]
         }
+    )
+
+
+class PlanSnapshotResponse(BaseModel):
+    """One plan a `replace` import overwrote (GP-FR-148/170); the payload stays on the server."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "audit_key": "7481",
+                    "revision": 43,
+                    "at": "2026-10-17T09:12:33Z",
+                    "summary": "state before the replace import (revision 43)",
+                    "changed_by_name": "Sabine",
+                    "locations": 12,
+                    "garden_objects": 4,
+                    "slots": 96,
+                    "zones": 2,
+                }
+            ]
+        }
+    )
+
+    audit_key: str = Field(description="The handle of `POST …/snapshots/{audit_key}/restore`.")
+    revision: int
+    at: datetime
+    summary: str = ""
+    changed_by_name: str | None = Field(default=None, description="Display name; `null` once the account is erased.")
+    locations: int = 0
+    garden_objects: int = 0
+    slots: int = 0
+    zones: int = 0
+
+
+class PlanSnapshotRestoreRequest(BaseModel):
+    """`POST /sites/{key}/plan/snapshots/{audit_key}/restore`: a `replace` with the snapshot as the file."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"dry_run": True, "force": False, "confirm_site_name": None}]},
+    )
+
+    dry_run: bool = Field(default=False, description="Check and report what would change; write nothing.")
+    force: bool = Field(
+        default=False, description="Lifts only the condition that no bed holds an active plant; those beds then stay."
+    )
+    confirm_site_name: str | None = Field(
+        default=None, max_length=200, description="Needed unless `dry_run`: the name of the site, typed by the lead."
     )

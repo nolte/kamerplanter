@@ -292,9 +292,13 @@ class TestTheRouteOperand:
 
         +1: the mixed-culture create (REQ-053, #2463): ``POST /t/{slug}/planting-runs/mixed-culture``. The planting
         dialog (``features/gardenPlanner/planting/plantingApi.ts``) consumes it in the same change.
+
+        +2: the snapshots of a replace import (REQ-053 WP 7.19, #2485): ``GET /t/{slug}/sites/{key}/plan/snapshots``
+        and ``POST …/plan/snapshots/{audit_key}/restore``. The import wizard (``features/gardenPlanner/io/``)
+        consumes both in the same change. (WP 7.18 adds query parameters to existing operations, no route.)
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 885
+        assert len(checker.collect_operations(app)) == 887
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

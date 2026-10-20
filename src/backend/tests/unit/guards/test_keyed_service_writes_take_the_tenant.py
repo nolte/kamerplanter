@@ -593,6 +593,9 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "AdjacencyService.set_manual_edge",
         "AdjacencyService.remove_manual_edge",
         "GardenPlanImportService.import_plan",
+        # REQ-053 WP 7.19 (#2485): the restore of a snapshot is an ``import_plan`` whose file is a stored plan; it
+        # anchors on ``require_owned_site`` and loads the snapshot row under the tenant and the site.
+        "GardenPlanImportService.restore_snapshot",
         "BedRotationService.backfill",
         "BedRotationService.cancel_backfill",
     }

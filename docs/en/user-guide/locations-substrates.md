@@ -449,13 +449,17 @@ On the garden plan page, **Export & import** opens two dialogs.
 
 **Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers; a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
 
-The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks.
+The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks. If you have selected beds or garden objects on the plan, you can limit the backup to **Selection only** or **Selection with everything below**. Such a partial backup has no garden boundary, and references to things that are not in the file are dropped. Every role may read it.
 
 **Restore a backup** leads through the import in three steps. Only a lead can do this.
 
 1. **Choose file:** The file may be at most 5 MB. Kamerplanter checks it right away without writing anything.
 2. **Check report:** You see how much would be created and deleted, which references are not carried over (for example an irrigation zone that does not exist here) and which problems the file has, such as overlapping beds. With problems you cannot continue.
 3. **Mode:** *Add* creates the backup in addition to the existing plan. *Replace* swaps the plan of this site. For that you type the name of the site. Before that, Kamerplanter saves the previous plan as a snapshot in the change log. Download a current backup first anyway, to be safe.
+
+In *Add* mode you can move every shape of the file by a distance (to the right and up, in metres), for example to put a bed somewhere else. **Where is the file going?** tells Kamerplanter whether the file comes from this site, another site or another garden account. For the last two, references that are not in the file are never resolved against this site: they are dropped and listed in the check report. Nothing is read from another account, the file is the transport; you need the lead role in the account you import into.
+
+**Restore an earlier state:** In the first import step this button opens the list of plans that a *Replace* overwrote (kept for one year, lead only). You pick a state, read the check report and type the name of the site. Kamerplanter first saves the current plan as a state of its own, so the restore can be undone. *Add* does not create a state.
 
 !!! warning "Beds with active plants"
     A bed with a plant in it is never deleted. While such beds exist, *Replace* rejects the file. If you choose the option to keep those beds, they stay together with the locations above them, and the rest is replaced.

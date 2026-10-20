@@ -168,6 +168,8 @@ GET /api/v1/t/{slug}/sites/{key}/plan/render.svg         # SVG-Download
 GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON-Sicherung
 ```
 
+**Teil-Export der JSON-Sicherung** (GP-FR-172): `scope` ist `site` (Standard), `selection` (genau die in `keys` genannten Beete; ein Gartenobjekt als `object:<key>`) oder `subtree` (die genannten Beete mit allem darunter). `keys` ist eine kommagetrennte Liste, höchstens 100, bei `site` nicht erlaubt. Eine Teil-Datei hat keine Plan-Einstellungen, enthält nur die Zonen ihrer Beete, und Verweise aus der Datei hinaus sind `null`. Ein Schlüssel, den der Standort nicht kennt, ist `404`; `422` bei fehlenden, zu vielen oder ungültigen Schlüsseln (`export.keys_required`, `export.too_many_keys`, `export.keys_not_allowed`, `export.object_key_in_subtree`).
+
 **Query-Parameter von PDF und SVG:**
 
 | Parameter | Standard | Beschreibung |
@@ -219,6 +221,8 @@ POST /api/v1/t/{slug}/sites/{key}/plan/import
 | `dry_run` | `true` prüft die Datei und antwortet mit dem Bericht; nichts wird geschrieben |
 | `force` | Hebt nur die Bedingung auf, dass kein Beet eine aktive Pflanze trägt. Diese Beete und die Standorte darüber bleiben dann stehen |
 | `confirm_site_name` | `replace` (kein Dry-Run) verlangt den genauen Namen der Site |
+| `target` | `same_site` (Standard), `other_site` oder `other_tenant`: wohin die Datei geht. Schlüssel sind immer neu. Bei den beiden letzten wird ein Verweis, der nicht in der Datei steht, nie gegen den Standort aufgelöst (`null` und `dropped_references[]` mit Grund `outside_file`/`not_found`). `other_tenant` braucht die Leitungsrolle im Ziel-Konto; aus einem anderen Konto wird nichts gelesen |
+| `offset_m` | Nur `merge`: `[dx, dy]` in Metern (endlich, höchstens ±1000), auf jede Form der Datei addiert; bei `replace` `422` `import.offset_requires_merge`, bei einem ungültigen Wert `422` |
 | `document` | Die Sicherungsdatei |
 
 Die Antwort ist für Dry-Run und ausgeführten Import derselbe Bericht: `would_create`, `would_update` und `would_delete` (Zähler für `locations`, `garden_objects`, `slots`, `plan_settings`), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. Ein Dry-Run listet Geometrie- und Grenzverletzungen in `errors[]` mit Status `200`; ein ausgeführter Import mit Fehlern antwortet `422`.
@@ -237,8 +241,22 @@ Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt 
 | `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | Die Datei ist keine Sicherung einer Version, die diese Installation liest |
 | `422` | `import.unknown_keys` | Die Datei enthält Teile auf oberster Ebene, die diese Version nicht kennt (neuere Datei) |
 | `422` | `import.site_name_mismatch` | `replace` ohne den genauen Site-Namen |
+| `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` ist nicht endlich oder außerhalb von ±1000 m / gehört nur zu `merge` |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | Die Datei verletzt eine Grenze oder Geometrieregel |
 | `429` | | Importbudget des Mandanten aufgebraucht; `Retry-After` nennt die Wartezeit |
+
+---
+
+### Frühere Stände des Plans (Snapshots)
+
+Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
+
+```
+GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # Liste, neueste zuerst, seitenweise (limit/offset)
+POST /api/v1/t/{slug}/sites/{key}/plan/snapshots/{audit_key}/restore    # { "dry_run": true, "force": false, "confirm_site_name": null }
+```
+
+Die Liste nennt je Snapshot `audit_key`, `revision`, `at`, `summary`, `changed_by_name` und die Zahl der Standorte, Gartenobjekte, Pflanzplätze und Zonen, nie den Plan selbst. Die Wiederherstellung ist ein `replace` mit dem gespeicherten Plan (gleiche Prüfungen, gleicher Bericht wie der Import, `confirm_site_name` ist Pflicht, wenn nicht `dry_run`); der Plan, den sie überschreibt, wird vorher als eigener Snapshot gespeichert. Zonen des Standorts, die der Snapshot nicht nennt, entfallen. `409` `import.not_empty` bei Beeten mit aktiven Pflanzen (`force` hebt das auf). Ein `merge`-Import legt keinen Snapshot an.
 
 ---
 

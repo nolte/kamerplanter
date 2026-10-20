@@ -20,6 +20,7 @@ from app.domain.models.garden_plan import (
     PlanAuditEntry,
     PlanBatchOutcome,
     PlanBatchWrite,
+    PlanSnapshotEntry,
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
@@ -130,6 +131,8 @@ class FakePlanRepo(IGardenPlanRepository):
         #: Locations in which a plant stands (the import's V-09 set); ``active_plants`` stays the delete-check count.
         self.planted: set[str] = set()
         self.snapshots: list[dict] = []
+        #: ``(tenant_key, site_key, audit_key, snapshot)`` - what the ``import_snapshot`` rows would be (WP 7.19).
+        self.snapshot_rows: list[tuple[str, str, str, dict]] = []
         self.applied: list[PlanBatchWrite] = []
         self.audit: list[PlanAuditEntry] = []
         self.editor_name: str | None = "Sabine"
@@ -202,6 +205,31 @@ class FakePlanRepo(IGardenPlanRepository):
     def list_audit(self, site_key, *, tenant_key, offset, limit):
         return self.audit[offset : offset + limit]
 
+    def list_import_snapshots(self, site_key, *, tenant_key, offset, limit):
+        rows = [row for row in reversed(self.snapshot_rows) if row[0] == tenant_key and row[1] == site_key][
+            offset : offset + limit
+        ]
+        return [
+            PlanSnapshotEntry(
+                audit_key=audit_key,
+                revision=1,
+                at=datetime.fromisoformat("2026-10-17T09:00:00+00:00"),
+                summary="state before the replace import (revision 1)",
+                changed_by_name=self.editor_name,
+                locations=len(snapshot.get("locations", [])),
+                garden_objects=len(snapshot.get("garden_objects", [])),
+                slots=len(snapshot.get("slots", [])),
+                zones=len(snapshot.get("zones", [])),
+            )
+            for _tenant, _site, audit_key, snapshot in rows
+        ]
+
+    def load_import_snapshot(self, site_key, audit_key, *, tenant_key):
+        for tenant, site, key, snapshot in self.snapshot_rows:
+            if (tenant, site, key) == (tenant_key, site_key, audit_key):
+                return snapshot
+        return None
+
     def purge_audit_before(self, cutoff, *, batch):
         due = [entry for entry in self.audit if entry.at < cutoff][:batch]
         self.audit = [entry for entry in self.audit if entry not in due]
@@ -249,6 +277,9 @@ class FakePlanRepo(IGardenPlanRepository):
             self.slots.append(slot.model_copy(update={"key": f"slot_{self._next}", "location_key": key_map[temp]}))
         if write.snapshot is not None:
             self.snapshots.append(write.snapshot)
+            self.snapshot_rows.append(
+                (write.tenant_key, write.site_key, f"snap_{len(self.snapshot_rows)}", write.snapshot)
+            )
         for temp, garden_object in write.object_inserts:
             self._next += 1
             key_map[temp] = f"go_{self._next}"

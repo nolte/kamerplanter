@@ -124,6 +124,18 @@ class Rig:
     def exported(self, site: str = "site_a", tenant: str = A) -> dict[str, Any]:
         return json.loads(self.export.export_json(site, tenant_key=tenant).model_dump_json())
 
+    def exported_partial(self, scope: str, *names: str, site: str = "site_a", tenant: str = A) -> dict[str, Any]:
+        document = self.export.export_json(site, tenant_key=tenant, scope=scope, keys=list(names))  # type: ignore[arg-type]
+        return json.loads(document.model_dump_json())
+
+    def location_key(self, name: str, site: str = "site_a") -> str:
+        (row,) = list(self.db.collection(col.LOCATIONS).find({"site_key": site, "name": name}))
+        return row["_key"]
+
+    def object_key(self, label: str, site: str = "site_a") -> str:
+        (row,) = list(self.db.collection(col.GARDEN_OBJECTS).find({"site_key": site, "label": label}))
+        return row["_key"]
+
     def run(self, document, *, site="site_c", tenant=A, role=TenantRole.LEAD, **options: Any):
         arguments: dict[str, Any] = {
             "mode": "replace",
@@ -686,3 +698,287 @@ class TestAtomicity:
         assert list(rig.db.collection(col.LOCATIONS).find({"site_key": "site_c"})) == []
         assert [d for d in rig.db.collection(col.SLOTS).all() if d["location_key"] not in site_a_beds] == []
         assert rig.db.collection(col.GARDEN_PLAN_AUDIT).count() == 1  # only the source's set_boundary
+
+
+def _origins(document: dict[str, Any], name: str) -> dict[str, list[float]]:
+    return {item["name" if name == "locations" else "label"]: item["geometry"]["origin"] for item in document[name]}
+
+
+class TestPartialExportWp718:
+    """REQ-053 WP 7.18 (#2484, GP-FR-172): ``scope`` and ``keys`` of the JSON export."""
+
+    def test_a_subtree_holds_the_bed_and_what_is_below_and_nothing_else(self, rig) -> None:
+        keys = build_source_plan(rig)
+
+        whole = rig.exported()
+        subtree = rig.exported_partial("subtree", keys["house"])
+
+        assert {loc["name"] for loc in subtree["locations"]} == {"Gewaechshaus", "Beet b5"}
+        assert len(whole["locations"]) == 6  # positive control: the whole site is bigger
+        assert subtree["plan"] is None and subtree["slots"] == [] and subtree["garden_objects"] == []
+        (root,) = [loc for loc in subtree["locations"] if loc["name"] == "Gewaechshaus"]
+        (child,) = [loc for loc in subtree["locations"] if loc["name"] == "Beet b5"]
+        assert root["parent_location_key"] is None and child["parent_location_key"] == root["key"]
+
+    def test_a_selection_is_exactly_the_named_entities_with_their_slots_and_no_dangling_parent(self, rig) -> None:
+        keys = build_source_plan(rig)
+
+        chosen = rig.exported_partial("selection", keys["b5"], keys["b1"], f"object:{rig.object_key('Baum 0')}")
+
+        assert {loc["name"] for loc in chosen["locations"]} == {"Beet b5", "Beet b1"}
+        (inner,) = [loc for loc in chosen["locations"] if loc["name"] == "Beet b5"]
+        assert inner["parent_location_key"] is None  # its parent is not in the file: the reference left it
+        assert len(chosen["slots"]) == 5 and {slot["location_key"] for slot in chosen["slots"]} == {keys["b1"]}
+        assert [obj["label"] for obj in chosen["garden_objects"]] == ["Baum 0"]
+
+    def test_a_key_the_site_does_not_hold_is_a_404_and_so_is_one_of_another_tenant(self, rig) -> None:
+        keys = build_source_plan(rig)
+        with pytest.raises(NotFoundError):
+            rig.exported_partial("selection", "nope")
+        with pytest.raises(NotFoundError):
+            rig.exported_partial("subtree", keys["b1"], tenant=B, site="site_b")
+        with pytest.raises(NotFoundError):  # the site itself is another tenant's
+            rig.exported_partial("selection", keys["b1"], tenant=B)
+        assert rig.exported_partial("selection", keys["b1"])["locations"]  # positive control
+
+    def test_the_selection_rules_are_422s(self, rig) -> None:
+        keys = build_source_plan(rig)
+        for scope, names, code in (
+            ("site", [keys["b1"]], "export.keys_not_allowed"),
+            ("selection", [], "export.keys_required"),
+            ("subtree", ["object:1"], "export.object_key_in_subtree"),
+            ("selection", [str(n) for n in range(101)], "export.too_many_keys"),
+        ):
+            with pytest.raises(PlanError) as refused:
+                rig.exported_partial(scope, *names)
+            assert refused.value.status_code == 422 and refused.value.error_code == code
+
+    def test_a_zone_travels_with_its_beds_and_loses_a_water_source_that_stays_behind(self, rig) -> None:
+        keys = build_source_plan(rig)
+        TestZonesWp72()._zone_in_the_source(rig, keys)  # covers b1 and b2
+
+        with_zone = rig.exported_partial("selection", keys["b1"])
+        without = rig.exported_partial("selection", keys["b3"])
+
+        assert [zone["name"] for zone in with_zone["zones"]] == ["Sued"]
+        assert with_zone["zones"][0]["water_source_key"] is None  # the barrel is not in the file
+        assert without["zones"] == []
+
+    def test_a_partial_file_imports_into_another_site_as_new_entities(self, rig) -> None:
+        keys = build_source_plan(rig)
+        source = rig.exported_partial("subtree", keys["house"])
+
+        report = rig.run(source, mode="merge", confirm_site_name=None, target="other_site")
+
+        assert report.applied and report.errors == [] and report.target == "other_site"
+        assert {d["name"] for d in rig.db.collection(col.LOCATIONS).find({"site_key": "site_c"})} == {
+            "Gewaechshaus",
+            "Beet b5",
+        }
+        assert rig.db.collection(col.SITES).get("site_c").get("plan", {}).get("boundary") is None  # no plan settings
+
+
+class TestImportTargetAndOffsetWp718:
+    def test_an_offset_shifts_every_geometry_of_a_merge(self, rig) -> None:
+        keys = build_source_plan(rig)
+        source = rig.exported_partial("selection", keys["b1"], keys["b2"], f"object:{rig.object_key('Baum 1')}")
+        before_locations, before_objects = _origins(source, "locations"), _origins(source, "garden_objects")
+
+        report = rig.run(source, mode="merge", confirm_site_name=None, offset_m=(3.0, 2.5))
+
+        assert report.applied and report.offset_m == (3.0, 2.5)
+        placed = {
+            d["name"]: d["geometry"]["origin"] for d in rig.db.collection(col.LOCATIONS).find({"site_key": "site_c"})
+        }
+        assert placed == {name: [x + 3.0, y + 2.5] for name, (x, y) in before_locations.items()}
+        (tree,) = [d for d in rig.db.collection(col.GARDEN_OBJECTS).find({"site_key": "site_c"})]
+        (x, y) = before_objects["Baum 1"]
+        assert tree["geometry"]["origin"] == [x + 3.0, y + 2.5]
+        # The slots sit in the bed frame and did not move.
+        original = {slot["slot_id"]: slot["geometry"] for slot in source["slots"]}
+        copied = {
+            slot["slot_id"]: slot["geometry"]
+            for slot in rig.db.collection(col.SLOTS).all()
+            if slot["slot_id"] in original
+        }
+        assert copied and all(geometry in original.values() for geometry in copied.values())
+
+    def test_a_shift_out_of_the_plan_frame_is_reported_per_entity_and_writes_nothing(self, rig) -> None:
+        keys = build_source_plan(rig)
+        source = rig.exported_partial("selection", keys["b1"])
+
+        report = rig.run(source, mode="merge", confirm_site_name=None, dry_run=True, offset_m=(1000.0, 0.0))
+
+        assert report.errors_total == 1 and report.errors[0].code == "geometry.invalid"
+        assert report.errors[0].field == "locations[0].geometry"
+        assert list(rig.db.collection(col.LOCATIONS).find({"site_key": "site_c"})) == []
+
+    def test_an_offset_belongs_to_a_merge_and_must_be_finite(self, rig) -> None:
+        keys = build_source_plan(rig)
+        source = rig.exported_partial("selection", keys["b1"])
+        with pytest.raises(PlanError) as replace:
+            rig.run(source, mode="replace", confirm_site_name="Leerer Garten", offset_m=(1.0, 1.0))
+        assert replace.value.status_code == 422 and replace.value.error_code == "import.offset_requires_merge"
+        for bad in ((float("inf"), 0.0), (float("nan"), 0.0), (2000.0, 0.0)):
+            with pytest.raises(PlanError) as refused:
+                rig.run(source, mode="merge", confirm_site_name=None, offset_m=bad)
+            assert refused.value.status_code == 422 and refused.value.error_code == "import.offset_invalid"
+        assert rig.run(source, mode="merge", confirm_site_name=None, offset_m=(0.0, 0.0)).applied  # control
+
+    def test_a_reference_that_is_not_in_the_file_resolves_only_for_the_same_site(self, rig) -> None:
+        keys = build_source_plan(rig)
+        # A bed whose parent (the greenhouse) is not in the file, and whose key does exist in site_a.
+        source = rig.exported_partial("selection", keys["b5"])
+        source["locations"][0]["parent_location_key"] = keys["house"]
+
+        same = rig.run(source, site="site_a", mode="merge", confirm_site_name=None, dry_run=True, target="same_site")
+        other = rig.run(source, site="site_c", mode="merge", confirm_site_name=None, dry_run=True, target="other_site")
+        tenant = rig.run(
+            source, site="site_c", mode="merge", confirm_site_name=None, dry_run=True, target="other_tenant"
+        )
+
+        assert [d.field for d in same.dropped_references if d.entity == "location"] == []
+        for report in (other, tenant):
+            assert [(d.field, d.reason) for d in report.dropped_references] == [("parent_location_key", "not_found")]
+
+    def test_a_zone_of_the_target_site_is_not_claimed_by_a_file_for_another_site(self, rig) -> None:
+        keys = build_source_plan(rig)
+        TestZonesWp72()._zone_in_the_source(rig, keys)
+        zone_key = next(iter(rig.db.collection(col.IRRIGATION_ZONES).all()))["_key"]
+        source = rig.exported_partial("selection", keys["b3"])
+        source["locations"][0]["irrigation_zone_key"] = zone_key  # a zone that is not in the file, but is in site_a
+
+        same = rig.run(source, site="site_a", mode="merge", confirm_site_name=None, dry_run=True)
+        other = rig.run(
+            source, site="site_a", mode="merge", confirm_site_name=None, dry_run=True, target="other_tenant"
+        )
+
+        assert [d for d in same.dropped_references if d.field == "irrigation_zone_key"] == []
+        assert [(d.field, d.reason) for d in other.dropped_references] == [("irrigation_zone_key", "outside_file")]
+
+
+class TestSnapshotsWp719:
+    """REQ-053 WP 7.19 (#2485, GP-FR-148/170): list and restore the plans a ``replace`` overwrote."""
+
+    def _replace_site_a_with_a_part(self, rig) -> tuple[dict[str, Any], dict[str, str]]:
+        keys = build_source_plan(rig)
+        before = rig.exported()
+        part = rig.exported_partial("selection", keys["b1"])
+        report = rig.run(part, site="site_a", confirm_site_name="Garten A")
+        assert report.applied and report.snapshot_written
+        return before, keys
+
+    def test_restore_gives_back_the_state_before_the_import_and_writes_its_own_snapshot_first(self, rig) -> None:
+        before, _ = self._replace_site_a_with_a_part(rig)
+        (entry,) = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+        assert (entry.locations, entry.garden_objects, entry.slots) == (6, 3, 20)
+        assert len(rig.exported()["locations"]) == 1  # positive control: the import did replace the plan
+
+        report = rig.importer.restore_snapshot(
+            "site_a",
+            entry.audit_key,
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            dry_run=False,
+            force=False,
+            confirm_site_name="Garten A",
+        )
+
+        assert report.applied and report.errors == [] and report.snapshot_written
+        assert normalised(rig.exported()) == normalised(before)
+        # The restore wrote the one-bed plan down before it replaced it: two snapshots now, newest first.
+        snapshots = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+        assert [s.locations for s in snapshots] == [1, 6]
+
+    def test_a_dry_run_restore_writes_nothing(self, rig) -> None:
+        self._replace_site_a_with_a_part(rig)
+        (entry,) = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+        audit_before = rig.db.collection(col.GARDEN_PLAN_AUDIT).count()
+
+        report = rig.importer.restore_snapshot(
+            "site_a",
+            entry.audit_key,
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            dry_run=True,
+            force=False,
+            confirm_site_name=None,
+        )
+
+        assert report.dry_run and not report.applied and report.would_create.locations == 6
+        assert rig.db.collection(col.GARDEN_PLAN_AUDIT).count() == audit_before
+        assert len(rig.exported()["locations"]) == 1
+
+    def test_a_restore_retires_the_zones_the_import_brought(self, rig) -> None:
+        keys = build_source_plan(rig)
+        part = rig.exported_partial("selection", keys["b1"])
+        part["zones"] = [{"key": "z1", "name": "Neu", "irrigation_type": "manual"}]
+        part["locations"][0]["irrigation_zone_key"] = "z1"
+        rig.run(part, site="site_a", confirm_site_name="Garten A")
+        assert [z["name"] for z in rig.exported()["zones"]] == ["Neu"]
+        (entry,) = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+
+        rig.importer.restore_snapshot(
+            "site_a",
+            entry.audit_key,
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            dry_run=False,
+            force=False,
+            confirm_site_name="Garten A",
+        )
+
+        assert rig.exported()["zones"] == []
+
+    def test_the_list_is_bounded_lead_only_and_tenant_scoped(self, rig) -> None:
+        self._replace_site_a_with_a_part(rig)
+        rig.run(
+            rig.exported_partial("selection", rig.location_key("Beet b1")), site="site_a", confirm_site_name="Garten A"
+        )
+        assert len(rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)) == 2
+        assert len(rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=1)) == 1
+        with pytest.raises(PlanError) as grower:
+            rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.GROWER, offset=0, limit=50)
+        assert grower.value.status_code == 403 and grower.value.error_code == "import.forbidden"
+        with pytest.raises(NotFoundError):  # another tenant's lead: the site answers 404 before the role is read
+            rig.importer.list_snapshots("site_a", tenant_key=B, role=TenantRole.LEAD, offset=0, limit=50)
+
+    def test_a_snapshot_of_another_tenant_or_site_is_a_404_and_a_grower_gets_a_403(self, rig) -> None:
+        self._replace_site_a_with_a_part(rig)
+        (entry,) = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+        options: dict[str, Any] = {"user_key": USER, "dry_run": True, "force": False, "confirm_site_name": None}
+
+        with pytest.raises(NotFoundError):  # tenant B asks for tenant A's row through its own site
+            rig.importer.restore_snapshot("site_b", entry.audit_key, tenant_key=B, role=TenantRole.LEAD, **options)
+        with pytest.raises(NotFoundError):  # the right tenant, another site
+            rig.importer.restore_snapshot("site_c", entry.audit_key, tenant_key=A, role=TenantRole.LEAD, **options)
+        with pytest.raises(NotFoundError):  # the right site of the wrong tenant
+            rig.importer.restore_snapshot("site_a", entry.audit_key, tenant_key=B, role=TenantRole.LEAD, **options)
+        with pytest.raises(NotFoundError):  # a key that is no snapshot at all
+            rig.importer.restore_snapshot("site_a", "nope", tenant_key=A, role=TenantRole.LEAD, **options)
+        with pytest.raises(PlanError) as grower:
+            rig.importer.restore_snapshot("site_a", entry.audit_key, tenant_key=A, role=TenantRole.GROWER, **options)
+        assert grower.value.status_code == 403
+        assert rig.importer.restore_snapshot(  # positive control
+            "site_a", entry.audit_key, tenant_key=A, role=TenantRole.LEAD, **options
+        ).dry_run
+
+    def test_a_restore_still_asks_for_the_site_name_and_refuses_over_planted_beds(self, rig) -> None:
+        self._replace_site_a_with_a_part(rig)
+        (entry,) = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+        options: dict[str, Any] = {"user_key": USER, "role": TenantRole.LEAD, "dry_run": False, "force": False}
+
+        with pytest.raises(PlanError) as unnamed:
+            rig.importer.restore_snapshot("site_a", entry.audit_key, tenant_key=A, confirm_site_name="x", **options)
+        assert unnamed.value.error_code == "import.site_name_mismatch"
+
+        bed = rig.location_key("Beet b1")
+        rig.db.collection(col.PLANT_INSTANCES).insert({"tenant_key": A, "location_key": bed, "removed_on": None})
+        with pytest.raises(PlanError) as planted:
+            rig.importer.restore_snapshot(
+                "site_a", entry.audit_key, tenant_key=A, confirm_site_name="Garten A", **options
+            )
+        assert planted.value.status_code == 409 and planted.value.error_code == "import.not_empty"

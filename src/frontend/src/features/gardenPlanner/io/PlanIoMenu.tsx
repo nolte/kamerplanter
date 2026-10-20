@@ -14,6 +14,7 @@ import MenuItem from '@mui/material/MenuItem';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
+import type { PlanSelection } from './types';
 
 const ExportDialog = lazy(() => import('./ExportDialog'));
 const ImportWizard = lazy(() => import('./ImportWizard'));
@@ -29,9 +30,11 @@ interface PlanIoMenuProps {
   dirty: boolean;
   /** An import was written; reload the plan. */
   onImported: () => void;
+  /** What is selected on the plan, so the backup can be limited to it (GP-FR-172). */
+  selection?: PlanSelection;
 }
 
-export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported }: PlanIoMenuProps) {
+export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, selection }: PlanIoMenuProps) {
   const { t } = useTranslation();
   const menuId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -89,7 +92,9 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported }: 
         </MenuItem>
       </Menu>
       <Suspense fallback={null}>
-        {dialog === 'export' && <ExportDialog open siteKey={siteKey} onClose={() => setDialog(null)} />}
+        {dialog === 'export' && (
+          <ExportDialog open siteKey={siteKey} selection={selection} onClose={() => setDialog(null)} />
+        )}
         {dialog === 'import' && (
           <ImportWizard
             open

@@ -306,3 +306,148 @@ class TestTheFileIsUntrusted:
         (detail, *_) = refused.value.details
         assert detail["field"].startswith("locations[1].geometry") and detail["code"] == "geometry.invalid"
         assert detail["key"] == document["locations"][1]["key"]
+
+
+class TestOffsetAndTargetWp718:
+    """REQ-053 WP 7.18 (#2484, GP-FR-172): ``offset_m`` and ``target`` of an import."""
+
+    def test_a_merge_with_an_offset_moves_every_geometry_and_the_boundary_the_file_brings(self, rig, repo) -> None:
+        document = rig.file()
+        repo.locations.clear()  # the file's beds are merged into a site that has none yet
+        repo._sites.sites[SITE].plan = None  # a site without a plan takes the file's boundary
+
+        report = rig.run(document, mode="merge", confirm_site_name=None, offset_m=(2.0, 1.5))
+
+        assert report.applied and report.offset_m == (2.0, 1.5)
+        moved = sorted(loc.geometry.origin for key, loc in repo.locations.items() if key not in {"b1", "b2"})
+        assert moved == [(3.0, 2.5), (3.0, 4.5)]
+        assert repo.applied[-1].boundary.origin == (2.0, 1.5)
+
+    def test_slots_are_not_moved_with_their_bed(self, rig, repo) -> None:
+        document = rig.file()
+        repo.locations.clear()
+        repo.slots.clear()
+
+        rig.run(document, mode="merge", confirm_site_name=None, offset_m=(2.0, 1.5))
+
+        assert {slot.geometry.origin for slot in repo.slots} == {(0.5, 0.5), (1.5, 0.5)}
+
+    @pytest.mark.parametrize("offset", [(float("inf"), 0.0), (0.0, float("nan")), (1000.5, 0.0)])
+    def test_a_non_finite_or_oversized_offset_is_a_422_before_anything_is_read(self, rig, offset) -> None:
+        with pytest.raises(PlanError) as refused:
+            rig.run({}, mode="merge", confirm_site_name=None, offset_m=offset)
+
+        assert refused.value.status_code == 422 and refused.value.error_code == "import.offset_invalid"
+
+    def test_an_offset_is_for_a_merge_and_zero_is_no_offset(self, rig, repo) -> None:
+        document = rig.file()
+        with pytest.raises(PlanError) as refused:
+            rig.run(document, offset_m=(1.0, 0.0))
+        assert refused.value.error_code == "import.offset_requires_merge"
+        repo.locations.clear()
+
+        report = rig.run(document, mode="merge", confirm_site_name=None, offset_m=(0.0, 0.0))
+
+        assert report.applied and report.offset_m is None
+
+    def test_a_shift_out_of_the_frame_is_listed_with_the_file_key_and_nothing_is_written(self, rig, repo) -> None:
+        document = rig.file()
+        repo.locations.clear()
+
+        report = rig.run(document, mode="merge", confirm_site_name=None, dry_run=True, offset_m=(1000.0, 0.0))
+
+        assert report.errors_total == 2 and {error.code for error in report.errors} == {"geometry.invalid"}
+        assert {error.key for error in report.errors} == {"b1", "b2"}
+        assert repo.applied == []
+
+    def test_only_the_same_site_resolves_a_parent_that_is_not_in_the_file(self, rig) -> None:
+        document = rig.file()
+        document["locations"] = [{**document["locations"][0], "parent_location_key": "b2"}]
+        document["slots"] = []
+
+        same = rig.run(document, mode="merge", confirm_site_name=None, dry_run=True, target="same_site")
+        other = rig.run(document, mode="merge", confirm_site_name=None, dry_run=True, target="other_site")
+        tenant = rig.run(document, mode="merge", confirm_site_name=None, dry_run=True, target="other_tenant")
+
+        assert [d.field for d in same.dropped_references] == []
+        for report in (other, tenant):
+            assert [(d.field, d.reason) for d in report.dropped_references] == [("parent_location_key", "not_found")]
+            assert report.target != "same_site"
+
+    def test_the_target_does_not_widen_who_may_import(self, rig) -> None:
+        for role in (TenantRole.GROWER, TenantRole.VIEWER):
+            with pytest.raises(PlanError) as refused:
+                rig.run(rig.file(), role=role, mode="merge", target="other_tenant", confirm_site_name=None)
+            assert refused.value.status_code == 403
+
+
+class TestSnapshotsWp719:
+    def _replaced(self, rig, repo) -> str:
+        rig.run(rig.file())
+        (entry,) = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=10)
+        return entry.audit_key
+
+    def test_a_replace_leaves_a_snapshot_the_lead_can_list_and_restore(self, rig, repo) -> None:
+        audit_key = self._replaced(rig, repo)
+
+        report = rig.service.restore_snapshot(
+            SITE,
+            audit_key,
+            tenant_key=TENANT,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            dry_run=False,
+            force=False,
+            confirm_site_name="Garten",
+        )
+
+        assert report.applied and report.snapshot_written and report.mode == "replace"
+        assert len(repo.snapshot_rows) == 2  # the restore wrote its own snapshot first
+
+    def test_a_grower_and_another_tenant_are_refused_in_that_order(self, rig, repo) -> None:
+        audit_key = self._replaced(rig, repo)
+        ask = {"user_key": USER, "dry_run": True, "force": False, "confirm_site_name": None}
+
+        with pytest.raises(PlanError) as grower:
+            rig.service.restore_snapshot(SITE, audit_key, tenant_key=TENANT, role=TenantRole.GROWER, **ask)
+        with pytest.raises(NotFoundError):
+            rig.service.restore_snapshot(SITE, audit_key, tenant_key=OTHER_TENANT, role=TenantRole.GROWER, **ask)
+        with pytest.raises(NotFoundError):
+            rig.service.list_snapshots(SITE, tenant_key=OTHER_TENANT, role=TenantRole.LEAD, offset=0, limit=10)
+        with pytest.raises(PlanError) as listing:
+            rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.VIEWER, offset=0, limit=10)
+
+        assert grower.value.status_code == 403 and listing.value.status_code == 403
+
+    def test_an_unknown_snapshot_is_a_404(self, rig) -> None:
+        with pytest.raises(NotFoundError):
+            rig.service.restore_snapshot(
+                SITE,
+                "snap_nobody",
+                tenant_key=TENANT,
+                user_key=USER,
+                role=TenantRole.LEAD,
+                dry_run=True,
+                force=False,
+                confirm_site_name=None,
+            )
+
+    def test_a_page_is_capped_below_the_shared_pagination(self, rig, repo) -> None:
+        from app.domain.services.garden_plan_import_service import MAX_SNAPSHOT_PAGE
+
+        asked: list[int] = []
+        original = repo.list_import_snapshots
+        repo.list_import_snapshots = lambda *a, **k: (asked.append(k["limit"]), original(*a, **k))[1]  # type: ignore[method-assign]
+
+        rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=200)
+
+        assert asked == [MAX_SNAPSHOT_PAGE] and MAX_SNAPSHOT_PAGE < 200
+
+
+def test_a_dropped_reference_echoes_at_most_64_characters_of_the_files_key() -> None:
+    from app.domain.models.garden_plan_import import DroppedReference
+
+    long = DroppedReference(entity="location", key="k" * 5000, field="parent_location_key", reason="not_found")
+
+    assert len(long.key) == 64
+    assert DroppedReference(entity="slot", key="slot_1", field="location_key", reason="not_found").key == "slot_1"

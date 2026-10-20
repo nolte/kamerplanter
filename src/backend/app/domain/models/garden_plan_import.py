@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 #: GP-NFR-051: the file, not the request envelope, is bounded by 5 MB.
 MAX_IMPORT_BYTES = 5 * 1024 * 1024
@@ -31,6 +31,14 @@ SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = ("1",)
 ALWAYS_DROPPED_FIELDS: tuple[str, ...] = ("flow_rate_ha_entity_id", "actuator_key", "flow_rate_source")
 
 type ImportMode = Literal["replace", "merge"]
+#: Where the file is going relative to where it came from (GP-FR-172). It never changes that keys are new and that
+#: nothing is read across tenants (the file is the transport); it decides how far a reference that is not in the file
+#: may still resolve: ``same_site`` against the target site, the other two never (a coincidentally equal key claims
+#: nothing).
+type ImportTarget = Literal["same_site", "other_site", "other_tenant"]
+IMPORT_TARGETS: tuple[str, ...] = ("same_site", "other_site", "other_tenant")
+#: ``offset_m`` moves every geometry of a merge by at most this much per axis (the plan frame spans 1 000 m).
+MAX_OFFSET_M = 1000.0
 type DropReason = Literal["not_found", "not_in_site", "always_dropped", "outside_file", "invalid_parent"]
 
 
@@ -48,10 +56,15 @@ class DroppedReference(BaseModel):
     """A reference of the file that was not carried over (GP-FR-141): rewritten to ``null`` or the entity skipped."""
 
     entity: Literal["location", "garden_object", "slot", "irrigation_zone"]
-    #: The file's own key of the entity (a reference inside the file, never a system key).
+    #: The file's own key of the entity (a reference inside the file, never a system key), cut like a finding's.
     key: str
     field: str
     reason: DropReason
+
+    @field_validator("key")
+    @classmethod
+    def _echo_cut(cls, value: str) -> str:
+        return value[:64]
 
 
 class ImportFinding(BaseModel):
@@ -65,6 +78,9 @@ class ImportFinding(BaseModel):
 class PlanImportReport(BaseModel):
     mode: str
     dry_run: bool
+    #: Echo of the request (GP-FR-172); ``None`` offset = no shift.
+    target: ImportTarget = "same_site"
+    offset_m: tuple[float, float] | None = None
     would_create: ImportCounts = Field(default_factory=ImportCounts)
     would_update: ImportCounts = Field(default_factory=ImportCounts)
     would_delete: ImportCounts = Field(default_factory=ImportCounts)
