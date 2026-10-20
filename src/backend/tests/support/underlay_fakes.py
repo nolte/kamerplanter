@@ -68,7 +68,7 @@ class FakeUnderlayAttachments:
 
     async def open_stream(self, attachment: Attachment):
         if attachment.key in self.lost_objects:
-            raise NotFoundError("StoredObject", attachment.storage_key)
+            raise NotFoundError("Attachment", attachment.storage_key)
         body = self.bodies[attachment.key or ""]
 
         async def chunks():
