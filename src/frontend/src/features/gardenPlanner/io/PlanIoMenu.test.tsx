@@ -48,7 +48,29 @@ describe('PlanIoMenu', () => {
     await user.click(screen.getByTestId('garden-plan-io-menu'));
 
     expect(screen.getByTestId('garden-plan-io-import')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('Save or discard your changes to the plan first.')).toBeInTheDocument();
+    // import and the new season both wait for the plan to be saved
+    expect(screen.getAllByText('Save or discard your changes to the plan first.')).toHaveLength(2);
+  });
+
+  it('offers the new season to a lead and keeps it off for anyone else', async () => {
+    const user = renderMenu();
+    await user.click(screen.getByTestId('garden-plan-io-menu'));
+    expect(screen.getByTestId('garden-plan-io-season')).not.toHaveAttribute('aria-disabled', 'true');
+    cleanup();
+
+    const other = renderMenu({ canImport: false });
+    await other.click(screen.getByTestId('garden-plan-io-menu'));
+    expect(screen.getByTestId('garden-plan-io-season')).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Only a lead can start a new season.')).toBeInTheDocument();
+  });
+
+  it('opens the new-season dialog lazily and not in the same breath as the others', async () => {
+    const user = renderMenu();
+    await user.click(screen.getByTestId('garden-plan-io-menu'));
+    await user.click(screen.getByTestId('garden-plan-io-season'));
+
+    expect(await screen.findByTestId('plan-season-dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('plan-import-wizard')).not.toBeInTheDocument();
   });
 
   it('loads the dialogs only when they are opened', async () => {

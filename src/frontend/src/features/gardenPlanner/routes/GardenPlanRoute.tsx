@@ -120,6 +120,10 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
     }),
     [selected],
   );
+  const bedNames = useMemo<Record<string, string>>(
+    () => Object.fromEntries(Object.values(plan?.locations ?? {}).map((location) => [location.key, location.name])),
+    [plan],
+  );
   const labels = useRendererLabels();
   const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
@@ -265,6 +269,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           dirty={dirty}
           onImported={load}
           selection={ioSelection}
+          bedNames={bedNames}
         />
       )}
     </Box>

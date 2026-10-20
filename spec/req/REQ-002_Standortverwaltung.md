@@ -211,7 +211,7 @@ Das bestehende 3-5-Jahres-Fruchtfolge-Tracking wird um einen expliziten Rotation
     - `id: str` (Format: "LOCATION_SLOT_NUMBER", z.B. "TENT01_A1"; REQ-053 GP-FR-064 nutzt dasselbe Format für Layout-Slots, z.B. `BEET03_R2P05`)
     - ~~`position: tuple[int, int]` (Grid-Position oder Reihe/Platz)~~ — **wird in REQ-053 Welle 1 entfernt** (O-01, §9.2a, D-16): Migration M1 leitet für jeden Slot ohne `geometry` einen Punkt `origin = (col × pitch, row × pitch)` mit `pitch = location.pitch_m` (Standard 0,30 m) ab und setzt `geometry_source = migrated_grid`; Sortierungen nutzen danach `row_index`/`sequence`. Keine Spiegelung.
     - `geometry: Optional[Geometry]` (**neu, REQ-053 §20.5**) — Position im beet-/zelt-lokalen Rahmen in Metern; `point` für `slot_role = position`, `polyline` für `row`, `polygon` für `zone`. Für Zelt-Töpfe und Beet-Positionen **dasselbe** Modell (O-01).
-    - `slot_role: Literal['position', 'row', 'zone']` (Default `position`; **neu**), `row_index: Optional[int]`, `sequence: Optional[int]`, `geometry_source: Literal['editor', 'layout', 'migrated_grid']`, `container_volume_l: Optional[float]` (Topfvolumen, W-016), `sown_at: Optional[date]` (Direktsaat, REQ-053 §11.3), `archived_at: Optional[datetime]` (Slot eines abgeschlossenen Runs, GP-FR-055), `planned_spacing_cm: Optional[int]` — alle REQ-053 §20.5
+    - `slot_role: Literal['position', 'row', 'zone']` (Default `position`; **neu**), `row_index: Optional[int]`, `sequence: Optional[int]`, `geometry_source: Literal['editor', 'layout', 'migrated_grid', 'season_copy']`, `container_volume_l: Optional[float]` (Topfvolumen, W-016), `sown_at: Optional[date]` (Direktsaat, REQ-053 §11.3), `archived_at: Optional[datetime]` (Slot eines abgeschlossenen Runs, GP-FR-055), `planned_spacing_cm: Optional[int]` — alle REQ-053 §20.5
     - `capacity_plants: int` (1 für Einzelkultur, >1 für Mischkultur; bei `slot_role = position` immer 1)
     - `currently_occupied: bool`
     - `last_sanitization: Optional[datetime]`
@@ -835,7 +835,7 @@ class SlotDefinition(BaseModel):
     slot_role: Literal['position', 'row', 'zone'] = 'position'
     row_index: Optional[int] = Field(None, ge=0)
     sequence: Optional[int] = Field(None, ge=0)
-    geometry_source: Optional[Literal['editor', 'layout', 'migrated_grid']] = None
+    geometry_source: Optional[Literal['editor', 'layout', 'migrated_grid', 'season_copy']] = None
     capacity_plants: int = Field(ge=1, le=20)
     # dimensions_cm: NICHT einführen — superseded durch Slot.geometry (REQ-053 §20.8)
 

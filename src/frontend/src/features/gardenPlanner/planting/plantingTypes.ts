@@ -134,7 +134,7 @@ export interface SlotBatchItem {
   capacity_plants?: number;
   row_index?: number | null;
   sequence?: number | null;
-  geometry_source?: 'editor' | 'layout';
+  geometry_source?: 'editor' | 'layout' | 'season_copy';
   container_volume_l?: number | null;
   planned_spacing_cm?: number | null;
 }

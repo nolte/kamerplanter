@@ -52,6 +52,7 @@ from app.common.dependencies import (
     get_bed_template_service,
     get_garden_plan_export_service,
     get_garden_plan_import_service,
+    get_garden_plan_season_service,
     get_garden_plan_service,
     get_garden_resource_service,
     get_irrigation_zone_service,
@@ -107,6 +108,7 @@ from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
+from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
@@ -133,6 +135,7 @@ B_SECRETS = (
     "bed_b",
     "slot_b",
     "slot2_b",
+    "slot_old_b",
     "obj_b",
     "zone_b",
     "Bobs Tropfzone",
@@ -290,6 +293,12 @@ def db(database):
         database.collection(col.HAS_SLOT).insert(
             {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot_{suffix}"}
         )
+        # WP 7.16: a place that ended in 2026, so a new season for 2027 has something to write for the owner
+        old_slot = _slot(f"slot_old_{suffix}", f"bed_{suffix}") | {
+            "geometry": {"kind": "point", "origin": [1.5, 0.5]},
+            "archived_at": "2026-08-01T10:00:00+00:00",
+        }
+        database.collection(col.SLOTS).insert(old_slot)
         # a second slot per tenant: the manual adjacency routes (WP 3.3) need two ends
         database.collection(col.SLOTS).insert(_slot(f"slot2_{suffix}", f"bed_{suffix}"))
         database.collection(col.HAS_SLOT).insert(
@@ -467,7 +476,9 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         ArangoCareEventRepository(db),
     )
     templates: Any = BedTemplateService(ArangoBedTemplateRepository(db))
+    season: Any = GardenPlanSeasonService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db))
     if unscoped:
+        season = _Unscoped(season)
         templates = _Unscoped(templates)
         zones = _Unscoped(zones)
         plant_states = _Unscoped(plant_states)
@@ -501,6 +512,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_bed_history_service] = lambda: history
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
+    app.dependency_overrides[get_garden_plan_season_service] = lambda: season
     app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
     app.dependency_overrides[get_bed_template_service] = lambda: templates
     app.dependency_overrides[get_is_platform_admin] = lambda: False
@@ -606,6 +618,15 @@ CASES: tuple[Case, ...] = (
         "POST",
         "/sites/site_b/plan/snapshots/snap_b/restore",
         {"dry_run": False, "confirm_site_name": "Bobs Garten"},
+        writes=True,
+    ),
+    # REQ-053 WP 7.16, GP-FR-171: the new season writes slots into a whole site - a foreign site is a 404, always.
+    Case("new_plan_season_dry_run", "POST", "/sites/site_b/plan/new-season", {"year": 2027, "dry_run": True}),
+    Case(
+        "new_plan_season",
+        "POST",
+        "/sites/site_b/plan/new-season",
+        {"year": 2027, "dry_run": False},
         writes=True,
     ),
     Case(
@@ -1047,7 +1068,8 @@ class TestAMixedCultureIsOneTransaction:
         assert response.status_code == 500, response.text
         for name in (col.PLANTING_RUNS, col.PLANTING_RUN_ENTRIES, col.RUN_PLANNED_AT, col.RUN_AT_LOCATION):
             assert list(db.collection(name).all()) == [], name
-        assert len(list(db.collection(col.SLOTS).all())) == 4  # the fixture's own two slots per bed, none added
+        live = [slot for slot in db.collection(col.SLOTS).all() if slot.get("archived_at") is None]
+        assert len(live) == 4  # the fixture's own two live slots per bed, none added (the archived ones are history)
 
     def test_a_viewer_may_not_create_and_a_grower_still_may_not_delete_a_run(self, db) -> None:
         assert self._post(db, _MIXED.body, role=TenantRole.VIEWER).status_code == 403

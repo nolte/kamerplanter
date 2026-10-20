@@ -6145,7 +6145,9 @@
           "export": "Export plan …",
           "import": "Restore a backup …",
           "leadOnly": "Only a lead can restore a backup.",
-          "unsaved": "Save or discard your changes to the plan first."
+          "unsaved": "Save or discard your changes to the plan first.",
+          "season": "New season from last year …",
+          "seasonLeadOnly": "Only a lead can start a new season."
         },
         "export": {
           "title": "Export plan",
@@ -6343,6 +6345,49 @@
             "import_not_empty": "Beds with active plants stand in this plan. Remove the plants or confirm that those beds stay.",
             "import_site_name_mismatch": "The name you typed does not match the site.",
             "plan_revision_conflict": "Somebody changed the plan. Reload the plan and check the state again."
+          }
+        },
+        "season": {
+          "title": "New season from last year",
+          "intro": "Re-creates last year's places as free slots for every bed without active plants. No plants and no planting runs are created; zones and history stay as they are.",
+          "year": "New season (year)",
+          "yearHelp": "The places come from the year before.",
+          "yearInvalid": "Enter a year between {{min}} and {{max}}.",
+          "working": "One moment …",
+          "check": "Check",
+          "confirm": "Create free slots",
+          "cancel": "Cancel",
+          "close": "Close",
+          "unnamedBed": "Bed",
+          "report": {
+            "title": "Check: places of {{source}} for {{year}}",
+            "summary": "{{slots}} free slots in {{beds}} beds will be created.",
+            "skipped": "{{beds}} beds are skipped.",
+            "empty": "No finished places are stored for {{source}}.",
+            "listLabel": "Result per bed"
+          },
+          "status": {
+            "copied": "{{slots}} free slots",
+            "skipped_active_plants": "skipped, active plants stand in it",
+            "skipped_retired": "skipped, the bed is retired",
+            "skipped_slot_quota": "skipped, it would exceed the limit of 2,000 slots",
+            "nothing_to_copy": "nothing to copy, the places are already there"
+          },
+          "outsideBed": "{{count}} places no longer lie inside the bed and are not copied.",
+          "showHints": "Show \"Here stood …\"",
+          "hereStood": "Here stood: {{what}}",
+          "hereStoodUnknown": "Here stood: not recorded",
+          "promise": "Plants, planting runs, history and zones are not changed.",
+          "done": "{{slots}} free slots created in {{beds}} beds.",
+          "failures": {
+            "failed": "That did not work. Try again in a moment.",
+            "rateLimited": "Too many requests. Wait a moment and try again.",
+            "notFound": "This garden was not found.",
+            "season_forbidden": "Only a lead can start a new season.",
+            "season_invalid_year": "This year is not possible.",
+            "plan_revision_conflict": "The plan was changed in the meantime. Check again.",
+            "plan_quota_exceeded": "The garden would exceed its limit of slots.",
+            "VALIDATION_ERROR": "The input is not valid."
           }
         }
       },
