@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
@@ -136,11 +137,18 @@ def export_plant_labels_pdf(
 @limiter.shared_limit(
     settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
 )
-def export_garden_plan_pdf(
+async def export_garden_plan_pdf(
     request: Request,
     site_key: Annotated[str, Path(description="Document key of the site.")],
     options: PlanSvgOptions = Depends(plan_svg_options),
     bed_list: bool = Query(False, description="Add a second page listing the beds (name, area, status, sun)."),
+    underlay: bool = Query(
+        False,
+        description=(
+            "Print the site's background picture (GP-FR-033) under the plan. Off by default: an aerial view or "
+            "photo can reveal where someone lives, so it is printed only when asked for."
+        ),
+    ),
     ctx: TenantContext = Depends(get_budgeted_tenant),
     service: GardenPlanExportService = Depends(get_garden_plan_export_service),
 ) -> StreamingResponse:
@@ -148,9 +156,18 @@ def export_garden_plan_pdf(
 
     Default A4 landscape with the finest scale at which the plan fits; ``X-Plan-Suggested-Paper: a3`` when A4
     would need a scale coarser than 1:200. Carries no member names, assignments, notes or coordinates.
+    ``underlay=true`` lays the site's background picture under the plan; without it the PDF never carries one.
     422 ``plan.does_not_fit`` when a fixed scale does not fit the paper, ``plan.empty`` when there is nothing to draw.
     """
-    pdf = service.render_pdf(site_key, tenant_key=ctx.tenant_key, options=options, bed_list=bed_list)
+    picture = await service.load_underlay(site_key, tenant_key=ctx.tenant_key) if underlay else None
+    pdf = await run_in_threadpool(
+        service.render_pdf,
+        site_key,
+        tenant_key=ctx.tenant_key,
+        options=options,
+        bed_list=bed_list,
+        underlay=picture,
+    )
     headers = {
         "Content-Disposition": f'attachment; filename="{pdf.filename}"',
         "X-Plan-Scale": f"1:{pdf.scale}",

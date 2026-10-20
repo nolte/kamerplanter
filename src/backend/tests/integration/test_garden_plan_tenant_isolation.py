@@ -53,6 +53,7 @@ from app.common.dependencies import (
     get_garden_plan_export_service,
     get_garden_plan_import_service,
     get_garden_plan_service,
+    get_garden_plan_underlay_service,
     get_garden_resource_service,
     get_irrigation_zone_service,
     get_plant_state_service,
@@ -64,6 +65,7 @@ from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError, PlanValidationError
 from app.data_access.arango import collections as col
+from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
 from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
@@ -96,6 +98,7 @@ from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.attachment import Attachment
 from app.domain.models.bed_template import BedTemplate
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
@@ -108,6 +111,7 @@ from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
@@ -138,12 +142,30 @@ B_SECRETS = (
     "Bobs Tropfzone",
     "barrel_b",
     "tpl_b",
+    "att_b",
     "Bobs Vorlage",
     "ev_b",
     B,
 )
 _BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 20, "length_m": 20, "rotation_deg": 0}
 _RECT = {"kind": "rect", "origin": [1, 1], "width_m": 2, "length_m": 1, "rotation_deg": 0}
+_UNDERLAY = {
+    "attachment_key": "att_b",
+    "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+    "origin": [1.0, 5.0],
+    "rotation_deg": 0.0,
+    "opacity": 0.5,
+}
+
+
+class _RecordDeleter:
+    """The slice of ``AttachmentService`` the underlay needs: removes the record (the bytes are no concern here)."""
+
+    def __init__(self, repo: ArangoAttachmentRepository) -> None:
+        self._repo = repo
+
+    async def delete(self, attachment_id: str, tenant_key: str) -> bool:
+        return self._repo.delete(attachment_id, tenant_key)
 
 
 #: Every collection a route of these four routers can write — the plan batch's and the slot batch's write sets
@@ -160,6 +182,7 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.CARE_EVENTS,
             col.IRRIGATION_ZONES,
             col.BED_TEMPLATES,
+            col.ATTACHMENTS,
             col.LOCATION_TYPES,
             col.USERS,
             col.PLANT_INSTANCES,
@@ -201,7 +224,13 @@ def _site(key: str, tenant: str, name: str) -> dict[str, Any]:
         "type": "outdoor",
         "total_area_m2": 0.0,
         "timezone": "UTC",
-        "plan": {"boundary": _BOUNDARY, "plan_revision": 1, "north_angle_deg": 0.0},
+        "plan": {
+            "boundary": _BOUNDARY,
+            "plan_revision": 1,
+            "north_angle_deg": 0.0,
+            # WP 7.14: each site already has its picture, so the DELETE's positive control removes a real one.
+            "underlay": {**_UNDERLAY, "attachment_key": f"att_{key[-1]}"},
+        },
     }
 
 
@@ -300,6 +329,21 @@ def db(database):
         # WP 7.3: each tenant's zone covers its bed, so a watering round has a bed to write to.
         database.collection(col.ZONE_COVERS).insert(
             {"_from": f"{col.IRRIGATION_ZONES}/zone_{suffix}", "_to": f"{col.LOCATIONS}/bed_{suffix}"}
+        )
+    # WP 7.14: an underlay attachment per tenant (storage keys inside the tenant's own namespace).
+    for suffix, tenant in (("a", A), ("b", B)):
+        database.collection(col.ATTACHMENTS).insert(
+            {
+                "_key": f"att_{suffix}",
+                "tenant_key": tenant,
+                "mime_type": "image/png",
+                "byte_size": 10,
+                "sha256": suffix * 64,
+                "original_filename": "plan.png",
+                "created_by": USER,
+                "category": "garden_plan_underlay",
+                "storage_key": f"t/{tenant}/garden_plan_underlay/2026/10/att_{suffix}.png",
+            }
         )
     # WP 7.8/7.9: a template per tenant and one system template (no ``tenant_key``, the global marker of §20.12).
     for template_key, tenant_key, template_name in (
@@ -450,7 +494,15 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         ArangoCareEventRepository(db),
     )
     templates: Any = BedTemplateService(ArangoBedTemplateRepository(db))
+    attachment_repo = ArangoAttachmentRepository(db)
+    underlay: Any = GardenPlanUnderlayService(
+        ArangoSiteRepository(db),
+        ArangoGardenPlanRepository(db),
+        attachment_repo,
+        _RecordDeleter(attachment_repo),  # type: ignore[arg-type]
+    )
     if unscoped:
+        underlay = _Unscoped(underlay)
         templates = _Unscoped(templates)
         zones = _Unscoped(zones)
         plant_states = _Unscoped(plant_states)
@@ -486,6 +538,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
     app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
     app.dependency_overrides[get_bed_template_service] = lambda: templates
+    app.dependency_overrides[get_garden_plan_underlay_service] = lambda: underlay
     app.dependency_overrides[get_is_platform_admin] = lambda: False
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
@@ -787,6 +840,9 @@ CASES: tuple[Case, ...] = (
     # REQ-053 WP 7.8, GP-FR-044: a template of another tenant is not there for the caller.
     Case("patch_bed_template", "PATCH", "/bed-templates/tpl_b", {"name": "Taken over"}, writes=True),
     Case("delete_bed_template", "DELETE", "/bed-templates/tpl_b", owner_status=204, writes=True),
+    # REQ-053 WP 7.14, GP-FR-033: the background picture of a foreign site is neither set, replaced nor removed.
+    Case("put_underlay", "PUT", "/sites/site_b/plan/underlay", _UNDERLAY, writes=True),
+    Case("delete_underlay", "DELETE", "/sites/site_b/plan/underlay", owner_status=204, writes=True),
     # REQ-053 WP 7.9, §21.7: place-template on a foreign site is a 404 before the body is read.
     Case(
         "place_template",
@@ -808,6 +864,7 @@ _ABSENT = {
     "zone_b": "zone_gone",
     "barrel_b": "barrel_gone",
     "tpl_b": "tpl_gone",
+    "att_b": "att_gone",
 }
 
 
@@ -1265,6 +1322,17 @@ REFERENCE_CASES: tuple[ReferenceCase, ...] = (
         "tpl_a",
         "tpl_gone",
     ),
+    # REQ-053 WP 7.14, GP-NFR-058: the picture is an attachment of the caller's own tenant.
+    ReferenceCase(
+        "underlay.attachment_key",
+        "PUT",
+        "/sites/site_a/plan/underlay",
+        "attachment_key",
+        lambda key: {**_UNDERLAY, "attachment_key": key},
+        "att_b",
+        "att_a",
+        "att_gone",
+    ),
     ReferenceCase(
         "zone_patch.water_source_key",
         "PATCH",
@@ -1363,7 +1431,15 @@ class TestTheReferenceChecksCanFail:
                 raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
             return BedTemplate(**document)
 
+        def every_attachment(self, attachment_key, *, tenant_key):
+            # WP 7.14: an underlay that resolves the attachment without the tenant predicate.
+            document = db.collection(col.ATTACHMENTS).get(attachment_key)
+            if document is None:
+                raise PlanValidationError([(None, "attachment_key", ERROR_REFERENCE_NOT_FOUND, {})])
+            return Attachment(**document)
+
         monkeypatch.setattr(GardenPlanService, "_visible_template", every_template)
+        monkeypatch.setattr(GardenPlanUnderlayService, "_underlay_attachment", every_attachment)
         monkeypatch.setattr(IrrigationZoneService, "_resolve_locations", no_resolution)
         monkeypatch.setattr(IrrigationZoneService, "_resolve_water_source", no_resolution)
         monkeypatch.setattr(ArangoIrrigationZoneRepository, "_take_water_source", staticmethod(no_resolution))
