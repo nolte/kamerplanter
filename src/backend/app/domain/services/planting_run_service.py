@@ -302,12 +302,6 @@ class PlantingRunService:
         outcome = self._reservations.place_mixed_runs(
             MixedRunsWrite(location_key=location_key, runs=writes), tenant_key=tenant_key
         )
-        logger.info(
-            "planting_run.mixed_culture_created",
-            location_key=location_key,
-            runs=len(outcome.run_keys),
-            slots=len(outcome.created_slot_keys),
-        )
         return [self._repo.get_or_raise(run_key) for run_key in outcome.run_keys]
 
     def _stamp_mixed_draft(self, draft: MixedRunDraft, location_key: str, tenant_key: str) -> None:

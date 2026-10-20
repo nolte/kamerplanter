@@ -28,6 +28,7 @@ from app.api.v1.planting_runs.schemas import (
     EntryUpdate,
     MixedCultureCreate,
     MixedCultureResponse,
+    MixedCultureRunCreate,
     NutrientPlanAssignRequest,
     NutrientPlanAssignResponse,
     PhaseSummary,
@@ -118,6 +119,29 @@ def create_run(
     return _run_response(created)
 
 
+def _mixed_draft(body: MixedCultureCreate, item: MixedCultureRunCreate, tenant_key: str) -> MixedRunDraft:
+    """One run of the request as the service takes it; the tenant is the caller's, never the body's."""
+    entry: EntryCreate = item.entry
+    return MixedRunDraft(
+        run=PlantingRun(
+            name=item.name,
+            run_type=PlantingRunType.MONOCULTURE,
+            location_key=body.location_key,
+            planned_start_date=body.planned_start_date,
+            planned_from=body.planned_from,
+            planned_until=body.planned_until,
+            plan_role=body.plan_role,
+            rotation_override_reason=body.rotation_override_reason,
+            source=body.source,
+            notes=item.notes,
+            tenant_key=tenant_key,
+        ),
+        entry=PlantingRunEntry(**dict(entry)),
+        free_points=tuple((x, y) for x, y in item.free_points),
+        container_volume_l=item.container_volume_l,
+    )
+
+
 @router.post(
     "/mixed-culture",
     response_model=MixedCultureResponse,
@@ -135,27 +159,7 @@ def create_mixed_culture(
     nothing behind, so the caller needs no rollback (and no lead role to take one back). The bed's layout is
     computed for all entries together. Runs are `planned`, `monoculture`, one entry each.
     """
-    drafts = [
-        MixedRunDraft(
-            run=PlantingRun(
-                name=item.name,
-                run_type=PlantingRunType.MONOCULTURE,
-                location_key=body.location_key,
-                planned_start_date=body.planned_start_date,
-                planned_from=body.planned_from,
-                planned_until=body.planned_until,
-                plan_role=body.plan_role,
-                rotation_override_reason=body.rotation_override_reason,
-                source=body.source,
-                notes=item.notes,
-                tenant_key=ctx.tenant_key,
-            ),
-            entry=PlantingRunEntry(**item.entry.model_dump()),
-            free_points=tuple((x, y) for x, y in item.free_points),
-            container_volume_l=item.container_volume_l,
-        )
-        for item in body.runs
-    ]
+    drafts = [_mixed_draft(body, item, ctx.tenant_key) for item in body.runs]
     created = service.create_mixed_culture(body.location_key, drafts, tenant_key=ctx.tenant_key, role=ctx.role)
     return MixedCultureResponse(runs=[_run_response(run) for run in created])
 
