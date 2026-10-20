@@ -7,7 +7,15 @@
  * Marking points is a click on the picture; the same four numbers are fields, so the whole calibration works
  * without a pointer too (WCAG 2.1.1, 2.5.1).
  */
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type MouseEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -66,6 +74,48 @@ function errorKey(failure: unknown): string {
   if (failure.statusCode === 422) return 'invalid';
   return 'generic';
 }
+
+interface NumberFieldProps {
+  id: string;
+  value: string;
+  onChange: (next: string) => void;
+  label: string;
+  unit: string;
+  disabled: boolean;
+  error?: boolean;
+}
+
+/**
+ * One numeric field of the dialog. Memoised on primitives only, so a keystroke re-renders the one field it
+ * belongs to and not the eleven of the dialog (the dialog's tests under coverage instrumentation were the first
+ * to show what that costs; the user pays it on a phone as well).
+ */
+const NumberField = memo(function NumberField({
+  id,
+  value,
+  onChange,
+  label,
+  unit,
+  disabled,
+  error,
+}: NumberFieldProps) {
+  return (
+    <TextField
+      id={`underlay-${id}`}
+      label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      size="small"
+      disabled={disabled}
+      error={error}
+      slotProps={{
+        htmlInput: { inputMode: 'decimal', 'data-testid': `underlay-${id}` },
+        input: { endAdornment: <Typography variant="caption">{unit}</Typography> },
+      }}
+      sx={{ minWidth: 110 }}
+    />
+  );
+});
 
 const text = (value: number): string => (Number.isFinite(value) ? String(value) : '');
 
@@ -154,6 +204,7 @@ export default function UnderlayDialog({
     Number.isFinite(rotationNumber) &&
     Math.abs(rotationNumber) <= 360;
   const hasPicture = file !== null || attachmentKey !== null;
+  const fieldsOff = !canEdit || busy;
   const valid = hasPicture && perMetre !== null && pointsInside && placementValid;
 
   const pick = (event: ChangeEvent<HTMLInputElement>) => {
@@ -234,32 +285,6 @@ export default function UnderlayDialog({
     { which: 'p1', point: calibration.p1 },
     { which: 'p2', point: calibration.p2 },
   ];
-  const field = (
-    id: string,
-    value: string,
-    set: (next: string) => void,
-    label: string,
-    extra?: { unit?: string; helper?: string; error?: boolean },
-  ) => (
-    <TextField
-      id={`underlay-${id}`}
-      label={label}
-      value={value}
-      onChange={(event) => set(event.target.value)}
-      size="small"
-      disabled={!canEdit || busy}
-      error={extra?.error}
-      helperText={extra?.helper}
-      slotProps={{
-        htmlInput: { inputMode: 'decimal', 'data-testid': `underlay-${id}` },
-        input: extra?.unit
-          ? { endAdornment: <Typography variant="caption">{extra.unit}</Typography> }
-          : undefined,
-      }}
-      sx={{ minWidth: 110 }}
-    />
-  );
-
   return (
     <>
       <Dialog
@@ -391,18 +416,52 @@ export default function UnderlayDialog({
             <Typography component="legend" variant="subtitle2" sx={{ width: '100%', mb: 1 }}>
               {t(`${PREFIX}.calibration.title`)}
             </Typography>
-            {field('p1x', p1x, setP1x, t(`${PREFIX}.calibration.p1x`), { unit: 'px' })}
-            {field('p1y', p1y, setP1y, t(`${PREFIX}.calibration.p1y`), { unit: 'px' })}
-            {field('p2x', p2x, setP2x, t(`${PREFIX}.calibration.p2x`), { unit: 'px' })}
-            {field('p2y', p2y, setP2y, t(`${PREFIX}.calibration.p2y`), { unit: 'px' })}
-            {field('distance', distance, setDistance, t(`${PREFIX}.calibration.distance`), {
-              unit: 'm',
-              error:
+            <NumberField
+              id="p1x"
+              value={p1x}
+              onChange={setP1x}
+              label={t(`${PREFIX}.calibration.p1x`)}
+              unit="px"
+              disabled={fieldsOff}
+            />
+            <NumberField
+              id="p1y"
+              value={p1y}
+              onChange={setP1y}
+              label={t(`${PREFIX}.calibration.p1y`)}
+              unit="px"
+              disabled={fieldsOff}
+            />
+            <NumberField
+              id="p2x"
+              value={p2x}
+              onChange={setP2x}
+              label={t(`${PREFIX}.calibration.p2x`)}
+              unit="px"
+              disabled={fieldsOff}
+            />
+            <NumberField
+              id="p2y"
+              value={p2y}
+              onChange={setP2y}
+              label={t(`${PREFIX}.calibration.p2y`)}
+              unit="px"
+              disabled={fieldsOff}
+            />
+            <NumberField
+              id="distance"
+              value={distance}
+              onChange={setDistance}
+              label={t(`${PREFIX}.calibration.distance`)}
+              unit="m"
+              disabled={fieldsOff}
+              error={
                 distance.trim() !== '' &&
                 (!Number.isFinite(calibration.distance) ||
                   calibration.distance <= 0 ||
-                  calibration.distance > MAX_DISTANCE_M),
-            })}
+                  calibration.distance > MAX_DISTANCE_M)
+              }
+            />
           </Box>
           <Typography variant="body2" role="status" data-testid="underlay-scale">
             {perMetre !== null
@@ -421,11 +480,30 @@ export default function UnderlayDialog({
             <Typography component="legend" variant="subtitle2" sx={{ width: '100%', mb: 1 }}>
               {t(`${PREFIX}.placement.title`)}
             </Typography>
-            {field('originX', originX, setOriginX, t(`${PREFIX}.placement.originX`), { unit: 'm' })}
-            {field('originY', originY, setOriginY, t(`${PREFIX}.placement.originY`), { unit: 'm' })}
-            {field('rotation', rotation, setRotation, t(`${PREFIX}.placement.rotation`), {
-              unit: '°',
-            })}
+            <NumberField
+              id="originX"
+              value={originX}
+              onChange={setOriginX}
+              label={t(`${PREFIX}.placement.originX`)}
+              unit="m"
+              disabled={fieldsOff}
+            />
+            <NumberField
+              id="originY"
+              value={originY}
+              onChange={setOriginY}
+              label={t(`${PREFIX}.placement.originY`)}
+              unit="m"
+              disabled={fieldsOff}
+            />
+            <NumberField
+              id="rotation"
+              value={rotation}
+              onChange={setRotation}
+              label={t(`${PREFIX}.placement.rotation`)}
+              unit="°"
+              disabled={fieldsOff}
+            />
           </Box>
           <Box sx={{ maxWidth: 360 }}>
             <Typography id="underlay-opacity-label" variant="body2">

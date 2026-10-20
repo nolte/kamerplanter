@@ -5,12 +5,29 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import type { PlanUnderlay } from '../model/types';
 import UnderlayDialog from './UnderlayDialog';
+
+// The first render of the dialog pays for MUI's and emotion's cold start; that is not what any one test measures.
+beforeAll(() => {
+  renderWithProviders(
+    <UnderlayDialog
+      open
+      siteKey="warm"
+      underlay={null}
+      onSaved={() => undefined}
+      onClose={() => undefined}
+    />,
+    {
+      store: createTestStore({ ...tenantState('grower', []), ...authState() }),
+    },
+  );
+  cleanup();
+});
 
 afterEach(() => cleanup());
 
@@ -31,7 +48,13 @@ function renderDialog(
   const onSaved = handlers.onSaved ?? vi.fn();
   const onClose = handlers.onClose ?? vi.fn();
   const view = renderWithProviders(
-    <UnderlayDialog open siteKey="site_1" underlay={underlay} onSaved={onSaved} onClose={onClose} />,
+    <UnderlayDialog
+      open
+      siteKey="site_1"
+      underlay={underlay}
+      onSaved={onSaved}
+      onClose={onClose}
+    />,
     { store: createTestStore({ ...tenantState(role, []), ...authState() }) },
   );
   return { ...view, onSaved, onClose };
@@ -98,7 +121,15 @@ describe('calibration', () => {
     const image = loadPicture(800, 400);
     // displayed at half size: a click at (50, 25) inside the box is pixel (100, 50) of the picture
     vi.spyOn(image, 'getBoundingClientRect').mockReturnValue({
-      left: 0, top: 0, width: 400, height: 200, right: 400, bottom: 200, x: 0, y: 0, toJSON: () => ({}),
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 200,
+      right: 400,
+      bottom: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
     });
     const picture = screen.getByTestId('underlay-picture');
     fireEvent.click(picture, { clientX: 50, clientY: 25 });
@@ -118,8 +149,9 @@ describe('save and remove', () => {
     let put: Record<string, unknown> = {};
     server.use(
       http.post(`${BASE}/attachments`, async ({ request }) => {
-        const body = await request.formData();
-        form.push(body.get('category') as string);
+        // The raw multipart text: parsing it into a FormData (and a File) is the slow part under coverage.
+        const raw = await request.text();
+        form.push(/name="category"\r?\n\r?\n([^\r\n]+)/.exec(raw)?.[1] ?? '');
         return HttpResponse.json({ attachment_id: 'att_new' }, { status: 201 });
       }),
       http.put(`${BASE}/sites/site_1/plan/underlay`, async ({ request }) => {
@@ -147,10 +179,16 @@ describe('save and remove', () => {
   it('shows the server refusal and keeps the dialog open', async () => {
     const user = userEvent.setup();
     server.use(
-      http.post(`${BASE}/attachments`, () => HttpResponse.json({ attachment_id: 'att_new' }, { status: 201 })),
+      http.post(`${BASE}/attachments`, () =>
+        HttpResponse.json({ attachment_id: 'att_new' }, { status: 201 }),
+      ),
       http.put(`${BASE}/sites/site_1/plan/underlay`, () =>
         HttpResponse.json(
-          { error_code: 'plan.required', message: 'x', details: [{ field: 'plan', code: 'plan.required' }] },
+          {
+            error_code: 'plan.required',
+            message: 'x',
+            details: [{ field: 'plan', code: 'plan.required' }],
+          },
           { status: 422 },
         ),
       ),
@@ -169,7 +207,10 @@ describe('save and remove', () => {
     const user = userEvent.setup();
     let deleted = false;
     server.use(
-      http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })),
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
       http.delete(`${BASE}/sites/site_1/plan/underlay`, () => {
         deleted = true;
         return new HttpResponse(null, { status: 204 });
@@ -189,7 +230,10 @@ describe('save and remove', () => {
     const user = userEvent.setup();
     let deleted = false;
     server.use(
-      http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })),
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
       http.delete(`${BASE}/sites/site_1/plan/underlay`, () => {
         deleted = true;
         return new HttpResponse(null, { status: 204 });
@@ -208,7 +252,10 @@ describe('save and remove', () => {
     let uploads = 0;
     let put: Record<string, unknown> = {};
     server.use(
-      http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })),
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
       http.post(`${BASE}/attachments`, () => {
         uploads += 1;
         return HttpResponse.json({ attachment_id: 'x' }, { status: 201 });
@@ -231,7 +278,12 @@ describe('save and remove', () => {
 
 describe('a viewer', () => {
   it('sees the calibration and can neither change nor remove it', () => {
-    server.use(http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })));
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+    );
     renderDialog(STORED, 'viewer');
     expect(screen.getByTestId('underlay-scale')).toHaveTextContent('100');
     expect(screen.queryByTestId('underlay-save')).toBeNull();
@@ -248,7 +300,12 @@ describe('accessibility', () => {
   });
 
   it('has no axe violations with a stored calibration', async () => {
-    server.use(http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })));
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+    );
     renderDialog(STORED);
     await waitFor(() => expect(screen.getByTestId('underlay-picture')).toBeInTheDocument());
     await expectNoA11yViolations(document.body);
