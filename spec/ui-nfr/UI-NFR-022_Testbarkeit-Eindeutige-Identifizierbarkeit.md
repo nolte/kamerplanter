@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.2
+Version: 1.3
 Autor: Business Analyst - Agrotech
-Datum: 2026-10-15
+Datum: 2026-10-20
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-005, UI-NFR-008, UI-NFR-017]
 Betroffene Module: [Frontend, Mobile]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-20 | §2.5.1: Identifikatoren des Gartenplan-Editors für REQ-053 Welle 7 (WP 7.10-7.13: Beetvorlagen und Standardgrößen, Objekt-Snap, Ausrichten/Verteilen, Mini-Map, Auto-Save-Option, Mehrfach-Duplizieren) registriert (per R-020, zusammen mit der Verwendung im selben Pull Request). |
 | 1.2 | 2026-10-15 | §2.5.1: Präfixe `garden-plan-*` (Editor), `bed-view-*` (Beetansicht) und `field-mode-*` (Feldmodus) für REQ-053 **reserviert** und die in REQ-053 GP-UX-012 genannten Identifikatoren registriert (per R-020, **vor** der Verwendung; Implementierung folgt mit REQ-053 Welle 4/5). §3.3 Kurzreferenz ergänzt. |
 | 1.1 | 2026-07-26 | Registrierte Zusatzmuster §2.5.1 (Karten-Layout, Formular-Aktionsleiste, Tabellenkopf, qualifizierende Attribute, konkret vergebene Identifikatoren). |
 
@@ -177,6 +178,28 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `save-plan-button` | Speichern des Plan-Batches (Grundschema `<action>-button`) |
 | `plan-conflict-dialog` | 409-Konfliktdialog „Neu laden" / „Meine Änderungen als Kopie behalten (JSON herunterladen)" (Grundschema `<zweck>-dialog`; Wortlaut identisch in REQ-053 GP-UX-017 und GP-ACC-011) |
 | `care-event-row-<key>` | Zeile der Pflegehistorie, geschlüsselt über den `_key` des `care_event` (Grundschema `<entity>-row-<key>`) |
+
+**Gartenplan-Editor, REQ-053 Welle 7 (Beetvorlagen, Snap, Mini-Map, Auto-Save, Mehrfach-Duplizieren):**
+
+| `data-testid` | Element |
+|---|---|
+| `garden-plan-tool-template` | Werkzeug „Beet aus Vorlage" in der Werkzeugleiste |
+| `garden-plan-template-panel` / `-select` / `-rotate` / `-place-center` / `-close` / `-hint` / `-failed` | Leiste unter der Werkzeugleiste: Vorlagenwahl, Drehen um 90°, in die Bildmitte setzen, beenden, Hinweis, Ladefehler |
+| `garden-plan-template-ghost` | Umriss der Vorlage unter dem Zeiger (SVG-Overlay) |
+| `garden-plan-save-template-button` | „Als Vorlage speichern" aus dem gewählten Beet |
+| `garden-plan-template-save-dialog` / `-name` / `-submit` / `-cancel` / `-error` | Dialog „Als Vorlage speichern" |
+| `garden-plan-add-standard-sizes` | Schnellwahl der Standardgrößen im Dialog „Mit Maßen hinzufügen" |
+| `garden-plan-add-standard-<template_key>` | Eine Standardgröße, geschlüsselt über den `_key` der System-Vorlage (z. B. `sys_raised_bed_2x1x0_8`) |
+| `garden-plan-add-height` | Höhenfeld (Beet) im Dialog „Mit Maßen hinzufügen" |
+| `garden-plan-snap-guide` | Führungslinie entlang der Objektkante, auf der der Fang einrastet (innerhalb von `garden-plan-snap-marker`) |
+| `garden-plan-align-button` | Menü „Ausrichten" in der Werkzeugleiste |
+| `garden-plan-align-<modus>` | Eintrag `left`, `right`, `top`, `bottom`, `centerH`, `centerV` |
+| `garden-plan-distribute-<achse>` | Eintrag `horizontal` bzw. `vertical` (gleichmäßig verteilen) |
+| `garden-plan-minimap` / `garden-plan-minimap-viewport` | Mini-Map (120 × 120 px) und ihr Viewport-Rechteck |
+| `garden-plan-autosave` | Schalter „Automatisch speichern" (nutzerbezogen, localStorage) |
+| `garden-plan-autosave-paused` | Hinweis, dass Auto-Save bei Konflikt oder abgelehntem Speichern pausiert |
+| `garden-plan-multi-dialog` / `-count` / `-direction` / `-spacing` / `-scheme` / `-start` / `-preview` / `-error` / `-submit` / `-cancel` | Dialog „Mehrfach duplizieren" |
+| `garden-plan-info` | Bestätigung (Erfolgsmeldung) des Editors, z. B. „Vorlage gespeichert" |
 
 Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster unter den drei Präfixen werden hier ergänzt, bevor sie verwendet werden (R-020).
 
