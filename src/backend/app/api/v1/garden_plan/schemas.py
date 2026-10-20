@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
 from app.common.enums import BedStatus, FlowRateSource, IrrigationZoneType, SlotRole, SunExposure
 from app.domain.models.garden_plan import MAX_OPERATIONS
-from app.domain.models.garden_plan_import import MAX_OFFSET_M, ImportTarget, PlanImportReport
+from app.domain.models.garden_plan_import import MAX_OFFSET_M, PlanImportReport
 from app.domain.models.geometry import Geometry
 
 SCHEMA_VERSION = "1"
@@ -437,7 +437,7 @@ class PlanImportRequest(BaseModel):
         max_length=200,
         description="`replace` (not a dry run) needs the name of the site, typed by the person who confirms.",
     )
-    target: ImportTarget = Field(
+    target: Literal["same_site", "other_site", "other_tenant"] = Field(
         default="same_site",
         description=(
             "Where the file goes relative to where it came from (GP-FR-172). Keys of the file are always "

@@ -417,3 +417,11 @@ class TestSnapshotsWp719:
             "import.site_name_mismatch"
         )
         assert client().post(f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": True, "x": 1}).status_code == 422
+
+
+def test_the_request_schema_embedded_in_the_openapi_document_has_no_dangling_ref() -> None:
+    """The route embeds ``model_json_schema()`` by hand (``openapi_extra``): a ``$defs`` reference inside it points
+    nowhere in the published document and fails the Spectral lint (``invalid-ref``)."""
+    from app.api.v1.garden_plan.schemas import PlanImportRequest
+
+    assert "$ref" not in json.dumps(PlanImportRequest.model_json_schema())
