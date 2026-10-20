@@ -568,6 +568,12 @@ class TenantExportEngine:
         },
         # REQ-053 §20.11 (WP 7.1, #2467): a zone's water source is a garden object of the same site.
         "irrigation_zones": {"water_source_key": _internal("garden_objects")},
+        # REQ-053 GP-FR-033 (WP 7.14): the site plan's underlay names one of the tenant's own attachments, which
+        # the import maps to the restored attachment. The second path is the plan model read on its own.
+        "sites": {
+            "plan.underlay.attachment_key": _ATTACHMENT_REF,
+            "underlay.attachment_key": _ATTACHMENT_REF,
+        },
         # REQ-053 §20.12 (WP 7.8, #2474): a template names the task templates it would bring (stored only).
         "bed_templates": {"recurring_task_templates": _internal("task_templates")},
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
