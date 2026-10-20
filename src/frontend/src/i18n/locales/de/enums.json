@@ -1192,6 +1192,18 @@
     "rowDirection": {
       "along_length": "Entlang der Länge",
       "along_width": "Entlang der Breite"
+    },
+    "irrigationType": {
+      "manual": "Von Hand",
+      "drip": "Tropfbewässerung",
+      "sprinkler": "Regner",
+      "soaker_hose": "Perlschlauch",
+      "sub_irrigation": "Staubewässerung"
+    },
+    "careEventAllocation": {
+      "measured": "Gemessen",
+      "by_area": "Nach Fläche verteilt",
+      "equal": "Zu gleichen Teilen verteilt"
     }
   }
 }

@@ -5850,6 +5850,166 @@
           "download": "Meine Änderungen als Kopie behalten (JSON herunterladen)",
           "reload": "Neu laden",
           "downloaded": "Die Kopie wurde heruntergeladen. Du kannst jetzt neu laden."
+        },
+        "zones": {
+          "layers": {
+            "group": "Ebenen",
+            "zones": "Bewässerungszonen anzeigen",
+            "zonesHint": "Zonen als Umriss mit Schraffur über ihren Beeten ein- oder ausblenden.",
+            "lastWatered": "Zuletzt gegossen anzeigen",
+            "lastWateredHint": "Tage seit dem letzten Gießen je Beet als Schraffur ein- oder ausblenden."
+          },
+          "legend": {
+            "title": "Legende der Ebenen",
+            "zonesTitle": "Bewässerungszonen",
+            "zonesNone": "Es ist noch keine Zone angelegt.",
+            "zoneEntry": "{{number}}. {{name}}, {{type}}",
+            "wateredTitle": "Tage seit dem letzten Gießen",
+            "class": {
+              "d0_1": "0 bis 1 Tag seit",
+              "d2_3": "2 bis 3 Tage seit",
+              "d4_7": "4 bis 7 Tage seit",
+              "d8plus": "Mehr als 7 Tage seit"
+            },
+            "wateredNone": "Ohne Schraffur: kein Gießen erfasst.",
+            "wateredNote": "Das ist der Abstand zum letzten erfassten Gießen. Ob ein Beet Wasser braucht, sagt der Plan nicht."
+          },
+          "wateredDays_one": "{{count}} Tag seit",
+          "wateredDays_other": "{{count}} Tage seit",
+          "open": "Bewässerungszonen verwalten",
+          "panel": {
+            "title": "Bewässerungszonen",
+            "close": "Zonen-Bereich schließen",
+            "listLabel": "Zonen dieser Anlage",
+            "loadFailed": "Die Zonen konnten nicht geladen werden. Der Plan bleibt nutzbar.",
+            "retry": "Erneut laden",
+            "empty": "Noch keine Zone. Eine Zone fasst Beete zusammen, die gemeinsam gegossen werden.",
+            "readOnly": "Du kannst Zonen ansehen, aber nicht ändern.",
+            "new": "Neue Zone",
+            "bedCount_one": "{{count}} Beet",
+            "bedCount_other": "{{count}} Beete",
+            "newTitle": "Neue Zone",
+            "editTitle": "Zone {{name}}"
+          },
+          "form": {
+            "name": "Name der Zone",
+            "type": "Art der Bewässerung",
+            "color": "Farbe der Zone",
+            "colorHint": "Die Zone erkennst du am Muster, nicht nur an der Farbe.",
+            "scheduleHint": "Hinweis zum Zeitplan",
+            "waterSource": "Wasserquelle",
+            "waterSourceNone": "Keine Wasserquelle",
+            "flowRate": "Durchfluss in Litern pro Minute",
+            "beds": "Beete der Zone",
+            "bedsHint": "Ein Beet gehört zu höchstens einer Zone. Wählst du eines aus einer anderen Zone, wechselt es hierher.",
+            "bedsNone": "Auf dem Plan sind noch keine Beete eingezeichnet.",
+            "bedsUseSelection": "Auswahl vom Plan übernehmen",
+            "bedsSelectionEmpty": "Auf dem Plan ist kein Beet ausgewählt.",
+            "bedInZone": "gehört zu {{zone}}",
+            "save": "Zone speichern",
+            "saving": "Speichert …",
+            "cancel": "Abbrechen",
+            "delete": "Zone löschen",
+            "deleteTitle": "Zone {{name}} löschen?",
+            "deleteMessage": "Die Beete bleiben unverändert und gehören danach zu keiner Zone. Das Gießprotokoll bleibt erhalten.",
+            "deleteConfirm": "Löschen",
+            "created": "Zone {{name}} angelegt.",
+            "saved": "Zone {{name}} gespeichert.",
+            "deleted": "Zone {{name}} gelöscht.",
+            "moved": "Aus anderer Zone übernommen: {{beds}}.",
+            "unsavedHint": "Beete und Wasserquellen, die noch nicht gespeichert sind, stehen hier erst nach dem Speichern des Plans zur Auswahl.",
+            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan."
+          },
+          "errors": {
+            "forbidden": "Dafür fehlt dir die Berechtigung.",
+            "quota": "Diese Anlage hat die höchste Zahl an Zonen erreicht.",
+            "notFound": "Die Zone gibt es nicht mehr. Die Liste wird neu geladen.",
+            "invalid": "Die Eingaben wurden abgelehnt. Prüfe Name, Farbe und Durchfluss.",
+            "generic": "Das hat nicht geklappt. Versuche es noch einmal.",
+            "rateLimited": "Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuche es erneut.",
+            "conflict": "Jemand hat das gleichzeitig geändert. Lade die Zone neu und versuche es noch einmal.",
+            "referenceNotFound": "Ein gewähltes Beet oder eine Wasserquelle ist auf dem Server noch nicht bekannt. Speichere zuerst den Plan."
+          },
+          "status": {
+            "title": "Stand der Zone",
+            "loading": "Lädt den Stand …",
+            "failed": "Der Stand der Zone konnte nicht geladen werden.",
+            "lastWatering": "Zuletzt gegossen",
+            "lastWateringNone": "Noch kein Gießen erfasst.",
+            "lastWateringValue": "{{date}}, {{days}}",
+            "lastWateringBed": "Beet {{bed}}",
+            "nextPlanned": "Nächstes geplantes Gießen",
+            "nextPlannedNone": "Kein Gießen geplant.",
+            "nextPlannedValue": "{{bed}}, fällig {{date}}",
+            "nextPlannedOverdue": "{{bed}}, überfällig seit {{date}}",
+            "demand": "Bedarf heute",
+            "demandNet": "{{liters}} Liter netto",
+            "demandGross": "{{liters}} Liter brutto",
+            "efficiency": "Wirkungsgrad {{percent}} %",
+            "efficiencySource": {
+              "zone": "an der Zone eingestellt",
+              "type_default": "Richtwert der Bewässerungsart"
+            },
+            "consumption": "Verbrauch der letzten 30 Tage",
+            "consumptionValue": "{{liters}} Liter",
+            "consumptionSources": "Herkunft des Verbrauchs",
+            "consumptionSource": {
+              "manual_log": "Protokolliertes Gießen",
+              "actuator_runtime_manual_rate": "Laufzeit des Aktors mit eingetragenem Durchfluss",
+              "actuator_runtime_ha_rate": "Laufzeit des Aktors mit Durchfluss aus Home Assistant"
+            },
+            "technical": "Technik",
+            "flowRate": "Durchfluss",
+            "flowRateValue": "{{value}} Liter pro Minute",
+            "flowRateNone": "nicht eingetragen",
+            "flowSource": "Quelle des Durchflusses",
+            "flowSourceValue": {
+              "manual": "Eingetragen",
+              "ha_entity": "Home-Assistant-Entität"
+            },
+            "haBound": "Home-Assistant-Entität verknüpft",
+            "haNotBound": "Keine Home-Assistant-Entität verknüpft",
+            "hints": "Hinweise"
+          },
+          "hints": {
+            "water_source_lasts_days_one": "Die Wasserquelle reicht bei diesem Tagesbedarf für etwa {{count}} Tag ({{capacity}} Liter Inhalt, {{daily}} Liter pro Tag).",
+            "water_source_lasts_days_other": "Die Wasserquelle reicht bei diesem Tagesbedarf für etwa {{count}} Tage ({{capacity}} Liter Inhalt, {{daily}} Liter pro Tag).",
+            "irrigation_system_differs": "Die Zone ist als {{type}} angelegt, diese Beete sind anders ausgestattet: {{beds}}. Für Bedarf und Verbrauch gilt die Zone.",
+            "unknown": "Hinweis {{code}}"
+          },
+          "round": {
+            "open": "Gießrunde protokollieren",
+            "title": "Gießrunde für {{name}}",
+            "volume": "Gesamtmenge in Litern",
+            "allocation": "Verteilung auf die Beete",
+            "allocationOption": {
+              "by_area": "Nach Beetfläche",
+              "equal": "Zu gleichen Teilen"
+            },
+            "allocationHelp": {
+              "by_area": "Jedes Beet bekommt einen Anteil nach seiner Fläche. Beete ohne Fläche bleiben außen vor.",
+              "equal": "Jedes Beet bekommt gleich viel, unabhängig von der Fläche."
+            },
+            "summary": "Notiz zur Runde",
+            "marker": "Die Menge wird auf die Beete verteilt und nicht gemessen. Das Protokoll kennzeichnet das so.",
+            "noAreaBeds": "Ohne Fläche, nicht berücksichtigt bei der Verteilung nach Fläche: {{beds}}.",
+            "noBeds": "Die Zone hat noch kein Beet. Ordne ihr zuerst Beete zu.",
+            "submit": "Gießrunde speichern",
+            "submitting": "Speichert …",
+            "cancel": "Abbrechen",
+            "close": "Schließen",
+            "invalidVolume": "Gib eine Menge über 0 Litern ein.",
+            "noBedArea": "Kein Beet der Zone hat eine Fläche. Wähle „Zu gleichen Teilen“ oder trage Flächen ein.",
+            "resultTitle": "Gießrunde gespeichert",
+            "resultMarker": "{{allocation}}: Diese Mengen sind verteilt, nicht gemessen.",
+            "share": "{{bed}}: {{liters}} Liter",
+            "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}."
+          },
+          "bed": {
+            "zone": "Bewässerungszone: {{name}}",
+            "wateredNone": "Kein Gießen erfasst.",
+            "watered": "Zuletzt gegossen: {{days}}"
+          }
         }
       },
       "io": {

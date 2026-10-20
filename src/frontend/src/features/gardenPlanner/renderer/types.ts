@@ -65,8 +65,32 @@ export interface RendererLabels {
   size: (geometry: Geometry, areaM2: number) => string;
 }
 
+/** One irrigation zone as the zone layer draws it: outline and hatching over its beds (GP-FR-110). */
+export interface ZoneLayerEntry {
+  key: string;
+  /** The zone's own colour (`#RRGGBB`); the hatching direction and the dash differ per zone, so colour is never the only cue. */
+  color: string;
+  /** Position in the zone list: picks the hatching variant, so neighbouring zones look different without their colour. */
+  variant: number;
+  locationKeys: readonly string[];
+}
+
+/** One bed's "days since the last watering" for the layer of that name (GP-UX-031). */
+export interface WateredLayerEntry {
+  days: number;
+  /** `d0_1` | `d2_3` | `d4_7` | `d8plus`: picks the pattern. */
+  wateredClass: 'd0_1' | 'd2_3' | 'd4_7' | 'd8plus';
+}
+
 export interface RenderOptions {
   labels: RendererLabels;
+  /** The zone layer; absent = hidden. Decorative: the zone of a bed is also written in the properties panel. */
+  zoneLayer?: readonly ZoneLayerEntry[];
+  /**
+   * The "last watered" layer by bed key; absent = hidden. `label` words a bed's number ("3 days since"), which is
+   * all the layer says - it never claims that a bed needs water.
+   */
+  wateredLayer?: { byBed: Readonly<Record<string, WateredLayerEntry>>; label: (days: number) => string };
   /** Field mode raises the on-screen label size from 12 to 16 px (GP-NFR-067). */
   fieldMode?: boolean;
   /** The bed whose plants are the current focus level (GP-NFR-068: Enter enters a bed). */

@@ -7,6 +7,7 @@ import { BasePlanRenderer } from './BasePlanRenderer';
 import { OBJECT_ICON_PATHS } from './icons';
 import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
 import { PlantBadge, PlantMarkerBody } from './PlantMarker';
+import { WateredLayer, ZoneLayer } from './ZoneOverlays';
 import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
 import type { MarkerEntry, ShapeEntry } from './planIndex';
 import {
@@ -120,6 +121,8 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     plantStates,
     describedPlantKey,
     invalidKeys,
+    zoneLayer,
+    wateredLayer,
   } = options;
   const scene = useMemo(
     () => buildScene(model, viewport, selection, { enteredLocationKey, plantStates, invalidKeys }),
@@ -155,6 +158,12 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
           onActivateKey={onActivateKey}
         />
       ))}
+      {zoneLayer && zoneLayer.length > 0 ? (
+        <ZoneLayer shapes={scene.shapes} zones={zoneLayer} pxPerM={pxPerM} theme={theme} />
+      ) : null}
+      {wateredLayer ? (
+        <WateredLayer shapes={scene.shapes} layer={wateredLayer} pxPerM={pxPerM} fontPx={fontPx} theme={theme} />
+      ) : null}
       {scene.clusters.map((cluster) => (
         <ClusterNode
           key={cluster.locationKey}

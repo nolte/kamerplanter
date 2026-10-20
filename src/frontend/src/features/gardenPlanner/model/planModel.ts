@@ -6,6 +6,7 @@
  *
  * Plain JSON-serialisable data only - it lives in the Redux store.
  */
+import type { PlanZone } from '../zones/zoneTypes';
 import {
   PLAN_SCHEMA_VERSION,
   type DerivedGeometry,
@@ -38,8 +39,8 @@ export interface PlanModel {
    * current frame (hand-built models in tests).
    */
   slotFrames?: Record<string, Geometry>;
-  /** Irrigation zones (WP 7.x); opaque until then. */
-  zones: Record<string, unknown>[];
+  /** Irrigation zones of the site as the plan response carries them (WP 7.6). */
+  zones: PlanZone[];
 }
 
 /** The response carries a DTO version this client does not read. */
@@ -128,6 +129,11 @@ let tempKeySequence = 0;
 export function newTempKey(): string {
   tempKeySequence += 1;
   return `tmp${tempKeySequence.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/** True for a key made by {@link newTempKey}: the object is not saved yet, the server does not know it. */
+export function isTempKey(key: string): boolean {
+  return key.startsWith('tmp');
 }
 
 /**
