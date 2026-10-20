@@ -14,3 +14,11 @@ from tests.support import db_guard
 def block_datastore_access(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Make any real datastore connection from a unit test fail immediately."""
     db_guard.install_unless_marked(request, monkeypatch, tier="unit")
+
+
+@pytest.fixture(autouse=True)
+def fresh_flow_reading_cache() -> None:
+    """The zone status remembers a Home Assistant reading for a few seconds; no test may see another's (#2522)."""
+    from app.domain.services.irrigation_zone_service import clear_reading_cache
+
+    clear_reading_cache()

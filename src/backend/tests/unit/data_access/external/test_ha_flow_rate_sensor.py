@@ -110,3 +110,14 @@ class TestUnavailable:
 
         assert raised.value.args == () and raised.value.__cause__ is None
         assert ENTITY not in repr(logs) and "ha.local" not in repr(logs)
+
+
+class TestNonFiniteValues:
+    """#2522: ``"inf"`` and ``"nan"`` parse as floats; a non-finite rate must never become a reading."""
+
+    @pytest.mark.parametrize("value", ["inf", "-inf", "nan", float("inf"), float("nan")])
+    def test_a_non_finite_value_is_no_reading(self, value) -> None:
+        assert _sensor(_Client(_state(value, "L/min", last_reported=REPORTED))).read(ENTITY) is None  # type: ignore[arg-type]
+
+    def test_an_unparsable_value_is_no_reading(self) -> None:
+        assert _sensor(_Client(_state("unavailable", "L/min", last_reported=REPORTED))).read(ENTITY) is None  # type: ignore[arg-type]

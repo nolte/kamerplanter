@@ -21,4 +21,19 @@ def divide_volume(total_liters: float, weights: Sequence[float]) -> list[float]:
     weight_sum = sum(weights)
     shares = [round(total_liters * weight / weight_sum, _DECIMALS) for weight in weights[:-1]]
     shares.append(round(total_liters - sum(shares), _DECIMALS))
+    if shares[-1] < 0:
+        # A tiny total over many beds: the shares round up and overshoot, so the remainder goes negative.
+        return _largest_remainder(total_liters, weights, weight_sum)
     return shares
+
+
+def _largest_remainder(total_liters: float, weights: Sequence[float], weight_sum: float) -> list[float]:
+    """Whole millilitres by floor, the leftover ones to the largest fractions: every share >= 0, the sum exact."""
+    scale = 10**_DECIMALS
+    total_units = round(total_liters * scale)
+    exact = [total_units * weight / weight_sum for weight in weights]
+    units = [int(value) for value in exact]
+    leftover = total_units - sum(units)
+    for index in sorted(range(len(weights)), key=lambda i: (exact[i] - units[i], -i), reverse=True)[:leftover]:
+        units[index] += 1
+    return [unit / scale for unit in units]

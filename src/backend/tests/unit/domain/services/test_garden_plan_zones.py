@@ -14,8 +14,9 @@ from typing import Any
 import pytest
 
 from app.common.enums import FlowRateSource, GardenObjectType, IrrigationZoneType, TenantRole
-from app.common.exceptions import PlanValidationError
+from app.common.exceptions import PlanError, PlanValidationError
 from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_plan import ERROR_ZONE_QUOTA, MAX_PLAN_ZONES
 from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import SitePlan
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
@@ -191,6 +192,16 @@ class TestImport:
         assert created.actuator_key is None and created.flow_rate_ha_entity_id is None
         assert created.flow_rate_source is FlowRateSource.MANUAL
 
+    def test_a_flow_source_of_a_home_assistant_zone_is_reported_a_manual_one_is_not(self, rig) -> None:
+        document = rig.file()
+        document["zones"][0]["flow_rate_source"] = "manual"
+
+        assert rig.run(document, dry_run=True).dropped_references == []
+
+        document["zones"][0].update(flow_rate_source="ha_entity")
+        dropped = {(d.entity, d.field, d.reason) for d in rig.run(document, dry_run=True).dropped_references}
+        assert ("irrigation_zone", "flow_rate_source", "always_dropped") in dropped
+
     def test_a_water_source_that_is_not_in_the_file_is_dropped_and_reported(self, rig, repo) -> None:
         document = rig.file()
         document["zones"][0]["water_source_key"] = "go_elsewhere"
@@ -247,3 +258,50 @@ class TestImport:
 
         with pytest.raises(PlanValidationError):
             rig.run(document, dry_run=True)
+
+
+class TestZoneCap:
+    """#2522: the per-site cap holds on the plan read, the export and the merge import - nothing is cut silently."""
+
+    @staticmethod
+    def _fill(zones: FakeZones, count: int, prefix: str = "f") -> None:
+        for index in range(count):
+            zones.add(
+                IrrigationZone(
+                    _key=f"{prefix}{index}", tenant_key=TENANT, site_key=SITE, name=f"Z{index}", irrigation_type="drip"
+                )
+            )
+
+    def test_a_site_over_the_cap_is_422_on_the_read_and_the_export(self, rig, zones) -> None:
+        self._fill(zones, MAX_PLAN_ZONES)  # plus z1 of the fixture: one over
+
+        with pytest.raises(PlanError) as read:
+            rig.plans.get_plan(SITE, tenant_key=TENANT, include=frozenset({"zones"}))
+        with pytest.raises(PlanError) as export:
+            rig.file()
+
+        assert read.value.error_code == export.value.error_code == ERROR_ZONE_QUOTA
+        assert read.value.status_code == 422
+
+    def test_a_site_exactly_at_the_cap_is_read_complete(self, rig, zones) -> None:
+        self._fill(zones, MAX_PLAN_ZONES - 1)
+
+        assert len(rig.plans.get_plan(SITE, tenant_key=TENANT, include=frozenset({"zones"})).zones) == MAX_PLAN_ZONES
+
+    def test_a_merge_that_would_pass_the_cap_is_refused_and_nothing_is_written(self, rig, repo, zones) -> None:
+        document = rig.file()
+        self._fill(zones, MAX_PLAN_ZONES - 1)  # at the cap with z1; the file brings one more
+
+        report = rig.run(document, mode="merge", dry_run=True)
+
+        assert not report.applied
+        assert ("zones", ERROR_ZONE_QUOTA) in [(e.field, e.code) for e in report.errors]
+        assert repo.applied == []
+
+    def test_a_replace_counts_the_zones_it_retires(self, rig, zones) -> None:
+        document = rig.file()
+        self._fill(zones, MAX_PLAN_ZONES - 1)  # all of them cover no bed that stays, so the replace retires them
+
+        report = rig.run(document, mode="replace", dry_run=True)
+
+        assert ERROR_ZONE_QUOTA not in [e.code for e in report.errors]

@@ -8,6 +8,7 @@ entity leaves it** - an error carries neither the entity id nor the URL, and not
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -90,5 +91,13 @@ class HaFlowRateSensor:
         reported_at = _instant(state)
         if unit not in _TO_LITERS_PER_MINUTE or reported_at is None:
             return None
-        liters = float(state["value"]) * _TO_LITERS_PER_MINUTE[unit]
-        return FlowReading(liters_per_minute=liters, reported_at=reported_at) if liters > 0 else None
+        try:
+            liters = float(state["value"]) * _TO_LITERS_PER_MINUTE[unit]
+        except TypeError, ValueError:
+            return None
+        # ``"inf"`` and ``"nan"`` parse as floats: a non-finite rate would reach the JSON answer as a 500.
+        return (
+            FlowReading(liters_per_minute=liters, reported_at=reported_at)
+            if math.isfinite(liters) and liters > 0
+            else None
+        )

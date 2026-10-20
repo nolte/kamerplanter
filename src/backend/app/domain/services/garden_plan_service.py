@@ -68,6 +68,7 @@ from app.domain.models.bed_template import BedTemplate
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BATCH_TIME_BUDGET_SECONDS,
+    ERROR_ZONE_QUOTA,
     MAX_BATCH_BODY_BYTES,
     MAX_BATCH_POINTS,
     MAX_OPERATIONS,
@@ -290,17 +291,33 @@ class GardenPlanService:
             included=sorted(include),
         )
 
+    def count_zones(self, site_key: SiteKey, *, tenant_key: str) -> int:
+        """How many irrigation zones the site holds (at most :data:`MAX_PLAN_ZONES` + 1 are read)."""
+        if self._zones is None:
+            return 0
+        return len(self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=0, limit=MAX_PLAN_ZONES + 1))
+
     def zone_rows(self, site_key: SiteKey, *, tenant_key: str) -> list[dict[str, Any]]:
         """The site's irrigation zones with the beds each covers (GP-API-001 ``include=zones``, WP 7.2).
 
         The caller has resolved the site under the tenant; the zones are read under the tenant again.
 
-        At most :data:`MAX_PLAN_ZONES`, by name; the technical coupling beyond ``actuator_key`` (the bound Home
-        Assistant entity) is never part of the read model (SR-014, GP-NFR-060).
+        At most :data:`MAX_PLAN_ZONES`, by name - more is 422 ``irrigation_zone.quota_exceeded``, never a silent
+        cut. The technical coupling beyond ``actuator_key`` (the bound Home Assistant entity)
+        is never part of the read model (SR-014, GP-NFR-060).
         """
         if self._zones is None:
             return []
-        zones = self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=0, limit=MAX_PLAN_ZONES)
+        zones = self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=0, limit=MAX_PLAN_ZONES + 1)
+        if len(zones) > MAX_PLAN_ZONES:
+            # Never a silent cut: a truncated read would make the export an incomplete backup.
+            raise PlanError(
+                ERROR_ZONE_QUOTA,
+                f"The site has more than {MAX_PLAN_ZONES} irrigation zones.",
+                status_code=422,
+                field="zones",
+                limit=MAX_PLAN_ZONES,
+            )
         covered = self._zones.covered_location_keys([zone.key or "" for zone in zones], tenant_key=tenant_key)
         return [
             {

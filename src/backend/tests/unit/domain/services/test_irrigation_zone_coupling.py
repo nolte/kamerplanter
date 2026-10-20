@@ -339,3 +339,158 @@ class TestConsumption:
 
         assert [p.source for p in status.consumption] == ["manual_log", "actuator_runtime_manual_rate"]
         assert status.consumption_liters_30d == 100.0
+
+
+class TestGrantOnUse:
+    """#2522: a bind that fails the device-class check leaves no grant behind (light mode grants on use)."""
+
+    def _light(self, world):
+        world.gate = grant_service({}, grant_on_use=True)
+        world.service = IrrigationZoneService(
+            world.zones,
+            world.service._sites,
+            _NoObjects(),  # type: ignore[arg-type]
+            FakeCareEventRepo(),
+            ha_entity_gate=world.gate,
+            flow_sensor=world.sensor,
+        )
+
+    def _bind(self, world):
+        return world.patch(flow_rate_source=FlowRateSource.HA_ENTITY, flow_rate_ha_entity_id=ENTITY)
+
+    def test_a_non_flow_entity_is_refused_and_not_granted(self, world) -> None:
+        self._light(world)
+        world.sensor.device_classes[ENTITY] = "temperature"
+
+        with pytest.raises(PlanError):
+            self._bind(world)
+
+        assert world.gate.granted_entity_ids(TENANT) == frozenset()
+
+    def test_an_unverifiable_entity_is_not_granted_either(self, world) -> None:
+        self._light(world)
+        world.sensor.down = True
+
+        with pytest.raises(PlanError):
+            self._bind(world)
+
+        assert world.gate.granted_entity_ids(TENANT) == frozenset()
+
+    def test_a_flow_entity_is_granted_on_use_once_it_passed(self, world) -> None:
+        self._light(world)
+
+        self._bind(world)
+
+        assert world.gate.granted_entity_ids(TENANT) == frozenset({ENTITY})
+
+
+class TestOrdering:
+    def test_a_caller_without_the_scope_gets_403_before_the_422_of_a_mismatched_source(self, world) -> None:
+        with pytest.raises(ForbiddenError):
+            world.patch(scopes=(), flow_rate_source=FlowRateSource.HA_ENTITY)  # source without an entity
+
+    def test_a_caller_with_the_scope_still_gets_the_422(self, world) -> None:
+        with pytest.raises(PlanError) as refused:
+            world.patch(flow_rate_source=FlowRateSource.HA_ENTITY)
+
+        assert refused.value.error_code == ERROR_FLOW_SOURCE_MISMATCH
+
+
+class TestReadingCache:
+    """#2522: every member opens the status; Home Assistant is asked at most once per window."""
+
+    def _count_reads(self, world) -> list[str]:
+        asked: list[str] = []
+        original = world.sensor.read
+
+        def counting(entity_id):
+            asked.append(entity_id)
+            return original(entity_id)
+
+        world.sensor.read = counting
+        return asked
+
+    def _setup(self, world) -> list[str]:
+        world.patch(actuator_key="act_ok", flow_rate_l_per_min=6.0)
+        world.patch(flow_rate_source=FlowRateSource.HA_ENTITY, flow_rate_ha_entity_id=ENTITY)
+        world.sensor.readings[ENTITY] = FlowReading(10.0, NOW - timedelta(hours=1))
+        return self._count_reads(world)
+
+    def test_repeated_status_reads_ask_home_assistant_once(self, world) -> None:
+        asked = self._setup(world)
+
+        for _ in range(5):
+            world.service.zone_status("z", tenant_key=TENANT, now=NOW)
+
+        assert asked == [ENTITY]
+
+    def test_the_answer_expires(self, world, monkeypatch) -> None:
+        import app.domain.services.irrigation_zone_service as module
+
+        asked = self._setup(world)
+        clock = [1000.0]
+        monkeypatch.setattr(module, "monotonic", lambda: clock[0])
+
+        world.service.zone_status("z", tenant_key=TENANT, now=NOW)
+        clock[0] += module.READING_TTL_SECONDS + 1
+        world.service.zone_status("z", tenant_key=TENANT, now=NOW)
+
+        assert asked == [ENTITY, ENTITY]
+
+    def test_an_unreachable_home_assistant_is_remembered_too(self, world) -> None:
+        asked = self._setup(world)
+        world.sensor.down = True
+
+        for _ in range(3):
+            world.service.zone_status("z", tenant_key=TENANT, now=NOW)
+
+        assert asked == [ENTITY]
+
+
+class TestZoneCap:
+    def _fill(self, world, count: int) -> None:
+        for index in range(count):
+            world.zones.add(
+                IrrigationZone(
+                    _key=f"fill{index}", tenant_key=TENANT, site_key=SITE, name=f"Z{index}", irrigation_type="drip"
+                )
+            )
+
+    def test_the_501st_zone_of_a_site_is_422_with_a_clear_code(self, world) -> None:
+        from app.domain.models.garden_plan import ERROR_ZONE_QUOTA, MAX_PLAN_ZONES
+
+        self._fill(world, MAX_PLAN_ZONES - 1)  # plus the zone "z" of the world = the cap
+
+        with pytest.raises(PlanError) as refused:
+            world.service.create_zone(
+                SITE, tenant_key=TENANT, role=TenantRole.LEAD, data=IrrigationZoneInput(name="One too many")
+            )
+
+        assert (refused.value.error_code, refused.value.status_code) == (ERROR_ZONE_QUOTA, 422)
+
+    def test_the_last_zone_under_the_cap_is_created(self, world) -> None:
+        from app.domain.models.garden_plan import MAX_PLAN_ZONES
+
+        self._fill(world, MAX_PLAN_ZONES - 2)
+
+        view = world.service.create_zone(
+            SITE, tenant_key=TENANT, role=TenantRole.LEAD, data=IrrigationZoneInput(name="Last")
+        )
+
+        assert view.zone.name == "Last"
+
+    def test_another_sites_zones_do_not_count(self, world) -> None:
+        from app.domain.models.garden_plan import MAX_PLAN_ZONES
+
+        for index in range(MAX_PLAN_ZONES):
+            world.zones.add(
+                IrrigationZone(
+                    _key=f"o{index}", tenant_key=TENANT, site_key=OTHER_SITE, name=f"Z{index}", irrigation_type="drip"
+                )
+            )
+
+        view = world.service.create_zone(
+            SITE, tenant_key=TENANT, role=TenantRole.LEAD, data=IrrigationZoneInput(name="Fine")
+        )
+
+        assert view.zone.name == "Fine"

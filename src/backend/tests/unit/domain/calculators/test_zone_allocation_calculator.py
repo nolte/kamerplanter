@@ -30,3 +30,25 @@ class TestDivideVolume:
     def test_a_total_or_weight_that_is_not_positive_is_refused(self, total: float, weights: list[float]) -> None:
         with pytest.raises(ValueError, match="positive"):
             divide_volume(total, weights)
+
+
+class TestTinyTotals:
+    """#2522: a tiny total over many beds never gives a negative share and still adds up (to the millilitre)."""
+
+    @pytest.mark.parametrize("total", [0.001, 0.002, 0.003, 0.0015, 0.0049, 0.01])
+    @pytest.mark.parametrize("beds", [2, 3, 7, 40, 500])
+    def test_no_share_is_negative_and_the_sum_is_exact(self, total: float, beds: int) -> None:
+        shares = divide_volume(total, [1.0] * beds)
+
+        assert len(shares) == beds
+        assert min(shares) >= 0
+        assert sum(shares) == pytest.approx(total, abs=0.0005 + 1e-9)  # whole millilitres
+
+    def test_an_overshooting_remainder_is_redistributed_not_negated(self) -> None:
+        # Plain rounding of 0.0015 over three beds gives 0.002 + 0.002 and a last share of -0.0025.
+        assert sorted(divide_volume(0.0015, [1.0, 1.0, 1.0]), reverse=True) == [0.001, 0.001, 0.0]
+
+    def test_the_weights_still_decide_who_gets_the_scarce_millilitres(self) -> None:
+        shares = divide_volume(0.002, [1.0, 10.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+
+        assert min(shares) >= 0 and shares[1] == max(shares)
