@@ -56,15 +56,19 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
         ]
     )
     db.collection(col.SLOTS).insert_many([{"_key": "s1", "location_key": "L1"}, {"_key": "s2", "location_key": "L2"}])
+    # (tenant_key, instance_id) is unique: every stored plant carries its own instance_id
     plant = {"tenant_key": "t1", "location_key": None, "site_key": None}
     db.collection(col.PLANT_INSTANCES).insert_many(
         [
-            {**plant, "_key": "ok", "slot_key": "s1"},
-            {**plant, "_key": "keep", "slot_key": "s1", "location_key": "L4"},
-            {**plant, "_key": "ghostloc", "slot_key": "s1", "location_key": "OTHER"},
-            {**plant, "_key": "noslot", "slot_key": None},
-            {**plant, "_key": "foreign", "slot_key": "s2"},
-            {**plant, "_key": "done", "slot_key": "s1", "location_key": "L1", "site_key": "S1"},
+            {**row, "instance_id": f"PLANT-{row['_key']}"}
+            for row in [
+                {**plant, "_key": "ok", "slot_key": "s1"},
+                {**plant, "_key": "keep", "slot_key": "s1", "location_key": "L4"},
+                {**plant, "_key": "ghostloc", "slot_key": "s1", "location_key": "OTHER"},
+                {**plant, "_key": "noslot", "slot_key": None},
+                {**plant, "_key": "foreign", "slot_key": "s2"},
+                {**plant, "_key": "done", "slot_key": "s1", "location_key": "L1", "site_key": "S1"},
+            ]
         ]
     )
 
