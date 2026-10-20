@@ -137,7 +137,13 @@ class TestTheReport:
         assert response.status_code == 200, response.text
         report = response.json()
         assert report["dry_run"] is True and report["applied"] is False
-        assert report["would_create"] == {"locations": 1, "garden_objects": 0, "slots": 0, "plan_settings": 0, "zones": 0}
+        assert report["would_create"] == {
+            "locations": 1,
+            "garden_objects": 0,
+            "slots": 0,
+            "plan_settings": 0,
+            "zones": 0,
+        }
         assert report["would_delete"]["locations"] == 1 and report["would_update"]["plan_settings"] == 1
         assert report["errors"] == [] and report["dropped_references"] == []
         assert repo.applied == [] and list(repo.locations) == ["bed"]  # the positive control for "nothing written"

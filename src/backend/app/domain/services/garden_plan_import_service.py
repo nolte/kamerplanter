@@ -446,8 +446,8 @@ class GardenPlanImportService:
     def _add_zones(self, prepared: _Prepared, parsed: GardenPlanExport, *, site_key: str, tenant_key: str) -> None:
         """Build the zones of the file once its objects exist: a water source is a ``water_source`` of the file."""
         object_temp: dict[str, str] = {}
-        for position, item in enumerate(parsed.garden_objects):
-            object_temp.setdefault(item.key, f"imp_obj_{position}")
+        for object_position, garden_object_item in enumerate(parsed.garden_objects):
+            object_temp.setdefault(garden_object_item.key, f"imp_obj_{object_position}")
         for position, item in enumerate(parsed.zones):
             temp = f"{_ZONE_TEMP}{position}"
             if prepared.zone_temp.get(item.key) != temp:
