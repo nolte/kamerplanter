@@ -69,6 +69,9 @@ export type Geometry =
 
 export type BedStatus = 'planned' | 'active' | 'retired';
 export type SunExposure = 'full_sun' | 'partial_shade' | 'shade' | 'deep_shade' | 'unknown';
+
+/** When the direct sun reaches a bed (GP-FR-158, `SunWindow` of the backend). */
+export type SunWindow = 'morning' | 'midday' | 'afternoon' | 'all_day' | 'mixed' | 'unknown';
 export type SlotRole = 'position' | 'row' | 'zone';
 
 export type GardenObjectType =

@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.3
+Version: 1.4
 Autor: Business Analyst - Agrotech
 Datum: 2026-10-20
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.4 | 2026-10-20 | §2.5.1: Sonnenprofil des Beets (REQ-053 WP 7.20, GP-FR-158/159) registriert: `bed-view-sun-profile` (Dialog Sonne und Schatten der Beetansicht) und `field-mode-sun-profile` (Beet-Sheet des Feldmodus) mit den qualifizierenden Suffixen `-window` (Gruppe der Chips), `-window-<wert>` (Chip, `<wert>` ∈ `morning`, `midday`, `afternoon`, `all_day`, `mixed`, `unknown`), `-window-<wert>-input`, `-hours` (Stundenfeld) und `-foliage` (Schalter Laubschatten); dazu `field-mode-sun-section` (Abschnitt im Beet-Sheet) und `bed-header-sun-profile` (Zeile im Kopf der Beetansicht). |
 | 1.3 | 2026-10-20 | §2.5.1: Bewässerungs-Ebenen und Zonen-Panel des Gartenplans (REQ-053 WP 7.6/7.7) im Präfix `garden-plan-*` registriert: `garden-plan-layer-zones`, `garden-plan-layer-lastWatered`, `garden-plan-layer-legend`, `garden-plan-zones-open`, `garden-plan-zone-panel` mit `garden-plan-zone-*` (Zeile, Formular, Statusblock, Beetliste) und `garden-plan-round-*` (Gießrunden-Dialog). |
 | 1.2 | 2026-10-15 | §2.5.1: Präfixe `garden-plan-*` (Editor), `bed-view-*` (Beetansicht) und `field-mode-*` (Feldmodus) für REQ-053 **reserviert** und die in REQ-053 GP-UX-012 genannten Identifikatoren registriert (per R-020, **vor** der Verwendung; Implementierung folgt mit REQ-053 Welle 4/5). §3.3 Kurzreferenz ergänzt. |
 | 1.1 | 2026-07-26 | Registrierte Zusatzmuster §2.5.1 (Karten-Layout, Formular-Aktionsleiste, Tabellenkopf, qualifizierende Attribute, konkret vergebene Identifikatoren). |
@@ -164,8 +165,8 @@ Die folgenden drei Präfixe sind für die grafische Garten-/Beetplanung reservie
 | Präfix | Bereich | Vergeben (GP-UX-012) |
 |---|---|---|
 | `garden-plan-*` | Editor und Gartenübersicht (Route `standorte/sites/:key/plan`) | `garden-plan-page` (Seiten-Marker nach R-005), `garden-plan-canvas` (Zeichenfläche, Wurzel des `PlanRenderer`), `garden-plan-layer-<ebene>` (Ebenen-Schalter: `zones`, `lastWatered`), `garden-plan-layer-legend`, `garden-plan-zones-open`, `garden-plan-zone-panel`, `garden-plan-zone-*` (Zonen-Panel: `row-<key>`, `new`, `name`, `type`, `save`, `delete`, `status`, `hints`, `round-open`), `garden-plan-round-*` (Gießrunden-Dialog: `volume`, `allocation-<art>`, `marker`, `submit`, `result`) |
-| `bed-view-*` | Beetansicht (Detailseite eines Beets mit Plan-Tab) | — (Präfix reserviert; die heute benannten Beet-Identifikatoren folgen dem Grundschema: `bed-detail-page`, `bed-plan-tab`) |
-| `field-mode-*` | Feldmodus (`?mode=field`, REQ-053 §18: Beet-Sheet, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper) | — (Präfix reserviert) |
+| `bed-view-*` | Beetansicht (Detailseite eines Beets mit Plan-Tab) | `bed-view-sun-profile` mit `-window`, `-window-<wert>`, `-window-<wert>-input`, `-hours`, `-foliage` (Sonnenprofil im Dialog „Sonne und Schatten“, WP 7.20); sonst — (die heute benannten Beet-Identifikatoren folgen dem Grundschema: `bed-detail-page`, `bed-plan-tab`) |
+| `field-mode-*` | Feldmodus (`?mode=field`, REQ-053 §18: Beet-Sheet, Schnellprotokoll-Chips, Rückgängig-Snackbar, Stepper) | `field-mode-sun-section` (Abschnitt Sonne im Beet-Sheet), `field-mode-sun-profile` mit denselben Suffixen wie `bed-view-sun-profile` (WP 7.20); sonst — (Präfix reserviert) |
 
 Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzisieren:
 
@@ -306,7 +307,7 @@ Formularfelder des Plans folgen unverändert `form-field-<name>`. Neue Muster un
 
 **Dokumenten-Ende**
 
-**Version**: 1.3
+**Version**: 1.4
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-10-15
 **Review**: Pending

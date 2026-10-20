@@ -281,6 +281,116 @@ describe('BedView', () => {
       expect(patched).toBe(0);
     });
 
+    it('stores the sun window, the hours and leaf shade in one PATCH that carries only the changed keys (GP-FR-158/159)', async () => {
+      const bodies: unknown[] = [];
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(
+        bedSummary({ site_conditions: { sun_profile: { sun_window: 'morning', foliage_shade_in_summer: false } } }),
+        '/standorte/locations/loc_b03#soil',
+        'grower',
+      );
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      expect(within(dialog).getByRole('radio', { name: 'Morning' })).toBeChecked();
+      await user.click(within(dialog).getByRole('radio', { name: 'Afternoon' }));
+      await user.type(
+        within(dialog).getByRole('textbox', { name: 'Hours of direct sun in summer (optional)' }),
+        '5',
+      );
+      await user.click(within(dialog).getByRole('switch', { name: 'Leaf shade in summer' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        site_conditions: {
+          sun_profile: { sun_window: 'afternoon', direct_sun_hours_summer: 5, foliage_shade_in_summer: true },
+        },
+      });
+    });
+
+    it('sends the class and the profile together and drops a key set back to its stored value', async () => {
+      const bodies: unknown[] = [];
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(
+        bedSummary({ site_conditions: { sun_profile: { sun_window: 'morning' } } }),
+        '/standorte/locations/loc_b03#soil',
+        'grower',
+      );
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      await user.click(within(dialog).getByRole('radio', { name: 'Midday' }));
+      await user.click(within(dialog).getByRole('radio', { name: 'Morning' })); // back to the stored value
+      await user.click(within(dialog).getByRole('switch', { name: 'Leaf shade in summer' }));
+      await user.click(within(dialog).getByRole('radio', { name: 'Shade' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        sun_exposure: 'shade',
+        site_conditions: { sun_profile: { foliage_shade_in_summer: true } },
+      });
+    });
+
+    it('keeps the dialog open with the entry when the server refuses the profile (422)', async () => {
+      let refused = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          refused += 1;
+          return HttpResponse.json(
+            { detail: 'site_conditions.sun_profile.direct_sun_hours_summer: must be <= 24' },
+            { status: 422 },
+          );
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      await user.click(within(dialog).getByRole('radio', { name: 'Midday' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(refused).toBe(1));
+      await waitFor(() => expect(within(screen.getByTestId('bed-sun-dialog')).getByTestId('bed-sun-submit')).toBeEnabled());
+      expect(screen.getByTestId('bed-sun-dialog')).toBeInTheDocument();
+      expect(within(screen.getByTestId('bed-sun-dialog')).getByRole('radio', { name: 'Midday' })).toBeChecked();
+    });
+
+    it('shows what was recorded on one line in the head and nothing when nothing was', async () => {
+      useBackend();
+      const { unmount } = renderBed(
+        bedSummary({
+          site_conditions: {
+            sun_profile: { sun_window: 'all_day', direct_sun_hours_summer: 7, foliage_shade_in_summer: true },
+          },
+        }),
+        '/standorte/locations/loc_b03#soil',
+        'viewer',
+      );
+      expect(await screen.findByTestId('bed-header-sun-profile')).toHaveTextContent(
+        'Sun: All day · about 7 h of direct sun · Leaf shade in summer',
+      );
+      unmount();
+
+      renderBed(bedSummary({ site_conditions: { sun_profile: { sun_window: 'unknown' } } }), '/standorte/locations/loc_b03#soil', 'viewer');
+      await screen.findByTestId('bed-header');
+      expect(screen.queryByTestId('bed-header-sun-profile')).toBeNull();
+    });
+
     it('offers a viewer no way to change it', async () => {
       useBackend();
       renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');

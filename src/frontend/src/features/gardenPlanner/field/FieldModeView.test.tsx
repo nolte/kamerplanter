@@ -562,3 +562,92 @@ describe('field mode accessibility', () => {
     await expectNoA11yViolations(document.body, { minElements: 40 });
   });
 });
+
+describe('sun window in the bed sheet (REQ-053 GP-FR-158/159, GP-UX-057, WP 7.20)', () => {
+  const SUN_BEDS: BedListItem[] = [
+    bedListItem('loc_a', {
+      name: 'Raised bed 1',
+      site_conditions: { sun_profile: { sun_window: 'morning', foliage_shade_in_summer: false } },
+    }),
+  ];
+
+  function useSunPatch() {
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ key: 'loc_a', bed_status: 'active', plan_revision: 5 });
+      }),
+    );
+    return bodies;
+  }
+
+  it('shows the stored window and keeps the chips and the switch at 64 px', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const section = await within(sheet).findByTestId('field-mode-sun-section');
+
+    expect(await within(section).findByRole('radio', { name: 'Morning' })).toBeChecked();
+    for (const option of ['morning', 'midday', 'afternoon', 'all_day', 'mixed', 'unknown']) {
+      expect(within(section).getByTestId(`field-mode-sun-profile-window-${option}`)).toHaveStyle({
+        minHeight: `${KIOSK_TOUCH_TARGET}px`,
+        minWidth: `${KIOSK_TOUCH_TARGET}px`,
+      });
+    }
+    expect(within(section).getByRole('switch', { name: 'Leaf shade in summer' }).closest('label')).toHaveStyle({
+      minHeight: `${KIOSK_TOUCH_TARGET}px`,
+    });
+  });
+
+  it('stores a tapped chip and the leaf-shade switch at once, one changed key per request', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies = useSunPatch();
+    const user = userEvent.setup();
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+
+    await user.click(await within(sheet).findByRole('radio', { name: 'Afternoon' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({ site_conditions: { sun_profile: { sun_window: 'afternoon' } } });
+
+    await waitFor(() => expect(within(sheet).getByRole('switch', { name: 'Leaf shade in summer' })).toBeEnabled());
+    await user.click(within(sheet).getByRole('switch', { name: 'Leaf shade in summer' }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1]).toEqual({ site_conditions: { sun_profile: { foliage_shade_in_summer: true } } });
+  });
+
+  it('shows a viewer the values and takes no input', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    const bodies = useSunPatch();
+    renderField('viewer');
+    const sheet = await openBed('Raised bed 1');
+
+    const chip = await within(sheet).findByRole('radio', { name: 'Morning' });
+    expect(chip).toBeChecked();
+    expect(chip).toBeDisabled();
+    expect(within(sheet).getByRole('switch', { name: 'Leaf shade in summer' })).toBeDisabled();
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('locks the controls while offline instead of losing the entry', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    const chip = await within(sheet).findByRole('radio', { name: 'Midday' });
+    expect(chip).toBeEnabled();
+
+    setOnline(false);
+
+    expect(chip).toBeDisabled();
+  });
+
+  it('has no accessibility violations in the sheet', async () => {
+    useFieldBackend({ beds: SUN_BEDS });
+    renderField();
+    const sheet = await openBed('Raised bed 1');
+    await within(sheet).findByRole('radio', { name: 'Morning' });
+
+    await expectNoA11yViolations(sheet);
+  });
+});
