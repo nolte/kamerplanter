@@ -128,6 +128,17 @@ class TestFreePoints:
         assert world.repo.mixed_writes == []
 
 
+class TestNonFinitePoints:
+    def test_an_infinite_point_is_422_not_an_arithmetic_error(self, world) -> None:
+        item = draft(layout_strategy=LayoutStrategy.FREE, quantity=1, row_spacing_cm=None)
+        item = MixedRunDraft(run=item.run, entry=item.entry, free_points=((float("inf"), 1.0),))
+
+        with pytest.raises(PlanValidationError):
+            create(world, [item])
+
+        assert world.repo.mixed_writes == []
+
+
 class TestRefusalsLeaveNothingBehind:
     def test_a_layout_refusal_of_one_species_stores_none_of_the_runs(self, world) -> None:
         with pytest.raises(PlanError) as caught:
@@ -137,7 +148,7 @@ class TestRefusalsLeaveNothingBehind:
         assert world.repo.mixed_writes == [] and world.runs.runs == {}
 
     def test_an_unreadable_species_stores_none_of_the_runs(self, world) -> None:
-        with pytest.raises((NotFoundError, PlanValidationError)):
+        with pytest.raises(PlanValidationError):
             create(world, [draft(), draft("sp_unknown")])
 
         assert world.repo.mixed_writes == [] and world.runs.runs == {}

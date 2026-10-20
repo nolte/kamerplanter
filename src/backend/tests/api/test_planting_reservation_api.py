@@ -631,3 +631,60 @@ class TestMixedCulture:
 
         assert client().delete(f"{_OWN}/planting-runs/{created[0]['key']}").status_code == 403
         assert client(TenantRole.LEAD).delete(f"{_OWN}/planting-runs/{created[0]['key']}").status_code == 204
+
+    @staticmethod
+    def free_body(points: str, volume: str = "null", strategy: str = "free") -> str:
+        return (
+            '{"location_key":"bed","runs":[{"name":"x","free_points":'
+            + points
+            + ',"container_volume_l":'
+            + volume
+            + ',"entry":{"species_key":"sp_tomato","quantity":1,"id_prefix":"TOM","layout_strategy":"'
+            + strategy
+            + '"}}]}'
+        )
+
+    @pytest.mark.parametrize(
+        ("points", "volume"),
+        [("[[1e999,1]]", "null"), ("[[1,-1e999]]", "null"), ("[[1,1]]", "Infinity"), ("[[NaN,1]]", "null")],
+        ids=["inf x", "-inf y", "inf volume", "nan"],
+    )
+    def test_non_finite_numbers_are_422_and_write_nothing(self, client, world, points, volume) -> None:
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body(points, volume),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 422, response.text
+        assert world.repo.mixed_writes == [] and world.runs.runs == {}
+
+    def test_points_on_an_entry_that_is_not_free_are_422(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", strategy="grid"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 422, response.text
+        assert world.repo.mixed_writes == []
+
+    def test_a_finite_point_of_a_free_entry_is_stored(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/planting-runs/mixed-culture",
+            content=self.free_body("[[1,1]]", "12"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 201, response.text
+        assert len(world.repo.mixed_writes[0].runs[0].slots) == 1
+
+    def test_a_foreign_species_is_422_reference_not_found(self, client, world) -> None:
+        body = self.body()
+        body["runs"][1]["entry"]["species_key"] = "sp_foreign"
+
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=body)
+
+        assert response.status_code == 422, response.text
+        assert "reference.not_found" in response.text
+        assert world.repo.mixed_writes == []

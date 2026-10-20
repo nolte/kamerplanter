@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
 
 from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
 from app.common.enums import DepthKind, LayoutStrategy, PlacementHint, PlanRole, RowDirection
@@ -202,14 +202,22 @@ class MixedCultureRunCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     notes: str | None = Field(default=None, max_length=2000)
     entry: EntryCreate
-    free_points: list[tuple[float, float]] = Field(
+    free_points: list[tuple[FiniteFloat, FiniteFloat]] = Field(
         default_factory=list,
         max_length=MAX_RESERVED_SLOTS,
-        description="Bed-frame points of a `free` entry (cm); each becomes a reserved position of the run.",
+        description="Bed-frame points of a `free` entry (m); each becomes a reserved position of the run.",
     )
     container_volume_l: float | None = Field(
-        default=None, gt=0, description="Pot volume of the freely placed positions, in litres."
+        default=None, gt=0, allow_inf_nan=False, description="Pot volume of the freely placed positions, in litres."
     )
+
+    @model_validator(mode="after")
+    def validate_free_points_belong_to_a_free_entry(self) -> MixedCultureRunCreate:
+        if (self.free_points or self.container_volume_l is not None) and self.entry.layout_strategy is not (
+            LayoutStrategy.FREE
+        ):
+            raise ValueError("free_points and container_volume_l belong to an entry with layout_strategy `free`.")
+        return self
 
 
 class MixedCultureCreate(BaseModel):

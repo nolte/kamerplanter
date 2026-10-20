@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from decimal import InvalidOperation
 from typing import Any
 
 import structlog
@@ -316,7 +317,7 @@ class PlantingReservationService:
                 )
                 for offset, (placement, sequence, point) in enumerate(flat)
             ]
-        except PydanticValidationError:
+        except PydanticValidationError, InvalidOperation, OverflowError:
             raise PlanValidationError([(None, "free_points", "geometry.invalid", {})]) from None
 
     @staticmethod

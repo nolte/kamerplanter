@@ -325,8 +325,15 @@ class PlantingRunService:
         run.planned_quantity = entry.quantity
         run.planned_from = run.planned_from or run.planned_start_date
         entry.tenant_key = tenant_key
-        self._require_readable_species(entry.species_key, tenant_key)
-        self._repo.verify_entry_references(entry)
+        # A key of the body is a reference: foreign and absent alike are 422 ``reference.not_found`` (GP-NFR-058).
+        try:
+            self._require_readable_species(entry.species_key, tenant_key)
+        except NotFoundError:
+            raise PlanValidationError([(None, "entry.species_key", "reference.not_found", {})]) from None
+        try:
+            self._repo.verify_entry_references(entry)
+        except NotFoundError:
+            raise PlanValidationError([(None, "entry.cultivar_key", "reference.not_found", {})]) from None
         self._require_green_manure_species(run, [entry])
         self._engine.validate_run_type_constraints(run.run_type, [entry], None)
 

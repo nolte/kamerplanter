@@ -993,7 +993,7 @@ class TestAMixedCultureIsOneTransaction:
 
         response = self._post(db, body)
 
-        assert response.status_code in (404, 422), response.text
+        assert response.status_code == 422, response.text
         for name in (col.PLANTING_RUNS, col.PLANTING_RUN_ENTRIES, col.RUN_PLANNED_AT, col.RUN_AT_LOCATION):
             assert list(db.collection(name).all()) == [], name
 
