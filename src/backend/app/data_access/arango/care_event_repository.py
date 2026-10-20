@@ -296,6 +296,17 @@ class ArangoCareEventRepository(BaseArangoRepository[CareEvent], ICareEventRepos
             stored = write_care_event(txn, event, _now())
         return self._wrapped(stored)
 
+    def insert_many(self, events: list[CareEvent], *, tenant_key: str) -> list[CareEvent]:
+        self._require_tenant_key(tenant_key, "insert_many")
+        if any(event.tenant_key != tenant_key for event in events):
+            raise ValueError("insert_many: an event belongs to another tenant than the one it is written under.")
+        if not events:
+            return []
+        now = _now()
+        with stream_transaction(self._db, write=CARE_EVENT_WRITE_COLLECTIONS, entity="care_event") as txn:
+            stored = [write_care_event(txn, event, now) for event in events]
+        return [self._wrapped(doc) for doc in stored]
+
     def _load_in(self, txn: StreamTransaction, key: str, tenant_key: str) -> dict[str, Any]:
         doc = next(
             iter(

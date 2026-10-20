@@ -2237,6 +2237,18 @@ class IrrigationZoneType(StrEnum):
     SUB_IRRIGATION = "sub_irrigation"
 
 
+class CareEventAllocation(StrEnum):
+    """How the quantity of a care event came about (REQ-053 GP-FR-117, WP 7.3). Additive (M-9).
+
+    ``measured`` is the default: the person measured what this bed received. ``by_area`` and ``equal`` mark a
+    quantity that a zone round divided over its beds - an allocated value is never shown as a measured one.
+    """
+
+    MEASURED = "measured"
+    BY_AREA = "by_area"
+    EQUAL = "equal"
+
+
 class FlowRateSource(StrEnum):
     """Where an irrigation zone's flow rate comes from (REQ-053 §14.1, O-13). Additive (M-9).
 

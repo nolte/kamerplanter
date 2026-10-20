@@ -11,7 +11,7 @@ import type {
 
 /**
  * REST access of the bed care tab through the tenant-scoped client (REQ-053 GP-API-030…033): the
- * location queue, the atomic completion, the batch completion, fan-out, reopen with `undo` and the
+ * location queue, the atomic completion, the batch completion, create for each plant, reopen with `undo` and the
  * care log without a task.
  */
 
@@ -100,12 +100,12 @@ export async function createBedTask(body: BedTaskBody): Promise<CareTask> {
   return data;
 }
 
-/** GP-FR-081: clone a bed task onto every plant standing in the bed; the bed task is skipped. */
-export async function fanOutBedTask(key: string): Promise<CareTask[]> {
-  const { data } = await tenantClient.post<CareTask[]>(`${TASKS}/${key}/fan-out`, {
-    include_children: true,
-    keep_source: false,
-  });
+/**
+ * GP-FR-081 / #2462: "for every plant" in one request. The server creates only the per-plant tasks, in one
+ * transaction (no bed task, nothing half-done on a failure); a bed without plants answers an empty list.
+ */
+export async function createTasksForEachPlant(body: BedTaskBody): Promise<CareTask[]> {
+  const { data } = await tenantClient.post<CareTask[]>(TASKS, { ...body, for_each_plant: true });
   return data;
 }
 

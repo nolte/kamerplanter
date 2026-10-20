@@ -60,6 +60,7 @@ from app.domain.engines.garden_plan_engine import (
 )
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
+from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
@@ -68,6 +69,7 @@ from app.domain.models.garden_plan import (
     MAX_BATCH_POINTS,
     MAX_OPERATIONS,
     MAX_PLAN_OBJECTS_PER_SITE,
+    MAX_PLAN_ZONES,
     CreateGardenObjectOp,
     CreateLocationOp,
     DeleteOp,
@@ -224,9 +226,12 @@ class GardenPlanService:
         self,
         site_repo: ISiteRepository,
         plan_repo: IGardenPlanRepository,
+        zone_repo: IIrrigationZoneRepository | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
+        #: ``None`` = a caller that never asks for ``include=zones`` (the read model then carries no zones).
+        self._zones = zone_repo
 
     # ── Anchor ────────────────────────────────────────────────────────────────
 
@@ -270,9 +275,39 @@ class GardenPlanService:
             task_counters=data.task_counters if "tasks" in include else {},
             object_task_counters=data.object_task_counters if "tasks" in include else {},
             season_states=season_states,
-            zones=[],
+            last_watered=data.last_watered if "tasks" in include else {},
+            zones=self.zone_rows(site_key, tenant_key=tenant_key) if "zones" in include else [],
             included=sorted(include),
         )
+
+    def zone_rows(self, site_key: SiteKey, *, tenant_key: str) -> list[dict[str, Any]]:
+        """The site's irrigation zones with the beds each covers (GP-API-001 ``include=zones``, WP 7.2).
+
+        The caller has resolved the site under the tenant; the zones are read under the tenant again.
+
+        At most :data:`MAX_PLAN_ZONES`, by name; the technical coupling beyond ``actuator_key`` (the bound Home
+        Assistant entity) is never part of the read model (SR-014, GP-NFR-060).
+        """
+        if self._zones is None:
+            return []
+        zones = self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=0, limit=MAX_PLAN_ZONES)
+        covered = self._zones.covered_location_keys([zone.key or "" for zone in zones], tenant_key=tenant_key)
+        return [
+            {
+                "key": zone.key or "",
+                "name": zone.name,
+                "irrigation_type": zone.irrigation_type.value,
+                "water_source_key": zone.water_source_key,
+                "actuator_key": zone.actuator_key,
+                "flow_rate_l_per_min": zone.flow_rate_l_per_min,
+                "flow_rate_source": zone.flow_rate_source.value,
+                "application_efficiency": zone.application_efficiency,
+                "color": zone.color,
+                "schedule_hint": zone.schedule_hint,
+                "location_keys": list(covered.get(zone.key or "", [])),
+            }
+            for zone in zones
+        ]
 
     @staticmethod
     def _slot_view(slot: Slot, bed: Location | None) -> PlanSlotView | None:

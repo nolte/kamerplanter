@@ -123,20 +123,22 @@ export function useCareBackend(initial: CareTask[], plants: { plant_key: string;
       return HttpResponse.json({ succeeded: body.task_keys, failed: [] });
     }),
     http.post(`${BASE}/tasks`, async ({ request }) => {
-      const body = (await record(request)) as Partial<CareTask>;
+      const body = (await record(request)) as Partial<CareTask> & { for_each_plant?: boolean };
+      if (body.for_each_plant) {
+        const created = plants.map((plant, index) =>
+          careTask(`plant_task_${index}`, {
+            name: body.name ?? '',
+            category: body.category ?? 'maintenance',
+            entity_type: 'plant_instance',
+            entity_key: plant.plant_key,
+          }),
+        );
+        for (const task of created) queue.set(task.key, task);
+        return HttpResponse.json(created, { status: 201 });
+      }
       const created = careTask(`new_${queue.size + 1}`, { name: body.name ?? '', category: body.category ?? 'maintenance' });
       queue.set(created.key, created);
       return HttpResponse.json(created, { status: 201 });
-    }),
-    http.post(`${BASE}/tasks/:key/fan-out`, async ({ request, params }) => {
-      await record(request);
-      const source = queue.get(String(params.key));
-      queue.delete(String(params.key));
-      const clones = plants.map((plant, index) =>
-        careTask(`clone_${index}`, { name: source?.name ?? '', entity_type: 'plant_instance', entity_key: plant.plant_key }),
-      );
-      for (const clone of clones) queue.set(clone.key, clone);
-      return HttpResponse.json(clones, { status: 201 });
     }),
     http.post(`${BASE}/care-events`, async ({ request }) => {
       await record(request);

@@ -95,6 +95,13 @@ class ArangoActuatorRepository(BaseArangoRepository[Actuator]):
         actuator_id = f"{col.ACTUATORS}/{key}"
         self.delete_edges(col.HAS_ACTUATOR, actuator_id, direction="inbound")
         self.delete_edges(col.ACTUATOR_CONTROLS_LOCATION, actuator_id)
+        # An irrigation zone (REQ-053 WP 7.4) that names this actuator loses it: no dead ``actuator_key``.
+        self.delete_edges(col.ZONE_ACTUATED_BY, actuator_id, direction="inbound")
+        self._db.aql.execute(
+            f"FOR z IN {col.IRRIGATION_ZONES} FILTER z.actuator_key == @key "
+            f"UPDATE z WITH {{ actuator_key: null }} IN {col.IRRIGATION_ZONES} OPTIONS {{ keepNull: false }}",
+            bind_vars={"key": key},
+        )
         for edge_col in (
             col.ACTUATOR_HAS_SCHEDULE,
             col.ACTUATOR_HAS_RULE,

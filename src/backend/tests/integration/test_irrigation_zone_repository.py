@@ -21,6 +21,7 @@ from arango import ArangoClient
 from app.common.enums import TenantRole
 from app.common.exceptions import DuplicateError, NotFoundError, PlanValidationError, WriteConflictError
 from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
 from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
@@ -128,7 +129,10 @@ def db(database):
 
 def _service(db) -> IrrigationZoneService:
     return IrrigationZoneService(
-        ArangoIrrigationZoneRepository(db), ArangoSiteRepository(db), ArangoGardenObjectRepository(db)
+        ArangoIrrigationZoneRepository(db),
+        ArangoSiteRepository(db),
+        ArangoGardenObjectRepository(db),
+        ArangoCareEventRepository(db),
     )
 
 

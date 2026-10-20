@@ -1169,10 +1169,14 @@ class TaskService:
         self._recurrence.require_rrule(task.recurrence_rule)  # 422 recurrence.rrule_required (GP-ACC-038)
         self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         created = self._repo.create_task(task)
+        self._propagate_created(created, actor_user_key)
+        return created
+
+    def _propagate_created(self, created: Task, actor_user_key: str) -> None:
+        """The notification coupling of a newly created task: its due reminder and, when assigned, the assignee."""
         self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
         if created.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(created, previous_user_key=None))
-        return created
 
     def create_task_idempotent(self, task: Task, *, actor_user_key: str = "") -> tuple[Task, bool]:
         """Create a task, or upsert the existing one for an idempotent producer re-post.
@@ -1818,7 +1822,16 @@ class TaskService:
         self, source: Task, *, entity_type: str | None, entity_key: str | None, due_date: datetime | None
     ) -> Task:
         """One new pending task copied from ``source`` onto an entity, linked by ``task_cloned_from`` (GP-FR-081)."""
-        new_task = Task(
+        new_task = self._copy_of(source, entity_type=entity_type, entity_key=entity_key, due_date=due_date)
+        created = self._repo.create_task(new_task)
+        if source.key and created.key:
+            self._repo.create_task_cloned_from_edge(created.key, source.key)
+        return created
+
+    @staticmethod
+    def _copy_of(source: Task, *, entity_type: str | None, entity_key: str | None, due_date: datetime | None) -> Task:
+        """A new, unsaved pending task carrying ``source``'s content, bound to an entity."""
+        return Task(
             tenant_key=source.tenant_key,
             name=source.name,
             name_de=source.name_de,
@@ -1839,10 +1852,6 @@ class TaskService:
             tags=list(source.tags),
             checklist=[ChecklistItem(text=item.text, done=False, order=item.order) for item in source.checklist],
         )
-        created = self._repo.create_task(new_task)
-        if source.key and created.key:
-            self._repo.create_task_cloned_from_edge(created.key, source.key)
-        return created
 
     def fan_out_to_plants(
         self,
@@ -1891,6 +1900,61 @@ class TaskService:
         if plants and not keep_source:
             self.skip_task(key, tenant_key=tenant_key)
         return clones
+
+    def _for_plant(self, template: Task, *, plant_key: str, tenant_key: str) -> Task:
+        """The unsaved task of ``template`` for one plant: the content of the template, the caller's tenant."""
+        task = self._copy_of(template, entity_type="plant_instance", entity_key=plant_key, due_date=template.due_date)
+        task.tenant_key = tenant_key
+        task.scheduled_time = template.scheduled_time
+        task.assigned_to_user_key = template.assigned_to_user_key
+        return task
+
+    def create_tasks_for_each_plant(
+        self,
+        template: Task,
+        *,
+        tenant_key: str,
+        include_children: bool = True,
+        actor_user_key: str = "",
+    ) -> list[Task]:
+        """ "For every plant" without the bed task: one pending task per plant of a bed, in ONE transaction (#2462).
+
+        ``template`` is the task as the caller described it, bound to a bed (``entity_type = location``). Nothing is
+        written for the bed itself: every active plant of the bed (and of its sub-locations when ``include_children``)
+        gets its own copy, written together with its ``has_task`` edge in one transaction, so a failure part-way
+        leaves no half-fanned bed behind (``fan_out_to_plants`` writes the clones one by one). A bed without plants
+        creates nothing and answers an empty list. The limits are those of :meth:`fan_out_to_plants`: at most
+        :data:`MAX_FAN_OUT` plants, no care reminders, only a bed.
+        """
+        self._require_tenant_key(tenant_key, "create_tasks_for_each_plant")
+        if template.entity_type != "location" or not template.entity_key:
+            raise ValidationError("Only a task bound to a bed (entity_type 'location') can be created for each plant.")
+        if template.category == "care_reminder":
+            raise ValidationError(
+                "A care reminder cannot be created for each plant; the reminder engine writes one per plant."
+            )
+        if template.recurrence_rule:
+            raise ValidationError("A task created for each plant cannot recur; set the recurrence on a single task.")
+        if self._care_events is None or self._completion is None:
+            raise RuntimeError(
+                "create_tasks_for_each_plant needs the care-event service and the completion repository."
+            )
+        self._require_member_assignee(template.assigned_to_user_key, tenant_key)
+        scope = self._care_events.location_scope(
+            template.entity_key, include_children=include_children, tenant_key=tenant_key
+        )
+        plants = self._completion.plants_in_locations(scope, tenant_key=tenant_key)
+        if len(plants) > MAX_FAN_OUT:
+            raise ValidationError(
+                f"The bed holds {len(plants)} plants; at most {MAX_FAN_OUT} tasks are created at once."
+            )
+        if not plants:
+            return []
+        per_plant = [self._for_plant(template, plant_key=plant_key, tenant_key=tenant_key) for plant_key in plants]
+        created = self._repo.create_tasks_atomic(per_plant, tenant_key=tenant_key)
+        for task in created:
+            self._propagate_created(task, actor_user_key)
+        return created
 
     # ── Reopen ──
 

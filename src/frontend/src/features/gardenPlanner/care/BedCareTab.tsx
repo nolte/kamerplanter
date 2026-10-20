@@ -147,7 +147,6 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
     setCreating(false);
     changed();
     restoreFocus();
-    if (scope === 'bedOnly') return; // the error toast of the failed fan-out is already up
     notification.success(
       scope === 'plants' ? t('pages.bed.care.create.createdPlants', { count }) : t('pages.bed.care.create.createdBed'),
     );

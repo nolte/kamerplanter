@@ -37,6 +37,7 @@ from app.api.v1.garden_plan.schemas import (
     PlanSettingsResponse,
     PlanSlotGeometry,
     PlanSlotResponse,
+    PlanZoneResponse,
 )
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
@@ -108,6 +109,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 season_state=view.season_states.get(location.key or ""),
                 open_task_count=view.task_counters.get(location.key or "", _NO_TASKS).open_task_count,
                 overdue_task_count=view.task_counters.get(location.key or "", _NO_TASKS).overdue_task_count,
+                last_watered_at=view.last_watered.get(location.key or ""),
             )
             for location in view.locations
         ],
@@ -121,7 +123,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
         ],
         slots=[_slot_response(slot) for slot in view.slots],
         plants=[_plant_response(plant) for plant in view.plants],
-        zones=view.zones,
+        zones=[PlanZoneResponse(**zone) for zone in view.zones],
     )
 
 

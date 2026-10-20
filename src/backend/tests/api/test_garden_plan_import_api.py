@@ -137,7 +137,13 @@ class TestTheReport:
         assert response.status_code == 200, response.text
         report = response.json()
         assert report["dry_run"] is True and report["applied"] is False
-        assert report["would_create"] == {"locations": 1, "garden_objects": 0, "slots": 0, "plan_settings": 0}
+        assert report["would_create"] == {
+            "locations": 1,
+            "garden_objects": 0,
+            "slots": 0,
+            "plan_settings": 0,
+            "zones": 0,
+        }
         assert report["would_delete"]["locations"] == 1 and report["would_update"]["plan_settings"] == 1
         assert report["errors"] == [] and report["dropped_references"] == []
         assert repo.applied == [] and list(repo.locations) == ["bed"]  # the positive control for "nothing written"
@@ -172,13 +178,13 @@ class TestTheReport:
         assert list(repo.locations) == ["bed"]
 
     def test_a_newer_file_is_refused_with_a_hint(self, client) -> None:
-        document = {**a_file(client), "zones": []}
+        document = {**a_file(client), "templates": []}
 
         response = client().post(_IMPORT, json=body(document))
 
         assert response.status_code == 422
         detail = response.json()["details"][0]
-        assert detail["code"] == "import.unknown_keys" and detail["keys"] == ["zones"]
+        assert detail["code"] == "import.unknown_keys" and detail["keys"] == ["templates"]
 
     def test_the_envelope_takes_nothing_it_does_not_name(self, client) -> None:
         response = client().post(_IMPORT, json={**body(a_file(client)), "tenant_key": "ten_other"})
