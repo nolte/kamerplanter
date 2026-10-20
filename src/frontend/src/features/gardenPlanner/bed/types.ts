@@ -2,7 +2,7 @@
  * Bed read model (REQ-053 WP 3.5): the bed list row (GP-API-011), the summary that heads the bed view
  * (GP-API-012) and the soil profile (GP-FR-120/121). Derived from `app/api/v1/locations/schemas.py`.
  */
-import type { BedStatus, Geometry, SunExposure } from '../model/types';
+import type { BedStatus, Geometry, SunExposure, SunWindow } from '../model/types';
 
 export type GrowingMediumKind =
   | 'native_soil'
@@ -73,6 +73,25 @@ export interface SoilProfile {
   notes?: string | null;
 }
 
+/**
+ * The sun profile of a bed (GP-FR-158/159, `Location.site_conditions.sun_profile`). Nothing here is
+ * computed (§29): the values are what a person entered. `source` is read-only for this UI.
+ */
+export interface SunProfile {
+  sun_window?: SunWindow;
+  direct_sun_hours_summer?: number | null;
+  foliage_shade_in_summer?: boolean;
+  source?: 'manual' | 'computed';
+}
+
+/** What the sun profile editors send: only the keys that changed (the server merges them per key). */
+export type SunProfilePatch = Pick<SunProfile, 'sun_window' | 'direct_sun_hours_summer' | 'foliage_shade_in_summer'>;
+
+/** The slice of `Location.site_conditions` this UI reads; the other parts are carried untouched. */
+export interface SiteConditionsSlice {
+  sun_profile?: SunProfile;
+}
+
 /** One row of `GET /locations?site_key=&is_bed=true` (counters are `null` on a plain listing). */
 export interface BedListItem {
   key: string;
@@ -85,6 +104,7 @@ export interface BedListItem {
   bbox?: [number, number, number, number] | null;
   bed_status: BedStatus;
   sun_exposure: SunExposure;
+  site_conditions?: SiteConditionsSlice | null;
   active_plant_count?: number | null;
   open_task_count?: number | null;
   overdue_task_count?: number | null;
