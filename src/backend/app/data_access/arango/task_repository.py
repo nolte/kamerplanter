@@ -903,7 +903,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     def _insert_in(self, txn: StreamTransaction, task: Task) -> dict[str, Any]:
         """One task and its ``has_task`` edge inside the transaction; the stored task document."""
         txn.check_budget()
-        stored = txn.collection(col.TASKS).insert(self.insert_payload(task), return_new=True)["new"]
+        stored: dict[str, Any] = txn.collection(col.TASKS).insert(self.insert_payload(task), return_new=True)["new"]
         entity_type = task.entity_type or ""
         if task.entity_key and entity_type in TASK_ENTITY_TYPE_TO_COLLECTION:
             txn.collection(col.HAS_TASK).insert(
