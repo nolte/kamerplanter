@@ -1516,7 +1516,11 @@ export function GardenPlanEditor({
             open
             siteKey={plan.siteKey}
             underlay={underlayState.underlay}
-            onSaved={underlayState.set}
+            onSaved={(next) => {
+              underlayState.set(next);
+              // A user who hid the layer earlier sees what they just saved.
+              if (next !== null) setLayer('underlay', true);
+            }}
             onClose={() => setUnderlayOpen(false)}
           />
         </Suspense>

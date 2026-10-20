@@ -44,6 +44,8 @@ export function useUnderlay(plan: PlanModel, visible: boolean) {
     let href: string | null = null;
     fetchUnderlayBlob(attachmentKey, abort.signal)
       .then(async (blob) => {
+        // Nothing is created for a request that was already given up: no URL, nothing to revoke.
+        if (abort.signal.aborted) return;
         href = URL.createObjectURL(blob);
         const size = await measure(href);
         if (abort.signal.aborted) return;
@@ -56,6 +58,8 @@ export function useUnderlay(plan: PlanModel, visible: boolean) {
     return () => {
       abort.abort();
       if (href !== null) URL.revokeObjectURL(href);
+      // The URL is revoked: the state must not keep naming it (hide, then show, would draw a dead image).
+      setLoaded(null);
     };
   }, [wanted, attachmentKey]);
 

@@ -11,8 +11,8 @@ Every public method resolves the site **inside the method** through the tenant a
 read with the same tenant (``IAttachmentRepository.get`` is tenant-scoped); a key that is absent, another
 tenant's, of another category or outside its tenant's storage namespace answers one 422 ``reference.not_found``
 (GP-NFR-058), so the response is no oracle for another tenant's attachments. Replacing or removing the picture
-deletes the superseded attachment through :meth:`AttachmentService.delete`, which asks whether another record
-still holds the stored object (#1770) before it removes bytes.
+deletes the superseded attachment through :meth:`AttachmentService.delete_if_unreferenced` (no other site or carrier
+names it) and then the delete that asks whether another record holds the stored object (#1770).
 """
 
 from __future__ import annotations
@@ -101,14 +101,20 @@ class GardenPlanUnderlayService:
         return written
 
     async def _discard(self, attachment_key: str | None, *, keep: str | None, tenant_key: str) -> None:
-        """Delete a superseded picture; it goes through the one delete that asks the other holders first."""
+        """Delete a superseded picture unless something else still names it.
+
+        The upload dedupes per sha256, so two sites of one tenant can hold the same attachment: the picture goes
+        only when no carrier references it any more (another site's underlay, a gallery, a task - the reference
+        scan of :meth:`AttachmentService.delete_if_unreferenced`, which runs after this site's own reference is
+        gone) and then through the delete that asks the other record holders first.
+        """
         if attachment_key is None or attachment_key == keep:
             return
         attachment = self._attachment_repo.get(attachment_key, tenant_key)
         if attachment is None or attachment.category != AttachmentCategory.GARDEN_PLAN_UNDERLAY:
             return
-        await self._attachments.delete(attachment_key, tenant_key)
-        logger.info("garden_plan.underlay_discarded", attachment_id=attachment_key)
+        if await self._attachments.delete_if_unreferenced(attachment_key, tenant_key):
+            logger.info("garden_plan.underlay_discarded", attachment_id=attachment_key)
 
 
 __all__ = ["ERROR_PLAN_REQUIRED", "ERROR_REFERENCE_NOT_FOUND", "GardenPlanUnderlayService"]

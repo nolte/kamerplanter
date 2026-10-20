@@ -6011,6 +6011,10 @@
           "save": "Speichern",
           "close": "Schließen",
           "remove": "Unterlage entfernen",
+          "removeConfirm": {
+            "title": "Unterlage entfernen?",
+            "message": "Das Bild und die Eichung gehen verloren. Du müsstest beides neu anlegen."
+          },
           "saved": "Die Unterlage ist gespeichert.",
           "removed": "Die Unterlage wurde entfernt.",
           "error": {

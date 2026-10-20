@@ -21,6 +21,7 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { isApiError } from '@/api/errors';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
@@ -68,7 +69,13 @@ function errorKey(failure: unknown): string {
 
 const text = (value: number): string => (Number.isFinite(value) ? String(value) : '');
 
-export default function UnderlayDialog({ open, siteKey, underlay, onSaved, onClose }: UnderlayDialogProps) {
+export default function UnderlayDialog({
+  open,
+  siteKey,
+  underlay,
+  onSaved,
+  onClose,
+}: UnderlayDialogProps) {
   const { t } = useTranslation();
   // Grower and above write; a viewer sees the calibration read-only (the backend decides as well).
   const { canEdit } = useTenantPermissions();
@@ -88,6 +95,7 @@ export default function UnderlayDialog({ open, siteKey, underlay, onSaved, onClo
   const [opacity, setOpacity] = useState(stored?.opacity ?? 0.5);
   const [marking, setMarking] = useState<Which>('p1');
   const [busy, setBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -125,14 +133,22 @@ export default function UnderlayDialog({ open, siteKey, underlay, onSaved, onClo
     const p2: Point = [numberOf(p2x), numberOf(p2y)];
     return { p1, p2, distance: numberOf(distance) };
   }, [p1x, p1y, p2x, p2y, distance]);
-  const perMetre = pixelsPerMetre({ p1_px: calibration.p1, p2_px: calibration.p2, distance_m: calibration.distance });
+  const perMetre = pixelsPerMetre({
+    p1_px: calibration.p1,
+    p2_px: calibration.p2,
+    distance_m: calibration.distance,
+  });
   const originNumbers: [number, number] = [numberOf(originX), numberOf(originY)];
   const rotationNumber = numberOf(rotation);
   const pointsInside =
     natural === null ||
-    [...calibration.p1, ...calibration.p2].every((value) => Number.isFinite(value) && value >= 0) &&
-      calibration.p1[0] <= natural.width && calibration.p2[0] <= natural.width &&
-      calibration.p1[1] <= natural.height && calibration.p2[1] <= natural.height;
+    ([...calibration.p1, ...calibration.p2].every(
+      (value) => Number.isFinite(value) && value >= 0,
+    ) &&
+      calibration.p1[0] <= natural.width &&
+      calibration.p2[0] <= natural.width &&
+      calibration.p1[1] <= natural.height &&
+      calibration.p2[1] <= natural.height);
   const placementValid =
     originNumbers.every((value) => Number.isFinite(value) && Math.abs(value) <= 1000) &&
     Number.isFinite(rotationNumber) &&
@@ -199,6 +215,7 @@ export default function UnderlayDialog({ open, siteKey, underlay, onSaved, onClo
 
   const remove = async () => {
     if (busy || !canEdit) return;
+    setConfirmRemove(false);
     setBusy(true);
     setError(null);
     try {
@@ -235,181 +252,239 @@ export default function UnderlayDialog({ open, siteKey, underlay, onSaved, onClo
       helperText={extra?.helper}
       slotProps={{
         htmlInput: { inputMode: 'decimal', 'data-testid': `underlay-${id}` },
-        input: extra?.unit ? { endAdornment: <Typography variant="caption">{extra.unit}</Typography> } : undefined,
+        input: extra?.unit
+          ? { endAdornment: <Typography variant="caption">{extra.unit}</Typography> }
+          : undefined,
       }}
       sx={{ minWidth: 110 }}
     />
   );
 
   return (
-    <Dialog
-      open={open}
-      onClose={busy ? undefined : onClose}
-      maxWidth="md"
-      fullWidth
-      aria-labelledby="underlay-title"
-      data-testid="garden-plan-underlay-dialog"
-    >
-      <DialogTitle id="underlay-title">{t(`${PREFIX}.title`)}</DialogTitle>
-      <DialogContent dividers sx={{ display: 'grid', gap: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          {t(`${PREFIX}.intro`)}
-        </Typography>
-        {error !== null && (
-          <Alert severity="error" role="alert" data-testid="underlay-error">
-            {t(`${PREFIX}.error.${error}`)}
-          </Alert>
-        )}
-        {canEdit && (
-          <Box>
-            <Button component="label" variant="outlined" sx={{ minHeight: TARGET_PX }} disabled={busy}>
-              {t(`${PREFIX}.choose`)}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                hidden
-                onChange={pick}
-                data-testid="underlay-file"
-              />
-            </Button>
-            {file !== null && (
-              <Typography variant="body2" component="span" sx={{ ml: 1 }}>
-                {file.name}
-              </Typography>
-            )}
-          </Box>
-        )}
-        {href !== null && (
-          <>
-            {canEdit && (
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={marking}
-                aria-label={t(`${PREFIX}.marking.label`)}
-                onChange={(_event, next: Which | null) => {
-                  if (next) setMarking(next);
-                }}
+    <>
+      <Dialog
+        open={open}
+        onClose={busy ? undefined : onClose}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby="underlay-title"
+        data-testid="garden-plan-underlay-dialog"
+      >
+        <DialogTitle id="underlay-title">{t(`${PREFIX}.title`)}</DialogTitle>
+        <DialogContent dividers sx={{ display: 'grid', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t(`${PREFIX}.intro`)}
+          </Typography>
+          {error !== null && (
+            <Alert severity="error" role="alert" data-testid="underlay-error">
+              {t(`${PREFIX}.error.${error}`)}
+            </Alert>
+          )}
+          {canEdit && (
+            <Box>
+              <Button
+                component="label"
+                variant="outlined"
+                sx={{ minHeight: TARGET_PX }}
+                disabled={busy}
               >
-                <ToggleButton value="p1" sx={{ minHeight: TARGET_PX }} data-testid="underlay-mark-p1">
-                  {t(`${PREFIX}.marking.p1`)}
-                </ToggleButton>
-                <ToggleButton value="p2" sx={{ minHeight: TARGET_PX }} data-testid="underlay-mark-p2">
-                  {t(`${PREFIX}.marking.p2`)}
-                </ToggleButton>
-              </ToggleButtonGroup>
-            )}
-            <Box
-              onClick={mark}
-              data-testid="underlay-picture"
-              sx={{ position: 'relative', maxHeight: 420, overflow: 'auto', cursor: canEdit ? 'crosshair' : 'default' }}
-            >
-              <img
-                ref={imageRef}
-                src={href}
-                alt={t(`${PREFIX}.pictureAlt`)}
-                onLoad={(event) =>
-                  setNatural({
-                    width: event.currentTarget.naturalWidth,
-                    height: event.currentTarget.naturalHeight,
-                  })
-                }
-                style={{ display: 'block', width: '100%', height: 'auto' }}
-              />
-              {natural !== null && (
-                <svg
-                  viewBox={`0 0 ${natural.width} ${natural.height}`}
-                  aria-hidden="true"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-                >
-                  {markers.map(({ which, point }) =>
-                    Number.isFinite(point[0]) && Number.isFinite(point[1]) ? (
-                      <circle
-                        key={which}
-                        cx={point[0]}
-                        cy={point[1]}
-                        r={(MARK_PX * natural.width) / 800}
-                        fill={which === 'p1' ? '#d32f2f' : '#1565c0'}
-                        stroke="#fff"
-                        strokeWidth={(2 * natural.width) / 800}
-                      />
-                    ) : null,
-                  )}
-                </svg>
+                {t(`${PREFIX}.choose`)}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  hidden
+                  onChange={pick}
+                  data-testid="underlay-file"
+                />
+              </Button>
+              {file !== null && (
+                <Typography variant="body2" component="span" sx={{ ml: 1 }}>
+                  {file.name}
+                </Typography>
               )}
             </Box>
-          </>
-        )}
-        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          <Typography component="legend" variant="subtitle2" sx={{ width: '100%', mb: 1 }}>
-            {t(`${PREFIX}.calibration.title`)}
-          </Typography>
-          {field('p1x', p1x, setP1x, t(`${PREFIX}.calibration.p1x`), { unit: 'px' })}
-          {field('p1y', p1y, setP1y, t(`${PREFIX}.calibration.p1y`), { unit: 'px' })}
-          {field('p2x', p2x, setP2x, t(`${PREFIX}.calibration.p2x`), { unit: 'px' })}
-          {field('p2y', p2y, setP2y, t(`${PREFIX}.calibration.p2y`), { unit: 'px' })}
-          {field('distance', distance, setDistance, t(`${PREFIX}.calibration.distance`), {
-            unit: 'm',
-            error: distance.trim() !== '' && (!Number.isFinite(calibration.distance) || calibration.distance <= 0 || calibration.distance > MAX_DISTANCE_M),
-          })}
-        </Box>
-        <Typography variant="body2" role="status" data-testid="underlay-scale">
-          {perMetre !== null
-            ? t(`${PREFIX}.calibration.scale`, { pxPerM: Number(perMetre.toFixed(2)) })
-            : t(`${PREFIX}.calibration.scaleMissing`)}
-        </Typography>
-        {!pointsInside && (
-          <Alert severity="warning" role="status">
-            {t(`${PREFIX}.calibration.outside`)}
-          </Alert>
-        )}
-        <Box component="fieldset" sx={{ border: 0, p: 0, m: 0, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          <Typography component="legend" variant="subtitle2" sx={{ width: '100%', mb: 1 }}>
-            {t(`${PREFIX}.placement.title`)}
-          </Typography>
-          {field('originX', originX, setOriginX, t(`${PREFIX}.placement.originX`), { unit: 'm' })}
-          {field('originY', originY, setOriginY, t(`${PREFIX}.placement.originY`), { unit: 'm' })}
-          {field('rotation', rotation, setRotation, t(`${PREFIX}.placement.rotation`), { unit: '°' })}
-        </Box>
-        <Box sx={{ maxWidth: 360 }}>
-          <Typography id="underlay-opacity-label" variant="body2">
-            {t(`${PREFIX}.opacity`)}
-          </Typography>
-          <Slider
-            value={opacity}
-            min={MIN_OPACITY}
-            max={1}
-            step={0.05}
-            onChange={(_event, next) => setOpacity(clampOpacity(Array.isArray(next) ? next[0] : next))}
-            aria-labelledby="underlay-opacity-label"
-            valueLabelDisplay="auto"
-            valueLabelFormat={(value) => `${Math.round(value * 100)} %`}
-            disabled={!canEdit || busy}
-            data-testid="underlay-opacity"
-          />
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        {canEdit && stored !== null && (
-          <Button color="error" onClick={() => void remove()} disabled={busy} sx={{ minHeight: TARGET_PX, mr: 'auto' }} data-testid="underlay-remove">
-            {t(`${PREFIX}.remove`)}
-          </Button>
-        )}
-        <Button onClick={onClose} disabled={busy} sx={{ minHeight: TARGET_PX }}>
-          {t(`${PREFIX}.close`)}
-        </Button>
-        {canEdit && (
-          <Button
-            variant="contained"
-            onClick={() => void save()}
-            disabled={!valid || busy}
-            sx={{ minHeight: TARGET_PX }}
-            data-testid="underlay-save"
+          )}
+          {href !== null && (
+            <>
+              {canEdit && (
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={marking}
+                  aria-label={t(`${PREFIX}.marking.label`)}
+                  onChange={(_event, next: Which | null) => {
+                    if (next) setMarking(next);
+                  }}
+                >
+                  <ToggleButton
+                    value="p1"
+                    sx={{ minHeight: TARGET_PX }}
+                    data-testid="underlay-mark-p1"
+                  >
+                    {t(`${PREFIX}.marking.p1`)}
+                  </ToggleButton>
+                  <ToggleButton
+                    value="p2"
+                    sx={{ minHeight: TARGET_PX }}
+                    data-testid="underlay-mark-p2"
+                  >
+                    {t(`${PREFIX}.marking.p2`)}
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              )}
+              <Box
+                onClick={mark}
+                data-testid="underlay-picture"
+                sx={{
+                  position: 'relative',
+                  maxHeight: 420,
+                  overflow: 'auto',
+                  cursor: canEdit ? 'crosshair' : 'default',
+                }}
+              >
+                <img
+                  ref={imageRef}
+                  src={href}
+                  alt={t(`${PREFIX}.pictureAlt`)}
+                  onLoad={(event) =>
+                    setNatural({
+                      width: event.currentTarget.naturalWidth,
+                      height: event.currentTarget.naturalHeight,
+                    })
+                  }
+                  style={{ display: 'block', width: '100%', height: 'auto' }}
+                />
+                {natural !== null && (
+                  <svg
+                    viewBox={`0 0 ${natural.width} ${natural.height}`}
+                    aria-hidden="true"
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {markers.map(({ which, point }) =>
+                      Number.isFinite(point[0]) && Number.isFinite(point[1]) ? (
+                        <circle
+                          key={which}
+                          cx={point[0]}
+                          cy={point[1]}
+                          r={(MARK_PX * natural.width) / 800}
+                          fill={which === 'p1' ? '#d32f2f' : '#1565c0'}
+                          stroke="#fff"
+                          strokeWidth={(2 * natural.width) / 800}
+                        />
+                      ) : null,
+                    )}
+                  </svg>
+                )}
+              </Box>
+            </>
+          )}
+          <Box
+            component="fieldset"
+            sx={{ border: 0, p: 0, m: 0, display: 'flex', flexWrap: 'wrap', gap: 1 }}
           >
-            {t(`${PREFIX}.save`)}
+            <Typography component="legend" variant="subtitle2" sx={{ width: '100%', mb: 1 }}>
+              {t(`${PREFIX}.calibration.title`)}
+            </Typography>
+            {field('p1x', p1x, setP1x, t(`${PREFIX}.calibration.p1x`), { unit: 'px' })}
+            {field('p1y', p1y, setP1y, t(`${PREFIX}.calibration.p1y`), { unit: 'px' })}
+            {field('p2x', p2x, setP2x, t(`${PREFIX}.calibration.p2x`), { unit: 'px' })}
+            {field('p2y', p2y, setP2y, t(`${PREFIX}.calibration.p2y`), { unit: 'px' })}
+            {field('distance', distance, setDistance, t(`${PREFIX}.calibration.distance`), {
+              unit: 'm',
+              error:
+                distance.trim() !== '' &&
+                (!Number.isFinite(calibration.distance) ||
+                  calibration.distance <= 0 ||
+                  calibration.distance > MAX_DISTANCE_M),
+            })}
+          </Box>
+          <Typography variant="body2" role="status" data-testid="underlay-scale">
+            {perMetre !== null
+              ? t(`${PREFIX}.calibration.scale`, { pxPerM: Number(perMetre.toFixed(2)) })
+              : t(`${PREFIX}.calibration.scaleMissing`)}
+          </Typography>
+          {!pointsInside && (
+            <Alert severity="warning" role="status">
+              {t(`${PREFIX}.calibration.outside`)}
+            </Alert>
+          )}
+          <Box
+            component="fieldset"
+            sx={{ border: 0, p: 0, m: 0, display: 'flex', flexWrap: 'wrap', gap: 1 }}
+          >
+            <Typography component="legend" variant="subtitle2" sx={{ width: '100%', mb: 1 }}>
+              {t(`${PREFIX}.placement.title`)}
+            </Typography>
+            {field('originX', originX, setOriginX, t(`${PREFIX}.placement.originX`), { unit: 'm' })}
+            {field('originY', originY, setOriginY, t(`${PREFIX}.placement.originY`), { unit: 'm' })}
+            {field('rotation', rotation, setRotation, t(`${PREFIX}.placement.rotation`), {
+              unit: '°',
+            })}
+          </Box>
+          <Box sx={{ maxWidth: 360 }}>
+            <Typography id="underlay-opacity-label" variant="body2">
+              {t(`${PREFIX}.opacity`)}
+            </Typography>
+            <Slider
+              value={opacity}
+              min={MIN_OPACITY}
+              max={1}
+              step={0.05}
+              onChange={(_event, next) =>
+                setOpacity(clampOpacity(Array.isArray(next) ? next[0] : next))
+              }
+              aria-labelledby="underlay-opacity-label"
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => `${Math.round(value * 100)} %`}
+              disabled={!canEdit || busy}
+              data-testid="underlay-opacity"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          {canEdit && stored !== null && (
+            <Button
+              color="error"
+              onClick={() => setConfirmRemove(true)}
+              disabled={busy}
+              sx={{ minHeight: TARGET_PX, mr: 'auto' }}
+              data-testid="underlay-remove"
+            >
+              {t(`${PREFIX}.remove`)}
+            </Button>
+          )}
+          <Button onClick={onClose} disabled={busy} sx={{ minHeight: TARGET_PX }}>
+            {t(`${PREFIX}.close`)}
           </Button>
-        )}
-      </DialogActions>
-    </Dialog>
+          {canEdit && (
+            <Button
+              variant="contained"
+              onClick={() => void save()}
+              disabled={!valid || busy}
+              sx={{ minHeight: TARGET_PX }}
+              data-testid="underlay-save"
+            >
+              {t(`${PREFIX}.save`)}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      <ConfirmDialog
+        open={confirmRemove}
+        title={t(`${PREFIX}.removeConfirm.title`)}
+        message={t(`${PREFIX}.removeConfirm.message`)}
+        confirmLabel={t(`${PREFIX}.remove`)}
+        destructive
+        loading={busy}
+        onConfirm={() => void remove()}
+        onCancel={() => setConfirmRemove(false)}
+      />
+    </>
   );
 }

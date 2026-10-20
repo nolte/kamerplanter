@@ -57,8 +57,8 @@ def repo() -> FakePlanRepo:
 
 
 @pytest.fixture
-def attachments() -> FakeUnderlayAttachments:
-    fake = FakeUnderlayAttachments()
+def attachments(repo: FakePlanRepo) -> FakeUnderlayAttachments:
+    fake = FakeUnderlayAttachments(repo._sites.sites)
     fake.add("att_1", tenant_key=TENANT)
     fake.add("att_2", tenant_key=TENANT)
     return fake
@@ -169,3 +169,40 @@ class TestNeverInTheJsonExport:
 
         dumped = document.model_dump_json()
         assert "underlay" not in dumped and "att_1" not in dumped and "distance_m" not in dumped
+
+
+class TestTwoSitesShareOnePicture:
+    """One sha256 upload can be named by two sites: replacing it on one must not strand the other."""
+
+    @pytest.fixture
+    def two_sites(self, repo, attachments):
+        second = make_site().model_copy(update={"key": "site_second"})
+        second.plan = SitePlan(
+            boundary={"kind": "rect", "origin": [0, 0], "width_m": 5, "length_m": 5, "rotation_deg": 0},
+            plan_revision=1,
+        )
+        repo._sites.sites["site_second"] = second
+        return second
+
+    async def test_replacing_on_one_site_keeps_the_picture_the_other_site_still_names(
+        self, service, attachments, two_sites
+    ) -> None:
+        for site in (SITE, "site_second"):
+            await service.set_underlay(site, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay("att_1"))
+
+        await service.set_underlay(SITE, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay("att_2"))
+
+        assert attachments.deleted == [] and "att_1" in attachments.rows
+        assert service.get_underlay("site_second", tenant_key=TENANT).attachment_key == "att_1"
+
+    async def test_removing_on_one_site_keeps_it_and_removing_on_the_last_deletes_it(
+        self, service, attachments, two_sites
+    ) -> None:
+        for site in (SITE, "site_second"):
+            await service.set_underlay(site, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay("att_1"))
+
+        await service.remove_underlay(SITE, tenant_key=TENANT, role=TenantRole.GROWER)
+        assert attachments.deleted == []
+        await service.remove_underlay("site_second", tenant_key=TENANT, role=TenantRole.GROWER)
+
+        assert attachments.deleted == [("att_1", TENANT)]

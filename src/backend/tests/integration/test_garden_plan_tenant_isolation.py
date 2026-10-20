@@ -167,6 +167,13 @@ class _RecordDeleter:
     async def delete(self, attachment_id: str, tenant_key: str) -> bool:
         return self._repo.delete(attachment_id, tenant_key)
 
+    async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
+        """The real service's rule: the record goes only when no carrier (another site's underlay included) names it."""
+        state, _created_by = self._repo.task_photo_delete_state(attachment_id, tenant_key, task_key="")
+        if state != "staged":
+            return False
+        return await self.delete(attachment_id, tenant_key)
+
 
 #: Every collection a route of these four routers can write — the plan batch's and the slot batch's write sets
 #: plus the fixture's own — truncated per test and compared before/after a refused write.
@@ -1585,3 +1592,54 @@ class TestTheAqlNeverReadsATenantKeyOffATenantlessCollection:
             )
             == []
         )
+
+
+class TestTwoSitesShareOneUnderlayPicture:
+    """B3 of the PR review: the upload dedupes per sha256, so two sites can name one attachment."""
+
+    @pytest.fixture
+    def shared(self, db) -> TestClient:
+        site = _site("site_a2", A, "Alices zweiter Garten")
+        site["plan"]["underlay"]["attachment_key"] = "att_a"
+        db.collection(col.SITES).insert(site)
+        return _client(db)
+
+    def _held(self, db) -> bool:
+        return db.collection(col.ATTACHMENTS).has("att_a")
+
+    def test_removing_it_on_one_site_keeps_the_picture_the_other_site_names(self, db, shared) -> None:
+        url = f"/api/v1/t/{SLUG_A}/sites"
+
+        assert shared.delete(f"{url}/site_a/plan/underlay").status_code == 204
+
+        assert self._held(db)
+        assert db.collection(col.SITES).get("site_a2")["plan"]["underlay"]["attachment_key"] == "att_a"
+
+    def test_removing_it_on_the_last_site_deletes_the_picture(self, db, shared) -> None:
+        url = f"/api/v1/t/{SLUG_A}/sites"
+        shared.delete(f"{url}/site_a/plan/underlay")
+
+        assert shared.delete(f"{url}/site_a2/plan/underlay").status_code == 204
+
+        assert not self._held(db)
+
+    def test_replacing_it_on_one_site_keeps_the_picture_the_other_site_names(self, db, shared) -> None:
+        db.collection(col.ATTACHMENTS).insert(
+            {
+                "_key": "att_a_new",
+                "tenant_key": A,
+                "mime_type": "image/png",
+                "byte_size": 10,
+                "sha256": "c" * 64,
+                "original_filename": "other.png",
+                "created_by": USER,
+                "category": "garden_plan_underlay",
+                "storage_key": f"t/{A}/garden_plan_underlay/2026/10/att_a_new.png",
+            }
+        )
+
+        response = shared.put(
+            f"/api/v1/t/{SLUG_A}/sites/site_a/plan/underlay", json={**_UNDERLAY, "attachment_key": "att_a_new"}
+        )
+
+        assert response.status_code == 200 and self._held(db)

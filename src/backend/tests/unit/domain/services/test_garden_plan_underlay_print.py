@@ -58,7 +58,7 @@ def repo() -> FakePlanRepo:
 
 @pytest.fixture
 async def stack(repo):
-    attachments = FakeUnderlayAttachments()
+    attachments = FakeUnderlayAttachments(repo._sites.sites)
     attachments.add("att_1", tenant_key=TENANT)
     underlay_service = GardenPlanUnderlayService(repo._sites, repo, attachments, attachments.as_service())  # type: ignore[arg-type]
     await underlay_service.set_underlay(SITE, tenant_key=TENANT, role=TenantRole.GROWER, underlay=_underlay())
@@ -87,6 +87,21 @@ class TestCalibrationGeometry:
         # 800 px * 0.01 m/px = 8 m = 160 mm at 1:50; 400 px = 4 m = 80 mm.
         assert (placement.width_mm, placement.height_mm) == (pytest.approx(160.0), pytest.approx(80.0))
         assert placement.rotation_css_deg == pytest.approx(-30.0)
+
+
+class TestAnAbsurdlyLargePlacement:
+    def test_a_one_pixel_calibration_over_two_kilometres_is_not_printed(self) -> None:
+        frame = PlanFrame(origin_x_m=0.0, origin_y_m=10.0, shift_x_mm=0.0, scale=50)
+        image = UnderlayImage(data_uri="data:image/jpeg;base64,AA==", width_px=800, height_px=400)
+        huge = _underlay(calibration={"p1_px": [0, 0], "p2_px": [1, 0], "distance_m": 2000.0})
+
+        assert place_underlay(huge, image, frame) is None
+
+    def test_an_ordinary_calibration_is_placed(self) -> None:
+        frame = PlanFrame(origin_x_m=0.0, origin_y_m=10.0, shift_x_mm=0.0, scale=50)
+        image = UnderlayImage(data_uri="data:image/jpeg;base64,AA==", width_px=800, height_px=400)
+
+        assert place_underlay(_underlay(), image, frame) is not None
 
 
 class TestPrepareImage:
@@ -134,6 +149,12 @@ class TestThePdf:
     async def test_a_picture_that_is_gone_prints_the_plan_without_it(self, stack) -> None:
         export, _, attachments = stack
         attachments.rows.clear()
+
+        assert await export.load_underlay(SITE, tenant_key=TENANT) is None
+
+    async def test_a_record_whose_stored_object_is_gone_prints_the_plan_without_it(self, stack) -> None:
+        export, _, attachments = stack
+        attachments.lost_objects.add("att_1")
 
         assert await export.load_underlay(SITE, tenant_key=TENANT) is None
 

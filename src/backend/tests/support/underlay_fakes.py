@@ -9,7 +9,7 @@ from typing import cast
 from PIL import Image
 
 from app.common.enums import AttachmentCategory
-from app.common.exceptions import AttachmentNotFoundError
+from app.common.exceptions import AttachmentNotFoundError, NotFoundError
 from app.domain.models.attachment import Attachment
 from app.domain.services.attachment_service import AttachmentService
 
@@ -23,10 +23,14 @@ def png_bytes(width: int = 800, height: int = 400, colour: tuple[int, int, int] 
 class FakeUnderlayAttachments:
     """Repository and service in one: ``get`` is tenant-scoped, ``delete`` records what it was asked to remove."""
 
-    def __init__(self) -> None:
+    def __init__(self, sites: dict | None = None) -> None:
+        #: The sites whose ``plan.underlay`` names an attachment: the reference scan of the real service.
+        self._sites = sites if sites is not None else {}
         self.rows: dict[str, Attachment] = {}
         self.bodies: dict[str, bytes] = {}
         self.deleted: list[tuple[str, str]] = []
+        #: Attachment ids whose record exists but whose stored object is gone.
+        self.lost_objects: set[str] = set()
 
     def add(
         self,
@@ -63,6 +67,8 @@ class FakeUnderlayAttachments:
         return row
 
     async def open_stream(self, attachment: Attachment):
+        if attachment.key in self.lost_objects:
+            raise NotFoundError("StoredObject", attachment.storage_key)
         body = self.bodies[attachment.key or ""]
 
         async def chunks():
@@ -73,6 +79,17 @@ class FakeUnderlayAttachments:
     async def delete(self, attachment_id: str, tenant_key: str) -> bool:
         self.deleted.append((attachment_id, tenant_key))
         return self.rows.pop(attachment_id, None) is not None
+
+    async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
+        """Like the real one: a picture some site still names stays."""
+        for site in self._sites.values():
+            if (
+                site.plan is not None
+                and site.plan.underlay is not None
+                and site.plan.underlay.attachment_key == attachment_id
+            ):
+                return False
+        return await self.delete(attachment_id, tenant_key)
 
     def as_service(self) -> AttachmentService:
         return cast("AttachmentService", self)

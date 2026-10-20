@@ -174,9 +174,30 @@ describe('save and remove', () => {
     );
     const { onSaved } = renderDialog(STORED);
     await user.click(screen.getByTestId('underlay-remove'));
+    // destructive (picture and calibration): nothing is sent before the question is answered
+    expect(deleted).toBe(false);
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(null));
     expect(deleted).toBe(true);
+  });
+
+  it('keeps the underlay when the removal is not confirmed', async () => {
+    const user = userEvent.setup();
+    let deleted = false;
+    server.use(
+      http.get(`${BASE}/attachments/att_stored`, () => new HttpResponse(new Blob(['x']), { status: 200 })),
+      http.delete(`${BASE}/sites/site_1/plan/underlay`, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { onSaved } = renderDialog(STORED);
+    await user.click(screen.getByTestId('underlay-remove'));
+    await user.click(screen.getByTestId('confirm-dialog-cancel'));
+
+    expect(deleted).toBe(false);
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it('shows a stored calibration and re-saves it without uploading again', async () => {

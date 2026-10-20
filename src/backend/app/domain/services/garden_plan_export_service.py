@@ -21,6 +21,7 @@ The fetcher still sees nothing but ``data:``.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import re
 from dataclasses import dataclass, replace
@@ -30,7 +31,7 @@ from time import perf_counter
 import structlog
 
 from app.common.enums import AttachmentCategory
-from app.common.exceptions import AttachmentNotFoundError, PlanError
+from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import SiteKey
 from app.domain.engines.plan_svg_engine import (
     PDF_HEADER_MM,
@@ -144,8 +145,9 @@ class GardenPlanExportService:
             if attachment.category != AttachmentCategory.GARDEN_PLAN_UNDERLAY:
                 return None
             chunks = [chunk async for chunk in await self._attachments.open_stream(attachment)]
-            return prepare_image(b"".join(chunks))
-        except AttachmentNotFoundError, UnderlayImageError:
+            # Decoding up to 40 MPx is CPU work: off the event loop.
+            return await asyncio.to_thread(prepare_image, b"".join(chunks))
+        except NotFoundError, OSError, UnderlayImageError:
             logger.warning("garden_plan.underlay_unavailable", site_key=site_key)
             return None
 

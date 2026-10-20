@@ -174,7 +174,12 @@ _RESOLVED_BY_FIELD_TUPLE = {
     "PlantInstance.cover_photo_ref",
     "PestImageContribution.attachment_id",
     "Pest.reference_image_refs",
+    "SiteUnderlay.attachment_key",
 }
+
+#: Where a field sits on its collection's document when that is not the field name itself: the underlay is
+#: nested in the site's embedded plan.
+_DOCUMENT_PATH: dict[str, str] = {"SiteUnderlay.attachment_key": "plan.underlay.attachment_key"}
 
 
 #: Word stems that make a field name *about* an attachment.
@@ -270,7 +275,7 @@ def test_every_reference_shaped_field_is_accounted_for():
 def test_the_field_tuple_and_the_expectation_agree():
     """The tuple the query uses matches what this file claims it covers."""
     declared = {field for _collection, field in ATTACHMENT_REF_FIELDS}
-    expected = {name.split(".", 1)[1] for name in _RESOLVED_BY_FIELD_TUPLE}
+    expected = {_DOCUMENT_PATH.get(name, name.split(".", 1)[1]) for name in _RESOLVED_BY_FIELD_TUPLE}
 
     assert declared == expected, (
         f"ATTACHMENT_REF_FIELDS covers {sorted(declared)} while this file expects "

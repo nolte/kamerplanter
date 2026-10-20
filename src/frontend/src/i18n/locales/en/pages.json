@@ -6010,6 +6010,10 @@
           "save": "Save",
           "close": "Close",
           "remove": "Remove underlay",
+          "removeConfirm": {
+            "title": "Remove the underlay?",
+            "message": "The picture and its calibration are lost. You would have to set both up again."
+          },
           "saved": "The underlay is saved.",
           "removed": "The underlay was removed.",
           "error": {

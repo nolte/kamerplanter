@@ -63,8 +63,8 @@ def repo() -> FakePlanRepo:
 
 
 @pytest.fixture
-def attachments() -> FakeUnderlayAttachments:
-    fake = FakeUnderlayAttachments()
+def attachments(repo: FakePlanRepo) -> FakeUnderlayAttachments:
+    fake = FakeUnderlayAttachments(repo._sites.sites)
     fake.add("att_1", tenant_key=TENANT)
     fake.add("att_foreign", tenant_key=OTHER_TENANT)
     fake.add("att_plant", tenant_key=TENANT, category=AttachmentCategory.PLANT)
