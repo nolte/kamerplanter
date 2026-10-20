@@ -55,6 +55,7 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.ha_flow_rate_sensor import HaFlowRateSensor
 from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.data_access.repositories.propagation_repository import PropagationRepository
@@ -445,7 +446,7 @@ def get_garden_plan_repo() -> ArangoGardenPlanRepository:
 
 def get_garden_plan_service() -> GardenPlanService:
     """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch."""
-    return GardenPlanService(get_site_repo(), get_garden_plan_repo())
+    return GardenPlanService(get_site_repo(), get_garden_plan_repo(), ArangoIrrigationZoneRepository(get_db()))
 
 
 def get_garden_plan_export_service() -> GardenPlanExportService:
@@ -538,6 +539,10 @@ def get_irrigation_zone_service() -> IrrigationZoneService:
         ArangoIrrigationZoneRepository(get_db()),
         get_site_repo(),
         ArangoGardenObjectRepository(get_db()),
+        ArangoCareEventRepository(get_db()),
+        # SR-014 / MT-015: a flow entity is bound only when it is granted to the tenant and is a flow sensor.
+        ha_entity_gate=get_ha_entity_grant_service(),
+        flow_sensor=HaFlowRateSensor(get_ha_client),
     )
 
 

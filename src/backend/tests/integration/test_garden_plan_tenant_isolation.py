@@ -287,6 +287,10 @@ def db(database):
         database.collection(col.GARDEN_OBJECTS).insert(_tree(f"obj_{suffix}", site, tree_name))
         # WP 7.1: a water source per tenant, the target of a zone's ``water_source_key`` (GP-NFR-058).
         database.collection(col.GARDEN_OBJECTS).insert(_barrel(f"barrel_{suffix}", site))
+        # WP 7.3: each tenant's zone covers its bed, so a watering round has a bed to write to.
+        database.collection(col.ZONE_COVERS).insert(
+            {"_from": f"{col.IRRIGATION_ZONES}/zone_{suffix}", "_to": f"{col.LOCATIONS}/bed_{suffix}"}
+        )
     # WP 3.4: a global species and family for the rotation hints, and one backfilled year of tenant B's bed
     database.collection(col.SPECIES).insert(
         {
@@ -412,7 +416,10 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     importer: Any = GardenPlanImportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export)
     plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
     zones: Any = IrrigationZoneService(
-        ArangoIrrigationZoneRepository(db), ArangoSiteRepository(db), ArangoGardenObjectRepository(db)
+        ArangoIrrigationZoneRepository(db),
+        ArangoSiteRepository(db),
+        ArangoGardenObjectRepository(db),
+        ArangoCareEventRepository(db),
     )
     if unscoped:
         zones = _Unscoped(zones)
@@ -700,6 +707,16 @@ CASES: tuple[Case, ...] = (
         writes=True,
     ),
     Case("delete_irrigation_zone", "DELETE", "/irrigation-zones/zone_b", owner_status=204, writes=True),
+    # REQ-053 WP 7.3, GP-API-052/053: the zone's status and its watering round (zone_b covers bed_b).
+    Case("get_irrigation_zone_status", "GET", "/irrigation-zones/zone_b/status"),
+    Case(
+        "log_irrigation_zone_watering",
+        "POST",
+        "/irrigation-zones/zone_b/log-watering",
+        {"volume_liters": 12, "allocation": "equal"},
+        owner_status=201,
+        writes=True,
+    ),
 )
 
 _ABSENT = {

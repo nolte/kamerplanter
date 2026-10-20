@@ -44,6 +44,8 @@ _DOCUMENTS = (
     col.USERS,
     col.PLANT_INSTANCES,
     col.TASKS,
+    # the plan read model asks when a bed was last watered (REQ-053 WP 7.3)
+    col.WATERING_EVENTS,
 )
 #: Every edge collection the batch transaction declares — derived, so a relation added to the graph later is
 #: created here and the cascade tests below see it.

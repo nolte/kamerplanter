@@ -8,6 +8,8 @@ reached the repository at all. Shared by the unit tier and the API tier.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.common.exceptions import DuplicateError, PlanError, PlanRevisionConflictError, WriteConflictError
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
@@ -24,6 +26,7 @@ from app.domain.models.garden_plan import (
     SlotSpeciesHint,
     TaskCounter,
 )
+from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import Location, Site, SitePlan, Slot
 
 TENANT = "ten_own"
@@ -134,7 +137,12 @@ class FakePlanRepo(IGardenPlanRepository):
         self.object_task_counters: dict[str, TaskCounter] = {}
         self.counters: dict[str, BedCounters] = {}
         self.care_events: list[CareEvent] = []
+        #: Newest watering per bed (WP 7.3), what ``load_read_model`` hands the plan with the task counters.
+        self.last_watered: dict[str, datetime] = {}
         self.zones: dict[str, tuple[str, str]] = {"zone_1": (TENANT, SITE)}
+        #: What the import wrote (WP 7.2): the zones it created by their new key, and the zone keys it deleted.
+        self.imported_zones: dict[str, IrrigationZone] = {}
+        self.deleted_zones: list[str] = []
         self.substrates: dict[str, str] = {"sub_global": "", "sub_own": TENANT, "sub_foreign": OTHER_TENANT}
         self.reserved: set[str] = set()
         self.field_updates: list[tuple[str, dict]] = []
@@ -160,6 +168,7 @@ class FakePlanRepo(IGardenPlanRepository):
             plants=list(self.plants) if include_plants else [],
             task_counters=dict(self.task_counters) if include_tasks else {},
             object_task_counters=dict(self.object_task_counters) if include_tasks else {},
+            last_watered=dict(self.last_watered) if include_tasks else {},
             plan_updated_by_name=self.editor_name,
         )
 
@@ -211,12 +220,23 @@ class FakePlanRepo(IGardenPlanRepository):
                 raise PlanError("bed_status.changed", "The bed status was changed.", status_code=409, current="x")
         self.applied.append(write)
         key_map: dict[str, str] = {}
+        self.deleted_zones.extend(write.zone_deletes)
+        for temp, zone in write.zone_inserts:
+            self._next += 1
+            key_map[temp] = f"zone_{self._next}"
+            self.imported_zones[key_map[temp]] = zone.model_copy(update={"key": key_map[temp]})
         for temp, location in write.location_inserts:
             self._next += 1
             key_map[temp] = f"loc_{self._next}"
             parent = key_map.get(location.parent_location_key or "", location.parent_location_key)
             self.locations[key_map[temp]] = location.model_copy(
-                update={"key": key_map[temp], "parent_location_key": parent}
+                update={
+                    "key": key_map[temp],
+                    "parent_location_key": parent,
+                    "irrigation_zone_key": key_map.get(
+                        location.irrigation_zone_key or "", location.irrigation_zone_key
+                    ),
+                }
             )
         for key, fields in write.location_updates:
             self.locations[key] = Location(**{**self.locations[key].model_dump(by_alias=True), **fields})

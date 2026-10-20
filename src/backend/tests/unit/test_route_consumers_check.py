@@ -281,9 +281,13 @@ class TestTheRouteOperand:
         +6: the irrigation zones (REQ-053 WP 7.1, #2467): ``GET|POST /t/{slug}/sites/{key}/irrigation-zones``,
         ``GET|PATCH|DELETE /t/{slug}/irrigation-zones/{key}`` and ``PUT …/{key}/locations``. Their consumer is the
         zone panel (WP 7.6, frontend), open - all six are reported candidates until it lands.
+
+        +2: the zone status and the watering round (REQ-053 WP 7.3, #2469):
+        ``GET /t/{slug}/irrigation-zones/{key}/status`` and ``POST …/{key}/log-watering``. Same open consumer
+        (the zone panel, WP 7.6 / 7.7).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 877
+        assert len(checker.collect_operations(app)) == 879
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

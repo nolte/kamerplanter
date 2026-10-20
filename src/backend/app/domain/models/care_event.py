@@ -23,7 +23,7 @@ from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.common.enums import PlanRole, TaskCategory
+from app.common.enums import CareEventAllocation, PlanRole, TaskCategory
 
 #: The erasure marker of an account key (mirrors ``ErasureEngine``; the model layer may not import an engine).
 ANONYMIZED_MARKER = "_anonymized"
@@ -144,6 +144,8 @@ class CareEvent(BaseModel):
     unit: str | None = None
     quantity_total: float | None = None
     quantity_total_unit: str | None = None
+    #: ``measured`` unless a zone watering round divided a total over its beds (GP-FR-117); server-set only.
+    allocation: CareEventAllocation = CareEventAllocation.MEASURED
     material: str | None = None
     measurements: list[dict[str, Any]] | None = None
     observed_outcome: str | None = None

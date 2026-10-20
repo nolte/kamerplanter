@@ -290,7 +290,7 @@ class TestTheFileIsUntrusted:
         document = rig.file()
         for broken, code in (
             ({**document, "schema_version": "2"}, "import.schema_version_unsupported"),
-            ({**document, "zones": []}, "import.unknown_keys"),
+            ({**document, "templates": []}, "import.unknown_keys"),
         ):
             with pytest.raises(PlanError) as refused:
                 rig.run(broken)

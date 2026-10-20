@@ -21,8 +21,10 @@ from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
+from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import SetBoundaryOp
+from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -46,8 +48,11 @@ _DOCUMENTS = (
     col.USERS,
     col.PLANT_INSTANCES,
     col.TASKS,
+    # the plan read model asks when a bed was last watered (REQ-053 WP 7.3)
+    col.WATERING_EVENTS,
     col.IRRIGATION_ZONES,
     col.SUBSTRATES,
+    col.ACTUATORS,  # a zone transaction declares it for the coupling (WP 7.4)
 )
 _EDGES = tuple(
     definition["edge_collection"]
@@ -98,7 +103,7 @@ class Rig:
     def __init__(self, db) -> None:
         sites, plans = ArangoSiteRepository(db), ArangoGardenPlanRepository(db)
         self.db = db
-        self.plans = GardenPlanService(sites, plans)
+        self.plans = GardenPlanService(sites, plans, ArangoIrrigationZoneRepository(db))
         self.export = GardenPlanExportService(sites, plans, self.plans)
         self.dispatched: list[str] = []
         self.importer = GardenPlanImportService(
@@ -298,6 +303,103 @@ class TestRestoreGpAcc031:
         assert rig.db.collection(col.SITES).get("site_c").get("plan") is None
 
 
+class TestZonesWp72:
+    """REQ-053 WP 7.2 (#2468): the zones travel in the file, the technical coupling does not."""
+
+    def _zone_in_the_source(self, rig, keys) -> str:
+        zones = ArangoIrrigationZoneRepository(rig.db)
+        rig.db.collection(col.GARDEN_OBJECTS).insert(
+            {
+                "_key": "barrel",
+                "site_key": "site_a",
+                "object_type": "water_source",
+                "label": "Tonne",
+                "geometry": {"kind": "point", "origin": [18, 18]},
+                "props": {"object_type": "water_source", "water_source_kind": "rain_barrel"},
+                "off_site": False,
+                "locked": False,
+                "z_order": 0,
+            }
+        )
+        created = zones.create_zone(
+            IrrigationZone(
+                tenant_key=A,
+                site_key="site_a",
+                name="Sued",
+                irrigation_type="drip",
+                water_source_key="barrel",
+                application_efficiency=0.9,
+                flow_rate_l_per_min=6.0,
+                schedule_hint="morgens",
+            ),
+            tenant_key=A,
+        )
+        key = created.key or ""
+        zones.replace_zone_locations(key, [keys["b1"], keys["b2"]], tenant_key=A)
+        return key
+
+    def test_the_export_carries_the_zone_and_a_replace_restores_it_under_a_new_key(self, rig) -> None:
+        keys = build_source_plan(rig)
+        source_zone = self._zone_in_the_source(rig, keys)
+        document = rig.exported()
+        assert [(z["key"], z["name"], z["water_source_key"]) for z in document["zones"]] == [
+            (source_zone, "Sued", "barrel")
+        ]
+        assert "actuator_key" not in document["zones"][0] and "flow_rate_ha_entity_id" not in document["zones"][0]
+
+        report = rig.run(document)
+
+        assert report.applied and report.would_create.zones == 1 and report.errors == []
+        (zone,) = list(rig.db.collection(col.IRRIGATION_ZONES).find({"site_key": "site_c"}))
+        assert zone["_key"] != source_zone and zone["tenant_key"] == A and zone["name"] == "Sued"
+        assert (zone["application_efficiency"], zone["flow_rate_l_per_min"], zone["flow_rate_source"]) == (
+            0.9,
+            6.0,
+            "manual",
+        )
+        zone_id = f"irrigation_zones/{zone['_key']}"
+        covered = {e["_to"].split("/")[1] for e in rig.db.collection(col.ZONE_COVERS).find({"_from": zone_id})}
+        beds = list(rig.db.collection(col.LOCATIONS).find({"site_key": "site_c"}))
+        assert (
+            covered == {b["_key"] for b in beds if b.get("irrigation_zone_key") == zone["_key"]} and len(covered) == 2
+        )
+        (supplied,) = list(rig.db.collection(col.ZONE_SUPPLIED_BY).find({"_from": zone_id}))
+        new_source = supplied["_to"].split("/")[1]
+        assert new_source != "barrel" and zone["water_source_key"] == new_source
+        assert rig.db.collection(col.GARDEN_OBJECTS).get(new_source)["site_key"] == "site_c"
+        assert rig.db.collection(col.HAS_IRRIGATION_ZONE).find({"_to": zone_id}).count() == 1
+
+    def test_a_second_replace_leaves_one_zone_not_two(self, rig) -> None:
+        keys = build_source_plan(rig)
+        self._zone_in_the_source(rig, keys)
+        document = rig.exported()
+        rig.run(document)
+
+        again = rig.run(rig.exported("site_c"), confirm_site_name="Leerer Garten")
+
+        assert again.applied and again.would_delete.zones == 1 and again.would_create.zones == 1
+        assert len(list(rig.db.collection(col.IRRIGATION_ZONES).find({"site_key": "site_c"}))) == 1
+        assert len(list(rig.db.collection(col.ZONE_COVERS).all())) == 4  # 2 in the source, 2 in the one restored zone
+
+    def test_the_technical_coupling_in_a_file_is_dropped_and_reported(self, rig) -> None:
+        keys = build_source_plan(rig)
+        self._zone_in_the_source(rig, keys)
+        document = rig.exported()
+        document["zones"][0].update(
+            actuator_key="act_x", flow_rate_ha_entity_id="sensor.flow", flow_rate_source="ha_entity"
+        )
+
+        report = rig.run(document)
+
+        assert {(d.entity, d.field, d.reason) for d in report.dropped_references} >= {
+            ("irrigation_zone", "actuator_key", "always_dropped"),
+            ("irrigation_zone", "flow_rate_ha_entity_id", "always_dropped"),
+        }
+        (zone,) = list(rig.db.collection(col.IRRIGATION_ZONES).find({"site_key": "site_c"}))
+        assert not {"actuator_key", "flow_rate_ha_entity_id"} & set(zone) and zone["flow_rate_source"] == "manual"
+        assert list(rig.db.collection(col.ZONE_ACTUATED_BY).all()) == []
+
+
 class TestReplaceSnapshotSr011:
     def test_the_state_it_overwrites_is_in_the_change_log_with_the_deletes(self, rig) -> None:
         keys = build_source_plan(rig)
@@ -434,9 +536,9 @@ class TestGatesAndTheFile:
             rig.run({**source, "schema_version": "2"})
         assert newer.value.error_code == "import.schema_version_unsupported"
         with pytest.raises(PlanError) as unknown:
-            rig.run({**source, "zones": [], "templates": []})
+            rig.run({**source, "templates": [], "surprises": []})
         assert unknown.value.error_code == "import.unknown_keys"
-        assert unknown.value.details[0]["keys"] == ["templates", "zones"]
+        assert unknown.value.details[0]["keys"] == ["surprises", "templates"]
         assert list(rig.db.collection(col.LOCATIONS).find({"site_key": "site_c"})) == []
 
     def test_a_malformed_entity_is_a_422_with_a_path_in_the_file(self, rig) -> None:
@@ -491,12 +593,21 @@ class TestReferencesGpFr141:
     def test_references_that_do_not_resolve_are_dropped_and_reported_never_kept(self, rig) -> None:
         build_source_plan(rig)
         db = rig.db
-        db.collection(col.IRRIGATION_ZONES).insert({"_key": "z_other_site", "tenant_key": A, "site_key": "site_a"})
-        db.collection(col.IRRIGATION_ZONES).insert({"_key": "z_foreign", "tenant_key": B, "site_key": "site_b"})
-        db.collection(col.IRRIGATION_ZONES).insert({"_key": "z_here", "tenant_key": A, "site_key": "site_c"})
+        db.collection(col.IRRIGATION_ZONES).insert(
+            {"_key": "z_other_site", "tenant_key": A, "site_key": "site_a", "name": "Zone"}
+        )
+        db.collection(col.IRRIGATION_ZONES).insert(
+            {"_key": "z_foreign", "tenant_key": B, "site_key": "site_b", "name": "Zone"}
+        )
+        db.collection(col.IRRIGATION_ZONES).insert(
+            {"_key": "z_here", "tenant_key": A, "site_key": "site_c", "name": "Zone"}
+        )
         db.collection(col.SUBSTRATES).insert({"_key": "sub_global"})
         db.collection(col.SUBSTRATES).insert({"_key": "sub_foreign", "tenant_key": B})
         source = rig.exported()
+        # A file with zones brings its own (WP 7.2); these beds name zones of the *target* instead, the way an
+        # older backup does, so the zones of the export are taken out to measure the references alone.
+        source["zones"] = []
         beds = [loc for loc in source["locations"] if loc["name"].startswith("Beet b")]
         beds[0]["irrigation_zone_key"] = "z_other_site"
         beds[1]["irrigation_zone_key"] = "z_foreign"

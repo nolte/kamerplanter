@@ -40,12 +40,13 @@ class ImportCounts(BaseModel):
     garden_objects: int = 0
     slots: int = 0
     plan_settings: int = 0
+    zones: int = 0
 
 
 class DroppedReference(BaseModel):
     """A reference of the file that was not carried over (GP-FR-141): rewritten to ``null`` or the entity skipped."""
 
-    entity: Literal["location", "garden_object", "slot"]
+    entity: Literal["location", "garden_object", "slot", "irrigation_zone"]
     #: The file's own key of the entity (a reference inside the file, never a system key).
     key: str
     field: str

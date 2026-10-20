@@ -419,7 +419,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "BedRotationService": 4,
     "PlantStateService": 1,
     "BedHistoryService": 1,
-    "IrrigationZoneService": 9,
+    "IrrigationZoneService": 11,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -758,6 +758,8 @@ _ZONE_KEYED_WRITES = (
     "IrrigationZoneService.patch_zone",
     "IrrigationZoneService.delete_zone",
     "IrrigationZoneService.replace_locations",
+    # WP 7.3 (#2469): the watering round loads the zone by key and writes care events for its beds.
+    "IrrigationZoneService.log_watering",
 )
 
 

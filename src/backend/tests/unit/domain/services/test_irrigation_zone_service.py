@@ -11,7 +11,7 @@ What this file pins:
   absent;
 * §21.8 "Bewässerungszone" in the service (a second caller cannot skip the gate): viewer reads, grower creates,
   changes and assigns, only the lead deletes (SR-010);
-* the coupling fields are refused until WP 7.4; a bed is in at most one zone.
+* the technical coupling is tested in ``test_irrigation_zone_coupling.py``; a bed is in at most one zone.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from __future__ import annotations
 import pytest
 
 from app.common.enums import IrrigationZoneType, TenantRole
-from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanValidationError
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.irrigation_zone import (
     DEFAULT_ZONE_COLOR,
@@ -28,7 +28,8 @@ from app.domain.models.irrigation_zone import (
     IrrigationZonePatch,
 )
 from app.domain.models.site import Site
-from app.domain.services.irrigation_zone_service import ERROR_COUPLING_NOT_AVAILABLE, IrrigationZoneService
+from app.domain.services.irrigation_zone_service import IrrigationZoneService
+from tests.support.care_event_fakes import FakeCareEventRepo
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     SITE,
@@ -88,7 +89,8 @@ def world() -> tuple[IrrigationZoneService, FakeZones, FakePlanRepo]:
     )
     zones.add(IrrigationZone(_key="zone_b", tenant_key=TENANT, site_key=SITE, name="Hand round"))
     zones.add(IrrigationZone(_key="zone_foreign", tenant_key=OTHER_TENANT, site_key=FOREIGN_SITE, name="Theirs"))
-    service = IrrigationZoneService(zones, sites, FakeObjects(repo))
+    care = FakeCareEventRepo()
+    service = IrrigationZoneService(zones, sites, FakeObjects(repo), care)
     return service, zones, repo
 
 
@@ -157,29 +159,6 @@ class TestCreate:
             )
 
         assert _codes(caught.value) == [("water_source_key", "reference.not_found")]
-        assert zones.zones == before
-
-    @pytest.mark.parametrize(
-        ("field", "value"),
-        [
-            ("actuator_key", "act_1"),
-            ("flow_rate_l_per_min", 12.0),
-            ("flow_rate_source", "ha_entity"),
-            ("flow_rate_ha_entity_id", "sensor.garden_flow"),
-        ],
-    )
-    def test_the_coupling_fields_are_refused_until_wp_7_4(self, world, field: str, value: object) -> None:
-        service, zones, _ = world
-        before = dict(zones.zones)
-
-        with pytest.raises(PlanError) as caught:
-            service.create_zone(
-                SITE, tenant_key=TENANT, role=TenantRole.LEAD, data=IrrigationZoneInput(name="Z", **{field: value})
-            )
-
-        assert caught.value.status_code == 422
-        assert caught.value.details[0]["code"] == ERROR_COUPLING_NOT_AVAILABLE
-        assert caught.value.details[0]["field"] == field
         assert zones.zones == before
 
     def test_the_coupling_defaults_are_accepted(self, world) -> None:
@@ -276,15 +255,6 @@ class TestPatch:
                 patch=IrrigationZonePatch(water_source_key="barrel_foreign"),
             )
         assert _codes(caught.value) == [("water_source_key", "reference.not_found")]
-        assert zones.updates == []
-
-    def test_a_coupling_field_is_refused(self, world) -> None:
-        service, zones, _ = world
-        with pytest.raises(PlanError) as caught:
-            service.patch_zone(
-                "zone_b", tenant_key=TENANT, role=TenantRole.LEAD, patch=IrrigationZonePatch(actuator_key="act_1")
-            )
-        assert caught.value.details[0]["code"] == ERROR_COUPLING_NOT_AVAILABLE
         assert zones.updates == []
 
     @pytest.mark.parametrize("field", ["name", "irrigation_type", "color"])

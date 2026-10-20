@@ -36,7 +36,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
-from app.common.enums import TenantRole
+from app.common.enums import GardenObjectType, TenantRole
 from app.common.exceptions import PlanError, PlanValidationError
 from app.common.types import SiteKey
 from app.domain.calculators.geometry_calculator import area_m2, validate_geometry
@@ -61,6 +61,7 @@ from app.domain.models.garden_plan_export import (
     ExportGardenObject,
     ExportLocation,
     ExportSlot,
+    ExportZone,
     GardenPlanExport,
 )
 from app.domain.models.garden_plan_import import (
@@ -75,6 +76,7 @@ from app.domain.models.garden_plan_import import (
     ImportMode,
     PlanImportReport,
 )
+from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import Location, SitePlan, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
@@ -94,10 +96,12 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 #: How much of a file's own key an error may echo back.
 _KEY_ECHO = 64
 _TEMP_PREFIX = "imp_"
+_ZONE_TEMP = "imp_zone_"
 
 _LOCATION = "location"
 _OBJECT = "garden_object"
 _SLOT = "slot"
+_ZONE = "irrigation_zone"
 
 
 @dataclass
@@ -113,6 +117,12 @@ class _Prepared:
     imported_locations: list[str] = field(default_factory=list)
     imported_objects: list[str] = field(default_factory=list)
     slots: list[tuple[str, Slot]] = field(default_factory=list)
+    #: temp zone key → the zone to create; ``water_source_key`` holds the temp key of an imported ``water_source``.
+    zones: dict[str, IrrigationZone] = field(default_factory=dict)
+    #: file key of a zone → its temp key, for the beds that name it.
+    zone_temp: dict[str, str] = field(default_factory=dict)
+    delete_zones: list[str] = field(default_factory=list)
+    deleted_zone_names: dict[str, str] = field(default_factory=dict)
     delete_locations: list[str] = field(default_factory=list)
     delete_objects: list[str] = field(default_factory=list)
     deleted_slot_count: int = 0
@@ -271,6 +281,7 @@ class GardenPlanImportService:
             locations=len(write.location_inserts),
             garden_objects=len(write.object_inserts),
             slots=len(write.slot_inserts),
+            zones=len(write.zone_inserts),
             deleted=len(write.location_deletes) + len(write.object_deletes),
             duration_ms=round((perf_counter() - started) * 1000),
         )
@@ -303,7 +314,7 @@ class GardenPlanImportService:
             )
         unknown = sorted(set(document) - set(GardenPlanExport.model_fields))
         if unknown:
-            # A newer file within schema_version "1" may carry parts this version cannot place (zones, template
+            # A newer file within schema_version "1" may carry parts this version cannot place (template
             # references, WP 7.x). Silently skipping them would restore a plan that quietly lacks half of itself.
             raise PlanError(
                 "import.unknown_keys",
@@ -343,6 +354,7 @@ class GardenPlanImportService:
         self._plan_the_existing(
             prepared, stored, existing_objects, site_key, tenant_key=tenant_key, mode=mode, force=force
         )
+        self._plan_the_zones(prepared, parsed.zones, site_key, tenant_key=tenant_key, mode=mode)
         index_of = self._index_locations(prepared, parsed.locations)
         flags = self._plan.bed_type_flags(sorted({loc.location_type_key for loc in parsed.locations}))
         zone_cache: dict[str, str | None] = {}
@@ -362,6 +374,7 @@ class GardenPlanImportService:
             )
         for position, item in enumerate(parsed.garden_objects):
             self._add_object(prepared, item, position, site_key=site_key, user_key=user_key, index_of=index_of)
+        self._add_zones(prepared, parsed, site_key=site_key, tenant_key=tenant_key)
         self._add_slots(prepared, parsed.slots)
         self._mark_always_dropped(prepared, raw)
         self._check_quotas(prepared, site_key, tenant_key=tenant_key, mode=mode)
@@ -404,6 +417,71 @@ class GardenPlanImportService:
                 self._plan.load_active_slots(site_key, prepared.delete_locations, tenant_key=tenant_key)
             )
         prepared.snapshot_wanted = True
+
+    def _plan_the_zones(
+        self, prepared: _Prepared, zones: list[ExportZone], site_key: str, *, tenant_key: str, mode: ImportMode
+    ) -> None:
+        """Name the file's zones (temp keys) and, for a ``replace`` that brings zones, retire the site's own.
+
+        A zone of the file is always created new (GP-NFR-051); the beds name it through the file key. A
+        ``replace`` whose file carries zones removes the zones of the site that cover no bed that stays (V-09),
+        so restoring a backup into the site it came from does not leave the old zones next to the new ones. A
+        file without zones (an older backup) removes none: its beds may still name a zone of the site.
+        """
+        for position, item in enumerate(zones):
+            if item.key in prepared.zone_temp:
+                prepared.add_finding(
+                    ImportFinding(field=f"zones[{position}].key", code=ERROR_DUPLICATE_KEY, key=_echo(item.key))
+                )
+                continue
+            prepared.zone_temp[item.key] = f"{_ZONE_TEMP}{position}"
+        if mode != "replace" or not zones:
+            return
+        staying = {key for key in prepared.locations if not _is_temp(key)}
+        for row in self._plans.zone_rows(site_key, tenant_key=tenant_key):
+            if staying.isdisjoint(row["location_keys"]):
+                prepared.delete_zones.append(row["key"])
+                prepared.deleted_zone_names[row["key"]] = str(row["name"])
+
+    def _add_zones(self, prepared: _Prepared, parsed: GardenPlanExport, *, site_key: str, tenant_key: str) -> None:
+        """Build the zones of the file once its objects exist: a water source is a ``water_source`` of the file."""
+        object_temp: dict[str, str] = {}
+        for object_position, garden_object_item in enumerate(parsed.garden_objects):
+            object_temp.setdefault(garden_object_item.key, f"imp_obj_{object_position}")
+        for position, item in enumerate(parsed.zones):
+            temp = f"{_ZONE_TEMP}{position}"
+            if prepared.zone_temp.get(item.key) != temp:
+                continue
+            source: str | None = None
+            if item.water_source_key:
+                candidate = object_temp.get(item.water_source_key)
+                garden_object = prepared.objects.get(candidate or "")
+                if garden_object is None or garden_object.object_type is not GardenObjectType.WATER_SOURCE:
+                    prepared.drop(
+                        DroppedReference(entity=_ZONE, key=item.key, field="water_source_key", reason="not_found")
+                    )
+                else:
+                    source = candidate
+            try:
+                zone = IrrigationZone(
+                    tenant_key=tenant_key,
+                    site_key=site_key,
+                    name=item.name,
+                    irrigation_type=item.irrigation_type,
+                    water_source_key=source,
+                    application_efficiency=item.application_efficiency,
+                    flow_rate_l_per_min=item.flow_rate_l_per_min,
+                    color=item.color,
+                    schedule_hint=item.schedule_hint,
+                )
+            except PydanticValidationError as exc:
+                prepared.add_findings(
+                    ImportFinding(field=f"zones[{position}].{_path(e['loc'])}", code=_code_of(e), key=_echo(item.key))
+                    for e in _errors_of(exc)
+                )
+                continue
+            prepared.zones[temp] = zone
+            prepared.file_key[temp] = item.key
 
     @staticmethod
     def _index_locations(prepared: _Prepared, locations: list[ExportLocation]) -> dict[str, int]:
@@ -469,12 +547,14 @@ class GardenPlanImportService:
             )
             type_key = ""
         zone_key = item.irrigation_zone_key
-        if zone_key:
+        if zone_key and zone_key in prepared.zone_temp:
+            zone_key = prepared.zone_temp[zone_key]  # a zone of the file: created by this import
+        elif zone_key:
             if zone_key not in zone_cache:
                 zone_cache[zone_key] = self._plan.irrigation_zone_site_key(zone_key, tenant_key=tenant_key)
             zone_site = zone_cache[zone_key]
-            if zone_site != site_key:
-                reason = "not_found" if zone_site is None else "not_in_site"
+            if zone_site != site_key or zone_key in prepared.delete_zones:
+                reason = "not_found" if zone_site is None or zone_key in prepared.delete_zones else "not_in_site"
                 prepared.drop(
                     DroppedReference(entity=_LOCATION, key=item.key, field="irrigation_zone_key", reason=reason)
                 )
@@ -638,7 +718,7 @@ class GardenPlanImportService:
     @staticmethod
     def _mark_always_dropped(prepared: _Prepared, raw: dict[str, Any]) -> None:
         """GP-FR-141: a coupling to a Home Assistant entity or an actuator is never carried over; say so."""
-        for list_name, entity in (("locations", _LOCATION), ("garden_objects", _OBJECT)):
+        for list_name, entity in (("locations", _LOCATION), ("garden_objects", _OBJECT), ("zones", _ZONE)):
             items = raw.get(list_name)
             if not isinstance(items, list):
                 continue
@@ -761,12 +841,14 @@ class GardenPlanImportService:
                 locations=len(prepared.imported_locations),
                 garden_objects=len(prepared.imported_objects),
                 slots=len(prepared.slots),
+                zones=len(prepared.zones),
             ),
             would_update=ImportCounts(plan_settings=1 if prepared.settings_written else 0),
             would_delete=ImportCounts(
                 locations=len(prepared.delete_locations),
                 garden_objects=len(prepared.delete_objects),
                 slots=prepared.deleted_slot_count,
+                zones=len(prepared.delete_zones),
             ),
             kept_locations=prepared.kept,
             dropped_references=prepared.dropped[:MAX_REPORTED],
@@ -798,9 +880,13 @@ class GardenPlanImportService:
             )
         for key in prepared.delete_objects:
             audit.append({"op": "import_delete", "entity": _OBJECT, "key": key, "summary": ""})
+        for key in prepared.delete_zones:
+            audit.append(
+                {"op": "import_delete", "entity": _ZONE, "key": key, "summary": prepared.deleted_zone_names[key][:200]}
+            )
         summary = (
             f"{len(prepared.imported_locations)} locations, {len(prepared.imported_objects)} objects, "
-            f"{len(prepared.slots)} slots"
+            f"{len(prepared.slots)} slots, {len(prepared.zones)} zones"
         )
         audit.append({"op": f"import_{mode}", "entity": "site", "key": site_key, "summary": summary})
         snapshot: dict[str, Any] | None = None
@@ -825,6 +911,8 @@ class GardenPlanImportService:
             total_area_m2=area_m2(prepared.boundary) if prepared.boundary_changed else None,
             audit=audit,
             slot_inserts=prepared.slots,
+            zone_inserts=list(prepared.zones.items()),
+            zone_deletes=prepared.delete_zones,
             snapshot=snapshot,
             snapshot_summary=f"state before the replace import (revision {revision})",
             time_budget_seconds=max(IMPORT_TIME_BUDGET_SECONDS - (perf_counter() - started), 1.0),
