@@ -29,28 +29,51 @@ describe('placeGeometry (port of template_placement_calculator.py)', () => {
   });
 
   it('moves a circle by its centre and ignores the turn', () => {
-    expect(
-      placeGeometry({ kind: 'circle', origin: [0, 0], radius_m: 0.2 }, [3, 2], 90),
-    ).toEqual({ kind: 'circle', origin: [3, 2], radius_m: 0.2 });
+    expect(placeGeometry({ kind: 'circle', origin: [0, 0], radius_m: 0.2 }, [3, 2], 90)).toEqual({
+      kind: 'circle',
+      origin: [3, 2],
+      radius_m: 0.2,
+    });
   });
 
   it('keeps the vertices of a polygon relative to its first vertex', () => {
     expect(
       placeGeometry(
-        { kind: 'polygon', points: [[0, 0], [2, 0], [2, 1]], rotation_deg: 0 },
+        {
+          kind: 'polygon',
+          points: [
+            [0, 0],
+            [2, 0],
+            [2, 1],
+          ],
+          rotation_deg: 0,
+        },
         [1, 1],
         45,
       ),
     ).toEqual({
       kind: 'polygon',
-      points: [[1, 1], [3, 1], [3, 2]],
+      points: [
+        [1, 1],
+        [3, 1],
+        [3, 2],
+      ],
       rotation_deg: 45,
     });
   });
 
   it('refuses a shape that is no bed', () => {
     expect(placeGeometry({ kind: 'point', origin: [0, 0] }, [1, 1], 0)).toBeNull();
-    expect(bedFrameGeometry({ kind: 'polyline', points: [[0, 0], [1, 1]], width_m: 0.1 })).toBeNull();
+    expect(
+      bedFrameGeometry({
+        kind: 'polyline',
+        points: [
+          [0, 0],
+          [1, 1],
+        ],
+        width_m: 0.1,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -68,12 +91,34 @@ describe('bedFrameGeometry', () => {
 
   it('makes the first vertex of a polygon the origin', () => {
     expect(
-      bedFrameGeometry({ kind: 'polygon', points: [[4, 4], [6, 4], [6, 5]], rotation_deg: 0 }),
-    ).toEqual({ kind: 'polygon', points: [[0, 0], [2, 0], [2, 1]], rotation_deg: 0 });
+      bedFrameGeometry({
+        kind: 'polygon',
+        points: [
+          [4, 4],
+          [6, 4],
+          [6, 5],
+        ],
+        rotation_deg: 0,
+      }),
+    ).toEqual({
+      kind: 'polygon',
+      points: [
+        [0, 0],
+        [2, 0],
+        [2, 1],
+      ],
+      rotation_deg: 0,
+    });
   });
 
   it('round-trips through placeGeometry', () => {
-    const bed: Geometry = { kind: 'rect', origin: [5, 6], width_m: 2, length_m: 1, rotation_deg: 0 };
+    const bed: Geometry = {
+      kind: 'rect',
+      origin: [5, 6],
+      width_m: 2,
+      length_m: 1,
+      rotation_deg: 0,
+    };
     const frame = bedFrameGeometry(bed)!;
     expect(placeGeometry(frame, [5, 6], 0)).toEqual(bed);
   });

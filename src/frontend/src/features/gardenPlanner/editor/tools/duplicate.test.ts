@@ -212,6 +212,15 @@ describe('multiDuplicate (GP-FR-025 SHOULD, GP-NFR-017)', () => {
     if (!out.ok) expect(out.failedCopy).toBeGreaterThan(1);
   });
 
+  it('counts the operations already waiting for the save against the batch limit', () => {
+    const sel = [{ entity: 'location' as const, key: 'plot' }];
+    expect(multiDuplicate(community(), sel, { ...options, count: 30, pendingCount: 471 })).toEqual({
+      ok: false,
+      code: 'multi.too_many',
+    });
+    expect(multiDuplicate(community(), sel, { ...options, count: 30, pendingCount: 470 }).ok).toBe(true);
+  });
+
   it('rejects numbers that make no sense', () => {
     const sel = [{ entity: 'location' as const, key: 'plot' }];
     const bad = (patch: object) => multiDuplicate(community(), sel, { ...options, ...patch });

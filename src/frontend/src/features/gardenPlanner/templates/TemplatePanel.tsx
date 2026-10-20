@@ -40,6 +40,14 @@ export default function TemplatePanel(props: TemplatePanelProps) {
       role="group"
       aria-label={t(`${PREFIX}.panel.label`)}
       data-testid="garden-plan-template-panel"
+      onKeyDown={(event) => {
+        // Esc ends the tool also when the focus is in the panel (the plan's own handler sees only its keys)
+        if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node)) {
+          // (the open list of the select sits in a portal and closes itself first)
+          event.stopPropagation();
+          props.onClose();
+        }
+      }}
       sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}
     >
       <TextField
@@ -58,7 +66,9 @@ export default function TemplatePanel(props: TemplatePanelProps) {
           </MenuItem>
         ))}
       </TextField>
-      {catalogue.loading && <CircularProgress size={20} aria-label={t(`${PREFIX}.panel.loading`)} />}
+      {catalogue.loading && (
+        <CircularProgress size={20} aria-label={t(`${PREFIX}.panel.loading`)} />
+      )}
       <Button
         variant="outlined"
         size="small"
@@ -72,8 +82,11 @@ export default function TemplatePanel(props: TemplatePanelProps) {
       <Button
         variant="contained"
         size="small"
-        onClick={props.onPlaceCenter}
-        disabled={!known || props.busy}
+        // aria-disabled, not disabled: a disabled button drops the keyboard focus to the page body
+        onClick={() => {
+          if (known && !props.busy) props.onPlaceCenter();
+        }}
+        aria-disabled={!known || props.busy}
         data-testid="garden-plan-template-place-center"
         sx={{ minHeight: TARGET_PX }}
       >
@@ -101,7 +114,11 @@ export default function TemplatePanel(props: TemplatePanelProps) {
             : t(`${PREFIX}.panel.hintPick`)}
       </Typography>
       {catalogue.failed && (
-        <Alert severity="warning" data-testid="garden-plan-template-failed" sx={{ flexBasis: '100%' }}>
+        <Alert
+          severity="warning"
+          data-testid="garden-plan-template-failed"
+          sx={{ flexBasis: '100%' }}
+        >
           {t(`${PREFIX}.panel.failed`)}
         </Alert>
       )}

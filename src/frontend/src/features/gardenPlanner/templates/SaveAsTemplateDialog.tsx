@@ -69,7 +69,11 @@ function Form({ defaultName, onSave, onClose }: Omit<SaveAsTemplateDialogProps, 
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} sx={{ minHeight: 48 }} data-testid="garden-plan-template-save-cancel">
+        <Button
+          onClick={onClose}
+          sx={{ minHeight: 48 }}
+          data-testid="garden-plan-template-save-cancel"
+        >
           {t('pages.gardenPlan.editor.draw.cancel')}
         </Button>
         <Button

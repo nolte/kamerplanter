@@ -32,12 +32,14 @@ const DIRECTIONS: readonly MultiDirection[] = ['right', 'left', 'up', 'down'];
 
 interface MultiDuplicateDialogProps {
   open: boolean;
+  /** How many selected beds (roots) get a name from the scheme; 0 = only garden objects, which keep theirs. */
+  rootBeds: number;
   /** Runs the duplication; resolves with the code of a refusal or `null` when it was done. */
   onRun: (options: MultiDuplicateOptions) => string | null;
   onClose: () => void;
 }
 
-function Form({ onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
+function Form({ rootBeds, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
   const { t } = useTranslation();
   const [count, setCount] = useState('5');
   const [direction, setDirection] = useState<MultiDirection>('right');
@@ -49,22 +51,27 @@ function Form({ onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
   const countN = parseDecimal(count);
   const spacingN = parseDecimal(spacing);
   const startN = parseDecimal(start);
-  const countOk = countN !== null && Number.isInteger(countN) && countN >= 1 && countN <= MAX_MULTI_COPIES;
+  const countOk =
+    countN !== null && Number.isInteger(countN) && countN >= 1 && countN <= MAX_MULTI_COPIES;
   const spacingOk = spacingN !== null && spacingN >= 0;
   const startOk = startN !== null && Number.isInteger(startN);
   const valid = countOk && spacingOk && startOk;
 
   const preview = useMemo(() => {
-    if (!countOk || !startOk || scheme.trim() === '') return null;
+    if (!countOk || !startOk || scheme.trim() === '' || rootBeds === 0) return null;
+    // Every copy of every selected bed takes the next number, in the order the beds are copied.
+    const total = countN * rootBeds;
     const first = multiCopyName(scheme, startN);
-    const last = multiCopyName(scheme, startN + countN - 1);
-    return countN === 1 ? first : `${first} … ${last}`;
-  }, [countN, countOk, scheme, startN, startOk]);
+    const last = multiCopyName(scheme, startN + total - 1);
+    return total === 1 ? first : `${first} … ${last}`;
+  }, [countN, countOk, rootBeds, scheme, startN, startOk]);
 
-  const edit = <T,>(setter: (value: T) => void) => (value: T) => {
-    setter(value);
-    setRefusal(null);
-  };
+  const edit =
+    <T,>(setter: (value: T) => void) =>
+    (value: T) => {
+      setter(value);
+      setRefusal(null);
+    };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -154,6 +161,11 @@ function Form({ onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
             edit(setStart),
             startOk,
             t(`${PREFIX}.startHelper`),
+          )}
+          {rootBeds === 0 && (
+            <Typography variant="body2" role="status" data-testid="garden-plan-multi-no-names">
+              {t(`${PREFIX}.noNames`)}
+            </Typography>
           )}
           {preview && (
             <Typography variant="body2" role="status" data-testid="garden-plan-multi-preview">

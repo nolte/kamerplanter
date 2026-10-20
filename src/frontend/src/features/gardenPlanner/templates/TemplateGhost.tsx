@@ -15,7 +15,13 @@ interface TemplateGhostProps {
   pxPerM: number;
 }
 
-export function TemplateGhost({ template, originM, rotationDeg, toScreen, pxPerM }: TemplateGhostProps) {
+export function TemplateGhost({
+  template,
+  originM,
+  rotationDeg,
+  toScreen,
+  pxPerM,
+}: TemplateGhostProps) {
   const { palette } = useTheme();
   const placed = placeGeometry(template.default_geometry, originM, rotationDeg);
   if (!placed) return null;

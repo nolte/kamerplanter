@@ -217,6 +217,8 @@ export interface MultiDuplicateOptions {
   scheme: string;
   /** The number `{n}` starts at. */
   startNumber: number;
+  /** Operations already waiting for the next save: they share its limit of one batch. */
+  pendingCount?: number;
 }
 
 export type MultiDuplicateOutcome =
@@ -285,7 +287,7 @@ export function multiDuplicate(
   if (existing + perCopy * count > MAX_PLAN_OBJECTS_PER_SITE) {
     return { ok: false, code: 'plan.quota_exceeded' };
   }
-  if (perCopy * count > MAX_BATCH_OPERATIONS) {
+  if ((options.pendingCount ?? 0) + perCopy * count > MAX_BATCH_OPERATIONS) {
     return { ok: false, code: 'multi.too_many' };
   }
   const [x0, y0, x1, y1] = rootsExtent(plan, source);

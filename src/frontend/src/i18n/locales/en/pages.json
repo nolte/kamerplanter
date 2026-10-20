@@ -5446,7 +5446,8 @@
           "template": {
             "save_first": "Your unsaved changes could not be saved. Save first, then place the template.",
             "busy": "The plan is being saved or a conflict is open. Wait a moment or reload the plan.",
-            "failed": "The template could not be placed. The plan stays as it was."
+            "failed": "The template could not be placed. The plan stays as it was.",
+            "refresh_failed": "The bed was created, but the plan could not be reloaded afterwards. Reload the page."
           },
           "multi": {
             "invalid": "Check the count, the spacing and the start number: the count is between 1 and 100, the spacing is not negative.",
@@ -5918,7 +5919,8 @@
           "preview": "The copies are named: {{names}}",
           "slotsNote": "Planting positions, plants and tasks are not copied. Lay out a planting grid for each bed afterwards in the Properties panel.",
           "submit": "Duplicate",
-          "invalid": "Please enter a valid number."
+          "invalid": "Please enter a valid number.",
+          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own."
         },
         "templates": {
           "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",

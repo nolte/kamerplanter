@@ -347,7 +347,7 @@ describe('save', () => {
     expect(state.pending).toEqual([]);
   });
 
-  it('is read-only while a save is in flight', async () => {
+  it('takes new edits while a save is in flight, but not undo (the wire owns those operations)', async () => {
     const store = await loaded();
     store.dispatch(applyAction([move('loc_a', 5, 5)]));
     let finish: (value: PlanBatchResponse) => void = () => undefined;
@@ -357,10 +357,11 @@ describe('save', () => {
     store.dispatch(applyAction([move('loc_b', 9, 9)]));
     store.dispatch(undo());
     expect(selectCanUndo(store.getState())).toBe(false);
-    expect(selectPendingCount(store.getState())).toBe(1);
+    expect(selectPendingCount(store.getState())).toBe(2);
     finish(ok());
     await saving;
     expect(store.getState().gardenPlan.saveStatus).toBe('idle');
+    expect(selectPendingCount(store.getState())).toBe(1);
   });
 
   it('409 plan.revision_conflict keeps pending, empties the history and opens the conflict (GP-NFR-006, GP-FR-026)', async () => {

@@ -5447,7 +5447,8 @@
           "template": {
             "save_first": "Die ungespeicherten Änderungen konnten nicht gespeichert werden. Speichere zuerst, dann setze die Vorlage.",
             "busy": "Es wird gerade gespeichert oder ein Konflikt ist offen. Warte kurz oder lade den Plan neu.",
-            "failed": "Die Vorlage konnte nicht platziert werden. Der Plan bleibt unverändert."
+            "failed": "Die Vorlage konnte nicht platziert werden. Der Plan bleibt unverändert.",
+            "refresh_failed": "Das Beet wurde angelegt, aber der Plan konnte danach nicht neu geladen werden. Lade die Seite neu."
           },
           "multi": {
             "invalid": "Prüfe Anzahl, Abstand und Startnummer: Die Anzahl liegt zwischen 1 und 100, der Abstand ist nicht negativ.",
@@ -5919,7 +5920,8 @@
           "preview": "Die Kopien heißen: {{names}}",
           "slotsNote": "Pflanzplätze, Pflanzen und Aufgaben werden nicht kopiert. Ein Pflanzraster legst du danach für jedes Beet im Bereich „Eigenschaften“ an.",
           "submit": "Duplizieren",
-          "invalid": "Bitte eine gültige Zahl eingeben."
+          "invalid": "Bitte eine gültige Zahl eingeben.",
+          "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz."
         },
         "templates": {
           "placed": "Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.",

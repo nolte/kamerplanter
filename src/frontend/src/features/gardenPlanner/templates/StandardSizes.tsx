@@ -24,7 +24,11 @@ export default function StandardSizes({ onPick }: StandardSizesProps) {
   const standards = standardSizeTemplates(catalogue.templates);
   if (standards.length === 0) return null;
   return (
-    <Box role="group" aria-label={t(`${PREFIX}.label`)} data-testid="garden-plan-add-standard-sizes">
+    <Box
+      role="group"
+      aria-label={t(`${PREFIX}.label`)}
+      data-testid="garden-plan-add-standard-sizes"
+    >
       <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 0.5 }}>
         {t(`${PREFIX}.hint`)}
       </Typography>

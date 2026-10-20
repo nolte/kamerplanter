@@ -107,7 +107,7 @@ import {
   type DistributeAxis,
 } from './tools/align';
 import { duplicateSelection, multiDuplicate, type MultiDuplicateOptions } from './tools/duplicate';
-import { deleteImpact, isPlanEntity, moveTargets, type DeleteImpact } from './tools/hierarchy';
+import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
@@ -225,7 +225,8 @@ export function GardenPlanEditor({
   const touchUi = toolbarBelow || coarsePointer;
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
-  const { selection, stack, tool, editError, past, future } = useAppSelector(selectGardenPlanState);
+  const { selection, stack, tool, editError, past, future, pending } =
+    useAppSelector(selectGardenPlanState);
   const invalidKeys = useAppSelector(selectInvalidKeys);
   const [drawShape, setDrawShape] = useState<DrawShape>('rect');
   const [angleStep, setAngleStep] = useState<AngleStep>(15);
@@ -334,8 +335,10 @@ export function GardenPlanEditor({
   const pxPerM = viewport.pxPerM;
   const movingKeys = useMemo(
     () =>
-      tool === 'select' ? new Set(moveTargets(plan, selection).map((entry) => entry.key)) : NO_KEYS,
-    [plan, selection, tool],
+      tool === 'select' && templateMode === null
+        ? new Set(moveTargets(plan, selection).map((entry) => entry.key))
+        : NO_KEYS,
+    [plan, selection, templateMode, tool],
   );
   const candidates = useMemo(
     () => (snapEnabled ? snapCandidates(plan, movingKeys) : undefined),
@@ -653,7 +656,7 @@ export function GardenPlanEditor({
   /** Duplicate several times (GP-FR-025): one undo step; the dialog shows a refusal. */
   const runMultiDuplicate = useCallback(
     (options: MultiDuplicateOptions): string | null => {
-      const outcome = multiDuplicate(plan, selection, options);
+      const outcome = multiDuplicate(plan, selection, { ...options, pendingCount: pending.length });
       if (!outcome.ok) return outcome.code;
       onCommit(outcome.value.ops, 'multiDuplicate');
       dispatch(setSelection(outcome.value.selection));
@@ -661,7 +664,14 @@ export function GardenPlanEditor({
       setMultiOpen(false);
       return null;
     },
-    [dispatch, onCommit, plan, selection],
+    [dispatch, onCommit, pending.length, plan, selection],
+  );
+  const multiRoots = useMemo(
+    () =>
+      selectionRoots(plan, selection).filter(
+        (ref) => ref.entity === 'location' && plan.locations[ref.key]?.geometry != null,
+      ).length,
+    [plan, selection],
   );
 
   // ── Bed templates (GP-FR-044/045) ──────────────────────────────────────────
@@ -1132,7 +1142,9 @@ export function GardenPlanEditor({
           event.clientX - box.left - event.currentTarget.clientLeft,
           event.clientY - box.top - event.currentTarget.clientTop,
         ]);
-        void placeTemplate(snapPoint(pointM, event.altKey));
+        // The same tolerance as the ghost shown under the pointer (a finger or a pen snaps wider).
+        const kind = 'pointerType' in event.nativeEvent ? String(event.nativeEvent.pointerType) : 'mouse';
+        void placeTemplate(snapPoint(pointM, event.altKey, pointerKind(kind)));
         return;
       }
       const key = badgeKeyOf(event);
@@ -1447,7 +1459,12 @@ export function GardenPlanEditor({
       )}
       {multiOpen && (
         <Suspense fallback={null}>
-          <MultiDuplicateDialog open onRun={runMultiDuplicate} onClose={() => setMultiOpen(false)} />
+          <MultiDuplicateDialog
+            open
+            rootBeds={multiRoots}
+            onRun={runMultiDuplicate}
+            onClose={() => setMultiOpen(false)}
+          />
         </Suspense>
       )}
       <ConflictDialog />

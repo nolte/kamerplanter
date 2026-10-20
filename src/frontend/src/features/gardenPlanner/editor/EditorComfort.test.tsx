@@ -92,13 +92,10 @@ describe('object snap (GP-FR-012, GP-FR-154)', () => {
     select(t, 'solo');
     t.after(() => {
       fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
-      // the anchor would be at (9.33, 3.9): 0.1 m from the top edge of b2 (y = 5)? no - the bottom edge is y = 3
-      fireEvent.pointerMove(t.canvas(), pointer(px(10.3, 3.9)));
+      // 0.1 m (4 px) beside the bottom edge of b2 (y = 3, x 6..8), away from its corners
+      fireEvent.pointerMove(t.canvas(), pointer(px(7, 3.1)));
     });
-    // The pointer itself is 0.1 m (4 px) under the bottom edge of b2 at y = 3 only when it sits at y 2.9
-    fireEvent.pointerMove(t.canvas(), pointer(px(7, 3.1)));
-    const marker = screen.queryByTestId('garden-plan-snap-marker');
-    expect(marker).not.toBeNull();
+    const marker = screen.getByTestId('garden-plan-snap-marker');
     expect(marker).toHaveAttribute('data-kind', 'edge');
     expect(screen.getByTestId('garden-plan-snap-guide')).toBeInTheDocument();
   });
@@ -127,7 +124,9 @@ describe('align and distribute (GP-FR-029, GP-FR-155)', () => {
     expect(originOf(t, 'b1')[1]).toBe(2);
     expect(originOf(t, 'b2')[1]).toBe(2);
     expect(t.state().past).toHaveLength(pastBefore + 1);
-    expect(t.state().past[t.state().past.length - 1].ops.every((op) => op.op === 'update_geometry')).toBe(true);
+    expect(
+      t.state().past[t.state().past.length - 1].ops.every((op) => op.op === 'update_geometry'),
+    ).toBe(true);
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-undo')));
     expect(originOf(t, 'b1')[1]).toBe(3);
     expect(t.state().past).toHaveLength(pastBefore);
@@ -184,7 +183,10 @@ describe('mini-map (GP-UX-014, §9.6)', () => {
 
   it('does not start a gesture of the plan beneath it', () => {
     const t = setupEditor({ viewport: ZOOMED });
-    fireEvent.pointerDown(screen.getByTestId('garden-plan-minimap'), pointer({ clientX: 60, clientY: 60 }));
+    fireEvent.pointerDown(
+      screen.getByTestId('garden-plan-minimap'),
+      pointer({ clientX: 60, clientY: 60 }),
+    );
     expect(t.state().selection).toEqual([]);
   });
 });
@@ -325,7 +327,11 @@ describe('auto-save (GP-UX-004, D-12)', () => {
 describe('multi-duplicate (GP-FR-025, GP-NFR-017)', () => {
   const openDialog = (t: Harness) => {
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-overflow')));
-    t.after(() => fireEvent.click(screen.getByRole('menuitem', { name: /Duplicate several times|Mehrfach duplizieren/ })));
+    t.after(() =>
+      fireEvent.click(
+        screen.getByRole('menuitem', { name: /Duplicate several times|Mehrfach duplizieren/ }),
+      ),
+    );
   };
   const set = (id: string, value: string) =>
     fireEvent.change(screen.getByTestId(id), { target: { value } });
@@ -359,8 +365,31 @@ describe('multi-duplicate (GP-FR-025, GP-NFR-017)', () => {
     await screen.findByTestId('garden-plan-multi-dialog');
     set('garden-plan-multi-count', '30');
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
-    expect(screen.getByTestId('garden-plan-multi-error')).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(
+      /ragt aus ihrem Bereich|sticks out of its area/,
+    );
     expect(t.state().past).toHaveLength(0);
+  });
+
+  it('previews the numbers over all selected beds, and says so when only objects are selected', async () => {
+    const t = setupEditor();
+    select(t, 'b1', 'b2');
+    openDialog(t);
+    await screen.findByTestId('garden-plan-multi-dialog');
+    set('garden-plan-multi-count', '3');
+    set('garden-plan-multi-scheme', 'P {n}');
+    expect(screen.getByTestId('garden-plan-multi-preview')).toHaveTextContent('P 1 … P 6');
+    cleanup();
+    const u = setupEditor();
+    u.after(() => {
+      act(() => {
+        u.store.dispatch(setSelection([{ entity: 'garden_object', key: 't1' }]));
+      });
+    });
+    openDialog(u);
+    await screen.findByTestId('garden-plan-multi-dialog');
+    expect(screen.queryByTestId('garden-plan-multi-preview')).toBeNull();
+    expect(screen.getByTestId('garden-plan-multi-no-names')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
@@ -380,7 +409,9 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     await waitFor(() => expect(screen.getByTestId('garden-plan-template-select')).toBeEnabled());
   };
   const pick = async (key: string) => {
-    fireEvent.mouseDown(within(screen.getByTestId('garden-plan-template-panel')).getByRole('combobox'));
+    fireEvent.mouseDown(
+      within(screen.getByTestId('garden-plan-template-panel')).getByRole('combobox'),
+    );
     fireEvent.click(await screen.findByRole('option', { name: new RegExp(key) }));
   };
 
@@ -434,6 +465,15 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     });
     await waitFor(() => expect(screen.getByTestId('garden-plan-notice')).toBeInTheDocument());
     expect(placeBedTemplate).not.toHaveBeenCalled();
+  });
+
+  it('Esc ends the template tool also from inside the panel', async () => {
+    const t = setupEditor();
+    await openTool(t);
+    t.after(() =>
+      fireEvent.keyDown(screen.getByTestId('garden-plan-template-rotate'), { key: 'Escape' }),
+    );
+    expect(screen.queryByTestId('garden-plan-template-panel')).toBeNull();
   });
 
   it('Esc and another tool end the template tool', async () => {

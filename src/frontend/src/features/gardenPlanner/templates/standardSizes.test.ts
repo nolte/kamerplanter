@@ -15,9 +15,7 @@ const template = (patch: Partial<BedTemplate>): BedTemplate => ({
 
 describe('standard sizes (GP-FR-045)', () => {
   it('reads a rectangle as width and length and prefills the height', () => {
-    expect(
-      standardSizeOf(template({ location_type_key: 'raised_bed', height_m: 0.8 })),
-    ).toEqual({
+    expect(standardSizeOf(template({ location_type_key: 'raised_bed', height_m: 0.8 }))).toEqual({
       shape: 'rect',
       width: 2,
       length: 1,
@@ -38,10 +36,20 @@ describe('standard sizes (GP-FR-045)', () => {
   it('offers system templates with a numeric shape only', () => {
     const polygon = template({
       key: 'sys_p',
-      default_geometry: { kind: 'polygon', points: [[0, 0], [1, 0], [1, 1]], rotation_deg: 0 },
+      default_geometry: {
+        kind: 'polygon',
+        points: [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+        ],
+        rotation_deg: 0,
+      },
     });
     const own = template({ key: 'own', is_system: false });
     const system = template({ key: 'sys_r' });
-    expect(standardSizeTemplates([polygon, own, system]).map((item) => item.key)).toEqual(['sys_r']);
+    expect(standardSizeTemplates([polygon, own, system]).map((item) => item.key)).toEqual([
+      'sys_r',
+    ]);
   });
 });

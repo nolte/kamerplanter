@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/errors';
-import { planResponse } from '@/test/gardenPlanFixtures';
+import { bed, planResponse } from '@/test/gardenPlanFixtures';
 import * as api from '../api/gardenPlan';
 import type { PlanBatchResponse } from '../model/types';
 import gardenPlanReducer, {
   applyAction,
+  saveGardenPlan,
+  selectAutoSaveReady,
   loadGardenPlan,
   placeTemplateAt,
   selectGardenPlanState,
@@ -125,5 +127,79 @@ describe('placeTemplateAt (GP-FR-044)', () => {
     const outcome = await store.dispatch(placeTemplateAt(ARG));
     expect(outcome.payload).toEqual({ ok: false, code: 'plan.revision_conflict' });
     expect(getGardenPlan).toHaveBeenCalledTimes(2);
+  });
+});
+
+const lock = (key: string) =>
+  ({ op: 'set_locked', entity: 'location', key, locked: true }) as const;
+
+describe('edits made while the server changes the plan', () => {
+  it('B2: an edit during a placement waits ("busy"), the new bed is in the model and no 409 follows', async () => {
+    const store = await loaded();
+    const first = Object.keys(selectGardenPlanState(store.getState()).plan!.locations)[0];
+    let release: (value: PlanBatchResponse) => void = () => undefined;
+    placeBedTemplate.mockReturnValue(new Promise((resolve) => (release = resolve)));
+    getGardenPlan.mockResolvedValue(
+      planResponse({ locations: [bed('b1', 3, 3), bed('loc_new', 8, 8)] }),
+    );
+    const running = store.dispatch(placeTemplateAt(ARG));
+    await vi.waitFor(() => expect(placeBedTemplate).toHaveBeenCalled());
+    // the window: the model is still editable on the surface, but the thunk owns the revision
+    store.dispatch(applyAction([lock(first)], null));
+    const during = selectGardenPlanState(store.getState());
+    expect(during.pending).toHaveLength(0);
+    expect(during.editError).toBe('template.busy');
+    expect(during.placing).toBe(true);
+    expect(selectAutoSaveReady(store.getState())).toBe(false);
+    release(placed);
+    expect((await running).payload).toEqual({ ok: true, locationKey: 'loc_new' });
+    const after = selectGardenPlanState(store.getState());
+    expect(Object.keys(after.plan!.locations)).toContain('loc_new');
+    expect(after.placing).toBe(false);
+    expect(after.saveStatus).toBe('idle');
+    expect(after.conflict).toBeNull();
+    // and editing works again
+    store.dispatch(applyAction([lock('loc_new')], null));
+    expect(selectGardenPlanState(store.getState()).pending).toHaveLength(1);
+  });
+
+  it('a placement whose refresh fails is an error, not a success', async () => {
+    const store = await loaded();
+    placeBedTemplate.mockResolvedValue(placed);
+    getGardenPlan.mockRejectedValue(new Error('offline'));
+    const outcome = await store.dispatch(placeTemplateAt(ARG));
+    expect(outcome.payload).toEqual({ ok: false, code: 'template.refresh_failed' });
+    expect(selectGardenPlanState(store.getState()).placing).toBe(false);
+  });
+
+  it('B1: an edit made while a save is in flight is kept and goes with the next save', async () => {
+    const store = await loaded();
+    const keys = Object.keys(selectGardenPlanState(store.getState()).plan!.locations);
+    store.dispatch(applyAction([lock(keys[0])], null));
+    let release: (value: PlanBatchResponse) => void = () => undefined;
+    applyPlanBatch.mockReturnValueOnce(new Promise((resolve) => (release = resolve)));
+    const saving = store.dispatch(saveGardenPlan());
+    expect(selectGardenPlanState(store.getState()).saveStatus).toBe('saving');
+    store.dispatch(applyAction([lock(keys[1] ?? keys[0])], null));
+    expect(selectGardenPlanState(store.getState()).pending).toHaveLength(2);
+    release({ plan_revision: 8, key_map: {}, updated: [], deleted: [], derived: {} });
+    await saving;
+    const after = selectGardenPlanState(store.getState());
+    expect(after.pending).toHaveLength(1);
+    expect(after.pending[0].op).toMatchObject({ op: 'set_locked' });
+    expect(selectAutoSaveReady(store.getState())).toBe(true);
+    applyPlanBatch.mockResolvedValueOnce({
+      plan_revision: 9,
+      key_map: {},
+      updated: [],
+      deleted: [],
+      derived: {},
+    });
+    await store.dispatch(saveGardenPlan());
+    expect(applyPlanBatch).toHaveBeenLastCalledWith('site_1', {
+      expected_revision: 8,
+      operations: [expect.objectContaining({ op: 'set_locked' })],
+    });
+    expect(selectGardenPlanState(store.getState()).pending).toHaveLength(0);
   });
 });

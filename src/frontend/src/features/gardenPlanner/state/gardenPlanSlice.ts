@@ -103,7 +103,12 @@ export interface PlanConflict {
 }
 
 /** Why an edit, undo or redo did nothing. */
-export type PlanEditError = PlanOperationErrorCode | 'undo.not_reversible' | 'redo.failed';
+export type PlanEditError =
+  | PlanOperationErrorCode
+  | 'undo.not_reversible'
+  | 'redo.failed'
+  /** An edit while a template is being placed (the server is changing the plan). */
+  | 'template.busy';
 
 export interface GardenPlanState {
   plan: PlanModel | null;
@@ -125,6 +130,8 @@ export interface GardenPlanState {
   /** How many `pending` operations the request on the wire carries. */
   inFlight: number;
   editError: PlanEditError | null;
+  /** A bed template is being placed: edits wait, auto-save is held back (the revision is moving). */
+  placing: boolean;
   /** Source of entry and pending ids. */
   sequence: number;
 }
@@ -146,6 +153,7 @@ export const initialState: GardenPlanState = {
   conflict: null,
   inFlight: 0,
   editError: null,
+  placing: false,
   sequence: 0,
 };
 
@@ -264,7 +272,9 @@ export const placeTemplateAt = createAsyncThunk<
       rotation_deg: arg.rotationDeg,
       expected_revision: revision,
     });
-    await dispatch(refreshGardenPlan(siteKey));
+    const refreshed = await dispatch(refreshGardenPlan(siteKey));
+    // The bed exists on the server; without the refreshed model the editor would not show it.
+    if (refreshGardenPlan.rejected.match(refreshed)) return { ok: false, code: 'template.refresh_failed' };
     return { ok: true, locationKey: response.key_map.template_bed ?? null };
   } catch (error) {
     const failure = api.toPlanSaveFailure(error);
@@ -287,8 +297,18 @@ function plainPlan(state: GardenPlanState): PlanModel | null {
   return state.plan === null ? null : (original(state.plan) ?? state.plan);
 }
 
+/**
+ * A new edit is taken in during a save in flight: `saveGardenPlan.fulfilled` cuts exactly the `inFlight`
+ * operations off the front of `pending`, so what is queued meanwhile waits for the next save. Not during a
+ * conflict (only a reload leaves it) and not while a template is placed.
+ */
+function canEdit(state: GardenPlanState): boolean {
+  return state.plan !== null && state.saveStatus !== 'conflict' && !state.placing;
+}
+
+/** Undo and redo also wait for a save in flight: their history entries own the operations on the wire. */
 function isEditable(state: GardenPlanState): boolean {
-  return state.plan !== null && state.saveStatus !== 'saving' && state.saveStatus !== 'conflict';
+  return canEdit(state) && state.saveStatus !== 'saving';
 }
 
 function queue(state: GardenPlanState, ops: readonly PlanOperation[]): number[] {
@@ -353,7 +373,12 @@ export const gardenPlanSlice = createSlice({
       reducer(state, action: PayloadAction<{ ops: PlanOperation[]; label: string | null }>) {
         const plan = plainPlan(state);
         const { ops, label } = action.payload;
-        if (plan === null || !isEditable(state) || ops.length === 0) return;
+        if (plan === null || ops.length === 0) return;
+        if (state.placing) {
+          state.editError = 'template.busy';
+          return;
+        }
+        if (!canEdit(state)) return;
         try {
           const applied = applyOperations(plan, ops);
           state.sequence += 1;
@@ -466,6 +491,15 @@ export const gardenPlanSlice = createSlice({
         state.loadError = action.payload ?? action.error.message ?? 'Unknown error';
       })
 
+      .addCase(placeTemplateAt.pending, (state) => {
+        state.placing = true;
+      })
+      .addCase(placeTemplateAt.fulfilled, (state) => {
+        state.placing = false;
+      })
+      .addCase(placeTemplateAt.rejected, (state) => {
+        state.placing = false;
+      })
       .addCase(refreshGardenPlan.fulfilled, (state, action) => {
         // Nothing may be pending here (the caller saved first); an edit made since stays where it is.
         if (state.pending.length > 0 || state.saveStatus === 'saving') return;
@@ -630,4 +664,6 @@ export const selectRedoLabel = (state: RootWithPlan): string | null => {
  * all hold it back - sending the same request again every two seconds would only repeat the refusal.
  */
 export const selectAutoSaveReady = (state: RootWithPlan): boolean =>
-  planState(state).pending.length > 0 && planState(state).saveStatus === 'idle';
+  planState(state).pending.length > 0 &&
+  planState(state).saveStatus === 'idle' &&
+  !planState(state).placing;

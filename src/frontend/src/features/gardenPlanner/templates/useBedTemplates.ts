@@ -3,7 +3,7 @@
  * tenant's own. Loaded on demand - only while the picker or the standard-size choice is open - so the editor
  * makes no request of its own otherwise. `reload` refreshes the list after "Save as template".
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listBedTemplates } from '../api/gardenPlan';
 import type { BedTemplate } from '../model/types';
 
@@ -37,5 +37,9 @@ export function useBedTemplates(enabled: boolean): BedTemplates {
     };
   }, [enabled, round]);
   const reload = useCallback(() => setRound((n) => n + 1), []);
-  return { templates: templates ?? [], loading: enabled && templates === null, failed, reload };
+  const loading = enabled && templates === null;
+  return useMemo(
+    () => ({ templates: templates ?? [], loading, failed, reload }),
+    [templates, loading, failed, reload],
+  );
 }
