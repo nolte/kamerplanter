@@ -1,29 +1,15 @@
 /**
- * What the dialog sends (REQ-053 §11.1 steps 5-6): the planned run with its entries - the server lays
- * the entries out on the bed and reserves the slots (GP-FR-064/065) - plus, for the entries placed by
- * hand (`free`), the slots of the points and their reservation. "Already planted" is the field-mode
- * shortcut `quick-planting` (GP-API-017).
+ * What the dialog sends (REQ-053 §11.1 steps 5-6): the planned runs of all species in **one** request
+ * (`POST /planting-runs/mixed-culture`, #2463). The server lays the entries out on the bed, reserves the
+ * slots (GP-FR-064/065), keeps the points of a `free` entry as reserved positions and writes it all in one
+ * transaction - so a refusal leaves nothing behind and the dialog has nothing to take back.
+ * "Already planted" is the field-mode shortcut `quick-planting` (GP-API-017).
  */
-import type { PlantingRunCreate, PlantingRunEntryCreate, Species } from '@/api/types';
+import type { MixedCultureCreate, MixedCultureRunCreate, PlantingRunEntryCreate, Species } from '@/api/types';
 import { getActiveTenantSlug } from '@/api/client';
-import {
-  appendSlots,
-  createRun,
-  deletePlantingRun,
-  planSlots,
-  quickPlant,
-  runEntries,
-} from './plantingApi';
-import {
-  idPrefixOf,
-  slotIdPrefixOf,
-  type EntryFormState,
-} from './plantingLogic';
-import type {
-  QuickPlantingBody,
-  QuickPlantingResponse,
-  SlotBatchItem,
-} from './plantingTypes';
+import { createMixedRuns, quickPlant } from './plantingApi';
+import { idPrefixOf, type EntryFormState } from './plantingLogic';
+import type { QuickPlantingBody, QuickPlantingResponse } from './plantingTypes';
 import type { EntryPreview } from './useEntryPreviews';
 
 function numberOrNull(text: string): number | null {
@@ -87,40 +73,28 @@ export function runName(species: Species, bedName: string): string {
  * plans and care differ), and a monoculture run holds exactly one entry. The alternating rows tie the runs
  * together on the bed: their `row_assignment`s are disjoint.
  */
-export function runPayload(input: RunInput, form: EntryFormState): PlantingRunCreate {
+export function runItem(input: RunInput, form: EntryFormState): MixedCultureRunCreate {
   const species = speciesOf(input, form);
+  const volume = numberOrNull(form.containerVolume);
   return {
     name: runName(species, input.bedName),
-    run_type: 'monoculture',
+    entry: entryPayload(form, species, input.previews[form.id], input.rowAssignments[form.id] ?? null),
+    ...(form.layout === 'free' && form.freePoints.length > 0 ? { free_points: form.freePoints } : {}),
+    ...(form.layout === 'free' && volume !== null && volume > 0 ? { container_volume_l: volume } : {}),
+  };
+}
+
+/** The whole request: every species of the dialog on the bed, with the one reason of "Trotzdem pflanzen". */
+export function mixedCulturePayload(input: RunInput): MixedCultureCreate {
+  return {
     location_key: input.bedKey,
     planned_start_date: input.plantedFrom,
     planned_from: input.plantedFrom,
     plan_role: 'main_crop',
     source: 'manual',
     ...(input.overrideReason ? { rotation_override_reason: input.overrideReason } : {}),
-    entries: [entryPayload(form, species, input.previews[form.id], input.rowAssignments[form.id] ?? null)],
+    runs: input.forms.map((form) => runItem(input, form)),
   };
-}
-
-/** `BEDNAME_F<stamp><nn>`: unique per submit, upper-case with the underscore a slot id needs. */
-export function freeSlotIds(prefix: string, count: number, stamp: number = Date.now()): string[] {
-  const base = stamp.toString(36).toUpperCase();
-  return Array.from({ length: count }, (_, index) => `${prefix}_F${base}${String(index + 1).padStart(3, '0')}`);
-}
-
-export function freeSlotItems(form: EntryFormState, prefix: string): SlotBatchItem[] {
-  const spacing = numberOrNull(form.spacing);
-  const volume = numberOrNull(form.containerVolume);
-  return freeSlotIds(prefix, form.freePoints.length).map((slotId, index) => ({
-    slot_id: slotId,
-    slot_role: 'position',
-    geometry: { kind: 'point', origin: form.freePoints[index] },
-    capacity_plants: 1,
-    sequence: index + 1,
-    geometry_source: 'editor',
-    ...(spacing !== null ? { planned_spacing_cm: spacing } : {}),
-    ...(volume !== null && volume > 0 ? { container_volume_l: volume } : {}),
-  }));
 }
 
 export interface RunOutcome {
@@ -128,54 +102,18 @@ export interface RunOutcome {
   plantCount: number;
 }
 
-/** Some runs of the submit exist although a later step failed and they could not be taken back. */
-export class PartialPlantingError extends Error {
-  constructor(
-    readonly created: readonly string[],
-    readonly reason: unknown,
-  ) {
-    super('A planting was created in part.');
-    this.name = 'PartialPlantingError';
-  }
-}
-
 /**
- * Create one planned run per entry; place and reserve the freely set points of a `free` entry after its
- * run. If a step fails, the runs this submit created are taken back (a planned run goes with its layout
- * slots); the ones that cannot be - deleting a run needs the lead role - are named in the
- * {@link PartialPlantingError}, so nothing is left behind unannounced and nothing is retried on its own.
+ * Create the planned runs of all entries in one request. The server writes the runs, their layouts and the
+ * freely set points in one transaction, so there is no step to fail half way: a refusal creates nothing and
+ * nothing has to be taken back (which would need the lead role).
  */
 export async function submitRuns(input: RunInput): Promise<RunOutcome> {
-  const created: string[] = [];
-  const prefix = slotIdPrefixOf(input.bedName, input.bedKey);
-  try {
-    for (const form of input.forms) {
-      const run = await createRun(runPayload(input, form));
-      created.push(run.key);
-      if (form.layout === 'free') {
-        const [entry] = await runEntries(run.key);
-        if (!entry) throw new Error('The run lost its entry.');
-        const slots = await appendSlots(input.bedKey, freeSlotItems(form, prefix));
-        await planSlots(run.key, entry.key, slots.created_keys);
-      }
-    }
-  } catch (error) {
-    const left: string[] = [];
-    for (const key of [...created].reverse()) {
-      try {
-        await deletePlantingRun(key);
-      } catch {
-        left.push(key);
-      }
-    }
-    if (left.length > 0) throw new PartialPlantingError(left, error);
-    throw error;
-  }
+  const { runs } = await createMixedRuns(mixedCulturePayload(input));
   const plantCount = input.forms.reduce(
     (sum, form) => sum + (form.layout === 'free' ? form.freePoints.length : (input.previews[form.id]?.count ?? 0)),
     0,
   );
-  return { runKeys: created, plantCount };
+  return { runKeys: runs.map((run) => run.key), plantCount };
 }
 
 export function quickBody(

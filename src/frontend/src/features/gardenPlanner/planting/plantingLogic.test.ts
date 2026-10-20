@@ -15,7 +15,6 @@ import {
   parseLowerBound,
   prefillFor,
   requestedCount,
-  slotIdPrefixOf,
   toEntryLayout,
   toPreviewEntry,
   tooClosePoints,
@@ -232,11 +231,5 @@ describe('names', () => {
     expect(idPrefixOf(species('s', 'Möhre'))).toBe('MOH');
     expect(idPrefixOf(species('s', '1'))).toMatch(/^[A-Z]{2,5}$/);
     expect(idPrefixOf(null)).toBe('PLT');
-  });
-
-  it('builds the LOCATION part of a slot id from the bed name', () => {
-    expect(slotIdPrefixOf('Hochbeet 3', 'loc_1')).toBe('HOCHBEET3');
-    expect(slotIdPrefixOf('', 'loc_1')).toBe('LLOC1');
-    expect(slotIdPrefixOf('A very long bed name indeed', 'k').length).toBeLessThanOrEqual(12);
   });
 });

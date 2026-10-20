@@ -1626,6 +1626,32 @@ export interface PlantingRunCreate {
   source?: string | null;
 }
 
+/** #2463 - one species of a mixed culture: its run's name, its single entry and, for `free`, its points. */
+export interface MixedCultureRunCreate {
+  name: string;
+  notes?: string | null;
+  entry: PlantingRunEntryCreate;
+  /** Bed-frame points (m) of a `free` entry; each becomes a reserved position of the run. */
+  free_points?: [number, number][];
+  container_volume_l?: number | null;
+}
+
+/** `POST /planting-runs/mixed-culture`: every run of a mixed culture on one bed, written atomically. */
+export interface MixedCultureCreate {
+  location_key: string;
+  runs: MixedCultureRunCreate[];
+  planned_start_date?: string | null;
+  planned_from?: string | null;
+  planned_until?: string | null;
+  plan_role?: 'main_crop' | 'green_manure';
+  rotation_override_reason?: string | null;
+  source?: string | null;
+}
+
+export interface MixedCultureResponse {
+  runs: PlantingRun[];
+}
+
 export interface PlantingRunUpdate {
   name?: string;
   location_key?: string | null;

@@ -295,7 +295,6 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
               plantsChanged();
               notification.success(t('pages.gardenPlan.field.planted', { count: result.plantCount }));
             }}
-            onPartial={plantsChanged}
           />
         )}
         {overlay?.kind === 'correct' && bed.geometry && overlay.plant.slot_key && (

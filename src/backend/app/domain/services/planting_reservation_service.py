@@ -21,11 +21,14 @@ written. A foreign and an absent resource answer identically (404); a slot key o
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from decimal import InvalidOperation
 from typing import Any
 
 import structlog
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.datetimes import today_utc
 from app.common.enums import (
@@ -52,7 +55,13 @@ from app.domain.calculators.planting_layout_calculator import (
     LayoutWarning,
     compute_layout,
 )
-from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND, ERROR_SLOT_OVERLAP, overlapping_zones
+from app.domain.engines.garden_plan_engine import (
+    ERROR_REFERENCE_NOT_FOUND,
+    ERROR_SLOT_OUTSIDE_BED,
+    ERROR_SLOT_OVERLAP,
+    overlapping_zones,
+    slots_outside_bed,
+)
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.slot_reservation_engine import (
     PLANTING_STATES,
@@ -73,6 +82,8 @@ from app.domain.models.geometry import PointGeometry, PolygonGeometry
 from app.domain.models.planting_reservation import (
     ClearBedOutcome,
     ClearBedWrite,
+    MixedRunsOutcome,
+    MixedRunsWrite,
     NewReservedSlot,
     PlantingRow,
     ReservationReads,
@@ -117,6 +128,16 @@ class PlannedSlots:
     planned_from: date
     planned_until: date | None
     slots: list[tuple[str, int]]
+
+
+@dataclass(frozen=True)
+class FreePlacement:
+    """The points a grower set by hand for entry number ``entry_index`` (``free`` layout, GP-FR-072)."""
+
+    entry_index: int
+    points: tuple[tuple[float, float], ...]
+    spacing_cm: float | None = None
+    container_volume_l: float | None = None
 
 
 @dataclass(frozen=True)
@@ -174,6 +195,17 @@ class PlantingReservationService:
         self._care_events = care_events
         self._dispatch_adjacency = dispatch_adjacency
 
+    def place_mixed_runs(self, write: MixedRunsWrite, *, tenant_key: str) -> MixedRunsOutcome:
+        """Write the runs of a mixed culture in one transaction, then request the bed's adjacency recompute (#2463).
+
+        The bed is resolved under ``tenant_key`` here as well: the write set was validated by the caller, but a
+        write that stands on its own must not trust that (T-01…T-04).
+        """
+        location = resolve_owned_location(self._sites, write.location_key, tenant_key)
+        outcome = self._repo.create_mixed_runs(write)
+        request_adjacency_recompute(self._dispatch_adjacency, location.key or "")
+        return outcome
+
     # ── Roles ─────────────────────────────────────────────────────────
 
     @staticmethod
@@ -212,7 +244,12 @@ class PlantingReservationService:
     # ── Layout (POST /planting-runs on a bed with geometry) ───────────
 
     def prepare_layout(
-        self, location: Location, entries: list[PlantingRunEntry], *, tenant_key: str
+        self,
+        location: Location,
+        entries: list[PlantingRunEntry],
+        *,
+        tenant_key: str,
+        free: Sequence[FreePlacement] = (),
     ) -> PreparedLayout | None:
         """The slots the entries' layouts need in ``location``, or ``None`` when nothing is to be placed.
 
@@ -223,7 +260,8 @@ class PlantingReservationService:
         """
         layouts = [(index, entry, entry_layout_of(entry, index=index)) for index, entry in enumerate(entries)]
         planned = [(index, entry, layout) for index, entry, layout in layouts if layout is not None]
-        if not planned or location.geometry is None or not location.key:
+        placements = [placement for placement in free if placement.points]
+        if (not planned and not placements) or location.geometry is None or not location.key:
             return None
 
         existing = self._plan.load_active_slots(
@@ -241,7 +279,7 @@ class PlantingReservationService:
             result = compute_layout(location.geometry, layout, entry.quantity)
             results.append((index, entry, result))
             warnings.extend(result.warnings)
-        total = sum(len(result.slots) for _, _, result in results)
+        total = sum(len(result.slots) for _, _, result in results) + sum(len(p.points) for p in placements)
         self._check_quota(location, current=len(live), adding=total, tenant_key=tenant_key)
 
         ids = allocate_slot_ids(prefix, used_ids, total)
@@ -256,8 +294,61 @@ class PlantingReservationService:
                     )
                 )
                 cursor += 1
+        slots += self._free_slots(location, placements, ids[cursor:], rank + cursor)
+        self._check_free_points_inside(location, slots)
         self._check_zone_overlap(slots, live)
         return PreparedLayout(slots=slots, warnings=warnings)
+
+    def _free_slots(
+        self, location: Location, placements: Sequence[FreePlacement], ids: list[str], rank: int
+    ) -> list[PreparedSlot]:
+        """The slots of the hand-set points, in the order of the placements and their points."""
+        flat = [
+            (placement, sequence, point)
+            for placement in placements
+            for sequence, point in enumerate(placement.points, 1)
+        ]
+        try:
+            return [
+                PreparedSlot(
+                    entry_index=placement.entry_index,
+                    slot=self._free_slot_of(location, point, placement, ids[offset], rank + offset + 1),
+                    sequence=sequence,
+                )
+                for offset, (placement, sequence, point) in enumerate(flat)
+            ]
+        except PydanticValidationError, InvalidOperation, OverflowError:
+            raise PlanValidationError([(None, "free_points", "geometry.invalid", {})]) from None
+
+    @staticmethod
+    def _free_slot_of(
+        location: Location, point: tuple[float, float], placement: FreePlacement, slot_id: str, rank: int
+    ) -> Slot:
+        return Slot(
+            slot_id=slot_id,
+            location_key=location.key or "",
+            capacity_plants=1,
+            slot_role=SlotRole.POSITION,
+            geometry=PointGeometry(origin=point),
+            sequence=rank,
+            geometry_source=GeometrySource.EDITOR,
+            container_volume_l=placement.container_volume_l,
+            planned_spacing_cm=placement.spacing_cm if placement.spacing_cm and placement.spacing_cm > 0 else None,
+        )
+
+    @staticmethod
+    def _check_free_points_inside(location: Location, prepared: list[PreparedSlot]) -> None:
+        """V-04 for the points set by hand: a position outside the bed is refused (computed layouts stay inside)."""
+        if location.geometry is None:
+            return
+        subjects = [
+            (f"#{index}", item.slot.geometry)
+            for index, item in enumerate(prepared)
+            if item.slot.geometry_source is GeometrySource.EDITOR and item.slot.geometry is not None
+        ]
+        outside = slots_outside_bed(location.geometry, subjects)
+        if outside:
+            raise PlanValidationError([(None, "free_points", ERROR_SLOT_OUTSIDE_BED, {"key": key}) for key in outside])
 
     @staticmethod
     def _slot_of(location: Location, layout_slot: LayoutSlot, entry: PlantingRunEntry, slot_id: str, rank: int) -> Slot:

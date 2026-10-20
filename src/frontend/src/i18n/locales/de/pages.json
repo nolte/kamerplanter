@@ -6752,8 +6752,6 @@
           "plan": "Pflanzung planen",
           "recordPlanted": "Gepflanzt erfassen",
           "plantAnyway": "Trotzdem pflanzen",
-          "partial_one": "Eine Pflanzung wurde schon angelegt und ließ sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
-          "partial_other": "{{count}} Pflanzungen wurden schon angelegt und ließen sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
           "alreadyPlantedMargins": "Randabstände übernimmt „Ich habe schon gepflanzt“ nicht. Leere sie, wenn du die Pflanzen sofort anlegen willst.",
           "submitWaiting": "Die Hinweise zu Fruchtfolge und Nachbarn werden noch geprüft. Danach kannst du fortfahren."
         },

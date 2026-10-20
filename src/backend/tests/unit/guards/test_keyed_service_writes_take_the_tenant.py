@@ -382,6 +382,23 @@ def test_the_for_each_plant_create_takes_the_tenant_keyword_only_without_a_defau
     assert "_require_tenant_key" in ast.unparse(method)
 
 
+# ── #2463: the mixed-culture create takes the tenant strictly ───────────────────────────────────────
+#
+# ``create_mixed_culture`` resolves the bed through ``location_ownership`` and loads the created runs by key, so the
+# selector above derives it; this pins that it keeps seeing it (a refactor that moved the load behind a differently
+# named helper would drop it from the inventory and the rule would pass by finding nothing) and that the tenant and
+# the role are keyword-only, with the non-empty check inside the method.
+
+
+def test_the_mixed_culture_create_is_a_keyed_write_and_takes_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert shapes.get("PlantingRunService.create_mixed_culture") == "strict"
+    tree = ast.parse((_SERVICES / "planting_run_service.py").read_text(encoding="utf-8"))
+    (klass,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PlantingRunService"]
+    (method,) = [n for n in klass.body if isinstance(n, ast.FunctionDef) and n.name == "create_mixed_culture"]
+    assert "not tenant_key" in ast.unparse(method)
+
+
 # ── Whole classes: no method takes the tenant positionally ───────────────────────────────────────────
 #
 # The rule above sees only keyed writes. In a service whose every signature read
@@ -567,6 +584,7 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "CareEventService.void",
         "CareEventService.redact",
         "PlantingReservationService.place_layout",
+        "PlantingReservationService.place_mixed_runs",
         "PlantingReservationService.plan_slots",
         "PlantingReservationService.release_slot",
         "PlantingReservationService.clear_bed",
