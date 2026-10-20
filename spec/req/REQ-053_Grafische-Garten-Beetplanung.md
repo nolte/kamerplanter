@@ -1487,6 +1487,7 @@ Fehler: 409 `plan.revision_conflict` `{current_revision, changed_by, changed_at}
 | GP-API-051 | `PUT /irrigation-zones/{key}/locations` `{location_keys[]}` | Ab Gärtner |
 | GP-API-052 | `GET /irrigation-zones/{key}/status` → `{last_watering, next_planned, demand_liters_today, consumption_liters_30d}` | Alle Rollen |
 | GP-API-053 | `POST /irrigation-zones/{key}/log-watering` `{volume_liters, allocation: by_area\|equal, performed_at?}` → n `care_events` | Ab Gärtner |
+| GP-API-055 | `POST /planting-runs/mixed-culture` `{location_key, runs[{name, entry, free_points?, container_volume_l?}], planned_start_date?, planned_from?, planned_until?, plan_role?, rotation_override_reason?, source?}` → `{runs[]}` (201) | Legt die je Art getrennten Läufe einer Mischkultur (REQ-013 §2) samt Layout-Slots, Reservierungen und frei gesetzten Punkten **in einer Transaktion** an (alles oder nichts; kein clientseitiges Zurücknehmen). Das Layout wird für alle Einträge gemeinsam berechnet. Fremdes Beet → 404, fremde Art → 422 `reference.not_found`; Rolle: Ab Gärtner. `DELETE /planting-runs/{key}` bleibt Nur Leitung (#2463). |
 
 ### 21.7 Vorlagen (SHOULD)
 

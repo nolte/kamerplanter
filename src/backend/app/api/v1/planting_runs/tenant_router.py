@@ -26,6 +26,8 @@ from app.api.v1.planting_runs.schemas import (
     EntryCreate,
     EntryResponse,
     EntryUpdate,
+    MixedCultureCreate,
+    MixedCultureResponse,
     NutrientPlanAssignRequest,
     NutrientPlanAssignResponse,
     PhaseSummary,
@@ -49,13 +51,14 @@ from app.common.dependencies import (
     get_planting_run_service,
     get_species_repo,
 )
-from app.common.enums import PlantingRunStatus
+from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.common.exceptions import NotFoundError
 from app.common.openapi_responses import CONFLICT_RESPONSE, FORBIDDEN_RESPONSE, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
+from app.domain.models.planting_reservation import MixedRunDraft
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -113,6 +116,48 @@ def create_run(
         entries = [PlantingRunEntry(**e.model_dump()) for e in body.entries]
     created = service.create_run(run, entries, tenant_key=ctx.tenant_key)
     return _run_response(created)
+
+
+@router.post(
+    "/mixed-culture",
+    response_model=MixedCultureResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+def create_mixed_culture(
+    body: MixedCultureCreate,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.CREATE)),
+    service: PlantingRunService = Depends(get_planting_run_service),
+) -> MixedCultureResponse:
+    """Create the per-species runs of a mixed culture on one bed in one transaction (#2463).
+
+    Either every run (with its entry, layout slots and reservations) is created or none is: a refusal leaves
+    nothing behind, so the caller needs no rollback (and no lead role to take one back). The bed's layout is
+    computed for all entries together. Runs are `planned`, `monoculture`, one entry each.
+    """
+    drafts = [
+        MixedRunDraft(
+            run=PlantingRun(
+                name=item.name,
+                run_type=PlantingRunType.MONOCULTURE,
+                location_key=body.location_key,
+                planned_start_date=body.planned_start_date,
+                planned_from=body.planned_from,
+                planned_until=body.planned_until,
+                plan_role=body.plan_role,
+                rotation_override_reason=body.rotation_override_reason,
+                source=body.source,
+                notes=item.notes,
+                tenant_key=ctx.tenant_key,
+            ),
+            entry=PlantingRunEntry(**item.entry.model_dump()),
+            free_points=tuple((x, y) for x, y in item.free_points),
+            container_volume_l=item.container_volume_l,
+        )
+        for item in body.runs
+    ]
+    created = service.create_mixed_culture(body.location_key, drafts, tenant_key=ctx.tenant_key, role=ctx.role)
+    return MixedCultureResponse(runs=[_run_response(run) for run in created])
 
 
 @router.get("/{key}", response_model=PlantingRunResponse)

@@ -559,3 +559,75 @@ class TestPositionCorrection:
         assert response.status_code == 503
         stored = next(slot for slot in world.plan.slots if slot.key == "s1")
         assert list(stored.geometry.origin) == [0.3, 0.9]
+
+
+class TestMixedCulture:
+    """#2463: ``POST /planting-runs/mixed-culture`` - every run of a mixed culture in one write."""
+
+    @staticmethod
+    def body(**overrides) -> dict:
+        def run(species: str, prefix: str, rows: list[int]) -> dict:
+            return {
+                "name": f"{prefix} run",
+                "entry": {
+                    "species_key": species,
+                    "quantity": 4,
+                    "id_prefix": prefix,
+                    "spacing_cm": 50,
+                    "row_spacing_cm": 80,
+                    "layout_strategy": "rows",
+                    "row_assignment": rows,
+                },
+            }
+
+        return {
+            "location_key": "bed",
+            "planned_start_date": "2026-05-20",
+            "runs": [run("sp_tomato", "TOM", [0]), run("sp_phacelia", "PHA", [1])],
+            **overrides,
+        }
+
+    def test_a_grower_creates_all_runs_in_one_write(self, client, world) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body())
+
+        assert response.status_code == 201, response.text
+        assert [r["name"] for r in response.json()["runs"]] == ["TOM run", "PHA run"]
+        (write,) = world.repo.mixed_writes
+        assert len(write.runs) == 2 and all(item.slots for item in write.runs)
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"runs": []},
+            {"tenant_key": "ten_other"},
+            {"runs": [{"name": "x", "entry": {"species_key": "sp_tomato", "quantity": 1, "id_prefix": "T"}}]},
+            {"planned_start_date": "2026-05-20", "planned_until": "2026-05-01"},
+            {"plan_role": "fallow"},
+            {"source": "nonsense"},
+        ],
+        ids=["no runs", "tenant in body", "bad id prefix", "window reversed", "fallow", "unknown source"],
+    )
+    def test_a_malformed_body_is_422_and_writes_nothing(self, client, world, overrides) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body(**overrides))
+
+        assert response.status_code == 422, response.text
+        assert world.repo.mixed_writes == []
+
+    def test_a_viewer_gets_403(self, client, world) -> None:
+        response = client(TenantRole.VIEWER).post(f"{_OWN}/planting-runs/mixed-culture", json=self.body())
+
+        assert response.status_code == 403
+        assert world.repo.mixed_writes == []
+
+    def test_a_bed_of_another_tenant_is_404_and_writes_nothing(self, client, world) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body(location_key="loc_foreign"))
+
+        assert response.status_code == 404
+        assert world.repo.mixed_writes == [] and world.runs.runs == {}
+
+    def test_a_grower_still_may_not_delete_a_run(self, client, world) -> None:
+        """No permission change on ``DELETE /planting-runs``: it stays lead-only."""
+        created = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body()).json()["runs"]
+
+        assert client().delete(f"{_OWN}/planting-runs/{created[0]['key']}").status_code == 403
+        assert client(TenantRole.LEAD).delete(f"{_OWN}/planting-runs/{created[0]['key']}").status_code == 204

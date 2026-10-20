@@ -157,6 +157,56 @@ class QuickPlantOutcome:
     created_at: datetime
 
 
+@dataclass(frozen=True)
+class MixedRunDraft:
+    """What the request says about one run of a mixed culture, before anything is validated or stored.
+
+    ``free_points`` are the positions a grower set by hand for a ``free`` entry (bed-frame points); a computed
+    layout needs none. Built by the router from the body, never trusted: the service stamps the tenant.
+    """
+
+    run: PlantingRun
+    entry: PlantingRunEntry
+    free_points: tuple[tuple[float, float], ...] = ()
+    container_volume_l: float | None = None
+
+
+@dataclass(frozen=True)
+class MixedRunSlot:
+    """A slot a run of a mixed culture reserves, with the ``sequence`` of its reservation edge."""
+
+    slot: Slot
+    sequence: int
+
+
+@dataclass(frozen=True)
+class MixedRunWrite:
+    """One run of a mixed culture: the run, its single entry, and the slots it reserves."""
+
+    run: PlantingRun
+    entry: PlantingRunEntry
+    planned_from: date
+    planned_until: date | None
+    slots: list[MixedRunSlot]
+
+
+@dataclass(frozen=True)
+class MixedRunsWrite:
+    """``POST /planting-runs/mixed-culture``: every run of a mixed culture on one bed in **one** transaction."""
+
+    location_key: str
+    runs: list[MixedRunWrite]
+    time_budget_seconds: float = RESERVATION_TIME_BUDGET_SECONDS
+
+
+@dataclass(frozen=True)
+class MixedRunsOutcome:
+    """The keys the transaction created, one run after the other, in the order of the request."""
+
+    run_keys: list[str]
+    created_slot_keys: list[str]
+
+
 class QuickPlantingInput(BaseModel):
     """What a grower reports in the field: *I planted n of this species here* (GP-API-017, GP-UX-027).
 

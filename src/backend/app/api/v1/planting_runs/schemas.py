@@ -15,6 +15,9 @@ from app.domain.models.planting_run import (
 )
 from app.domain.services.planting_reservation_service import MAX_RESERVED_SLOTS
 
+#: A mixed culture has at most this many species (one run each).
+MAX_MIXED_CULTURE_RUNS = 12
+
 # ── Phase summary ────────────────────────────────────────────────────
 
 
@@ -172,6 +175,151 @@ class PlantingRunCreate(BaseModel):
         if start and self.planned_until and self.planned_until < start:
             raise ValueError("planned_until must not lie before the start of the window.")
         return self
+
+
+class MixedCultureRunCreate(BaseModel):
+    """One species of a mixed culture: its run's name, its single entry and, for a `free` entry, its points."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Tomato – Raised bed 3",
+                    "entry": {
+                        "species_key": "412",
+                        "quantity": 6,
+                        "id_prefix": "TOM",
+                        "spacing_cm": 50,
+                        "layout_strategy": "rows",
+                        "row_assignment": [0, 2],
+                    },
+                }
+            ]
+        },
+    )
+
+    name: str = Field(min_length=1, max_length=200)
+    notes: str | None = Field(default=None, max_length=2000)
+    entry: EntryCreate
+    free_points: list[tuple[float, float]] = Field(
+        default_factory=list,
+        max_length=MAX_RESERVED_SLOTS,
+        description="Bed-frame points of a `free` entry (cm); each becomes a reserved position of the run.",
+    )
+    container_volume_l: float | None = Field(
+        default=None, gt=0, description="Pot volume of the freely placed positions, in litres."
+    )
+
+
+class MixedCultureCreate(BaseModel):
+    """Body of `POST /planting-runs/mixed-culture`: every run of a mixed culture on one bed, atomically (#2463)."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "7710",
+                    "planned_start_date": "2026-05-20",
+                    "plan_role": "main_crop",
+                    "source": "manual",
+                    "runs": [
+                        {
+                            "name": "Tomato – Raised bed 3",
+                            "entry": {
+                                "species_key": "412",
+                                "quantity": 6,
+                                "id_prefix": "TOM",
+                                "spacing_cm": 50,
+                                "layout_strategy": "rows",
+                                "row_assignment": [0, 2],
+                            },
+                        },
+                        {
+                            "name": "Basil – Raised bed 3",
+                            "entry": {
+                                "species_key": "415",
+                                "quantity": 6,
+                                "id_prefix": "BAS",
+                                "spacing_cm": 25,
+                                "layout_strategy": "rows",
+                                "row_assignment": [1],
+                            },
+                        },
+                    ],
+                }
+            ]
+        },
+    )
+
+    location_key: str = Field(min_length=1, max_length=200, description="The bed all runs are planted in.")
+    runs: list[MixedCultureRunCreate] = Field(
+        min_length=1, max_length=MAX_MIXED_CULTURE_RUNS, description="One run per species, in the order of the dialog."
+    )
+    planned_start_date: date | None = None
+    planned_from: date | None = Field(
+        default=None, description="Start of the reservation window; defaults to `planned_start_date`."
+    )
+    planned_until: date | None = Field(
+        default=None, description="End of the reservation window (inclusive); `null` = open."
+    )
+    plan_role: PlanRole = PlanRole.MAIN_CROP
+    rotation_override_reason: str | None = Field(default=None, max_length=MAX_ROTATION_OVERRIDE_REASON)
+    source: str | None = Field(default=None, max_length=50, description="`manual`, `plan_editor`, `succession` …")
+
+    @field_validator("plan_role")
+    @classmethod
+    def validate_plan_role(cls, value: PlanRole) -> PlanRole:
+        if value is PlanRole.FALLOW:
+            raise ValueError("A fallow period has no planting run.")
+        return value
+
+    @field_validator("source")
+    @classmethod
+    def validate_source(cls, value: str | None) -> str | None:
+        if value is not None and value not in RUN_SOURCES:
+            raise ValueError(f"source must be one of: {', '.join(sorted(RUN_SOURCES))}")
+        return value
+
+    @model_validator(mode="after")
+    def validate_window(self) -> MixedCultureCreate:
+        start = self.planned_from or self.planned_start_date
+        if start and self.planned_until and self.planned_until < start:
+            raise ValueError("planned_until must not lie before the start of the window.")
+        return self
+
+
+class MixedCultureResponse(BaseModel):
+    """The runs a mixed-culture request created, in the order of the request."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "runs": [
+                        {
+                            "key": "9311",
+                            "name": "Tomato – Raised bed 3",
+                            "run_type": "monoculture",
+                            "status": "planned",
+                            "planned_quantity": 6,
+                            "actual_quantity": 0,
+                            "location_key": "7710",
+                            "substrate_batch_key": None,
+                            "planned_start_date": "2026-05-20",
+                            "started_at": None,
+                            "completed_at": None,
+                            "source_plant_key": None,
+                            "notes": None,
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+
+    runs: list[PlantingRunResponse]
 
 
 class PlantingRunUpdate(BaseModel):

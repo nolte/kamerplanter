@@ -1,7 +1,7 @@
 import { tenantClient } from '@/api/client';
-import { createPlantingRun, deletePlantingRun as removePlantingRun, listEntries } from '@/api/endpoints/plantingRuns';
+import { createMixedCulture } from '@/api/endpoints/plantingRuns';
 import { createTask } from '@/api/endpoints/tasks';
-import type { PlantingRun, PlantingRunCreate, PlantingRunEntry, TaskItem } from '@/api/types';
+import type { MixedCultureCreate, MixedCultureResponse, PlantingRun, TaskItem } from '@/api/types';
 import type {
   BedFrameGeometry,
   PlantingItem,
@@ -10,8 +10,6 @@ import type {
   PreviewResponse,
   QuickPlantingBody,
   QuickPlantingResponse,
-  SlotBatchItem,
-  SlotBatchResult,
   SlotRecord,
   ValidatePlantingResponse,
 } from './plantingTypes';
@@ -19,9 +17,8 @@ import type {
 /**
  * REST access of the planting dialog and the plant markers (REQ-053 WP 3.6) through the tenant-scoped
  * client: the layout preview (GP-API-016), the hints (GP-API-025), the plantings of a bed (GP-API-024),
- * the run with its layout (`POST /planting-runs`, GP-FR-064/065), the slot batch for freely placed
- * positions (GP-API-015), `plan-slots` (GP-API-021), the field-mode shortcut (GP-API-017) and the slot
- * correction (GP-API-014).
+ * the runs with their layout and freely placed positions (`POST /planting-runs/mixed-culture`, #2463),
+ * the field-mode shortcut (GP-API-017) and the slot correction (GP-API-014).
  */
 
 /** GP-API-016: where the entry's plants would stand, without persisting anything. The server is authoritative. */
@@ -56,42 +53,12 @@ export async function listPlantings(
   return data;
 }
 
-/** The run of the dialog; the server lays the entries out on the bed and reserves the slots (GP-FR-064/065). */
-export async function createRun(payload: PlantingRunCreate): Promise<PlantingRun> {
-  return createPlantingRun(payload);
-}
-
-/** Take a planned run back (with its reservations and the layout slots only it used); the lead role may. */
-export async function deletePlantingRun(runKey: string): Promise<void> {
-  await removePlantingRun(runKey);
-}
-
-export async function runEntries(runKey: string): Promise<PlantingRunEntry[]> {
-  return listEntries(runKey);
-}
-
-/** GP-API-015: add slots to the bed (`append` keeps every slot there is). */
-export async function appendSlots(
-  bedKey: string,
-  slots: SlotBatchItem[],
-): Promise<SlotBatchResult> {
-  const { data } = await tenantClient.post<SlotBatchResult>(`/locations/${bedKey}/slots/batch`, {
-    mode: 'append',
-    slots,
-  });
-  return data;
-}
-
-/** GP-API-021: reserve `slotKeys` (in `sequence` order) for one entry of a run. */
-export async function planSlots(
-  runKey: string,
-  entryKey: string,
-  slotKeys: string[],
-): Promise<void> {
-  await tenantClient.post(`/planting-runs/${runKey}/plan-slots`, {
-    entry_key: entryKey,
-    slot_keys: slotKeys,
-  });
+/**
+ * The runs of the dialog - one per species - laid out on the bed and reserved in one transaction
+ * (`POST /planting-runs/mixed-culture`, #2463, GP-FR-064/065/072).
+ */
+export async function createMixedRuns(payload: MixedCultureCreate): Promise<MixedCultureResponse> {
+  return createMixedCulture(payload);
 }
 
 /** GP-API-017: *I planted n of this species here*. */

@@ -5,6 +5,8 @@ from app.domain.engines.slot_reservation_engine import ActivePlant, Reservation
 from app.domain.models.planting_reservation import (
     ClearBedOutcome,
     ClearBedWrite,
+    MixedRunsOutcome,
+    MixedRunsWrite,
     PlantingRow,
     QuickPlantOutcome,
     QuickPlantWrite,
@@ -74,6 +76,15 @@ class IPlantingReservationRepository(ABC):
     @abstractmethod
     def clear_bed(self, write: ClearBedWrite) -> ClearBedOutcome:
         """End every live run and plant of the bed, archive or release its slots and log ``clearing``."""
+
+    @abstractmethod
+    def create_mixed_runs(self, write: MixedRunsWrite) -> MixedRunsOutcome:
+        """The runs of a mixed culture with their entries, edges, layout slots and reservations in one transaction.
+
+        Raises:
+            NotFoundError: the bed is gone.
+            WriteConflictError: another writer of the bed was faster.
+        """
 
     @abstractmethod
     def quick_plant(self, write: QuickPlantWrite) -> QuickPlantOutcome:

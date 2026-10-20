@@ -329,11 +329,3 @@ export function idPrefixOf(species: Species | null): string {
     .replace(/[^A-Z]/g, '');
   return letters.length >= 2 ? letters.slice(0, 3) : 'PLT';
 }
-
-const SLOT_PREFIX_LENGTH = 12;
-
-/** `LOCATION` of a `LOCATION_NNN` slot id: the bed's name, upper-case letters and digits (GP-FR-064). */
-export function slotIdPrefixOf(bedName: string, bedKey: string): string {
-  const clean = (text: string) => text.toUpperCase().replace(/[^A-Z0-9]+/g, '');
-  return clean(bedName).slice(0, SLOT_PREFIX_LENGTH) || clean(`L${bedKey}`).slice(0, SLOT_PREFIX_LENGTH) || 'BED';
-}
