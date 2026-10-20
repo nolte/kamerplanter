@@ -8,6 +8,7 @@ dependency, so the two cannot drift apart on what a valid request is.
 
 from __future__ import annotations
 
+import re
 from typing import Annotated
 
 from fastapi import Query
@@ -23,6 +24,7 @@ from app.domain.engines.plan_svg_engine import (
     PlanSvgOptions,
     parse_scale,
 )
+from app.domain.models.garden_plan_export import EXPORT_SCOPES, MAX_EXPORT_KEYS, ExportScope
 
 #: One bucket name for the three export routes: the per-tenant budget is shared by them, not counted per route.
 PLAN_EXPORT_TENANT_SCOPE = "garden_plan_export_tenant"
@@ -82,3 +84,45 @@ def plan_svg_options(
         locale=locale,
         accent=color,
     )
+
+
+_SCOPE_PATTERN = "^(" + "|".join(EXPORT_SCOPES) + ")$"
+_KEY_PATTERN: re.Pattern[str] = re.compile(r"^(object:)?[A-Za-z0-9_\-:.@+]{1,200}$")
+
+
+def _names(raw: str) -> list[str]:
+    return [name for name in map(str.strip, raw.split(",")) if name]
+
+
+def _valid_key(name: str) -> bool:
+    return _KEY_PATTERN.fullmatch(name) is not None
+
+
+def plan_export_selection(
+    scope: Annotated[
+        str,
+        Query(
+            pattern=_SCOPE_PATTERN,
+            description="`site` (the whole plan), `selection` (the named beds) or `subtree` (them and all below).",
+        ),
+    ] = "site",
+    keys: Annotated[
+        str,
+        Query(
+            max_length=MAX_EXPORT_KEYS * 40,
+            description=(
+                f"Comma-separated keys for `selection` / `subtree`, at most {MAX_EXPORT_KEYS}; a garden object is "
+                "`object:<key>`. Not allowed with `site`."
+            ),
+        ),
+    ] = "",
+) -> tuple[ExportScope, list[str]]:
+    """The JSON export's scope and keys, checked here so the service only ever sees a well-formed selection."""
+    names = _names(keys)
+    if len(names) > MAX_EXPORT_KEYS or not all(_valid_key(name) for name in names):
+        raise ValidationError(
+            f"keys accepts at most {MAX_EXPORT_KEYS} keys of letters, digits and _-:.@+.",
+            details=[{"field": "keys", "reason": "Invalid key list.", "code": "validation.invalid"}],
+        )
+    chosen: ExportScope = "selection" if scope == "selection" else "subtree" if scope == "subtree" else "site"
+    return chosen, sorted(set(names), key=names.index)

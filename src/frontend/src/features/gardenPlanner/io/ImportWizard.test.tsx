@@ -2,7 +2,7 @@
  * The import assistant (REQ-053 GP-UX-051): file, check report, mode. The server is the authority on every
  * answer; what is pinned here is what the person is shown and asked, and which requests that sends.
  */
-import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +10,7 @@ import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 import ImportWizard from './ImportWizard';
-import type { PlanImportReport } from './types';
+import type { PlanImportReport, PlanSnapshot } from './types';
 
 const BASE = '/api/v1/t/:tenant';
 const counts = (locations = 0, garden_objects = 0, slots = 0, plan_settings = 0) => ({
@@ -18,12 +18,15 @@ const counts = (locations = 0, garden_objects = 0, slots = 0, plan_settings = 0)
   garden_objects,
   slots,
   plan_settings,
+  zones: 0,
 });
 
 function report(overrides: Partial<PlanImportReport> = {}): PlanImportReport {
   return {
     mode: 'replace',
     dry_run: true,
+    target: 'same_site',
+    offset_m: null,
     would_create: counts(5, 3, 20),
     would_update: counts(0, 0, 0, 1),
     would_delete: counts(4, 2, 12),
@@ -95,6 +98,20 @@ describe('ImportWizard', () => {
     expect(calls.bodies).toHaveLength(1);
     expect(calls.bodies[0]).toMatchObject({ mode: 'replace', dry_run: true, force: false, confirm_site_name: null });
     expect((calls.bodies[0].document as { schema_version: string }).schema_version).toBe('1');
+  });
+
+  it('names a reference that left the file as "not in the file"', async () => {
+    useBackend(calls, () =>
+      report({
+        dropped_references_total: 1,
+        dropped_references: [{ entity: 'location', key: 'b5', field: 'parent_location_key', reason: 'outside_file' }],
+      }),
+    );
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+
+    expect(await screen.findByTestId('plan-import-dropped')).toHaveTextContent('is not in the file');
   });
 
   it('refuses a file that is too large, not JSON, or not a backup, without asking the server', async () => {
@@ -250,5 +267,152 @@ describe('ImportWizard', () => {
     await expectNoA11yViolations(document.body, { minElements: 25 });
     await user.click(screen.getByTestId('plan-import-next'));
     await expectNoA11yViolations(document.body, { minElements: 25 });
+  });
+
+  it('sends the target and, for a merge, the offset - and checks again when either changes', async () => {
+    useBackend(calls, (body) =>
+      body.dry_run
+        ? report({ mode: 'merge', target: body.target as 'other_site', offset_m: body.offset_m as [number, number] })
+        : report({ mode: 'merge', dry_run: false, applied: true }),
+    );
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+    await user.click(await screen.findByTestId('plan-import-next'));
+    await user.click(screen.getByTestId('plan-import-mode-merge'));
+    expect(screen.getByTestId('plan-import-offset-x')).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: /Where is the file going/i }));
+    await user.click(await screen.findByRole('option', { name: /another site/i }));
+    await user.type(screen.getByTestId('plan-import-offset-x'), '2,5');
+    await user.type(screen.getByTestId('plan-import-offset-y'), '-1');
+    await user.click(screen.getByTestId('plan-import-check'));
+    await user.click(await screen.findByTestId('plan-import-apply'));
+
+    await screen.findByTestId('plan-import-done');
+    const [, dry, applied] = calls.bodies;
+    expect(dry).toMatchObject({ mode: 'merge', dry_run: true, target: 'other_site', offset_m: [2.5, -1] });
+    expect(applied).toMatchObject({ mode: 'merge', dry_run: false, target: 'other_site', offset_m: [2.5, -1] });
+    expect(calls.bodies[0]).toMatchObject({ mode: 'replace', target: 'same_site', offset_m: null });
+  });
+
+  it('sends no offset for a replace and refuses a value outside the plan frame', async () => {
+    useBackend(calls, () => report({ mode: 'merge' }));
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+    await user.click(await screen.findByTestId('plan-import-next'));
+    await user.click(screen.getByTestId('plan-import-mode-merge'));
+
+    await user.type(screen.getByTestId('plan-import-offset-x'), '5000');
+    expect(screen.getByTestId('plan-import-offset-hint')).toHaveTextContent('between -1000 and 1000');
+    expect(screen.getByTestId('plan-import-check')).toBeDisabled();
+    await user.clear(screen.getByTestId('plan-import-offset-x'));
+    await user.type(screen.getByTestId('plan-import-offset-x'), 'abc');
+    expect(screen.getByTestId('plan-import-check')).toBeDisabled();
+    await user.click(screen.getByTestId('plan-import-mode-replace'));
+    expect(screen.queryByTestId('plan-import-offset-x')).not.toBeInTheDocument();
+    expect(calls.bodies.every((body) => body.offset_m === null)).toBe(true);
+  });
+});
+
+describe('ImportWizard - earlier states (WP 7.19)', () => {
+  const snapshot = (overrides: Partial<PlanSnapshot> = {}): PlanSnapshot => ({
+    audit_key: 'snap1',
+    revision: 5,
+    at: '2026-10-17T09:12:33Z',
+    summary: 'state before the replace import (revision 5)',
+    changed_by_name: 'Sabine',
+    locations: 6,
+    garden_objects: 3,
+    slots: 20,
+    zones: 1,
+    ...overrides,
+  });
+
+  function useSnapshots(list: PlanSnapshot[] | Response, restore: (body: Record<string, unknown>) => Response | PlanImportReport) {
+    server.use(
+      http.get(`${BASE}/sites/s1/plan/snapshots`, () => (list instanceof Response ? list : HttpResponse.json(list))),
+      http.post(`${BASE}/sites/s1/plan/snapshots/:auditKey/restore`, async ({ request, params }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        calls.bodies.push({ ...body, audit_key: params.auditKey });
+        const out = restore(body);
+        return out instanceof Response ? out : HttpResponse.json(out);
+      }),
+    );
+  }
+
+  it('lists the snapshots, checks one with a dry run and restores it with the site name', async () => {
+    useSnapshots([snapshot(), snapshot({ audit_key: 'snap0', locations: 2 })], (body) =>
+      body.dry_run ? report() : report({ dry_run: false, applied: true, snapshot_written: true }),
+    );
+    const user = userEvent.setup();
+    const { onImported } = renderWizard();
+
+    await user.click(screen.getByTestId('plan-import-snapshots'));
+    expect(await screen.findByTestId('plan-snapshot-snap1')).toHaveTextContent('6 locations, 3 garden objects, 20 planting slots');
+    const restore = screen.getByTestId('plan-snapshots-restore');
+    expect(restore).toBeDisabled();
+    await user.click(screen.getByTestId('plan-snapshot-snap1'));
+    expect(await screen.findByTestId('plan-snapshots-notice')).toBeInTheDocument();
+    expect(restore).toBeDisabled(); // the name is still missing
+    await user.type(screen.getByTestId('plan-snapshots-confirm-name'), 'Mein Garten');
+    expect(restore).toBeEnabled();
+    await user.click(restore);
+
+    expect(await screen.findByTestId('plan-import-done')).toBeInTheDocument();
+    expect(onImported).toHaveBeenCalledTimes(1);
+    expect(calls.bodies).toEqual([
+      { dry_run: true, force: false, confirm_site_name: null, audit_key: 'snap1' },
+      { dry_run: false, force: false, confirm_site_name: 'Mein Garten', audit_key: 'snap1' },
+    ]);
+  });
+
+  it('says so when there is no earlier state, and goes back to the file step', async () => {
+    useSnapshots([], () => report());
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByTestId('plan-import-snapshots'));
+    expect(await screen.findByTestId('plan-snapshots-empty')).toBeInTheDocument();
+    await user.click(screen.getByTestId('plan-snapshots-back'));
+    expect(screen.getByTestId('plan-import-choose')).toBeInTheDocument();
+  });
+
+  it('names a refusal: a grower may not list, and planted beds need the force confirmation', async () => {
+    useSnapshots(
+      HttpResponse.json(
+        { error_id: 'e1', error_code: 'import.forbidden', message: 'x', details: [], path: '', method: 'GET' },
+        { status: 403 },
+      ),
+      () => report(),
+    );
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByTestId('plan-import-snapshots'));
+    expect(await screen.findByTestId('plan-snapshots-error')).toHaveTextContent('Only a lead');
+    cleanup();
+
+    calls.bodies.length = 0;
+    useSnapshots([snapshot()], (body) =>
+      body.force
+        ? report()
+        : report({ errors_total: 1, errors: [{ field: 'mode', code: 'import.not_empty', key: null }] }),
+    );
+    const again = userEvent.setup();
+    renderWizard();
+    await again.click(screen.getByTestId('plan-import-snapshots'));
+    await again.click(await screen.findByTestId('plan-snapshot-snap1'));
+    await again.click(await screen.findByTestId('plan-snapshots-force'));
+    await waitFor(() => expect(calls.bodies.map((body) => body.force)).toEqual([false, true]));
+  });
+
+  it('has no critical accessibility violations in the list of earlier states', async () => {
+    useSnapshots([snapshot()], () => report());
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByTestId('plan-import-snapshots'));
+    await screen.findByTestId('plan-snapshot-snap1');
+    await expectNoA11yViolations(document.body, { minElements: 15 });
   });
 });

@@ -138,6 +138,7 @@ B_SECRETS = (
     "Bobs Tropfzone",
     "barrel_b",
     "tpl_b",
+    "snap_b",
     "Bobs Vorlage",
     "ev_b",
     B,
@@ -301,6 +302,22 @@ def db(database):
         database.collection(col.ZONE_COVERS).insert(
             {"_from": f"{col.IRRIGATION_ZONES}/zone_{suffix}", "_to": f"{col.LOCATIONS}/bed_{suffix}"}
         )
+    # WP 7.19: a snapshot a replace import of tenant B left behind (the plan it overwrote).
+    database.collection(col.GARDEN_PLAN_AUDIT).insert(
+        {
+            "_key": "snap_b",
+            "tenant_key": B,
+            "site_key": "site_b",
+            "revision": 1,
+            "user_key": USER,
+            "op": "import_snapshot",
+            "entity": "site",
+            "key": "site_b",
+            "summary": "state before the replace import (revision 1)",
+            "at": "2026-10-17T09:00:00+00:00",
+            "snapshot": _IMPORT_FILE,
+        }
+    )
     # WP 7.8/7.9: a template per tenant and one system template (no ``tenant_key``, the global marker of §20.12).
     for template_key, tenant_key, template_name in (
         ("tpl_a", A, "Alices Vorlage"),
@@ -577,6 +594,20 @@ CASES: tuple[Case, ...] = (
     # file is read, in the dry run as in the replace, and the replace writes nothing.
     Case("import_plan_dry_run", "POST", "/sites/site_b/plan/import", _IMPORT_DRY_RUN),
     Case("import_plan_replace", "POST", "/sites/site_b/plan/import", _IMPORT_REPLACE, writes=True),
+    # REQ-053 WP 7.18, GP-FR-172: the partial export names its keys - a foreign site is a 404 before any key is read,
+    # and so is a key of the owner's other kinds when it is asked for through a foreign site.
+    Case("export_plan_selection", "GET", "/sites/site_b/plan/export", params={"scope": "selection", "keys": "bed_b"}),
+    Case("export_plan_subtree", "GET", "/sites/site_b/plan/export", params={"scope": "subtree", "keys": "bed_b"}),
+    # REQ-053 WP 7.19, GP-FR-148/170: the snapshots of a replace - listed and restored for the owner only.
+    Case("list_plan_snapshots", "GET", "/sites/site_b/plan/snapshots"),
+    Case("restore_plan_snapshot_dry_run", "POST", "/sites/site_b/plan/snapshots/snap_b/restore", {"dry_run": True}),
+    Case(
+        "restore_plan_snapshot",
+        "POST",
+        "/sites/site_b/plan/snapshots/snap_b/restore",
+        {"dry_run": False, "confirm_site_name": "Bobs Garten"},
+        writes=True,
+    ),
     Case(
         "put_boundary",
         "PUT",
@@ -808,6 +839,7 @@ _ABSENT = {
     "zone_b": "zone_gone",
     "barrel_b": "barrel_gone",
     "tpl_b": "tpl_gone",
+    "snap_b": "snap_gone",
 }
 
 

@@ -40,7 +40,9 @@ export function usePlanPreview(siteKey: string, options: ExportOptions, enabled:
   // SVG and PDF share one preview (the SVG the PDF embeds): switching between them must not refetch or revoke it.
   const kind = options.format === 'json' ? 'json' : 'svg';
   const layers = options.layers.join(',');
-  const key = `${siteKey}|${kind === 'json' ? 'json' : `svg|${paper}|${orientation}|${scale}|${layers}`}`;
+  const { scope } = options;
+  const keys = options.keys.join(',');
+  const key = `${siteKey}|${kind === 'json' ? `json|${scope}|${keys}` : `svg|${paper}|${orientation}|${scale}|${layers}`}`;
   const [settled, setSettled] = useState<Settled | null>(null);
 
   useEffect(() => {
@@ -55,6 +57,8 @@ export function usePlanPreview(siteKey: string, options: ExportOptions, enabled:
         scale,
         layers: layers === '' ? [] : (layers.split(',') as ExportOptions['layers']),
         bedList: false,
+        scope,
+        keys: keys === '' ? [] : keys.split(','),
       };
       fetchPlanExport(siteKey, request, controller.signal)
         .then(async (download) => {
@@ -95,7 +99,7 @@ export function usePlanPreview(siteKey: string, options: ExportOptions, enabled:
       controller.abort();
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
     };
-  }, [key, enabled, siteKey, kind, paper, orientation, scale, layers]);
+  }, [key, enabled, siteKey, kind, paper, orientation, scale, layers, scope, keys]);
 
   if (!enabled) return { status: 'idle' };
   return settled !== null && settled.key === key ? settled.preview : { status: 'loading' };

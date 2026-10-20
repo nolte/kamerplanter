@@ -6195,7 +6195,19 @@
             "rateLimited": "You asked for many exports in a short time. Wait a minute and try again.",
             "forbidden": "You may not export this plan.",
             "failed": "The export did not work. Try again."
-          }
+          },
+          "scope": "Scope",
+          "scopes": {
+            "site": "Whole site",
+            "selection": "Selection only",
+            "subtree": "Selection with everything below"
+          },
+          "scopeHints": {
+            "site": "The whole plan of this site, with its boundary and settings.",
+            "selection": "Exactly the {{n}} selected beds and garden objects, with their planting slots. References to anything not selected are dropped.",
+            "subtree": "The {{n}} selected beds and everything inside them (sub-locations, garden objects, planting slots)."
+          },
+          "scopeNeedsSelection": "For a partial export, select beds on the plan first (at most {{max}})."
         },
         "import": {
           "title": "Restore a backup",
@@ -6226,7 +6238,9 @@
             "import_site_name_mismatch": "The name you typed does not match the site.",
             "plan_revision_conflict": "Someone changed the plan while you were importing. Reload the plan and check the file again.",
             "REQUEST_BODY_TOO_LARGE": "The file is larger than 5 MB.",
-            "VALIDATION_ERROR": "The file breaks rules of the plan. The list below names the places."
+            "VALIDATION_ERROR": "The file breaks rules of the plan. The list below names the places.",
+            "import_offset_invalid": "The offset is not valid.",
+            "import_offset_requires_merge": "Moving only works when adding."
           },
           "reportTitle": "Check report for “{{name}}”",
           "create": "Will be created",
@@ -6262,12 +6276,14 @@
             "entities": {
               "location": "Location",
               "garden_object": "Garden object",
-              "slot": "Plant place"
+              "slot": "Plant place",
+              "irrigation_zone": "Irrigation zone"
             },
             "reasons": {
               "not_found": "not found",
               "not_in_site": "belongs to another site",
-              "always_dropped": "links to devices are never carried over"
+              "always_dropped": "links to devices are never carried over",
+              "outside_file": "is not in the file and may not be resolved here"
             }
           },
           "mode": "How should the backup be restored?",
@@ -6292,7 +6308,42 @@
             "merge": "Add"
           },
           "done": "Done: {{locations}} locations, {{objects}} garden objects and {{slots}} plant places were created.",
-          "doneSnapshot": "The previous state is in the change log."
+          "doneSnapshot": "The previous state is in the change log.",
+          "snapshotsHelp": "Imported a backup earlier and want the old state back?",
+          "snapshotsOpen": "Restore an earlier state …",
+          "target": "Where is the file going?",
+          "targets": {
+            "same_site": "Into this site (restore)",
+            "other_site": "From another site",
+            "other_tenant": "From another garden account"
+          },
+          "targetHints": {
+            "same_site": "References that are not in the file may point to things of this site.",
+            "other_site": "The file comes from elsewhere: references that are not in the file are dropped and named in the report.",
+            "other_tenant": "The file comes from another account. Nothing is read from the other account; references that are not in the file are dropped. You need the lead role in this account."
+          },
+          "offset": "Move when adding",
+          "offsetX": "To the right (m)",
+          "offsetY": "Up (m)",
+          "offsetHelp": "Every shape in the file is moved by this distance. Empty or 0: do not move.",
+          "offsetInvalid": "Enter a number between -{{max}} and {{max}}."
+        },
+        "snapshots": {
+          "title": "Earlier states",
+          "help": "Replacing a plan saves the plan it overwrites as a state (for one year). Pick a state, check what would change and restore it.",
+          "empty": "There is no earlier state yet. One is made when you replace a plan.",
+          "counts": "{{locations}} locations, {{objects}} garden objects, {{slots}} planting slots",
+          "notice": "The current plan is saved as a state of its own first, so the restore can be undone. Beds with active plants are never deleted. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored: set them up again afterwards.",
+          "restore": "Restore this state",
+          "failures": {
+            "failed": "That did not work. Try again.",
+            "forbidden": "Only a lead may restore an earlier state.",
+            "notFound": "This state was not found.",
+            "rateLimited": "Too many imports in a short time. Wait a minute.",
+            "import_not_empty": "Beds with active plants stand in this plan. Remove the plants or confirm that those beds stay.",
+            "import_site_name_mismatch": "The name you typed does not match the site.",
+            "plan_revision_conflict": "Somebody changed the plan. Reload the plan and check the state again."
+          }
         }
       },
       "plantState": {

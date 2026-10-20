@@ -484,13 +484,17 @@ Auf der Gartenplan-Seite öffnet **Export & Import** zwei Dialoge.
 
 **Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen; eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen.
 
-Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben.
+Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben. Hast du im Plan Beete oder Gartenobjekte ausgewählt, kannst du die Sicherung auf **Nur die Auswahl** oder auf **Auswahl mit allem darunter** beschränken. Eine solche Teil-Sicherung enthält keine Gartengrenze; Verweise auf Dinge, die nicht in der Datei stehen, entfallen. Lesen darf sie jede Rolle.
 
 **Sicherung einspielen** führt in drei Schritten durch den Import. Das darf nur die Leitung.
 
 1. **Datei wählen:** Die Datei darf höchstens 5 MB groß sein. Kamerplanter prüft sie sofort, ohne etwas zu schreiben.
 2. **Prüfbericht:** Du siehst, wie viel angelegt und gelöscht würde, welche Verweise nicht übernommen werden (zum Beispiel eine Bewässerungszone, die es hier nicht gibt) und welche Probleme die Datei hat, etwa überlappende Beete. Bei Problemen geht es nicht weiter.
 3. **Modus:** *Hinzufügen* legt die Sicherung zusätzlich zum bestehenden Plan an. *Ersetzen* tauscht den Plan dieses Standorts aus. Dafür tippst du den Namen des Standorts ein. Vorher speichert Kamerplanter den bisherigen Plan als Snapshot im Änderungsprotokoll. Lade dir zur Sicherheit trotzdem vorher eine aktuelle Sicherung herunter.
+
+Im Modus *Hinzufügen* kannst du alle Formen der Datei um einen Abstand verschieben (nach rechts und nach oben, in Metern), etwa um ein Beet an eine andere Stelle zu setzen. Mit **Wohin geht die Datei?** sagst du, ob die Datei aus diesem Standort, aus einem anderen Standort oder aus einem anderen Garten-Konto stammt. Für die beiden letzten gilt: Verweise, die nicht in der Datei stehen, werden nie gegen diesen Standort aufgelöst, sondern entfallen und stehen im Prüfbericht. Aus einem anderen Konto wird nichts gelesen, die Datei ist der Transportweg; du brauchst die Leitungsrolle in dem Konto, in das du einspielst.
+
+**Früheren Stand wiederherstellen:** Im ersten Schritt des Imports öffnet dieser Knopf die Liste der Pläne, die ein *Ersetzen* überschrieben hat (ein Jahr lang aufbewahrt, nur für die Leitung). Du wählst einen Stand, siehst den Prüfbericht und tippst den Namen des Standorts. Vorher speichert Kamerplanter den jetzigen Plan selbst als Stand, die Wiederherstellung lässt sich also zurücknehmen. Bewässerungszonen, die der Stand nicht nennt, werden dabei entfernt, und technische Zonen-Kopplungen (Aktor, Home-Assistant-Durchfluss) werden nicht wiederhergestellt; die richtest du danach neu ein. Das *Hinzufügen* legt keinen Stand an.
 
 !!! warning "Beete mit aktiven Pflanzen"
     Ein Beet, in dem eine Pflanze steht, wird nie gelöscht. Solange es solche Beete gibt, weist *Ersetzen* die Datei ab. Wählst du die Option, diese Beete zu behalten, bleiben sie samt den Standorten darüber bestehen, und der Rest wird ersetzt.

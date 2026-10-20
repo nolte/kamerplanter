@@ -6196,7 +6196,19 @@
             "rateLimited": "Du hast in kurzer Zeit viele Exporte angefordert. Warte eine Minute und versuche es noch einmal.",
             "forbidden": "Du darfst diesen Plan nicht exportieren.",
             "failed": "Der Export hat nicht geklappt. Versuche es noch einmal."
-          }
+          },
+          "scope": "Umfang",
+          "scopes": {
+            "site": "Ganzer Standort",
+            "selection": "Nur die Auswahl",
+            "subtree": "Auswahl mit allem darunter"
+          },
+          "scopeHints": {
+            "site": "Der ganze Plan dieses Standorts, mit Grenze und Einstellungen.",
+            "selection": "Genau die {{n}} ausgewählten Beete und Gartenobjekte, mit ihren Pflanzplätzen. Verweise auf Nicht-Ausgewähltes entfallen.",
+            "subtree": "Die {{n}} ausgewählten Beete und alles, was darin liegt (Unterstandorte, Gartenobjekte, Pflanzplätze)."
+          },
+          "scopeNeedsSelection": "Für einen Teil-Export wähle zuerst Beete im Plan aus (höchstens {{max}})."
         },
         "import": {
           "title": "Sicherung einspielen",
@@ -6227,7 +6239,9 @@
             "import_site_name_mismatch": "Der eingegebene Name stimmt nicht mit dem Standort überein.",
             "plan_revision_conflict": "Jemand hat den Plan geändert, während du importiert hast. Lade den Plan neu und prüfe die Datei noch einmal.",
             "REQUEST_BODY_TOO_LARGE": "Die Datei ist größer als 5 MB.",
-            "VALIDATION_ERROR": "Die Datei verletzt Regeln des Plans. Die Liste unten nennt die Stellen."
+            "VALIDATION_ERROR": "Die Datei verletzt Regeln des Plans. Die Liste unten nennt die Stellen.",
+            "import_offset_invalid": "Die Verschiebung ist ungültig.",
+            "import_offset_requires_merge": "Verschieben geht nur beim Hinzufügen."
           },
           "reportTitle": "Prüfbericht für „{{name}}“",
           "create": "Wird angelegt",
@@ -6263,12 +6277,14 @@
             "entities": {
               "location": "Standort",
               "garden_object": "Gartenobjekt",
-              "slot": "Pflanzplatz"
+              "slot": "Pflanzplatz",
+              "irrigation_zone": "Bewässerungszone"
             },
             "reasons": {
               "not_found": "nicht gefunden",
               "not_in_site": "gehört zu einem anderen Standort",
-              "always_dropped": "Kopplungen an Technik werden nie übernommen"
+              "always_dropped": "Kopplungen an Technik werden nie übernommen",
+              "outside_file": "steht nicht in der Datei und darf hier nicht aufgelöst werden"
             }
           },
           "mode": "Wie soll die Sicherung eingespielt werden?",
@@ -6293,7 +6309,42 @@
             "merge": "Hinzufügen"
           },
           "done": "Fertig: {{locations}} Standorte, {{objects}} Gartenobjekte und {{slots}} Pflanzplätze wurden angelegt.",
-          "doneSnapshot": "Der vorherige Stand liegt im Änderungsprotokoll."
+          "doneSnapshot": "Der vorherige Stand liegt im Änderungsprotokoll.",
+          "snapshotsHelp": "Du hast zuvor eine Sicherung eingespielt und willst den alten Stand zurück?",
+          "snapshotsOpen": "Früheren Stand wiederherstellen …",
+          "target": "Wohin geht die Datei?",
+          "targets": {
+            "same_site": "In diesen Standort (Rücksicherung)",
+            "other_site": "Aus einem anderen Standort",
+            "other_tenant": "Aus einem anderen Garten-Konto"
+          },
+          "targetHints": {
+            "same_site": "Verweise, die nicht in der Datei stehen, dürfen auf Dinge dieses Standorts zeigen.",
+            "other_site": "Die Datei stammt von woanders: Verweise, die nicht in der Datei stehen, entfallen und werden im Bericht genannt.",
+            "other_tenant": "Die Datei stammt aus einem anderen Konto. Es wird nichts aus dem anderen Konto gelesen; Verweise, die nicht in der Datei stehen, entfallen. Du brauchst die Leitungsrolle in diesem Konto."
+          },
+          "offset": "Verschieben beim Hinzufügen",
+          "offsetX": "Nach rechts (m)",
+          "offsetY": "Nach oben (m)",
+          "offsetHelp": "Alle Formen der Datei werden um diesen Abstand verschoben. Leer oder 0: nicht verschieben.",
+          "offsetInvalid": "Gib eine Zahl zwischen -{{max}} und {{max}} ein."
+        },
+        "snapshots": {
+          "title": "Frühere Stände",
+          "help": "Beim Ersetzen wird der bisherige Plan als Stand gespeichert (ein Jahr lang). Wähle einen Stand, prüfe, was sich ändern würde, und stelle ihn wieder her.",
+          "empty": "Es gibt noch keinen früheren Stand. Er entsteht, wenn du einen Plan ersetzt.",
+          "counts": "{{locations}} Standorte, {{objects}} Gartenobjekte, {{slots}} Pflanzplätze",
+          "notice": "Der jetzige Plan wird vorher selbst als Stand gespeichert, die Wiederherstellung lässt sich also zurücknehmen. Beete mit aktiven Pflanzen werden nie gelöscht. Bewässerungszonen, die der Stand nicht nennt, werden entfernt, und technische Zonen-Kopplungen (Aktor, Home-Assistant-Durchfluss) werden nicht wiederhergestellt: richte sie danach neu ein.",
+          "restore": "Diesen Stand wiederherstellen",
+          "failures": {
+            "failed": "Das hat nicht geklappt. Versuche es noch einmal.",
+            "forbidden": "Nur die Leitung darf frühere Stände wiederherstellen.",
+            "notFound": "Dieser Stand wurde nicht gefunden.",
+            "rateLimited": "Es gab zu viele Importe in kurzer Zeit. Warte eine Minute.",
+            "import_not_empty": "In diesem Plan stehen Beete mit aktiven Pflanzen. Entferne die Pflanzen oder bestätige, dass diese Beete erhalten bleiben.",
+            "import_site_name_mismatch": "Der eingegebene Name stimmt nicht mit dem Standort überein.",
+            "plan_revision_conflict": "Jemand hat den Plan geändert. Lade den Plan neu und prüfe den Stand noch einmal."
+          }
         }
       },
       "plantState": {

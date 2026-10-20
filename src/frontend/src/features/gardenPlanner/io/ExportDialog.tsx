@@ -18,6 +18,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormGroup from '@mui/material/FormGroup';
 import FormLabel from '@mui/material/FormLabel';
 import MenuItem from '@mui/material/MenuItem';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
 import Skeleton from '@mui/material/Skeleton';
 import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
@@ -31,12 +33,15 @@ import {
   DEFAULT_EXPORT_OPTIONS,
   EXPORT_LAYERS,
   EXPORT_SCALES,
+  MAX_EXPORT_KEYS,
   type ExportFormat,
   type ExportLayer,
   type ExportOptions,
   type ExportOrientation,
   type ExportPaper,
   type ExportScale,
+  type ExportScope,
+  type PlanSelection,
 } from './types';
 
 const PREFIX = 'pages.gardenPlan.io.export';
@@ -44,7 +49,18 @@ const PREFIX = 'pages.gardenPlan.io.export';
 interface ExportDialogProps {
   open: boolean;
   siteKey: string;
+  /** What is selected on the plan; the JSON backup can be limited to it (GP-FR-172). */
+  selection?: PlanSelection;
   onClose: () => void;
+}
+
+const NO_SELECTION: PlanSelection = { locationKeys: [], objectKeys: [] };
+
+/** The keys a partial export names: beds and (for a selection only) garden objects as `object:<key>`. */
+function scopeKeys(scope: ExportScope, selection: PlanSelection): string[] {
+  if (scope === 'site') return [];
+  const locations = [...selection.locationKeys];
+  return scope === 'subtree' ? locations : [...locations, ...selection.objectKeys.map((key) => `object:${key}`)];
 }
 
 function errorKey(code: string | null, status: number | null): string {
@@ -59,7 +75,7 @@ function formatSize(bytes: number): string {
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function ExportDialog({ open, siteKey, onClose }: ExportDialogProps) {
+export default function ExportDialog({ open, siteKey, selection = NO_SELECTION, onClose }: ExportDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const phone = useMediaQuery(theme.breakpoints.down('sm'));
@@ -68,9 +84,18 @@ export default function ExportDialog({ open, siteKey, onClose }: ExportDialogPro
   const [failure, setFailure] = useState<string | null>(null);
 
   // On a phone the standard options apply and SVG is not offered (GP-UX-050).
-  const effective: ExportOptions = phone
+  const base: ExportOptions = phone
     ? { ...DEFAULT_EXPORT_OPTIONS, format: options.format === 'json' ? 'json' : 'pdf' }
     : options;
+  // A partial backup needs something selected, and at most as many keys as the server takes.
+  const available: Record<ExportScope, boolean> = {
+    site: true,
+    selection:
+      scopeKeys('selection', selection).length > 0 && scopeKeys('selection', selection).length <= MAX_EXPORT_KEYS,
+    subtree: selection.locationKeys.length > 0 && selection.locationKeys.length <= MAX_EXPORT_KEYS,
+  };
+  const scope: ExportScope = base.format === 'json' && available[options.scope] ? options.scope : 'site';
+  const effective: ExportOptions = { ...base, scope, keys: scopeKeys(scope, selection) };
   const preview = usePlanPreview(siteKey, effective, open);
   const patch = (change: Partial<ExportOptions>) => {
     setFailure(null);
@@ -140,6 +165,32 @@ export default function ExportDialog({ open, siteKey, onClose }: ExportDialogPro
             {t(`${PREFIX}.formatHints.${effective.format}`)}
           </Typography>
         </FormControl>
+
+        {effective.format === 'json' && (
+          <FormControl>
+            <FormLabel id="plan-export-scope-label">{t(`${PREFIX}.scope`)}</FormLabel>
+            <RadioGroup
+              aria-labelledby="plan-export-scope-label"
+              value={effective.scope}
+              onChange={(event) => patch({ scope: event.target.value as ExportScope })}
+            >
+              {(['site', 'selection', 'subtree'] as const).map((name) => (
+                <FormControlLabel
+                  key={name}
+                  value={name}
+                  disabled={!available[name]}
+                  control={<Radio slotProps={{ input: { 'data-testid': `plan-export-scope-${name}` } as object }} />}
+                  label={t(`${PREFIX}.scopes.${name}`)}
+                  sx={{ minHeight: 44 }}
+                />
+              ))}
+            </RadioGroup>
+            <Typography variant="body2" color="text.secondary" data-testid="plan-export-scope-hint">
+              {t(`${PREFIX}.scopeHints.${effective.scope}`, { n: effective.keys.length })}
+              {!available.selection && ` ${t(`${PREFIX}.scopeNeedsSelection`, { max: MAX_EXPORT_KEYS })}`}
+            </Typography>
+          </FormControl>
+        )}
 
         {scaled && !phone && (
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' } }}>
