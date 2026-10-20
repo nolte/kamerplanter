@@ -16,7 +16,7 @@ import Typography from '@mui/material/Typography';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import type { BedAssignee, BedSummary } from './types';
-import { BED_STATUS_COLOR, formatBedDate, isOverdue } from './bedFormat';
+import { BED_STATUS_COLOR, formatBedDate, isOverdue, sunProfileLine } from './bedFormat';
 
 interface BedHeaderProps {
   summary: BedSummary;
@@ -70,6 +70,7 @@ export default function BedHeader({
   const nextDue = formatBedDate(summary.next_due_at, language);
   const overdue = isOverdue(summary.next_due_at);
   const notSet = t('pages.bed.header.unknown');
+  const sunLine = sunProfileLine(t, summary.site_conditions?.sun_profile);
 
   return (
     <Card variant="outlined" data-testid="bed-header" component="section" aria-label={t('pages.bed.header.title')}>
@@ -132,6 +133,11 @@ export default function BedHeader({
                 </Button>
               )}
             </Box>
+            {sunLine && (
+              <Typography variant="caption" color="text.secondary" component="div" data-testid="bed-header-sun-profile">
+                {sunLine}
+              </Typography>
+            )}
           </Fact>
           <Fact label={t('pages.bed.header.plants')} testId="bed-header-plants">
             {t('pages.bed.header.plantCount', { count: summary.active_plant_count })}
