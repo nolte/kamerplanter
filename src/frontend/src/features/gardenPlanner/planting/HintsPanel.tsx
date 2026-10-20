@@ -41,8 +41,6 @@ interface HintsPanelProps {
   bedSun?: SunExposure;
   /** Names of species by key, for the neighbours the server names. */
   speciesNames: ReadonlyMap<string, string>;
-  /** Names of botanical families by key: a finding names the family by its key. */
-  familyNames?: ReadonlyMap<string, string>;
   mix: readonly MixPair[];
   /** The strongest rotation/companion severity of all chosen species needs a reason. */
   overrideChecked: boolean;
@@ -57,20 +55,21 @@ interface HintsPanelProps {
 function findingText(
   finding: RotationFinding,
   t: (key: string, options?: Record<string, unknown>) => string,
-  familyNames: ReadonlyMap<string, string>,
 ): string {
-  // The server names the family by its key; the grower knows it by its name. Unknown keys stay as they are.
-  const family = finding.family_key ? (familyNames.get(finding.family_key) ?? finding.family_key) : '';
+  // The server names the family (`family_name`). A family without a name is left out of the sentence: the database
+  // key is never shown to the grower as if it were a name.
+  const family = finding.family_name?.trim() ?? '';
+  const named = family !== '';
   switch (finding.code) {
     case 'rotation.pause_not_elapsed':
-      return t('pages.bed.planting.hints.pauseNotElapsed', {
+      return t(named ? 'pages.bed.planting.hints.pauseNotElapsed' : 'pages.bed.planting.hints.pauseNotElapsedUnnamed', {
         family,
         years: finding.years_since ?? 0,
         pause: finding.pause_years ?? 0,
         source: t(`pages.bed.planting.hints.pauseSource.${finding.pause_source ?? 'default'}`),
       });
     case 'rotation.pest_risk':
-      return t('pages.bed.planting.hints.pestRisk', { family });
+      return t(named ? 'pages.bed.planting.hints.pestRisk' : 'pages.bed.planting.hints.pestRiskUnnamed', { family });
     case 'rotation.no_family':
       return t('pages.bed.planting.hints.noFamily');
     case 'rotation.no_history':
@@ -95,12 +94,9 @@ function neighbourText(
   return hint.message;
 }
 
-const NO_FAMILY_NAMES: ReadonlyMap<string, string> = new Map();
-
 export default function HintsPanel({
   species,
   speciesNames,
-  familyNames = NO_FAMILY_NAMES,
   bedSun = 'unknown',
   mix,
   overrideChecked,
@@ -143,7 +139,7 @@ export default function HintsPanel({
       ...data.rotation.map((finding) => ({
         id: `${finding.code}-${finding.family_key ?? ''}`,
         severity: finding.severity,
-        text: findingText(finding, t, familyNames),
+        text: findingText(finding, t),
       })),
       ...data.neighbours.map((hint) => ({
         id: `${hint.code}-${hint.species_key}`,

@@ -6817,12 +6817,14 @@
           "allClear": "{{name}}: Kein Hinweis zu Fruchtfolge oder Nachbarn.",
           "forSpecies": "{{name}}: Hinweis {{strength}}",
           "pauseNotElapsed": "Die Familie {{family}} stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
+          "pauseNotElapsedUnnamed": "Eine Pflanze derselben Familie stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
           "pauseSource": {
             "species": "Wert der Art",
             "family": "Wert der Familie",
             "default": "Standardwert"
           },
           "pestRisk": "Hohes Schädlingsrisiko mit der Familie {{family}}, die hier kürzlich stand.",
+          "pestRiskUnnamed": "Hohes Schädlingsrisiko mit einer Familie, die hier kürzlich stand.",
           "noFamily": "Für diese Art ist keine Familie hinterlegt. Die Fruchtfolge lässt sich nicht prüfen.",
           "noHistory": "Für dieses Beet ist keine Vorgeschichte erfasst. Die Fruchtfolge lässt sich nicht prüfen.",
           "incompatibleNeighbour": "Ungünstiger Nachbar im Beet: {{name}}.",
