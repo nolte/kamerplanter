@@ -458,7 +458,7 @@ class IrrigationZoneService:
             and entity
             and self._ha_entity_gate.is_granted(tenant_key, entity)
         ):
-            reading = self._cached_reading(tenant_key, zone.key or "", entity)
+            reading = self._cached_reading(zone.key or "", entity, tenant_key=tenant_key)
         rate = resolve_flow_rate(zone.flow_rate_source, zone.flow_rate_l_per_min, reading, now)
         if rate is None:
             return logged
@@ -467,7 +467,7 @@ class IrrigationZoneService:
         liters = runtime_liters(runtime_seconds(changes, start=since, end=now), rate)
         return (*logged, ConsumptionPart(source_of(rate), liters)) if liters > 0 else logged
 
-    def _cached_reading(self, tenant_key: str, zone_key: str, entity: str) -> FlowReading | None:
+    def _cached_reading(self, zone_key: str, entity: str, *, tenant_key: str) -> FlowReading | None:
         """The flow reading of Home Assistant, asked at most once per :data:`READING_TTL_SECONDS` per zone.
 
         Every member can open the status, so an unthrottled read would let any of them drive one outbound call per
