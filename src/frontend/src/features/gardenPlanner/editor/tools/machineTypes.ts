@@ -30,9 +30,9 @@ export interface ToolEnv {
   toScreen(pointM: Point): Point;
   /**
    * The seam for grid and snap (WP 2.5): turns a raw model point into the point the tool uses.
-   * `bypass` is Alt. Today it only rounds to the storage precision.
+   * `bypass` is Alt; `pointerType` widens the object-snap tolerance for a finger or a pen (GP-FR-154).
    */
-  snapPoint(pointM: Point, bypass: boolean): Point;
+  snapPoint(pointM: Point, bypass: boolean, pointerType?: PointerSample['pointerType']): Point;
   /** Rotation step of the rotate handle: 15, 45 or 90 (GP-FR-008). */
   angleStepDeg: number;
 }
@@ -50,7 +50,11 @@ export type ActionLabel =
   | 'lock'
   | 'unlock'
   | 'zOrder'
-  | 'addWithDimensions';
+  | 'addWithDimensions'
+  // Arrange and repeat (WP 7.11, 7.13)
+  | 'align'
+  | 'distribute'
+  | 'multiDuplicate';
 
 export type Effect =
   | { type: 'select'; selection: SelectionRef[] }

@@ -11,8 +11,10 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
+import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import { visuallyHidden } from '@mui/utils';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
@@ -34,6 +36,7 @@ import {
   undo,
 } from '../state/gardenPlanSlice';
 import { failureHint, failureTitle, findingLines, knownCodeText } from './saveMessages';
+import { useAutoSave } from './useAutoSave';
 
 const PREFIX = 'pages.gardenPlan.editor.save';
 const TARGET_PX = 44;
@@ -64,6 +67,8 @@ export function SaveBar() {
   } else if (snapshot?.failure !== saveFailure) {
     setSnapshot({ failure: saveFailure, ops: pending.map((item) => item.op) });
   }
+
+  const autoSave = useAutoSave();
 
   const count = pending.length;
   const saving = saveStatus === 'saving';
@@ -175,6 +180,18 @@ export function SaveBar() {
           ) : null}
           <span>{statusText}</span>
         </Box>
+        <FormControlLabel
+          sx={{ m: 0, minHeight: TARGET_PX, typography: 'body2' }}
+          control={
+            <Switch
+              size="small"
+              checked={autoSave.enabled}
+              onChange={(event) => autoSave.setEnabled(event.target.checked)}
+              slotProps={{ input: { 'data-testid': 'garden-plan-autosave' } as object }}
+            />
+          }
+          label={t(`${PREFIX}.autoSave.label`)}
+        />
         <Tooltip title={t(`${PREFIX}.shortcut`)}>
           <span>
             <Button
@@ -205,6 +222,15 @@ export function SaveBar() {
       >
         {savedSpoken ? t(`${PREFIX}.status.saved`) : ''}
       </Box>
+      {autoSave.paused && (
+        <Box
+          role="status"
+          data-testid="garden-plan-autosave-paused"
+          sx={{ typography: 'body2', color: 'text.secondary', px: 1 }}
+        >
+          {t(`${PREFIX}.autoSave.${conflict ? 'pausedConflict' : 'pausedFailed'}`)}
+        </Box>
+      )}
       {refusal && (
         <Alert severity="error" role="alert" data-testid="garden-plan-save-error">
           <Box sx={{ fontWeight: 600 }}>{failureTitle(refusal, t)}</Box>

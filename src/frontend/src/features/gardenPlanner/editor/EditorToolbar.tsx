@@ -15,7 +15,9 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
 import CropSquareIcon from '@mui/icons-material/CropSquare';
+import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined';
 import NearMeIcon from '@mui/icons-material/NearMe';
 import PanToolIcon from '@mui/icons-material/PanTool';
 import ParkIcon from '@mui/icons-material/Park';
@@ -24,6 +26,8 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import YardIcon from '@mui/icons-material/Yard';
 import type { PlanTool } from '../state/gardenPlanSlice';
+import { AlignMenu } from './AlignMenu';
+import type { AlignMode, DistributeAxis } from './tools/align';
 import type { DrawShape } from './tools/drawMachine';
 
 const TARGET_PX = 44;
@@ -53,6 +57,19 @@ interface EditorToolbarProps {
   canDeleteVertex: boolean;
   onDeleteVertex: () => void;
   onInsertVertex: () => void;
+  /** "Bed > From template" (GP-FR-044): the template tool is on. Absent = the tool is not offered. */
+  templateActive?: boolean;
+  onTemplate?: () => void;
+  /** One bed is selected and may become a template. */
+  canSaveTemplate?: boolean;
+  onSaveTemplate?: () => void;
+  /** Align / distribute the selection (GP-FR-029); absent = not offered. */
+  align?: {
+    canAlign: boolean;
+    canDistribute: boolean;
+    onAlign: (mode: AlignMode) => void;
+    onDistribute: (axis: DistributeAxis) => void;
+  };
 }
 
 const SHAPES: { shape: DrawShape; icon: ReactElement }[] = [
@@ -109,7 +126,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
       <ToggleButtonGroup
         exclusive
         size="small"
-        value={props.tool}
+        // While the template tool is on no other tool is: clicking "Select" must register as a change.
+        value={props.templateActive ? null : props.tool}
         aria-label={t(`${prefix}.toolbar.tools`)}
         onChange={(_event, next: EditorTool | null) => {
           if (next) props.onTool(next);
@@ -131,6 +149,25 @@ export function EditorToolbar(props: EditorToolbarProps) {
           </Tooltip>
         ))}
       </ToggleButtonGroup>
+
+      {props.onTemplate && (
+        <Tooltip title={t(`${prefix}.templates.tool.hint`)}>
+          <ToggleButton
+            value="template"
+            size="small"
+            selected={props.templateActive === true}
+            onChange={props.onTemplate}
+            aria-label={t(`${prefix}.templates.tool.label`)}
+            data-testid="garden-plan-tool-template"
+            sx={buttonSx}
+          >
+            <DashboardCustomizeOutlinedIcon />
+            <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' }, ml: 0.75 }}>
+              {t(`${prefix}.templates.tool.short`)}
+            </Box>
+          </ToggleButton>
+        </Tooltip>
+      )}
 
       {drawing && (
         <ToggleButtonGroup
@@ -241,6 +278,30 @@ export function EditorToolbar(props: EditorToolbarProps) {
       )}
 
       <Box sx={{ flexGrow: 1 }} />
+      {props.align && (
+        <AlignMenu
+          canAlign={props.align.canAlign}
+          canDistribute={props.align.canDistribute}
+          onAlign={props.align.onAlign}
+          onDistribute={props.align.onDistribute}
+        />
+      )}
+      {props.onSaveTemplate && (
+        <Tooltip title={t(`${prefix}.templates.save.hint`)}>
+          <span>
+            <Button
+              size="small"
+              startIcon={<BookmarkAddOutlinedIcon />}
+              onClick={props.onSaveTemplate}
+              disabled={!props.canSaveTemplate}
+              data-testid="garden-plan-save-template-button"
+              sx={buttonSx}
+            >
+              {t(`${prefix}.templates.save.button`)}
+            </Button>
+          </span>
+        </Tooltip>
+      )}
       <Tooltip title={t(`${prefix}.delete.hint`)}>
         <span>
           <Button

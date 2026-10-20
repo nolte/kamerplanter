@@ -51,6 +51,7 @@ interface SetupOptions {
   onZoom?: Mock<(factor: number, centerPx: [number, number]) => void>;
   onOpenLocation?: Mock<(locationKey: string) => void>;
   onOpenCare?: Mock<(locationKey: string) => void>;
+  viewport?: Viewport;
 }
 
 export function setupEditor(options: SetupOptions = {}) {
@@ -69,7 +70,7 @@ export function setupEditor(options: SetupOptions = {}) {
       <ThemeContextProvider>
         <GardenPlanEditor
           plan={state().plan!}
-          viewport={VIEWPORT}
+          viewport={options.viewport ?? VIEWPORT}
           renderer={renderer}
           labels={TEST_LABELS}
           onPan={onPan}
