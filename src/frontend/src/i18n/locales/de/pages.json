@@ -5408,7 +5408,10 @@
           "unlock": "Entsperren",
           "zOrder": "Reihenfolge ändern",
           "addWithDimensions": "Mit Maßen hinzufügen",
-          "northAngle": "Nordrichtung setzen"
+          "northAngle": "Nordrichtung setzen",
+          "align": "Ausrichten",
+          "distribute": "Gleichmäßig verteilen",
+          "multiDuplicate": "Mehrfach duplizieren"
         },
         "notice": {
           "generic": "Das geht so nicht. Der Plan bleibt unverändert.",
@@ -5433,6 +5436,24 @@
           },
           "redo": {
             "failed": "Das Wiederholen geht nicht mehr, weil sich der Plan inzwischen geändert hat."
+          },
+          "bed": {
+            "overlap": "Die Form überschneidet ein anderes Beet und wurde nicht übernommen."
+          },
+          "plan": {
+            "revision_conflict": "Der Plan wurde zwischenzeitlich geändert und neu geladen. Platziere die Vorlage noch einmal.",
+            "quota_exceeded": "So viele Beete und Objekte passen nicht in diesen Garten (höchstens 500). Es wurde nichts angelegt.",
+            "saving": "Speichern läuft – bitte gleich noch einmal versuchen. Diese Änderung wurde nicht übernommen."
+          },
+          "template": {
+            "save_first": "Die ungespeicherten Änderungen konnten nicht gespeichert werden. Speichere zuerst, dann setze die Vorlage.",
+            "busy": "Es wird gerade gespeichert oder ein Konflikt ist offen. Warte kurz oder lade den Plan neu.",
+            "failed": "Die Vorlage konnte nicht platziert werden. Der Plan bleibt unverändert.",
+            "refresh_failed": "Das Beet wurde angelegt, aber der Plan konnte danach nicht neu geladen werden. Lade die Seite neu."
+          },
+          "multi": {
+            "invalid": "Prüfe Anzahl, Abstand und Startnummer: Die Anzahl liegt zwischen 1 und 100, der Abstand ist nicht negativ.",
+            "too_many": "Das sind zu viele Änderungen auf einmal. Wähle weniger Kopien."
           }
         },
         "deleteDialog": {
@@ -5658,7 +5679,8 @@
           "back": "In den Hintergrund",
           "lock": "Sperren",
           "unlock": "Entsperren",
-          "selectAll": "Alle auswählen"
+          "selectAll": "Alle auswählen",
+          "multiDuplicate": "Mehrfach duplizieren"
         },
         "duplicate": {
           "name": "{{name}} (Kopie)"
@@ -5710,7 +5732,8 @@
             "length": "Länge",
             "radius": "Radius",
             "rotation": "Drehung",
-            "strokeWidth": "Strichbreite"
+            "strokeWidth": "Strichbreite",
+            "height": "Höhe (optional)"
           },
           "intro": "Lege ein Beet oder Objekt über Zahlen an, statt es zu zeichnen. Die Form wird wie eine gezeichnete geprüft und muss ganz in ihren Bereich passen.",
           "nameHelper": "Leer lassen, dann wird der Vorschlag verwendet.",
@@ -5735,7 +5758,7 @@
         "snap": {
           "toggle": "Am Raster einrasten",
           "short": "Einrasten",
-          "hint": "Am Raster einrasten. Mit gehaltener Alt-Taste kurzzeitig ausschalten."
+          "hint": "Am Raster und an Ecken und Kanten anderer Objekte einrasten. Mit gehaltener Alt-Taste kurzzeitig ausschalten."
         },
         "zoom": {
           "label": "Zoom",
@@ -5837,6 +5860,11 @@
           },
           "tooMany": {
             "hint": "Mache einige Änderungen rückgängig oder gliedere den Plan in kleinere Schritte. Es wurde nichts gespeichert."
+          },
+          "autoSave": {
+            "label": "Automatisch speichern",
+            "pausedConflict": "Automatisches Speichern pausiert, solange der Konflikt offen ist.",
+            "pausedFailed": "Automatisches Speichern pausiert, bis das Speichern wieder klappt."
           }
         },
         "conflict": {
@@ -5850,6 +5878,106 @@
           "download": "Meine Änderungen als Kopie behalten (JSON herunterladen)",
           "reload": "Neu laden",
           "downloaded": "Die Kopie wurde heruntergeladen. Du kannst jetzt neu laden."
+        },
+        "align": {
+          "button": "Ausrichten",
+          "label": "Ausrichten und verteilen",
+          "mode": {
+            "left": "Links ausrichten",
+            "right": "Rechts ausrichten",
+            "top": "Oben ausrichten",
+            "bottom": "Unten ausrichten",
+            "centerH": "Horizontal zentrieren",
+            "centerV": "Vertikal zentrieren"
+          },
+          "distribute": {
+            "horizontal": "Horizontal gleichmäßig verteilen",
+            "vertical": "Vertikal gleichmäßig verteilen"
+          }
+        },
+        "miniMap": {
+          "label": "Übersichtskarte des Gartens mit dem sichtbaren Ausschnitt",
+          "hint": "Klick springt an diese Stelle"
+        },
+        "multiDuplicate": {
+          "title": "Mehrfach duplizieren",
+          "intro": "Lege mehrere gleiche Beete in einer Reihe an, zum Beispiel die Parzellen eines Gemeinschaftsgartens. Alle Kopien lassen sich mit einem Rückgängig-Schritt zurücknehmen.",
+          "count": "Anzahl der Kopien",
+          "countHelper": "1 bis {{max}}",
+          "direction": "Richtung",
+          "directions": {
+            "right": "Nach rechts",
+            "left": "Nach links",
+            "up": "Nach oben",
+            "down": "Nach unten"
+          },
+          "spacing": "Abstand zwischen den Kopien",
+          "spacingHelper": "Von Kante zu Kante, 0 = Kopien berühren sich",
+          "scheme": "Namensschema",
+          "schemeHelper": "{n} wird durch die laufende Nummer ersetzt.",
+          "defaultScheme": "Parzelle {n}",
+          "start": "Erste Nummer",
+          "startHelper": "Die erste Kopie bekommt diese Nummer.",
+          "preview": "Die Kopien heißen: {{names}}",
+          "slotsNote": "Pflanzplätze, Pflanzen und Aufgaben werden nicht kopiert. Ein Pflanzraster legst du danach für jedes Beet im Bereich „Eigenschaften“ an.",
+          "submit": "Duplizieren",
+          "invalid": "Bitte eine gültige Zahl eingeben.",
+          "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz."
+        },
+        "templates": {
+          "placed": "Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.",
+          "tool": {
+            "label": "Beet aus Vorlage platzieren",
+            "hint": "Ein Beet aus einer Vorlage mit einem Klick auf den Plan setzen",
+            "short": "Aus Vorlage"
+          },
+          "panel": {
+            "label": "Beet aus Vorlage",
+            "pick": "Vorlage",
+            "loading": "Vorlagen werden geladen",
+            "rotate": "Drehen (aktuell {{deg}}°)",
+            "close": "Fertig",
+            "placeCenter": "In die Bildmitte setzen",
+            "hintPick": "Wähle eine Vorlage. Danach setzt ein Klick auf den Plan das Beet dorthin.",
+            "hintPlace": "Klicke auf den Plan, um das Beet zu setzen. Alt hält den Rasterfang an, Esc beendet.",
+            "placing": "Das Beet wird angelegt …",
+            "failed": "Die Vorlagen konnten nicht geladen werden."
+          },
+          "save": {
+            "button": "Als Vorlage speichern",
+            "hint": "Das gewählte Beet als Vorlage für künftige Beete speichern",
+            "title": "Als Vorlage speichern",
+            "intro": "Form, Beettyp und Höhe des Beets werden als Vorlage gespeichert. Pflanzen, Aufgaben und Notizen gehören nicht dazu.",
+            "name": "Name der Vorlage",
+            "submit": "Speichern",
+            "done": "Die Vorlage „{{name}}“ ist gespeichert.",
+            "error": {
+              "generic": "Die Vorlage konnte nicht gespeichert werden.",
+              "forbidden": "Dafür fehlt dir die Berechtigung. Vorlagen legen Gärtner und Leitung an.",
+              "bed_template": {
+                "quota_exceeded": "Du hast die höchste Zahl an Vorlagen erreicht. Lösche eine, die du nicht mehr brauchst.",
+                "not_a_bed_type": "Der Typ dieses Beets taugt nicht für eine Beetvorlage."
+              },
+              "reference": {
+                "not_found": "Der Beettyp dieses Beets existiert nicht mehr."
+              }
+            }
+          },
+          "standard": {
+            "label": "Standardgrößen",
+            "hint": "Standardgröße übernehmen (Form, Maße, Beettyp und Höhe):"
+          },
+          "system": {
+            "sys_bed_1x1": "Beet 1 × 1 m",
+            "sys_bed_2x1": "Beet 2 × 1 m",
+            "sys_bed_3x1_2": "Beet 3 × 1,2 m",
+            "sys_bed_4x1_2": "Beet 4 × 1,2 m",
+            "sys_raised_bed_1_2x2_4": "Hochbeet 1,2 × 2,4 m",
+            "sys_raised_bed_2x1x0_8": "Hochbeet 2 × 1 × 0,8 m",
+            "sys_planter_d0_3": "Kübel Ø 0,3 m",
+            "sys_planter_d0_4": "Kübel Ø 0,4 m",
+            "sys_planter_d0_5": "Kübel Ø 0,5 m"
+          }
         },
         "zones": {
           "layers": {
@@ -6752,6 +6880,8 @@
           "plan": "Pflanzung planen",
           "recordPlanted": "Gepflanzt erfassen",
           "plantAnyway": "Trotzdem pflanzen",
+          "partial_one": "Eine Pflanzung wurde schon angelegt und ließ sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
+          "partial_other": "{{count}} Pflanzungen wurden schon angelegt und ließen sich nicht zurücknehmen. Du findest sie in den Durchläufen. Lösche sie dort oder ergänze sie.",
           "alreadyPlantedMargins": "Randabstände übernimmt „Ich habe schon gepflanzt“ nicht. Leere sie, wenn du die Pflanzen sofort anlegen willst.",
           "submitWaiting": "Die Hinweise zu Fruchtfolge und Nachbarn werden noch geprüft. Danach kannst du fortfahren."
         },

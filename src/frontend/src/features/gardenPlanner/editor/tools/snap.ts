@@ -32,7 +32,7 @@ export interface SnapOptions {
   bypass: boolean;
   pxPerM: number;
   pointerType?: SnapPointerType;
-  /** Corners and edges of other objects. Object snap is SHOULD (MVP: not supplied). */
+  /** Corners and edges of other visible objects (`snapCandidates` of the plan index, GP-FR-154). */
   candidates?: SnapCandidates;
   gridFrame?: GridFrame;
 }
@@ -40,6 +40,8 @@ export interface SnapOptions {
 export interface SnapResult {
   point: Point;
   kind: SnapKind;
+  /** The edge the point sits on (`kind = 'edge'`): the marker draws it as a guide line. */
+  guide?: readonly [Point, Point];
 }
 
 function rounded([x, y]: Point): Point {
@@ -71,6 +73,7 @@ export function resolveSnap(pointM: Point, options: SnapOptions): SnapResult {
   const { candidates } = options;
   if (candidates) {
     let best: Point | null = null;
+    let bestEdge: readonly [Point, Point] | null = null;
     let bestDistance = toleranceM;
     for (const corner of candidates.corners) {
       const distance = Math.hypot(corner[0] - pointM[0], corner[1] - pointM[1]);
@@ -85,10 +88,11 @@ export function resolveSnap(pointM: Point, options: SnapOptions): SnapResult {
       const distance = pointSegmentDistance(pointM, a, b);
       if (distance <= bestDistance) {
         best = nearestOnSegment(pointM, a, b);
+        bestEdge = [a, b];
         bestDistance = distance;
       }
     }
-    if (best) return { point: rounded(best), kind: 'edge' };
+    if (best && bestEdge) return { point: rounded(best), kind: 'edge', guide: bestEdge };
   }
   if (options.gridEnabled) {
     return { point: snapToGrid(pointM, options.gridM, options.gridFrame), kind: 'grid' };

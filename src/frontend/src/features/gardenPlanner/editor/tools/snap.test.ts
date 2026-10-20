@@ -45,7 +45,14 @@ describe('resolveSnap', () => {
     });
     it('an edge within tolerance wins over the grid', () => {
       const result = resolveSnap([1.234, 0.55], { ...BASE, candidates });
-      expect(result).toEqual({ point: [1.234, 0.5], kind: 'edge' });
+      expect(result).toEqual({
+        point: [1.234, 0.5],
+        kind: 'edge',
+        guide: [
+          [0, 0.5],
+          [4, 0.5],
+        ],
+      });
     });
     it('falls back to the grid outside the tolerance', () => {
       expect(resolveSnap([1.234, 1.04], { ...BASE, candidates })).toEqual({

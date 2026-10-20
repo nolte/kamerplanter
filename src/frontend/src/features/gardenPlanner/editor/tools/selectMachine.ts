@@ -303,7 +303,11 @@ function movedTo(
   const now = env.toModel(sample.pointPx);
   const raw: Point = [now[0] - move.downModel[0], now[1] - move.downModel[1]];
   const start = anchor(move.primary.geometry);
-  const snapped = env.snapPoint([start[0] + raw[0], start[1] + raw[1]], sample.alt);
+  const snapped = env.snapPoint(
+    [start[0] + raw[0], start[1] + raw[1]],
+    sample.alt,
+    sample.pointerType,
+  );
   const delta: Point = [snapped[0] - start[0], snapped[1] - start[1]];
   const draft = move.targets.map((entry) => ({
     entity: entry.entity,
@@ -322,7 +326,7 @@ function handleMovedTo(
     handle.dragged ||
     distancePx(handle.downPx, sample.pointPx) >= dragThresholdPx(sample.pointerType);
   if (!dragged) return handle;
-  const pointer = env.snapPoint(env.toModel(sample.pointPx), sample.alt);
+  const pointer = env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType);
   const { start } = handle;
   let draft: DraftChange[] = [{ ...handle.subject, geometry: start }];
   switch (handle.handle.kind) {
