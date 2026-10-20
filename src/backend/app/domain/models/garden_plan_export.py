@@ -73,6 +73,10 @@ class ExportLocation(_ExportModel):
     soil_profile: SoilProfile | None = None
     site_conditions: SiteConditions | None = None
     irrigation_zone_key: str | None = None
+    #: Provenance (WP 7.9): the bed template this bed was placed from. Additive inside ``schema_version "1"``.
+    #: The import resolves it against the system templates and the target tenant's own, else drops it and reports
+    #: it in ``dropped_references[]``; the template itself is not part of the file.
+    template_key: str | None = Field(default=None, min_length=1, max_length=200)
     locked: bool = False
     z_order: int = 0
     pitch_m: float | None = None

@@ -84,6 +84,18 @@ class CreateLocationData(_Strict):
     z_order: int = Field(default=0, ge=-10_000, le=10_000)
 
 
+class TemplateLocationData(CreateLocationData):
+    """What ``place-template`` creates (REQ-053 §21.7, WP 7.9): a location plus the two things a template adds.
+
+    A subclass **outside** :data:`PlanOperation`'s public union on purpose: ``template_key`` is provenance the
+    server resolves against the catalogue (global or the tenant's own), and ``soil_profile`` is the template's
+    soil axes - a client of ``POST /plan/batch`` sends neither (``extra="forbid"`` on the parent says so).
+    """
+
+    template_key: str | None = Field(default=None, min_length=1, max_length=200)
+    soil_profile: SoilProfile | None = None
+
+
 class CreateGardenObjectData(_Strict):
     object_type: GardenObjectType
     label: str = Field(default="", max_length=200)

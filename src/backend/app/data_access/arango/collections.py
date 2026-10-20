@@ -1848,6 +1848,9 @@ IRRIGATION_ZONE_SITE_INDEX_FIELDS = ["tenant_key", "site_key"]
 #: An edge collection carries no ``tenant_key``; the location it points at has exactly one site, so the
 #: constraint holds per tenant as well.
 ZONE_COVERS_TARGET_INDEX_FIELDS = ["_to"]
+#: A tenant's bed templates by name (GP-FR-044, §20.12; v0101). ``tenant_key`` leads: the template carries it
+#: (E-01); a system template has none and is read through the same index with ``tenant_key == null``.
+BED_TEMPLATE_TENANT_INDEX_FIELDS = ["tenant_key", "name"]
 
 
 #: Fields of the canonical species dedup index (REQ-048 Stufe 1 / SEC-003).
@@ -2890,6 +2893,10 @@ def ensure_collections(db: StandardDatabase) -> None:
     # Unique: one zone per bed. Created only when clean — this runs before the migrations, and a volume with two
     # edges to one bed must still boot so v0099 can report them (the v0070 shape, ``ensure_unique_index_when_clean``).
     ensure_unique_index_when_clean(db.collection(ZONE_COVERS), ZONE_COVERS_TARGET_INDEX_FIELDS)
+    # REQ-053 WP 7.8 (v0101): the bed-template catalogue by owner and name.
+    db.collection(BED_TEMPLATES).add_persistent_index(
+        fields=BED_TEMPLATE_TENANT_INDEX_FIELDS, unique=False, in_background=True
+    )
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

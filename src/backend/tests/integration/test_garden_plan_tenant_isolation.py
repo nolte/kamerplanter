@@ -43,12 +43,13 @@ from structlog.testing import capture_logs
 
 from app.api.v1.auth.router import limiter
 from app.api.v1.tenant_scoped.router import tenant_scoped_router
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, get_is_platform_admin
 from app.common.dependencies import (
     get_adjacency_dispatch,
     get_adjacency_service,
     get_bed_history_service,
     get_bed_rotation_service,
+    get_bed_template_service,
     get_garden_plan_export_service,
     get_garden_plan_import_service,
     get_garden_plan_service,
@@ -61,9 +62,10 @@ from app.common.dependencies import (
 )
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
-from app.common.exceptions import KamerplanterError, NotFoundError
+from app.common.exceptions import KamerplanterError, NotFoundError, PlanValidationError
 from app.data_access.arango import collections as col
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
+from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
@@ -91,13 +93,16 @@ from app.data_access.arango.rotation_history_repository import ArangoRotationHis
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
 from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.bed_template import BedTemplate
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import Location, Slot
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
@@ -131,6 +136,8 @@ B_SECRETS = (
     "zone_b",
     "Bobs Tropfzone",
     "barrel_b",
+    "tpl_b",
+    "Bobs Vorlage",
     "ev_b",
     B,
 )
@@ -151,6 +158,7 @@ _TOUCHED: tuple[str, ...] = tuple(
             col.ADJACENT_TO,
             col.CARE_EVENTS,
             col.IRRIGATION_ZONES,
+            col.BED_TEMPLATES,
             col.LOCATION_TYPES,
             col.USERS,
             col.PLANT_INSTANCES,
@@ -291,6 +299,24 @@ def db(database):
         database.collection(col.ZONE_COVERS).insert(
             {"_from": f"{col.IRRIGATION_ZONES}/zone_{suffix}", "_to": f"{col.LOCATIONS}/bed_{suffix}"}
         )
+    # WP 7.8/7.9: a template per tenant and one system template (no ``tenant_key``, the global marker of §20.12).
+    for template_key, tenant_key, template_name in (
+        ("tpl_a", A, "Alices Vorlage"),
+        ("tpl_b", B, "Bobs Vorlage"),
+        ("sys_x", None, "System bed"),
+    ):
+        document: dict[str, Any] = {
+            "_key": template_key,
+            "name": template_name,
+            "location_type_key": "bed",
+            "default_geometry": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1, "rotation_deg": 0},
+            "default_layout": {},
+            "recurring_task_templates": [],
+            "created_by": USER,
+        }
+        if tenant_key is not None:
+            document["tenant_key"] = tenant_key
+        database.collection(col.BED_TEMPLATES).insert(document)
     # WP 3.4: a global species and family for the rotation hints, and one backfilled year of tenant B's bed
     database.collection(col.SPECIES).insert(
         {
@@ -327,7 +353,7 @@ def _services(
 ) -> tuple[GardenPlanService, GardenResourceService, SiteService, PlantingReservationService, PlantingRunService]:
     sites = ArangoSiteRepository(db)
     plan_repo = ArangoGardenPlanRepository(db)
-    plan = GardenPlanService(sites, plan_repo)
+    plan = GardenPlanService(sites, plan_repo, template_repo=ArangoBedTemplateRepository(db))
     resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan)
     run_repo = ArangoPlantingRunRepository(db)
     reservation_repo = ArangoPlantingReservationRepository(db)
@@ -421,7 +447,9 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         ArangoGardenObjectRepository(db),
         ArangoCareEventRepository(db),
     )
+    templates: Any = BedTemplateService(ArangoBedTemplateRepository(db))
     if unscoped:
+        templates = _Unscoped(templates)
         zones = _Unscoped(zones)
         plant_states = _Unscoped(plant_states)
         adjacency = _Unscoped(adjacency)
@@ -455,6 +483,8 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_garden_plan_export_service] = lambda: export
     app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
     app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
+    app.dependency_overrides[get_bed_template_service] = lambda: templates
+    app.dependency_overrides[get_is_platform_admin] = lambda: False
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
     return TestClient(app, raise_server_exceptions=False)
 
@@ -717,6 +747,18 @@ CASES: tuple[Case, ...] = (
         owner_status=201,
         writes=True,
     ),
+    # REQ-053 WP 7.8, GP-FR-044: a template of another tenant is not there for the caller.
+    Case("patch_bed_template", "PATCH", "/bed-templates/tpl_b", {"name": "Taken over"}, writes=True),
+    Case("delete_bed_template", "DELETE", "/bed-templates/tpl_b", owner_status=204, writes=True),
+    # REQ-053 WP 7.9, §21.7: place-template on a foreign site is a 404 before the body is read.
+    Case(
+        "place_template",
+        "POST",
+        "/sites/site_b/plan/place-template",
+        {"template_key": "sys_x", "origin": [5, 5], "rotation_deg": 0, "expected_revision": 1},
+        writes=True,
+        logs_batch=True,
+    ),
 )
 
 _ABSENT = {
@@ -728,6 +770,7 @@ _ABSENT = {
     "ev_b": "ev_gone",
     "zone_b": "zone_gone",
     "barrel_b": "barrel_gone",
+    "tpl_b": "tpl_gone",
 }
 
 
@@ -787,6 +830,10 @@ def _assert_refused(db, client: TestClient, case: Case) -> None:
 #: Routes of the four routers that no case addresses, each with the reason — an entry that names a route
 #: the routers no longer have fails, and so does a route missing from both this dict and :data:`CASES`.
 _OTHER_ROUTES: dict[tuple[str, str], str] = {
+    ("GET", "/bed-templates"): "addresses no key: the catalogue is system templates plus the caller's own; "
+    "TestBedTemplatesAreScopedToTheTenant lists it as both tenants",
+    ("POST", "/bed-templates"): "addresses no key (the owner is the caller's tenant, never a body field); "
+    "TestBedTemplatesAreScopedToTheTenant creates as A and reads as B",
     **{
         (method, path): "sensor and frost-warning routes of a location are served by the sensor and weather "
         "services and predate REQ-053 (#1871 pinned them); WP 1.10 covers the garden-plan services"
@@ -809,6 +856,7 @@ def _route_pattern(path: str) -> re.Pattern[str]:
 
 
 def _routes_of_the_four_routers() -> set[tuple[str, str]]:
+    from app.api.v1.bed_templates.tenant_router import router as bed_templates
     from app.api.v1.garden_objects.tenant_router import router as garden_objects
     from app.api.v1.garden_plan.tenant_router import router as garden_plan
     from app.api.v1.irrigation_zones.tenant_router import router as irrigation_zones
@@ -816,7 +864,7 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
     from app.api.v1.slots.tenant_router import router as slots
 
     found: set[tuple[str, str]] = set()
-    for router in (garden_plan, garden_objects, locations, slots, irrigation_zones):
+    for router in (garden_plan, garden_objects, locations, slots, irrigation_zones, bed_templates):
         for route in router.routes:
             path = f"{router.prefix}{route.path.removeprefix(router.prefix)}"
             found.update((method, path) for method in route.methods)
@@ -899,6 +947,59 @@ class TestTheParentOfAListingIsResolvedUnderTheTenant:
         monkeypatch.setattr(SiteService, "get_location", unscoped)
 
         assert self._list(_client(db), "bed_b").status_code == 200
+
+
+class TestBedTemplatesAreScopedToTheTenant:
+    """The two unkeyed routes: what the list shows, whose the created row is, and what a tenant cannot reach."""
+
+    def _list(self, client: TestClient, slug: str) -> list[dict[str, Any]]:
+        response = client.get(f"/api/v1/t/{slug}/bed-templates")
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def test_each_tenant_sees_the_system_templates_and_its_own_only(self, db) -> None:
+        as_a = self._list(_client(db), SLUG_A)
+        as_b = self._list(_client(db, tenant=B), SLUG_B)
+
+        assert [t["key"] for t in as_a] == ["tpl_a", "sys_x"] and [t["key"] for t in as_b] == ["tpl_b", "sys_x"]
+        assert {t["key"]: t["is_system"] for t in as_a} == {"tpl_a": False, "sys_x": True}
+        assert [secret for secret in B_SECRETS if secret in json.dumps(as_a)] == []
+
+    def test_a_created_template_belongs_to_the_caller_and_to_nobody_else(self, db) -> None:
+        body = {"name": "Mine", "location_type_key": "bed", "default_geometry": _RECT}
+
+        created = _client(db).post(f"/api/v1/t/{SLUG_A}/bed-templates", json={**body, "tenant_key": B})
+        assert created.status_code == 422  # a body cannot name the tenant
+
+        created = _client(db).post(f"/api/v1/t/{SLUG_A}/bed-templates", json=body)
+        assert created.status_code == 201, created.text
+        stored = db.collection(col.BED_TEMPLATES).get(created.json()["key"])
+        assert (stored["tenant_key"], stored["created_by"]) == (A, USER)
+        assert "Mine" not in json.dumps(self._list(_client(db, tenant=B), SLUG_B))
+
+    def test_a_tenant_cannot_change_or_delete_a_system_template(self, db) -> None:
+        client = _client(db)
+        before = _snapshot(db)
+
+        patched = client.patch(f"/api/v1/t/{SLUG_A}/bed-templates/sys_x", json={"name": "Mine now"})
+        deleted = client.delete(f"/api/v1/t/{SLUG_A}/bed-templates/sys_x")
+
+        assert (patched.status_code, deleted.status_code) == (403, 403)
+        assert _snapshot(db) == before
+
+    def test_a_foreign_template_cannot_be_placed_and_the_own_one_can(self, db) -> None:
+        client = _client(db)
+        url = f"/api/v1/t/{SLUG_A}/sites/site_a/plan/place-template"
+        body = {"origin": [5, 5], "rotation_deg": 0, "expected_revision": 1}
+
+        placed = client.post(url, json={**body, "template_key": "tpl_a"})
+        assert placed.status_code == 200, placed.text
+        (real,) = placed.json()["key_map"].values()
+        stored = db.collection(col.LOCATIONS).get(real)
+        assert (stored["site_key"], stored["template_key"], "tenant_key" in stored) == ("site_a", "tpl_a", False)
+
+        refused = client.post(url, json={**body, "template_key": "tpl_b", "expected_revision": 2})
+        assert refused.status_code == 422 and "reference.not_found" in _error_codes(refused)
 
 
 class TestTheMatrixCanFail:
@@ -1034,6 +1135,17 @@ REFERENCE_CASES: tuple[ReferenceCase, ...] = (
         "barrel_a",
         "barrel_gone",
     ),
+    # REQ-053 WP 7.9, GP-NFR-058: the template of place-template is a system one or the tenant's own.
+    ReferenceCase(
+        "place_template.template_key",
+        "POST",
+        "/sites/site_a/plan/place-template",
+        "template_key",
+        lambda key: {"template_key": key, "origin": [5, 5], "rotation_deg": 0, "expected_revision": 1},
+        "tpl_b",
+        "tpl_a",
+        "tpl_gone",
+    ),
     ReferenceCase(
         "zone_patch.water_source_key",
         "PATCH",
@@ -1125,6 +1237,14 @@ class TestTheReferenceChecksCanFail:
         # WP 7.1: a zone service that skipped its reference resolution (the beds, the water source) — and, because the
         # writes re-check the zone and the water source inside their transaction, those second checks as well; with
         # either layer alone in place the refusal still holds, so the falsification must switch off both.
+        def every_template(self, template_key, *, tenant_key):
+            # WP 7.9: a placement that resolves the template without the visibility predicate.
+            document = db.collection(col.BED_TEMPLATES).get(template_key)
+            if document is None:
+                raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+            return BedTemplate(**document)
+
+        monkeypatch.setattr(GardenPlanService, "_visible_template", every_template)
         monkeypatch.setattr(IrrigationZoneService, "_resolve_locations", no_resolution)
         monkeypatch.setattr(IrrigationZoneService, "_resolve_water_source", no_resolution)
         monkeypatch.setattr(ArangoIrrigationZoneRepository, "_take_water_source", staticmethod(no_resolution))

@@ -285,9 +285,13 @@ class TestTheRouteOperand:
         +2: the zone status and the watering round (REQ-053 WP 7.3, #2469):
         ``GET /t/{slug}/irrigation-zones/{key}/status`` and ``POST …/{key}/log-watering``. Same open consumer
         (the zone panel, WP 7.6 / 7.7).
+
+        +5: the bed templates (REQ-053 WP 7.8/7.9, #2474, #2475): ``GET|POST /t/{slug}/bed-templates``,
+        ``PATCH|DELETE /t/{slug}/bed-templates/{key}`` and ``POST /t/{slug}/sites/{key}/plan/place-template``. Their
+        consumer is the template picker (WP 7.10, frontend), open - all five are reported candidates until it lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 879
+        assert len(checker.collect_operations(app)) == 884
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

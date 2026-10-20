@@ -8,6 +8,7 @@ type LocationKey = str
 type SlotKey = str
 type GardenObjectKey = str
 type IrrigationZoneKey = str
+type BedTemplateKey = str
 type SubstrateKey = str
 type BatchKey = str
 type PhaseKey = str

@@ -48,6 +48,7 @@ from app.domain.calculators.geometry_calculator import (
     transform_bed_to_plan,
     validate_geometry,
 )
+from app.domain.calculators.template_placement_calculator import place_geometry
 from app.domain.engines.garden_plan_engine import (
     ERROR_BOUNDARY_SHRINKS,
     ERROR_OBJECT_LOCKED,
@@ -59,9 +60,11 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.bed_template import BedTemplate
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BATCH_TIME_BUDGET_SECONDS,
@@ -86,6 +89,7 @@ from app.domain.models.garden_plan import (
     SetBoundaryOp,
     SetLockedOp,
     SetZOrderOp,
+    TemplateLocationData,
     UpdateFieldsOp,
     UpdateGeometryOp,
 )
@@ -121,6 +125,9 @@ _LOCATION_COLUMNS: frozenset[str] = frozenset(
 _OBJECT_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "label", "notes", "props", "off_site", "locked", "z_order"}
 )
+
+#: The request-local name of the one bed ``place-template`` creates; the answer maps it to the real key.
+_TEMPLATE_TEMP_KEY = "template_bed"
 
 _ENTITY_LOCATION = "location"
 _ENTITY_OBJECT = "garden_object"
@@ -227,11 +234,14 @@ class GardenPlanService:
         site_repo: ISiteRepository,
         plan_repo: IGardenPlanRepository,
         zone_repo: IIrrigationZoneRepository | None = None,
+        template_repo: IBedTemplateRepository | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
         #: ``None`` = a caller that never asks for ``include=zones`` (the read model then carries no zones).
         self._zones = zone_repo
+        #: ``None`` = a caller that never places a template; no template key is then visible (WP 7.9).
+        self._templates = template_repo
 
     # ── Anchor ────────────────────────────────────────────────────────────────
 
@@ -430,6 +440,77 @@ class GardenPlanService:
             started=started,
             structure=(locations, objects),
         )
+
+    # ── §21.7: place a bed template ──────────────────────────────────────────
+
+    def place_template(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        template_key: str,
+        origin: tuple[float, float],
+        rotation_deg: float,
+        expected_revision: int,
+    ) -> PlanBatchResult:
+        """Create one bed from a template, through the same path as a batch ``create_location`` (WP 7.9, #2475).
+
+        Order (SR-013): tenant anchor (404) -> role (403) -> the template, which must be a system template or the
+        tenant's own (422 ``reference.not_found`` for an absent *and* a foreign key alike) -> its location type
+        -> the geometry placed at ``origin`` and turned by ``rotation_deg`` (422 ``geometry.invalid``) -> the
+        plan rules of any batch: containment (422 ``geometry.outside_parent``), overlap, quota and, inside the
+        transaction, the revision (409 ``plan.revision_conflict``).
+
+        The bed receives a **copy** of the template's fields (name, location type, geometry, height, soil axes);
+        ``Location.template_key`` records where it came from and nothing else follows the template afterwards.
+        ``recurring_task_templates`` are not applied (operator decision of 2026-10-19, #2466 item 9).
+        """
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+        template = self._visible_template(template_key, tenant_key=tenant_key)
+        if template.location_type_key not in self._plan.bed_type_flags([template.location_type_key]):
+            raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+        try:
+            data = TemplateLocationData.model_validate(
+                {
+                    "name": template.name,
+                    "location_type_key": template.location_type_key,
+                    "geometry": place_geometry(template.default_geometry, origin=origin, rotation_deg=rotation_deg),
+                    "height_m": template.height_m,
+                    "template_key": template.key,
+                    "soil_profile": template.soil_profile_defaults.to_soil_profile()
+                    if template.soil_profile_defaults is not None
+                    else None,
+                }
+            )
+        except PydanticValidationError as exc:
+            raise PlanValidationError(_findings_of(exc, None)) from exc
+        operation = CreateLocationOp(op="create_location", temp_key=_TEMPLATE_TEMP_KEY, data=data)
+        return self._apply(
+            site,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            expected_revision=expected_revision,
+            basis_revision=self._revision_of(site),
+            operations=[operation],
+            started=_now(),
+        )
+
+    def _visible_template(self, template_key: str, *, tenant_key: str) -> BedTemplate:
+        """The template when it is a system one or the tenant's own; otherwise 422 - a foreign key is no oracle."""
+        found = self._templates.get_visible_by_key(template_key, tenant_key=tenant_key) if self._templates else None
+        if found is None:
+            raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+        return found
+
+    def visible_template_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
+        """Which of ``keys`` are system templates or the tenant's own (the import resolves ``template_key`` so)."""
+        if not keys or self._templates is None:
+            return set()
+        return self._templates.visible_keys(keys, tenant_key=tenant_key)
 
     # ── (2) references ────────────────────────────────────────────────────────
 
@@ -685,6 +766,8 @@ class GardenPlanService:
                 locked=data.locked,
                 z_order=data.z_order,
                 area_m2=0.0,
+                template_key=data.template_key if isinstance(data, TemplateLocationData) else None,
+                soil_profile=data.soil_profile if isinstance(data, TemplateLocationData) else None,
             )
         except PydanticValidationError as exc:
             work.findings.extend(_findings_of(exc, index))

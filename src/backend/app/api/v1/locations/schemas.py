@@ -110,6 +110,8 @@ class LocationResponse(BaseModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
+    #: The bed template this bed was placed from (provenance, WP 7.9).
+    template_key: str | None = None
     soil_profile: SoilProfileSchema | None = None
     site_conditions: SiteConditions | None = None
     notes: str | None = None

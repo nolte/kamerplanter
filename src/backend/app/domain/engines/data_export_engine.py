@@ -589,6 +589,7 @@ class DataExportEngine:
                 "bed_status",
                 "sun_exposure",
                 "irrigation_zone_key",
+                "template_key",
                 "soil_profile",
                 "site_conditions",
                 "notes",
@@ -643,6 +644,25 @@ class DataExportEngine:
                 "locked",
                 "z_order",
                 "notes",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="bed_templates",
+            filter_field="created_by",
+            label="Bed templates you created",
+            # REQ-053 §20.12 (WP 7.8, #2474): the subject's own templates; ``name`` is free text (Art. 15). The system
+            # templates carry no author and are not the subject's. The author key itself is not repeated.
+            fields=[
+                "_key",
+                "tenant_key",
+                "name",
+                "location_type_key",
+                "default_geometry",
+                "height_m",
+                "default_layout",
+                "soil_profile_defaults",
+                "recurring_task_templates",
                 "created_at",
             ],
         ),

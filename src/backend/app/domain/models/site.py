@@ -351,6 +351,10 @@ class Location(BaseModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
+    #: The bed template this bed was placed from (REQ-053 §21.7, WP 7.9, #2475): **provenance only** - a copy of
+    #: the template's fields was taken, so later edits to or the deletion of the template change nothing here.
+    #: A system (global) key or one of the tenant's own; the export carries it, the import resolves or drops it.
+    template_key: str | None = None
     soil_profile: SoilProfile | None = None
     #: Sun profile, microclimate, wind, slope … of the bed (§10.2, WP 3.9); ``None`` = nothing entered.
     site_conditions: SiteConditions | None = None

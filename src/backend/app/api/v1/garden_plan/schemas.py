@@ -129,6 +129,36 @@ class PlanBatchResponse(BaseModel):
     derived: dict[str, DerivedGeometrySchema] = Field(default_factory=dict)
 
 
+class PlaceTemplateRequest(BaseModel):
+    """``POST /sites/{key}/plan/place-template`` (§21.7): one bed from a template, at a point, turned."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "template_key": "sys_raised_bed_2x1x0_8",
+                    "origin": [4.0, 1.0],
+                    "rotation_deg": 90,
+                    "expected_revision": 42,
+                }
+            ]
+        },
+    )
+
+    template_key: str = Field(
+        min_length=1, max_length=200, description="A system template or one of the tenant's own (GET /bed-templates)."
+    )
+    origin: tuple[float, float] = Field(
+        description="Where the template's anchor (lower-left corner of a rectangle, centre of a circle, first "
+        "vertex of a polygon) lands in the plan frame, in metres."
+    )
+    rotation_deg: float = Field(
+        default=0.0, ge=0.0, lt=360.0, description="Counter-clockwise, added to the template's own rotation."
+    )
+    expected_revision: int = Field(ge=0, description="The plan_revision the client's copy was loaded at (V-14).")
+
+
 class PlanBoundaryResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={"examples": [{"plan_revision": 1, "total_area_m2": 100.0, "boundary": _RECT}]}
@@ -171,6 +201,8 @@ class PlanLocationResponse(BaseModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
+    #: The bed template this bed was placed from (provenance, WP 7.9).
+    template_key: str | None = None
     locked: bool = False
     z_order: int = 0
     season_state: str | None = Field(default=None, description="Derived (§7.4): empty or planted until WP 3.x/4.x.")
