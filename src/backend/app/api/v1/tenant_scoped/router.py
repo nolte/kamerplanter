@@ -14,6 +14,7 @@ from app.api.v1.activity_plans.tenant_router import router as tenant_activity_pl
 from app.api.v1.actuators.tenant_router import router as tenant_actuators_router
 from app.api.v1.aquaponik.tenant_router import router as tenant_aquaponics_router
 from app.api.v1.attachments.tenant_router import router as tenant_attachments_router
+from app.api.v1.bed_templates.tenant_router import router as tenant_bed_templates_router
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
 from app.api.v1.care_events.tenant_router import router as tenant_care_events_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
@@ -83,6 +84,8 @@ tenant_scoped_router.include_router(tenant_garden_plan_router)
 tenant_scoped_router.include_router(tenant_garden_objects_router)
 # REQ-053 WP 7.1 — irrigation zones (/sites/{key}/irrigation-zones, /irrigation-zones/{key}[/locations]).
 tenant_scoped_router.include_router(tenant_irrigation_zones_router)
+# REQ-053 WP 7.8 — bed templates (/bed-templates, /bed-templates/{key}).
+tenant_scoped_router.include_router(tenant_bed_templates_router)
 # REQ-053 WP 4.1 — the care log (/care-events).
 tenant_scoped_router.include_router(tenant_care_events_router)
 # REQ-023 §5b (#2137) — the tenant's service accounts (lead ∧ technical, step-up on every write).

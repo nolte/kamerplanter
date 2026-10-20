@@ -263,6 +263,12 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "irrigation_zone.IrrigationZone.site_key": _V,
     "irrigation_zone.IrrigationZone.water_source_key": _V,
     "irrigation_zone.IrrigationZone.actuator_key": _I,
+    # REQ-053 §20.12 / §21.7 (WP 7.8 / 7.9, #2474, #2475): a template's `location_type_key` is a global location type
+    # (`BedTemplateService` resolves it and refuses a type that is no bed type, 422); a bed's `template_key` is set only
+    # by `GardenPlanService.place_template` (the template must be a system one or the tenant's own, 422
+    # `reference.not_found` otherwise) and by the plan import (`visible_template_keys`: else dropped and reported).
+    "bed_template.BedTemplate.location_type_key": _G,
+    "site.Location.template_key": _V,
     "actuator.Actuator.location_key": _V,
     "actuator.ControlEvent.actuator_key": _I,
     "actuator.ControlEvent.location_key": _I,

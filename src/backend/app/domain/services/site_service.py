@@ -30,6 +30,7 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "site_conditions",
     "soil_profile",
     "sun_exposure",
+    "template_key",
     "z_order",
 )
 

@@ -10,8 +10,8 @@ and no model. So this guard pins the named list itself, from the models, against
 * each named ``(collection, field)`` that a model carries is in ``ErasureEngine``'s anonymisation or
   pseudonymisation rules (or is excluded with a reason);
 * each rule names a field the model really has (a rule on a field that does not exist erases nothing, #1663);
-* ``bed_templates`` has **no model and no writer yet** (§20.12 is WP 8.x). The day one appears this test
-  demands the ``created_by`` rule in the same change, instead of leaving it to be discovered.
+* ``bed_templates`` has a model since WP 7.8 (#2474); it is read off the model like the others, and the
+  second guard below keeps demanding the ``created_by`` rule for any module that names the collection.
 
 Spelling it does not see: an account reference stored under a name outside the R6 pattern.
 """
@@ -24,6 +24,7 @@ from pathlib import Path
 
 from app.data_access.arango import collections as col
 from app.domain.engines.erasure_engine import ErasureEngine
+from app.domain.models.bed_template import BedTemplate
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlanAuditRecord
@@ -40,6 +41,7 @@ NAMED = (
     (col.GARDEN_OBJECTS, "", GardenObject),
     (col.SITES, "plan.", SitePlan),
     (col.GARDEN_PLAN_AUDIT, "", PlanAuditRecord),
+    (col.BED_TEMPLATES, "", BedTemplate),
 )
 
 
@@ -70,6 +72,7 @@ def test_the_named_fields_are_what_the_requirement_lists() -> None:
     assert account_fields(GardenObject) == {"created_by"}
     assert account_fields(SitePlan) == {"plan_updated_by"}
     assert account_fields(PlanAuditRecord) == {"user_key"}
+    assert account_fields(BedTemplate) == {"created_by"}
 
 
 def test_every_account_reference_of_the_named_collections_is_in_the_cascade() -> None:
@@ -110,14 +113,15 @@ def _mentions_bed_templates(path: Path) -> bool:
     return False
 
 
-def test_bed_templates_has_no_writer_yet_or_carries_its_rule() -> None:
-    """§20.12 (``bed_templates``) arrives with WP 8.x; its first writer must bring the ``created_by`` rule."""
+def test_every_module_that_writes_or_models_bed_templates_has_the_rule_in_the_cascade() -> None:
+    """§20.12 (``bed_templates``, WP 7.8): a writer or a model of the collection needs the ``created_by`` rule."""
     sources = [
         path
         for path in (APP / "data_access").rglob("*.py")
         if path.name != "collections.py" and "migrations" not in path.parts
     ] + list((APP / "domain" / "models").glob("*.py"))
     mentions = [path.relative_to(APP).as_posix() for path in sources if _mentions_bed_templates(path)]
+    assert mentions, "the scan found no module that names bed_templates: it has gone blind"
     if mentions:
         assert ("bed_templates", "created_by") in reached(), (
             f"{mentions} write or model bed_templates, but ErasureEngine has no rule for bed_templates.created_by "

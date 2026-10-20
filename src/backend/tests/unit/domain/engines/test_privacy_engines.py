@@ -16,6 +16,7 @@ from app.domain.models.actuator import ManualOverride
 from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTipCard
 from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
+from app.domain.models.bed_template import BedTemplate
 from app.domain.models.calendar import CalendarFeed
 from app.domain.models.care_event import ACCOUNT_FIELDS, CareEvent
 from app.domain.models.feeding_event import FeedingEvent
@@ -112,6 +113,8 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "locations": Location,
     "slots": Slot,
     "garden_objects": GardenObject,
+    # REQ-053 WP 7.8 (#2474): the subject's own bed templates (``created_by``), Art. 15 and the account erasure.
+    "bed_templates": BedTemplate,
     "care_events": CareEvent,
     "plant_instances": PlantInstance,
     "planting_runs": PlantingRun,

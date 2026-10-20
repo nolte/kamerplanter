@@ -419,13 +419,16 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # REQ-053 WP 7.1 (#2467, GP-ACC-046): the irrigation zones. The zone carries its tenant; the site, the beds and the
     # water source of a body are resolved under it inside the service, never in the router.
     "IrrigationZoneService": "irrigation_zone_service.py",
+    # REQ-053 WP 7.8 (#2474): the bed-template catalogue. A template is a system (global) row or the tenant's own;
+    # every read admits exactly those two arms and every write names the row's owner, resolved inside the service.
+    "BedTemplateService": "bed_template_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
 #: twenty and more; a smaller class is pinned at its measured count so an emptied match still fails.
 _MIN_TENANT_METHODS: dict[str, int] = {
     "PlantPhotoService": 10,
-    "GardenPlanService": 6,
+    "GardenPlanService": 7,
     "GardenResourceService": 12,
     "CareEventService": 7,
     "PlantingReservationService": 6,
@@ -436,6 +439,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "PlantStateService": 1,
     "BedHistoryService": 1,
     "IrrigationZoneService": 11,
+    "BedTemplateService": 5,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -549,6 +553,7 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
         "GardenPlanService.apply_batch",
         "GardenPlanService.set_boundary",
+        "GardenPlanService.place_template",
         "GardenResourceService.patch_location",
         "GardenResourceService.change_bed_status",
         "GardenResourceService.delete_location",
@@ -789,3 +794,26 @@ def test_gp_acc_046_the_zone_services_keyed_writes_are_seen_and_strict() -> None
     assert set(_ZONE_KEYED_WRITES) <= set(shapes), sorted(set(_ZONE_KEYED_WRITES) - set(shapes))
     assert {name: shapes[name] for name in _ZONE_KEYED_WRITES} == dict.fromkeys(_ZONE_KEYED_WRITES, "strict")
     assert not set(_ZONE_KEYED_WRITES) & _REMAINING
+
+
+# ── REQ-053 WP 7.8 (#2474): the bed-template service's keyed writes ────────────────────────────────────────
+#
+# ``patch_template`` and ``delete_template`` load a template by key (a system row or the tenant's own) and write it.
+# Pinned by name so a refactor that hid the load behind a helper the selector does not follow fails here instead of
+# passing by finding nothing; each takes the tenant keyword-only without a default. ``place_template`` (WP 7.9) is
+# held by the anchored list above.
+
+_BED_TEMPLATE_KEYED_WRITES = (
+    "BedTemplateService.patch_template",
+    "BedTemplateService.delete_template",
+)
+
+
+def test_the_bed_template_services_keyed_writes_are_seen_and_strict() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+
+    assert set(_BED_TEMPLATE_KEYED_WRITES) <= set(shapes), sorted(set(_BED_TEMPLATE_KEYED_WRITES) - set(shapes))
+    assert {name: shapes[name] for name in _BED_TEMPLATE_KEYED_WRITES} == dict.fromkeys(
+        _BED_TEMPLATE_KEYED_WRITES, "strict"
+    )
+    assert not set(_BED_TEMPLATE_KEYED_WRITES) & _REMAINING

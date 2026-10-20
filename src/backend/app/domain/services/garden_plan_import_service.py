@@ -359,6 +359,10 @@ class GardenPlanImportService:
         flags = self._plan.bed_type_flags(sorted({loc.location_type_key for loc in parsed.locations}))
         zone_cache: dict[str, str | None] = {}
         substrate_cache: dict[str, bool] = {}
+        # WP 7.9: the templates the file's beds were placed from - system ones and the target tenant's own.
+        visible_templates = self._plans.visible_template_keys(
+            sorted({loc.template_key for loc in parsed.locations if loc.template_key}), tenant_key=tenant_key
+        )
 
         for position in self._parents_first(prepared, parsed.locations, index_of):
             self._add_location(
@@ -371,6 +375,7 @@ class GardenPlanImportService:
                 flags=flags,
                 zone_cache=zone_cache,
                 substrate_cache=substrate_cache,
+                visible_templates=visible_templates,
             )
         for position, item in enumerate(parsed.garden_objects):
             self._add_object(prepared, item, position, site_key=site_key, user_key=user_key, index_of=index_of)
@@ -535,6 +540,7 @@ class GardenPlanImportService:
         flags: dict[str, bool],
         zone_cache: dict[str, str | None],
         substrate_cache: dict[str, bool],
+        visible_templates: set[str],
     ) -> None:
         temp = f"imp_loc_{position}"
         parent_key = self._resolve_parent(prepared, item, index_of)
@@ -559,6 +565,10 @@ class GardenPlanImportService:
                     DroppedReference(entity=_LOCATION, key=item.key, field="irrigation_zone_key", reason=reason)
                 )
                 zone_key = None
+        template_key = item.template_key
+        if template_key and template_key not in visible_templates:
+            prepared.drop(DroppedReference(entity=_LOCATION, key=item.key, field="template_key", reason="not_found"))
+            template_key = None
         soil = _copied(item.soil_profile) if item.soil_profile is not None else None
         site_conditions = _copied(item.site_conditions) if item.site_conditions is not None else None
         if soil is not None and soil.substrate_key:
@@ -593,6 +603,7 @@ class GardenPlanImportService:
             if site_conditions is not None
             else None,
             "irrigation_zone_key": zone_key,
+            "template_key": template_key,
             "locked": item.locked,
             "z_order": item.z_order,
         }

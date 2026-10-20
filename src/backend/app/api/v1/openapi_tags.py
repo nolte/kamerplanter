@@ -72,6 +72,7 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "import", "description": "Master-data import (REQ-012)."},
     {"name": "inventree", "description": "Optional InvenTree inventory integration (REQ-016)."},
     {"name": "ipm", "description": "Integrated pest management: pests, treatments, karenz periods (REQ-010)."},
+    {"name": "bed-templates", "description": "Bed templates: standard sizes and the tenant's own (REQ-053)."},
     {
         "name": "irrigation-zones",
         "description": "Irrigation zones of a site and the beds they cover (REQ-053).",

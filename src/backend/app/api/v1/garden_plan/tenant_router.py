@@ -24,6 +24,7 @@ from app.api.v1.garden_plan.schemas import (
     SCHEMA_VERSION,
     DerivedGeometrySchema,
     GardenPlanResponse,
+    PlaceTemplateRequest,
     PlanAuditEntryResponse,
     PlanBatchRequest,
     PlanBatchResponse,
@@ -285,6 +286,47 @@ def apply_batch(
             expected_revision=body.expected_revision,
             operations=body.operations,
             body_bytes=_operations_bytes(body.operations),
+        )
+    except PlanRevisionConflictError:
+        record_conflict()
+        raise
+    observe_batch_duration(perf_counter() - started)
+    return _batch_response(result)
+
+
+@router.post(
+    "/{key}/plan/place-template",
+    response_model=PlanBatchResponse,
+    summary="Place one bed from a bed template",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+def place_template(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlaceTemplateRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> PlanBatchResponse:
+    """Create a bed from a template through the batch path (GP-FR-044, WP 7.9): one transaction, one revision.
+
+    The bed gets a copy of the template's name, location type, geometry (anchor at `origin`, turned by
+    `rotation_deg`), height and soil axes; `template_key` is kept on it as provenance. In order: the template
+    (422 `reference.not_found` - a foreign key answers like an absent one), the geometry (422 `geometry.invalid`),
+    containment and overlap (422 `geometry.outside_parent`, `bed.overlap`) and last the revision (409
+    `plan.revision_conflict`). `key_map` maps `template_bed` to the new location key.
+    """
+    started = perf_counter()
+    try:
+        result = service.place_template(
+            key,
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            role=ctx.role,
+            template_key=body.template_key,
+            origin=body.origin,
+            rotation_deg=body.rotation_deg,
+            expected_revision=body.expected_revision,
         )
     except PlanRevisionConflictError:
         record_conflict()
