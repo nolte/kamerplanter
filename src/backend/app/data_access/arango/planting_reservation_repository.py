@@ -40,6 +40,8 @@ from app.domain.models.care_event import MAX_PLANTS_PER_EVENT
 from app.domain.models.planting_reservation import (
     ClearBedOutcome,
     ClearBedWrite,
+    MixedRunsOutcome,
+    MixedRunsWrite,
     PlantingRow,
     QuickPlantOutcome,
     QuickPlantWrite,
@@ -88,6 +90,17 @@ _CLEAR_WRITE = (
     *CARE_EVENT_WRITE_COLLECTIONS,
 )
 _CLEAR_READ = (col.PLACED_IN, col.RUN_CONTAINS, col.RUN_AT_LOCATION)
+_MIXED_WRITE = (
+    col.LOCATIONS,
+    col.SLOTS,
+    col.HAS_SLOT,
+    col.PLANTING_RUNS,
+    col.PLANTING_RUN_ENTRIES,
+    col.RUN_AT_LOCATION,
+    col.HAS_ENTRY,
+    col.ENTRY_FOR_SPECIES,
+    col.RUN_PLANNED_AT,
+)
 _QUICK_WRITE = (
     col.LOCATIONS,
     col.SLOTS,
@@ -779,6 +792,57 @@ class ArangoPlantingReservationRepository(IPlantingReservationRepository):
                 bind_vars={"@slots": col.SLOTS, "ids": release, "now": now},
             )
         return len(archive), len(release)
+
+    def create_mixed_runs(self, write: MixedRunsWrite) -> MixedRunsOutcome:
+        run_keys: list[str] = []
+        slot_keys: list[str] = []
+        with stream_transaction(
+            self._db,
+            write=_MIXED_WRITE,
+            entity="mixed_culture_runs",
+            time_budget_seconds=write.time_budget_seconds,
+        ) as txn:
+            now = _now()
+            self._lock_location(txn, write.location_key, now)
+            location_id = f"{col.LOCATIONS}/{write.location_key}"
+            for item in write.runs:
+                run_key = txn.collection(col.PLANTING_RUNS).insert(_insert_doc(item.run, now), return_new=True)["new"][
+                    "_key"
+                ]
+                run_keys.append(run_key)
+                run_id = f"{col.PLANTING_RUNS}/{run_key}"
+                txn.collection(col.RUN_AT_LOCATION).insert({"_from": run_id, "_to": location_id, "created_at": now})
+                entry_doc = _insert_doc(item.entry, now)
+                entry_doc["run_key"] = run_key
+                entry_key = txn.collection(col.PLANTING_RUN_ENTRIES).insert(entry_doc, return_new=True)["new"]["_key"]
+                entry_id = f"{col.PLANTING_RUN_ENTRIES}/{entry_key}"
+                txn.collection(col.HAS_ENTRY).insert({"_from": run_id, "_to": entry_id, "created_at": now})
+                txn.collection(col.ENTRY_FOR_SPECIES).insert(
+                    {"_from": entry_id, "_to": f"{col.SPECIES}/{item.entry.species_key}", "created_at": now}
+                )
+                for reserved in item.slots:
+                    doc = _insert_doc(reserved.slot, now)
+                    doc["location_key"] = write.location_key
+                    stored = txn.collection(col.SLOTS).insert(doc, return_new=True)["new"]
+                    slot_keys.append(stored["_key"])
+                    txn.collection(col.HAS_SLOT).insert(
+                        {"_from": location_id, "_to": f"{col.SLOTS}/{stored['_key']}", "created_at": now}
+                    )
+                    txn.collection(col.RUN_PLANNED_AT).insert(
+                        self._edge_doc(
+                            run_key,
+                            stored["_key"],
+                            now,
+                            entry_key=entry_key,
+                            planned_species_key=item.entry.species_key,
+                            sequence=reserved.sequence,
+                            planned_from=item.planned_from.isoformat(),
+                            planned_until=item.planned_until.isoformat() if item.planned_until else None,
+                        )
+                    )
+                    txn.check_budget()
+                txn.check_budget()
+        return MixedRunsOutcome(run_keys=run_keys, created_slot_keys=slot_keys)
 
     def quick_plant(self, write: QuickPlantWrite) -> QuickPlantOutcome:
         with stream_transaction(

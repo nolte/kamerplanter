@@ -85,6 +85,7 @@ from app.data_access.arango.plant_instance_repository import ArangoPlantInstance
 from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
 from app.data_access.arango.planting_reservation_repository import (
     _CLEAR_WRITE,
+    _MIXED_WRITE,
     _QUICK_WRITE,
     ArangoPlantingReservationRepository,
 )
@@ -169,6 +170,7 @@ _TOUCHED: tuple[str, ...] = tuple(
             *_SLOT_BATCH_WRITE,
             *_CLEAR_WRITE,
             *_QUICK_WRITE,
+            *_MIXED_WRITE,
             *ZONE_WRITE,
             *COVERAGE_WRITE,
             *DELETE_WRITE,
@@ -679,6 +681,41 @@ CASES: tuple[Case, ...] = (
         owner_status=201,
         writes=True,
     ),
+    # #2463: the per-species runs of a mixed culture on a bed in one transaction - a foreign bed is a 404 before the
+    # species or the layout are looked at, and nothing is written.
+    Case(
+        "create_mixed_culture",
+        "POST",
+        "/planting-runs/mixed-culture",
+        {
+            "location_key": "bed_b",
+            "planned_start_date": "2026-05-20",
+            "runs": [
+                {
+                    "name": "Tomato - Bobs Geheimbeet",
+                    "entry": {
+                        "species_key": "sp",
+                        "quantity": 2,
+                        "id_prefix": "TOM",
+                        "spacing_cm": 50,
+                        "layout_strategy": "grid",
+                    },
+                },
+                {
+                    "name": "Basil - Bobs Geheimbeet",
+                    "entry": {
+                        "species_key": "sp",
+                        "quantity": 2,
+                        "id_prefix": "BAS",
+                        "spacing_cm": 50,
+                        "layout_strategy": "grid",
+                    },
+                },
+            ],
+        },
+        owner_status=201,
+        writes=True,
+    ),
     # REQ-053 WP 3.4, GP-API-025 / 039 / 042: rotation hints, the timeline and the history backfill of a bed.
     Case("validate_planting", "POST", "/locations/bed_b/validate-planting", {"species_key": "sp"}),
     Case("get_rotation", "GET", "/locations/bed_b/rotation"),
@@ -861,6 +898,7 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
     from app.api.v1.garden_plan.tenant_router import router as garden_plan
     from app.api.v1.irrigation_zones.tenant_router import router as irrigation_zones
     from app.api.v1.locations.tenant_router import router as locations
+    from app.api.v1.planting_runs.tenant_router import router as planting_runs
     from app.api.v1.slots.tenant_router import router as slots
 
     found: set[tuple[str, str]] = set()
@@ -868,6 +906,14 @@ def _routes_of_the_four_routers() -> set[tuple[str, str]]:
         for route in router.routes:
             path = f"{router.prefix}{route.path.removeprefix(router.prefix)}"
             found.update((method, path) for method in route.methods)
+    # The planting-run router predates REQ-053 and is pinned route by route elsewhere (#1871); only the route
+    # that writes a bed's slots on behalf of a request body (#2463) belongs to this matrix.
+    for route in planting_runs.routes:
+        if route.path.endswith("/mixed-culture"):
+            found.update(
+                (method, f"{planting_runs.prefix}{route.path.removeprefix(planting_runs.prefix)}")
+                for method in route.methods
+            )
     return found
 
 
@@ -915,6 +961,79 @@ class TestAForeignTenantIsRefusedOnEveryRoute:
         assert response.status_code == case.owner_status, _detail(case, response)
         applied = [entry for entry in logs if entry["event"] == "garden_plan.batch_applied"]
         assert bool(applied) is case.logs_batch, f"{case.name}: {logs}"
+
+
+_MIXED = next(case for case in CASES if case.name == "create_mixed_culture")
+
+
+class TestAMixedCultureIsOneTransaction:
+    """#2463: every run of the request, with its entry, slots and reservations, or nothing at all."""
+
+    def _post(self, db, body: dict[str, Any], *, role: TenantRole = TenantRole.GROWER):
+        client = _client(db, tenant=B, role=role)
+        return client.post(f"/api/v1/t/{SLUG_B}/planting-runs/mixed-culture", json=body)
+
+    def test_a_grower_creates_all_runs_with_their_slots_and_reservations(self, db) -> None:
+        response = self._post(db, _MIXED.body)
+
+        assert response.status_code == 201, response.text
+        runs = response.json()["runs"]
+        assert [run["name"] for run in runs] == ["Tomato - Bobs Geheimbeet", "Basil - Bobs Geheimbeet"]
+        assert {run["status"] for run in runs} == {"planned"} and {run["run_type"] for run in runs} == {"monoculture"}
+        stored = list(db.collection(col.PLANTING_RUNS).all())
+        assert len(stored) == 2 and {run["tenant_key"] for run in stored} == {B}
+        assert len(list(db.collection(col.PLANTING_RUN_ENTRIES).all())) == 2
+        edges = list(db.collection(col.RUN_PLANNED_AT).all())
+        assert len(edges) == 4 and {edge["_from"].split("/")[1] for edge in edges} == {run["key"] for run in runs}
+        assert len(list(db.collection(col.RUN_AT_LOCATION).all())) == 2
+
+    def test_a_refused_species_stores_none_of_the_runs(self, db) -> None:
+        body = copy.deepcopy(_MIXED.body)
+        body["runs"][1]["entry"]["species_key"] = "sp_unknown"
+
+        response = self._post(db, body)
+
+        assert response.status_code == 422, response.text
+        for name in (col.PLANTING_RUNS, col.PLANTING_RUN_ENTRIES, col.RUN_PLANNED_AT, col.RUN_AT_LOCATION):
+            assert list(db.collection(name).all()) == [], name
+
+    def test_a_write_that_fails_half_way_rolls_every_run_back(self, db, monkeypatch) -> None:
+        """The second run's entry insert explodes inside the transaction: the first run must not stay."""
+        original = ArangoPlantingReservationRepository._edge_doc
+        calls: list[str] = []
+
+        def failing(run_key, slot_key, now, **properties):
+            calls.append(slot_key)
+            if len(calls) == 3:  # the first slot of the second run
+                raise RuntimeError("boom")
+            return original(run_key, slot_key, now, **properties)
+
+        monkeypatch.setattr(ArangoPlantingReservationRepository, "_edge_doc", staticmethod(failing))
+
+        response = self._post(db, _MIXED.body)
+
+        assert response.status_code == 500, response.text
+        for name in (col.PLANTING_RUNS, col.PLANTING_RUN_ENTRIES, col.RUN_PLANNED_AT, col.RUN_AT_LOCATION):
+            assert list(db.collection(name).all()) == [], name
+        assert len(list(db.collection(col.SLOTS).all())) == 4  # the fixture's own two slots per bed, none added
+
+    def test_a_viewer_may_not_create_and_a_grower_still_may_not_delete_a_run(self, db) -> None:
+        assert self._post(db, _MIXED.body, role=TenantRole.VIEWER).status_code == 403
+        created = self._post(db, _MIXED.body, role=TenantRole.GROWER).json()["runs"]
+
+        grower = _client(db, tenant=B, role=TenantRole.GROWER)
+        refused = grower.delete(f"/api/v1/t/{SLUG_B}/planting-runs/{created[0]['key']}")
+        lead = _client(db, tenant=B, role=TenantRole.LEAD)
+        deleted = lead.delete(f"/api/v1/t/{SLUG_B}/planting-runs/{created[0]['key']}")
+
+        assert refused.status_code == 403, refused.text  # no permission change on DELETE /planting-runs
+        assert deleted.status_code == 204, deleted.text
+
+    def test_the_body_cannot_name_the_tenant_of_a_run(self, db) -> None:
+        response = self._post(db, {**_MIXED.body, "tenant_key": A})
+
+        assert response.status_code == 422, response.text
+        assert list(db.collection(col.PLANTING_RUNS).all()) == []
 
 
 class TestTheParentOfAListingIsResolvedUnderTheTenant:

@@ -6591,8 +6591,6 @@
           "plan": "Plan planting",
           "recordPlanted": "Record planted",
           "plantAnyway": "Plant anyway",
-          "partial_one": "One planting was created already and could not be taken back. You find it under planting runs. Delete or complete it there.",
-          "partial_other": "{{count}} plantings were created already and could not be taken back. You find them under planting runs. Delete or complete them there.",
           "alreadyPlantedMargins": "\"I have planted already\" ignores edge margins. Clear them if you want the plants created at once.",
           "submitWaiting": "The crop rotation and neighbour hints are still being checked. You can continue afterwards."
         },

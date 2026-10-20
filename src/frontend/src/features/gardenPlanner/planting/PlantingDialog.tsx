@@ -24,7 +24,6 @@ import { listAllSpecies } from '@/api/endpoints/species';
 import type { Species } from '@/api/types';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useApiError } from '@/hooks/useApiError';
-import { useNotification } from '@/hooks/useNotification';
 import { useServerFavorites } from '@/hooks/useServerFavorites';
 import { toLocalShape } from '../model/geometry';
 import { computeLayout } from '../model/layout';
@@ -53,7 +52,7 @@ import {
   type EntryFormState,
   type Prefill,
 } from './plantingLogic';
-import { PartialPlantingError, quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from './plantingSubmit';
+import { quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from './plantingSubmit';
 import type { RotationSeverity } from './plantingTypes';
 import { speciesLabel } from './SpeciesPicker';
 import { useBedHints, useMixedCompatibility } from './useBedHints';
@@ -74,8 +73,6 @@ interface PlantingDialogProps {
   sunExposure?: SunExposure;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
-  /** Runs were created although a later step failed and they could not be taken back: reload what shows them. */
-  onPartial: () => void;
   /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
   initialAlreadyPlanted?: boolean;
   /**
@@ -125,7 +122,6 @@ export default function PlantingDialog({
   sunExposure = 'unknown',
   onClose,
   onPlanted,
-  onPartial,
   initialAlreadyPlanted = false,
   touchTarget = 48,
 }: PlantingDialogProps) {
@@ -133,7 +129,6 @@ export default function PlantingDialog({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { handleError } = useApiError();
-  const notification = useNotification();
   const { favorites } = useServerFavorites('species');
 
   const [catalogue, setCatalogue] = useState<{ status: 'loading' } | { status: 'ready'; items: Species[] } | { status: 'error' }>({
@@ -371,13 +366,7 @@ export default function PlantingDialog({
       writeLastUsed(effective);
       onPlanted(result);
     } catch (error) {
-      if (error instanceof PartialPlantingError) {
-        handleError(error.reason);
-        notification.warning(t('pages.bed.planting.dialog.partial', { count: error.created.length }));
-        onPartial();
-      } else {
-        handleError(error);
-      }
+      handleError(error);
     } finally {
       setSaving(false);
     }
