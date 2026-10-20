@@ -156,6 +156,19 @@ class IrrigationZoneLogWatering(ZoneWateringInput):
 
 
 class LastWateringResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "at": "2026-10-19T06:30:00Z",
+                    "source": "care_event",
+                    "location_key": "loc_bed_1",
+                    "allocation": "by_area",
+                }
+            ]
+        }
+    )
+
     at: datetime
     source: Literal["care_event", "watering_event"]
     location_key: str | None = None
@@ -164,6 +177,19 @@ class LastWateringResponse(BaseModel):
 
 
 class NextPlannedResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "task_key": "task_71",
+                    "location_key": "loc_bed_2",
+                    "due_date": "2026-10-21T00:00:00Z",
+                    "overdue": False,
+                }
+            ]
+        }
+    )
+
     task_key: str
     location_key: str
     due_date: datetime | None = None
@@ -172,12 +198,25 @@ class NextPlannedResponse(BaseModel):
 
 
 class ConsumptionPartResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"source": "manual_log", "liters": 300.0}]})
+
     source: Literal["manual_log", "actuator_runtime_manual_rate", "actuator_runtime_ha_rate"]
     liters: float
 
 
 class ZoneHintResponse(BaseModel):
     """A hint of the zone panel: `code` is stable (`water_source_lasts_days`, `irrigation_system_differs`)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "water_source_lasts_days",
+                    "params": {"days": 2, "capacity_liters": 200.0, "daily_liters": 95.45},
+                }
+            ]
+        }
+    )
 
     code: str
     params: dict[str, float | int | str | list[str]] = Field(default_factory=dict)
@@ -238,12 +277,31 @@ class IrrigationZoneStatusResponse(BaseModel):
 
 
 class BedShareResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"location_key": "loc_bed_1", "liters": 30.0}]})
+
     location_key: str
     liters: float
 
 
 class IrrigationZoneWateringResponse(BaseModel):
     """GP-API-053: the round as written - the events (one per bed) and what each bed received."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "event_keys": ["ce_1", "ce_2"],
+                    "shares": [
+                        {"location_key": "loc_bed_1", "liters": 30.0},
+                        {"location_key": "loc_bed_2", "liters": 10.0},
+                    ],
+                    "allocation": "by_area",
+                    "performed_at": "2026-10-19T06:30:00Z",
+                    "skipped_location_keys": [],
+                }
+            ]
+        }
+    )
 
     event_keys: list[str]
     shares: list[BedShareResponse]

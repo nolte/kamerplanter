@@ -59,6 +59,11 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "the pairing tests themselves assert — raising it here would blunt the very "
         "thing they measure."
     ),
+    "rate_limit_zone_log_watering": (
+        "No E2E test logs a zone watering round yet (POST /irrigation-zones/{key}/log-watering, REQ-053 "
+        "WP 7.3); the zone panel that calls it is WP 7.6/7.7. One round per grower and minute at most is "
+        "human-scale, so raising it here would test nothing the suite uses."
+    ),
     "rate_limit_email_change": (
         "A couple of change requests per run; the flow is not on any journey path."
     ),
