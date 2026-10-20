@@ -41,8 +41,11 @@ export function parseSunHours(text: string): number | null | undefined {
   return value >= 0 && value <= MAX_HOURS ? value : undefined;
 }
 
-function hoursText(hours: number | null | undefined): string {
-  return hours === null || hours === undefined ? '' : String(hours);
+/** The stored hours in the language of the page ("6,5" in German), without grouping. */
+function hoursText(hours: number | null | undefined, language: string): string {
+  return hours === null || hours === undefined
+    ? ''
+    : new Intl.NumberFormat(language, { maximumFractionDigits: 2, useGrouping: false }).format(hours);
 }
 
 export interface SunWindowFieldsProps {
@@ -53,6 +56,8 @@ export interface SunWindowFieldsProps {
   /** Minimum height of every control in px; 64 in field mode. */
   touchTarget?: number;
   testId?: string;
+  /** The hours field is invalid (or valid again); the caller may refuse to save meanwhile. */
+  onValidityChange?: (valid: boolean) => void;
 }
 
 export default function SunWindowFields({
@@ -61,19 +66,24 @@ export default function SunWindowFields({
   disabled = false,
   touchTarget = 48,
   testId = 'bed-view-sun-profile',
+  onValidityChange,
 }: SunWindowFieldsProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const name = useId();
   const helpId = `${name}-foliage-help`;
   const current = value.sun_window ?? 'unknown';
-  const [draft, setDraft] = useState(hoursText(value.direct_sun_hours_summer));
+  const [draft, setDraft] = useState(hoursText(value.direct_sun_hours_summer, i18n.language));
   const [seen, setSeen] = useState(value.direct_sun_hours_summer);
-  const [invalid, setInvalid] = useState(false);
+  const [invalid, setInvalidState] = useState(false);
+  const setInvalid = (next: boolean) => {
+    setInvalidState(next);
+    onValidityChange?.(!next);
+  };
   // The stored value changed from outside (a reload): show it, drop a stale draft.
   if (value.direct_sun_hours_summer !== seen) {
     setSeen(value.direct_sun_hours_summer);
-    setDraft(hoursText(value.direct_sun_hours_summer));
-    setInvalid(false);
+    setDraft(hoursText(value.direct_sun_hours_summer, i18n.language));
+    if (invalid) setInvalid(false);
   }
 
   const commitHours = () => {
@@ -124,7 +134,7 @@ export default function SunWindowFields({
                   cursor: disabled ? 'default' : 'pointer',
                   opacity: disabled ? 0.6 : 1,
                   '&:hover': disabled ? undefined : { bgcolor: 'action.hover' },
-                  '&:focus-within': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
+                  '&:has(:focus-visible)': { outline: `3px solid ${theme.palette.primary.main}`, outlineOffset: 2 },
                 })}
               >
                 <input

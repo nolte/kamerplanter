@@ -43,6 +43,7 @@ export default function SunDialog({ bedKey, bedName, current, currentProfile, on
   const [chosen, setChosen] = useState<SunExposure>(current);
   const [profilePatch, setProfilePatch] = useState<SunProfilePatch>({});
   const [saving, setSaving] = useState(false);
+  const [hoursValid, setHoursValid] = useState(true);
   const stored: SunProfile = currentProfile ?? {};
   const shown: SunProfile = { ...stored, ...profilePatch };
 
@@ -68,6 +69,8 @@ export default function SunDialog({ bedKey, bedName, current, currentProfile, on
   };
 
   const submit = async () => {
+    // An unreadable hours entry is shown in red under the field; saving waits until it is fixed or cleared.
+    if (!hoursValid) return;
     const profile = changedProfile();
     const profileChanged = Object.keys(profile).length > 0;
     if (chosen === current && !profileChanged) {
@@ -109,6 +112,7 @@ export default function SunDialog({ bedKey, bedName, current, currentProfile, on
           value={shown}
           onChange={(patch) => setProfilePatch((previous) => ({ ...previous, ...patch }))}
           disabled={saving}
+          onValidityChange={setHoursValid}
           testId="bed-view-sun-profile"
         />
       </DialogContent>

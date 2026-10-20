@@ -370,6 +370,28 @@ describe('BedView', () => {
       expect(within(screen.getByTestId('bed-sun-dialog')).getByRole('radio', { name: 'Midday' })).toBeChecked();
     });
 
+    it('does not save while the hours are out of range and keeps the dialog open (0 requests)', async () => {
+      let patched = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          patched += 1;
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      await user.click(within(dialog).getByRole('radio', { name: 'Midday' }));
+      await user.type(within(dialog).getByRole('textbox', { name: 'Hours of direct sun in summer (optional)' }), '30');
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      expect(within(dialog).getByText('Enter a number between 0 and 24, or leave the field empty.')).toBeVisible();
+      expect(screen.getByTestId('bed-sun-dialog')).toBeInTheDocument();
+      expect(patched).toBe(0);
+    });
+
     it('shows what was recorded on one line in the head and nothing when nothing was', async () => {
       useBackend();
       const { unmount } = renderBed(

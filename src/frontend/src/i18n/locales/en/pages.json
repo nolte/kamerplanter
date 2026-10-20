@@ -6266,7 +6266,7 @@
           "label": "Hours of direct sun in summer (optional)",
           "help": "A rough guess is fine, 0 to 24. Leave empty if you do not know.",
           "invalid": "Enter a number between 0 and 24, or leave the field empty.",
-          "summary": "about {{hours}} h of direct sun"
+          "summary": "about {{hours, number}} h of direct sun"
         },
         "foliage": {
           "label": "Leaf shade in summer",

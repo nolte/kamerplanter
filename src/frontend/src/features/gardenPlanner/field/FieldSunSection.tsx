@@ -5,7 +5,7 @@
  * stored value shown is updated at once and corrected by the list reload; a failed write puts it back.
  * While offline the controls are locked (no offline buffer before wave 9, D-23). Leaf shade is a note only.
  */
-import { lazy, Suspense, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -13,9 +13,10 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
 import { patchSun } from '../bed/bedApi';
+// A static import on purpose: the section is always rendered in the sheet, and a lazy chunk that fails to
+// load offline in the garden would replace the whole field-mode page with the router error page.
+import SunWindowFields from '../bed/SunWindowFields';
 import type { BedListItem, SunProfile, SunProfilePatch } from '../bed/types';
-
-const SunWindowFields = lazy(() => import('../bed/SunWindowFields'));
 
 interface FieldSunSectionProps {
   bed: BedListItem;
@@ -33,25 +34,43 @@ export default function FieldSunSection({ bed, canEdit, online, onChanged }: Fie
   const notification = useNotification();
   const stored: SunProfile | undefined = bed.site_conditions?.sun_profile;
   const [pending, setPending] = useState<{ base: SunProfile | undefined; patch: SunProfilePatch } | null>(null);
-  const [saving, setSaving] = useState(false);
-  // A reload brought a new stored value: it wins over the optimistic one.
-  const patch = pending && pending.base === stored ? pending.patch : null;
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
+  const queued = useRef<SunProfilePatch | null>(null);
+  // While a write runs the optimistic value stays; afterwards a reload with a new stored value wins.
+  const patch = pending && (busy || pending.base === stored) ? pending.patch : null;
   const shown: SunProfile = { ...stored, ...patch };
 
-  const change = async (next: SunProfilePatch) => {
-    if (saving) return;
-    setPending({ base: stored, patch: { ...patch, ...next } });
-    setSaving(true);
-    try {
-      await patchSun(bed.key, { sunProfile: next });
-      notification.success(t('pages.gardenPlan.sun.window.saved'));
-      onChanged();
-    } catch (error) {
-      setPending(null);
-      handleError(error);
-    } finally {
-      setSaving(false);
+  /** Sends one change; a change made meanwhile waits in `queued` and goes out next, so no tap is lost. */
+  const send = async (first: SunProfilePatch) => {
+    running.current = true;
+    setBusy(true);
+    let next: SunProfilePatch | null = first;
+    while (next) {
+      try {
+        await patchSun(bed.key, { sunProfile: next });
+        notification.success(t('pages.gardenPlan.sun.window.saved'));
+        onChanged();
+      } catch (error) {
+        queued.current = null;
+        setPending(null);
+        handleError(error);
+        break;
+      }
+      next = queued.current;
+      queued.current = null;
     }
+    running.current = false;
+    setBusy(false);
+  };
+
+  const change = (next: SunProfilePatch) => {
+    setPending((previous) => ({ base: previous?.base ?? stored, patch: { ...previous?.patch, ...next } }));
+    if (running.current) {
+      queued.current = { ...queued.current, ...next };
+      return;
+    }
+    void send(next);
   };
 
   return (
@@ -59,15 +78,13 @@ export default function FieldSunSection({ bed, canEdit, online, onChanged }: Fie
       <Typography id={`field-sun-title-${bed.key}`} variant="h6" component="h3" sx={{ mb: 1 }}>
         {t('pages.gardenPlan.sun.window.fieldTitle')}
       </Typography>
-      <Suspense fallback={<Box sx={{ minHeight: KIOSK_TOUCH_TARGET }} aria-hidden />}>
-        <SunWindowFields
-          value={shown}
-          onChange={(next) => void change(next)}
-          disabled={!canEdit || !online || saving}
-          touchTarget={KIOSK_TOUCH_TARGET}
-          testId="field-mode-sun-profile"
-        />
-      </Suspense>
+      <SunWindowFields
+        value={shown}
+        onChange={change}
+        disabled={!canEdit || !online}
+        touchTarget={KIOSK_TOUCH_TARGET}
+        testId="field-mode-sun-profile"
+      />
     </Box>
   );
 }
