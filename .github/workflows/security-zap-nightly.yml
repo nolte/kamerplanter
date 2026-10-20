@@ -150,6 +150,26 @@ jobs:
             --token "$TOKEN" \
             --param "tenant_slug=$TENANT_A_SLUG"
 
+      - name: Plan routes cross-tenant negative tests (NFR-015 §3.3, REQ-053 WP 6.2)
+        # Tenant B against tenant A's site on the plan mutation routes that need a
+        # request body, which the spider never sends. Same placement as the
+        # two-pass: seconds, and before the long scan.
+        env:
+          TOKEN_A: ${{ steps.fixtures.outputs.tenant_a_token }}
+          TOKEN_B: ${{ steps.fixtures.outputs.tenant_b_token }}
+          TENANT_A_SLUG: ${{ steps.identities.outputs.slug_zap_tenant_a }}
+          TENANT_B_SLUG: ${{ steps.identities.outputs.slug_zap_tenant_b }}
+          SITE_A_KEY: ${{ steps.fixtures.outputs.resource_a_key }}
+        run: |
+          set -euo pipefail
+          python3 scripts/security/zap_plan_cross_tenant.py \
+            --base-url http://127.0.0.1:8000 \
+            --tenant-a-slug "$TENANT_A_SLUG" \
+            --tenant-b-slug "$TENANT_B_SLUG" \
+            --site-key "$SITE_A_KEY" \
+            --token-a "$TOKEN_A" \
+            --token-b "$TOKEN_B"
+
       - name: Stage the ZAP working directory
         run: |
           set -euo pipefail

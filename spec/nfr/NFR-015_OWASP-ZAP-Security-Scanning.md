@@ -323,6 +323,8 @@ function parseJwtTenantSlug(jwt) {
 **MUSS**: Das Skript ist in `tests/security/zap-context.xml` als Passive-Script registriert und wird in allen authentifizierten Profilen (Full-Scan + API-Scan mit Auth) aktiv.
 **SOLL**: Eine Spike-Story prototypisiert das Skript gegen einen lokalen Stack und verifiziert beide Pfade (TP: tatsächlicher Cross-Tenant-Treffer; TN: Same-Tenant-Zugriff erzeugt keinen Alert) bevor das Build-Gate scharfgeschaltet wird.
 
+**MUSS (Garden-Plan, REQ-053 §26 / WP 6.2)**: Die Plan-Mutationsrouten brauchen einen Request-Body, den der Spider nie sendet; die Passive-Rule sieht sie daher nicht. Die Nightly führt vor dem Full-Scan `scripts/security/zap_plan_cross_tenant.py` aus. Der Schritt sendet als Mandant B gegen die Site aus Mandant A (a) im URL-Raum von A (`/t/<A>/sites/<keyA>/…`) und (b) mit dem eigenen Slug, aber fremdem Site-Key (`/t/<B>/sites/<keyA>/…`). Erwartet wird jeweils 403 oder 404; alles andere ist ein Leak (Exit 1), ein 401 oder ein toter Owner-Kontroll-Request macht den Lauf ungültig (Exit 2). Abgedeckt: `PUT plan/boundary`, `POST plan/batch`, `POST plan/import`, `POST plan/place-template`, `POST plan/snapshots/{audit_key}/restore`. Die Lane bleibt advisory (kein Required Check).
+
 ### 3.4 Out-of-Scope für unauthentifizierte Scans
 
 **MUSS**: Folgende Endpunkte sind in unauthentifizierten Profilen explizit ausgeschlossen, da sie absichtlich öffentlich sind:
