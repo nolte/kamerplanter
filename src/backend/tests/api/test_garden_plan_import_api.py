@@ -271,3 +271,157 @@ class TestRateLimit:
         assert statuses == [200, 200, 200]
         assert limited.status_code == 429
         assert 1 <= int(limited.headers["retry-after"]) <= 60
+
+
+_SNAPSHOTS = f"{_BASE}/sites/{SITE}/plan/snapshots"
+
+
+class TestScopedExportWp718:
+    def test_a_selection_is_exactly_the_named_bed_and_carries_no_plan_settings(self, client, repo) -> None:
+        repo.locations["bed2"] = make_location("bed2", "Beet 2", geometry=rect(5, 1, 2, 1))
+
+        response = client().get(_EXPORT, params={"scope": "selection", "keys": "bed2"})
+
+        assert response.status_code == 200, response.text
+        document = response.json()
+        assert [loc["name"] for loc in document["locations"]] == ["Beet 2"] and document["plan"] is None
+        assert "selection" in response.headers["content-disposition"]
+        whole = client().get(_EXPORT).json()  # positive control: the default is the whole plan
+        assert len(whole["locations"]) == 2 and whole["plan"] is not None
+
+    @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+    def test_every_role_may_read_a_partial_export(self, client, role) -> None:
+        _Tenants.role = role
+
+        assert client().get(_EXPORT, params={"scope": "subtree", "keys": "bed"}).status_code == 200
+
+    @pytest.mark.parametrize(
+        ("params", "status"),
+        [
+            ({"scope": "everything"}, 422),
+            ({"scope": "selection"}, 422),  # keys required
+            ({"scope": "site", "keys": "bed"}, 422),
+            ({"scope": "selection", "keys": "bed;drop"}, 422),
+            ({"scope": "selection", "keys": ",".join(str(n) for n in range(101))}, 422),
+            ({"scope": "selection", "keys": "nope"}, 404),
+            ({"scope": "subtree", "keys": "object:1"}, 422),
+        ],
+    )
+    def test_a_bad_selection_is_refused_with_its_status(self, client, params, status) -> None:
+        assert client().get(_EXPORT, params=params).status_code == status
+
+
+class TestTargetAndOffsetWp718:
+    def test_the_report_echoes_target_and_offset_and_the_geometry_moves(self, client, repo) -> None:
+        document = a_file(client)
+        sent = body(document, mode="merge", dry_run=False, target="other_site", offset_m=[2.0, 1.0])
+
+        response = client().post(_IMPORT, json=sent)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["target"] == "other_site" and response.json()["offset_m"] == [2.0, 1.0]
+        moved = [loc for key, loc in repo.locations.items() if key != "bed"]
+        assert [loc.geometry.origin for loc in moved] == [(3.0, 2.0)]
+
+    @pytest.mark.parametrize("offset", [["inf", 0], ["nan", 0], [1e308, 0], [2000, 0], [1], [1, 2, 3], "x"])
+    def test_a_bad_offset_is_a_422_and_never_a_500(self, client, repo, offset) -> None:
+        response = client().post(_IMPORT, json=body(a_file(client), mode="merge", offset_m=offset))
+
+        assert response.status_code == 422
+        assert repo.applied == []
+
+    def test_infinity_literals_in_the_raw_body_are_a_422_too(self, client) -> None:
+        raw = json.dumps(body(a_file(client), mode="merge")).replace('"mode"', '"offset_m": [Infinity, 0], "mode"', 1)
+
+        response = client().post(_IMPORT, content=raw.encode(), headers={"content-type": "application/json"})
+
+        assert response.status_code == 422
+
+    def test_an_offset_with_replace_and_an_unknown_target_are_422s(self, client) -> None:
+        document = a_file(client)
+
+        assert client().post(_IMPORT, json=body(document, offset_m=[1, 1])).json()["error_code"] == (
+            "import.offset_requires_merge"
+        )
+        assert client().post(_IMPORT, json=body(document, target="elsewhere")).status_code == 422
+        assert client().post(_IMPORT, json=body(document, mode="merge", target="same_site")).status_code == 200
+
+    @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+    def test_a_cross_tenant_import_is_still_lead_only(self, client, role) -> None:
+        _Tenants.role = role
+
+        refused = client().post(_IMPORT, json=body({}, target="other_tenant"))
+
+        assert refused.status_code == 403
+
+
+class TestSnapshotsWp719:
+    def _replace(self, client) -> None:
+        response = client().post(_IMPORT, json=body(a_file(client), dry_run=False, confirm_site_name="Garten"))
+        assert response.status_code == 200, response.text
+
+    def test_the_list_names_the_snapshot_by_counts_and_never_carries_the_plan(self, client, repo) -> None:
+        assert client().get(_SNAPSHOTS).json() == []
+        self._replace(client)
+
+        response = client().get(_SNAPSHOTS)
+
+        assert response.status_code == 200
+        (entry,) = response.json()
+        assert entry["locations"] == 1 and entry["audit_key"] and "snapshot" not in entry
+        assert "snapshot" not in json.dumps(response.json())
+
+    def test_the_list_is_bounded_by_the_page(self, client) -> None:
+        self._replace(client)
+        self._replace(client)
+
+        assert len(client().get(_SNAPSHOTS).json()) == 2
+        assert len(client().get(_SNAPSHOTS, params={"limit": 1}).json()) == 1
+
+    @pytest.mark.parametrize("role", [TenantRole.GROWER, TenantRole.VIEWER])
+    def test_list_and_restore_are_lead_only(self, client, repo, role) -> None:
+        self._replace(client)
+        audit_key = client().get(_SNAPSHOTS).json()[0]["audit_key"]
+        _Tenants.role = role
+
+        assert client().get(_SNAPSHOTS).status_code == 403
+        restore = client().post(f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": True})
+        assert restore.status_code == 403
+        _Tenants.role = TenantRole.LEAD
+        assert client().post(f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": True}).status_code == 200
+
+    def test_a_restore_puts_the_old_plan_back_and_writes_a_snapshot_of_its_own(self, client, repo) -> None:
+        self._replace(client)
+        repo.locations["extra"] = make_location("extra", "Beet 9", geometry=rect(6, 4, 1, 1))
+        audit_key = client().get(_SNAPSHOTS).json()[0]["audit_key"]
+        before = len(repo.snapshot_rows)
+
+        response = client().post(
+            f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": False, "confirm_site_name": "Garten"}
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["applied"] is True and response.json()["snapshot_written"] is True
+        assert len(repo.snapshot_rows) == before + 1
+        assert {loc.name for loc in repo.locations.values()} == {"Beet 1"}
+
+    def test_a_foreign_site_or_snapshot_is_a_404_and_a_missing_name_a_422(self, client, repo) -> None:
+        self._replace(client)
+        audit_key = client().get(_SNAPSHOTS).json()[0]["audit_key"]
+        foreign = f"{_BASE}/sites/site_foreign/plan/snapshots"
+
+        assert client().get(foreign).status_code == 404
+        assert client().post(f"{foreign}/{audit_key}/restore", json={"dry_run": True}).status_code == 404
+        assert client().post(f"{_SNAPSHOTS}/nope/restore", json={"dry_run": True}).status_code == 404
+        assert client().post(f"{_SNAPSHOTS}/{audit_key}/restore", json={}).json()["error_code"] == (
+            "import.site_name_mismatch"
+        )
+        assert client().post(f"{_SNAPSHOTS}/{audit_key}/restore", json={"dry_run": True, "x": 1}).status_code == 422
+
+
+def test_the_request_schema_embedded_in_the_openapi_document_has_no_dangling_ref() -> None:
+    """The route embeds ``model_json_schema()`` by hand (``openapi_extra``): a ``$defs`` reference inside it points
+    nowhere in the published document and fails the Spectral lint (``invalid-ref``)."""
+    from app.api.v1.garden_plan.schemas import PlanImportRequest
+
+    assert "$ref" not in json.dumps(PlanImportRequest.model_json_schema())

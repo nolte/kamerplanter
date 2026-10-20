@@ -10,6 +10,7 @@ from app.domain.models.garden_plan import (
     PlanAuditEntry,
     PlanBatchOutcome,
     PlanBatchWrite,
+    PlanSnapshotEntry,
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
@@ -98,6 +99,16 @@ class IGardenPlanRepository(ABC):
     @abstractmethod
     def list_audit(self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int) -> list[PlanAuditEntry]:
         """The site's plan change log, newest first."""
+
+    @abstractmethod
+    def list_import_snapshots(
+        self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int
+    ) -> list[PlanSnapshotEntry]:
+        """The ``import_snapshot`` rows of the site (plans a ``replace`` overwrote), newest first, no payload."""
+
+    @abstractmethod
+    def load_import_snapshot(self, site_key: SiteKey, audit_key: str, *, tenant_key: str) -> dict[str, Any] | None:
+        """The stored plan of one ``import_snapshot`` row of this site and tenant, or ``None`` (absent or foreign)."""
 
     @abstractmethod
     def purge_audit_before(self, cutoff: datetime, *, batch: int) -> int:

@@ -50,6 +50,7 @@ import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
 import BedListSection from '../bed/BedListSection';
 import { PlanIoMenu } from '../io/PlanIoMenu';
+import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
 import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
@@ -110,6 +111,15 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
   const dispatch = useAppDispatch();
   const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
   const dirty = useAppSelector(selectIsDirty);
+  const selected = useAppSelector((state) => selectGardenPlanState(state).selection);
+  // The plan's selection as the keys the partial export names (GP-FR-172); slots and plants are no plan entities.
+  const ioSelection = useMemo<PlanSelection>(
+    () => ({
+      locationKeys: selected.filter((ref) => ref.entity === 'location').map((ref) => ref.key),
+      objectKeys: selected.filter((ref) => ref.entity === 'garden_object').map((ref) => ref.key),
+    }),
+    [selected],
+  );
   const labels = useRendererLabels();
   const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
@@ -254,6 +264,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
           canImport={canDelete}
           dirty={dirty}
           onImported={load}
+          selection={ioSelection}
         />
       )}
     </Box>

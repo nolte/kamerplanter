@@ -40,6 +40,15 @@ from app.domain.models.site import SiteConditions, SoilProfile
 
 SCHEMA_VERSION = "1"
 
+#: What ``GET /plan/export`` writes (GP-FR-172): the whole site, exactly the named beds and objects, or the named
+#: beds with everything below them. A partial file is the same ``schema_version "1"`` document - it simply holds less.
+type ExportScope = Literal["site", "selection", "subtree"]
+EXPORT_SCOPES: tuple[str, ...] = ("site", "selection", "subtree")
+#: How many keys one partial export may name (a site holds at most 500 locations and objects, GP-NFR-017).
+MAX_EXPORT_KEYS = 100
+#: A garden object is addressed in ``keys`` with this prefix, because a location and an object may share a key string.
+OBJECT_KEY_PREFIX = "object:"
+
 
 class _ExportModel(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="ignore")

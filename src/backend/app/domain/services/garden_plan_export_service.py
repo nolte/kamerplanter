@@ -24,11 +24,14 @@ from __future__ import annotations
 import asyncio
 import base64
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import perf_counter
+from typing import Any
 
 import structlog
+from pydantic import BaseModel
 
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import NotFoundError, PlanError
@@ -52,17 +55,21 @@ from app.domain.engines.plan_underlay_engine import (
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import GardenPlanView
 from app.domain.models.garden_plan_export import (
+    MAX_EXPORT_KEYS,
+    OBJECT_KEY_PREFIX,
     ExportGardenObject,
     ExportLocation,
     ExportPlanSettings,
+    ExportScope,
     ExportSite,
     ExportSlot,
     ExportZone,
     GardenPlanExport,
 )
-from app.domain.models.site import Site
+from app.domain.models.site import Location, Site
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
@@ -71,6 +78,65 @@ logger = structlog.get_logger(__name__)
 
 _TEMPLATE = "garden_plan.html"
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9_-]")
+
+
+def _export_error(code: str, message: str) -> PlanError:
+    return PlanError(code, message, status_code=422, field="keys")
+
+
+def _validated[TModel: BaseModel](model: type[TModel], source: object) -> TModel:
+    return model.model_validate(source)
+
+
+def _cut_parent(item: ExportLocation | ExportGardenObject, kept: set[str]) -> None:
+    """A parent that is not in the file is no reference of the file: ``null`` (the item becomes a root)."""
+    if item.parent_location_key not in kept:
+        item.parent_location_key = None
+
+
+def _zone_of_file(row: dict[str, Any], object_keys: set[str]) -> ExportZone:
+    """A zone of a partial file; its water source stays only when that garden object is in the file as well."""
+    zone = ExportZone(**row)
+    if zone.water_source_key not in object_keys:
+        zone.water_source_key = None
+    return zone
+
+
+def _is_object_key(key: str) -> bool:
+    return key.startswith(OBJECT_KEY_PREFIX)
+
+
+def _object_name(key: str) -> str:
+    return key.removeprefix(OBJECT_KEY_PREFIX)
+
+
+def _chosen(
+    scope: ExportScope, keys: Sequence[str], locations: Sequence[Location], garden_objects: Sequence[GardenObject]
+) -> tuple[set[str], set[str]]:
+    """The location keys and garden-object keys a partial export holds; 404 for a key the site does not hold."""
+    if not keys:
+        raise _export_error("export.keys_required", "keys names the beds or objects to export.")
+    if len(keys) > MAX_EXPORT_KEYS:
+        raise _export_error("export.too_many_keys", f"keys names at most {MAX_EXPORT_KEYS} entries.")
+    held_locations = {loc.key for loc in locations if loc.key}
+    held_objects = {obj.key for obj in garden_objects if obj.key}
+    wanted_objects = {_object_name(key) for key in keys if _is_object_key(key)}
+    wanted_locations = {key for key in keys if not _is_object_key(key)}
+    if wanted_objects and scope == "subtree":
+        raise _export_error("export.object_key_in_subtree", "A subtree is named by locations.")
+    for missing in sorted(wanted_locations - held_locations)[:1]:
+        raise NotFoundError("Location", missing)
+    for missing in sorted(wanted_objects - held_objects)[:1]:
+        raise NotFoundError("GardenObject", missing)
+    if scope == "selection":
+        return wanted_locations, wanted_objects
+    below = set(wanted_locations)
+    grew = True
+    while grew:
+        more = {loc.key for loc in locations if loc.key and loc.parent_location_key in below} - below
+        grew = bool(more)
+        below |= more
+    return below, {obj.key for obj in garden_objects if obj.key and obj.parent_location_key in below}
 
 
 @dataclass(frozen=True)
@@ -108,19 +174,56 @@ class GardenPlanExportService:
 
     # ── GP-API-004: the JSON backup ───────────────────────────────────────────
 
-    def export_json(self, site_key: SiteKey, *, tenant_key: str) -> GardenPlanExport:
-        """The structure of the site's plan; no plant, task, event or account reference (GP-FR-140)."""
+    def export_json(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        scope: ExportScope = "site",
+        keys: Sequence[str] = (),
+    ) -> GardenPlanExport:
+        """The structure of the site's plan; no plant, task, event or account reference (GP-FR-140).
+
+        ``scope`` (GP-FR-172): ``site`` is the whole plan; ``selection`` is exactly the named locations (and, with
+        the ``object:`` prefix, garden objects); ``subtree`` is the named locations with everything below them. A
+        partial file carries no plan settings, only the slots of its beds, only the zones its beds name, and every
+        reference that leaves it (a parent, a zone's water source) as ``null`` - it is a file that stands on its own.
+        A key the site does not hold answers 404, exactly like a key of another tenant.
+        """
         site = self._owned_site(site_key, tenant_key=tenant_key)
         data = self._plan.load_read_model(site_key, tenant_key=tenant_key, include_plants=False, include_tasks=False)
-        plan = site.plan
+        zone_rows = self._plans.zone_rows(site_key, tenant_key=tenant_key)
+        slots = [slot for slot in data.slots if slot.key and slot.archived_at is None]
+        exported_at = datetime.now(UTC)
+        header = ExportSite(name=site.name, type=site.type)
+        if scope == "site":
+            if keys:
+                raise _export_error("export.keys_not_allowed", "keys belongs to scope selection or subtree.")
+            return GardenPlanExport(
+                exported_at=exported_at,
+                site=header,
+                plan=_validated(ExportPlanSettings, site.plan) if site.plan is not None else None,
+                locations=[_validated(ExportLocation, location) for location in data.locations],
+                slots=[_validated(ExportSlot, slot) for slot in slots],
+                garden_objects=[_validated(ExportGardenObject, obj) for obj in data.garden_objects],
+                zones=[ExportZone(**row) for row in zone_rows],
+            )
+        location_keys, object_keys = _chosen(scope, keys, data.locations, data.garden_objects)
+        locations = [_validated(ExportLocation, loc) for loc in data.locations if loc.key in location_keys]
+        objects = [_validated(ExportGardenObject, obj) for obj in data.garden_objects if obj.key in object_keys]
+        for location in locations:
+            _cut_parent(location, location_keys)
+        for garden_object in objects:
+            _cut_parent(garden_object, location_keys)
+        named_zones = {location.irrigation_zone_key for location in locations if location.irrigation_zone_key}
         return GardenPlanExport(
-            exported_at=datetime.now(UTC),
-            site=ExportSite(name=site.name, type=site.type),
-            plan=ExportPlanSettings.model_validate(plan) if plan is not None else None,
-            locations=[ExportLocation.model_validate(location) for location in data.locations],
-            slots=[ExportSlot.model_validate(slot) for slot in data.slots if slot.key and slot.archived_at is None],
-            garden_objects=[ExportGardenObject.model_validate(obj) for obj in data.garden_objects],
-            zones=[ExportZone(**row) for row in self._plans.zone_rows(site_key, tenant_key=tenant_key)],
+            exported_at=exported_at,
+            site=header,
+            plan=None,
+            locations=locations,
+            slots=[_validated(ExportSlot, slot) for slot in slots if slot.location_key in location_keys],
+            garden_objects=objects,
+            zones=[_zone_of_file(row, object_keys) for row in zone_rows if row["key"] in named_zones],
         )
 
     # ── GP-API-006: the SVG ───────────────────────────────────────────────────

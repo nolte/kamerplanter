@@ -502,6 +502,24 @@ class PlanAuditEntry(BaseModel):
     changed_by_name: str | None = None
 
 
+class PlanSnapshotEntry(BaseModel):
+    """One ``import_snapshot`` row as the snapshot list shows it (REQ-053 GP-FR-148/170): never the payload itself.
+
+    ``audit_key`` is the row's key (``_key``), the handle of the restore route. The counts are the size of the stored
+    plan, so a person can tell the snapshots apart without the payload leaving the server.
+    """
+
+    audit_key: str
+    revision: int
+    at: datetime
+    summary: str = ""
+    changed_by_name: str | None = None
+    locations: int = 0
+    garden_objects: int = 0
+    slots: int = 0
+    zones: int = 0
+
+
 class PlantShortInfo(BaseModel):
     key: str
     instance_id: str

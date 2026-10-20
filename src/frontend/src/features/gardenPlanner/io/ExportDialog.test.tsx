@@ -31,6 +31,7 @@ interface Seen {
   svg: URLSearchParams[];
   pdf: URLSearchParams[];
   json: number;
+  jsonParams: URLSearchParams[];
 }
 
 function useBackend(seen: Seen, svgHeaders: Record<string, string> = { 'x-plan-scale': '1:50' }) {
@@ -48,22 +49,23 @@ function useBackend(seen: Seen, svgHeaders: Record<string, string> = { 'x-plan-s
         },
       });
     }),
-    http.get(`${BASE}/sites/s1/plan/export`, () => {
+    http.get(`${BASE}/sites/s1/plan/export`, ({ request }) => {
       seen.json += 1;
+      seen.jsonParams.push(new URL(request.url).searchParams);
       return HttpResponse.json({ schema_version: '1', locations: [{}, {}], slots: [{}], garden_objects: [{}, {}, {}] });
     }),
   );
 }
 
-function renderDialog(onClose = vi.fn()) {
+function renderDialog(onClose = vi.fn(), selection?: { locationKeys: string[]; objectKeys: string[] }) {
   const store = createTestStore({ ...tenantState('viewer'), ...authState() });
-  renderWithProviders(<ExportDialog open siteKey="s1" onClose={onClose} />, { store });
+  renderWithProviders(<ExportDialog open siteKey="s1" selection={selection} onClose={onClose} />, { store });
   return onClose;
 }
 
 let seen: Seen;
 beforeEach(() => {
-  seen = { svg: [], pdf: [], json: 0 };
+  seen = { svg: [], pdf: [], json: 0, jsonParams: [] };
   setPhone(false);
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 });
@@ -126,6 +128,39 @@ describe('ExportDialog', () => {
     expect(summary).toHaveTextContent('2 locations, 3 garden objects and 1 plant places');
     expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
     expect(seen.json).toBe(1);
+  });
+
+  it('backs up the whole site by default and offers a partial scope only with a selection', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-json'));
+
+    expect(screen.getByTestId('plan-export-scope-site')).toBeChecked();
+    expect(screen.getByTestId('plan-export-scope-selection')).toBeDisabled();
+    expect(screen.getByTestId('plan-export-scope-subtree')).toBeDisabled();
+    expect(screen.getByTestId('plan-export-scope-hint')).toHaveTextContent('select beds on the plan first');
+    await screen.findByTestId('plan-export-json-summary', {}, { timeout: 3000 });
+    expect(seen.jsonParams.every((params) => !params.has('scope') && !params.has('keys'))).toBe(true);
+  });
+
+  it('limits the backup to the selection, or to the selection and what is below it', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), { locationKeys: ['bed1', 'bed2'], objectKeys: ['tree1'] });
+    await user.click(screen.getByTestId('plan-export-format-json'));
+
+    await user.click(screen.getByTestId('plan-export-scope-selection'));
+    expect(screen.getByTestId('plan-export-scope-hint')).toHaveTextContent('3 selected');
+    await user.click(screen.getByTestId('plan-export-download'));
+    await waitFor(() => expect(seen.jsonParams.some((params) => params.get('scope') === 'selection')).toBe(true));
+    const selection = seen.jsonParams.filter((params) => params.get('scope') === 'selection').pop();
+    expect(selection?.get('keys')).toBe('bed1,bed2,object:tree1');
+
+    await user.click(screen.getByTestId('plan-export-scope-subtree'));
+    await waitFor(() => expect(seen.jsonParams.some((params) => params.get('scope') === 'subtree')).toBe(true));
+    const subtree = seen.jsonParams.filter((params) => params.get('scope') === 'subtree').pop();
+    expect(subtree?.get('keys')).toBe('bed1,bed2'); // a subtree is named by beds only
   });
 
   it('says why an empty plan cannot be exported and does not offer the download', async () => {

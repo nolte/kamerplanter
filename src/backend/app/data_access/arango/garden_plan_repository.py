@@ -51,6 +51,7 @@ from app.domain.models.garden_plan import (
     PlanAuditRecord,
     PlanBatchOutcome,
     PlanBatchWrite,
+    PlanSnapshotEntry,
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
@@ -528,6 +529,66 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             ),
         )
         return [PlanAuditEntry(**row) for row in cursor]
+
+    def list_import_snapshots(
+        self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int
+    ) -> list[PlanSnapshotEntry]:
+        if not tenant_key:
+            raise ValueError("list_import_snapshots needs a tenant_key (an empty tenant is no tenant, #2107).")
+        bind_vars: dict[str, Any] = {
+            "@col": col.GARDEN_PLAN_AUDIT,
+            "site_key": site_key,
+            "tenant_key": tenant_key,
+            "users": f"{col.USERS}/",
+            "offset": offset,
+            "limit": limit,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@col
+                FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
+                    AND a.snapshot != null
+                SORT a.revision DESC, DATE_TIMESTAMP(a.at) DESC, a._key DESC
+                LIMIT @offset, @limit
+                RETURN {
+                    audit_key: a._key, revision: a.revision, summary: a.summary, at: a.at,
+                    changed_by_name: a.user_key == null ? null : DOCUMENT(CONCAT(@users, a.user_key)).display_name,
+                    locations: LENGTH(a.snapshot.locations || []),
+                    garden_objects: LENGTH(a.snapshot.garden_objects || []),
+                    slots: LENGTH(a.snapshot.slots || []),
+                    zones: LENGTH(a.snapshot.zones || [])
+                }
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [PlanSnapshotEntry(**row) for row in cursor]
+
+    def load_import_snapshot(self, site_key: SiteKey, audit_key: str, *, tenant_key: str) -> dict[str, Any] | None:
+        if not tenant_key:
+            raise ValueError("load_import_snapshot needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@col
+                FILTER a._key == @audit_key AND a.site_key == @site_key AND a.tenant_key == @tenant_key
+                    AND a.op == "import_snapshot" AND a.snapshot != null
+                LIMIT 1
+                RETURN a.snapshot
+            """,
+                bind_vars={
+                    "@col": col.GARDEN_PLAN_AUDIT,
+                    "audit_key": audit_key,
+                    "site_key": site_key,
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        rows = list(cursor)
+        return rows[0] if rows else None
 
     # ── The batch ─────────────────────────────────────────────────────
 

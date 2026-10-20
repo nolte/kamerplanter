@@ -296,9 +296,13 @@ class TestTheRouteOperand:
         +2: the plan underlay (REQ-053 WP 7.14, #2480): ``PUT|DELETE /t/{slug}/sites/{key}/plan/underlay``. The
         underlay dialog (``features/gardenPlanner/underlay/underlayApi.ts``, WP 7.15) consumes both in the same
         change. The PDF option (``underlay=true``) is a query parameter of an existing route, not a new operation.
+
+        +2: the snapshots of a replace import (REQ-053 WP 7.19, #2485): ``GET /t/{slug}/sites/{key}/plan/snapshots``
+        and ``POST …/plan/snapshots/{audit_key}/restore``. The import wizard (``features/gardenPlanner/io/``)
+        consumes both in the same change. (WP 7.18 adds query parameters to existing operations, no route.)
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 887
+        assert len(checker.collect_operations(app)) == 889
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
