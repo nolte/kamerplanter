@@ -515,6 +515,10 @@ class CareEventService:
             created_by=user_key,
             **fields,
         )
+        # GP-FR-117: an allocated quantity is never shown as measured. A correction that leaves the quantity
+        # alone keeps the predecessor's mark; a changed quantity is the person's own (measured) statement.
+        if event.quantity == predecessor.quantity and event.unit == predecessor.unit:
+            event.allocation = predecessor.allocation
         stored = self._repo.supersede(key, event, tenant_key=tenant_key)
         self._record_created(stored)
         return self._stored_view(stored.key or "", tenant_key=tenant_key, user_key=user_key)

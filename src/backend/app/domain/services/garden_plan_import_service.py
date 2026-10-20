@@ -52,7 +52,9 @@ from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
+    ERROR_ZONE_QUOTA,
     MAX_PLAN_OBJECTS_PER_SITE,
+    MAX_PLAN_ZONES,
     MAX_SLOTS_PER_BATCH,
     MAX_SLOTS_PER_SITE,
     PlanBatchWrite,
@@ -737,7 +739,9 @@ class GardenPlanImportService:
                 if not isinstance(item, dict):
                     continue
                 for name in ALWAYS_DROPPED_FIELDS:
-                    if _value(item, name) is not None:
+                    value = _value(item, name)
+                    # ``manual`` is what every zone without a Home Assistant source carries: nothing is lost.
+                    if value is not None and not (name == "flow_rate_source" and value == "manual"):
                         key = _echo(_value(item, "key")) or ""
                         prepared.drop(DroppedReference(entity=entity, key=key, field=name, reason="always_dropped"))
 
@@ -761,6 +765,13 @@ class GardenPlanImportService:
             standing = len(self._plan.load_active_slots(site_key, kept, tenant_key=tenant_key)) if kept else 0
         if standing + len(prepared.slots) > MAX_SLOTS_PER_SITE:
             prepared.add_finding(ImportFinding(field="slots", code=ERROR_QUOTA))
+        # Zones: a file's zone is always new, so the site's total after the import is what stays plus what comes.
+        # A ``merge`` run twice therefore doubles the zones (no stable identity in the file, no schema change) - the
+        # cap is what stops that from growing without bound (the plan read would otherwise refuse the site).
+        if prepared.zones:
+            standing_zones = self._plans.count_zones(site_key, tenant_key=tenant_key) - len(prepared.delete_zones)
+            if standing_zones + len(prepared.zones) > MAX_PLAN_ZONES:
+                prepared.add_finding(ImportFinding(field="zones", code=ERROR_ZONE_QUOTA))
 
     @staticmethod
     def _check_settings(

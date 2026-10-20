@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import AdminScope, TenantRole
+from app.common.enums import AdminScope, CareEventAllocation, TenantRole
 from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError, ValidationError
 from app.domain.interfaces.care_event_repository import CareEventFilter
 from app.domain.models.care_event import (
@@ -380,6 +380,29 @@ class TestSupersede:
         assert second.performed_by_user_key == "u_tom"
         assert second.created_by == "u_lead"
         assert (second.trigger, second.task_key) == ("task", "task_9")
+
+    def test_a_correction_that_keeps_the_quantity_keeps_the_allocation(self, world):
+        """GP-FR-117 (#2522): an allocated quantity is never shown as measured, also after a text correction."""
+        service, repo, *_ = world
+        first = create(service, input_for(quantity=3.0, unit="l")).event
+        repo.events[first.key].allocation = CareEventAllocation.BY_AREA
+
+        second = service.supersede(
+            first.key, correction_for(quantity=3.0, unit="l"), tenant_key=TENANT, user_key=USER, role=GROWER
+        ).event
+
+        assert second.allocation is CareEventAllocation.BY_AREA
+
+    def test_a_correction_that_changes_the_quantity_is_a_measured_statement(self, world):
+        service, repo, *_ = world
+        first = create(service, input_for(quantity=3.0, unit="l")).event
+        repo.events[first.key].allocation = CareEventAllocation.EQUAL
+
+        second = service.supersede(
+            first.key, correction_for(quantity=4.5, unit="l"), tenant_key=TENANT, user_key=USER, role=GROWER
+        ).event
+
+        assert second.allocation is CareEventAllocation.MEASURED
 
     def test_a_grower_corrects_only_their_own_entry(self, world):
         service, repo, *_ = world

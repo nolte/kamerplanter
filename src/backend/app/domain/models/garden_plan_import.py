@@ -26,8 +26,9 @@ MAX_REPORTED = 50
 #: ``GardenPlanExport`` fields the import knows. A top-level key outside this set belongs to a *newer* file.
 SUPPORTED_SCHEMA_VERSIONS: tuple[str, ...] = ("1",)
 
-#: Keys that name a technical coupling (a Home Assistant entity, an actuator): never imported (GP-FR-141).
-ALWAYS_DROPPED_FIELDS: tuple[str, ...] = ("flow_rate_ha_entity_id", "actuator_key")
+#: Keys that name a technical coupling (a Home Assistant entity, an actuator, the flow source): never imported.
+#: A ``flow_rate_source`` of ``manual`` carries no coupling and is not reported.
+ALWAYS_DROPPED_FIELDS: tuple[str, ...] = ("flow_rate_ha_entity_id", "actuator_key", "flow_rate_source")
 
 type ImportMode = Literal["replace", "merge"]
 type DropReason = Literal["not_found", "not_in_site", "always_dropped", "outside_file", "invalid_parent"]
