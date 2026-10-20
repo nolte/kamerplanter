@@ -75,7 +75,8 @@ def create_irrigation_zone(
     is not an actuator of the tenant at a location of this site. The technical coupling (``actuator_key``,
     ``flow_rate_source`` ``ha_entity``, ``flow_rate_ha_entity_id``) needs the ``technical`` admin scope (403); a
     flow entity that is not granted to the tenant is 422 ``HA_ENTITY_NOT_GRANTED``, one that is no flow sensor 422
-    ``irrigation_zone.flow_entity_device_class``.
+    ``irrigation_zone.flow_entity_device_class``. A site holds at most 500 zones: the 501st is 422
+    ``irrigation_zone.quota_exceeded``.
     """
     view = service.create_zone(key, tenant_key=ctx.tenant_key, role=ctx.role, data=body, admin_scopes=ctx.admin_scopes)
     return zone_to_response(view)

@@ -48,6 +48,8 @@ BATCH_TIME_BUDGET_SECONDS = 10.0
 MAX_PLAN_OBJECTS_PER_SITE = 500
 #: Irrigation zones the plan read model, the export and the import carry per site (creating them has no quota, #2466).
 MAX_PLAN_ZONES = 500
+#: 422 when a site would hold more than :data:`MAX_PLAN_ZONES` irrigation zones (create, merge import, plan read).
+ERROR_ZONE_QUOTA = "irrigation_zone.quota_exceeded"
 #: GP-NFR-017 (SR-004): slots per site (read-only here; slot routes enforce it).
 MAX_SLOTS_PER_SITE = 8_000
 

@@ -21,8 +21,10 @@ tool, a task) cannot skip it.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 from typing import Any
 
 import structlog
@@ -59,6 +61,7 @@ from app.domain.interfaces.ha_entity_gate import DenyAllHaEntityGate, HaEntityGa
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_plan import ERROR_ZONE_QUOTA, MAX_PLAN_ZONES
 from app.domain.models.irrigation_zone import (
     BedShare,
     ConsumptionPart,
@@ -82,6 +85,20 @@ from app.domain.services.location_ownership import (
 )
 
 logger = structlog.get_logger()
+
+#: How long a Home Assistant flow reading is reused by the status of a zone (outbound-call throttle, #2522).
+READING_TTL_SECONDS = 20.0
+_READING_CACHE_MAX = 1024
+_READING_CACHE: dict[tuple[str, str, str], tuple[float, FlowReading | None]] = {}
+_READING_LOCK = threading.Lock()
+
+
+def clear_reading_cache() -> None:
+    """Forget every remembered flow reading (tests, and a rebinding that must read fresh)."""
+    with _READING_LOCK:
+        for cache_key in list(_READING_CACHE):
+            del _READING_CACHE[cache_key]
+
 
 #: 422 of a Home Assistant flow entity whose ``device_class`` is no flow (SR-014, WP 7.4).
 ERROR_FLOW_DEVICE_CLASS = "irrigation_zone.flow_entity_device_class"
@@ -204,8 +221,9 @@ class IrrigationZoneService:
             schedule_hint=data.schedule_hint,
             application_efficiency=data.application_efficiency,
         )
-        self._check_flow_source(zone)
         self._require_technical(zone, None, admin_scopes)
+        self._check_flow_source(zone)
+        self._require_room_for_zone(site_key, tenant_key=tenant_key)
         if data.water_source_key is not None:
             self._resolve_water_source(data.water_source_key, site_key, tenant_key=tenant_key)
         self._resolve_coupling(zone, None, tenant_key=tenant_key)
@@ -248,8 +266,8 @@ class IrrigationZoneService:
                 **{name: value for name, value in sent.items() if name in _PATCH_COLUMNS},
             }
         )
-        self._check_flow_source(merged)
         self._require_technical(merged, stored, admin_scopes)
+        self._check_flow_source(merged)
         if sent.get("water_source_key") is not None:
             self._resolve_water_source(str(sent["water_source_key"]), stored.site_key, tenant_key=tenant_key)
         self._resolve_coupling(merged, stored, tenant_key=tenant_key)
@@ -260,6 +278,22 @@ class IrrigationZoneService:
         if fields:
             logger.info("irrigation_zone.updated", zone_key=key, fields=sorted(fields))
         return self.get_zone(updated.key or key, tenant_key=tenant_key)
+
+    def _require_room_for_zone(self, site_key: SiteKey, *, tenant_key: str) -> None:
+        """422 ``irrigation_zone.quota_exceeded`` when the site holds :data:`MAX_PLAN_ZONES` zones already.
+
+        The same cap the plan read and the export apply, so a zone that can be created can also be read back.
+        Not atomic with the insert: two concurrent creates at 499 may both pass (the read then answers 422, never
+        a silent cut).
+        """
+        if self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=MAX_PLAN_ZONES - 1, limit=1):
+            raise PlanError(
+                ERROR_ZONE_QUOTA,
+                f"A site holds at most {MAX_PLAN_ZONES} irrigation zones.",
+                status_code=422,
+                field="zones",
+                limit=MAX_PLAN_ZONES,
+            )
 
     # ── The technical coupling (SR-014, GP-FR-114) ─────────────────────────
 
@@ -309,7 +343,12 @@ class IrrigationZoneService:
                 raise _not_found("actuator_key")
         entity = zone.flow_rate_ha_entity_id
         if entity is not None and (stored is None or entity != stored.flow_rate_ha_entity_id):
-            require_granted(self._ha_entity_gate, tenant_key, {"flow_rate_ha_entity_id": entity})
+            # A refused bind records no grant: where binding grants on use (light mode) ``require_granted`` writes
+            # the grant, so it runs *after* the device class said "flow sensor". Where grants are an allowlist
+            # the missing grant is answered first, before Home Assistant is asked.
+            references = {"flow_rate_ha_entity_id": entity}
+            if not self._ha_entity_gate.admits_on_use():
+                require_granted(self._ha_entity_gate, tenant_key, references)
             try:
                 device_class = self._flow_sensor.device_class(entity)
             except FlowSensorUnavailableError:
@@ -326,6 +365,7 @@ class IrrigationZoneService:
                     status_code=422,
                     field="flow_rate_ha_entity_id",
                 )
+            require_granted(self._ha_entity_gate, tenant_key, references)
 
     def delete_zone(self, key: IrrigationZoneKey, *, tenant_key: str, user_key: str, role: TenantRole) -> None:
         """Delete the zone (lead only); its beds are released and the delete is audited (SR-011)."""
@@ -418,10 +458,7 @@ class IrrigationZoneService:
             and entity
             and self._ha_entity_gate.is_granted(tenant_key, entity)
         ):
-            try:
-                reading = self._flow_sensor.read(entity)
-            except FlowSensorUnavailableError:
-                reading = None
+            reading = self._cached_reading(zone.key or "", entity, tenant_key=tenant_key)
         rate = resolve_flow_rate(zone.flow_rate_source, zone.flow_rate_l_per_min, reading, now)
         if rate is None:
             return logged
@@ -429,6 +466,31 @@ class IrrigationZoneService:
         changes = self._zones.actuator_state_changes(zone.actuator_key, tenant_key=tenant_key, since=since, until=now)
         liters = runtime_liters(runtime_seconds(changes, start=since, end=now), rate)
         return (*logged, ConsumptionPart(source_of(rate), liters)) if liters > 0 else logged
+
+    def _cached_reading(self, zone_key: str, entity: str, *, tenant_key: str) -> FlowReading | None:
+        """The flow reading of Home Assistant, asked at most once per :data:`READING_TTL_SECONDS` per zone.
+
+        Every member can open the status, so an unthrottled read would let any of them drive one outbound call per
+        request. The answer - including "no usable reading" and "cannot be asked" - is remembered for a short
+        while, keyed by tenant, zone and entity so a rebound entity is read fresh and no tenant sees another's.
+        """
+        cache_key = (tenant_key, zone_key, entity)
+        now = monotonic()
+        with _READING_LOCK:
+            if cache_key in _READING_CACHE:
+                stamped_at, remembered = _READING_CACHE[cache_key]
+                if now - stamped_at < READING_TTL_SECONDS:
+                    return remembered
+        try:
+            reading: FlowReading | None = self._flow_sensor.read(entity)
+        except FlowSensorUnavailableError:
+            reading = None
+        with _READING_LOCK:
+            if len(_READING_CACHE) >= _READING_CACHE_MAX:
+                for stale in list(_READING_CACHE):
+                    del _READING_CACHE[stale]
+            _READING_CACHE[cache_key] = (now, reading)
+        return reading
 
     def _hints(
         self, zone: IrrigationZone, bed_keys: list[str], demand: ZoneDemand, *, tenant_key: str
