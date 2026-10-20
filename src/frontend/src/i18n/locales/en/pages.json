@@ -6689,12 +6689,14 @@
           "allClear": "{{name}}: No hint on crop rotation or neighbours.",
           "forSpecies": "{{name}}: {{strength}} hint",
           "pauseNotElapsed": "The family {{family}} stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",
+          "pauseNotElapsedUnnamed": "The same family stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",
           "pauseSource": {
             "species": "value of the species",
             "family": "value of the family",
             "default": "default value"
           },
           "pestRisk": "High pest risk with the family {{family}}, which stood here recently.",
+          "pestRiskUnnamed": "High pest risk with a family that stood here recently.",
           "noFamily": "This species has no family on record. Crop rotation cannot be checked.",
           "noHistory": "No history is recorded for this bed. Crop rotation cannot be checked.",
           "incompatibleNeighbour": "Unfavourable neighbour in the bed: {{name}}.",
