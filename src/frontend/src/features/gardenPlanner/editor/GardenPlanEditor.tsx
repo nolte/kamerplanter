@@ -223,6 +223,13 @@ export function GardenPlanEditor({
   // The irrigation layers (WP 7.6 / 7.7): zones come with the plan; the endpoint is read once the panel opens.
   const [zonesOpen, setZonesOpen] = useState(false);
   const [layerRefresh, setLayerRefresh] = useState(0);
+  const zonesButtonRef = useRef<HTMLButtonElement | null>(null);
+  const zonesWereOpen = useRef(false);
+  // Closing the panel returns the focus to the button that opened it (WCAG 2.4.3).
+  useEffect(() => {
+    if (!zonesOpen && zonesWereOpen.current) zonesButtonRef.current?.focus();
+    zonesWereOpen.current = zonesOpen;
+  }, [zonesOpen]);
   const [nowMs] = useState(() => Date.now());
   const zoneData = useIrrigationZones(plan.siteKey, plan.zones, zonesOpen);
   const lastWateredAt = useLastWatered(plan.siteKey, plan.locations, layerRefresh);
@@ -1031,6 +1038,7 @@ export function GardenPlanEditor({
           {t(`${PREFIX}.keyboard.open`)}
         </Button>
         <Button
+          ref={zonesButtonRef}
           startIcon={<WaterDropIcon />}
           onClick={() => setZonesOpen((open) => !open)}
           aria-expanded={zonesOpen}

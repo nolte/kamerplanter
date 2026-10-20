@@ -131,6 +131,11 @@ export function newTempKey(): string {
   return `tmp${tempKeySequence.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** True for a key made by {@link newTempKey}: the object is not saved yet, the server does not know it. */
+export function isTempKey(key: string): boolean {
+  return key.startsWith('tmp');
+}
+
 /**
  * Replace the temp keys the server resolved (`key_map`, GP-API-003) by the assigned keys, in the
  * entities and in every reference to them.

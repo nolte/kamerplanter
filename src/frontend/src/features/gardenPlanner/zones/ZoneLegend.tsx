@@ -68,6 +68,7 @@ export function ZoneLegend({ zones, showZones, showLastWatered }: Props) {
                     </svg>
                     <Typography variant="body2">
                       {t(`${PREFIX}.legend.zoneEntry`, {
+                        number: index + 1,
                         name: zone.name,
                         type: t(`enums.irrigationType.${zone.irrigation_type}`),
                       })}

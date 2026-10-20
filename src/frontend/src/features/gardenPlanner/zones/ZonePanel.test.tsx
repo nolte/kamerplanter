@@ -19,13 +19,13 @@ function renderPanel(
   zones: IrrigationZone[],
   role: 'viewer' | 'grower' | 'lead' = 'grower',
   scopes: readonly string[] = [],
-  extra: { selectedBedKeys?: string[]; onChanged?: () => void } = {},
+  extra: { selectedBedKeys?: string[]; onChanged?: () => void; unsavedBed?: boolean } = {},
 ) {
   const data = zoneData(zones);
   const onChanged = extra.onChanged ?? vi.fn();
   const view = renderWithProviders(
     <ZonePanel
-      plan={zonePlan()}
+      plan={zonePlan(extra.unsavedBed ? [{ name: 'Unsaved bed' }] : [])}
       zoneData={data}
       selectedBedKeys={extra.selectedBedKeys ?? []}
       onChanged={onChanged}
@@ -296,5 +296,120 @@ describe('watering round', () => {
     await user.click(screen.getByTestId('garden-plan-round-submit'));
     await screen.findByTestId('garden-plan-round-result');
     expect(sent[0]).toEqual({ volume_liters: 10.5, allocation: 'equal', summary: null });
+  });
+});
+
+const errorBody = (code: string, status: number) =>
+  HttpResponse.json({ error_id: 'e', error_code: code, message: 'x', details: [], path: '', method: 'X' }, { status });
+
+describe('partial failure and unsaved beds', () => {
+  it('keeps the alert and the ticked beds when the assignment fails, and a second save does not create the zone twice', async () => {
+    const user = userEvent.setup();
+    let posts = 0;
+    let puts = 0;
+    server.use(
+      http.post(`${BASE}/sites/site_1/irrigation-zones`, () => {
+        posts += 1;
+        return HttpResponse.json(zone('z_new', { name: 'Drip line' }), { status: 201 });
+      }),
+      http.put(`${BASE}/irrigation-zones/z_new/locations`, () => {
+        puts += 1;
+        return puts === 1
+          ? errorBody('reference.not_found', 422)
+          : HttpResponse.json({ ...zone('z_new'), added: ['loc_a'], removed: [], moved_from: {} });
+      }),
+      http.patch(`${BASE}/irrigation-zones/z_new`, () => HttpResponse.json(zone('z_new'))),
+    );
+    renderPanel([], 'grower', [], { selectedBedKeys: ['loc_a'] });
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Drip line');
+    await user.click(screen.getByTestId('garden-plan-zone-bed-loc_a'));
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    expect(await screen.findByTestId('garden-plan-zone-error')).toHaveTextContent(/Save the plan first/);
+    expect(screen.getByTestId('garden-plan-zone-bed-loc_a')).toBeChecked();
+    expect(screen.getByTestId('garden-plan-zone-name')).toHaveValue('Drip line');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    await waitFor(() => expect(puts).toBe(2));
+    expect(posts).toBe(1);
+  });
+
+  it('does not take an unsaved bed from the plan selection and says why', async () => {
+    const user = userEvent.setup();
+    renderPanel([], 'grower', [], { selectedBedKeys: ['tmp_unsaved0'], unsavedBed: true });
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    expect(screen.queryByTestId('garden-plan-zone-bed-tmp_unsaved0')).toBeNull();
+    expect(screen.getByTestId('garden-plan-zone-unsaved-hint')).toBeInTheDocument();
+    await user.click(screen.getByTestId('garden-plan-zone-take-selection'));
+    expect(screen.getByText(/selected bed is not saved yet/)).toBeInTheDocument();
+  });
+
+  it('shows the moved notice and leaves the form of a zone that is gone', async () => {
+    const user = userEvent.setup();
+    useStatus('z1', status());
+    server.use(
+      http.put(`${BASE}/irrigation-zones/z1/locations`, () =>
+        HttpResponse.json({ ...zone('z1'), added: ['loc_a'], removed: [], moved_from: { loc_a: 'z0' } }),
+      ),
+    );
+    renderPanel([zone('z1')]);
+    await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
+    await user.click(screen.getByTestId('garden-plan-zone-bed-loc_a'));
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    expect(await screen.findByText(/Taken over from another zone: North bed/)).toBeInTheDocument();
+    cleanup();
+    useStatus('z1', status());
+    server.use(http.patch(`${BASE}/irrigation-zones/z1`, () => errorBody('x', 404)));
+    renderPanel([zone('z1')]);
+    await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
+    await user.clear(screen.getByTestId('garden-plan-zone-name'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'New name');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    await waitFor(() => expect(screen.queryByTestId('garden-plan-zone-form')).toBeNull());
+  });
+
+  it('maps 403 on save to the permission text', async () => {
+    const user = userEvent.setup();
+    server.use(http.post(`${BASE}/sites/site_1/irrigation-zones`, () => errorBody('x', 403)));
+    renderPanel([]);
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Z');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    expect(await screen.findByTestId('garden-plan-zone-error')).toHaveTextContent(/permission/);
+  });
+
+  it('has no axe violations in the form', async () => {
+    const user = userEvent.setup();
+    const { container } = renderPanel([], 'lead');
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    await expectNoA11yViolations(container);
+  });
+});
+
+describe('watering round errors', () => {
+  async function openRound() {
+    const user = userEvent.setup();
+    useStatus('z1', status());
+    renderPanel([zone('z1', { location_keys: ['loc_a'] })]);
+    await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
+    await user.click(await screen.findByTestId('garden-plan-zone-round-open'));
+    await user.type(screen.getByTestId('garden-plan-round-volume'), '5');
+    return user;
+  }
+
+  it.each([
+    [429, 'x', /Too many requests/],
+    [403, 'x', /permission/],
+    [422, 'irrigation_zone.no_beds', /no bed yet/],
+    [422, 'irrigation_zone.no_bed_area', /No bed of the zone has an area/],
+  ])('shows %i %s as text', async (status_, code, text) => {
+    server.use(http.post(`${BASE}/irrigation-zones/z1/log-watering`, () => errorBody(code, status_)));
+    const user = await openRound();
+    await user.click(screen.getByTestId('garden-plan-round-submit'));
+    expect(await screen.findByTestId('garden-plan-round-error')).toHaveTextContent(text);
+  });
+
+  it('has no axe violations', async () => {
+    await openRound();
+    await expectNoA11yViolations(screen.getByTestId('garden-plan-round-dialog'));
   });
 });

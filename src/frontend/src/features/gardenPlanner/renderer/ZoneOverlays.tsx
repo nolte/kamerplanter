@@ -62,6 +62,26 @@ export const ZONE_VARIANTS = [
 
 const zonePatternId = (variant: number): string => `gp-zone-hatch-${variant % ZONE_VARIANTS.length}`;
 
+/** The zone's number at the top-left of its bed: past the fourth zone the hatchings repeat, the number never does. */
+function ZoneNumber({ entry, number, pxPerM, theme }: { entry: ShapeEntry; number: number; pxPerM: number; theme: Theme }) {
+  const size = 13 / pxPerM;
+  return (
+    <text
+      x={num(entry.bbox[0] + 5 / pxPerM)}
+      y={num(-entry.bbox[3] + 15 / pxPerM)}
+      fontSize={num(size)}
+      fontWeight={700}
+      fill={theme.palette.text.primary}
+      stroke={theme.palette.background.paper}
+      strokeWidth={num(3 / pxPerM)}
+      paintOrder="stroke"
+      data-zone-number={number}
+    >
+      {number}
+    </text>
+  );
+}
+
 interface ZoneLayerProps {
   shapes: readonly SceneShape[];
   zones: readonly ZoneLayerEntry[];
@@ -113,6 +133,9 @@ export function ZoneLayer({ shapes, zones, pxPerM, theme }: ZoneLayerProps) {
                 strokeWidth={3}
                 strokeDasharray={variant.dash}
               />
+              {shapes.find((shape) => shape.entry.key === bedKey)?.showLabel ? (
+                <ZoneNumber entry={entry} number={zone.variant + 1} pxPerM={pxPerM} theme={theme} />
+              ) : null}
             </g>
           );
         }),

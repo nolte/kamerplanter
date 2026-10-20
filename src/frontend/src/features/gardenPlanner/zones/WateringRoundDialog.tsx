@@ -17,6 +17,7 @@ import Typography from '@mui/material/Typography';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { isApiError } from '@/api/errors';
 import type { PlanModel } from '../model/planModel';
+import { errorKey } from './ZoneEditor';
 import { logZoneWatering } from './zonesApi';
 import { ROUND_ALLOCATIONS, type PlanZone, type RoundAllocation, type WateringRoundResult } from './zoneTypes';
 
@@ -75,9 +76,9 @@ export function WateringRoundDialog({ open, zone, plan, onClose, onLogged }: Pro
         setError(
           code === 'irrigation_zone.no_bed_area'
             ? t(`${PREFIX}.round.noBedArea`)
-            : isApiError(failure) && failure.statusCode === 403
-              ? t(`${PREFIX}.errors.forbidden`)
-              : t(`${PREFIX}.errors.generic`),
+            : code === 'irrigation_zone.no_beds'
+              ? t(`${PREFIX}.round.noBeds`)
+              : t(`${PREFIX}.errors.${errorKey(failure)}`),
         );
       })
       .finally(() => setBusy(false));

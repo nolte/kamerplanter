@@ -3,7 +3,7 @@
  * editor (create, change, assign beds, delete for the lead), the status of a zone and the watering round. This
  * module is its own `lazy()` chunk: the route chunk only carries the switch that mounts it (UI-NFR-003).
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -45,9 +45,17 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
   // The full record (with the Home Assistant flag) once the endpoint answered; the plan's list before.
   const record = selected ? (records.find((zone) => zone.key === selected.key) ?? selected) : null;
 
-  const changed = (key: string | null) => {
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  // Focus follows the panel: into it on open, and to its heading when the view changes (after a save, a delete, a cancel).
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [mode.kind]);
+
+  const changed = (key: string | null, options?: { stay?: boolean }) => {
     reload();
     onChanged();
+    setStatusToken((value) => value + 1);
+    if (options?.stay) return;
     setMode(key === null ? { kind: 'list' } : { kind: 'edit', key });
   };
 
@@ -60,7 +68,14 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
       sx={{ p: 2, display: 'grid', gap: 2 }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="h6" component="h3" id="garden-plan-zones-title" sx={{ flex: 1 }}>
+        <Typography
+          variant="h6"
+          component="h3"
+          id="garden-plan-zones-title"
+          ref={headingRef}
+          tabIndex={-1}
+          sx={{ flex: 1, outline: 'none' }}
+        >
           {t(`${PREFIX}.panel.title`)}
         </Typography>
         <IconButton
@@ -194,6 +209,11 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
             />
           )}
         </>
+      )}
+      {mode.kind === 'edit' && !selected && (
+        <Typography variant="body2" color="text.secondary" role="status">
+          {t(`${PREFIX}.status.loading`)}
+        </Typography>
       )}
       {mode.kind === 'edit' && !selected && (
         <Button onClick={() => setMode({ kind: 'list' })} sx={{ minHeight: 44, justifySelf: 'start' }}>

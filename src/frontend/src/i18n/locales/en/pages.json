@@ -5862,7 +5862,7 @@
             "title": "Layer legend",
             "zonesTitle": "Irrigation zones",
             "zonesNone": "No zone has been created yet.",
-            "zoneEntry": "{{name}}, {{type}}",
+            "zoneEntry": "{{number}}. {{name}}, {{type}}",
             "wateredTitle": "Days since the last watering",
             "class": {
               "d0_1": "0 to 1 day since",
@@ -5915,14 +5915,19 @@
             "created": "Zone {{name}} created.",
             "saved": "Zone {{name}} saved.",
             "deleted": "Zone {{name}} deleted.",
-            "moved": "Taken over from another zone: {{beds}}."
+            "moved": "Taken over from another zone: {{beds}}.",
+            "unsavedHint": "Beds and water sources that are not saved yet can be chosen here only after the plan is saved.",
+            "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first."
           },
           "errors": {
             "forbidden": "You do not have permission for this.",
             "quota": "This site has reached the maximum number of zones.",
             "notFound": "The zone no longer exists. The list is reloaded.",
             "invalid": "The input was rejected. Check name, colour and flow rate.",
-            "generic": "That did not work. Please try again."
+            "generic": "That did not work. Please try again.",
+            "rateLimited": "Too many requests in a short time. Wait a moment and try again.",
+            "conflict": "Someone changed this at the same time. Reload the zone and try again.",
+            "referenceNotFound": "A chosen bed or water source is not known to the server yet. Save the plan first."
           },
           "status": {
             "title": "Zone status",

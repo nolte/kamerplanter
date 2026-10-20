@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -14,15 +14,15 @@ const PREFIX = 'pages.gardenPlan.editor.zones';
 
 function useLiters(): (value: number) => string {
   const { i18n } = useTranslation();
-  const format = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 });
-  return (value) => format.format(value);
+  const format = useMemo(() => new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }), [i18n.language]);
+  return useCallback((value: number) => format.format(value), [format]);
 }
 
 /** The text of one hint code (GP-FR-119); a code this client does not know is named, never dropped. */
 function useHintText(plan: PlanModel): (hint: ZoneHint) => string {
   const { t } = useTranslation();
   const liters = useLiters();
-  return (hint) => {
+  return useCallback((hint: ZoneHint) => {
     const { params } = hint;
     if (hint.code === 'water_source_lasts_days') {
       return t(`${PREFIX}.hints.water_source_lasts_days`, {
@@ -39,7 +39,7 @@ function useHintText(plan: PlanModel): (hint: ZoneHint) => string {
       });
     }
     return t(`${PREFIX}.hints.unknown`, { code: hint.code });
-  };
+  }, [plan.locations, t, liters]);
 }
 
 interface Props {

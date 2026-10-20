@@ -23,9 +23,10 @@ export function zone(key: string, overrides: Partial<IrrigationZone> = {}): Irri
   };
 }
 
-export function zonePlan() {
+export function zonePlan(extraBeds: Parameters<typeof bed>[3][] = []) {
   return smallPlan({
     locations: [
+      ...extraBeds.map((overrides, index) => bed(`tmp_unsaved${index}`, 10, 1, overrides)),
       bed('loc_a', 1, 1, { name: 'North bed', area_m2: 4 }),
       bed('loc_b', 4, 1, { name: 'South bed', area_m2: 0 }),
       bed('loc_c', 7, 1, { name: 'East bed', area_m2: 2 }),

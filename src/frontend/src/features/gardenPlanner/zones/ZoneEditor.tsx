@@ -12,7 +12,7 @@ import Typography from '@mui/material/Typography';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { isApiError } from '@/api/errors';
 import { useNotification } from '@/hooks/useNotification';
-import type { PlanModel } from '../model/planModel';
+import { isTempKey, type PlanModel } from '../model/planModel';
 import { createZone, deleteZone, replaceZoneLocations, updateZone } from './zonesApi';
 import {
   IRRIGATION_TYPES,
@@ -39,7 +39,7 @@ interface Props {
   /** The `technical` admin scope: the flow rate is a technical value. */
   technical: boolean;
   /** Something was written: reload the zones and the layers. `key` = the zone to show next (null after a delete). */
-  onChanged: (key: string | null) => void;
+  onChanged: (key: string | null, options?: { stay?: boolean }) => void;
   onCancel: () => void;
 }
 
@@ -47,10 +47,14 @@ function sameSet(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((key) => b.includes(key));
 }
 
-function errorKey(failure: unknown): string {
+export function errorKey(failure: unknown): string {
   if (!isApiError(failure)) return 'generic';
   if (failure.statusCode === 403) return 'forbidden';
   if (failure.statusCode === 404) return 'notFound';
+  if (failure.statusCode === 429) return 'rateLimited';
+  if (failure.statusCode === 409) return 'conflict';
+  if (failure.errorCode === 'reference.not_found') return 'referenceNotFound';
+  if (failure.errorCode === 'irrigation_zone.no_beds') return 'noBeds';
   if (failure.errorCode === 'irrigation_zone.quota_exceeded') return 'quota';
   if (failure.statusCode === 422) return 'invalid';
   return 'generic';
@@ -76,17 +80,27 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Set once the zone exists on the server: a retry after a failed bed assignment must not create it twice.
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   const placedBeds = useMemo(
     () =>
       Object.values(plan.locations)
-        .filter((location) => location.geometry != null)
+        .filter((location) => location.geometry != null && !isTempKey(location.key))
         .sort((a, b) => a.name.localeCompare(b.name)),
     [plan.locations],
   );
   const waterSources = useMemo(
-    () => Object.values(plan.gardenObjects).filter((object) => object.object_type === 'water_source'),
+    () => Object.values(plan.gardenObjects).filter(
+        (object) => object.object_type === 'water_source' && !isTempKey(object.key),
+      ),
     [plan.gardenObjects],
+  );
+  const unsaved = useMemo(
+    () =>
+      Object.keys(plan.locations).some(isTempKey) ||
+      Object.values(plan.gardenObjects).some((object) => object.object_type === 'water_source' && isTempKey(object.key)),
+    [plan.locations, plan.gardenObjects],
   );
   const zoneOfBed = useMemo(() => {
     const map = new Map<string, PlanZone>();
@@ -107,7 +121,9 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
     const known = new Set(placedBeds.map((bed) => bed.key));
     const picked = selectedBedKeys.filter((key) => known.has(key));
     if (picked.length === 0) {
-      setNotice(t(`${PREFIX}.form.bedsSelectionEmpty`));
+      setNotice(
+        t(`${PREFIX}.form.${selectedBedKeys.some(isTempKey) ? 'bedsSelectionUnsaved' : 'bedsSelectionEmpty'}`),
+      );
       return;
     }
     setNotice(null);
@@ -119,7 +135,8 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
     if (!nameValid || !flowValid || busy) return;
     setBusy(true);
     setError(null);
-    let savedKey = zone?.key ?? null;
+    const existingKey = zone?.key ?? createdKey;
+    let savedKey = existingKey;
     let wrote = false;
     try {
       const fields: ZoneCreate = {
@@ -131,12 +148,19 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
       };
       if (technical) fields.flow_rate_l_per_min = flowNumber;
       let moved: Record<string, string> = {};
-      if (zone === null) {
+      if (existingKey === null) {
         const created = await createZone(siteKey, fields);
         savedKey = created.key;
+        setCreatedKey(created.key);
         wrote = true;
         if (beds.length > 0) moved = (await replaceZoneLocations(created.key, beds)).moved_from;
         notify.success(t(`${PREFIX}.form.created`, { name: created.name }));
+      } else if (zone === null) {
+        // Retry after a failed assignment: the zone exists, only the fields and the beds are sent again.
+        await updateZone(existingKey, fields);
+        moved = (await replaceZoneLocations(existingKey, beds)).moved_from;
+        wrote = true;
+        notify.success(t(`${PREFIX}.form.created`, { name: fields.name }));
       } else {
         const patch: ZoneUpdate = {};
         if (fields.name !== zone.name) patch.name = fields.name;
@@ -159,8 +183,11 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
       if (movedBeds.length > 0) notify.info(t(`${PREFIX}.form.moved`, { beds: movedBeds.join(', ') }));
       onChanged(savedKey);
     } catch (failure) {
-      setError(t(`${PREFIX}.errors.${errorKey(failure)}`));
-      if (wrote) onChanged(savedKey);
+      const key = errorKey(failure);
+      setError(t(`${PREFIX}.errors.${key}`));
+      // The zone is gone: leave its form. Otherwise a half-done save keeps the form (and its ticked beds) as it is.
+      if (key === 'notFound') onChanged(null);
+      else if (wrote) onChanged(savedKey, { stay: true });
     } finally {
       setBusy(false);
     }
@@ -176,7 +203,9 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
       onChanged(null);
     } catch (failure) {
       setConfirmDelete(false);
-      setError(t(`${PREFIX}.errors.${errorKey(failure)}`));
+      const key = errorKey(failure);
+      setError(t(`${PREFIX}.errors.${key}`));
+      if (key === 'notFound') onChanged(null);
     } finally {
       setBusy(false);
     }
@@ -258,6 +287,11 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
           {t(`${PREFIX}.form.beds`)}
         </Typography>
         <FormHelperText sx={{ mt: 0 }}>{t(`${PREFIX}.form.bedsHint`)}</FormHelperText>
+        {unsaved && (
+          <Typography variant="body2" color="text.secondary" data-testid="garden-plan-zone-unsaved-hint">
+            {t(`${PREFIX}.form.unsavedHint`)}
+          </Typography>
+        )}
         {placedBeds.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             {t(`${PREFIX}.form.bedsNone`)}
