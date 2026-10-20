@@ -5407,7 +5407,10 @@
           "unlock": "Unlock",
           "zOrder": "Change order",
           "addWithDimensions": "Add with dimensions",
-          "northAngle": "Set north direction"
+          "northAngle": "Set north direction",
+          "align": "Align",
+          "distribute": "Distribute evenly",
+          "multiDuplicate": "Duplicate several times"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5432,6 +5435,22 @@
           },
           "redo": {
             "failed": "Redo is no longer possible because the plan has changed since."
+          },
+          "bed": {
+            "overlap": "The shape overlaps another bed and was not applied."
+          },
+          "plan": {
+            "revision_conflict": "The plan was changed meanwhile and has been reloaded. Place the template again.",
+            "quota_exceeded": "That many beds and objects do not fit into this garden (at most 500). Nothing was created."
+          },
+          "template": {
+            "save_first": "Your unsaved changes could not be saved. Save first, then place the template.",
+            "busy": "The plan is being saved or a conflict is open. Wait a moment or reload the plan.",
+            "failed": "The template could not be placed. The plan stays as it was."
+          },
+          "multi": {
+            "invalid": "Check the count, the spacing and the start number: the count is between 1 and 100, the spacing is not negative.",
+            "too_many": "That is too many changes at once. Choose fewer copies."
           }
         },
         "deleteDialog": {
@@ -5657,7 +5676,8 @@
           "back": "Send to back",
           "lock": "Lock",
           "unlock": "Unlock",
-          "selectAll": "Select all"
+          "selectAll": "Select all",
+          "multiDuplicate": "Duplicate several times"
         },
         "duplicate": {
           "name": "{{name}} (copy)"
@@ -5709,7 +5729,8 @@
             "length": "Length",
             "radius": "Radius",
             "rotation": "Rotation",
-            "strokeWidth": "Stroke width"
+            "strokeWidth": "Stroke width",
+            "height": "Height (optional)"
           },
           "intro": "Add a bed or object by typing numbers instead of drawing it. The shape is checked like a drawn one and has to fit completely inside its area.",
           "nameHelper": "Leave empty to use the suggestion.",
@@ -5734,7 +5755,7 @@
         "snap": {
           "toggle": "Snap to grid",
           "short": "Snap",
-          "hint": "Snap to the grid. Hold Alt to switch snapping off briefly."
+          "hint": "Snap to the grid and to the corners and edges of other objects. Hold Alt to switch snapping off briefly."
         },
         "zoom": {
           "label": "Zoom",
@@ -5836,6 +5857,11 @@
           },
           "tooMany": {
             "hint": "Undo some changes or split the work into smaller steps. Nothing was saved."
+          },
+          "autoSave": {
+            "label": "Auto-save",
+            "pausedConflict": "Auto-save is paused while the conflict is open.",
+            "pausedFailed": "Auto-save is paused until saving works again."
           }
         },
         "conflict": {
@@ -5849,6 +5875,105 @@
           "download": "Keep my changes as a copy (download JSON)",
           "reload": "Reload",
           "downloaded": "The copy was downloaded. You can reload now."
+        },
+        "align": {
+          "button": "Align",
+          "label": "Align and distribute",
+          "mode": {
+            "left": "Align left",
+            "right": "Align right",
+            "top": "Align top",
+            "bottom": "Align bottom",
+            "centerH": "Centre horizontally",
+            "centerV": "Centre vertically"
+          },
+          "distribute": {
+            "horizontal": "Distribute horizontally",
+            "vertical": "Distribute vertically"
+          }
+        },
+        "miniMap": {
+          "label": "Overview map of the garden with the visible section",
+          "hint": "Click to jump to this spot"
+        },
+        "multiDuplicate": {
+          "title": "Duplicate several times",
+          "intro": "Create several equal beds in a row, for example the plots of a community garden. One undo takes all copies back.",
+          "count": "Number of copies",
+          "countHelper": "1 to {{max}}",
+          "direction": "Direction",
+          "directions": {
+            "right": "To the right",
+            "left": "To the left",
+            "up": "Upwards",
+            "down": "Downwards"
+          },
+          "spacing": "Spacing between the copies",
+          "spacingHelper": "Edge to edge, 0 = the copies touch",
+          "scheme": "Naming scheme",
+          "schemeHelper": "{n} is replaced by the running number.",
+          "defaultScheme": "Plot {n}",
+          "start": "First number",
+          "startHelper": "The first copy gets this number.",
+          "preview": "The copies are named: {{names}}",
+          "slotsNote": "Planting positions, plants and tasks are not copied. Lay out a planting grid for each bed afterwards in the Properties panel.",
+          "submit": "Duplicate",
+          "invalid": "Please enter a valid number."
+        },
+        "templates": {
+          "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",
+          "tool": {
+            "label": "Place bed from template",
+            "hint": "Put a bed from a template on the plan with one click",
+            "short": "From template"
+          },
+          "panel": {
+            "label": "Bed from template",
+            "pick": "Template",
+            "loading": "Loading templates",
+            "rotate": "Rotate (now {{deg}}°)",
+            "close": "Done",
+            "placeCenter": "Place at view centre",
+            "hintPick": "Choose a template. Then a click on the plan puts the bed there.",
+            "hintPlace": "Click the plan to place the bed. Alt switches the grid snap off, Esc ends.",
+            "placing": "Creating the bed …",
+            "failed": "The templates could not be loaded."
+          },
+          "save": {
+            "button": "Save as template",
+            "hint": "Save the selected bed as a template for future beds",
+            "title": "Save as template",
+            "intro": "The shape, bed type and height of the bed are saved as a template. Plants, tasks and notes are not part of it.",
+            "name": "Template name",
+            "submit": "Save",
+            "done": "The template “{{name}}” is saved.",
+            "error": {
+              "generic": "The template could not be saved.",
+              "forbidden": "You lack the permission for this. Growers and leads create templates.",
+              "bed_template": {
+                "quota_exceeded": "You have reached the maximum number of templates. Delete one you no longer need.",
+                "not_a_bed_type": "The type of this bed does not suit a bed template."
+              },
+              "reference": {
+                "not_found": "The bed type of this bed no longer exists."
+              }
+            }
+          },
+          "standard": {
+            "label": "Standard sizes",
+            "hint": "Use a standard size (shape, size, bed type and height):"
+          },
+          "system": {
+            "sys_bed_1x1": "Bed 1 × 1 m",
+            "sys_bed_2x1": "Bed 2 × 1 m",
+            "sys_bed_3x1_2": "Bed 3 × 1.2 m",
+            "sys_bed_4x1_2": "Bed 4 × 1.2 m",
+            "sys_raised_bed_1_2x2_4": "Raised bed 1.2 × 2.4 m",
+            "sys_raised_bed_2x1x0_8": "Raised bed 2 × 1 × 0.8 m",
+            "sys_planter_d0_3": "Planter Ø 0.3 m",
+            "sys_planter_d0_4": "Planter Ø 0.4 m",
+            "sys_planter_d0_5": "Planter Ø 0.5 m"
+          }
         }
       },
       "io": {

@@ -163,6 +163,22 @@ export const loadGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue:
   },
 );
 
+/**
+ * Re-read the plan after the server changed it behind the editor's back (a placed template, GP-FR-044): the
+ * model is replaced and the history emptied like on a load, but `loadStatus` stays `ready` and `loadRequestId`
+ * stays put, so the editor is not unmounted and the view does not jump back to the fitted one.
+ */
+export const refreshGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
+  'gardenPlan/refresh',
+  async (siteKey, { rejectWithValue }) => {
+    try {
+      return normalizePlan(await api.getGardenPlan(siteKey));
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+  },
+);
+
 interface SaveResult {
   response: Awaited<ReturnType<typeof api.applyPlanBatch>>;
 }
@@ -206,6 +222,63 @@ export const saveGardenPlan = createAsyncThunk<
     },
   },
 );
+
+/** The server-side placement of a bed template (GP-FR-044, WP 7.10). */
+export interface PlaceTemplateArg {
+  templateKey: string;
+  origin: [number, number];
+  rotationDeg: number;
+}
+
+/** `code` is a `notice.*` key of the editor: a server code (`bed.overlap`, ...) or one of the `template.*` codes. */
+export type PlaceTemplateOutcome = { ok: true; locationKey: string | null } | { ok: false; code: string };
+
+/**
+ * Place a bed from a template. The server creates the bed in its own transaction (`POST .../plan/place-template`)
+ * and the model learns of it by a refresh, so unsaved edits are saved first: a request that carries only the
+ * template could not be ordered after them. A save that does not go through ends the placement before anything
+ * is created. The placement is saved at once and is not an undo step (the history is emptied by the refresh).
+ */
+export const placeTemplateAt = createAsyncThunk<
+  PlaceTemplateOutcome,
+  PlaceTemplateArg,
+  { state: { gardenPlan?: GardenPlanState } }
+>('gardenPlan/placeTemplate', async (arg, { getState, dispatch }) => {
+  let current = selectGardenPlanState(getState());
+  if (current.plan === null) return { ok: false, code: 'template.failed' };
+  if (current.saveStatus === 'saving' || current.saveStatus === 'conflict') {
+    return { ok: false, code: 'template.busy' };
+  }
+  if (current.pending.length > 0) {
+    await dispatch(saveGardenPlan());
+    current = selectGardenPlanState(getState());
+    if (current.plan === null || current.pending.length > 0 || current.saveStatus !== 'idle') {
+      return { ok: false, code: 'template.save_first' };
+    }
+  }
+  const { siteKey, revision } = current.plan;
+  try {
+    const response = await api.placeBedTemplate(siteKey, {
+      template_key: arg.templateKey,
+      origin: arg.origin,
+      rotation_deg: arg.rotationDeg,
+      expected_revision: revision,
+    });
+    await dispatch(refreshGardenPlan(siteKey));
+    return { ok: true, locationKey: response.key_map.template_bed ?? null };
+  } catch (error) {
+    const failure = api.toPlanSaveFailure(error);
+    if (failure.kind === 'conflict') {
+      // Someone else changed the plan: show what is there now, then the user places again.
+      await dispatch(refreshGardenPlan(siteKey));
+      return { ok: false, code: 'plan.revision_conflict' };
+    }
+    if (failure.kind === 'rejected') {
+      return { ok: false, code: failure.findings[0]?.code || failure.code };
+    }
+    return { ok: false, code: 'template.failed' };
+  }
+});
 
 // ── Reducer helpers ──────────────────────────────────────────────────────────
 
@@ -393,6 +466,22 @@ export const gardenPlanSlice = createSlice({
         state.loadError = action.payload ?? action.error.message ?? 'Unknown error';
       })
 
+      .addCase(refreshGardenPlan.fulfilled, (state, action) => {
+        // Nothing may be pending here (the caller saved first); an edit made since stays where it is.
+        if (state.pending.length > 0 || state.saveStatus === 'saving') return;
+        state.plan = action.payload;
+        state.past = [];
+        state.future = [];
+        state.saveStatus = 'idle';
+        state.saveFailure = null;
+        state.saveFailureOpIds = [];
+        state.conflict = null;
+        state.inFlight = 0;
+        state.editError = null;
+        state.stack = null;
+        dropSelectionOfMissing(state);
+      })
+
       .addCase(saveGardenPlan.pending, (state) => {
         state.saveStatus = 'saving';
         state.saveFailure = null;
@@ -534,3 +623,11 @@ export const selectRedoLabel = (state: RootWithPlan): string | null => {
   const { future } = planState(state);
   return future.length > 0 ? future[future.length - 1].label : null;
 };
+
+/**
+ * Whether an auto-save may fire now (GP-UX-004): something is pending and the last save left the plan quiet.
+ * A save in flight, a conflict (paused until the reload) and a refused save (the user must look at the message)
+ * all hold it back - sending the same request again every two seconds would only repeat the refusal.
+ */
+export const selectAutoSaveReady = (state: RootWithPlan): boolean =>
+  planState(state).pending.length > 0 && planState(state).saveStatus === 'idle';

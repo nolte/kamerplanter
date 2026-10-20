@@ -1,6 +1,13 @@
 import { tenantClient } from '@/api/client';
 import { isApiError } from '@/api/errors';
-import type { GardenPlanResponse, PlanBatchRequest, PlanBatchResponse } from '../model/types';
+import type {
+  BedTemplate,
+  BedTemplateInput,
+  GardenPlanResponse,
+  PlaceTemplateRequest,
+  PlanBatchRequest,
+  PlanBatchResponse,
+} from '../model/types';
 
 /**
  * REST access to the garden plan of a site (REQ-053 §21.1) through the tenant-scoped client. Read and
@@ -30,6 +37,38 @@ export async function applyPlanBatch(
 ): Promise<PlanBatchResponse> {
   const { data } = await tenantClient.post<PlanBatchResponse>(
     `${SITES}/${siteKey}/plan/batch`,
+    request,
+  );
+  return data;
+}
+
+/** The most a page of `GET /bed-templates` holds; a tenant's catalogue is bounded (`MAX_TEMPLATES_PER_TENANT`). */
+const TEMPLATE_PAGE_SIZE = 200;
+
+/** GP-FR-044/045: the system templates (standard sizes) and the tenant's own. */
+export async function listBedTemplates(): Promise<BedTemplate[]> {
+  const { data } = await tenantClient.get<BedTemplate[]>('/bed-templates', {
+    params: { limit: TEMPLATE_PAGE_SIZE },
+  });
+  return data;
+}
+
+/** GP-FR-044: "Save as template" - a template of the tenant (from the grower role). */
+export async function createBedTemplate(input: BedTemplateInput): Promise<BedTemplate> {
+  const { data } = await tenantClient.post<BedTemplate>('/bed-templates', input);
+  return data;
+}
+
+/**
+ * GP-FR-044: one bed from a template, through the batch path (one transaction, one revision). The answer is a
+ * batch response: `key_map.template_bed` is the new location.
+ */
+export async function placeBedTemplate(
+  siteKey: string,
+  request: PlaceTemplateRequest,
+): Promise<PlanBatchResponse> {
+  const { data } = await tenantClient.post<PlanBatchResponse>(
+    `${SITES}/${siteKey}/plan/place-template`,
     request,
   );
   return data;

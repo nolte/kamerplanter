@@ -1,0 +1,110 @@
+/**
+ * "Bed > From template" (REQ-053 GP-FR-044, WP 7.10): the strip under the tool bar while the template tool is
+ * on. The user picks a template, turns it, then clicks (or taps) the plan where its anchor should land. Its own
+ * lazy chunk: the plan route's budget does not carry the picker.
+ */
+import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import MenuItem from '@mui/material/MenuItem';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import RotateRightIcon from '@mui/icons-material/RotateRight';
+import type { BedTemplates } from './useBedTemplates';
+import { templateName } from './templateName';
+
+const PREFIX = 'pages.gardenPlan.editor.templates';
+const TARGET_PX = 44;
+
+interface TemplatePanelProps {
+  catalogue: BedTemplates;
+  /** `null` = none picked yet. */
+  templateKey: string | null;
+  onTemplateKey: (key: string) => void;
+  rotationDeg: number;
+  onRotate: () => void;
+  busy: boolean;
+  /** Place the template at the middle of the view: the way without a pointer (keyboard, switch access). */
+  onPlaceCenter: () => void;
+  onClose: () => void;
+}
+
+export default function TemplatePanel(props: TemplatePanelProps) {
+  const { t } = useTranslation();
+  const { catalogue, templateKey } = props;
+  const known = catalogue.templates.some((template) => template.key === templateKey);
+  return (
+    <Box
+      role="group"
+      aria-label={t(`${PREFIX}.panel.label`)}
+      data-testid="garden-plan-template-panel"
+      sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}
+    >
+      <TextField
+        select
+        size="small"
+        label={t(`${PREFIX}.panel.pick`)}
+        value={known ? templateKey : ''}
+        onChange={(event) => props.onTemplateKey(event.target.value)}
+        disabled={catalogue.loading}
+        slotProps={{ htmlInput: { 'data-testid': 'garden-plan-template-select' } }}
+        sx={{ minWidth: 240, '& .MuiInputBase-root': { minHeight: TARGET_PX } }}
+      >
+        {catalogue.templates.map((template) => (
+          <MenuItem key={template.key} value={template.key} sx={{ minHeight: 48 }}>
+            {templateName(t, template)}
+          </MenuItem>
+        ))}
+      </TextField>
+      {catalogue.loading && <CircularProgress size={20} aria-label={t(`${PREFIX}.panel.loading`)} />}
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<RotateRightIcon />}
+        onClick={props.onRotate}
+        data-testid="garden-plan-template-rotate"
+        sx={{ minHeight: TARGET_PX }}
+      >
+        {t(`${PREFIX}.panel.rotate`, { deg: props.rotationDeg })}
+      </Button>
+      <Button
+        variant="contained"
+        size="small"
+        onClick={props.onPlaceCenter}
+        disabled={!known || props.busy}
+        data-testid="garden-plan-template-place-center"
+        sx={{ minHeight: TARGET_PX }}
+      >
+        {t(`${PREFIX}.panel.placeCenter`)}
+      </Button>
+      <Button
+        size="small"
+        onClick={props.onClose}
+        data-testid="garden-plan-template-close"
+        sx={{ minHeight: TARGET_PX }}
+      >
+        {t(`${PREFIX}.panel.close`)}
+      </Button>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        role="status"
+        data-testid="garden-plan-template-hint"
+        sx={{ flexBasis: '100%' }}
+      >
+        {props.busy
+          ? t(`${PREFIX}.panel.placing`)
+          : known
+            ? t(`${PREFIX}.panel.hintPlace`)
+            : t(`${PREFIX}.panel.hintPick`)}
+      </Typography>
+      {catalogue.failed && (
+        <Alert severity="warning" data-testid="garden-plan-template-failed" sx={{ flexBasis: '100%' }}>
+          {t(`${PREFIX}.panel.failed`)}
+        </Alert>
+      )}
+    </Box>
+  );
+}

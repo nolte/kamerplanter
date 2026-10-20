@@ -199,7 +199,7 @@ export function drawDown(
   env: ToolEnv,
   opts: DrawOptions,
 ): Step<DrawState> {
-  const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt);
+  const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType);
   if (state.kind === 'corner' && !isPointShape(opts.shape)) {
     // The second tap: from here on it is an ordinary drag from the first corner.
     return step({
@@ -233,7 +233,7 @@ export function drawMove(
   env: ToolEnv,
   pressed: boolean,
 ): Step<DrawState> {
-  const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt);
+  const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType);
   if (state.kind === 'drag') {
     return step({ ...state, currentM: point, currentPx: sample.pointPx, square: sample.shift });
   }
@@ -262,7 +262,7 @@ export function drawUp(
       : dragGeometry(
           {
             ...state,
-            currentM: env.snapPoint(env.toModel(sample.pointPx), sample.alt),
+            currentM: env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType),
             square: sample.shift,
           },
           opts.shape,
@@ -280,7 +280,7 @@ export function drawUp(
   if (state.kind !== 'points' || state.pressPx === null) {
     return step(state.kind === 'points' ? { ...state, pressPx: null } : state);
   }
-  const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt);
+  const point = env.snapPoint(env.toModel(sample.pointPx), sample.alt, sample.pointerType);
   const { points } = state;
   const polygon = opts.shape === 'polygon';
   const radius = sample.pointerType === 'touch' ? FINISH_RADIUS_PX + 6 : FINISH_RADIUS_PX;
