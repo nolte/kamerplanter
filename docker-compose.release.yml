@@ -71,7 +71,7 @@ services:
 
   # ── Ollama (optional — local LLM inference for AI assistant) ──
   ollama:
-    image: ollama/ollama:latest@sha256:265409e1d931028a8f7d5a32bcbafddd7bffbc6cc629d77efe9560adf692a5e7
+    image: ollama/ollama:latest@sha256:4c5b27871a3239a717048f9b93057680a51b60c8119a7016aebb57f938e25e35
     profiles: ["ollama"]
     environment:
       OLLAMA_MODELS: /models
@@ -92,7 +92,7 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
+    image: timescale/timescaledb:2.31.0-pg16@sha256:322ae364eca3321cf2a48f1ef31213b87843413b3cf8feeebf54e999a26bb731
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
