@@ -9,9 +9,9 @@ job: inference-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-19'
-measured_at_commit: 9707e38f25ac49ca63a853b106af67915341f4da
-replay_seconds: 13
+measured_on: '2026-10-26'
+measured_at_commit: 296540ffa122507432aa14a1c9d88866d19ec5f4
+replay_seconds: 15
 job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
@@ -29,6 +29,7 @@ invocations:
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
+- python3
 - task
 - uv
 accepted_gaps: []

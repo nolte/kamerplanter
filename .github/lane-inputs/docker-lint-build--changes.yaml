@@ -9,8 +9,8 @@ job: changes
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-13'
-measured_at_commit: c309758a064771f5b88a80a91ebb90c8175742ba
+measured_on: '2026-10-26'
+measured_at_commit: 296540ffa122507432aa14a1c9d88866d19ec5f4
 replay_seconds: 2
 job_spec_sha256: 8601892c2f41d278f6aea87c7d8d6eae1a2f69a8510bce5d3f9ec84c8583960f
 invocations:

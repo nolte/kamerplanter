@@ -10,8 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-20'
-measured_at_commit: c1e5eaf0bc41b47f1e08c319f8b5a62e7ada3d1d
+measured_on: '2026-10-26'
+measured_at_commit: 296540ffa122507432aa14a1c9d88866d19ec5f4
+replay_seconds: 8
 job_spec_sha256: 3652e4110049a9c58bad376d157de885a9fa45f3eac23fc4ba13cf570734b9cf
 invocations:
 - command: task test:frontend:bench
@@ -19,10 +20,8 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1966
+  untracked_reads_dropped: 2005
 subprocesses:
-- asdf
-- bash
 - node
 - npx
 - sh
@@ -43,7 +42,6 @@ reads:
 - .taskfiles/reach.yaml
 - Taskfile.yaml
 - src/frontend/
-- src/frontend/.tool-versions
 - src/frontend/docker-entrypoint.d/
 - src/frontend/package.json
 - src/frontend/public/
@@ -125,6 +123,9 @@ reads:
 - src/frontend/src/features/gardenPlanner/renderer/viewport.ts
 - src/frontend/src/features/gardenPlanner/routes/
 - src/frontend/src/features/gardenPlanner/state/
+- src/frontend/src/features/gardenPlanner/templates/
+- src/frontend/src/features/gardenPlanner/underlay/
+- src/frontend/src/features/gardenPlanner/zones/
 - src/frontend/src/hooks/
 - src/frontend/src/i18n/
 - src/frontend/src/i18n/i18n.ts
@@ -229,6 +230,7 @@ reads:
 - src/frontend/src/utils/
 - src/frontend/src/validation/
 - src/frontend/src/validation/zodErrorMap.ts
+- src/frontend/tsconfig.json
 - src/frontend/vitest.config.ts
 test_modules: []
 readers: {}
