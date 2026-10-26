@@ -86,6 +86,13 @@ class ICareEventRepository(ABC):
         """
 
     @abstractmethod
+    def insert_many(self, events: list[CareEvent], *, tenant_key: str) -> list[CareEvent]:
+        """Store every event with its edges in ONE transaction - all or none (a zone's watering round, WP 7.3).
+
+        Every event must carry ``tenant_key``; the result is in the order given.
+        """
+
+    @abstractmethod
     def supersede(self, predecessor_key: str, event: CareEvent, *, tenant_key: str) -> CareEvent:
         """In one transaction: store ``event`` and set ``superseded_by_key`` on its predecessor (V-13).
 

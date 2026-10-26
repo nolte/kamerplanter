@@ -10,15 +10,22 @@ last editor is named by display name (§22.1).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
-from app.common.enums import BedStatus, SlotRole, SunExposure
+from app.common.enums import BedStatus, FlowRateSource, IrrigationZoneType, SlotRole, SunExposure
 from app.domain.models.garden_plan import MAX_OPERATIONS
-from app.domain.models.garden_plan_import import PlanImportReport
+from app.domain.models.garden_plan_import import MAX_OFFSET_M, PlanImportReport
 from app.domain.models.geometry import Geometry
+from app.domain.models.site import (
+    SiteUnderlay,
+    UnderlayCalibration,
+    UnderlayOpacity,
+    UnderlayOrigin,
+    UnderlayRotation,
+)
 
 SCHEMA_VERSION = "1"
 
@@ -129,6 +136,36 @@ class PlanBatchResponse(BaseModel):
     derived: dict[str, DerivedGeometrySchema] = Field(default_factory=dict)
 
 
+class PlaceTemplateRequest(BaseModel):
+    """``POST /sites/{key}/plan/place-template`` (§21.7): one bed from a template, at a point, turned."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "template_key": "sys_raised_bed_2x1x0_8",
+                    "origin": [4.0, 1.0],
+                    "rotation_deg": 90,
+                    "expected_revision": 42,
+                }
+            ]
+        },
+    )
+
+    template_key: str = Field(
+        min_length=1, max_length=200, description="A system template or one of the tenant's own (GET /bed-templates)."
+    )
+    origin: tuple[float, float] = Field(
+        description="Where the template's anchor (lower-left corner of a rectangle, centre of a circle, first "
+        "vertex of a polygon) lands in the plan frame, in metres."
+    )
+    rotation_deg: float = Field(
+        default=0.0, ge=0.0, lt=360.0, description="Counter-clockwise, added to the template's own rotation."
+    )
+    expected_revision: int = Field(ge=0, description="The plan_revision the client's copy was loaded at (V-14).")
+
+
 class PlanBoundaryResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={"examples": [{"plan_revision": 1, "total_area_m2": 100.0, "boundary": _RECT}]}
@@ -171,11 +208,16 @@ class PlanLocationResponse(BaseModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
+    #: The bed template this bed was placed from (provenance, WP 7.9).
+    template_key: str | None = None
     locked: bool = False
     z_order: int = 0
     season_state: str | None = Field(default=None, description="Derived (§7.4): empty or planted until WP 3.x/4.x.")
     open_task_count: int = 0
     overdue_task_count: int = 0
+    last_watered_at: datetime | None = Field(
+        default=None, description="Newest watering of the bed within a year (`include=tasks`); never as 'needs water'."
+    )
 
 
 class PlanGardenObjectResponse(GardenObjectResponse):
@@ -251,6 +293,58 @@ class PlanPlantResponse(BaseModel):
     location_key: str | None = None
 
 
+_UNDERLAY: dict[str, Any] = {
+    "attachment_key": "att_7f3a",
+    "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+    "origin": [0.0, 12.0],
+    "rotation_deg": 0.0,
+    "opacity": 0.5,
+}
+
+
+class PlanUnderlayRequest(BaseModel):
+    """The background picture of the plan (GP-FR-033): attachment, two-point calibration, placement, opacity."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [_UNDERLAY]})
+
+    attachment_key: str = Field(
+        min_length=1,
+        max_length=64,
+        description=(
+            "A `garden_plan_underlay` attachment of the caller's own tenant; any other key is 422 `reference.not_found`"
+        ),
+    )
+    calibration: UnderlayCalibration = Field(
+        description="Two points of the picture in pixels and the real distance between them in metres (the scale)."
+    )
+    origin: UnderlayOrigin = Field(
+        default=(0.0, 0.0), description="Plan-frame position in metres of the picture's top-left pixel."
+    )
+    rotation_deg: UnderlayRotation = Field(
+        default=0.0, description="Counter-clockwise turn about `origin`, in degrees (-360..360)."
+    )
+    opacity: UnderlayOpacity = Field(default=0.5, description="0.05 (faint) .. 1 (opaque).")
+
+    def to_domain(self) -> SiteUnderlay:
+        return SiteUnderlay(
+            attachment_key=self.attachment_key,
+            calibration=self.calibration,
+            origin=self.origin,
+            rotation_deg=self.rotation_deg,
+            opacity=self.opacity,
+        )
+
+
+class PlanUnderlayResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [_UNDERLAY]})
+
+    attachment_key: str
+    calibration: UnderlayCalibration
+    origin: tuple[float, float]
+    rotation_deg: float
+    opacity: float
+
+
 class PlanSettingsResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -274,6 +368,44 @@ class PlanSettingsResponse(BaseModel):
     plan_revision: int = 0
     plan_updated_at: datetime | None = None
     plan_updated_by_name: str | None = Field(default=None, description="Display name, never the account key (§22.1).")
+    underlay: PlanUnderlayResponse | None = Field(
+        default=None, description="The background picture to trace over (GP-FR-033); shown per user, stored per site."
+    )
+
+
+class PlanZoneResponse(BaseModel):
+    """An irrigation zone as the plan shows it (GP-API-001, GP-FR-110): the grouping, not the technical coupling.
+
+    The bound Home Assistant entity is not part of it (SR-014); ``actuator_key`` is, as on the zone's own route.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "zone_sued",
+                    "name": "South zone (drip line)",
+                    "irrigation_type": "drip",
+                    "water_source_key": "go_91ab",
+                    "flow_rate_source": "manual",
+                    "color": "#2E7D32",
+                    "location_keys": ["loc_bed_1", "loc_bed_2"],
+                }
+            ]
+        }
+    )
+
+    key: str
+    name: str
+    irrigation_type: IrrigationZoneType
+    water_source_key: str | None = None
+    actuator_key: str | None = None
+    flow_rate_l_per_min: float | None = None
+    flow_rate_source: FlowRateSource = FlowRateSource.MANUAL
+    application_efficiency: float | None = None
+    color: str
+    schedule_hint: str | None = None
+    location_keys: list[str] = Field(default_factory=list)
 
 
 class GardenPlanResponse(BaseModel):
@@ -310,8 +442,8 @@ class GardenPlanResponse(BaseModel):
     garden_objects: list[PlanGardenObjectResponse] = Field(default_factory=list)
     slots: list[PlanSlotResponse] = Field(default_factory=list)
     plants: list[PlanPlantResponse] = Field(default_factory=list)
-    zones: list[dict[str, Any]] = Field(
-        default_factory=list, description="Irrigation zones (WP 7.x); empty until then."
+    zones: list[PlanZoneResponse] = Field(
+        default_factory=list, description="Irrigation zones of the site with the beds they cover (`include=zones`)."
     )
 
 
@@ -341,6 +473,10 @@ class PlanAuditEntryResponse(BaseModel):
     changed_by_name: str | None = Field(default=None, description="Display name; ``null`` once the account is erased.")
 
 
+#: One axis of ``offset_m``: finite (``inf`` / ``nan`` are a 422, never a 500, #2529) and inside the plan frame.
+_OffsetM = Annotated[float, Field(allow_inf_nan=False, ge=-MAX_OFFSET_M, le=MAX_OFFSET_M)]
+
+
 class PlanImportRequest(BaseModel):
     """The envelope of ``POST /sites/{key}/plan/import``; ``document`` is a ``GET /plan/export`` file, as is.
 
@@ -363,6 +499,21 @@ class PlanImportRequest(BaseModel):
         max_length=200,
         description="`replace` (not a dry run) needs the name of the site, typed by the person who confirms.",
     )
+    target: Literal["same_site", "other_site", "other_tenant"] = Field(
+        default="same_site",
+        description=(
+            "Where the file goes relative to where it came from (GP-FR-172). Keys of the file are always "
+            "replaced by new ones. `same_site` lets a reference that is not in the file resolve against this site; "
+            "`other_site` and "
+            "`other_tenant` never do - such a reference becomes `null` and is listed in `dropped_references[]`. "
+            "`other_tenant` needs the lead role of *this* tenant only: the file is the transport, nothing is read "
+            "across tenants."
+        ),
+    )
+    offset_m: tuple[_OffsetM, _OffsetM] | None = Field(
+        default=None,
+        description="`merge` only: `[dx, dy]` in metres added to every geometry of the file (422 for `replace`).",
+    )
     document: dict[str, Any] = Field(description='The backup file, `schema_version: "1"`.')
 
 
@@ -373,6 +524,8 @@ class PlanImportResponse(PlanImportReport):
                 {
                     "mode": "replace",
                     "dry_run": True,
+                    "target": "same_site",
+                    "offset_m": None,
                     "would_create": {"locations": 5, "garden_objects": 3, "slots": 20, "plan_settings": 0},
                     "would_update": {"locations": 0, "garden_objects": 0, "slots": 0, "plan_settings": 1},
                     "would_delete": {"locations": 4, "garden_objects": 2, "slots": 12, "plan_settings": 0},
@@ -389,4 +542,53 @@ class PlanImportResponse(PlanImportReport):
                 }
             ]
         }
+    )
+
+
+class PlanSnapshotResponse(BaseModel):
+    """One plan a `replace` import overwrote (GP-FR-148/170); the payload stays on the server."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "audit_key": "7481",
+                    "revision": 43,
+                    "at": "2026-10-17T09:12:33Z",
+                    "summary": "state before the replace import (revision 43)",
+                    "changed_by_name": "Sabine",
+                    "locations": 12,
+                    "garden_objects": 4,
+                    "slots": 96,
+                    "zones": 2,
+                }
+            ]
+        }
+    )
+
+    audit_key: str = Field(description="The handle of `POST …/snapshots/{audit_key}/restore`.")
+    revision: int
+    at: datetime
+    summary: str = ""
+    changed_by_name: str | None = Field(default=None, description="Display name; `null` once the account is erased.")
+    locations: int = 0
+    garden_objects: int = 0
+    slots: int = 0
+    zones: int = 0
+
+
+class PlanSnapshotRestoreRequest(BaseModel):
+    """`POST /sites/{key}/plan/snapshots/{audit_key}/restore`: a `replace` with the snapshot as the file."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"dry_run": True, "force": False, "confirm_site_name": None}]},
+    )
+
+    dry_run: bool = Field(default=False, description="Check and report what would change; write nothing.")
+    force: bool = Field(
+        default=False, description="Lifts only the condition that no bed holds an active plant; those beds then stay."
+    )
+    confirm_site_name: str | None = Field(
+        default=None, max_length=200, description="Needed unless `dry_run`: the name of the site, typed by the lead."
     )

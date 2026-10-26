@@ -168,6 +168,8 @@ GET /api/v1/t/{slug}/sites/{key}/plan/render.svg         # SVG download
 GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON backup
 ```
 
+**Partial export of the JSON backup** (GP-FR-172): `scope` is `site` (default), `selection` (exactly the beds named in `keys`; a garden object as `object:<key>`) or `subtree` (the named beds with everything below them). `keys` is a comma-separated list of at most 100, not allowed with `site`. A partial file has no plan settings, holds only the zones of its beds, and references that leave the file are `null`. A key the site does not hold is `404`; `422` for missing, too many or invalid keys (`export.keys_required`, `export.too_many_keys`, `export.keys_not_allowed`, `export.object_key_in_subtree`).
+
 **Query parameters of the PDF and the SVG:**
 
 | Parameter | Default | Description |
@@ -219,6 +221,8 @@ POST /api/v1/t/{slug}/sites/{key}/plan/import
 | `dry_run` | `true` checks the file and answers the report; nothing is written |
 | `force` | Lifts only the condition that no bed holds an active plant. Those beds, and the locations above them, then stay |
 | `confirm_site_name` | `replace` (not a dry run) needs the exact name of the site |
+| `target` | `same_site` (default), `other_site` or `other_tenant`: where the file goes. Keys are always new. For the last two, a reference that is not in the file is never resolved against the site (`null` and `dropped_references[]` with reason `outside_file`/`not_found`). `other_tenant` needs the lead role in the target account; nothing is read from another account |
+| `offset_m` | `merge` only: `[dx, dy]` in metres (finite, at most ±1000), added to every shape of the file; `replace` answers `422` `import.offset_requires_merge`, an invalid value `422` |
 | `document` | The backup file |
 
 The answer is the same report for a dry run and an applied import: `would_create`, `would_update` and `would_delete` (counts of `locations`, `garden_objects`, `slots`, `plan_settings`), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. A dry run lists geometry and limit violations in `errors[]` with status `200`; an applied import with errors answers `422`.
@@ -237,8 +241,22 @@ Keys of the file are never kept: every location, garden object and slot gets a n
 | `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | The file is no backup of a version this installation reads |
 | `422` | `import.unknown_keys` | The file holds top-level parts this version does not know (a newer file) |
 | `422` | `import.site_name_mismatch` | `replace` without the exact site name |
+| `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` is not finite or beyond ±1000 m / belongs to `merge` only |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | The file breaks a limit or a geometry rule |
 | `429` | | Import budget of the tenant used up; `Retry-After` names the wait |
+
+---
+
+### Earlier states of the plan (snapshots)
+
+A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
+
+```
+GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # list, newest first, paged (limit/offset)
+POST /api/v1/t/{slug}/sites/{key}/plan/snapshots/{audit_key}/restore    # { "dry_run": true, "force": false, "confirm_site_name": null }
+```
+
+The list names, per snapshot, `audit_key`, `revision`, `at`, `summary`, `changed_by_name` and the number of locations, garden objects, slots and zones, never the plan itself. The restore is a `replace` with the stored plan (same checks and same report as the import; `confirm_site_name` is required unless `dry_run`); the plan it overwrites is saved as a snapshot of its own first. Zones of the site that the snapshot does not name are retired. `409` `import.not_empty` while a bed holds an active plant (`force` lifts that). A `merge` import creates no snapshot.
 
 ---
 

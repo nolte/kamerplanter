@@ -149,6 +149,16 @@ def _seed_catalogue(db) -> None:
     )
 
 
+def _underlay(attachment_key: str) -> dict[str, Any]:
+    return {
+        "attachment_key": attachment_key,
+        "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+        "origin": [1.0, 5.0],
+        "rotation_deg": 0.0,
+        "opacity": 0.5,
+    }
+
+
 def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
     """A small but connected tenant: places, plants, diary, IPM, a task, a photo and edges."""
     db.collection("tenants").insert(
@@ -191,7 +201,21 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
     k = {
         name: f"{tenant}-{name}" for name in ("site", "loc", "slot", "plant", "sp-own", "diary", "insp", "task", "att")
     }
-    db.collection("sites").insert({"_key": k["site"], "tenant_key": tenant, "name": f"Site {tenant} {marker}"})
+    db.collection("sites").insert(
+        {
+            "_key": k["site"],
+            "tenant_key": tenant,
+            "name": f"Site {tenant} {marker}",
+            # REQ-053 GP-FR-033: the plan's underlay names the tenant's own attachment (rewritten on import).
+            "plan": {
+                "plan_revision": 1,
+                "north_angle_deg": 0.0,
+                "default_grid_m": 0.1,
+                "adjacency_factor": 1.5,
+                "underlay": _underlay(k["att"]),
+            },
+        }
+    )
     db.collection("locations").insert({"_key": k["loc"], "site_key": k["site"], "name": "Bed 1"})
     db.collection("slots").insert({"_key": k["slot"], "location_key": k["loc"], "slot_id": "S1"})
     db.collection("species").insert(
@@ -1132,3 +1156,42 @@ def test_the_sweep_takes_the_oldest_stale_imports_first(target) -> None:
 
     assert len(stale) == 100
     assert "imp-0100" in {request.key for request in stale}
+
+
+def test_an_underlay_whose_attachment_is_not_in_the_archive_is_dropped_and_the_sites_stay_readable(
+    source, target, tmp_path
+) -> None:
+    """REQ-053 GP-FR-033: an unresolvable attachment key must not leave a half underlay that no model can read."""
+    from app.data_access.arango.site_repository import ArangoSiteRepository
+
+    seeded = _seed_tenant(source, A)
+    source.collection("sites").update(
+        {"_key": seeded["site"], "plan": {"underlay": _underlay("an-attachment-the-archive-lacks")}},
+        merge=True,
+    )
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "New lead", "account_type": "human"}
+    )
+    dst = _service(target, tmp_path / "dst")
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping={f"{A}-{LEAD}": _grant("new-lead@example.com")},
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+
+    assert finished is not None and finished.status == "completed", finished
+    new_tenant = finished.target_tenant_key or ""
+    imported = list(
+        target.aql.execute("FOR s IN sites FILTER s.tenant_key == @t RETURN s", bind_vars={"t": new_tenant})
+    )
+    assert len(imported) == 1 and "underlay" not in imported[0]["plan"], imported
+    # every read of the tenant's sites goes through the model: it must not raise
+    sites, total = ArangoSiteRepository(target).get_all_sites(tenant_key=new_tenant)
+    assert total == 1 and sites[0].plan is not None and sites[0].plan.underlay is None

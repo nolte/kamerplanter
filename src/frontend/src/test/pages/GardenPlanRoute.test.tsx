@@ -210,18 +210,54 @@ describe('GardenPlanRoute', () => {
     expect(await screen.findByTestId('garden-plan-canvas')).toBeInTheDocument();
   });
 
-  it('recognises ?mode=field as a placeholder without changing the plan', async () => {
+  it('opens field mode with ?mode=field: no editor, the bed list first (GP-UX-020)', async () => {
     usePlan();
+    server.use(http.get('/api/v1/t/:tenant/locations', () => HttpResponse.json([bedListItem('loc_a')])));
     renderRoute('/standorte/sites/site_1/plan?mode=field');
-    expect(await screen.findByTestId('garden-plan-field-mode-hint')).toBeInTheDocument();
-    expect(await screen.findByTestId('garden-plan-canvas')).toBeInTheDocument();
+    expect(await screen.findByTestId('garden-plan-field-mode')).toBeInTheDocument();
+    expect(await screen.findByTestId('field-bed-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('garden-plan-canvas')).toBeNull();
+    expect(screen.getByTestId('garden-plan-mode-planning')).toHaveAttribute(
+      'href',
+      '/standorte/sites/site_1/plan?mode=plan',
+    );
   });
 
-  it('does not show the field-mode hint on the normal route', async () => {
+  it('opens field mode by default on a phone (xs) and planning mode with ?mode=plan', async () => {
+    const original = window.matchMedia;
+    // Every max-width query matches: the xs breakpoint (< 600 px) is active.
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('max-width'),
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    try {
+      usePlan();
+      server.use(http.get('/api/v1/t/:tenant/locations', () => HttpResponse.json([bedListItem('loc_a')])));
+      renderRoute();
+      expect(await screen.findByTestId('garden-plan-field-mode')).toBeInTheDocument();
+      cleanup();
+      renderRoute('/standorte/sites/site_1/plan?mode=plan');
+      expect(await screen.findByTestId('garden-plan-canvas')).toBeInTheDocument();
+      expect(screen.queryByTestId('garden-plan-field-mode')).toBeNull();
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it('opens planning mode on a wide screen and offers the switch to field mode', async () => {
     usePlan();
-    renderRoute();
+    const { router } = renderRoute();
     await screen.findByTestId('garden-plan-canvas');
-    expect(screen.queryByTestId('garden-plan-field-mode-hint')).toBeNull();
+    expect(screen.queryByTestId('garden-plan-field-mode')).toBeNull();
+    fireEvent.click(screen.getByTestId('garden-plan-mode-field'));
+    await waitFor(() => expect(router.state.location.search).toBe('?mode=field'));
+    expect(await screen.findByTestId('garden-plan-field-mode')).toBeInTheDocument();
   });
 
   it('links back to the site and forgets the plan when it is left', async () => {

@@ -1,8 +1,9 @@
+import math
 import re
 from datetime import date, datetime
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AllowInfNan, BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
     AccessSide,
@@ -32,6 +33,7 @@ from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bou
 from app.domain.models.geometry import (
     AREA_KINDS,
     FULL_TURN_DEG,
+    MAX_COORDINATE_M,
     MAX_DIMENSION_M,
     MIN_DIMENSION_M,
     BedFrameGeometry,
@@ -93,6 +95,73 @@ class SiteWaterConfig(BaseModel):
     ro_water_profile: RoWaterProfile | None = None
 
 
+#: Largest pixel coordinate or pixel distance an underlay calibration may name (REQ-053 GP-FR-033). A photograph
+#: the pipeline admits is far smaller (decode ceiling, NFR-013); the bound keeps a hostile number out of the maths.
+MAX_UNDERLAY_PX = 100_000.0
+#: Longest real-world distance a calibration may state, in metres (a plan frame is at most 2 × ``MAX_COORDINATE_M``).
+MAX_UNDERLAY_DISTANCE_M = 2000.0
+#: Two calibration points closer than this are one point: no scale can be read from them.
+MIN_UNDERLAY_POINT_GAP_PX = 1.0
+#: The faintest opacity a client may store; below it the picture is invisible and the layer pointless.
+MIN_UNDERLAY_OPACITY = 0.05
+
+# NaN and the infinities are refused at the model, not by a downstream ``round`` (a sibling change answered 500 on
+# ``Infinity``): every number below carries ``AllowInfNan(False)``.
+_PixelCoordinate = Annotated[float, AllowInfNan(False), Field(ge=0, le=MAX_UNDERLAY_PX)]
+_PlanCoordinate = Annotated[float, AllowInfNan(False), Field(ge=-MAX_COORDINATE_M, le=MAX_COORDINATE_M)]
+#: The placement and look of an underlay - shared by the model and the request that sets it, so a number the
+#: model refuses is refused at the edge as 422 and never reaches the model as a 500.
+UnderlayOrigin = tuple[_PlanCoordinate, _PlanCoordinate]
+UnderlayRotation = Annotated[float, AllowInfNan(False), Field(ge=-FULL_TURN_DEG, le=FULL_TURN_DEG)]
+UnderlayOpacity = Annotated[float, AllowInfNan(False), Field(ge=MIN_UNDERLAY_OPACITY, le=1.0)]
+
+
+class UnderlayCalibration(BaseModel):
+    """Two points of the picture (pixels) and the real distance between them (metres) - the scale (GP-FR-033)."""
+
+    p1_px: tuple[_PixelCoordinate, _PixelCoordinate]
+    p2_px: tuple[_PixelCoordinate, _PixelCoordinate]
+    distance_m: Annotated[float, AllowInfNan(False), Field(gt=0, le=MAX_UNDERLAY_DISTANCE_M)]
+
+    @model_validator(mode="after")
+    def validate_points_apart(self) -> Self:
+        if self.pixel_distance < MIN_UNDERLAY_POINT_GAP_PX:
+            raise ValueError("The two calibration points must lie at least one pixel apart.")
+        return self
+
+    @property
+    def pixel_distance(self) -> float:
+        return math.hypot(self.p2_px[0] - self.p1_px[0], self.p2_px[1] - self.p1_px[1])
+
+    @property
+    def metres_per_pixel(self) -> float:
+        return self.distance_m / self.pixel_distance
+
+
+class SiteUnderlay(BaseModel):
+    """The background picture of the garden plan to trace over (REQ-053 GP-FR-033, WP 7.14).
+
+    Presentation only - never a data source, never part of the JSON export (GP-FR-140) and in the PDF only when
+    asked for. ``attachment_key`` names a ``garden_plan_underlay`` attachment of the site's own tenant; the
+    calibration, placement and opacity are the site's, so every member sees the same picture. ``origin`` is
+    the plan-frame position (metres) of the picture's top-left pixel and ``rotation_deg`` turns the picture
+    about it in the plan's own sense (counter-clockwise, y up - the opposite of ``north_angle_deg``). Whether
+    the picture is *shown* is each user's choice and is not stored here.
+    """
+
+    attachment_key: str = Field(min_length=1, max_length=64)
+    calibration: UnderlayCalibration
+    origin: UnderlayOrigin = (0.0, 0.0)
+    rotation_deg: UnderlayRotation = 0.0
+    opacity: UnderlayOpacity = 0.5
+
+    @field_validator("rotation_deg")
+    @classmethod
+    def normalise_rotation(cls, value: float) -> float:
+        rounded = round_length(value % FULL_TURN_DEG)
+        return 0.0 if rounded == FULL_TURN_DEG else rounded
+
+
 class SitePlan(BaseModel):
     """The garden plan of a site (REQ-053 §20.2), embedded in :class:`Site`.
 
@@ -113,6 +182,8 @@ class SitePlan(BaseModel):
     plan_updated_at: datetime | None = None
     #: Account key of the last structural change; the account erasure replaces it (GP-NFR-055, ``ErasureEngine``).
     plan_updated_by: str | None = None
+    #: The background picture to trace over (GP-FR-033, WP 7.14); one per site, never exported.
+    underlay: SiteUnderlay | None = None
 
     @field_validator("north_angle_deg")
     @classmethod
@@ -261,7 +332,7 @@ class Slot(BaseModel):
     sequence: int | None = Field(default=None, ge=1)
     geometry_source: GeometrySource | None = None
     #: Pot volume in litres (W-016): in a tent the pot, not the spacing, limits the plant.
-    container_volume_l: float | None = Field(default=None, gt=0)
+    container_volume_l: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     #: Direct sowing recorded on a ``row``/``zone`` slot before plants exist (§11.3 "gesät").
     sown_at: date | None = None
     #: Set when the run that used the slot was closed (GP-FR-055); archived slots are history.
@@ -351,6 +422,10 @@ class Location(BaseModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
+    #: The bed template this bed was placed from (REQ-053 §21.7, WP 7.9, #2475): **provenance only** - a copy of
+    #: the template's fields was taken, so later edits to or the deletion of the template change nothing here.
+    #: A system (global) key or one of the tenant's own; the export carries it, the import resolves or drops it.
+    template_key: str | None = None
     soil_profile: SoilProfile | None = None
     #: Sun profile, microclimate, wind, slope … of the bed (§10.2, WP 3.9); ``None`` = nothing entered.
     site_conditions: SiteConditions | None = None

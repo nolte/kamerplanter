@@ -73,6 +73,7 @@ _I = "app/domain/services/inventree_service.py"
 _T = "app/domain/services/tenant_service.py"
 _W = "app/domain/services/watering_log_service.py"
 _WR = "app/data_access/arango/watering_log_repository.py"
+_WQ = "app/data_access/arango/watering_queries.py"
 _TK = "app/data_access/arango/tank_repository.py"
 
 #: ``(field, "path:qualified name")`` → ``(verdict, reason)``.
@@ -141,6 +142,11 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
         _ECHO,
         "intersects the tenant's own logs with the run's slots; no slot is loaded",
     ),
+    # REQ-053 WP 7.3: the zone status and the plan's "last watered". The slot keys are the owned beds' own slots
+    # (read by their bed keys, which came from an owned zone or plan); they are compared with the tenant's own
+    # ``watering_events`` rows inside the query and no slot is loaded from a key stored on an event.
+    (_SLOTS, f"{_WQ}:last_waterings"): (_ECHO, "intersects the tenant's watering events with the owned beds' slots"),
+    (_SLOTS, f"{_WQ}:_consumption_liters"): (_ECHO, "sums the tenant's watering events that touch the owned slots"),
     (_SLOTS, f"{_W}:WateringLogService.create_log"): (_ECHO, "resolves every slot under the log's tenant first"),
     (_SLOTS, f"{_W}:WateringLogService.update_log"): (_ECHO, "passes the stored keys to the domain-rule check"),
     (_SLOTS, "app/api/v1/planting_runs/tenant_router.py:plan_slots"): (

@@ -50,6 +50,8 @@ export interface RotationFinding {
   code: string;
   message: string;
   family_key?: string | null;
+  /** Name of the family; `null` when the catalogue has none. Never show `family_key` in its place. */
+  family_name?: string | null;
   species_key?: string | null;
   last_year?: number | null;
   years_since?: number | null;

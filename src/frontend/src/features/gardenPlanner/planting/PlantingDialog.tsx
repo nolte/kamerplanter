@@ -24,7 +24,6 @@ import { listAllSpecies } from '@/api/endpoints/species';
 import type { Species } from '@/api/types';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useApiError } from '@/hooks/useApiError';
-import { useNotification } from '@/hooks/useNotification';
 import { useServerFavorites } from '@/hooks/useServerFavorites';
 import { toLocalShape } from '../model/geometry';
 import { computeLayout } from '../model/layout';
@@ -53,7 +52,7 @@ import {
   type EntryFormState,
   type Prefill,
 } from './plantingLogic';
-import { PartialPlantingError, quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from './plantingSubmit';
+import { quickBody, readLastUsed, submitQuick, submitRuns, writeLastUsed } from './plantingSubmit';
 import type { RotationSeverity } from './plantingTypes';
 import { speciesLabel } from './SpeciesPicker';
 import { useBedHints, useMixedCompatibility } from './useBedHints';
@@ -74,8 +73,13 @@ interface PlantingDialogProps {
   sunExposure?: SunExposure;
   onClose: () => void;
   onPlanted: (result: PlantedResult) => void;
-  /** Runs were created although a later step failed and they could not be taken back: reload what shows them. */
-  onPartial: () => void;
+  /** Start with "Already planted" on: the field-mode chip "Planted" opens the quick-planting shortcut (GP-UX-027). */
+  initialAlreadyPlanted?: boolean;
+  /**
+   * Minimum edge in px of the dialog's own controls (add entry, switches, date, actions); field mode passes
+   * the kiosk target (64 px, GP-UX-020). The entry cards keep their own sizes.
+   */
+  touchTarget?: number;
 }
 
 function todayText(): string {
@@ -118,13 +122,13 @@ export default function PlantingDialog({
   sunExposure = 'unknown',
   onClose,
   onPlanted,
-  onPartial,
+  initialAlreadyPlanted = false,
+  touchTarget = 48,
 }: PlantingDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { handleError } = useApiError();
-  const notification = useNotification();
   const { favorites } = useServerFavorites('species');
 
   const [catalogue, setCatalogue] = useState<{ status: 'loading' } | { status: 'ready'; items: Species[] } | { status: 'error' }>({
@@ -136,7 +140,7 @@ export default function PlantingDialog({
   const [nextId, setNextId] = useState(2);
   const [activeId, setActiveId] = useState('e1');
   const [alternate, setAlternate] = useState(true);
-  const [alreadyPlanted, setAlreadyPlanted] = useState(false);
+  const [alreadyPlanted, setAlreadyPlanted] = useState(initialAlreadyPlanted);
   const [plantedFrom, setPlantedFrom] = useState(todayText);
   const [overrideChecked, setOverrideChecked] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
@@ -362,13 +366,7 @@ export default function PlantingDialog({
       writeLastUsed(effective);
       onPlanted(result);
     } catch (error) {
-      if (error instanceof PartialPlantingError) {
-        handleError(error.reason);
-        notification.warning(t('pages.bed.planting.dialog.partial', { count: error.created.length }));
-        onPartial();
-      } else {
-        handleError(error);
-      }
+      handleError(error);
     } finally {
       setSaving(false);
     }
@@ -485,7 +483,7 @@ export default function PlantingDialog({
                 <Button
                   startIcon={<AddIcon />}
                   onClick={addEntry}
-                  sx={{ alignSelf: 'flex-start', minHeight: 48 }}
+                  sx={{ alignSelf: 'flex-start', minHeight: touchTarget }}
                   data-testid="planting-add-entry"
                 >
                   {t('pages.bed.planting.dialog.addEntry')}
@@ -501,7 +499,7 @@ export default function PlantingDialog({
                     />
                   }
                   label={t('pages.bed.planting.dialog.alternateRows')}
-                  sx={{ minHeight: 48 }}
+                  sx={{ minHeight: touchTarget }}
                 />
               ) : null}
             </Box>
@@ -535,7 +533,7 @@ export default function PlantingDialog({
                   inputLabel: { shrink: true },
                   htmlInput: { 'data-testid': 'planting-date' },
                 }}
-                sx={{ '& .MuiInputBase-root': { minHeight: 48 } }}
+                sx={{ '& .MuiInputBase-root': { minHeight: touchTarget } }}
               />
               {quickAllowed ? (
                 <FormControlLabel
@@ -548,7 +546,7 @@ export default function PlantingDialog({
                     />
                   }
                   label={t('pages.bed.planting.dialog.alreadyPlanted')}
-                  sx={{ minHeight: 48 }}
+                  sx={{ minHeight: touchTarget }}
                 />
               ) : null}
               {quickAllowed && marginsSet ? (
@@ -580,7 +578,7 @@ export default function PlantingDialog({
             {t('pages.bed.planting.dialog.submitWaiting')}
           </Typography>
         ) : null}
-        <Button onClick={onClose} disabled={saving} sx={{ minHeight: 48 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ minHeight: touchTarget }}>
           {t('common.cancel')}
         </Button>
         <Button
@@ -588,7 +586,7 @@ export default function PlantingDialog({
           onClick={() => void submit()}
           disabled={saving || catalogue.status !== 'ready' || hintsPending}
           aria-describedby={waitingForHints ? 'planting-submit-reason' : undefined}
-          sx={{ minHeight: 48 }}
+          sx={{ minHeight: touchTarget, minWidth: touchTarget }}
           data-testid="planting-submit"
         >
           {mustGiveReason && overrideChecked

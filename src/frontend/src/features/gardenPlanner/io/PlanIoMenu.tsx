@@ -1,7 +1,8 @@
 /**
  * "Export / Import" in the header of the garden plan page (REQ-053 GP-UX-050/051). The two dialogs are loaded
  * when first opened, so the route chunk keeps its budget (UI-NFR-003). The entries state why they are off:
- * import is the lead's (a replace deletes), it waits for unsaved edits, and neither exists in field mode.
+ * import is the lead's (a replace deletes) and it waits for unsaved edits. Field mode has no such menu at all
+ * (GP-UX-023): import and export stay in planning mode.
  */
 import { lazy, Suspense, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +14,7 @@ import MenuItem from '@mui/material/MenuItem';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import FileUploadOutlinedIcon from '@mui/icons-material/FileUploadOutlined';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
+import type { PlanSelection } from './types';
 
 const ExportDialog = lazy(() => import('./ExportDialog'));
 const ImportWizard = lazy(() => import('./ImportWizard'));
@@ -26,21 +28,20 @@ interface PlanIoMenuProps {
   canImport: boolean;
   /** Unsaved edits would be lost by a reload of the plan. */
   dirty: boolean;
-  fieldMode: boolean;
   /** An import was written; reload the plan. */
   onImported: () => void;
+  /** What is selected on the plan, so the backup can be limited to it (GP-FR-172). */
+  selection?: PlanSelection;
 }
 
-export function PlanIoMenu({ siteKey, siteName, canImport, dirty, fieldMode, onImported }: PlanIoMenuProps) {
+export function PlanIoMenu({ siteKey, siteName, canImport, dirty, onImported, selection }: PlanIoMenuProps) {
   const { t } = useTranslation();
   const menuId = useId();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [dialog, setDialog] = useState<'export' | 'import' | null>(null);
 
-  const exportOff = fieldMode ? t(`${PREFIX}.menu.fieldMode`) : null;
   let importOff: string | null = null;
-  if (fieldMode) importOff = t(`${PREFIX}.menu.fieldMode`);
-  else if (!canImport) importOff = t(`${PREFIX}.menu.leadOnly`);
+  if (!canImport) importOff = t(`${PREFIX}.menu.leadOnly`);
   else if (dirty) importOff = t(`${PREFIX}.menu.unsaved`);
 
   const open = (which: 'export' | 'import') => {
@@ -70,14 +71,13 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, fieldMode, onI
       >
         <MenuItem
           onClick={() => open('export')}
-          disabled={exportOff !== null}
           sx={{ minHeight: 48 }}
           data-testid="garden-plan-io-export"
         >
           <ListItemIcon>
             <FileDownloadOutlinedIcon />
           </ListItemIcon>
-          <ListItemText primary={t(`${PREFIX}.menu.export`)} secondary={exportOff} />
+          <ListItemText primary={t(`${PREFIX}.menu.export`)} />
         </MenuItem>
         <MenuItem
           onClick={() => open('import')}
@@ -92,7 +92,9 @@ export function PlanIoMenu({ siteKey, siteName, canImport, dirty, fieldMode, onI
         </MenuItem>
       </Menu>
       <Suspense fallback={null}>
-        {dialog === 'export' && <ExportDialog open siteKey={siteKey} onClose={() => setDialog(null)} />}
+        {dialog === 'export' && (
+          <ExportDialog open siteKey={siteKey} selection={selection} onClose={() => setDialog(null)} />
+        )}
         {dialog === 'import' && (
           <ImportWizard
             open

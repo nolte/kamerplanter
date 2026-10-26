@@ -34,10 +34,24 @@
     color: #b26a00;
 }
 
+.plan-stage {
+    position: relative;
+    overflow: hidden;
+    width: {{ plan_width_mm }}mm;
+    height: {{ plan_height_mm }}mm;
+}
+
 .plan-figure {
+    position: relative;
     display: block;
     width: {{ plan_width_mm }}mm;
     height: {{ plan_height_mm }}mm;
+}
+
+/* The background picture to trace over (GP-FR-033): under the plan, turned about its top-left pixel. */
+.plan-underlay {
+    position: absolute;
+    transform-origin: 0 0;
 }
 
 .bed-list {
@@ -69,7 +83,13 @@
         {% if suggest_a3 %}<span class="hint">&middot; {{ labels.garden_plan_a3_hint }}</span>{% endif %}
     </div>
 </div>
-<img class="plan-figure" src="{{ svg_data_uri }}" alt="{{ labels.garden_plan_title }}: {{ site_name }}">
+<div class="plan-stage">
+    {% if underlay %}
+    <img class="plan-underlay" src="{{ underlay.data_uri }}" alt=""
+         style="left: {{ '%.3f'|format(underlay.left_mm) }}mm; top: {{ '%.3f'|format(underlay.top_mm) }}mm; width: {{ '%.3f'|format(underlay.width_mm) }}mm; height: {{ '%.3f'|format(underlay.height_mm) }}mm; opacity: {{ '%.2f'|format(underlay.opacity) }}; transform: rotate({{ '%.3f'|format(underlay.rotation_css_deg) }}deg);">
+    {% endif %}
+    <img class="plan-figure" src="{{ svg_data_uri }}" alt="{{ labels.garden_plan_title }}: {{ site_name }}">
+</div>
 
 {% if show_bed_list %}
 <section class="bed-list">

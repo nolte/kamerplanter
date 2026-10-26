@@ -4,6 +4,8 @@ import type {
   BatchCreatePlantsResponse,
   BatchRemoveRequest,
   BatchRemoveResponse,
+  MixedCultureCreate,
+  MixedCultureResponse,
   RunTransitionRequest,
   RunTransitionResponse,
   NutrientPlanAssignResponse,
@@ -38,6 +40,12 @@ export async function listPlantingRuns(
 
 export async function getPlantingRun(key: string): Promise<PlantingRun> {
   const { data } = await client.get<PlantingRun>(`${BASE}/${key}`);
+  return data;
+}
+
+/** #2463: the per-species runs of a mixed culture on one bed, created in one transaction. */
+export async function createMixedCulture(payload: MixedCultureCreate): Promise<MixedCultureResponse> {
+  const { data } = await client.post<MixedCultureResponse>(`${BASE}/mixed-culture`, payload);
   return data;
 }
 

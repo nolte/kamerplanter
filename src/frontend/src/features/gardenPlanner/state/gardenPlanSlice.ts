@@ -20,7 +20,13 @@
  * (`registerLazySlice(gardenPlanSlice)`, REQ-053 WP 2.3). Until then `state.gardenPlan` is
  * absent, which is why the selectors fall back to the initial state.
  */
-import { createAsyncThunk, createSelector, createSlice, original, type PayloadAction } from '@reduxjs/toolkit';
+import {
+  createAsyncThunk,
+  createSelector,
+  createSlice,
+  original,
+  type PayloadAction,
+} from '@reduxjs/toolkit';
 import {
   applyOperations,
   PlanOperationError,
@@ -103,7 +109,14 @@ export interface PlanConflict {
 }
 
 /** Why an edit, undo or redo did nothing. */
-export type PlanEditError = PlanOperationErrorCode | 'undo.not_reversible' | 'redo.failed';
+export type PlanEditError =
+  | PlanOperationErrorCode
+  | 'undo.not_reversible'
+  | 'redo.failed'
+  /** An edit while a template is being placed (the server is changing the plan). */
+  | 'template.busy'
+  /** An edit while a save is in flight: refused visibly, the user tries again in a moment. */
+  | 'plan.saving';
 
 export interface GardenPlanState {
   plan: PlanModel | null;
@@ -125,6 +138,8 @@ export interface GardenPlanState {
   /** How many `pending` operations the request on the wire carries. */
   inFlight: number;
   editError: PlanEditError | null;
+  /** A bed template is being placed: edits wait, auto-save is held back (the revision is moving). */
+  placing: boolean;
   /** Source of entry and pending ids. */
   sequence: number;
 }
@@ -146,6 +161,7 @@ export const initialState: GardenPlanState = {
   conflict: null,
   inFlight: 0,
   editError: null,
+  placing: false,
   sequence: 0,
 };
 
@@ -154,6 +170,22 @@ export const initialState: GardenPlanState = {
 /** Load (or reload) the plan of a site; replaces the model, `pending` and the history. */
 export const loadGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
   'gardenPlan/load',
+  async (siteKey, { rejectWithValue }) => {
+    try {
+      return normalizePlan(await api.getGardenPlan(siteKey));
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+  },
+);
+
+/**
+ * Re-read the plan after the server changed it behind the editor's back (a placed template, GP-FR-044): the
+ * model is replaced and the history emptied like on a load, but `loadStatus` stays `ready` and `loadRequestId`
+ * stays put, so the editor is not unmounted and the view does not jump back to the fitted one.
+ */
+export const refreshGardenPlan = createAsyncThunk<PlanModel, string, { rejectValue: string }>(
+  'gardenPlan/refresh',
   async (siteKey, { rejectWithValue }) => {
     try {
       return normalizePlan(await api.getGardenPlan(siteKey));
@@ -207,6 +239,67 @@ export const saveGardenPlan = createAsyncThunk<
   },
 );
 
+/** The server-side placement of a bed template (GP-FR-044, WP 7.10). */
+export interface PlaceTemplateArg {
+  templateKey: string;
+  origin: [number, number];
+  rotationDeg: number;
+}
+
+/** `code` is a `notice.*` key of the editor: a server code (`bed.overlap`, ...) or one of the `template.*` codes. */
+export type PlaceTemplateOutcome =
+  { ok: true; locationKey: string | null } | { ok: false; code: string };
+
+/**
+ * Place a bed from a template. The server creates the bed in its own transaction (`POST .../plan/place-template`)
+ * and the model learns of it by a refresh, so unsaved edits are saved first: a request that carries only the
+ * template could not be ordered after them. A save that does not go through ends the placement before anything
+ * is created. The placement is saved at once and is not an undo step (the history is emptied by the refresh).
+ */
+export const placeTemplateAt = createAsyncThunk<
+  PlaceTemplateOutcome,
+  PlaceTemplateArg,
+  { state: { gardenPlan?: GardenPlanState } }
+>('gardenPlan/placeTemplate', async (arg, { getState, dispatch }) => {
+  let current = selectGardenPlanState(getState());
+  if (current.plan === null) return { ok: false, code: 'template.failed' };
+  if (current.saveStatus === 'saving' || current.saveStatus === 'conflict') {
+    return { ok: false, code: 'template.busy' };
+  }
+  if (current.pending.length > 0) {
+    await dispatch(saveGardenPlan());
+    current = selectGardenPlanState(getState());
+    if (current.plan === null || current.pending.length > 0 || current.saveStatus !== 'idle') {
+      return { ok: false, code: 'template.save_first' };
+    }
+  }
+  const { siteKey, revision } = current.plan;
+  try {
+    const response = await api.placeBedTemplate(siteKey, {
+      template_key: arg.templateKey,
+      origin: arg.origin,
+      rotation_deg: arg.rotationDeg,
+      expected_revision: revision,
+    });
+    const refreshed = await dispatch(refreshGardenPlan(siteKey));
+    // The bed exists on the server; without the refreshed model the editor would not show it.
+    if (refreshGardenPlan.rejected.match(refreshed))
+      return { ok: false, code: 'template.refresh_failed' };
+    return { ok: true, locationKey: response.key_map.template_bed ?? null };
+  } catch (error) {
+    const failure = api.toPlanSaveFailure(error);
+    if (failure.kind === 'conflict') {
+      // Someone else changed the plan: show what is there now, then the user places again.
+      await dispatch(refreshGardenPlan(siteKey));
+      return { ok: false, code: 'plan.revision_conflict' };
+    }
+    if (failure.kind === 'rejected') {
+      return { ok: false, code: failure.findings[0]?.code || failure.code };
+    }
+    return { ok: false, code: 'template.failed' };
+  }
+});
+
 // ── Reducer helpers ──────────────────────────────────────────────────────────
 
 /** The plain model behind the draft: pure model code must never see an Immer proxy. */
@@ -214,8 +307,18 @@ function plainPlan(state: GardenPlanState): PlanModel | null {
   return state.plan === null ? null : (original(state.plan) ?? state.plan);
 }
 
+/**
+ * Edits wait for a save in flight: `saveGardenPlan.fulfilled` rebases the whole history onto the saved state,
+ * which would strip the undo of an entry whose operations are still pending behind the request (GP-FR-155).
+ * Not during a conflict (only a reload leaves it) and not while a template is placed.
+ */
 function isEditable(state: GardenPlanState): boolean {
-  return state.plan !== null && state.saveStatus !== 'saving' && state.saveStatus !== 'conflict';
+  return (
+    state.plan !== null &&
+    state.saveStatus !== 'saving' &&
+    state.saveStatus !== 'conflict' &&
+    !state.placing
+  );
 }
 
 function queue(state: GardenPlanState, ops: readonly PlanOperation[]): number[] {
@@ -280,7 +383,17 @@ export const gardenPlanSlice = createSlice({
       reducer(state, action: PayloadAction<{ ops: PlanOperation[]; label: string | null }>) {
         const plan = plainPlan(state);
         const { ops, label } = action.payload;
-        if (plan === null || !isEditable(state) || ops.length === 0) return;
+        if (plan === null || ops.length === 0) return;
+        if (state.placing) {
+          state.editError = 'template.busy';
+          return;
+        }
+        if (state.saveStatus === 'saving') {
+          // Visible, short-lived: the edit is not applied, and the user is told instead of losing it silently.
+          state.editError = 'plan.saving';
+          return;
+        }
+        if (!isEditable(state)) return;
         try {
           const applied = applyOperations(plan, ops);
           state.sequence += 1;
@@ -393,6 +506,33 @@ export const gardenPlanSlice = createSlice({
         state.loadError = action.payload ?? action.error.message ?? 'Unknown error';
       })
 
+      .addCase(placeTemplateAt.pending, (state) => {
+        state.placing = true;
+      })
+      .addCase(placeTemplateAt.fulfilled, (state) => {
+        state.placing = false;
+      })
+      .addCase(placeTemplateAt.rejected, (state) => {
+        state.placing = false;
+      })
+      .addCase(refreshGardenPlan.fulfilled, (state, action) => {
+        // Nothing may be pending here (the caller saved first); an edit made since stays where it is.
+        // A late answer for another site (the user left or switched meanwhile) is not this plan.
+        if (state.plan?.siteKey !== action.payload.siteKey) return;
+        if (state.pending.length > 0 || state.saveStatus === 'saving') return;
+        state.plan = action.payload;
+        state.past = [];
+        state.future = [];
+        state.saveStatus = 'idle';
+        state.saveFailure = null;
+        state.saveFailureOpIds = [];
+        state.conflict = null;
+        state.inFlight = 0;
+        state.editError = null;
+        state.stack = null;
+        dropSelectionOfMissing(state);
+      })
+
       .addCase(saveGardenPlan.pending, (state) => {
         state.saveStatus = 'saving';
         state.saveFailure = null;
@@ -501,7 +641,8 @@ export const selectInvalidKeys = createSelector(
     const refused = new Set(opIds);
     const keys = new Set<string>();
     for (const item of pending) {
-      if (refused.has(item.id) && 'key' in item.op && typeof item.op.key === 'string') keys.add(item.op.key);
+      if (refused.has(item.id) && 'key' in item.op && typeof item.op.key === 'string')
+        keys.add(item.op.key);
     }
     return keys.size > 0 ? keys : NO_KEYS;
   },
@@ -534,3 +675,13 @@ export const selectRedoLabel = (state: RootWithPlan): string | null => {
   const { future } = planState(state);
   return future.length > 0 ? future[future.length - 1].label : null;
 };
+
+/**
+ * Whether an auto-save may fire now (GP-UX-004): something is pending and the last save left the plan quiet.
+ * A save in flight, a conflict (paused until the reload) and a refused save (the user must look at the message)
+ * all hold it back - sending the same request again every two seconds would only repeat the refusal.
+ */
+export const selectAutoSaveReady = (state: RootWithPlan): boolean =>
+  planState(state).pending.length > 0 &&
+  planState(state).saveStatus === 'idle' &&
+  !planState(state).placing;

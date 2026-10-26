@@ -29,6 +29,15 @@ class _NoopCollection:
     def count(self) -> int:
         return 0
 
+    def has(self, key: str) -> bool:
+        # v0101 (REQ-053 WP 7.8): a volume the migration already ran on holds every system template under its fixed
+        # key, so the migration finds nothing missing and inserts nothing. (Seeding an unseeded volume is pinned by
+        # test_v0101_bed_template_index_and_system_templates.py and the integration test.)
+        return True
+
+    def insert(self, *args, **kwargs):  # pragma: no cover - never reached on a seeded volume
+        raise AssertionError("no system template should be inserted when every fixed key is present")
+
     def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
         raise AssertionError("no document should be written on an empty database")
 
@@ -98,6 +107,12 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
             # also v0092 (#1534): tasks.(tenant_key, status) is bootstrapped on a fresh volume
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
+            # v0099 (REQ-053 WP 7.1): irrigation_zones.(tenant_key, site_key) and the unique zone_covers._to
+            # are bootstrapped on a fresh volume.
+            {"type": "persistent", "fields": col.IRRIGATION_ZONE_SITE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.ZONE_COVERS_TARGET_INDEX_FIELDS, "unique": True},
+            # v0101 (REQ-053 WP 7.8): bed_templates.(tenant_key, name) is bootstrapped on a fresh volume.
+            {"type": "persistent", "fields": col.BED_TEMPLATE_TENANT_INDEX_FIELDS, "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
             # v0019 actuators (tenant_key, name) lookup index

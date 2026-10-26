@@ -8,6 +8,8 @@ reached the repository at all. Shared by the unit tier and the API tier.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.common.exceptions import DuplicateError, PlanError, PlanRevisionConflictError, WriteConflictError
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, PlanReadData
@@ -18,12 +20,14 @@ from app.domain.models.garden_plan import (
     PlanAuditEntry,
     PlanBatchOutcome,
     PlanBatchWrite,
+    PlanSnapshotEntry,
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
     SlotSpeciesHint,
     TaskCounter,
 )
+from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import Location, Site, SitePlan, Slot
 
 TENANT = "ten_own"
@@ -62,6 +66,11 @@ class FakeSites:
 
     def get_location_by_key(self, key):
         return self.repo.locations.get(key) if self.repo is not None else None
+
+    def get_locations_by_keys(self, keys):
+        return [
+            self.repo.locations[key] for key in sorted(keys) if self.repo is not None and key in self.repo.locations
+        ]
 
     def get_slot_by_key(self, key):
         if self.repo is None:
@@ -122,6 +131,8 @@ class FakePlanRepo(IGardenPlanRepository):
         #: Locations in which a plant stands (the import's V-09 set); ``active_plants`` stays the delete-check count.
         self.planted: set[str] = set()
         self.snapshots: list[dict] = []
+        #: ``(tenant_key, site_key, audit_key, snapshot)`` - what the ``import_snapshot`` rows would be (WP 7.19).
+        self.snapshot_rows: list[tuple[str, str, str, dict]] = []
         self.applied: list[PlanBatchWrite] = []
         self.audit: list[PlanAuditEntry] = []
         self.editor_name: str | None = "Sabine"
@@ -129,7 +140,12 @@ class FakePlanRepo(IGardenPlanRepository):
         self.object_task_counters: dict[str, TaskCounter] = {}
         self.counters: dict[str, BedCounters] = {}
         self.care_events: list[CareEvent] = []
+        #: Newest watering per bed (WP 7.3), what ``load_read_model`` hands the plan with the task counters.
+        self.last_watered: dict[str, datetime] = {}
         self.zones: dict[str, tuple[str, str]] = {"zone_1": (TENANT, SITE)}
+        #: What the import wrote (WP 7.2): the zones it created by their new key, and the zone keys it deleted.
+        self.imported_zones: dict[str, IrrigationZone] = {}
+        self.deleted_zones: list[str] = []
         self.substrates: dict[str, str] = {"sub_global": "", "sub_own": TENANT, "sub_foreign": OTHER_TENANT}
         self.reserved: set[str] = set()
         self.field_updates: list[tuple[str, dict]] = []
@@ -155,6 +171,7 @@ class FakePlanRepo(IGardenPlanRepository):
             plants=list(self.plants) if include_plants else [],
             task_counters=dict(self.task_counters) if include_tasks else {},
             object_task_counters=dict(self.object_task_counters) if include_tasks else {},
+            last_watered=dict(self.last_watered) if include_tasks else {},
             plan_updated_by_name=self.editor_name,
         )
 
@@ -188,6 +205,31 @@ class FakePlanRepo(IGardenPlanRepository):
     def list_audit(self, site_key, *, tenant_key, offset, limit):
         return self.audit[offset : offset + limit]
 
+    def list_import_snapshots(self, site_key, *, tenant_key, offset, limit):
+        rows = [row for row in reversed(self.snapshot_rows) if row[0] == tenant_key and row[1] == site_key][
+            offset : offset + limit
+        ]
+        return [
+            PlanSnapshotEntry(
+                audit_key=audit_key,
+                revision=1,
+                at=datetime.fromisoformat("2026-10-17T09:00:00+00:00"),
+                summary="state before the replace import (revision 1)",
+                changed_by_name=self.editor_name,
+                locations=len(snapshot.get("locations", [])),
+                garden_objects=len(snapshot.get("garden_objects", [])),
+                slots=len(snapshot.get("slots", [])),
+                zones=len(snapshot.get("zones", [])),
+            )
+            for _tenant, _site, audit_key, snapshot in rows
+        ]
+
+    def load_import_snapshot(self, site_key, audit_key, *, tenant_key):
+        for tenant, site, key, snapshot in self.snapshot_rows:
+            if (tenant, site, key) == (tenant_key, site_key, audit_key):
+                return snapshot
+        return None
+
     def purge_audit_before(self, cutoff, *, batch):
         due = [entry for entry in self.audit if entry.at < cutoff][:batch]
         self.audit = [entry for entry in self.audit if entry not in due]
@@ -206,12 +248,23 @@ class FakePlanRepo(IGardenPlanRepository):
                 raise PlanError("bed_status.changed", "The bed status was changed.", status_code=409, current="x")
         self.applied.append(write)
         key_map: dict[str, str] = {}
+        self.deleted_zones.extend(write.zone_deletes)
+        for temp, zone in write.zone_inserts:
+            self._next += 1
+            key_map[temp] = f"zone_{self._next}"
+            self.imported_zones[key_map[temp]] = zone.model_copy(update={"key": key_map[temp]})
         for temp, location in write.location_inserts:
             self._next += 1
             key_map[temp] = f"loc_{self._next}"
             parent = key_map.get(location.parent_location_key or "", location.parent_location_key)
             self.locations[key_map[temp]] = location.model_copy(
-                update={"key": key_map[temp], "parent_location_key": parent}
+                update={
+                    "key": key_map[temp],
+                    "parent_location_key": parent,
+                    "irrigation_zone_key": key_map.get(
+                        location.irrigation_zone_key or "", location.irrigation_zone_key
+                    ),
+                }
             )
         for key, fields in write.location_updates:
             self.locations[key] = Location(**{**self.locations[key].model_dump(by_alias=True), **fields})
@@ -224,6 +277,9 @@ class FakePlanRepo(IGardenPlanRepository):
             self.slots.append(slot.model_copy(update={"key": f"slot_{self._next}", "location_key": key_map[temp]}))
         if write.snapshot is not None:
             self.snapshots.append(write.snapshot)
+            self.snapshot_rows.append(
+                (write.tenant_key, write.site_key, f"snap_{len(self.snapshot_rows)}", write.snapshot)
+            )
         for temp, garden_object in write.object_inserts:
             self._next += 1
             key_map[temp] = f"go_{self._next}"
@@ -254,6 +310,14 @@ class FakePlanRepo(IGardenPlanRepository):
         self.field_updates.append((location_key, dict(fields)))
         merged = {**self.locations[location_key].model_dump(by_alias=True), **fields}
         self.locations[location_key] = Location(**{k: v for k, v in merged.items() if v is not None})
+
+    def set_site_underlay(self, site_key, *, tenant_key, underlay):
+        site = self._sites.get_site_by_key(site_key)
+        if site is None or site.tenant_key != tenant_key or site.plan is None:
+            return False, None
+        previous = site.plan.underlay.attachment_key if site.plan.underlay is not None else None
+        site.plan = site.plan.model_copy(update={"underlay": underlay})
+        return True, previous
 
     def update_slot_fields(self, slot_key, fields):
         self.slot_field_updates.append((slot_key, dict(fields)))

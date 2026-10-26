@@ -36,8 +36,8 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
-from app.common.enums import TenantRole
-from app.common.exceptions import PlanError, PlanValidationError
+from app.common.enums import GardenObjectType, TenantRole
+from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
 from app.common.types import SiteKey
 from app.domain.calculators.geometry_calculator import area_m2, validate_geometry
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
@@ -52,29 +52,38 @@ from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
+    ERROR_ZONE_QUOTA,
     MAX_PLAN_OBJECTS_PER_SITE,
+    MAX_PLAN_ZONES,
     MAX_SLOTS_PER_BATCH,
     MAX_SLOTS_PER_SITE,
     PlanBatchWrite,
+    PlanSnapshotEntry,
 )
 from app.domain.models.garden_plan_export import (
     ExportGardenObject,
     ExportLocation,
     ExportSlot,
+    ExportZone,
     GardenPlanExport,
 )
 from app.domain.models.garden_plan_import import (
     ALWAYS_DROPPED_FIELDS,
     IMPORT_TIME_BUDGET_SECONDS,
     MAX_IMPORT_NESTING,
+    MAX_OFFSET_M,
     MAX_REPORTED,
     SUPPORTED_SCHEMA_VERSIONS,
     DroppedReference,
+    DropReason,
     ImportCounts,
     ImportFinding,
     ImportMode,
+    ImportTarget,
     PlanImportReport,
 )
+from app.domain.models.geometry import Geometry, parse_geometry
+from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import Location, SitePlan, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
@@ -94,10 +103,15 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 #: How much of a file's own key an error may echo back.
 _KEY_ECHO = 64
 _TEMP_PREFIX = "imp_"
+_ZONE_TEMP = "imp_zone_"
+
+#: Most snapshots one page of the list shows (each is counted from the stored plan, up to several megabytes).
+MAX_SNAPSHOT_PAGE = 50
 
 _LOCATION = "location"
 _OBJECT = "garden_object"
 _SLOT = "slot"
+_ZONE = "irrigation_zone"
 
 
 @dataclass
@@ -113,6 +127,12 @@ class _Prepared:
     imported_locations: list[str] = field(default_factory=list)
     imported_objects: list[str] = field(default_factory=list)
     slots: list[tuple[str, Slot]] = field(default_factory=list)
+    #: temp zone key → the zone to create; ``water_source_key`` holds the temp key of an imported ``water_source``.
+    zones: dict[str, IrrigationZone] = field(default_factory=dict)
+    #: file key of a zone → its temp key, for the beds that name it.
+    zone_temp: dict[str, str] = field(default_factory=dict)
+    delete_zones: list[str] = field(default_factory=list)
+    deleted_zone_names: dict[str, str] = field(default_factory=dict)
     delete_locations: list[str] = field(default_factory=list)
     delete_objects: list[str] = field(default_factory=list)
     deleted_slot_count: int = 0
@@ -122,6 +142,10 @@ class _Prepared:
     boundary_changed: bool = False
     settings_written: bool = False
     snapshot_wanted: bool = False
+    #: ``other_site`` / ``other_tenant``: a reference that is not in the file never resolves against the target site.
+    file_only: bool = False
+    #: A restore retires every zone of the site (the snapshot is the whole truth, also about "no zones").
+    exact_zones: bool = False
 
     def add_finding(self, finding: ImportFinding) -> None:
         self.findings.append(finding)
@@ -134,6 +158,12 @@ class _Prepared:
 
     def add_slot(self, location: str, slot: Slot) -> None:
         self.slots.append((location, slot))
+
+
+def _missing_reason(prepared: _Prepared) -> DropReason:
+    """Why a reference to something that is not in the file is dropped: for a file that comes from elsewhere
+    (``other_site`` / ``other_tenant``) it never resolves against the target, whatever the target holds."""
+    return "outside_file" if prepared.file_only else "not_found"
 
 
 def _copied[TModel: BaseModel](model: TModel) -> TModel:
@@ -197,15 +227,27 @@ class GardenPlanImportService:
         force: bool,
         confirm_site_name: str | None,
         document: dict[str, Any],
+        target: ImportTarget = "same_site",
+        offset_m: tuple[float, float] | None = None,
+        exact_zones: bool = False,
     ) -> PlanImportReport:
-        """Check the file and, unless ``dry_run``, write it. See the module docstring for the order."""
+        """Check the file and, unless ``dry_run``, write it. See the module docstring for the order.
+
+        ``target`` and ``offset_m`` are GP-FR-172: the first narrows what a reference outside the file may resolve
+        to, the second moves every geometry of a ``merge`` (422 ``import.offset_requires_merge`` otherwise).
+        ``exact_zones`` is the restore's: see :meth:`restore_snapshot`.
+        """
         started = perf_counter()
         site = require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)  # (2) tenant anchor
         if not MembershipEngine.can_delete_resource(role):  # (3) lead only: a replace deletes (SR-010)
             raise PlanError(
                 "import.forbidden", "Only a lead may import a garden plan.", status_code=403, field="request"
             )
+        offset = _checked_offset(offset_m, mode)
         parsed = self._read_document(document)  # (4)
+        shift_findings: list[ImportFinding] = []
+        if offset is not None:
+            parsed, shift_findings = _shifted(parsed, offset)
         if mode == "replace" and not dry_run and (confirm_site_name or "").strip() != site.name.strip():
             raise PlanError(
                 "import.site_name_mismatch",
@@ -224,8 +266,11 @@ class GardenPlanImportService:
             user_key=user_key,
             mode=mode,
             force=force,
+            target=target,
+            exact_zones=exact_zones,
         )
-        report = self._report(prepared, mode=mode, dry_run=dry_run)
+        prepared.findings[:0] = shift_findings
+        report = self._report(prepared, mode=mode, dry_run=dry_run, target=target, offset_m=offset)
         if dry_run:
             logger.info("garden_plan.import_checked", site_key=site_key, mode=mode, errors=report.errors_total)
             return report
@@ -271,6 +316,7 @@ class GardenPlanImportService:
             locations=len(write.location_inserts),
             garden_objects=len(write.object_inserts),
             slots=len(write.slot_inserts),
+            zones=len(write.zone_inserts),
             deleted=len(write.location_deletes) + len(write.object_deletes),
             duration_ms=round((perf_counter() - started) * 1000),
         )
@@ -278,6 +324,61 @@ class GardenPlanImportService:
         report.plan_revision = outcome.plan_revision
         report.snapshot_written = write.snapshot is not None
         return report
+
+    # ── GP-FR-148/170: the snapshots a replace left behind ────────────────────
+
+    def list_snapshots(
+        self, site_key: SiteKey, *, tenant_key: str, role: TenantRole, offset: int, limit: int
+    ) -> list[PlanSnapshotEntry]:
+        """The plans earlier ``replace`` imports overwrote, newest first - a lead's view (SR-010, 403 otherwise).
+
+        The site is resolved through the tenant first, so a site of another tenant is a 404 before the role is
+        looked at. The rows are bounded by ``limit``; the payload never leaves the server (R-26 keeps them a year).
+        """
+        require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
+        _require_lead(role)
+        # Each row is counted from the stored plan, so a page reads whole documents: the page is capped below the 200 of
+        # the shared pagination.
+        page = min(limit, MAX_SNAPSHOT_PAGE)
+        return self._plan.list_import_snapshots(site_key, tenant_key=tenant_key, offset=offset, limit=page)
+
+    def restore_snapshot(
+        self,
+        site_key: SiteKey,
+        audit_key: str,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        dry_run: bool,
+        force: bool,
+        confirm_site_name: str | None,
+    ) -> PlanImportReport:
+        """Put the plan of a snapshot back: a ``replace`` whose file is the stored plan (GP-FR-148/170).
+
+        Nothing new is trusted: the stored plan goes through the same checks as an uploaded file, and the
+        ``replace`` writes the state it overwrites as a snapshot of its own first, so a restore can be restored.
+        A snapshot row of another site or tenant is a 404, like an absent one. Zones are restored exactly: the
+        zones of the site that the snapshot does not name are retired.
+        """
+        require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
+        _require_lead(role)
+        stored = self._plan.load_import_snapshot(site_key, audit_key, tenant_key=tenant_key)
+        if stored is None:
+            raise NotFoundError("PlanSnapshotEntry", audit_key)
+        return self.import_plan(
+            site_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            mode="replace",
+            dry_run=dry_run,
+            force=force,
+            confirm_site_name=confirm_site_name,
+            document=stored,
+            target="same_site",
+            exact_zones="zones" in stored,
+        )
 
     # ── (4) the document ──────────────────────────────────────────────────────
 
@@ -303,7 +404,7 @@ class GardenPlanImportService:
             )
         unknown = sorted(set(document) - set(GardenPlanExport.model_fields))
         if unknown:
-            # A newer file within schema_version "1" may carry parts this version cannot place (zones, template
+            # A newer file within schema_version "1" may carry parts this version cannot place (template
             # references, WP 7.x). Silently skipping them would restore a plan that quietly lacks half of itself.
             raise PlanError(
                 "import.unknown_keys",
@@ -336,17 +437,24 @@ class GardenPlanImportService:
         user_key: str,
         mode: ImportMode,
         force: bool,
+        target: ImportTarget = "same_site",
+        exact_zones: bool = False,
     ) -> _Prepared:
-        prepared = _Prepared()
+        prepared = _Prepared(file_only=target != "same_site", exact_zones=exact_zones)
         existing_locations, existing_objects = self._plan.load_structure(site_key, tenant_key=tenant_key)
         stored = {loc.key: loc for loc in existing_locations if loc.key}
         self._plan_the_existing(
             prepared, stored, existing_objects, site_key, tenant_key=tenant_key, mode=mode, force=force
         )
+        self._plan_the_zones(prepared, parsed.zones, site_key, tenant_key=tenant_key, mode=mode)
         index_of = self._index_locations(prepared, parsed.locations)
         flags = self._plan.bed_type_flags(sorted({loc.location_type_key for loc in parsed.locations}))
         zone_cache: dict[str, str | None] = {}
         substrate_cache: dict[str, bool] = {}
+        # WP 7.9: the templates the file's beds were placed from - system ones and the target tenant's own.
+        visible_templates = self._plans.visible_template_keys(
+            sorted({loc.template_key for loc in parsed.locations if loc.template_key}), tenant_key=tenant_key
+        )
 
         for position in self._parents_first(prepared, parsed.locations, index_of):
             self._add_location(
@@ -359,9 +467,11 @@ class GardenPlanImportService:
                 flags=flags,
                 zone_cache=zone_cache,
                 substrate_cache=substrate_cache,
+                visible_templates=visible_templates,
             )
         for position, item in enumerate(parsed.garden_objects):
             self._add_object(prepared, item, position, site_key=site_key, user_key=user_key, index_of=index_of)
+        self._add_zones(prepared, parsed, site_key=site_key, tenant_key=tenant_key)
         self._add_slots(prepared, parsed.slots)
         self._mark_always_dropped(prepared, raw)
         self._check_quotas(prepared, site_key, tenant_key=tenant_key, mode=mode)
@@ -404,6 +514,76 @@ class GardenPlanImportService:
                 self._plan.load_active_slots(site_key, prepared.delete_locations, tenant_key=tenant_key)
             )
         prepared.snapshot_wanted = True
+
+    def _plan_the_zones(
+        self, prepared: _Prepared, zones: list[ExportZone], site_key: str, *, tenant_key: str, mode: ImportMode
+    ) -> None:
+        """Name the file's zones (temp keys) and, for a ``replace`` that brings zones, retire the site's own.
+
+        A zone of the file is always created new (GP-NFR-051); the beds name it through the file key. A
+        ``replace`` whose file carries zones removes the zones of the site that cover no bed that stays (V-09),
+        so restoring a backup into the site it came from does not leave the old zones next to the new ones. A
+        file without zones (an older backup) removes none: its beds may still name a zone of the site.
+        """
+        for position, item in enumerate(zones):
+            if item.key in prepared.zone_temp:
+                prepared.add_finding(
+                    ImportFinding(field=f"zones[{position}].key", code=ERROR_DUPLICATE_KEY, key=_echo(item.key))
+                )
+                continue
+            prepared.zone_temp[item.key] = f"{_ZONE_TEMP}{position}"
+        if mode != "replace" or not (zones or prepared.exact_zones):
+            return
+        staying = {key for key in prepared.locations if not _is_temp(key)}
+        for row in self._plans.zone_rows(site_key, tenant_key=tenant_key):
+            if staying.isdisjoint(row["location_keys"]):
+                prepared.delete_zones.append(row["key"])
+                prepared.deleted_zone_names[row["key"]] = str(row["name"])
+
+    def _add_zones(self, prepared: _Prepared, parsed: GardenPlanExport, *, site_key: str, tenant_key: str) -> None:
+        """Build the zones of the file once its objects exist: a water source is a ``water_source`` of the file."""
+        object_temp: dict[str, str] = {}
+        for object_position, garden_object_item in enumerate(parsed.garden_objects):
+            object_temp.setdefault(garden_object_item.key, f"imp_obj_{object_position}")
+        for position, item in enumerate(parsed.zones):
+            temp = f"{_ZONE_TEMP}{position}"
+            if prepared.zone_temp.get(item.key) != temp:
+                continue
+            source: str | None = None
+            if item.water_source_key:
+                candidate = object_temp.get(item.water_source_key)
+                garden_object = prepared.objects.get(candidate or "")
+                if garden_object is None or garden_object.object_type is not GardenObjectType.WATER_SOURCE:
+                    prepared.drop(
+                        DroppedReference(
+                            entity=_ZONE,
+                            key=item.key,
+                            field="water_source_key",
+                            reason=_missing_reason(prepared) if candidate is None else "not_found",
+                        )
+                    )
+                else:
+                    source = candidate
+            try:
+                zone = IrrigationZone(
+                    tenant_key=tenant_key,
+                    site_key=site_key,
+                    name=item.name,
+                    irrigation_type=item.irrigation_type,
+                    water_source_key=source,
+                    application_efficiency=item.application_efficiency,
+                    flow_rate_l_per_min=item.flow_rate_l_per_min,
+                    color=item.color,
+                    schedule_hint=item.schedule_hint,
+                )
+            except PydanticValidationError as exc:
+                prepared.add_findings(
+                    ImportFinding(field=f"zones[{position}].{_path(e['loc'])}", code=_code_of(e), key=_echo(item.key))
+                    for e in _errors_of(exc)
+                )
+                continue
+            prepared.zones[temp] = zone
+            prepared.file_key[temp] = item.key
 
     @staticmethod
     def _index_locations(prepared: _Prepared, locations: list[ExportLocation]) -> dict[str, int]:
@@ -457,6 +637,7 @@ class GardenPlanImportService:
         flags: dict[str, bool],
         zone_cache: dict[str, str | None],
         substrate_cache: dict[str, bool],
+        visible_templates: set[str],
     ) -> None:
         temp = f"imp_loc_{position}"
         parent_key = self._resolve_parent(prepared, item, index_of)
@@ -469,16 +650,27 @@ class GardenPlanImportService:
             )
             type_key = ""
         zone_key = item.irrigation_zone_key
-        if zone_key:
+        if zone_key and zone_key in prepared.zone_temp:
+            zone_key = prepared.zone_temp[zone_key]  # a zone of the file: created by this import
+        elif zone_key and prepared.file_only:
+            prepared.drop(
+                DroppedReference(entity=_LOCATION, key=item.key, field="irrigation_zone_key", reason="outside_file")
+            )
+            zone_key = None
+        elif zone_key:
             if zone_key not in zone_cache:
                 zone_cache[zone_key] = self._plan.irrigation_zone_site_key(zone_key, tenant_key=tenant_key)
             zone_site = zone_cache[zone_key]
-            if zone_site != site_key:
-                reason = "not_found" if zone_site is None else "not_in_site"
+            if zone_site != site_key or zone_key in prepared.delete_zones:
+                reason = "not_found" if zone_site is None or zone_key in prepared.delete_zones else "not_in_site"
                 prepared.drop(
                     DroppedReference(entity=_LOCATION, key=item.key, field="irrigation_zone_key", reason=reason)
                 )
                 zone_key = None
+        template_key = item.template_key
+        if template_key and template_key not in visible_templates:
+            prepared.drop(DroppedReference(entity=_LOCATION, key=item.key, field="template_key", reason="not_found"))
+            template_key = None
         soil = _copied(item.soil_profile) if item.soil_profile is not None else None
         site_conditions = _copied(item.site_conditions) if item.site_conditions is not None else None
         if soil is not None and soil.substrate_key:
@@ -513,6 +705,7 @@ class GardenPlanImportService:
             if site_conditions is not None
             else None,
             "irrigation_zone_key": zone_key,
+            "template_key": template_key,
             "locked": item.locked,
             "z_order": item.z_order,
         }
@@ -555,10 +748,12 @@ class GardenPlanImportService:
             # A parent that could not be built has a finding already; here it is simply absent.
             temp = f"imp_loc_{position}"
             return temp if temp in prepared.locations else None
-        if parent in prepared.locations and not _is_temp(parent):
+        if parent in prepared.locations and not _is_temp(parent) and not prepared.file_only:
             return parent
         entity = _LOCATION if isinstance(item, ExportLocation) else _OBJECT
-        prepared.drop(DroppedReference(entity=entity, key=item.key, field="parent_location_key", reason="not_found"))
+        prepared.drop(
+            DroppedReference(entity=entity, key=item.key, field="parent_location_key", reason=_missing_reason(prepared))
+        )
         return None
 
     def _add_object(
@@ -605,7 +800,9 @@ class GardenPlanImportService:
         for position, item in enumerate(slots):
             bed = by_file_key.get(item.location_key)
             if bed is None:
-                prepared.drop(DroppedReference(entity=_SLOT, key=item.key, field="location_key", reason="not_found"))
+                prepared.drop(
+                    DroppedReference(entity=_SLOT, key=item.key, field="location_key", reason=_missing_reason(prepared))
+                )
                 continue
             if (bed, item.slot_id) in seen:
                 prepared.add_finding(
@@ -638,7 +835,7 @@ class GardenPlanImportService:
     @staticmethod
     def _mark_always_dropped(prepared: _Prepared, raw: dict[str, Any]) -> None:
         """GP-FR-141: a coupling to a Home Assistant entity or an actuator is never carried over; say so."""
-        for list_name, entity in (("locations", _LOCATION), ("garden_objects", _OBJECT)):
+        for list_name, entity in (("locations", _LOCATION), ("garden_objects", _OBJECT), ("zones", _ZONE)):
             items = raw.get(list_name)
             if not isinstance(items, list):
                 continue
@@ -646,7 +843,9 @@ class GardenPlanImportService:
                 if not isinstance(item, dict):
                     continue
                 for name in ALWAYS_DROPPED_FIELDS:
-                    if _value(item, name) is not None:
+                    value = _value(item, name)
+                    # ``manual`` is what every zone without a Home Assistant source carries: nothing is lost.
+                    if value is not None and not (name == "flow_rate_source" and value == "manual"):
                         key = _echo(_value(item, "key")) or ""
                         prepared.drop(DroppedReference(entity=entity, key=key, field=name, reason="always_dropped"))
 
@@ -670,6 +869,13 @@ class GardenPlanImportService:
             standing = len(self._plan.load_active_slots(site_key, kept, tenant_key=tenant_key)) if kept else 0
         if standing + len(prepared.slots) > MAX_SLOTS_PER_SITE:
             prepared.add_finding(ImportFinding(field="slots", code=ERROR_QUOTA))
+        # Zones: a file's zone is always new, so the site's total after the import is what stays plus what comes.
+        # A ``merge`` run twice therefore doubles the zones (no stable identity in the file, no schema change) - the
+        # cap is what stops that from growing without bound (the plan read would otherwise refuse the site).
+        if prepared.zones:
+            standing_zones = self._plans.count_zones(site_key, tenant_key=tenant_key) - len(prepared.delete_zones)
+            if standing_zones + len(prepared.zones) > MAX_PLAN_ZONES:
+                prepared.add_finding(ImportFinding(field="zones", code=ERROR_ZONE_QUOTA))
 
     @staticmethod
     def _check_settings(
@@ -753,20 +959,31 @@ class GardenPlanImportService:
     # ── the answer and the write ──────────────────────────────────────────────
 
     @staticmethod
-    def _report(prepared: _Prepared, *, mode: str, dry_run: bool) -> PlanImportReport:
+    def _report(
+        prepared: _Prepared,
+        *,
+        mode: str,
+        dry_run: bool,
+        target: ImportTarget = "same_site",
+        offset_m: tuple[float, float] | None = None,
+    ) -> PlanImportReport:
         return PlanImportReport(
             mode=mode,
             dry_run=dry_run,
+            target=target,
+            offset_m=offset_m,
             would_create=ImportCounts(
                 locations=len(prepared.imported_locations),
                 garden_objects=len(prepared.imported_objects),
                 slots=len(prepared.slots),
+                zones=len(prepared.zones),
             ),
             would_update=ImportCounts(plan_settings=1 if prepared.settings_written else 0),
             would_delete=ImportCounts(
                 locations=len(prepared.delete_locations),
                 garden_objects=len(prepared.delete_objects),
                 slots=prepared.deleted_slot_count,
+                zones=len(prepared.delete_zones),
             ),
             kept_locations=prepared.kept,
             dropped_references=prepared.dropped[:MAX_REPORTED],
@@ -798,9 +1015,13 @@ class GardenPlanImportService:
             )
         for key in prepared.delete_objects:
             audit.append({"op": "import_delete", "entity": _OBJECT, "key": key, "summary": ""})
+        for key in prepared.delete_zones:
+            audit.append(
+                {"op": "import_delete", "entity": _ZONE, "key": key, "summary": prepared.deleted_zone_names[key][:200]}
+            )
         summary = (
             f"{len(prepared.imported_locations)} locations, {len(prepared.imported_objects)} objects, "
-            f"{len(prepared.slots)} slots"
+            f"{len(prepared.slots)} slots, {len(prepared.zones)} zones"
         )
         audit.append({"op": f"import_{mode}", "entity": "site", "key": site_key, "summary": summary})
         snapshot: dict[str, Any] | None = None
@@ -825,10 +1046,93 @@ class GardenPlanImportService:
             total_area_m2=area_m2(prepared.boundary) if prepared.boundary_changed else None,
             audit=audit,
             slot_inserts=prepared.slots,
+            zone_inserts=list(prepared.zones.items()),
+            zone_deletes=prepared.delete_zones,
             snapshot=snapshot,
             snapshot_summary=f"state before the replace import (revision {revision})",
             time_budget_seconds=max(IMPORT_TIME_BUDGET_SECONDS - (perf_counter() - started), 1.0),
         )
+
+
+def _require_lead(role: TenantRole) -> None:
+    if not MembershipEngine.can_delete_resource(role):
+        raise PlanError("import.forbidden", "Only a lead may import a garden plan.", status_code=403, field="request")
+
+
+def _checked_offset(offset_m: tuple[float, float] | None, mode: str) -> tuple[float, float] | None:
+    """``offset_m`` of a ``merge`` (GP-FR-172): finite, within the plan frame; ``(0, 0)`` is no offset."""
+    if offset_m is None:
+        return None
+    dx, dy = offset_m
+    # ``<=`` is False for nan, and for inf it fails the bound: neither can reach the geometry validator (#2529).
+    if not (abs(dx) <= MAX_OFFSET_M and abs(dy) <= MAX_OFFSET_M):
+        raise PlanError(
+            "import.offset_invalid",
+            f"offset_m must be two finite numbers within {MAX_OFFSET_M:g} m.",
+            status_code=422,
+            field="offset_m",
+        )
+    if dx == 0 and dy == 0:
+        return None
+    if mode != "merge":
+        raise PlanError(
+            "import.offset_requires_merge",
+            "offset_m moves what a merge adds; a replace restores the positions of the file.",
+            status_code=422,
+            field="offset_m",
+        )
+    return (dx, dy)
+
+
+def _translated(geometry: Geometry, dx: float, dy: float) -> Geometry:
+    """The geometry moved by ``(dx, dy)`` and validated again (V-01), so a shift out of the frame is refused."""
+    data = _dumped(geometry)
+    if "origin" in data:
+        data["origin"] = (data["origin"][0] + dx, data["origin"][1] + dy)
+    if "points" in data:
+        data["points"] = tuple((x + dx, y + dy) for x, y in data["points"])
+    return parse_geometry(data)
+
+
+def _moved(geometry: Geometry | None, dx: float, dy: float) -> Geometry | None:
+    """``geometry`` moved, or ``None`` when it has none or the move leaves the plan frame."""
+    if geometry is None:
+        return None
+    try:
+        return _translated(geometry, dx, dy)
+    except PydanticValidationError:
+        return None
+
+
+def _shifted(parsed: GardenPlanExport, offset: tuple[float, float]) -> tuple[GardenPlanExport, list[ImportFinding]]:
+    """A copy of the file with every plan-frame geometry moved by ``offset`` (slots stay: they sit in the bed frame)."""
+    dx, dy = offset
+    moved = _copied(parsed)
+    location_moves = [_moved(location.geometry, dx, dy) for location in moved.locations]
+    object_moves = [_moved(garden_object.geometry, dx, dy) for garden_object in moved.garden_objects]
+    boundary = moved.plan.boundary if moved.plan is not None else None
+    boundary_move = _moved(boundary, dx, dy)
+    findings = [
+        ImportFinding(field=f"locations[{position}].geometry", code="geometry.invalid", key=_echo(location.key))
+        for position, (location, new) in enumerate(zip(moved.locations, location_moves, strict=True))
+        if location.geometry is not None and new is None
+    ]
+    findings += [
+        ImportFinding(field=f"garden_objects[{position}].geometry", code="geometry.invalid", key=_echo(item.key))
+        for position, (item, new) in enumerate(zip(moved.garden_objects, object_moves, strict=True))
+        if new is None
+    ]
+    if boundary is not None and boundary_move is None:
+        findings = [*findings, ImportFinding(field="plan.boundary", code="geometry.invalid")]
+    for location, new in zip(moved.locations, location_moves, strict=True):
+        if new is not None:
+            location.geometry = new
+    for item, new in zip(moved.garden_objects, object_moves, strict=True):
+        if new is not None:
+            item.geometry = new
+    if moved.plan is not None and boundary_move is not None:
+        moved.plan.boundary = boundary_move
+    return moved, findings
 
 
 def _code_of(error: Any) -> str:

@@ -38,6 +38,8 @@ class FakeCareEventRepo(ICareEventRepository):
         self.audit: list[dict] = []
         self.photos_held: dict[str, list[str]] = {}
         self._next = 0
+        #: A transaction that aborts: ``insert_many`` raises and stores nothing.
+        self.fail_insert_many = False
 
     def _store(self, event: CareEvent) -> CareEvent:
         self._next += 1
@@ -110,6 +112,12 @@ class FakeCareEventRepo(ICareEventRepository):
         assert event.tenant_key == tenant_key
         self.inserted.append(event)
         return self._store(event)
+
+    def insert_many(self, events, *, tenant_key):
+        assert all(event.tenant_key == tenant_key for event in events)
+        if self.fail_insert_many:
+            raise RuntimeError("the transaction aborted")
+        return [self.insert(event, tenant_key=tenant_key) for event in events]
 
     @staticmethod
     def _refuse_if_closed(event: CareEvent) -> None:

@@ -246,6 +246,17 @@ class ErasureEngine:
                 "only the author reference is removed."
             ),
         ),
+        AnonymizationRule(
+            # REQ-053 GP-NFR-055 / SR-007 (WP 7.8, #2474): a tenant's bed template is shared master data of a possibly
+            # shared tenant and is retained; only the author reference is removed. A system template has no author.
+            collection="bed_templates",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055: the bed template belongs to the tenant's catalogue and is retained; "
+                "only the author reference is removed."
+            ),
+        ),
         # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
         # Until now only the *attachments* of a diary entry were anonymised
         # (storage scope ``user_diary_attachments`` below); the

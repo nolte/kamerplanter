@@ -277,9 +277,32 @@ class TestTheRouteOperand:
         +1: the plant states of a bed (REQ-053 WP 3.7, #2397): ``GET /t/{slug}/locations/{key}/plant-states``. Its
         consumer is the bed view's plan tab (``features/gardenPlanner/planting/plantStateApi.ts``), which lands in the
         same change - the operation is consumed.
+
+        +6: the irrigation zones (REQ-053 WP 7.1, #2467): ``GET|POST /t/{slug}/sites/{key}/irrigation-zones``,
+        ``GET|PATCH|DELETE /t/{slug}/irrigation-zones/{key}`` and ``PUT …/{key}/locations``. Their consumer is the
+        zone panel (WP 7.6, frontend), open - all six are reported candidates until it lands.
+
+        +2: the zone status and the watering round (REQ-053 WP 7.3, #2469):
+        ``GET /t/{slug}/irrigation-zones/{key}/status`` and ``POST …/{key}/log-watering``. Same open consumer
+        (the zone panel, WP 7.6 / 7.7).
+
+        +5: the bed templates (REQ-053 WP 7.8/7.9, #2474, #2475): ``GET|POST /t/{slug}/bed-templates``,
+        ``PATCH|DELETE /t/{slug}/bed-templates/{key}`` and ``POST /t/{slug}/sites/{key}/plan/place-template``. Their
+        consumer is the template picker (WP 7.10, frontend), open - all five are reported candidates until it lands.
+
+        +1: the mixed-culture create (REQ-053, #2463): ``POST /t/{slug}/planting-runs/mixed-culture``. The planting
+        dialog (``features/gardenPlanner/planting/plantingApi.ts``) consumes it in the same change.
+
+        +2: the plan underlay (REQ-053 WP 7.14, #2480): ``PUT|DELETE /t/{slug}/sites/{key}/plan/underlay``. The
+        underlay dialog (``features/gardenPlanner/underlay/underlayApi.ts``, WP 7.15) consumes both in the same
+        change. The PDF option (``underlay=true``) is a query parameter of an existing route, not a new operation.
+
+        +2: the snapshots of a replace import (REQ-053 WP 7.19, #2485): ``GET /t/{slug}/sites/{key}/plan/snapshots``
+        and ``POST …/plan/snapshots/{audit_key}/restore``. The import wizard (``features/gardenPlanner/io/``)
+        consumes both in the same change. (WP 7.18 adds query parameters to existing operations, no route.)
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 871
+        assert len(checker.collect_operations(app)) == 889
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

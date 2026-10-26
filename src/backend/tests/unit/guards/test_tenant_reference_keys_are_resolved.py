@@ -256,6 +256,19 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "care_event.CareEvent.performed_for_user_key": _V,
     "care_event.CareEvent.supersedes_key": _V,
     "care_event.CareEvent.superseded_by_key": _I,
+    # REQ-053 §20.11 (WP 7.1, #2467): `IrrigationZoneService` takes the site from the path through `require_owned_site`
+    # (T-01) and resolves `water_source_key` to a `water_source` garden object of the zone's own site under the tenant
+    # (GP-NFR-058, GP-ACC-041). `actuator_key` is refused with 422 on every request until WP 7.4 (#2470) brings its
+    # resolution (an actuator of the tenant at a location of the same site) — no write path can store one today.
+    "irrigation_zone.IrrigationZone.site_key": _V,
+    "irrigation_zone.IrrigationZone.water_source_key": _V,
+    "irrigation_zone.IrrigationZone.actuator_key": _I,
+    # REQ-053 §20.12 / §21.7 (WP 7.8 / 7.9, #2474, #2475): a template's `location_type_key` is a global location type
+    # (`BedTemplateService` resolves it and refuses a type that is no bed type, 422); a bed's `template_key` is set only
+    # by `GardenPlanService.place_template` (the template must be a system one or the tenant's own, 422
+    # `reference.not_found` otherwise) and by the plan import (`visible_template_keys`: else dropped and reported).
+    "bed_template.BedTemplate.location_type_key": _G,
+    "site.Location.template_key": _V,
     "actuator.Actuator.location_key": _V,
     "actuator.ControlEvent.actuator_key": _I,
     "actuator.ControlEvent.location_key": _I,

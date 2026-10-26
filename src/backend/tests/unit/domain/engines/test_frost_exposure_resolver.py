@@ -128,7 +128,7 @@ class TestFrostRiskMirror:
 
     @pytest.mark.parametrize(
         ("exposed", "risk"),
-        [(True, FrostRisk.HIGH), (False, FrostRisk.LOW), (None, FrostRisk.UNKNOWN)],
+        [(True, FrostRisk.HIGH), (False, FrostRisk.NORMAL), (None, FrostRisk.UNKNOWN)],
     )
     def test_boolean_to_risk(self, exposed: bool | None, risk: FrostRisk) -> None:
         assert frost_risk_from_exposed(exposed) is risk

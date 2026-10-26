@@ -59,6 +59,7 @@ _COLLECTIONS = [
     col.CARE_EVENTS,
     col.PEST_IMAGE_CONTRIBUTIONS,
     col.PESTS,
+    col.SITES,  # the plan underlay (REQ-053 GP-FR-033)
 ]
 
 
@@ -149,6 +150,7 @@ def test_both_the_named_task_and_another_carrier_reports_shared(db, repo):
         (col.PLANT_INSTANCES, {"tenant_key": TENANT, "cover_photo_ref": "att-1"}),
         (col.PEST_IMAGE_CONTRIBUTIONS, {"tenant_key": TENANT, "attachment_id": "att-1"}),
         (col.PESTS, {"reference_image_refs": ["att-1"]}),
+        (col.SITES, {"tenant_key": TENANT, "plan": {"underlay": {"attachment_key": "att-1"}}}),
     ],
     ids=lambda value: value if isinstance(value, str) else "doc",
 )

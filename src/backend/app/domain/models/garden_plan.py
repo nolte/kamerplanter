@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Annotated, Any, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, TypeAdapter, model_validator
 
@@ -24,6 +24,9 @@ from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.site import Location, Microclimate, SiteConditions, SitePlan, Slot, SoilProfile, SunProfile
+
+if TYPE_CHECKING:
+    from app.domain.models.irrigation_zone import IrrigationZone
 
 #: Request-local name for an object created in the same batch (``tmp1``); the server answers with ``key_map``.
 TempKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{1,40}$")]
@@ -43,6 +46,10 @@ MAX_BATCH_BODY_BYTES = 2 * 1024 * 1024
 BATCH_TIME_BUDGET_SECONDS = 10.0
 #: GP-NFR-017 (SR-004): locations plus garden objects per site.
 MAX_PLAN_OBJECTS_PER_SITE = 500
+#: Irrigation zones the plan read model, the export and the import carry per site (creating them has no quota, #2466).
+MAX_PLAN_ZONES = 500
+#: 422 when a site would hold more than :data:`MAX_PLAN_ZONES` irrigation zones (create, merge import, plan read).
+ERROR_ZONE_QUOTA = "irrigation_zone.quota_exceeded"
 #: GP-NFR-017 (SR-004): slots per site (read-only here; slot routes enforce it).
 MAX_SLOTS_PER_SITE = 8_000
 
@@ -77,6 +84,18 @@ class CreateLocationData(_Strict):
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     locked: bool = False
     z_order: int = Field(default=0, ge=-10_000, le=10_000)
+
+
+class TemplateLocationData(CreateLocationData):
+    """What ``place-template`` creates (REQ-053 §21.7, WP 7.9): a location plus the two things a template adds.
+
+    A subclass **outside** :data:`PlanOperation`'s public union on purpose: ``template_key`` is provenance the
+    server resolves against the catalogue (global or the tenant's own), and ``soil_profile`` is the template's
+    soil axes - a client of ``POST /plan/batch`` sends neither (``extra="forbid"`` on the parent says so).
+    """
+
+    template_key: str | None = Field(default=None, min_length=1, max_length=200)
+    soil_profile: SoilProfile | None = None
 
 
 class CreateGardenObjectData(_Strict):
@@ -250,6 +269,12 @@ class PlanBatchWrite:
     #: ``(location temp_key or key, slot)`` — slots of freshly inserted locations, written in the same transaction
     #: (the plan import, GP-API-005); the batch routes never set it.
     slot_inserts: list[tuple[str, Slot]] = field(default_factory=list)
+    #: ``(temp_key, zone)`` - the irrigation zones of an import (WP 7.2), inserted with their ``has_irrigation_zone``
+    #: edge before the locations. ``water_source_key`` names an object of ``object_inserts`` by its temp key (or
+    #: ``None``); a location names its zone by the zone's temp key. The batch routes never set it.
+    zone_inserts: list[tuple[str, IrrigationZone]] = field(default_factory=list)
+    #: Zones a ``replace`` import removes with every edge on them (the beds they covered are deleted by it too).
+    zone_deletes: list[str] = field(default_factory=list)
     #: The state a ``replace`` import overwrites, stored with its audit row in the same transaction (SR-011).
     snapshot: dict[str, Any] | None = None
     #: Summary of the snapshot row (counts only, never a name — GP-NFR-060).
@@ -454,7 +479,8 @@ class PlanAuditRecord(BaseModel):
     user_key: str
     #: ``delete``, ``delete_cascade``, ``set_boundary``, ``retire`` or ``reactivate`` (a bed's lifecycle, §7.4).
     op: str
-    #: ``location``, ``garden_object`` or ``site``.
+    #: ``location``, ``garden_object``, ``site``, ``care_event`` (a redaction) or ``irrigation_zone`` (a zone delete,
+    #: REQ-053 WP 7.1).
     entity: str
     key: str
     summary: str = Field(default="", max_length=200)
@@ -474,6 +500,24 @@ class PlanAuditEntry(BaseModel):
     summary: str = ""
     at: datetime
     changed_by_name: str | None = None
+
+
+class PlanSnapshotEntry(BaseModel):
+    """One ``import_snapshot`` row as the snapshot list shows it (REQ-053 GP-FR-148/170): never the payload itself.
+
+    ``audit_key`` is the row's key (``_key``), the handle of the restore route. The counts are the size of the stored
+    plan, so a person can tell the snapshots apart without the payload leaving the server.
+    """
+
+    audit_key: str
+    revision: int
+    at: datetime
+    summary: str = ""
+    changed_by_name: str | None = None
+    locations: int = 0
+    garden_objects: int = 0
+    slots: int = 0
+    zones: int = 0
 
 
 class PlantShortInfo(BaseModel):
@@ -537,5 +581,7 @@ class GardenPlanView(BaseModel):
     #: Keyed by garden-object key — a separate map because object and location keys come from different collections.
     object_task_counters: dict[str, TaskCounter] = Field(default_factory=dict)
     season_states: dict[str, str] = Field(default_factory=dict)
+    #: Newest watering per bed (GP-UX-006); filled with the task counters (``include=tasks``).
+    last_watered: dict[str, datetime] = Field(default_factory=dict)
     zones: list[dict[str, Any]] = Field(default_factory=list)
     included: list[str] = Field(default_factory=list)

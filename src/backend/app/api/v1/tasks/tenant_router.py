@@ -442,7 +442,7 @@ def _resolve_task_provenance(body: TaskCreate, user: User) -> tuple[TaskOrigin, 
     return origin, body.source or "", body.source_run_ref, body.external_ref
 
 
-@router.post("", response_model=TaskResponse, status_code=201)
+@router.post("", response_model=TaskResponse | list[TaskResponse], status_code=201)
 def create_task(
     body: TaskCreate,
     response: Response,
@@ -468,6 +468,11 @@ def create_task(
       scoped to ``(tenant_key, source, external_ref)``: a re-post updates and
       returns the existing task with **200** instead of creating a duplicate
       (201).
+    * ``for_each_plant`` (REQ-053 GP-FR-081, #2462) on a task bound to a bed creates
+      **only** the per-plant tasks — no bed task — in one transaction and answers the
+      list of them (an empty list for a bed without plants). It is the one-step
+      replacement of "create the bed task, then ``/fan-out``": at most 200 plants, no
+      care reminder, no recurrence, user-created tasks only (422 otherwise).
     """
     # SEC-I01 (#1102): the binding is caller-supplied and was never checked, so a
     # task could be bound — and a `has_task` edge written — to a *foreign*
@@ -478,7 +483,15 @@ def create_task(
 
     origin, source, source_run_ref, external_ref = _resolve_task_provenance(body, user)
 
-    data = body.model_dump(exclude={"origin", "source", "source_run_ref", "external_ref"})
+    data = body.model_dump(exclude={"origin", "source", "source_run_ref", "external_ref", "for_each_plant"})
+    if body.for_each_plant:
+        if origin != TaskOrigin.USER:
+            raise ValidationError("A machine-produced task cannot be created for each plant.")
+        template = Task(**data, tenant_key=ctx.tenant_key, origin=origin)
+        created_each = service.create_tasks_for_each_plant(
+            template, tenant_key=ctx.tenant_key, actor_user_key=ctx.user_key
+        )
+        return [_task_response(t) for t in created_each]
     if origin != TaskOrigin.USER:
         rule = data.get("recurrence_rule")
         if rule and RecurrenceEngine.next_occurrence(rule, datetime.now(UTC)) is not None:

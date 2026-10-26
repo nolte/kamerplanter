@@ -9,11 +9,16 @@
  * Lengths are metres, angles degrees counter-clockwise about +x (§9.2).
  */
 
+import type { PlanZone } from '../zones/zoneTypes';
+
 /** The only plan DTO version this client reads (GP-API-001 `schema_version`). */
 export const PLAN_SCHEMA_VERSION = '1';
 
 /** Operations per batch (V-17, GP-API-003). */
 export const MAX_BATCH_OPERATIONS = 500;
+
+/** Locations plus garden objects per site (GP-NFR-017, SR-004); beyond it the server answers 422 `plan.quota_exceeded`. */
+export const MAX_PLAN_OBJECTS_PER_SITE = 500;
 
 /** `[x, y]` in metres. */
 export type Point = [number, number];
@@ -67,6 +72,9 @@ export type Geometry =
 
 export type BedStatus = 'planned' | 'active' | 'retired';
 export type SunExposure = 'full_sun' | 'partial_shade' | 'shade' | 'deep_shade' | 'unknown';
+
+/** When the direct sun reaches a bed (GP-FR-158, `SunWindow` of the backend). */
+export type SunWindow = 'morning' | 'midday' | 'afternoon' | 'all_day' | 'mixed' | 'unknown';
 export type SlotRole = 'position' | 'row' | 'zone';
 
 export type GardenObjectType =
@@ -209,6 +217,8 @@ export interface PlanLocation {
   season_state?: string | null;
   open_task_count: number;
   overdue_task_count: number;
+  /** Newest watering of the bed within a year (ISO instant); absent = none. Shown as "days since", never as a need. */
+  last_watered_at?: string | null;
   /**
    * Not part of the lean read model: present only after an `update_fields` of this client set them
    * (the single-bed endpoints, GP-API-012, carry them).
@@ -266,6 +276,25 @@ export interface PlanPlant {
   location_key?: string | null;
 }
 
+/** Two points of the underlay picture (pixels) and the real distance between them (metres): the scale (GP-FR-033). */
+export interface UnderlayCalibration {
+  p1_px: [number, number];
+  p2_px: [number, number];
+  distance_m: number;
+}
+
+/**
+ * The background picture of the plan to trace over (GP-FR-033). `origin` is the plan position (metres) of the
+ * picture's top-left pixel, `rotation_deg` turns it counter-clockwise about that pixel. Never part of the export.
+ */
+export interface PlanUnderlay {
+  attachment_key: string;
+  calibration: UnderlayCalibration;
+  origin: [number, number];
+  rotation_deg: number;
+  opacity: number;
+}
+
 export interface PlanSettings {
   boundary?: Geometry | null;
   north_angle_deg: number;
@@ -275,6 +304,8 @@ export interface PlanSettings {
   plan_updated_at?: string | null;
   /** Display name, never the account key (§22.1). */
   plan_updated_by_name?: string | null;
+  /** The background picture to trace over; one per site, the same for every member (GP-FR-033). */
+  underlay?: PlanUnderlay | null;
 }
 
 export interface GardenPlanResponse {
@@ -288,7 +319,7 @@ export interface GardenPlanResponse {
   garden_objects: GardenObject[];
   slots: PlanSlot[];
   plants: PlanPlant[];
-  zones: Record<string, unknown>[];
+  zones: PlanZone[];
 }
 
 // ── Plan operations (GP-API-003, closed list) ────────────────────────────────
@@ -450,4 +481,37 @@ export interface PlanAuditEntry {
   summary: string;
   at: string;
   changed_by_name?: string | null;
+}
+
+// ── Bed templates (§20.12, §21.7; WP 7.8 / 7.9) ──────────────────────────────
+
+/**
+ * A bed template as `GET /bed-templates` answers it. `default_geometry` is in the bed frame: the anchor of
+ * the shape (lower-left corner of a rectangle, centre of a circle, first vertex of a polygon) sits at the
+ * origin. `is_system` marks a global template (the standard sizes of GP-FR-045), which a tenant cannot change.
+ */
+export interface BedTemplate {
+  key: string;
+  name: string;
+  location_type_key: string;
+  default_geometry: Geometry;
+  height_m?: number | null;
+  recurring_task_templates: string[];
+  is_system: boolean;
+}
+
+/** `POST /bed-templates`: what "Save as template" sends. */
+export interface BedTemplateInput {
+  name: string;
+  location_type_key: string;
+  default_geometry: Geometry;
+  height_m?: number;
+}
+
+/** `POST /sites/{key}/plan/place-template` (GP-API, §21.7). */
+export interface PlaceTemplateRequest {
+  template_key: string;
+  origin: Point;
+  rotation_deg: number;
+  expected_revision: number;
 }

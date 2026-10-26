@@ -340,6 +340,44 @@ jobs:
           path: src/frontend/.lighthouseci/
           retention-days: 7
 
+  # REQ-053 GP-NFR-040 (WP 5.4): the garden planner's performance targets are assertions. The
+  # wall-clock cases skip in `lint-test-build` (a loaded shared runner makes a 1 ms median flaky
+  # beside 400 other test files), so they run here, alone, with GP_BENCHMARK=1.
+  #
+  # ADVISORY: not in the required set of `.github/settings.yml`. Promote it on measured history
+  # (NFR-018 §4), never by editing this comment. `needs.changes.result` is load-bearing for the
+  # reason given on `lighthouse` above.
+  garden-planner-benchmarks:
+    name: Garden planner benchmarks
+    needs: changes
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.changes.result != 'success'
+          || needs.changes.outputs.frontend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: src/frontend/.tool-versions
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Set up Task
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.52.0
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Benchmarks
+        run: task test:frontend:bench
+
   # Dead-component detection (2026-08-08 issue-pattern audit, measure P4.4).
   #
   # `tsc` accepts an exported React component that nothing imports and ESLint

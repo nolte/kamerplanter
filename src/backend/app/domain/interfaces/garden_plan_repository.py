@@ -10,13 +10,14 @@ from app.domain.models.garden_plan import (
     PlanAuditEntry,
     PlanBatchOutcome,
     PlanBatchWrite,
+    PlanSnapshotEntry,
     PlantShortInfo,
     SlotBatchOutcome,
     SlotBatchWrite,
     SlotSpeciesHint,
     TaskCounter,
 )
-from app.domain.models.site import Location, Slot
+from app.domain.models.site import Location, SiteUnderlay, Slot
 
 
 @dataclass
@@ -30,6 +31,9 @@ class PlanReadData:
     task_counters: dict[str, TaskCounter] = field(default_factory=dict)
     #: Open tasks per garden object (compost, water source, storage; REQ-053 R-7.2), keyed by the object key.
     object_task_counters: dict[str, TaskCounter] = field(default_factory=dict)
+    #: Newest watering per bed (care event or ``watering_events``, within a year), keyed by location key; filled
+    #: together with the task counters (REQ-053 GP-UX-006, WP 7.3). A bed never watered is absent.
+    last_watered: dict[str, datetime] = field(default_factory=dict)
     #: Display name of the account that last changed the plan structure; ``None`` when unknown or erased.
     plan_updated_by_name: str | None = None
 
@@ -97,6 +101,16 @@ class IGardenPlanRepository(ABC):
         """The site's plan change log, newest first."""
 
     @abstractmethod
+    def list_import_snapshots(
+        self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int
+    ) -> list[PlanSnapshotEntry]:
+        """The ``import_snapshot`` rows of the site (plans a ``replace`` overwrote), newest first, no payload."""
+
+    @abstractmethod
+    def load_import_snapshot(self, site_key: SiteKey, audit_key: str, *, tenant_key: str) -> dict[str, Any] | None:
+        """The stored plan of one ``import_snapshot`` row of this site and tenant, or ``None`` (absent or foreign)."""
+
+    @abstractmethod
     def purge_audit_before(self, cutoff: datetime, *, batch: int) -> int:
         """Hard-delete up to ``batch`` audit rows with ``at`` before ``cutoff`` (NFR-011 R-26); the number removed."""
 
@@ -118,7 +132,20 @@ class IGardenPlanRepository(ABC):
         """Write *only* ``fields`` (``None`` removes a stored value) — outside the plan revision (GP-API-010).
 
         The caller has resolved the location under the tenant through ``location_ownership``; the repository
-        does not know the tenant (a location carries none, E-01).
+        does not know the tenant (a location carries none, E-01). A change of ``irrigation_zone_key`` moves the
+        bed's ``zone_covers`` edge in the same transaction (REQ-053 WP 7.1); the caller has resolved the zone
+        to one of the bed's site.
+        """
+
+    @abstractmethod
+    def set_site_underlay(
+        self, site_key: SiteKey, *, tenant_key: str, underlay: SiteUnderlay | None
+    ) -> tuple[bool, str | None]:
+        """Replace (or, with ``None``, remove) the underlay of the tenant's site plan - outside the plan revision.
+
+        The picture is presentation, not structure (GP-NFR-007 counts structure), so neither the revision nor the
+        audit log moves. Returns ``(written, previous_attachment_key)``: ``written`` is false when the site is
+        another tenant's, absent or has no plan; ``previous_attachment_key`` is the picture the write replaced.
         """
 
     @abstractmethod

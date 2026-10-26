@@ -366,6 +366,39 @@ def test_the_completion_repository_takes_the_tenant_in_every_method() -> None:
     assert [m.name for m in methods if not _takes_tenant_strictly(m)] == []
 
 
+# ── #2462: the "for each plant" batch create takes the tenant strictly ──────────────────────────────
+#
+# ``create_tasks_for_each_plant`` resolves a bed through ``location_scope`` and the plants through the completion
+# repository, neither of which the keyed-load selector above names (``get…by_key`` / ``get…or_raise``), so the
+# inventory cannot see it. The bed key it addresses is the caller's, so the tenant is pinned here by name: keyword-only,
+# no default, and checked non-empty inside the method.
+
+
+def test_the_for_each_plant_create_takes_the_tenant_keyword_only_without_a_default() -> None:
+    tree = ast.parse((_SERVICES / "task_service.py").read_text(encoding="utf-8"))
+    (klass,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TaskService"]
+    (method,) = [n for n in klass.body if isinstance(n, ast.FunctionDef) and n.name == "create_tasks_for_each_plant"]
+    assert _shape(method) == "strict"
+    assert "_require_tenant_key" in ast.unparse(method)
+
+
+# ── #2463: the mixed-culture create takes the tenant strictly ───────────────────────────────────────
+#
+# ``create_mixed_culture`` resolves the bed through ``location_ownership`` and loads the created runs by key, so the
+# selector above derives it; this pins that it keeps seeing it (a refactor that moved the load behind a differently
+# named helper would drop it from the inventory and the rule would pass by finding nothing) and that the tenant and
+# the role are keyword-only, with the non-empty check inside the method.
+
+
+def test_the_mixed_culture_create_is_a_keyed_write_and_takes_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert shapes.get("PlantingRunService.create_mixed_culture") == "strict"
+    tree = ast.parse((_SERVICES / "planting_run_service.py").read_text(encoding="utf-8"))
+    (klass,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PlantingRunService"]
+    (method,) = [n for n in klass.body if isinstance(n, ast.FunctionDef) and n.name == "create_mixed_culture"]
+    assert "not tenant_key" in ast.unparse(method)
+
+
 # ── Whole classes: no method takes the tenant positionally ───────────────────────────────────────────
 #
 # The rule above sees only keyed writes. In a service whose every signature read
@@ -400,13 +433,19 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "PlantStateService": "plant_state_service.py",
     # REQ-053 WP 4.5 (#2423): the combined history of a bed. Read-only; it takes the tenant like the other readers.
     "BedHistoryService": "bed_history_service.py",
+    # REQ-053 WP 7.1 (#2467, GP-ACC-046): the irrigation zones. The zone carries its tenant; the site, the beds and the
+    # water source of a body are resolved under it inside the service, never in the router.
+    "IrrigationZoneService": "irrigation_zone_service.py",
+    # REQ-053 WP 7.8 (#2474): the bed-template catalogue. A template is a system (global) row or the tenant's own;
+    # every read admits exactly those two arms and every write names the row's owner, resolved inside the service.
+    "BedTemplateService": "bed_template_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
 #: twenty and more; a smaller class is pinned at its measured count so an emptied match still fails.
 _MIN_TENANT_METHODS: dict[str, int] = {
     "PlantPhotoService": 10,
-    "GardenPlanService": 6,
+    "GardenPlanService": 7,
     "GardenResourceService": 12,
     "CareEventService": 7,
     "PlantingReservationService": 6,
@@ -416,6 +455,8 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "BedRotationService": 4,
     "PlantStateService": 1,
     "BedHistoryService": 1,
+    "IrrigationZoneService": 11,
+    "BedTemplateService": 5,
 }
 _DEFAULT_MIN_TENANT_METHODS = 20
 
@@ -529,6 +570,7 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
     {
         "GardenPlanService.apply_batch",
         "GardenPlanService.set_boundary",
+        "GardenPlanService.place_template",
         "GardenResourceService.patch_location",
         "GardenResourceService.change_bed_status",
         "GardenResourceService.delete_location",
@@ -542,6 +584,7 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "CareEventService.void",
         "CareEventService.redact",
         "PlantingReservationService.place_layout",
+        "PlantingReservationService.place_mixed_runs",
         "PlantingReservationService.plan_slots",
         "PlantingReservationService.release_slot",
         "PlantingReservationService.clear_bed",
@@ -550,6 +593,9 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         "AdjacencyService.set_manual_edge",
         "AdjacencyService.remove_manual_edge",
         "GardenPlanImportService.import_plan",
+        # REQ-053 WP 7.19 (#2485): the restore of a snapshot is an ``import_plan`` whose file is a stored plan; it
+        # anchors on ``require_owned_site`` and loads the snapshot row under the tenant and the site.
+        "GardenPlanImportService.restore_snapshot",
         "BedRotationService.backfill",
         "BedRotationService.cancel_backfill",
     }
@@ -738,3 +784,57 @@ def test_the_strictness_check_tells_the_shapes_apart() -> None:
     assert not _takes_tenant_strictly(fn("def f(self, tenant_key, key): ..."))
     assert not _takes_tenant_strictly(fn("def f(self, key, *, tenant_key=''): ..."))
     assert not _takes_tenant_strictly(fn("def f(self, key): ..."))
+
+
+# ── REQ-053 GP-ACC-046: the guard lists the garden-plan services ──────────────────────────────────────────
+#
+# GP-ACC-046 (spec v1.6) names ``garden_plan_service``, ``care_event_service`` and ``irrigation_zone_service``. The
+# first two resolve their beds through ``location_ownership`` (no ``get…_by_key``), so the keyed-write selector does
+# not see them and the whole-class rule above holds them; the zone service loads its zone by key, so it is held by
+# both. Pinned by name, so a refactor that hid a load behind a helper the selector does not follow fails here
+# instead of passing by finding nothing; each write takes the tenant keyword-only without a default.
+
+_GP_ACC_046_SERVICES = ("GardenPlanService", "CareEventService", "IrrigationZoneService")
+_ZONE_KEYED_WRITES = (
+    "IrrigationZoneService.create_zone",
+    "IrrigationZoneService.patch_zone",
+    "IrrigationZoneService.delete_zone",
+    "IrrigationZoneService.replace_locations",
+    # WP 7.3 (#2469): the watering round loads the zone by key and writes care events for its beds.
+    "IrrigationZoneService.log_watering",
+)
+
+
+def test_gp_acc_046_the_garden_plan_services_are_listed() -> None:
+    assert set(_GP_ACC_046_SERVICES) <= set(_WHOLE_CLASS_KEYWORD_ONLY)
+
+
+def test_gp_acc_046_the_zone_services_keyed_writes_are_seen_and_strict() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+
+    assert set(_ZONE_KEYED_WRITES) <= set(shapes), sorted(set(_ZONE_KEYED_WRITES) - set(shapes))
+    assert {name: shapes[name] for name in _ZONE_KEYED_WRITES} == dict.fromkeys(_ZONE_KEYED_WRITES, "strict")
+    assert not set(_ZONE_KEYED_WRITES) & _REMAINING
+
+
+# ── REQ-053 WP 7.8 (#2474): the bed-template service's keyed writes ────────────────────────────────────────
+#
+# ``patch_template`` and ``delete_template`` load a template by key (a system row or the tenant's own) and write it.
+# Pinned by name so a refactor that hid the load behind a helper the selector does not follow fails here instead of
+# passing by finding nothing; each takes the tenant keyword-only without a default. ``place_template`` (WP 7.9) is
+# held by the anchored list above.
+
+_BED_TEMPLATE_KEYED_WRITES = (
+    "BedTemplateService.patch_template",
+    "BedTemplateService.delete_template",
+)
+
+
+def test_the_bed_template_services_keyed_writes_are_seen_and_strict() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+
+    assert set(_BED_TEMPLATE_KEYED_WRITES) <= set(shapes), sorted(set(_BED_TEMPLATE_KEYED_WRITES) - set(shapes))
+    assert {name: shapes[name] for name in _BED_TEMPLATE_KEYED_WRITES} == dict.fromkeys(
+        _BED_TEMPLATE_KEYED_WRITES, "strict"
+    )
+    assert not set(_BED_TEMPLATE_KEYED_WRITES) & _REMAINING

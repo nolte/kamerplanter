@@ -12,6 +12,10 @@ own row read through the same path — so an empty answer cannot be a reader tha
 
 from __future__ import annotations
 
+import math
+import statistics
+import time
+
 import pytest
 from arango import ArangoClient
 
@@ -21,7 +25,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import PlanBatchWrite
-from app.domain.models.site import Location
+from app.domain.models.site import Location, SiteUnderlay
 from app.domain.services.garden_plan_service import GardenPlanService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -38,10 +42,14 @@ _DOCUMENTS = (
     col.GARDEN_OBJECTS,
     col.GARDEN_PLAN_AUDIT,
     col.CARE_EVENTS,
+    # The batch unlinks a deleted water source from its zones (REQ-053 WP 7.1), so the transaction declares it.
+    col.IRRIGATION_ZONES,
     col.LOCATION_TYPES,
     col.USERS,
     col.PLANT_INSTANCES,
     col.TASKS,
+    # the plan read model asks when a bed was last watered (REQ-053 WP 7.3)
+    col.WATERING_EVENTS,
 )
 #: Every edge collection the batch transaction declares — derived, so a relation added to the graph later is
 #: created here and the cascade tests below see it.
@@ -110,6 +118,74 @@ def db(database):
 @pytest.fixture
 def service(db) -> GardenPlanService:
     return GardenPlanService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db))
+
+
+def seed_large_garden(db) -> None:
+    """The "large" class of §25.1 in ``site_a``: 150 beds, 300 objects, 3 000 slots, 2 000 plants (GP-NFR-002/031)."""
+    locations = db.collection(col.LOCATIONS)
+    beds = locations.insert_many(
+        [
+            {
+                "name": f"Beet {n}",
+                "site_key": "site_a",
+                "location_type_key": "bed",
+                "depth": 0,
+                "path": f"beet_{n}",
+                "area_m2": 2.0,
+                "bed_status": "active",
+                "geometry": rect(0.1 + (n % 15) * 0.65, 0.1 + (n // 15) * 0.9, 0.6, 0.8),
+                "bbox": [0.0, 0.0, 1.0, 1.0],
+            }
+            for n in range(150)
+        ]
+    )
+    bed_keys = [b["_key"] for b in beds]
+    db.collection(col.GARDEN_OBJECTS).insert_many(
+        [
+            {
+                "site_key": "site_a",
+                "object_type": "path",
+                "label": f"Weg {n}",
+                "geometry": {
+                    "kind": "polyline",
+                    "points": [[0.5, 9 + n * 0.001], [9, 9 + n * 0.001]],
+                    "width_m": 0.3,
+                },
+                "bbox": [0.0, 0.0, 1.0, 1.0],
+                "props": {"object_type": "path", "surface": "gravel"},
+            }
+            for n in range(300)
+        ]
+    )
+    slot_docs = []
+    for n in range(3000):
+        slot_docs.append(
+            {
+                "slot_id": f"BEET{n // 20}_R{n % 20}",
+                "location_key": bed_keys[n // 20],
+                "slot_role": "position",
+                "geometry": {"kind": "point", "origin": [0.1 + (n % 5) * 0.1, 0.1 + (n % 7) * 0.1]},
+                "capacity_plants": 1,
+                "currently_occupied": n < 2000,
+                "row_index": n % 7,
+                "sequence": n % 20 + 1,
+            }
+        )
+    db.collection(col.SLOTS).insert_many(slot_docs)
+    db.collection(col.PLANT_INSTANCES).insert_many(
+        [
+            {
+                "tenant_key": A,
+                "instance_id": f"TOM-{n:04d}",
+                "species_key": "species_solanum_lycopersicum",
+                "location_key": bed_keys[n // 20],
+                "slot_key": f"{n + 1000000}",
+                "current_phase_key": "growth_phase_vegetative",
+                "removed_on": None,
+            }
+            for n in range(2000)
+        ]
+    )
 
 
 def batch(service, ops, *, site="site_a", tenant=A, revision=0, role=TenantRole.LEAD):
@@ -611,75 +687,10 @@ class TestTheReadModel:
         decision (compact encoding, paginated plants as §25.1 foresees from the load limit, or a larger
         budget) and is tracked in the issue named in the work package's report.
         """
-        import time
-
         from app.api.v1.garden_plan.tenant_router import _plan_response
 
         first_save(service)
-        locations = db.collection(col.LOCATIONS)
-        beds = locations.insert_many(
-            [
-                {
-                    "name": f"Beet {n}",
-                    "site_key": "site_a",
-                    "location_type_key": "bed",
-                    "depth": 0,
-                    "path": f"beet_{n}",
-                    "area_m2": 2.0,
-                    "bed_status": "active",
-                    "geometry": rect(0.1 + (n % 15) * 0.65, 0.1 + (n // 15) * 0.9, 0.6, 0.8),
-                    "bbox": [0.0, 0.0, 1.0, 1.0],
-                }
-                for n in range(150)
-            ]
-        )
-        bed_keys = [b["_key"] for b in beds]
-        db.collection(col.GARDEN_OBJECTS).insert_many(
-            [
-                {
-                    "site_key": "site_a",
-                    "object_type": "path",
-                    "label": f"Weg {n}",
-                    "geometry": {
-                        "kind": "polyline",
-                        "points": [[0.5, 9 + n * 0.001], [9, 9 + n * 0.001]],
-                        "width_m": 0.3,
-                    },
-                    "bbox": [0.0, 0.0, 1.0, 1.0],
-                    "props": {"object_type": "path", "surface": "gravel"},
-                }
-                for n in range(300)
-            ]
-        )
-        slot_docs = []
-        for n in range(3000):
-            slot_docs.append(
-                {
-                    "slot_id": f"BEET{n // 20}_R{n % 20}",
-                    "location_key": bed_keys[n // 20],
-                    "slot_role": "position",
-                    "geometry": {"kind": "point", "origin": [0.1 + (n % 5) * 0.1, 0.1 + (n % 7) * 0.1]},
-                    "capacity_plants": 1,
-                    "currently_occupied": n < 2000,
-                    "row_index": n % 7,
-                    "sequence": n % 20 + 1,
-                }
-            )
-        db.collection(col.SLOTS).insert_many(slot_docs)
-        db.collection(col.PLANT_INSTANCES).insert_many(
-            [
-                {
-                    "tenant_key": A,
-                    "instance_id": f"TOM-{n:04d}",
-                    "species_key": "species_solanum_lycopersicum",
-                    "location_key": bed_keys[n // 20],
-                    "slot_key": f"{n + 1000000}",
-                    "current_phase_key": "growth_phase_vegetative",
-                    "removed_on": None,
-                }
-                for n in range(2000)
-            ]
-        )
+        seed_large_garden(db)
         started = time.perf_counter()
         view = service.get_plan("site_a", tenant_key=A)
         response = _plan_response(view)
@@ -694,9 +705,87 @@ class TestTheReadModel:
         )
         assert size <= LARGE_PLAN_RESPONSE_CEILING_BYTES, f"{size} bytes"
         # A single sample on a shared CI runner (0.5-0.7 s measured there) cannot certify the 300 ms p95 of
-        # GP-NFR-002; that assertion belongs to the benchmark suite (WP 5.4). This bound only catches an
-        # order-of-magnitude regression such as a per-slot query.
+        # GP-NFR-002; the p95 over 20 runs is `TestGetPlanBenchmark` below (WP 5.4). This bound only catches
+        # an order-of-magnitude regression such as a per-slot query.
         assert elapsed <= 3.0, f"{elapsed:.3f} s (single sample, not a p95)"
+
+
+#: GP-ACC-034: ``GET /plan`` runs 20 times on the "large" class; GP-NFR-030 / GP-NFR-002: p95 <= 300 ms.
+BENCHMARK_RUNS = 20
+GET_PLAN_P95_SPEC_SECONDS = 0.300
+#: The regression ceiling that holds today: measured 2026-10-20 at p95 0.82 s (median 0.54 s) against the
+#: `arangodb:3.12` service container on a developer machine, about 1.8x margin for a shared runner. It stops the
+#: read from getting slower; it does not certify GP-NFR-030 (see the strict xfail below).
+GET_PLAN_P95_CEILING_SECONDS = 1.5
+
+
+def p95(samples: list[float]) -> float:
+    """Nearest-rank 95th percentile: with 20 runs this is the 19th value, so one slow run is tolerated."""
+    ordered = sorted(samples)
+    return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
+
+
+def measure_get_plan(db, service) -> tuple[list[float], int]:
+    """Seed the "large" class and run ``GET /plan`` ``BENCHMARK_RUNS`` times: the durations and the one body size.
+
+    What is timed is the server's own work for the request: the read model (`get_plan`, the AQL and the
+    domain views) and the response model with its JSON encoding - everything `GET /plan` does between the router
+    receiving the request and the bytes leaving it. One untimed warm-up run first (the query plan and the
+    connection pool are cold on the first request; the budget is a steady-state one).
+    """
+    from app.api.v1.garden_plan.tenant_router import _plan_response
+
+    first_save(service)
+    seed_large_garden(db)
+
+    def one_request() -> tuple[float, int]:
+        started = time.perf_counter()
+        view = service.get_plan("site_a", tenant_key=A)
+        body = _plan_response(view).model_dump_json(exclude_none=True).encode()
+        return time.perf_counter() - started, len(body)
+
+    one_request()
+    runs = [one_request() for _ in range(BENCHMARK_RUNS)]
+    sizes = {size for _, size in runs}
+    assert len(sizes) == 1, f"the same plan answered with different sizes: {sorted(sizes)}"
+    return [duration for duration, _ in runs], sizes.pop()
+
+
+class TestGetPlanBenchmark:
+    """GP-ACC-034 / GP-NFR-030 / GP-NFR-031 / GP-NFR-040 as assertions, not as prose (WP 5.4, E-13)."""
+
+    def test_get_plan_on_the_large_class_fits_one_megabyte_and_does_not_regress(self, db, service) -> None:
+        """Size <= 1 000 000 bytes (GP-NFR-031, E-13) and p95 under the regression ceiling.
+
+        Breaks if the answer grows past the 1 MB of E-13, or if the read slows past the ceiling: an AQL scan
+        per slot, a per-plant query, or a much heavier response model.
+        """
+        durations, size = measure_get_plan(db, service)
+
+        assert size <= LARGE_PLAN_RESPONSE_CEILING_BYTES, f"{size} bytes (ceiling {LARGE_PLAN_RESPONSE_CEILING_BYTES})"
+        measured = p95(durations)
+        assert measured <= GET_PLAN_P95_CEILING_SECONDS, (
+            f"p95 {measured * 1000:.0f} ms over {BENCHMARK_RUNS} runs (regression ceiling "
+            f"{GET_PLAN_P95_CEILING_SECONDS * 1000:.0f} ms); median {statistics.median(durations) * 1000:.0f} ms, "
+            f"max {max(durations) * 1000:.0f} ms, {size} bytes"
+        )
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "GP-NFR-030 / GP-ACC-034 target p95 <= 300 ms is not met: measured 2026-10-20 p95 0.82 s, median "
+            "0.54 s (AQL ~0.2 s, domain views of 8 452 pydantic objects ~0.25 s, response model 0.10 s, JSON 0.02 s). "
+            "Strict: it turns red the day the read is fast enough, and the marker goes."
+        ),
+    )
+    def test_get_plan_on_the_large_class_meets_the_spec_p95_of_300_ms(self, db, service) -> None:
+        """The spec value itself (GP-NFR-030): p95 <= 300 ms over 20 runs. Known open; see the xfail reason."""
+        durations, _size = measure_get_plan(db, service)
+
+        measured = p95(durations)
+        assert measured <= GET_PLAN_P95_SPEC_SECONDS, (
+            f"p95 {measured * 1000:.0f} ms over {BENCHMARK_RUNS} runs (spec {GET_PLAN_P95_SPEC_SECONDS * 1000:.0f} ms)"
+        )
 
 
 class TestAStaleReadCannotOverwriteWhatAnotherPathChanged:
@@ -816,3 +905,90 @@ class TestTwoWritersAtOneRevisionGpAcc010:
         assert conflict.value.current_revision == 2 and conflict.value.details[0]["changed_by"] == "Sabine"
         assert [loc["name"] for loc in db.collection(col.LOCATIONS).all()] == ["Beet winner"]
         assert db.collection(col.SITES).get("site_a")["plan"]["plan_revision"] == 2
+
+
+class TestTheUnderlayIsWrittenOutsideTheRevision:
+    """REQ-053 WP 7.14 (#2480): ``set_site_underlay`` merges one field, keeps the rest of the plan, obeys the tenant."""
+
+    @staticmethod
+    def _underlay(attachment_key: str = "att_1") -> SiteUnderlay:
+        return SiteUnderlay.model_validate(
+            {
+                "attachment_key": attachment_key,
+                "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+                "origin": [1.0, 5.0],
+                "rotation_deg": 30.0,
+                "opacity": 0.4,
+            }
+        )
+
+    def _plan(self, db, site_key: str = "site_a") -> dict:
+        db.collection(col.SITES).update(
+            {
+                "_key": site_key,
+                "plan": {"boundary": _BOUNDARY, "plan_revision": 7, "north_angle_deg": 12.0, "default_grid_m": 0.1},
+            }
+        )
+        return db.collection(col.SITES).get(site_key)["plan"]
+
+    def test_it_sets_the_underlay_and_leaves_revision_boundary_and_the_rest_of_the_plan_alone(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+
+        written, previous = repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay())
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert (written, previous) == (True, None)
+        assert plan["underlay"]["attachment_key"] == "att_1" and plan["underlay"]["rotation_deg"] == 30.0
+        assert plan["plan_revision"] == 7 and plan["boundary"] == _BOUNDARY and plan["north_angle_deg"] == 12.0
+        assert db.collection(col.GARDEN_PLAN_AUDIT).count() == 0
+
+    def test_a_second_write_replaces_it_whole_and_names_the_previous_picture(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay("att_1"))
+
+        written, previous = repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay("att_2"))
+
+        assert (written, previous) == (True, "att_1")
+        assert db.collection(col.SITES).get("site_a")["plan"]["underlay"]["attachment_key"] == "att_2"
+
+    def test_none_removes_the_attribute_instead_of_storing_a_null(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay())
+
+        written, previous = repo.set_site_underlay("site_a", tenant_key=A, underlay=None)
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert (written, previous) == (True, "att_1")
+        assert "underlay" not in plan and plan["plan_revision"] == 7
+
+    def test_a_foreign_tenant_writes_nothing_and_the_owner_still_can(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+
+        assert repo.set_site_underlay("site_a", tenant_key=B, underlay=self._underlay()) == (False, None)
+        assert "underlay" not in db.collection(col.SITES).get("site_a")["plan"]
+        assert repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay()) == (True, None)
+
+    def test_a_site_without_a_plan_is_not_written(self, db) -> None:
+        repo = ArangoGardenPlanRepository(db)
+
+        assert repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay()) == (False, None)
+        assert "plan" not in db.collection(col.SITES).get("site_a")
+
+    def test_an_empty_tenant_is_refused(self, db) -> None:
+        with pytest.raises(ValueError, match="tenant_key"):
+            ArangoGardenPlanRepository(db).set_site_underlay("site_a", tenant_key="", underlay=None)
+
+    def test_the_plan_batch_keeps_the_underlay_when_it_rewrites_the_plan(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay())
+        service = GardenPlanService(ArangoSiteRepository(db), repo)
+
+        batch(service, [create("x", rect(1, 1))], revision=7)
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert plan["plan_revision"] == 8 and plan["underlay"]["attachment_key"] == "att_1"

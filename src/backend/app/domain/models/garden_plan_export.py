@@ -23,12 +23,31 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SiteType, SlotRole, SunExposure
+from app.common.enums import (
+    BedStatus,
+    GardenObjectType,
+    GeometrySource,
+    IrrigationZoneType,
+    SiteType,
+    SlotRole,
+    SunExposure,
+)
 from app.domain.models.garden_object import GardenObjectProps
+from app.domain.models.garden_plan import MAX_PLAN_ZONES
 from app.domain.models.geometry import BedFrameGeometry, Geometry
+from app.domain.models.irrigation_zone import COLOR_PATTERN, DEFAULT_ZONE_COLOR
 from app.domain.models.site import SiteConditions, SoilProfile
 
 SCHEMA_VERSION = "1"
+
+#: What ``GET /plan/export`` writes (GP-FR-172): the whole site, exactly the named beds and objects, or the named
+#: beds with everything below them. A partial file is the same ``schema_version "1"`` document - it simply holds less.
+type ExportScope = Literal["site", "selection", "subtree"]
+EXPORT_SCOPES: tuple[str, ...] = ("site", "selection", "subtree")
+#: How many keys one partial export may name (a site holds at most 500 locations and objects, GP-NFR-017).
+MAX_EXPORT_KEYS = 100
+#: A garden object is addressed in ``keys`` with this prefix, because a location and an object may share a key string.
+OBJECT_KEY_PREFIX = "object:"
 
 
 class _ExportModel(BaseModel):
@@ -63,6 +82,10 @@ class ExportLocation(_ExportModel):
     soil_profile: SoilProfile | None = None
     site_conditions: SiteConditions | None = None
     irrigation_zone_key: str | None = None
+    #: Provenance (WP 7.9): the bed template this bed was placed from. Additive inside ``schema_version "1"``.
+    #: The import resolves it against the system templates and the target tenant's own, else drops it and reports
+    #: it in ``dropped_references[]``; the template itself is not part of the file.
+    template_key: str | None = Field(default=None, min_length=1, max_length=200)
     locked: bool = False
     z_order: int = 0
     pitch_m: float | None = None
@@ -96,6 +119,26 @@ class ExportGardenObject(_ExportModel):
     notes: str | None = None
 
 
+class ExportZone(_ExportModel):
+    """An irrigation zone (GP-FR-140, §20.11).
+
+    Which beds a zone covers is carried by ``ExportLocation.irrigation_zone_key`` (a reference to ``key`` here),
+    not repeated on the zone. ``water_source_key`` names a ``water_source`` garden object *of the file*.
+
+    Never in the file, by absence: ``actuator_key``, ``flow_rate_ha_entity_id`` and ``flow_rate_source`` - the
+    technical coupling is re-made by a person with the ``technical`` scope after a restore (GP-FR-141, SR-014).
+    """
+
+    key: str
+    name: str = Field(min_length=1, max_length=200)
+    irrigation_type: IrrigationZoneType = IrrigationZoneType.MANUAL
+    water_source_key: str | None = None
+    application_efficiency: float | None = Field(default=None, gt=0, le=1)
+    flow_rate_l_per_min: float | None = Field(default=None, gt=0)
+    color: str = Field(default=DEFAULT_ZONE_COLOR, pattern=COLOR_PATTERN)
+    schedule_hint: str | None = Field(default=None, max_length=500)
+
+
 class GardenPlanExport(BaseModel):
     """``GET /sites/{key}/plan/export`` — the whole structure of one site's plan."""
 
@@ -116,6 +159,7 @@ class GardenPlanExport(BaseModel):
                     "locations": [],
                     "slots": [],
                     "garden_objects": [],
+                    "zones": [],
                 }
             ]
         }
@@ -128,3 +172,5 @@ class GardenPlanExport(BaseModel):
     locations: list[ExportLocation] = Field(default_factory=list)
     slots: list[ExportSlot] = Field(default_factory=list)
     garden_objects: list[ExportGardenObject] = Field(default_factory=list)
+    #: Additive inside ``schema_version "1"``: a file written before WP 7.2 has no ``zones`` and reads as ``[]``.
+    zones: list[ExportZone] = Field(default_factory=list, max_length=MAX_PLAN_ZONES)

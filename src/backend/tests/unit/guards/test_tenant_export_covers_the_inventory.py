@@ -56,8 +56,8 @@ _MODELS_BY_HAND: dict[str, type[BaseModel] | str] = {
     # (``performed_by_user_key``, ``supersedes_key``) and its ``product_ref`` / ``source_ref`` under the secret
     # check. That belongs with the care-event API and its export rows: REQ-053 WP 4.1.
     "care_events": "written by the bed-status change (WP 1.9); the model is bound with the care-event API in WP 4.1",
-    "irrigation_zones": "created by migration v0093; no code path writes it until REQ-053 wave 2",
-    "bed_templates": "created by migration v0093; no code path writes it until REQ-053 wave 2",
+    # ``irrigation_zones`` is bound to ``IrrigationZone`` by ``ArangoIrrigationZoneRepository`` since WP 7.1 (#2467).
+    # ``bed_templates`` is bound to ``BedTemplate`` by ``ArangoBedTemplateRepository`` since WP 7.8 (#2474).
 }
 
 

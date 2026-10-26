@@ -388,6 +388,11 @@ Die Stundenwerte folgen der Definition der Royal Horticultural Society, bezogen 
 - **In der Beetansicht:** Neben der Sonnenexposition in der Übersicht öffnet **Sonne ändern** die Kacheln. Das geht ab der Rolle „grower".
 - **Im Gartenplan:** Wählst du ein Beet, zeigt das Eigenschaften-Feld die Kacheln. Wählst du mehrere Beete (Rahmenauswahl oder Umschalttaste), setzt **Sonne für alle gewählten Beete setzen** den Wert auf einmal. Gesperrte Beete bleiben unverändert. Der Schritt lässt sich mit **Rückgängig** zurücknehmen und gilt erst, wenn du den Plan speicherst.
 
+**Sonnenzeit und Laubschatten.** Zusätzlich zur Kachel hältst du fest, **wann** die Sonne das Beet erreicht: Morgens, Mittags, Nachmittags, Ganztägig oder Wechselnd. Die Stunden direkter Sonne im Sommer sind freiwillig, eine grobe Schätzung genügt. Der Schalter **Laubschatten im Sommer** vermerkt, dass das Beet im Frühjahr sonnig ist und später im Laub von Bäumen im Schatten liegt. Du findest die Felder im Dialog **Sonne ändern** der Beetansicht und im Feldmodus im Beet-Sheet (mit großen Schaltflächen, jede Änderung wird sofort gespeichert). Die Angaben erscheinen in einer Zeile unter der Sonnenexposition in der Beetübersicht. Kamerplanter rechnet nichts daraus aus, und der Laubschatten ist nur ein Vermerk: Er ändert den Standort-Hinweis beim Bepflanzen nicht. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
+
+!!! warning "Noch nicht implementiert"
+    Im Eigenschaften-Feld des Gartenplans gibt es Sonnenzeit und Laubschatten noch nicht; dort bleiben die Kacheln. Nutze dafür die Beetansicht oder den Feldmodus.
+
 **Standort-Hinweis beim Bepflanzen.** Im Pflanzdialog vergleicht Kamerplanter die Sonne des Beets mit dem **Lichtbedarf** der Art (Volle Sonne, Halbschatten oder Schatten) und zeigt eine Ampel mit Klartext, etwa „Beet: Schatten — Tomate braucht Vollsonne". Grün heißt gut geeignet, gelb bedingt geeignet, rot schlecht geeignet. Gelb gibt es auch, wenn das Beet eine Stufe schattiger ist als der Bedarf und die Art laut Steckbrief so viel Schatten verträgt; fehlt diese Angabe, steht dort „Toleranz unbekannt". Ist die Sonne des Beets oder der Lichtbedarf der Art nicht erfasst, erscheint kein Hinweis. Der Hinweis sperrt nichts und verlangt keinen Grund.
 
 !!! note "Frostrisiko"
@@ -431,19 +436,65 @@ Klickst du auf eine Zeile oder drückst die Eingabetaste, wird das Beet im Plan 
 
 ---
 
+## Feldmodus im Garten {#feldmodus-im-garten}
+
+Der Feldmodus ist für das Smartphone im Beet gedacht: große Schaltflächen (mindestens 64 Pixel), starker Kontrast für Sonnenlicht und nur das, was du draußen brauchst. Auf einem schmalen Bildschirm (unter 600 Pixel Breite) öffnet die Gartenplan-Seite direkt im Feldmodus. Auf jedem Gerät wechselst du über **Feldmodus** bzw. **Planungsmodus** oben auf der Seite; die Adresse trägt dann `?mode=field` bzw. `?mode=plan`.
+
+**Meine Beete · heute fällig.** Der Feldmodus startet mit der Liste deiner Beete. Beete, die dir zugewiesen sind, stehen oben (markiert mit **Meins**), danach Beete mit überfälligen oder heute fälligen Aufgaben, dann die übrigen nach ihrer nächsten Fälligkeit. Überfällig ist eine Aufgabe, deren Fälligkeitstag vor dem heutigen Tag liegt; eine Aufgabe, die heute fällig ist, zählt noch nicht als überfällig. Stillgelegte Beete fehlen in der Liste. Der Tab **Karte** zeigt den Plan ohne Werkzeuge, Raster und Griffe. Mit **Vergrößern**, **Verkleinern** und **Ganzer Plan** änderst du die Ansicht. Tippst du auf ein Beet oder knapp daneben, zoomt die Karte auf das Beet und öffnet es.
+
+**Das Beet-Blatt.** Ein Tipp auf ein Beet öffnet unten ein Blatt mit dem Namen des Beets, dem Schnellprotokoll, den Aufgaben und den Pflanzen. Die Aufgaben stehen in der Reihenfolge **Überfällig**, **Heute fällig**, **Später**. Die Pflanzen siehst du nach Art, Anzahl und Phase gruppiert; die Phasenfarbe hat immer einen schwarzen Rand und den Namen daneben.
+
+- **Erledigt** öffnet den kurzen Dialog mit den freiwilligen Feldern (Menge, Notiz). **Fertig** speichert. Das sind zwei Tipps nach der Beetauswahl. Ein doppelter Tipp zählt nur einmal, und die Schaltflächen bleiben gesperrt, bis die Antwort da ist.
+- **Schnellprotokoll:** **Gegossen**, **Gesät** und **Gejätet/Gemulcht** speichern mit einem Tipp einen Pflegeeintrag. **Geerntet** und **Notiz** öffnen das kurze Formular (Menge bzw. Text; für die Notiz kannst du die Spracheingabe deiner Tastatur nutzen). **Gepflanzt** öffnet den Pflanzdialog mit eingeschaltetem **Ich habe schon gepflanzt**; die Pflanzen entstehen sofort. Das geht nur bei einem Beet, das im Plan eingezeichnet ist.
+- Nach **Erledigt** und nach jedem Schnellprotokoll siehst du acht Sekunden lang **Rückgängig**. Damit nimmst du den Eintrag zurück.
+- **Pflanzen zeigen** listet die einzelnen Pflanzen einer Gruppe. **Position korrigieren** verschiebt eine Pflanze mit den Pfeilen in 10-cm-Schritten; ziehen kannst du den Marker erst, nachdem du ihn eine halbe Sekunde gehalten hast. **Foto** nimmt ein Bild für die Galerie der Pflanze auf.
+
+Löschen, Beet räumen, Export und Import gibt es im Feldmodus nicht – dafür wechselst du in den Planungsmodus. Wer die Rolle „viewer" hat, sieht Aufgaben und Pflanzen nur lesend. Dein Browser merkt sich Mandant, Standort, Tab und Kartenausschnitt, nicht dein Konto; meldet sich jemand anderes auf dem Gerät an, beginnt der Feldmodus für diese Person neu. Zeigt ein gemerkter Kartenausschnitt auf dem aktuellen Bildschirm kaum noch etwas vom Plan – etwa nach dem Drehen des Smartphones –, öffnet die Karte mit dem ganzen Plan.
+
+!!! warning "Noch nicht implementiert"
+    Ohne Verbindung zeigt der Feldmodus einen Hinweis und sperrt **Erledigt** und das Schnellprotokoll; Einträge werden noch nicht zwischengespeichert und später gesendet. Fotos hängen vorerst an einer Pflanze, nicht am Beet. Für **Gepflanzt** gibt es kein **Rückgängig**. Die Hilfe per GPS, der QR-Code am Beet und die Ebene „zuletzt gegossen" folgen später. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+
+---
+
+## Im Gartenplan schneller arbeiten {#plan-komfort}
+
+Dieser Abschnitt beschreibt die Hilfen, die dir im Planungsmodus Handarbeit abnehmen.
+
+**Beet aus einer Vorlage.** In der Werkzeugleiste setzt **Aus Vorlage** ein Beet mit einem Klick auf den Plan. Du wählst eine Vorlage, drehst sie bei Bedarf mit **Drehen** in 90-Grad-Schritten und klickst dorthin, wo das Beet liegen soll (bei einem Rechteck die untere linke Ecke, bei einem Kreis der Mittelpunkt). Eine gestrichelte Vorschau zeigt, wo es landet. Ohne Maus setzt **In die Bildmitte setzen** das Beet in die Mitte der Ansicht. Das Beet bekommt Name, Typ, Form und Höhe der Vorlage und wird sofort gespeichert; ungespeicherte Änderungen speichert Kamerplanter vorher mit. Dieser Schritt lässt sich nicht mit **Rückgängig** zurücknehmen. Wenn du das Beet nicht willst, löschst du es. Mit **Esc** oder einem anderen Werkzeug beendest du die Vorlagenwahl.
+
+**Standardgrößen.** Im Dialog **Mit Maßen hinzufügen** füllt eine Standardgröße Form, Maße, Beettyp und Höhe auf einen Schlag aus, zum Beispiel das Hochbeet 1,2 × 2,4 m, das Hochbeet 2 × 1 × 0,8 m oder einen Kübel. Du kannst danach jeden Wert noch ändern. Die Höhe ist optional.
+
+**Als Vorlage speichern.** Ist genau ein Beet gewählt, speichert **Als Vorlage speichern** seine Form, seinen Typ und seine Höhe als eigene Vorlage deines Gartens. Pflanzen, Aufgaben und Notizen gehören nicht dazu, und Pflanzabstände oder Bodenwerte trägt die Vorlage nur, wenn du sie selbst einträgst. Vorlagen legen Gärtner und die Leitung an.
+
+**Einrasten an anderen Objekten.** Beim Verschieben und Zeichnen rastet der Plan an Ecken und Kanten anderer Objekte ein, bevor er am Raster einrastet. Eine grüne Linie zeigt die Kante, an der du gerade bist. Mit der Alt-Taste oder dem Schalter **Einrasten** schaltest du das Einrasten aus. Mit Stift und Finger ist der Fangbereich größer.
+
+**Ausrichten und verteilen.** Hast du mindestens zwei Beete oder Objekte gewählt, richtet **Ausrichten** sie an der linken, rechten, oberen oder unteren Kante oder an der Mitte aus. Ab drei Objekten verteilt der Menüpunkt **Gleichmäßig verteilen** sie mit gleichen Abständen. Gesperrte Objekte bleiben stehen und zählen nicht mit. Jede dieser Aktionen ist ein einziger Schritt für **Rückgängig**.
+
+**Übersichtskarte.** Ist der Garten sehr viel größer als der sichtbare Ausschnitt (mehr als das Vierfache), erscheint unten rechts im Plan eine kleine Karte mit dem Ausschnitt als Rechteck. Ein Klick darauf springt die Ansicht an diese Stelle. Mit der Tastatur bewegst du den Plan weiter mit den Pfeiltasten.
+
+**Automatisch speichern.** Der Schalter **Automatisch speichern** neben **Speichern** sichert deine Änderungen zwei Sekunden nach der letzten Änderung. Er ist standardmäßig aus und gilt nur für dich in diesem Browser. Bei einem Konflikt oder einem abgelehnten Speichern pausiert er und sagt es dir. Im Feldmodus gibt es ihn nicht, dort wird jede Aktion sofort gesendet.
+
+**Mehrfach duplizieren.** Über das Menü **⋯** oder das Kontextmenü legt **Mehrfach duplizieren** mehrere Kopien der gewählten Beete in einer Reihe an: Anzahl, Richtung, Abstand und ein Namensschema wie „Parzelle {n}" (bis zu 100 Kopien). Das ist praktisch für die Parzellen eines Gemeinschaftsgartens. Kamerplanter prüft vorher, ob die Kopien ganz in den Garten passen und ob die Höchstzahl von 500 Beeten und Objekten reicht; wenn nicht, entsteht nichts. Alle Kopien lassen sich mit einem **Rückgängig** zurücknehmen. Pflanzplätze, Pflanzen und Aufgaben werden nicht mitkopiert; ein Pflanzraster legst du danach für jedes Beet an. <!-- REQ-053 GP-FR-025, GP-FR-029, GP-FR-043, GP-FR-044, GP-FR-045, GP-FR-154, GP-UX-004, GP-UX-014 -->
+
+---
+
 ## Plan exportieren und Sicherung einspielen {#plan-export-import}
 
 Auf der Gartenplan-Seite öffnet **Export & Import** zwei Dialoge.
 
 **Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen; eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen.
 
-Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben.
+Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben. Hast du im Plan Beete oder Gartenobjekte ausgewählt, kannst du die Sicherung auf **Nur die Auswahl** oder auf **Auswahl mit allem darunter** beschränken. Eine solche Teil-Sicherung enthält keine Gartengrenze; Verweise auf Dinge, die nicht in der Datei stehen, entfallen. Lesen darf sie jede Rolle.
 
 **Sicherung einspielen** führt in drei Schritten durch den Import. Das darf nur die Leitung.
 
 1. **Datei wählen:** Die Datei darf höchstens 5 MB groß sein. Kamerplanter prüft sie sofort, ohne etwas zu schreiben.
 2. **Prüfbericht:** Du siehst, wie viel angelegt und gelöscht würde, welche Verweise nicht übernommen werden (zum Beispiel eine Bewässerungszone, die es hier nicht gibt) und welche Probleme die Datei hat, etwa überlappende Beete. Bei Problemen geht es nicht weiter.
 3. **Modus:** *Hinzufügen* legt die Sicherung zusätzlich zum bestehenden Plan an. *Ersetzen* tauscht den Plan dieses Standorts aus. Dafür tippst du den Namen des Standorts ein. Vorher speichert Kamerplanter den bisherigen Plan als Snapshot im Änderungsprotokoll. Lade dir zur Sicherheit trotzdem vorher eine aktuelle Sicherung herunter.
+
+Im Modus *Hinzufügen* kannst du alle Formen der Datei um einen Abstand verschieben (nach rechts und nach oben, in Metern), etwa um ein Beet an eine andere Stelle zu setzen. Mit **Wohin geht die Datei?** sagst du, ob die Datei aus diesem Standort, aus einem anderen Standort oder aus einem anderen Garten-Konto stammt. Für die beiden letzten gilt: Verweise, die nicht in der Datei stehen, werden nie gegen diesen Standort aufgelöst, sondern entfallen und stehen im Prüfbericht. Aus einem anderen Konto wird nichts gelesen, die Datei ist der Transportweg; du brauchst die Leitungsrolle in dem Konto, in das du einspielst.
+
+**Früheren Stand wiederherstellen:** Im ersten Schritt des Imports öffnet dieser Knopf die Liste der Pläne, die ein *Ersetzen* überschrieben hat (ein Jahr lang aufbewahrt, nur für die Leitung). Du wählst einen Stand, siehst den Prüfbericht und tippst den Namen des Standorts. Vorher speichert Kamerplanter den jetzigen Plan selbst als Stand, die Wiederherstellung lässt sich also zurücknehmen. Bewässerungszonen, die der Stand nicht nennt, werden dabei entfernt, und technische Zonen-Kopplungen (Aktor, Home-Assistant-Durchfluss) werden nicht wiederhergestellt; die richtest du danach neu ein. Das *Hinzufügen* legt keinen Stand an.
 
 !!! warning "Beete mit aktiven Pflanzen"
     Ein Beet, in dem eine Pflanze steht, wird nie gelöscht. Solange es solche Beete gibt, weist *Ersetzen* die Datei ab. Wählst du die Option, diese Beete zu behalten, bleiben sie samt den Standorten darüber bestehen, und der Rest wird ersetzt.

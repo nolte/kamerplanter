@@ -9,6 +9,7 @@ from arango.database import StandardDatabase
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
+from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
@@ -26,6 +27,7 @@ from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.ipm_repository import ArangoIpmRepository
+from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
@@ -54,6 +56,7 @@ from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.ha_flow_rate_sensor import HaFlowRateSensor
 from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.data_access.repositories.propagation_repository import PropagationRepository
@@ -93,6 +96,7 @@ from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencySe
 from app.domain.services.auth_service import AuthService
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.companion_edge_service import CompanionEdgeService
@@ -103,9 +107,11 @@ from app.domain.services.garden_plan_export_service import GardenPlanExportServi
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
+from app.domain.services.irrigation_zone_service import IrrigationZoneService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -441,14 +447,33 @@ def get_garden_plan_repo() -> ArangoGardenPlanRepository:
     return ArangoGardenPlanRepository(get_db())
 
 
+def get_bed_template_service() -> BedTemplateService:
+    """REQ-053 WP 7.8 — the bed-template catalogue (system templates and the tenant's own)."""
+    return BedTemplateService(ArangoBedTemplateRepository(get_db()))
+
+
 def get_garden_plan_service() -> GardenPlanService:
-    """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch."""
-    return GardenPlanService(get_site_repo(), get_garden_plan_repo())
+    """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch, place-template."""
+    return GardenPlanService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        ArangoIrrigationZoneRepository(get_db()),
+        ArangoBedTemplateRepository(get_db()),
+    )
 
 
 def get_garden_plan_export_service() -> GardenPlanExportService:
     """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan."""
-    return GardenPlanExportService(get_site_repo(), get_garden_plan_repo(), get_garden_plan_service())
+    return GardenPlanExportService(
+        get_site_repo(), get_garden_plan_repo(), get_garden_plan_service(), attachment_service=get_attachment_service()
+    )
+
+
+def get_garden_plan_underlay_service() -> GardenPlanUnderlayService:
+    """REQ-053 WP 7.14 — the background picture of a site's plan (set, replace, remove)."""
+    return GardenPlanUnderlayService(
+        get_site_repo(), get_garden_plan_repo(), get_attachment_repo(), get_attachment_service()
+    )
 
 
 def dispatch_adjacency_recompute(location_key: str) -> None:
@@ -527,6 +552,19 @@ def get_garden_resource_service() -> GardenResourceService:
         ArangoGardenObjectRepository(get_db()),
         get_garden_plan_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
+    )
+
+
+def get_irrigation_zone_service() -> IrrigationZoneService:
+    """REQ-053 WP 7.1 — the irrigation zones of a site and the beds they cover."""
+    return IrrigationZoneService(
+        ArangoIrrigationZoneRepository(get_db()),
+        get_site_repo(),
+        ArangoGardenObjectRepository(get_db()),
+        ArangoCareEventRepository(get_db()),
+        # SR-014 / MT-015: a flow entity is bound only when it is granted to the tenant and is a flow sensor.
+        ha_entity_gate=get_ha_entity_grant_service(),
+        flow_sensor=HaFlowRateSensor(get_ha_client),
     )
 
 

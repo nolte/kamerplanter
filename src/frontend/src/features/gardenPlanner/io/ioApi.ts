@@ -1,7 +1,13 @@
 import axios from 'axios';
 import i18n from '@/i18n/i18n';
 import { tenantClient } from '@/api/client';
-import type { ExportOptions, PlanImportReport, PlanImportRequest } from './types';
+import type {
+  ExportOptions,
+  PlanImportReport,
+  PlanImportRequest,
+  PlanSnapshot,
+  SnapshotRestoreRequest,
+} from './types';
 
 /**
  * REST access to the plan export and import (REQ-053 §23) through the tenant-scoped client. The three exports are
@@ -23,9 +29,11 @@ function exportUrl(siteKey: string, format: ExportOptions['format']): string {
   return `/print/garden-plan/${siteKey}`;
 }
 
-/** The query of the SVG and the PDF; the JSON backup takes none. */
+/** The query of the SVG and the PDF; the JSON backup takes `scope` and `keys` when it is partial (GP-FR-172). */
 export function exportParams(options: ExportOptions, locale: string): Record<string, string> {
-  if (options.format === 'json') return {};
+  if (options.format === 'json') {
+    return options.scope === 'site' ? {} : { scope: options.scope, keys: options.keys.join(',') };
+  }
   const params: Record<string, string> = {
     scale: options.scale,
     paper: options.paper,
@@ -67,6 +75,27 @@ export async function fetchPlanExport(
 /** GP-API-005: check (`dry_run`) or write a backup file. */
 export async function importPlan(siteKey: string, request: PlanImportRequest): Promise<PlanImportReport> {
   const { data } = await tenantClient.post<PlanImportReport>(`/sites/${siteKey}/plan/import`, request);
+  return data;
+}
+
+/** GP-FR-148: the plans earlier `replace` imports overwrote, newest first (lead only). */
+export async function listPlanSnapshots(siteKey: string): Promise<PlanSnapshot[]> {
+  const { data } = await tenantClient.get<PlanSnapshot[]>(
+    `/sites/${encodeURIComponent(siteKey)}/plan/snapshots`,
+  );
+  return data;
+}
+
+/** GP-FR-170: check (`dry_run`) or write a snapshot back; the same report as an import. */
+export async function restorePlanSnapshot(
+  siteKey: string,
+  auditKey: string,
+  request: SnapshotRestoreRequest,
+): Promise<PlanImportReport> {
+  const { data } = await tenantClient.post<PlanImportReport>(
+    `/sites/${encodeURIComponent(siteKey)}/plan/snapshots/${encodeURIComponent(auditKey)}/restore`,
+    request,
+  );
   return data;
 }
 

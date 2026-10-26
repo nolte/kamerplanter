@@ -29,7 +29,6 @@ const BARE = species('sp_bare', 'Rhubarb');
 function renderDialog(
   onPlanted = vi.fn(),
   onClose = vi.fn(),
-  onPartial = vi.fn(),
   sunExposure: SunExposure = 'unknown',
 ) {
   const view = renderWithProviders(
@@ -40,11 +39,10 @@ function renderDialog(
       sunExposure={sunExposure}
       onClose={onClose}
       onPlanted={onPlanted}
-      onPartial={onPartial}
     />,
     { store: createTestStore({ ...tenantState('grower'), ...authState() }) },
   );
-  return { ...view, onPlanted, onClose, onPartial };
+  return { ...view, onPlanted, onClose };
 }
 
 async function choose(user: ReturnType<typeof userEvent.setup>, card: number, name: string) {
@@ -62,7 +60,10 @@ async function hintsDone() {
   await waitFor(() => expect(screen.getByTestId('planting-submit')).toBeEnabled());
 }
 
-const runPosts = (backend: PlantingBackend) => backend.seen.filter((s) => s.url === '/planting-runs');
+const MIXED = '/planting-runs/mixed-culture';
+const runPosts = (backend: PlantingBackend) => backend.seen.filter((s) => s.url === MIXED);
+type SentRun = { name: string; entry: Record<string, unknown> & { quantity: number }; free_points?: number[][]; container_volume_l?: number };
+const sentRuns = (backend: PlantingBackend): SentRun[] => (runPosts(backend)[0].body as { runs: SentRun[] }).runs;
 
 beforeEach(() => localStorage.clear());
 afterEach(() => cleanup());
@@ -164,6 +165,7 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
         code: 'rotation.pause_not_elapsed',
         message: 'english server text',
         family_key: 'Solanaceae',
+        family_name: 'Solanaceae',
         years_since: 1,
         pause_years: 4,
         pause_source: 'family',
@@ -184,6 +186,58 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
     // The hint comes before the entry's layout field in the document.
     const layout = screen.getByTestId('planting-entry-0-layout');
     expect(panel.compareDocumentPosition(layout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  const findingOf = (code: string, family: { family_key: string; family_name?: string | null }) =>
+    hint({
+      species_key: 'sp_cauli',
+      severity: 'WARNING',
+      rotation: [
+        {
+          severity: 'WARNING',
+          code,
+          message: 'english server text',
+          ...family,
+          years_since: 1,
+          pause_years: 4,
+          pause_source: 'family',
+        },
+      ],
+    });
+
+  it('names the family of the finding by the name the server sends, not by its database key', async () => {
+    const cauliflower = species('sp_cauli', 'Cauliflower', { spacing_cm: '50' });
+    const named = findingOf('rotation.pause_not_elapsed', { family_key: '5504', family_name: 'Brassicaceae' });
+    usePlantingBackend({ species: [cauliflower], hints: { sp_cauli: named } });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Cauliflower');
+
+    const panel = await screen.findByTestId('planting-hint-sp_cauli');
+    expect(panel).toHaveTextContent('The family Brassicaceae stood in this bed 1 year(s) ago');
+    expect(panel).not.toHaveTextContent('5504');
+  });
+
+  it.each([
+    ['rotation.pause_not_elapsed', 'The same family stood in this bed 1 year(s) ago'],
+    ['rotation.pest_risk', 'High pest risk with a family that stood here recently'],
+  ])('leaves the family out of the %s sentence when it has no name and never shows the key', async (code, text) => {
+    // The catalogue knows the name of the family, but the server sent none: the client does not look it up.
+    const cauliflower = species('sp_cauli', 'Cauliflower', {
+      spacing_cm: '50',
+      family_key: '5504',
+      family_name: 'Brassicaceae',
+    });
+    const unnamed = findingOf(code, { family_key: '5504', family_name: null });
+    usePlantingBackend({ species: [cauliflower], hints: { sp_cauli: unnamed } });
+    const user = userEvent.setup();
+    renderDialog();
+    await choose(user, 0, 'Cauliflower');
+
+    const panel = await screen.findByTestId('planting-hint-sp_cauli');
+    expect(panel).toHaveTextContent(text);
+    expect(panel).not.toHaveTextContent('5504');
+    expect(panel).not.toHaveTextContent('Brassicaceae');
   });
 
   it('plants nothing until "Plant anyway" is confirmed with a reason, then stores the reason on the run', async () => {
@@ -263,7 +317,7 @@ describe('what is sent', () => {
     await user.click(screen.getByTestId('planting-submit'));
 
     await waitFor(() => expect(runPosts(backend)).toHaveLength(1));
-    const entry = (runPosts(backend)[0].body as { entries: Record<string, unknown>[] }).entries[0];
+    const [{ entry }] = sentRuns(backend);
     expect(entry).toMatchObject({
       species_key: 'sp_tomato',
       quantity: fit,
@@ -287,7 +341,7 @@ describe('what is sent', () => {
     await user.click(screen.getByTestId('planting-submit'));
 
     await waitFor(() => expect(runPosts(backend)).toHaveLength(1));
-    expect((runPosts(backend)[0].body as { entries: { quantity: number }[] }).entries[0].quantity).toBe(3);
+    expect(sentRuns(backend)[0].entry.quantity).toBe(3);
   });
 
   it('refuses a missing spacing with the field error and sends nothing', async () => {
@@ -344,7 +398,7 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
   it('shows a red verdict in words for a full-sun crop on a shade bed, and does not block', async () => {
     const backend = usePlantingBackend({ species: [SUNNY] });
     const user = userEvent.setup();
-    const { onPlanted } = renderDialog(vi.fn(), vi.fn(), vi.fn(), 'shade');
+    const { onPlanted } = renderDialog(vi.fn(), vi.fn(), 'shade');
     await choose(user, 0, 'Tomato');
 
     const verdict = await screen.findByTestId('planting-site-fit-sp_tomato');
@@ -365,7 +419,7 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
   it('gives no hint when the bed class is unknown', async () => {
     usePlantingBackend({ species: [SUNNY] });
     const user = userEvent.setup();
-    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'unknown');
+    renderDialog(vi.fn(), vi.fn(), 'unknown');
     await choose(user, 0, 'Tomato');
     await screen.findByTestId('planting-hint-sp_tomato');
 
@@ -376,7 +430,7 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
     const tolerant = species('sp_tomato', 'Tomato', { spacing_cm: '60', shade_tolerance: 'deep_shade' });
     usePlantingBackend({ species: [tolerant] });
     const user = userEvent.setup();
-    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'shade');
+    renderDialog(vi.fn(), vi.fn(), 'shade');
     await choose(user, 0, 'Tomato');
     await screen.findByTestId('planting-hint-sp_tomato');
 
@@ -388,7 +442,7 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
       species: [species('sp_tomato', 'Tomato', { spacing_cm: '60', light_requirement: 'full_sun', shade_tolerance: 'partial_shade' })],
     });
     const user = userEvent.setup();
-    const first = renderDialog(vi.fn(), vi.fn(), vi.fn(), 'partial_shade');
+    const first = renderDialog(vi.fn(), vi.fn(), 'partial_shade');
     await choose(user, 0, 'Tomato');
     const covered = await screen.findByTestId('planting-site-fit-sp_tomato');
     expect(covered).toHaveTextContent('site only partly suited');
@@ -396,7 +450,7 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
     first.unmount();
 
     usePlantingBackend({ species: [SUNNY] });
-    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'partial_shade');
+    renderDialog(vi.fn(), vi.fn(), 'partial_shade');
     await choose(user, 0, 'Tomato');
     const unknown = await screen.findByTestId('planting-site-fit-sp_tomato');
     expect(unknown).toHaveTextContent('Tolerance unknown');
@@ -405,7 +459,7 @@ describe('site fit (GP-FR-160, E-05, TC-053-037)', () => {
   it('is green on the matching bed', async () => {
     usePlantingBackend({ species: [SUNNY] });
     const user = userEvent.setup();
-    renderDialog(vi.fn(), vi.fn(), vi.fn(), 'full_sun');
+    renderDialog(vi.fn(), vi.fn(), 'full_sun');
     await choose(user, 0, 'Tomato');
 
     expect(await screen.findByTestId('planting-site-fit-sp_tomato')).toHaveTextContent('site well suited');
@@ -483,10 +537,11 @@ describe('mixed culture (GP-FR-070)', () => {
     await user.click(screen.getByTestId('planting-submit'));
 
     await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ runKeys: ['run_1', 'run_2'] })));
-    const posts = runPosts(backend).map((post) => post.body as { run_type: string; entries: { row_assignment: number[]; layout_strategy: string; species_key: string }[] });
-    expect(posts).toHaveLength(2);
-    expect(posts.map((post) => [post.run_type, post.entries.length])).toEqual([['monoculture', 1], ['monoculture', 1]]);
-    const [first, second] = posts.map((post) => post.entries[0]);
+    // One request carries every species: the server writes all runs in one transaction.
+    expect(runPosts(backend)).toHaveLength(1);
+    const runs = sentRuns(backend);
+    expect(runs).toHaveLength(2);
+    const [first, second] = runs.map((run) => run.entry as unknown as { row_assignment: number[]; layout_strategy: string; species_key: string });
     expect([first.species_key, second.species_key]).toEqual(['sp_tomato', 'sp_carrot']);
     expect(first.row_assignment.length).toBeGreaterThan(0);
     expect(second.row_assignment.length).toBeGreaterThan(0);
@@ -494,10 +549,10 @@ describe('mixed culture (GP-FR-070)', () => {
     expect(second.layout_strategy).toBe(first.layout_strategy);
   });
 
-  it('takes the first run back when the second cannot be created, and plants nothing', async () => {
-    const backend = usePlantingBackend({ species: [TOMATO, CARROT], failRun: 2 });
+  it('creates nothing and takes nothing back when the mixed culture is refused - the server wrote nothing', async () => {
+    const backend = usePlantingBackend({ species: [TOMATO, CARROT], failRun: true });
     const user = userEvent.setup();
-    const { onPlanted, onPartial } = renderDialog();
+    const { onPlanted } = renderDialog();
     await choose(user, 0, 'Tomato');
     await user.click(screen.getByTestId('planting-add-entry'));
     await choose(user, 1, 'Carrot');
@@ -505,25 +560,12 @@ describe('mixed culture (GP-FR-070)', () => {
 
     await user.click(screen.getByTestId('planting-submit'));
 
-    await waitFor(() => expect(backend.seen.some((s) => s.url === '/planting-runs/run_1' && s.body === 'DELETE')).toBe(true));
+    await waitFor(() => expect(runPosts(backend)).toHaveLength(1));
     expect(onPlanted).not.toHaveBeenCalled();
-    expect(onPartial).not.toHaveBeenCalled();
-  });
-
-  it('says which runs remain when they cannot be taken back (deleting needs the lead role)', async () => {
-    usePlantingBackend({ species: [TOMATO, CARROT], failRun: 2, deleteForbidden: true });
-    const user = userEvent.setup();
-    const { onPlanted, onPartial } = renderDialog();
-    await choose(user, 0, 'Tomato');
-    await user.click(screen.getByTestId('planting-add-entry'));
-    await choose(user, 1, 'Carrot');
-    await hintsDone();
-
-    await user.click(screen.getByTestId('planting-submit'));
-
-    await waitFor(() => expect(onPartial).toHaveBeenCalledTimes(1));
-    expect(onPlanted).not.toHaveBeenCalled();
-    expect(await screen.findByText(/One planting was created already and could not be taken back/)).toBeInTheDocument();
+    // No client-side rollback (it needed the lead role): not one DELETE, and not one run-by-run request.
+    expect(backend.seen.some((s) => s.body === 'DELETE' || s.url.startsWith('/planting-runs/run_'))).toBe(false);
+    expect(backend.seen.some((s) => s.url === '/planting-runs')).toBe(false);
+    expect(screen.getByTestId('planting-submit')).toBeEnabled();
   });
 
   it('tells the grower when two chosen species do not get along', async () => {
@@ -577,16 +619,14 @@ describe('free positions (GP-FR-072)', () => {
     await user.click(screen.getByTestId('planting-submit'));
 
     await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ plantCount: 3 })));
-    const slots = backend.seen.find((s) => s.url === '/locations/loc_b03/slots/batch');
-    const items = (slots?.body as { slots: { geometry: { origin: number[] }; slot_id: string }[] }).slots;
-    expect(items.map((item) => item.geometry.origin)).toEqual([
+    // The points travel with the run: the server stores and reserves them in the same transaction.
+    expect(sentRuns(backend)[0].free_points).toEqual([
       [0.6, 1],
       [0.64, 1],
       [0.02, 1.9],
     ]);
-    expect(items.every((item) => /^RAISEDBED3_F[0-9A-Z]+$/.test(item.slot_id))).toBe(true);
-    const plan = backend.seen.find((s) => s.url === '/planting-runs/run_1/plan-slots');
-    expect(plan?.body).toEqual({ entry_key: 'run_1_entry_1', slot_keys: ['slot_1', 'slot_2', 'slot_3'] });
+    expect(sentRuns(backend)[0].entry).toMatchObject({ layout_strategy: 'free', quantity: 3 });
+    expect(backend.seen.some((s) => s.url.endsWith('/slots/batch') || s.url.endsWith('/plan-slots'))).toBe(false);
     rect.mockRestore();
   });
 
@@ -604,7 +644,7 @@ describe('free positions (GP-FR-072)', () => {
     await user.click(screen.getByTestId('planting-submit'));
 
     await waitFor(() => expect(onPlanted).toHaveBeenCalled());
-    expect(backend.seen.some((s) => s.url === '/locations/loc_b03/slots/batch')).toBe(true);
+    expect(sentRuns(backend)[0].free_points).toHaveLength(1);
     rect.mockRestore();
   });
 
@@ -642,9 +682,7 @@ describe('free positions (GP-FR-072)', () => {
     await hintsDone();
     await user.click(screen.getByTestId('planting-submit'));
     await waitFor(() => expect(onPlanted).toHaveBeenCalledWith(expect.objectContaining({ plantCount: 1 })));
-    const slots = backend.seen.find((s) => s.url === '/locations/loc_b03/slots/batch');
-    const origin = (slots?.body as { slots: { geometry: { origin: number[] } }[] }).slots[0].geometry.origin;
-    expect(origin).toEqual([0.65, 1.05]); // centre (0.60, 1.00) + 5 cm right + 5 cm up
+    expect(sentRuns(backend)[0].free_points?.[0]).toEqual([0.65, 1.05]); // centre (0.60, 1.00) + 5 cm right + 5 cm up
   });
 
   it('names the reason while the hints are still being checked', async () => {

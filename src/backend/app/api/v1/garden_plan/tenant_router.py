@@ -19,11 +19,12 @@ from pydantic import ValidationError as PydanticValidationError
 from app.api.mapping import to_response
 from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
 from app.api.v1.garden_objects.schemas import garden_object_to_response
-from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_svg_options
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_export_selection, plan_svg_options
 from app.api.v1.garden_plan.schemas import (
     SCHEMA_VERSION,
     DerivedGeometrySchema,
     GardenPlanResponse,
+    PlaceTemplateRequest,
     PlanAuditEntryResponse,
     PlanBatchRequest,
     PlanBatchResponse,
@@ -37,6 +38,11 @@ from app.api.v1.garden_plan.schemas import (
     PlanSettingsResponse,
     PlanSlotGeometry,
     PlanSlotResponse,
+    PlanSnapshotResponse,
+    PlanSnapshotRestoreRequest,
+    PlanUnderlayRequest,
+    PlanUnderlayResponse,
+    PlanZoneResponse,
 )
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
 from app.common.body_limit import read_bounded_body
@@ -44,6 +50,7 @@ from app.common.dependencies import (
     get_garden_plan_export_service,
     get_garden_plan_import_service,
     get_garden_plan_service,
+    get_garden_plan_underlay_service,
 )
 from app.common.enums import SlotRole
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
@@ -59,12 +66,14 @@ from app.core.permissions import Action, ResourceType
 from app.domain.calculators.geometry_calculator import area_m2
 from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
-from app.domain.models.garden_plan_export import GardenPlanExport
+from app.domain.models.garden_plan_export import ExportScope, GardenPlanExport
 from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPORT_BYTES
+from app.domain.models.site import SiteUnderlay
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
 router = APIRouter(prefix="/sites", tags=["garden-plan"], responses=NOT_FOUND_RESPONSE)
@@ -79,6 +88,12 @@ def _operations_bytes(operations: list[dict[str, Any]]) -> int:
     body (``app/common/body_limit.py``), and a route that reads one itself needs a bound of its own.
     """
     return len(json.dumps(operations, separators=(",", ":")).encode())
+
+
+def _underlay_response(underlay: SiteUnderlay | None) -> PlanUnderlayResponse | None:
+    if underlay is None:
+        return None
+    return to_response(underlay, PlanUnderlayResponse)
 
 
 def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
@@ -97,6 +112,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 plan_revision=plan.plan_revision,
                 plan_updated_at=plan.plan_updated_at,
                 plan_updated_by_name=view.plan_updated_by_name,
+                underlay=_underlay_response(plan.underlay),
             )
             if plan is not None
             else None
@@ -108,6 +124,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 season_state=view.season_states.get(location.key or ""),
                 open_task_count=view.task_counters.get(location.key or "", _NO_TASKS).open_task_count,
                 overdue_task_count=view.task_counters.get(location.key or "", _NO_TASKS).overdue_task_count,
+                last_watered_at=view.last_watered.get(location.key or ""),
             )
             for location in view.locations
         ],
@@ -121,7 +138,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
         ],
         slots=[_slot_response(slot) for slot in view.slots],
         plants=[_plant_response(plant) for plant in view.plants],
-        zones=view.zones,
+        zones=[PlanZoneResponse(**zone) for zone in view.zones],
     )
 
 
@@ -251,6 +268,48 @@ def put_boundary(
     )
 
 
+@router.put(
+    "/{key}/plan/underlay",
+    response_model=PlanUnderlayResponse,
+    summary="Set the background picture of the plan",
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def put_underlay(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanUnderlayRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanUnderlayService = Depends(get_garden_plan_underlay_service),
+) -> PlanUnderlayResponse:
+    """Set or replace the one background picture of the site (GP-FR-033, GP-API-002 family).
+
+    The picture is a `garden_plan_underlay` attachment uploaded beforehand; the calibration (two pixel points and
+    the real distance between them) fixes the scale. 422 `reference.not_found` for an attachment that is not the
+    caller's own; 422 `plan.required` when the site has no plan. Not part of the plan revision, never exported.
+    """
+    stored = await service.set_underlay(key, tenant_key=ctx.tenant_key, role=ctx.role, underlay=body.to_domain())
+    return to_response(stored, PlanUnderlayResponse)
+
+
+@router.delete(
+    "/{key}/plan/underlay",
+    status_code=204,
+    summary="Remove the background picture of the plan",
+    responses={**FORBIDDEN_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def delete_underlay(
+    request: Request,
+    key: _SITE_KEY,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanUnderlayService = Depends(get_garden_plan_underlay_service),
+) -> Response:
+    """Remove the picture and its attachment (unless another record still holds the stored object). Idempotent."""
+    await service.remove_underlay(key, tenant_key=ctx.tenant_key, role=ctx.role)
+    return Response(status_code=204)
+
+
 @router.post(
     "/{key}/plan/batch",
     response_model=PlanBatchResponse,
@@ -283,6 +342,47 @@ def apply_batch(
             expected_revision=body.expected_revision,
             operations=body.operations,
             body_bytes=_operations_bytes(body.operations),
+        )
+    except PlanRevisionConflictError:
+        record_conflict()
+        raise
+    observe_batch_duration(perf_counter() - started)
+    return _batch_response(result)
+
+
+@router.post(
+    "/{key}/plan/place-template",
+    response_model=PlanBatchResponse,
+    summary="Place one bed from a bed template",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+def place_template(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlaceTemplateRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> PlanBatchResponse:
+    """Create a bed from a template through the batch path (GP-FR-044, WP 7.9): one transaction, one revision.
+
+    The bed gets a copy of the template's name, location type, geometry (anchor at `origin`, turned by
+    `rotation_deg`), height and soil axes; `template_key` is kept on it as provenance. In order: the template
+    (422 `reference.not_found` - a foreign key answers like an absent one), the geometry (422 `geometry.invalid`),
+    containment and overlap (422 `geometry.outside_parent`, `bed.overlap`) and last the revision (409
+    `plan.revision_conflict`). `key_map` maps `template_bed` to the new location key.
+    """
+    started = perf_counter()
+    try:
+        result = service.place_template(
+            key,
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            role=ctx.role,
+            template_key=body.template_key,
+            origin=body.origin,
+            rotation_deg=body.rotation_deg,
+            expected_revision=body.expected_revision,
         )
     except PlanRevisionConflictError:
         record_conflict()
@@ -363,20 +463,28 @@ def render_plan_svg(
 def export_plan(
     request: Request,
     key: _SITE_KEY,
+    selection: tuple[ExportScope, list[str]] = Depends(plan_export_selection),
     ctx: TenantContext = Depends(get_budgeted_tenant),
     service: GardenPlanExportService = Depends(get_garden_plan_export_service),
 ) -> Response:
     """Site plan, locations with geometry and soil profile, garden objects and slots, ``schema_version: "1"``
     (GP-API-004, GP-FR-140). No plants, tasks, care events or photos, and no ``*_by`` or account reference.
 
+    ``scope`` (GP-FR-172): ``site`` (default) is the whole plan, ``selection`` exactly the beds named in ``keys``
+    (a garden object as ``object:<key>``), ``subtree`` the named beds with everything below them. A partial file
+    carries no plan settings and holds every reference that leaves it as ``null``. Readable by every role, like the
+    whole-site backup (it is a subset of it, nothing more). A key the site does not hold is a 404.
+
     Delivered as an attachment: it is a file to keep, and the same data is part of the GDPR export.
     """
-    document = service.export_json(key, tenant_key=ctx.tenant_key)
+    scope, keys = selection
+    document = service.export_json(key, tenant_key=ctx.tenant_key, scope=scope, keys=keys)
+    suffix = "" if scope == "site" else f"-{scope}"
     return Response(
         content=document.model_dump_json(),
         media_type="application/json",
         headers={
-            "Content-Disposition": f'attachment; filename="garden-plan-{safe_filename_part(key)}.json"',
+            "Content-Disposition": f'attachment; filename="garden-plan-{safe_filename_part(key)}{suffix}.json"',
             "X-Content-Type-Options": "nosniff",
         },
     )
@@ -442,5 +550,63 @@ async def import_plan(
         force=envelope.force,
         confirm_site_name=envelope.confirm_site_name,
         document=envelope.document,
+        target=envelope.target,
+        offset_m=envelope.offset_m,
     )
     return PlanImportResponse(**report.model_dump())
+
+
+@router.get(
+    "/{key}/plan/snapshots",
+    response_model=list[PlanSnapshotResponse],
+    summary="The plans earlier replace imports overwrote (lead only)",
+    responses={**FORBIDDEN_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+def list_plan_snapshots(
+    request: Request,
+    key: _SITE_KEY,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanImportService = Depends(get_garden_plan_import_service),
+) -> list[PlanSnapshotResponse]:
+    """Newest first, bounded by the page. Counts of what each snapshot holds, never the plan itself. Lead only
+    (GP-FR-148): a snapshot is the whole structure of the garden. Kept for the audit retention (R-26, one year)."""
+    entries = service.list_snapshots(
+        key, tenant_key=ctx.tenant_key, role=ctx.role, offset=pagination.offset, limit=pagination.limit
+    )
+    return [to_response(entry, PlanSnapshotResponse) for entry in entries]
+
+
+@router.post(
+    "/{key}/plan/snapshots/{audit_key}/restore",
+    response_model=PlanImportResponse,
+    summary="Put a snapshot back (a replace with the stored plan; writes its own snapshot first)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+def restore_plan_snapshot(
+    request: Request,
+    key: _SITE_KEY,
+    audit_key: Annotated[str, Path(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\-:.@+]+$")],
+    body: PlanSnapshotRestoreRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanImportService = Depends(get_garden_plan_import_service),
+) -> PlanImportResponse:
+    """Lead only. The stored plan goes through the checks of an uploaded file and is written as a `replace`: the
+    state it overwrites is written as a snapshot first, so a restore can itself be restored. `dry_run` answers
+    what would change. 404 for a snapshot of another site or tenant, 409 `import.not_empty` while a bed holds an
+    active plant (`force` lifts that, those beds then stay), 422 `import.site_name_mismatch` without the site name."""
+    report = service.restore_snapshot(
+        key,
+        audit_key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        dry_run=body.dry_run,
+        force=body.force,
+        confirm_site_name=body.confirm_site_name,
+    )
+    return to_response(report, PlanImportResponse)

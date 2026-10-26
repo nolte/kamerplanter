@@ -22,6 +22,7 @@ import { type CareContext } from './careCategories';
 import type { CareEventRef, CareTask, CompletionPayload, TaskScope } from './careTypes';
 import CareCompletionDialog from './CareCompletionDialog';
 import CareLogDialog from './CareLogDialog';
+import { isOverdue } from '../model/overdue';
 import CareTaskDialog from './CareTaskDialog';
 import CareTaskList from './CareTaskList';
 import { isDuplicateTap } from './submitGuard';
@@ -35,9 +36,7 @@ interface BedCareTabProps {
 }
 
 export function isTaskOverdue(task: CareTask, now: number): boolean {
-  if (!task.due_date) return false;
-  const due = Date.parse(task.due_date);
-  return !Number.isNaN(due) && due < now;
+  return isOverdue(task.due_date, new Date(now));
 }
 
 export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
@@ -148,7 +147,6 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
     setCreating(false);
     changed();
     restoreFocus();
-    if (scope === 'bedOnly') return; // the error toast of the failed fan-out is already up
     notification.success(
       scope === 'plants' ? t('pages.bed.care.create.createdPlants', { count }) : t('pages.bed.care.create.createdBed'),
     );

@@ -928,6 +928,8 @@ class Settings(BaseSettings):
     #: in bursts, not in a stream: 10 a minute is the spec's figure and covers an editor that
     #: saves on every pause with room for a retry after a revision conflict.
     rate_limit_plan_batch: str = "10/minute"
+    #: ``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): a watering round writes one event per bed.
+    rate_limit_zone_log_watering: str = "20/minute"
     #: The garden-plan exports — ``GET /t/{slug}/sites/{key}/plan/render.svg``, ``…/plan/export`` and
     #: ``GET /t/{slug}/print/garden-plan/{site_key}`` (REQ-053 GP-NFR-056, SR-017), **per account** and per route. A
     #: PDF is a WeasyPrint render of a full-size plan and the SVG and the JSON read every document of the site, so
@@ -1378,6 +1380,7 @@ class Settings(BaseSettings):
     storage_allowed_mime_types_post_harvest: str = ""
     storage_allowed_mime_types_plant: str = ""
     storage_allowed_mime_types_pest_reference: str = ""
+    storage_allowed_mime_types_garden_plan_underlay: str = ""
     storage_allowed_mime_types_id_recognition: str = ""
     storage_allowed_mime_types_task: str = ""
     storage_allowed_mime_types_import: str = "text/csv,application/zip"
@@ -1476,7 +1479,17 @@ class Settings(BaseSettings):
 # Categories that semantically only accept images (NFR-013 §5.2). Without an
 # explicit override these fall back to the image-only subset of the whitelist.
 _PHOTO_CATEGORIES: frozenset[str] = frozenset(
-    {"diary", "ipm", "harvest", "post_harvest", "plant", "pest_reference", "id_recognition", "task"}
+    {
+        "diary",
+        "ipm",
+        "harvest",
+        "post_harvest",
+        "plant",
+        "pest_reference",
+        "id_recognition",
+        "task",
+        "garden_plan_underlay",
+    }
 )
 # #2139 — only the types the EXIF strip can re-encode (``exif_stripper``).
 _PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp"})

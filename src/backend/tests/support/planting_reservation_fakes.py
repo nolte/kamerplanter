@@ -25,6 +25,8 @@ from app.domain.interfaces.planting_reservation_repository import IPlantingReser
 from app.domain.models.planting_reservation import (
     ClearBedOutcome,
     ClearBedWrite,
+    MixedRunsOutcome,
+    MixedRunsWrite,
     PlantingRow,
     QuickPlantOutcome,
     QuickPlantWrite,
@@ -86,6 +88,9 @@ class FakeReservationRepo(IPlantingReservationRepository):
         self.dropped: list[tuple[str, bool]] = []
         self.clear_writes: list[ClearBedWrite] = []
         self.quick_writes: list[QuickPlantWrite] = []
+        self.mixed_writes: list[MixedRunsWrite] = []
+        #: Where ``create_mixed_runs`` stores the runs it was handed (the world's run double), if wired.
+        self.run_sink = None
         self.clear_outcome = ClearBedOutcome(
             plants_removed=0, runs_completed=0, slots_archived=0, slots_released=0, care_event_key="ce_1"
         )
@@ -172,6 +177,39 @@ class FakeReservationRepo(IPlantingReservationRepository):
         self._plan.care_events.append(write.event)
         return self.clear_outcome
 
+    def create_mixed_runs(self, write: MixedRunsWrite) -> MixedRunsOutcome:
+        self.mixed_writes.append(write)
+        run_keys: list[str] = []
+        slot_keys: list[str] = []
+        for item in write.runs:
+            self._next += 1
+            run_key = f"run_{self._next}"
+            run_keys.append(run_key)
+            if self.run_sink is not None:
+                self.run_sink.runs[run_key] = item.run.model_copy(update={"key": run_key})
+                self.run_sink.entries[f"entry_{self._next}"] = item.entry.model_copy(
+                    update={"key": f"entry_{self._next}", "run_key": run_key}
+                )
+            for reserved in item.slots:
+                self._next += 1
+                key = f"slot_{self._next}"
+                slot_keys.append(key)
+                self._plan.slots.append(
+                    reserved.slot.model_copy(update={"key": key, "location_key": write.location_key})
+                )
+                self.reservations.append(
+                    Reservation(
+                        slot_key=key,
+                        run_key=run_key,
+                        entry_key=f"entry_{self._next}",
+                        planned_species_key=item.entry.species_key,
+                        sequence=reserved.sequence,
+                        planned_from=item.planned_from,
+                        planned_until=item.planned_until,
+                    )
+                )
+        return MixedRunsOutcome(run_keys=run_keys, created_slot_keys=slot_keys)
+
     def quick_plant(self, write: QuickPlantWrite) -> QuickPlantOutcome:
         self.quick_writes.append(write)
         slot_keys = []
@@ -249,7 +287,8 @@ class FakeRunRepo:
         self.plant_links.append((run_key, plant_key))
 
     def get_run_plants(self, run_key, include_detached=False):
-        return []
+        """The plants ``create_plants`` linked to the run (``run_contains``), as key rows."""
+        return [{"_key": plant_key} for linked_run, plant_key in self.plant_links if linked_run == run_key]
 
 
 class FakePlants:
@@ -279,6 +318,7 @@ def build_world() -> SimpleNamespace:
     )
     runs = FakeRunRepo()
     reservation_repo = FakeReservationRepo(plan, FakeRuns())
+    reservation_repo.run_sink = runs
     care_repo = FakeCareEventRepo()
     care = CareEventService(
         care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()

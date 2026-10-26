@@ -7,19 +7,22 @@
  *
  * The page loads the plan, explains the empty and error states and mounts the editor (WP 2.4:
  * select, pan, draw, handles). It owns the viewport - fitted to the plan, then panned and zoomed
- * (WP 2.5: zoom levels, wheel, "fit to area"). `?mode=field` is only recognised and announced
- * (GP-FR-182, §18).
+ * (WP 2.5: zoom levels, wheel, "fit to area").
+ *
+ * Field mode (WP 5.1, GP-UX-020) is the default on xs and `?mode=field` everywhere; `?mode=plan` forces
+ * planning mode. Field mode is its own lazy chunk (`field/FieldModeView`), so the route budget only carries
+ * the switch. The route still chooses the renderer for it.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import TouchAppIcon from '@mui/icons-material/TouchApp';
 import EmptyState from '@/components/common/EmptyState';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -47,10 +50,15 @@ import type { BoundingBox, Point } from '../model/types';
 import { zoomAround } from '../model/units';
 import BedListSection from '../bed/BedListSection';
 import { PlanIoMenu } from '../io/PlanIoMenu';
+import type { PlanSelection } from '../io/types';
 import type { BedListItem } from '../bed/types';
 import { boundingBox } from '../model/geometry';
 import { fitViewport, focusViewport, planContentBounds } from './fitViewport';
 import { useElementWidth } from './useElementWidth';
+import { planModeHref, resolvePlanMode } from './planMode';
+
+// Field mode is its own chunk (GP-UX-020): it loads only when the page opens in field mode.
+const FieldModeView = lazy(() => import('../field/FieldModeView'));
 
 // Register the slice before the first render of the page; idempotent, so a re-evaluated module
 // (tests, HMR) is harmless.
@@ -64,6 +72,35 @@ const CANVAS_BORDER_PX = 2;
 export default function GardenPlanRoute() {
   const { key } = useParams<{ key: string }>();
   const [searchParams] = useSearchParams();
+  const { pathname } = useLocation();
+  const theme = useTheme();
+  // `noSsr`: the first render already knows the width, so a phone never flashes the planning editor.
+  const narrow = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  // The default is decided once per visit: turning a tablet must not swap the editor (and its unsaved
+  // changes) for field mode. The parameter still switches at any time.
+  const [narrowAtOpen] = useState(narrow);
+  const mode = resolvePlanMode(searchParams.get('mode'), narrowAtOpen);
+  if (mode === 'field' && key) {
+    return <FieldModeRoute siteKey={key} planningHref={planModeHref(pathname, searchParams, 'plan')} />;
+  }
+  return <PlanningPage fieldHref={planModeHref(pathname, searchParams, 'field')} />;
+}
+
+function FieldModeRoute({ siteKey, planningHref }: { siteKey: string; planningHref: string }) {
+  const labels = useRendererLabels();
+  const renderer = useMemo(() => new SvgPlanRenderer(), []);
+  return (
+    <Box data-testid="garden-plan-page">
+      <Suspense fallback={<LoadingSkeleton variant="card" />}>
+        <FieldModeView siteKey={siteKey} renderer={renderer} labels={labels} planningHref={planningHref} />
+      </Suspense>
+    </Box>
+  );
+}
+
+/** Planning mode: the editor with its tools, the bed list and import/export. */
+function PlanningPage({ fieldHref }: { fieldHref: string }) {
+  const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
@@ -74,10 +111,18 @@ export default function GardenPlanRoute() {
   const dispatch = useAppDispatch();
   const { plan, loadStatus, loadError, loadRequestId } = useAppSelector(selectGardenPlanState);
   const dirty = useAppSelector(selectIsDirty);
+  const selected = useAppSelector((state) => selectGardenPlanState(state).selection);
+  // The plan's selection as the keys the partial export names (GP-FR-172); slots and plants are no plan entities.
+  const ioSelection = useMemo<PlanSelection>(
+    () => ({
+      locationKeys: selected.filter((ref) => ref.entity === 'location').map((ref) => ref.key),
+      objectKeys: selected.filter((ref) => ref.entity === 'garden_object').map((ref) => ref.key),
+    }),
+    [selected],
+  );
   const labels = useRendererLabels();
   const renderer = useMemo(() => new SvgPlanRenderer(), []);
   const [canvasRef, canvasWidth] = useElementWidth<HTMLDivElement>();
-  const fieldMode = searchParams.get('mode') === 'field';
 
   const load = useCallback(() => {
     if (key) void dispatch(loadGardenPlan(key));
@@ -202,14 +247,24 @@ export default function GardenPlanRoute() {
       >
         {t('pages.gardenPlan.backToSite')}
       </Button>
+      <Button
+        component={RouterLink}
+        to={fieldHref}
+        variant="outlined"
+        startIcon={<TouchAppIcon />}
+        data-testid="garden-plan-mode-field"
+        sx={{ minHeight: 44 }}
+      >
+        {t('pages.gardenPlan.field.toField')}
+      </Button>
       {key && (
         <PlanIoMenu
           siteKey={key}
           siteName={plan?.siteName ?? ''}
           canImport={canDelete}
           dirty={dirty}
-          fieldMode={fieldMode}
           onImported={load}
+          selection={ioSelection}
         />
       )}
     </Box>
@@ -236,7 +291,6 @@ export default function GardenPlanRoute() {
         viewport={viewport}
         renderer={renderer}
         labels={labels}
-        fieldMode={fieldMode}
         onPan={onPan}
         onOpenLocation={(locationKey) => navigate(`/standorte/locations/${locationKey}`)}
         onOpenCare={(locationKey) => navigate(`/standorte/locations/${locationKey}#care`)}
@@ -253,11 +307,6 @@ export default function GardenPlanRoute() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.gardenPlan.intro')}
       </Typography>
-      {fieldMode && (
-        <Alert severity="info" sx={{ mb: 2 }} data-testid="garden-plan-field-mode-hint">
-          {t('pages.gardenPlan.fieldModeHint')}
-        </Alert>
-      )}
       {/* Unsaved changes (GP-NFR-005): a reload, a closed tab or a route change asks first. */}
       <UnsavedChangesGuard dirty={dirty} />
       {/* The measured box exists in every state, so the first drawing already fits the width. */}

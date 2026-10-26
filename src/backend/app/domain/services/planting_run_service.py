@@ -32,15 +32,19 @@ from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.planting_reservation import (
     QUICK_PLANTING_MAX_QUANTITY,
+    MixedRunDraft,
+    MixedRunSlot,
+    MixedRunsWrite,
+    MixedRunWrite,
     QuickPlantedPlant,
     QuickPlantingInput,
     QuickPlantingResult,
     QuickPlantWrite,
 )
 from app.domain.models.planting_run import SOURCE_FIELD_MODE, PlantingRun, PlantingRunEntry
-from app.domain.models.site import Slot
+from app.domain.models.site import Location, Slot
 from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
-from app.domain.services.planting_reservation_service import PlantingReservationService
+from app.domain.services.planting_reservation_service import FreePlacement, PlantingReservationService
 
 logger = structlog.get_logger()
 
@@ -240,6 +244,93 @@ class PlantingRunService:
                 raise
         return created
 
+    def create_mixed_culture(
+        self,
+        location_key: str,
+        drafts: list[MixedRunDraft],
+        *,
+        tenant_key: str,
+        role: TenantRole,
+    ) -> list[PlantingRun]:
+        """Create the per-species runs of a mixed culture on one bed in **one** transaction (REQ-013 §2, #2463).
+
+        A mixed culture is separate monoculture runs per species; the bed's layout is computed for all of them
+        together (one id sequence, one quota and overlap check) and the runs, entries, layout slots and
+        reservations are written in one database transaction. Every check runs before the write, so a refusal
+        — or a failed write — leaves **nothing** behind and the caller never has to take a run back (which
+        needs the lead role).
+        """
+        if not tenant_key:
+            raise ValueError("create_mixed_culture is tenant-scoped and requires a non-empty tenant_key (#2463).")
+        if self._site_repo is None or self._reservations is None:
+            raise NotFoundError("Location", location_key)
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+        location = resolve_owned_location(self._site_repo, location_key, tenant_key)
+        for draft in drafts:
+            self._stamp_mixed_draft(draft, location_key, tenant_key)
+        entries = [draft.entry for draft in drafts]
+        free = [
+            FreePlacement(
+                entry_index=index,
+                points=draft.free_points,
+                spacing_cm=draft.entry.spacing_cm,
+                container_volume_l=draft.container_volume_l,
+            )
+            for index, draft in enumerate(drafts)
+            if draft.free_points
+        ]
+        prepared = self._reservations.prepare_layout(location, entries, tenant_key=tenant_key, free=free)
+        if free and prepared is None:
+            # Points need a bed with a frame to lie in; "no layout" would silently drop them.
+            raise PlanValidationError([(None, "runs", "geometry.invalid", {})])
+        reserved = prepared.slots if prepared is not None else []
+        writes = [
+            MixedRunWrite(
+                run=draft.run,
+                entry=draft.entry,
+                planned_from=draft.run.planned_from or today_utc(),
+                planned_until=draft.run.planned_until,
+                slots=[
+                    MixedRunSlot(slot=item.slot, sequence=item.sequence)
+                    for item in reserved
+                    if item.entry_index == index
+                ],
+            )
+            for index, draft in enumerate(drafts)
+        ]
+        outcome = self._reservations.place_mixed_runs(
+            MixedRunsWrite(location_key=location_key, runs=writes), tenant_key=tenant_key
+        )
+        return [self._repo.get_or_raise(run_key) for run_key in outcome.run_keys]
+
+    def _stamp_mixed_draft(self, draft: MixedRunDraft, location_key: str, tenant_key: str) -> None:
+        """The run and entry of one species as the transaction stores them, after the reference checks.
+
+        Everything that can refuse a single run refuses here, before any layout is computed or anything is
+        written: the tenant is the caller's (never the body's), the species is readable, the cultivar is the
+        tenant's, a green-manure run has suited species and the entry fits a monoculture run.
+        """
+        run, entry = draft.run, draft.entry
+        run.tenant_key = tenant_key
+        run.status = PlantingRunStatus.PLANNED
+        run.run_type = PlantingRunType.MONOCULTURE
+        run.location_key = location_key
+        run.planned_quantity = entry.quantity
+        run.planned_from = run.planned_from or run.planned_start_date
+        entry.tenant_key = tenant_key
+        # A key of the body is a reference: foreign and absent alike are 422 ``reference.not_found`` (GP-NFR-058).
+        try:
+            self._require_readable_species(entry.species_key, tenant_key)
+        except NotFoundError:
+            raise PlanValidationError([(None, "entry.species_key", "reference.not_found", {})]) from None
+        try:
+            self._repo.verify_entry_references(entry)
+        except NotFoundError:
+            raise PlanValidationError([(None, "entry.cultivar_key", "reference.not_found", {})]) from None
+        self._require_green_manure_species(run, [entry])
+        self._engine.validate_run_type_constraints(run.run_type, [entry], None)
+
     def _prepare_layout(self, run: PlantingRun, entries: list[PlantingRunEntry]):  # type: ignore[no-untyped-def]
         """``(bed, prepared slots)`` for a run on a bed with geometry whose entries plan a layout, else nothing."""
         if self._reservations is None or self._site_repo is None or not run.location_key or not entries:
@@ -345,13 +436,20 @@ class PlantingRunService:
         ``update_run`` needs it before it assigns, and ``create_run`` after it has
         a run — one predicate either way, so the two entry points cannot drift.
         """
+        self._owned_location(location_key, tenant_key)
+
+    def _owned_location(self, location_key: str | None, tenant_key: str) -> Location | None:
+        """:meth:`_require_owned_location_key` that hands back the resolved location (one scoped read).
+
+        ``None`` where the rule is skipped (no tenant, no location): there is then no anchor to read through.
+        """
         if not tenant_key or not location_key:
-            return
+            return None
         # Fail closed without the anchor (#1876 review, SEC-004): a tenant request
         # whose location cannot be resolved is refused, not stored.
         if self._site_repo is None:
             raise NotFoundError("Location", location_key)
-        resolve_owned_location(self._site_repo, location_key, tenant_key)
+        return resolve_owned_location(self._site_repo, location_key, tenant_key)
 
     def _require_owned_source_plant(self, run: PlantingRun) -> None:
         """Refuse a ``source_plant_key`` that is not a plant of the run's tenant (#1872 C1).
@@ -680,7 +778,7 @@ class PlantingRunService:
         # The stored location is re-resolved under the tenant before its slots are
         # read or occupied (#2107 review, W2): create/update check the key on the
         # way in, but a run written before #1372 may still name a foreign one.
-        self._require_owned_location_key(run.location_key, tenant_key)
+        bed = self._owned_location(run.location_key, tenant_key)
 
         entries = self._repo.get_entries(run_key)
         if not entries:
@@ -724,6 +822,11 @@ class PlantingRunService:
                     initial_phases[entry.species_key] = (pk, pn)
 
         now = datetime.now(UTC)
+        # The plants stand in the run's location and carry it, with its garden, exactly as the field-mode path
+        # (`quick_plant`) stamps them: every bed read finds a bed's plants by `location_key` - the plant states
+        # (`GET /locations/{key}/plant-states`), the plant check of a care event (`position_corrected`, GP-FR-068),
+        # the bed plan. Without it a plant created here stood on its slot but was invisible to all of them.
+        # `bed` is the location resolved under the tenant above (ownership and object in one read).
 
         # Resolve initial phase for the run (from first entry's species)
         phase_key = ""
@@ -750,6 +853,8 @@ class PlantingRunService:
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),
                 slot_key=slot_key,
+                site_key=bed.site_key if bed is not None else None,
+                location_key=run.location_key,
                 # UTC, like ``now`` two lines down: both stamp the same event and
                 # the reports that subtract them must not straddle two clocks.
                 planted_on=planted_on or today_utc(),
@@ -1202,7 +1307,7 @@ class PlantingRunService:
         """
         if not self._site_repo:
             return
-        self._require_owned_location_key(new_location_key, tenant_key)
+        new_location = self._owned_location(new_location_key, tenant_key)
 
         # Only the tenant's own plants are moved: a legacy run edge to another
         # tenant's plant is skipped, not re-slotted (#2107 review SEC-001 sweep).
@@ -1224,18 +1329,22 @@ class PlantingRunService:
                 slot.currently_occupied = False
                 self._site_repo.update_slot(slot_key, slot)
 
-        # Assign to new location's available slots
+        # Move every plant to the new location - its bed and garden, as `create_plants` stamps them (bed reads
+        # find a bed's plants by `location_key`) - and onto the new location's available slots while they last.
         available_slots = self._get_available_slots(new_location_key)
         for i, p in enumerate(plants_raw):
-            if i >= len(available_slots):
-                break
             plant_key = p.get("_key") or p.get("key", "")
             plant = self._plant_repo.get_by_key(plant_key)
-            if plant and available_slots[i].key:
-                plant.slot_key = available_slots[i].key
-                self._plant_repo.update(plant_key, plant)
-                available_slots[i].currently_occupied = True
-                self._site_repo.update_slot(available_slots[i].key, available_slots[i])
+            if not plant:
+                continue
+            plant.location_key = new_location_key
+            plant.site_key = new_location.site_key if new_location is not None else None
+            target = available_slots[i] if i < len(available_slots) else None
+            if target is not None and target.key:
+                plant.slot_key = target.key
+                target.currently_occupied = True
+                self._site_repo.update_slot(target.key, target)
+            self._plant_repo.update(plant_key, plant)
 
     def transition(
         self,

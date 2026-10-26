@@ -759,6 +759,7 @@ flowchart TD
 | Export files | Delete immediately |
 | Harvest data, quality assessments, treatments, inspections | Anonymize (tombstone hash `anon_…`, name fields emptied), do not delete (Art. 17(3)) |
 | Tasks, task comments, diary entries, files, import jobs, settings and overrides in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
+| The garden plan's underlay (photo, sketch or aerial view, category `garden_plan_underlay`) in a (possibly shared) garden | Like the garden's other files: **anonymise, do not delete** — the account reference is replaced, the picture and its calibration stay for the other members. An aerial view can reveal where someone lives; whoever does not want it kept removes the underlay in the plan editor (the file is deleted with it), or it goes with the garden |
 | Your personal garden, also with other members | Fully delete (tenant-erasure inventory); harvest/treatment/inspection records pseudonymized as above; the other members are notified at the request |
 | Community garden or other garden you created (not a personal one) | Replace the owner reference; for a personal garden a late joiner keeps, also its name and short name |
 | Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |

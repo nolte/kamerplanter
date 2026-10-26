@@ -315,7 +315,11 @@ class GardenResourceService:
             raise ForbiddenError("Retiring or reactivating a bed requires the lead role.")
 
     def _resolve_references(self, location: Location, patch: LocationPatch, *, tenant_key: str) -> None:
-        """GP-NFR-058: the zone must be one of this site (L1 of #2326), the substrate a catalogue or own one."""
+        """GP-NFR-058: the zone must be one of this site (L1 of #2326), the substrate a catalogue or own one.
+
+        The zone's ``zone_covers`` edge follows the field in the same transaction as the column write
+        (``update_location_fields``, WP 7.1): the bed leaves the zone that held it, so it is in at most one.
+        """
         if patch.irrigation_zone_key is not None:
             zone_site = self._plan.irrigation_zone_site_key(patch.irrigation_zone_key, tenant_key=tenant_key)
             if zone_site is None or zone_site != location.site_key:

@@ -48,6 +48,7 @@ from app.domain.calculators.geometry_calculator import (
     transform_bed_to_plan,
     validate_geometry,
 )
+from app.domain.calculators.template_placement_calculator import place_geometry
 from app.domain.engines.garden_plan_engine import (
     ERROR_BOUNDARY_SHRINKS,
     ERROR_OBJECT_LOCKED,
@@ -59,15 +60,20 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
+from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.bed_template import BedTemplate
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BATCH_TIME_BUDGET_SECONDS,
+    ERROR_ZONE_QUOTA,
     MAX_BATCH_BODY_BYTES,
     MAX_BATCH_POINTS,
     MAX_OPERATIONS,
     MAX_PLAN_OBJECTS_PER_SITE,
+    MAX_PLAN_ZONES,
     CreateGardenObjectOp,
     CreateLocationOp,
     DeleteOp,
@@ -84,6 +90,7 @@ from app.domain.models.garden_plan import (
     SetBoundaryOp,
     SetLockedOp,
     SetZOrderOp,
+    TemplateLocationData,
     UpdateFieldsOp,
     UpdateGeometryOp,
 )
@@ -119,6 +126,9 @@ _LOCATION_COLUMNS: frozenset[str] = frozenset(
 _OBJECT_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "label", "notes", "props", "off_site", "locked", "z_order"}
 )
+
+#: The request-local name of the one bed ``place-template`` creates; the answer maps it to the real key.
+_TEMPLATE_TEMP_KEY = "template_bed"
 
 _ENTITY_LOCATION = "location"
 _ENTITY_OBJECT = "garden_object"
@@ -224,9 +234,15 @@ class GardenPlanService:
         self,
         site_repo: ISiteRepository,
         plan_repo: IGardenPlanRepository,
+        zone_repo: IIrrigationZoneRepository | None = None,
+        template_repo: IBedTemplateRepository | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
+        #: ``None`` = a caller that never asks for ``include=zones`` (the read model then carries no zones).
+        self._zones = zone_repo
+        #: ``None`` = a caller that never places a template; no template key is then visible (WP 7.9).
+        self._templates = template_repo
 
     # ── Anchor ────────────────────────────────────────────────────────────────
 
@@ -270,9 +286,55 @@ class GardenPlanService:
             task_counters=data.task_counters if "tasks" in include else {},
             object_task_counters=data.object_task_counters if "tasks" in include else {},
             season_states=season_states,
-            zones=[],
+            last_watered=data.last_watered if "tasks" in include else {},
+            zones=self.zone_rows(site_key, tenant_key=tenant_key) if "zones" in include else [],
             included=sorted(include),
         )
+
+    def count_zones(self, site_key: SiteKey, *, tenant_key: str) -> int:
+        """How many irrigation zones the site holds (at most :data:`MAX_PLAN_ZONES` + 1 are read)."""
+        if self._zones is None:
+            return 0
+        return len(self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=0, limit=MAX_PLAN_ZONES + 1))
+
+    def zone_rows(self, site_key: SiteKey, *, tenant_key: str) -> list[dict[str, Any]]:
+        """The site's irrigation zones with the beds each covers (GP-API-001 ``include=zones``, WP 7.2).
+
+        The caller has resolved the site under the tenant; the zones are read under the tenant again.
+
+        At most :data:`MAX_PLAN_ZONES`, by name - more is 422 ``irrigation_zone.quota_exceeded``, never a silent
+        cut. The technical coupling beyond ``actuator_key`` (the bound Home Assistant entity)
+        is never part of the read model (SR-014, GP-NFR-060).
+        """
+        if self._zones is None:
+            return []
+        zones = self._zones.list_zones_by_site(site_key, tenant_key=tenant_key, offset=0, limit=MAX_PLAN_ZONES + 1)
+        if len(zones) > MAX_PLAN_ZONES:
+            # Never a silent cut: a truncated read would make the export an incomplete backup.
+            raise PlanError(
+                ERROR_ZONE_QUOTA,
+                f"The site has more than {MAX_PLAN_ZONES} irrigation zones.",
+                status_code=422,
+                field="zones",
+                limit=MAX_PLAN_ZONES,
+            )
+        covered = self._zones.covered_location_keys([zone.key or "" for zone in zones], tenant_key=tenant_key)
+        return [
+            {
+                "key": zone.key or "",
+                "name": zone.name,
+                "irrigation_type": zone.irrigation_type.value,
+                "water_source_key": zone.water_source_key,
+                "actuator_key": zone.actuator_key,
+                "flow_rate_l_per_min": zone.flow_rate_l_per_min,
+                "flow_rate_source": zone.flow_rate_source.value,
+                "application_efficiency": zone.application_efficiency,
+                "color": zone.color,
+                "schedule_hint": zone.schedule_hint,
+                "location_keys": list(covered.get(zone.key or "", [])),
+            }
+            for zone in zones
+        ]
 
     @staticmethod
     def _slot_view(slot: Slot, bed: Location | None) -> PlanSlotView | None:
@@ -395,6 +457,77 @@ class GardenPlanService:
             started=started,
             structure=(locations, objects),
         )
+
+    # ── §21.7: place a bed template ──────────────────────────────────────────
+
+    def place_template(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        template_key: str,
+        origin: tuple[float, float],
+        rotation_deg: float,
+        expected_revision: int,
+    ) -> PlanBatchResult:
+        """Create one bed from a template, through the same path as a batch ``create_location`` (WP 7.9, #2475).
+
+        Order (SR-013): tenant anchor (404) -> role (403) -> the template, which must be a system template or the
+        tenant's own (422 ``reference.not_found`` for an absent *and* a foreign key alike) -> its location type
+        -> the geometry placed at ``origin`` and turned by ``rotation_deg`` (422 ``geometry.invalid``) -> the
+        plan rules of any batch: containment (422 ``geometry.outside_parent``), overlap, quota and, inside the
+        transaction, the revision (409 ``plan.revision_conflict``).
+
+        The bed receives a **copy** of the template's fields (name, location type, geometry, height, soil axes);
+        ``Location.template_key`` records where it came from and nothing else follows the template afterwards.
+        ``recurring_task_templates`` are not applied (operator decision of 2026-10-19, #2466 item 9).
+        """
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+        template = self._visible_template(template_key, tenant_key=tenant_key)
+        if template.location_type_key not in self._plan.bed_type_flags([template.location_type_key]):
+            raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+        try:
+            data = TemplateLocationData.model_validate(
+                {
+                    "name": template.name,
+                    "location_type_key": template.location_type_key,
+                    "geometry": place_geometry(template.default_geometry, origin=origin, rotation_deg=rotation_deg),
+                    "height_m": template.height_m,
+                    "template_key": template.key,
+                    "soil_profile": template.soil_profile_defaults.to_soil_profile()
+                    if template.soil_profile_defaults is not None
+                    else None,
+                }
+            )
+        except PydanticValidationError as exc:
+            raise PlanValidationError(_findings_of(exc, None)) from exc
+        operation = CreateLocationOp(op="create_location", temp_key=_TEMPLATE_TEMP_KEY, data=data)
+        return self._apply(
+            site,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            expected_revision=expected_revision,
+            basis_revision=self._revision_of(site),
+            operations=[operation],
+            started=_now(),
+        )
+
+    def _visible_template(self, template_key: str, *, tenant_key: str) -> BedTemplate:
+        """The template when it is a system one or the tenant's own; otherwise 422 - a foreign key is no oracle."""
+        found = self._templates.get_visible_by_key(template_key, tenant_key=tenant_key) if self._templates else None
+        if found is None:
+            raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+        return found
+
+    def visible_template_keys(self, keys: list[str], *, tenant_key: str) -> set[str]:
+        """Which of ``keys`` are system templates or the tenant's own (the import resolves ``template_key`` so)."""
+        if not keys or self._templates is None:
+            return set()
+        return self._templates.visible_keys(keys, tenant_key=tenant_key)
 
     # ── (2) references ────────────────────────────────────────────────────────
 
@@ -650,6 +783,8 @@ class GardenPlanService:
                 locked=data.locked,
                 z_order=data.z_order,
                 area_m2=0.0,
+                template_key=data.template_key if isinstance(data, TemplateLocationData) else None,
+                soil_profile=data.soil_profile if isinstance(data, TemplateLocationData) else None,
             )
         except PydanticValidationError as exc:
             work.findings.extend(_findings_of(exc, index))

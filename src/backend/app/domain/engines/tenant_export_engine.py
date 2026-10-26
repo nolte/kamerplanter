@@ -448,6 +448,7 @@ class TenantExportEngine:
             "workflow_templates",
             "workflow_phases",
             "task_templates",
+            "bed_templates",  # REQ-053 §20.12: system templates (no tenant_key) beside the tenant's own
         }
     )
 
@@ -550,7 +551,12 @@ class TenantExportEngine:
         },
         "substrates": {"mix_components.substrate_key": _internal("substrates")},
         # REQ-053 §15.1 (WP 1.7, #2326): the bed's substrate (GP-FR-121) — a tenant row or a global one.
-        "locations": {"soil_profile.substrate_key": _internal("substrates")},
+        # WP 7.9 (#2475): `template_key` of a bed is a bed template (a system one stays by its fixed key); elsewhere the
+        # name means a task template (FIELD_REFERENCES).
+        "locations": {
+            "soil_profile.substrate_key": _internal("substrates"),
+            "template_key": _internal("bed_templates"),
+        },
         "task_templates": {"source_template_key": _internal("task_templates")},
         # REQ-053 §20.10 (WP 1.9): the supersede chain of the care log points within the collection.
         "care_events": {
@@ -560,6 +566,16 @@ class TenantExportEngine:
             "rotation_entry.family_key": _global("botanical_families"),
             "rotation_entry.species_key": _internal("species"),
         },
+        # REQ-053 §20.11 (WP 7.1, #2467): a zone's water source is a garden object of the same site.
+        "irrigation_zones": {"water_source_key": _internal("garden_objects")},
+        # REQ-053 GP-FR-033 (WP 7.14): the site plan's underlay names one of the tenant's own attachments, which
+        # the import maps to the restored attachment. The second path is the plan model read on its own.
+        "sites": {
+            "plan.underlay.attachment_key": _ATTACHMENT_REF,
+            "underlay.attachment_key": _ATTACHMENT_REF,
+        },
+        # REQ-053 §20.12 (WP 7.8, #2474): a template names the task templates it would bring (stored only).
+        "bed_templates": {"recurring_task_templates": _internal("task_templates")},
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
         "fish_stocks": {"species_key": _global("fish_species")},
         "phase_histories": {"phase_key": _global("growth_phases", "phase_definitions")},

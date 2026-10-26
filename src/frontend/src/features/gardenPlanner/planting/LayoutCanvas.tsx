@@ -4,7 +4,7 @@
  * "Correct position" moves. It draws in the bed frame (anchor at (0, 0), y up), so it needs no plan
  * viewport. Colour never carries the entry alone: each layer has its own marker shape.
  */
-import { memo, useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { toLocalShape, type Shape } from '../model/geometry';
 import type { Geometry, Point } from '../model/types';
@@ -37,6 +37,11 @@ interface LayoutCanvasProps {
   onAdd?: (point: Point) => void;
   onSelect?: (layerId: string, index: number) => void;
   onMove?: (layerId: string, index: number, point: Point) => void;
+  /**
+   * Hold a marker this long before it follows the pointer (field mode: 500 ms long press, GP-UX-023), so a
+   * wet thumb resting on the bed does not move a plant. Without it a drag starts at once.
+   */
+  dragHoldMs?: number;
   testId?: string;
 }
 
@@ -106,11 +111,18 @@ function LayoutCanvas({
   onAdd,
   onSelect,
   onMove,
+  dragHoldMs,
   testId = 'layout-canvas',
 }: LayoutCanvasProps) {
   const theme = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
-  const drag = useRef<{ layerId: string; index: number; moved: boolean } | null>(null);
+  const drag = useRef<{ layerId: string; index: number; moved: boolean; armed: boolean } | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearHold = () => {
+    if (holdTimer.current !== null) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+  useEffect(() => clearHold, []);
   const shape = useMemo(() => toLocalShape(bed), [bed]);
   const view = useMemo(() => {
     const [minX, minY, maxX, maxY] = boundsOf(shape);
@@ -148,13 +160,21 @@ function LayoutCanvas({
   const startDrag = (event: ReactPointerEvent<SVGElement>, layerId: string, index: number) => {
     event.stopPropagation();
     if (layerId !== interactiveLayerId) return;
-    drag.current = { layerId, index, moved: false };
+    const hold = dragHoldMs ?? 0;
+    drag.current = { layerId, index, moved: false, armed: hold <= 0 };
+    clearHold();
+    if (hold > 0) {
+      holdTimer.current = setTimeout(() => {
+        if (drag.current) drag.current.armed = true;
+        holdTimer.current = null;
+      }, hold);
+    }
     event.currentTarget.setPointerCapture?.(event.pointerId);
     onSelect?.(layerId, index);
   };
   const moveDrag = (event: ReactPointerEvent<SVGElement>) => {
     const current = drag.current;
-    if (!current || !onMove) return;
+    if (!current || !onMove || !current.armed) return;
     const point = toBedPoint(event.clientX, event.clientY);
     if (!point) return;
     current.moved = true;
@@ -163,6 +183,7 @@ function LayoutCanvas({
   const endDrag = (event: ReactPointerEvent<SVGElement>) => {
     event.stopPropagation();
     event.currentTarget.releasePointerCapture?.(event.pointerId);
+    clearHold();
     // The click that ends a drag must not add a point; clear on the next tick.
     setTimeout(() => {
       drag.current = null;

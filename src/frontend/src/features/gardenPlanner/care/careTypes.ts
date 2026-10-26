@@ -1,6 +1,6 @@
 /**
  * Wire types of the bed care tab (REQ-053 WP 4.4). Derived from the served contracts:
- * `app/api/v1/tasks/schemas.py` (queue, complete, batch, fan-out, reopen) and
+ * `app/api/v1/tasks/schemas.py` (queue, complete, batch, create, reopen) and
  * `app/api/v1/care_events/schemas.py` (`POST /care-events`, `POST /care-events/{key}/void`).
  */
 import type { TaskItem } from '@/api/types';
@@ -70,7 +70,6 @@ export interface BedPlantRef {
 export type TaskTarget = 'bed' | 'plant' | 'other';
 
 /**
- * Where a task is created: on the bed itself, or on each plant standing in it (fan-out, GP-FR-081).
- * `bedOnly` reports a per-plant request whose fan-out failed after the bed task was created.
+ * Where a task is created: on the bed itself, or on each plant standing in it (`for_each_plant`, GP-FR-081).
  */
-export type TaskScope = 'bed' | 'plants' | 'bedOnly';
+export type TaskScope = 'bed' | 'plants';

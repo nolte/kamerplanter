@@ -5288,7 +5288,6 @@
       "backToSite": "Back to site",
       "open": "Open garden plan",
       "openHint": "See the beds and garden objects of this site as a plan.",
-      "fieldModeHint": "Field mode for use on the go is not available yet. You are seeing the regular plan.",
       "empty": {
         "title": "No garden plan yet",
         "description": "No plan has been created for this site yet. Once there is one, you will see your beds and garden objects from above here."
@@ -5408,7 +5407,10 @@
           "unlock": "Unlock",
           "zOrder": "Change order",
           "addWithDimensions": "Add with dimensions",
-          "northAngle": "Set north direction"
+          "northAngle": "Set north direction",
+          "align": "Align",
+          "distribute": "Distribute evenly",
+          "multiDuplicate": "Duplicate several times"
         },
         "notice": {
           "generic": "That is not possible. The plan stays as it was.",
@@ -5433,6 +5435,24 @@
           },
           "redo": {
             "failed": "Redo is no longer possible because the plan has changed since."
+          },
+          "bed": {
+            "overlap": "The shape overlaps another bed and was not applied."
+          },
+          "plan": {
+            "revision_conflict": "The plan was changed meanwhile and has been reloaded. Place the template again.",
+            "quota_exceeded": "That many beds and objects do not fit into this garden (at most 500). Nothing was created.",
+            "saving": "Saving is in progress – try again in a moment. This change was not applied."
+          },
+          "template": {
+            "save_first": "Your unsaved changes could not be saved. Save first, then place the template.",
+            "busy": "The plan is being saved or a conflict is open. Wait a moment or reload the plan.",
+            "failed": "The template could not be placed. The plan stays as it was.",
+            "refresh_failed": "The bed was created, but the plan could not be reloaded afterwards. Reload the page."
+          },
+          "multi": {
+            "invalid": "Check the count, the spacing and the start number: the count is between 1 and 100, the spacing is not negative.",
+            "too_many": "That is too many changes at once. Choose fewer copies."
           }
         },
         "deleteDialog": {
@@ -5658,7 +5678,8 @@
           "back": "Send to back",
           "lock": "Lock",
           "unlock": "Unlock",
-          "selectAll": "Select all"
+          "selectAll": "Select all",
+          "multiDuplicate": "Duplicate several times"
         },
         "duplicate": {
           "name": "{{name}} (copy)"
@@ -5710,7 +5731,8 @@
             "length": "Length",
             "radius": "Radius",
             "rotation": "Rotation",
-            "strokeWidth": "Stroke width"
+            "strokeWidth": "Stroke width",
+            "height": "Height (optional)"
           },
           "intro": "Add a bed or object by typing numbers instead of drawing it. The shape is checked like a drawn one and has to fit completely inside its area.",
           "nameHelper": "Leave empty to use the suggestion.",
@@ -5728,14 +5750,14 @@
           "toggleHint": "Show or hide the grid (G). The snap raster stays active.",
           "unit": "Length unit",
           "unitOption": {
-            "m": "Metres (m)",
-            "cm": "Centimetres (cm)"
+            "m": "m: Metres",
+            "cm": "cm: Centimetres"
           }
         },
         "snap": {
           "toggle": "Snap to grid",
           "short": "Snap",
-          "hint": "Snap to the grid. Hold Alt to switch snapping off briefly."
+          "hint": "Snap to the grid and to the corners and edges of other objects. Hold Alt to switch snapping off briefly."
         },
         "zoom": {
           "label": "Zoom",
@@ -5837,6 +5859,11 @@
           },
           "tooMany": {
             "hint": "Undo some changes or split the work into smaller steps. Nothing was saved."
+          },
+          "autoSave": {
+            "label": "Auto-save",
+            "pausedConflict": "Auto-save is paused while the conflict is open.",
+            "pausedFailed": "Auto-save is paused until saving works again."
           }
         },
         "conflict": {
@@ -5850,6 +5877,317 @@
           "download": "Keep my changes as a copy (download JSON)",
           "reload": "Reload",
           "downloaded": "The copy was downloaded. You can reload now."
+        },
+        "align": {
+          "button": "Align",
+          "label": "Align and distribute",
+          "mode": {
+            "left": "Align left",
+            "right": "Align right",
+            "top": "Align top",
+            "bottom": "Align bottom",
+            "centerH": "Centre horizontally",
+            "centerV": "Centre vertically"
+          },
+          "distribute": {
+            "horizontal": "Distribute horizontally",
+            "vertical": "Distribute vertically"
+          }
+        },
+        "miniMap": {
+          "label": "Overview map of the garden with the visible section",
+          "hint": "Click to jump to this spot"
+        },
+        "multiDuplicate": {
+          "title": "Duplicate several times",
+          "intro": "Create several equal beds in a row, for example the plots of a community garden. One undo takes all copies back.",
+          "count": "Number of copies",
+          "countHelper": "1 to {{max}}",
+          "direction": "Direction",
+          "directions": {
+            "right": "To the right",
+            "left": "To the left",
+            "up": "Upwards",
+            "down": "Downwards"
+          },
+          "spacing": "Spacing between the copies",
+          "spacingHelper": "Edge to edge, 0 = the copies touch",
+          "scheme": "Naming scheme",
+          "schemeHelper": "{n} is replaced by the running number.",
+          "defaultScheme": "Plot {n}",
+          "start": "First number",
+          "startHelper": "The first copy gets this number.",
+          "preview": "The copies are named: {{names}}",
+          "slotsNote": "Planting positions, plants and tasks are not copied. Lay out a planting grid for each bed afterwards in the Properties panel.",
+          "submit": "Duplicate",
+          "invalid": "Please enter a valid number.",
+          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own."
+        },
+        "templates": {
+          "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",
+          "tool": {
+            "label": "Place bed from template",
+            "hint": "Put a bed from a template on the plan with one click",
+            "short": "From template"
+          },
+          "panel": {
+            "label": "Bed from template",
+            "pick": "Template",
+            "loading": "Loading templates",
+            "rotate": "Rotate (now {{deg}}°)",
+            "close": "Done",
+            "placeCenter": "Place at view centre",
+            "hintPick": "Choose a template. Then a click on the plan puts the bed there.",
+            "hintPlace": "Click the plan to place the bed. Alt switches the grid snap off, Esc ends.",
+            "placing": "Creating the bed …",
+            "failed": "The templates could not be loaded."
+          },
+          "save": {
+            "button": "Save as template",
+            "hint": "Save the selected bed as a template for future beds",
+            "title": "Save as template",
+            "intro": "The shape, bed type and height of the bed are saved as a template. Plants, tasks and notes are not part of it.",
+            "name": "Template name",
+            "submit": "Save",
+            "done": "The template “{{name}}” is saved.",
+            "error": {
+              "generic": "The template could not be saved.",
+              "forbidden": "You lack the permission for this. Growers and leads create templates.",
+              "bed_template": {
+                "quota_exceeded": "You have reached the maximum number of templates. Delete one you no longer need.",
+                "not_a_bed_type": "The type of this bed does not suit a bed template."
+              },
+              "reference": {
+                "not_found": "The bed type of this bed no longer exists."
+              }
+            }
+          },
+          "standard": {
+            "label": "Standard sizes",
+            "hint": "Use a standard size (shape, size, bed type and height):"
+          },
+          "system": {
+            "sys_bed_1x1": "Bed 1 × 1 m",
+            "sys_bed_2x1": "Bed 2 × 1 m",
+            "sys_bed_3x1_2": "Bed 3 × 1.2 m",
+            "sys_bed_4x1_2": "Bed 4 × 1.2 m",
+            "sys_raised_bed_1_2x2_4": "Raised bed 1.2 × 2.4 m",
+            "sys_raised_bed_2x1x0_8": "Raised bed 2 × 1 × 0.8 m",
+            "sys_planter_d0_3": "Planter Ø 0.3 m",
+            "sys_planter_d0_4": "Planter Ø 0.4 m",
+            "sys_planter_d0_5": "Planter Ø 0.5 m"
+          }
+        },
+        "underlay": {
+          "open": "Underlay",
+          "title": "Underlay to trace over",
+          "intro": "Upload a photo, a sketch or an aerial view and calibrate it with two points and a known distance. The underlay sits below every object, is only there to trace over, is not part of the JSON export and is printed only when you ask for it. Aerial views can reveal where you live.",
+          "choose": "Choose picture",
+          "pictureAlt": "Underlay: click two points whose distance you know",
+          "marking": {
+            "label": "Which point does the next click set?",
+            "p1": "Set point 1",
+            "p2": "Set point 2"
+          },
+          "calibration": {
+            "title": "Calibration: two points and their distance",
+            "p1x": "Point 1, x",
+            "p1y": "Point 1, y",
+            "p2x": "Point 2, x",
+            "p2y": "Point 2, y",
+            "distance": "Distance between the points",
+            "scale": "Scale: {{pxPerM}} pixels per metre",
+            "scaleMissing": "No scale yet: give two different points and a distance above 0 m.",
+            "outside": "A point lies outside the picture."
+          },
+          "placement": {
+            "title": "Position on the plan",
+            "originX": "Top-left corner, x",
+            "originY": "Top-left corner, y",
+            "rotation": "Counter-clockwise rotation"
+          },
+          "opacity": "Opacity",
+          "save": "Save",
+          "close": "Close",
+          "remove": "Remove underlay",
+          "removeConfirm": {
+            "title": "Remove the underlay?",
+            "message": "The picture and its calibration are lost. You would have to set both up again."
+          },
+          "saved": "The underlay is saved.",
+          "removed": "The underlay was removed.",
+          "error": {
+            "generic": "That did not work. Please try again.",
+            "forbidden": "You need at least the grower role for this.",
+            "tooLarge": "The file is too large.",
+            "wrongType": "This file type is not allowed. Use JPEG, PNG or WebP.",
+            "rateLimited": "Too many requests. Wait a moment.",
+            "planRequired": "Set the garden boundary first, then you can add an underlay.",
+            "invalid": "The values are not valid. Check points, distance and position.",
+            "loadFailed": "The stored underlay could not be loaded."
+          }
+        },
+        "zones": {
+          "layers": {
+            "group": "Layers",
+            "zones": "Show irrigation zones",
+            "zonesHint": "Show or hide the zones as an outline with hatching over their beds.",
+            "lastWatered": "Show last watered",
+            "lastWateredHint": "Show or hide the days since the last watering of each bed as hatching.",
+            "underlay": "Show underlay",
+            "underlayHint": "Show or hide the underlay below the plan (for you only)."
+          },
+          "legend": {
+            "title": "Layer legend",
+            "zonesTitle": "Irrigation zones",
+            "zonesNone": "No zone has been created yet.",
+            "zoneEntry": "{{number}}. {{name}}, {{type}}",
+            "wateredTitle": "Days since the last watering",
+            "class": {
+              "d0_1": "0 to 1 day since",
+              "d2_3": "2 to 3 days since",
+              "d4_7": "4 to 7 days since",
+              "d8plus": "More than 7 days since"
+            },
+            "wateredNone": "No hatching: no watering recorded.",
+            "wateredNote": "This is the time since the last recorded watering. The plan does not say whether a bed needs water."
+          },
+          "wateredDays_one": "{{count}} day since",
+          "wateredDays_other": "{{count}} days since",
+          "open": "Manage irrigation zones",
+          "panel": {
+            "title": "Irrigation zones",
+            "close": "Close the zones area",
+            "listLabel": "Zones of this site",
+            "loadFailed": "The zones could not be loaded. The plan stays usable.",
+            "retry": "Load again",
+            "empty": "No zone yet. A zone groups beds that are watered together.",
+            "readOnly": "You can view zones but not change them.",
+            "new": "New zone",
+            "bedCount_one": "{{count}} bed",
+            "bedCount_other": "{{count}} beds",
+            "newTitle": "New zone",
+            "editTitle": "Zone {{name}}"
+          },
+          "form": {
+            "name": "Zone name",
+            "type": "Type of irrigation",
+            "color": "Zone colour",
+            "colorHint": "You recognise a zone by its pattern, not by colour alone.",
+            "scheduleHint": "Schedule note",
+            "waterSource": "Water source",
+            "waterSourceNone": "No water source",
+            "flowRate": "Flow rate in litres per minute",
+            "beds": "Beds of the zone",
+            "bedsHint": "A bed belongs to at most one zone. If you pick one from another zone, it moves here.",
+            "bedsNone": "No beds are drawn on the plan yet.",
+            "bedsUseSelection": "Take over selection from the plan",
+            "bedsSelectionEmpty": "No bed is selected on the plan.",
+            "bedInZone": "belongs to {{zone}}",
+            "save": "Save zone",
+            "saving": "Saving …",
+            "cancel": "Cancel",
+            "delete": "Delete zone",
+            "deleteTitle": "Delete zone {{name}}?",
+            "deleteMessage": "The beds stay as they are and then belong to no zone. The watering log is kept.",
+            "deleteConfirm": "Delete",
+            "created": "Zone {{name}} created.",
+            "saved": "Zone {{name}} saved.",
+            "deleted": "Zone {{name}} deleted.",
+            "moved": "Taken over from another zone: {{beds}}.",
+            "unsavedHint": "Beds and water sources that are not saved yet can be chosen here only after the plan is saved.",
+            "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first."
+          },
+          "errors": {
+            "forbidden": "You do not have permission for this.",
+            "quota": "This site has reached the maximum number of zones.",
+            "notFound": "The zone no longer exists. The list is reloaded.",
+            "invalid": "The input was rejected. Check name, colour and flow rate.",
+            "generic": "That did not work. Please try again.",
+            "rateLimited": "Too many requests in a short time. Wait a moment and try again.",
+            "conflict": "Someone changed this at the same time. Reload the zone and try again.",
+            "referenceNotFound": "A chosen bed or water source is not known to the server yet. Save the plan first."
+          },
+          "status": {
+            "title": "Zone status",
+            "loading": "Loading the status …",
+            "failed": "The zone status could not be loaded.",
+            "lastWatering": "Last watered",
+            "lastWateringNone": "No watering recorded yet.",
+            "lastWateringValue": "{{date}}, {{days}}",
+            "lastWateringBed": "Bed {{bed}}",
+            "nextPlanned": "Next planned watering",
+            "nextPlannedNone": "No watering planned.",
+            "nextPlannedValue": "{{bed}}, due {{date}}",
+            "nextPlannedOverdue": "{{bed}}, overdue since {{date}}",
+            "demand": "Demand today",
+            "demandNet": "{{liters}} litres net",
+            "demandGross": "{{liters}} litres gross",
+            "efficiency": "Efficiency {{percent}} %",
+            "efficiencySource": {
+              "zone": "set on the zone",
+              "type_default": "default of the irrigation type"
+            },
+            "consumption": "Consumption of the last 30 days",
+            "consumptionValue": "{{liters}} litres",
+            "consumptionSources": "Where the consumption comes from",
+            "consumptionSource": {
+              "manual_log": "Logged watering",
+              "actuator_runtime_manual_rate": "Actuator run time with the entered flow rate",
+              "actuator_runtime_ha_rate": "Actuator run time with the flow rate from Home Assistant"
+            },
+            "technical": "Technical",
+            "flowRate": "Flow rate",
+            "flowRateValue": "{{value}} litres per minute",
+            "flowRateNone": "not entered",
+            "flowSource": "Source of the flow rate",
+            "flowSourceValue": {
+              "manual": "Entered",
+              "ha_entity": "Home Assistant entity"
+            },
+            "haBound": "Home Assistant entity linked",
+            "haNotBound": "No Home Assistant entity linked",
+            "hints": "Hints"
+          },
+          "hints": {
+            "water_source_lasts_days_one": "At this daily demand the water source lasts about {{count}} day ({{capacity}} litres capacity, {{daily}} litres a day).",
+            "water_source_lasts_days_other": "At this daily demand the water source lasts about {{count}} days ({{capacity}} litres capacity, {{daily}} litres a day).",
+            "irrigation_system_differs": "The zone is set up as {{type}}, these beds are equipped differently: {{beds}}. The zone applies to demand and consumption.",
+            "unknown": "Hint {{code}}"
+          },
+          "round": {
+            "open": "Log a watering round",
+            "title": "Watering round for {{name}}",
+            "volume": "Total amount in litres",
+            "allocation": "Division over the beds",
+            "allocationOption": {
+              "by_area": "By bed area",
+              "equal": "Equal parts"
+            },
+            "allocationHelp": {
+              "by_area": "Each bed gets a share by its area. Beds without an area are left out.",
+              "equal": "Each bed gets the same amount, whatever its area."
+            },
+            "summary": "Note on the round",
+            "marker": "The amount is divided over the beds and not measured. The log marks it that way.",
+            "noAreaBeds": "Without an area, left out of the division by area: {{beds}}.",
+            "noBeds": "The zone has no bed yet. Assign beds to it first.",
+            "submit": "Save watering round",
+            "submitting": "Saving …",
+            "cancel": "Cancel",
+            "close": "Close",
+            "invalidVolume": "Enter an amount above 0 litres.",
+            "noBedArea": "No bed of the zone has an area. Choose \"Equal parts\" or enter areas.",
+            "resultTitle": "Watering round saved",
+            "resultMarker": "{{allocation}}: these amounts are divided, not measured.",
+            "share": "{{bed}}: {{liters}} litres",
+            "skipped": "Left out because they have no area: {{beds}}."
+          },
+          "bed": {
+            "zone": "Irrigation zone: {{name}}",
+            "wateredNone": "No watering recorded.",
+            "watered": "Last watered: {{days}}"
+          }
         }
       },
       "io": {
@@ -5858,8 +6196,7 @@
           "export": "Export plan …",
           "import": "Restore a backup …",
           "leadOnly": "Only a lead can restore a backup.",
-          "unsaved": "Save or discard your changes to the plan first.",
-          "fieldMode": "Not available in field mode – open the plan at your desk."
+          "unsaved": "Save or discard your changes to the plan first."
         },
         "export": {
           "title": "Export plan",
@@ -5909,7 +6246,19 @@
             "rateLimited": "You asked for many exports in a short time. Wait a minute and try again.",
             "forbidden": "You may not export this plan.",
             "failed": "The export did not work. Try again."
-          }
+          },
+          "scope": "Scope",
+          "scopes": {
+            "site": "Whole site",
+            "selection": "Selection only",
+            "subtree": "Selection with everything below"
+          },
+          "scopeHints": {
+            "site": "The whole plan of this site, with its boundary and settings.",
+            "selection": "Exactly the {{n}} selected beds and garden objects, with their planting slots. References to anything not selected are dropped.",
+            "subtree": "The {{n}} selected beds and everything inside them (sub-locations, garden objects, planting slots)."
+          },
+          "scopeNeedsSelection": "For a partial export, select beds on the plan first (at most {{max}})."
         },
         "import": {
           "title": "Restore a backup",
@@ -5940,7 +6289,9 @@
             "import_site_name_mismatch": "The name you typed does not match the site.",
             "plan_revision_conflict": "Someone changed the plan while you were importing. Reload the plan and check the file again.",
             "REQUEST_BODY_TOO_LARGE": "The file is larger than 5 MB.",
-            "VALIDATION_ERROR": "The file breaks rules of the plan. The list below names the places."
+            "VALIDATION_ERROR": "The file breaks rules of the plan. The list below names the places.",
+            "import_offset_invalid": "The offset is not valid.",
+            "import_offset_requires_merge": "Moving only works when adding."
           },
           "reportTitle": "Check report for “{{name}}”",
           "create": "Will be created",
@@ -5976,12 +6327,14 @@
             "entities": {
               "location": "Location",
               "garden_object": "Garden object",
-              "slot": "Plant place"
+              "slot": "Plant place",
+              "irrigation_zone": "Irrigation zone"
             },
             "reasons": {
               "not_found": "not found",
               "not_in_site": "belongs to another site",
-              "always_dropped": "links to devices are never carried over"
+              "always_dropped": "links to devices are never carried over",
+              "outside_file": "is not in the file and may not be resolved here"
             }
           },
           "mode": "How should the backup be restored?",
@@ -6006,7 +6359,42 @@
             "merge": "Add"
           },
           "done": "Done: {{locations}} locations, {{objects}} garden objects and {{slots}} plant places were created.",
-          "doneSnapshot": "The previous state is in the change log."
+          "doneSnapshot": "The previous state is in the change log.",
+          "snapshotsHelp": "Imported a backup earlier and want the old state back?",
+          "snapshotsOpen": "Restore an earlier state …",
+          "target": "Where is the file going?",
+          "targets": {
+            "same_site": "Into this site (restore)",
+            "other_site": "From another site",
+            "other_tenant": "From another garden account"
+          },
+          "targetHints": {
+            "same_site": "References that are not in the file may point to things of this site.",
+            "other_site": "The file comes from elsewhere: references that are not in the file are dropped and named in the report.",
+            "other_tenant": "The file comes from another account. Nothing is read from the other account; references that are not in the file are dropped. You need the lead role in this account."
+          },
+          "offset": "Move when adding",
+          "offsetX": "To the right (m)",
+          "offsetY": "Up (m)",
+          "offsetHelp": "Every shape in the file is moved by this distance. Empty or 0: do not move.",
+          "offsetInvalid": "Enter a number between -{{max}} and {{max}}."
+        },
+        "snapshots": {
+          "title": "Earlier states",
+          "help": "Replacing a plan saves the plan it overwrites as a state (for one year). Pick a state, check what would change and restore it.",
+          "empty": "There is no earlier state yet. One is made when you replace a plan.",
+          "counts": "{{locations}} locations, {{objects}} garden objects, {{slots}} planting slots",
+          "notice": "The current plan is saved as a state of its own first, so the restore can be undone. Beds with active plants are never deleted. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored: set them up again afterwards.",
+          "restore": "Restore this state",
+          "failures": {
+            "failed": "That did not work. Try again.",
+            "forbidden": "Only a lead may restore an earlier state.",
+            "notFound": "This state was not found.",
+            "rateLimited": "Too many imports in a short time. Wait a minute.",
+            "import_not_empty": "Beds with active plants stand in this plan. Remove the plants or confirm that those beds stay.",
+            "import_site_name_mismatch": "The name you typed does not match the site.",
+            "plan_revision_conflict": "Somebody changed the plan. Reload the plan and check the state again."
+          }
         }
       },
       "plantState": {
@@ -6089,6 +6477,31 @@
             "help": "Not recorded yet"
           }
         },
+        "window": {
+          "title": "When does the sun reach the bed?",
+          "fieldTitle": "Sun on this bed",
+          "hint": "Pick the time of day with direct sun. You do not need to count hours.",
+          "options": {
+            "morning": "Morning",
+            "midday": "Midday",
+            "afternoon": "Afternoon",
+            "all_day": "All day",
+            "mixed": "Changing",
+            "unknown": "Not known"
+          },
+          "summary": "Sun: {{window}}",
+          "saved": "Sun window saved."
+        },
+        "hours": {
+          "label": "Hours of direct sun in summer (optional)",
+          "help": "A rough guess is fine, 0 to 24. Leave empty if you do not know.",
+          "invalid": "Enter a number between 0 and 24, or leave the field empty.",
+          "summary": "about {{hours, number}} h of direct sun"
+        },
+        "foliage": {
+          "label": "Leaf shade in summer",
+          "help": "Sunny in spring, shaded once the trees are in leaf. This is a note only: it does not change the site-fit hint yet."
+        },
         "bulk": {
           "title": "Set the sun for all selected beds",
           "hint": "Applies to {{count}} selected beds. Locked beds stay as they are. You can take the step back with Undo.",
@@ -6102,6 +6515,80 @@
           "save": "Save",
           "cancel": "Cancel",
           "saved": "Sun and shade saved."
+        }
+      },
+      "field": {
+        "title": "Field mode",
+        "toPlanning": "Planning mode",
+        "toField": "Field mode",
+        "offline": "No connection. Completing and logging are locked until you are back online, so nothing gets lost.",
+        "finish": "Finish",
+        "planted_one": "{{count}} plant recorded.",
+        "planted_other": "{{count}} plants recorded.",
+        "photoSaved": "Photo saved for {{plant}}.",
+        "tabs": {
+          "label": "Field mode view",
+          "list": "My beds · due today",
+          "map": "Map"
+        },
+        "list": {
+          "label": "Beds, yours first, sorted by due date",
+          "loading": "Loading beds",
+          "empty": "No beds yet",
+          "emptyHint": "Create beds in planning mode and they appear here.",
+          "mine": "Mine",
+          "counts": "Plants: {{plants}} · Open tasks: {{tasks}}",
+          "overdue_one": "{{count}} task overdue",
+          "overdue_other": "{{count}} tasks overdue",
+          "dueToday": "Due today",
+          "next": "Next due: {{date}}",
+          "reloadFailed": "The beds could not be refreshed. You are seeing the last loaded state."
+        },
+        "map": {
+          "toolbar": "Map view",
+          "zoomIn": "Zoom in",
+          "zoomOut": "Zoom out",
+          "fit": "Whole plan",
+          "loading": "Loading plan"
+        },
+        "sheet": {
+          "close": "Close bed",
+          "loading": "Loading bed"
+        },
+        "quick": {
+          "title": "Quick log",
+          "chips": {
+            "watering": "Watered",
+            "harvest": "Harvested",
+            "sowing": "Sown",
+            "weeding": "Weeded/Mulched",
+            "planted": "Planted",
+            "note": "Note"
+          },
+          "plantedNeedsGeometry": "“Planted” is available once the bed is drawn on the plan."
+        },
+        "tasks": {
+          "title": "Tasks ({{count}})",
+          "empty": "Nothing to do here right now.",
+          "sections": {
+            "overdue": "Overdue ({{count}})",
+            "today": "Due today ({{count}})",
+            "later": "Later ({{count}})"
+          }
+        },
+        "plants": {
+          "title": "Plants ({{count}})",
+          "unknown": "The plants could not be loaded right now.",
+          "empty": "Nothing is planted in this bed yet.",
+          "group": "{{species}} · {{count}}",
+          "phase": "Phase: {{phase}}",
+          "noPhase": "Phase unknown",
+          "show": "Show plants",
+          "hide": "Hide plants",
+          "correct": "Correct position",
+          "correctFor": "Correct the position of {{plant}}",
+          "photo": "Photo",
+          "photoFor": "Take a photo of {{plant}}"
         }
       }
     },
@@ -6617,12 +7104,14 @@
           "allClear": "{{name}}: No hint on crop rotation or neighbours.",
           "forSpecies": "{{name}}: {{strength}} hint",
           "pauseNotElapsed": "The family {{family}} stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",
+          "pauseNotElapsedUnnamed": "The same family stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",
           "pauseSource": {
             "species": "value of the species",
             "family": "value of the family",
             "default": "default value"
           },
           "pestRisk": "High pest risk with the family {{family}}, which stood here recently.",
+          "pestRiskUnnamed": "High pest risk with a family that stood here recently.",
           "noFamily": "This species has no family on record. Crop rotation cannot be checked.",
           "noHistory": "No history is recorded for this bed. Crop rotation cannot be checked.",
           "incompatibleNeighbour": "Unfavourable neighbour in the bed: {{name}}.",

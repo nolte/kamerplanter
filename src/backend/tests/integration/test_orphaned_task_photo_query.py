@@ -99,6 +99,8 @@ REFERENCED_BY_OTHER_FIELD: list[tuple[str, str, dict]] = [
         {"tenant_key": TENANT, "attachment_id": "ref-pest-image"},
     ),
     (col.PESTS, "ref-pest-gallery", {"reference_image_refs": ["ref-pest-gallery"]}),
+    # REQ-053 GP-FR-033: the background picture of a site plan - a nested path, plan.underlay.attachment_key.
+    (col.SITES, "ref-underlay", {"tenant_key": TENANT, "plan": {"underlay": {"attachment_key": "ref-underlay"}}}),
 ]
 
 

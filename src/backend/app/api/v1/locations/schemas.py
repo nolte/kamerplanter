@@ -110,6 +110,8 @@ class LocationResponse(BaseModel):
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     irrigation_zone_key: str | None = None
+    #: The bed template this bed was placed from (provenance, WP 7.9).
+    template_key: str | None = None
     soil_profile: SoilProfileSchema | None = None
     site_conditions: SiteConditions | None = None
     notes: str | None = None
@@ -610,7 +612,8 @@ class RotationFindingResponse(BaseModel):
                     "severity": "WARNING",
                     "code": "rotation.pause_not_elapsed",
                     "message": "Family 'Solanaceae' grew in this bed 3 year(s) ago; the pause is 4 year(s) (family).",
-                    "family_key": "Solanaceae",
+                    "family_key": "4410",
+                    "family_name": "Solanaceae",
                     "species_key": "5120",
                     "last_year": 2023,
                     "years_since": 3,
@@ -626,6 +629,9 @@ class RotationFindingResponse(BaseModel):
     code: str
     message: str
     family_key: str | None = None
+    #: Display name of `family_key`: the OWN family for pause findings, the OTHER family for pest-risk findings.
+    #: `null` when it is not in the catalogue. Never fall back to `family_key` as a name.
+    family_name: str | None = None
     species_key: str | None = None
     last_year: int | None = None
     years_since: int | None = None

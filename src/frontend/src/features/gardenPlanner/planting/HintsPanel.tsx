@@ -56,16 +56,20 @@ function findingText(
   finding: RotationFinding,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
+  // The server names the family (`family_name`). A family without a name is left out of the sentence: the database
+  // key is never shown to the grower as if it were a name.
+  const family = finding.family_name?.trim() ?? '';
+  const named = family !== '';
   switch (finding.code) {
     case 'rotation.pause_not_elapsed':
-      return t('pages.bed.planting.hints.pauseNotElapsed', {
-        family: finding.family_key ?? '',
+      return t(named ? 'pages.bed.planting.hints.pauseNotElapsed' : 'pages.bed.planting.hints.pauseNotElapsedUnnamed', {
+        family,
         years: finding.years_since ?? 0,
         pause: finding.pause_years ?? 0,
         source: t(`pages.bed.planting.hints.pauseSource.${finding.pause_source ?? 'default'}`),
       });
     case 'rotation.pest_risk':
-      return t('pages.bed.planting.hints.pestRisk', { family: finding.family_key ?? '' });
+      return t(named ? 'pages.bed.planting.hints.pestRisk' : 'pages.bed.planting.hints.pestRiskUnnamed', { family });
     case 'rotation.no_family':
       return t('pages.bed.planting.hints.noFamily');
     case 'rotation.no_history':

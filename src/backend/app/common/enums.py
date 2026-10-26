@@ -1518,6 +1518,10 @@ class AttachmentCategory(StrEnum):
     # REQ-010 — user-contributed reference photos for a global pest (Phase 1:
     # tenant-private gallery; Phase 2 may promote selected images globally).
     PEST_REFERENCE = "pest_reference"
+    # REQ-053 GP-FR-033 - the background picture (photo, sketch, aerial view) a garden plan is traced over.
+    # One per site; never part of the plan's JSON export. An aerial view can reveal where someone lives,
+    # so the EXIF strip applies and the erasure treats it like the other tenant-record photos.
+    GARDEN_PLAN_UNDERLAY = "garden_plan_underlay"
 
 
 class PestImageStatus(StrEnum):
@@ -2220,6 +2224,44 @@ class WaterSourceKind(StrEnum):
     POND = "pond"
     CISTERN = "cistern"
     HOSE_REEL = "hose_reel"
+
+
+class IrrigationZoneType(StrEnum):
+    """How the beds of an irrigation zone are watered (REQ-053 §14.1, §20.11). Additive (M-9).
+
+    A separate value set from :class:`IrrigationSystem` (a bed's own property, §14.1): the zone groups
+    beds for one watering round, the bed keeps how it is equipped. Only ``manual`` and ``drip`` occur in
+    both; the conflict hint between the two (GP-FR-119) is WP 7.5.
+    """
+
+    MANUAL = "manual"
+    DRIP = "drip"
+    SPRINKLER = "sprinkler"
+    SOAKER_HOSE = "soaker_hose"
+    SUB_IRRIGATION = "sub_irrigation"
+
+
+class CareEventAllocation(StrEnum):
+    """How the quantity of a care event came about (REQ-053 GP-FR-117, WP 7.3). Additive (M-9).
+
+    ``measured`` is the default: the person measured what this bed received. ``by_area`` and ``equal`` mark a
+    quantity that a zone round divided over its beds - an allocated value is never shown as a measured one.
+    """
+
+    MEASURED = "measured"
+    BY_AREA = "by_area"
+    EQUAL = "equal"
+
+
+class FlowRateSource(StrEnum):
+    """Where an irrigation zone's flow rate comes from (REQ-053 §14.1, O-13). Additive (M-9).
+
+    ``ha_entity`` is written from WP 7.4 on (SR-014: Technik scope, granted entity); until then only
+    ``manual`` is accepted.
+    """
+
+    MANUAL = "manual"
+    HA_ENTITY = "ha_entity"
 
 
 class PathSurface(StrEnum):

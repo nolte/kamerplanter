@@ -38,7 +38,6 @@ function setup(plan: PlanModel = testPlan(), onPan = vi.fn()) {
           viewport={VIEWPORT}
           renderer={renderer}
           labels={TEST_LABELS}
-          fieldMode={false}
           onPan={onPan}
         />
       </ThemeContextProvider>
@@ -57,7 +56,6 @@ function setup(plan: PlanModel = testPlan(), onPan = vi.fn()) {
             viewport={VIEWPORT}
             renderer={renderer}
             labels={TEST_LABELS}
-            fieldMode={false}
             onPan={onPan}
           />
         </ThemeContextProvider>

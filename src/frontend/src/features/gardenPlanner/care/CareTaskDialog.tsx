@@ -1,7 +1,6 @@
 /**
  * Create a care task on the bed (REQ-053 GP-FR-080/081): "for the bed" binds the task to the bed;
- * "for every plant" creates it on the bed and fans it out onto each plant standing there (the bed
- * task is skipped, one task per plant remains). The category list follows the bed (F-03).
+ * "for every plant" creates one task per plant standing there, in one request (no bed task, #2462). The category list follows the bed (F-03).
  */
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +21,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useApiError } from '@/hooks/useApiError';
 import { categoriesFor, type CareContext } from './careCategories';
-import { createBedTask, fanOutBedTask } from './careApi';
+import { createBedTask, createTasksForEachPlant } from './careApi';
 import type { TaskScope } from './careTypes';
 
 const NAME_MAX = 200;
@@ -53,27 +52,25 @@ export default function CareTaskDialog({ bedKey, context, plantCount, onClose, o
   const submit = async () => {
     setSaving(true);
     try {
-      const created = await createBedTask({
+      const body = {
         name: effectiveName.slice(0, NAME_MAX),
         category,
-        entity_type: 'location',
+        entity_type: 'location' as const,
         entity_key: bedKey,
         // A due day is due until its end: it is overdue the next morning, not at noon.
         ...(due !== '' ? { due_date: new Date(`${due}T23:59:00`).toISOString() } : {}),
-      });
+      };
       if (scope === 'plants') {
-        try {
-          const clones = await fanOutBedTask(created.key);
-          // The server leaves the bed task open when no plant stands in the bed (or its sub-locations).
-          onCreated(clones.length, clones.length > 0 ? 'plants' : 'bed');
-        } catch (error) {
-          // The bed task exists and stays: the list shows it, and a second submit would add another.
-          handleError(error);
-          onCreated(1, 'bedOnly');
+        const created = await createTasksForEachPlant(body);
+        if (created.length > 0) {
+          onCreated(created.length, 'plants');
+          return;
         }
-      } else {
-        onCreated(1, 'bed');
+        // No plant stands in the bed (or its sub-locations) after all: the server created nothing, so the
+        // task goes on the bed instead of being lost.
       }
+      await createBedTask(body);
+      onCreated(1, 'bed');
     } catch (error) {
       handleError(error);
     } finally {

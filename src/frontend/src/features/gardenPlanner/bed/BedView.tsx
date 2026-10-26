@@ -162,6 +162,7 @@ export default function BedView({ summary, details, onReload }: BedViewProps) {
             bedKey={summary.key}
             bedName={summary.name}
             current={summary.sun_exposure}
+            currentProfile={summary.site_conditions?.sun_profile}
             onClose={() => setSunOpen(false)}
             onChanged={() => {
               setSunOpen(false);

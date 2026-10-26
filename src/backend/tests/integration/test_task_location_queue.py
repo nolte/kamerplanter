@@ -166,3 +166,29 @@ def test_the_clone_entities_of_a_source_are_found_inside_the_tenant_only(databas
 
     assert repo.get_clone_entity_keys(source.key, tenant_key=A) == {"p_here"}
     assert repo.get_clone_entity_keys(source.key, tenant_key=B) == {"p_other"}
+
+
+def test_create_tasks_atomic_writes_every_task_with_its_has_task_edge(database, repo) -> None:
+    tasks = [Task(tenant_key=A, name="Water", entity_type="plant_instance", entity_key=f"p_{i}") for i in range(3)]
+
+    created = repo.create_tasks_atomic(tasks, tenant_key=A)
+
+    assert sorted(t.entity_key for t in created) == ["p_0", "p_1", "p_2"]
+    assert all(t.key for t in created)
+    edges = list(database.collection(col.HAS_TASK).all())
+    assert sorted((e["_from"], e["_to"]) for e in edges) == sorted(
+        (f"{col.PLANT_INSTANCES}/{t.entity_key}", f"{col.TASKS}/{t.key}") for t in created
+    )
+
+
+def test_create_tasks_atomic_refuses_a_foreign_tenants_task_and_writes_nothing(database, repo) -> None:
+    tasks = [
+        Task(tenant_key=A, name="Water", entity_type="plant_instance", entity_key="p_0"),
+        Task(tenant_key=B, name="Water", entity_type="plant_instance", entity_key="p_1"),
+    ]
+
+    with pytest.raises(ValueError, match="tenant"):
+        repo.create_tasks_atomic(tasks, tenant_key=A)
+
+    assert list(database.collection(col.TASKS).all()) == []
+    assert list(database.collection(col.HAS_TASK).all()) == []

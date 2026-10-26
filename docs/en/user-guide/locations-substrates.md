@@ -380,6 +380,11 @@ The hours follow the Royal Horticultural Society definition, measured at midsumm
 - **In the bed view:** next to the sun exposure in the overview, **Change sun** opens the tiles. This needs the "grower" role.
 - **In the garden plan:** when you select a bed, the properties panel shows the tiles. When you select several beds (frame selection or the Shift key), **Set the sun for all selected beds** sets the value at once. Locked beds stay as they are. You can take the step back with **Undo**, and it only counts once you save the plan.
 
+**Sun window and leaf shade.** On top of the tile you record **when** the sun reaches the bed: morning, midday, afternoon, all day or changing. The hours of direct sun in summer are optional, a rough guess is enough. The **Leaf shade in summer** switch notes that the bed is sunny in spring and later shaded by the leaves of trees. You find the fields in the **Change sun** dialog of the bed view and, in field mode, in the bed sheet (with large buttons, every change is saved at once). The entries appear on one line under the sun exposure in the bed overview. Kamerplanter calculates nothing from them, and leaf shade is a note only: it does not change the site hint when planting. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
+
+!!! warning "Not implemented yet"
+    The properties panel of the garden plan does not offer the sun window and leaf shade yet; it keeps the tiles. Use the bed view or field mode for them.
+
 **Site hint when planting.** In the planting dialog Kamerplanter compares the sun of the bed with the **light requirement** of the species (full sun, partial shade or shade) and shows a traffic light with plain text, for example "Bed: Shade — Tomato needs full sun". Green means well suited, yellow only partly suited, red poorly suited. Yellow also appears when the bed is one step shadier than the requirement and the species profile says the species takes that much shade; if that value is missing, the text says "Tolerance unknown". If the sun of the bed or the light requirement of the species is not recorded, no hint appears. The hint blocks nothing and asks for no reason.
 
 !!! note "Frost risk"
@@ -423,19 +428,65 @@ If you click a row or press Enter, the bed is selected on the plan and the view 
 
 ---
 
+## Field mode in the garden {#field-mode-in-the-garden}
+
+Field mode is made for the phone at the bed: large buttons (at least 64 pixels), strong contrast for sunlight and only what you need outside. On a narrow screen (below 600 pixels wide) the garden plan page opens in field mode right away. On any device you switch with **Field mode** or **Planning mode** at the top of the page; the address then carries `?mode=field` or `?mode=plan`.
+
+**My beds · due today.** Field mode starts with the list of your beds. Beds assigned to you come first (marked **Mine**), then beds with overdue tasks or tasks due today, then the rest by their next due date. A task is overdue when its due day lies before today; a task due today does not count as overdue yet. Retired beds are left out. The **Map** tab shows the plan without tools, grid or handles. **Zoom in**, **Zoom out** and **Whole plan** change the view. If you tap a bed, or just next to it, the map zooms to the bed and opens it.
+
+**The bed sheet.** A tap on a bed opens a sheet at the bottom with the bed's name, the quick log, the tasks and the plants. Tasks come in the order **Overdue**, **Due today**, **Later**. Plants are grouped by species, count and phase; the phase colour always has a black outline and the phase name next to it.
+
+- **Done** opens the short dialog with the optional fields (quantity, note). **Finish** saves. That is two taps after choosing the bed. A double tap counts once, and the buttons stay locked until the answer has arrived.
+- **Quick log:** **Watered**, **Sown** and **Weeded/Mulched** save a care entry with one tap. **Harvested** and **Note** open the short form (quantity or text; for the note you can use your keyboard's voice input). **Planted** opens the planting dialog with **I have planted already** switched on; the plants are created at once. This needs a bed that is drawn on the plan.
+- After **Done** and after every quick log entry you see **Undo** for eight seconds. It takes the entry back.
+- **Show plants** lists the single plants of a group. **Correct position** moves a plant with the arrows in 10 cm steps; you can drag the marker only after holding it for half a second. **Photo** takes a picture for the plant's gallery.
+
+Deleting, clearing a bed, export and import are not available in field mode; switch to planning mode for them. With the "viewer" role you see tasks and plants read-only. Your browser, not your account, remembers the tenant, site, tab and map view; if someone else signs in on the device, field mode starts fresh for them. If a remembered map view would show hardly any of the plan on the current screen – after turning the phone, for example – the map opens on the whole plan.
+
+!!! warning "Not implemented yet"
+    Without a connection field mode shows a notice and locks **Done** and the quick log; entries are not yet stored on the device and sent later. Photos are attached to a plant for now, not to the bed. **Planted** has no **Undo**. GPS help, the QR code on the bed and the "last watered" layer follow later. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
+
+---
+
+## Working faster in the garden plan {#plan-comfort}
+
+This section describes the aids that save you manual work in planning mode.
+
+**A bed from a template.** In the tool bar, **From template** puts a bed on the plan with one click. You pick a template, turn it in 90-degree steps with **Rotate** if needed, and click where the bed should go (the lower-left corner of a rectangle, the centre of a circle). A dashed preview shows where it lands. Without a mouse, **Place at view centre** puts the bed in the middle of the view. The bed gets the template's name, type, shape and height and is saved at once; Kamerplanter saves your unsaved changes first. This step cannot be taken back with **Undo**. If you do not want the bed, delete it. **Esc** or another tool ends the template choice.
+
+**Standard sizes.** In the **Add with dimensions** dialog, a standard size fills shape, size, bed type and height in one go, for example the raised bed 1.2 × 2.4 m, the raised bed 2 × 1 × 0.8 m or a planter. You can still change every value afterwards. The height is optional.
+
+**Save as template.** With exactly one bed selected, **Save as template** stores its shape, type and height as a template of your garden. Plants, tasks and notes are not part of it, and the template only carries planting distances or soil values if you enter them yourself. Growers and leads create templates.
+
+**Snapping to other objects.** When you move or draw, the plan snaps to corners and edges of other objects before it snaps to the grid. A green line shows the edge you are on. The Alt key or the **Snap** switch turns snapping off. With a pen or a finger the catch zone is larger.
+
+**Align and distribute.** With at least two beds or objects selected, **Align** lines them up on the left, right, top or bottom edge or on the centre. From three objects on, **Distribute evenly** spreads them with equal gaps. Locked objects stay where they are and do not count. Each of these actions is a single step for **Undo**.
+
+**Overview map.** When the garden is much larger than the visible section (more than four times), a small map appears at the bottom right of the plan with the section as a rectangle. A click on it jumps the view there. With the keyboard you keep moving the plan with the arrow keys.
+
+**Auto-save.** The **Auto-save** switch next to **Save** saves your changes two seconds after the last change. It is off by default and applies only to you in this browser. On a conflict or a refused save it pauses and tells you so. Field mode does not have it: every action is sent at once there.
+
+**Duplicate several times.** From the **⋯** menu or the context menu, **Duplicate several times** makes several copies of the selected beds in a row: count, direction, spacing and a naming scheme such as "Plot {n}" (up to 100 copies). That is handy for the plots of a community garden. Kamerplanter first checks that the copies fit completely into the garden and that the limit of 500 beds and objects is enough; if not, nothing is created. One **Undo** takes all copies back. Planting positions, plants and tasks are not copied; you lay out a planting grid for each bed afterwards. <!-- REQ-053 GP-FR-025, GP-FR-029, GP-FR-043, GP-FR-044, GP-FR-045, GP-FR-154, GP-UX-004, GP-UX-014 -->
+
+---
+
 ## Export the plan and restore a backup {#plan-export-import}
 
 On the garden plan page, **Export & import** opens two dialogs.
 
 **Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers; a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
 
-The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks.
+The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks. If you have selected beds or garden objects on the plan, you can limit the backup to **Selection only** or **Selection with everything below**. Such a partial backup has no garden boundary, and references to things that are not in the file are dropped. Every role may read it.
 
 **Restore a backup** leads through the import in three steps. Only a lead can do this.
 
 1. **Choose file:** The file may be at most 5 MB. Kamerplanter checks it right away without writing anything.
 2. **Check report:** You see how much would be created and deleted, which references are not carried over (for example an irrigation zone that does not exist here) and which problems the file has, such as overlapping beds. With problems you cannot continue.
 3. **Mode:** *Add* creates the backup in addition to the existing plan. *Replace* swaps the plan of this site. For that you type the name of the site. Before that, Kamerplanter saves the previous plan as a snapshot in the change log. Download a current backup first anyway, to be safe.
+
+In *Add* mode you can move every shape of the file by a distance (to the right and up, in metres), for example to put a bed somewhere else. **Where is the file going?** tells Kamerplanter whether the file comes from this site, another site or another garden account. For the last two, references that are not in the file are never resolved against this site: they are dropped and listed in the check report. Nothing is read from another account, the file is the transport; you need the lead role in the account you import into.
+
+**Restore an earlier state:** In the first import step this button opens the list of plans that a *Replace* overwrote (kept for one year, lead only). You pick a state, read the check report and type the name of the site. Kamerplanter first saves the current plan as a state of its own, so the restore can be undone. Irrigation zones that the state does not name are removed, and technical zone bindings (actuator, Home Assistant flow) are not restored; set them up again afterwards. *Add* does not create a state.
 
 !!! warning "Beds with active plants"
     A bed with a plant in it is never deleted. While such beds exist, *Replace* rejects the file. If you choose the option to keep those beds, they stay together with the locations above them, and the rest is replaced.
