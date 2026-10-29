@@ -150,9 +150,11 @@ class TestRounding:
         assert point.origin == (1000.0, 0.0)
 
     def test_rotation_that_rounds_to_a_full_turn_wraps_to_zero(self) -> None:
+        """GP-ACC-058: ``rotation_deg = 359.9996`` is stored as ``0.0``."""
         assert RectGeometry(origin=(0, 0), width_m=1, length_m=1, rotation_deg=359.9996).rotation_deg == 0.0
 
     def test_negative_rotation_is_rejected(self) -> None:
+        """GP-ACC-058: a negative ``rotation_deg`` is refused (the API maps it to 422 ``geometry.invalid``)."""
         with pytest.raises(ValidationError, match="rotation_deg"):
             RectGeometry(origin=(0, 0), width_m=1, length_m=1, rotation_deg=-0.0004)
 
