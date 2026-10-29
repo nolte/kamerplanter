@@ -977,14 +977,15 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
 
     @staticmethod
     def _insert_slots(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
-        """Slots of the locations this write inserted (the plan import): two bulk inserts, not 8 000 round trips."""
+        """Slots of the locations this write inserted (the plan import) or of existing beds the caller resolved
+        under the tenant (new season, WP 7.16): two bulk inserts, not 8 000 round trips."""
         if not write.slot_inserts:
             return
         docs: list[dict[str, Any]] = []
         for location_key, slot in write.slot_inserts:
             doc = _dump(slot, by_alias=True, exclude_none=True, mode="json")
             doc.pop("_key", None)
-            doc["location_key"] = key_map[location_key]
+            doc["location_key"] = key_map.get(location_key, location_key)
             doc["created_at"] = doc["updated_at"] = now
             docs.append(doc)
         created = txn.collection(col.SLOTS).insert_many(docs, return_new=False)

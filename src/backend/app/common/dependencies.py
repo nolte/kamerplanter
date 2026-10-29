@@ -106,6 +106,7 @@ from app.domain.services.fertilizer_service import FertilizerService
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
+from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from app.domain.services.garden_resource_service import GardenResourceService
@@ -500,6 +501,13 @@ def get_garden_plan_import_service() -> GardenPlanImportService:
         get_garden_plan_service(),
         get_garden_plan_export_service(),
         dispatch_adjacency=dispatch_adjacency_recompute,
+    )
+
+
+def get_garden_plan_season_service() -> GardenPlanSeasonService:
+    """REQ-053 WP 7.16 - the structure of last year's runs as free slots of the new season."""
+    return GardenPlanSeasonService(
+        get_site_repo(), get_garden_plan_repo(), dispatch_adjacency=dispatch_adjacency_recompute
     )
 
 

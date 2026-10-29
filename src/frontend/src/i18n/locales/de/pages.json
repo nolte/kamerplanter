@@ -6197,7 +6197,9 @@
           "export": "Plan exportieren …",
           "import": "Sicherung einspielen …",
           "leadOnly": "Nur die Leitung darf eine Sicherung einspielen.",
-          "unsaved": "Speichere oder verwirf zuerst deine Änderungen am Plan."
+          "unsaved": "Speichere oder verwirf zuerst deine Änderungen am Plan.",
+          "season": "Neue Saison aus dem Vorjahr …",
+          "seasonLeadOnly": "Nur die Leitung darf eine neue Saison anlegen."
         },
         "export": {
           "title": "Plan exportieren",
@@ -6395,6 +6397,49 @@
             "import_not_empty": "In diesem Plan stehen Beete mit aktiven Pflanzen. Entferne die Pflanzen oder bestätige, dass diese Beete erhalten bleiben.",
             "import_site_name_mismatch": "Der eingegebene Name stimmt nicht mit dem Standort überein.",
             "plan_revision_conflict": "Jemand hat den Plan geändert. Lade den Plan neu und prüfe den Stand noch einmal."
+          }
+        },
+        "season": {
+          "title": "Neue Saison aus dem Vorjahr",
+          "intro": "Legt für jedes Beet ohne aktive Pflanzen die Plätze des Vorjahres als freie Slots neu an. Es entstehen keine Pflanzen und keine Anbaudurchläufe; Zonen und Historie bleiben unverändert.",
+          "year": "Neue Saison (Jahr)",
+          "yearHelp": "Die Plätze stammen aus dem Jahr davor.",
+          "yearInvalid": "Gib ein Jahr zwischen {{min}} und {{max}} ein.",
+          "working": "Einen Moment …",
+          "check": "Prüfen",
+          "confirm": "Freie Slots anlegen",
+          "cancel": "Abbrechen",
+          "close": "Schließen",
+          "unnamedBed": "Beet",
+          "report": {
+            "title": "Prüfung: Plätze aus {{source}} für {{year}}",
+            "summary": "{{slots}} freie Slots in {{beds}} Beeten werden angelegt.",
+            "skipped": "{{beds}} Beete werden übersprungen.",
+            "empty": "Für {{source}} sind keine abgeschlossenen Plätze gespeichert.",
+            "listLabel": "Ergebnis je Beet"
+          },
+          "status": {
+            "copied": "{{slots}} freie Slots",
+            "skipped_active_plants": "übersprungen, es stehen aktive Pflanzen darin",
+            "skipped_retired": "übersprungen, das Beet ist stillgelegt",
+            "skipped_slot_quota": "übersprungen, das Limit von 2 000 Slots würde überschritten",
+            "nothing_to_copy": "nichts zu übernehmen, die Plätze sind schon da"
+          },
+          "outsideBed": "{{count}} Plätze liegen nicht mehr im Beet und werden nicht übernommen.",
+          "showHints": "„Hier stand …“ anzeigen",
+          "hereStood": "Hier stand: {{what}}",
+          "hereStoodUnknown": "Hier stand: nicht erfasst",
+          "promise": "Pflanzen, Anbaudurchläufe, Historie und Zonen werden nicht verändert.",
+          "done": "{{slots}} freie Slots in {{beds}} Beeten angelegt.",
+          "failures": {
+            "failed": "Das hat nicht geklappt. Versuche es gleich noch einmal.",
+            "rateLimited": "Zu viele Anfragen. Warte kurz und versuche es erneut.",
+            "notFound": "Dieser Garten wurde nicht gefunden.",
+            "season_forbidden": "Nur die Leitung darf eine neue Saison anlegen.",
+            "season_invalid_year": "Dieses Jahr ist nicht möglich.",
+            "plan_revision_conflict": "Der Plan wurde inzwischen geändert. Prüfe noch einmal.",
+            "plan_quota_exceeded": "Der Garten würde sein Limit an Slots überschreiten.",
+            "VALIDATION_ERROR": "Die Eingabe ist ungültig."
           }
         }
       },

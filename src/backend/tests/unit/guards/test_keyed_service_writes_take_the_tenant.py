@@ -426,6 +426,9 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     # REQ-053 WP 5.3 (#2432): the plan import resolves the site through ``require_owned_site`` and walks the
     # structure through the repository's site join - no ``get…_by_key`` - while it deletes and inserts a whole plan.
     "GardenPlanImportService": "garden_plan_import_service.py",
+    # REQ-053 WP 7.16 (#2482): the new season resolves the site through ``require_owned_site`` and inserts slots into
+    # its beds in one write set - no ``get…_by_key``, so the keyed-write selector is blind to it.
+    "GardenPlanSeasonService": "garden_plan_season_service.py",
     "BedRotationService": "bed_rotation_service.py",
     # REQ-053 WP 3.7 (#2397): the plant states of a bed. Read-only and resolved through ``resolve_owned_location`` —
     # no ``get…_by_key`` — so a ``list_plant_states`` that lost its ``tenant_key`` would hand out the plants, tasks
@@ -452,6 +455,7 @@ _MIN_TENANT_METHODS: dict[str, int] = {
     "GardenPlanExportService": 5,
     "AdjacencyService": 3,
     "GardenPlanImportService": 5,
+    "GardenPlanSeasonService": 2,
     "BedRotationService": 4,
     "PlantStateService": 1,
     "BedHistoryService": 1,
@@ -556,6 +560,8 @@ _ANCHORED_SERVICES: dict[str, str] = {
     "AdjacencyService": "adjacency_service.py",
     # REQ-053 WP 5.3 (#2432): ``import_plan`` anchors on ``require_owned_site`` and deletes/inserts a whole plan.
     "GardenPlanImportService": "garden_plan_import_service.py",
+    # REQ-053 WP 7.16 (#2482): ``new_season`` anchors on ``require_owned_site`` and inserts slots into the site's beds.
+    "GardenPlanSeasonService": "garden_plan_season_service.py",
     # REQ-053 WP 3.4 (#2394): bed-level rotation hints and the history backfill. ``backfill`` resolves the bed through
     # ``resolve_owned_location`` and writes through ``CareEventService.create``, ``cancel_backfill`` loads the event
     # with ``repo.get`` and voids it — neither names a ``get…_by_key``, so the keyed-write selector is blind to both.
@@ -596,6 +602,8 @@ _EXPECTED_ANCHORED_WRITERS = frozenset(
         # REQ-053 WP 7.19 (#2485): the restore of a snapshot is an ``import_plan`` whose file is a stored plan; it
         # anchors on ``require_owned_site`` and loads the snapshot row under the tenant and the site.
         "GardenPlanImportService.restore_snapshot",
+        # REQ-053 WP 7.16 (#2482): last year's slot places as free slots; anchors on ``require_owned_site``.
+        "GardenPlanSeasonService.new_season",
         "BedRotationService.backfill",
         "BedRotationService.cancel_backfill",
     }

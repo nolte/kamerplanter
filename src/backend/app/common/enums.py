@@ -2016,13 +2016,15 @@ class GeometrySource(StrEnum):
     ``migrated_grid`` marks a point migration M1 (v0093) derived from the legacy
     ``(row, col)`` grid cell — removed in WP 1.5 (#2324) — with the ``pitch_m``
     assumption; the editor shows
-    it as *estimated* until the location is saved once. Additive — a stored value
-    is never retired (M-9).
+    it as *estimated* until the location is saved once. ``season_copy`` marks a slot the
+    "new season from the previous year" action re-created from an archived slot of that
+    year (GP-FR-171, WP 7.16). Additive — a stored value is never retired (M-9).
     """
 
     EDITOR = "editor"
     LAYOUT = "layout"
     MIGRATED_GRID = "migrated_grid"
+    SEASON_COPY = "season_copy"
 
 
 class SlotRole(StrEnum):
