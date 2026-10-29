@@ -204,6 +204,10 @@ From `src/backend/` of the worktree; record actual output in the group's Member 
 ## Dispatch log
 
 <!-- Appended during operation 5. -->
+### Review round 2 — dispatched 2026-10-29T18:20Z → `nolte-engineering:fullstack-developer` — result: G1/G2/G5/G6 reproduced red → fixed green; G3 measured (no change); G4/G7/G8 done (commit `215e2d8dc`)
+- Side finding: `tests/unit/guards/test_legacy_reference_field_readers_are_decided.py` red for `site_repository.ArangoSiteRepository._refuse_active_plants` (#2513 WP-3; bind variable `slot_keys`) → register entry `_ECHO`, `8 passed`, commit `c3c2738d8`.
+- Checks: integration (4 files) `320 passed`; unit set `3192 passed, 19 skipped` (+ the guard after its fix); `ruff check .` → `All checks passed!`; `ruff format --check .` → `2832 files already formatted`; mypy 0 in the 6 touched app files.
+
 ### WP-D1 — 2026-10-29T18:05Z → generalist (orchestrating session) — result: done
 - `spec/req/REQ-053_Grafische-Garten-Beetplanung.md` (+3): §20.12 paragraph „Löschen einer Vorlage (#2528)" (same transaction, tenant vs. system template, provenance not foreign key, REQ-056 §8.4, v0102 step `locations_with_dangling_template_key`); version row „1.6 (Nachtrag #2528)" above the #2513 row. §21.7 restates nothing about deletion (`grep template_key` → only the place-template signature) → no change there.
 - `spec/req/REQ-056_Mandanten-Lebenszyklus-Kontingente.md` (+7/−4): header `Version: 1.7 (…#2528)`, `Datum: 2026-10-29`; changelog row 1.7; §8.4 step 1 exception sentence (provenance references cleared + counted, present system entry kept); step 3 `provenance` flag sentence; **AK-50** (4 columns like AK-49) → `I tests/integration/test_tenant_export_roundtrip.py`, umgesetzt (#2528); traceability row `#2528 → §8.4 Schritt 1 und 3, AK-50`. DE only (D-1).
