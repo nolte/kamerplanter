@@ -5,6 +5,7 @@ from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from pydantic import BaseModel
 
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
@@ -104,8 +105,12 @@ class _SiteDeleteScope:
     dependent_ids: dict[str, list[str]]
 
 
+def _key_of(doc_id: str) -> str:
+    return doc_id.split("/", 1)[1]
+
+
 def _keys(ids: Sequence[str]) -> list[str]:
-    return [doc_id.split("/", 1)[1] for doc_id in ids]
+    return [_key_of(doc_id) for doc_id in ids]
 
 
 class _LocationRepository(BaseArangoRepository[Location]):
@@ -359,7 +364,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         field, not the edge), but it is that other site's structure now — the stale edge itself is still cut with
         the removed parent (:func:`remove_edges`).
         """
-        seen: dict[str, None] = dict.fromkeys(location_ids)
+        seen: dict[str, None] = {doc_id: None for doc_id in location_ids}
         frontier = [root_id, *seen]
         while frontier:
             children = [
@@ -381,7 +386,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
                 )
             ]
             frontier = [doc_id for doc_id in children if doc_id not in seen]
-            seen.update(dict.fromkeys(frontier))
+            seen.update({doc_id: None for doc_id in frontier})
         return list(seen)
 
     @staticmethod
@@ -485,7 +490,8 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     @staticmethod
     def _write_site_delete_audit(txn: StreamTransaction, key: SiteKey, scope: _SiteDeleteScope, user_key: str) -> None:
         """The SR-011 row of the delete (REQ-053 §20.13): who removed which site, at the revision after the last."""
-        record = PlanAuditRecord(
+        # Typed as the pydantic base so `model_dump` resolves (the call-graph sweep's blind-spot ceiling).
+        record: BaseModel = PlanAuditRecord(
             tenant_key=scope.tenant_key,
             site_key=key,
             revision=scope.revision + 1,

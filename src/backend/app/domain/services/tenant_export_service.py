@@ -915,9 +915,11 @@ class TenantExportService:
         missing: list[str] = []
         catalogues = TenantExportEngine.global_catalogues()
         refusing_needs, optional_needs = needs
-        requirements = [(refusing_needs, True)]
+        requirements: list[tuple[dict[str, set[str]], bool]] = [(refusing_needs, True)]
         if resolve_optional:
             requirements.append((optional_needs, False))
+        needed: dict[str, set[str]]
+        targets: str
         for needed, refusing in requirements:
             for targets, keys in needed.items():
                 found: set[str] = set()

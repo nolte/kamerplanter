@@ -257,6 +257,16 @@ FOR e IN @@edges
 """
 
 
+def _split_id(doc_id: str) -> tuple[str, str]:
+    """``"<collection>/<key>"`` -> ``(collection, key)``."""
+    collection, key = doc_id.split("/", 1)
+    return collection, key
+
+
+def _in_collection(doc_id: str, collection: str) -> bool:
+    return doc_id.startswith(f"{collection}/")
+
+
 def _ids(cursor: Any) -> list[str]:
     return [str(doc_id) for doc_id in cast(Cursor, cursor)]
 
@@ -309,7 +319,7 @@ def _locations_of_missing_sites(db: StandardDatabase, gone: Sequence[str]) -> li
         ]
         if not new:
             break
-        removed.update(dict.fromkeys(new))
+        removed.update({doc_id: None for doc_id in new})
         for row in cast(
             Cursor,
             db.aql.execute(
@@ -322,7 +332,7 @@ def _locations_of_missing_sites(db: StandardDatabase, gone: Sequence[str]) -> li
 
 
 def _slots_of_removed_locations(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
-    location_ids = [doc_id for doc_id in gone if doc_id.startswith(f"{_LOCATIONS}/")]
+    location_ids = [doc_id for doc_id in gone if _in_collection(doc_id, _LOCATIONS)]
     if not location_ids or not db.has_collection(_SLOTS):
         return []
     rows = cast(
@@ -333,7 +343,7 @@ def _slots_of_removed_locations(db: StandardDatabase, gone: Sequence[str]) -> li
                 "@slots": _SLOTS,
                 "@has_slot": _HAS_SLOT,
                 "slots_name": _SLOTS,
-                "keys": [doc_id.split("/", 1)[1] for doc_id in location_ids],
+                "keys": [_split_id(doc_id)[1] for doc_id in location_ids],
                 "ids": location_ids,
             },
         ),
@@ -345,18 +355,19 @@ def _dangling_edges(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
     """Every edge of :data:`_EDGE_ENDS` whose listed end names a vertex that is missing or removed above."""
     found: dict[str, None] = {}
     for vertex, ends in _EDGE_ENDS:
-        removed = [doc_id for doc_id in gone if doc_id.startswith(f"{vertex}/")]
+        removed = [doc_id for doc_id in gone if _in_collection(doc_id, vertex)]
         for edge, end in ends:
             if not db.has_collection(edge):
                 continue
             found.update(
-                dict.fromkeys(
-                    _ids(
+                {
+                    doc_id: None
+                    for doc_id in _ids(
                         db.aql.execute(
                             _dangling_end(end), bind_vars={"@edges": edge, "vertex": vertex, "removed": removed}
                         )
                     )
-                )
+                }
             )
     return sorted(found)
 
@@ -397,7 +408,7 @@ def _remove(db: StandardDatabase, ids: Sequence[str]) -> int:
     """
     by_collection: dict[str, list[str]] = {}
     for doc_id in ids:
-        collection, key = doc_id.split("/", 1)
+        collection, key = _split_id(doc_id)
         by_collection.setdefault(collection, []).append(key)
     removed = 0
     for collection, keys in by_collection.items():
@@ -423,7 +434,7 @@ def _unset_template_key(db: StandardDatabase, ids: Sequence[str]) -> int:
     (re-checked in the statement), returns no ``OLD`` row and is not counted, so ``nulled`` may be lower than
     ``matched`` (the same rule as :func:`_remove`).
     """
-    keys = [doc_id.split("/", 1)[1] for doc_id in ids]
+    keys = [_split_id(doc_id)[1] for doc_id in ids]
     nulled = 0
     for start in range(0, len(keys), _BATCH_SIZE):
         nulled += len(
@@ -447,7 +458,7 @@ def _unset_template_key(db: StandardDatabase, ids: Sequence[str]) -> int:
 def _listed(step: str, ids: Sequence[str]) -> list[str]:
     """Edge ids stay ids (the collection says which relation); rows are listed by key."""
     first = list(ids[:_LISTED])
-    return first if step == "dangling_edges" else [doc_id.split("/", 1)[1] for doc_id in first]
+    return first if step == "dangling_edges" else [_split_id(doc_id)[1] for doc_id in first]
 
 
 class PurgeSiteOrphansMigration(Migration):
