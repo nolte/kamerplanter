@@ -198,6 +198,7 @@ def _audit_rows_beyond(db, known: set[str]) -> list[dict[str, Any]]:
 
 class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
     def test_the_structure_goes_and_nothing_else_changes(self, db, seeded) -> None:
+        """GP-ACC-061 (second half): structure and edges gone, history kept, one new audit row."""
         documents, edges = _documents(db), _edges(db)
         gone = set(seeded["site_a"]["gone"])
         assert gone <= set(documents)  # the seed holds what the assertions below claim is removed
@@ -328,6 +329,7 @@ class TestASiteWithActivePlantsIsNotDeleted:
         assert _edges(db) == edges
 
     def test_a_plant_naming_the_site_refuses_the_delete(self, db, seeded) -> None:
+        """GP-ACC-061 (first half): 409 ``site.has_active_plants`` with ``active_plant_count``, nothing deleted."""
         _plant(db, "p_site", A, site_key="site_a")
         self._assert_refused_and_untouched(db, 1)
         for doc_id in seeded["site_a"]["gone"]:

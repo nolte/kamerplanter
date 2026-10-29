@@ -7,7 +7,7 @@ Source of the ids: `spec/req/REQ-053_*.md` section 30. Source of the tests: the 
 that a test claims the criterion; whether it proves it completely stays a review question.
 Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an issue.
 
-**58 of 60 criteria covered, 2 listed as gap.**
+**59 of 61 criteria covered, 2 listed as gap.**
 
 | GP-ACC | Level | Tiers | Tests |
 |---|---|---|---|
@@ -71,3 +71,4 @@ Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an 
 | GP-ACC-058 | I | unit | `src/backend/tests/unit/domain/models/test_geometry.py`<br>`src/backend/tests/unit/domain/models/test_site_plan_fields.py` |
 | GP-ACC-059 | I | unit | `src/backend/tests/unit/migrations/versions/test_v0097_recurrence_cron_to_rrule.py` |
 | GP-ACC-060 | I | api | `src/backend/tests/api/test_garden_plan_api.py` |
+| GP-ACC-061 | I | integration | `src/backend/tests/integration/test_site_delete_cascade.py` |
