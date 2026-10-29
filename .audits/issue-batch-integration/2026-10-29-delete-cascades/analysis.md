@@ -98,6 +98,10 @@ Filled during implementation. Each entry records the dispatched specialist and t
 | #2513 WP-1 | nolte-engineering:fullstack-developer | `pytest tests/unit/data_access/arango/test_graph_edges.py tests/unit/data_access/arango/test_garden_plan_collections.py -q`; `ruff check .`; `ruff format --check .`; `pytest tests/unit/test_route_consumers_check.py -q` | `16 passed in 2.50s`; `All checks passed!`; `2825 files already formatted`; `16 passed` |
 | #2513 WP-2 | nolte-engineering:fullstack-developer | `pytest tests/integration/{test_site_delete_cascade,test_irrigation_zone_repository,test_garden_plan_repository,test_garden_resource_repository,test_garden_plan_tenant_isolation}.py` (ArangoDB 3.12.12 local); `ruff check .`; `ruff format --check .`; `tests/unit -k site` | `1 failed, 358 passed` (failure = pre-existing strict XPASS benchmark, #2526, unrelated); `All checks passed!`; `2826 files already formatted`; `619 passed` |
 | #2513 WP-3 | nolte-engineering:fullstack-developer | `pytest tests/integration/test_site_delete_cascade.py tests/integration/test_irrigation_zone_repository.py` (ArangoDB); unit+API tests; final combined run; `ruff check .`; `ruff format --check .` | `41 passed in 12.14s`; `4 passed`; `91 passed in 33.54s`; `All checks passed!`; `2828 files already formatted` |
+| #2513 WP-4 | nolte-engineering:fullstack-developer | `pytest tests/integration/test_location_delete_cascade.py …` (in the 128-test set) | `128 passed in 37.38s` |
+| #2513 WP-5 | nolte-engineering:fullstack-developer | `pytest tests/unit/migrations -q`; integration set incl. `test_v0102_purge_site_orphans.py`; `ruff check .`; `migration.up(db, dry_run=True)` on local dev DB | `1425 passed, 1 skipped in 142.76s`; `128 passed in 37.38s`; `All checks passed!`; `scanned=0 changed=0 dry_run=True` (stale dev DB; prod-snapshot dry-run still open) |
+| #2513 WP-6 | generalist (no spec-authoring agent) | `grep -c "site.has_active_plants\|GP-ACC-061\|Standort löschen" spec/req/REQ-053_…md` | `4` |
+| #2513 WP-7 | mkdocs-documentation | `.venv-docs/bin/mkdocs build --strict -f <worktree>/mkdocs.yml`; `git diff --stat -- docs` | `Aborted with 3 warnings in strict mode!` (3 pre-existing EN anchor warnings, identical on develop); 4 files, +4/−2 |
 | | | | |
 
 ## Deviations
@@ -116,5 +120,6 @@ Filled during implementation. Each entry records the dispatched specialist and t
 
 | Finding | Source | Outcome | Reproduction | Issue |
 |---|---|---|---|---|
+| strict MkDocs build aborts on 3 EN anchor links (`konfigurationsmatrix.md` ×2, `compliance-anbauvereinigung.md`) | check (WP-7 docs build) | pre-existing on develop, not fixed in the bundle (unrelated files) | same build on develop → same anchors warn, `Aborted with 130 warnings` | — (docs-freshness scope; no issue filed by this group) |
 | `.claude/plugin-adoption.yml` drifted (2 new nolte-shared skills); `check:plugin-shadowing` pre-commit hook rejects every commit | check (pre-commit on the artifact commit) | fixed outside the bundle | `task check:plugin-shadowing -- --refresh` → 2 inventory lines added; hook passes on PR #2557 | PR #2557 (chore, awaiting operator merge) |
 | | | | | |
