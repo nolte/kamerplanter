@@ -330,7 +330,7 @@ jobs:
         # The cache key is src/backend/uv.lock rather than the action's default
         # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
         # five locks, and four of them have nothing to do with this job.
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -517,7 +517,7 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -658,4 +658,4 @@ jobs:
           pip-licenses \
             --from=mixed \
             --ignore-packages python-dateutil uvloop qrcode pyphen \
-            --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 AND BSD-2-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'
+            --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 AND BSD-2-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);ISC;Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'
