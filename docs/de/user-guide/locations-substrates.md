@@ -499,6 +499,8 @@ Im Modus *Hinzufügen* kannst du alle Formen der Datei um einen Abstand verschie
 !!! warning "Beete mit aktiven Pflanzen"
     Ein Beet, in dem eine Pflanze steht, wird nie gelöscht. Solange es solche Beete gibt, weist *Ersetzen* die Datei ab. Wählst du die Option, diese Beete zu behalten, bleiben sie samt den Standorten darüber bestehen, und der Rest wird ersetzt.
 
+**Neue Saison aus dem Vorjahr:** Im Menü **Export & Import** legt **Neue Saison aus dem Vorjahr …** für jedes Beet ohne aktive Pflanzen die Plätze des Vorjahres als freie Slots neu an (nur die Leitung, im selben Standort). Du gibst das Jahr der neuen Saison an; die Plätze stammen aus Abschlüssen des Jahres davor. Zuerst prüft Kamerplanter und zeigt je Beet, was passiert: Beete mit aktiven Pflanzen und stillgelegte Beete werden übersprungen und stehen im Bericht, ebenso ein Beet, das mit den neuen Plätzen über 2 000 Slots käme. Plätze, die schon als freier Slot da sind, werden nicht doppelt angelegt. Zonen, Pflanzen, Anbaudurchläufe und die Historie bleiben unverändert; Fruchtfolge- und Mischkultur-Hinweise nutzen weiter die Belegung des Vorjahres. Mit **„Hier stand …“ anzeigen** blendest du je Beet die Pflanzenfamilie des Vorjahres ein, nur zur Orientierung. Erst **Freie Slots anlegen** schreibt, in einem Schritt mit Eintrag im Änderungsprotokoll; hat sich der Plan seit der Prüfung geändert, prüfst du erneut. <!-- REQ-053 GP-FR-171 -->
+
 Alle Schlüssel werden beim Einspielen neu vergeben. Verknüpfungen zu Home Assistant und zu Aktoren übernimmt Kamerplanter nie; die richtest du danach neu ein. Wer gerade ungespeicherte Änderungen am Plan hat, speichert oder verwirft sie zuerst. Im Feldmodus sind Export und Import ausgeblendet.
 
 ---

@@ -491,6 +491,8 @@ In *Add* mode you can move every shape of the file by a distance (to the right a
 !!! warning "Beds with active plants"
     A bed with a plant in it is never deleted. While such beds exist, *Replace* rejects the file. If you choose the option to keep those beds, they stay together with the locations above them, and the rest is replaced.
 
+**New season from last year:** In the **Export & import** menu, **New season from last year …** re-creates last year's places as free slots for every bed without active plants (lead only, within the same site). You enter the year of the new season; the places come from what was finished in the year before. Kamerplanter checks first and shows what happens per bed: beds with active plants and retired beds are skipped and listed in the report, and so is a bed that would pass 2,000 slots with the new places. Places that already stand as a free slot are not created twice. Zones, plants, planting runs and history stay as they are; crop rotation and companion planting hints keep using last year's occupancy. **Show "Here stood …"** adds the plant family of last year to each bed, for orientation only. Only **Create free slots** writes, in one step with an entry in the change log; if the plan changed since the check, you check again. <!-- REQ-053 GP-FR-171 -->
+
 All keys are newly assigned on import. Links to Home Assistant and to actuators are never carried over; set them up again afterwards. If you have unsaved changes to the plan, save or discard them first. In field mode, export and import are hidden.
 
 ---

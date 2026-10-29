@@ -39,6 +39,7 @@ Routes sent (all tenant-scoped, site-keyed, in app/api/v1/garden_plan):
     PUT  plan/boundary          POST plan/batch
     POST plan/import            POST plan/place-template
     POST plan/snapshots/{audit_key}/restore
+    POST plan/new-season
 Not sent: irrigation-zones/*, bed-templates/*, planting-runs/mixed-culture (they
 need a seeded child resource of their own, so they are not the same pattern).
 """
@@ -91,6 +92,7 @@ ROUTES: tuple[Route, ...] = (
             "document": {"schema_version": "1", "site": {"name": "zap-probe"}, "locations": [], "garden_objects": []},
         },
     ),
+    Route("plan/new-season", "POST", "plan/new-season", {"year": 2027, "dry_run": True}),
     Route(
         "plan/place-template",
         "POST",

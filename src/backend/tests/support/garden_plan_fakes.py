@@ -274,7 +274,9 @@ class FakePlanRepo(IGardenPlanRepository):
             self.slots = [slot for slot in self.slots if slot.location_key != key]
         for temp, slot in write.slot_inserts:
             self._next += 1
-            self.slots.append(slot.model_copy(update={"key": f"slot_{self._next}", "location_key": key_map[temp]}))
+            self.slots.append(
+                slot.model_copy(update={"key": f"slot_{self._next}", "location_key": key_map.get(temp, temp)})
+            )
         if write.snapshot is not None:
             self.snapshots.append(write.snapshot)
             self.snapshot_rows.append(

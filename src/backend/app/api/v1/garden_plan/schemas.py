@@ -592,3 +592,75 @@ class PlanSnapshotRestoreRequest(BaseModel):
     confirm_site_name: str | None = Field(
         default=None, max_length=200, description="Needed unless `dry_run`: the name of the site, typed by the lead."
     )
+
+
+class PlanSeasonRequest(BaseModel):
+    """`POST /sites/{key}/plan/new-season`: the structure of last year's runs as free slots (GP-FR-171, WP 7.16)."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"year": 2027, "dry_run": True, "expected_revision": None}]},
+    )
+
+    year: int = Field(
+        strict=True,
+        ge=2001,
+        le=2100,
+        description=(
+            "The new season. Whole number; the slots archived in `year - 1` are the source. The server refuses "
+            "a year later than next year (422 `season.invalid_year`)."
+        ),
+    )
+    dry_run: bool = Field(default=True, description="Report what would be created; write nothing.")
+    expected_revision: int | None = Field(
+        default=None,
+        ge=0,
+        le=2_147_483_647,
+        description="The `plan_revision` the caller saw; another stored revision is a 409 `plan.revision_conflict`.",
+    )
+
+
+class PlanSeasonBedResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"location_key": "4711", "status": "copied", "slots": 12, "slots_outside_bed": 0}]
+        }
+    )
+
+    location_key: str
+    status: Literal["copied", "skipped_active_plants", "skipped_retired", "skipped_slot_quota", "nothing_to_copy"]
+    slots: int = 0
+    slots_outside_bed: int = 0
+
+
+class PlanSeasonResponse(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "year": 2027,
+                    "source_year": 2026,
+                    "dry_run": True,
+                    "applied": False,
+                    "plan_revision": 43,
+                    "beds_copied": 1,
+                    "beds_skipped": 1,
+                    "slots_to_create": 12,
+                    "beds": [
+                        {"location_key": "4711", "status": "copied", "slots": 12, "slots_outside_bed": 0},
+                        {"location_key": "4712", "status": "skipped_active_plants", "slots": 0, "slots_outside_bed": 0},
+                    ],
+                }
+            ]
+        }
+    )
+
+    year: int
+    source_year: int
+    dry_run: bool
+    applied: bool = False
+    plan_revision: int | None = None
+    beds_copied: int = 0
+    beds_skipped: int = 0
+    slots_to_create: int = 0
+    beds: list[PlanSeasonBedResponse] = Field(default_factory=list, max_length=500)
