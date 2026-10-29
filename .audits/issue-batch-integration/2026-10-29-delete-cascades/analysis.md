@@ -71,6 +71,27 @@ Columns derived from the repository: backend source (`src/backend/pyproject.toml
 
 **Class sweep (fix bundle, one section):** predicate = `for V in vertex collections with a delete_*: _edges_touching(V) − edges cut by delete_*` plus `for (field, target) in FIELD_REFERENCES internal pairs: does target.delete_* null/remove field OR import treat it nullable`. Run once at group level; residual gaps (`delete_location` field referrers, `delete_substrate`, `delete_garden_object` path) are **filed** as one follow-up issue, not fixed here, unless open question 4 says otherwise.
 
+## Class sweep (measured 2026-10-29T18:15Z on the integration branch, `ab33b0925`)
+
+**Predicate (1):** for every vertex collection `V` with a repository `delete_*`: `edges_touching(V)` minus the edges that delete cuts (name-based scan of the method body; derived-set calls count as the full set). **Predicate (2):** every `_internal(target)` reference pair of `TenantExportEngine` — see the #2528 plan §Class sweep (39 targets, 80 paths; 10 hybrid targets, only `workflow_phases → task_templates` nulls its referrer today).
+
+| V | delete | `edges_touching(V)` | residual (not cut) | verdict |
+|---|---|---|---|---|
+| `sites` | `delete_site` | 11 | — (derived set) | fixed by #2513 |
+| `locations` | `delete_location` | 17 | — (derived set) | fixed by #2513 |
+| `irrigation_zones` | `delete_zone` | 5 | — (derived `ZONE_EDGES`) | already derived (WP 7.1) |
+| `garden_objects` | `delete_garden_object` | 3 | none | ok |
+| `slots` | `delete_slot` → `_delete_slot_internal` | 7 | `log_slot`, `placed_in`, `run_planned_at`, `system_has_growbed` (cuts `adjacent_to`, `filled_with`, `has_slot`) | **residual → follow-up issue** |
+| `bed_templates` | `delete_template` | 1 (`belongs_to_tenant`) | edge defined for templates but never written (`grep -rn BELONGS_TO_TENANT app/ | grep -i template` → none) | not a gap |
+| `substrates` | `delete_substrate` (bare `super().delete`) | 1 (`uses_type`) | `uses_type` + the `substrate_key` referrers of predicate (2) | **residual → follow-up issue** (gate Q4) |
+| `plant_instances` | base `delete` | 27 | 23 named edges not referenced by any dedicated delete (plants are mostly removed via erasure/run services — lower bound, unmeasured there) | **residual → follow-up issue** (listed, not scoped here) |
+
+Predicate (2) residuals (hybrid targets whose delete does not null referrers): `substrates`, `species`, `cultivars`, `fertilizers`, `activities`, `task_templates`, partial `nutrient_plans`, `workflow_templates` — one decision per pair belongs to the guard issue #2556.
+
+Helper duplicates found by the sweep (same derivation, different files): `planting_reservation_repository.py:60` (`_edges_touching` copy), `irrigation_zone_repository.py:50,596` (`_edges_touching_zones`, own `_remove_edges`) → same follow-up issue.
+
+Sweep script and raw output: `scratchpad/class_sweep.txt` of the orchestrating session (name-based approximation; `delete_slot` and `bed_templates` re-checked by reading the method bodies).
+
 ## Risks
 
 - **Blast radius of #2513.** The issue names 3 collections; the measured dependent set is ~20. A derived cascade is the right fix for the class but changes behaviour for REQ-046/047/037 rows (weather, season states, irrigation demands) on a site delete. Cost if wrong: data a user expected to survive a site delete disappears — mitigated by the 409 on active plants and the spec sentence.
@@ -126,6 +147,16 @@ Filled during implementation. Each entry records the dispatched specialist and t
 
 | Finding | Source | Outcome | Reproduction | Issue |
 |---|---|---|---|---|
+| #2528 WP-A: tenant-template delete skips beds with empty `site_key` anchored only via `contains` under a tenant bed — Low | code-security-reviewer (+ python reviewer, suspected) | fix directly (round 2): resolve the site through an INBOUND `contains` traversal when `site_key` is empty | integration test: nested bed `site_key ""` under tenant-A bed → released; tenant-B twin untouched | — |
+| #2528 WP-C: v0102 nulling UPDATE does not re-check at write time (bed re-templated between plan and apply would be nulled) — Low | both reviewers | fix directly (round 2): `FILTER … DOCUMENT(@templates, l.template_key) == null` in the UPDATE, count `RETURN OLD._key` | integration test: live template given before apply → `nulled == matched − 1` | — |
+| #2528 WP-C: `template_key` in id form (`sites/<key>`) might resolve `DOCUMENT(@templates, …)` to another collection — Info | code-security-reviewer | measure in round 2; guard with `IS_SAME_COLLECTION`/`!CONTAINS("/")` if it resolves | `RETURN DOCUMENT("bed_templates", "sites/<existing>")` | — |
+| `api/v1/bed_templates/tenant_router.py:102-103` docstring still says beds keep `template_key` as provenance (reaches OpenAPI) — Info | code-security-reviewer | fix directly (round 2) | read | — |
+| `TenantExportEngine.validate()` does not enforce the provenance contract (internal + hybrid target) and no guard pins the provenance path set — Suggestion D11 | python-code-reviewer | fix directly (round 2): rule in `validate()` + guard test pinning `{locations.template_key, locations.soil_profile.substrate_key}` | unit: `_provenance` on a non-hybrid target fails validation | — |
+| `catalogue_requirements()`/`optional_catalogue_requirements()` + two `_catalogue_rows` calls = four archive passes per import — Suggestion D7 | python-code-reviewer | fix directly (round 2): one `_catalogue_needs()` pass returning `(refusing, optional)` per call site | spy: `_catalogue_needs` once per `_catalogue_rows` | — |
+| `test_a_missing_provenance_key_does_not_refuse_at_request_time` asserts only `created.key` — test health | python-code-reviewer | fix directly (round 2): assert the missing set, confirm roundtrip asserts `nulled_references >= 2` + kept `sys_bed_2x1` | test | — |
+| count returned by `_unset_template_key` unused, released beds not logged — Info | both reviewers | fix directly (round 2): log `released_beds` without changing the `bool` return | log assertion | — |
+| `soil_profile.substrate_key` as provenance is a domain decision (missing substrate row cleared silently) — Info | python-code-reviewer | accepted: gate Q4 named `substrate_key` explicitly; documented in REQ-056 v1.7 and docs | — | — |
+| import stores `template_key: null`, repo and v0102 remove the attribute — cosmetic inconsistency | python-code-reviewer | accepted (both read as `None`; v0102 ignores null) | — | — |
 | v0102 `DOCUMENT(e._to)` with a missing vertex collection (suspected error) | python-code-reviewer | measured, no change | `RETURN DOCUMENT("nonexistent_collection_x/x")` on ArangoDB 3.12.12 → `[None]`, no error; comment added at `_dangling_end` | — |
 | `site_repository.py` contains-closure removes a bed re-homed to another site (`update_location` moves `site_key`, stale `contains` edge stays) — Medium | member verification pass (code-security-reviewer) | fixed directly | `test_a_bed_rehomed_to_another_site_stays_with_its_subtree_and_slots` red: `AssertionError: locations/moved / None is not None` → green; `_contains_closure(…, site_key=)` keeps hits with `site_key` null/""/equal only (`site_repository.py:348-372`) | — |
 | `has_slot` branch takes a slot whose `location_key` points to another (tenant-B) location — Low, legacy data | code-security-reviewer | fixed directly | `…slot_reached_only_by_edge…` red: `document('slots/…') is None` → green; edge-only slot counts only with `location_key` null/"" (repo l.402, v0102 l.205) | — |
