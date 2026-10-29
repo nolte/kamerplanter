@@ -585,6 +585,7 @@ def _archive_bytes(
     attachments: list[dict[str, Any]] | None = None,
     objects: dict[str, bytes] | None = None,
     plants: list[dict[str, Any]] | None = None,
+    locations: list[dict[str, Any]] | None = None,
 ) -> bytes:
     from app.domain.engines.tenant_export_engine import TenantArchiveWriter
 
@@ -596,6 +597,8 @@ def _archive_bytes(
         writer.write_lines("collections/attachments.jsonl", [attachments])
     if plants:
         writer.write_lines("collections/plant_instances.jsonl", [plants])
+    if locations:
+        writer.write_lines("collections/locations.jsonl", [locations])
     writer.write_lines(
         "members.jsonl",
         [
@@ -644,6 +647,54 @@ class TestTheArchiveIsAuthenticated:
         with pytest.raises(TenantImportRefusedError) as refused:
             _import(world.build(), _archive_bytes(), {"old-lead": {"email": "lead@example.com", "role": "owner"}})
         assert refused.value.error_code == "IMPORT_MEMBER_NOT_FOUND"
+
+
+class _CatalogueStore(_Store):
+    """A target whose catalogue holds exactly ``rows`` (``"<collection>/<key>"``); records every lookup."""
+
+    def __init__(self, *rows: str) -> None:
+        super().__init__()
+        self.rows = set(rows)
+        self.asked: list[tuple[str, tuple[str, ...]]] = []
+
+    def existing_global_keys(self, collection: str, keys: list[str], *, any_row: bool = False) -> set[str]:
+        self.asked.append((collection, tuple(keys)))
+        return {key for key in keys if f"{collection}/{key}" in self.rows}
+
+
+class TestProvenanceReferencesNeverRefuse:
+    """#2528: a bed's missing template or substrate does not refuse the archive; a missing species still does."""
+
+    _BED = {"_key": "l1", "site_key": "s1", "template_key": "tpl-gone", "soil_profile": {"substrate_key": "sub-gone"}}
+
+    def test_a_missing_provenance_key_does_not_refuse_at_request_time(self, world) -> None:
+        created = _import(world.build(), _archive_bytes(locations=[self._BED]))
+        assert created.key
+
+    def test_a_missing_species_key_still_refuses(self, world) -> None:
+        data = _archive_bytes(
+            locations=[self._BED], plants=[{"_key": "p1", "tenant_key": "t-src", "species_key": "sp-gone"}]
+        )
+        with pytest.raises(TenantImportRefusedError) as refused:
+            _import(world.build(), data)
+        assert refused.value.error_code == "IMPORT_MISSING_CATALOG_ENTRIES"
+        assert [detail["reason"] for detail in refused.value.details] == ["species/sp-gone"]
+
+    def test_a_provenance_key_is_still_resolved_against_the_target(self, world) -> None:
+        """Skipping the lookup would leave an existing system template out of ``existing`` and clear a valid key."""
+        from app.domain.engines.tenant_export_engine import read_tenant_archive
+        from app.domain.engines.tenant_import_engine import TenantImportEngine
+
+        store = _CatalogueStore("bed_templates/sys_bed_2x1")
+        bed = {**self._BED, "template_key": "sys_bed_2x1"}
+        archive = read_tenant_archive(io.BytesIO(_archive_bytes(locations=[bed])))
+        engine = TenantImportEngine(archive, target_tenant_key="t-new", member_accounts={})
+
+        existing, missing = world.build(store=store)._catalogue_rows(engine)
+
+        assert existing == {"bed_templates/sys_bed_2x1"} and missing == []
+        assert ("bed_templates", ("sys_bed_2x1",)) in store.asked
+        assert ("substrates", ("sub-gone",)) in store.asked
 
 
 class TestTheStepUpComesFirstAndNamesTheArchive:

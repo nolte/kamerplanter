@@ -23,7 +23,13 @@ Rules per reference kind (``TenantReference.kind``):
   (hybrid) catalogue — collected first and checked by the service
   (``IMPORT_MISSING_CATALOG_ENTRIES``); otherwise a dangling pointer of the
   source, which is **cleared**, never kept (a kept key could name a row of
-  another tenant in the target database).
+  another tenant in the target database). A reference declared as
+  *provenance* (``TenantReference.provenance``: a bed's template and substrate,
+  #2528) is resolved the same way — against the archive and the target's
+  catalogue, so an existing system row is kept — but a key found in neither is
+  cleared and counted instead of refusing the archive: it is collected by
+  :meth:`TenantImportEngine.optional_catalogue_requirements`, not by
+  :meth:`TenantImportEngine.catalogue_requirements`.
 * ``global`` — kept; collected for the catalogue check.
 * ``account`` — an account the admin mapped → that account; anything else
   becomes the pseudonym ``_anonymized`` (§8.4 step 4). A pseudonym or an erasure
@@ -202,13 +208,29 @@ class TenantImportEngine:
         )
 
     def catalogue_requirements(self) -> dict[str, set[str]]:
-        """Every global catalogue row the archive points at: ``collection -> keys`` (to be checked by the store)."""
+        """Every global catalogue row the archive points at and cannot do without: ``collection -> keys``.
+
+        The store checks these; a missing one refuses the archive (``IMPORT_MISSING_CATALOG_ENTRIES``).
+        """
+        return self._catalogue_needs()[0]
+
+    def optional_catalogue_requirements(self) -> dict[str, set[str]]:
+        """The catalogue rows only *provenance* references point at: resolved like the others, never refusing.
+
+        The store must still resolve them - an existing (system) row goes into ``existing_global`` and the key is
+        kept; a missing one is cleared by :meth:`remap_document` and counted in ``nulled_references`` (#2528).
+        """
+        return self._catalogue_needs()[1]
+
+    def _catalogue_needs(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+        """``(refusing, optional)`` catalogue keys of every row and edge of the archive."""
         needed: dict[str, set[str]] = {}
+        optional: dict[str, set[str]] = {}
         for collection, documents in self._archive.collections.items():
             for row in documents:
                 document: dict[str, Any] = row
                 for reference, value in self._references_in(collection, document):
-                    self._require_catalogue(needed, reference, value, document)
+                    self._require_catalogue(optional if reference.provenance else needed, reference, value, document)
         for edges in self._archive.edges.values():
             for row in edges:
                 edge: dict[str, Any] = row
@@ -219,7 +241,7 @@ class TenantImportEngine:
                         collection in self._hybrid and key not in self._table(collection)
                     ):
                         needed.setdefault(collection, set()).add(key)
-        return needed
+        return needed, optional
 
     def _table(self, collection: str) -> dict[str, str]:
         return self.mapping.get(collection, {})

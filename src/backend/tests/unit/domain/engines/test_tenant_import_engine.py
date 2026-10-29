@@ -220,3 +220,57 @@ def test_remapping_a_row_twice_gives_the_same_row_because_the_archive_is_not_rew
     second = engine.remap_document("sites", row, existing_global=set())
 
     assert first == second and row["plan"]["underlay"]["attachment_key"] == "a1"
+
+
+class TestProvenanceReferences:
+    """#2528: a bed's template and substrate are provenance - resolved like any catalogue key, never refusing."""
+
+    @staticmethod
+    def _bed_archive(**bed: object) -> TenantArchive:
+        return _archive(
+            sites=[{"_key": "s1", "tenant_key": SOURCE}],
+            locations=[{"_key": "l1", "site_key": "s1", **bed}],
+            plant_instances=[{"_key": "p1", "tenant_key": SOURCE, "species_key": "sp-1"}],
+        )
+
+    def test_a_provenance_key_is_optional_and_a_species_key_still_refuses(self) -> None:
+        engine = _engine(self._bed_archive(template_key="tpl-gone", soil_profile={"substrate_key": "sub-gone"}))
+
+        assert engine.catalogue_requirements() == {"species": {"sp-1"}}
+        assert engine.optional_catalogue_requirements() == {
+            "bed_templates": {"tpl-gone"},
+            "substrates": {"sub-gone"},
+        }
+
+    def test_a_provenance_key_held_by_the_archive_needs_no_catalogue(self) -> None:
+        archive = self._bed_archive(template_key="tpl-1")
+        archive.collections["bed_templates"] = [{"_key": "tpl-1", "tenant_key": SOURCE}]
+
+        engine = _engine(archive)
+        bed = engine.remap_document("locations", archive.collections["locations"][0], existing_global=set())
+
+        assert engine.optional_catalogue_requirements() == {}
+        assert bed["template_key"] == engine.mapping["bed_templates"]["tpl-1"]
+        assert engine.nulled_references == 0
+
+    def test_a_missing_provenance_key_is_cleared_and_counted(self) -> None:
+        archive = self._bed_archive(template_key="tpl-gone", soil_profile={"substrate_key": "sub-gone"})
+        engine = _engine(archive)
+
+        bed = engine.remap_document("locations", archive.collections["locations"][0], existing_global=set())
+
+        assert bed["template_key"] is None and bed["soil_profile"]["substrate_key"] is None
+        assert engine.nulled_references == 2
+
+    def test_an_existing_system_template_is_kept(self) -> None:
+        archive = self._bed_archive(template_key="sys_bed_2x1", soil_profile={"substrate_key": "sub-global"})
+        engine = _engine(archive)
+
+        bed = engine.remap_document(
+            "locations",
+            archive.collections["locations"][0],
+            existing_global={"bed_templates/sys_bed_2x1", "substrates/sub-global"},
+        )
+
+        assert bed["template_key"] == "sys_bed_2x1" and bed["soil_profile"]["substrate_key"] == "sub-global"
+        assert engine.nulled_references == 0

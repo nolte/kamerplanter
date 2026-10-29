@@ -592,6 +592,61 @@ def test_a_missing_catalogue_entry_refuses_and_writes_nothing(source, target, tm
     assert target.collection("tenant_import_requests").count() == 0
 
 
+def test_a_bed_whose_template_and_substrate_are_gone_imports_with_the_references_cleared(
+    source, target, tmp_path
+) -> None:
+    """#2528 (REQ-056 §8.4 step 1): a bed's template and substrate are provenance. Gone from both the archive and
+    the target's catalogue, they are cleared and counted - not a refusal. A bed naming a system template the target
+    has keeps it (the positive control: provenance keys are still resolved against the catalogue).
+
+    The dangling state is seeded by removing the rows directly - the repository delete would release the bed
+    (WP-A) and the archive would carry no dangling key at all."""
+    seeded = _seed_tenant(source, A)
+    system_template = {"_key": "sys_bed_2x1", "name": "System bed", "location_type_key": "bed"}
+    source.collection("bed_templates").insert(system_template)
+    target.collection("bed_templates").insert(system_template)
+    source.collection("bed_templates").insert({"_key": "tpl-own", "tenant_key": A, "name": "Own"})
+    source.collection("substrates").insert({"_key": "sub-own", "tenant_key": A, "name": "Own mix"})
+    source.collection("locations").update(
+        {"_key": seeded["loc"], "template_key": "tpl-own", "soil_profile": {"substrate_key": "sub-own"}}
+    )
+    source.collection("locations").insert(
+        {"_key": "loc-sys", "site_key": seeded["site"], "name": "Bed 2", "template_key": "sys_bed_2x1"}
+    )
+    source.collection("bed_templates").delete("tpl-own")
+    source.collection("substrates").delete("sub-own")
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "New lead", "account_type": "human"}
+    )
+    dst = _service(target, tmp_path / "dst")
+
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping={f"{A}-{LEAD}": _grant("new-lead@example.com")},
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+
+    assert finished is not None and finished.status == "completed", finished
+    beds = {
+        doc["name"]: doc
+        for doc in target.aql.execute(
+            "FOR s IN sites FILTER s.tenant_key == @t FOR l IN locations FILTER l.site_key == s._key RETURN l",
+            bind_vars={"t": finished.target_tenant_key},
+        )
+    }
+    assert beds["Bed 1"].get("template_key") is None
+    assert (beds["Bed 1"].get("soil_profile") or {}).get("substrate_key") is None
+    assert beds["Bed 2"]["template_key"] == "sys_bed_2x1"
+    assert finished.report["nulled_references"] >= 2
+
+
 def test_a_failure_mid_import_leaves_no_tenant_behind(source, target, tmp_path) -> None:
     _seed_tenant(source, A)
     archive = read_tenant_archive(

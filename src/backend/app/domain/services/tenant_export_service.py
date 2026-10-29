@@ -898,19 +898,29 @@ class TenantExportService:
             )
 
     def _catalogue_rows(self, engine: TenantImportEngine) -> tuple[set[str], list[str]]:
-        """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced."""
+        """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced.
+
+        Provenance references (#2528) are resolved too - an existing system row must land in ``existing`` or the
+        rewrite would clear a valid key - but a missing one is not a refusal: the rewrite clears and counts it.
+        """
         existing: set[str] = set()
         missing: list[str] = []
         catalogues = TenantExportEngine.global_catalogues()
-        for targets, keys in engine.catalogue_requirements().items():
-            found: set[str] = set()
-            for collection in targets.split("|"):
-                # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
-                # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
-                hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
-                existing.update(f"{collection}/{key}" for key in hits)
-                found |= hits
-            missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
+        requirements = (
+            (engine.catalogue_requirements(), True),
+            (engine.optional_catalogue_requirements(), False),
+        )
+        for needs, refusing in requirements:
+            for targets, keys in needs.items():
+                found: set[str] = set()
+                for collection in targets.split("|"):
+                    # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
+                    # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
+                    hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
+                    existing.update(f"{collection}/{key}" for key in hits)
+                    found |= hits
+                if refusing:
+                    missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
         return existing, sorted(missing)
 
     def _missing_catalogue_entries(self, engine: TenantImportEngine) -> list[str]:
@@ -1196,6 +1206,9 @@ class TenantExportService:
                     beat()
                 report["objects"] = len(objects_written)
             report["members"] = len({m.user_key for m in members} | {owner})
+            if engine.nulled_references:
+                # REQ-056 §8.4 / §13.5 (#2528): how many references the import had to clear - a count, no keys.
+                report["nulled_references"] = engine.nulled_references
             for part, stated_rows in sorted(archive.ignored_parts.items()):
                 # Format 1's reader does not import optional parts (readings, #2138): said, not hidden.
                 report[f"not_imported:{part}"] = stated_rows
