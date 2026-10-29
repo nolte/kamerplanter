@@ -2,7 +2,9 @@
  * Bed read model (REQ-053 WP 3.5): the bed list row (GP-API-011), the summary that heads the bed view
  * (GP-API-012) and the soil profile (GP-FR-120/121). Derived from `app/api/v1/locations/schemas.py`.
  */
-import type { BedStatus, Geometry, SunExposure, SunWindow } from '../model/types';
+import type { BedStatus, Geometry, SoilDrainage, SunExposure, SunWindow } from '../model/types';
+
+export type { SoilDrainage };
 
 export type GrowingMediumKind =
   | 'native_soil'
@@ -19,7 +21,6 @@ export type SoilTexture =
   | 'clay_loam'
   | 'clay'
   | 'unknown';
-export type SoilDrainage = 'poor' | 'moderate' | 'good' | 'unknown';
 export type SiteWaterRegime = 'dry' | 'fresh' | 'moist' | 'wet' | 'unknown';
 export type SoilCondition = 'compacted' | 'depleted' | 'waterlogged' | 'crusting' | 'stony';
 export type PhMethod = 'cacl2' | 'h2o' | 'probe_unknown';

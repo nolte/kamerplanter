@@ -31,7 +31,13 @@ import FlipToFrontIcon from '@mui/icons-material/FlipToFront';
 import LockIcon from '@mui/icons-material/Lock';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import type { PlanModel } from '../model/planModel';
-import type { Geometry, PlanEntity, PlanOperation, SunExposure } from '../model/types';
+import type {
+  Geometry,
+  PlanEntity,
+  PlanOperation,
+  PlanSunProfilePatch,
+  SunExposure,
+} from '../model/types';
 import type { RendererLabels } from '../renderer';
 import type { SelectionRef, SelectionStack } from '../state/gardenPlanSlice';
 import { EDITOR_ANCHORS } from './anchors';
@@ -54,6 +60,9 @@ import { firstViolation } from './tools/validation';
 
 // The tiles load when a bed is selected: the panel is part of the editor chunk, the tiles are not (E-12 budget).
 const SunTileSelector = lazy(() => import('../bed/SunTileSelector'));
+// The sun window chips, the hours and the leaf-shade switch (GP-FR-158/159, #2538): the same lazy chunk the bed
+// dialog and the field-mode sheet load.
+const SunWindowFields = lazy(() => import('../bed/SunWindowFields'));
 
 const PREFIX = 'pages.gardenPlan.editor';
 const SUN_PREFIX = 'pages.gardenPlan.sun';
@@ -187,6 +196,23 @@ function EntityForm({
     );
   };
 
+  // One `update_fields` per change, through the pending model like the tiles: a PATCH from here would raise
+  // the plan revision outside the editor and turn the next save into a 409 (#2538).
+  const commitSunProfile = (sunProfile: PlanSunProfilePatch) => {
+    if (entity !== 'location' || Object.keys(sunProfile).length === 0) return;
+    onCommit(
+      [
+        {
+          op: 'update_fields',
+          entity: 'location',
+          key: entityKey,
+          fields: { site_conditions: { sun_profile: sunProfile } },
+        },
+      ],
+      'edit',
+    );
+  };
+
   const fields = geometry ? geometryFields(geometry) : [];
   const points = geometry ? pointList(geometry) : [];
   const typeLabel =
@@ -246,6 +272,18 @@ function EntityForm({
               disabled={locked}
               onChange={commitSun}
             />
+          </Suspense>
+          <Suspense fallback={SUN_FALLBACK}>
+            <Box sx={{ mt: 2 }}>
+              <SunWindowFields
+                key={entityKey}
+                value={plan.locations[entityKey]?.site_conditions?.sun_profile ?? {}}
+                disabled={locked}
+                touchTarget={48}
+                testId="garden-plan-panel-sun-profile"
+                onChange={commitSunProfile}
+              />
+            </Box>
           </Suspense>
         </Box>
       )}
