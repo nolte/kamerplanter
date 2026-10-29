@@ -1239,6 +1239,28 @@ class TestBedTemplatesAreScopedToTheTenant:
         refused = client.post(url, json={**body, "template_key": "tpl_b", "expected_revision": 2})
         assert refused.status_code == 422 and "reference.not_found" in _error_codes(refused)
 
+    def test_deleting_the_own_template_releases_the_placed_bed_and_leaves_tenant_b_alone(self, db) -> None:
+        """#2528: the bed placed from ``tpl_a`` loses its provenance; a B bed naming the same key is not touched."""
+        client = _client(db)
+        placed = client.post(
+            f"/api/v1/t/{SLUG_A}/sites/site_a/plan/place-template",
+            json={"template_key": "tpl_a", "origin": [5, 5], "rotation_deg": 0, "expected_revision": 1},
+        )
+        assert placed.status_code == 200, placed.text
+        (real,) = placed.json()["key_map"].values()
+        db.collection(col.LOCATIONS).update({"_key": "bed_b", "template_key": "tpl_a"})
+        tenant_b_before = db.collection(col.LOCATIONS).get("bed_b")
+
+        deleted = client.delete(f"/api/v1/t/{SLUG_A}/bed-templates/tpl_a")
+
+        assert deleted.status_code == 204, deleted.text
+        plan = client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan")
+        assert plan.status_code == 200, plan.text
+        (bed,) = [loc for loc in plan.json()["locations"] if loc["key"] == real]
+        assert bed.get("template_key") is None  # the plan omits an unset value
+        assert "template_key" not in db.collection(col.LOCATIONS).get(real)
+        assert db.collection(col.LOCATIONS).get("bed_b") == tenant_b_before
+
 
 class TestTheMatrixCanFail:
     """The same assertion, aimed at services that skip the ownership predicate, must raise — for every case."""
