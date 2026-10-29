@@ -168,3 +168,9 @@ From `src/backend/` of the worktree; record actual output in the group's Member 
 ## Dispatch log
 
 <!-- Appended during operation 5. -->
+### WP-1 — dispatched 2026-10-29T16:25Z → `nolte-engineering:fullstack-developer` — result: hypothesis holds
+- Files: new `app/data_access/arango/graph_edges.py` (`EdgeEndpoint`, `edges_touching(vertex_collection) -> tuple[tuple[str, EdgeEndpoint], ...]`, `remove_edges(txn, edge_collection, field, ids: Sequence[str])` raising `ValueError` on a field other than `_from`/`_to`); `garden_plan_repository.py` uses them directly (6 call sites), private helpers removed, unused `aql_field` import gone; new `tests/unit/data_access/arango/test_graph_edges.py` (10 tests).
+- Behaviour preserved: `_BATCH_WRITE`, `_BATCH_READ`, `_SLOT_BATCH_WRITE`, `_SLOT_BATCH_READ`, `_LOCATION_EDGES`, `_SLOT_EDGES`, `_OBJECT_EDGES` compared old vs new module → all equal.
+- Checks (actual output): `pytest tests/unit/data_access/arango/test_graph_edges.py tests/unit/data_access/arango/test_garden_plan_collections.py -q` → `16 passed in 2.50s`; `--collect-only` on `test_garden_plan_repository.py` + `test_garden_resource_repository.py` → `64 tests collected` (ArangoDB not reachable locally, not run); `ruff check .` → `All checks passed!`; `ruff format --check .` → `2825 files already formatted`; `pytest tests/unit/test_route_consumers_check.py -q` → `16 passed`; `pytest tests/unit -k "garden_plan or graph_edges or aql_attribute or slot_delete"` → `403 passed`; mypy: 0 errors in the two files, 56 pre-existing elsewhere unchanged.
+- Observations for the sweep (not changed, out of WP scope): `planting_reservation_repository.py:60` carries an identical copy of `_edges_touching`; `irrigation_zone_repository.py:50` has `_edges_touching_zones` + its own `_remove_edges`.
+- `edges_touching(SITES)` = 11 pairs incl. `belongs_to_tenant` (D-1 confirmed); nested locations' `site_key` not guaranteed → traversal ∪ field union in WP-2.

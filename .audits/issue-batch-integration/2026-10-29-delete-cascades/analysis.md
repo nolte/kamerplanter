@@ -95,6 +95,7 @@ Filled during implementation. Each entry records the dispatched specialist and t
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
+| #2513 WP-1 | nolte-engineering:fullstack-developer | `pytest tests/unit/data_access/arango/test_graph_edges.py tests/unit/data_access/arango/test_garden_plan_collections.py -q`; `ruff check .`; `ruff format --check .`; `pytest tests/unit/test_route_consumers_check.py -q` | `16 passed in 2.50s`; `All checks passed!`; `2825 files already formatted`; `16 passed` |
 | | | | |
 
 ## Deviations
@@ -113,4 +114,5 @@ Filled during implementation. Each entry records the dispatched specialist and t
 
 | Finding | Source | Outcome | Reproduction | Issue |
 |---|---|---|---|---|
+| `.claude/plugin-adoption.yml` drifted (2 new nolte-shared skills); `check:plugin-shadowing` pre-commit hook rejects every commit | check (pre-commit on the artifact commit) | fixed outside the bundle | `task check:plugin-shadowing -- --refresh` → 2 inventory lines added; hook passes on PR #2557 | PR #2557 (chore, awaiting operator merge) |
 | | | | | |
