@@ -39,6 +39,7 @@ Changes not yet published in a release.
 
 ### Frontend
 
+- **Garden plan: sun window and leaf shade in the properties panel** (issue #2538, REQ-053 GP-FR-158/159): when you select a bed, the properties panel shows the sun window chips, the summer sun hours and the leaf-shade switch under the sun tiles. A change is part of the plan save and can be taken back with **Undo**, also after saving. The plan read model (`GET /api/v1/t/{slug}/sites/{key}/plan`) now carries a bed's `site_conditions` (sun profile and frost risk) and `soil_profile.drainage`; unknown values are left out. The plan batch accepts `site_conditions.sun_profile` in `update_fields` and merges the keys sent; every other part of the site conditions is refused with `422` and stays on `PATCH /locations/{key}`.
 - **Take-over dialog after the upgrade to full** (Issue #1855, REQ-027 scenarios 5/6): After the switch from light to full mode, a dialog asks the first account whether to take the previous garden over and shows what it holds (plants, sites, runs, nutrient plans, tasks). "Yes, take it over" switches straight into the garden, "No, start fresh" leaves it for the admin area, "Decide later" asks again at the next sign-in. The decision is confirmed with your password (or a fresh sign-in at your provider, or a code).
 - All REQ-001 through REQ-024 frontend pages implemented
 - **REQ-020** Onboarding wizard (5-step MUI Stepper)
