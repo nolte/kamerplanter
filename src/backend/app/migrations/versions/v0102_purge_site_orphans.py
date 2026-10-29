@@ -5,11 +5,15 @@ cut a hand list of edges. What they left is removed here, in this order:
 
 1. every row of ``garden_objects``, ``season_states``, ``weather_forecasts``, ``climate_normals``,
    ``weather_source_configs`` and ``irrigation_demands`` whose non-empty ``site_key`` names no ``sites`` document;
-2. every location whose non-empty ``site_key`` names no site and that no ``contains`` edge reaches from a vertex
-   that stays — plus the locations below it that name no live site and hang under nothing that stays;
-3. the slots of those locations (by ``location_key`` and by ``has_slot``);
-4. every edge of the derived edge sets (:data:`_EDGE_ENDS`) whose end in one of those vertex collections names a
-   vertex that does not exist or is removed by steps 1–3.
+2. every garden object without a ``site_key`` that ``has_garden_object`` edges reach from missing sites only — the
+   edge is its only link, and step 5 cuts it;
+3. every location whose non-empty ``site_key`` names no site and every location without a ``site_key`` whose
+   parent is gone (no ``contains`` edge from an existing vertex), unless a ``contains`` edge reaches it from a
+   vertex that stays — plus the locations below them that name no live site and hang under nothing that stays;
+4. the slots of those locations: by ``location_key``, and by ``has_slot`` when the slot names no location (a slot
+   naming another location is that location's; only the stale edge goes in step 5);
+5. every edge of the derived edge sets (:data:`_EDGE_ENDS`) whose end in one of those vertex collections names a
+   vertex that does not exist or is removed by steps 1–4.
 
 **Never guesses.** A row whose site exists is never touched; neither is a location that names a live site or that a
 ``contains`` edge from a surviving vertex reaches. ``care_events`` and ``garden_plan_audit`` are history (REQ-053
@@ -25,6 +29,9 @@ the test's expectation and write a new migration for the new relation; never edi
 
 **Idempotent (M-3).** Every step matches only rows or edges that are dangling; after a run none are, so a second run
 matches nothing and changes nothing.
+
+**Counted, not assumed (D1).** ``REMOVE … OPTIONS {ignoreErrors: true}`` skips a document that is gone by the time
+it runs, so ``removed`` counts the keys the statement actually returned — it may be lower than ``matched``.
 
 **Dry run (M-5).** The whole removal set is planned before the first write — each step sees what the earlier steps
 would remove as gone — so a dry run reports the same ``matched`` counts as the run that applies them, and writes
@@ -59,6 +66,8 @@ _LOCATIONS = "locations"
 _SLOTS = "slots"
 _CONTAINS = "contains"
 _HAS_SLOT = "has_slot"
+_GARDEN_OBJECTS = "garden_objects"
+_HAS_GARDEN_OBJECT = "has_garden_object"
 
 #: Rows that exist only for one site, selected by ``site_key`` — garden objects and ``site_repository._SITE_DEPENDENTS``
 #: as of #2513. Frozen; see the module docstring.
@@ -151,15 +160,27 @@ FOR d IN @@col
   RETURN d._id
 """
 
-#: A location naming a missing site, with the parents that still exist (the ``contains`` edges reaching it).
+#: A garden object without a ``site_key`` whose every ``has_garden_object`` source is a missing site. ``DOCUMENT``
+#: on an id of a collection that does not exist returns ``null`` (measured on ArangoDB 3.12), it does not raise.
+_UNSITED_OBJECTS_OF_MISSING_SITES = """
+FOR o IN @@objects
+  FILTER o.site_key == null OR o.site_key == ""
+  LET sources = (FOR e IN @@has_object FILTER e._to == o._id RETURN e._from)
+  FILTER LENGTH(sources) > 0 AND LENGTH(FOR source IN sources FILTER DOCUMENT(source) != null RETURN 1) == 0
+  SORT o._key
+  RETURN o._id
+"""
+
+#: A location naming a missing site, or naming no site and reached by no ``contains`` edge from an existing vertex
+#: (its parent is gone too), with the parents that still exist (the ``contains`` edges reaching it). ``DOCUMENT`` of
+#: an id in a collection that does not exist is ``null``, so such a parent counts as gone.
 _LOCATIONS_OF_MISSING_SITES = """
 FOR l IN @@locations
-  FILTER IS_STRING(l.site_key) AND l.site_key != "" AND DOCUMENT(@sites, l.site_key) == null
-  RETURN {
-    id: l._id,
-    site_live: false,
-    parents: (FOR e IN @@contains FILTER e._to == l._id AND DOCUMENT(e._from) != null RETURN e._from)
-  }
+  LET unsited = l.site_key == null OR l.site_key == ""
+  FILTER unsited OR (IS_STRING(l.site_key) AND DOCUMENT(@sites, l.site_key) == null)
+  LET parents = (FOR e IN @@contains FILTER e._to == l._id AND DOCUMENT(e._from) != null RETURN e._from)
+  FILTER NOT unsited OR LENGTH(parents) == 0
+  RETURN {id: l._id, site_live: false, parents: parents}
 """
 
 #: The locations directly below *ids*, each with whether it names a live site and its existing parents.
@@ -180,13 +201,19 @@ _SLOTS_OF_LOCATIONS = """
 RETURN UNION_DISTINCT(
   (FOR s IN @@slots FILTER s.location_key IN @keys RETURN s._id),
   (FOR e IN @@has_slot FILTER e._from IN @ids AND IS_SAME_COLLECTION(@slots_name, e._to)
-     FILTER DOCUMENT(e._to) != null RETURN e._to)
+     LET s = DOCUMENT(e._to)
+     FILTER s != null AND (s.location_key == null OR s.location_key == "")
+     RETURN e._to)
 )
 """
 
 
 def _dangling_end(end: str) -> str:
-    """The scan for one edge end; *end* is one of two literals from :data:`_EDGE_ENDS`, never input."""
+    """The scan for one edge end; *end* is one of two literals from :data:`_EDGE_ENDS`, never input.
+
+    ``DOCUMENT`` of an id whose vertex collection does not exist returns ``null`` (no error, ArangoDB 3.12), so an edge
+    into a collection missing from the database counts as dangling — its vertex does not exist.
+    """
     if end not in ("_from", "_to"):
         raise ValueError(f"Not an edge endpoint: {end!r}")
     return f"""
@@ -208,10 +235,23 @@ def _rows_of_missing_sites(db: StandardDatabase, gone: Sequence[str], *, collect
     return _ids(db.aql.execute(_ROWS_OF_MISSING_SITES, bind_vars={"@col": collection, "sites": _SITES}))
 
 
+def _unsited_objects_of_missing_sites(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
+    del gone  # judged on the sites alone; step 1 already took every object that names a site
+    if not db.has_collection(_GARDEN_OBJECTS) or not db.has_collection(_HAS_GARDEN_OBJECT):
+        return []
+    return _ids(
+        db.aql.execute(
+            _UNSITED_OBJECTS_OF_MISSING_SITES,
+            bind_vars={"@objects": _GARDEN_OBJECTS, "@has_object": _HAS_GARDEN_OBJECT},
+        )
+    )
+
+
 def _locations_of_missing_sites(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
     """Locations of a missing site no surviving ``contains`` reaches, then their subtree down to a live anchor.
 
-    A location goes when it names no live site and every existing parent goes too. The walk repeats until no new
+    The seeds also hold every unsited location without an existing parent (its parent location is gone). A location
+    goes when it names no live site and every existing parent goes too. The walk repeats until no new
     location qualifies; a location that names a live site, or that a surviving vertex contains, stays.
     """
     del gone
@@ -293,6 +333,7 @@ def _dangling_edges(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
 #: (it sits at column 0 because indented it exceeds the line length).
 _STEPS: tuple[tuple[str, Callable[[StandardDatabase, Sequence[str]], list[str]]], ...] = (
     *((f"{name}_of_missing_sites", partial(_rows_of_missing_sites, collection=name)) for name in _SITE_KEYED_ROWS),
+    ("unsited_garden_objects_of_missing_sites", _unsited_objects_of_missing_sites),
     ("locations_of_missing_sites", _locations_of_missing_sites),
     ("slots_of_removed_locations", _slots_of_removed_locations),
     ("dangling_edges", _dangling_edges),
@@ -300,17 +341,31 @@ _STEPS: tuple[tuple[str, Callable[[StandardDatabase, Sequence[str]], list[str]]]
 # --- #2528 (group 2026-10-29-delete-cascades): null dangling locations.template_key — step added by member #2528 ---
 
 
-def _remove(db: StandardDatabase, ids: Sequence[str]) -> None:
+def _remove(db: StandardDatabase, ids: Sequence[str]) -> int:
+    """Remove *ids* in batches; returns how many documents were actually removed.
+
+    ``ignoreErrors`` skips a document that is already gone (a concurrent delete between plan and apply) instead of
+    failing the batch; such a document returns no ``OLD`` row and is not counted.
+    """
     by_collection: dict[str, list[str]] = {}
     for doc_id in ids:
         collection, key = doc_id.split("/", 1)
         by_collection.setdefault(collection, []).append(key)
+    removed = 0
     for collection, keys in by_collection.items():
         for start in range(0, len(keys), _BATCH_SIZE):
-            db.aql.execute(
-                "FOR k IN @keys REMOVE k IN @@col OPTIONS {ignoreErrors: true}",
-                bind_vars={"@col": collection, "keys": keys[start : start + _BATCH_SIZE]},
+            removed += len(
+                list(
+                    cast(
+                        Cursor,
+                        db.aql.execute(
+                            "FOR k IN @keys REMOVE k IN @@col OPTIONS {ignoreErrors: true} RETURN OLD._key",
+                            bind_vars={"@col": collection, "keys": keys[start : start + _BATCH_SIZE]},
+                        ),
+                    )
+                )
             )
+    return removed
 
 
 def _listed(step: str, ids: Sequence[str]) -> list[str]:
@@ -342,10 +397,9 @@ class PurgeSiteOrphansMigration(Migration):
         details: dict[str, Any] = {}
         changed = 0
         for step, ids in planned:
-            if not dry_run:
-                _remove(db, ids)
-                changed += len(ids)
-            details[step] = {"matched": len(ids), "removed": 0 if dry_run else len(ids), "keys": _listed(step, ids)}
+            removed = 0 if dry_run else _remove(db, ids)
+            changed += removed
+            details[step] = {"matched": len(ids), "removed": removed, "keys": _listed(step, ids)}
         report = MigrationReport(
             version=self.version, name=self.name, scanned=len(gone), changed=changed, dry_run=dry_run, details=details
         )

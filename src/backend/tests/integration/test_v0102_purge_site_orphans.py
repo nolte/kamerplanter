@@ -181,3 +181,72 @@ def test_a_second_run_finds_nothing(db, seeded) -> None:  # type: ignore[no-unty
     assert again.changed == 0
     assert set(_matched(again).values()) == {0}
     assert _state(db) == before
+
+
+# ── Review follow-ups of #2513 (F1, F2, F4, F5, F7) ──────────────────────────────────────────────────────────────
+
+
+def test_a_bed_rehomed_to_a_live_site_below_a_gone_bed_stays(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    db.collection(col.LOCATIONS).insert({"_key": "rehomed", "site_key": LIVE})
+    _edge(db, col.CONTAINS, f"{col.LOCATIONS}/bed_{GONE}", f"{col.LOCATIONS}/rehomed")
+
+    migration.up(db)
+
+    assert db.document(f"{col.LOCATIONS}/rehomed") is not None
+    assert [e for e in db.collection(col.CONTAINS).all() if e["_to"] == f"{col.LOCATIONS}/rehomed"] == []
+
+
+def test_a_slot_reached_only_by_edge_from_a_removed_bed_goes_only_when_unsited(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    # Names the live bed; only a stale ``has_slot`` from the gone bed reaches it.
+    db.collection(col.SLOTS).insert({"_key": "stray", "slot_id": "S1", "location_key": f"bed_{LIVE}"})
+    _edge(db, col.HAS_SLOT, f"{col.LOCATIONS}/bed_{GONE}", f"{col.SLOTS}/stray")
+    db.collection(col.SLOTS).insert({"_key": "edge_only", "slot_id": "S2", "location_key": ""})
+    _edge(db, col.HAS_SLOT, f"{col.LOCATIONS}/bed_{GONE}", f"{col.SLOTS}/edge_only")
+
+    report = migration.up(db)
+
+    assert db.document(f"{col.SLOTS}/stray") is not None
+    assert db.document(f"{col.SLOTS}/edge_only") is None
+    assert report.details["slots_of_removed_locations"]["matched"] == 2  # slot_site_gone and edge_only
+
+
+def test_an_unsited_garden_object_linked_only_from_a_gone_site_goes(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    for key in ("obj_gone_only", "obj_live", "obj_both"):
+        db.collection(col.GARDEN_OBJECTS).insert({"_key": key, "site_key": "", "object_type": "water_source"})
+    db.collection(col.GARDEN_OBJECTS).insert({"_key": "obj_nofield", "object_type": "water_source"})
+    _edge(db, col.HAS_GARDEN_OBJECT, f"{col.SITES}/{GONE}", f"{col.GARDEN_OBJECTS}/obj_gone_only")
+    _edge(db, col.HAS_GARDEN_OBJECT, f"{col.SITES}/{GONE}", f"{col.GARDEN_OBJECTS}/obj_nofield")
+    _edge(db, col.HAS_GARDEN_OBJECT, f"{col.SITES}/{LIVE}", f"{col.GARDEN_OBJECTS}/obj_live")
+    _edge(db, col.HAS_GARDEN_OBJECT, f"{col.SITES}/{GONE}", f"{col.GARDEN_OBJECTS}/obj_both")
+    _edge(db, col.HAS_GARDEN_OBJECT, f"{col.SITES}/{LIVE}", f"{col.GARDEN_OBJECTS}/obj_both")
+
+    migration.up(db)
+
+    assert db.collection(col.GARDEN_OBJECTS).get("obj_gone_only") is None
+    assert db.collection(col.GARDEN_OBJECTS).get("obj_nofield") is None
+    assert db.collection(col.GARDEN_OBJECTS).get("obj_live") is not None
+    assert db.collection(col.GARDEN_OBJECTS).get("obj_both") is not None
+
+
+def test_an_unsited_location_whose_parent_is_gone_goes_with_its_chain(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    db.collection(col.LOCATIONS).insert({"_key": "stranded", "site_key": None, "parent_location_key": "long_gone"})
+    db.collection(col.LOCATIONS).insert({"_key": "stranded_child", "site_key": "", "parent_location_key": "stranded"})
+    db.collection(col.LOCATIONS).insert({"_key": "parentless", "site_key": ""})
+    _edge(db, col.CONTAINS, f"{col.LOCATIONS}/long_gone", f"{col.LOCATIONS}/stranded")
+    _edge(db, col.CONTAINS, f"{col.LOCATIONS}/stranded", f"{col.LOCATIONS}/stranded_child")
+
+    migration.up(db)
+
+    for key in ("stranded", "stranded_child", "parentless"):
+        assert db.collection(col.LOCATIONS).get(key) is None, key
+    # An unsited child whose parent exists stays.
+    assert db.collection(col.LOCATIONS).get(f"child_{LIVE}") is not None
+
+
+def test_remove_counts_only_what_was_actually_removed(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    from app.migrations.versions.v0102_purge_site_orphans import _remove
+
+    removed = _remove(db, [f"{col.SEASON_STATES}/unsited", f"{col.SEASON_STATES}/not_there"])
+
+    assert removed == 1
+    assert db.collection(col.SEASON_STATES).get("unsited") is None

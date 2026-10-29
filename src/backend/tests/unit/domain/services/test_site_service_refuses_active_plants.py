@@ -49,4 +49,4 @@ def test_the_repository_refusal_reaches_the_caller_unchanged_and_nothing_further
     ]
     # One ownership read, one delete attempt — no other repository call before or after the refusal.
     assert [name for name, _args, _kwargs in repo.method_calls] == ["get_site_or_raise", "delete_site"]
-    repo.delete_site.assert_called_once_with("site-own", user_key="u-own")
+    repo.delete_site.assert_called_once_with("site-own", tenant_key=TENANT, user_key="u-own")

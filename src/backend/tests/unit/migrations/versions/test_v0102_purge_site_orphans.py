@@ -54,6 +54,7 @@ class TestTheFrozenListsAreTheDerivationOfTheirTime:
     def test_the_steps_are_ordered_rows_then_locations_then_slots_then_edges(self) -> None:
         assert [name for name, _ in v0102._STEPS] == [
             *(f"{name}_of_missing_sites" for name in v0102._SITE_KEYED_ROWS),
+            "unsited_garden_objects_of_missing_sites",
             "locations_of_missing_sites",
             "slots_of_removed_locations",
             "dangling_edges",
@@ -76,8 +77,10 @@ class _FakeAql:
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **_: Any) -> Any:
         bind = bind_vars or {}
         if "REMOVE" in query:
-            self.db.removed.extend(f"{bind['@col']}/{key}" for key in bind["keys"])
-            return iter(())
+            # ``RETURN OLD._key``: a key gone before the apply is skipped by ``ignoreErrors`` and returns nothing.
+            present = [key for key in bind["keys"] if f"{bind['@col']}/{key}" not in self.db.vanished]
+            self.db.removed.extend(f"{bind['@col']}/{key}" for key in present)
+            return iter(present)
         if query == v0102._ROWS_OF_MISSING_SITES:
             if bind["@col"] == col.WEATHER_FORECASTS:
                 return iter(["weather_forecasts/f1", "weather_forecasts/f2"])
@@ -99,6 +102,7 @@ class _FakeDb:
     def __init__(self, *, sites: bool = True) -> None:
         self.sites = sites
         self.removed: list[str] = []
+        self.vanished: set[str] = set()
         self.aql = _FakeAql(self)
 
     def has_collection(self, name: str) -> bool:
@@ -128,6 +132,17 @@ class TestTheReport:
         assert sorted(db.removed) == sorted(
             ["weather_forecasts/f1", "weather_forecasts/f2", "locations/bed", "slots/s1", "care_event_at/e1"]
         )
+
+    def test_a_key_gone_before_the_apply_is_matched_but_not_counted_as_removed(self) -> None:
+        db = _FakeDb()
+        db.vanished.add("weather_forecasts/f2")
+
+        report = migration.up(db)
+
+        detail = report.details["weather_forecasts_of_missing_sites"]
+        assert (detail["matched"], detail["removed"]) == (2, 1)
+        assert detail["removed"] == detail["matched"] - 1
+        assert (report.scanned, report.changed) == (5, 4)
 
     def test_keys_are_capped(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(v0102, "_LISTED", 1)

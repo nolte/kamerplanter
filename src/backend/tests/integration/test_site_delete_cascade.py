@@ -202,7 +202,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
         gone = set(seeded["site_a"]["gone"])
         assert gone <= set(documents)  # the seed holds what the assertions below claim is removed
 
-        assert ArangoSiteRepository(db).delete_site("site_a", user_key="u1") is True
+        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") is True
 
         after = _documents(db)
         new_rows = [doc_id for doc_id in after if doc_id not in documents]
@@ -229,7 +229,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
         )
         assert touching_before >= 18  # the seed carries an edge on every removed shape
 
-        ArangoSiteRepository(db).delete_site("site_a", user_key="u1")
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
 
         for edge in _EDGE_COLLECTIONS:
             left = list(
@@ -243,7 +243,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
     def test_the_history_stays_and_one_audit_row_records_the_delete(self, db, seeded) -> None:
         known_audit = {doc["_id"] for doc in db.collection(col.GARDEN_PLAN_AUDIT).all()}
 
-        ArangoSiteRepository(db).delete_site("site_a", user_key="u1")
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
 
         for doc_id in seeded["site_a"]["kept"]:
             assert db.document(doc_id) is not None, doc_id
@@ -274,7 +274,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
         before = owned_by_b()
         assert len(before[0]) == len(seeded["site_b"]["gone"]) + len(seeded["site_b"]["kept"])
 
-        ArangoSiteRepository(db).delete_site("site_a", user_key="u1")
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
 
         assert owned_by_b() == before
 
@@ -288,7 +288,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
         monkeypatch.setattr(ArangoSiteRepository, "_write_site_delete_audit", staticmethod(fail))
 
         with pytest.raises(RuntimeError, match="injected"):
-            ArangoSiteRepository(db).delete_site("site_a", user_key="u1")
+            ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
 
         assert _documents(db) == documents
         assert _edges(db) == edges
@@ -297,7 +297,7 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
         documents, edges = _documents(db), _edges(db)
 
         with pytest.raises(NotFoundError):
-            ArangoSiteRepository(db).delete_site("site_missing", user_key="u1")
+            ArangoSiteRepository(db).delete_site("site_missing", tenant_key=A, user_key="u1")
 
         assert _documents(db) == documents
         assert _edges(db) == edges
@@ -317,7 +317,7 @@ class TestASiteWithActivePlantsIsNotDeleted:
         documents, edges = _documents(db), _edges(db)
 
         with pytest.raises(PlanError) as refused:
-            ArangoSiteRepository(db).delete_site("site_a", user_key="u1")
+            ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
 
         assert refused.value.status_code == 409
         assert refused.value.error_code == "site.has_active_plants"
@@ -347,6 +347,14 @@ class TestASiteWithActivePlantsIsNotDeleted:
         _plant(db, "p_loose", A, location_key="loose_site_a")
         self._assert_refused_and_untouched(db, 2)
 
+    def test_a_plant_without_a_removed_on_field_refuses_the_delete(self, db, seeded) -> None:
+        # No ``removed_on`` key at all (not ``None``): AQL's ``== null`` matches a missing attribute.
+        db.collection(col.PLANT_INSTANCES).insert(
+            {"_key": "p_no_field", "instance_id": "p_no_field", "tenant_key": A, "location_key": "loose_site_a"}
+        )
+        assert "removed_on" not in db.collection(col.PLANT_INSTANCES).get("p_no_field")
+        self._assert_refused_and_untouched(db, 1)
+
     def test_a_removed_plant_does_not_block(self, db, seeded) -> None:
         db.collection(col.PLANT_INSTANCES).insert(
             {
@@ -360,7 +368,7 @@ class TestASiteWithActivePlantsIsNotDeleted:
             }
         )
 
-        assert ArangoSiteRepository(db).delete_site("site_a", user_key="u1") is True
+        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") is True
 
         assert db.collection(col.SITES).get("site_a") is None
         assert db.collection(col.PLANT_INSTANCES).get("p_gone") is not None  # the plant's history stays
@@ -370,10 +378,74 @@ class TestASiteWithActivePlantsIsNotDeleted:
         _plant(db, "p_b_loc", B, location_key="child_site_b")
         _plant(db, "p_b_slot", B, slot_key="slot_site_b")
 
-        assert ArangoSiteRepository(db).delete_site("site_a", user_key="u1") is True
+        assert ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1") is True
 
         assert db.collection(col.SITES).get("site_a") is None
         assert db.collection(col.SITES).get("site_b") is not None
         with pytest.raises(PlanError) as refused:
-            ArangoSiteRepository(db).delete_site("site_b", user_key="u1")
+            ArangoSiteRepository(db).delete_site("site_b", tenant_key=B, user_key="u1")
         assert refused.value.details[0]["active_plant_count"] == 3  # positive control: they do block their own site
+
+
+class TestTheDeleteTakesOnlyWhatIsTheSitesOwn:
+    """Review follow-ups of #2513: a stale edge or a foreign row never widens the delete (F1, F2, F3, F6)."""
+
+    @staticmethod
+    def _second_site(db, key: str = "site_c", tenant: str = A) -> None:
+        db.collection(col.SITES).insert({"_key": key, "tenant_key": tenant, "name": key, "type": "outdoor"})
+
+    def test_a_bed_rehomed_to_another_site_stays_with_its_subtree_and_slots(self, db, seeded) -> None:
+        # ``update_location`` rewrites ``site_key`` S1 -> S2 and leaves the ``contains`` edge from S1 in place.
+        self._second_site(db)
+        db.collection(col.LOCATIONS).insert({"_key": "moved", "site_key": "site_c", "name": "moved"})
+        db.collection(col.LOCATIONS).insert({"_key": "moved_child", "parent_location_key": "moved", "name": "mc"})
+        db.collection(col.SLOTS).insert({"_key": "moved_slot", "slot_id": "M1", "location_key": "moved"})
+        _edge(db, col.CONTAINS, f"{col.SITES}/site_a", f"{col.LOCATIONS}/moved")
+        _edge(db, col.CONTAINS, f"{col.LOCATIONS}/moved", f"{col.LOCATIONS}/moved_child")
+        _edge(db, col.HAS_SLOT, f"{col.LOCATIONS}/moved", f"{col.SLOTS}/moved_slot")
+
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
+
+        for doc_id in (f"{col.LOCATIONS}/moved", f"{col.LOCATIONS}/moved_child", f"{col.SLOTS}/moved_slot"):
+            assert db.document(doc_id) is not None, doc_id
+        # The stale edge from the removed site is cut; the bed's own structure is not.
+        contains = {(e["_from"], e["_to"]) for e in db.collection(col.CONTAINS).all()}
+        assert (f"{col.SITES}/site_a", f"{col.LOCATIONS}/moved") not in contains
+        assert (f"{col.LOCATIONS}/moved", f"{col.LOCATIONS}/moved_child") in contains
+
+    def test_a_slot_reached_only_by_edge_that_names_another_location_stays(self, db, seeded) -> None:
+        # A stale ``has_slot`` from site_a's bed to a slot of tenant B's bed.
+        _edge(db, col.HAS_SLOT, f"{col.LOCATIONS}/bed_site_a", f"{col.SLOTS}/slot_site_b")
+        # An edge-only slot with no ``location_key`` belongs to the location the edge comes from.
+        db.collection(col.SLOTS).insert({"_key": "edge_only", "slot_id": "E1", "location_key": ""})
+        _edge(db, col.HAS_SLOT, f"{col.LOCATIONS}/bed_site_a", f"{col.SLOTS}/edge_only")
+
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
+
+        assert db.document(f"{col.SLOTS}/slot_site_b") is not None
+        assert db.document(f"{col.SLOTS}/edge_only") is None
+        assert [e["_from"] for e in db.collection(col.HAS_SLOT).all() if e["_to"] == f"{col.SLOTS}/slot_site_b"] == [
+            f"{col.LOCATIONS}/child_site_b"
+        ]
+
+    def test_another_tenants_key_deletes_nothing(self, db, seeded) -> None:
+        documents, edges = _documents(db), _edges(db)
+
+        with pytest.raises(NotFoundError):
+            ArangoSiteRepository(db).delete_site("site_a", tenant_key=B, user_key="u1")
+
+        assert _documents(db) == documents
+        assert _edges(db) == edges
+
+    def test_an_unstamped_zone_goes_and_a_foreign_zone_stays(self, db, seeded) -> None:
+        db.collection(col.IRRIGATION_ZONES).insert(
+            {"_key": "zone_unstamped", "tenant_key": "", "site_key": "site_a", "name": "u"}
+        )
+        db.collection(col.IRRIGATION_ZONES).insert(
+            {"_key": "zone_foreign", "tenant_key": B, "site_key": "site_a", "name": "f"}
+        )
+
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key="u1")
+
+        assert db.collection(col.IRRIGATION_ZONES).get("zone_unstamped") is None
+        assert db.collection(col.IRRIGATION_ZONES).get("zone_foreign") is not None

@@ -58,16 +58,20 @@ _SITE_DELETE_WRITE: tuple[str, ...] = tuple(
 _SITE_DELETE_READ: tuple[str, ...] = (col.PLANT_INSTANCES,)
 
 #: The site as the delete needs it: its tenant, name and plan revision (the audit row's revision is the next one).
+#: Read under the caller's tenant (MT-010, #2107): a key of another tenant finds no row and the delete is not found.
 _SITE_FOR_DELETE = """
 FOR s IN @@sites
-    FILTER s._key == @site_key
+    FILTER s._key == @site_key AND s.tenant_key == @tenant_key
     RETURN {tenant_key: s.tenant_key, name: s.name, revision: s.plan.plan_revision || 0}
 """
 
-#: The site's irrigation zones: by ``site_key`` **and** the site's own tenant (the zone carries one, E-01).
+#: The site's irrigation zones: by ``site_key``, under the same tenant rule as :data:`_DEPENDENTS_OF_SITE` — a zone
+#: stamped with another tenant stays, an unstamped one belongs to the site that names it (its edges are cut with the
+#: site, so keeping the row would leave it unreachable).
 _ZONES_OF_SITE = """
 FOR z IN @@zones
-    FILTER z.site_key == @site_key AND z.tenant_key == @tenant_key
+    FILTER z.site_key == @site_key
+        AND (z.tenant_key == null OR z.tenant_key == "" OR z.tenant_key == @tenant_key)
     RETURN z._id
 """
 
@@ -211,31 +215,36 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def update_site(self, key: SiteKey, site: Site) -> Site:
         return super().update(key, site)
 
-    def delete_site(self, key: SiteKey, *, user_key: str) -> bool:
+    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> bool:
         """Remove the site and everything that exists only for it, in one stream transaction (#2513).
 
-        Goes: the locations below the site (the ``contains`` tree **and** every location naming the site), their
-        slots, the garden objects, the irrigation zones, and the site's season state, forecasts, climate normals,
-        weather-source config and irrigation demands — plus every graph edge on any of those vertices, derived
-        from the graph definitions. Stays: ``care_events`` and the earlier ``garden_plan_audit`` rows (history,
+        Goes: the locations below the site (every location naming the site **and** the unsited ones of the
+        ``contains`` tree below it — a bed re-homed to another site stays), their slots, the garden objects, the
+        irrigation zones (unless stamped with another tenant), and the site's season state, forecasts, climate
+        normals, weather-source config and irrigation demands — plus every graph edge on any of those vertices,
+        derived from the graph definitions. Stays: ``care_events`` and the earlier ``garden_plan_audit`` rows (history,
         REQ-053 GP-FR-101 / §20.13 SR-011); their edges to a removed vertex are cut. Fields of other requirements'
         rows that name a removed key are left as they are. One audit row (``op="delete"``, ``entity="site"``)
         records the delete in the same transaction.
 
         Args:
             key: The site's document key.
+            tenant_key: The caller's tenant. The site is read under it inside the transaction (MT-010, #2107), so a
+                key of another tenant deletes nothing even when a caller skipped the service's ownership read.
             user_key: The account that deletes; stored on the audit row (pseudonymised on account erasure).
 
         Returns:
             ``True`` — the site was removed.
 
         Raises:
-            NotFoundError: The site does not exist (any more) when the transaction reads it.
+            ValueError: ``tenant_key`` is empty.
+            NotFoundError: The site does not exist (any more) in ``tenant_key`` when the transaction reads it.
             PlanError: ``site.has_active_plants`` (409) — a plant not yet removed stands on the site, one of its
                 locations or one of their slots; nothing is written.
         """
+        self._require_tenant_key(tenant_key, "delete_site")
         with stream_transaction(self._db, write=_SITE_DELETE_WRITE, read=_SITE_DELETE_READ, entity="site") as txn:
-            scope = self._collect_site_delete_scope(txn, key)
+            scope = self._collect_site_delete_scope(txn, key, tenant_key)
             # Everything above only reads; everything below writes. A refusal of the whole delete belongs here, so
             # it holds against the transaction's snapshot and nothing has been written when it fires.
             self._refuse_active_plants(txn, key, scope)
@@ -245,11 +254,14 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             txn.collection(col.SITES).delete(key)
         return True
 
-    def _collect_site_delete_scope(self, txn: StreamTransaction, key: SiteKey) -> _SiteDeleteScope:
-        rows = list(txn.aql.execute(_SITE_FOR_DELETE, bind_vars={"@sites": col.SITES, "site_key": key}))
+    def _collect_site_delete_scope(self, txn: StreamTransaction, key: SiteKey, tenant_key: str) -> _SiteDeleteScope:
+        rows = list(
+            txn.aql.execute(
+                _SITE_FOR_DELETE, bind_vars={"@sites": col.SITES, "site_key": key, "tenant_key": tenant_key}
+            )
+        )
         if not rows:
             raise NotFoundError("Site", key)
-        tenant_key = str(rows[0]["tenant_key"] or "")
         location_ids = self._location_ids_of_site(txn, key)
         zone_ids = list(
             txn.aql.execute(
@@ -330,14 +342,22 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
                 bind_vars={"@locations": col.LOCATIONS, "site_key": key},
             )
         ]
-        return ArangoSiteRepository._contains_closure(txn, f"{col.SITES}/{key}", named)
+        return ArangoSiteRepository._contains_closure(txn, f"{col.SITES}/{key}", named, site_key=key)
 
     @staticmethod
-    def _contains_closure(txn: StreamTransaction, root_id: str, location_ids: Sequence[str]) -> list[str]:
+    def _contains_closure(
+        txn: StreamTransaction, root_id: str, location_ids: Sequence[str], *, site_key: str
+    ) -> list[str]:
         """*location_ids* plus every location the ``contains`` tree reaches below *root_id* or any of them.
 
         Walked level by level until no new location appears — no depth limit, and the seen set ends the walk on a
         cyclic edge too. *root_id* itself is returned only when it is one of *location_ids*.
+
+        A location the walk reaches is taken only when its ``site_key`` is unset (``null``/``""``, a nested location
+        written before the field was copied down) or *site_key*; the walk does not descend through any other. A bed
+        re-homed to another site keeps the ``contains`` edge from its old parent (``update_location`` rewrites the
+        field, not the edge), but it is that other site's structure now — the stale edge itself is still cut with
+        the removed parent (:func:`remove_edges`).
         """
         seen: dict[str, None] = dict.fromkeys(location_ids)
         frontier = [root_id, *seen]
@@ -348,9 +368,16 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
                     """
                     FOR e IN @@contains
                         FILTER e._from IN @parents AND IS_SAME_COLLECTION(@locations, e._to)
+                        LET l = DOCUMENT(e._to)
+                        FILTER l != null AND (l.site_key == null OR l.site_key == "" OR l.site_key == @site_key)
                         RETURN DISTINCT e._to
                     """,
-                    bind_vars={"@contains": col.CONTAINS, "parents": frontier, "locations": col.LOCATIONS},
+                    bind_vars={
+                        "@contains": col.CONTAINS,
+                        "parents": frontier,
+                        "locations": col.LOCATIONS,
+                        "site_key": site_key,
+                    },
                 )
             ]
             frontier = [doc_id for doc_id in children if doc_id not in seen]
@@ -359,14 +386,21 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     @staticmethod
     def _slot_ids_of_locations(txn: StreamTransaction, location_ids: Sequence[str]) -> list[str]:
-        """The slots of *location_ids*: by ``location_key`` ∪ by ``has_slot`` edge (either alone may be stale)."""
+        """The slots of *location_ids*: by ``location_key`` ∪ by ``has_slot`` edge (either alone may be stale).
+
+        A slot reached only by an edge counts when its ``location_key`` is unset (``null``/``""``); one naming another
+        location — possibly of another tenant — is that location's slot, and only the stale edge is cut.
+        """
         if not location_ids:
             return []
         rows = txn.aql.execute(
             """
             RETURN UNION_DISTINCT(
                 (FOR s IN @@slots FILTER s.location_key IN @keys RETURN s._id),
-                (FOR e IN @@has_slot FILTER e._from IN @ids AND IS_SAME_COLLECTION(@slots_name, e._to) RETURN e._to)
+                (FOR e IN @@has_slot FILTER e._from IN @ids AND IS_SAME_COLLECTION(@slots_name, e._to)
+                    LET s = DOCUMENT(e._to)
+                    FILTER s != null AND (s.location_key == null OR s.location_key == "")
+                    RETURN e._to)
             )
             """,
             bind_vars={
@@ -518,10 +552,15 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         """
         location_id = f"{col.LOCATIONS}/{key}"
         with stream_transaction(self._db, write=_LOCATION_REMOVAL_WRITE, entity="location") as txn:
-            exists = next(iter(txn.aql.execute("RETURN DOCUMENT(@id) != null", bind_vars={"id": location_id})))
-            if not exists:
+            rows = list(
+                txn.aql.execute(
+                    "LET l = DOCUMENT(@id) FILTER l != null RETURN l.site_key || ''", bind_vars={"id": location_id}
+                )
+            )
+            if not rows:
                 return False
-            location_ids = self._contains_closure(txn, location_id, [location_id])
+            # A descendant goes only when it is unsited or names the same site as the bed (see _contains_closure).
+            location_ids = self._contains_closure(txn, location_id, [location_id], site_key=str(rows[0]))
             self._remove_locations(txn, location_ids)
         return True
 

@@ -59,7 +59,7 @@ def test_a_site_with_an_active_plant_answers_409_with_the_published_code() -> No
     assert body["error_code"] == "site.has_active_plants"
     assert body["details"][0]["code"] == "site.has_active_plants"
     assert body["details"][0]["active_plant_count"] == 1
-    repo.delete_site.assert_called_once_with("site-1", user_key="user_anna")
+    repo.delete_site.assert_called_once_with("site-1", tenant_key=TENANT_KEY, user_key="user_anna")
 
 
 def test_a_site_without_active_plants_is_deleted_with_204() -> None:
@@ -69,7 +69,7 @@ def test_a_site_without_active_plants_is_deleted_with_204() -> None:
     resp = _client(repo).delete(f"/api/v1/t/{TENANT_SLUG}/sites/site-1")
 
     assert resp.status_code == 204
-    repo.delete_site.assert_called_once_with("site-1", user_key="user_anna")
+    repo.delete_site.assert_called_once_with("site-1", tenant_key=TENANT_KEY, user_key="user_anna")
 
 
 def test_the_409_is_documented_on_the_delete_route() -> None:

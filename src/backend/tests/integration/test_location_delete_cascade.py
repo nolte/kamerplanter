@@ -172,3 +172,25 @@ class TestDeletingALocationCutsTheDerivedEdgeSet:
 
         assert _documents(db) == documents
         assert _edges(db) == edges
+
+
+class TestALocationDeleteKeepsWhatIsNotItsOwn:
+    """Review follow-ups of #2513 (F1, F2): a stale edge never widens the subtree or the slot set."""
+
+    def test_a_child_rehomed_to_another_site_stays(self, db, seeded) -> None:
+        db.collection(col.LOCATIONS).insert({"_key": "rehomed", "site_key": "site_other", "name": "rehomed"})
+        db.collection(col.CONTAINS).insert({"_from": f"{col.LOCATIONS}/bed", "_to": f"{col.LOCATIONS}/rehomed"})
+
+        ArangoSiteRepository(db).delete_location("bed")
+
+        assert db.document(f"{col.LOCATIONS}/rehomed") is not None
+        assert db.document(f"{col.LOCATIONS}/child_bed") is None  # the unsited child still goes
+        assert [e for e in db.collection(col.CONTAINS).all() if e["_to"] == f"{col.LOCATIONS}/rehomed"] == []
+
+    def test_a_slot_reached_only_by_edge_that_names_another_location_stays(self, db, seeded) -> None:
+        db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/bed", "_to": f"{col.SLOTS}/slot_sibling"})
+
+        ArangoSiteRepository(db).delete_location("bed")
+
+        assert db.document(f"{col.SLOTS}/slot_sibling") is not None
+        assert db.document(f"{col.SLOTS}/slot_bed") is None

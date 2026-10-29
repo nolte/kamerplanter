@@ -168,6 +168,11 @@ From `src/backend/` of the worktree; record actual output in the group's Member 
 ## Dispatch log
 
 <!-- Appended during operation 5. -->
+### Review round 1 — dispatched 2026-10-29T17:30Z → `nolte-engineering:fullstack-developer` — result: F1–F7 reproduced red → fixed green; F8 test gap closed; F9 measured (no change)
+- `delete_site(key, *, tenant_key, user_key) -> bool` (repo + interface; service passes `tenant_key`); `_contains_closure(txn, root_id, location_ids, *, site_key)`; `_remove(db, ids) -> int`; v0102 `_STEPS` = 6× `<row>_of_missing_sites`, `unsited_garden_objects_of_missing_sites`, `locations_of_missing_sites`, `slots_of_removed_locations`, `dangling_edges`; #2528 marker unchanged under the tuple.
+- Checks: integration (6 files) → `353 passed`; unit/API → `285 passed` + `97 passed`; `ruff check .` → `All checks passed!`; `ruff format --check .` → `2832 files already formatted`; mypy not worse (`site_repository.py` 17 vs 22 on HEAD). Index grep: only `slots(location_key, slot_id)` — no index on the delete predicates' fields (filed at bundle stage).
+- Deviation recorded as local adaptation: D-4 of the plan (service pre-check only) superseded — the repository now also checks the tenant inside the transaction (defence in depth, MT-010); interface signature changed accordingly.
+
 ### WP-4 — dispatched 2026-10-29T17:00Z → `nolte-engineering:fullstack-developer` — result: hypothesis holds
 - `site_repository.py`: `delete_location(key) -> bool` = `stream_transaction(write=_LOCATION_REMOVAL_WRITE, entity="location")`: existence check → `_contains_closure(txn, location_id, [location_id])` (descent logic lifted out of WP-2, now shared with `_location_ids_of_site`) → `_remove_locations(txn, ids)`; no V-09 (routed path refuses via plan batch); missing location → `False`, no write; stale comment in `_delete_slot_internal` corrected. New `tests/integration/test_location_delete_cascade.py` (6 tests): 9 edges on the bed (`contains` ×2, `has_slot`, `placed_in`, `care_event_at`, `has_task`, `run_at_location` ×2, `zone_covers`) gone; care_event and zone rows stay; sibling bed byte-identical; atomicity; missing → False. Falsification with HEAD's version (`cp`): 2 red (edge set, atomicity).
 
