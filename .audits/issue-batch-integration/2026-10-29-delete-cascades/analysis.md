@@ -104,6 +104,8 @@ Filled during implementation. Each entry records the dispatched specialist and t
 | #2528 WP-A | nolte-engineering:fullstack-developer | `pytest tests/integration/test_bed_template_repository.py tests/integration/test_garden_plan_tenant_isolation.py …` (in the 5-file set) | `336 passed` (set); falsification `4 failed / 278 passed` → `282 passed` |
 | #2528 WP-B | nolte-engineering:fullstack-developer | unit engine/service/guard tests + `test_tenant_export_roundtrip.py` | `185 passed` (unit set); integration red `TenantImportRefusedError` → green |
 | #2528 WP-C | nolte-engineering:fullstack-developer | `tests/unit/migrations/versions/test_v0102_purge_site_orphans.py`, `tests/integration/test_v0102_purge_site_orphans.py`; `up(db, dry_run=True)` | `13 failed / 16 passed` → green; dry-run `scanned 0 changed 0`, step `{matched 0, nulled 0}` |
+| #2528 WP-D1 | generalist | `grep -c "#2528" spec/req/REQ-053_…md spec/req/REQ-056_…md` | `2`, `6` |
+| #2528 WP-D2 | mkdocs-documentation | `.venv-docs/bin/mkdocs build --strict -f <worktree>/mkdocs.yml`; `git diff --stat -- docs` | `Aborted with 3 warnings` (the 3 pre-existing EN anchors, none new); 4 files +8/−6 |
 | #2513 WP-6 | generalist (no spec-authoring agent) | `grep -c "site.has_active_plants\|GP-ACC-061\|Standort löschen" spec/req/REQ-053_…md` | `4` |
 | #2513 WP-7 | mkdocs-documentation | `.venv-docs/bin/mkdocs build --strict -f <worktree>/mkdocs.yml`; `git diff --stat -- docs` | `Aborted with 3 warnings in strict mode!` (3 pre-existing EN anchor warnings, identical on develop); 4 files, +4/−2 |
 | | | | |
