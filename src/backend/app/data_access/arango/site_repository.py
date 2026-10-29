@@ -1,15 +1,107 @@
-from typing import cast
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
+from app.common.exceptions import NotFoundError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
-from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.site import Location, Site, Slot
+
+_SITE_EDGES = edges_touching(col.SITES)
+_LOCATION_EDGES = edges_touching(col.LOCATIONS)
+_SLOT_EDGES = edges_touching(col.SLOTS)
+_OBJECT_EDGES = edges_touching(col.GARDEN_OBJECTS)
+
+#: The rows that exist only for one site and go with it (REQ-046/047/037): selected by ``site_key``, never across
+#: tenants. Care events and the plan's change log are history and stay (REQ-053 GP-FR-101, §20.13 SR-011, #2513).
+_SITE_DEPENDENTS: tuple[str, ...] = (
+    col.SEASON_STATES,
+    col.WEATHER_FORECASTS,
+    col.CLIMATE_NORMALS,
+    col.WEATHER_SOURCE_CONFIGS,
+    col.IRRIGATION_DEMANDS,
+)
+#: Every edge a removed dependent row may carry (``has_*`` from the site, ``demand_for_run`` on a demand).
+_DEPENDENT_EDGES = tuple(pair for name in _SITE_DEPENDENTS for pair in edges_touching(name))
+
+#: What :meth:`ArangoSiteRepository._remove_locations` writes: the locations, their slots, every edge on either.
+_LOCATION_REMOVAL_WRITE: tuple[str, ...] = tuple(
+    dict.fromkeys((col.LOCATIONS, col.SLOTS, *(edge for edge, _ in (*_LOCATION_EDGES, *_SLOT_EDGES))))
+)
+
+#: What the site delete writes, deduplicated: the structure rows, the dependents, the audit row and every edge a
+#: removed vertex may carry — derived, so a relation registered later is cut without touching this module.
+_SITE_DELETE_WRITE: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        (
+            col.SITES,
+            *_LOCATION_REMOVAL_WRITE,
+            col.GARDEN_OBJECTS,
+            col.IRRIGATION_ZONES,
+            *_SITE_DEPENDENTS,
+            col.GARDEN_PLAN_AUDIT,
+            *(edge for edge, _ in (*_SITE_EDGES, *_OBJECT_EDGES, *ZONE_EDGES, *_DEPENDENT_EDGES)),
+        )
+    )
+)
+#: Read only: the plants standing on the site (V-09 one level up, #2513 WP-3).
+_SITE_DELETE_READ: tuple[str, ...] = (col.PLANT_INSTANCES,)
+
+#: The site as the delete needs it: its tenant, name and plan revision (the audit row's revision is the next one).
+_SITE_FOR_DELETE = """
+FOR s IN @@sites
+    FILTER s._key == @site_key
+    RETURN {tenant_key: s.tenant_key, name: s.name, revision: s.plan.plan_revision || 0}
+"""
+
+#: The site's irrigation zones: by ``site_key`` **and** the site's own tenant (the zone carries one, E-01).
+_ZONES_OF_SITE = """
+FOR z IN @@zones
+    FILTER z.site_key == @site_key AND z.tenant_key == @tenant_key
+    RETURN z._id
+"""
+
+#: A dependent row of the site. A row stamped with another tenant is never taken, whatever its ``site_key`` says;
+#: an unstamped one (``tenant_key`` defaults to ``""`` on these models) belongs to the site that names it.
+_DEPENDENTS_OF_SITE = """
+FOR d IN @@col
+    FILTER d.site_key == @site_key
+        AND (d.tenant_key == null OR d.tenant_key == "" OR d.tenant_key == @tenant_key)
+    RETURN d._id
+"""
+
+
+@dataclass(frozen=True)
+class _SiteDeleteScope:
+    """Everything one site delete removes, collected before its first write.
+
+    Holds full document ids. ``location_ids``/``slot_ids`` are also what a refusal on standing plants checks against
+    (``location_key``/``slot_key`` of a plant), so that check needs no second read.
+    """
+
+    site_id: str
+    tenant_key: str
+    name: str
+    revision: int
+    location_ids: list[str]
+    slot_ids: list[str]
+    object_ids: list[str]
+    zone_ids: list[str]
+    dependent_ids: dict[str, list[str]]
+
+
+def _keys(ids: Sequence[str]) -> list[str]:
+    return [doc_id.split("/", 1)[1] for doc_id in ids]
 
 
 class _LocationRepository(BaseArangoRepository[Location]):
@@ -119,46 +211,209 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def update_site(self, key: SiteKey, site: Site) -> Site:
         return super().update(key, site)
 
-    def delete_site(self, key: SiteKey) -> bool:
-        site_id = f"{col.SITES}/{key}"
-        # Remove associated CONTAINS edges and cascade to locations
-        results = self.get_edges(col.CONTAINS, site_id, direction="outbound")
-        for result in results:
-            location_doc = result["vertex"]
-            location_key = location_doc.get("_key", location_doc.get("_id", "").split("/")[-1])
-            self.delete_location(location_key)
-        self.delete_edges(col.CONTAINS, from_id=site_id)
-        self._delete_irrigation_zones(key)
-        return super().delete(key)
+    def delete_site(self, key: SiteKey, *, user_key: str) -> bool:
+        """Remove the site and everything that exists only for it, in one stream transaction (#2513).
 
-    def _delete_irrigation_zones(self, site_key: SiteKey) -> None:
-        """The site's irrigation zones and every edge on them (REQ-053 WP 7.1) — a zone without its site is an orphan.
+        Goes: the locations below the site (the ``contains`` tree **and** every location naming the site), their
+        slots, the garden objects, the irrigation zones, and the site's season state, forecasts, climate normals,
+        weather-source config and irrigation demands — plus every graph edge on any of those vertices, derived
+        from the graph definitions. Stays: ``care_events`` and the earlier ``garden_plan_audit`` rows (history,
+        REQ-053 GP-FR-101 / §20.13 SR-011); their edges to a removed vertex are cut. Fields of other requirements'
+        rows that name a removed key are left as they are. One audit row (``op="delete"``, ``entity="site"``)
+        records the delete in the same transaction.
 
-        Selected by ``site_key`` **and** the site's own tenant (the zone carries one, E-01), read from the site
-        document before it goes; the edge set is the zone repository's derivation, so ``has_irrigation_zone``,
-        ``zone_covers``, ``zone_supplied_by`` and ``zone_actuated_by`` go together.
+        Args:
+            key: The site's document key.
+            user_key: The account that deletes; stored on the audit row (pseudonymised on account erasure).
+
+        Returns:
+            ``True`` — the site was removed.
+
+        Raises:
+            NotFoundError: The site does not exist (any more) when the transaction reads it.
         """
-        cursor = self._db.aql.execute(
-            """
-            LET site = DOCUMENT(CONCAT(@sites, @site_key))
-            FOR z IN @@zones
-                FILTER site != null AND z.site_key == @site_key AND z.tenant_key == site.tenant_key
-                RETURN z._id
-            """,
-            bind_vars={"@zones": col.IRRIGATION_ZONES, "sites": f"{col.SITES}/", "site_key": site_key},
-        )
-        zone_ids = [str(zone_id) for zone_id in cast("Cursor", cursor)]
-        if not zone_ids:
-            return
-        for edge, field_name in ZONE_EDGES:
-            self._db.aql.execute(
-                f"FOR e IN @@edges FILTER e.{aql_field(field_name)} IN @ids REMOVE e IN @@edges",
-                bind_vars={"@edges": edge, "ids": zone_ids},
+        with stream_transaction(self._db, write=_SITE_DELETE_WRITE, read=_SITE_DELETE_READ, entity="site") as txn:
+            scope = self._collect_site_delete_scope(txn, key)
+            # Everything above only reads; everything below writes. A refusal of the whole delete belongs here, so
+            # it holds against the transaction's snapshot and nothing has been written when it fires.
+            self._remove_site_scope(txn, scope)
+            txn.check_budget()
+            self._write_site_delete_audit(txn, key, scope, user_key)
+            txn.collection(col.SITES).delete(key)
+        return True
+
+    def _collect_site_delete_scope(self, txn: StreamTransaction, key: SiteKey) -> _SiteDeleteScope:
+        rows = list(txn.aql.execute(_SITE_FOR_DELETE, bind_vars={"@sites": col.SITES, "site_key": key}))
+        if not rows:
+            raise NotFoundError("Site", key)
+        tenant_key = str(rows[0]["tenant_key"] or "")
+        location_ids = self._location_ids_of_site(txn, key)
+        zone_ids = list(
+            txn.aql.execute(
+                _ZONES_OF_SITE,
+                bind_vars={"@zones": col.IRRIGATION_ZONES, "site_key": key, "tenant_key": tenant_key},
             )
-        self._db.aql.execute(
-            "FOR z IN @@zones FILTER z._id IN @ids REMOVE z IN @@zones",
-            bind_vars={"@zones": col.IRRIGATION_ZONES, "ids": zone_ids},
         )
+        dependent_ids = {
+            name: [
+                str(doc_id)
+                for doc_id in txn.aql.execute(
+                    _DEPENDENTS_OF_SITE, bind_vars={"@col": name, "site_key": key, "tenant_key": tenant_key}
+                )
+            ]
+            for name in _SITE_DEPENDENTS
+        }
+        return _SiteDeleteScope(
+            site_id=f"{col.SITES}/{key}",
+            tenant_key=tenant_key,
+            name=str(rows[0]["name"] or ""),
+            revision=int(rows[0]["revision"] or 0),
+            location_ids=location_ids,
+            slot_ids=self._slot_ids_of_locations(txn, location_ids),
+            object_ids=self._object_ids_of_site(txn, key),
+            zone_ids=[str(zone_id) for zone_id in zone_ids],
+            dependent_ids=dependent_ids,
+        )
+
+    @staticmethod
+    def _location_ids_of_site(txn: StreamTransaction, key: SiteKey) -> list[str]:
+        """The site's locations at every depth: the ``contains`` tree below the site ∪ every location naming it.
+
+        A nested location hangs from its parent location (:meth:`create_location`) and is not guaranteed to carry
+        ``site_key``, so neither source alone is complete. Walked level by level until no new location appears —
+        no depth limit, and the seen set ends the walk on a cyclic edge too.
+        """
+        seen: dict[str, None] = dict.fromkeys(
+            str(doc_id)
+            for doc_id in txn.aql.execute(
+                "FOR l IN @@locations FILTER l.site_key == @site_key RETURN l._id",
+                bind_vars={"@locations": col.LOCATIONS, "site_key": key},
+            )
+        )
+        frontier = [f"{col.SITES}/{key}", *seen]
+        while frontier:
+            children = [
+                str(doc_id)
+                for doc_id in txn.aql.execute(
+                    """
+                    FOR e IN @@contains
+                        FILTER e._from IN @parents AND IS_SAME_COLLECTION(@locations, e._to)
+                        RETURN DISTINCT e._to
+                    """,
+                    bind_vars={"@contains": col.CONTAINS, "parents": frontier, "locations": col.LOCATIONS},
+                )
+            ]
+            frontier = [doc_id for doc_id in children if doc_id not in seen]
+            seen.update(dict.fromkeys(frontier))
+        return list(seen)
+
+    @staticmethod
+    def _slot_ids_of_locations(txn: StreamTransaction, location_ids: Sequence[str]) -> list[str]:
+        """The slots of *location_ids*: by ``location_key`` ∪ by ``has_slot`` edge (either alone may be stale)."""
+        if not location_ids:
+            return []
+        rows = txn.aql.execute(
+            """
+            RETURN UNION_DISTINCT(
+                (FOR s IN @@slots FILTER s.location_key IN @keys RETURN s._id),
+                (FOR e IN @@has_slot FILTER e._from IN @ids AND IS_SAME_COLLECTION(@slots_name, e._to) RETURN e._to)
+            )
+            """,
+            bind_vars={
+                "@slots": col.SLOTS,
+                "@has_slot": col.HAS_SLOT,
+                "slots_name": col.SLOTS,
+                "keys": _keys(location_ids),
+                "ids": list(location_ids),
+            },
+        )
+        return sorted(str(doc_id) for doc_id in next(iter(rows)))
+
+    @staticmethod
+    def _object_ids_of_site(txn: StreamTransaction, key: SiteKey) -> list[str]:
+        """The site's garden objects: by ``site_key`` ∪ by ``has_garden_object`` edge (objects carry no tenant)."""
+        rows = txn.aql.execute(
+            """
+            RETURN UNION_DISTINCT(
+                (FOR o IN @@objects FILTER o.site_key == @site_key RETURN o._id),
+                (FOR e IN @@has_object FILTER e._from == @site_id AND IS_SAME_COLLECTION(@objects_name, e._to)
+                    RETURN e._to)
+            )
+            """,
+            bind_vars={
+                "@objects": col.GARDEN_OBJECTS,
+                "@has_object": col.HAS_GARDEN_OBJECT,
+                "objects_name": col.GARDEN_OBJECTS,
+                "site_key": key,
+                "site_id": f"{col.SITES}/{key}",
+            },
+        )
+        return sorted(str(doc_id) for doc_id in next(iter(rows)))
+
+    def _remove_site_scope(self, txn: StreamTransaction, scope: _SiteDeleteScope) -> None:
+        """Cut every derived edge on the scope's vertices, then remove the rows (the site itself excepted)."""
+        self._remove_locations(txn, scope.location_ids)
+        txn.check_budget()
+        removals: tuple[tuple[str, list[str], tuple[tuple[str, str], ...]], ...] = (
+            (col.GARDEN_OBJECTS, scope.object_ids, _OBJECT_EDGES),
+            (col.IRRIGATION_ZONES, scope.zone_ids, ZONE_EDGES),
+            *((name, scope.dependent_ids[name], edges_touching(name)) for name in _SITE_DEPENDENTS),
+        )
+        for collection, ids, edges in removals:
+            if not ids:
+                continue
+            for edge, field_name in edges:
+                remove_edges(txn, edge, field_name, ids)
+            self._remove_rows(txn, collection, ids)
+        for edge, field_name in _SITE_EDGES:
+            remove_edges(txn, edge, field_name, [scope.site_id])
+
+    def _remove_locations(self, txn: StreamTransaction, location_ids: Sequence[str]) -> None:
+        """Remove *location_ids*, their slots and every graph edge on either, inside *txn* (#2513).
+
+        The edge sets are derived (:func:`edges_touching`), so ``care_event_at``, ``run_at_location``,
+        ``placed_in`` and every relation registered later are cut with the vertex; the care events themselves
+        stay. *txn* must declare :data:`_LOCATION_REMOVAL_WRITE` for writing. Callers pass the complete set —
+        descendants included — this helper does not walk the tree.
+
+        Args:
+            txn: The open stream transaction.
+            location_ids: Full document ids (``"locations/<key>"``) of the locations to remove.
+        """
+        if not location_ids:
+            return
+        slot_ids = self._slot_ids_of_locations(txn, location_ids)
+        if slot_ids:
+            for edge, field_name in _SLOT_EDGES:
+                remove_edges(txn, edge, field_name, slot_ids)
+            self._remove_rows(txn, col.SLOTS, slot_ids)
+        for edge, field_name in _LOCATION_EDGES:
+            remove_edges(txn, edge, field_name, location_ids)
+        self._remove_rows(txn, col.LOCATIONS, location_ids)
+
+    @staticmethod
+    def _remove_rows(txn: StreamTransaction, collection: str, ids: Sequence[str]) -> None:
+        txn.aql.execute(
+            "FOR d IN @@col FILTER d._id IN @ids REMOVE d IN @@col",
+            bind_vars={"@col": collection, "ids": list(ids)},
+        )
+
+    @staticmethod
+    def _write_site_delete_audit(txn: StreamTransaction, key: SiteKey, scope: _SiteDeleteScope, user_key: str) -> None:
+        """The SR-011 row of the delete (REQ-053 §20.13): who removed which site, at the revision after the last."""
+        record = PlanAuditRecord(
+            tenant_key=scope.tenant_key,
+            site_key=key,
+            revision=scope.revision + 1,
+            user_key=user_key,
+            op="delete",
+            entity="site",
+            key=key,
+            summary=scope.name[:200],
+            at=datetime.now(UTC),
+        )
+        doc: dict[str, Any] = record.model_dump(mode="json")
+        txn.collection(col.GARDEN_PLAN_AUDIT).insert(doc)
 
     # ── Location CRUD ─────────────────────────────────────────────────
 

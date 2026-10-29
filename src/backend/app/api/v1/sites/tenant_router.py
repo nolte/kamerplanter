@@ -153,8 +153,8 @@ def delete_site(
     ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.DELETE)),
     service: SiteService = Depends(get_site_service),
 ):
-    """Delete a site."""
-    service.delete_site(key, tenant_key=ctx.tenant_key)
+    """Delete a site with its locations, slots, garden objects, zones and weather data; care history stays."""
+    service.delete_site(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key)
 
 
 @router.get("/{key}/hardiness", response_model=SiteHardinessResponse)
