@@ -34,7 +34,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
-from app.common.enums import TenantRole
+from app.common.enums import SunProfileSource, TenantRole
 from app.common.exceptions import (
     ForbiddenError,
     PlanError,
@@ -60,6 +60,7 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.site_conditions_merge import merge_site_conditions
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.irrigation_zone_repository import IIrrigationZoneRepository
@@ -86,6 +87,7 @@ from app.domain.models.garden_plan import (
     PlanBatchWrite,
     PlanOperation,
     PlanOperationAdapter,
+    PlanSiteConditionsPatch,
     PlanSlotView,
     SetBoundaryOp,
     SetLockedOp,
@@ -102,7 +104,7 @@ from app.domain.models.geometry import (
     PolylineGeometry,
     round_length,
 )
-from app.domain.models.site import Location, Site, SitePlan, Slot
+from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.site_service import place_in_tree
 
@@ -118,10 +120,11 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 
 #: What a batch may write on a location / garden object. Everything else a document holds belongs to other
 #: paths (status, soil, irrigation zone, tank, pitch …) that run outside the plan revision (GP-NFR-007), and a
-#: batch must not write it back with the value it read earlier.
+#: batch must not write it back with the value it read earlier. ``site_conditions`` is written whole, but the
+#: batch changes only its sun profile (#2538); the rest is the value read, merged in :meth:`_update_fields`.
 _LOCATION_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "area_m2", "name", "path", "depth", "description", "notes", "sun_exposure", "height_m"}
-    | {"locked", "z_order"}
+    | {"site_conditions", "locked", "z_order"}
 )
 _OBJECT_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "label", "notes", "props", "off_site", "locked", "z_order"}
@@ -181,6 +184,19 @@ def _changed_fields(working: BaseModel, stored: BaseModel, columns: frozenset[st
     now = _dump(working, by_alias=True, mode="json")
     before = _dump(stored, by_alias=True, mode="json")
     return {column: now.get(column) for column in sorted(columns) if now.get(column) != before.get(column)}
+
+
+def _merged_sun_profile(location: Location, sent: PlanSiteConditionsPatch) -> SiteConditions:
+    """The stored site conditions with the sent sun-profile keys laid over them, by the PATCH rule (#2538).
+
+    The microclimate is the stored one, so the frost risk - and with it the legacy ``frost_exposed`` mirror of
+    ``PATCH /locations`` - cannot change through the plan batch. A sun profile edited in the editor is a
+    manual value (``source = manual``), whatever it was before.
+    """
+    merged = merge_site_conditions(location.site_conditions, sent)
+    if "sun_profile" in sent.model_fields_set:
+        merged.sun_profile.source = SunProfileSource.MANUAL
+    return merged
 
 
 def _mapping(raw: object) -> dict[str, Any]:
@@ -860,8 +876,11 @@ class GardenPlanService:
             return
         try:
             if op.entity == _ENTITY_LOCATION:
-                patch = _dump(LocationFieldsPatch(**op.fields), exclude_unset=True)
+                fields = LocationFieldsPatch(**op.fields)
+                patch = _dump(fields, exclude_unset=True)
                 current = work.locations[op.key]
+                if fields.site_conditions is not None:
+                    patch["site_conditions"] = _merged_sun_profile(current, fields.site_conditions)
                 updated = Location(**{**_dump(current, by_alias=True), **patch})
                 if "name" in patch:
                     parent = work.locations.get(updated.parent_location_key) if updated.parent_location_key else None

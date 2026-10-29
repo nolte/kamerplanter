@@ -48,6 +48,7 @@ from app.domain.engines.garden_plan_engine import (
     slots_outside_bed,
 )
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.site_conditions_merge import merge_site_conditions
 from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -62,7 +63,6 @@ from app.domain.models.garden_plan import (
     GardenObjectPatch,
     LocationPatch,
     PlanBatchWrite,
-    SiteConditionsPatch,
     SlotBatchItem,
     SlotBatchRequest,
     SlotBatchResult,
@@ -70,7 +70,7 @@ from app.domain.models.garden_plan import (
     SlotPatch,
 )
 from app.domain.models.geometry import Geometry
-from app.domain.models.site import Location, Site, SiteConditions, Slot
+from app.domain.models.site import Location, Site, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import (
@@ -108,15 +108,6 @@ _PATCH_COLUMNS: tuple[str, ...] = (
 
 #: What ``PATCH /slots/{key}`` writes (GP-API-014).
 _SLOT_PATCH_COLUMNS: tuple[str, ...] = ("slot_role", "geometry", "capacity_plants", "geometry_source")
-
-
-#: The two parts of ``SiteConditions`` that are objects of their own (merged key by key on a PATCH).
-_NESTED_SITE_PARTS: frozenset[str] = frozenset({"sun_profile", "microclimate"})
-
-
-def _sent_fields(model: Any) -> dict[str, Any]:
-    """The fields a request body set explicitly (``model_fields_set``), by name."""
-    return {name: getattr(model, name) for name in model.model_fields_set}
 
 
 def _dump(model: Any, **options: Any) -> dict[str, Any]:
@@ -329,23 +320,6 @@ class GardenResourceService:
             raise _not_found("soil_profile.substrate_key")
 
     @staticmethod
-    def _merged_site_conditions(stored: SiteConditions | None, sent: SiteConditionsPatch) -> SiteConditions:
-        """The stored value with exactly the keys of ``sent`` laid over it (WP 3.9).
-
-        A PATCH that sends ``{"wind_exposure": "exposed"}`` changes the wind and nothing else: a replace
-        would reset the sun window, the risk and the slope to their defaults. The two nested parts are
-        merged by their own sent keys; a list (``access_sides``, ``flags``) is replaced whole.
-        """
-        merged = _dump(stored if stored is not None else SiteConditions())
-        for name in sent.model_fields_set:
-            value = getattr(sent, name)
-            if name in _NESTED_SITE_PARTS:
-                merged[name] = {**merged[name], **_sent_fields(value)}
-            else:
-                merged[name] = value
-        return SiteConditions(**merged)
-
-    @staticmethod
     def _mirror_frost_risk(location: Location, provided: dict[str, Any]) -> None:
         """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9).
 
@@ -369,7 +343,7 @@ class GardenResourceService:
         if not provided:
             return {}
         if patch.site_conditions is not None:
-            provided["site_conditions"] = self._merged_site_conditions(location.site_conditions, patch.site_conditions)
+            provided["site_conditions"] = merge_site_conditions(location.site_conditions, patch.site_conditions)
         self._mirror_frost_risk(location, provided)
         try:
             updated = Location.model_validate({**_dump(location, by_alias=True), **provided})

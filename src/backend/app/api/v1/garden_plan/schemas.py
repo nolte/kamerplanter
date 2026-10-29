@@ -2,9 +2,11 @@
 
 The plan read model is deliberately **lean** (GP-NFR-031: ≤ 500 KB for a large garden): a
 location carries what the map draws and the counters it badges (geometry, status, task and
-plant counts), not its soil profile, notes or description — those come with the single-bed
-endpoints (GP-API-012). ``plan_updated_by`` (an account key) never leaves the server; the
-last editor is named by display name (§22.1).
+plant counts), not its notes or description — those come with the single-bed endpoints
+(GP-API-012). Of the site conditions and the soil profile it carries only what the map layers and
+the properties panel read (sun profile, frost risk, drainage), with unknown values left out (#2538).
+``plan_updated_by`` (an account key) never leaves the server; the last editor is named by display
+name (§22.1).
 """
 
 from __future__ import annotations
@@ -15,7 +17,16 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.garden_objects.schemas import GardenObjectResponse
-from app.common.enums import BedStatus, FlowRateSource, IrrigationZoneType, SlotRole, SunExposure
+from app.common.enums import (
+    BedStatus,
+    FlowRateSource,
+    FrostRisk,
+    IrrigationZoneType,
+    SlotRole,
+    SoilDrainage,
+    SunExposure,
+    SunWindow,
+)
 from app.domain.models.garden_plan import MAX_OPERATIONS
 from app.domain.models.garden_plan_import import MAX_OFFSET_M, PlanImportReport
 from app.domain.models.geometry import Geometry
@@ -176,6 +187,52 @@ class PlanBoundaryResponse(BaseModel):
     boundary: Geometry | None = None
 
 
+class PlanSunProfileResponse(BaseModel):
+    """The sun profile a map layer and the properties panel read (GP-FR-158/159); unknown values are absent."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"sun_window": "morning", "direct_sun_hours_summer": 5.5, "foliage_shade_in_summer": True}]
+        }
+    )
+
+    sun_window: SunWindow | None = Field(default=None, description="Absent = unknown.")
+    direct_sun_hours_summer: float | None = Field(default=None, description="Absent = not entered.")
+    foliage_shade_in_summer: bool | None = Field(default=None, description="Present only when true.")
+
+
+class PlanMicroclimateResponse(BaseModel):
+    """The frost risk of a bed for the frost layer (GP-FR-162); read only on the plan path."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"frost_risk": "high"}]})
+
+    frost_risk: FrostRisk | None = Field(default=None, description="Absent = unknown.")
+
+
+class PlanSiteConditionsResponse(BaseModel):
+    """The lean slice of ``Location.site_conditions`` the plan carries (D-1 of #2538): sun profile and frost risk.
+
+    A part with nothing known is absent, and so is the whole object (GP-NFR-031 budget).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"sun_profile": {"sun_window": "afternoon"}, "microclimate": {"frost_risk": "low"}}]
+        }
+    )
+
+    sun_profile: PlanSunProfileResponse | None = None
+    microclimate: PlanMicroclimateResponse | None = None
+
+
+class PlanSoilProfileResponse(BaseModel):
+    """The drainage of a bed for the moisture layer (GP-FR-047); the rest of the soil profile is GP-API-012's."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"drainage": "poor"}]})
+
+    drainage: SoilDrainage | None = Field(default=None, description="Absent = unknown.")
+
+
 class PlanLocationResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -189,6 +246,12 @@ class PlanLocationResponse(BaseModel):
                     "area_m2": 3.6,
                     "bbox": [2.0, 3.5, 5.0, 4.7],
                     "bed_status": "active",
+                    "sun_exposure": "partial_shade",
+                    "site_conditions": {
+                        "sun_profile": {"sun_window": "morning", "foliage_shade_in_summer": True},
+                        "microclimate": {"frost_risk": "high"},
+                    },
+                    "soil_profile": {"drainage": "poor"},
                     "season_state": "planted",
                     "open_task_count": 2,
                 }
@@ -207,6 +270,12 @@ class PlanLocationResponse(BaseModel):
     height_m: float | None = None
     bed_status: BedStatus = BedStatus.ACTIVE
     sun_exposure: SunExposure = SunExposure.UNKNOWN
+    site_conditions: PlanSiteConditionsResponse | None = Field(
+        default=None, description="Sun profile and frost risk; absent when nothing is known (#2538)."
+    )
+    soil_profile: PlanSoilProfileResponse | None = Field(
+        default=None, description="Drainage only; absent when unknown. The full profile is GP-API-012's."
+    )
     irrigation_zone_key: str | None = None
     #: The bed template this bed was placed from (provenance, WP 7.9).
     template_key: str | None = None
