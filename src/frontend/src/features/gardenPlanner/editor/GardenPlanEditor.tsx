@@ -29,6 +29,7 @@ import Button from '@mui/material/Button';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
+import ImageIcon from '@mui/icons-material/Image';
 import LayersIcon from '@mui/icons-material/Layers';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import Typography from '@mui/material/Typography';
@@ -95,6 +96,7 @@ import { TouchBar } from './TouchBar';
 import { TouchOverlay } from './TouchOverlay';
 import { ViewBar, type LayerToggle } from './ViewBar';
 import { BedZoneInfo } from '../zones/BedZoneInfo';
+import { useUnderlay } from '../underlay/useUnderlay';
 import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
 import { useZoneLayers } from '../zones/useZoneLayers';
 import { ZoneLegend } from '../zones/ZoneLegend';
@@ -159,14 +161,18 @@ function pointerKind(type: string): SnapPointerType {
 
 const PREFIX = 'pages.gardenPlan.editor';
 const ZONES = `${PREFIX}.zones`;
+const UNDERLAY = `${PREFIX}.underlay`;
 
 // The zone panel is its own chunk (UI-NFR-003): the route chunk only carries the switch that mounts it.
 const ZonePanel = lazy(() => import('../zones/ZonePanel'));
+// The underlay dialog (GP-FR-033) likewise: nothing of it loads until somebody opens it.
+const UnderlayDialog = lazy(() => import('../underlay/UnderlayDialog'));
 
 /** Icon of each registry layer that has a toggle; the texts come from `pages.gardenPlan.editor.zones.layers.<id>`. */
 const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
   zones: <LayersIcon />,
   lastWatered: <WaterDropIcon />,
+  underlay: <ImageIcon />,
 };
 
 // The template picker, the "save as template" dialog and the multi-duplicate dialog are their own chunks:
@@ -278,16 +284,28 @@ export function GardenPlanEditor({
     lastWateredAt,
     nowMs,
   });
+  // The underlay (GP-FR-033): shown per user; its switch is listed only while the site has a picture.
+  const [underlayOpen, setUnderlayOpen] = useState(false);
+  const underlayButtonRef = useRef<HTMLButtonElement | null>(null);
+  const underlayWasOpen = useRef(false);
+  useEffect(() => {
+    if (!underlayOpen && underlayWasOpen.current) underlayButtonRef.current?.focus();
+    underlayWasOpen.current = underlayOpen;
+  }, [underlayOpen]);
+  const underlayState = useUnderlay(plan, layerPrefs.underlay);
+  const hasUnderlay = underlayState.underlay !== null;
   const layerToggles = useMemo<LayerToggle[]>(
     () =>
-      (TOGGLE_LAYERS as readonly Exclude<LayerId, 'grid'>[]).map((id) => ({
+      (TOGGLE_LAYERS as readonly Exclude<LayerId, 'grid'>[])
+        .filter((id) => id !== 'underlay' || hasUnderlay)
+        .map((id) => ({
         id,
         label: t(`${ZONES}.layers.${id}`),
         hint: t(`${ZONES}.layers.${id}Hint`),
         icon: LAYER_ICONS[id],
         visible: layerPrefs[id],
       })),
-    [layerPrefs, t],
+    [layerPrefs, t, hasUnderlay],
   );
   const onShortcut = useEditorShortcuts();
   const [snapEnabled, setSnapEnabled] = useState(true);
@@ -1019,8 +1037,14 @@ export function GardenPlanEditor({
 
   // The renderer output depends on the plan, view and selection only - not on the pointer.
   const rendered = useMemo(
-    () => renderer.render(plan, viewport, selectedKeys, { labels, onActivateKey, invalidKeys, ...zoneLayers }),
-    [renderer, plan, viewport, selectedKeys, labels, onActivateKey, invalidKeys, zoneLayers],
+    () => renderer.render(plan, viewport, selectedKeys, {
+        labels,
+        onActivateKey,
+        invalidKeys,
+        underlayLayer: underlayState.entry,
+        ...zoneLayers,
+      }),
+    [renderer, plan, viewport, selectedKeys, labels, onActivateKey, invalidKeys, zoneLayers, underlayState.entry],
   );
 
   const selectChooseTool = useCallback(
@@ -1374,6 +1398,16 @@ export function GardenPlanEditor({
         >
           {t(`${ZONES}.open`)}
         </Button>
+        <Button
+          ref={underlayButtonRef}
+          startIcon={<ImageIcon />}
+          onClick={() => setUnderlayOpen(true)}
+          aria-haspopup="dialog"
+          sx={{ minHeight: 44 }}
+          data-testid="garden-plan-underlay-open"
+        >
+          {t(`${UNDERLAY}.open`)}
+        </Button>
       </Box>
       <SaveBar />
       <EditorHeaderActions
@@ -1476,6 +1510,21 @@ export function GardenPlanEditor({
         )}
         {!toolbarBelow && panel('sidebar')}
       </Box>
+      {underlayOpen && (
+        <Suspense fallback={null}>
+          <UnderlayDialog
+            open
+            siteKey={plan.siteKey}
+            underlay={underlayState.underlay}
+            onSaved={(next) => {
+              underlayState.set(next);
+              // A user who hid the layer earlier sees what they just saved.
+              if (next !== null) setLayer('underlay', true);
+            }}
+            onClose={() => setUnderlayOpen(false)}
+          />
+        </Suspense>
+      )}
       <Box id="garden-plan-zone-panel-region">
         {zonesOpen && (
           <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>

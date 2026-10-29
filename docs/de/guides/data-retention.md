@@ -802,6 +802,7 @@ flowchart TD
 | Export-Dateien | Sofort löschen |
 | Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
 | Aufgaben, Aufgaben-Kommentare, Tagebucheinträge, Dateien, Import-Aufträge, Einstellungen und Übersteuerungen in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
+| Unterlage des Gartenplans (Foto, Skizze oder Luftbild, Kategorie `garden_plan_underlay`) in einem (ggf. gemeinsamen) Garten | Wie die übrigen Dateien des Gartens: **anonymisieren, nicht löschen** — Kontenreferenz ersetzen, Bild und Eichung bleiben für die anderen Mitglieder. Ein Luftbild kann den Wohnort verraten; wer es nicht behalten will, entfernt die Unterlage im Plan-Editor (dann wird auch die Datei gelöscht), oder sie geht mit dem Garten |
 | Dein persönlicher Garten, auch mit weiteren Mitgliedern | Vollständig löschen (Mandanten-Löschinventar), Ernte-/Behandlungs-/Inspektionsdaten wie oben pseudonymisiert; die anderen Mitglieder werden beim Antrag benachrichtigt |
 | Gemeinschaftsgarten oder anderer Garten, den du angelegt hast (kein persönlicher) | Besitzer-Referenz ersetzen; bei einem von einem Spätbeitritt erhaltenen persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |

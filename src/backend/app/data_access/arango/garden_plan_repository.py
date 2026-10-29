@@ -58,7 +58,7 @@ from app.domain.models.garden_plan import (
     SlotSpeciesHint,
     TaskCounter,
 )
-from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, Slot
+from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, SiteUnderlay, Slot
 
 logger = structlog.get_logger()
 
@@ -1239,6 +1239,37 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             if exc.error_code == 1202:  # document not found: removed after the service read it
                 raise NotFoundError("Location", location_key) from exc
             raise
+
+    def set_site_underlay(
+        self, site_key: SiteKey, *, tenant_key: str, underlay: SiteUnderlay | None
+    ) -> tuple[bool, str | None]:
+        if not tenant_key:
+            raise ValueError("set_site_underlay needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET site = DOCUMENT(CONCAT(@sites, @site_key))
+            FILTER site != null AND site.tenant_key == @tenant_key AND site.plan != null
+            LET previous = site.plan.underlay.attachment_key
+            UPDATE site WITH { plan: { underlay: @underlay }, updated_at: @now } IN @@site_collection
+                OPTIONS { mergeObjects: true, keepNull: false }
+            RETURN { previous: previous }
+            """,
+                bind_vars={
+                    "sites": f"{col.SITES}/",
+                    "@site_collection": col.SITES,
+                    "site_key": site_key,
+                    "tenant_key": tenant_key,
+                    "underlay": _dump(underlay, mode="json") if underlay is not None else None,
+                    "now": _now(),
+                },
+            ),
+        )
+        row = next(cursor, None)
+        if row is None:
+            return False, None
+        return True, row["previous"]
 
     def _update_location_fields_with_zone(self, location_key: str, fields: dict[str, Any]) -> None:
         """The column write of a PATCH that changes the bed's zone, with its ``zone_covers`` edge (WP 7.1).

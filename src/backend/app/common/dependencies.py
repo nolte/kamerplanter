@@ -108,6 +108,7 @@ from app.domain.services.garden_plan_import_service import GardenPlanImportServi
 from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
 from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
@@ -464,7 +465,16 @@ def get_garden_plan_service() -> GardenPlanService:
 
 def get_garden_plan_export_service() -> GardenPlanExportService:
     """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan."""
-    return GardenPlanExportService(get_site_repo(), get_garden_plan_repo(), get_garden_plan_service())
+    return GardenPlanExportService(
+        get_site_repo(), get_garden_plan_repo(), get_garden_plan_service(), attachment_service=get_attachment_service()
+    )
+
+
+def get_garden_plan_underlay_service() -> GardenPlanUnderlayService:
+    """REQ-053 WP 7.14 — the background picture of a site's plan (set, replace, remove)."""
+    return GardenPlanUnderlayService(
+        get_site_repo(), get_garden_plan_repo(), get_attachment_repo(), get_attachment_service()
+    )
 
 
 def dispatch_adjacency_recompute(location_key: str) -> None:

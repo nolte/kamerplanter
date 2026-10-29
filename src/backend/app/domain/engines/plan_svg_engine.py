@@ -356,6 +356,24 @@ class PlanSvgOptions:
 
 
 @dataclass(frozen=True)
+class PlanFrame:
+    """How plan metres land on the printed page, so something drawn *beside* the SVG (the underlay, GP-FR-033)
+    can be laid under it: ``x_mm = (x - origin_x_m) * 1000 / scale + shift_x_mm`` and
+    ``y_mm = (origin_y_m - y) * 1000 / scale``."""
+
+    origin_x_m: float
+    origin_y_m: float
+    shift_x_mm: float
+    scale: int
+
+    def paper_point(self, x_m: float, y_m: float) -> tuple[float, float]:
+        return (
+            (x_m - self.origin_x_m) * 1000.0 / self.scale + self.shift_x_mm,
+            (self.origin_y_m - y_m) * 1000.0 / self.scale,
+        )
+
+
+@dataclass(frozen=True)
 class PlanSvg:
     svg: str
     scale: int
@@ -366,6 +384,7 @@ class PlanSvg:
     #: A3 would give a finer scale than A4 needs (GP-FR-142).
     suggest_a3: bool
     plant_counters: bool
+    frame: PlanFrame | None = None
 
 
 def page_size_mm(paper: PlanPaper, orientation: PlanOrientation) -> tuple[float, float]:
@@ -547,6 +566,10 @@ class _Canvas:
     @property
     def scale(self) -> int:
         return self.layout.scale
+
+    @property
+    def frame(self) -> PlanFrame:
+        return PlanFrame(self._origin_x, self._origin_y, self._shift_x / self.layout.scale, self.layout.scale)
 
     def paper(self, millimetres: float) -> float:
         """A length on the printed page, in SVG units."""
@@ -1045,6 +1068,7 @@ def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions) -> PlanSvg:
         fits=fits,
         suggest_a3=suggest_a3,
         plant_counters=counters,
+        frame=canvas.frame,
     )
 
 
@@ -1058,6 +1082,7 @@ __all__ = [
     "PDF_HEADER_MM",
     "PLANT_COUNTER_THRESHOLD",
     "SCALE_STEPS",
+    "PlanFrame",
     "PlanOrientation",
     "PlanPaper",
     "PlanSvg",

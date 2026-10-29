@@ -182,3 +182,41 @@ class TestTheArchiveFormat:
     def test_a_zip_bomb_is_refused_by_its_directory(self) -> None:
         with pytest.raises(TenantArchiveError):
             read_tenant_archive(io.BytesIO(self._write()), max_uncompressed_bytes=10)
+
+
+def _site_with_underlay(attachment_key: str) -> dict:
+    return {
+        "_key": "s1",
+        "tenant_key": SOURCE,
+        "plan": {"plan_revision": 1, "underlay": {"attachment_key": attachment_key, "opacity": 0.5}},
+    }
+
+
+def test_an_underlay_follows_its_attachment_to_the_new_key() -> None:
+    archive = _archive(sites=[_site_with_underlay("a1")], attachments=[{"_key": "a1", "tenant_key": SOURCE}])
+    engine = _engine(archive)
+
+    site = engine.remap_document("sites", archive.collections["sites"][0], existing_global=set())
+
+    assert site["plan"]["underlay"]["attachment_key"] == engine.mapping["attachments"]["a1"] != "a1"
+
+
+def test_an_underlay_whose_attachment_is_not_in_the_archive_is_dropped_not_half_kept() -> None:
+    archive = _archive(sites=[_site_with_underlay("missing")])
+    engine = _engine(archive)
+
+    site = engine.remap_document("sites", archive.collections["sites"][0], existing_global=set())
+
+    assert "underlay" not in site["plan"] and site["plan"]["plan_revision"] == 1
+
+
+def test_remapping_a_row_twice_gives_the_same_row_because_the_archive_is_not_rewritten_in_place() -> None:
+    """The validation pass and the write pass run on the same rows; a nested key must map both times."""
+    archive = _archive(sites=[_site_with_underlay("a1")], attachments=[{"_key": "a1", "tenant_key": SOURCE}])
+    engine = _engine(archive)
+    row = archive.collections["sites"][0]
+
+    first = engine.remap_document("sites", row, existing_global=set())
+    second = engine.remap_document("sites", row, existing_global=set())
+
+    assert first == second and row["plan"]["underlay"]["attachment_key"] == "a1"

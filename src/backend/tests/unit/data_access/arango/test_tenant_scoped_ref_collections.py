@@ -49,6 +49,7 @@ _MODEL_FOR_COLLECTION: dict[str, str] = {
     "care_events": "CareEvent",
     "pest_image_contributions": "PestImageContribution",
     "pests": "Pest",
+    "sites": "Site",  # the plan underlay (REQ-053 GP-FR-033)
 }
 
 

@@ -42,6 +42,8 @@ from app.api.v1.garden_plan.schemas import (
     PlanSlotResponse,
     PlanSnapshotResponse,
     PlanSnapshotRestoreRequest,
+    PlanUnderlayRequest,
+    PlanUnderlayResponse,
     PlanZoneResponse,
 )
 from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
@@ -51,6 +53,7 @@ from app.common.dependencies import (
     get_garden_plan_import_service,
     get_garden_plan_season_service,
     get_garden_plan_service,
+    get_garden_plan_underlay_service,
 )
 from app.common.enums import SlotRole
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
@@ -68,11 +71,13 @@ from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
 from app.domain.models.garden_plan_export import ExportScope, GardenPlanExport
 from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPORT_BYTES
+from app.domain.models.site import SiteUnderlay
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
 from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
 from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
 
 router = APIRouter(prefix="/sites", tags=["garden-plan"], responses=NOT_FOUND_RESPONSE)
@@ -87,6 +92,12 @@ def _operations_bytes(operations: list[dict[str, Any]]) -> int:
     body (``app/common/body_limit.py``), and a route that reads one itself needs a bound of its own.
     """
     return len(json.dumps(operations, separators=(",", ":")).encode())
+
+
+def _underlay_response(underlay: SiteUnderlay | None) -> PlanUnderlayResponse | None:
+    if underlay is None:
+        return None
+    return to_response(underlay, PlanUnderlayResponse)
 
 
 def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
@@ -105,6 +116,7 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 plan_revision=plan.plan_revision,
                 plan_updated_at=plan.plan_updated_at,
                 plan_updated_by_name=view.plan_updated_by_name,
+                underlay=_underlay_response(plan.underlay),
             )
             if plan is not None
             else None
@@ -258,6 +270,48 @@ def put_boundary(
     return PlanBoundaryResponse(
         plan_revision=result.plan_revision, total_area_m2=area_m2(body.boundary), boundary=body.boundary
     )
+
+
+@router.put(
+    "/{key}/plan/underlay",
+    response_model=PlanUnderlayResponse,
+    summary="Set the background picture of the plan",
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def put_underlay(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanUnderlayRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanUnderlayService = Depends(get_garden_plan_underlay_service),
+) -> PlanUnderlayResponse:
+    """Set or replace the one background picture of the site (GP-FR-033, GP-API-002 family).
+
+    The picture is a `garden_plan_underlay` attachment uploaded beforehand; the calibration (two pixel points and
+    the real distance between them) fixes the scale. 422 `reference.not_found` for an attachment that is not the
+    caller's own; 422 `plan.required` when the site has no plan. Not part of the plan revision, never exported.
+    """
+    stored = await service.set_underlay(key, tenant_key=ctx.tenant_key, role=ctx.role, underlay=body.to_domain())
+    return to_response(stored, PlanUnderlayResponse)
+
+
+@router.delete(
+    "/{key}/plan/underlay",
+    status_code=204,
+    summary="Remove the background picture of the plan",
+    responses={**FORBIDDEN_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def delete_underlay(
+    request: Request,
+    key: _SITE_KEY,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanUnderlayService = Depends(get_garden_plan_underlay_service),
+) -> Response:
+    """Remove the picture and its attachment (unless another record still holds the stored object). Idempotent."""
+    await service.remove_underlay(key, tenant_key=ctx.tenant_key, role=ctx.role)
+    return Response(status_code=204)
 
 
 @router.post(

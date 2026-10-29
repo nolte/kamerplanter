@@ -42,6 +42,8 @@ class TestScopeToCategories:
             AttachmentCategory.POST_HARVEST,
             AttachmentCategory.TASK,
             AttachmentCategory.PLANT,
+            # REQ-053 GP-FR-033: the plan underlay is a tenant-record photo (an aerial view can reveal a home).
+            AttachmentCategory.GARDEN_PLAN_UNDERLAY,
         }
 
     def test_plant_gallery_is_anonymise_scope_not_hard_delete(self):

@@ -5978,13 +5978,64 @@
             "sys_planter_d0_5": "Planter Ø 0.5 m"
           }
         },
+        "underlay": {
+          "open": "Underlay",
+          "title": "Underlay to trace over",
+          "intro": "Upload a photo, a sketch or an aerial view and calibrate it with two points and a known distance. The underlay sits below every object, is only there to trace over, is not part of the JSON export and is printed only when you ask for it. Aerial views can reveal where you live.",
+          "choose": "Choose picture",
+          "pictureAlt": "Underlay: click two points whose distance you know",
+          "marking": {
+            "label": "Which point does the next click set?",
+            "p1": "Set point 1",
+            "p2": "Set point 2"
+          },
+          "calibration": {
+            "title": "Calibration: two points and their distance",
+            "p1x": "Point 1, x",
+            "p1y": "Point 1, y",
+            "p2x": "Point 2, x",
+            "p2y": "Point 2, y",
+            "distance": "Distance between the points",
+            "scale": "Scale: {{pxPerM}} pixels per metre",
+            "scaleMissing": "No scale yet: give two different points and a distance above 0 m.",
+            "outside": "A point lies outside the picture."
+          },
+          "placement": {
+            "title": "Position on the plan",
+            "originX": "Top-left corner, x",
+            "originY": "Top-left corner, y",
+            "rotation": "Counter-clockwise rotation"
+          },
+          "opacity": "Opacity",
+          "save": "Save",
+          "close": "Close",
+          "remove": "Remove underlay",
+          "removeConfirm": {
+            "title": "Remove the underlay?",
+            "message": "The picture and its calibration are lost. You would have to set both up again."
+          },
+          "saved": "The underlay is saved.",
+          "removed": "The underlay was removed.",
+          "error": {
+            "generic": "That did not work. Please try again.",
+            "forbidden": "You need at least the grower role for this.",
+            "tooLarge": "The file is too large.",
+            "wrongType": "This file type is not allowed. Use JPEG, PNG or WebP.",
+            "rateLimited": "Too many requests. Wait a moment.",
+            "planRequired": "Set the garden boundary first, then you can add an underlay.",
+            "invalid": "The values are not valid. Check points, distance and position.",
+            "loadFailed": "The stored underlay could not be loaded."
+          }
+        },
         "zones": {
           "layers": {
             "group": "Layers",
             "zones": "Show irrigation zones",
             "zonesHint": "Show or hide the zones as an outline with hatching over their beds.",
             "lastWatered": "Show last watered",
-            "lastWateredHint": "Show or hide the days since the last watering of each bed as hatching."
+            "lastWateredHint": "Show or hide the days since the last watering of each bed as hatching.",
+            "underlay": "Show underlay",
+            "underlayHint": "Show or hide the underlay below the plan (for you only)."
           },
           "legend": {
             "title": "Layer legend",
