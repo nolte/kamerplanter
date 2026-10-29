@@ -135,6 +135,18 @@ def seed_large_garden(db) -> None:
                 "bed_status": "active",
                 "geometry": rect(0.1 + (n % 15) * 0.65, 0.1 + (n // 15) * 0.9, 0.6, 0.8),
                 "bbox": [0.0, 0.0, 1.0, 1.0],
+                # The worst case for the read model (#2538): every projected site condition known on every bed.
+                "site_conditions": {
+                    "sun_profile": {
+                        "sun_window": "afternoon",
+                        "direct_sun_hours_summer": 5.5,
+                        "foliage_shade_in_summer": True,
+                        "source": "manual",
+                    },
+                    "microclimate": {"frost_risk": "high", "cold_air_pocket": True, "heat_retention": "wall"},
+                    "wind_exposure": "exposed",
+                },
+                "soil_profile": {"drainage": "moderate", "soil_texture": "loam", "ph": 6.5},
             }
             for n in range(150)
         ]
@@ -679,6 +691,9 @@ class TestTheReadModel:
 
     def test_a_large_garden_fits_the_response_budget_and_the_time_budget(self, db, service) -> None:
         """GP-NFR-002/031: 150 beds, 300 objects, 3 000 slots, 2 000 plants.
+
+        Every bed carries a known sun profile, frost risk and drainage (#2538), the largest shape the lean site
+        conditions take: measured 2026-10-30 at 917 925 bytes, against 888 225 bytes without them.
 
         **Measured against a ceiling, not against the spec's 500 KB.** The "large" class of §25.1 comes to
         about 0.85 MB of compact JSON in this shape (3 000 slots ≈ 0.43 MB, 2 000 plants ≈ 0.28 MB), because

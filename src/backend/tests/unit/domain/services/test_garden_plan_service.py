@@ -161,6 +161,61 @@ class TestAGoodBatch:
         assert repo.locations["a"].name == "New Name"
         assert repo.locations["a"].path == "new_name"
 
+    def test_update_fields_merges_the_sun_profile_and_keeps_the_frost_risk(self, world):
+        """#2538: the batch merges ``site_conditions.sun_profile`` by the PATCH rule; the microclimate stays."""
+        from app.domain.models.site import SiteConditions
+
+        service, repo, _ = world
+        repo.locations["a"] = make_location(
+            "a",
+            geometry=rect(1, 1),
+            frost_exposed=True,
+            site_conditions=SiteConditions(
+                sun_profile={"sun_window": "midday", "direct_sun_hours_summer": 4.0, "source": "computed"},
+                microclimate={"frost_risk": "high"},
+            ),
+        )
+        result = batch(
+            service,
+            [
+                {
+                    "op": "update_fields",
+                    "entity": "location",
+                    "key": "a",
+                    "fields": {"site_conditions": {"sun_profile": {"sun_window": "afternoon"}}},
+                }
+            ],
+        )
+        stored = repo.locations["a"]
+        assert result.plan_revision == 6 and result.updated == ["a"]
+        assert stored.site_conditions is not None
+        sun = stored.site_conditions.sun_profile
+        assert (sun.sun_window, sun.direct_sun_hours_summer, sun.source) == ("afternoon", 4.0, "manual")
+        assert stored.site_conditions.microclimate.frost_risk == "high" and stored.frost_exposed is True
+        (write,) = repo.applied
+        (key, fields), *_ = write.location_updates
+        assert key == "a" and set(fields) == {"site_conditions"}  # nothing else is written back
+
+    def test_update_fields_refuses_the_microclimate_before_anything_is_applied(self, world):
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1))
+        with pytest.raises(PlanValidationError) as refused:
+            batch(
+                service,
+                [
+                    {
+                        "op": "update_fields",
+                        "entity": "location",
+                        "key": "a",
+                        "fields": {"site_conditions": {"microclimate": {"frost_risk": "low"}}},
+                    }
+                ],
+            )
+        assert [(d["op_index"], d["field"]) for d in refused.value.details] == [
+            (0, "fields.site_conditions.microclimate")
+        ]
+        assert repo.applied == [] and repo.locations["a"].site_conditions is None
+
     def test_update_fields_on_an_object_replaces_its_props(self, world):
         service, repo, _ = world
         repo.objects["go"] = GardenObject(

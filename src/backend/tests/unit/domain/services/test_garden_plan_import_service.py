@@ -226,6 +226,49 @@ class TestReferencesAndFields:
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].site_conditions is None
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].frost_exposed is None
 
+    def test_a_sun_profile_edited_in_the_plan_survives_export_and_import(self, rig, repo) -> None:
+        """#2538: what the editor's batch writes is in the file and comes back from it, keys and values intact."""
+        GardenPlanService(repo._sites, repo).apply_batch(
+            SITE,
+            tenant_key=TENANT,
+            user_key=USER,
+            role=TenantRole.GROWER,
+            expected_revision=3,
+            operations=[
+                {
+                    "op": "update_fields",
+                    "entity": "location",
+                    "key": "b1",
+                    "fields": {
+                        "site_conditions": {
+                            "sun_profile": {
+                                "sun_window": "morning",
+                                "direct_sun_hours_summer": 4.5,
+                                "foliage_shade_in_summer": True,
+                            }
+                        }
+                    },
+                }
+            ],
+            body_bytes=500,
+        )
+        document = rig.file()
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]["site_conditions"]["sun_profile"]
+        assert exported == {
+            "sun_window": "morning",
+            "direct_sun_hours_summer": 4.5,
+            "foliage_shade_in_summer": True,
+            "source": "manual",
+        }
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"]
+        assert "b1" not in repo.locations  # a new key: the import really recreated the bed
+        assert restored.site_conditions is not None
+        assert restored.site_conditions.sun_profile.model_dump(mode="json") == exported
+
     def test_a_normal_risk_imports_without_an_override(self, rig, repo) -> None:
         """#2464 (4): the file carries no ``frost_exposed`` and ``normal`` forces none (#2454 item 2).
 

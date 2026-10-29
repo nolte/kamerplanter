@@ -358,6 +358,104 @@ class TestTheAuditRoute:
         assert "user_key" not in response.text
 
 
+class TestSiteConditionsOnThePlan:
+    """#2538 (D-1/D-2/D-3): the plan carries the lean site conditions and the batch edits the sun profile."""
+
+    @staticmethod
+    def _seed(repo: FakePlanRepo) -> None:
+        from app.domain.models.site import SiteConditions, SoilProfile
+
+        repo.locations["bed"] = make_location(
+            "bed",
+            geometry=rect(1, 1, 2, 1),
+            site_conditions=SiteConditions(
+                sun_profile={"sun_window": "morning", "direct_sun_hours_summer": 5.5},
+                microclimate={"frost_risk": "high", "cold_air_pocket": True},
+                wind_exposure="exposed",
+            ),
+            soil_profile=SoilProfile(drainage="poor", soil_texture="clay", ph=6.4),
+        )
+
+    def test_the_plan_carries_the_sun_profile_the_frost_risk_and_the_drainage(self, client, repo) -> None:
+        self._seed(repo)
+
+        (bed,) = client(TenantRole.VIEWER).get(_PLAN).json()["locations"]
+
+        assert bed["site_conditions"] == {
+            "sun_profile": {"sun_window": "morning", "direct_sun_hours_summer": 5.5},
+            "microclimate": {"frost_risk": "high"},
+        }
+        assert bed["soil_profile"] == {"drainage": "poor"}  # lean: no texture, no pH, no wind, no cold-air pocket
+
+    def test_unknown_values_are_left_out_down_to_the_whole_object(self, client, repo) -> None:
+        from app.domain.models.site import SiteConditions, SoilProfile
+
+        repo.locations["bed"] = make_location(
+            "bed", geometry=rect(1, 1, 2, 1), site_conditions=SiteConditions(), soil_profile=SoilProfile()
+        )
+        repo.locations["half"] = make_location(
+            "half",
+            geometry=rect(5, 5, 1, 1),
+            site_conditions=SiteConditions(sun_profile={"foliage_shade_in_summer": True}),
+        )
+
+        body = client(TenantRole.VIEWER).get(_PLAN).json()
+        located = {loc["key"]: loc for loc in body["locations"]}
+
+        assert "site_conditions" not in located["bed"] and "soil_profile" not in located["bed"]
+        assert located["half"]["site_conditions"] == {"sun_profile": {"foliage_shade_in_summer": True}}
+
+    def test_update_fields_merges_the_sun_profile_bumps_the_revision_and_the_plan_shows_it(self, client, repo) -> None:
+        self._seed(repo)
+        op = {
+            "op": "update_fields",
+            "entity": "location",
+            "key": "bed",
+            "fields": {"site_conditions": {"sun_profile": {"foliage_shade_in_summer": True}}},
+        }
+
+        response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [op]})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["plan_revision"] == 6 and response.json()["updated"] == ["bed"]
+        stored = repo.locations["bed"].site_conditions
+        assert stored is not None and stored.sun_profile.source == "manual"
+        assert (stored.microclimate.cold_air_pocket, stored.wind_exposure) == (True, "exposed")  # not sent, kept
+        plan = client().get(_PLAN).json()
+        assert plan["plan_revision"] == 6
+        assert plan["locations"][0]["site_conditions"]["sun_profile"] == {
+            "sun_window": "morning",
+            "direct_sun_hours_summer": 5.5,
+            "foliage_shade_in_summer": True,
+        }
+
+    @pytest.mark.parametrize(
+        ("site_conditions", "pointer"),
+        [
+            ({"microclimate": {"frost_risk": "low"}}, "fields.site_conditions.microclimate"),
+            ({"wind_exposure": "sheltered"}, "fields.site_conditions.wind_exposure"),
+            ({"sun_profile": {"source": "computed"}}, "fields.site_conditions.sun_profile.source"),
+            (
+                {"sun_profile": {"direct_sun_hours_summer": 25}},
+                "fields.site_conditions.sun_profile.direct_sun_hours_summer",
+            ),
+            (None, "fields.site_conditions"),
+        ],
+    )
+    def test_anything_but_the_sun_profile_is_a_422_with_the_pointer(
+        self, client, repo, site_conditions, pointer
+    ) -> None:
+        self._seed(repo)
+        op = {"op": "update_fields", "entity": "location", "key": "bed", "fields": {"site_conditions": site_conditions}}
+
+        response = client().post(f"{_PLAN}/batch", json={"expected_revision": 5, "operations": [op]})
+
+        assert response.status_code == 422, response.text
+        detail = response.json()["details"][0]
+        assert (detail["field"], detail["code"], detail["op_index"]) == (pointer, "validation.invalid", 0)
+        assert repo.applied == [] and repo.locations["bed"].site_conditions.microclimate.frost_risk == "high"
+
+
 class TestTheContract:
     def test_the_four_operations_are_published_with_their_error_responses(self) -> None:
         from app.main import app
