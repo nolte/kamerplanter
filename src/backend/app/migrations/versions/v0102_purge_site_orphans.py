@@ -1,4 +1,5 @@
-"""v0102 — #2513 (REQ-053): purge what a site delete before the cascade fix left behind.
+"""v0102 — #2513 / #2528 (REQ-053): purge what a site delete before the cascade fix left behind, and release beds
+whose bed template is gone.
 
 **What.** Until #2513 ``delete_site`` removed the site and its ``contains`` tree only, and ``delete_location``
 cut a hand list of edges. What they left is removed here, in this order:
@@ -13,14 +14,20 @@ cut a hand list of edges. What they left is removed here, in this order:
 4. the slots of those locations: by ``location_key``, and by ``has_slot`` when the slot names no location (a slot
    naming another location is that location's; only the stale edge goes in step 5);
 5. every edge of the derived edge sets (:data:`_EDGE_ENDS`) whose end in one of those vertex collections names a
-   vertex that does not exist or is removed by steps 1–4.
+   vertex that does not exist or is removed by steps 1–4;
+6. (#2528, a *nulling* step, after every removal) ``template_key`` is unset on every location whose non-empty
+   ``template_key`` names no ``bed_templates`` document and that steps 1–5 do not remove. Until #2528 deleting a
+   bed template left that key behind, and a dangling one made a tenant-archive re-import refuse the archive.
 
 **Never guesses.** A row whose site exists is never touched; neither is a location that names a live site or that a
 ``contains`` edge from a surviving vertex reaches. ``care_events`` and ``garden_plan_audit`` are history (REQ-053
 GP-FR-101, §20.13 SR-011) and are not in any list here — nor are their own edges (``belongs_to_tenant`` is only
 checked on its ``sites`` / ``irrigation_zones`` end). An edge is judged on the end that touches one of the listed
 vertex collections only. A database without a ``sites`` collection is left alone: every ``site_key`` would look
-dangling there.
+dangling there — the early return also skips step 6. Step 6 unsets nothing but ``template_key`` and only when *no*
+bed template of that key exists: a key naming any existing template — even another tenant's — is not touched (who
+may use which template is not this migration's question); a database without ``bed_templates`` is left alone in that
+step (every key would look dangling).
 
 **Frozen lists.** :data:`_SITE_KEYED_ROWS` and :data:`_EDGE_ENDS` are literals: they are the derivation
 (``edges_touching(...)``, ``ZONE_EDGES``, ``_SITE_DEPENDENTS``) at the time of writing, pinned by
@@ -31,13 +38,16 @@ the test's expectation and write a new migration for the new relation; never edi
 matches nothing and changes nothing.
 
 **Counted, not assumed (D1).** ``REMOVE … OPTIONS {ignoreErrors: true}`` skips a document that is gone by the time
-it runs, so ``removed`` counts the keys the statement actually returned — it may be lower than ``matched``.
+it runs, so ``removed`` counts the keys the statement actually returned — it may be lower than ``matched``. Step 6's
+``UPDATE`` does the same: ``nulled`` counts what the statement returned.
 
 **Dry run (M-5).** The whole removal set is planned before the first write — each step sees what the earlier steps
 would remove as gone — so a dry run reports the same ``matched`` counts as the run that applies them, and writes
-nothing. ``details[<step>] = {matched, removed, keys}``, ``keys`` the first :data:`_LISTED` (row keys; edge ids).
+nothing. ``details[<step>] = {matched, removed, keys}``, ``keys`` the first :data:`_LISTED` (row keys; edge ids);
+step 6 reports ``{matched, nulled, keys}``.
 
-**Not reversible (M-6).** The rows are gone with their site; nothing would know where to put them back.
+**Not reversible (M-6).** The rows are gone with their site; nothing would know where to put them back — nor which
+template a released bed once named.
 """
 
 from __future__ import annotations
@@ -68,6 +78,7 @@ _CONTAINS = "contains"
 _HAS_SLOT = "has_slot"
 _GARDEN_OBJECTS = "garden_objects"
 _HAS_GARDEN_OBJECT = "has_garden_object"
+_BED_TEMPLATES = "bed_templates"
 
 #: Rows that exist only for one site, selected by ``site_key`` — garden objects and ``site_repository._SITE_DEPENDENTS``
 #: as of #2513. Frozen; see the module docstring.
@@ -208,6 +219,21 @@ RETURN UNION_DISTINCT(
 """
 
 
+#: A location whose non-empty ``template_key`` names no bed template (#2528).
+_DANGLING_TEMPLATE_KEYS = """
+FOR l IN @@locations
+  FILTER IS_STRING(l.template_key) AND l.template_key != "" AND DOCUMENT(@templates, l.template_key) == null
+  SORT l._key
+  RETURN l._id
+"""
+
+_UNSET_TEMPLATE_KEY = """
+FOR k IN @keys
+  UPDATE k WITH {template_key: null} IN @@col OPTIONS {keepNull: false, ignoreErrors: true}
+  RETURN OLD._key
+"""
+
+
 def _dangling_end(end: str) -> str:
     """The scan for one edge end; *end* is one of two literals from :data:`_EDGE_ENDS`, never input.
 
@@ -328,9 +354,19 @@ def _dangling_edges(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
     return sorted(found)
 
 
-#: The steps, in order. Each sees the ids the earlier ones remove as ``gone``; reported under its name. The next step
-#: goes last, before the closing parenthesis — the marker directly below the tuple names the one already reserved
-#: (it sits at column 0 because indented it exceeds the line length).
+def _locations_with_dangling_template_key(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
+    """Locations whose ``template_key`` names no bed template, minus those the removal steps take anyway."""
+    if not db.has_collection(_LOCATIONS) or not db.has_collection(_BED_TEMPLATES):
+        return []
+    removed = set(gone)
+    found = _ids(
+        db.aql.execute(_DANGLING_TEMPLATE_KEYS, bind_vars={"@locations": _LOCATIONS, "templates": _BED_TEMPLATES})
+    )
+    return [doc_id for doc_id in found if doc_id not in removed]
+
+
+#: The removal steps, in order. Each sees the ids the earlier ones remove as ``gone``; reported under its name. Their
+#: ids are fed to :func:`_remove` — a step that only edits a row belongs in :data:`_NULLING_STEPS`.
 _STEPS: tuple[tuple[str, Callable[[StandardDatabase, Sequence[str]], list[str]]], ...] = (
     *((f"{name}_of_missing_sites", partial(_rows_of_missing_sites, collection=name)) for name in _SITE_KEYED_ROWS),
     ("unsited_garden_objects_of_missing_sites", _unsited_objects_of_missing_sites),
@@ -338,7 +374,12 @@ _STEPS: tuple[tuple[str, Callable[[StandardDatabase, Sequence[str]], list[str]]]
     ("slots_of_removed_locations", _slots_of_removed_locations),
     ("dangling_edges", _dangling_edges),
 )
-# --- #2528 (group 2026-10-29-delete-cascades): null dangling locations.template_key — step added by member #2528 ---
+
+#: The nulling steps (#2528), after every removal step: planned with the full ``gone`` of the removals (a row removed
+#: anyway is not edited), applied after them, reported as ``{matched, nulled, keys}``.
+_NULLING_STEPS: tuple[tuple[str, Callable[[StandardDatabase, Sequence[str]], list[str]]], ...] = (
+    ("locations_with_dangling_template_key", _locations_with_dangling_template_key),
+)
 
 
 def _remove(db: StandardDatabase, ids: Sequence[str]) -> int:
@@ -368,6 +409,29 @@ def _remove(db: StandardDatabase, ids: Sequence[str]) -> int:
     return removed
 
 
+def _unset_template_key(db: StandardDatabase, ids: Sequence[str]) -> int:
+    """Unset ``template_key`` on *ids* (locations) in batches; returns how many the ``UPDATE`` actually changed.
+
+    ``ignoreErrors`` skips a location that is gone by the time the batch runs; it returns no ``OLD`` row and is not
+    counted, so ``nulled`` may be lower than ``matched`` (the same rule as :func:`_remove`).
+    """
+    keys = [doc_id.split("/", 1)[1] for doc_id in ids]
+    nulled = 0
+    for start in range(0, len(keys), _BATCH_SIZE):
+        nulled += len(
+            list(
+                cast(
+                    Cursor,
+                    db.aql.execute(
+                        _UNSET_TEMPLATE_KEY,
+                        bind_vars={"@col": _LOCATIONS, "keys": keys[start : start + _BATCH_SIZE]},
+                    ),
+                )
+            )
+        )
+    return nulled
+
+
 def _listed(step: str, ids: Sequence[str]) -> list[str]:
     """Edge ids stay ids (the collection says which relation); rows are listed by key."""
     first = list(ids[:_LISTED])
@@ -379,12 +443,14 @@ class PurgeSiteOrphansMigration(Migration):
     name = "purge_site_orphans"
     description = (
         "#2513: remove the site-keyed rows, locations and slots of sites that no longer exist, and every derived "
-        "edge whose end in those collections is gone; care events and the plan audit stay."
+        "edge whose end in those collections is gone; care events and the plan audit stay. #2528: unset a "
+        "location's template_key that names no bed template."
     )
     reversible = False
 
     def up(self, db: StandardDatabase, *, dry_run: bool = False) -> MigrationReport:
         if not db.has_collection(_SITES):
+            # Also skips the nulling step: without sites this database is not one the migration can judge.
             return MigrationReport(
                 version=self.version, name=self.name, scanned=0, changed=0, dry_run=dry_run, details={}
             )
@@ -394,16 +460,22 @@ class PurgeSiteOrphansMigration(Migration):
             ids = plan(db, tuple(gone))
             planned.append((step, ids))
             gone.extend(ids)
+        to_null = [(step, plan(db, tuple(gone))) for step, plan in _NULLING_STEPS]
         details: dict[str, Any] = {}
         changed = 0
         for step, ids in planned:
             removed = 0 if dry_run else _remove(db, ids)
             changed += removed
             details[step] = {"matched": len(ids), "removed": removed, "keys": _listed(step, ids)}
+        for step, ids in to_null:
+            nulled = 0 if dry_run else _unset_template_key(db, ids)
+            changed += nulled
+            details[step] = {"matched": len(ids), "nulled": nulled, "keys": _listed(step, ids)}
+        scanned = len(gone) + sum(len(ids) for _, ids in to_null)
         report = MigrationReport(
-            version=self.version, name=self.name, scanned=len(gone), changed=changed, dry_run=dry_run, details=details
+            version=self.version, name=self.name, scanned=scanned, changed=changed, dry_run=dry_run, details=details
         )
-        logger.info("site_orphans_dry_run" if dry_run else "site_orphans_purged", matched=len(gone), changed=changed)
+        logger.info("site_orphans_dry_run" if dry_run else "site_orphans_purged", matched=scanned, changed=changed)
         return report
 
 

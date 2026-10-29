@@ -60,22 +60,33 @@ class TestTheFrozenListsAreTheDerivationOfTheirTime:
             "dangling_edges",
         ]
 
-    def test_the_2528_slot_marker_is_in_place(self) -> None:
-        source = Path(v0102.__file__).read_text(encoding="utf-8")
-        assert (
-            "# --- #2528 (group 2026-10-29-delete-cascades): null dangling locations.template_key"
-            " — step added by member #2528 ---"
-        ) in source
+    def test_the_2528_nulling_step_exists_and_runs_last(self) -> None:
+        """#2528: a nulling step is not a removal step (its ids would be deleted) and runs after every removal."""
+        assert [name for name, _ in v0102._NULLING_STEPS] == ["locations_with_dangling_template_key"]
+        assert "locations_with_dangling_template_key" not in [name for name, _ in v0102._STEPS]
+
+        report = migration.up(_FakeDb())
+
+        assert list(report.details)[-1] == "locations_with_dangling_template_key"
+        assert "# --- #2528" not in Path(v0102.__file__).read_text(encoding="utf-8")
 
 
 class _FakeAql:
-    """Canned scans: two orphan forecasts, one orphan location with one slot, one dangling edge."""
+    """Canned scans: two orphan forecasts, one orphan location with one slot, one dangling edge; two locations with a
+    dangling ``template_key`` - ``bed`` (removed anyway) and ``bed2``."""
 
     def __init__(self, db: _FakeDb) -> None:
         self.db = db
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **_: Any) -> Any:
         bind = bind_vars or {}
+        if query == v0102._UNSET_TEMPLATE_KEY:
+            present = [key for key in bind["keys"] if f"{bind['@col']}/{key}" not in self.db.vanished]
+            self.db.nulled.extend(f"{bind['@col']}/{key}" for key in present)
+            return iter(present)
+        if query == v0102._DANGLING_TEMPLATE_KEYS:
+            assert bind == {"@locations": col.LOCATIONS, "templates": col.BED_TEMPLATES}
+            return iter(["locations/bed", "locations/bed2"])
         if "REMOVE" in query:
             # ``RETURN OLD._key``: a key gone before the apply is skipped by ``ignoreErrors`` and returns nothing.
             present = [key for key in bind["keys"] if f"{bind['@col']}/{key}" not in self.db.vanished]
@@ -99,13 +110,17 @@ class _FakeAql:
 
 
 class _FakeDb:
-    def __init__(self, *, sites: bool = True) -> None:
+    def __init__(self, *, sites: bool = True, missing: frozenset[str] = frozenset()) -> None:
         self.sites = sites
+        self.missing = missing
         self.removed: list[str] = []
+        self.nulled: list[str] = []
         self.vanished: set[str] = set()
         self.aql = _FakeAql(self)
 
     def has_collection(self, name: str) -> bool:
+        if name in self.missing:
+            return False
         return self.sites or name != col.SITES
 
 
@@ -113,7 +128,7 @@ class TestTheReport:
     def test_every_step_reports_matched_removed_and_capped_keys(self) -> None:
         report = migration.up(_FakeDb())
 
-        assert list(report.details) == [name for name, _ in v0102._STEPS]
+        assert list(report.details) == [name for name, _ in (*v0102._STEPS, *v0102._NULLING_STEPS)]
         assert report.details["weather_forecasts_of_missing_sites"] == {
             "matched": 2,
             "removed": 2,
@@ -123,7 +138,8 @@ class TestTheReport:
         assert report.details["slots_of_removed_locations"] == {"matched": 1, "removed": 1, "keys": ["s1"]}
         assert report.details["dangling_edges"] == {"matched": 1, "removed": 1, "keys": ["care_event_at/e1"]}
         assert report.details["season_states_of_missing_sites"] == {"matched": 0, "removed": 0, "keys": []}
-        assert (report.version, report.scanned, report.changed, report.dry_run) == ("0102", 5, 5, False)
+        assert report.details["locations_with_dangling_template_key"] == {"matched": 1, "nulled": 1, "keys": ["bed2"]}
+        assert (report.version, report.scanned, report.changed, report.dry_run) == ("0102", 6, 6, False)
 
     def test_the_apply_removes_exactly_what_was_matched(self) -> None:
         db = _FakeDb()
@@ -132,6 +148,30 @@ class TestTheReport:
         assert sorted(db.removed) == sorted(
             ["weather_forecasts/f1", "weather_forecasts/f2", "locations/bed", "slots/s1", "care_event_at/e1"]
         )
+        assert db.nulled == ["locations/bed2"]
+
+    def test_a_location_the_removals_take_is_not_nulled(self) -> None:
+        db = _FakeDb()
+        migration.up(db)
+
+        assert "locations/bed" in db.removed and "locations/bed" not in db.nulled
+
+    def test_a_location_gone_before_the_nulling_is_matched_but_not_counted(self) -> None:
+        db = _FakeDb()
+        db.vanished.add("locations/bed2")
+
+        detail = migration.up(db).details["locations_with_dangling_template_key"]
+
+        assert (detail["matched"], detail["nulled"]) == (1, 0)
+
+    def test_a_volume_without_bed_templates_nulls_nothing(self) -> None:
+        db = _FakeDb(missing=frozenset({col.BED_TEMPLATES}))
+
+        report = migration.up(db)
+
+        assert report.details["locations_with_dangling_template_key"] == {"matched": 0, "nulled": 0, "keys": []}
+        assert db.nulled == []
+        assert report.details["locations_of_missing_sites"]["removed"] == 1
 
     def test_a_key_gone_before_the_apply_is_matched_but_not_counted_as_removed(self) -> None:
         db = _FakeDb()
@@ -142,7 +182,7 @@ class TestTheReport:
         detail = report.details["weather_forecasts_of_missing_sites"]
         assert (detail["matched"], detail["removed"]) == (2, 1)
         assert detail["removed"] == detail["matched"] - 1
-        assert (report.scanned, report.changed) == (5, 4)
+        assert (report.scanned, report.changed) == (6, 5)
 
     def test_keys_are_capped(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(v0102, "_LISTED", 1)
@@ -160,12 +200,13 @@ class TestTheDryRun:
         dry = migration.up(dry_db, dry_run=True)
         wet = migration.up(wet_db)
 
-        assert dry_db.removed == []
+        assert dry_db.removed == [] and dry_db.nulled == []
         assert (dry.dry_run, dry.changed, dry.scanned) == (True, 0, wet.scanned)
         assert {step: d["matched"] for step, d in dry.details.items()} == {
             step: d["matched"] for step, d in wet.details.items()
         }
-        assert all(d["removed"] == 0 for d in dry.details.values())
+        assert all(d.get("removed", 0) == 0 and d.get("nulled", 0) == 0 for d in dry.details.values())
+        assert dry.details["locations_with_dangling_template_key"]["matched"] == 1
 
 
 class TestGuards:
@@ -175,7 +216,7 @@ class TestGuards:
         report = migration.up(db)
 
         assert (report.scanned, report.changed, report.details) == (0, 0, {})
-        assert db.removed == []
+        assert db.removed == [] and db.nulled == []
 
     def test_down_is_irreversible(self) -> None:
         with pytest.raises(IrreversibleMigrationError):

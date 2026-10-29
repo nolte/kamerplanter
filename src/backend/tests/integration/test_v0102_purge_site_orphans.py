@@ -2,7 +2,8 @@
 
 The fixture writes the stored shapes directly: a site that is gone with one row of every site-keyed collection, a
 bed with a child bed and a slot, and the edges that pointed at them; a live site with the same shapes; and the care
-event and plan-audit rows of the gone site, which are history and stay.
+event and plan-audit rows of the gone site, which are history and stay. The #2528 step (unset a ``template_key``
+that names no bed template) is measured on beds of the live site seeded per test.
 
 Locally it needs a database::
 
@@ -250,3 +251,69 @@ def test_remove_counts_only_what_was_actually_removed(db, seeded) -> None:  # ty
 
     assert removed == 1
     assert db.collection(col.SEASON_STATES).get("unsited") is None
+
+
+# ── #2528: the nulling step unsets a template_key that names no bed template ─────────────────────────────────────
+
+_STEP = "locations_with_dangling_template_key"
+
+
+@pytest.fixture
+def templated(db, seeded) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """Three beds of the live site naming a missing, a live system and a live tenant template; one bed of the gone
+    site naming the missing template (the removal takes it, the nulling must not count it)."""
+    db.collection(col.BED_TEMPLATES).insert_many(
+        [{"_key": "sys_tpl", "name": "System"}, {"_key": "own_tpl", "name": "Own", "tenant_key": "t1"}]
+    )
+    db.collection(col.LOCATIONS).insert_many(
+        [
+            {"_key": "tb_missing", "site_key": LIVE, "name": "a", "template_key": "tpl_deleted"},
+            {"_key": "tb_system", "site_key": LIVE, "name": "b", "template_key": "sys_tpl"},
+            {"_key": "tb_tenant", "site_key": LIVE, "name": "c", "template_key": "own_tpl"},
+            {"_key": "tb_gone_site", "site_key": GONE, "name": "d", "template_key": "tpl_deleted"},
+        ]
+    )
+    return {key: db.collection(col.LOCATIONS).get(key)["_rev"] for key in ("tb_system", "tb_tenant")}
+
+
+def test_the_nulling_dry_run_matches_one_and_writes_nothing(db, templated) -> None:  # type: ignore[no-untyped-def]
+    before = _state(db)
+
+    report = migration.up(db, dry_run=True)
+
+    assert report.details[_STEP] == {"matched": 1, "nulled": 0, "keys": ["tb_missing"]}
+    assert list(report.details)[-1] == _STEP
+    assert _state(db) == before
+
+
+def test_the_nulling_unsets_only_the_dangling_key_and_a_second_run_matches_nothing(db, templated) -> None:  # type: ignore[no-untyped-def]
+    report = migration.up(db)
+
+    assert report.details[_STEP] == {"matched": 1, "nulled": 1, "keys": ["tb_missing"]}
+    locations = db.collection(col.LOCATIONS)
+    assert "template_key" not in locations.get("tb_missing")
+    assert {key: locations.get(key)["_rev"] for key in templated} == templated
+    assert locations.get("tb_gone_site") is None  # removed with its site, not nulled
+    again = migration.up(db)
+    assert again.details[_STEP]["matched"] == 0 and again.changed == 0
+
+
+def test_a_volume_without_bed_templates_nulls_nothing(db, templated) -> None:  # type: ignore[no-untyped-def]
+    # An older volume without the collection. It sits in an edge definition of the named graph, which the migration
+    # does not use; the per-test database is dropped afterwards, so the graph goes first.
+    db.delete_graph(col.GRAPH_NAME)
+    db.delete_collection(col.BED_TEMPLATES)
+
+    report = migration.up(db)
+
+    assert report.details[_STEP] == {"matched": 0, "nulled": 0, "keys": []}
+    assert db.collection(col.LOCATIONS).get("tb_missing")["template_key"] == "tpl_deleted"
+
+
+def test_the_nulling_counts_only_what_the_update_returned(db, templated) -> None:  # type: ignore[no-untyped-def]
+    from app.migrations.versions.v0102_purge_site_orphans import _unset_template_key
+
+    nulled = _unset_template_key(db, [f"{col.LOCATIONS}/tb_missing", f"{col.LOCATIONS}/not_there"])
+
+    assert nulled == 1
+    assert "template_key" not in db.collection(col.LOCATIONS).get("tb_missing")
