@@ -195,13 +195,27 @@ Filled during implementation. Each entry records the dispatched specialist and t
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
-| | | | |
+| #2538 | `nolte-engineering:fullstack-developer` (commits fdcca2622, 7968828ab, 3417372d1, c4d9d0dbb, 3d0df4456) | `uv run --locked --extra dev ruff check .` / `ruff format --check .` | "All checks passed!" / "2831 files already formatted" |
+| #2538 | same | `pytest tests/unit/test_route_consumers_check.py tests/unit/test_schema_example_ratchet.py tests/unit/guards -q` | "3067 passed, 3 skipped, 5 deselected" — route pin 890 unchanged |
+| #2538 | same | `scripts/check_schema_examples.py` | "704 model(s) without an example, exactly at the recorded ceiling" (all 4 new schemas have examples) |
+| #2538 | same | `pytest tests/api tests/unit/domain tests/unit/test_schema_example_ratchet.py -q` | "11727 passed" |
+| #2538 | same | `pytest tests/integration/test_garden_plan_repository.py -q` (live ArangoDB) | "1 failed, 33 passed" — the red is `TestGetPlanBenchmark::…p95_of_300_ms` XPASS(strict): local p95 < 300 ms (machine effect; CI xfails, #2526). Ceiling test green |
+| #2538 | same | ceiling test measured size (large class, 150 beds) | 888 225 B without site conditions; **917 925 B** with every bed at the worst case (≈ 198 B/bed) < 1 000 000 B; seed now uses the worst case, docstring records both |
+| #2538 | same | mypy ratchet hook (backend) | Passed |
+| #2538 | same | `npx vitest run src/features/gardenPlanner` | "Test Files 100 passed, 1 skipped; Tests 1377 passed, 6 skipped" |
+| #2538 | same | `npx tsc --noEmit -p .` / `npx eslint src/features/gardenPlanner` | no output / no output |
+| #2538 | same | `npm run build && npm run bundle:check` | `routeChunks.gardenPlanner` 53.5 KB / 120 KB PASS; initial JS 379.6 / 400 KB PASS |
+| #2538 | same | export→import round trip | `ExportLocation.site_conditions` already carries `sun_profile`; new test batch→export→import (new key) keeps `sun_profile`, `source=manual`; export/import files untouched (no #2512 collision) |
+| #2538 | same | `task docs` strict build | **not run by the member** (would provision `.venv-docs`); runs at the bundle gate |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
-| | | |
+| #2538 | local adaptation | `recreateLocation` cannot send `site_conditions` in `create_location` (server `CreateLocationData` is `extra="forbid"`); it now returns `[create_location, update_fields {site_conditions:{sun_profile}}]`. Frost risk/drainage of a recreated bed are not restored (new bed server-side) |
+| #2538 | local adaptation | shared helper lives at `app/domain/engines/site_conditions_merge.py` (`merge_site_conditions`, `NESTED_SITE_PARTS`, `sent_fields`), used by both services; PATCH behaviour unchanged (PATCH does not stamp `source`; only the batch stamps `manual`) |
+| #2538 | local adaptation | batch model is a dedicated strict `PlanSunProfilePatch` (3 fields) instead of `_StrictSunProfile` (carries `source`); merge result validated against `SiteConditions`; explicit `site_conditions: null` → 422 `fields.site_conditions` (would erase frost risk) |
+| #2538 | local adaptation | frontend keeps a normalised D-3 shape locally (`unknown`/`null`/`false` and empty parts dropped); the inverse sends the actual previous values, so undo restores the starting plan exactly; `SoilDrainage` moved to `model/types.ts` (re-exported from `bed/types.ts`); new testid `garden-plan-panel-sun-profile` registered in UI-NFR-022 v1.6 |
 
 ## Requirement coverage
 
