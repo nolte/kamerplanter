@@ -12,7 +12,9 @@ What no double can decide, measured here:
 * ``care_events`` and the earlier ``garden_plan_audit`` rows stay (REQ-053 GP-FR-101, §20.13 SR-011), and exactly one
   new audit row records the delete;
 * every other row and edge is byte-identical afterwards — tenant B's site of the same shape is the positive control;
-* a failure after the first write leaves the database as it was (one stream transaction).
+* a failure after the first write leaves the database as it was (one stream transaction);
+* a plant not yet removed on the site, one of its locations or one of their slots refuses the whole delete with
+  409 ``site.has_active_plants`` and nothing is written; a removed plant and another tenant's plant never block (WP-3).
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from typing import Any
 import pytest
 from arango import ArangoClient
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, PlanError
 from app.data_access.arango import collections as col
 from app.data_access.arango.graph_edges import edges_touching
 from app.data_access.arango.site_repository import ArangoSiteRepository
@@ -49,7 +51,7 @@ _REMOVED_VERTEX_COLLECTIONS = (
 _EDGE_COLLECTIONS = tuple(
     dict.fromkeys(edge for name in _REMOVED_VERTEX_COLLECTIONS for edge, _ in edges_touching(name))
 )
-_DOCUMENT_COLLECTIONS = (*_REMOVED_VERTEX_COLLECTIONS, col.CARE_EVENTS, col.GARDEN_PLAN_AUDIT)
+_DOCUMENT_COLLECTIONS = (*_REMOVED_VERTEX_COLLECTIONS, col.CARE_EVENTS, col.GARDEN_PLAN_AUDIT, col.PLANT_INSTANCES)
 
 
 @pytest.fixture(scope="module")
@@ -299,3 +301,79 @@ class TestDeletingASiteRemovesItsStructureAndKeepsItsHistory:
 
         assert _documents(db) == documents
         assert _edges(db) == edges
+
+
+def _plant(db, key: str, tenant: str, **placement: Any) -> None:
+    db.collection(col.PLANT_INSTANCES).insert(
+        {"_key": key, "instance_id": key, "tenant_key": tenant, "removed_on": None, **placement}
+    )
+
+
+class TestASiteWithActivePlantsIsNotDeleted:
+    """V-09 one level up (#2513 WP-3): the refusal fires inside the transaction, before the first write."""
+
+    @staticmethod
+    def _assert_refused_and_untouched(db, count: int) -> None:
+        documents, edges = _documents(db), _edges(db)
+
+        with pytest.raises(PlanError) as refused:
+            ArangoSiteRepository(db).delete_site("site_a", user_key="u1")
+
+        assert refused.value.status_code == 409
+        assert refused.value.error_code == "site.has_active_plants"
+        assert refused.value.details[0]["code"] == "site.has_active_plants"
+        assert refused.value.details[0]["active_plant_count"] == count
+        # Site, beds, slots, objects, zones, dependents, plants, audit rows (no new one) and every edge as before.
+        assert _documents(db) == documents
+        assert _edges(db) == edges
+
+    def test_a_plant_naming_the_site_refuses_the_delete(self, db, seeded) -> None:
+        _plant(db, "p_site", A, site_key="site_a")
+        self._assert_refused_and_untouched(db, 1)
+        for doc_id in seeded["site_a"]["gone"]:
+            assert db.document(doc_id) is not None, doc_id
+
+    def test_a_pre_v0100_plant_on_a_nested_location_refuses_the_delete(self, db, seeded) -> None:
+        # No ``site_key`` (written before v0100), on the bed reachable only through the ``contains`` tree.
+        _plant(db, "p_loc", A, location_key="child_site_a")
+        self._assert_refused_and_untouched(db, 1)
+
+    def test_a_plant_in_a_slot_refuses_the_delete(self, db, seeded) -> None:
+        _plant(db, "p_slot", A, slot_key="slot_site_a")
+        self._assert_refused_and_untouched(db, 1)
+
+    def test_every_matching_plant_is_counted_once(self, db, seeded) -> None:
+        _plant(db, "p_all", A, site_key="site_a", location_key="child_site_a", slot_key="slot_site_a")
+        _plant(db, "p_loose", A, location_key="loose_site_a")
+        self._assert_refused_and_untouched(db, 2)
+
+    def test_a_removed_plant_does_not_block(self, db, seeded) -> None:
+        db.collection(col.PLANT_INSTANCES).insert(
+            {
+                "_key": "p_gone",
+                "instance_id": "p_gone",
+                "tenant_key": A,
+                "site_key": "site_a",
+                "location_key": "child_site_a",
+                "slot_key": "slot_site_a",
+                "removed_on": "2026-09-01",
+            }
+        )
+
+        assert ArangoSiteRepository(db).delete_site("site_a", user_key="u1") is True
+
+        assert db.collection(col.SITES).get("site_a") is None
+        assert db.collection(col.PLANT_INSTANCES).get("p_gone") is not None  # the plant's history stays
+
+    def test_tenant_b_plants_on_tenant_b_site_do_not_block_site_a(self, db, seeded) -> None:
+        _plant(db, "p_b_site", B, site_key="site_b")
+        _plant(db, "p_b_loc", B, location_key="child_site_b")
+        _plant(db, "p_b_slot", B, slot_key="slot_site_b")
+
+        assert ArangoSiteRepository(db).delete_site("site_a", user_key="u1") is True
+
+        assert db.collection(col.SITES).get("site_a") is None
+        assert db.collection(col.SITES).get("site_b") is not None
+        with pytest.raises(PlanError) as refused:
+            ArangoSiteRepository(db).delete_site("site_b", user_key="u1")
+        assert refused.value.details[0]["active_plant_count"] == 3  # positive control: they do block their own site

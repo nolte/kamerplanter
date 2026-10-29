@@ -97,6 +97,7 @@ Filled during implementation. Each entry records the dispatched specialist and t
 |---|---|---|---|
 | #2513 WP-1 | nolte-engineering:fullstack-developer | `pytest tests/unit/data_access/arango/test_graph_edges.py tests/unit/data_access/arango/test_garden_plan_collections.py -q`; `ruff check .`; `ruff format --check .`; `pytest tests/unit/test_route_consumers_check.py -q` | `16 passed in 2.50s`; `All checks passed!`; `2825 files already formatted`; `16 passed` |
 | #2513 WP-2 | nolte-engineering:fullstack-developer | `pytest tests/integration/{test_site_delete_cascade,test_irrigation_zone_repository,test_garden_plan_repository,test_garden_resource_repository,test_garden_plan_tenant_isolation}.py` (ArangoDB 3.12.12 local); `ruff check .`; `ruff format --check .`; `tests/unit -k site` | `1 failed, 358 passed` (failure = pre-existing strict XPASS benchmark, #2526, unrelated); `All checks passed!`; `2826 files already formatted`; `619 passed` |
+| #2513 WP-3 | nolte-engineering:fullstack-developer | `pytest tests/integration/test_site_delete_cascade.py tests/integration/test_irrigation_zone_repository.py` (ArangoDB); unit+API tests; final combined run; `ruff check .`; `ruff format --check .` | `41 passed in 12.14s`; `4 passed`; `91 passed in 33.54s`; `All checks passed!`; `2828 files already formatted` |
 | | | | |
 
 ## Deviations

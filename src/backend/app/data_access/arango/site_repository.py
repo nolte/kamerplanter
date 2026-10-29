@@ -6,7 +6,7 @@ from typing import Any, cast
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -231,11 +231,14 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
         Raises:
             NotFoundError: The site does not exist (any more) when the transaction reads it.
+            PlanError: ``site.has_active_plants`` (409) — a plant not yet removed stands on the site, one of its
+                locations or one of their slots; nothing is written.
         """
         with stream_transaction(self._db, write=_SITE_DELETE_WRITE, read=_SITE_DELETE_READ, entity="site") as txn:
             scope = self._collect_site_delete_scope(txn, key)
             # Everything above only reads; everything below writes. A refusal of the whole delete belongs here, so
             # it holds against the transaction's snapshot and nothing has been written when it fires.
+            self._refuse_active_plants(txn, key, scope)
             self._remove_site_scope(txn, scope)
             txn.check_budget()
             self._write_site_delete_audit(txn, key, scope, user_key)
@@ -274,6 +277,44 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             zone_ids=[str(zone_id) for zone_id in zone_ids],
             dependent_ids=dependent_ids,
         )
+
+    @staticmethod
+    def _refuse_active_plants(txn: StreamTransaction, key: SiteKey, scope: _SiteDeleteScope) -> None:
+        """V-09 one level up (#2513): a site with a plant still standing on it is not deleted.
+
+        A plant counts when ``removed_on`` is unset and it names the site, one of the removed locations or one of
+        their slots — a plant written before v0100 carries no ``site_key``, so the location and slot match is not
+        redundant. Read inside the transaction, so a plant placed after the service's read blocks the delete too.
+        """
+        active = next(
+            iter(
+                txn.aql.execute(
+                    """
+                    RETURN LENGTH(
+                        FOR p IN @@plants
+                            FILTER p.removed_on == null
+                            FILTER p.site_key == @site_key
+                                OR p.location_key IN @location_keys
+                                OR p.slot_key IN @slot_keys
+                            RETURN 1
+                    )
+                    """,
+                    bind_vars={
+                        "@plants": col.PLANT_INSTANCES,
+                        "site_key": key,
+                        "location_keys": _keys(scope.location_ids),
+                        "slot_keys": _keys(scope.slot_ids),
+                    },
+                )
+            )
+        )
+        if active:
+            raise PlanError(
+                "site.has_active_plants",
+                "A site with active plants cannot be deleted.",
+                status_code=409,
+                active_plant_count=int(active),
+            )
 
     @staticmethod
     def _location_ids_of_site(txn: StreamTransaction, key: SiteKey) -> list[str]:

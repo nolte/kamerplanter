@@ -16,7 +16,7 @@ from app.common.dependencies import (
     get_tank_service,
 )
 from app.common.enums import TenantRole
-from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.openapi_responses import CONFLICT_RESPONSE, NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.models.hardiness_zone import HardinessZone
@@ -147,13 +147,16 @@ def update_site(
     return _site_response(updated, service)
 
 
-@router.delete("/{key}", status_code=204)
+@router.delete("/{key}", status_code=204, responses={**CONFLICT_RESPONSE})
 def delete_site(
     key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.DELETE)),
     service: SiteService = Depends(get_site_service),
 ):
-    """Delete a site with its locations, slots, garden objects, zones and weather data; care history stays."""
+    """Delete a site with its locations, slots, garden objects, zones and weather data; care history stays.
+
+    409 ``site.has_active_plants`` while a plant not yet removed stands on the site; nothing is deleted then.
+    """
     service.delete_site(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key)
 
 
