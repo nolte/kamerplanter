@@ -71,6 +71,7 @@ from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_tenant_archive
+from app.domain.engines.tenant_import_engine import TenantImportEngine
 from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
 from app.domain.services.entitlement_service import EntitlementService
@@ -593,7 +594,7 @@ def test_a_missing_catalogue_entry_refuses_and_writes_nothing(source, target, tm
 
 
 def test_a_bed_whose_template_and_substrate_are_gone_imports_with_the_references_cleared(
-    source, target, tmp_path
+    source, target, tmp_path, monkeypatch
 ) -> None:
     """#2528 (REQ-056 §8.4 step 1): a bed's template and substrate are provenance. Gone from both the archive and
     the target's catalogue, they are cleared and counted - not a refusal. A bed naming a system template the target
@@ -620,6 +621,19 @@ def test_a_bed_whose_template_and_substrate_are_gone_imports_with_the_references
         {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "New lead", "account_type": "human"}
     )
     dst = _service(target, tmp_path / "dst")
+    passes = {"needs": 0, "rows": 0}
+    real_needs, real_rows = TenantImportEngine._catalogue_needs, TenantExportService._catalogue_rows
+
+    def counted_needs(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        passes["needs"] += 1
+        return real_needs(self, *args, **kwargs)
+
+    def counted_rows(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        passes["rows"] += 1
+        return real_rows(self, *args, **kwargs)
+
+    monkeypatch.setattr(TenantImportEngine, "_catalogue_needs", counted_needs)
+    monkeypatch.setattr(TenantExportService, "_catalogue_rows", counted_rows)
 
     accepted = dst.request_import(
         io.BytesIO(archive),
@@ -634,6 +648,9 @@ def test_a_bed_whose_template_and_substrate_are_gone_imports_with_the_references
     finished = run_async(dst.run_import(accepted.key or ""))
 
     assert finished is not None and finished.status == "completed", finished
+    # D7: one archive pass per catalogue check. ``_verified_archive`` runs at the request and again when the run
+    # re-reads the upload, then the run resolves the rows it writes against: three checks, three passes.
+    assert passes == {"needs": 3, "rows": 3}
     beds = {
         doc["name"]: doc
         for doc in target.aql.execute(

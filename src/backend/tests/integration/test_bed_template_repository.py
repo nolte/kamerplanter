@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 from arango import ArangoClient
+from structlog.testing import capture_logs
 
 from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
@@ -59,7 +60,7 @@ def database():
 
 @pytest.fixture
 def db(database):
-    for name in (col.BED_TEMPLATES, col.LOCATION_TYPES, col.TASK_TEMPLATES, col.SITES, col.LOCATIONS):
+    for name in (col.BED_TEMPLATES, col.LOCATION_TYPES, col.TASK_TEMPLATES, col.SITES, col.LOCATIONS, col.CONTAINS):
         database.collection(name).truncate()
     database.collection(col.LOCATION_TYPES).insert_many(
         [{"_key": "bed", "name": "Bed", "is_bed": True}, {"_key": "greenhouse", "name": "House", "is_bed": False}]
@@ -195,8 +196,10 @@ class TestDeleteReleasesThePlacedBeds:
         own = repo.create_template(_template("Own", A))
         revs = _seed_beds(db, own.key or "")
 
-        assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
+        with capture_logs() as logs:
+            assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
 
+        assert [e["released_beds"] for e in logs if e["event"] == "bed_template.beds_released"] == [1]
         locations = db.collection(col.LOCATIONS)
         assert "template_key" not in locations.get("bed_a")
         assert locations.get("bed_b")["_rev"] == revs["bed_b"]
@@ -213,6 +216,33 @@ class TestDeleteReleasesThePlacedBeds:
         assert "template_key" not in locations.get("bed_a")
         assert "template_key" not in locations.get("bed_b")
         assert locations.get("bed_other")["_rev"] == revs["bed_other"]
+
+    def test_a_nested_bed_without_a_site_key_is_released_through_the_containment_graph(self, repo, db) -> None:
+        """A nested legacy bed carries no ``site_key`` (#2513) - its site is reached through ``contains``."""
+        own = repo.create_template(_template("Own", A))
+        _seed_beds(db, own.key or "")
+        db.collection(col.LOCATIONS).insert_many(
+            [
+                {"_key": "nested_a", "name": "na", "site_key": "", "template_key": own.key},
+                {"_key": "nested_b", "name": "nb", "site_key": "", "template_key": own.key},
+            ]
+        )
+        db.collection(col.CONTAINS).insert_many(
+            [
+                {"_from": f"{col.SITES}/s_a", "_to": f"{col.LOCATIONS}/bed_a"},
+                {"_from": f"{col.LOCATIONS}/bed_a", "_to": f"{col.LOCATIONS}/nested_a"},
+                {"_from": f"{col.SITES}/s_b", "_to": f"{col.LOCATIONS}/bed_b"},
+                {"_from": f"{col.LOCATIONS}/bed_b", "_to": f"{col.LOCATIONS}/nested_b"},
+            ]
+        )
+        rev_b = db.collection(col.LOCATIONS).get("nested_b")["_rev"]
+
+        assert repo.delete_template(own.key or "", owner_tenant_key=A) is True
+
+        locations = db.collection(col.LOCATIONS)
+        assert "template_key" not in locations.get("nested_a")
+        assert locations.get("nested_b")["_rev"] == rev_b
+        assert locations.get("nested_b")["template_key"] == own.key
 
     def test_a_refused_delete_touches_no_bed(self, repo, db) -> None:
         sys_row = repo.create_template(_template("System", None))

@@ -81,7 +81,11 @@ class _FakeAql:
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **_: Any) -> Any:
         bind = bind_vars or {}
         if query == v0102._UNSET_TEMPLATE_KEY:
-            present = [key for key in bind["keys"] if f"{bind['@col']}/{key}" not in self.db.vanished]
+            # The write re-checks the template (#2528 G2): only a statement that reads ``@templates`` at write time
+            # skips a location that got a live template between plan and apply.
+            rechecks = bind.get("templates") == col.BED_TEMPLATES and "DOCUMENT(@templates, l.template_key)" in query
+            skipped = self.db.vanished | (self.db.retemplated if rechecks else set())
+            present = [key for key in bind["keys"] if f"{bind['@col']}/{key}" not in skipped]
             self.db.nulled.extend(f"{bind['@col']}/{key}" for key in present)
             return iter(present)
         if query == v0102._DANGLING_TEMPLATE_KEYS:
@@ -116,6 +120,7 @@ class _FakeDb:
         self.removed: list[str] = []
         self.nulled: list[str] = []
         self.vanished: set[str] = set()
+        self.retemplated: set[str] = set()
         self.aql = _FakeAql(self)
 
     def has_collection(self, name: str) -> bool:
@@ -163,6 +168,15 @@ class TestTheReport:
         detail = migration.up(db).details["locations_with_dangling_template_key"]
 
         assert (detail["matched"], detail["nulled"]) == (1, 0)
+
+    def test_a_location_retemplated_before_the_nulling_is_matched_but_not_nulled(self) -> None:
+        db = _FakeDb()
+        db.retemplated.add("locations/bed2")
+
+        detail = migration.up(db).details["locations_with_dangling_template_key"]
+
+        assert (detail["matched"], detail["nulled"]) == (1, 0)
+        assert db.nulled == []
 
     def test_a_volume_without_bed_templates_nulls_nothing(self) -> None:
         db = _FakeDb(missing=frozenset({col.BED_TEMPLATES}))

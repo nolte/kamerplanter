@@ -214,6 +214,13 @@ class TenantImportEngine:
         """
         return self._catalogue_needs()[0]
 
+    def catalogue_needs(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+        """``(catalogue_requirements, optional_catalogue_requirements)`` from one pass over the archive (D7).
+
+        A caller that needs both takes this instead of the two methods, each of which walks the whole archive.
+        """
+        return self._catalogue_needs()
+
     def optional_catalogue_requirements(self) -> dict[str, set[str]]:
         """The catalogue rows only *provenance* references point at: resolved like the others, never refusing.
 

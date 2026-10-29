@@ -317,3 +317,27 @@ def test_the_nulling_counts_only_what_the_update_returned(db, templated) -> None
 
     assert nulled == 1
     assert "template_key" not in db.collection(col.LOCATIONS).get("tb_missing")
+
+
+def test_a_bed_retemplated_between_plan_and_apply_is_not_nulled(db, templated, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The write re-checks the template (#2528 G2): a bed whose key names a live template by the time the ``UPDATE``
+    runs keeps it, and ``nulled`` counts only what the statement changed."""
+    from app.migrations.versions import v0102_purge_site_orphans as v0102
+
+    db.collection(col.LOCATIONS).insert({"_key": "tb_late", "site_key": LIVE, "name": "e", "template_key": "tpl_late"})
+    real_plan = v0102._locations_with_dangling_template_key
+
+    def plan_then_retemplate(database, gone):  # type: ignore[no-untyped-def]
+        ids = real_plan(database, gone)
+        database.collection(col.BED_TEMPLATES).insert({"_key": "tpl_late", "name": "Late"})
+        return ids
+
+    monkeypatch.setattr(v0102, "_NULLING_STEPS", ((_STEP, plan_then_retemplate),))
+
+    detail = migration.up(db).details[_STEP]
+
+    assert detail["matched"] == 2
+    assert detail["nulled"] == detail["matched"] - 1
+    locations = db.collection(col.LOCATIONS)
+    assert "template_key" not in locations.get("tb_missing")
+    assert locations.get("tb_late")["template_key"] == "tpl_late"

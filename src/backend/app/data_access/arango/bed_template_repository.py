@@ -16,6 +16,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import structlog
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
@@ -26,6 +27,8 @@ from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.bed_template_repository import IBedTemplateRepository
 from app.domain.models.bed_template import BedTemplate
+
+logger = structlog.get_logger()
 
 #: A row the tenant may read: its own or a system one (``tenant_key`` is ``null`` or absent).
 _VISIBLE = "(t.tenant_key == @tenant_key OR t.tenant_key == null)"
@@ -157,11 +160,16 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
         touches no bed.
         """
         with stream_transaction(
-            self._db, write=(col.BED_TEMPLATES, col.LOCATIONS), read=(col.SITES,), entity="bed_template"
+            self._db,
+            write=(col.BED_TEMPLATES, col.LOCATIONS),
+            read=(col.SITES, col.CONTAINS),
+            entity="bed_template",
         ) as txn:
             if not self._remove_owned_template(txn, key, owner_tenant_key=owner_tenant_key):
                 return False
-            self._unset_template_key(txn, key, owner_tenant_key=owner_tenant_key)
+            released = self._unset_template_key(txn, key, owner_tenant_key=owner_tenant_key)
+        # After the commit: the service logs ``bed_template.deleted``; the released-bed count is only known here.
+        logger.info("bed_template.beds_released", template_key=key, released_beds=released)
         return True
 
     @staticmethod
@@ -187,8 +195,18 @@ class ArangoBedTemplateRepository(BaseArangoRepository[BedTemplate], IBedTemplat
         bind_vars: dict[str, Any] = {"@locations": col.LOCATIONS, "key": key}
         site_clause = ""
         if owner_tenant_key is not None:
-            site_clause = "AND DOCUMENT(@@sites, l.site_key).tenant_key == @owner"
+            # A nested legacy bed may carry no ``site_key`` (#2513): its site is then the first site above it on the
+            # ``contains`` graph (site -> location, parent location -> child, so the walk goes INBOUND).
+            site_clause = """
+                LET site = DOCUMENT(@@sites, l.site_key) || FIRST(
+                    FOR v IN 1..20 INBOUND l @@contains
+                        FILTER IS_SAME_COLLECTION(@@sites, v)
+                        LIMIT 1
+                        RETURN v
+                )
+                FILTER site.tenant_key == @owner"""
             bind_vars["@sites"] = col.SITES
+            bind_vars["@contains"] = col.CONTAINS
             bind_vars["owner"] = owner_tenant_key
         cursor = txn.aql.execute(
             f"""

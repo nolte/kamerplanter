@@ -39,7 +39,8 @@ matches nothing and changes nothing.
 
 **Counted, not assumed (D1).** ``REMOVE … OPTIONS {ignoreErrors: true}`` skips a document that is gone by the time
 it runs, so ``removed`` counts the keys the statement actually returned — it may be lower than ``matched``. Step 6's
-``UPDATE`` does the same: ``nulled`` counts what the statement returned.
+``UPDATE`` does the same and re-checks the dangling condition at write time (a bed given a live template between plan
+and apply keeps it): ``nulled`` counts what the statement returned.
 
 **Dry run (M-5).** The whole removal set is planned before the first write — each step sees what the earlier steps
 would remove as gone — so a dry run reports the same ``matched`` counts as the run that applies them, and writes
@@ -219,7 +220,9 @@ RETURN UNION_DISTINCT(
 """
 
 
-#: A location whose non-empty ``template_key`` names no bed template (#2528).
+#: A location whose non-empty ``template_key`` names no bed template (#2528). Measured on ArangoDB 3.12.12:
+#: ``DOCUMENT("bed_templates", "sites/x")`` returns ``null`` for an existing site ``x`` - a key in id form of another
+#: collection never resolves across collections, so it counts as dangling (and ``"bed_templates/<key>"`` resolves).
 _DANGLING_TEMPLATE_KEYS = """
 FOR l IN @@locations
   FILTER IS_STRING(l.template_key) AND l.template_key != "" AND DOCUMENT(@templates, l.template_key) == null
@@ -227,9 +230,13 @@ FOR l IN @@locations
   RETURN l._id
 """
 
+#: The write re-checks the planner's condition, so a location that got a live template between plan and apply (or
+#: lost its key) is not edited and not counted.
 _UNSET_TEMPLATE_KEY = """
-FOR k IN @keys
-  UPDATE k WITH {template_key: null} IN @@col OPTIONS {keepNull: false, ignoreErrors: true}
+FOR l IN @@col
+  FILTER l._key IN @keys AND IS_STRING(l.template_key) AND l.template_key != ""
+    AND DOCUMENT(@templates, l.template_key) == null
+  UPDATE l WITH {template_key: null} IN @@col OPTIONS {keepNull: false, ignoreErrors: true}
   RETURN OLD._key
 """
 
@@ -412,8 +419,9 @@ def _remove(db: StandardDatabase, ids: Sequence[str]) -> int:
 def _unset_template_key(db: StandardDatabase, ids: Sequence[str]) -> int:
     """Unset ``template_key`` on *ids* (locations) in batches; returns how many the ``UPDATE`` actually changed.
 
-    ``ignoreErrors`` skips a location that is gone by the time the batch runs; it returns no ``OLD`` row and is not
-    counted, so ``nulled`` may be lower than ``matched`` (the same rule as :func:`_remove`).
+    A location that is gone by the time the batch runs, or whose ``template_key`` names a live template by then
+    (re-checked in the statement), returns no ``OLD`` row and is not counted, so ``nulled`` may be lower than
+    ``matched`` (the same rule as :func:`_remove`).
     """
     keys = [doc_id.split("/", 1)[1] for doc_id in ids]
     nulled = 0
@@ -424,7 +432,11 @@ def _unset_template_key(db: StandardDatabase, ids: Sequence[str]) -> int:
                     Cursor,
                     db.aql.execute(
                         _UNSET_TEMPLATE_KEY,
-                        bind_vars={"@col": _LOCATIONS, "keys": keys[start : start + _BATCH_SIZE]},
+                        bind_vars={
+                            "@col": _LOCATIONS,
+                            "templates": _BED_TEMPLATES,
+                            "keys": keys[start : start + _BATCH_SIZE],
+                        },
                     ),
                 )
             )

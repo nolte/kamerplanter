@@ -675,6 +675,7 @@ class TenantExportEngine:
             for path, ref in declared.items():
                 reference: TenantReference = ref
                 by_value: dict[str, str] = reference.by_value
+                cls._require_provenance_contract(f"{collection}.{path}", reference)
                 for target in reference.targets:
                     if reference.kind == "global" and target not in catalogues:
                         raise ValueError(f"{collection}.{path}: '{target}' is not a global catalogue")
@@ -683,6 +684,18 @@ class TenantExportEngine:
                 for target in by_value.values():
                     if target not in exported:
                         raise ValueError(f"{collection}.{path}: '{target}' is not carried by the archive")
+
+    @classmethod
+    def _require_provenance_contract(cls, where: str, reference: TenantReference) -> None:
+        """A provenance reference (cleared, never refusing - REQ-056 §8.4 step 1, #2528) is an ``internal`` one into
+        hybrid catalogues only: elsewhere a key found nowhere is a broken archive, not a copy's lost origin."""
+        if not reference.provenance:
+            return
+        if reference.kind != "internal":
+            raise ValueError(f"{where}: provenance needs kind 'internal', not '{reference.kind}'")
+        outside = sorted(set(reference.targets) - cls.HYBRID_CATALOGUES)
+        if outside or not reference.targets:
+            raise ValueError(f"{where}: provenance into {outside or 'no target'} - only hybrid catalogues qualify")
 
     # ── which fields are references ───────────────────────────────────
 

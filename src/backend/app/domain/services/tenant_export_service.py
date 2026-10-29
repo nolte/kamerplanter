@@ -897,21 +897,29 @@ class TenantExportService:
                 entries=refused,
             )
 
-    def _catalogue_rows(self, engine: TenantImportEngine) -> tuple[set[str], list[str]]:
+    def _catalogue_rows(
+        self,
+        needs: tuple[dict[str, set[str]], dict[str, set[str]]],
+        *,
+        resolve_optional: bool = True,
+    ) -> tuple[set[str], list[str]]:
         """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced.
 
-        Provenance references (#2528) are resolved too - an existing system row must land in ``existing`` or the
-        rewrite would clear a valid key - but a missing one is not a refusal: the rewrite clears and counts it.
+        *needs* is :meth:`TenantImportEngine.catalogue_needs` - ``(refusing, optional)`` from one pass over the
+        archive (D7). Provenance references (#2528, the optional half) are resolved too - an existing system row
+        must land in ``existing`` or the rewrite would clear a valid key - but a missing one is not a refusal: the
+        rewrite clears and counts it. A caller that only wants ``missing`` passes ``resolve_optional=False`` and
+        skips the lookups whose answer it would discard.
         """
         existing: set[str] = set()
         missing: list[str] = []
         catalogues = TenantExportEngine.global_catalogues()
-        requirements = (
-            (engine.catalogue_requirements(), True),
-            (engine.optional_catalogue_requirements(), False),
-        )
-        for needs, refusing in requirements:
-            for targets, keys in needs.items():
+        refusing_needs, optional_needs = needs
+        requirements = [(refusing_needs, True)]
+        if resolve_optional:
+            requirements.append((optional_needs, False))
+        for needed, refusing in requirements:
+            for targets, keys in needed.items():
                 found: set[str] = set()
                 for collection in targets.split("|"):
                     # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
@@ -924,7 +932,7 @@ class TenantExportService:
         return existing, sorted(missing)
 
     def _missing_catalogue_entries(self, engine: TenantImportEngine) -> list[str]:
-        return self._catalogue_rows(engine)[1]
+        return self._catalogue_rows(engine.catalogue_needs(), resolve_optional=False)[1]
 
     def _resolve_member_mapping(
         self, archive: TenantArchive, member_mapping: dict[str, dict[str, Any]]
@@ -1161,7 +1169,7 @@ class TenantExportService:
                 founder_scopes=list(owner_grant.admin_scopes) if owner_grant is not None else None,
                 tenant_key=tenant_key,
             )
-            existing_global, missing = self._catalogue_rows(engine)
+            existing_global, missing = self._catalogue_rows(engine.catalogue_needs())
             if missing:
                 raise TenantImportRefusedError(
                     "IMPORT_MISSING_CATALOG_ENTRIES", "catalogue entries vanished during the import", missing

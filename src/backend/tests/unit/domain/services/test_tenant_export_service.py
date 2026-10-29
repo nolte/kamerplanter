@@ -667,9 +667,48 @@ class TestProvenanceReferencesNeverRefuse:
 
     _BED = {"_key": "l1", "site_key": "s1", "template_key": "tpl-gone", "soil_profile": {"substrate_key": "sub-gone"}}
 
-    def test_a_missing_provenance_key_does_not_refuse_at_request_time(self, world) -> None:
-        created = _import(world.build(), _archive_bytes(locations=[self._BED]))
+    def test_a_missing_provenance_key_does_not_refuse_at_request_time(self, world, monkeypatch) -> None:
+        store = _CatalogueStore()
+        service = world.build(store=store)
+        listed: list[list[str]] = []
+        real = service._missing_catalogue_entries
+
+        def recording(engine: Any) -> list[str]:
+            missing = real(engine)
+            listed.append(missing)
+            return missing
+
+        monkeypatch.setattr(service, "_missing_catalogue_entries", recording)
+
+        created = _import(service, _archive_bytes(locations=[self._BED]))
+
         assert created.key
+        assert listed == [[]], "the request-time check must not list a provenance key as missing"
+        # D7: the request-time check only wants ``missing`` - it does not look up what it would discard.
+        assert not [asked for asked in store.asked if asked[0] in {"bed_templates", "substrates"}]
+
+    def test_each_catalogue_check_reads_the_archive_once(self, world, monkeypatch) -> None:
+        """D7: ``_catalogue_rows`` gets the ``(refusing, optional)`` pair of one ``_catalogue_needs`` pass."""
+        from app.domain.engines.tenant_import_engine import TenantImportEngine
+
+        calls = {"needs": 0, "rows": 0}
+        real_needs = TenantImportEngine._catalogue_needs
+        real_rows = TenantExportService._catalogue_rows
+
+        def needs(self: Any) -> Any:
+            calls["needs"] += 1
+            return real_needs(self)
+
+        def rows(self: Any, *args: Any, **kwargs: Any) -> Any:
+            calls["rows"] += 1
+            return real_rows(self, *args, **kwargs)
+
+        monkeypatch.setattr(TenantImportEngine, "_catalogue_needs", needs)
+        monkeypatch.setattr(TenantExportService, "_catalogue_rows", rows)
+
+        _import(world.build(), _archive_bytes(locations=[self._BED]))
+
+        assert calls == {"needs": 1, "rows": 1}
 
     def test_a_missing_species_key_still_refuses(self, world) -> None:
         data = _archive_bytes(
@@ -690,7 +729,7 @@ class TestProvenanceReferencesNeverRefuse:
         archive = read_tenant_archive(io.BytesIO(_archive_bytes(locations=[bed])))
         engine = TenantImportEngine(archive, target_tenant_key="t-new", member_accounts={})
 
-        existing, missing = world.build(store=store)._catalogue_rows(engine)
+        existing, missing = world.build(store=store)._catalogue_rows(engine.catalogue_needs())
 
         assert existing == {"bed_templates/sys_bed_2x1"} and missing == []
         assert ("bed_templates", ("sys_bed_2x1",)) in store.asked
