@@ -27,9 +27,9 @@ Rules per reference kind (``TenantReference.kind``):
   *provenance* (``TenantReference.provenance``: a bed's template and substrate,
   #2528) is resolved the same way — against the archive and the target's
   catalogue, so an existing system row is kept — but a key found in neither is
-  cleared and counted instead of refusing the archive: it is collected by
-  :meth:`TenantImportEngine.optional_catalogue_requirements`, not by
-  :meth:`TenantImportEngine.catalogue_requirements`.
+  cleared and counted instead of refusing the archive: it is collected in the
+  optional half of :meth:`TenantImportEngine.catalogue_needs`, not in the
+  refusing one.
 * ``global`` — kept; collected for the catalogue check.
 * ``account`` — an account the admin mapped → that account; anything else
   becomes the pseudonym ``_anonymized`` (§8.4 step 4). A pseudonym or an erasure
@@ -169,7 +169,7 @@ class TenantImportEngine:
 
         Run before the new tenant is founded: an archive that would fail half-way is
         refused as a whole. Catalogue rows count as absent here — this pass checks what
-        the archive *claims*, the catalogue check is :meth:`catalogue_requirements`.
+        the archive *claims*, the catalogue check is :meth:`catalogue_needs`.
         """
         for collection, documents in self._archive.collections.items():
             for row in documents:
@@ -210,14 +210,17 @@ class TenantImportEngine:
     def catalogue_requirements(self) -> dict[str, set[str]]:
         """Every global catalogue row the archive points at and cannot do without: ``collection -> keys``.
 
-        The store checks these; a missing one refuses the archive (``IMPORT_MISSING_CATALOG_ENTRIES``).
+        The store checks these; a missing one refuses the archive (``IMPORT_MISSING_CATALOG_ENTRIES``). A view of
+        the first half of :meth:`catalogue_needs`, which walks the whole archive - a caller that needs both halves
+        takes :meth:`catalogue_needs` once.
         """
-        return self._catalogue_needs()[0]
+        return self.catalogue_needs()[0]
 
     def catalogue_needs(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
         """``(catalogue_requirements, optional_catalogue_requirements)`` from one pass over the archive (D7).
 
-        A caller that needs both takes this instead of the two methods, each of which walks the whole archive.
+        The one derivation: :meth:`catalogue_requirements` and :meth:`optional_catalogue_requirements` are views of
+        its halves, each of which walks the whole archive - a caller that needs both takes this once.
         """
         return self._catalogue_needs()
 
@@ -225,9 +228,10 @@ class TenantImportEngine:
         """The catalogue rows only *provenance* references point at: resolved like the others, never refusing.
 
         The store must still resolve them - an existing (system) row goes into ``existing_global`` and the key is
-        kept; a missing one is cleared by :meth:`remap_document` and counted in ``nulled_references`` (#2528).
+        kept; a missing one is cleared by :meth:`remap_document` and counted in ``nulled_references`` (#2528). A view
+        of the second half of :meth:`catalogue_needs` - a caller that needs both halves takes that once.
         """
-        return self._catalogue_needs()[1]
+        return self.catalogue_needs()[1]
 
     def _catalogue_needs(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
         """``(refusing, optional)`` catalogue keys of every row and edge of the archive."""
@@ -270,7 +274,7 @@ class TenantImportEngine:
         """The document as the target stores it: new ``_key``, every declared reference rewritten.
 
         ``existing_global`` holds ``"<collection>/<key>"`` of every catalogue row the
-        target has (the service resolved :meth:`catalogue_requirements`).
+        target has (the service resolved :meth:`catalogue_needs`).
         """
         old_key = str(document["_key"])
         # A deep copy: ``archive_document`` copies the top level only, and the rewrite below assigns into nested

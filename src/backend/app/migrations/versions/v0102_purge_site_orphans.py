@@ -5,12 +5,14 @@ whose bed template is gone.
 cut a hand list of edges. What they left is removed here, in this order:
 
 1. every row of ``garden_objects``, ``season_states``, ``weather_forecasts``, ``climate_normals``,
-   ``weather_source_configs`` and ``irrigation_demands`` whose non-empty ``site_key`` names no ``sites`` document;
+   ``weather_source_configs``, ``irrigation_demands`` and ``irrigation_zones`` whose non-empty ``site_key`` names no
+   ``sites`` document;
 2. every garden object without a ``site_key`` that ``has_garden_object`` edges reach from missing sites only — the
    edge is its only link, and step 5 cuts it;
 3. every location whose non-empty ``site_key`` names no site and every location without a ``site_key`` whose
-   parent is gone (no ``contains`` edge from an existing vertex), unless a ``contains`` edge reaches it from a
-   vertex that stays — plus the locations below them that name no live site and hang under nothing that stays;
+   parent is gone — at least one ``contains`` edge reaches it from a vertex that does not exist, and none from one
+   that does — unless a ``contains`` edge reaches it from a vertex that stays; plus the locations below them that
+   name no live site and hang under nothing that stays;
 4. the slots of those locations: by ``location_key``, and by ``has_slot`` when the slot names no location (a slot
    naming another location is that location's; only the stale edge goes in step 5);
 5. every edge of the derived edge sets (:data:`_EDGE_ENDS`) whose end in one of those vertex collections names a
@@ -20,14 +22,16 @@ cut a hand list of edges. What they left is removed here, in this order:
    bed template left that key behind, and a dangling one made a tenant-archive re-import refuse the archive.
 
 **Never guesses.** A row whose site exists is never touched; neither is a location that names a live site or that a
-``contains`` edge from a surviving vertex reaches. ``care_events`` and ``garden_plan_audit`` are history (REQ-053
-GP-FR-101, §20.13 SR-011) and are not in any list here — nor are their own edges (``belongs_to_tenant`` is only
-checked on its ``sites`` / ``irrigation_zones`` end). An edge is judged on the end that touches one of the listed
-vertex collections only. A database without a ``sites`` collection is left alone: every ``site_key`` would look
-dangling there — the early return also skips step 6. Step 6 unsets nothing but ``template_key`` and only when *no*
-bed template of that key exists: a key naming any existing template — even another tenant's — is not touched (who
-may use which template is not this migration's question); a database without ``bed_templates`` is left alone in that
-step (every key would look dangling).
+``contains`` edge from a surviving vertex reaches — nor an unsited location that *no* ``contains`` edge reaches:
+``create_location`` writes none for a location given neither a parent nor a site, so such a standalone location was
+never attached and its missing edge is no evidence of a gone parent (it stays, with its slots and their edges).
+``care_events`` and ``garden_plan_audit`` are history (REQ-053 GP-FR-101, §20.13 SR-011) and are not in any list
+here — nor are their own edges (``belongs_to_tenant`` is only checked on its ``sites`` / ``irrigation_zones`` end).
+An edge is judged on the end that touches one of the listed vertex collections only. A database without a
+``sites`` collection is left alone: every ``site_key`` would look dangling there — the early return also skips
+step 6. Step 6 unsets nothing but ``template_key`` and only when *no* bed template of that key exists: a key naming
+any existing template — even another tenant's — is not touched (who may use which template is not this migration's
+question); a database without ``bed_templates`` is left alone in that step (every key would look dangling).
 
 **Frozen lists.** :data:`_SITE_KEYED_ROWS` and :data:`_EDGE_ENDS` are literals: they are the derivation
 (``edges_touching(...)``, ``ZONE_EDGES``, ``_SITE_DEPENDENTS``) at the time of writing, pinned by
@@ -82,7 +86,7 @@ _HAS_GARDEN_OBJECT = "has_garden_object"
 _BED_TEMPLATES = "bed_templates"
 
 #: Rows that exist only for one site, selected by ``site_key`` — garden objects and ``site_repository._SITE_DEPENDENTS``
-#: as of #2513. Frozen; see the module docstring.
+#: (irrigation zones included) as of #2513. Frozen; see the module docstring.
 _SITE_KEYED_ROWS: tuple[str, ...] = (
     "garden_objects",
     "season_states",
@@ -90,6 +94,7 @@ _SITE_KEYED_ROWS: tuple[str, ...] = (
     "climate_normals",
     "weather_source_configs",
     "irrigation_demands",
+    "irrigation_zones",
 )
 
 #: ``(vertex collection, ((edge collection, end), ...))`` — ``edges_touching(vertex)`` for every vertex collection a
@@ -183,16 +188,20 @@ FOR o IN @@objects
   RETURN o._id
 """
 
-#: A location naming a missing site, or naming no site and reached by no ``contains`` edge from an existing vertex
-#: (its parent is gone too), with the parents that still exist (the ``contains`` edges reaching it). ``DOCUMENT`` of
-#: an id in a collection that does not exist is ``null``, so such a parent counts as gone.
+#: A location naming a missing site, or naming no site and reached by no ``contains`` edge from an existing vertex,
+#: with the parents that still exist and how many ``contains`` sources are gone. ``DOCUMENT`` of an id in a collection
+#: that does not exist is ``null``, so such a parent counts as gone. Which unsited row is a seed is decided by
+#: :func:`_is_orphan_seed` (an unsited one needs ``gone_parents > 0``).
 _LOCATIONS_OF_MISSING_SITES = """
 FOR l IN @@locations
   LET unsited = l.site_key == null OR l.site_key == ""
   FILTER unsited OR (IS_STRING(l.site_key) AND DOCUMENT(@sites, l.site_key) == null)
-  LET parents = (FOR e IN @@contains FILTER e._to == l._id AND DOCUMENT(e._from) != null RETURN e._from)
+  LET sources = (FOR e IN @@contains FILTER e._to == l._id RETURN e._from)
+  LET parents = (FOR source IN sources FILTER DOCUMENT(source) != null RETURN source)
   FILTER NOT unsited OR LENGTH(parents) == 0
-  RETURN {id: l._id, site_live: false, parents: parents}
+  RETURN {
+    id: l._id, site_live: false, unsited: unsited, gone_parents: LENGTH(sources) - LENGTH(parents), parents: parents
+  }
 """
 
 #: The locations directly below *ids*, each with whether it names a live site and its existing parents.
@@ -290,12 +299,22 @@ def _unsited_objects_of_missing_sites(db: StandardDatabase, gone: Sequence[str])
     )
 
 
+def _is_orphan_seed(row: dict[str, Any]) -> bool:
+    """A seed row of :data:`_LOCATIONS_OF_MISSING_SITES` is an orphan candidate (R1 of the #2513 review).
+
+    A location naming a missing site is one. An unsited location is one only on evidence of a gone parent — a
+    ``contains`` edge from a vertex that does not exist; one with no ``contains`` edge at all was never attached
+    (``create_location`` writes none without parent and site) and stays.
+    """
+    return not row["unsited"] or int(row["gone_parents"]) > 0
+
+
 def _locations_of_missing_sites(db: StandardDatabase, gone: Sequence[str]) -> list[str]:
     """Locations of a missing site no surviving ``contains`` reaches, then their subtree down to a live anchor.
 
-    The seeds also hold every unsited location without an existing parent (its parent location is gone). A location
-    goes when it names no live site and every existing parent goes too. The walk repeats until no new
-    location qualifies; a location that names a live site, or that a surviving vertex contains, stays.
+    The seeds also hold every unsited location whose parent is gone (:func:`_is_orphan_seed`). A location goes when it
+    names no live site and every existing parent goes too. The walk repeats until no new location qualifies; a
+    location that names a live site, or that a surviving vertex contains, stays.
     """
     del gone
     if not db.has_collection(_LOCATIONS) or not db.has_collection(_CONTAINS):
@@ -309,6 +328,7 @@ def _locations_of_missing_sites(db: StandardDatabase, gone: Sequence[str]) -> li
                 bind_vars={"@locations": _LOCATIONS, "@contains": _CONTAINS, "sites": _SITES},
             ),
         )
+        if _is_orphan_seed(row)
     }
     removed: dict[str, None] = {}
     while True:

@@ -11,8 +11,7 @@ from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.graph_edges import edges_touching, remove_edges
-from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
+from app.data_access.arango.graph_edges import EdgeEndpoint, edges_touching, remove_edges
 from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_plan import PlanAuditRecord
@@ -23,7 +22,7 @@ _LOCATION_EDGES = edges_touching(col.LOCATIONS)
 _SLOT_EDGES = edges_touching(col.SLOTS)
 _OBJECT_EDGES = edges_touching(col.GARDEN_OBJECTS)
 
-#: The rows that exist only for one site and go with it (REQ-046/047/037): selected by ``site_key``, never across
+#: The rows that exist only for one site and go with it (REQ-046/047/037/053): selected by ``site_key``, never across
 #: tenants. Care events and the plan's change log are history and stay (REQ-053 GP-FR-101, §20.13 SR-011, #2513).
 _SITE_DEPENDENTS: tuple[str, ...] = (
     col.SEASON_STATES,
@@ -31,9 +30,14 @@ _SITE_DEPENDENTS: tuple[str, ...] = (
     col.CLIMATE_NORMALS,
     col.WEATHER_SOURCE_CONFIGS,
     col.IRRIGATION_DEMANDS,
+    col.IRRIGATION_ZONES,
 )
-#: Every edge a removed dependent row may carry (``has_*`` from the site, ``demand_for_run`` on a demand).
-_DEPENDENT_EDGES = tuple(pair for name in _SITE_DEPENDENTS for pair in edges_touching(name))
+#: Every edge a removed dependent row may carry, per dependent (``has_*`` from the site, ``demand_for_run`` on a
+#: demand, ``ZONE_EDGES`` on a zone) — derived once; the write set and the delete's cut both read it.
+_DEPENDENT_EDGE_PAIRS: dict[str, tuple[tuple[str, EdgeEndpoint], ...]] = {
+    name: edges_touching(name) for name in _SITE_DEPENDENTS
+}
+_DEPENDENT_EDGES = tuple(pair for pairs in _DEPENDENT_EDGE_PAIRS.values() for pair in pairs)
 
 #: What :meth:`ArangoSiteRepository._remove_locations` writes: the locations, their slots, every edge on either.
 _LOCATION_REMOVAL_WRITE: tuple[str, ...] = tuple(
@@ -48,10 +52,9 @@ _SITE_DELETE_WRITE: tuple[str, ...] = tuple(
             col.SITES,
             *_LOCATION_REMOVAL_WRITE,
             col.GARDEN_OBJECTS,
-            col.IRRIGATION_ZONES,
             *_SITE_DEPENDENTS,
             col.GARDEN_PLAN_AUDIT,
-            *(edge for edge, _ in (*_SITE_EDGES, *_OBJECT_EDGES, *ZONE_EDGES, *_DEPENDENT_EDGES)),
+            *(edge for edge, _ in (*_SITE_EDGES, *_OBJECT_EDGES, *_DEPENDENT_EDGES)),
         )
     )
 )
@@ -66,18 +69,9 @@ FOR s IN @@sites
     RETURN {tenant_key: s.tenant_key, name: s.name, revision: s.plan.plan_revision || 0}
 """
 
-#: The site's irrigation zones: by ``site_key``, under the same tenant rule as :data:`_DEPENDENTS_OF_SITE` — a zone
-#: stamped with another tenant stays, an unstamped one belongs to the site that names it (its edges are cut with the
-#: site, so keeping the row would leave it unreachable).
-_ZONES_OF_SITE = """
-FOR z IN @@zones
-    FILTER z.site_key == @site_key
-        AND (z.tenant_key == null OR z.tenant_key == "" OR z.tenant_key == @tenant_key)
-    RETURN z._id
-"""
-
-#: A dependent row of the site. A row stamped with another tenant is never taken, whatever its ``site_key`` says;
-#: an unstamped one (``tenant_key`` defaults to ``""`` on these models) belongs to the site that names it.
+#: A dependent row of the site (irrigation zones included). A row stamped with another tenant is never taken,
+#: whatever its ``site_key`` says; an unstamped one (``tenant_key`` defaults to ``""`` on these models) belongs to the
+#: site that names it — its edges are cut with the site, so keeping the row would leave it unreachable.
 _DEPENDENTS_OF_SITE = """
 FOR d IN @@col
     FILTER d.site_key == @site_key
@@ -101,7 +95,6 @@ class _SiteDeleteScope:
     location_ids: list[str]
     slot_ids: list[str]
     object_ids: list[str]
-    zone_ids: list[str]
     dependent_ids: dict[str, list[str]]
 
 
@@ -268,12 +261,6 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         if not rows:
             raise NotFoundError("Site", key)
         location_ids = self._location_ids_of_site(txn, key)
-        zone_ids = list(
-            txn.aql.execute(
-                _ZONES_OF_SITE,
-                bind_vars={"@zones": col.IRRIGATION_ZONES, "site_key": key, "tenant_key": tenant_key},
-            )
-        )
         dependent_ids = {
             name: [
                 str(doc_id)
@@ -291,7 +278,6 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             location_ids=location_ids,
             slot_ids=self._slot_ids_of_locations(txn, location_ids),
             object_ids=self._object_ids_of_site(txn, key),
-            zone_ids=[str(zone_id) for zone_id in zone_ids],
             dependent_ids=dependent_ids,
         )
 
@@ -441,12 +427,11 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def _remove_site_scope(self, txn: StreamTransaction, scope: _SiteDeleteScope) -> None:
         """Cut every derived edge on the scope's vertices, then remove the rows (the site itself excepted)."""
-        self._remove_locations(txn, scope.location_ids)
+        self._remove_locations(txn, scope.location_ids, slot_ids=scope.slot_ids)
         txn.check_budget()
-        removals: tuple[tuple[str, list[str], tuple[tuple[str, str], ...]], ...] = (
+        removals: tuple[tuple[str, list[str], tuple[tuple[str, EdgeEndpoint], ...]], ...] = (
             (col.GARDEN_OBJECTS, scope.object_ids, _OBJECT_EDGES),
-            (col.IRRIGATION_ZONES, scope.zone_ids, ZONE_EDGES),
-            *((name, scope.dependent_ids[name], edges_touching(name)) for name in _SITE_DEPENDENTS),
+            *((name, scope.dependent_ids[name], _DEPENDENT_EDGE_PAIRS[name]) for name in _SITE_DEPENDENTS),
         )
         for collection, ids, edges in removals:
             if not ids:
@@ -457,7 +442,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         for edge, field_name in _SITE_EDGES:
             remove_edges(txn, edge, field_name, [scope.site_id])
 
-    def _remove_locations(self, txn: StreamTransaction, location_ids: Sequence[str]) -> None:
+    def _remove_locations(
+        self, txn: StreamTransaction, location_ids: Sequence[str], *, slot_ids: Sequence[str] | None = None
+    ) -> None:
         """Remove *location_ids*, their slots and every graph edge on either, inside *txn* (#2513).
 
         The edge sets are derived (:func:`edges_touching`), so ``care_event_at``, ``run_at_location``,
@@ -468,10 +455,13 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         Args:
             txn: The open stream transaction.
             location_ids: Full document ids (``"locations/<key>"``) of the locations to remove.
+            slot_ids: Their slots (:meth:`_slot_ids_of_locations`) when the caller already looked them up in *txn* —
+                the site delete's scope holds them; ``None`` looks them up here.
         """
         if not location_ids:
             return
-        slot_ids = self._slot_ids_of_locations(txn, location_ids)
+        if slot_ids is None:
+            slot_ids = self._slot_ids_of_locations(txn, location_ids)
         if slot_ids:
             for edge, field_name in _SLOT_EDGES:
                 remove_edges(txn, edge, field_name, slot_ids)

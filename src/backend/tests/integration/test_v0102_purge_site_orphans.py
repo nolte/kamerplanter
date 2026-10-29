@@ -67,6 +67,7 @@ _HAS_EDGE = {
     col.CLIMATE_NORMALS: col.HAS_CLIMATE_NORMAL,
     col.WEATHER_SOURCE_CONFIGS: col.HAS_WEATHER_SOURCE_CONFIG,
     col.IRRIGATION_DEMANDS: col.HAS_IRRIGATION_DEMAND,
+    col.IRRIGATION_ZONES: col.HAS_IRRIGATION_ZONE,
 }
 
 
@@ -92,7 +93,12 @@ def _seed_site_shapes(db, site: str) -> dict[str, list[str]]:  # type: ignore[no
         _edge(db, col.PLACED_IN, f"{col.PLANT_INSTANCES}/plant_{site}", slot),
         _edge(db, col.CARE_EVENT_AT, f"{col.CARE_EVENTS}/care_{site}", bed),
         _edge(db, col.RUN_AT_LOCATION, f"{col.PLANTING_RUNS}/run_{site}", child),
-        _edge(db, col.DEMAND_FOR_RUN, f"{col.PLANTING_RUNS}/run_{site}", rows[-1]),
+        _edge(
+            db,
+            col.DEMAND_FOR_RUN,
+            f"{col.PLANTING_RUNS}/run_{site}",
+            f"{col.IRRIGATION_DEMANDS}/{col.IRRIGATION_DEMANDS}_{site}",
+        ),
     ]
     db.collection(col.CARE_EVENTS).insert({"_key": f"care_{site}", "site_key": site, "location_key": f"bed_{site}"})
     _edge(db, col.BELONGS_TO_TENANT, f"{col.CARE_EVENTS}/care_{site}", f"{col.TENANTS}/t1")
@@ -137,9 +143,9 @@ def test_dry_run_reports_and_writes_nothing(db, seeded) -> None:  # type: ignore
     assert all(matched[f"{name}_of_missing_sites"] == 1 for name in _SITE_KEYED_ROWS)
     assert matched["locations_of_missing_sites"] == 2  # the gone bed and the child below it
     assert matched["slots_of_removed_locations"] == 1
-    # 6 has_* + contains x2 + has_slot + placed_in + care_event_at + run_at_location + demand_for_run of the gone
+    # 7 has_* + contains x2 + has_slot + placed_in + care_event_at + run_at_location + demand_for_run of the gone
     # site, plus the zone edge.
-    assert matched["dangling_edges"] == 14
+    assert matched["dangling_edges"] == 15
 
 
 def test_apply_removes_the_orphans_and_matches_the_dry_run(db, seeded) -> None:  # type: ignore[no-untyped-def]
@@ -238,10 +244,54 @@ def test_an_unsited_location_whose_parent_is_gone_goes_with_its_chain(db, seeded
 
     migration.up(db)
 
-    for key in ("stranded", "stranded_child", "parentless"):
+    for key in ("stranded", "stranded_child"):
         assert db.collection(col.LOCATIONS).get(key) is None, key
-    # An unsited child whose parent exists stays.
+    assert [e for e in db.collection(col.CONTAINS).all() if e["_to"] == f"{col.LOCATIONS}/stranded"] == []
+    # An unsited child whose parent exists stays; so does an unsited location no ``contains`` edge ever reached (R1).
     assert db.collection(col.LOCATIONS).get(f"child_{LIVE}") is not None
+    assert db.collection(col.LOCATIONS).get("parentless") is not None
+
+
+def test_a_standalone_unsited_location_with_slots_and_plants_stays(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    """R1: ``create_location`` writes no ``contains`` edge for a location without parent and site, so a legacy
+    standalone location has none. Without a dangling ``contains`` edge nothing shows it lost a parent: it stays,
+    with its slots and their edges."""
+    db.collection(col.LOCATIONS).insert({"_key": "standalone", "name": "Shelf"})
+    db.collection(col.LOCATIONS).insert({"_key": "standalone_empty", "site_key": "", "name": "Box"})
+    db.collection(col.SLOTS).insert({"_key": "standalone_slot", "slot_id": "S1", "location_key": "standalone"})
+    edges = [
+        _edge(db, col.HAS_SLOT, f"{col.LOCATIONS}/standalone", f"{col.SLOTS}/standalone_slot"),
+        _edge(db, col.PLACED_IN, f"{col.PLANT_INSTANCES}/plant_standalone", f"{col.SLOTS}/standalone_slot"),
+    ]
+
+    report = migration.up(db)
+
+    for doc_id in (
+        f"{col.LOCATIONS}/standalone",
+        f"{col.LOCATIONS}/standalone_empty",
+        f"{col.SLOTS}/standalone_slot",
+        *edges,
+    ):
+        assert db.document(doc_id) is not None, doc_id
+    detail = report.details["locations_of_missing_sites"]
+    assert detail["matched"] == 2  # the gone bed and its child only
+    assert {"standalone", "standalone_empty"}.isdisjoint(detail["keys"])
+    assert report.details["slots_of_removed_locations"]["matched"] == 1
+
+
+def test_a_zone_of_a_missing_site_goes_and_a_zone_of_a_live_site_stays(db, seeded) -> None:  # type: ignore[no-untyped-def]
+    """R2: ``irrigation_zones`` is a site-keyed row like the other site dependents."""
+    zones = db.collection(col.IRRIGATION_ZONES)
+    zones.insert({"_key": "zone_of_gone", "site_key": GONE, "tenant_key": "t1", "name": "gone"})
+    zones.insert({"_key": "zone_of_live", "site_key": LIVE, "tenant_key": "t1", "name": "live"})
+    edge = _edge(db, col.ZONE_COVERS, f"{col.IRRIGATION_ZONES}/zone_of_gone", f"{col.LOCATIONS}/child_{LIVE}")
+
+    report = migration.up(db)
+
+    assert zones.get("zone_of_gone") is None
+    assert zones.get("zone_of_live") is not None
+    assert db.document(edge) is None
+    assert "zone_of_gone" in report.details["irrigation_zones_of_missing_sites"]["keys"]
 
 
 def test_remove_counts_only_what_was_actually_removed(db, seeded) -> None:  # type: ignore[no-untyped-def]

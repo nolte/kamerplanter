@@ -38,13 +38,18 @@ class TestTheFrozenListsAreTheDerivationOfTheirTime:
         frozen = v0102._SITE_KEYED_ROWS
         assert frozen == (col.GARDEN_OBJECTS, *_SITE_DEPENDENTS)
 
+    def test_irrigation_zones_are_a_site_keyed_row(self) -> None:
+        """R2: a zone naming a missing site is an orphan like every other site dependent."""
+        assert col.IRRIGATION_ZONES in v0102._SITE_KEYED_ROWS
+        assert col.IRRIGATION_ZONES in _SITE_DEPENDENTS
+
     def test_edge_ends_are_edges_touching_each_vertex_and_the_zone_edges(self) -> None:
-        expected = (
-            *((vertex, edges_touching(vertex)) for vertex in _VERTICES),
-            (col.IRRIGATION_ZONES, ZONE_EDGES),
-        )
+        # ``irrigation_zones`` is the last site dependent (R2); its derived edges are ``ZONE_EDGES``.
+        expected = tuple((vertex, edges_touching(vertex)) for vertex in _VERTICES)
         frozen = v0102._EDGE_ENDS
         assert frozen == expected
+        assert _VERTICES[-1] == col.IRRIGATION_ZONES
+        assert frozen[-1] == (col.IRRIGATION_ZONES, ZONE_EDGES)
 
     def test_history_is_in_no_list(self) -> None:
         listed = {*v0102._SITE_KEYED_ROWS, *(vertex for vertex, _ in v0102._EDGE_ENDS)}
@@ -101,7 +106,7 @@ class _FakeAql:
                 return iter(["weather_forecasts/f1", "weather_forecasts/f2"])
             return iter(())
         if query == v0102._LOCATIONS_OF_MISSING_SITES:
-            return iter([{"id": "locations/bed", "site_live": False, "parents": []}])
+            return iter(self.db.seed_rows)
         if query == v0102._CHILD_LOCATIONS:
             return iter(())
         if query == v0102._SLOTS_OF_LOCATIONS:
@@ -121,6 +126,10 @@ class _FakeDb:
         self.nulled: list[str] = []
         self.vanished: set[str] = set()
         self.retemplated: set[str] = set()
+        #: The seed scan's rows: ``bed`` names a missing site.
+        self.seed_rows: list[dict[str, Any]] = [
+            {"id": "locations/bed", "site_live": False, "unsited": False, "gone_parents": 0, "parents": []}
+        ]
         self.aql = _FakeAql(self)
 
     def has_collection(self, name: str) -> bool:
@@ -221,6 +230,42 @@ class TestTheDryRun:
         }
         assert all(d.get("removed", 0) == 0 and d.get("nulled", 0) == 0 for d in dry.details.values())
         assert dry.details["locations_with_dangling_template_key"]["matched"] == 1
+
+
+class TestTheLocationPlanner:
+    """R1: an unsited location is an orphan only on evidence of a gone parent — an inbound ``contains`` edge whose
+    source is missing. One that was never attached (no ``contains`` edge at all) is a standalone location and stays."""
+
+    def test_a_standalone_unsited_location_is_not_planned(self) -> None:
+        db = _FakeDb()
+        db.seed_rows = [
+            {"id": "locations/standalone", "site_live": False, "unsited": True, "gone_parents": 0, "parents": []}
+        ]
+
+        assert v0102._locations_of_missing_sites(db, ()) == []  # type: ignore[arg-type]
+
+    def test_an_unsited_location_whose_parent_is_gone_is_planned(self) -> None:
+        db = _FakeDb()
+        db.seed_rows = [
+            {"id": "locations/stranded", "site_live": False, "unsited": True, "gone_parents": 1, "parents": []}
+        ]
+
+        assert v0102._locations_of_missing_sites(db, ()) == ["locations/stranded"]  # type: ignore[arg-type]
+
+    def test_a_location_naming_a_missing_site_needs_no_dangling_edge(self) -> None:
+        assert v0102._locations_of_missing_sites(_FakeDb(), ()) == ["locations/bed"]  # type: ignore[arg-type]
+
+    def test_the_standalone_location_stays_out_of_the_report(self) -> None:
+        db = _FakeDb()
+        db.seed_rows = [
+            *db.seed_rows,
+            {"id": "locations/standalone", "site_live": False, "unsited": True, "gone_parents": 0, "parents": []},
+        ]
+
+        report = migration.up(db)
+
+        assert report.details["locations_of_missing_sites"] == {"matched": 1, "removed": 1, "keys": ["bed"]}
+        assert "locations/standalone" not in db.removed
 
 
 class TestGuards:

@@ -242,6 +242,15 @@ class TestProvenanceReferences:
             "substrates": {"sub-gone"},
         }
 
+    def test_the_single_views_are_the_halves_of_catalogue_needs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#2513 review R5: the two single views read :meth:`catalogue_needs` - one derivation, not two."""
+        engine = _engine(self._bed_archive(template_key="tpl-gone"))
+        pair = ({"species": {"sp-x"}}, {"bed_templates": {"tpl-x"}})
+        monkeypatch.setattr(engine, "catalogue_needs", lambda: pair)
+
+        assert engine.catalogue_requirements() is pair[0]
+        assert engine.optional_catalogue_requirements() is pair[1]
+
     def test_a_provenance_key_held_by_the_archive_needs_no_catalogue(self) -> None:
         archive = self._bed_archive(template_key="tpl-1")
         archive.collections["bed_templates"] = [{"_key": "tpl-1", "tenant_key": SOURCE}]
