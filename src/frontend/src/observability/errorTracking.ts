@@ -385,6 +385,9 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
         urlQueryParams: false,
         graphQL: { document: false, variables: false },
         genAI: { inputs: false, outputs: false },
+        // `mcp` arrived with @sentry/core 9.16: tool-call inputs and outputs of
+        // MCP servers. Off like every other payload category.
+        mcp: { inputs: false, outputs: false },
         databaseQueryData: false,
         stackFrameVariables: false,
       } satisfies DecidedDataCollection,
