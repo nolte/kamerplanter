@@ -165,6 +165,19 @@ class TestTheBoundary:
         assert response.json()["plan_revision"] == 1 and response.json()["total_area_m2"] == 100.0
         assert client().get(_PLAN).json()["plan"]["boundary"] == boundary
 
+    def test_a_boundary_point_past_1000_m_is_a_422_and_1000_m_is_accepted_gp_acc_056(self, client, repo) -> None:
+        repo._sites.sites[SITE].plan = None
+        too_far = {"kind": "polygon", "points": [[0, 0], [1000.5, 0], [1000.5, 10], [0, 10]]}
+        refused = client().put(f"{_PLAN}/boundary", json={"boundary": too_far, "north_angle_deg": 0})
+        assert refused.status_code == 422, refused.text
+        # Measured 2026-10-20: the answer is the generic VALIDATION_ERROR (field body.boundary.polygon.points), not the
+        # spec's `geometry.invalid` with a point index - the status and the unchanged plan are what is pinned here.
+        assert repo._sites.sites[SITE].plan is None
+
+        at_limit = {"kind": "polygon", "points": [[0, 0], [1000.0, 0], [1000.0, 10], [0, 10]]}
+        accepted = client().put(f"{_PLAN}/boundary", json={"boundary": at_limit, "north_angle_deg": 0})
+        assert accepted.status_code == 200, accepted.text
+
     def test_a_viewer_is_refused_at_the_gate(self, client, repo) -> None:
         response = client(TenantRole.VIEWER).put(
             f"{_PLAN}/boundary", json={"boundary": {"kind": "rect", "origin": [0, 0], "width_m": 5, "length_m": 5}}
@@ -241,7 +254,7 @@ class TestTheBatchOnTheWire:
             == 422
         )
 
-    def test_a_body_over_the_global_json_ceiling_is_refused_before_the_route(self, client) -> None:
+    def test_a_body_over_the_global_json_ceiling_is_refused_before_the_route_gp_acc_060(self, client) -> None:
         # The edge ceiling for a non-multipart body is 1 MiB (app/common/body_limit.py) — stricter than the
         # spec's 2 MB, so the service's own 2 MB check is the second line, not the first.
         filler = {"op": "update_fields", "entity": "location", "key": "bed", "fields": {"notes": "x" * 3000}}

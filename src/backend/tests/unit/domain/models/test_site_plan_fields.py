@@ -211,6 +211,7 @@ class TestSlotGeometry:
         assert Slot.model_validate(doc).geometry == stored
 
     def test_v01_is_enforced_through_the_slot(self) -> None:
+        """GP-ACC-058 (slot point at x = -1000.5 is refused; the frame itself is covered by the neighbours)."""
         with pytest.raises(ValidationError) as exc:
             Slot(slot_id="BEET_1", geometry={"kind": "point", "origin": [-1000.5, 0]})
         assert all(loc[0] == "geometry" for loc, _ in _errors(exc.value))
