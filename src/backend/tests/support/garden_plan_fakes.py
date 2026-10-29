@@ -311,6 +311,14 @@ class FakePlanRepo(IGardenPlanRepository):
         merged = {**self.locations[location_key].model_dump(by_alias=True), **fields}
         self.locations[location_key] = Location(**{k: v for k, v in merged.items() if v is not None})
 
+    def set_site_underlay(self, site_key, *, tenant_key, underlay):
+        site = self._sites.get_site_by_key(site_key)
+        if site is None or site.tenant_key != tenant_key or site.plan is None:
+            return False, None
+        previous = site.plan.underlay.attachment_key if site.plan.underlay is not None else None
+        site.plan = site.plan.model_copy(update={"underlay": underlay})
+        return True, previous
+
     def update_slot_fields(self, slot_key, fields):
         self.slot_field_updates.append((slot_key, dict(fields)))
         self.slots = [

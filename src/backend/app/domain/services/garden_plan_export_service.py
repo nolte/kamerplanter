@@ -11,13 +11,17 @@ date, revision, scale, paper) and, on request, a bed list (name, area, status, s
 names, assignments, notes, GPS coordinates, ``*_by`` fields or photos. The SVG is embedded as a ``data:``
 image, so the template needs neither ``|safe`` nor any URL, and the print engine's fetcher
 (``RestrictedURLFetcher``: ``data:`` and the template tree only) sees nothing it could be talked into
-fetching (GP-NFR-052 (a), (f)). Images from attachments are not embedded yet — the only consumer would be the
-background layer of GP-FR-033 — and when they are, they enter here as ``data:`` URIs read from the tenant's own
-attachments.
+fetching (GP-NFR-052 (a), (f)).
+
+**The underlay (GP-FR-033, WP 7.14)** is the one image from an attachment: only when the caller asks for it
+(``underlay=True`` on the PDF route; the JSON export and the SVG never carry it), read from the tenant's *own*
+``garden_plan_underlay`` attachment, re-encoded and shrunk, and laid under the plan figure as a ``data:`` URI.
+The fetcher still sees nothing but ``data:``.
 """
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import re
 from collections.abc import Sequence
@@ -29,6 +33,7 @@ from typing import Any
 import structlog
 from pydantic import BaseModel
 
+from app.common.enums import AttachmentCategory
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import SiteKey
 from app.domain.engines.plan_svg_engine import (
@@ -39,6 +44,13 @@ from app.domain.engines.plan_svg_engine import (
     PlanSvgOptions,
     page_size_mm,
     render_plan_svg,
+)
+from app.domain.engines.plan_underlay_engine import (
+    UnderlayImage,
+    UnderlayImageError,
+    UnderlayPlacement,
+    place_underlay,
+    prepare_image,
 )
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
@@ -58,6 +70,7 @@ from app.domain.models.garden_plan_export import (
     GardenPlanExport,
 )
 from app.domain.models.site import Location, Site
+from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
 
@@ -147,11 +160,14 @@ class GardenPlanExportService:
         plan_repo: IGardenPlanRepository,
         plan_service: GardenPlanService,
         print_engine: PrintEngine | None = None,
+        attachment_service: AttachmentService | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
         self._plans = plan_service
         self._print = print_engine or PrintEngine()
+        #: ``None`` = a caller that never prints the underlay.
+        self._attachments = attachment_service
 
     def _owned_site(self, site_key: SiteKey, *, tenant_key: str) -> Site:
         return require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
@@ -218,6 +234,26 @@ class GardenPlanExportService:
 
     # ── GP-API-007: the PDF ───────────────────────────────────────────────────
 
+    async def load_underlay(self, site_key: SiteKey, *, tenant_key: str) -> UnderlayImage | None:
+        """The site's underlay picture, read from the tenant's own attachment and prepared for the page.
+
+        ``None`` when the site has none, the attachment is gone or the stored bytes are no image: the plan is
+        then printed without it rather than refused.
+        """
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        if site.plan is None or site.plan.underlay is None or self._attachments is None:
+            return None
+        try:
+            attachment = self._attachments.get_attachment(site.plan.underlay.attachment_key, tenant_key)
+            if attachment.category != AttachmentCategory.GARDEN_PLAN_UNDERLAY:
+                return None
+            chunks = [chunk async for chunk in await self._attachments.open_stream(attachment)]
+            # Decoding up to 40 MPx is CPU work: off the event loop.
+            return await asyncio.to_thread(prepare_image, b"".join(chunks))
+        except NotFoundError, OSError, UnderlayImageError:
+            logger.warning("garden_plan.underlay_unavailable", site_key=site_key)
+            return None
+
     def render_pdf(
         self,
         site_key: SiteKey,
@@ -225,6 +261,7 @@ class GardenPlanExportService:
         tenant_key: str,
         options: PlanSvgOptions,
         bed_list: bool = False,
+        underlay: UnderlayImage | None = None,
     ) -> PlanPdf:
         """A scaled plan on one page (plus the bed list when asked). 422 ``plan.does_not_fit`` when it cannot."""
         started = perf_counter()
@@ -241,6 +278,7 @@ class GardenPlanExportService:
                 paper=pdf_options.paper.value,
             )
         page_w, page_h = page_size_mm(pdf_options.paper, pdf_options.orientation)
+        placement = self._underlay_placement(site_key, tenant_key=tenant_key, image=underlay, rendered=rendered)
         context = {
             "title": view.site_name,
             "site_name": view.site_name,
@@ -256,6 +294,7 @@ class GardenPlanExportService:
             + base64.b64encode(rendered.svg.encode("utf-8")).decode("ascii"),
             "plan_width_mm": rendered.width_mm,
             "plan_height_mm": rendered.height_mm,
+            "underlay": placement,
             "beds": self._bed_rows(view, options.locale) if bed_list else [],
             "show_bed_list": bed_list,
         }
@@ -277,6 +316,16 @@ class GardenPlanExportService:
         )
 
     # ── helpers ───────────────────────────────────────────────────────────────
+
+    def _underlay_placement(
+        self, site_key: SiteKey, *, tenant_key: str, image: UnderlayImage | None, rendered: PlanSvg
+    ) -> UnderlayPlacement | None:
+        if image is None or rendered.frame is None:
+            return None
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        if site.plan is None or site.plan.underlay is None:
+            return None
+        return place_underlay(site.plan.underlay, image, rendered.frame)
 
     def _view(self, site_key: SiteKey, *, tenant_key: str, options: PlanSvgOptions) -> GardenPlanView:
         self._owned_site(site_key, tenant_key=tenant_key)

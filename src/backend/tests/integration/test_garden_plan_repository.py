@@ -25,7 +25,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import PlanBatchWrite
-from app.domain.models.site import Location
+from app.domain.models.site import Location, SiteUnderlay
 from app.domain.services.garden_plan_service import GardenPlanService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -905,3 +905,90 @@ class TestTwoWritersAtOneRevisionGpAcc010:
         assert conflict.value.current_revision == 2 and conflict.value.details[0]["changed_by"] == "Sabine"
         assert [loc["name"] for loc in db.collection(col.LOCATIONS).all()] == ["Beet winner"]
         assert db.collection(col.SITES).get("site_a")["plan"]["plan_revision"] == 2
+
+
+class TestTheUnderlayIsWrittenOutsideTheRevision:
+    """REQ-053 WP 7.14 (#2480): ``set_site_underlay`` merges one field, keeps the rest of the plan, obeys the tenant."""
+
+    @staticmethod
+    def _underlay(attachment_key: str = "att_1") -> SiteUnderlay:
+        return SiteUnderlay.model_validate(
+            {
+                "attachment_key": attachment_key,
+                "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+                "origin": [1.0, 5.0],
+                "rotation_deg": 30.0,
+                "opacity": 0.4,
+            }
+        )
+
+    def _plan(self, db, site_key: str = "site_a") -> dict:
+        db.collection(col.SITES).update(
+            {
+                "_key": site_key,
+                "plan": {"boundary": _BOUNDARY, "plan_revision": 7, "north_angle_deg": 12.0, "default_grid_m": 0.1},
+            }
+        )
+        return db.collection(col.SITES).get(site_key)["plan"]
+
+    def test_it_sets_the_underlay_and_leaves_revision_boundary_and_the_rest_of_the_plan_alone(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+
+        written, previous = repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay())
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert (written, previous) == (True, None)
+        assert plan["underlay"]["attachment_key"] == "att_1" and plan["underlay"]["rotation_deg"] == 30.0
+        assert plan["plan_revision"] == 7 and plan["boundary"] == _BOUNDARY and plan["north_angle_deg"] == 12.0
+        assert db.collection(col.GARDEN_PLAN_AUDIT).count() == 0
+
+    def test_a_second_write_replaces_it_whole_and_names_the_previous_picture(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay("att_1"))
+
+        written, previous = repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay("att_2"))
+
+        assert (written, previous) == (True, "att_1")
+        assert db.collection(col.SITES).get("site_a")["plan"]["underlay"]["attachment_key"] == "att_2"
+
+    def test_none_removes_the_attribute_instead_of_storing_a_null(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay())
+
+        written, previous = repo.set_site_underlay("site_a", tenant_key=A, underlay=None)
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert (written, previous) == (True, "att_1")
+        assert "underlay" not in plan and plan["plan_revision"] == 7
+
+    def test_a_foreign_tenant_writes_nothing_and_the_owner_still_can(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+
+        assert repo.set_site_underlay("site_a", tenant_key=B, underlay=self._underlay()) == (False, None)
+        assert "underlay" not in db.collection(col.SITES).get("site_a")["plan"]
+        assert repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay()) == (True, None)
+
+    def test_a_site_without_a_plan_is_not_written(self, db) -> None:
+        repo = ArangoGardenPlanRepository(db)
+
+        assert repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay()) == (False, None)
+        assert "plan" not in db.collection(col.SITES).get("site_a")
+
+    def test_an_empty_tenant_is_refused(self, db) -> None:
+        with pytest.raises(ValueError, match="tenant_key"):
+            ArangoGardenPlanRepository(db).set_site_underlay("site_a", tenant_key="", underlay=None)
+
+    def test_the_plan_batch_keeps_the_underlay_when_it_rewrites_the_plan(self, db) -> None:
+        self._plan(db)
+        repo = ArangoGardenPlanRepository(db)
+        repo.set_site_underlay("site_a", tenant_key=A, underlay=self._underlay())
+        service = GardenPlanService(ArangoSiteRepository(db), repo)
+
+        batch(service, [create("x", rect(1, 1))], revision=7)
+
+        plan = db.collection(col.SITES).get("site_a")["plan"]
+        assert plan["plan_revision"] == 8 and plan["underlay"]["attachment_key"] == "att_1"

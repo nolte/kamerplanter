@@ -19,6 +19,13 @@ from app.common.enums import BedStatus, FlowRateSource, IrrigationZoneType, Slot
 from app.domain.models.garden_plan import MAX_OPERATIONS
 from app.domain.models.garden_plan_import import MAX_OFFSET_M, PlanImportReport
 from app.domain.models.geometry import Geometry
+from app.domain.models.site import (
+    SiteUnderlay,
+    UnderlayCalibration,
+    UnderlayOpacity,
+    UnderlayOrigin,
+    UnderlayRotation,
+)
 
 SCHEMA_VERSION = "1"
 
@@ -286,6 +293,58 @@ class PlanPlantResponse(BaseModel):
     location_key: str | None = None
 
 
+_UNDERLAY: dict[str, Any] = {
+    "attachment_key": "att_7f3a",
+    "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+    "origin": [0.0, 12.0],
+    "rotation_deg": 0.0,
+    "opacity": 0.5,
+}
+
+
+class PlanUnderlayRequest(BaseModel):
+    """The background picture of the plan (GP-FR-033): attachment, two-point calibration, placement, opacity."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [_UNDERLAY]})
+
+    attachment_key: str = Field(
+        min_length=1,
+        max_length=64,
+        description=(
+            "A `garden_plan_underlay` attachment of the caller's own tenant; any other key is 422 `reference.not_found`"
+        ),
+    )
+    calibration: UnderlayCalibration = Field(
+        description="Two points of the picture in pixels and the real distance between them in metres (the scale)."
+    )
+    origin: UnderlayOrigin = Field(
+        default=(0.0, 0.0), description="Plan-frame position in metres of the picture's top-left pixel."
+    )
+    rotation_deg: UnderlayRotation = Field(
+        default=0.0, description="Counter-clockwise turn about `origin`, in degrees (-360..360)."
+    )
+    opacity: UnderlayOpacity = Field(default=0.5, description="0.05 (faint) .. 1 (opaque).")
+
+    def to_domain(self) -> SiteUnderlay:
+        return SiteUnderlay(
+            attachment_key=self.attachment_key,
+            calibration=self.calibration,
+            origin=self.origin,
+            rotation_deg=self.rotation_deg,
+            opacity=self.opacity,
+        )
+
+
+class PlanUnderlayResponse(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [_UNDERLAY]})
+
+    attachment_key: str
+    calibration: UnderlayCalibration
+    origin: tuple[float, float]
+    rotation_deg: float
+    opacity: float
+
+
 class PlanSettingsResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
@@ -309,6 +368,9 @@ class PlanSettingsResponse(BaseModel):
     plan_revision: int = 0
     plan_updated_at: datetime | None = None
     plan_updated_by_name: str | None = Field(default=None, description="Display name, never the account key (§22.1).")
+    underlay: PlanUnderlayResponse | None = Field(
+        default=None, description="The background picture to trace over (GP-FR-033); shown per user, stored per site."
+    )
 
 
 class PlanZoneResponse(BaseModel):

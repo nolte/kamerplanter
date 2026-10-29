@@ -47,6 +47,7 @@ rule to every row and edge **before** anything is written.
 
 from __future__ import annotations
 
+import copy
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -243,13 +244,19 @@ class TenantImportEngine:
         target has (the service resolved :meth:`catalogue_requirements`).
         """
         old_key = str(document["_key"])
-        rewritten = archive_document(document, collection=collection)
+        # A deep copy: ``archive_document`` copies the top level only, and the rewrite below assigns into nested
+        # objects (``plan.underlay.attachment_key``, ``fertilizers_used.*``). The validation pass runs on the same
+        # archive rows as the write pass, so a nested key rewritten in place was a *new* key the second pass could
+        # no longer map - and cleared (found with the site plan's underlay, REQ-053 WP 7.14).
+        rewritten = copy.deepcopy(archive_document(document, collection=collection))
         rewritten["_key"] = self.mapping[collection][old_key]
         references = TenantExportEngine.references_of(collection)
         for path, reference in references.items():
             dotted: str = path
             segments: list[str] = dotted.split(".")
             self._rewrite_path(rewritten, segments, reference, rewritten, existing_global)
+        if collection == "sites":
+            _drop_unresolved_underlay(rewritten)
         entry = self._entries.get(collection)
         if entry is not None and entry.tenant_field in rewritten:
             # SEC-001 — whatever the archive said, a row the import writes is the new tenant's.
@@ -403,6 +410,22 @@ class TenantImportEngine:
         if document_id in existing_global:
             return document_id
         return None
+
+
+def _drop_unresolved_underlay(site: dict[str, Any]) -> None:
+    """A site plan whose underlay attachment is not in the archive keeps no underlay (REQ-053 GP-FR-033).
+
+    The reference rewrite clears an attachment key it cannot resolve to ``None``, but the underlay's other fields
+    (the calibration, the placement) would stay: ``SiteUnderlay.attachment_key`` is a required string, so such a
+    plan could not be read and every read of the tenant's sites would fail. The picture is presentation, so the
+    honest import is a plan without one.
+    """
+    plan = site.get("plan")
+    if not isinstance(plan, dict):
+        return
+    underlay = plan.get("underlay")
+    if isinstance(underlay, dict) and not underlay.get("attachment_key"):
+        del plan["underlay"]
 
 
 def _values_at(node: Any, segments: list[str]) -> list[Any]:

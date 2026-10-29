@@ -1518,6 +1518,10 @@ class AttachmentCategory(StrEnum):
     # REQ-010 — user-contributed reference photos for a global pest (Phase 1:
     # tenant-private gallery; Phase 2 may promote selected images globally).
     PEST_REFERENCE = "pest_reference"
+    # REQ-053 GP-FR-033 - the background picture (photo, sketch, aerial view) a garden plan is traced over.
+    # One per site; never part of the plan's JSON export. An aerial view can reveal where someone lives,
+    # so the EXIF strip applies and the erasure treats it like the other tenant-record photos.
+    GARDEN_PLAN_UNDERLAY = "garden_plan_underlay"
 
 
 class PestImageStatus(StrEnum):
