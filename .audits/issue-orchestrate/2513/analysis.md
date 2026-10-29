@@ -1,0 +1,170 @@
+---
+artifact-type: issue-orchestration-analysis
+repo: "nolte/kamerplanter"
+issue: "2513"
+classification: "bug"
+secondary-classes: []
+route: "direct"
+status: approved
+created: "2026-10-29"
+group: "2026-10-29-delete-cascades"
+authorised_by: "2026-10-29-delete-cascades/plan-approval"
+---
+
+# Issue Orchestration — Pre-analysis
+
+<!-- Run-scoped artifact: committed on the run's feature branch, then removed with a fix-forward `git rm` before the PR merges, per spec/project/issue-orchestration/ §Pre-analysis artifact lifecycle. -->
+
+Measured on worktree `/home/nolte/repos/.worktrees/kamerplanter/delete-cascades`, branch `fix/2026-10-29-delete-cascades`, HEAD `d7bbe3c34` (= `8a3028985` + the group artifact commit). Paths are relative to `src/backend/` unless they start with `spec/`, `docs/` or `.audits/`. Authored by `nolte-engineering:implementation-plan-author` (returned as text; the harness refused the file write), written by the orchestrating session unchanged except the frontmatter `status`/`authorised_by` and the decision on open question 1.
+
+**Boundary.** Delegated member of issue-batch group `2026-10-29-delete-cascades`. Boundary = the `#2513` row of the group `## Completeness matrix` (`.audits/issue-batch-integration/2026-10-29-delete-cascades/analysis.md:69`) plus the operator decisions at l.61 (Q1 structure goes / history stays, Q2 409 on active plants, Q3 migration v0102 with dry-run, Q5 spec anchors are the requirement). Every WP maps to a cell of that row; deviations in *how* are listed under §Deviations.
+
+## Issue metadata
+
+- **Repository**: nolte/kamerplanter
+- **Issue**: #2513 — fix(sites): delete_site leaves garden_objects, care_events and garden_plan_audit behind
+- **URL**: https://github.com/nolte/kamerplanter/issues/2513
+- **Labels**: bug, backend, spec:REQ-053
+- **Author**: nolte (repository owner; body read as data regardless)
+- **Linked items**: #2466 (REQ-053 wave 7 decision issue; finding from the WP 7.1 review of PR #2507); no linked PR
+- **Prior art checked**:
+  - Migration number free: `gh pr list --state open --search "v0102 in:title,body"` → `[]`; `ls .worktrees/kamerplanter/*/src/backend/app/migrations/versions/ | grep v010[2-9]` → no hits; last version `v0101_bed_template_index_and_system_templates.py`.
+  - Counter-pattern: `_edges_touching()` (`app/data_access/arango/garden_plan_repository.py:79-93`), `_remove_edges()` (l.793-799), used by `_delete_locations` (l.707-742) / `_delete_objects` (l.801-828) with in-transaction V-09 `_refuse_active_plants` (l.768-791).
+  - `DELETE /locations/{key}` already uses the derived cascade: `app/api/v1/locations/tenant_router.py:268` → `GardenResourceService.delete_location` (`app/domain/services/garden_resource_service.py:507-518`) → `apply_batch` with one `delete` op. The hand-listed `ArangoSiteRepository.delete_location` (`site_repository.py:199-221`) is reached only from `delete_site` (l.129, recursion l.207) and `SiteService.delete_location` (`site_service.py:252-254`), which has **no route caller** (`grep -rn "\.delete_location(" app tests`).
+  - Group research: `/tmp/claude-1000/-home-nolte-repos-github-kamerplanter/3b8ab2fd-9a15-4c4a-af66-6cd5d15568d2/scratchpad/handoff/2026-10-29-delete-cascades-research.md`.
+
+## Classification
+
+- **Primary class**: bug
+- **Secondary class(es)**: none
+- **Rationale**: a shipped delete path leaves rows/edges the system never removes again; `garden_objects` (no `tenant_key`, erased via `site_key IN <current sites>`, `app/domain/engines/tenant_erasure_engine.py:112`) then escape tenant erasure permanently. Defect against existing spec (REQ-053 GP-FR-153, §20.13 SR-011; NFR-011).
+- **Confirmation**: covered by `authorised_by: 2026-10-29-delete-cascades/plan-approval` (class is not `security`).
+- **Asserted cause verified**: **confirmed** at HEAD `d7bbe3c34`:
+  - `site_repository.py:122-132` `delete_site`: l.125 `get_edges(CONTAINS, site_id, outbound)` → l.126-129 `self.delete_location(...)` per child; l.130 `delete_edges(CONTAINS, from_id=site_id)`; l.131 `_delete_irrigation_zones(key)` (l.134-161: tenant-matched zones l.145, `ZONE_EDGES` l.154-158, zone rows l.159-161); l.132 `super().delete(key)`. No reference to `garden_objects`/`has_garden_object`/`care_events`/`care_event_at`/`garden_plan_audit` (research grep → 0 hits; consistent with the read).
+  - `site_service.py:141-143`: `self.get_site(key, tenant_key=tenant_key)` then `return self._repo.delete_site(key)` — no active-plant check, no audit row, no user key.
+  - Not atomic: confirmed — l.141, l.154-158, l.159, l.132 distinct statements + per-location recursion; no `stream_transaction`.
+  - Narrowing: derived from `GRAPH_EDGE_DEFINITIONS` (python over `app.data_access.arango.collections` at this HEAD): `sites` touches **11** edges — `contains`, `belongs_to_tenant`, `has_season_state`, `located_at`, `has_forecast`, `has_weather_source_config`, `has_climate_normal`, `located_in_zone`, `has_irrigation_demand`, `has_garden_object`, `has_irrigation_zone`; `locations` 18; `slots` 8; `garden_objects` 3. Research/row list 10 (omit `belongs_to_tenant`); row says "every edge".
+  - Per gate Q1, `care_events` and `garden_plan_audit` are kept (history).
+
+## Scope
+
+- **In scope**:
+  1. Lift `_edges_touching`/`_remove_edges` into a shared data-access module, behaviour-preserving.
+  2. `delete_site` = one stream transaction: cut every derived edge of the site and of every removed vertex (locations, slots, garden objects, zones); remove structure rows `locations` (recursive), `slots`, `garden_objects`, `irrigation_zones`, `season_states`, `weather_forecasts`, `climate_normals`, `weather_source_configs`, `irrigation_demands`, then the site.
+  3. History rows stay: `care_events` (GP-FR-101 "Physisch löscht nur die DSGVO-Kaskade", `spec/req/REQ-053_Grafische-Garten-Beetplanung.md:797`), `garden_plan_audit` (§20.13 SR-011, l.1388). Both carry `tenant_key`, reached by tenant erasure and R-25/R-26 (NFR-011 l.135-136). Their edges to removed vertices (`care_event_at`) are cut.
+  4. SR-011: one `garden_plan_audit` row (`op="delete"`, `entity="site"`, `key=<site_key>`, `summary=<name>`) in the same transaction.
+  5. 409 when a `plant_instances` row with `removed_on == null` references the site (`site_key`, or `location_key`/`slot_key` of removed locations/slots) — V-09 one level up (GP-FR-024 l.385, V-09 l.1541), inside the transaction.
+  6. Legacy `delete_location` switches to the derived edge set.
+  7. Migration `v0102_purge_site_orphans.py` with `--dry-run` counts per collection and a named step slot for #2528.
+  8. REQ-053 spec sentence (DE, see D-3); docs `docs/de|en/changelog/unreleased.md`, `docs/de|en/user-guide/privacy.md:479` (l.401 only if wording must change).
+- **Out of scope**:
+  - Underlay attachment on site delete — **#2545 item 1**; WP-2 must not call `GardenPlanUnderlayService`.
+  - Nulling `*_key` fields of referrers owned by other REQs (sensors, tasks, planting runs/entries/reservations, calendar feeds, tanks, actuators, location assignments, succession plans, feeding/watering logs, inventree references): edges cut, rows/fields stay — class-sweep finding, filed.
+  - Stand-alone `delete_slot`/`_delete_slot_internal` (l.370-394), `delete_substrate`, single `delete_garden_object` — sweep findings (gate Q4).
+  - GP-FR-153 dialog and any frontend i18n for the new 409 — frontend, separate item.
+  - The delete-side guard (issue body "erasure/orphan guard") — gate Q6, filed as #2556.
+  - #2528's step content (only the slot here).
+
+## Route
+
+- **Decision**: direct
+- **Rationale**: one outcome, one PR strand (group Mode A), no roadmap item; every WP testable; no route added (pin untouched), no new collection, no new `*_by` field.
+
+## Work packages
+
+Specialists from the live catalog: `nolte-engineering:fullstack-developer` (`claude-shared/plugins/nolte-engineering/agents/fullstack-developer.md`) for backend code+tests; `mkdocs-documentation` (`kamerplanter/.claude/agents/mkdocs-documentation.md`) for docs; no catalog agent authors project REQ files → WP-6 generalist.
+
+### WP-1 — Lift the derived edge helpers into a shared module
+- **Hypothesis**: `_edges_touching`/`_remove_edges` move from `garden_plan_repository.py:79-99,793-799` to `app/data_access/arango/graph_edges.py` (`edges_touching`, `remove_edges`) without changing any edge the plan batch cuts. Refuted if a plan-batch delete test changes outcome or `_BATCH_WRITE` (l.102-120) changes membership.
+- **Acceptance**: new `tests/unit/data_access/arango/test_graph_edges.py`: `edges_touching(SITES)` ⊇ {(contains,_from),(has_garden_object,_from),(belongs_to_tenant,_from),(located_at,_to)} and ∌ (care_event_at,_to); `edges_touching(LOCATIONS)` ⊇ {(contains,_from),(contains,_to),(care_event_at,_to)}. `tests/integration/test_garden_plan_repository.py`, `tests/integration/test_garden_resource_repository.py` (incl. l.599-608), `tests/unit/data_access/arango/test_garden_plan_collections.py` green unchanged; `ruff check .` 0; mypy ratchet not worse.
+- **Files**: `app/data_access/arango/graph_edges.py` (new), `garden_plan_repository.py:79-99,793-799` (+ l.732-735, l.807-808), new test.
+- **Specialist**: `nolte-engineering:fullstack-developer` — **Depends on**: none
+
+### WP-2 — `delete_site` as one stream transaction + SR-011 audit row
+- **Hypothesis**: after `DELETE /sites/{key}` no row of the nine structure collections of that site and no edge of `edges_touching(V)` on any removed vertex survives; `care_events` and earlier `garden_plan_audit` rows survive; exactly one new audit row exists; the delete is atomic. Refuted by any surviving structure row/edge, removed history row, missing audit row, or partial delete after an in-transaction failure.
+- **Design**: `ArangoSiteRepository.delete_site(key, *, user_key)` opens `stream_transaction(self._db, write=<set>, read=(PLANT_INSTANCES,), entity="site")` (`transactions.py:322`); write set = SITES, LOCATIONS, SLOTS, GARDEN_OBJECTS, IRRIGATION_ZONES, SEASON_STATES, WEATHER_FORECASTS, CLIMATE_NORMALS, WEATHER_SOURCE_CONFIGS, IRRIGATION_DEMANDS, GARDEN_PLAN_AUDIT + edges of `edges_touching` for SITES/LOCATIONS/SLOTS/GARDEN_OBJECTS + `ZONE_EDGES` (dedup like `_BATCH_WRITE`). Collect location ids by `contains` traversal 1..N OUTBOUND ∪ `locations.site_key == key` (whether nested locations carry `site_key` is unestablished — `Location.site_key: str = ""`, `app/domain/models/site.py:396`); slots by `location_key IN`; objects by `site_key` (no `tenant_key`, E-01); zones by the existing predicate (l.140-146); site-keyed dependents by `site_key == key`, never removing a row whose non-empty `tenant_key` differs from the site's (mirror l.145). Then WP-3 refusal hook; `remove_edges` for every derived edge; remove slots, locations, objects, zones, dependents; insert `PlanAuditRecord` (`app/domain/models/garden_plan.py:469-490`, `revision = stored plan_revision + 1`); remove the site. Location removal is one helper `_remove_locations(txn, ids)` (reused by WP-4). `weather_source_config_repository.delete_by_site` (l.59-65) not called (D-2). Signature through `app/domain/interfaces/site_repository.py:43`, `site_service.py:141-143` (`user_key`), `app/api/v1/sites/tenant_router.py:157` (`user_key=ctx.user_key`).
+- **Acceptance**: `tests/integration/test_irrigation_zone_repository.py:497-511` green after signature adaptation; new class `TestDeletingASiteRemovesItsStructureAndKeepsItsHistory` (same file or `tests/integration/test_site_delete_cascade.py`): no row of the six site-keyed collections for site_a; no `has_garden_object`/`has_season_state`/`has_forecast`/`has_weather_source_config`/`has_climate_normal`/`has_irrigation_demand`/`belongs_to_tenant`/`located_at`/`care_event_at`/`contains` edge on a removed vertex; site_a `care_events` row and earlier audit row still present; exactly one new audit row {op: delete, entity: site, key: site_a, tenant_key: A}; tenant B rows untouched. Atomicity test (forced failure mid-transaction leaves everything). `tests/unit/domain/services/test_site_service_writes_resolve_the_tenant.py:69` updated and green; `tests/api/test_require_permission_enforcement.py:56,98,125,151` green; `ruff check .` 0.
+- **Files**: `site_repository.py:122-161` (+ imports l.1-12), `domain/interfaces/site_repository.py:43`, `site_service.py:141-143`, `api/v1/sites/tenant_router.py:150-157`, the tests above.
+- **Specialist**: `nolte-engineering:fullstack-developer` — **Depends on**: WP-1
+
+### WP-3 — 409 on site delete while a plant stands on it
+- **Hypothesis**: `DELETE /sites/{key}` returns 409 `site.has_active_plants` with `details[0].active_plant_count = n` and writes nothing whenever ≥1 plant with `removed_on == null` has `site_key == key` or `location_key`/`slot_key` among the removed set; removed-only plants do not block. Refuted by 204 with an active plant, partial delete after 409, or 409 for removed-only plants.
+- **Design**: refusal inside WP-2's transaction before the first write (race reason as l.768-769), `PlanError("site.has_active_plants", ..., status_code=409, active_plant_count=n)` (`app/common/exceptions.py:155`); router gets `responses={**CONFLICT_RESPONSE}` like `locations/tenant_router.py:255`. Code name: **decided** — new `site.has_active_plants`; the UI keeps the generic conflict toast until the GP-FR-153 follow-up (no frontend cell in this member's row).
+- **Acceptance**: integration — plant by `site_key` only, and a second by `location_key` only (pre-v0100 shape) → 409, counts right, site/location/object/zone still present; `removed_on` set → delete succeeds. Unit `tests/unit/domain/services/test_site_service_refuses_active_plants.py` (new): service propagates the `PlanError`, no further write. API test: DELETE /sites maps to HTTP 409 with `code == "site.has_active_plants"`.
+- **Files**: `site_repository.py` (transaction body), `api/v1/sites/tenant_router.py:150-157`, tests above.
+- **Specialist**: `nolte-engineering:fullstack-developer` — **Depends on**: WP-2
+
+### WP-4 — Legacy `delete_location` cuts the derived edge set
+- **Hypothesis**: `ArangoSiteRepository.delete_location(key)` leaves no edge of `edges_touching(LOCATIONS)` (18, incl. `care_event_at`, `has_task`, `run_at_location`, `assigned_to_location`, `located_at`) on the location or descendants, none of `edges_touching(SLOTS)` (incl. `placed_in`, `filled_with`, `adjacent_to`) on their slots, in one transaction; `care_events` rows survive.
+- **Design**: replace hand list l.199-221 with `_remove_locations` in its own transaction; no V-09 (route path already refuses via plan batch; `SiteService.delete_location` routeless).
+- **Acceptance**: `tests/integration/test_irrigation_zone_repository.py:513-519` green; new sibling test seeding `care_event_at`, `has_task`, `run_at_location`, `placed_in` + child location: all gone, care event stays, sibling bed's edges stay.
+- **Files**: `site_repository.py:199-221`, that test file.
+- **Specialist**: `nolte-engineering:fullstack-developer` — **Depends on**: WP-2
+
+### WP-5 — Migration `v0102_purge_site_orphans` (dry-run, #2528 slot)
+- **Hypothesis**: on a DB with pre-fix orphans, v0102 removes every row of `garden_objects`, `season_states`, `weather_forecasts`, `climate_normals`, `weather_source_configs`, `irrigation_demands` whose non-empty `site_key` resolves to no site, and every edge of the derived site/location/slot/garden-object sets whose endpoint in one of those four vertex collections is gone; never touches live rows or `care_events`/`garden_plan_audit`; `--dry-run` writes nothing and reports the same counts.
+- **Design**: shape of `app/migrations/versions/v0100_backfill_plant_location_site.py` (`version = "0102"`, `reversible = False`, `up(db, *, dry_run=False) -> MigrationReport`, batched, capped key lists; docstring What / Never guesses / Idempotent M-3 / Dry run M-5 / Not reversible M-6). Collection and edge lists are literals frozen in the migration; a unit test pins them to `edges_touching(...)` at time of writing (docstring: update the test, not the migration, when the graph grows). Steps = ordered tuple of named steps reporting `details[<step>] = {matched, removed|nulled, keys}`; tuple ends with a documented slot comment `# --- #2528 (group 2026-10-29-delete-cascades): null dangling locations.template_key — step added by member #2528 ---` (no stub, no dead code).
+- **Acceptance**: `tests/unit/migrations/versions/test_v0102_purge_site_orphans.py` (report shape, dry-run writes nothing, frozen lists = derivation); `tests/unit/migrations/versions/test_versions_smoke.py` green (auto-discovery `load_migrations`, l.14: no-op on empty DB, honours dry_run, irreversible down raises); `tests/integration/test_v0102_purge_site_orphans.py` (pattern `tests/integration/test_v0100_backfill_plant_location_site.py`): one orphan per collection + dangling `has_garden_object`/`care_event_at` + live site with same shapes + history rows of the gone site; dry-run counts == apply counts; live and history rows survive; second run 0. `python -m app.migrations upgrade --to 0102 --dry-run` output recorded (prod snapshot first).
+- **Files**: `app/migrations/versions/v0102_purge_site_orphans.py` (new), two new tests.
+- **Specialist**: `nolte-engineering:fullstack-developer` — **Depends on**: WP-1; must land before #2528 adds its step.
+
+### WP-6 — REQ-053 spec: site-delete cascade
+- **Hypothesis**: REQ-053 defines no site-delete semantics today (`grep -n "DELETE /sites\|Standort lösch\|Site lösch" spec/req/REQ-053_Grafische-Garten-Beetplanung.md` → 0 hits). Refuted if afterwards a reader can answer from REQ-053 alone what goes, what stays and why, and when it is refused.
+- **Content (DE)**: §20.13 (l.1382-1390) new row "Standort löschen (#2513)" (structure rows go, every graph edge on a removed vertex is cut, history stays per GP-FR-101/SR-011, audit row `op=delete, entity=site` in the same transaction, field references of other REQs stay → sweep issue); §22.2 V-table (V-09 l.1541) extended with `site.has_active_plants` for `DELETE /sites/{key}`; new **GP-ACC-061** (I) (last existing id GP-ACC-060) "Given ein Standort mit 1 aktiven Pflanze, When `DELETE /sites/{key}`, Then 409 `site.has_active_plants` mit `details.active_plant_count = 1` und nichts ist gelöscht"; version row "1.6 (Nachtrag #2513)" 2026-10-29 (table l.20-27). Optional: traceability row in `spec/e2e-testcases/TC-REQ-053.md` (~l.1400) if the GP-ACC table must stay complete.
+- **Acceptance**: `grep -n "site.has_active_plants\|GP-ACC-061\|Standort löschen" spec/req/REQ-053_Grafische-Garten-Beetplanung.md` → ≥3 hits; spec-reference check task (exact name in `.taskfiles/checks.yaml` unestablished); strict docs build if REQ files render (unestablished).
+- **Specialist**: no matching specialised agent — generalist remediation — **Depends on**: WP-3
+
+### WP-7 — User docs and changelog (DE + EN)
+- **Hypothesis**: a user cannot learn from the docs that plants block a site delete and that the care history stays; the changelog does not mention the fix.
+- **Content**: `docs/de/user-guide/privacy.md:478-479` and `docs/en/user-guide/privacy.md:478-479` FAQ: one sentence on what goes (beds, slots, garden objects, zones, season/weather data), what stays (care and change logs until retention or tenant erasure), and that sites with growing plants cannot be deleted; l.401 only if needed (expected unchanged). Changelog under `## Geändert` (`docs/de/changelog/unreleased.md:62`) / `## Changed` (`docs/en/changelog/unreleased.md:62`) — no Behoben/Fixed section exists; follow DOCS.md if it prescribes one. No REQ ids in end-user prose, informal "du".
+- **Acceptance**: `.venv-docs/bin/mkdocs build --strict` green; DE/EN paragraphs at the same position.
+- **Specialist**: `mkdocs-documentation` — **Depends on**: WP-3 (parallel to WP-6)
+
+## Dependency ordering
+
+WP-1 → WP-2 → WP-3 → {WP-6 ∥ WP-7}; WP-2 → WP-4; WP-1 → WP-5 (before #2528's step). Sequential dispatch on the shared tree: WP-1 → WP-2 → WP-3 → WP-4 → WP-5 → WP-6 ∥ WP-7.
+
+## Deviations from the matrix row (how, not what)
+
+| Id | Row text | Plan | Reason |
+|---|---|---|---|
+| D-1 | 10 site edges in parentheses | 11 (`belongs_to_tenant`) | the row's clause is "every edge of `_edges_touching(SITES)`"; derivation has 11 |
+| D-2 | weather_source_configs "via existing `delete_by_site` l.59" | inline AQL with the same predicate | `delete_by_site` runs on `self._db` outside the transaction; would break "one stream transaction" |
+| D-3 | spec "DE canonical + EN mirror" | REQ-053 DE only | `spec/req/` has no EN mirrors (`ls spec/req \| grep -i 053` → one file); pairing applies to `docs/` (WP-7) |
+| D-4 | "`site_service.delete_site` refuses 409" | refusal inside the repo transaction, propagated by the service | race safety (V-09, l.768-769) |
+| D-5 | no router change named | `sites/tenant_router.py:150-157` passes `user_key`, documents 409 | needed by the SR-011 audit row (row) and the 409 (gate Q2); no route added |
+
+## Class sweep (group-level input)
+
+Predicate: `for V in vertex collections with a delete_*: edges_touching(V) − edges cut`. Population: `grep -rn "def delete_" app/data_access/arango/ | wc -l` → **67**. Graph-vertex deletes to run against: `site_repository.delete_site|delete_location|delete_slot`, `garden_object_repository.delete_garden_object`, `irrigation_zone_repository.delete_zone`, `bed_template_repository.delete_template`, `substrate_repository.delete_substrate|delete_batch`, `actuator_repository.delete_actuator|delete_profile|delete_rule|delete_schedule`, `aquaponik_repository.delete_system|delete_stock`, `botanical_family_repository.delete_family`, `ipm_repository.delete_pest|delete_disease|delete_treatment`, `lifecycle_repository.delete_phase|delete_phase_history`, `phase_sequence_repository.delete_definition|delete_entry|delete_sequence`, `nutrient_plan_repository.delete_phase_entry`, `overwintering_profile_repository.delete_profile`, `planting_run_repository.delete_entry`, `post_harvest_repository.delete_batch`, `species_repository.delete_cultivar`, `tank_repository.delete_schedule`, `task_repository.delete_task|delete_phase|delete_task_template|delete_workflow_template|delete_comment`, `inventree_repository.delete_connection|delete_equipment|delete_reference`, `fertilizer_repository.delete_stock`, `weather_source_config_repository.delete_by_site`, `plan_repository.delete_unused`. The rest (`delete_expired*`, `delete_*_before`, `delete_by_user`, `delete_all_for_user`, `delete_settings`, `delete_edges`, `delete_many`, …) are retention/maintenance deletes. **Lower bound:** generic `BaseArangoRepository.delete` (`base_repository.py:1209`) is not in the grep — `grep -rn "super().delete(\|return self.delete(" app/data_access/arango/ | wc -l` → 34; 21 service files call `*repo*.delete(` directly. After this member, `delete_site`/`delete_location` must have an empty difference; `delete_slot` (l.370-394) is expected non-empty (filed).
+
+## Risks
+
+- **Blast radius**: REQ-046/047/037 rows go with a site. Mitigation: gate Q1, WP-6, WP-7, WP-3.
+- **Time budget**: many `weather_forecasts` rows per site (index `collections.py:2726`), `DEFAULT_TIME_BUDGET_SECONDS = 10.0` (`transactions.py:81`); prod volume unestablished. Mitigation: WP-5 dry-run counts; raise `time_budget_seconds` with a recorded reason rather than splitting.
+- **Cross-tenant delete**: `tenant_key` defaults to `""` on `season_state.py:27`, `weather.py:42,80,164`, `irrigation_demand.py:28`. Mitigation: l.145-style predicate + tenant-B control; run `nolte-engineering:code-security-reviewer` (+ `gdpr-data-protection-reviewer`) before the PR.
+- **Unmapped 409 in UI**: `SiteDetailPage.tsx:182-195` → generic `handleError` (`hooks/useApiError.ts`) shows a status-based text. Decided: acceptable until the GP-FR-153 follow-up.
+- **Irreversible purge**: dry-run on the prod snapshot first, counts recorded before apply.
+- **Local env**: primary venv lacks `prometheus_client` (`pyproject.toml:53`): `pytest --collect-only tests/integration/test_irrigation_zone_repository.py` → `ModuleNotFoundError`. The worktree venv was synced with `uvx uv@0.13.3 sync --frozen --extra dev`; use it or `task test:backend:*` (`uv run --locked`).
+- **care_event readers via edge**: assumed field-based (`site_key`/`location_key`); edge-only readers of `CARE_EVENT_AT` unestablished — grep in WP-4.
+
+## Open questions
+
+1. ~~409 code~~ — **decided by the orchestrating session inside the matrix row**: new code `site.has_active_plants`; UI shows the generic conflict toast until the GP-FR-153 follow-up; no i18n strings in this member (that would be a new frontend cell and a re-approval).
+
+## Verification
+
+From `src/backend/` of the worktree; record actual output in the group's Member results.
+- `task test:backend:unit` (`.taskfiles/backend.yaml:142`)
+- `task test:backend:api` (l.154)
+- `task test:backend:integration` (l.160, ArangoDB) — incl. `test_irrigation_zone_repository.py`, new cascade tests, `test_v0102_purge_site_orphans.py`, `test_garden_plan_repository.py`, `test_garden_resource_repository.py`
+- `task lint:backend` (= `uv run --locked --extra dev ruff check .`) → 0; `ruff format --check .`
+- `task typecheck:backend` not worse
+- `pytest tests/unit/test_route_consumers_check.py -q` unchanged (16 passed)
+- `uv run --locked --extra dev python -m app.migrations upgrade --to 0102 --dry-run` (flags `app/migrations/framework/cli.py:111-112`) — dev DB, then prod snapshot
+- Docs: `task docs` is a namespace (`Taskfile.yaml:41-43`); build `task docs:build` (`.taskfiles/docs.yaml:100-104`); `mkdocs.yml` has no top-level `strict` (l.222 `strict: false` is a plugin option) → `.venv-docs/bin/mkdocs build --strict` from repo root.
+- Sweep probe: for V ∈ {sites, locations} difference empty (WP-2/WP-4 integration tests seed one edge per derived collection).
+
+## Dispatch log
+
+<!-- Appended during operation 5. -->
