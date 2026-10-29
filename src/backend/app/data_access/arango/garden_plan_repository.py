@@ -36,8 +36,8 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.care_event_repository import CARE_EVENT_WRITE_COLLECTIONS, write_care_event
 from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
 from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
-from app.data_access.arango.query_builder import aql_field
 from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
 from app.data_access.arango.watering_queries import last_waterings
 from app.domain.calculators.overdue_calculator import start_of_utc_day
@@ -77,26 +77,9 @@ _OWNED_BY_LOCATION_SITE = """
 _OPEN_TASK_STATUSES = ("pending", "in_progress")
 
 
-def _edges_touching(vertex_collection: str) -> tuple[tuple[str, str], ...]:
-    """``(edge collection, "_from" | "_to")`` for every named-graph edge that can end at *vertex_collection*.
-
-    Derived from ``GRAPH_EDGE_DEFINITIONS`` rather than listed by hand: a hand-written list is the one
-    ``delete_location`` carries, and it misses every relation added since (run reservations, sensors,
-    equipment, actuators, care events …), which then dangle on a document that is gone.
-    """
-    found: list[tuple[str, str]] = []
-    for definition in col.GRAPH_EDGE_DEFINITIONS:
-        edge = str(definition["edge_collection"])
-        if vertex_collection in definition["from_vertex_collections"]:
-            found.append((edge, "_from"))
-        if vertex_collection in definition["to_vertex_collections"]:
-            found.append((edge, "_to"))
-    return tuple(found)
-
-
-_LOCATION_EDGES = _edges_touching(col.LOCATIONS)
-_SLOT_EDGES = _edges_touching(col.SLOTS)
-_OBJECT_EDGES = _edges_touching(col.GARDEN_OBJECTS)
+_LOCATION_EDGES = edges_touching(col.LOCATIONS)
+_SLOT_EDGES = edges_touching(col.SLOTS)
+_OBJECT_EDGES = edges_touching(col.GARDEN_OBJECTS)
 
 #: Collections the batch transaction writes: the documents, the audit, and every edge a deleted vertex may carry.
 _BATCH_WRITE = tuple(
@@ -728,13 +711,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         )
         if slot_ids:
             for edge, field in _SLOT_EDGES:
-                self._remove_edges(txn, edge, field, slot_ids)
+                remove_edges(txn, edge, field, slot_ids)
             txn.aql.execute(
                 "FOR s IN @@slots FILTER s.location_key IN @keys REMOVE s IN @@slots",
                 bind_vars={"@slots": col.SLOTS, "keys": keys},
             )
         for edge, field in _LOCATION_EDGES:
-            self._remove_edges(txn, edge, field, location_ids)
+            remove_edges(txn, edge, field, location_ids)
         txn.aql.execute(
             "FOR l IN @@col FILTER l._key IN @keys REMOVE l IN @@col",
             bind_vars={"@col": col.LOCATIONS, "keys": keys},
@@ -789,22 +772,13 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 active_plant_count=int(active),
             )
 
-    @staticmethod
-    def _remove_edges(txn: StreamTransaction, edge_collection: str, field: str, ids: list[str]) -> None:
-        # ``field`` is one of two literals chosen above — never a request value — so it is
-        # interpolated; the collection and the ids are bound.
-        txn.aql.execute(
-            f"FOR e IN @@edges FILTER e.{aql_field(field)} IN @ids REMOVE e IN @@edges",
-            bind_vars={"@edges": edge_collection, "ids": ids},
-        )
-
     def _delete_objects(self, txn: StreamTransaction, write: PlanBatchWrite) -> None:
         keys = write.object_deletes
         if not keys:
             return
         ids = [f"{col.GARDEN_OBJECTS}/{key}" for key in keys]
         for edge, field in _OBJECT_EDGES:
-            self._remove_edges(txn, edge, field, ids)
+            remove_edges(txn, edge, field, ids)
         # The edge cascade above cut ``zone_supplied_by``; the zone's own ``water_source_key`` goes with it, so a
         # zone never names a water source that is gone (REQ-053 §20.11, WP 7.1).
         txn.aql.execute(
@@ -847,7 +821,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         if still_covering:
             raise WriteConflictError("garden_plan", "a bed was assigned to a zone of the replaced plan concurrently")
         for edge, field in ZONE_EDGES:
-            ArangoGardenPlanRepository._remove_edges(txn, edge, field, ids)
+            remove_edges(txn, edge, field, ids)
         txn.aql.execute(
             """
             FOR z IN @@zones
@@ -1323,7 +1297,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 if exc.error_code == 1202:  # document not found: removed after the service read it
                     raise NotFoundError("Location", location_key) from exc
                 raise
-            self._remove_edges(txn, col.ZONE_COVERS, "_to", [location_id])
+            remove_edges(txn, col.ZONE_COVERS, "_to", [location_id])
             if zone_key:
                 txn.collection(col.ZONE_COVERS).insert(
                     {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": location_id, "created_at": now}
@@ -1459,7 +1433,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         if taken:
             raise WriteConflictError("slots", "a slot to replace was occupied or reserved concurrently")
         for edge, field_name in _SLOT_EDGES:
-            self._remove_edges(txn, edge, field_name, ids)
+            remove_edges(txn, edge, field_name, ids)
         txn.aql.execute(
             "FOR s IN @@slots FILTER s._key IN @keys REMOVE s IN @@slots",
             bind_vars={"@slots": col.SLOTS, "keys": keys},

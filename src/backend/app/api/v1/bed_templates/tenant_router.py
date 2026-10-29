@@ -99,6 +99,6 @@ def delete_bed_template(
     is_platform_admin: bool = Depends(get_is_platform_admin),
     service: BedTemplateService = Depends(get_bed_template_service),
 ) -> None:
-    """Delete a template (lead only). Beds placed from it keep their copy of the fields and the `template_key`
-    as provenance. A system template can be deleted by a platform admin only."""
+    """Delete a template (lead only). Beds placed from it keep their copy of the fields; their `template_key` is
+    unset, since it would name nothing. A system template can be deleted by a platform admin only."""
     service.delete_template(key, tenant_key=ctx.tenant_key, role=ctx.role, is_platform_admin=is_platform_admin)

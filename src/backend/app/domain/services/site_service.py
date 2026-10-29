@@ -138,9 +138,15 @@ class SiteService:
             site.total_area_m2 = existing.total_area_m2
         return self._repo.update_site(key, site)
 
-    def delete_site(self, key: SiteKey, *, tenant_key: str) -> bool:
+    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> bool:
+        """Delete the tenant's site with its structure; the care and change history stays (#2513).
+
+        ``user_key`` is the deleting account, recorded on the plan audit row the repository writes in the same
+        transaction (REQ-053 §20.13 SR-011). The repository reads the site under ``tenant_key`` once more inside
+        that transaction (MT-010, #2107), so the ownership predicate does not rest on this read alone.
+        """
         self.get_site(key, tenant_key=tenant_key)
-        return self._repo.delete_site(key)
+        return self._repo.delete_site(key, tenant_key=tenant_key, user_key=user_key)
 
     def get_water_config(self, key: SiteKey, *, tenant_key: str) -> SiteWaterConfig | None:
         site = self.get_site(key, tenant_key=tenant_key)

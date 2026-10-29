@@ -143,10 +143,18 @@ class TenantReference(BaseModel):
     discriminator: str | None = None
     by_value: dict[str, str] = Field(default_factory=dict)
     reason: str | None = None
+    #: ``internal`` into a hybrid catalogue only: the key records where a copy came from (#2528). The import still
+    #: resolves it against the archive and the target's catalogue, but a key found in neither is cleared and counted
+    #: (``nulled_references``) instead of refusing the archive (REQ-056 §8.4 step 1).
+    provenance: bool = False
 
 
 def _internal(*targets: str) -> TenantReference:
     return TenantReference(kind="internal", targets=targets)
+
+
+def _provenance(*targets: str) -> TenantReference:
+    return TenantReference(kind="internal", targets=targets, provenance=True)
 
 
 def _global(*targets: str) -> TenantReference:
@@ -552,10 +560,11 @@ class TenantExportEngine:
         "substrates": {"mix_components.substrate_key": _internal("substrates")},
         # REQ-053 §15.1 (WP 1.7, #2326): the bed's substrate (GP-FR-121) — a tenant row or a global one.
         # WP 7.9 (#2475): `template_key` of a bed is a bed template (a system one stays by its fixed key); elsewhere the
-        # name means a task template (FIELD_REFERENCES).
+        # name means a task template (FIELD_REFERENCES). Both only record where the bed's values came from (#2528):
+        # provenance — kept when the archive or the target's catalogue has the row, cleared and counted otherwise.
         "locations": {
-            "soil_profile.substrate_key": _internal("substrates"),
-            "template_key": _internal("bed_templates"),
+            "soil_profile.substrate_key": _provenance("substrates"),
+            "template_key": _provenance("bed_templates"),
         },
         "task_templates": {"source_template_key": _internal("task_templates")},
         # REQ-053 §20.10 (WP 1.9): the supersede chain of the care log points within the collection.
@@ -666,6 +675,7 @@ class TenantExportEngine:
             for path, ref in declared.items():
                 reference: TenantReference = ref
                 by_value: dict[str, str] = reference.by_value
+                cls._require_provenance_contract(f"{collection}.{path}", reference)
                 for target in reference.targets:
                     if reference.kind == "global" and target not in catalogues:
                         raise ValueError(f"{collection}.{path}: '{target}' is not a global catalogue")
@@ -674,6 +684,18 @@ class TenantExportEngine:
                 for target in by_value.values():
                     if target not in exported:
                         raise ValueError(f"{collection}.{path}: '{target}' is not carried by the archive")
+
+    @classmethod
+    def _require_provenance_contract(cls, where: str, reference: TenantReference) -> None:
+        """A provenance reference (cleared, never refusing - REQ-056 §8.4 step 1, #2528) is an ``internal`` one into
+        hybrid catalogues only: elsewhere a key found nowhere is a broken archive, not a copy's lost origin."""
+        if not reference.provenance:
+            return
+        if reference.kind != "internal":
+            raise ValueError(f"{where}: provenance needs kind 'internal', not '{reference.kind}'")
+        outside = sorted(set(reference.targets) - cls.HYBRID_CATALOGUES)
+        if outside or not reference.targets:
+            raise ValueError(f"{where}: provenance into {outside or 'no target'} - only hybrid catalogues qualify")
 
     # ── which fields are references ───────────────────────────────────
 

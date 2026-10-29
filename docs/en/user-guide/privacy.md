@@ -476,7 +476,7 @@ Certain sensor data can allow inferences about presence patterns (CO₂ concentr
     Depending on the data volume, the export takes 1–5 minutes. You currently check the status and download the finished file via the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). The download link is valid for 72 hours.
 
 ??? question "Can I delete individual plant records without deleting my account?"
-    Yes. You can delete individual plants, locations and tasks at any time. Account deletion is only necessary if you want to remove all your data at once.
+    Yes. You can delete individual plants, locations and tasks at any time. Deleting a site also removes its beds, slots and garden objects; the care log and change log stay until the retention period ends or the tenant is erased. A site with plants still growing on it cannot be deleted. Account deletion is only necessary if you want to remove all your data at once.
 
 ??? question "What happens to my data if the service is shut down?"
     You will be informed at least 30 days in advance and have the opportunity to export all your data. After shutdown all personal data will be deleted within 90 days.

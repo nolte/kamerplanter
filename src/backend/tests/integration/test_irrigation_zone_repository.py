@@ -502,7 +502,7 @@ class TestTheLegacyDeletesCascadeToTheZones:
         )
         db.collection(col.ZONE_COVERS).insert({"_from": "irrigation_zones/zone_b", "_to": "locations/bed_b"})
 
-        ArangoSiteRepository(db).delete_site("site_a")
+        ArangoSiteRepository(db).delete_site("site_a", tenant_key=A, user_key=USER)
 
         assert [z["_key"] for z in db.collection(col.IRRIGATION_ZONES).all()] == ["zone_b"]  # positive control
         assert _covers(db) == {("zone_b", "bed_b")}

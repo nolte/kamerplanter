@@ -476,7 +476,7 @@ Bestimmte Sensor-Daten können Rückschlüsse auf Anwesenheitsmuster erlauben (C
     Je nach Datenmenge dauert der Export 1–5 Minuten. Den Status prüfst und die fertige Datei lädst du aktuell über die API ab (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)). Der Download-Link ist 72 Stunden gültig.
 
 ??? question "Kann ich einzelne Pflanzendaten löschen, ohne den Account zu löschen?"
-    Ja. Du kannst einzelne Pflanzen, Standorte und Aufgaben jederzeit löschen. Die Account-Löschung ist nur nötig, wenn du alle deine Daten auf einmal entfernen möchtest.
+    Ja. Du kannst einzelne Pflanzen, Standorte und Aufgaben jederzeit löschen. Beim Löschen eines Standorts verschwinden auch seine Beete, Plätze und Gartenobjekte; Pflege- und Änderungsprotokoll bleiben bis zum Ablauf der Aufbewahrungsfrist oder bis zur Löschung des Mandanten erhalten. Ein Standort, auf dem noch Pflanzen wachsen, lässt sich nicht löschen. Die Account-Löschung ist nur nötig, wenn du alle deine Daten auf einmal entfernen möchtest.
 
 ??? question "Was passiert mit meinen Daten, wenn der Dienst eingestellt wird?"
     Du wirst mindestens 30 Tage vorher informiert und hast die Möglichkeit, alle deine Daten zu exportieren. Nach Abschaltung werden alle personenbezogenen Daten innerhalb von 90 Tagen gelöscht.
