@@ -321,17 +321,26 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         """The site's locations at every depth: the ``contains`` tree below the site ∪ every location naming it.
 
         A nested location hangs from its parent location (:meth:`create_location`) and is not guaranteed to carry
-        ``site_key``, so neither source alone is complete. Walked level by level until no new location appears —
-        no depth limit, and the seen set ends the walk on a cyclic edge too.
+        ``site_key``, so neither source alone is complete; the walk is :meth:`_contains_closure`.
         """
-        seen: dict[str, None] = dict.fromkeys(
+        named = [
             str(doc_id)
             for doc_id in txn.aql.execute(
                 "FOR l IN @@locations FILTER l.site_key == @site_key RETURN l._id",
                 bind_vars={"@locations": col.LOCATIONS, "site_key": key},
             )
-        )
-        frontier = [f"{col.SITES}/{key}", *seen]
+        ]
+        return ArangoSiteRepository._contains_closure(txn, f"{col.SITES}/{key}", named)
+
+    @staticmethod
+    def _contains_closure(txn: StreamTransaction, root_id: str, location_ids: Sequence[str]) -> list[str]:
+        """*location_ids* plus every location the ``contains`` tree reaches below *root_id* or any of them.
+
+        Walked level by level until no new location appears — no depth limit, and the seen set ends the walk on a
+        cyclic edge too. *root_id* itself is returned only when it is one of *location_ids*.
+        """
+        seen: dict[str, None] = dict.fromkeys(location_ids)
+        frontier = [root_id, *seen]
         while frontier:
             children = [
                 str(doc_id)
@@ -493,28 +502,28 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         return self._locations.update(key, location)
 
     def delete_location(self, key: LocationKey) -> bool:
+        """Remove the location, every location below it, their slots and every graph edge on any of them (#2513).
+
+        One stream transaction over :data:`_LOCATION_REMOVAL_WRITE`. The descendants are the ``contains`` tree below
+        the location; the edges are derived (:func:`edges_touching`), so ``care_event_at``, ``has_task``,
+        ``run_at_location``, ``zone_covers``, ``placed_in`` and every relation registered later go with the vertex.
+        The care events themselves stay (history, REQ-053 GP-FR-101). No refusal on standing plants here: the routed
+        ``DELETE /locations/{key}`` refuses through the plan batch (V-09) before it gets this far.
+
+        Args:
+            key: The location's document key.
+
+        Returns:
+            ``True`` when the location was removed, ``False`` when it did not exist (nothing is written then).
+        """
         location_id = f"{col.LOCATIONS}/{key}"
-        # Recursively delete child locations
-        child_results = self.get_edges(col.CONTAINS, location_id, direction="outbound")
-        for result in child_results:
-            vertex = result["vertex"]
-            if vertex["_id"].startswith(f"{col.LOCATIONS}/"):
-                child_key = vertex.get("_key", vertex["_id"].split("/")[-1])
-                self.delete_location(child_key)
-        # Remove associated HAS_SLOT edges and cascade to slots
-        slot_results = self.get_edges(col.HAS_SLOT, location_id, direction="outbound")
-        for result in slot_results:
-            slot_doc = result["vertex"]
-            slot_key = slot_doc.get("_key", slot_doc.get("_id", "").split("/")[-1])
-            self._delete_slot_internal(slot_key)
-        self.delete_edges(col.HAS_SLOT, from_id=location_id)
-        # Remove outbound CONTAINS edges (to children, already deleted)
-        self.delete_edges(col.CONTAINS, from_id=location_id)
-        # Remove inbound CONTAINS edge (from parent site or parent location)
-        self.delete_edges(col.CONTAINS, location_id, direction="inbound")
-        # REQ-053 WP 7.1: the bed leaves its irrigation zone (the field goes with the document).
-        self.delete_edges(col.ZONE_COVERS, vertex_id=location_id, direction="inbound")
-        return self._locations.delete(key)
+        with stream_transaction(self._db, write=_LOCATION_REMOVAL_WRITE, entity="location") as txn:
+            exists = next(iter(txn.aql.execute("RETURN DOCUMENT(@id) != null", bind_vars={"id": location_id})))
+            if not exists:
+                return False
+            location_ids = self._contains_closure(txn, location_id, [location_id])
+            self._remove_locations(txn, location_ids)
+        return True
 
     def get_location_children(self, parent_key: LocationKey) -> list[Location]:
         parent_id = f"{col.LOCATIONS}/{parent_key}"
@@ -674,9 +683,8 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         # `delete_edges` binds the vertex and compares it with `==`, never `LIKE`, so
         # the `%` was a literal character and `locations/%` is not an id any edge
         # carries. The call matched nothing, every time, so a slot deleted through
-        # THIS path left its incoming edge behind. (Deletion via `delete_location`
-        # was unaffected: it sweeps the location's outbound `has_slot` edges itself
-        # afterwards, see `_delete_location_internal`.)
+        # THIS path left its incoming edge behind. (`delete_location` does not come
+        # through here: it cuts the derived slot edge set, see `_remove_locations`.)
         self.delete_edges(col.HAS_SLOT, vertex_id=slot_id, direction="inbound")
         # `adjacent_to` is written in BOTH directions for one adjacency
         # (`GraphRepository.set_adjacent_slots`: "Adjacency is bidirectional — create
