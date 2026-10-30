@@ -120,11 +120,11 @@ _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width
 
 #: What a batch may write on a location / garden object. Everything else a document holds belongs to other
 #: paths (status, soil, irrigation zone, tank, pitch …) that run outside the plan revision (GP-NFR-007), and a
-#: batch must not write it back with the value it read earlier. ``site_conditions`` is written whole, but the
-#: batch changes only its sun profile (#2538); the rest is the value read, merged in :meth:`_update_fields`.
+#: batch must not write it back with the value it read earlier. ``site_conditions`` is therefore no column here:
+#: the batch changes only its sun profile (#2538) and writes that sub-path alone (``location_sun_profiles``).
 _LOCATION_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "area_m2", "name", "path", "depth", "description", "notes", "sun_exposure", "height_m"}
-    | {"site_conditions", "locked", "z_order"}
+    | {"locked", "z_order"}
 )
 _OBJECT_COLUMNS: frozenset[str] = frozenset(
     {"geometry", "bbox", "label", "notes", "props", "off_site", "locked", "z_order"}
@@ -189,14 +189,21 @@ def _changed_fields(working: BaseModel, stored: BaseModel, columns: frozenset[st
 def _merged_sun_profile(location: Location, sent: PlanSiteConditionsPatch) -> SiteConditions:
     """The stored site conditions with the sent sun-profile keys laid over them, by the PATCH rule (#2538).
 
-    The microclimate is the stored one, so the frost risk - and with it the legacy ``frost_exposed`` mirror of
-    ``PATCH /locations`` - cannot change through the plan batch. A sun profile edited in the editor is a
-    manual value (``source = manual``), whatever it was before.
+    Called only when *sent* carries at least one sun-profile key. The microclimate is the stored one, so the
+    frost risk - and with it the legacy ``frost_exposed`` mirror of ``PATCH /locations`` - cannot change
+    through the plan batch. A sun profile edited in the editor is a manual value (``source = manual``),
+    whatever it was before.
     """
     merged = merge_site_conditions(location.site_conditions, sent)
-    if "sun_profile" in sent.model_fields_set:
-        merged.sun_profile.source = SunProfileSource.MANUAL
+    merged.sun_profile.source = SunProfileSource.MANUAL
     return merged
+
+
+def _sun_profile_of(location: Location) -> dict[str, Any] | None:
+    """The location's sun profile, JSON-shaped, or ``None`` when it has no site conditions at all."""
+    if location.site_conditions is None:
+        return None
+    return _dump(location.site_conditions.sun_profile, mode="json")
 
 
 def _mapping(raw: object) -> dict[str, Any]:
@@ -879,7 +886,9 @@ class GardenPlanService:
                 fields = LocationFieldsPatch(**op.fields)
                 patch = _dump(fields, exclude_unset=True)
                 current = work.locations[op.key]
-                if fields.site_conditions is not None:
+                # An empty sun-profile patch changes nothing: no default ``SiteConditions``, no ``manual`` stamp.
+                patch.pop("site_conditions", None)
+                if fields.site_conditions is not None and fields.site_conditions.sun_profile.model_fields_set:
                     patch["site_conditions"] = _merged_sun_profile(current, fields.site_conditions)
                 updated = Location(**{**_dump(current, by_alias=True), **patch})
                 if "name" in patch:
@@ -1152,6 +1161,13 @@ class GardenPlanService:
             if key in work.stored_locations
             and (changed := _changed_fields(location, work.stored_locations[key], _LOCATION_COLUMNS))
         ]
+        sun_profiles = [
+            (key, sun_profile)
+            for key, location in work.locations.items()
+            if key in work.stored_locations
+            and (sun_profile := _sun_profile_of(location)) is not None
+            and sun_profile != _sun_profile_of(work.stored_locations[key])
+        ]
         object_updates = [
             (key, changed)
             for key, garden_object in work.objects.items()
@@ -1188,6 +1204,7 @@ class GardenPlanService:
             basis_revision=basis_revision,
             location_inserts=[(key, work.locations[key]) for key in inserts],
             location_updates=location_updates,
+            location_sun_profiles=sun_profiles,
             location_deletes=sorted(work.deleted_locations),
             object_inserts=[(key, work.objects[key]) for key in work.temp_objects],
             object_updates=object_updates,
@@ -1216,7 +1233,9 @@ class GardenPlanService:
         return PlanBatchResult(
             plan_revision=revision,
             key_map=key_map,
-            updated=sorted(key for key, _ in [*write.location_updates, *write.object_updates]),
+            updated=sorted(
+                {key for key, _ in [*write.location_updates, *write.location_sun_profiles, *write.object_updates]}
+            ),
             deleted=sorted([*write.location_deletes, *write.object_deletes]),
             derived=derived,
         )

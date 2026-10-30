@@ -193,8 +193,58 @@ class TestAGoodBatch:
         assert (sun.sun_window, sun.direct_sun_hours_summer, sun.source) == ("afternoon", 4.0, "manual")
         assert stored.site_conditions.microclimate.frost_risk == "high" and stored.frost_exposed is True
         (write,) = repo.applied
-        (key, fields), *_ = write.location_updates
-        assert key == "a" and set(fields) == {"site_conditions"}  # nothing else is written back
+        assert write.location_updates == []  # nothing else is written back, not even the rest of the column
+        ((key, written),) = write.location_sun_profiles
+        assert key == "a" and written["sun_window"] == "afternoon" and written["source"] == "manual"
+
+    def test_a_frost_risk_patched_after_the_read_survives_the_sun_profile_write(self, world, monkeypatch):
+        """SCR-001: ``PATCH /locations`` writes ``site_conditions`` outside the plan revision, so the 409 does not
+        cover it. A frost risk set between the batch's read and its write must survive: the batch writes the
+        sun profile sub-path, never the whole column it read earlier."""
+        from app.common.enums import FrostRisk
+        from app.domain.models.site import SiteConditions
+
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1), site_conditions=SiteConditions())
+        apply = repo.apply_plan_batch
+
+        def patch_then_apply(write):
+            current = repo.locations["a"]
+            assert current.site_conditions is not None
+            conditions = current.site_conditions.model_copy(deep=True)
+            conditions.microclimate.frost_risk = FrostRisk.HIGH
+            repo.locations["a"] = current.model_copy(update={"site_conditions": conditions, "frost_exposed": True})
+            return apply(write)
+
+        monkeypatch.setattr(repo, "apply_plan_batch", patch_then_apply)
+        result = batch(
+            service,
+            [
+                {
+                    "op": "update_fields",
+                    "entity": "location",
+                    "key": "a",
+                    "fields": {"site_conditions": {"sun_profile": {"sun_window": "afternoon"}}},
+                }
+            ],
+        )
+        stored = repo.locations["a"]
+        assert result.updated == ["a"] and stored.site_conditions is not None
+        assert stored.site_conditions.microclimate.frost_risk == "high" and stored.frost_exposed is True
+        assert stored.site_conditions.sun_profile.sun_window == "afternoon"
+
+    @pytest.mark.parametrize("sent", [{}, {"sun_profile": {}}], ids=["no-parts", "empty-sun-profile"])
+    def test_an_empty_site_conditions_patch_changes_nothing(self, world, sent):
+        """SCR-002: an empty patch neither creates default site conditions nor stamps ``source = manual``."""
+        service, repo, _ = world
+        repo.locations["a"] = make_location("a", geometry=rect(1, 1))
+        result = batch(
+            service,
+            [{"op": "update_fields", "entity": "location", "key": "a", "fields": {"site_conditions": sent}}],
+        )
+        (write,) = repo.applied
+        assert result.updated == [] and write.location_updates == [] and write.location_sun_profiles == []
+        assert repo.locations["a"].site_conditions is None
 
     def test_update_fields_refuses_the_microclimate_before_anything_is_applied(self, world):
         service, repo, _ = world

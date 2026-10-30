@@ -28,7 +28,7 @@ from app.domain.models.garden_plan import (
     TaskCounter,
 )
 from app.domain.models.irrigation_zone import IrrigationZone
-from app.domain.models.site import Location, Site, SitePlan, Slot
+from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot, SunProfile
 
 TENANT = "ten_own"
 OTHER_TENANT = "ten_other"
@@ -268,6 +268,13 @@ class FakePlanRepo(IGardenPlanRepository):
             )
         for key, fields in write.location_updates:
             self.locations[key] = Location(**{**self.locations[key].model_dump(by_alias=True), **fields})
+        for key, sun_profile in write.location_sun_profiles:
+            # The sub-path write of the repository: the rest of ``site_conditions`` is the value stored *now*.
+            stored = self.locations[key]
+            conditions = (stored.site_conditions or SiteConditions()).model_copy(
+                update={"sun_profile": SunProfile(**sun_profile)}
+            )
+            self.locations[key] = stored.model_copy(update={"site_conditions": conditions})
         self.care_events.extend(write.care_events)
         for key in write.location_deletes:
             self.locations.pop(key, None)

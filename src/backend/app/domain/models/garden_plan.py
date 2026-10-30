@@ -279,6 +279,10 @@ class PlanBatchWrite:
     location_inserts: list[tuple[str, Location]] = field(default_factory=list)
     #: ``(key, changed fields)`` — only what the batch changed, JSON-shaped; ``None`` removes a stored value.
     location_updates: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    #: ``(key, sun profile)``, JSON-shaped — written to the sub-path ``site_conditions.sun_profile`` only (#2538).
+    #: ``PATCH /locations`` writes the rest of ``site_conditions`` outside the plan revision; a whole-column write
+    #: of the value the batch read would revert a frost risk set in between.
+    location_sun_profiles: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     #: Keys to delete, descendants and the slots below them included by the repository.
     location_deletes: list[str] = field(default_factory=list)
     object_inserts: list[tuple[str, GardenObject]] = field(default_factory=list)
