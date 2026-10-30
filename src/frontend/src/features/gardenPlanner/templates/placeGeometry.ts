@@ -13,9 +13,12 @@ import type { Geometry, Point } from '../model/types';
 
 const FULL_TURN_DEG = 360;
 
-/** The template's own rotation plus the requested one, folded into `[0, 360)`. */
+/**
+ * The template's own rotation plus the requested one, folded into `[0, 360)` - also for a negative sum, as
+ * Python's `%` does (JS `%` keeps the sign: -20 % 360 is -20, not 340).
+ */
 function turned(own: number, extra: number): number {
-  const value = roundLength((own + extra) % FULL_TURN_DEG);
+  const value = roundLength((((own + extra) % FULL_TURN_DEG) + FULL_TURN_DEG) % FULL_TURN_DEG);
   return value >= FULL_TURN_DEG ? 0 : value;
 }
 

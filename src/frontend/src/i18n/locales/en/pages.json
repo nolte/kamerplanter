@@ -5457,7 +5457,7 @@
             "too_many": "That is too many changes at once. Choose fewer copies."
           },
           "distribute": {
-            "overlap": "The selected objects overlap in this direction, so equal gaps are not possible. Make room between them first. The plan stays as it was.",
+            "overlap": "With equal gaps the selected objects would lie on top of each other. Make room between them first. The plan stays as it was.",
             "locked_covered": "Distributing would put an object on top of a locked one. Unlock it or remove it from the selection. The plan stays as it was."
           }
         },
@@ -5928,7 +5928,8 @@
           "submit": "Duplicate",
           "invalid": "Please enter a valid number.",
           "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own.",
-          "failedCopy": "Copy {{n}} is the first one that does not fit."
+          "failedCopy": "Copy {{n}} is the first one that does not fit.",
+          "failedCopyNamed": "“{{name}}” is the first copy that does not fit."
         },
         "templates": {
           "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",

@@ -846,7 +846,9 @@ export function GardenPlanEditor({
   const runMultiDuplicate = useCallback(
     (options: MultiDuplicateOptions): MultiRefusal | null => {
       const outcome = multiDuplicate(plan, selection, { ...options, pendingCount: pending.length });
-      if (!outcome.ok) return { code: outcome.code, failedCopy: outcome.failedCopy };
+      if (!outcome.ok) {
+        return { code: outcome.code, failedCopy: outcome.failedCopy, failedName: outcome.failedName };
+      }
       onCommit(outcome.value.ops, 'multiDuplicate');
       dispatch(setSelection(outcome.value.selection));
       dispatch(setStack(null));

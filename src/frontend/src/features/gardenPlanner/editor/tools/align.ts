@@ -143,10 +143,13 @@ function boxesOverlap(a: BoundingBox, b: BoundingBox): boolean {
  * furthest to the low side and the one that reaches furthest to the high side, by their real extent - and the ones
  * between them move, in the order of their centres.
  *
- * Refusals (#2536), never a half-good result: boxes that are together wider than the span between the outermost
- * edges would need a negative gap and end up covering each other (`distribute.overlap`) - distributing their
- * centres instead would still stack them, so the user is told to make room first. A locked object of the selection
- * neither moves nor counts, and a move that would put a box on it is refused (`distribute.locked_covered`).
+ * The gap may be negative: boxes that are together wider than the span still distribute when they stand apart on
+ * the cross axis (a row of beds side by side, a diagonal staggering) - nothing gets covered. Refusals (#2536),
+ * only for what would make the plan worse, never a half-good result: when the result lets two boxes of the
+ * selection overlap in the plane and at least one of them was moved (a true stack: the same span on the cross
+ * axis, overlapping on the axis), it is `distribute.overlap` - the user is told to make room first. A locked
+ * object of the selection neither moves nor counts, and a move that would put a box on it is refused
+ * (`distribute.locked_covered`). Boxes that already overlapped and both stay where they are are no refusal.
  */
 export function distributeSelection(
   plan: PlanModel,
@@ -176,19 +179,26 @@ export function distributeSelection(
   const end = last.box[hi];
   const widths = sorted.reduce((sum, i) => sum + (i.box[hi] - i.box[lo]), 0);
   const gap = (end - start - widths) / (sorted.length - 1);
-  if (gap < -GAP_EPSILON) return { ok: false, code: 'distribute.overlap' };
   let cursor = start;
-  const moves = sorted.map((item): { item: Item; delta: Point } => {
+  const moves = sorted.map((item): { item: Item; delta: Point; box: BoundingBox; moved: boolean } => {
     const shift = round(cursor - item.box[lo]);
     cursor += item.box[hi] - item.box[lo] + gap;
-    return { item, delta: axis === 'horizontal' ? [shift, 0] : [0, shift] };
-  });
-  const covers = moves.some(({ item, delta }) => {
-    if (delta[0] === 0 && delta[1] === 0) return false;
+    const delta: Point = axis === 'horizontal' ? [shift, 0] : [0, shift];
     const [x0, y0, x1, y1] = item.box;
-    const moved: BoundingBox = [x0 + delta[0], y0 + delta[1], x1 + delta[0], y1 + delta[1]];
-    return lockedBoxes.some((box) => boxesOverlap(moved, box));
+    return {
+      item,
+      delta,
+      box: [x0 + delta[0], y0 + delta[1], x1 + delta[0], y1 + delta[1]],
+      moved: shift !== 0,
+    };
   });
+  const stacked = moves.some((a, i) =>
+    moves.some((b, j) => j > i && (a.moved || b.moved) && boxesOverlap(a.box, b.box)),
+  );
+  if (stacked) return { ok: false, code: 'distribute.overlap' };
+  const covers = moves.some(
+    ({ box, moved }) => moved && lockedBoxes.some((locked) => boxesOverlap(box, locked)),
+  );
   if (covers) return { ok: false, code: 'distribute.locked_covered' };
   return operationsFor(plan, moves);
 }

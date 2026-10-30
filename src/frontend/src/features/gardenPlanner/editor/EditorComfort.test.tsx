@@ -6,6 +6,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/api/errors';
+import i18n from '@/i18n/i18n';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { planResponse } from '@/test/gardenPlanFixtures';
 import * as api from '../api/gardenPlan';
@@ -25,6 +26,7 @@ vi.mock('../api/gardenPlan', async (importOriginal) => ({
 const listLocationTypes = vi.hoisted(() => vi.fn());
 vi.mock('@/api/endpoints/sites', () => ({ listLocationTypes }));
 
+const ORIGINAL_LANGUAGE = i18n.language;
 const getGardenPlan = vi.mocked(api.getGardenPlan);
 const applyPlanBatch = vi.mocked(api.applyPlanBatch);
 const listBedTemplates = vi.mocked(api.listBedTemplates);
@@ -217,18 +219,35 @@ describe('align and distribute (GP-FR-029, GP-FR-155)', () => {
     expect(originOf(t, 'lock')).toEqual([14, 8]);
   });
 
-  it('says why it does not distribute beds that overlap along the axis, and changes nothing (#2536)', () => {
+  it('distributes beds that overlap along the axis but stand apart side by side, in ONE undo step (#2536)', () => {
     const t = setupEditor();
-    // b1 and b2 (y 3..5) and solo (y 2..4): 6 m of beds in a 3 m span would need a negative gap
+    // b1 and b2 (y 3..5) and solo (y 2..4): 6 m of beds in a 3 m span need a negative gap of -1.5 m - but the three
+    // stand apart in x (3..5, 6..8, 14..16), so nothing gets covered: b2 moves down to y 2.5..4.5
     select(t, 'b1', 'b2', 'solo');
     const pastBefore = t.state().past.length;
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
     t.after(() => fireEvent.click(screen.getByTestId('garden-plan-distribute-vertical')));
+    expect(screen.queryByTestId('garden-plan-notice')).toBeNull();
+    expect(originOf(t, 'b2')).toEqual([6, 2.5]);
+    expect(originOf(t, 'b1')).toEqual([3, 3]);
+    expect(originOf(t, 'solo')).toEqual([14, 2]);
+    expect(t.state().past).toHaveLength(pastBefore + 1);
+  });
+
+  it('says why it does not distribute beds stacked on each other, and changes nothing (#2536)', () => {
+    const t = setupEditor();
+    // align b1, b2 and solo on the left first (x 3..5 each): then a vertical distribution would stack them
+    select(t, 'b1', 'b2', 'solo');
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-left')));
+    const pastBefore = t.state().past.length;
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-distribute-vertical')));
     expect(screen.getByTestId('garden-plan-notice')).toHaveTextContent(
-      /überlappen in dieser Richtung|overlap in this direction/,
+      /aufeinander|on top of each other/,
     );
     expect(t.state().past).toHaveLength(pastBefore);
-    expect(originOf(t, 'solo')).toEqual([14, 2]);
+    expect(originOf(t, 'b2')).toEqual([3, 3]);
   });
 
   it('is disabled for a single selection and distribute needs three', () => {
@@ -460,9 +479,62 @@ describe('multi-duplicate (GP-FR-025, GP-NFR-017)', () => {
     expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(
       /ragt aus ihrem Bereich|sticks out of its area/,
     );
-    // solo (x 14..16) to the right, 0.5 m apart: copy 1 at 16.5..18.5 fits, copy 2 at 19..21 leaves the garden
-    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(/Kopie 2\b|copy 2\b/i);
+    // solo (x 14..16) to the right, 0.5 m apart: copy 1 at 16.5..18.5 fits, copy 2 at 19..21 leaves the garden;
+    // the dialog names it as the plan would have: the second number of the scheme
+    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(
+      /„Parzelle 2“ ist die erste Kopie|“Plot 2” is the first copy/,
+    );
     expect(t.state().past).toHaveLength(0);
+  });
+
+  it('names the failed copy by its number from the start number, not by the round (#2536)', async () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    openDialog(t);
+    await screen.findByTestId('garden-plan-multi-dialog');
+    set('garden-plan-multi-count', '30');
+    set('garden-plan-multi-scheme', 'Plot {n}');
+    set('garden-plan-multi-start', '12');
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
+    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(/[„“]Plot 13[“”]/);
+    expect(screen.getByTestId('garden-plan-multi-error')).not.toHaveTextContent(/Kopie 2\b|Copy 2\b/);
+  });
+
+  it.each([
+    ['de', '0,5'],
+    ['en', '0.5'],
+  ])('prefills the spacing in the number format of the language (%s) and takes it back unchanged', async (language, shown) => {
+    await act(() => i18n.changeLanguage(language));
+    try {
+      const t = setupEditor();
+      select(t, 'b1');
+      openDialog(t);
+      await screen.findByTestId('garden-plan-multi-dialog');
+      expect((screen.getByTestId('garden-plan-multi-spacing') as HTMLInputElement).value).toBe(shown);
+      set('garden-plan-multi-count', '1');
+      set('garden-plan-multi-direction', 'up');
+      set('garden-plan-multi-scheme', 'Plot {n}');
+      t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
+      const copy = Object.values(t.state().plan!.locations).find((l) => l.name === 'Plot 1');
+      // b1 is 3..5 in y: the default 0.5 m above it the copy starts at y = 5.5
+      expect((copy?.geometry as { origin: Point }).origin).toEqual([3, 5.5]);
+    } finally {
+      await act(() => i18n.changeLanguage(ORIGINAL_LANGUAGE));
+    }
+  });
+
+  it('prefills a centimetre spacing without a separator in German (#2536)', async () => {
+    window.localStorage.setItem('kp_garden_plan_length_unit', 'cm');
+    await act(() => i18n.changeLanguage('de'));
+    try {
+      const t = setupEditor();
+      select(t, 'b1');
+      openDialog(t);
+      await screen.findByTestId('garden-plan-multi-dialog');
+      expect((screen.getByTestId('garden-plan-multi-spacing') as HTMLInputElement).value).toBe('50');
+    } finally {
+      await act(() => i18n.changeLanguage(ORIGINAL_LANGUAGE));
+    }
   });
 
   it('shows and takes the spacing in the length unit the user chose, and stores metres (#2536)', async () => {

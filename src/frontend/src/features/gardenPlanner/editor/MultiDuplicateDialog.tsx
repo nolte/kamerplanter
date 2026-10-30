@@ -48,12 +48,22 @@ interface MultiDuplicateDialogProps {
   onClose: () => void;
 }
 
+/**
+ * A length for a text field in the user's language: the decimal comma in German ("0,5"), no thousands separator -
+ * `parseDecimal` reads both separators back, so the prefilled value round-trips unchanged.
+ */
+function formatLength(value: number, language: string): string {
+  return new Intl.NumberFormat(language, { useGrouping: false, maximumFractionDigits: 3 }).format(
+    roundLength(value),
+  );
+}
+
 function Form({ rootBeds, unit, onRun, onClose }: Omit<MultiDuplicateDialogProps, 'open'>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [count, setCount] = useState('5');
   const [direction, setDirection] = useState<MultiDirection>('right');
   const [spacing, setSpacing] = useState(() =>
-    String(roundLength(DEFAULT_SPACING_M / METRES_PER[unit])),
+    formatLength(DEFAULT_SPACING_M / METRES_PER[unit], i18n.language),
   );
   const [scheme, setScheme] = useState(() => t(`${PREFIX}.defaultScheme`));
   const [start, setStart] = useState('1');
@@ -190,8 +200,10 @@ function Form({ rootBeds, unit, onRun, onClose }: Omit<MultiDuplicateDialogProps
               {t(`pages.gardenPlan.editor.notice.${refusal.code}`, {
                 defaultValue: t('pages.gardenPlan.editor.notice.generic'),
               })}
-              {refusal.failedCopy !== undefined &&
-                ` ${t(`${PREFIX}.failedCopy`, { n: refusal.failedCopy })}`}
+              {refusal.failedName !== undefined
+                ? ` ${t(`${PREFIX}.failedCopyNamed`, { name: refusal.failedName })}`
+                : refusal.failedCopy !== undefined &&
+                  ` ${t(`${PREFIX}.failedCopy`, { n: refusal.failedCopy })}`}
             </Alert>
           )}
         </Stack>

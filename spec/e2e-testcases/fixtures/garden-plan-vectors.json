@@ -4625,6 +4625,17 @@
         "rotation_deg": 45.0
       },
       "expected": {"kind": "polygon", "points": [[5.0, 5.0], [7.0, 5.0], [6.0, 6.5]], "rotation_deg": 55.0}
+    },
+    {
+      "id": "place-geometry-rect-negative-sum-wraps",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: own 10 + requested -30 is -20 and folds into [0, 360) as 340, never a negative angle",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 10.0},
+        "origin": [6.0, 6.0],
+        "rotation_deg": -30.0
+      },
+      "expected": {"kind": "rect", "origin": [6.0, 6.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 340.0}
     }
   ]
 }

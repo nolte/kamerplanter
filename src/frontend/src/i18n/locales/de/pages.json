@@ -5458,7 +5458,7 @@
             "too_many": "Das sind zu viele Änderungen auf einmal. Wähle weniger Kopien."
           },
           "distribute": {
-            "overlap": "Die gewählten Objekte überlappen in dieser Richtung, gleiche Abstände gehen so nicht. Schaffe zuerst Platz zwischen ihnen. Der Plan bleibt unverändert.",
+            "overlap": "Mit gleichen Abständen würden die gewählten Objekte aufeinander liegen. Schaffe zuerst Platz zwischen ihnen. Der Plan bleibt unverändert.",
             "locked_covered": "Beim Verteilen würde ein Objekt auf einem gesperrten Objekt landen. Entsperre es oder nimm es aus der Auswahl. Der Plan bleibt unverändert."
           }
         },
@@ -5929,7 +5929,8 @@
           "submit": "Duplizieren",
           "invalid": "Bitte eine gültige Zahl eingeben.",
           "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz.",
-          "failedCopy": "Kopie {{n}} ist die erste, die nicht passt."
+          "failedCopy": "Kopie {{n}} ist die erste, die nicht passt.",
+          "failedCopyNamed": "„{{name}}“ ist die erste Kopie, die nicht passt."
         },
         "templates": {
           "placed": "Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.",

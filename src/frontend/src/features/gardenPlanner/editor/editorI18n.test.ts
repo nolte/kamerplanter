@@ -27,6 +27,10 @@ describe('garden plan editor texts', () => {
   );
 
   it('carries the same keys in DE and EN', () => {
-    expect(leaves(at(de, PLAN)).sort()).toEqual(leaves(at(en, PLAN)).sort());
+    const deLeaves = leaves(at(de, PLAN));
+    // a subtree missing in BOTH locales would compare equal: the namespace holds about 1000 texts, so a short
+    // list means the comparison ran on nothing (a missing `pages.gardenPlan` yields one empty leaf each)
+    expect(deLeaves.length).toBeGreaterThan(900);
+    expect(deLeaves.sort()).toEqual(leaves(at(en, PLAN)).sort());
   });
 });

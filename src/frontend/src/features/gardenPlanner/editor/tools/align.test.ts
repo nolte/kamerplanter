@@ -180,10 +180,28 @@ describe('distributeSelection (GP-FR-029)', () => {
     expect(originOf(ops, 'a')).toEqual([11.5, 1]);
   });
 
-  it('refuses boxes that overlap along the axis instead of stacking them (negative gap, #2536)', () => {
-    // widths 4 + 4 + 4 = 12 in 0..10: equal gaps would be -1 m, the beds would cover each other
-    const plan = boxes({ a: [0, 1, 4, 3], b: [3, 5, 7, 7], c: [6, 9, 10, 11] });
-    expect(distributeSelection(plan, sel('a', 'b', 'c'), 'horizontal')).toEqual({
+  it('distributes a diagonal staggering with a negative gap: the boxes are apart on the cross axis (#2536)', () => {
+    // widths 4 + 4 + 4 = 12 in 0..10: gap -1 m along x, but a, b and c sit at different heights, nothing is covered
+    const plan = boxes({ a: [0, 1, 4, 3], b: [2, 5, 6, 7], c: [6, 9, 10, 11] });
+    const out = distributeSelection(plan, sel('a', 'b', 'c'), 'horizontal');
+    if (!out.ok) throw new Error(out.code);
+    const ops = out.ops as { key: string; geometry: Geometry }[];
+    expect(originOf(ops, 'b')).toEqual([3, 5]);
+    expect(ops.map((op) => op.key)).toEqual(['b']);
+  });
+
+  it('distributes a row whose boxes overlap along the axis but not in the plane (#2536)', () => {
+    // vertical: heights 3 + 3 + 3 = 9 in 0..8 -> gap -0.5; a, b and c stand side by side in x
+    const plan = boxes({ a: [0, 0, 2, 3], b: [3, 1, 5, 4], c: [6, 5, 8, 8] });
+    const out = distributeSelection(plan, sel('a', 'b', 'c'), 'vertical');
+    if (!out.ok) throw new Error(out.code);
+    expect(originOf(out.ops as never, 'b')).toEqual([3, 2.5]);
+  });
+
+  it('still refuses a true stack: equal gaps would put the boxes on each other (#2536)', () => {
+    // the same x-span, heights 4 + 4 + 4 = 12 in 0..10: b would move to 3..7 and cover a (0..4) and c (6..10)
+    const plan = boxes({ a: [0, 0, 2, 4], b: [0, 2, 2, 6], c: [0, 6, 2, 10] });
+    expect(distributeSelection(plan, sel('a', 'b', 'c'), 'vertical')).toEqual({
       ok: false,
       code: 'distribute.overlap',
     });
