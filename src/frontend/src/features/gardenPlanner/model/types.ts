@@ -224,11 +224,7 @@ export interface PlanSoilProfile {
 }
 
 /** The sun-profile keys `update_fields` may change; only the keys sent are merged by the server. */
-export interface PlanSunProfilePatch {
-  sun_window?: SunWindow;
-  direct_sun_hours_summer?: number | null;
-  foliage_shade_in_summer?: boolean;
-}
+export type PlanSunProfilePatch = Pick<PlanSunProfile, 'sun_window' | 'direct_sun_hours_summer' | 'foliage_shade_in_summer'>;
 
 /** A location as the map draws it: geometry, status and counters, no soil profile or notes. */
 export interface PlanLocation {
