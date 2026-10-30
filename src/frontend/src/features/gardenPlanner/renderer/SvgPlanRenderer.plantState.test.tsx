@@ -189,4 +189,17 @@ describe('plant-state layer on the overview plan (GP-UX-061, #2488)', () => {
     const calm = mount(10, options({ labels, plantStateLayer: { states: allCalm, attentionOnly: true } }));
     expect(calm.querySelector('[data-plan-cluster="loc_a"]')).toBeNull();
   });
+
+  it('names the total and the attention count under the filter, and draws only the kept plants', () => {
+    const labels = {
+      ...TEST_LABELS,
+      clusterSummary: ({ count, attention }: { count: number; attention: number }) =>
+        `${count} plants - ${attention} need attention`,
+    };
+    const svg = mount(10, options({ labels, plantStateLayer: { states: layerStates, attentionOnly: true } }));
+    const cluster = svg.querySelector('[data-plan-cluster="loc_a"]') as SVGGElement;
+    // 3 plants in the bed, 1 of them needs attention: swapping the two would read "1 plants - 3 need attention"
+    expect(cluster.getAttribute('aria-label')).toBe('3 plants - 1 need attention');
+    expect(cluster.querySelector('text')?.textContent).toBe('1');
+  });
 });
