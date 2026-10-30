@@ -98,9 +98,9 @@ def test_tc_053_015_plant_in_rows_with_preview_creates_a_planned_run(
 ) -> None:
     """TC-053-015 — "Bepflanzen" tomato x 6 in rows 60/80 cm: preview, then 6 planned positions (GP-ACC-019).
 
-    Precondition (API): a 3,0 x 1,6 m bed with geometry, no slots - not the 3,0 x 1,2 m
-    of the case's example: with the default edge margin (half the spacing, 40 cm
-    across) a 1,2 m bed holds a single row of five, so six cannot fit. The preview is
+    Precondition (API): a 3,0 x 1,6 m bed with geometry, no slots - the case's example
+    (#2514): with the default edge margin (half the spacing, 40 cm across) a 1,2 m bed
+    holds a single row of five, so six cannot fit. The preview is
     read from the drawn markers once the server confirmed it; what the run then
     stores must be exactly those six positions. Breaks if the preview is not
     server-confirmed, shows another count, puts a position outside the bed or
