@@ -6041,7 +6041,12 @@
             "moisture": "Show drainage",
             "moistureHint": "Show or hide how well each bed drains, as a pattern with a symbol.",
             "frost": "Show frost risk",
-            "frostHint": "Show or hide the frost risk of each bed as a pattern with a symbol."
+            "frostHint": "Show or hide the frost risk of each bed as a pattern with a symbol.",
+            "plantState": "Show plant state",
+            "plantStateHint": "Shows the growth phase, the ring and the most urgent sign (for example \"water due\") on every plant. Visible once you zoom close enough to a bed; further out each bed counts its plants that need attention.",
+            "attentionFilter": "Only show plants that need attention",
+            "attentionFilterHint": "Hides every plant without a sign, so you see where something needs doing today.",
+            "attentionFilterDisabledHint": "Switch on the \"Plant state\" layer first, then you can filter by what needs attention."
           },
           "legend": {
             "title": "Layer legend",
@@ -6060,7 +6065,11 @@
             "sunTitle": "Sun window",
             "moistureTitle": "Drainage",
             "frostTitle": "Frost risk",
-            "conditionNone": "No pattern: not recorded."
+            "conditionNone": "No pattern: not recorded.",
+            "plantStateTitle": "Plant state",
+            "plantStateIntro": "The colour of the disc shows the growth phase, the letter the species. Ring and sign stay distinguishable without colour.",
+            "phasesTitle": "Growth phase colours on this plan",
+            "phasesNone": "No plant with a known phase is on the plan yet."
           },
           "wateredDays_one": "{{count}} day since",
           "wateredDays_other": "{{count}} days since",

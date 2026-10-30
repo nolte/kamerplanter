@@ -35,6 +35,8 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
 import WavesIcon from '@mui/icons-material/Waves';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
+import LocalFloristOutlinedIcon from '@mui/icons-material/LocalFloristOutlined';
+import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -58,6 +60,9 @@ import type { GardenObjectType, PlanOperation, Point } from '../model/types';
 import { nearestGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
+import { markerLodBedKeys } from '../renderer/scene';
+import { colorsOf, usePhaseNames } from '../planting/phaseColors';
+import { usePlanPlantStates } from '../planting/usePlanPlantStates';
 import { planContentBounds } from '../routes/fitViewport';
 import {
   applyAction,
@@ -109,6 +114,7 @@ import { useEditorKeyboard } from './useEditorKeyboard';
 import { useEditorShortcuts } from './useEditorShortcuts';
 import { TOGGLE_LAYERS, type LayerId } from './layers';
 import { useLayerPrefs } from './useLayerPrefs';
+import { useAttentionFilter } from './useAttentionFilter';
 import { useLengthUnit } from './useLengthUnit';
 import { useSingleKeyShortcuts } from './useSingleKeyShortcuts';
 import { commonBedTypeKey, type DrawShape } from './tools/drawMachine';
@@ -179,6 +185,7 @@ const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
   sun: <WbSunnyOutlinedIcon />,
   moisture: <WavesIcon />,
   frost: <AcUnitIcon />,
+  plantState: <LocalFloristOutlinedIcon />,
 };
 
 // The template picker, the "save as template" dialog and the multi-duplicate dialog are their own chunks:
@@ -188,6 +195,8 @@ const SaveAsTemplateDialog = lazy(() => import('../templates/SaveAsTemplateDialo
 const MultiDuplicateDialog = lazy(() => import('./MultiDuplicateDialog'));
 
 const NO_KEYS: ReadonlySet<string> = new Set();
+const NO_BED_KEYS: readonly string[] = [];
+const NO_PHASE_KEYS: readonly (string | null | undefined)[] = [];
 
 /** The turn a click on "Rotate" adds to the template being placed (GP-FR-044). */
 const TEMPLATE_TURN_DEG = 90;
@@ -299,6 +308,51 @@ export function GardenPlanEditor({
     underlayWasOpen.current = underlayOpen;
   }, [underlayOpen]);
   const underlayState = useUnderlay(plan, layerPrefs.underlay);
+  // The plant-state layer (GP-UX-061, #2488): the beds at marker LOD read their states while the layer is on; the
+  // filter "only plants that need attention" depends on it. Phase colours are read for the phases on the plan.
+  const plantStateOn = layerPrefs.plantState;
+  const [attentionOnly, setAttentionOnly] = useAttentionFilter();
+  const stateBedKeys = useMemo(
+    () => (plantStateOn ? markerLodBedKeys(plan, viewport) : NO_BED_KEYS),
+    [plantStateOn, plan, viewport],
+  );
+  const planStates = usePlanPlantStates(plan.siteKey, stateBedKeys, plantStateOn);
+  const planPhaseKeys = useMemo(
+    () => (plantStateOn ? Object.values(plan.plants).map((plant) => plant.phase_key) : NO_PHASE_KEYS),
+    [plantStateOn, plan.plants],
+  );
+  const fetchedPhaseNames = usePhaseNames(planPhaseKeys);
+  // A phase-sequence entry key is unknown to `/growth-phases/{key}`; the state answer names it. The fetched name wins.
+  const phaseNames = useMemo(
+    () => ({ ...planStates.phaseNames, ...fetchedPhaseNames }),
+    [planStates.phaseNames, fetchedPhaseNames],
+  );
+  const phaseColors = useMemo(() => colorsOf(phaseNames), [phaseNames]);
+  const plantStateLayer = useMemo(
+    () => (plantStateOn ? { states: planStates.states, attentionOnly } : undefined),
+    [plantStateOn, planStates.states, attentionOnly],
+  );
+  const legendPhases = useMemo(() => {
+    if (!plantStateOn) return [];
+    const present = new Set(planPhaseKeys.filter((key): key is string => Boolean(key)));
+    const names = new Set<string>();
+    for (const key of present) {
+      const name = phaseNames[key];
+      if (name) names.add(name);
+    }
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [plantStateOn, planPhaseKeys, phaseNames]);
+  const attentionFilter = useMemo(
+    () => ({
+      active: attentionOnly,
+      enabled: plantStateOn,
+      label: t(`${ZONES}.layers.attentionFilter`),
+      hint: t(`${ZONES}.layers.${plantStateOn ? 'attentionFilterHint' : 'attentionFilterDisabledHint'}`),
+      icon: <PriorityHighIcon />,
+      onChange: setAttentionOnly,
+    }),
+    [attentionOnly, plantStateOn, t, setAttentionOnly],
+  );
   const hasUnderlay = underlayState.underlay !== null;
   const layerToggles = useMemo<LayerToggle[]>(
     () =>
@@ -1052,6 +1106,7 @@ export function GardenPlanEditor({
         sunLayer: layerPrefs.sun,
         moistureLayer: layerPrefs.moisture,
         frostLayer: layerPrefs.frost,
+        ...(plantStateLayer ? { plantStateLayer, phaseColors } : {}),
       }),
     [
       renderer,
@@ -1066,6 +1121,8 @@ export function GardenPlanEditor({
       layerPrefs.sun,
       layerPrefs.moisture,
       layerPrefs.frost,
+      plantStateLayer,
+      phaseColors,
     ],
   );
 
@@ -1210,6 +1267,7 @@ export function GardenPlanEditor({
     <ViewBar
       layerToggles={layerToggles}
       onLayer={setLayerById}
+      attentionFilter={attentionFilter}
       gridStepM={gridStepM}
       onGridStep={setGridStepM}
       gridVisible={gridVisible}
@@ -1446,6 +1504,8 @@ export function GardenPlanEditor({
           showSun={layerPrefs.sun}
           showMoisture={layerPrefs.moisture}
           showFrost={layerPrefs.frost}
+          showPlantState={plantStateOn}
+          phases={legendPhases}
         />
       )}
       {!listShown && !toolbarBelow && toolbar}

@@ -6042,7 +6042,12 @@
             "moisture": "Drainage anzeigen",
             "moistureHint": "Wie gut ein Beet Wasser ableitet, als Muster mit Symbol ein- oder ausblenden.",
             "frost": "Frostrisiko anzeigen",
-            "frostHint": "Das Frostrisiko je Beet als Muster mit Symbol ein- oder ausblenden."
+            "frostHint": "Das Frostrisiko je Beet als Muster mit Symbol ein- oder ausblenden.",
+            "plantState": "Pflanzenzustand anzeigen",
+            "plantStateHint": "Zeigt an jeder Pflanze Wachstumsphase, Ring und das dringendste Zeichen (z. B. Gießen fällig). Sichtbar, sobald du nah genug an ein Beet zoomst; weiter weg zählt jedes Beet seine Pflanzen mit Handlungsbedarf.",
+            "attentionFilter": "Nur Pflanzen mit Handlungsbedarf zeigen",
+            "attentionFilterHint": "Blendet alle Pflanzen ohne Zeichen aus, damit du siehst, wo heute etwas zu tun ist.",
+            "attentionFilterDisabledHint": "Schalte zuerst die Ebene „Pflanzenzustand“ ein, dann kannst du nach Handlungsbedarf filtern."
           },
           "legend": {
             "title": "Legende der Ebenen",
@@ -6061,7 +6066,11 @@
             "sunTitle": "Sonnenfenster",
             "moistureTitle": "Drainage",
             "frostTitle": "Frostrisiko",
-            "conditionNone": "Ohne Muster: nicht erfasst."
+            "conditionNone": "Ohne Muster: nicht erfasst.",
+            "plantStateTitle": "Pflanzenzustand",
+            "plantStateIntro": "Die Farbe der Scheibe zeigt die Wachstumsphase, der Buchstabe die Art. Ring und Zeichen bleiben auch ohne Farbe unterscheidbar.",
+            "phasesTitle": "Farben der Wachstumsphasen auf diesem Plan",
+            "phasesNone": "Auf dem Plan steht noch keine Pflanze mit bekannter Phase."
           },
           "wateredDays_one": "{{count}} Tag seit",
           "wateredDays_other": "{{count}} Tage seit",

@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe('layer registry', () => {
-  it('has the grid and the underlay on by default and the irrigation and site-condition layers off', () => {
+  it('has the grid and the underlay on by default and the irrigation, site-condition and plant-state layers off', () => {
     expect(DEFAULT_LAYER_PREFS).toEqual({
       grid: true,
       zones: false,
@@ -20,8 +20,9 @@ describe('layer registry', () => {
       sun: false,
       moisture: false,
       frost: false,
+      plantState: false,
     });
-    expect(TOGGLE_LAYERS).toEqual(['zones', 'lastWatered', 'underlay', 'sun', 'moisture', 'frost']);
+    expect(TOGGLE_LAYERS).toEqual(['zones', 'lastWatered', 'underlay', 'sun', 'moisture', 'frost', 'plantState']);
     expect(LAYERS.map((layer) => layer.id)).toEqual([
       'grid',
       'zones',
@@ -30,6 +31,7 @@ describe('layer registry', () => {
       'sun',
       'moisture',
       'frost',
+      'plantState',
     ]);
   });
 });
@@ -53,6 +55,14 @@ describe('useLayerPrefs', () => {
     expect(result.current.prefs).toEqual({ ...DEFAULT_LAYER_PREFS, sun: true });
     act(() => result.current.setLayer('frost', true));
     expect(JSON.parse(window.localStorage.getItem(KEY) ?? '{}')).toMatchObject({ sun: true, frost: true });
+  });
+
+  it('restores a stored plant-state layer and keeps it off for an older stored choice (#2488)', () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ grid: true, frost: true }));
+    expect(renderHook(() => useLayerPrefs()).result.current.prefs.plantState).toBe(false);
+    window.localStorage.setItem(KEY, JSON.stringify({ plantState: true }));
+    const { result } = renderHook(() => useLayerPrefs());
+    expect(result.current.prefs).toEqual({ ...DEFAULT_LAYER_PREFS, plantState: true });
   });
 
   it('stores a switch and survives a blocked storage', () => {

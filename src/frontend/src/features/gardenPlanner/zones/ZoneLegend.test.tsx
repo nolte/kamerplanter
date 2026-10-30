@@ -10,7 +10,7 @@ import { ZoneLegend } from './ZoneLegend';
 
 afterEach(() => cleanup());
 
-const SECTIONS = ['zones', 'watered', 'sun', 'moisture', 'frost'] as const;
+const SECTIONS = ['zones', 'watered', 'sun', 'moisture', 'frost', 'plantState'] as const;
 
 function shownSections(): string[] {
   return SECTIONS.filter((id) => screen.queryByTestId(`garden-plan-legend-${id}`) !== null);
@@ -64,5 +64,44 @@ describe('ZoneLegend site-condition sections', () => {
     renderWithProviders(<ZoneLegend zones={[]} showZones showLastWatered showMoisture />);
     await screen.findByTestId('garden-plan-layer-legend');
     expect(shownSections()).toEqual(['zones', 'watered', 'moisture']);
+  });
+});
+
+describe('ZoneLegend plant-state section (GP-UX-061, #2488)', () => {
+  it('shows no plant-state section while the layer is off', () => {
+    renderWithProviders(
+      <ZoneLegend zones={[]} showZones={false} showLastWatered={false} showFrost phases={['flowering']} />,
+    );
+    expect(screen.queryByTestId('garden-plan-legend-plantState')).toBeNull();
+  });
+
+  it('explains rings, badges and the colours of the phases on the plan, in words', async () => {
+    renderWithProviders(
+      <ZoneLegend
+        zones={[]}
+        showZones={false}
+        showLastWatered={false}
+        showPlantState
+        phases={['Flowering', 'vegetative', 'Mulching']}
+      />,
+    );
+    const section = await screen.findByTestId('garden-plan-legend-plantState');
+    expect(shownSections()).toEqual(['plantState']);
+    expect(section).toHaveTextContent('Plant state');
+    const rings = await within(section).findAllByText(/./, { selector: '[data-legend-ring] p' });
+    expect(rings).toHaveLength(5);
+    expect(section.querySelectorAll('[data-legend-badge] [data-plan-badge-reason]')).toHaveLength(5);
+    const phases = [...section.querySelectorAll('[data-legend-phase]')];
+    // known phase names are worded by their enum label, an unknown one keeps its own name
+    expect(phases.map((item) => item.textContent)).toEqual(['Flowering', 'Vegetative', 'Mulching']);
+    expect(phases[0].querySelector('circle')?.getAttribute('fill')).toBe('#AB47BC');
+    expect(section.querySelector('pattern')).toBeNull();
+    await expectNoA11yViolations(screen.getByTestId('garden-plan-layer-legend'));
+  });
+
+  it('says so when no plant with a known phase is on the plan', async () => {
+    renderWithProviders(<ZoneLegend zones={[]} showZones={false} showLastWatered={false} showPlantState />);
+    const section = await screen.findByTestId('garden-plan-legend-plantState');
+    expect(await within(section).findByText('No plant with a known phase is on the plan yet.')).toBeInTheDocument();
   });
 });

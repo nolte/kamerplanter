@@ -30,6 +30,21 @@ import { Compass } from './Compass';
 const PREFIX = 'pages.gardenPlan.editor';
 const TARGET_PX = 44;
 
+/**
+ * The filter "only plants that need attention" (GP-UX-061): depends on the plant-state layer and is disabled while
+ * that layer is off, so it never claims to filter something that is not drawn.
+ */
+export interface AttentionFilterToggle {
+  active: boolean;
+  /** The plant-state layer is on. */
+  enabled: boolean;
+  label: string;
+  /** Tooltip while usable, and the reason while disabled. */
+  hint: string;
+  icon: ReactNode;
+  onChange: (active: boolean) => void;
+}
+
 /** A layer switch of the registry (`layers.ts`) other than the grid: icon only, so its name is the aria-label. */
 export interface LayerToggle {
   id: string;
@@ -43,6 +58,8 @@ export interface ViewBarProps {
   /** The registry layers with a toggle of their own (zones, last watered, later more). */
   layerToggles?: readonly LayerToggle[];
   onLayer?: (id: string, visible: boolean) => void;
+  /** Shown next to the layer toggles when the plan has a plant-state layer. */
+  attentionFilter?: AttentionFilterToggle;
   gridStepM: number;
   onGridStep: (stepM: number) => void;
   gridVisible: boolean;
@@ -144,6 +161,25 @@ export function ViewBar(props: ViewBarProps) {
             </Tooltip>
           ))}
         </ToggleButtonGroup>
+      )}
+      {props.attentionFilter && (
+        <Tooltip title={props.attentionFilter.hint}>
+          {/* A disabled button fires no events: the span keeps the tooltip that says why it is disabled. */}
+          <span>
+            <ToggleButton
+              size="small"
+              value="attentionOnly"
+              selected={props.attentionFilter.active && props.attentionFilter.enabled}
+              disabled={!props.attentionFilter.enabled}
+              onChange={() => props.attentionFilter?.onChange(!props.attentionFilter.active)}
+              aria-label={props.attentionFilter.label}
+              data-testid="garden-plan-attention-filter"
+              sx={buttonSx}
+            >
+              {props.attentionFilter.icon}
+            </ToggleButton>
+          </span>
+        </Tooltip>
       )}
 
       <Divider orientation="vertical" flexItem sx={dividerSx} />
