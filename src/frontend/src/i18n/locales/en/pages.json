@@ -5455,6 +5455,10 @@
           "multi": {
             "invalid": "Check the count, the spacing and the start number: the count is between 1 and 100, the spacing is not negative.",
             "too_many": "That is too many changes at once. Choose fewer copies."
+          },
+          "distribute": {
+            "overlap": "The selected objects overlap in this direction, so equal gaps are not possible. Make room between them first. The plan stays as it was.",
+            "locked_covered": "Distributing would put an object on top of a locked one. Unlock it or remove it from the selection. The plan stays as it was."
           }
         },
         "deleteDialog": {

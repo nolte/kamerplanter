@@ -159,6 +159,20 @@ describe('align and distribute (GP-FR-029, GP-FR-155)', () => {
     expect(originOf(t, 'lock')).toEqual([14, 8]);
   });
 
+  it('says why it does not distribute beds that overlap along the axis, and changes nothing (#2536)', () => {
+    const t = setupEditor();
+    // b1 and b2 (y 3..5) and solo (y 2..4): 6 m of beds in a 3 m span would need a negative gap
+    select(t, 'b1', 'b2', 'solo');
+    const pastBefore = t.state().past.length;
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-align-button')));
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-distribute-vertical')));
+    expect(screen.getByTestId('garden-plan-notice')).toHaveTextContent(
+      /überlappen in dieser Richtung|overlap in this direction/,
+    );
+    expect(t.state().past).toHaveLength(pastBefore);
+    expect(originOf(t, 'solo')).toEqual([14, 2]);
+  });
+
   it('is disabled for a single selection and distribute needs three', () => {
     const t = setupEditor();
     select(t, 'solo');

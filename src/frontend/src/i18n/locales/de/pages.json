@@ -5456,6 +5456,10 @@
           "multi": {
             "invalid": "Prüfe Anzahl, Abstand und Startnummer: Die Anzahl liegt zwischen 1 und 100, der Abstand ist nicht negativ.",
             "too_many": "Das sind zu viele Änderungen auf einmal. Wähle weniger Kopien."
+          },
+          "distribute": {
+            "overlap": "Die gewählten Objekte überlappen in dieser Richtung, gleiche Abstände gehen so nicht. Schaffe zuerst Platz zwischen ihnen. Der Plan bleibt unverändert.",
+            "locked_covered": "Beim Verteilen würde ein Objekt auf einem gesperrten Objekt landen. Entsperre es oder nimm es aus der Auswahl. Der Plan bleibt unverändert."
           }
         },
         "deleteDialog": {

@@ -145,6 +145,75 @@ describe('distributeSelection (GP-FR-029)', () => {
     expect(originOf(out.ops as never, 'b')).toEqual([5, 5]);
   });
 
+  /** Beds by their box `[x0, y0, x1, y1]` in a 30 x 30 m garden. */
+  function boxes(spec: Record<string, [number, number, number, number, boolean?]>) {
+    return normalizePlan(
+      planResponse({
+        plan: {
+          boundary: { kind: 'rect', origin: [0, 0], width_m: 30, length_m: 30, rotation_deg: 0 },
+          north_angle_deg: 0,
+          default_grid_m: 0.1,
+          adjacency_factor: 1.5,
+          plan_revision: 1,
+        },
+        locations: Object.entries(spec).map(([key, [x0, y0, x1, y1, locked]]) =>
+          bed(key, x0, y0, {
+            geometry: rect(x0, y0, x1 - x0, y1 - y0),
+            area_m2: (x1 - x0) * (y1 - y0),
+            bbox: [x0, y0, x1, y1],
+            locked: locked ?? false,
+          }),
+        ),
+      }),
+    );
+  }
+
+  it('keeps the outermost objects by their real extent, not by their centre (#2536)', () => {
+    // w is wide and sticks out furthest to the left although a's centre is further left
+    const plan = boxes({ w: [0, 10, 10, 12], a: [1, 1, 2, 2], c: [14, 5, 16, 7] });
+    const out = distributeSelection(plan, sel('w', 'a', 'c'), 'horizontal');
+    if (!out.ok) throw new Error(out.code);
+    const ops = out.ops as { key: string; geometry: Geometry }[];
+    // widths 10 + 1 + 2 = 13 in 0..16 -> gap 1.5: w 0..10, a 11.5..12.5, c 14..16
+    expect(ops.find((op) => op.key === 'w')).toBeUndefined();
+    expect(ops.find((op) => op.key === 'c')).toBeUndefined();
+    expect(originOf(ops, 'a')).toEqual([11.5, 1]);
+  });
+
+  it('refuses boxes that overlap along the axis instead of stacking them (negative gap, #2536)', () => {
+    // widths 4 + 4 + 4 = 12 in 0..10: equal gaps would be -1 m, the beds would cover each other
+    const plan = boxes({ a: [0, 1, 4, 3], b: [3, 5, 7, 7], c: [6, 9, 10, 11] });
+    expect(distributeSelection(plan, sel('a', 'b', 'c'), 'horizontal')).toEqual({
+      ok: false,
+      code: 'distribute.overlap',
+    });
+  });
+
+  it('distributes boxes that only touch (gap 0)', () => {
+    const plan = boxes({ a: [0, 1, 4, 3], b: [5, 5, 9, 7], c: [8, 9, 12, 11] });
+    const out = distributeSelection(plan, sel('a', 'b', 'c'), 'horizontal');
+    if (!out.ok) throw new Error(out.code);
+    expect(originOf(out.ops as never, 'b')).toEqual([4, 5]);
+  });
+
+  it('never moves a selected locked object and never covers it: refuses instead (#2536)', () => {
+    // movable a, c, b: gap (21 - 6) / 2 = 7.5 puts c at 10.5..12.5 - on top of the locked d at 10..12
+    const plan = boxes({ a: [1, 1, 3, 3], c: [5, 1, 7, 3], b: [20, 1, 22, 3], d: [10, 1, 12, 3, true] });
+    expect(distributeSelection(plan, sel('a', 'b', 'c', 'd'), 'horizontal')).toEqual({
+      ok: false,
+      code: 'distribute.locked_covered',
+    });
+  });
+
+  it('distributes past a selected locked object that is not in the way, and leaves it where it is', () => {
+    const plan = boxes({ a: [1, 1, 3, 3], c: [5, 1, 7, 3], b: [20, 1, 22, 3], d: [10, 9, 12, 11, true] });
+    const out = distributeSelection(plan, sel('a', 'b', 'c', 'd'), 'horizontal');
+    if (!out.ok) throw new Error(out.code);
+    const ops = out.ops as { key: string; geometry: Geometry }[];
+    expect(originOf(ops, 'c')).toEqual([10.5, 1]);
+    expect(ops.find((op) => op.key === 'd')).toBeUndefined();
+  });
+
   it('needs three movable objects', () => {
     expect(distributeSelection(row(), sel('a', 'b'), 'horizontal')).toEqual({
       ok: false,

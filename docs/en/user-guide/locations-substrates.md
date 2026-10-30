@@ -465,7 +465,7 @@ This section describes the aids that save you manual work in planning mode.
 
 **Snapping to other objects.** When you move or draw, the plan snaps to corners and edges of other objects before it snaps to the grid. When you move a bed, every corner of it snaps, not just the spot under the pointer: this lets you put the right edge of one bed exactly against the left edge of the next. A green ring shows the corner that snaps, a green line the edge it sits on. The Alt key or the **Snap** switch turns snapping off. With a pen or a finger the catch zone is larger.
 
-**Align and distribute.** With at least two beds or objects selected, **Align** lines them up on the left, right, top or bottom edge or on the centre. From three objects on, **Distribute evenly** spreads them with equal gaps. Locked objects stay where they are and do not count. Each of these actions is a single step for **Undo**.
+**Align and distribute.** With at least two beds or objects selected, **Align** lines them up on the left, right, top or bottom edge or on the centre. From three objects on, **Distribute evenly** spreads them with equal gaps; the two outermost objects stay where they are. Locked objects stay where they are and do not count. If the objects overlap in that direction, or one would land on a locked object, Kamerplanter distributes nothing and tells you why. Each of these actions is a single step for **Undo**.
 
 **Overview map.** When the garden is much larger than the visible section (more than four times), a small map appears at the bottom right of the plan with the section as a rectangle. A click on it jumps the view there. With the keyboard you keep moving the plan with the arrow keys.
 
