@@ -91,6 +91,10 @@ class IGardenPlanRepository(ABC):
     def apply_plan_batch(self, write: PlanBatchWrite) -> PlanBatchOutcome:
         """Write the set in one transaction, after re-checking the revision inside it (GP-NFR-013).
 
+        A ``write.snapshot`` is stored as an ``import_snapshot`` row; in the same transaction the site's oldest
+        ``import_snapshot`` rows beyond ``MAX_SNAPSHOTS_PER_SITE`` are removed (GP-NFR-055, #2542). No other audit
+        row is touched by that.
+
         Raises:
             PlanRevisionConflictError: the stored ``plan_revision`` is not the one expected.
             NotFoundError: the site is gone or not the tenant's.

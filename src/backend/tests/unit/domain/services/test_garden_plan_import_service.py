@@ -559,6 +559,24 @@ class TestSnapshotsWp719:
                 confirm_site_name=None,
             )
 
+    def test_a_site_keeps_its_newest_twenty_snapshots_and_no_other_sites(self, rig, repo) -> None:
+        from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
+
+        repo.snapshot_rows.append((OTHER_TENANT, SITE, "foreign_tenant", {}))  # another tenant, same site key
+        repo.snapshot_rows.append((TENANT, "site_other", "other_site", {}))
+        listed: list[str] = []
+        for _ in range(MAX_SNAPSHOTS_PER_SITE + 1):
+            rig.run(rig.file())
+            newest, *_ = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=50)
+            listed.append(newest.audit_key)
+
+        kept = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=50)
+
+        assert MAX_SNAPSHOTS_PER_SITE == 20 and len(repo.applied) == 21
+        assert [entry.audit_key for entry in kept] == listed[:0:-1]  # newest first, the first one is gone
+        assert listed[0] not in {entry.audit_key for entry in kept}
+        assert {row[2] for row in repo.snapshot_rows} >= {"foreign_tenant", "other_site"}
+
     def test_a_page_is_capped_below_the_shared_pagination(self, rig, repo) -> None:
         from app.domain.services.garden_plan_import_service import MAX_SNAPSHOT_PAGE
 

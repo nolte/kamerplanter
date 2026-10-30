@@ -27,6 +27,7 @@ from app.domain.models.garden_plan import (
     SlotSpeciesHint,
     TaskCounter,
 )
+from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot, SunProfile
 
@@ -153,6 +154,7 @@ class FakePlanRepo(IGardenPlanRepository):
         self.slot_field_updates: list[tuple[str, dict]] = []
         self.species_hints: list[SlotSpeciesHint] = []
         self._next = 100
+        self._next_snapshot = 0
         sites.repo = self
 
     # reads ---------------------------------------------------------------
@@ -286,9 +288,12 @@ class FakePlanRepo(IGardenPlanRepository):
             )
         if write.snapshot is not None:
             self.snapshots.append(write.snapshot)
-            self.snapshot_rows.append(
-                (write.tenant_key, write.site_key, f"snap_{len(self.snapshot_rows)}", write.snapshot)
-            )
+            self.snapshot_rows.append((write.tenant_key, write.site_key, f"snap_{self._next_snapshot}", write.snapshot))
+            self._next_snapshot += 1
+            # GP-NFR-055 (#2542): the site's oldest rows beyond the cap go, in the same write.
+            own = [row for row in self.snapshot_rows if row[:2] == (write.tenant_key, write.site_key)]
+            stale = {id(row) for row in own[: max(0, len(own) - MAX_SNAPSHOTS_PER_SITE)]}
+            self.snapshot_rows = [row for row in self.snapshot_rows if id(row) not in stale]
         for temp, garden_object in write.object_inserts:
             self._next += 1
             key_map[temp] = f"go_{self._next}"

@@ -58,6 +58,7 @@ from app.domain.models.garden_plan import (
     SlotSpeciesHint,
     TaskCounter,
 )
+from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, SiteUnderlay, Slot
 
 logger = structlog.get_logger()
@@ -1105,6 +1106,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 snapshot=write.snapshot,
             )
             audit.insert(_dump(snapshot, mode="json"))
+            self._prune_snapshots(txn, write)
         entry: dict[str, str]
         for entry in write.audit:
             record = PlanAuditRecord(
@@ -1119,6 +1121,38 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                 at=datetime.fromisoformat(now),
             )
             audit.insert(_dump(record, mode="json"))
+
+    @staticmethod
+    def _prune_snapshots(txn: StreamTransaction, write: PlanBatchWrite) -> None:
+        """Keep the newest :data:`MAX_SNAPSHOTS_PER_SITE` snapshots of the site, in the order the list shows them.
+
+        GP-NFR-055 (#2542 W-2): every ``replace`` and restore stores a whole plan, so without a cap a site's
+        snapshots grew until the yearly purge. Only ``import_snapshot`` rows of this site and tenant are removed;
+        the change log rows around them stay. Runs after the insert, inside the batch transaction: the new row is
+        among the kept ones (highest revision) and an aborted batch prunes nothing.
+        """
+        txn.aql.execute(
+            """
+            LET keep = (
+                FOR a IN @@col
+                    FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
+                        AND a.snapshot != null
+                    SORT a.revision DESC, DATE_TIMESTAMP(a.at) DESC, a._key DESC
+                    LIMIT @cap
+                    RETURN a._key
+            )
+            FOR a IN @@col
+                FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
+                    AND a._key NOT IN keep
+                REMOVE a IN @@col
+            """,
+            bind_vars={
+                "@col": col.GARDEN_PLAN_AUDIT,
+                "site_key": write.site_key,
+                "tenant_key": write.tenant_key,
+                "cap": MAX_SNAPSHOTS_PER_SITE,
+            },
+        )
 
     def purge_audit_before(self, cutoff: datetime, *, batch: int) -> int:
         """Hard-delete up to ``batch`` audit rows with ``at`` before ``cutoff`` (NFR-011 R-26, REQ-053 GP-NFR-055).

@@ -255,7 +255,7 @@ Keys of the file are never kept: every location, garden object and slot gets a n
 
 ### Earlier states of the plan (snapshots)
 
-A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
+A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year; a site keeps at most its 20 newest snapshots, and a `replace` or restore that writes a 21st removes the oldest). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
 
 ```
 GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # list, newest first, paged (limit/offset)

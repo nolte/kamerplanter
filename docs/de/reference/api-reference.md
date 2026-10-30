@@ -255,7 +255,7 @@ Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt 
 
 ### Frühere Stände des Plans (Snapshots)
 
-Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
+Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr; ein Standort behält höchstens seine 20 neuesten Snapshots, ein `replace` oder eine Wiederherstellung, die einen 21. schreibt, entfernt den ältesten). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
 
 ```
 GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # Liste, neueste zuerst, seitenweise (limit/offset)
