@@ -9,7 +9,7 @@ renders hover, focus and tap from this one answer — no request per plant (GP-F
 :func:`app.domain.services.location_ownership.resolve_owned_location` before anything is read. A foreign and
 an absent bed answer identically (404).
 
-**The state is assembled in** :mod:`app.domain.services.plant_state_inputs` — the same function the plan's SVG/PDF
+**The state is assembled in** :mod:`app.domain.calculators.plant_state_inputs` — the same function the plan's SVG/PDF
 export uses, so a plant has the same ring and badge on the screen and on paper (#2489). Frost has no source yet
 (:func:`~app.domain.services.plant_state_inputs.frost_risk_of`, WP 3.9).
 
@@ -24,10 +24,11 @@ from datetime import UTC, datetime
 import structlog
 
 from app.domain.calculators.plant_state_calculator import PlantVisualState
+from app.domain.calculators.plant_state_inputs import visual_state_of
 from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.services.location_ownership import resolve_owned_location
-from app.domain.services.plant_state_inputs import frost_risk_of, visual_state_of
+from app.domain.services.plant_state_inputs import frost_risk_of
 
 logger = structlog.get_logger()
 

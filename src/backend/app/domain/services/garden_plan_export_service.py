@@ -22,7 +22,7 @@ The fetcher still sees nothing but ``data:``.
 :data:`~app.domain.engines.plan_svg_engine.PLANT_COUNTER_THRESHOLD` plants the SVG and the PDF draw each plant with
 its phase colour, lifecycle ring and most urgent badge. The states come from the plant-state repository, bed by bed
 of the already owned site and in bounded pages, and are assembled by
-:func:`~app.domain.services.plant_state_inputs.visual_state_of` — the same function behind
+:func:`~app.domain.calculators.plant_state_inputs.visual_state_of` — the same function behind
 ``GET /locations/{key}/plant-states``, so paper and screen agree. Phase names are read once per distinct phase key
 from the growth-phase repository (the name the screen colours by). From the threshold on nothing is read: each bed
 prints its counter (GP-NFR-038).
@@ -46,6 +46,7 @@ from app.common.enums import AttachmentCategory
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import SiteKey
 from app.domain.calculators.plant_state_calculator import PlantVisualState
+from app.domain.calculators.plant_state_inputs import visual_state_of
 from app.domain.engines.plan_svg_engine import (
     PDF_HEADER_MM,
     PLANT_COUNTER_THRESHOLD,
@@ -87,7 +88,7 @@ from app.domain.models.site import Location, Site
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
-from app.domain.services.plant_state_inputs import frost_risk_of, visual_state_of
+from app.domain.services.plant_state_inputs import frost_risk_of
 
 logger = structlog.get_logger(__name__)
 
