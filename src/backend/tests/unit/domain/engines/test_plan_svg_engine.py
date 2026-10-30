@@ -756,7 +756,8 @@ class TestPlantStateLegend:
         texts = _legend_texts(_parse(_render(view, marks).svg))
 
         (phase,) = [t for t in texts if t and t.startswith("Phase: ")]
-        assert phase.startswith("Phase: Nachreife im Keller") and phase.endswith("…") and len(phase) <= 30
+        assert phase.startswith("Phase: Nachreife im") and phase.endswith("…")
+        assert len(phase) <= plan_svg_engine._LEGEND_LABEL_CHARS
 
     def test_the_bigger_legend_still_fits_the_acceptance_page(self) -> None:
         view, marks = _stated_view()
@@ -770,6 +771,52 @@ class TestPlantStateLegend:
         rendered = _render(view, PlantStateMarks(states=everything, phase_names=_PHASES))
 
         assert rendered.fits is True and rendered.scale == 50
+
+        # SCR-003: one legend entry per phase made the strip of a many-phase plan tall enough to push a fixed 1:50
+        # A4 plan off its page (422 ``plan.does_not_fit``). The phases are capped; the rest share one entry.
+        phases = {f"ph-{n:02d}": f"Custom phase {n:02d}" for n in range(12)}
+        # p-NN-i: phase NN carries 12 - NN plants, so ph-00 … ph-05 are the six most frequent; phase 00 alone has
+        # every lifecycle and the phases together every badge.
+        states = {
+            f"p-{n:02d}-{i}": _state(LIFECYCLES[i % len(LIFECYCLES)], key, ATTENTION_PRIORITY[n % 5])
+            for n, key in enumerate(phases)
+            for i in range(12 - n)
+        }
+        plants = [_plant(key, None, "b1") for key in states]
+        view = _view(locations=_three_beds(), plants=plants)
+
+        rendered = _render(view, PlantStateMarks(states=states, phase_names=phases), scale=50, locale="en")
+
+        assert rendered.fits is True and rendered.scale == 50
+        texts = [t or "" for t in _legend_texts(_parse(rendered.svg))]
+        phase_entries = [t for t in texts if t.startswith("Phase: ") or t.endswith("more phases")]
+        assert len(phase_entries) == plan_svg_engine._MAX_PHASE_ENTRIES + 1
+        assert phase_entries[:-1] == [f"Phase: Custom phase {n:02d}" for n in range(6)]
+        assert phase_entries[-1] == "+6 more phases"
+
+    def test_one_hidden_phase_is_named_in_the_singular(self) -> None:
+        phases = {f"ph-{n}": f"Phase {n}" for n in range(7)}
+        states = {f"p{n}": _state("active", key) for n, key in enumerate(phases)}
+        view = _view(locations=_three_beds(), plants=[_plant(key, None, "b1") for key in states])
+
+        texts = _legend_texts(_parse(_render(view, PlantStateMarks(states=states, phase_names=phases)).svg))
+
+        assert texts[-2:] == ["+1 weitere Phase", "Ring: wächst"]
+
+    def test_a_long_phase_name_is_shortened_to_its_legend_column(self) -> None:
+        """SCR-004: the text starts after the swatch, so the whole entry — prefix included — must fit the column."""
+        view, _ = _stated_view()
+        name = "Nachreife im Keller bei 12 °C!"  # 30 characters
+        assert len(name) == 30
+        marks = PlantStateMarks(states={"p0": _state()}, phase_names={"ph-flower": name})
+
+        texts = _legend_texts(_parse(_render(view, marks).svg))
+
+        (phase,) = [t for t in texts if t and t.startswith("Phase: ")]
+        assert phase.endswith("…") and len(phase) == plan_svg_engine._LEGEND_LABEL_CHARS
+        text_mm = len(phase) * plan_svg_engine._LABEL_MM * plan_svg_engine._GLYPH_WIDTH_EM
+        offset_mm = plan_svg_engine._LEGEND_SWATCH_MM + plan_svg_engine._LEGEND_TEXT_GAP_MM
+        assert offset_mm + text_mm <= plan_svg_engine._LEGEND_COLUMN_MM
 
     def test_golden_legend_markup_de(self) -> None:
         """Snapshot of the legend block for a fixed fixture: a change to it is a deliberate change of this file."""

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -265,6 +266,8 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "legend_plants_counter": "Zahl = Pflanzen im Beet",
         "legend_slot": "Pflanzplatz",
         "legend_phase": "Phase",
+        "legend_more_phase": "+{n} weitere Phase",
+        "legend_more_phases": "+{n} weitere Phasen",
         "ring_planned": "Ring: geplant",
         "ring_sown": "Ring: gesät",
         "ring_active": "Ring: wächst",
@@ -305,6 +308,8 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "legend_plants_counter": "Number = plants in the bed",
         "legend_slot": "Planting spot",
         "legend_phase": "Phase",
+        "legend_more_phase": "+{n} more phase",
+        "legend_more_phases": "+{n} more phases",
         "ring_planned": "Ring: planned",
         "ring_sown": "Ring: sown",
         "ring_active": "Ring: growing",
@@ -389,8 +394,9 @@ _PHASE_NAMES: Final[dict[str, dict[str, str]]] = {
     },
 }
 _PHASE_SEPARATORS = re.compile(r"[\s-]+")
-#: Longest phase name the legend prints before it is shortened (one legend column).
-_PHASE_LABEL_CHARS: Final = 22
+#: Phases the legend names one by one: the most frequent by plant count; the rest share one "+n more phases" entry,
+#: so a plan with many phases keeps a strip of bounded height and still fits its page at the requested scale.
+_MAX_PHASE_ENTRIES: Final = 6
 
 
 # ── Styling ───────────────────────────────────────────────────────────────────
@@ -477,10 +483,22 @@ _RING_SWATCH_FILL: Final = "#bdbdbd"
 
 _LEGEND_COLUMN_MM: Final = 46.0
 _LEGEND_ROW_MM: Final = 5.0
+#: Swatch width and the gap to its text in a legend entry; the text starts this far into its column.
+_LEGEND_SWATCH_MM: Final = 5.0
+_LEGEND_TEXT_GAP_MM: Final = 1.8
+#: Clearance kept free before the next column's swatch.
+_LEGEND_COLUMN_GAP_MM: Final = 0.5
 _STRIP_BASE_MM: Final = 24.0
 _MIN_CANVAS_MM: Final = 120.0
 _PAD_MM: Final = 3.0
 _LABEL_MM: Final = 2.8
+#: Average glyph width as a share of the font size: the estimate every text fit on the plan uses.
+_GLYPH_WIDTH_EM: Final = 0.55
+#: Characters a legend text may take before it runs into the next column (25 with the values above).
+_LEGEND_LABEL_CHARS: Final = int(
+    (_LEGEND_COLUMN_MM - _LEGEND_SWATCH_MM - _LEGEND_TEXT_GAP_MM - _LEGEND_COLUMN_GAP_MM)
+    / (_LABEL_MM * _GLYPH_WIDTH_EM)
+)
 _GRID_MIN_PITCH_MM: Final = 5.0
 _NICE_LENGTHS_M: Final = (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000)
 
@@ -609,7 +627,7 @@ def _extent_of(view: GardenPlanView) -> _Extent | None:
 
 @dataclass(frozen=True)
 class _LegendEntry:
-    swatch: str  # "box" | "circle" | "badge"
+    swatch: str  # "box" | "circle" | "badge" | "none" (text only)
     fill: str
     stroke: str
     label: str
@@ -633,10 +651,11 @@ class _PlantMarker:
 
 
 def _phase_label(name: str, locale: str) -> str:
-    """The legend name of a growth phase: the translation of a known phase, else the stored name (shortened)."""
+    """The legend name of a growth phase: the translation of a known phase, else the stored name (cleaned). The
+    legend entry shortens it to its column (:data:`_LEGEND_LABEL_CHARS`)."""
     key = _PHASE_SEPARATORS.sub("_", name.strip().lower())
     known = _PHASE_NAMES.get(locale, _PHASE_NAMES["de"]).get(key)
-    return known if known is not None else _truncate(name, _PHASE_LABEL_CHARS)
+    return known if known is not None else " ".join(clean_text(name).split())
 
 
 def _marker_of(
@@ -652,6 +671,23 @@ def _marker_of(
     return _PlantMarker(point, state, phase_color(name), _phase_label(name, locale))
 
 
+def _phase_entries(drawn: list[_PlantMarker], labels: dict[str, str]) -> list[_LegendEntry]:
+    """One entry per phase on the plan, at most :data:`_MAX_PHASE_ENTRIES`: the phases with the most plants (ties by
+    name), listed by name; the others share one "+n more phases" entry. Each text is shortened to its column."""
+    counts = Counter((marker.phase_label, marker.fill) for marker in drawn if marker.phase_label is not None)
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0][0].casefold(), item[0][1]))
+    shown = sorted((phase for phase, _count in ranked[:_MAX_PHASE_ENTRIES]), key=lambda p: (p[0].casefold(), p[1]))
+    entries = [
+        _LegendEntry("circle", fill, _TEXT_COLOR, _truncate(f"{labels['legend_phase']}: {label}", _LEGEND_LABEL_CHARS))
+        for label, fill in shown
+    ]
+    hidden = len(ranked) - len(shown)
+    if hidden > 0:
+        more = labels["legend_more_phase" if hidden == 1 else "legend_more_phases"].format(n=hidden)
+        entries.append(_LegendEntry("none", "none", "none", _truncate(more, _LEGEND_LABEL_CHARS)))
+    return entries
+
+
 def _plant_legend(markers: dict[str, list[_PlantMarker]], labels: dict[str, str]) -> list[_LegendEntry]:
     """The plant entries: the uniform symbol if any plant has no phase colour, then the phases, rings and badges that
     are on the plan, each in a fixed order."""
@@ -659,12 +695,7 @@ def _plant_legend(markers: dict[str, list[_PlantMarker]], labels: dict[str, str]
     entries: list[_LegendEntry] = []
     if any(marker.phase_label is None for marker in drawn):
         entries.append(_LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"]))
-    phases = sorted(
-        {(marker.phase_label, marker.fill) for marker in drawn if marker.phase_label is not None},
-        key=lambda item: (item[0].casefold(), item[1]),
-    )
-    for label, fill in phases:
-        entries.append(_LegendEntry("circle", fill, _TEXT_COLOR, f"{labels['legend_phase']}: {label}"))
+    entries.extend(_phase_entries(drawn, labels))
     states = [marker.state for marker in drawn if marker.state is not None]
     lifecycles = {state.lifecycle for state in states}
     for lifecycle in LIFECYCLES:
@@ -894,7 +925,7 @@ def _label_node(canvas: _Canvas, geometry: Geometry, text: str, *, key: str | No
         return None
     min_x, min_y, max_x, max_y = bounding_box(geometry)
     width_mm = (max_x - min_x) * 1000.0 / canvas.scale
-    max_chars = max(3, int(width_mm / (_LABEL_MM * 0.55)))
+    max_chars = max(3, int(width_mm / (_LABEL_MM * _GLYPH_WIDTH_EM)))
     cx, cy = centroid(geometry)
     attributes: dict[str, AttributeValue] = {
         "x": canvas.x(cx),
@@ -1268,7 +1299,7 @@ def _legend_layer(canvas: _Canvas, entries: list[_LegendEntry], y_top: float) ->
         column, row = index % cols, index // cols
         x = canvas.paper(5.0 + column * _LEGEND_COLUMN_MM)
         y = y_top + canvas.paper(row * _LEGEND_ROW_MM)
-        swatch_w, swatch_h = canvas.paper(5.0), canvas.paper(3.0)
+        swatch_w, swatch_h = canvas.paper(_LEGEND_SWATCH_MM), canvas.paper(3.0)
         if entry.badge is not None:
             layer.add(_badge_node(canvas, entry.badge, x + swatch_w / 2, y + swatch_h / 2, canvas.paper(1.4)))
         elif entry.swatch == "circle":
@@ -1288,7 +1319,7 @@ def _legend_layer(canvas: _Canvas, entries: list[_LegendEntry], y_top: float) ->
                     _num(canvas.paper(float(part) * entry.dash_unit_mm)) for part in entry.dash.split()
                 )
             layer.add(circle)
-        else:
+        elif entry.swatch == "box":
             rect = _el(
                 "rect",
                 x=x,
@@ -1308,7 +1339,7 @@ def _legend_layer(canvas: _Canvas, entries: list[_LegendEntry], y_top: float) ->
             _el(
                 "text",
                 [entry.label],
-                x=x + swatch_w + canvas.paper(1.8),
+                x=x + swatch_w + canvas.paper(_LEGEND_TEXT_GAP_MM),
                 y=y + swatch_h / 2,
                 font_size=canvas.paper(_LABEL_MM),
                 font_family=_FONT,
