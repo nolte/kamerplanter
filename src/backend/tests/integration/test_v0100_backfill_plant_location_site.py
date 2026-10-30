@@ -40,25 +40,55 @@ def db():  # type: ignore[no-untyped-def]
     system.delete_database(_DB_NAME)
 
 
+def _insert(collection, docs: list[dict]) -> None:  # type: ignore[no-untyped-def]
+    """``insert_many`` reports a refused document in its result instead of raising: a seed must not vanish."""
+    refused = [r for r in collection.insert_many(docs) if isinstance(r, Exception)]
+    assert not refused, refused
+
+
 def _seed(db) -> None:  # type: ignore[no-untyped-def]
-    db.collection(col.LOCATIONS).insert_many(
+    _insert(
+        db.collection(col.LOCATIONS),
         [
             {"_key": "L1", "site_key": "S1"},
             {"_key": "L2", "site_key": "S2"},
             {"_key": "L4", "site_key": "S4"},
-        ]
+            {"_key": "L5"},  # names no site
+            {"_key": "L6", "site_key": "S_gone"},  # names a site that does not exist
+            {"_key": "L7", "site_key": "S7"},  # anchored by a legacy site
+        ],
     )
-    db.collection(col.SITES).insert_many(
+    _insert(
+        db.collection(col.SITES),
         [
             {"_key": "S1", "tenant_key": "t1"},
             {"_key": "S2", "tenant_key": "t2"},
             {"_key": "S4", "tenant_key": "t1"},
-        ]
+            {"_key": "S7"},  # legacy: no tenant_key
+        ],
     )
-    db.collection(col.SLOTS).insert_many([{"_key": "s1", "location_key": "L1"}, {"_key": "s2", "location_key": "L2"}])
+    slots = db.collection(col.SLOTS)
+    # (location_key, slot_id) is unique: every stored slot carries its own slot_id
+    _insert(
+        slots,
+        [
+            {**row, "slot_id": f"SLOT-{row['_key']}"}
+            for row in [
+                {"_key": "s1", "location_key": "L1"},
+                {"_key": "s2", "location_key": "L2"},
+                {"_key": "s3"},  # no location
+                {"_key": "s5", "location_key": "L5"},
+                {"_key": "s6", "location_key": "L6"},
+                {"_key": "s7", "location_key": "L7"},
+                {"_key": "s9", "location_key": "L1"},
+            ]
+        ],
+    )
+    slots.delete("s9")  # a plant still names it: slot_missing
     # (tenant_key, instance_id) is unique: every stored plant carries its own instance_id
     plant = {"tenant_key": "t1", "location_key": None, "site_key": None}
-    db.collection(col.PLANT_INSTANCES).insert_many(
+    _insert(
+        db.collection(col.PLANT_INSTANCES),
         [
             {**row, "instance_id": f"PLANT-{row['_key']}"}
             for row in [
@@ -68,9 +98,33 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
                 {**plant, "_key": "noslot", "slot_key": None},
                 {**plant, "_key": "foreign", "slot_key": "s2"},
                 {**plant, "_key": "done", "slot_key": "s1", "location_key": "L1", "site_key": "S1"},
+                # #2524 item 3: the edge cases the first suite did not seed
+                {"_key": "notenant", "slot_key": "s1", "location_key": None, "site_key": None},
+                {**plant, "_key": "legacy", "slot_key": "s7"},
+                {**plant, "_key": "ghost", "slot_key": "s9"},
+                {**plant, "_key": "nolocslot", "slot_key": "s3"},
+                {**plant, "_key": "nosite", "slot_key": "s5"},
+                {**plant, "_key": "sitemissing", "slot_key": "s6"},
+                # #2524 item 1: site already set, location missing
+                {**plant, "_key": "halfsame", "slot_key": "s1", "site_key": "S1"},
+                {**plant, "_key": "halfother", "slot_key": "s1", "site_key": "S_other"},
             ]
-        ]
+        ],
     )
+
+
+#: Every seeded plant the migration must leave untouched, by reason.
+_UNRESOLVED = {
+    "no_slot": ["noslot"],
+    "cross_tenant": ["foreign", "notenant"],
+    "location_missing": ["ghostloc"],
+    "slot_missing": ["ghost"],
+    "slot_without_location": ["nolocslot"],
+    "location_without_site_key": ["nosite"],
+    "site_missing": ["sitemissing"],
+    "site_without_tenant": ["legacy"],
+    "site_mismatch": ["halfother"],
+}
 
 
 def _plant(db, key: str) -> dict:  # type: ignore[no-untyped-def]
@@ -84,10 +138,9 @@ def test_dry_run_reports_and_writes_nothing(db) -> None:  # type: ignore[no-unty
     report = migration.up(db, dry_run=True)
 
     assert {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()} == revs
-    assert report.details["will_update"] == 2  # ok, keep
-    assert report.details["unresolved"]["no_slot"]["listed"] == ["noslot"]
-    assert report.details["unresolved"]["cross_tenant"]["listed"] == ["foreign"]
-    assert report.details["unresolved"]["location_missing"]["listed"] == ["ghostloc"]
+    assert report.details["will_update"] == 3  # ok, keep, halfsame
+    assert {reason: sorted(b["listed"]) for reason, b in report.details["unresolved"].items()} == _UNRESOLVED
+    assert report.details["unresolved_count"] == sum(len(keys) for keys in _UNRESOLVED.values())
 
 
 def test_apply_derives_both_keys_and_never_overwrites(db) -> None:  # type: ignore[no-untyped-def]
@@ -95,15 +148,17 @@ def test_apply_derives_both_keys_and_never_overwrites(db) -> None:  # type: igno
 
     report = migration.up(db)
 
-    assert report.changed == 2
+    assert report.changed == 3
     assert (_plant(db, "ok")["location_key"], _plant(db, "ok")["site_key"]) == ("L1", "S1")
     assert (_plant(db, "keep")["location_key"], _plant(db, "keep")["site_key"]) == (
         "L4",
         "S4",
     )  # site from its own location, not the slot's
     assert (_plant(db, "ghostloc")["location_key"], _plant(db, "ghostloc")["site_key"]) == ("OTHER", None)
-    assert _plant(db, "noslot")["location_key"] is None
-    assert _plant(db, "foreign")["site_key"] is None
+    assert (_plant(db, "halfsame")["location_key"], _plant(db, "halfsame")["site_key"]) == ("L1", "S1")
+    assert (_plant(db, "halfother")["location_key"], _plant(db, "halfother")["site_key"]) == (None, "S_other")
+    for key in (k for keys in _UNRESOLVED.values() for k in keys if k not in ("ghostloc", "halfother")):
+        assert (_plant(db, key)["location_key"], _plant(db, key)["site_key"]) == (None, None), key
 
 
 def test_a_second_run_writes_nothing_more(db) -> None:  # type: ignore[no-untyped-def]
@@ -113,4 +168,37 @@ def test_a_second_run_writes_nothing_more(db) -> None:  # type: ignore[no-untype
 
     migration.up(db)
 
+    assert {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()} == revs
+
+
+def test_a_volume_over_one_update_batch_is_repaired_whole_and_only_once(db) -> None:  # type: ignore[no-untyped-def]
+    """#2524 item 3: more plants than one ``UPDATE`` batch (500) and more unresolved keys than are listed (25)."""
+    db.collection(col.LOCATIONS).insert({"_key": "L1", "site_key": "S1"})
+    db.collection(col.SITES).insert({"_key": "S1", "tenant_key": "t1"})
+    db.collection(col.SLOTS).insert({"_key": "s1", "location_key": "L1"})
+    repairable = [f"r{i:04d}" for i in range(1203)]
+    unplaced = [f"u{i:02d}" for i in range(30)]
+    _insert(
+        db.collection(col.PLANT_INSTANCES),
+        [
+            {"_key": key, "instance_id": f"PLANT-{key}", "tenant_key": "t1", "slot_key": slot}
+            | {"location_key": None, "site_key": None}
+            for keys, slot in ((repairable, "s1"), (unplaced, None))
+            for key in keys
+        ],
+    )
+
+    dry = migration.up(db, dry_run=True)
+    first = migration.up(db)
+    revs = {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()}
+    second = migration.up(db)
+
+    assert dry.details["will_update"] == first.changed == 1203
+    assert len(first.details["listed_keys"]) == 25
+    assert first.details["unresolved"]["no_slot"]["count"] == 30
+    assert len(first.details["unresolved"]["no_slot"]["listed"]) == 25
+    stored = {d["_key"]: (d["location_key"], d["site_key"]) for d in db.collection(col.PLANT_INSTANCES).all()}
+    assert all(stored[key] == ("L1", "S1") for key in repairable)
+    assert all(stored[key] == (None, None) for key in unplaced)
+    assert second.changed == 0 and second.scanned == 30
     assert {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()} == revs
