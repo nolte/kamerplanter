@@ -691,6 +691,14 @@ class TestComplexityBudgetAndQuotas:
         assert refused.value.details[0]["limit"] == 20_000
         assert repo.applied == []
 
+    def test_the_point_count_walks_a_5000_deep_value_without_recursion(self):
+        """#2542 S-1: the raw walk is iterative; points at the bottom of a deep nesting still count."""
+        nested: dict = {"points": [[0, 0], [1, 0], [1, 1]]}
+        for _ in range(5000):
+            nested = {"inner": [nested], "points": [[0, 0]]}
+
+        assert garden_plan_service._count_points([{"data": nested}, {"points": "not a list"}, 7]) == 5003
+
     def test_the_time_budget_is_enforced_before_the_transaction(self, world, monkeypatch):
         service, repo, _ = world
         ticks = iter([0.0, 11.0])  # the request starts at 0; the first deadline check reads 11 s

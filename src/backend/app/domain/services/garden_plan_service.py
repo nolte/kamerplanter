@@ -246,15 +246,22 @@ def _findings_of(error: PydanticValidationError, op_index: int | None, *, tagged
 
 
 def _count_points(raw: Any) -> int:
-    """Σ of polygon and polyline points in a raw operation (GP-NFR-013), without parsing it."""
-    mapping = _mapping(raw)
-    if mapping:
-        points = mapping.get("points")
-        own = len(points) if isinstance(points, list) else 0
-        return own + sum(_count_points(value) for value in mapping.values())
-    if isinstance(raw, list):
-        return sum(_count_points(value) for value in raw)
-    return 0
+    """Σ of polygon and polyline points in a raw operation (GP-NFR-013), without parsing it.
+
+    Walks with an explicit stack: the operation is untrusted JSON, and a recursive walk ended in a
+    ``RecursionError`` (500) for a value nested a few hundred levels deep (#2542 S-1).
+    """
+    total = 0
+    pending: list[Any] = [raw]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, dict):
+            points = value.get("points")
+            total += len(points) if isinstance(points, list) else 0
+            pending.extend(value.values())
+        elif isinstance(value, list):
+            pending.extend(value)
+    return total
 
 
 def _summary(text: str | None, fallback: str) -> str:
@@ -471,13 +478,14 @@ class GardenPlanService:
         self._resolve_references(operations, locations, objects)  # (2) reference resolution, V-18
         self._check_roles(role, operations)  # (3) role per operation, SR-001
         parsed = self._parse(operations)  # (4) Pydantic
-        if sum(_count_points(raw) for raw in operations) > MAX_BATCH_POINTS:
+        points = _count_points(operations)
+        if points > MAX_BATCH_POINTS:
             raise PlanError(
                 "batch.too_complex",
                 f"A batch holds at most {MAX_BATCH_POINTS} polygon and polyline points.",
                 status_code=422,
                 limit=MAX_BATCH_POINTS,
-                current=sum(_count_points(raw) for raw in operations),
+                current=points,
             )
         return self._apply(
             site,
