@@ -416,7 +416,7 @@ class GardenPlanExportService:
             window = self._plant_states.list_plants_in_beds(
                 bed_keys, tenant_key=tenant_key, now=now, offset=page * STATE_PAGE_SIZE, limit=STATE_PAGE_SIZE
             )
-            rows.extend(window)
+            rows += window
             if len(window) < STATE_PAGE_SIZE:
                 return rows
         logger.warning(

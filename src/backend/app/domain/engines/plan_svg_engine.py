@@ -32,7 +32,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
@@ -671,12 +671,22 @@ def _marker_of(
     return _PlantMarker(point, state, phase_color(name), _phase_label(name, locale))
 
 
+def _phase_rank(item: tuple[tuple[str, str], int]) -> tuple[int, str, str]:
+    """Sort key of a ``((label, fill), count)`` pair: most plants first, then by label and fill."""
+    return (-item[1], item[0][0].casefold(), item[0][1])
+
+
+def _phase_order(phase: tuple[str, str]) -> tuple[str, str]:
+    """Sort key of a shown ``(label, fill)`` phase: by label, then fill."""
+    return (phase[0].casefold(), phase[1])
+
+
 def _phase_entries(drawn: list[_PlantMarker], labels: dict[str, str]) -> list[_LegendEntry]:
     """One entry per phase on the plan, at most :data:`_MAX_PHASE_ENTRIES`: the phases with the most plants (ties by
     name), listed by name; the others share one "+n more phases" entry. Each text is shortened to its column."""
     counts = Counter((marker.phase_label, marker.fill) for marker in drawn if marker.phase_label is not None)
-    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0][0].casefold(), item[0][1]))
-    shown = sorted((phase for phase, _count in ranked[:_MAX_PHASE_ENTRIES]), key=lambda p: (p[0].casefold(), p[1]))
+    ranked = sorted(counts.items(), key=_phase_rank)
+    shown = sorted((phase for phase, _count in ranked[:_MAX_PHASE_ENTRIES]), key=_phase_order)
     entries = [
         _LegendEntry("circle", fill, _TEXT_COLOR, _truncate(f"{labels['legend_phase']}: {label}", _LEGEND_LABEL_CHARS))
         for label, fill in shown
@@ -688,38 +698,32 @@ def _phase_entries(drawn: list[_PlantMarker], labels: dict[str, str]) -> list[_L
     return entries
 
 
-def _plant_legend(markers: dict[str, list[_PlantMarker]], labels: dict[str, str]) -> list[_LegendEntry]:
+def _plant_legend(markers: dict[str, list[_PlantMarker]], labels: dict[str, str]) -> Iterator[_LegendEntry]:
     """The plant entries: the uniform symbol if any plant has no phase colour, then the phases, rings and badges that
     are on the plan, each in a fixed order."""
     drawn = [marker for bed in markers.values() for marker in bed]
-    entries: list[_LegendEntry] = []
     if any(marker.phase_label is None for marker in drawn):
-        entries.append(_LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"]))
-    entries.extend(_phase_entries(drawn, labels))
+        yield _LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"])
+    yield from _phase_entries(drawn, labels)
     states = [marker.state for marker in drawn if marker.state is not None]
     lifecycles = {state.lifecycle for state in states}
     for lifecycle in LIFECYCLES:
         if lifecycle in lifecycles:
             ring = _RING_STYLE[lifecycle]
-            entries.append(
-                _LegendEntry(
-                    "circle",
-                    _RING_SWATCH_FILL if ring.disc_opacity > 0 else "none",
-                    _TEXT_COLOR,
-                    labels[f"ring_{lifecycle}"],
-                    dash=ring.dash,
-                    dash_unit_mm=_RING_DASH_MM,
-                    width_mm=ring.width_mm,
-                    fill_opacity=ring.disc_opacity if 0 < ring.disc_opacity < 1 else None,
-                )
+            yield _LegendEntry(
+                "circle",
+                _RING_SWATCH_FILL if ring.disc_opacity > 0 else "none",
+                _TEXT_COLOR,
+                labels[f"ring_{lifecycle}"],
+                dash=ring.dash,
+                dash_unit_mm=_RING_DASH_MM,
+                width_mm=ring.width_mm,
+                fill_opacity=ring.disc_opacity if 0 < ring.disc_opacity < 1 else None,
             )
     badges = {state.attention[0].reason for state in states if state.attention}
     for code in ATTENTION_PRIORITY:
         if code in badges:
-            entries.append(
-                _LegendEntry("badge", _BADGE_STYLE[code][0], _BADGE_OUTLINE, labels[f"badge_{code}"], badge=code)
-            )
-    return entries
+            yield _LegendEntry("badge", _BADGE_STYLE[code][0], _BADGE_OUTLINE, labels[f"badge_{code}"], badge=code)
 
 
 def _legend(
@@ -729,8 +733,7 @@ def _legend(
     *,
     counters: bool,
     markers: dict[str, list[_PlantMarker]],
-) -> list[_LegendEntry]:
-    entries: list[_LegendEntry] = []
+) -> Iterator[_LegendEntry]:
     layers = options.layers
     if PlanSvgLayer.BEDS in layers:
         # Only what ``_bed_layer`` draws: areas, not lines or points.
@@ -742,25 +745,22 @@ def _legend(
         for status in (BedStatus.ACTIVE, BedStatus.PLANNED, BedStatus.RETIRED):
             if status in present:
                 fill, stroke, dash = _BED_STYLE[status]
-                entries.append(_LegendEntry("box", fill, stroke, labels[_BED_LABEL_KEY[status]], dash))
+                yield _LegendEntry("box", fill, stroke, labels[_BED_LABEL_KEY[status]], dash)
     if PlanSvgLayer.OBJECTS in layers:
-        seen: list[GardenObjectType] = []
-        for obj in view.garden_objects:
-            if not obj.off_site and obj.object_type not in seen:
-                seen.append(obj.object_type)
+        # First appearance order, each type once.
+        seen = {obj.object_type: None for obj in view.garden_objects if not obj.off_site}
         for object_type in seen:
             fill, stroke = _OBJECT_STYLE[object_type]
-            entries.append(_LegendEntry("box", fill, stroke, labels[f"type_{object_type.value}"]))
+            yield _LegendEntry("box", fill, stroke, labels[f"type_{object_type.value}"])
     if PlanSvgLayer.SLOTS in layers and view.slots:
-        entries.append(_LegendEntry("circle", "none", _PLANT_COLOR, labels["legend_slot"]))
+        yield _LegendEntry("circle", "none", _PLANT_COLOR, labels["legend_slot"])
     if PlanSvgLayer.PLANTS in layers and view.plants:
         if counters:
-            entries.append(_LegendEntry("box", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plants_counter"]))
+            yield _LegendEntry("box", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plants_counter"])
         elif markers:
-            entries.extend(_plant_legend(markers, labels))
+            yield from _plant_legend(markers, labels)
         else:
-            entries.append(_LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"]))
-    return entries
+            yield _LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"])
 
 
 # ── Layout ────────────────────────────────────────────────────────────────────
@@ -1045,6 +1045,23 @@ def _slot_layer(canvas: _Canvas, slots: list[PlanSlotView]) -> _Node:
     return layer
 
 
+def _bedded_plants(
+    plants: list[PlantShortInfo],
+    beds: dict[str, Location],
+    slot_beds: dict[str, str],
+    slot_points: dict[str, tuple[float, float] | None],
+) -> Iterator[tuple[str, tuple[float, float] | None, PlantShortInfo]]:
+    """``(bed key, slot point or None, plant)`` for every plant standing in a drawn bed, in plan order; a plant in no
+    drawn bed is left out."""
+    for plant in plants:
+        bed_key = plant.location_key or slot_beds.get(plant.slot_key or "")
+        bed = beds.get(bed_key or "")
+        if bed is None or bed.key is None:
+            continue
+        point = slot_points.get(plant.slot_key or "") if plant.slot_key else None
+        yield (bed.key, point, plant)
+
+
 def _plant_positions(view: GardenPlanView) -> dict[str, list[tuple[tuple[float, float], PlantShortInfo]]]:
     """Plant marker positions per bed: the plant's slot, or — for a slotless plant — a sunflower spread that stays
     inside the bed's bounding box (an ellipse of 40 % of its half-extent), however many plants stand there."""
@@ -1052,17 +1069,8 @@ def _plant_positions(view: GardenPlanView) -> dict[str, list[tuple[tuple[float, 
     slot_beds = {slot.key: slot.location_key for slot in view.slots}
     beds = {loc.key: loc for loc in view.locations if loc.key and loc.geometry is not None}
     placed: dict[str, list[tuple[tuple[float, float], PlantShortInfo]]] = {}
-    slotless: dict[str, int] = {}
-    resolved: list[tuple[str, tuple[float, float] | None, PlantShortInfo]] = []
-    for plant in view.plants:
-        bed_key = plant.location_key or slot_beds.get(plant.slot_key or "")
-        bed = beds.get(bed_key or "")
-        if bed is None or bed.key is None:
-            continue
-        point = slot_points.get(plant.slot_key or "") if plant.slot_key else None
-        if point is None:
-            slotless[bed.key] = slotless.get(bed.key, 0) + 1
-        resolved.append((bed.key, point, plant))
+    resolved = list(_bedded_plants(view.plants, beds, slot_beds, slot_points))
+    slotless: Counter[str] = Counter(bed_key for bed_key, point, _plant in resolved if point is None)
     seen: dict[str, int] = {}
     for bed_key, point, plant in resolved:
         if point is None:
@@ -1374,7 +1382,7 @@ def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions, marks: PlantS
         if PlanSvgLayer.PLANTS in options.layers
         else {}
     )
-    entries = _legend(view, options, labels, counters=counters, markers=markers)
+    entries = list(_legend(view, options, labels, counters=counters, markers=markers))
     layout, fits = choose_layout(extent, len(entries), options)
     canvas = _Canvas(extent, layout)
 

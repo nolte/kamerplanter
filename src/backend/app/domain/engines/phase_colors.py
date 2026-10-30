@@ -49,7 +49,7 @@ FALLBACK_PALETTE: Final[tuple[str, ...]] = (
     "#78909C",
 )
 
-_NOT_A_TO_Z: Final = re.compile(r"[^a-z]")
+_NOT_A_TO_Z: Final[re.Pattern[str]] = re.compile(r"[^a-z]")
 _INT32_SPAN: Final = 1 << 32
 _INT32_MAX: Final = (1 << 31) - 1
 
@@ -70,7 +70,7 @@ def name_hash(name: str) -> int:
     units = name.encode("utf-16-le", "surrogatepass")
     hashed = 0
     for index in range(0, len(units), 2):
-        hashed = _int32(hashed * 31 + int.from_bytes(units[index : index + 2], "little"))
+        hashed = _int32(hashed * 31 + (units[index] | units[index + 1] << 8))
     return hashed
 
 
