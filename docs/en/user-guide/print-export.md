@@ -192,3 +192,4 @@ The lower part of the dialog shows a schematic preview of one card with the chos
 - [Care Reminders](care-reminders.md) — Care profiles and due tasks
 - [Planting Runs](planting-runs.md) — Manage plant instances
 - [Tank Management](tanks.md) — Mix nutrient solutions
+- [Garden Plan](garden-plan.md#plan-export-import) — print the plan to scale as PDF or SVG and export it as a backup
