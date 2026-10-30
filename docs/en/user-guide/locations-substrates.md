@@ -389,6 +389,8 @@ In the garden plan, the properties panel of a selected bed shows the same fields
 !!! note "Frost risk"
     The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes low); until then, the frost exposure setting stays the one that counts. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
 
+**Sun window, drainage and frost risk layers in the garden plan.** In the layer group of the view bar you can show three more layers: **Show sun window** (when direct sun reaches the bed), **Show drainage** (poor, moderate, good) and **Show frost risk** (low, normal, high). Every value has its own pattern and a small symbol at the edge of the bed, so you can tell them apart without colour; the legend below the view bar explains every layer that is on. A bed without a recorded value stays without a pattern. All three layers start switched off, and your browser remembers your choice for you. The frost layer shows the stored frost risk; for overwintering, the frost exposure stays the setting that counts. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
+
 ### History of the bed {#history-of-the-bed}
 
 The **History** tab has two parts: the **timeline** on top and the **list** below it.
@@ -406,7 +408,7 @@ The **History** tab has two parts: the **timeline** on top and the **list** belo
 
 ### Maintaining the soil profile
 
-In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. As a viewer (role "viewer") you see the profile read-only.
+In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. The drainage also appears in the bed overview once you have recorded it. As a viewer (role "viewer") you see the profile read-only.
 
 ### Changing the bed status
 

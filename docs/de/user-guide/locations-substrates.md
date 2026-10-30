@@ -397,6 +397,8 @@ Im Gartenplan zeigt das Eigenschaften-Feld eines gewählten Beets dieselben Feld
 !!! note "Frostrisiko"
     Das Frostrisiko eines Beets (niedrig, normal, hoch) wird künftig neben der Sonne am Beet gepflegt. Bestehende Angaben aus **Frostexposition** übernimmt Kamerplanter dafür automatisch (ja wird hoch, nein wird niedrig); die Frostexposition selbst bleibt bis dahin die maßgebliche Einstellung. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
 
+**Ebenen Sonnenfenster, Drainage und Frostrisiko im Gartenplan.** In der Ebenen-Gruppe der Ansichtsleiste blendest du drei weitere Ebenen ein: **Sonnenfenster anzeigen** (wann die direkte Sonne das Beet erreicht), **Drainage anzeigen** (schlecht, mittel, gut) und **Frostrisiko anzeigen** (gering, normal, hoch). Jeder Wert hat ein eigenes Muster und ein kleines Symbol am Beetrand, du erkennst ihn also auch ohne Farbe; die Legende unter der Ansichtsleiste erklärt jede eingeschaltete Ebene. Ein Beet ohne erfassten Wert bleibt ohne Muster. Alle drei Ebenen sind zu Beginn aus, und deine Wahl merkt sich der Browser für dich. Die Frost-Ebene zeigt das gespeicherte Frostrisiko; maßgeblich für die Überwinterung bleibt die Frostexposition. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
+
 ### Historie des Beets {#historie-des-beets}
 
 Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Liste**.
@@ -414,7 +416,7 @@ Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Lis
 
 ### Bodenprofil pflegen
 
-Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
+Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Die Drainage steht zusätzlich in der Beetübersicht, sobald du sie erfasst hast. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
 
 ### Status des Beets ändern
 
