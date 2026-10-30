@@ -539,8 +539,47 @@ class TestPlantStateEnrichment:
 
         assert marks is not None
         assert sorted(phases.reads) == ["ph-entry", "ph-flower", "ph-veg"]
-        # A key that is no growth phase (a phase-sequence entry) has no name, as on screen.
+        # An entry key that names no phase anywhere stays nameless (uniform colour).
         assert dict(marks.phase_names) == {"ph-flower": "flowering", "ph-veg": "vegetative"}
+
+    def test_a_phase_sequence_entry_key_takes_the_name_the_plant_state_read_joined_in(self, repo) -> None:
+        """The bed view's rule (``BedPlanTab``): the plant-states answer names the phase, the growth-phase name wins.
+
+        A plant on a sequence-driven species carries an entry key the growth-phase lookup does not know; the
+        plant-state row still names its phase (``definition.display_name || name``), so it prints in that colour."""
+        rows = {
+            "b1": [
+                _source("p1", "ph-entry", phase_name="Flowering"),
+                _source("p2", "ph-veg", phase_name="Vegetative (display)"),
+                _source("p3", "ph-blank", phase_name="  "),
+            ]
+        }
+        service, _states, _phases = _stated_world(repo, rows)
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is not None
+        assert dict(marks.phase_names) == {"ph-entry": "Flowering", "ph-veg": "vegetative"}
+
+    def test_the_row_name_also_serves_without_a_growth_phase_lookup(self, repo) -> None:
+        rows = {"b1": [_source("p1", "ph-entry", phase_name="Flowering")]}
+        service, _states, _phases = _stated_world(repo, rows)
+        service._phases = None
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is not None and dict(marks.phase_names) == {"ph-entry": "Flowering"}
+
+    def test_an_entry_key_plant_prints_in_its_phase_colour(self, repo) -> None:
+        service, _states, _phases = _stated_world(repo, {"b1": [_source("p1", "ph-entry", phase_name="flowering")]})
+
+        svg = service.render_svg(SITE, tenant_key=TENANT, options=_options(locale="en"), now=STATE_NOW)
+
+        root = ET.fromstring(svg.svg)
+        (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
+        assert [c.attrib["fill"] for c in layer.findall(f"{SVG}circle")] == ["#AB47BC"]
 
     def test_the_states_equal_the_plant_state_service_for_the_same_plant(self, repo) -> None:
         """The point of the shared assembly: the PDF and ``GET /locations/{key}/plant-states`` agree (#2489)."""

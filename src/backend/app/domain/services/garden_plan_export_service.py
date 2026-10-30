@@ -24,8 +24,9 @@ its phase colour, lifecycle ring and most urgent badge. The states come from the
 of the already owned site and in bounded pages, and are assembled by
 :func:`~app.domain.calculators.plant_state_inputs.visual_state_of` — the same function behind
 ``GET /locations/{key}/plant-states``, so paper and screen agree. Phase names are read once per distinct phase key
-from the growth-phase repository (the name the screen colours by). From the threshold on nothing is read: each bed
-prints its counter (GP-NFR-038).
+from the growth-phase repository; a key that is no growth phase (a phase-sequence entry) takes the name the
+plant-state read joined in — the bed view's rule, so a plant has the same colour on screen and on paper. From the
+threshold on nothing is read: each bed prints its counter (GP-NFR-038).
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import perf_counter
@@ -369,13 +370,19 @@ class GardenPlanExportService:
         bed_keys = {plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
         beds = sorted((loc for loc in view.locations if loc.key and loc.key in bed_keys), key=lambda loc: loc.key or "")
         states: dict[str, PlantVisualState] = {}
+        row_names: dict[str, str] = {}
         for bed in beds:
-            assert bed.key is not None  # noqa: S101 - filtered above
+            if bed.key is None:
+                continue
             frost_risk = frost_risk_of(bed)
             for row in self._standing_plants(bed.key, tenant_key=tenant_key, now=moment):
                 if row.plant_key in wanted:
                     states[row.plant_key] = visual_state_of(row, frost_risk=frost_risk, now=moment)
-        phase_names = self._phase_names({state.phase_key for state in states.values() if state.phase_key})
+                    if row.phase_key and row.phase_name and row.phase_name.strip():
+                        row_names.setdefault(row.phase_key, row.phase_name)
+        phase_names = self._phase_names(
+            {state.phase_key for state in states.values() if state.phase_key}, fallback=row_names
+        )
         logger.info(
             "garden_plan.plant_states_resolved",
             site_key=view.site_key,
@@ -387,7 +394,8 @@ class GardenPlanExportService:
 
     def _standing_plants(self, bed_key: str, *, tenant_key: str, now: datetime) -> list[PlantStateSource]:
         """Every standing plant of the bed in pages of :data:`STATE_PAGE_SIZE`, at most :data:`_MAX_STATE_PAGES`."""
-        assert self._plant_states is not None  # noqa: S101 - checked by the caller
+        if self._plant_states is None:
+            return []
         rows: list[PlantStateSource] = []
         for page in range(_MAX_STATE_PAGES):
             window = self._plant_states.list_bed_plants(
@@ -398,15 +406,19 @@ class GardenPlanExportService:
                 break
         return rows
 
-    def _phase_names(self, phase_keys: set[str]) -> dict[str, str]:
-        """``phase key → growth-phase name``, one read per distinct key; a key that is no growth phase has none."""
-        if self._phases is None:
-            return {}
+    def _phase_names(self, phase_keys: set[str], *, fallback: Mapping[str, str]) -> dict[str, str]:
+        """``phase key → name``: the growth-phase name where the key is a growth phase (one read per distinct key),
+        else the name the plant-state read joined in (``fallback``) — a phase-sequence entry key is no growth phase.
+
+        The rule of the bed view (``BedPlanTab``): the plant-states answer names the phase, the fetched growth-phase
+        name wins where there is one. So a plant prints in the colour it has on screen."""
         names: dict[str, str] = {}
         for key in sorted(phase_keys):
-            phase = self._phases.get_phase_by_key(key)
+            phase = self._phases.get_phase_by_key(key) if self._phases is not None else None
             if phase is not None and phase.name:
                 names[key] = phase.name
+            elif key in fallback:
+                names[key] = fallback[key]
         return names
 
     # ── helpers ───────────────────────────────────────────────────────────────
