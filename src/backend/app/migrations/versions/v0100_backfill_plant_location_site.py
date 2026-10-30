@@ -23,7 +23,15 @@ own tenant. Everything else is counted and listed under its reason and left unto
 
 A plant that already has a ``location_key`` takes ``site_key`` from that own location (same checks), not from its
 slot. A plant that has a ``site_key`` but no ``location_key`` only receives the slot's location when its
-``site_key`` equals the derived site. Only plants that actually receive a field count as updated.
+``site_key`` equals the derived site.
+
+**Consistent against a live writer.** Each update carries the two fields as the scan saw them and the derived
+site. The write re-reads the plant and skips it when either field changed since the scan; it writes
+``location_key`` only while the current ``site_key`` is null or the derived site, and ``site_key`` only while it
+is null. ``updated`` (and the report's ``changed``) counts the plants the statement actually changed;
+``skipped_changed_since_scan`` counts the planned ones a writer touched in between. ``will_update``,
+``sets_location_key`` and ``sets_site_key`` are the plan of the scan, so a quiet volume has
+``scanned == updated + unresolved_count`` and a dry run ``scanned == will_update + unresolved_count``.
 
 **Idempotent (M-3).** Only plants with a null ``location_key`` or ``site_key`` match; after a run the repaired
 ones no longer do, so a second run matches the same unresolvable remainder and changes nothing.
@@ -37,7 +45,8 @@ has to place, ``site_without_tenant`` names legacy sites to stamp with their ten
 and the first :data:`_LISTED` keys per reason, and a real run applies each :data:`_BATCH_SIZE` batch as soon as it
 fills. The client holds one cursor batch and one update batch at a time, whatever the volume. The scan is a
 non-streaming query: the server fixes its whole result before the first batch is returned, so the updates
-applied while the cursor is still being read never change which rows it yields.
+applied while the cursor is still being read never change which rows it yields. It is sorted by plant key (the
+server materialises it anyway), so ``listed_keys`` and the listed keys per reason are the same on every run.
 
 **Not reversible (M-6).** The values are derived facts; clearing them again would re-hide the plants.
 """
@@ -71,6 +80,7 @@ _CURSOR_TTL_SECONDS = 600
 _SCAN = """
 FOR p IN @@plants
   FILTER p.location_key == null OR p.site_key == null
+  SORT p._key
   LET slot = p.slot_key == null ? null : DOCUMENT(@slots, p.slot_key)
   LET location = slot == null OR slot.location_key == null ? null : DOCUMENT(@locations, slot.location_key)
   LET own = p.location_key == null ? null : DOCUMENT(@locations, p.location_key)
@@ -95,23 +105,74 @@ FOR p IN @@plants
   }
 """
 
-# The FILTER re-reads both fields: a plant stamped between the scan and this statement is not overwritten.
+# Re-reads the plant and compares both fields with what the scan saw (``seen_*``): a plant a live writer changed
+# in between is skipped whole, so a ``site_key`` set meanwhile can never end up next to another site's location.
+# The per-field conditions hold the "never overwrite, never disagree" rule on their own as well. Returns the
+# number of plants the statement changed.
 _APPLY = """
 FOR u IN @updates
   LET current = DOCUMENT(@plants_name, u._key)
   FILTER current != null
-  UPDATE u._key WITH {
-    location_key: current.location_key == null ? u.location_key : current.location_key,
-    site_key: current.site_key == null ? u.site_key : current.site_key
-  } IN @@plants
+  FILTER current.location_key == u.seen_location_key AND current.site_key == u.seen_site_key
+  LET location_key = u.location_key != null AND current.location_key == null
+    AND (current.site_key == null OR current.site_key == u.site) ? u.location_key : current.location_key
+  LET site_key = u.site_key != null AND current.site_key == null ? u.site_key : current.site_key
+  FILTER location_key != current.location_key OR site_key != current.site_key
+  UPDATE current WITH { location_key: location_key, site_key: site_key } IN @@plants
+  COLLECT WITH COUNT INTO changed
+  RETURN changed
 """
 
 
-def _apply(db: StandardDatabase, batch: list[dict[str, Any]]) -> None:
-    """Write one batch of at most :data:`_BATCH_SIZE` updates."""
-    db.aql.execute(
-        _APPLY, bind_vars={"@plants": col.PLANT_INSTANCES, "plants_name": col.PLANT_INSTANCES, "updates": batch}
+def _scan(db: StandardDatabase) -> Cursor:
+    """Open the sorted, non-streaming scan cursor over the plants missing a field."""
+    return cast(
+        Cursor,
+        db.aql.execute(
+            _SCAN,
+            bind_vars={
+                "@plants": col.PLANT_INSTANCES,
+                "slots": col.SLOTS,
+                "locations": col.LOCATIONS,
+                "sites": col.SITES,
+            },
+            batch_size=_BATCH_SIZE,
+            # python-arango annotates ``ttl`` as ``numbers.Number``, which ``int`` is only at runtime (ABC register)
+            ttl=cast(Number, _CURSOR_TTL_SECONDS),
+            stream=False,
+        ),
     )
+
+
+def _plan(row: dict[str, Any]) -> dict[str, Any]:
+    """The update for a resolved scan row (:func:`_reason` returned ``None``).
+
+    A resolved row always carries both: the slot's (or own) location and that location's existing site.
+    ``location_key`` / ``site_key`` are the values to write (``None`` = leave the field alone), ``site`` the
+    derived site and ``seen_*`` the two fields as the scan read them.
+    """
+    has_location = row["location_key"] is not None
+    site = row["own_site_key" if has_location else "location_site_key"]
+    return {
+        "_key": row["_key"],
+        "location_key": None if has_location else row["slot_location_key"],
+        "site_key": site if row["site_key"] is None else None,
+        "site": site,
+        "seen_location_key": row["location_key"],
+        "seen_site_key": row["site_key"],
+    }
+
+
+def _apply(db: StandardDatabase, batch: list[dict[str, Any]]) -> int:
+    """Write one batch of at most :data:`_BATCH_SIZE` updates; return how many plants it changed."""
+    cursor = cast(
+        Cursor,
+        db.aql.execute(
+            _APPLY,
+            bind_vars={"@plants": col.PLANT_INSTANCES, "plants_name": col.PLANT_INSTANCES, "updates": batch},
+        ),
+    )
+    return sum(int(changed) for changed in cursor)
 
 
 def _reason(row: dict[str, Any]) -> str | None:
@@ -174,32 +235,18 @@ def _run(db: StandardDatabase, *, apply: bool) -> tuple[int, dict[str, Any], int
     """Classify every scanned plant and, when ``apply``, write the updates batch by batch while reading.
 
     Dry run and real run take this one path, so ``will_update`` is the number a real run writes on the same data.
-    Returns the number of plants that receive a field, the report details and the number of scanned plants.
+    Returns the number of plants planned (dry run) or actually changed (real run), the report details and the
+    number of scanned plants.
     """
-    cursor = cast(
-        Cursor,
-        db.aql.execute(
-            _SCAN,
-            bind_vars={
-                "@plants": col.PLANT_INSTANCES,
-                "slots": col.SLOTS,
-                "locations": col.LOCATIONS,
-                "sites": col.SITES,
-            },
-            batch_size=_BATCH_SIZE,
-            # python-arango annotates ``ttl`` as ``numbers.Number``, which ``int`` is only at runtime (ABC register)
-            ttl=cast(Number, _CURSOR_TTL_SECONDS),
-            stream=False,
-        ),
-    )
     batch: list[dict[str, Any]] = []
     listed_keys: list[str] = []
     unresolved: dict[str, dict[str, Any]] = {}
     scanned = 0
     planned = 0
+    updated = 0
     sets_location = 0
     sets_site = 0
-    for row in cursor:
+    for row in _scan(db):
         scanned += 1
         reason = _reason(row)
         if reason is not None:
@@ -208,25 +255,19 @@ def _run(db: StandardDatabase, *, apply: bool) -> tuple[int, dict[str, Any], int
             if len(bucket["listed"]) < _LISTED:
                 bucket["listed"].append(str(row["_key"]))
             continue
-        # A resolved row always carries both: the slot's (or own) location and that location's existing site.
-        has_location = row["location_key"] is not None
-        update: dict[str, Any] = {"_key": row["_key"], "location_key": None, "site_key": None}
-        if not has_location:
-            sets_location += 1
-            update["location_key"] = row["slot_location_key"]
-        if row["site_key"] is None:
-            sets_site += 1
-            update["site_key"] = row["own_site_key" if has_location else "location_site_key"]
+        update = _plan(row)
+        sets_location += update["location_key"] is not None
+        sets_site += update["site_key"] is not None
         planned += 1
         if len(listed_keys) < _LISTED:
             listed_keys.append(str(row["_key"]))
         if apply:
             batch.append(update)
             if len(batch) == _BATCH_SIZE:
-                _apply(db, batch)
+                updated += _apply(db, batch)
                 batch = []
     if batch:
-        _apply(db, batch)
+        updated += _apply(db, batch)
     details: dict[str, Any] = {
         "scanned_missing_location_or_site": scanned,
         "sets_location_key": sets_location,
@@ -235,7 +276,10 @@ def _run(db: StandardDatabase, *, apply: bool) -> tuple[int, dict[str, Any], int
         "unresolved": unresolved,
         "unresolved_count": sum(b["count"] for b in unresolved.values()),
     }
-    return planned, details, scanned
+    if not apply:
+        return planned, details, scanned
+    details["skipped_changed_since_scan"] = planned - updated
+    return updated, details, scanned
 
 
 class BackfillPlantLocationSiteMigration(Migration):

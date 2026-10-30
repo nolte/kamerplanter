@@ -16,6 +16,7 @@ from arango import ArangoClient
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.collections import ensure_collections
+from app.migrations.versions import v0100_backfill_plant_location_site as v0100
 from app.migrations.versions.v0100_backfill_plant_location_site import migration
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -56,6 +57,9 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
             {"_key": "L5"},  # names no site
             {"_key": "L6", "site_key": "S_gone"},  # names a site that does not exist
             {"_key": "L7", "site_key": "S7"},  # anchored by a legacy site
+            # the writer's empty-string defaults (app/domain/models/site.py): DOCUMENT(coll, "") instead of null
+            {"_key": "L8", "site_key": ""},
+            {"_key": "L9", "site_key": "S9"},
         ],
     )
     _insert(
@@ -65,6 +69,7 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
             {"_key": "S2", "tenant_key": "t2"},
             {"_key": "S4", "tenant_key": "t1"},
             {"_key": "S7"},  # legacy: no tenant_key
+            {"_key": "S9", "tenant_key": ""},  # legacy in the writer's empty-string form
         ],
     )
     slots = db.collection(col.SLOTS)
@@ -81,6 +86,9 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
                 {"_key": "s6", "location_key": "L6"},
                 {"_key": "s7", "location_key": "L7"},
                 {"_key": "s9", "location_key": "L1"},
+                {"_key": "s8", "location_key": "L8"},
+                {"_key": "s10", "location_key": ""},
+                {"_key": "s11", "location_key": "L9"},
             ]
         ],
     )
@@ -108,21 +116,32 @@ def _seed(db) -> None:  # type: ignore[no-untyped-def]
                 # #2524 item 1: site already set, location missing
                 {**plant, "_key": "halfsame", "slot_key": "s1", "site_key": "S1"},
                 {**plant, "_key": "halfother", "slot_key": "s1", "site_key": "S_other"},
+                # #2524 review SCR-001: an own location is checked on its own site, never on the slot's (S1, t1)
+                {**plant, "_key": "foreignown", "slot_key": "s1", "location_key": "L2"},
+                {**plant, "_key": "legacyown", "slot_key": "s1", "location_key": "L7"},
+                {**plant, "_key": "nositeown", "slot_key": "s1", "location_key": "L5"},
+                {**plant, "_key": "sitemissingown", "slot_key": "s1", "location_key": "L6"},
+                # #2524 review SCR-003: the empty-string forms, through the slot and through an own location
+                {**plant, "_key": "emptysite", "slot_key": "s8"},
+                {**plant, "_key": "emptyslotloc", "slot_key": "s10"},
+                {**plant, "_key": "emptytenant", "slot_key": "s11"},
+                {**plant, "_key": "emptysiteown", "slot_key": "s1", "location_key": "L8"},
+                {**plant, "_key": "emptytenantown", "slot_key": "s1", "location_key": "L9"},
             ]
         ],
     )
 
 
-#: Every seeded plant the migration must leave untouched, by reason.
+#: Every seeded plant the migration must leave untouched, by reason, in key order (the scan sorts by ``_key``).
 _UNRESOLVED = {
     "no_slot": ["noslot"],
-    "cross_tenant": ["foreign", "notenant"],
+    "cross_tenant": ["foreign", "foreignown", "notenant"],
     "location_missing": ["ghostloc"],
     "slot_missing": ["ghost"],
-    "slot_without_location": ["nolocslot"],
-    "location_without_site_key": ["nosite"],
-    "site_missing": ["sitemissing"],
-    "site_without_tenant": ["legacy"],
+    "slot_without_location": ["emptyslotloc", "nolocslot"],
+    "location_without_site_key": ["emptysite", "emptysiteown", "nosite", "nositeown"],
+    "site_missing": ["sitemissing", "sitemissingown"],
+    "site_without_tenant": ["emptytenant", "emptytenantown", "legacy", "legacyown"],
     "site_mismatch": ["halfother"],
 }
 
@@ -139,16 +158,22 @@ def test_dry_run_reports_and_writes_nothing(db) -> None:  # type: ignore[no-unty
 
     assert {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()} == revs
     assert report.details["will_update"] == 3  # ok, keep, halfsame
-    assert {reason: sorted(b["listed"]) for reason, b in report.details["unresolved"].items()} == _UNRESOLVED
+    # listed as the server sorted them, not re-sorted here
+    assert {reason: b["listed"] for reason, b in report.details["unresolved"].items()} == _UNRESOLVED
+    assert report.details["listed_keys"] == ["halfsame", "keep", "ok"]
     assert report.details["unresolved_count"] == sum(len(keys) for keys in _UNRESOLVED.values())
+    assert report.scanned == report.details["will_update"] + report.details["unresolved_count"]
 
 
 def test_apply_derives_both_keys_and_never_overwrites(db) -> None:  # type: ignore[no-untyped-def]
     _seed(db)
+    seeded = {d["_key"]: (d["location_key"], d["site_key"]) for d in db.collection(col.PLANT_INSTANCES).all()}
 
     report = migration.up(db)
 
-    assert report.changed == 3
+    assert report.changed == report.details["updated"] == 3
+    assert report.details["skipped_changed_since_scan"] == 0
+    assert report.scanned == report.details["updated"] + report.details["unresolved_count"]
     assert (_plant(db, "ok")["location_key"], _plant(db, "ok")["site_key"]) == ("L1", "S1")
     assert (_plant(db, "keep")["location_key"], _plant(db, "keep")["site_key"]) == (
         "L4",
@@ -157,8 +182,8 @@ def test_apply_derives_both_keys_and_never_overwrites(db) -> None:  # type: igno
     assert (_plant(db, "ghostloc")["location_key"], _plant(db, "ghostloc")["site_key"]) == ("OTHER", None)
     assert (_plant(db, "halfsame")["location_key"], _plant(db, "halfsame")["site_key"]) == ("L1", "S1")
     assert (_plant(db, "halfother")["location_key"], _plant(db, "halfother")["site_key"]) == (None, "S_other")
-    for key in (k for keys in _UNRESOLVED.values() for k in keys if k not in ("ghostloc", "halfother")):
-        assert (_plant(db, key)["location_key"], _plant(db, key)["site_key"]) == (None, None), key
+    for key in (k for keys in _UNRESOLVED.values() for k in keys):
+        assert (_plant(db, key)["location_key"], _plant(db, key)["site_key"]) == seeded[key], key
 
 
 def test_a_second_run_writes_nothing_more(db) -> None:  # type: ignore[no-untyped-def]
@@ -212,5 +237,32 @@ def test_the_dry_run_report_is_the_real_run_report(db) -> None:  # type: ignore[
     real = migration.up(db)
 
     assert dry.details.pop("will_update") == real.details.pop("updated") == real.changed == 3
+    assert real.details.pop("skipped_changed_since_scan") == 0
     assert dry.details == real.details
     assert dry.scanned == real.scanned
+
+
+@pytest.mark.parametrize(
+    ("key", "writer", "after"),
+    [
+        ("ok", {"site_key": "S4"}, (None, "S4")),
+        ("ok", {"location_key": "L4"}, ("L4", None)),
+        ("keep", {"location_key": "L1"}, ("L1", None)),
+    ],
+    ids=["site-set-meanwhile", "location-set-meanwhile", "own-location-moved-meanwhile"],
+)
+def test_a_plant_written_between_scan_and_apply_is_skipped(db, key, writer, after) -> None:  # type: ignore[no-untyped-def]
+    """#2524 review SCR-002: a live writer between the scan and the ``UPDATE`` must not be joined by the plan.
+
+    Without the re-check ``ok`` would end up in L1 next to S4 (or in L4 next to S1): a location and another
+    location's site, which is exactly what ``site_mismatch`` refuses in the scan.
+    """
+    _seed(db)
+    updates = [v0100._plan(row) for row in v0100._scan(db) if row["_key"] == key and v0100._reason(row) is None]
+    assert len(updates) == 1
+    db.collection(col.PLANT_INSTANCES).update({"_key": key, **writer})
+
+    changed = v0100._apply(db, updates)
+
+    assert (_plant(db, key)["location_key"], _plant(db, key)["site_key"]) == after
+    assert changed == 0

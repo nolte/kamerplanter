@@ -1,11 +1,14 @@
 """v0100 (#2499): plant location/site backfill planned and applied on a fake volume.
 
-The fake evaluates the scan from plain dicts and applies the batched ``UPDATE`` with the same
-"never overwrite a set field" rule as the AQL. The real AQL is exercised by the integration suite.
+The fake evaluates the scan from plain dicts (sorted by plant key, like ``SORT p._key``) and applies the batched
+``UPDATE`` with the same rules as the AQL: skip a plant whose fields changed since the scan, never overwrite a set
+field, never join a location to another site; it returns the number of changed plants. The real AQL is exercised
+by the integration suite.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -38,21 +41,34 @@ class _FakeAql:
         self.cursor: _FakeCursor | None = None
         #: Per ``UPDATE`` statement: its batch size and how many scan rows had been read when it ran.
         self.applied: list[tuple[int, int]] = []
+        #: A live writer that runs between the scan and each ``UPDATE`` statement.
+        self.before_apply: Callable[[], None] | None = None
 
     def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **options: Any) -> Any:
         bind_vars = bind_vars or {}
-        if "UPDATE u._key" in query:
+        if "updates" in bind_vars:  # the UPDATE statement; the scan binds no updates
             self.applied.append((len(bind_vars["updates"]), self.cursor.consumed if self.cursor else 0))
+            if self.before_apply is not None:
+                self.before_apply()
+            changed = 0
             for u in bind_vars["updates"]:
-                doc = self.db.plants[u["_key"]]
-                if doc.get("location_key") is None:
-                    doc["location_key"] = u["location_key"]
-                if doc.get("site_key") is None:
-                    doc["site_key"] = u["site_key"]
-            return _FakeCursor([])
+                doc = self.db.plants.get(u["_key"])
+                if doc is None:
+                    continue
+                current_location, current_site = doc.get("location_key"), doc.get("site_key")
+                if (current_location, current_site) != (u["seen_location_key"], u["seen_site_key"]):
+                    continue
+                location = current_location
+                if u["location_key"] is not None and current_location is None and current_site in (None, u["site"]):
+                    location = u["location_key"]
+                site = u["site_key"] if u["site_key"] is not None and current_site is None else current_site
+                if (location, site) != (current_location, current_site):
+                    doc["location_key"], doc["site_key"] = location, site
+                    changed += 1
+            return _FakeCursor([changed])
         self.scan_options = options
         rows = []
-        for p in self.db.plants.values():
+        for p in sorted(self.db.plants.values(), key=lambda doc: doc["_key"]):
             if p.get("location_key") is not None and p.get("site_key") is not None:
                 continue
             slot = self.db.slots.get(p["slot_key"]) if p.get("slot_key") else None
@@ -170,12 +186,15 @@ def test_dry_run_reports_and_writes_nothing() -> None:
     assert sorted(d["unresolved"]["site_without_tenant"]["listed"]) == ["legacy", "legacyown"]
     assert d["unresolved"]["site_mismatch"]["listed"] == ["halfother"]
     assert d["unresolved_count"] == 12
+    assert report.scanned == d["will_update"] + d["unresolved_count"]  # every scanned plant is planned or listed
 
 
 def test_apply_fills_nulls_and_never_overwrites() -> None:
     db = _volume()
     report = migration.up(db)  # type: ignore[arg-type]
-    assert report.changed == 4
+    assert report.changed == report.details["updated"] == 4
+    assert report.details["skipped_changed_since_scan"] == 0
+    assert report.scanned == report.details["updated"] + report.details["unresolved_count"]
     assert (db.plants["ok"]["location_key"], db.plants["ok"]["site_key"]) == ("L1", "S1")
     assert (db.plants["half"]["location_key"], db.plants["half"]["site_key"]) == ("L1", "S1")
     # N2: site comes from the plant's own location, not from the slot's (L1 / S1)
@@ -260,6 +279,14 @@ def test_half_set_plant_with_the_derived_site_only_receives_the_location() -> No
         ({"tenant_key": "t1"}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1", "tenant_key": "t2"}, "cross_tenant"),
         ({}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1", "tenant_key": "t1"}, "cross_tenant"),
         ({}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1"}, "cross_tenant"),
+        # the writer's empty-string defaults (app/domain/models/site.py), next to the missing-field forms above
+        ({"tenant_key": "t1"}, {"_key": "L1", "site_key": ""}, None, "location_without_site_key"),
+        (
+            {"tenant_key": "t1"},
+            {"_key": "L1", "site_key": "S1"},
+            {"_key": "S1", "tenant_key": ""},
+            "site_without_tenant",
+        ),
     ],
     ids=[
         "location-without-site",
@@ -268,6 +295,8 @@ def test_half_set_plant_with_the_derived_site_only_receives_the_location() -> No
         "foreign-site",
         "plant-without-tenant",
         "plant-and-site-without-tenant",
+        "location-with-empty-site-key",
+        "site-with-empty-tenant-key",
     ],
 )
 def test_each_broken_site_link_has_its_own_reason(
@@ -291,8 +320,35 @@ def test_dry_run_reports_exactly_what_the_real_run_writes() -> None:
     real = migration.up(db)  # type: ignore[arg-type]
 
     assert dry.details.pop("will_update") == real.details.pop("updated") == real.changed
+    assert real.details.pop("skipped_changed_since_scan") == 0
     assert dry.details == real.details
     assert dry.scanned == real.scanned
+
+
+@pytest.mark.parametrize(
+    ("plant", "writer", "after"),
+    [
+        ({}, {"site_key": "S_other"}, (None, "S_other")),
+        ({}, {"location_key": "L_other"}, ("L_other", None)),
+        ({"location_key": "L1"}, {"location_key": "L_other"}, ("L_other", None)),
+    ],
+    ids=["site-set-meanwhile", "location-set-meanwhile", "own-location-moved-meanwhile"],
+)
+def test_a_plant_changed_between_scan_and_apply_is_skipped(
+    plant: dict[str, Any], writer: dict[str, Any], after: tuple[str | None, str | None]
+) -> None:
+    """#2524 review SCR-002: a live writer between scan and ``UPDATE`` wins; the plant is skipped, not mixed."""
+    db = _single({"tenant_key": "t1", **plant}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1", "tenant_key": "t1"})
+    db.aql.before_apply = lambda: db.plants["p"].update(writer)
+
+    report = migration.up(db)  # type: ignore[arg-type]
+
+    assert (db.plants["p"]["location_key"], db.plants["p"]["site_key"]) == after
+    assert report.changed == report.details["updated"] == 0
+    assert report.details["skipped_changed_since_scan"] == 1
+    assert report.scanned == (
+        report.details["updated"] + report.details["skipped_changed_since_scan"] + report.details["unresolved_count"]
+    )
 
 
 def _volume_of(repairable: int, unplaced: int) -> _FakeDb:
