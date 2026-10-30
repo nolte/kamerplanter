@@ -16,7 +16,9 @@ import base64
 import json
 import re
 import xml.etree.ElementTree as ET
+from datetime import UTC, date, datetime
 from time import perf_counter
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 from urllib.request import OpenerDirector, Request, url2pathname
 
@@ -24,13 +26,26 @@ import pytest
 
 from app.common.enums import BedStatus, GardenObjectType, SunExposure
 from app.common.exceptions import NotFoundError, PlanError
-from app.domain.engines.plan_svg_engine import PlanOrientation, PlanPaper, PlanSvgLayer, PlanSvgOptions
+from app.domain.calculators.plant_state_calculator import OpenTask
+from app.domain.engines.plan_svg_engine import (
+    PLANT_COUNTER_THRESHOLD,
+    PlanOrientation,
+    PlanPaper,
+    PlanSvgLayer,
+    PlanSvgOptions,
+)
 from app.domain.engines.print_engine import TEMPLATES_DIR, PrintEngine
+from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlantShortInfo
 from app.domain.models.site import SitePlan, Slot
-from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
+from app.domain.services.garden_plan_export_service import (
+    STATE_PAGE_SIZE,
+    GardenPlanExportService,
+    safe_filename_part,
+)
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.plant_state_service import PlantStateService
 from tests.support.garden_plan_fakes import (
     OTHER_TENANT,
     SITE,
@@ -440,3 +455,207 @@ class TestBedListAndPage:
             "@bottom-center { content: none; }" in html.split("{% block")[0]
             or "content: none" in html.split("@page")[-1]
         )
+
+
+# ── Plant states and phase colours in the print (#2489) ───────────────────────
+
+STATE_NOW = datetime(2026, 6, 10, 12, 0, tzinfo=UTC)
+
+
+class _StateRows(IPlantStateRepository):
+    """The plant-state source as a recording double: rows per bed, windowed like the real read."""
+
+    def __init__(self, rows: dict[str, list[PlantStateSource]]) -> None:
+        self.rows = rows
+        self.calls: list[tuple[str, str, int, int]] = []
+
+    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit):
+        self.calls.append((location_key, tenant_key, offset, limit))
+        return self.rows.get(location_key, [])[offset : offset + limit]
+
+
+class _Phases:
+    """The growth-phase lookup the export reads names from; counts the reads per key."""
+
+    def __init__(self, names: dict[str, str]) -> None:
+        self.names = names
+        self.reads: list[str] = []
+
+    def get_phase_by_key(self, key):
+        self.reads.append(key)
+        name = self.names.get(key)
+        return None if name is None else SimpleNamespace(key=key, name=name)
+
+
+def _source(plant_key: str, phase_key: str | None = "ph-flower", **overrides) -> PlantStateSource:
+    fields = {
+        "plant_key": plant_key,
+        "instance_id": plant_key.upper(),
+        "species_key": "tomato",
+        "planted_on": date(2026, 4, 1),
+        "phase_key": phase_key,
+        "phase_started_on": date(2026, 5, 20),
+        "phase_typical_days": 60,
+    }
+    fields.update(overrides)
+    return PlantStateSource(**fields)
+
+
+def _stated_world(repo: FakePlanRepo, per_bed: dict[str, list[PlantStateSource]]):
+    repo.plants = [
+        PlantShortInfo(
+            key=row.plant_key,
+            instance_id=row.instance_id,
+            species_key="tomato",
+            location_key=bed,
+            phase_key=row.phase_key,
+        )
+        for bed, rows in per_bed.items()
+        for row in rows
+    ]
+    states = _StateRows(per_bed)
+    phases = _Phases({"ph-flower": "flowering", "ph-veg": "vegetative"})
+    service = GardenPlanExportService(
+        repo._sites,
+        repo,
+        GardenPlanService(repo._sites, repo),
+        _CapturingEngine(),
+        plant_state_repo=states,
+        phase_repo=phases,  # type: ignore[arg-type]
+    )
+    return service, states, phases
+
+
+class TestPlantStateEnrichment:
+    def test_phase_names_are_read_once_per_distinct_phase_key(self, repo) -> None:
+        rows = {
+            "b1": [_source("p1"), _source("p2"), _source("p3", "ph-veg")],
+            "b2": [_source("p4"), _source("p5", "ph-veg"), _source("p6", "ph-entry")],
+        }
+        service, _states, phases = _stated_world(repo, rows)
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is not None
+        assert sorted(phases.reads) == ["ph-entry", "ph-flower", "ph-veg"]
+        # A key that is no growth phase (a phase-sequence entry) has no name, as on screen.
+        assert dict(marks.phase_names) == {"ph-flower": "flowering", "ph-veg": "vegetative"}
+
+    def test_the_states_equal_the_plant_state_service_for_the_same_plant(self, repo) -> None:
+        """The point of the shared assembly: the PDF and ``GET /locations/{key}/plant-states`` agree (#2489)."""
+        rows = {
+            "b1": [
+                _source(
+                    "p1",
+                    open_tasks=(OpenTask("watering", date(2026, 6, 10)), OpenTask("pruning", date(2026, 6, 9))),
+                    open_finding_count=1,
+                ),
+                _source("p2", phase_allows_harvest=True, harvest_batch_count=2),
+                _source("p3", None),
+            ]
+        }
+        service, states, _phases = _stated_world(repo, rows)
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+        api = PlantStateService(repo._sites, states).list_plant_states(
+            "b1", tenant_key=TENANT, limit=200, now=STATE_NOW
+        )
+
+        assert marks is not None
+        assert {entry.source.plant_key: entry.state for entry in api} == dict(marks.states)
+        assert marks.states["p1"].attention[0].reason == "problem"
+        assert marks.states["p2"].lifecycle == "harvesting" and marks.states["p2"].harvest_ready is True
+
+    def test_the_tenant_reaches_every_read_and_a_large_bed_is_read_in_bounded_pages(self, repo) -> None:
+        rows = {"b1": [_source(f"p{i:04d}") for i in range(450)]}
+        service, states, _phases = _stated_world(repo, rows)
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is not None and len(marks.states) == 450
+        assert states.calls == [
+            ("b1", TENANT, 0, STATE_PAGE_SIZE),
+            ("b1", TENANT, 200, STATE_PAGE_SIZE),
+            ("b1", TENANT, 400, STATE_PAGE_SIZE),
+        ]
+
+    def test_from_the_counter_threshold_on_nothing_is_read(self, repo) -> None:
+        rows = {"b1": [_source(f"p{i:04d}") for i in range(PLANT_COUNTER_THRESHOLD)]}
+        service, states, phases = _stated_world(repo, rows)
+
+        svg = service.render_svg(SITE, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert svg.plant_counters is True
+        assert states.calls == [] and phases.reads == []
+
+    def test_with_the_plants_layer_off_nothing_is_read(self, repo) -> None:
+        service, states, phases = _stated_world(repo, {"b1": [_source("p1")]})
+
+        service.render_svg(
+            SITE, tenant_key=TENANT, options=_options(layers=frozenset({PlanSvgLayer.BEDS})), now=STATE_NOW
+        )
+
+        assert states.calls == [] and phases.reads == []
+
+    def test_a_foreign_site_reads_no_plant_state(self, repo) -> None:
+        service, states, phases = _stated_world(repo, {"b1": [_source("p1")]})
+
+        with pytest.raises(NotFoundError):
+            service.render_svg(FOREIGN_SITE, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert states.calls == [] and phases.reads == []
+
+    def test_the_svg_draws_the_phase_colour_and_names_the_phase_in_the_legend(self, repo) -> None:
+        service, _states, _phases = _stated_world(repo, {"b1": [_source("p1"), _source("p2", "ph-veg")]})
+
+        svg = service.render_svg(SITE, tenant_key=TENANT, options=_options(locale="en"), now=STATE_NOW)
+
+        root = ET.fromstring(svg.svg)
+        (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
+        assert sorted(c.attrib["fill"] for c in layer.findall(f"{SVG}circle")) == ["#43A047", "#AB47BC"]
+        (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+        texts = [e.text for e in legend.iter(f"{SVG}text")]
+        assert {"Phase: Flowering", "Phase: Vegetative", "Ring: growing"} <= set(texts)
+
+    def test_without_a_plant_state_source_the_plants_stay_uniform(self, repo) -> None:
+        repo.plants = [PlantShortInfo(key="p1", instance_id="p1", species_key="sp", location_key="b1")]
+
+        svg = _service(repo).render_svg(SITE, tenant_key=TENANT, options=_options(locale="en"))
+
+        root = ET.fromstring(svg.svg)
+        (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+        assert "Plant" in [e.text for e in legend.iter(f"{SVG}text")]
+
+
+class TestStatedPdfBudget:
+    def test_a_large_stated_plan_prints_within_five_seconds(self, repo) -> None:
+        """GP-NFR-038 / GP-ACC-030 with states on: just below the counter threshold, every plant stated and badged."""
+        reasons = [
+            {"open_finding_count": 1},
+            {"open_tasks": (OpenTask("watering", date(2026, 6, 10)),)},
+            {"open_tasks": (OpenTask("pruning", date(2026, 6, 1)),)},
+            {"phase_allows_harvest": True, "harvest_batch_count": 1},
+            {},
+        ]
+        rows: dict[str, list[PlantStateSource]] = {"b1": [], "b2": [], "b3": []}
+        for index in range(PLANT_COUNTER_THRESHOLD - 1):
+            rows[("b1", "b2", "b3")[index % 3]].append(
+                _source(f"p{index:04d}", ("ph-flower", "ph-veg")[index % 2], **reasons[index % len(reasons)])
+            )
+        service, states, phases = _stated_world(repo, rows)
+
+        started = perf_counter()
+        pdf = service.render_pdf(SITE, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+        elapsed = perf_counter() - started
+
+        assert pdf.content[:5] == b"%PDF-"
+        assert elapsed <= 5.0, f"the stated PDF took {elapsed:.2f} s"
+        assert sorted(phases.reads) == ["ph-flower", "ph-veg"]
+        assert {call[0] for call in states.calls} == {"b1", "b2", "b3"}
+        root = _embedded_svg(service._print.html[-1])  # type: ignore[attr-defined]
+        (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
+        assert len(layer.findall(f"{SVG}circle")) == PLANT_COUNTER_THRESHOLD - 1
+        assert len(layer.findall(f"{SVG}g")) > 0
