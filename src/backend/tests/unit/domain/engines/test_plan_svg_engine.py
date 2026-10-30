@@ -275,6 +275,13 @@ class TestAllowlistAndEscaping:
         assert not names & {"href", "xlink:href", "style", "onload", "onclick", "src"}
         assert "script" not in _tags(root)
 
+    def test_the_document_has_no_style_element_or_attribute(self) -> None:
+        """#2542 S-4: the download's CSP grants no ``style-src``; the engine's output must need none."""
+        rendered = _render(_view(locations=_three_beds()), layers=frozenset(PlanSvgLayer))
+
+        assert "<style" not in rendered.svg and "style=" not in rendered.svg
+        assert "style" not in _tags(_parse(rendered.svg))
+
     def test_the_document_has_no_url_function_anywhere(self) -> None:
         rendered = _render(_view(locations=_three_beds(b1=HOSTILE_FILE_NAME)), layers=frozenset(PlanSvgLayer))
 

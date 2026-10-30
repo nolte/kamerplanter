@@ -184,7 +184,7 @@ GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON-Sicherung
 
 Die Antwort trägt `X-Plan-Scale` (zum Beispiel `1:50`). `X-Plan-Suggested-Paper: a3` erscheint, wenn A4 einen gröberen Maßstab als 1:200 bräuchte.
 
-Das PDF enthält keine Mitgliedsnamen, Zuweisungen, Notizen oder Koordinaten. Das SVG nutzt Millimeter im `viewBox` (1 m = 1 000 Einheiten) und kommt als Anhang mit `X-Content-Type-Options: nosniff` und `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. Die JSON-Sicherung trägt `schema_version: "1"` mit Planeinstellungen, Standorten, Pflanzplätzen und Gartenobjekten, aber ohne Pflanzen, Aufgaben, Ereignisse oder Kontoverweise.
+Das PDF enthält keine Mitgliedsnamen, Zuweisungen, Notizen oder Koordinaten. Das SVG nutzt Millimeter im `viewBox` (1 m = 1 000 Einheiten) und kommt als Anhang mit `X-Content-Type-Options: nosniff` und `Content-Security-Policy: default-src 'none'` (das SVG trägt kein `style`-Element und kein `style`-Attribut). Die JSON-Sicherung trägt `schema_version: "1"` mit Planeinstellungen, Standorten, Pflanzplätzen und Gartenobjekten, aber ohne Pflanzen, Aufgaben, Ereignisse oder Kontoverweise.
 
 **Fehlercodes:**
 
@@ -247,9 +247,15 @@ Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt 
 
 ---
 
+### Gartenplan speichern: Geometriefehler
+
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (die Grenze) und `POST …/plan/batch` (ein Stapel von Operationen) lehnen eine Form, die eine Geometrieregel verletzt, mit `422` `VALIDATION_ERROR` ab (REQ-053). Auf der Grenz-Route trägt ein Eckpunkt oder Ursprung außerhalb des Koordinatenbereichs des Plans (0 bis 1000 m) `code: "geometry.invalid"`; bei einem Eckpunkt eines Polygons oder einer Polylinie trägt der Eintrag zusätzlich `point_index`, die Position des ersten solchen Eckpunkts in `points` (ab 0 gezählt). Die übrigen Formregeln dort (Maße, Anzahl der Eckpunkte, Drehung) antworten mit dem allgemeinen `code: "value_error"`. Im Stapel trägt jeder Geometriefehler `code: "geometry.invalid"`, dazu `op_index` für die Operation und bei einem Eckpunkt `point_index`. Stellplätze und Beetvorlagen speicherst du über eigene Endpunkte im Rahmen des Beets (−1000 bis 1000 m); einen Eckpunkt außerhalb dieses Bereichs melden sie genauso.
+
+---
+
 ### Frühere Stände des Plans (Snapshots)
 
-Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
+Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr; ein Standort behält höchstens seine 20 neuesten Snapshots, ein `replace` oder eine Wiederherstellung, die einen 21. schreibt, entfernt den ältesten). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.
 
 ```
 GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # Liste, neueste zuerst, seitenweise (limit/offset)

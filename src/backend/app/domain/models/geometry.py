@@ -44,6 +44,7 @@ from pydantic import (
     WrapValidator,
     field_validator,
 )
+from pydantic_core import ErrorDetails, PydanticCustomError
 
 from app.common.enums import GeometryKind
 
@@ -65,6 +66,26 @@ MAX_POINTS = 200
 #: Storage precision: millimetres (GP-FR-004).
 LENGTH_DECIMALS = 3
 _QUANTUM = Decimal(1).scaleb(-LENGTH_DECIMALS)
+
+#: Pydantic error type of a coordinate-range violation (V-01, REQ-053 §22.2); the
+#: request handler and the batch findings report it as ``details[].code``.
+GEOMETRY_INVALID = "geometry.invalid"
+#: Error-context key carrying the index of the offending vertex in ``points`` (GP-ACC-056).
+POINT_INDEX_KEY = "point_index"
+
+
+def point_index_of(error: ErrorDetails) -> int | None:
+    """The offending vertex of a coordinate-range violation (GP-ACC-056), else ``None``.
+
+    The single reading of the rule for both 422 paths — the request handler's
+    ``details[]`` and the batch findings: only a ``geometry.invalid`` error whose
+    context carries an int ``point_index`` names a vertex; any other error does not.
+    """
+    if error["type"] != GEOMETRY_INVALID:
+        return None
+    point_index = (error.get("ctx") or {}).get(POINT_INDEX_KEY)
+    return point_index if isinstance(point_index, int) else None
+
 
 #: A coordinate pair ``(x, y)`` in metres. Components are strict floats (an int is
 #: accepted, a string or bool is not) so that V-01 verdicts match the TypeScript port.
@@ -96,12 +117,24 @@ def _frame_from(info: ValidationInfo) -> GeometryFrame:
     return GeometryFrame(frame)
 
 
-def _validate_point(point: tuple[float, float], info: ValidationInfo) -> tuple[float, float]:
+def _validate_point(
+    point: tuple[float, float], info: ValidationInfo, *, index: int | None = None
+) -> tuple[float, float]:
+    """Round *point* and check it against the frame's coordinate range (V-01).
+
+    A violation is a ``geometry.invalid`` error (GP-ACC-056). For a vertex of a
+    polygon or polyline, *index* is its position in ``points``; it travels in the
+    error context as ``point_index`` so the 422 names the offending vertex.
+    """
     x, y = (round_length(point[0]), round_length(point[1]))
     minimum = -MAX_COORDINATE_M if _frame_from(info) is GeometryFrame.BED else MIN_COORDINATE_M
     for coordinate in (x, y):
         if not minimum <= coordinate <= MAX_COORDINATE_M:
-            raise ValueError(f"Coordinates must lie within {minimum}..{MAX_COORDINATE_M} m, got {point}.")
+            # The message is pre-formatted; braces would be read as template placeholders.
+            message = f"Coordinates must lie within {minimum}..{MAX_COORDINATE_M} m, got {point}."
+            if index is None:
+                raise PydanticCustomError(GEOMETRY_INVALID, message)
+            raise PydanticCustomError(GEOMETRY_INVALID, message, {POINT_INDEX_KEY: index})
     return (x, y)
 
 
@@ -125,7 +158,7 @@ def _validate_points(
 ) -> tuple[tuple[float, float], ...]:
     if not minimum <= len(points) <= MAX_POINTS:
         raise ValueError(f"Expected {minimum}..{MAX_POINTS} points, got {len(points)}.")
-    return tuple(_validate_point(point, info) for point in points)
+    return tuple(_validate_point(point, info, index=index) for index, point in enumerate(points))
 
 
 class _GeometryBase(BaseModel):

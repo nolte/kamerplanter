@@ -351,6 +351,104 @@ class TestTheFileIsUntrusted:
         assert detail["key"] == document["locations"][1]["key"]
 
 
+class TestOversizedListsAreRefusedBeforeAnyLookup2542:
+    """#2542 W-1: a file with more entries than a site may hold is refused whole, before ``_prepare`` looks up."""
+
+    @staticmethod
+    def _counted(rig, repo, monkeypatch) -> dict[str, int]:
+        calls = {"load_structure": 0, "irrigation_zone_site_key": 0, "substrate_visible": 0, "check_quotas": 0}
+        for name in ("load_structure", "irrigation_zone_site_key", "substrate_visible"):
+            original = getattr(repo, name)
+
+            def counted(*args: Any, _name: str = name, _original: Any = original, **kwargs: Any) -> Any:
+                calls[_name] += 1
+                return _original(*args, **kwargs)
+
+            monkeypatch.setattr(repo, name, counted)
+        check_quotas = rig.service._check_quotas
+
+        def counted_quotas(*args: Any, **kwargs: Any) -> None:
+            calls["check_quotas"] += 1
+            check_quotas(*args, **kwargs)
+
+        monkeypatch.setattr(rig.service, "_check_quotas", counted_quotas)
+        return calls
+
+    @staticmethod
+    def _with_locations(rig, count: int) -> dict[str, Any]:
+        document = rig.file()
+        template = document["locations"][0]
+        document["locations"] = [
+            {
+                **template,
+                "key": f"bed_{n}",
+                "irrigation_zone_key": f"zone_{n}",
+                "soil_profile": {**(template.get("soil_profile") or {}), "substrate_key": f"sub_{n}"},
+            }
+            for n in range(count)
+        ]
+        document["slots"] = []
+        return document
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_501_locations_are_the_quota_and_nothing_is_looked_up(self, rig, repo, monkeypatch, dry_run) -> None:
+        document = self._with_locations(rig, 501)  # read before counting: the export reads the site, too
+        calls = self._counted(rig, repo, monkeypatch)
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=dry_run)
+
+        assert refused.value.status_code == 422
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [("locations", "plan.quota_exceeded")]
+        assert calls == {"load_structure": 0, "irrigation_zone_site_key": 0, "substrate_visible": 0, "check_quotas": 0}
+        assert repo.applied == []
+
+    def test_500_locations_still_reach_the_lookups_and_the_quota_check(self, rig, repo, monkeypatch) -> None:
+        document = self._with_locations(rig, 500)
+        calls = self._counted(rig, repo, monkeypatch)
+
+        report = rig.run(document, dry_run=True)
+
+        assert report.dry_run and report.would_create.locations == 500
+        assert calls["load_structure"] == 1 and calls["check_quotas"] == 1
+        assert calls["irrigation_zone_site_key"] == 500 and calls["substrate_visible"] == 500
+
+    @pytest.mark.parametrize(("field", "count"), [("garden_objects", 501), ("slots", 8001)])
+    def test_the_other_capped_lists_are_the_quota_too(self, rig, repo, monkeypatch, field, count) -> None:
+        document = rig.file()
+        calls = self._counted(rig, repo, monkeypatch)
+        an_object = {"key": "o", "object_type": "path", "geometry": rect(1, 1), "props": {}}
+        item = document["slots"][0] if field == "slots" else an_object
+        document[field] = [{**item, "key": f"x{n}"} for n in range(count)]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [(field, "plan.quota_exceeded")]
+        assert calls["load_structure"] == 0
+
+    def test_501_zones_are_the_zone_quota_like_the_quota_check_says(self, rig, repo, monkeypatch) -> None:
+        # One case, one code (#2542): the schema cap reports what ``_check_quotas`` reports for the same excess.
+        from app.domain.models.garden_plan import MAX_PLAN_ZONES
+
+        document = rig.file()
+        calls = self._counted(rig, repo, monkeypatch)
+        document["zones"] = [{"key": f"z{n}", "name": f"Zone {n}"} for n in range(MAX_PLAN_ZONES + 1)]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [("zones", "irrigation_zone.quota_exceeded")]
+        assert calls["load_structure"] == 0
+
+    def test_the_export_of_a_site_above_the_quota_is_still_written(self, rig, repo) -> None:
+        # A location made through the site API is not counted against GP-NFR-017; the export must not refuse it.
+        for n in range(501):
+            repo.locations[f"extra_{n}"] = make_location(f"extra_{n}", f"Beet {n}", geometry=rect(1, 5))
+
+        assert len(rig.file()["locations"]) == 503
+
+
 class TestOffsetAndTargetWp718:
     """REQ-053 WP 7.18 (#2484, GP-FR-172): ``offset_m`` and ``target`` of an import."""
 
@@ -474,6 +572,32 @@ class TestSnapshotsWp719:
                 force=False,
                 confirm_site_name=None,
             )
+
+    def test_the_listing_is_newest_first_and_only_the_callers_site_over_the_fakes_cap(self, rig, repo) -> None:
+        """The service lists a site's snapshots newest first, scoped to the caller's tenant and site.
+
+        The cap of :data:`MAX_SNAPSHOTS_PER_SITE` is applied here by ``FakePlanRepo.apply_plan_batch``, which
+        re-implements the pruning contract; this test therefore pins the service's listing over that contract and
+        proves nothing about the production ``_prune_snapshots``. The W-2 proof (#2542) against ArangoDB is
+        ``test_a_site_keeps_its_newest_twenty_snapshots_and_every_other_row`` in
+        ``tests/integration/test_garden_plan_import.py``.
+        """
+        from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
+
+        repo.snapshot_rows.append((OTHER_TENANT, SITE, "foreign_tenant", {}))  # another tenant, same site key
+        repo.snapshot_rows.append((TENANT, "site_other", "other_site", {}))
+        listed: list[str] = []
+        for _ in range(MAX_SNAPSHOTS_PER_SITE + 1):
+            rig.run(rig.file())
+            newest, *_ = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=50)
+            listed.append(newest.audit_key)
+
+        kept = rig.service.list_snapshots(SITE, tenant_key=TENANT, role=TenantRole.LEAD, offset=0, limit=50)
+
+        assert MAX_SNAPSHOTS_PER_SITE == 20 and len(repo.applied) == 21
+        assert [entry.audit_key for entry in kept] == listed[:0:-1]  # newest first, the first one is gone
+        assert listed[0] not in {entry.audit_key for entry in kept}
+        assert {row[2] for row in repo.snapshot_rows} >= {"foreign_tenant", "other_site"}
 
     def test_a_page_is_capped_below_the_shared_pagination(self, rig, repo) -> None:
         from app.domain.services.garden_plan_import_service import MAX_SNAPSHOT_PAGE

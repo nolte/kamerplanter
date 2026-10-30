@@ -343,6 +343,25 @@ class TestTheCheckOrder:
         assert refused.value.codes == ["geometry.invalid"]  # the domain finding of op 0 is not even computed
         assert repo.applied == []
 
+    def test_an_out_of_range_vertex_is_a_finding_with_its_point_index_gp_acc_056(self, world):
+        service, repo, _ = world
+        polygon = {"kind": "polygon", "points": [[1, 1], [4, 1], [1000.5, 4], [1, 4]]}  # vertex 2 is past 1 000 m
+        ops = [create_bed("ok"), create_bed("far", polygon)]
+        with pytest.raises(PlanValidationError) as refused:
+            batch(service, ops)
+        assert refused.value.codes == ["geometry.invalid"]
+        detail = refused.value.details[0]
+        assert detail["op_index"] == 1 and detail["point_index"] == 2
+        assert repo.applied == []
+
+    def test_a_dimension_defect_carries_no_point_index(self, world):
+        service, _, _ = world
+        bad = create_bed("bad", {"kind": "rect", "origin": [1, 1], "width_m": -1, "length_m": 1})
+        with pytest.raises(PlanValidationError) as refused:
+            batch(service, [bad])
+        assert refused.value.codes == ["geometry.invalid"]
+        assert "point_index" not in refused.value.details[0]
+
     def test_the_revision_is_checked_last(self, world):
         service, repo, _ = world
         with pytest.raises(PlanValidationError):  # stale revision AND invalid geometry: the 422 wins
@@ -671,6 +690,14 @@ class TestComplexityBudgetAndQuotas:
         assert refused.value.error_code == "batch.too_complex"
         assert refused.value.details[0]["limit"] == 20_000
         assert repo.applied == []
+
+    def test_the_point_count_walks_a_5000_deep_value_without_recursion(self):
+        """#2542 S-1: the raw walk is iterative; points at the bottom of a deep nesting still count."""
+        nested: dict = {"points": [[0, 0], [1, 0], [1, 1]]}
+        for _ in range(5000):
+            nested = {"inner": [nested], "points": [[0, 0]]}
+
+        assert garden_plan_service._count_points([{"data": nested}, {"points": "not a list"}, 7]) == 5003
 
     def test_the_time_budget_is_enforced_before_the_transaction(self, world, monkeypatch):
         service, repo, _ = world

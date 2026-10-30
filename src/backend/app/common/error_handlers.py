@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Any
 
 import structlog
 from fastapi import Request
@@ -8,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.common.error_ids import new_error_id
 from app.common.exceptions import KamerplanterError
 from app.common.log_privacy import loggable_path
+from app.domain.models.geometry import POINT_INDEX_KEY, point_index_of
 
 logger = structlog.get_logger()
 
@@ -57,17 +59,29 @@ def app_error_response(request: Request, exc: KamerplanterError) -> JSONResponse
     return response
 
 
+def _validation_detail(err: Any) -> dict[str, Any]:
+    """One ``details[]`` entry of the 422 envelope for one Pydantic error.
+
+    The shape is ``field``/``reason``/``code`` for every error. A coordinate-range
+    violation (``geometry.invalid``, REQ-053 GP-ACC-056) additionally carries the
+    ``point_index`` of the offending vertex from the error context — the same key
+    the batch path's finding carries. No other error type gains a key.
+    """
+    detail: dict[str, Any] = {
+        "field": ".".join(str(loc) for loc in err["loc"]),
+        "reason": err["msg"],
+        "code": err["type"],
+    }
+    point_index = point_index_of(err)
+    if point_index is not None:
+        detail[POINT_INDEX_KEY] = point_index
+    return detail
+
+
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Handler for Pydantic validation errors."""
     error_id = new_error_id()
-    details = [
-        {
-            "field": ".".join(str(loc) for loc in err["loc"]),
-            "reason": err["msg"],
-            "code": err["type"],
-        }
-        for err in exc.errors()
-    ]
+    details = [_validation_detail(err) for err in exc.errors()]
     logger.warning(
         "validation_error",
         error_id=error_id,
