@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildScene } from './scene';
+import { buildScene, markerLodBedKeys } from './scene';
+import type { PlantMarkerState, RenderOptions } from './types';
 import {
   NO_SELECTION,
   bed,
@@ -218,5 +219,108 @@ describe('buildScene - order and roving tab stop', () => {
     expect(scene.markers.filter((m) => m.tabStop).map((m) => m.entry.key)).toEqual(['b_p0']);
     expect(scene.markers.every((m) => m.interactive)).toBe(true);
     expect(scene.tabStopKey).toBe('b_p0');
+  });
+});
+
+describe('buildScene - plant-state layer (GP-UX-061, #2488)', () => {
+  // 'near' has 0.5 m spacing: 15 px at 30 px/m (markers); 'dense' has 0.2 m: 6 px (one cluster).
+  const near = plantedBed('near', 1, 1, 4, 0.5);
+  const dense = plantedBed('dense', 5, 1, 4, 0.2);
+  const model = plan({
+    locations: [bed('near', 1, 1), bed('dense', 5, 1)],
+    garden_objects: [],
+    slots: [...near.slots, ...dense.slots, { key: 'near_empty', slot_id: 'NE', location_key: 'near', plan_geometry: { origin: [1.1, 2.5] } }],
+    plants: [...near.plants, ...dense.plants],
+  });
+  const view = viewportAt(0, 10, 30);
+
+  function stated(badge: PlantMarkerState['badge'] = null): PlantMarkerState {
+    return { lifecycle: 'active', badge, initial: 'T', progress: null, ariaLabel: 'Tomato' };
+  }
+  const states: Record<string, PlantMarkerState> = {
+    near_p0: stated('water'),
+    near_p1: stated(),
+    near_p2: stated('harvest'),
+    dense_p0: stated('water'),
+    dense_p1: stated('problem'),
+    dense_p2: stated(),
+    dense_p3: stated(),
+  };
+  const layer = (attentionOnly: boolean): Pick<RenderOptions, 'plantStateLayer'> => ({
+    plantStateLayer: { states, attentionOnly },
+  });
+
+  it('names exactly the placed beds with plants at marker LOD as the ones to read', () => {
+    expect(markerLodBedKeys(model, view)).toEqual(['near']);
+    // zoomed in far enough, the dense bed reaches marker LOD too; out of the cull window, nothing
+    expect(markerLodBedKeys(model, viewportAt(0, 10, 50)).sort()).toEqual(['dense', 'near']);
+    expect(markerLodBedKeys(model, viewportAt(100, 100, 30))).toEqual([]);
+  });
+
+  it('draws the stated plants of a bed at marker LOD on their own, decorative, with their state', () => {
+    const scene = buildScene(model, view, NO_SELECTION, layer(false));
+    const own = scene.markers.map((m) => [m.entry.key, m.layerState?.badge ?? null, m.interactive]);
+    expect(own).toEqual([
+      ['near_p0', 'water', false],
+      ['near_p1', null, false],
+      ['near_p2', 'harvest', false],
+    ]);
+    // the plant without a known state and the empty slot stay in the cheap batch
+    const batch = scene.markerBatches.find((b) => b.locationKey === 'near');
+    expect(batch?.markers.map((m) => m.key)).toEqual(['near_p3', 'near_empty']);
+    // the layer adds no tab stop: the focus stays on the objects
+    expect(scene.markers.some((m) => m.tabStop)).toBe(false);
+    expect(scene.shapes.some((s) => s.tabStop)).toBe(true);
+  });
+
+  it('keeps the plain batches without the layer (the default view is unchanged)', () => {
+    const scene = buildScene(model, view, NO_SELECTION, {});
+    expect(scene.markers).toEqual([]);
+    expect(scene.markerBatches.find((b) => b.locationKey === 'near')?.markers).toHaveLength(5);
+    expect(scene.clusters[0]).toMatchObject({ locationKey: 'dense', count: 4, attention: null, topBadge: null });
+  });
+
+  it('counts the badged plants of a cluster with the top reason by priority (problem before water)', () => {
+    const [cluster] = buildScene(model, view, NO_SELECTION, layer(false)).clusters;
+    expect(cluster).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 4, attention: 2, topBadge: 'problem' });
+  });
+
+  it('with "only plants that need attention" keeps badged markers, a selected one and plants not known yet', () => {
+    const scene = buildScene(model, view, { selectedKeys: new Set(['near_p1']) }, layer(true));
+    expect(scene.markers.map((m) => m.entry.key)).toEqual(['near_p0', 'near_p1', 'near_p2']);
+    expect(scene.markers.find((m) => m.entry.key === 'near_p1')?.selected).toBe(true);
+    // per plant: near_p3 has no known state yet and keeps its plain marker; the empty slot goes
+    expect(scene.markerBatches.find((b) => b.locationKey === 'near')?.markers.map((m) => m.key)).toEqual(['near_p3']);
+    const unselected = buildScene(model, view, NO_SELECTION, layer(true));
+    expect(unselected.markers.map((m) => m.entry.key)).toEqual(['near_p0', 'near_p2']);
+  });
+
+  it('with the filter a cluster keeps the total, draws the kept plants and hides only when all are known and calm', () => {
+    const [counted] = buildScene(model, view, NO_SELECTION, layer(true)).clusters;
+    expect(counted).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 2, attention: 2, topBadge: 'problem' });
+    const allCalm = { dense_p0: stated(), dense_p1: stated(), dense_p2: stated(), dense_p3: stated() };
+    expect(
+      buildScene(model, view, NO_SELECTION, { plantStateLayer: { states: allCalm, attentionOnly: true } }).clusters,
+    ).toEqual([]);
+    // partly known: the two plants without a state are "unknown", not "calm" - the cluster stays and shows them
+    const partlyCalm = { dense_p0: stated(), dense_p1: stated() };
+    const [partly] = buildScene(model, view, NO_SELECTION, {
+      plantStateLayer: { states: partlyCalm, attentionOnly: true },
+    }).clusters;
+    expect(partly).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 2, attention: 0 });
+    const unknown = buildScene(model, view, NO_SELECTION, { plantStateLayer: { states: {}, attentionOnly: true } });
+    expect(unknown.clusters[0]).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 4, attention: null });
+    // likewise at marker LOD: a bed not read yet keeps its plain markers instead of going blank while it loads
+    expect(unknown.markerBatches.find((b) => b.locationKey === 'near')?.markers).toHaveLength(5);
+  });
+
+  it('leaves the entered bed to the bed-view states and keeps its markers interactive', () => {
+    const scene = buildScene(model, viewportAt(0, 10, 50), NO_SELECTION, {
+      enteredLocationKey: 'near',
+      ...layer(true),
+    });
+    const nearMarkers = scene.markers.filter((m) => m.entry.locationKey === 'near');
+    expect(nearMarkers).toHaveLength(5);
+    expect(nearMarkers.every((m) => m.interactive && m.layerState === undefined)).toBe(true);
   });
 });

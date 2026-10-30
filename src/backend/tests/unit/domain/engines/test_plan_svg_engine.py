@@ -9,11 +9,20 @@ whose parser sees an element the substring never spelled.
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 
 from app.common.enums import BedStatus, GardenObjectType, LampKind
 from app.common.exceptions import PlanError
+from app.domain.calculators.plant_state_calculator import (
+    ATTENTION_PRIORITY,
+    LIFECYCLES,
+    AttentionCode,
+    AttentionReason,
+    Lifecycle,
+    PlantVisualState,
+)
 from app.domain.engines import plan_svg_engine
 from app.domain.engines.plan_svg_engine import (
     ALLOWED_ATTRIBUTES,
@@ -25,6 +34,7 @@ from app.domain.engines.plan_svg_engine import (
     PlanPaper,
     PlanSvgLayer,
     PlanSvgOptions,
+    PlantStateMarks,
     escape_attribute,
     escape_text,
     parse_scale,
@@ -90,8 +100,8 @@ def _extent_mm(points: str, scale: int) -> tuple[float, float]:
     return ((max(xs) - min(xs)) / scale, (max(ys) - min(ys)) / scale)
 
 
-def _render(view: GardenPlanView, **options):
-    return render_plan_svg(view, PlanSvgOptions(header_mm=PDF_HEADER_MM, **options))
+def _render(view: GardenPlanView, marks: PlantStateMarks | None = None, **options):
+    return render_plan_svg(view, PlanSvgOptions(header_mm=PDF_HEADER_MM, **options), marks)
 
 
 class TestScaleAndPageMaths:
@@ -534,3 +544,290 @@ class TestReviewFindings:
         canvas_w = float(root.attrib["viewBox"].split()[2])
         points = _by_key(root, "out").attrib["points"].split()
         assert max(float(p.split(",")[0]) for p in points) <= canvas_w
+
+
+# ── Plant states and phase colours (#2489, GP-UX-005/059/060) ────────────────
+
+
+def _state(lifecycle: Lifecycle = "active", phase_key: str | None = "ph-flower", *badges: AttentionCode):
+    return PlantVisualState(
+        lifecycle=lifecycle,
+        phase_key=phase_key,
+        phase_progress=None,
+        attention=tuple(AttentionReason(code, 1) for code in badges),
+        harvest_ready="harvest" in badges,
+        harvest_ready_from=None,
+    )
+
+
+_PHASES = {"ph-flower": "flowering", "ph-veg": "Vegetative", "ph-rest": "Dormancy"}
+
+
+def _stated_view() -> tuple[GardenPlanView, PlantStateMarks]:
+    """Five plants in one bed: three phases (one unknown name), two rings, three badges and one plant with no state."""
+    beds = [make_location("b1", geometry=rect(1, 1, 4, 3))]
+    plants = [
+        PlantShortInfo(key=key, instance_id=key, species_key="sp", location_key="b1", phase_key=phase)
+        for key, phase in (("p0", "ph-flower"), ("p1", "ph-veg"), ("p2", "ph-rest"), ("p3", "ph-veg"), ("p4", None))
+    ]
+    marks = PlantStateMarks(
+        states={
+            "p0": _state("active", "ph-flower", "problem", "water"),
+            "p1": _state("harvesting", "ph-veg", "harvest"),
+            "p2": _state("active", "ph-rest", "overdue"),
+            "p3": _state("active", "ph-veg"),
+        },
+        phase_names=_PHASES,
+    )
+    return _view(locations=beds, plants=plants), marks
+
+
+def _legend_texts(root: ET.Element) -> list[str | None]:
+    (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+    return [e.text for e in legend.iter(f"{SVG}text")]
+
+
+def _plant_layer(root: ET.Element) -> ET.Element:
+    (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
+    return layer
+
+
+class TestPlantStates:
+    """A stated plant is drawn like on screen: phase-coloured disc, lifecycle ring, at most one badge."""
+
+    def test_the_disc_takes_the_phase_colour_and_the_ring_the_lifecycle(self) -> None:
+        view, marks = _stated_view()
+
+        layer = _plant_layer(_parse(_render(view, marks).svg))
+
+        discs = layer.findall(f"{SVG}circle")
+        assert [d.attrib["fill"] for d in discs] == ["#AB47BC", "#43A047", "#D4E157", "#43A047", "#1b5e20"]
+        widths = [float(d.attrib.get("stroke-width", 0)) for d in discs[:4]]
+        assert widths[1] > widths[0] == widths[2] == widths[3], "harvesting is the thick ring"
+        assert "stroke" not in discs[4].attrib and discs[4].attrib["fill-opacity"] == "0.85", "no state: as before"
+
+    def test_only_the_most_urgent_reason_is_drawn_as_a_badge(self) -> None:
+        view, marks = _stated_view()
+
+        layer = _plant_layer(_parse(_render(view, marks).svg))
+
+        badges = [g for g in layer.findall(f"{SVG}g")]
+        fills = [g.findall(f"{SVG}path")[0].attrib["fill"] for g in badges]
+        # p0 has problem and water: problem wins (GP-UX-060); p3 has none.
+        assert fills == ["#b84300", "#1b5e20", "#c62828"]
+        assert all(len(g.findall(f"{SVG}path")) == 2 for g in badges)
+
+    @pytest.mark.parametrize(
+        ("lifecycle", "dashed", "disc"),
+        [
+            ("planned", True, "0.4"),
+            ("sown", True, "0.4"),
+            ("active", False, None),
+            ("harvesting", False, None),
+            ("failed", False, "none"),
+            ("historic", True, "0.5"),
+        ],
+    )
+    def test_every_lifecycle_has_its_ring(self, lifecycle: Lifecycle, dashed: bool, disc: str | None) -> None:
+        view, _ = _stated_view()
+        marks = PlantStateMarks(states={"p0": _state(lifecycle)}, phase_names=_PHASES)
+
+        (first, *_rest) = _plant_layer(_parse(_render(view, marks).svg)).findall(f"{SVG}circle")
+
+        assert ("stroke-dasharray" in first.attrib) is dashed
+        if disc == "none":
+            assert first.attrib["fill"] == "none"
+        else:
+            assert first.attrib.get("fill-opacity") == disc
+
+    def test_a_phase_key_without_a_name_keeps_the_plant_colour_but_draws_the_ring(self) -> None:
+        view, marks = _stated_view()
+        marks = PlantStateMarks(states=marks.states, phase_names={})
+
+        layer = _plant_layer(_parse(_render(view, marks).svg))
+
+        discs = layer.findall(f"{SVG}circle")
+        assert {d.attrib["fill"] for d in discs} == {"#1b5e20"}
+        assert all(d.attrib.get("stroke") == "#212121" for d in discs[:4])
+
+    def test_states_inside_the_allowlist_with_every_lifecycle_and_badge(self) -> None:
+        """GP-NFR-052 (b): the stated markers, the badges and their legend use listed tags and attributes only."""
+        beds = [make_location("b1", geometry=rect(1, 1, 4, 3))]
+        keys = [f"p{i}" for i in range(len(LIFECYCLES) * len(ATTENTION_PRIORITY))]
+        plants = [_plant(key, None, "b1") for key in keys]
+        states = {
+            key: _state(LIFECYCLES[i % len(LIFECYCLES)], "ph-x", ATTENTION_PRIORITY[i % len(ATTENTION_PRIORITY)])
+            for i, key in enumerate(keys)
+        }
+        marks = PlantStateMarks(states=states, phase_names={"ph-x": HOSTILE_IMAGE_NAME})
+
+        rendered = _render(_view(locations=beds, plants=plants), marks, layers=frozenset(PlanSvgLayer))
+
+        root = _parse(rendered.svg)
+        assert _tags(root) <= ALLOWED_ELEMENTS
+        assert _attribute_names(root) <= ALLOWED_ATTRIBUTES
+        assert "url(" not in rendered.svg and "<image" not in rendered.svg
+        paints = {e.attrib[a] for e in root.iter() for a in ("fill", "stroke") if a in e.attrib}
+        assert all(p == "none" or (p.startswith("#") and len(p) == 7) for p in paints)
+
+    def test_from_the_threshold_on_the_states_are_ignored_and_the_counter_stays(self) -> None:
+        beds = [make_location("b1", geometry=rect(1, 1, 4, 3))]
+        plants = [_plant(f"p{i}", None, "b1") for i in range(PLANT_COUNTER_THRESHOLD)]
+        marks = PlantStateMarks(
+            states={plant.key: _state("active", "ph-flower", "overdue") for plant in plants}, phase_names=_PHASES
+        )
+
+        rendered = _render(_view(locations=beds, plants=plants), marks, locale="en")
+
+        root = _parse(rendered.svg)
+        layer = _plant_layer(root)
+        assert rendered.plant_counters is True
+        assert layer.findall(f"{SVG}circle") == [] and layer.findall(f"{SVG}g") == []
+        assert _legend_texts(root) == ["Bed", "Number = plants in the bed"]
+
+
+class TestPlantStateLegend:
+    """GP-UX-005: the legend names the phases, rings and badges on the plan — and only those."""
+
+    @pytest.mark.parametrize(
+        ("locale", "expected"),
+        [
+            (
+                "de",
+                [
+                    "Beet",
+                    "Pflanze",
+                    "Phase: Blüte",
+                    "Phase: Ruhephase",
+                    "Phase: Vegetativ",
+                    "Ring: wächst",
+                    "Ring dick: in Ernte",
+                    "Dreieck: Befund",
+                    "Kreis: überfällig",
+                    "Quadrat: erntereif",
+                ],
+            ),
+            (
+                "en",
+                [
+                    "Bed",
+                    "Plant",
+                    "Phase: Dormancy",
+                    "Phase: Flowering",
+                    "Phase: Vegetative",
+                    "Ring: growing",
+                    "Thick ring: harvesting",
+                    "Triangle: finding",
+                    "Circle: overdue",
+                    "Square: ready to harvest",
+                ],
+            ),
+        ],
+    )
+    def test_phases_rings_and_badges_present(self, locale: str, expected: list[str]) -> None:
+        view, marks = _stated_view()
+
+        assert _legend_texts(_parse(_render(view, marks, locale=locale).svg)) == expected
+
+    def test_the_swatches_carry_the_colours_the_plants_carry(self) -> None:
+        view, marks = _stated_view()
+
+        root = _parse(_render(view, marks, locale="en").svg)
+
+        (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+        circles = [c.attrib["fill"] for c in legend.findall(f"{SVG}circle")]
+        # plant, Dormancy, Flowering, Vegetative, two ring swatches
+        assert circles == ["#1b5e20", "#D4E157", "#AB47BC", "#43A047", "#bdbdbd", "#bdbdbd"]
+        badge_fills = [g.findall(f"{SVG}path")[0].attrib["fill"] for g in legend.findall(f"{SVG}g")]
+        assert badge_fills == ["#b84300", "#c62828", "#1b5e20"]
+
+    def test_every_plant_with_a_phase_colour_drops_the_uniform_plant_entry(self) -> None:
+        view, marks = _stated_view()
+        view = view.model_copy(update={"plants": view.plants[:4]})
+
+        texts = _legend_texts(_parse(_render(view, marks, locale="en").svg))
+
+        assert "Plant" not in texts and "Phase: Flowering" in texts
+
+    def test_an_unknown_phase_name_is_printed_as_stored_and_shortened(self) -> None:
+        view, marks = _stated_view()
+        marks = PlantStateMarks(states={"p0": _state()}, phase_names={"ph-flower": "Nachreife im Keller " * 3})
+
+        texts = _legend_texts(_parse(_render(view, marks).svg))
+
+        (phase,) = [t for t in texts if t and t.startswith("Phase: ")]
+        assert phase.startswith("Phase: Nachreife im") and phase.endswith("…")
+        assert len(phase) <= plan_svg_engine._LEGEND_LABEL_CHARS
+
+    def test_the_bigger_legend_still_fits_the_acceptance_page(self) -> None:
+        view, marks = _stated_view()
+        everything = {
+            f"p{i}": _state(lifecycle, "ph-flower", code)
+            for i, (lifecycle, code) in enumerate(zip(LIFECYCLES, ATTENTION_PRIORITY, strict=False))
+        }
+        plants = [_plant(key, None, "b1") for key in everything]
+        view = view.model_copy(update={"plants": plants, "locations": _three_beds()})
+
+        rendered = _render(view, PlantStateMarks(states=everything, phase_names=_PHASES))
+
+        assert rendered.fits is True and rendered.scale == 50
+
+        # SCR-003: one legend entry per phase made the strip of a many-phase plan tall enough to push a fixed 1:50
+        # A4 plan off its page (422 ``plan.does_not_fit``). The phases are capped; the rest share one entry.
+        phases = {f"ph-{n:02d}": f"Custom phase {n:02d}" for n in range(12)}
+        # p-NN-i: phase NN carries 12 - NN plants, so ph-00 … ph-05 are the six most frequent; phase 00 alone has
+        # every lifecycle and the phases together every badge.
+        states = {
+            f"p-{n:02d}-{i}": _state(LIFECYCLES[i % len(LIFECYCLES)], key, ATTENTION_PRIORITY[n % 5])
+            for n, key in enumerate(phases)
+            for i in range(12 - n)
+        }
+        plants = [_plant(key, None, "b1") for key in states]
+        view = _view(locations=_three_beds(), plants=plants)
+
+        rendered = _render(view, PlantStateMarks(states=states, phase_names=phases), scale=50, locale="en")
+
+        assert rendered.fits is True and rendered.scale == 50
+        texts = [t or "" for t in _legend_texts(_parse(rendered.svg))]
+        phase_entries = [t for t in texts if t.startswith("Phase: ") or t.endswith("more phases")]
+        assert len(phase_entries) == plan_svg_engine._MAX_PHASE_ENTRIES + 1
+        assert phase_entries[:-1] == [f"Phase: Custom phase {n:02d}" for n in range(6)]
+        assert phase_entries[-1] == "+6 more phases"
+
+    def test_one_hidden_phase_is_named_in_the_singular(self) -> None:
+        phases = {f"ph-{n}": f"Phase {n}" for n in range(7)}
+        states = {f"p{n}": _state("active", key) for n, key in enumerate(phases)}
+        view = _view(locations=_three_beds(), plants=[_plant(key, None, "b1") for key in states])
+
+        texts = _legend_texts(_parse(_render(view, PlantStateMarks(states=states, phase_names=phases)).svg))
+
+        assert texts[-2:] == ["+1 weitere Phase", "Ring: wächst"]
+
+    def test_a_long_phase_name_is_shortened_to_its_legend_column(self) -> None:
+        """SCR-004: the text starts after the swatch, so the whole entry — prefix included — must fit the column."""
+        view, _ = _stated_view()
+        name = "Nachreife im Keller bei 12 °C!"  # 30 characters
+        assert len(name) == 30
+        marks = PlantStateMarks(states={"p0": _state()}, phase_names={"ph-flower": name})
+
+        texts = _legend_texts(_parse(_render(view, marks).svg))
+
+        (phase,) = [t for t in texts if t and t.startswith("Phase: ")]
+        assert phase.endswith("…") and len(phase) == plan_svg_engine._LEGEND_LABEL_CHARS
+        text_mm = len(phase) * plan_svg_engine._LABEL_MM * plan_svg_engine._GLYPH_WIDTH_EM
+        offset_mm = plan_svg_engine._LEGEND_SWATCH_MM + plan_svg_engine._LEGEND_TEXT_GAP_MM
+        assert offset_mm + text_mm <= plan_svg_engine._LEGEND_COLUMN_MM
+
+    def test_golden_legend_markup_de(self) -> None:
+        """Snapshot of the legend block for a fixed fixture: a change to it is a deliberate change of this file."""
+        view, marks = _stated_view()
+
+        svg = _render(view, marks, locale="de").svg
+
+        # The legend is the last group of the document; the writer's own bytes are compared, not a re-serialisation.
+        start = svg.index('<g id="legend">')
+        assert svg.endswith("</svg>")
+        assert svg[start : -len("</svg>")] == _GOLDEN_LEGEND.read_text(encoding="utf-8").strip()
+
+
+_GOLDEN_LEGEND = Path(__file__).with_name("golden") / "plan_svg_legend_de.svg"

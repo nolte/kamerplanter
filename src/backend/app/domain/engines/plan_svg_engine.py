@@ -18,12 +18,21 @@ Paint values are matched against a hex pattern before they are written; there is
 **Layout.** One canvas: the plan, below it a strip with the scale bar, the north arrow and the legend. The
 scale is chosen from the twelve fixed steps (GP-FR-142) as the finest one at which the plan *and* the strip
 fit the page; ``A3`` is suggested when A4 would need a scale coarser than 1:200.
+
+**Plant states (GP-UX-005/059/060, #2489).** When the caller hands :class:`PlantStateMarks` (the export service
+computes them with the same assembly as ``GET /locations/{key}/plant-states``), a plant below the counter threshold is
+drawn as the plan on screen draws it: the disc in its phase colour (:mod:`app.domain.engines.phase_colors`), the ring
+style of its lifecycle (stroke width and dash only) and at most one attention badge (two ``path`` elements in a
+``g``) — all inside the allowlist. The legend lists the phases, rings and badges that are on the plan. A plant without
+a state keeps the uniform plant colour; from the threshold on, the counters apply as before (GP-NFR-038).
 """
 
 from __future__ import annotations
 
 import math
 import re
+from collections import Counter
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
@@ -36,8 +45,16 @@ from app.domain.calculators.geometry_calculator import (
     centroid,
     to_shape,
 )
+from app.domain.calculators.plant_state_calculator import (
+    ATTENTION_PRIORITY,
+    LIFECYCLES,
+    AttentionCode,
+    Lifecycle,
+    PlantVisualState,
+)
+from app.domain.engines.phase_colors import phase_color
 from app.domain.models.garden_object import POINT_OBJECT_RADIUS_M, GardenObject
-from app.domain.models.garden_plan import GardenPlanView, PlanSlotView
+from app.domain.models.garden_plan import GardenPlanView, PlanSlotView, PlantShortInfo
 from app.domain.models.geometry import (
     CircleGeometry,
     Geometry,
@@ -182,6 +199,13 @@ def escape_attribute(value: str) -> str:
     )
 
 
+def _fine(value: float) -> str:
+    """A small factor (a scale, a stroke width inside a scaled group) with three decimals, trailing zeros dropped."""
+    if not math.isfinite(value):
+        raise ValueError("SVG values must be finite")
+    return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
 def _num(value: float) -> str:
     if not math.isfinite(value):
         raise ValueError("SVG coordinates must be finite")
@@ -241,6 +265,20 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "legend_plant": "Pflanze",
         "legend_plants_counter": "Zahl = Pflanzen im Beet",
         "legend_slot": "Pflanzplatz",
+        "legend_phase": "Phase",
+        "legend_more_phase": "+{n} weitere Phase",
+        "legend_more_phases": "+{n} weitere Phasen",
+        "ring_planned": "Ring: geplant",
+        "ring_sown": "Ring: gesät",
+        "ring_active": "Ring: wächst",
+        "ring_harvesting": "Ring dick: in Ernte",
+        "ring_failed": "Ring leer: ausgefallen",
+        "ring_historic": "Ring: abgeschlossen",
+        "badge_problem": "Dreieck: Befund",
+        "badge_frost": "Sechseck: Frostgefahr",
+        "badge_overdue": "Kreis: überfällig",
+        "badge_water": "Tropfen: gießen",
+        "badge_harvest": "Quadrat: erntereif",
         "metre": "m",
         "plants": "Pflanzen",
         "desc": "Maßstäblicher Gartenplan",
@@ -269,6 +307,20 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "legend_plant": "Plant",
         "legend_plants_counter": "Number = plants in the bed",
         "legend_slot": "Planting spot",
+        "legend_phase": "Phase",
+        "legend_more_phase": "+{n} more phase",
+        "legend_more_phases": "+{n} more phases",
+        "ring_planned": "Ring: planned",
+        "ring_sown": "Ring: sown",
+        "ring_active": "Ring: growing",
+        "ring_harvesting": "Thick ring: harvesting",
+        "ring_failed": "Empty ring: failed",
+        "ring_historic": "Ring: finished",
+        "badge_problem": "Triangle: finding",
+        "badge_frost": "Hexagon: frost risk",
+        "badge_overdue": "Circle: overdue",
+        "badge_water": "Drop: watering due",
+        "badge_harvest": "Square: ready to harvest",
         "metre": "m",
         "plants": "plants",
         "desc": "Garden plan to scale",
@@ -290,6 +342,61 @@ _LABELS: Final[dict[str, dict[str, str]]] = {
         "type_lamp": "Lamp",
     },
 }
+
+#: Display names of the known growth phases (``enums.phaseName`` of the frontend), keyed like
+#: ``PlantStateLegendSection.phaseKeyOf``; any other name is printed as stored.
+_PHASE_NAMES: Final[dict[str, dict[str, str]]] = {
+    "de": {
+        "germination": "Keimung",
+        "seedling": "Sämling",
+        "vegetative": "Vegetativ",
+        "flowering": "Blüte",
+        "flushing": "Spülung",
+        "dormancy": "Ruhephase",
+        "ripening": "Reife",
+        "harvest": "Ernte",
+        "juvenile": "Juvenil",
+        "climbing": "Kletterphase",
+        "mature": "Reife Pflanze",
+        "establishment": "Etablierung",
+        "pup_establishment": "Kindel-Etablierung",
+        "pre_bloom": "Vorblüte",
+        "senescence": "Seneszenz",
+        "recovery": "Erholung",
+        "sprouting": "Austrieb",
+        "hardening_off": "Abhärtung",
+        "budding": "Knospenbildung",
+        "corm_ripening": "Knollenreife",
+        "tuber_formation": "Knollenbildung",
+    },
+    "en": {
+        "germination": "Germination",
+        "seedling": "Seedling",
+        "vegetative": "Vegetative",
+        "flowering": "Flowering",
+        "flushing": "Flushing",
+        "dormancy": "Dormancy",
+        "ripening": "Ripening",
+        "harvest": "Harvest",
+        "juvenile": "Juvenile",
+        "climbing": "Climbing",
+        "mature": "Mature",
+        "establishment": "Establishment",
+        "pup_establishment": "Pup Establishment",
+        "pre_bloom": "Pre-Bloom",
+        "senescence": "Senescence",
+        "recovery": "Recovery",
+        "sprouting": "Sprouting",
+        "hardening_off": "Hardening Off",
+        "budding": "Budding",
+        "corm_ripening": "Corm Ripening",
+        "tuber_formation": "Tuber Formation",
+    },
+}
+_PHASE_SEPARATORS = re.compile(r"[\s-]+")
+#: Phases the legend names one by one: the most frequent by plant count; the rest share one "+n more phases" entry,
+#: so a plan with many phases keeps a strip of bounded height and still fits its page at the requested scale.
+_MAX_PHASE_ENTRIES: Final = 6
 
 
 # ── Styling ───────────────────────────────────────────────────────────────────
@@ -328,12 +435,70 @@ _TEXT_COLOR: Final = "#212121"
 _PLANT_COLOR: Final = "#1b5e20"
 _GRID_COLOR: Final = "#cfd8dc"
 
+
+@dataclass(frozen=True)
+class _RingStyle:
+    """The ring of a stated plant marker (``renderer/plantMarkerStyle.ts`` ``RING_STYLES``), in what paper can carry:
+    the dash pattern (units of :data:`_RING_DASH_MM`), the stroke width and the disc's fill opacity (0 = no disc)."""
+
+    dash: str | None
+    width_mm: float
+    disc_opacity: float
+
+
+#: Lifecycle → ring (§11.3). The screen's double ring (harvesting) is a thick ring on paper, the cross on a failed
+#: plant an empty ring; every lifecycle stays apart in greyscale.
+_RING_STYLE: Final[dict[Lifecycle, _RingStyle]] = {
+    "planned": _RingStyle("3 2", 0.2, 0.4),
+    "sown": _RingStyle("1 2", 0.2, 0.4),
+    "active": _RingStyle(None, 0.2, 1.0),
+    "harvesting": _RingStyle(None, 0.5, 1.0),
+    "failed": _RingStyle(None, 0.2, 0.0),
+    "historic": _RingStyle("6 3", 0.2, 0.5),
+}
+_RING_DASH_MM: Final = 0.2
+#: Fill, outline path and glyph path of the one attention badge (``plantMarkerStyle.ts`` ``BADGE_STYLES``), drawn in a
+#: -1…1 box that a ``transform`` places and scales.
+_BADGE_STYLE: Final[dict[AttentionCode, tuple[str, str, str]]] = {
+    "problem": ("#b84300", "M0 -1L1 0.85L-1 0.85Z", "M0 -0.3V0.3M0 0.55V0.58"),
+    "frost": (
+        "#01579b",
+        "M0 -1L0.87 -0.5L0.87 0.5L0 1L-0.87 0.5L-0.87 -0.5Z",
+        "M0 -0.55V0.55M-0.48 -0.27L0.48 0.27M-0.48 0.27L0.48 -0.27",
+    ),
+    "overdue": ("#c62828", "M0 -1A1 1 0 1 1 0 1A1 1 0 1 1 0 -1Z", "M0 -0.5V0.1M0 0.45V0.48"),
+    "water": (
+        "#0d47a1",
+        "M0 -1C0.8 -0.1 0.95 0.3 0.95 0.5A0.95 0.95 0 0 1 -0.95 0.5C-0.95 0.3 -0.8 -0.1 0 -1Z",
+        "M-0.35 0.45A0.4 0.4 0 0 0 0.05 0.85",
+    ),
+    "harvest": ("#1b5e20", "M-0.85 -0.85H0.85V0.85H-0.85Z", "M-0.5 0L-0.1 0.42L0.55 -0.4"),
+}
+_BADGE_OUTLINE: Final = "#ffffff"
+#: Badge radius and centre offset (upper right) as shares of the marker radius (``plantMarkerStyle.ts``).
+_BADGE_RADIUS_SHARE: Final = 0.62
+_BADGE_OFFSET_SHARE: Final = 0.85
+#: Disc of the ring swatches in the legend: neutral, so a ring entry is not read as a phase.
+_RING_SWATCH_FILL: Final = "#bdbdbd"
+
 _LEGEND_COLUMN_MM: Final = 46.0
 _LEGEND_ROW_MM: Final = 5.0
+#: Swatch width and the gap to its text in a legend entry; the text starts this far into its column.
+_LEGEND_SWATCH_MM: Final = 5.0
+_LEGEND_TEXT_GAP_MM: Final = 1.8
+#: Clearance kept free before the next column's swatch.
+_LEGEND_COLUMN_GAP_MM: Final = 0.5
 _STRIP_BASE_MM: Final = 24.0
 _MIN_CANVAS_MM: Final = 120.0
 _PAD_MM: Final = 3.0
 _LABEL_MM: Final = 2.8
+#: Average glyph width as a share of the font size: the estimate every text fit on the plan uses.
+_GLYPH_WIDTH_EM: Final = 0.55
+#: Characters a legend text may take before it runs into the next column (25 with the values above).
+_LEGEND_LABEL_CHARS: Final = int(
+    (_LEGEND_COLUMN_MM - _LEGEND_SWATCH_MM - _LEGEND_TEXT_GAP_MM - _LEGEND_COLUMN_GAP_MM)
+    / (_LABEL_MM * _GLYPH_WIDTH_EM)
+)
 _GRID_MIN_PITCH_MM: Final = 5.0
 _NICE_LENGTHS_M: Final = (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000)
 
@@ -353,6 +518,15 @@ class PlanSvgOptions:
     accent: str = DEFAULT_ACCENT
     #: Height reserved above the SVG on the page (the PDF's title block); 0 for the stand-alone SVG.
     header_mm: float = 0.0
+
+
+@dataclass(frozen=True)
+class PlantStateMarks:
+    """What the plan knows about its plants' states (GP-UX-005/059/060): the visual state per plant key and the
+    growth-phase name per phase key. A plant that has no entry in ``states`` is drawn in the uniform plant colour."""
+
+    states: Mapping[str, PlantVisualState] = field(default_factory=dict)
+    phase_names: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -453,17 +627,113 @@ def _extent_of(view: GardenPlanView) -> _Extent | None:
 
 @dataclass(frozen=True)
 class _LegendEntry:
-    swatch: str  # "box" | "circle" | "line"
+    swatch: str  # "box" | "circle" | "badge" | "none" (text only)
     fill: str
     stroke: str
     label: str
     dash: str | None = None
+    #: Paper millimetres per unit of ``dash``.
+    dash_unit_mm: float = 0.4
+    #: Stroke width of a circle swatch in paper millimetres.
+    width_mm: float = 0.2
+    fill_opacity: float | None = None
+    badge: AttentionCode | None = None
+
+
+@dataclass(frozen=True)
+class _PlantMarker:
+    """One plant symbol: where it stands (plan metres), its state (``None`` = uniform symbol) and its disc colour."""
+
+    point: tuple[float, float]
+    state: PlantVisualState | None = None
+    fill: str = _PLANT_COLOR
+    phase_label: str | None = None
+
+
+def _phase_label(name: str, locale: str) -> str:
+    """The legend name of a growth phase: the translation of a known phase, else the stored name (cleaned). The
+    legend entry shortens it to its column (:data:`_LEGEND_LABEL_CHARS`)."""
+    key = _PHASE_SEPARATORS.sub("_", name.strip().lower())
+    known = _PHASE_NAMES.get(locale, _PHASE_NAMES["de"]).get(key)
+    return known if known is not None else " ".join(clean_text(name).split())
+
+
+def _marker_of(
+    plant: PlantShortInfo, point: tuple[float, float], marks: PlantStateMarks | None, locale: str
+) -> _PlantMarker:
+    state = marks.states.get(plant.key) if marks is not None else None
+    if marks is None or state is None:
+        return _PlantMarker(point)
+    phase_key = state.phase_key or plant.phase_key
+    name = marks.phase_names.get(phase_key) if phase_key else None
+    if not name or not name.strip():
+        return _PlantMarker(point, state)
+    return _PlantMarker(point, state, phase_color(name), _phase_label(name, locale))
+
+
+def _phase_rank(item: tuple[tuple[str, str], int]) -> tuple[int, str, str]:
+    """Sort key of a ``((label, fill), count)`` pair: most plants first, then by label and fill."""
+    return (-item[1], item[0][0].casefold(), item[0][1])
+
+
+def _phase_order(phase: tuple[str, str]) -> tuple[str, str]:
+    """Sort key of a shown ``(label, fill)`` phase: by label, then fill."""
+    return (phase[0].casefold(), phase[1])
+
+
+def _phase_entries(drawn: list[_PlantMarker], labels: dict[str, str]) -> list[_LegendEntry]:
+    """One entry per phase on the plan, at most :data:`_MAX_PHASE_ENTRIES`: the phases with the most plants (ties by
+    name), listed by name; the others share one "+n more phases" entry. Each text is shortened to its column."""
+    counts = Counter((marker.phase_label, marker.fill) for marker in drawn if marker.phase_label is not None)
+    ranked = sorted(counts.items(), key=_phase_rank)
+    shown = sorted((phase for phase, _count in ranked[:_MAX_PHASE_ENTRIES]), key=_phase_order)
+    entries = [
+        _LegendEntry("circle", fill, _TEXT_COLOR, _truncate(f"{labels['legend_phase']}: {label}", _LEGEND_LABEL_CHARS))
+        for label, fill in shown
+    ]
+    hidden = len(ranked) - len(shown)
+    if hidden > 0:
+        more = labels["legend_more_phase" if hidden == 1 else "legend_more_phases"].format(n=hidden)
+        entries.append(_LegendEntry("none", "none", "none", _truncate(more, _LEGEND_LABEL_CHARS)))
+    return entries
+
+
+def _plant_legend(markers: dict[str, list[_PlantMarker]], labels: dict[str, str]) -> Iterator[_LegendEntry]:
+    """The plant entries: the uniform symbol if any plant has no phase colour, then the phases, rings and badges that
+    are on the plan, each in a fixed order."""
+    drawn = [marker for bed in markers.values() for marker in bed]
+    if any(marker.phase_label is None for marker in drawn):
+        yield _LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"])
+    yield from _phase_entries(drawn, labels)
+    states = [marker.state for marker in drawn if marker.state is not None]
+    lifecycles = {state.lifecycle for state in states}
+    for lifecycle in LIFECYCLES:
+        if lifecycle in lifecycles:
+            ring = _RING_STYLE[lifecycle]
+            yield _LegendEntry(
+                "circle",
+                _RING_SWATCH_FILL if ring.disc_opacity > 0 else "none",
+                _TEXT_COLOR,
+                labels[f"ring_{lifecycle}"],
+                dash=ring.dash,
+                dash_unit_mm=_RING_DASH_MM,
+                width_mm=ring.width_mm,
+                fill_opacity=ring.disc_opacity if 0 < ring.disc_opacity < 1 else None,
+            )
+    badges = {state.attention[0].reason for state in states if state.attention}
+    for code in ATTENTION_PRIORITY:
+        if code in badges:
+            yield _LegendEntry("badge", _BADGE_STYLE[code][0], _BADGE_OUTLINE, labels[f"badge_{code}"], badge=code)
 
 
 def _legend(
-    view: GardenPlanView, options: PlanSvgOptions, labels: dict[str, str], *, counters: bool
-) -> list[_LegendEntry]:
-    entries: list[_LegendEntry] = []
+    view: GardenPlanView,
+    options: PlanSvgOptions,
+    labels: dict[str, str],
+    *,
+    counters: bool,
+    markers: dict[str, list[_PlantMarker]],
+) -> Iterator[_LegendEntry]:
     layers = options.layers
     if PlanSvgLayer.BEDS in layers:
         # Only what ``_bed_layer`` draws: areas, not lines or points.
@@ -475,27 +745,22 @@ def _legend(
         for status in (BedStatus.ACTIVE, BedStatus.PLANNED, BedStatus.RETIRED):
             if status in present:
                 fill, stroke, dash = _BED_STYLE[status]
-                entries.append(_LegendEntry("box", fill, stroke, labels[_BED_LABEL_KEY[status]], dash))
+                yield _LegendEntry("box", fill, stroke, labels[_BED_LABEL_KEY[status]], dash)
     if PlanSvgLayer.OBJECTS in layers:
-        seen: list[GardenObjectType] = []
-        for obj in view.garden_objects:
-            if not obj.off_site and obj.object_type not in seen:
-                seen.append(obj.object_type)
+        # First appearance order, each type once.
+        seen = {obj.object_type: None for obj in view.garden_objects if not obj.off_site}
         for object_type in seen:
             fill, stroke = _OBJECT_STYLE[object_type]
-            entries.append(_LegendEntry("box", fill, stroke, labels[f"type_{object_type.value}"]))
+            yield _LegendEntry("box", fill, stroke, labels[f"type_{object_type.value}"])
     if PlanSvgLayer.SLOTS in layers and view.slots:
-        entries.append(_LegendEntry("circle", "none", _PLANT_COLOR, labels["legend_slot"]))
+        yield _LegendEntry("circle", "none", _PLANT_COLOR, labels["legend_slot"])
     if PlanSvgLayer.PLANTS in layers and view.plants:
-        entries.append(
-            _LegendEntry(
-                "box" if counters else "circle",
-                _PLANT_COLOR,
-                _PLANT_COLOR,
-                labels["legend_plants_counter" if counters else "legend_plant"],
-            )
-        )
-    return entries
+        if counters:
+            yield _LegendEntry("box", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plants_counter"])
+        elif markers:
+            yield from _plant_legend(markers, labels)
+        else:
+            yield _LegendEntry("circle", _PLANT_COLOR, _PLANT_COLOR, labels["legend_plant"])
 
 
 # ── Layout ────────────────────────────────────────────────────────────────────
@@ -660,7 +925,7 @@ def _label_node(canvas: _Canvas, geometry: Geometry, text: str, *, key: str | No
         return None
     min_x, min_y, max_x, max_y = bounding_box(geometry)
     width_mm = (max_x - min_x) * 1000.0 / canvas.scale
-    max_chars = max(3, int(width_mm / (_LABEL_MM * 0.55)))
+    max_chars = max(3, int(width_mm / (_LABEL_MM * _GLYPH_WIDTH_EM)))
     cx, cy = centroid(geometry)
     attributes: dict[str, AttributeValue] = {
         "x": canvas.x(cx),
@@ -780,26 +1045,34 @@ def _slot_layer(canvas: _Canvas, slots: list[PlanSlotView]) -> _Node:
     return layer
 
 
-def _plant_positions(view: GardenPlanView) -> dict[str, list[tuple[float, float]]]:
-    """Plant marker positions per bed: the plant's slot, or — for a slotless plant — a sunflower spread that stays
-    inside the bed's bounding box (an ellipse of 40 % of its half-extent), however many plants stand there."""
-    slot_points = {slot.key: _slot_point(slot) for slot in view.slots}
-    slot_beds = {slot.key: slot.location_key for slot in view.slots}
-    beds = {loc.key: loc for loc in view.locations if loc.key and loc.geometry is not None}
-    placed: dict[str, list[tuple[float, float]]] = {}
-    slotless: dict[str, int] = {}
-    resolved: list[tuple[str, tuple[float, float] | None]] = []
-    for plant in view.plants:
+def _bedded_plants(
+    plants: list[PlantShortInfo],
+    beds: dict[str, Location],
+    slot_beds: dict[str, str],
+    slot_points: dict[str, tuple[float, float] | None],
+) -> Iterator[tuple[str, tuple[float, float] | None, PlantShortInfo]]:
+    """``(bed key, slot point or None, plant)`` for every plant standing in a drawn bed, in plan order; a plant in no
+    drawn bed is left out."""
+    for plant in plants:
         bed_key = plant.location_key or slot_beds.get(plant.slot_key or "")
         bed = beds.get(bed_key or "")
         if bed is None or bed.key is None:
             continue
         point = slot_points.get(plant.slot_key or "") if plant.slot_key else None
-        if point is None:
-            slotless[bed.key] = slotless.get(bed.key, 0) + 1
-        resolved.append((bed.key, point))
+        yield (bed.key, point, plant)
+
+
+def _plant_positions(view: GardenPlanView) -> dict[str, list[tuple[tuple[float, float], PlantShortInfo]]]:
+    """Plant marker positions per bed: the plant's slot, or — for a slotless plant — a sunflower spread that stays
+    inside the bed's bounding box (an ellipse of 40 % of its half-extent), however many plants stand there."""
+    slot_points = {slot.key: _slot_point(slot) for slot in view.slots}
+    slot_beds = {slot.key: slot.location_key for slot in view.slots}
+    beds = {loc.key: loc for loc in view.locations if loc.key and loc.geometry is not None}
+    placed: dict[str, list[tuple[tuple[float, float], PlantShortInfo]]] = {}
+    resolved = list(_bedded_plants(view.plants, beds, slot_beds, slot_points))
+    slotless: Counter[str] = Counter(bed_key for bed_key, point, _plant in resolved if point is None)
     seen: dict[str, int] = {}
-    for bed_key, point in resolved:
+    for bed_key, point, plant in resolved:
         if point is None:
             geometry = beds[bed_key].geometry
             assert geometry is not None  # noqa: S101 - beds are filtered on it
@@ -813,16 +1086,80 @@ def _plant_positions(view: GardenPlanView) -> dict[str, list[tuple[float, float]
                 cx + 0.4 * (max_x - min_x) * fraction * math.cos(angle),
                 cy + 0.4 * (max_y - min_y) * fraction * math.sin(angle),
             )
-        placed.setdefault(bed_key, []).append(point)
+        placed.setdefault(bed_key, []).append((point, plant))
     return placed
 
 
-def _plant_layer(canvas: _Canvas, view: GardenPlanView, labels: dict[str, str], *, counters: bool) -> _Node:
+def _plant_markers(view: GardenPlanView, marks: PlantStateMarks | None, locale: str) -> dict[str, list[_PlantMarker]]:
+    """The plant symbols per bed, each with its state and disc colour when ``marks`` carries one."""
+    return {
+        bed_key: [_marker_of(plant, point, marks, locale) for point, plant in placed]
+        for bed_key, placed in _plant_positions(view).items()
+    }
+
+
+def _badge_node(canvas: _Canvas, code: AttentionCode, x: float, y: float, radius: float) -> _Node:
+    """The one attention badge: outline and glyph of :data:`_BADGE_STYLE`, placed at ``(x, y)`` and scaled to
+    ``radius`` (SVG units). Stroke widths are given in the badge's own -1…1 box, so they shrink with the scale."""
+    fill, outline, glyph = _BADGE_STYLE[code]
+    line = _fine(canvas.paper(0.12) / radius)
+    return _el(
+        "g",
+        [
+            _el("path", d=outline, fill=fill, stroke=_BADGE_OUTLINE, stroke_width=line),
+            _el(
+                "path",
+                d=glyph,
+                fill="none",
+                stroke=_BADGE_OUTLINE,
+                stroke_width=line,
+                stroke_linecap="round",
+                stroke_linejoin="round",
+            ),
+        ],
+        transform=f"translate({_num(x)} {_num(y)}) scale({_fine(radius)})",
+    )
+
+
+def _ring_attributes(canvas: _Canvas, ring: _RingStyle, fill: str) -> dict[str, AttributeValue]:
+    attributes: dict[str, AttributeValue] = {
+        "fill": fill if ring.disc_opacity > 0 else "none",
+        "stroke": _TEXT_COLOR,
+        "stroke-width": canvas.paper(ring.width_mm),
+    }
+    if 0 < ring.disc_opacity < 1:
+        attributes["fill-opacity"] = f"{ring.disc_opacity:g}"
+    if ring.dash:
+        attributes["stroke-dasharray"] = " ".join(
+            _num(canvas.paper(float(part) * _RING_DASH_MM)) for part in ring.dash.split()
+        )
+    return attributes
+
+
+def _stated_marker(canvas: _Canvas, marker: _PlantMarker, state: PlantVisualState, radius: float) -> list[_Node]:
+    """Disc in the phase colour, ring of the lifecycle and, when the plant needs attention, the most urgent badge."""
+    x, y = canvas.x(marker.point[0]), canvas.y(marker.point[1])
+    nodes = [
+        _Node(
+            "circle",
+            {"cx": x, "cy": y, "r": radius, **_ring_attributes(canvas, _RING_STYLE[state.lifecycle], marker.fill)},
+        )
+    ]
+    if state.attention:
+        offset = radius * _BADGE_OFFSET_SHARE
+        nodes.append(
+            _badge_node(canvas, state.attention[0].reason, x + offset, y - offset, radius * _BADGE_RADIUS_SHARE)
+        )
+    return nodes
+
+
+def _plant_layer(
+    canvas: _Canvas, view: GardenPlanView, markers: dict[str, list[_PlantMarker]], *, counters: bool
+) -> _Node:
     layer = _el("g", id="layer-plants")
-    positions = _plant_positions(view)
     beds = {loc.key: loc for loc in view.locations if loc.key}
     if counters:
-        for bed_key, points in positions.items():
+        for bed_key, points in markers.items():
             bed = beds[bed_key]
             assert bed.geometry is not None  # noqa: S101 - positions are built from beds with a geometry
             cx, cy = centroid(bed.geometry)
@@ -842,8 +1179,13 @@ def _plant_layer(canvas: _Canvas, view: GardenPlanView, labels: dict[str, str], 
             )
         return layer
     radius = max(0.08 * 1000.0, canvas.paper(0.6))
-    for points in positions.values():
-        for px, py in points:
+    stated_radius = max(0.1 * 1000.0, canvas.paper(1.0))
+    for bed_markers in markers.values():
+        for marker in bed_markers:
+            if marker.state is not None:
+                layer.add(*_stated_marker(canvas, marker, marker.state, stated_radius))
+                continue
+            px, py = marker.point
             layer.add(_el("circle", cx=canvas.x(px), cy=canvas.y(py), r=radius, fill=_PLANT_COLOR, fill_opacity="0.85"))
     return layer
 
@@ -965,20 +1307,27 @@ def _legend_layer(canvas: _Canvas, entries: list[_LegendEntry], y_top: float) ->
         column, row = index % cols, index // cols
         x = canvas.paper(5.0 + column * _LEGEND_COLUMN_MM)
         y = y_top + canvas.paper(row * _LEGEND_ROW_MM)
-        swatch_w, swatch_h = canvas.paper(5.0), canvas.paper(3.0)
-        if entry.swatch == "circle":
-            layer.add(
-                _el(
-                    "circle",
-                    cx=x + swatch_w / 2,
-                    cy=y + swatch_h / 2,
-                    r=canvas.paper(1.2),
-                    fill=entry.fill,
-                    stroke=entry.stroke,
-                    stroke_width=canvas.paper(0.2),
-                )
+        swatch_w, swatch_h = canvas.paper(_LEGEND_SWATCH_MM), canvas.paper(3.0)
+        if entry.badge is not None:
+            layer.add(_badge_node(canvas, entry.badge, x + swatch_w / 2, y + swatch_h / 2, canvas.paper(1.4)))
+        elif entry.swatch == "circle":
+            circle = _el(
+                "circle",
+                cx=x + swatch_w / 2,
+                cy=y + swatch_h / 2,
+                r=canvas.paper(1.2),
+                fill=entry.fill,
+                stroke=entry.stroke,
+                stroke_width=canvas.paper(entry.width_mm),
             )
-        else:
+            if entry.fill_opacity is not None:
+                circle.attributes["fill-opacity"] = f"{entry.fill_opacity:g}"
+            if entry.dash:
+                circle.attributes["stroke-dasharray"] = " ".join(
+                    _num(canvas.paper(float(part) * entry.dash_unit_mm)) for part in entry.dash.split()
+                )
+            layer.add(circle)
+        elif entry.swatch == "box":
             rect = _el(
                 "rect",
                 x=x,
@@ -991,14 +1340,14 @@ def _legend_layer(canvas: _Canvas, entries: list[_LegendEntry], y_top: float) ->
             )
             if entry.dash:
                 rect.attributes["stroke-dasharray"] = " ".join(
-                    _num(canvas.paper(float(part) * 0.4)) for part in entry.dash.split()
+                    _num(canvas.paper(float(part) * entry.dash_unit_mm)) for part in entry.dash.split()
                 )
             layer.add(rect)
         layer.add(
             _el(
                 "text",
                 [entry.label],
-                x=x + swatch_w + canvas.paper(1.8),
+                x=x + swatch_w + canvas.paper(_LEGEND_TEXT_GAP_MM),
                 y=y + swatch_h / 2,
                 font_size=canvas.paper(_LABEL_MM),
                 font_family=_FONT,
@@ -1012,8 +1361,11 @@ def _legend_layer(canvas: _Canvas, entries: list[_LegendEntry], y_top: float) ->
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 
-def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions) -> PlanSvg:
+def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions, marks: PlantStateMarks | None = None) -> PlanSvg:
     """Draw the plan as one allowlisted SVG document.
+
+    ``marks`` carries the plants' states and phase names (#2489); without it every plant is the uniform symbol.
+    From :data:`PLANT_COUNTER_THRESHOLD` plants on the marks are not read: each bed shows its counter.
 
     Raises:
         PlanError: ``plan.empty`` (422) when the plan has neither a boundary nor a placed bed or object.
@@ -1025,7 +1377,12 @@ def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions) -> PlanSvg:
     if extent is None:
         raise PlanError("plan.empty", "The plan has no boundary and nothing placed on it.", status_code=422)
     counters = PlanSvgLayer.PLANTS in options.layers and len(view.plants) >= PLANT_COUNTER_THRESHOLD
-    entries = _legend(view, options, labels, counters=counters)
+    markers = (
+        _plant_markers(view, None if counters else marks, options.locale)
+        if PlanSvgLayer.PLANTS in options.layers
+        else {}
+    )
+    entries = list(_legend(view, options, labels, counters=counters, markers=markers))
     layout, fits = choose_layout(extent, len(entries), options)
     canvas = _Canvas(extent, layout)
 
@@ -1052,7 +1409,7 @@ def render_plan_svg(view: GardenPlanView, options: PlanSvgOptions) -> PlanSvg:
     if PlanSvgLayer.SLOTS in layers:
         root.add(_slot_layer(canvas, view.slots))
     if PlanSvgLayer.PLANTS in layers:
-        root.add(_plant_layer(canvas, view, labels, counters=counters))
+        root.add(_plant_layer(canvas, view, markers, counters=counters))
     if PlanSvgLayer.LABELS in layers:
         root.add(_label_layer(canvas, view, layers))
     strip_top = canvas.strip_top + canvas.paper(3.0)
@@ -1088,6 +1445,7 @@ __all__ = [
     "PlanSvg",
     "PlanSvgLayer",
     "PlanSvgOptions",
+    "PlantStateMarks",
     "escape_attribute",
     "escape_text",
     "page_size_mm",

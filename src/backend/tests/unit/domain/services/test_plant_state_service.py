@@ -32,6 +32,11 @@ class RecordingRepo(IPlantStateRepository):
         self.calls.append((location_key, tenant_key, offset, limit))
         return self.rows
 
+    def list_plants_in_beds(
+        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int
+    ) -> list[PlantStateSource]:
+        raise AssertionError("the plant-states API reads one bed, never the site-wide window")
+
 
 def row(**overrides: object) -> PlantStateSource:
     fields: dict[str, object] = {

@@ -121,6 +121,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     onActivateKey,
     phaseColors,
     plantStates,
+    plantStateLayer,
     describedPlantKey,
     invalidKeys,
     zoneLayer,
@@ -131,8 +132,8 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     underlayLayer,
   } = options;
   const scene = useMemo(
-    () => buildScene(model, viewport, selection, { enteredLocationKey, plantStates, invalidKeys }),
-    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys],
+    () => buildScene(model, viewport, selection, { enteredLocationKey, plantStates, invalidKeys, plantStateLayer }),
+    [model, viewport, selection, enteredLocationKey, plantStates, invalidKeys, plantStateLayer],
   );
   const palette = useMemo(() => planPalette(theme), [theme]);
   const { pxPerM } = viewport;
@@ -205,7 +206,7 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
           labels={labels}
           palette={palette}
           phaseColors={phaseColors}
-          state={plantStates?.[marker.entry.key]}
+          state={marker.layerState ?? plantStates?.[marker.entry.key]}
           described={describedPlantKey === marker.entry.key}
           onFocusKey={onFocusKey}
           onActivateKey={onActivateKey}
@@ -601,10 +602,11 @@ const MarkerNode = memo(function MarkerNode({
   onFocusKey,
   onActivateKey,
 }: MarkerNodeProps) {
-  const { entry, selected, interactive, tabStop } = marker;
+  const { entry, selected, interactive, tabStop, layerState } = marker;
   const theme = useTheme();
   const plant = entry.kind === 'plant';
-  const stated = plant && interactive && state !== undefined;
+  // Inside the entered bed every known state is drawn; elsewhere the plant-state layer decides (GP-UX-061).
+  const stated = plant && state !== undefined && (interactive || layerState !== undefined);
   const baseRadiusPx = stated ? STATE_MARKER_RADIUS_PX : MARKER_RADIUS_PX;
   const radius = (selected ? baseRadiusPx * 1.5 : baseRadiusPx) / pxPerM;
   const fill = markerFill(entry.phaseKey, palette, phaseColors);
@@ -639,7 +641,15 @@ const MarkerNode = memo(function MarkerNode({
       aria-hidden={interactive ? undefined : 'true'}
     />
   );
-  if (!interactive) return circle;
+  if (!interactive) {
+    if (!stated) return circle;
+    // A layer marker is decorative, like a batch: the bed's label carries the count, the bed view the details.
+    return (
+      <g data-plan-key={entry.key} data-plan-kind={entry.kind} data-plan-state-layer="true" aria-hidden="true" pointerEvents="none">
+        {circle}
+      </g>
+    );
+  }
   return (
     <g
       className="gp-obj"
@@ -763,7 +773,7 @@ const ClusterNode = memo(function ClusterNode({
         fill="#fff"
         aria-hidden="true"
       >
-        {cluster.count}
+        {cluster.shownCount}
       </text>
       {cluster.attention && cluster.topBadge ? (
         <PlantBadge code={cluster.topBadge} x={cluster.x + radius * 0.85} y={-cluster.y - radius * 0.85} radius={radius * 0.55} />

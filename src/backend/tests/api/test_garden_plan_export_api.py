@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import xml.etree.ElementTree as ET
 from collections.abc import Callable, Iterator
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -26,7 +27,10 @@ from app.common.dependencies import (
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, UnauthorizedError
 from app.config.settings import settings
+from app.domain.engines.plan_svg_engine import ALLOWED_ATTRIBUTES, ALLOWED_ELEMENTS
 from app.domain.interfaces.auth_provider import IAuthProvider
+from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
+from app.domain.models.garden_plan import PlantShortInfo
 from app.domain.models.site import SitePlan
 from app.domain.models.user import User
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
@@ -87,6 +91,38 @@ class _Tenants:
 
     def get_personal_tenant(self, user_key: str):
         return None
+
+
+class _OneBedOfStates(IPlantStateRepository):
+    """The plant-state source of the one bed ``bed``; records the tenant every read carries."""
+
+    def __init__(self, rows: list[PlantStateSource]) -> None:
+        self.rows = rows
+        self.tenants: list[str] = []
+
+    def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit):
+        self.tenants.append(tenant_key)
+        return self.rows[offset : offset + limit] if location_key == "bed" else []
+
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+        self.tenants.append(tenant_key)
+        return self.rows[offset : offset + limit] if "bed" in bed_keys else []
+
+
+class _PhaseNames:
+    def __init__(self, names: dict[str, str]) -> None:
+        self.names = names
+
+    def get_phase_names(self, keys):
+        return {key: self.names[key] for key in keys if key in self.names}
+
+
+def _tags_of(root: ET.Element) -> set[str]:
+    return {element.tag.removeprefix(SVG) for element in root.iter()}
+
+
+def _attributes_of(root: ET.Element) -> set[str]:
+    return {name for element in root.iter() for name in element.attrib}
 
 
 @pytest.fixture
@@ -156,6 +192,45 @@ class TestTheSvgDownload:
         root = ET.fromstring(response.text)
         assert not list(root.iter(f"{SVG}image"))
         assert HOSTILE in [e.text for e in root.iter(f"{SVG}title")]
+
+    def test_plant_states_and_phase_colours_reach_the_download(self, client, repo) -> None:
+        """#2489 smoke: with a plant-state source and a phase name the SVG on the wire carries the phase-coloured
+        disc, the badge and the legend entries, and stays inside the allowlist."""
+        from app.main import app
+
+        repo.plants = [PlantShortInfo(key="p1", instance_id="P1", species_key="sp", location_key="bed", phase_key="ph")]
+        states = _OneBedOfStates(
+            [
+                PlantStateSource(
+                    plant_key="p1",
+                    instance_id="P1",
+                    species_key="sp",
+                    planted_on=date(2026, 4, 1),
+                    phase_key="ph",
+                    open_finding_count=1,
+                )
+            ]
+        )
+        stated = GardenPlanExportService(
+            repo._sites,
+            repo,
+            GardenPlanService(repo._sites, repo),
+            plant_state_repo=states,
+            phase_repo=_PhaseNames({"ph": "flowering"}),  # type: ignore[arg-type]
+        )
+        app.dependency_overrides[get_garden_plan_export_service] = lambda: stated
+
+        response = client().get(_SVG, params={"locale": "en"})
+
+        assert response.status_code == 200
+        root = ET.fromstring(response.text)
+        assert _tags_of(root) <= ALLOWED_ELEMENTS and _attributes_of(root) <= ALLOWED_ATTRIBUTES
+        (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
+        assert [c.attrib["fill"] for c in layer.findall(f"{SVG}circle")] == ["#AB47BC"]
+        assert len(layer.findall(f"{SVG}g")) == 1, "the one badge (open finding)"
+        (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+        assert {"Phase: Flowering", "Ring: growing", "Triangle: finding"} <= {e.text for e in legend.iter(f"{SVG}text")}
+        assert states.tenants == [TENANT]
 
     def test_the_accent_colour_is_applied_when_it_is_a_hex_colour(self, client) -> None:
         response = client().get(_SVG, params={"color": "#C62828"})

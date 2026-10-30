@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -15,6 +16,10 @@ import {
 import type { PlanZone } from './zoneTypes';
 
 const PREFIX = 'pages.gardenPlan.editor.zones';
+
+// The plant-state section draws markers and badges: its own chunk, loaded when the layer goes on (UI-NFR-003).
+const PlantStateLegendSection = lazy(() => import('./PlantStateLegendSection'));
+const NO_PHASES: readonly string[] = [];
 const SWATCH_W = 32;
 const SWATCH_H = 20;
 const CONDITION_SWATCH_W = 48;
@@ -36,6 +41,10 @@ interface Props {
   showSun?: boolean;
   showMoisture?: boolean;
   showFrost?: boolean;
+  /** The plant-state layer (GP-UX-061): rings, badges and the colours of the phases on the plan. */
+  showPlantState?: boolean;
+  /** Names of the growth phases present on the plan. */
+  phases?: readonly string[];
 }
 
 /** One section of a site-condition layer: per value the pattern, the glyph and the words. */
@@ -89,7 +98,8 @@ function ConditionSection({ spec }: { spec: ConditionSpec<string> }) {
 }
 
 /**
- * The legend of the plan's layers (GP-FR-031): zones, "last watered" and the site-condition layers (GP-FR-169).
+ * The legend of the plan's layers (GP-FR-031): zones, "last watered", the site-condition layers (GP-FR-169) and the
+ * plant state (GP-UX-061).
  * Every entry pairs a swatch with TEXT - the swatch shows the pattern (and, for the site conditions, the glyph) the
  * layer uses, the words say what it means, so the legend works without seeing colour (WCAG 1.4.1).
  */
@@ -100,12 +110,14 @@ export function ZoneLegend({
   showSun = false,
   showMoisture = false,
   showFrost = false,
+  showPlantState = false,
+  phases = NO_PHASES,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const shownConditions: Record<ConditionLayerId, boolean> = { sun: showSun, moisture: showMoisture, frost: showFrost };
   const conditions = CONDITION_SPECS.filter((spec) => shownConditions[spec.id]);
-  if (!showZones && !showLastWatered && conditions.length === 0) return null;
+  if (!showZones && !showLastWatered && conditions.length === 0 && !showPlantState) return null;
   const ink = theme.palette.mode === 'dark' ? theme.palette.info.light : theme.palette.info.dark;
   return (
     <Box
@@ -193,6 +205,16 @@ export function ZoneLegend({
       {conditions.map((spec) => (
         <ConditionSection key={spec.id} spec={spec as ConditionSpec<string>} />
       ))}
+      {showPlantState && (
+        <Box data-testid="garden-plan-legend-plantState">
+          <Typography variant="subtitle2" component="h4">
+            {t(`${PREFIX}.legend.plantStateTitle`)}
+          </Typography>
+          <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
+            <PlantStateLegendSection phases={phases} />
+          </Suspense>
+        </Box>
+      )}
     </Box>
   );
 }

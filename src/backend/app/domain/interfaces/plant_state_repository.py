@@ -1,9 +1,10 @@
 """What the plant-states read needs from storage (REQ-053 GP-API-054, WP 3.7).
 
-One read: the standing plants of one bed with everything the marker and the info bubble show, gathered in a
-fixed number of queries (never one per plant). The tenant is keyword-only without a default and every stage
-filters on it; the bed itself is resolved by the service through the ownership anchor first (a bed has no
-``tenant_key`` of its own, #2107).
+Two reads of the same shape: the standing plants of one bed (the API) or of several beds at once (the plan's
+SVG/PDF, one window for the whole site instead of one per bed), with everything the marker and the info bubble
+show, gathered in a fixed number of queries (never one per plant). The tenant is keyword-only without a default
+and every stage filters on it; the beds themselves are resolved by the service through the ownership anchor first
+(a bed has no ``tenant_key`` of its own, #2107).
 
 **No free text leaves the repository** (SR-006/SR-020): no task instruction, no note, no user name. A task
 contributes its name, category and due day; a finding its label.
@@ -62,3 +63,10 @@ class IPlantStateRepository(ABC):
         self, location_key: str, *, tenant_key: str, now: datetime, offset: int, limit: int
     ) -> list[PlantStateSource]:
         """A window of the tenant's standing plants in the bed, ordered by plant key, with all facts joined in."""
+
+    @abstractmethod
+    def list_plants_in_beds(
+        self, bed_keys: list[str], *, tenant_key: str, now: datetime, offset: int, limit: int
+    ) -> list[PlantStateSource]:
+        """A window of the tenant's standing plants in any of the beds, ordered by plant key, with the same facts as
+        :meth:`list_bed_plants` — one window for many beds, so a site costs a fixed number of statements per page."""

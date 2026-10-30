@@ -26,6 +26,7 @@ from app.common.enums import (
 )
 from app.config.constants import MAX_ROTATION_WINDOW_YEARS
 from app.domain.calculators.plant_state_calculator import AttentionCode, Lifecycle
+from app.domain.calculators.plant_state_inputs import phase_facts
 from app.domain.calculators.planting_layout_calculator import (
     MAX_LAYOUT_POSITIONS,
     EntryLayout,
@@ -37,7 +38,7 @@ from app.domain.models.planting_reservation import PlantingRow, QuickPlantingInp
 from app.domain.models.planting_run import MAX_EDGE_MARGIN_CM, MAX_SPACING_CM, MIN_SPACING_CM, check_row_assignment
 from app.domain.models.site import SiteConditions
 from app.domain.services.bed_history_service import BedHistoryItem
-from app.domain.services.plant_state_service import PlantStateEntry, phase_facts
+from app.domain.services.plant_state_service import PlantStateEntry
 
 __all__ = ["LocationPatch"]  # the PATCH body is declared in the domain: the service parses and validates it itself
 

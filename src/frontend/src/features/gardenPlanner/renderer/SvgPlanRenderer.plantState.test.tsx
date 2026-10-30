@@ -128,3 +128,78 @@ describe('objects a refused save named (GP-UX-017)', () => {
     expect(other?.getAttribute('data-plan-invalid')).toBeNull();
   });
 });
+
+describe('plant-state layer on the overview plan (GP-UX-061, #2488)', () => {
+  // The bed is not entered: before #2488 the overview never drew a state channel.
+  const layerStates = {
+    loc_a_p0: state({ badge: 'overdue', lifecycle: 'harvesting' }),
+    loc_a_p1: state(),
+    loc_a_p2: state({ lifecycle: 'sown' }),
+  };
+
+  it('draws ring, initial and badge of every stated plant at marker LOD with the layer on, decoratively', () => {
+    const svg = mount(
+      30, // 0.5 m = 15 px: marker LOD
+      options({
+        plantStateLayer: { states: layerStates, attentionOnly: false },
+        phaseColors: { ph_flower: '#AB47BC' },
+      }),
+    );
+    const markers = [...svg.querySelectorAll('g[data-plan-state-layer="true"]')];
+    expect(markers.map((m) => m.getAttribute('data-plan-key'))).toEqual(['loc_a_p0', 'loc_a_p1', 'loc_a_p2']);
+    expect(markers.every((m) => m.getAttribute('aria-hidden') === 'true' && !m.hasAttribute('role'))).toBe(true);
+    expect(markers.map((m) => m.querySelector('[data-plan-lifecycle]')?.getAttribute('data-plan-lifecycle'))).toEqual([
+      'harvesting',
+      'active',
+      'sown',
+    ]);
+    expect(svg.querySelectorAll('[data-plan-badge-reason]')).toHaveLength(1);
+    expect(svg.querySelector('[data-plan-badge-reason]')?.getAttribute('data-plan-badge-reason')).toBe('overdue');
+    expect(markers[1].querySelector('text')?.textContent).toBe('T');
+    // nothing is focusable on the overview but the objects: the bubble and the focus stay in the bed view
+    expect(svg.querySelectorAll('[tabindex="0"]')).toHaveLength(1);
+    expect(svg.querySelector('[data-plan-markers="loc_a"]')).toBeNull();
+  });
+
+  it('draws no channel on the overview without the layer, even with states at hand', () => {
+    const svg = mount(30, options({ plantStates: layerStates }));
+    expect(svg.querySelector('[data-plan-state-layer]')).toBeNull();
+    expect(svg.querySelector('[data-plan-lifecycle]')).toBeNull();
+    expect(svg.querySelector('[data-plan-badge-reason]')).toBeNull();
+    expect(svg.querySelector('[data-plan-markers="loc_a"]')).not.toBeNull();
+  });
+
+  it('keeps only the plant with a badge under "only plants that need attention"', () => {
+    const svg = mount(30, options({ plantStateLayer: { states: layerStates, attentionOnly: true } }));
+    const markers = [...svg.querySelectorAll('g[data-plan-state-layer="true"]')];
+    expect(markers.map((m) => m.getAttribute('data-plan-key'))).toEqual(['loc_a_p0']);
+  });
+
+  it('counts the badged plants in the cluster below marker LOD and hides a calm cluster under the filter', () => {
+    const labels = {
+      ...TEST_LABELS,
+      clusterSummary: ({ count, attention }: { count: number; attention: number }) =>
+        `${count} plants - ${attention} need attention`,
+    };
+    const svg = mount(10, options({ labels, plantStateLayer: { states: layerStates, attentionOnly: false } }));
+    const cluster = svg.querySelector('[data-plan-cluster="loc_a"]') as SVGGElement;
+    expect(cluster.getAttribute('aria-label')).toBe('3 plants - 1 need attention');
+    expect(cluster.querySelector('[data-plan-badge-reason]')?.getAttribute('data-plan-badge-reason')).toBe('overdue');
+    const allCalm = { loc_a_p0: state(), loc_a_p1: state(), loc_a_p2: state() };
+    const calm = mount(10, options({ labels, plantStateLayer: { states: allCalm, attentionOnly: true } }));
+    expect(calm.querySelector('[data-plan-cluster="loc_a"]')).toBeNull();
+  });
+
+  it('names the total and the attention count under the filter, and draws only the kept plants', () => {
+    const labels = {
+      ...TEST_LABELS,
+      clusterSummary: ({ count, attention }: { count: number; attention: number }) =>
+        `${count} plants - ${attention} need attention`,
+    };
+    const svg = mount(10, options({ labels, plantStateLayer: { states: layerStates, attentionOnly: true } }));
+    const cluster = svg.querySelector('[data-plan-cluster="loc_a"]') as SVGGElement;
+    // 3 plants in the bed, 1 of them needs attention: swapping the two would read "1 plants - 3 need attention"
+    expect(cluster.getAttribute('aria-label')).toBe('3 plants - 1 need attention');
+    expect(cluster.querySelector('text')?.textContent).toBe('1');
+  });
+});
