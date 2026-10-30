@@ -20,8 +20,8 @@ The fetcher still sees nothing but ``data:``.
 
 **Plant states and phase colours (GP-UX-005/059/060, #2489).** Below
 :data:`~app.domain.engines.plan_svg_engine.PLANT_COUNTER_THRESHOLD` plants the SVG and the PDF draw each plant with
-its phase colour, lifecycle ring and most urgent badge. The states come from the plant-state repository, bed by bed
-of the already owned site and in bounded pages, and are assembled by
+its phase colour, lifecycle ring and most urgent badge. The states come from the plant-state repository in one read
+across the beds of the already owned site, in bounded pages, and are assembled by
 :func:`~app.domain.calculators.plant_state_inputs.visual_state_of` — the same function behind
 ``GET /locations/{key}/plant-states``, so paper and screen agree. Phase names are read once per distinct phase key
 from the growth-phase repository; a key that is no growth phase (a phase-sequence entry) takes the name the
@@ -95,7 +95,7 @@ logger = structlog.get_logger(__name__)
 
 _TEMPLATE = "garden_plan.html"
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9_-]")
-#: Plants per plant-state read; a bed needs at most ``PLANT_COUNTER_THRESHOLD / page`` reads (+1 to see the end).
+#: Plants per plant-state read; a site needs at most ``PLANT_COUNTER_THRESHOLD / page`` reads (+1 to see the end).
 STATE_PAGE_SIZE = 200
 _MAX_STATE_PAGES = PLANT_COUNTER_THRESHOLD // STATE_PAGE_SIZE + 1
 
@@ -368,18 +368,18 @@ class GardenPlanExportService:
         wanted = {plant.key for plant in view.plants}
         slot_beds = {slot.key: slot.location_key for slot in view.slots}
         bed_keys = {plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
-        beds = sorted((loc for loc in view.locations if loc.key and loc.key in bed_keys), key=lambda loc: loc.key or "")
+        beds = {loc.key: loc for loc in view.locations if loc.key and loc.key in bed_keys}
+        frost_risk = {key: frost_risk_of(bed) for key, bed in beds.items()}
+        plant_beds = {plant.key: plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
         states: dict[str, PlantVisualState] = {}
         row_names: dict[str, str] = {}
-        for bed in beds:
-            if bed.key is None:
+        for row in self._standing_plants(sorted(beds), tenant_key=tenant_key, now=moment):
+            if row.plant_key not in wanted:
                 continue
-            frost_risk = frost_risk_of(bed)
-            for row in self._standing_plants(bed.key, tenant_key=tenant_key, now=moment):
-                if row.plant_key in wanted:
-                    states[row.plant_key] = visual_state_of(row, frost_risk=frost_risk, now=moment)
-                    if row.phase_key and row.phase_name and row.phase_name.strip():
-                        row_names.setdefault(row.phase_key, row.phase_name)
+            bed_frost = frost_risk.get(plant_beds.get(row.plant_key) or "", False)
+            states[row.plant_key] = visual_state_of(row, frost_risk=bed_frost, now=moment)
+            if row.phase_key and row.phase_name and row.phase_name.strip():
+                row_names.setdefault(row.phase_key, row.phase_name)
         phase_names = self._phase_names(
             {state.phase_key for state in states.values() if state.phase_key}, fallback=row_names
         )
@@ -392,14 +392,15 @@ class GardenPlanExportService:
         )
         return PlantStateMarks(states=states, phase_names=phase_names)
 
-    def _standing_plants(self, bed_key: str, *, tenant_key: str, now: datetime) -> list[PlantStateSource]:
-        """Every standing plant of the bed in pages of :data:`STATE_PAGE_SIZE`, at most :data:`_MAX_STATE_PAGES`."""
-        if self._plant_states is None:
+    def _standing_plants(self, bed_keys: list[str], *, tenant_key: str, now: datetime) -> list[PlantStateSource]:
+        """Every standing plant of the site's beds in one site-wide read, paged by :data:`STATE_PAGE_SIZE` and at most
+        :data:`_MAX_STATE_PAGES` pages — a fixed number of statements per page, not per bed (#2489)."""
+        if self._plant_states is None or not bed_keys:
             return []
         rows: list[PlantStateSource] = []
         for page in range(_MAX_STATE_PAGES):
-            window = self._plant_states.list_bed_plants(
-                bed_key, tenant_key=tenant_key, now=now, offset=page * STATE_PAGE_SIZE, limit=STATE_PAGE_SIZE
+            window = self._plant_states.list_plants_in_beds(
+                bed_keys, tenant_key=tenant_key, now=now, offset=page * STATE_PAGE_SIZE, limit=STATE_PAGE_SIZE
             )
             rows.extend(window)
             if len(window) < STATE_PAGE_SIZE:

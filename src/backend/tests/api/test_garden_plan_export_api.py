@@ -104,6 +104,10 @@ class _OneBedOfStates(IPlantStateRepository):
         self.tenants.append(tenant_key)
         return self.rows[offset : offset + limit] if location_key == "bed" else []
 
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+        self.tenants.append(tenant_key)
+        return self.rows[offset : offset + limit] if "bed" in bed_keys else []
+
 
 class _PhaseNames:
     def __init__(self, names: dict[str, str]) -> None:

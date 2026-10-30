@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import re
 import xml.etree.ElementTree as ET
 from datetime import UTC, date, datetime
@@ -463,15 +464,22 @@ STATE_NOW = datetime(2026, 6, 10, 12, 0, tzinfo=UTC)
 
 
 class _StateRows(IPlantStateRepository):
-    """The plant-state source as a recording double: rows per bed, windowed like the real read."""
+    """The plant-state source as a recording double: rows per bed, windowed and ordered by plant key like the real
+    reads. ``calls`` records the site-wide reads (the export's), ``bed_calls`` the one-bed reads (the API's)."""
 
     def __init__(self, rows: dict[str, list[PlantStateSource]]) -> None:
         self.rows = rows
-        self.calls: list[tuple[str, str, int, int]] = []
+        self.calls: list[tuple[tuple[str, ...], str, int, int]] = []
+        self.bed_calls: list[tuple[str, str, int, int]] = []
 
     def list_bed_plants(self, location_key, *, tenant_key, now, offset, limit):
-        self.calls.append((location_key, tenant_key, offset, limit))
+        self.bed_calls.append((location_key, tenant_key, offset, limit))
         return self.rows.get(location_key, [])[offset : offset + limit]
+
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+        self.calls.append((tuple(bed_keys), tenant_key, offset, limit))
+        everything = sorted((row for bed in bed_keys for row in self.rows.get(bed, [])), key=lambda row: row.plant_key)
+        return everything[offset : offset + limit]
 
 
 class _Phases:
@@ -616,10 +624,29 @@ class TestPlantStateEnrichment:
 
         assert marks is not None and len(marks.states) == 450
         assert states.calls == [
-            ("b1", TENANT, 0, STATE_PAGE_SIZE),
-            ("b1", TENANT, 200, STATE_PAGE_SIZE),
-            ("b1", TENANT, 400, STATE_PAGE_SIZE),
+            (("b1",), TENANT, 0, STATE_PAGE_SIZE),
+            (("b1",), TENANT, 200, STATE_PAGE_SIZE),
+            (("b1",), TENANT, 400, STATE_PAGE_SIZE),
         ]
+        assert states.bed_calls == []
+
+    @pytest.mark.parametrize("per_bed", [1, 4, 10])
+    def test_fifty_beds_are_read_site_wide_in_a_page_count_not_a_bed_count(self, repo, per_bed) -> None:
+        """SCR-002: one read per page for the whole site, not one (or more) per bed — 50 beds used to cost 50 reads
+        of five statements each."""
+        rows = {f"b{bed:02d}": [_source(f"p{bed:02d}-{n}") for n in range(per_bed)] for bed in range(50)}
+        repo.locations.update({key: make_location(key, key, geometry=rect(0, 0, 1, 1)) for key in rows})
+        service, states, _phases = _stated_world(repo, rows)
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        plants = 50 * per_bed
+        assert marks is not None and len(marks.states) == plants
+        assert len(states.calls) <= math.ceil(plants / STATE_PAGE_SIZE) + 1
+        assert states.bed_calls == []
+        (beds, tenant, _offset, _limit) = states.calls[0]
+        assert tenant == TENANT and beds == tuple(sorted(rows))
 
     def test_from_the_counter_threshold_on_nothing_is_read(self, repo) -> None:
         rows = {"b1": [_source(f"p{i:04d}") for i in range(PLANT_COUNTER_THRESHOLD)]}
@@ -693,7 +720,8 @@ class TestStatedPdfBudget:
         assert pdf.content[:5] == b"%PDF-"
         assert elapsed <= 5.0, f"the stated PDF took {elapsed:.2f} s"
         assert sorted(phases.reads) == ["ph-flower", "ph-veg"]
-        assert {call[0] for call in states.calls} == {"b1", "b2", "b3"}
+        assert {bed for call in states.calls for bed in call[0]} == {"b1", "b2", "b3"}
+        assert len(states.calls) == math.ceil((PLANT_COUNTER_THRESHOLD - 1) / STATE_PAGE_SIZE), "pages, not beds"
         root = _embedded_svg(service._print.html[-1])  # type: ignore[attr-defined]
         (layer,) = [e for e in root.iter() if e.attrib.get("id") == "layer-plants"]
         assert len(layer.findall(f"{SVG}circle")) == PLANT_COUNTER_THRESHOLD - 1
