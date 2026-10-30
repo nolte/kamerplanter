@@ -5,8 +5,22 @@ import type { PlanModel } from '../model/planModel';
 import type { PlanLocation } from '../model/types';
 import { setupEditor, typeAndBlur } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
+import { changeBedStatus, patchSoilProfile, patchSun } from '../bed/bedApi';
 
-afterEach(() => cleanup());
+// The editor writes only through the plan save: any call into the bed page's PATCH path is a defect (#2538).
+vi.mock('../bed/bedApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../bed/bedApi')>()),
+  patchSun: vi.fn(),
+  patchSoilProfile: vi.fn(),
+  changeBedStatus: vi.fn(),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.mocked(patchSun).mockClear();
+  vi.mocked(patchSoilProfile).mockClear();
+  vi.mocked(changeBedStatus).mockClear();
+});
 
 const field = (id: string) => screen.getByTestId(`garden-plan-panel-field-${id}`);
 
@@ -345,6 +359,9 @@ describe('sun window and leaf shade (GP-FR-158/159, #2538)', () => {
     });
     expect(t.state().plan!.locations.b1.site_conditions).toEqual({ sun_profile: { sun_window: 'morning' } });
     expect(screen.getByTestId(`${PROFILE}-window-morning-input`)).toBeChecked();
+    expect(patchSun).not.toHaveBeenCalled();
+    expect(patchSoilProfile).not.toHaveBeenCalled();
+    expect(changeBedStatus).not.toHaveBeenCalled();
   });
 
   it('commits the leaf-shade switch the same way and undo takes it back', async () => {

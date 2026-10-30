@@ -375,6 +375,42 @@ describe('applyOperation', () => {
       expect(restored.locations.loc_a.site_conditions).toEqual(plan.locations.loc_a.site_conditions);
     });
 
+    it('restores a subtree with sun profiles parent first, each update right after its own create (#2538)', () => {
+      const plan = smallPlan({
+        locations: [
+          bed('p', 0, 0, { site_conditions: { sun_profile: { sun_window: 'morning' } } }),
+          bed('c', 0, 0, {
+            parent_location_key: 'p',
+            depth: 1,
+            site_conditions: { sun_profile: { direct_sun_hours_summer: 4.5 } },
+          }),
+        ],
+        garden_objects: [],
+        slots: [],
+        plants: [],
+      });
+      const applied = applyOperation(plan, { op: 'delete', entity: 'location', key: 'p' });
+      // The exact order: a reordering (all creates first, or the child before its parent) fails here.
+      expect(
+        applied.inverse?.map((op) => [op.op, 'temp_key' in op ? op.temp_key : 'key' in op ? op.key : null]),
+      ).toEqual([
+        ['create_location', 'p'],
+        ['update_fields', 'p'],
+        ['create_location', 'c'],
+        ['update_fields', 'c'],
+      ]);
+      expect(applied.inverse?.[1]).toMatchObject({
+        fields: { site_conditions: { sun_profile: { sun_window: 'morning' } } },
+      });
+      expect(applied.inverse?.[3]).toMatchObject({
+        fields: { site_conditions: { sun_profile: { direct_sun_hours_summer: 4.5 } } },
+      });
+      const restored = applyOperations(applied.plan, applied.inverse ?? []).plan;
+      expect(restored.locations.p.site_conditions).toEqual(plan.locations.p.site_conditions);
+      expect(restored.locations.c.site_conditions).toEqual(plan.locations.c.site_conditions);
+      expect(restored.locations.c.parent_location_key).toBe('p');
+    });
+
     it('is not undoable once saved when plants stand in the bed (GP-FR-155)', () => {
       const applied = applyOperation(smallPlan(), {
         op: 'delete',
