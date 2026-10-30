@@ -5,7 +5,8 @@
  */
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
-import type { ReactNode } from 'react';
+import type { Theme } from '@mui/material/styles';
+import { useId, type ReactNode } from 'react';
 import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
@@ -14,6 +15,7 @@ import TextField from '@mui/material/TextField';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Tooltip from '@mui/material/Tooltip';
+import { visuallyHidden } from '@mui/utils';
 import AddIcon from '@mui/icons-material/Add';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import GridOnIcon from '@mui/icons-material/GridOn';
@@ -82,9 +84,12 @@ export interface ViewBarProps {
 const dividerSx = { display: { xs: 'none', md: 'block' } } as const;
 
 const buttonSx = { minWidth: TARGET_PX, minHeight: TARGET_PX } as const;
+/** The look of a disabled button on one that stays focusable (`aria-disabled`). */
+const disabledLookSx = (theme: Theme) => ({ color: theme.palette.action.disabled, cursor: 'not-allowed' });
 
 export function ViewBar(props: ViewBarProps) {
   const { t, i18n } = useTranslation();
+  const attentionHintId = useId();
   const percent = pxPerMToPercent(props.pxPerM);
   const atMin = props.pxPerM <= props.minPxPerM + 1e-6;
   return (
@@ -163,23 +168,32 @@ export function ViewBar(props: ViewBarProps) {
         </ToggleButtonGroup>
       )}
       {props.attentionFilter && (
-        <Tooltip title={props.attentionFilter.hint}>
-          {/* A disabled button fires no events: the span keeps the tooltip that says why it is disabled. */}
-          <span>
+        <>
+          <Tooltip title={props.attentionFilter.hint}>
+            {/*
+              Disabled by `aria-disabled`, not `disabled`: the button stays in the tab order, so a keyboard or screen
+              reader user reaches it and hears why it is disabled (the hidden text below); a click does nothing.
+            */}
             <ToggleButton
               size="small"
               value="attentionOnly"
               selected={props.attentionFilter.active && props.attentionFilter.enabled}
-              disabled={!props.attentionFilter.enabled}
-              onChange={() => props.attentionFilter?.onChange(!props.attentionFilter.active)}
+              aria-disabled={props.attentionFilter.enabled ? undefined : true}
+              onChange={() => {
+                if (props.attentionFilter?.enabled) props.attentionFilter.onChange(!props.attentionFilter.active);
+              }}
               aria-label={props.attentionFilter.label}
+              aria-describedby={attentionHintId}
               data-testid="garden-plan-attention-filter"
-              sx={buttonSx}
+              sx={props.attentionFilter.enabled ? buttonSx : [buttonSx, disabledLookSx]}
             >
               {props.attentionFilter.icon}
             </ToggleButton>
-          </span>
-        </Tooltip>
+          </Tooltip>
+          <Box component="span" id={attentionHintId} sx={visuallyHidden}>
+            {props.attentionFilter.hint}
+          </Box>
+        </>
       )}
 
       <Divider orientation="vertical" flexItem sx={dividerSx} />

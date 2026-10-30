@@ -5,13 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * The data source of the plant-state layer (REQ-053 GP-UX-061, #2488, D-1): the existing bed answer per bed at
  * marker LOD, only while the layer is on, cached per bed, dropped on foreground / layer off.
  */
-const mocks = vi.hoisted(() => ({ get: vi.fn() }));
+const mocks = vi.hoisted(() => ({ get: vi.fn(), capture: vi.fn() }));
 vi.mock('@/api/client', () => ({ __esModule: true, default: { get: mocks.get }, tenantClient: { get: mocks.get } }));
+vi.mock('@/observability/errorTracking', () => ({ captureHandledError: mocks.capture }));
 
 import { markerLodBedKeys } from '../renderer/scene';
 import { bed, normalizePlan, plantedBed, planResponse, viewportAt } from '../renderer/rendererTestKit';
 import type { PlantStateWire } from './plantStateApi';
-import { usePlanPlantStates } from './usePlanPlantStates';
+import { PLANT_STATE_CONCURRENCY, usePlanPlantStates } from './usePlanPlantStates';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -67,6 +68,7 @@ const plantStateCalls = () =>
 
 beforeEach(() => {
   mocks.get.mockReset();
+  mocks.capture.mockReset();
   answerBeds();
 });
 afterEach(() => vi.restoreAllMocks());
@@ -148,22 +150,106 @@ describe('usePlanPlantStates', () => {
     await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(3));
   });
 
-  it('does not ask a failed bed again until the cache is dropped', async () => {
+  it('does not ask a failed bed again for the same beds, retries it when the visible beds change, and reports it', async () => {
     mocks.get.mockImplementationOnce(() => Promise.reject(new Error('down')));
     const { result, rerender } = renderHook(({ keys }) => usePlanPlantStates('site_1', keys, true), {
-      initialProps: { keys: ['bed0'] as readonly string[] },
+      initialProps: { keys: ['bed0', 'bed1'] as readonly string[] },
     });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    rerender({ keys: ['bed0', 'bed1'] });
+    // bed1's answer re-runs the loader: the failed bed0 is not asked again for the same set of beds
     await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(3));
     expect(plantStateCalls().map(([url]) => url)).toEqual([
       '/locations/bed0/plant-states',
       '/locations/bed1/plant-states',
     ]);
-    act(() => result.current.refresh());
-    await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(6));
+    // silent in the UI, reported to error tracking
+    expect(mocks.capture).toHaveBeenCalledTimes(1);
+    expect(mocks.capture.mock.calls[0][1]).toEqual({ area: 'garden-plan-plant-states', bedKey: 'bed0' });
+    // another set of visible beds: bed0 is tried again, with the new bed2
+    rerender({ keys: ['bed0', 'bed1', 'bed2'] });
+    await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(9));
     expect(plantStateCalls()).toHaveLength(4);
+    act(() => result.current.refresh());
+    await waitFor(() => expect(plantStateCalls()).toHaveLength(7));
+    await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(9));
+  });
+
+  it('reads the beds of the new site after a site change without remount', async () => {
+    const { result, rerender } = renderHook(({ s }) => usePlanPlantStates(s, ['bed0'], true), {
+      initialProps: { s: 'site_1' },
+    });
+    await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(3));
+    rerender({ s: 'site_2' });
+    await waitFor(() => expect(plantStateCalls()).toHaveLength(2));
+    await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(3));
+    // refresh works for the new site as well
+    act(() => result.current.refresh());
+    await waitFor(() => expect(plantStateCalls()).toHaveLength(3));
+  });
+
+  describe('concurrency', () => {
+    const tenBeds = Array.from({ length: 10 }, (_, i) => `bed${i}`);
+    let open: { bedKey: string; release: () => void }[] = [];
+    let running = 0;
+    let peak = 0;
+
+    beforeEach(() => {
+      open = [];
+      running = 0;
+      peak = 0;
+      mocks.get.mockImplementation(
+        (url: string) =>
+          new Promise((resolve) => {
+            const bedKey = /\/locations\/([^/]+)\/plant-states/.exec(url)?.[1] ?? '';
+            running += 1;
+            peak = Math.max(peak, running);
+            open.push({
+              bedKey,
+              release: () => {
+                running -= 1;
+                resolve({ data: [wire(`${bedKey}_p0`, false)] });
+              },
+            });
+          }),
+      );
+    });
+
+    async function releaseAll() {
+      while (open.length > 0) {
+        const batch = open.splice(0);
+        await act(async () => {
+          for (const entry of batch) entry.release();
+          await Promise.resolve();
+        });
+      }
+    }
+
+    it('never runs more than four bed reads at once and still serves all ten, in order', async () => {
+      const { result } = renderHook(() => usePlanPlantStates('site_1', tenBeds, true));
+      expect(PLANT_STATE_CONCURRENCY).toBe(4);
+      expect(plantStateCalls()).toHaveLength(4);
+      await releaseAll();
+      await waitFor(() => expect(Object.keys(result.current.states)).toHaveLength(10));
+      expect(peak).toBe(4);
+      expect(plantStateCalls().map(([url]) => url)).toEqual(tenBeds.map((key) => `/locations/${key}/plant-states`));
+    });
+
+    it('drops the queued beds that left the view, and all of them when the layer goes off', async () => {
+      const { result, rerender } = renderHook(({ keys, on }) => usePlanPlantStates('site_1', keys, on), {
+        initialProps: { keys: tenBeds as readonly string[], on: true },
+      });
+      expect(plantStateCalls()).toHaveLength(4);
+      // zoomed elsewhere: only bed0 and bed9 are visible; the queued bed4..bed8 go, bed9 waits for a free place
+      rerender({ keys: ['bed0', 'bed9'], on: true });
+      await releaseAll();
+      await waitFor(() => expect(result.current.states.bed9_p0).toBeDefined());
+      expect(plantStateCalls().map(([url]) => url)).toEqual(
+        ['bed0', 'bed1', 'bed2', 'bed3', 'bed9'].map((key) => `/locations/${key}/plant-states`),
+      );
+      // off with reads queued: nothing more is asked
+      rerender({ keys: tenBeds, on: false });
+      rerender({ keys: tenBeds, on: false });
+      await releaseAll();
+      expect(plantStateCalls()).toHaveLength(5);
+    });
   });
 });

@@ -3,8 +3,10 @@
  * decides, so the same phase has the same colour in every bed. The marker also carries a ring, so the
  * fill is never the only cue.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import { getGrowthPhase } from '@/api/endpoints/phases';
+import { ApiError } from '@/api/errors';
 
 const PHASE_COLORS: Readonly<Record<string, string>> = {
   germination: '#81C784',
@@ -43,41 +45,69 @@ export function phaseColor(phaseName: string): string {
   return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
 }
 
-/** `phase key → phase name` for the phases the plants are in; empty until the names arrive. */
+/**
+ * Phase keys `/growth-phases/{key}` answered 404 for in this session (a phase-sequence entry key, or a phase that is
+ * gone): they are not asked again until the page reloads.
+ */
+const missingPhaseKeys = new Set<string>();
+
+/** Test seam: forget the phase keys that answered 404. */
+export function forgetMissingPhaseKeys(): void {
+  missingPhaseKeys.clear();
+}
+
+function isNotFound(error: unknown): boolean {
+  if (error instanceof ApiError) return error.statusCode === 404;
+  return axios.isAxiosError(error) && error.response?.status === 404;
+}
+
+/**
+ * `phase key → phase name` for the phases the plants are in; a name appears as soon as it arrives. Each key is
+ * read once per mounted hook; a key that answered 404 is remembered for the session and never asked again.
+ */
 export function usePhaseNames(phaseKeys: readonly (string | null | undefined)[]): Readonly<Record<string, string>> {
   const wanted = useMemo(
     () => [...new Set(phaseKeys.filter((key): key is string => Boolean(key)))].sort(),
     [phaseKeys],
   );
   const signature = wanted.join('|');
-  const [loaded, setLoaded] = useState<{ signature: string; names: Record<string, string> }>({
-    signature: '',
-    names: {},
-  });
+  const [resolved, setResolved] = useState<Readonly<Record<string, string>>>(NO_ENTRIES);
+  const requested = useRef(new Set<string>());
+  const mounted = useRef(true);
   useEffect(() => {
-    if (wanted.length === 0) return undefined;
-    let cancelled = false;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    const open = wanted.filter((key) => !requested.current.has(key) && !missingPhaseKeys.has(key));
+    if (open.length === 0) return;
+    for (const key of open) requested.current.add(key);
     Promise.all(
-      wanted.map((key) =>
+      open.map((key) =>
         getGrowthPhase(key)
           .then((phase): [string, string] => [key, phase.name])
-          // A phase that cannot be read keeps the default plant colour.
-          .catch((): [string, string] | null => null),
+          // A phase that cannot be read keeps the default plant colour; a 404 is final for the session, any other
+          // failure is tried again when the set of phases changes.
+          .catch((error: unknown): null => {
+            if (isNotFound(error)) missingPhaseKeys.add(key);
+            else requested.current.delete(key);
+            return null;
+          }),
       ),
     ).then((entries) => {
-      if (cancelled) return;
-      setLoaded({
-        signature,
-        names: Object.fromEntries(entries.filter((entry): entry is [string, string] => entry !== null)),
-      });
+      if (!mounted.current) return;
+      const found = entries.filter((entry): entry is [string, string] => entry !== null);
+      if (found.length > 0) setResolved((previous) => ({ ...previous, ...Object.fromEntries(found) }));
     });
-    return () => {
-      cancelled = true;
-    };
     // `signature` is the content of `wanted`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
-  return loaded.signature === signature ? loaded.names : NO_ENTRIES;
+  return useMemo(() => {
+    const names = wanted.filter((key) => key in resolved);
+    return names.length === 0 ? NO_ENTRIES : Object.fromEntries(names.map((key) => [key, resolved[key]]));
+  }, [wanted, resolved]);
 }
 
 /** `phase key → colour` for the phases the plants of a bed are in; empty until the names arrive. */

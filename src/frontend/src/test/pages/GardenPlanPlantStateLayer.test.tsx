@@ -3,7 +3,7 @@
  * channels on the overview once it is on, the dependent filter "only plants that need attention" with its stored
  * choice, the legend section, and no request for plant states while the layer is off.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -11,7 +11,9 @@ import { SnackbarProvider } from 'notistack';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import GardenPlanRoute from '@/features/gardenPlanner/routes/GardenPlanRoute';
+import { refreshGardenPlan, selectGardenPlanState } from '@/features/gardenPlanner/state/gardenPlanSlice';
 import type { PlantStateWire } from '@/features/gardenPlanner/planting/plantStateApi';
+import { forgetMissingPhaseKeys } from '@/features/gardenPlanner/planting/phaseColors';
 import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
@@ -44,20 +46,28 @@ function wire(plantKey: string, overdue: boolean): PlantStateWire {
 }
 
 let stateRequests: string[] = [];
+let phaseRequests: string[] = [];
 
-function usePlanWithPlants() {
+interface PlanFixture {
+  /** Distance of the three plants in metres: 0.4 m reaches marker LOD at the fit zoom, 0.01 m stays a cluster. */
+  spacingM?: number;
+  /** The phase key of the plants; `ph_seq` stands for a phase-sequence entry `/growth-phases/{key}` answers 404 for. */
+  phaseKey?: string;
+}
+
+function usePlanWithPlants({ spacingM = 0.4, phaseKey = 'ph_flower' }: PlanFixture = {}) {
   const slots = [0, 1, 2].map((i) => ({
     key: `s${i}`,
     slot_id: `A${i}`,
     location_key: 'loc_a',
-    plan_geometry: { origin: [2.2 + i * 0.4, 3] as [number, number] },
+    plan_geometry: { origin: [2.2 + i * spacingM, 3] as [number, number] },
   }));
   const plants = [0, 1, 2].map((i) => ({
     key: `pl_${i}`,
     instance_id: `TOM-${i}`,
     species_key: 'sp_tomato',
     slot_key: `s${i}`,
-    phase_key: 'ph_flower',
+    phase_key: phaseKey,
   }));
   const body = planResponse({
     // No site outline: the route fits the view to the bed, which puts its 0.4 m spacing at marker LOD.
@@ -69,9 +79,16 @@ function usePlanWithPlants() {
   });
   server.use(
     http.get(`${BASE}/sites/:key/plan`, () => HttpResponse.json(body)),
-    http.get('/api/v1/growth-phases/:key', () =>
-      HttpResponse.json({ key: 'ph_flower', name: 'flowering', display_name: 'Flowering' }),
-    ),
+    http.get('/api/v1/growth-phases/:key', ({ params }) => {
+      phaseRequests.push(String(params.key));
+      if (params.key === 'ph_seq') {
+        return HttpResponse.json(
+          { error_id: 'e1', error_code: 'NOT_FOUND', message: 'Not found', details: [], path: '', method: 'GET' },
+          { status: 404 },
+        );
+      }
+      return HttpResponse.json({ key: 'ph_flower', name: 'flowering', display_name: 'Flowering' });
+    }),
     http.get(`${BASE}/locations/:key/plant-states`, ({ params }) => {
       stateRequests.push(String(params.key));
       return HttpResponse.json([wire('pl_0', true), wire('pl_1', false), wire('pl_2', false)]);
@@ -79,8 +96,10 @@ function usePlanWithPlants() {
   );
 }
 
+let store = configureStore({ reducer: rootReducer });
+
 function renderRoute() {
-  const store = configureStore({ reducer: rootReducer });
+  store = configureStore({ reducer: rootReducer });
   const router = createMemoryRouter(
     [{ path: 'standorte/sites/:key/plan', element: <GardenPlanRoute /> }],
     { initialEntries: ['/standorte/sites/site_1/plan?mode=plan'] },
@@ -102,6 +121,8 @@ const layerMarkers = (container: HTMLElement) =>
 beforeEach(() => {
   window.localStorage.clear();
   stateRequests = [];
+  phaseRequests = [];
+  forgetMissingPhaseKeys();
 });
 afterEach(() => {
   cleanup();
@@ -117,8 +138,20 @@ describe('plant-state layer in the plan', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     const filter = screen.getByTestId('garden-plan-attention-filter');
     expect(filter).toHaveAttribute('aria-label', 'Only show plants that need attention');
-    expect(filter).toBeDisabled();
+    // disabled by aria-disabled: still in the tab order, and its reason is announced as its description
+    expect(filter).toHaveAttribute('aria-disabled', 'true');
+    expect(filter).not.toBeDisabled();
+    expect(filter.tabIndex).toBe(0);
+    filter.focus();
+    expect(filter).toHaveFocus();
+    expect(filter).toHaveAccessibleDescription(
+      'Switch on the "Plant state" layer first, then you can filter by what needs attention.',
+    );
+    // a click while disabled changes nothing
+    fireEvent.click(filter);
     expect(filter).toHaveAttribute('aria-pressed', 'false');
+    expect(window.localStorage.getItem('kp_garden_plan_attention_filter')).toBeNull();
+    await expectNoA11yViolations(screen.getByTestId('garden-plan-view-bar'));
     expect(layerMarkers(container)).toEqual([]);
     expect(screen.queryByTestId('garden-plan-legend-plantState')).toBeNull();
     expect(stateRequests).toEqual([]);
@@ -148,7 +181,7 @@ describe('plant-state layer in the plan', () => {
     fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
     await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
     const filter = screen.getByTestId('garden-plan-attention-filter');
-    expect(filter).toBeEnabled();
+    expect(filter).not.toHaveAttribute('aria-disabled');
     fireEvent.click(filter);
     expect(filter).toHaveAttribute('aria-pressed', 'true');
     expect(layerMarkers(container)).toEqual(['pl_0']);
@@ -159,7 +192,47 @@ describe('plant-state layer in the plan', () => {
     cleanup();
     renderRoute();
     const again = await screen.findByTestId('garden-plan-attention-filter');
-    expect(again).toBeEnabled();
+    expect(again).not.toHaveAttribute('aria-disabled');
     expect(again).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('reads no plant state and no growth phase for a zoomed-out plan with the layer on', async () => {
+    usePlanWithPlants({ spacingM: 0.01 });
+    const { container } = renderRoute();
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    await screen.findByTestId('garden-plan-legend-plantState');
+    expect(container.querySelector('[data-plan-cluster="loc_a"]')).not.toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stateRequests).toEqual([]);
+    expect(phaseRequests).toEqual([]);
+  });
+
+  it('asks a phase key that answered 404 only once per session, even after the plan is opened again', async () => {
+    usePlanWithPlants({ phaseKey: 'ph_seq' });
+    const { container } = renderRoute();
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
+    await waitFor(() => expect(phaseRequests).toEqual(['ph_seq']));
+    cleanup();
+    const again = renderRoute();
+    await waitFor(() => expect(layerMarkers(again.container)).toHaveLength(3));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(stateRequests).toEqual(['loc_a', 'loc_a']);
+    expect(phaseRequests).toEqual(['ph_seq']);
+  });
+
+  it('reads the loaded states again after the plan was saved or reloaded (a new revision)', async () => {
+    usePlanWithPlants();
+    const { container } = renderRoute();
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
+    expect(stateRequests).toEqual(['loc_a']);
+    const plan = selectGardenPlanState(store.getState()).plan;
+    if (!plan) throw new Error('plan not loaded');
+    act(() => {
+      store.dispatch(refreshGardenPlan.fulfilled({ ...plan, revision: plan.revision + 1 }, 'r2', plan.siteKey));
+    });
+    await waitFor(() => expect(stateRequests).toEqual(['loc_a', 'loc_a']));
+    await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
   });
 });

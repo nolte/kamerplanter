@@ -309,7 +309,7 @@ export function GardenPlanEditor({
   }, [underlayOpen]);
   const underlayState = useUnderlay(plan, layerPrefs.underlay);
   // The plant-state layer (GP-UX-061, #2488): the beds at marker LOD read their states while the layer is on; the
-  // filter "only plants that need attention" depends on it. Phase colours are read for the phases on the plan.
+  // filter "only plants that need attention" depends on it. Phase colours are read for the plants whose states are loaded.
   const plantStateOn = layerPrefs.plantState;
   const [attentionOnly, setAttentionOnly] = useAttentionFilter();
   const stateBedKeys = useMemo(
@@ -317,10 +317,25 @@ export function GardenPlanEditor({
     [plantStateOn, plan, viewport],
   );
   const planStates = usePlanPlantStates(plan.siteKey, stateBedKeys, plantStateOn);
-  const planPhaseKeys = useMemo(
-    () => (plantStateOn ? Object.values(plan.plants).map((plant) => plant.phase_key) : NO_PHASE_KEYS),
-    [plantStateOn, plan.plants],
-  );
+  const refreshPlanStates = planStates.refresh;
+  // A saved or reloaded plan, or a care action, may change what the plants need: the loaded states are read again.
+  const seenRevision = useRef(plan.revision);
+  useEffect(() => {
+    if (seenRevision.current === plan.revision) return;
+    seenRevision.current = plan.revision;
+    refreshPlanStates();
+  }, [plan.revision, refreshPlanStates]);
+  const onZonesChanged = useCallback(() => {
+    setLayerRefresh((value) => value + 1);
+    refreshPlanStates();
+  }, [refreshPlanStates]);
+  // Phase names are read only for the plants whose states are loaded (beds at marker LOD), never for the whole plan.
+  const planPhaseKeys = useMemo(() => {
+    const plantKeys = Object.keys(planStates.states);
+    return plantStateOn && plantKeys.length > 0
+      ? plantKeys.map((plantKey) => plan.plants[plantKey]?.phase_key)
+      : NO_PHASE_KEYS;
+  }, [plantStateOn, planStates.states, plan.plants]);
   const fetchedPhaseNames = usePhaseNames(planPhaseKeys);
   // A phase-sequence entry key is unknown to `/growth-phases/{key}`; the state answer names it. The fetched name wins.
   const phaseNames = useMemo(
@@ -332,6 +347,7 @@ export function GardenPlanEditor({
     () => (plantStateOn ? { states: planStates.states, attentionOnly } : undefined),
     [plantStateOn, planStates.states, attentionOnly],
   );
+  // The legend sorts the translated names itself, in the active language.
   const legendPhases = useMemo(() => {
     if (!plantStateOn) return [];
     const present = new Set(planPhaseKeys.filter((key): key is string => Boolean(key)));
@@ -340,7 +356,7 @@ export function GardenPlanEditor({
       const name = phaseNames[key];
       if (name) names.add(name);
     }
-    return [...names].sort((a, b) => a.localeCompare(b));
+    return [...names];
   }, [plantStateOn, planPhaseKeys, phaseNames]);
   const attentionFilter = useMemo(
     () => ({
@@ -1621,7 +1637,7 @@ export function GardenPlanEditor({
               plan={plan}
               zoneData={zoneData}
               selectedBedKeys={selectedBedKeys}
-              onChanged={() => setLayerRefresh((value) => value + 1)}
+              onChanged={onZonesChanged}
               onClose={() => setZonesOpen(false)}
             />
           </Suspense>
