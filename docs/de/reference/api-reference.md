@@ -249,7 +249,7 @@ Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt 
 
 ### Gartenplan speichern: Geometriefehler
 
-`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (die Grenze) und `POST …/plan/batch` (ein Stapel von Operationen) lehnen eine Form, die eine Geometrieregel verletzt, mit `422` `VALIDATION_ERROR` ab (REQ-053). Der betroffene Eintrag in `details[]` trägt `code: "geometry.invalid"`; liegt ein Eckpunkt eines Polygons oder einer Polylinie außerhalb des Koordinatenbereichs (0 bis 1000 m im Plan, −1000 bis 1000 m innerhalb eines Beets), trägt er zusätzlich `point_index`, die Position des ersten solchen Eckpunkts in `points` (ab 0 gezählt). Im Stapel nennt `op_index` außerdem die Operation.
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (die Grenze) und `POST …/plan/batch` (ein Stapel von Operationen) lehnen eine Form, die eine Geometrieregel verletzt, mit `422` `VALIDATION_ERROR` ab (REQ-053). Auf der Grenz-Route trägt ein Eckpunkt oder Ursprung außerhalb des Koordinatenbereichs des Plans (0 bis 1000 m) `code: "geometry.invalid"`; bei einem Eckpunkt eines Polygons oder einer Polylinie trägt der Eintrag zusätzlich `point_index`, die Position des ersten solchen Eckpunkts in `points` (ab 0 gezählt). Die übrigen Formregeln dort (Maße, Anzahl der Eckpunkte, Drehung) antworten mit dem allgemeinen `code: "value_error"`. Im Stapel trägt jeder Geometriefehler `code: "geometry.invalid"`, dazu `op_index` für die Operation und bei einem Eckpunkt `point_index`. Stellplätze und Beetvorlagen speicherst du über eigene Endpunkte im Rahmen des Beets (−1000 bis 1000 m); einen Eckpunkt außerhalb dieses Bereichs melden sie genauso.
 
 ---
 

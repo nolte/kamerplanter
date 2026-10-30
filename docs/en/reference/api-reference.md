@@ -249,7 +249,7 @@ Keys of the file are never kept: every location, garden object and slot gets a n
 
 ### Garden Plan save: geometry errors
 
-`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (the boundary) and `POST …/plan/batch` (a batch of operations) refuse a shape that breaks a geometry rule with `422` `VALIDATION_ERROR` (REQ-053). The offending entry in `details[]` carries `code: "geometry.invalid"`; when a polygon or polyline vertex lies outside the coordinate range (0 to 1000 m on the plan, −1000 to 1000 m within a bed), it also carries `point_index`, the position of the first such vertex in `points` (counted from 0). In a batch, `op_index` names the operation as well.
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (the boundary) and `POST …/plan/batch` (a batch of operations) refuse a shape that breaks a geometry rule with `422` `VALIDATION_ERROR` (REQ-053). On the boundary route, a vertex or origin outside the plan's coordinate range (0 to 1000 m) carries `code: "geometry.invalid"`; for a polygon or polyline vertex the entry also carries `point_index`, the position of the first such vertex in `points` (counted from 0). The other shape rules there (dimensions, vertex count, rotation) answer with the generic `code: "value_error"`. In a batch, every geometry defect carries `code: "geometry.invalid"` with `op_index` naming the operation and, for a vertex, `point_index`. Slots and bed templates are saved on their own endpoints in the bed's frame (−1000 to 1000 m) and report an out-of-range vertex the same way.
 
 ---
 
