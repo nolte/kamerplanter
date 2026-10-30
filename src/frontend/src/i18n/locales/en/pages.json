@@ -6035,7 +6035,13 @@
             "lastWatered": "Show last watered",
             "lastWateredHint": "Show or hide the days since the last watering of each bed as hatching.",
             "underlay": "Show underlay",
-            "underlayHint": "Show or hide the underlay below the plan (for you only)."
+            "underlayHint": "Show or hide the underlay below the plan (for you only).",
+            "sun": "Show sun window",
+            "sunHint": "Show or hide when direct sun reaches each bed, as a pattern with a symbol.",
+            "moisture": "Show drainage",
+            "moistureHint": "Show or hide how well each bed drains, as a pattern with a symbol.",
+            "frost": "Show frost risk",
+            "frostHint": "Show or hide the frost risk of each bed as a pattern with a symbol."
           },
           "legend": {
             "title": "Layer legend",
@@ -6050,7 +6056,11 @@
               "d8plus": "More than 7 days since"
             },
             "wateredNone": "No hatching: no watering recorded.",
-            "wateredNote": "This is the time since the last recorded watering. The plan does not say whether a bed needs water."
+            "wateredNote": "This is the time since the last recorded watering. The plan does not say whether a bed needs water.",
+            "sunTitle": "Sun window",
+            "moistureTitle": "Drainage",
+            "frostTitle": "Frost risk",
+            "conditionNone": "No pattern: not recorded."
           },
           "wateredDays_one": "{{count}} day since",
           "wateredDays_other": "{{count}} days since",

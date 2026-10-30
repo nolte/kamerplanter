@@ -101,6 +101,13 @@ export interface RenderOptions {
    * all the layer says - it never claims that a bed needs water.
    */
   wateredLayer?: { byBed: Readonly<Record<string, WateredLayerEntry>>; label: (days: number) => string };
+  /**
+   * The site-condition layers (GP-FR-169): sun window, drainage and frost risk of each bed, drawn as pattern + glyph
+   * from the plan's own site conditions. Absent or `false` = hidden; a bed without a value gets nothing.
+   */
+  sunLayer?: boolean;
+  moistureLayer?: boolean;
+  frostLayer?: boolean;
   /** Field mode raises the on-screen label size from 12 to 16 px (GP-NFR-067). */
   fieldMode?: boolean;
   /** The bed whose plants are the current focus level (GP-NFR-068: Enter enters a bed). */

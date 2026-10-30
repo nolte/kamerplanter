@@ -6036,7 +6036,13 @@
             "lastWatered": "Zuletzt gegossen anzeigen",
             "lastWateredHint": "Tage seit dem letzten Gießen je Beet als Schraffur ein- oder ausblenden.",
             "underlay": "Unterlage anzeigen",
-            "underlayHint": "Die Unterlage zum Abzeichnen unter dem Plan ein- oder ausblenden (nur für dich)."
+            "underlayHint": "Die Unterlage zum Abzeichnen unter dem Plan ein- oder ausblenden (nur für dich).",
+            "sun": "Sonnenfenster anzeigen",
+            "sunHint": "Wann die direkte Sonne ein Beet erreicht, als Muster mit Symbol ein- oder ausblenden.",
+            "moisture": "Drainage anzeigen",
+            "moistureHint": "Wie gut ein Beet Wasser ableitet, als Muster mit Symbol ein- oder ausblenden.",
+            "frost": "Frostrisiko anzeigen",
+            "frostHint": "Das Frostrisiko je Beet als Muster mit Symbol ein- oder ausblenden."
           },
           "legend": {
             "title": "Legende der Ebenen",
@@ -6051,7 +6057,11 @@
               "d8plus": "Mehr als 7 Tage seit"
             },
             "wateredNone": "Ohne Schraffur: kein Gießen erfasst.",
-            "wateredNote": "Das ist der Abstand zum letzten erfassten Gießen. Ob ein Beet Wasser braucht, sagt der Plan nicht."
+            "wateredNote": "Das ist der Abstand zum letzten erfassten Gießen. Ob ein Beet Wasser braucht, sagt der Plan nicht.",
+            "sunTitle": "Sonnenfenster",
+            "moistureTitle": "Drainage",
+            "frostTitle": "Frostrisiko",
+            "conditionNone": "Ohne Muster: nicht erfasst."
           },
           "wateredDays_one": "{{count}} Tag seit",
           "wateredDays_other": "{{count}} Tage seit",

@@ -9,6 +9,7 @@ import { ICON_SIZE_PX, MARKER_RADIUS_PX, labelFontPx } from './lod';
 import { PlantBadge, PlantMarkerBody } from './PlantMarker';
 import { UnderlayLayer } from '../underlay/UnderlayLayer';
 import { WateredLayer, ZoneLayer } from './ZoneOverlays';
+import { ConditionLayer, FROST_CONDITION, MOISTURE_CONDITION, SUN_CONDITION } from './ConditionOverlays';
 import { DETAIL_PX_PER_M, PLANT_INFO_ID, STATE_MARKER_RADIUS_PX } from './plantMarkerStyle';
 import type { MarkerEntry, ShapeEntry } from './planIndex';
 import {
@@ -124,6 +125,9 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
     invalidKeys,
     zoneLayer,
     wateredLayer,
+    sunLayer,
+    moistureLayer,
+    frostLayer,
     underlayLayer,
   } = options;
   const scene = useMemo(
@@ -166,6 +170,13 @@ function PlanSvg({ svgRef, model, viewport, selection, options }: PlanSvgProps) 
       ) : null}
       {wateredLayer ? (
         <WateredLayer shapes={scene.shapes} layer={wateredLayer} pxPerM={pxPerM} fontPx={fontPx} theme={theme} />
+      ) : null}
+      {sunLayer ? <ConditionLayer spec={SUN_CONDITION} shapes={scene.shapes} pxPerM={pxPerM} theme={theme} /> : null}
+      {moistureLayer ? (
+        <ConditionLayer spec={MOISTURE_CONDITION} shapes={scene.shapes} pxPerM={pxPerM} theme={theme} />
+      ) : null}
+      {frostLayer ? (
+        <ConditionLayer spec={FROST_CONDITION} shapes={scene.shapes} pxPerM={pxPerM} theme={theme} />
       ) : null}
       {scene.clusters.map((cluster) => (
         <ClusterNode
