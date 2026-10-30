@@ -139,7 +139,7 @@ DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # Nachtrag
 GET    /api/v1/t/{slug}/care-events                                   # Pflegeprotokoll des ganzen Mandanten
 ```
 
-**`GET …/history`** liefert die gespeicherten Pflegeeinträge des Beets und die aus Pflanzen und Durchläufen **abgeleiteten** Pflanzungsereignisse in einer Liste, neueste zuerst. Jeder Eintrag trägt `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` und `category` (bei Pflanzungsereignissen `planting` oder `removal`). Bei `care_event` steht der ganze Eintrag in `care_event`.
+**`GET …/history`** liefert die gespeicherten Pflegeeinträge des Beets und die aus Pflanzen und Durchläufen **abgeleiteten** Pflanzungsereignisse in einer Liste, neueste zuerst. Jeder Eintrag trägt `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` und `category` (bei Pflanzungsereignissen `planting` oder `removal`). Bei `care_event` steht der ganze Eintrag in `care_event`. Ein Pflegeeintrag nennt hier wie in `GET /care-events` in `plant_names` die lesbaren Namen seiner Pflanzen (`plant_name`, sonst `instance_id`, in der Reihenfolge von `plant_keys`; eine gelöschte Pflanze fehlt), damit die Liste keine Anfrage je Zeile braucht. `summary` bleibt der gespeicherte Text; die App formuliert eine Positionskorrektur selbst mit dem Pflanzennamen.
 
 | Parameter | Standard | Beschreibung |
 |-----------|----------|--------------|

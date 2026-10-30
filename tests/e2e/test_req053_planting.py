@@ -332,15 +332,12 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
     the dialog does not start at the plant's position, the drag does not land
     on (0,60 | 0,90) to the centimetre, the stepper does not move the plant,
     what is stored differs from what the fields showed, the zone plant is
-    movable, or the history has no "Position korrigiert" entry for the plant.
+    movable, or the history has no "Position korrigiert: <plant>" entry naming the plant.
 
     Not covered: the smartphone part of the case - long-press drag in field mode,
     "pan without long press" (WP 5.x); this run is the desktop path the issue
     names. The stepper moves 10 cm per press (§18.1 step 9, #2514); the 5 cm / 1 cm
-    fine steps are covered by the component tests. Spec deviation, not asserted:
-    the history line is the server's summary
-    "Position corrected (<slot>)" and names the slot, not the plant - the plant
-    is asserted on the stored event instead.
+    fine steps are covered by the component tests.
     """
     tomato = species(base_url, e2e_seed_data, TOMATO)
     _garden, bed = _one_bed(base_url, e2e_seed_data, "tc019", 2.0, 1.2)
@@ -390,10 +387,15 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
     screenshot("053_019_03_zone_note", "Pflanze in einer Zone: Hinweis statt Verschieben")
     zone.close_with_escape()
 
+    names = {
+        row["plant_key"]: row.get("plant_name") or row["instance_id"]
+        for row in plantings(base_url, e2e_seed_data, bed, "active")
+    }
     bed_view.open(bed, "history")
     bed_view.show_corrections()
     entry = bed_view.wait_for_history_entry(
-        "Position korrigiert", "TC-053-019: the history after the correction"
+        f"Position korrigiert: {names[plant]}",
+        "TC-053-019: the history names the corrected plant (#2514)",
     )
     screenshot("053_019_04_history", "Historie mit Eintrag 'Position korrigiert'")
     history = tenant_get(

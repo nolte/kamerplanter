@@ -271,6 +271,29 @@ class TestTheFilters:
         ]
 
 
+class TestPlantNames:
+    def test_a_care_event_names_its_plants_in_order_and_skips_gone_and_foreign_ones(self, db, repo, bed) -> None:
+        """#2514: the history line names the plant from the same read - ``plant_name``, else ``instance_id``."""
+        _plant(db, "named", plant_name="Tomato 'Black Krim' #3")
+        _plant(db, "plain")
+        _plant(db, "theirs", tenant=OTHER)
+        _event(
+            db,
+            "moved",
+            performed="2025-06-01T08:00:00Z",
+            category="position_corrected",
+            plant_keys=["plain", "gone", "theirs", "named"],
+        )
+        _event(db, "watered", performed="2025-06-02T08:00:00Z")
+
+        # A position correction is a correction: shown on request only (GP-FR-102).
+        page = _page(repo, BedHistoryFilter(include_corrections=True))
+        rows = {r.care.event.key: r.care for r in page if r.care is not None}
+
+        assert rows["moved"].plant_names == ("id-plain", "Tomato 'Black Krim' #3")
+        assert rows["watered"].plant_names == ()
+
+
 class TestTheTenant:
     def test_another_tenants_rows_naming_this_bed_are_not_history(self, db, repo, bed) -> None:
         _plant(db, "mine")

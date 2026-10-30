@@ -14,7 +14,10 @@ export interface CareEventLine {
   key: string;
   location_key: string;
   plant_keys: string[];
+  /** Readable names of `plant_keys` in their order; a plant that is gone is left out (#2514). */
+  plant_names: string[];
   category: string;
+  /** Stored as written (audit, export); some categories are worded by the client instead (`itemHeadline`). */
   summary: string;
   performed_at: string;
   /** Display name, the third party's label, or `anonymisiert`. */

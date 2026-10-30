@@ -81,6 +81,7 @@ describe('BedHistoryTab - the list (GP-ACC-027)', () => {
         careItem('w1', { summary: 'Watered the tomatoes', quantity: 2, unit: 'l', performed_by: 'Sabine' }),
         plantedItem('pl_1', 'TOM-1'),
         { ...plantedItem('pl_1', 'TOM-1', '2026-09-30T00:00:00Z'), id: 'plant_removed:pl_1', kind: 'plant_removed', category: 'removal', termination_type: 'harvested' },
+        careItem('p1', { category: 'position_corrected', summary: 'Position corrected (BED_001)', plant_keys: ['pl_1'], plant_names: ['TOM-1'] }),
       ],
       timeline: timeline(FIVE_YEARS),
     });
@@ -92,6 +93,9 @@ describe('BedHistoryTab - the list (GP-ACC-027)', () => {
     expect(care).toHaveTextContent('by Sabine');
     expect(screen.getByTestId('history-item-plant_planted:pl_1')).toHaveTextContent('TOM-1 planted');
     expect(screen.getByTestId('history-item-plant_removed:pl_1')).toHaveTextContent('TOM-1 removed (harvested)');
+    // #2514: a position correction names the plant, not the slot of the stored summary.
+    expect(screen.getByTestId('history-item-care:p1')).toHaveTextContent('Position corrected: TOM-1');
+    expect(screen.getByTestId('history-item-care:p1')).not.toHaveTextContent('BED_001');
   });
 
   it('marks corrected and cancelled entries', async () => {

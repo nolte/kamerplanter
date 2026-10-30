@@ -11,6 +11,7 @@ export function careLine(key: string, overrides: Partial<CareEventLine> = {}): C
     key,
     location_key: 'loc_b03',
     plant_keys: [],
+    plant_names: [],
     category: 'watering',
     summary: `Watered ${key}`,
     performed_at: '2026-06-01T08:00:00Z',

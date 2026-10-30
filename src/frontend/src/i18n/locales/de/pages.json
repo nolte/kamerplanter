@@ -6932,7 +6932,9 @@
           "plantRemovedHow": "{{name}} entfernt ({{how}})",
           "runStarted": "Durchlauf „{{name}}“ gestartet",
           "runCompleted": "Durchlauf „{{name}}“ abgeschlossen",
-          "runCancelled": "Durchlauf „{{name}}“ abgebrochen"
+          "runCancelled": "Durchlauf „{{name}}“ abgebrochen",
+          "positionCorrected": "Position korrigiert: {{name}}",
+          "positionCorrectedNoName": "Position einer Pflanze korrigiert"
         },
         "termination": {
           "harvested": "geerntet",

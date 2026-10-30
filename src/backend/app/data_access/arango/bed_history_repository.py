@@ -14,6 +14,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_repository import PLANT_NAMES_AQL, plant_names_of
 from app.domain.interfaces.bed_history_repository import (
     BedHistoryFilter,
     BedHistoryRow,
@@ -40,10 +41,14 @@ LET care = (
         LET by = e.performed_by_user_key == null ? null : DOCUMENT(CONCAT(@users, e.performed_by_user_key))
         LET for_user = e.performed_for_user_key == null
             ? null : DOCUMENT(CONCAT(@users, e.performed_for_user_key))
+        {plant_names}
         RETURN {{
             id: CONCAT("care:", e._key),
             ts: DATE_TIMESTAMP(e.performed_at),
-            care: {{event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name}}
+            care: {{
+                event: e, performed_by_name: by.display_name, performed_for_name: for_user.display_name,
+                plant_names: plant_names
+            }}
         }}
 )
 LET planted = @want_planting ? (
@@ -171,6 +176,7 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
             "@runs": col.PLANTING_RUNS,
             "@run_contains": col.RUN_CONTAINS,
             "users": f"{col.USERS}/",
+            "plants": f"{col.PLANT_INSTANCES}/",
             "location_key": location_key,
             "tenant_key": tenant_key,
             "plant_key": criteria.plant_key,
@@ -191,6 +197,7 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
             removed_window=_window("p.removed_on", date_only=True),
             started_window=_window("r.started_at"),
             completed_window=_window("r.completed_at"),
+            plant_names=PLANT_NAMES_AQL,
         )
         cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=binds))
         return [self._row(row) for row in cursor]
@@ -208,6 +215,7 @@ class ArangoBedHistoryRepository(IBedHistoryRepository):
                     event=event,
                     performed_by_name=care.get("performed_by_name"),
                     performed_for_name=care.get("performed_for_name"),
+                    plant_names=plant_names_of(care.get("plant_names")),
                 ),
             )
         data = row["planting"]

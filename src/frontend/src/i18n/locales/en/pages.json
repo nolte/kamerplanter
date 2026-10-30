@@ -6931,7 +6931,9 @@
           "plantRemovedHow": "{{name}} removed ({{how}})",
           "runStarted": "Run \"{{name}}\" started",
           "runCompleted": "Run \"{{name}}\" completed",
-          "runCancelled": "Run \"{{name}}\" cancelled"
+          "runCancelled": "Run \"{{name}}\" cancelled",
+          "positionCorrected": "Position corrected: {{name}}",
+          "positionCorrectedNoName": "Position of a plant corrected"
         },
         "termination": {
           "harvested": "harvested",

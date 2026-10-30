@@ -20,10 +20,22 @@ export function formatQuantity(t: TFunction, line: Pick<CareEventLine, 'quantity
   return line.unit ? `${amount} ${t(`enums.careUnit.${line.unit}`, { defaultValue: line.unit })}` : amount;
 }
 
+/**
+ * A position correction in the reader's language with the plant's name (#2514). The stored summary
+ * ("Position corrected (<slot id>)") is the server's English audit text and names the slot, not the plant.
+ */
+function positionCorrectedHeadline(t: TFunction, line: CareEventLine | null): string {
+  const names = line?.plant_names ?? [];
+  return names.length > 0
+    ? t('pages.bed.history.event.positionCorrected', { name: names.join(', ') })
+    : t('pages.bed.history.event.positionCorrectedNoName');
+}
+
 /** What the grower did, in one line; a derived planting event has no summary of its own. */
 export function itemHeadline(t: TFunction, item: HistoryItem): string {
   switch (item.kind) {
     case 'care_event':
+      if (item.category === 'position_corrected') return positionCorrectedHeadline(t, item.care_event);
       return item.care_event?.summary ?? categoryLabel(t, item.category);
     case 'plant_planted':
       return t('pages.bed.history.event.plantPlanted', { name: item.plant_name ?? item.plant_key ?? '' });
