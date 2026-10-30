@@ -63,8 +63,8 @@
 # more: under a digest pin an upstream tag move cannot change what the scan reads,
 # so such an assertion could only produce a false alarm.
 # renovate: datasource=github-tags depName=projectdiscovery/nuclei-templates
-nuclei_templates_commit: f8b8b8dcd70d93826c3767e1829ef8243af9f03b
-nuclei_templates_version: v10.5.0
+nuclei_templates_commit: 79fb682760ab3d5b0e22afbb44709353cbebf023
+nuclei_templates_version: v10.5.1
 
 # The nuclei BINARY, pinned for the validator and every scan lane alike (#1177).
 #
