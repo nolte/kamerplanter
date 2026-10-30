@@ -17,6 +17,7 @@ describe('ErrorBoundary', () => {
   });
   afterEach(() => {
     errorSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('renders children when nothing throws', () => {
@@ -104,5 +105,42 @@ describe('ErrorBoundary', () => {
     );
 
     expect(screen.queryByRole('button', { name: /neu laden/i })).not.toBeInTheDocument();
+  });
+
+  it('offers a reload next to the retry in the inline variant, and the reload reloads the page', async () => {
+    const user = userEvent.setup();
+    const reload = vi.fn();
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, reload });
+    render(
+      <ErrorBoundary title="Widget kaputt" hint="Hinweis" retryLabel="Wiederholen" reloadLabel="Seite neu laden">
+        <Bomb explode={true} />
+      </ErrorBoundary>,
+    );
+    const fallback = screen.getByTestId('widget-error');
+    expect(fallback.querySelector('[role="alert"]')).not.toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Wiederholen' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Seite neu laden' }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no retry in the inline variant when no retryLabel is passed (a retry that cannot succeed)', () => {
+    render(
+      <ErrorBoundary title="Bereich fehlt" hint="Seite neu laden" reloadLabel="Seite neu laden">
+        <Bomb explode={true} />
+      </ErrorBoundary>,
+    );
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveTextContent('Seite neu laden');
+  });
+
+  it('renders no action at all in the inline variant when neither label is passed', () => {
+    render(
+      <ErrorBoundary title="Bereich fehlt" hint="Hinweis">
+        <Bomb explode={true} />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText('Bereich fehlt')).toBeInTheDocument();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 });

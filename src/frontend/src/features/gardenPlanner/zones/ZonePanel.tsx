@@ -17,7 +17,7 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { PlanModel } from '../model/planModel';
 import { WateringRoundDialog } from './WateringRoundDialog';
-import { ZoneEditor } from './ZoneEditor';
+import { ZoneEditor, type ZoneAdoption, type ZoneChangeOptions } from './ZoneEditor';
 import { ZoneStatusView } from './ZoneStatusView';
 import type { UseIrrigationZones } from './useZoneData';
 
@@ -27,14 +27,17 @@ export interface ZonePanelProps {
   plan: PlanModel;
   zoneData: UseIrrigationZones;
   selectedBedKeys: readonly string[];
-  /** A write happened: the editor reads the zones and the last-watered layer again. */
+  /** A zone was written: what depends on the zones is read again (the zone list itself reloads through `zoneData`). */
   onChanged: () => void;
+  /** A watering round was logged: the last-watered layer is read again. */
+  onWatered: () => void;
   onClose: () => void;
 }
 
-type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; key: string };
+/** `adopt`: the edit form continues a create whose bed assignment failed (the beds chosen, the message). */
+type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; key: string; adopt?: ZoneAdoption };
 
-export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, onClose }: ZonePanelProps) {
+export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, onWatered, onClose }: ZonePanelProps) {
   const { t } = useTranslation();
   const { canEdit, canDelete, canConfigureIntegrations } = useTenantPermissions();
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
@@ -42,8 +45,10 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
   const [statusToken, setStatusToken] = useState(0);
   const { zones, records, status, reload } = zoneData;
   const selected = mode.kind === 'edit' ? (zones.find((zone) => zone.key === mode.key) ?? null) : null;
-  // The full record (with the Home Assistant flag) once the endpoint answered; the plan's list before.
-  const record = selected ? (records.find((zone) => zone.key === selected.key) ?? selected) : null;
+  // The full record once the endpoint answered. The plan's list lacks the schedule hint, the water source and the
+  // flow rate: a form opened on it would start with them empty and its save would clear them (no remount follows
+  // when the record arrives). So a zone opens only on its full record; until then it shows the loading line.
+  const record = selected ? (records.find((zone) => zone.key === selected.key) ?? null) : null;
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   // Focus follows the panel: into it on open, and to its heading when the view changes (after a save, a delete, a cancel).
@@ -51,12 +56,12 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
     headingRef.current?.focus();
   }, [mode.kind]);
 
-  const changed = (key: string | null, options?: { stay?: boolean }) => {
+  const changed = (key: string | null, options?: ZoneChangeOptions) => {
     reload();
     onChanged();
     setStatusToken((value) => value + 1);
     if (options?.stay) return;
-    setMode(key === null ? { kind: 'list' } : { kind: 'edit', key });
+    setMode(key === null ? { kind: 'list' } : { kind: 'edit', key, adopt: options?.adopt });
   };
 
   return (
@@ -170,6 +175,7 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
             <ZoneEditor
               key={selected.key}
               zone={record}
+              adopted={mode.adopt}
               siteKey={plan.siteKey}
               plan={plan}
               zones={zones}
@@ -204,18 +210,18 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
               onClose={() => setRoundOpen(false)}
               onLogged={() => {
                 setStatusToken((value) => value + 1);
-                onChanged();
+                onWatered();
               }}
             />
           )}
         </>
       )}
-      {mode.kind === 'edit' && !selected && (
+      {mode.kind === 'edit' && !record && (
         <Typography variant="body2" color="text.secondary" role="status">
           {t(`${PREFIX}.status.loading`)}
         </Typography>
       )}
-      {mode.kind === 'edit' && !selected && (
+      {mode.kind === 'edit' && !record && (
         <Button onClick={() => setMode({ kind: 'list' })} sx={{ minHeight: 44, justifySelf: 'start' }}>
           {t(`${PREFIX}.form.cancel`)}
         </Button>

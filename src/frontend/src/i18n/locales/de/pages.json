@@ -6089,7 +6089,9 @@
             "bedCount_one": "{{count}} Beet",
             "bedCount_other": "{{count}} Beete",
             "newTitle": "Neue Zone",
-            "editTitle": "Zone {{name}}"
+            "editTitle": "Zone {{name}}",
+            "chunkFailedTitle": "Der Zonen-Bereich konnte nicht geladen werden",
+            "chunkFailedHint": "Das passiert meist direkt nach einer Aktualisierung der App. Speichere deinen Plan und lade dann die Seite neu; der Plan selbst bleibt nutzbar."
           },
           "form": {
             "name": "Name der Zone",
@@ -6118,12 +6120,18 @@
             "deleted": "Zone {{name}} gelöscht.",
             "moved": "Aus anderer Zone übernommen: {{beds}}.",
             "unsavedHint": "Beete und Wasserquellen, die noch nicht gespeichert sind, stehen hier erst nach dem Speichern des Plans zur Auswahl.",
-            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan."
+            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan.",
+            "bedsSelectionSkipped_one": "{{count}} ausgewähltes Beet ist noch nicht gespeichert und wurde nicht übernommen. Speichere den Plan und übernimm die Auswahl dann noch einmal.",
+            "bedsSelectionSkipped_other": "{{count}} ausgewählte Beete sind noch nicht gespeichert und wurden nicht übernommen. Speichere den Plan und übernimm die Auswahl dann noch einmal.",
+            "createdBedsFailed": "Die Zone {{name}} wurde angelegt, ihre Beete sind aber noch nicht zugeordnet. {{reason}} Die gewählten Beete bleiben angehakt: Speichere die Zone noch einmal, um sie zuzuordnen.",
+            "createdBedsFailedRetry": "Die Zone {{name}} wurde angelegt, ihre Beete konnten aber nicht zugeordnet werden. Die gewählten Beete bleiben angehakt: Speichere die Zone noch einmal, um sie zuzuordnen.",
+            "createdBedsForbidden": "Die Zone {{name}} wurde angelegt, ihre Beete konnten aber nicht zugeordnet werden. {{reason}}"
           },
           "errors": {
             "forbidden": "Dafür fehlt dir die Berechtigung.",
             "quota": "Diese Anlage hat die höchste Zahl an Zonen erreicht.",
             "notFound": "Die Zone gibt es nicht mehr. Die Liste wird neu geladen.",
+            "siteNotFound": "Die Anlage gibt es nicht mehr, die Zone wurde deshalb nicht angelegt. Lade die Seite neu.",
             "invalid": "Die Eingaben wurden abgelehnt. Prüfe Name, Farbe und Durchfluss.",
             "generic": "Das hat nicht geklappt. Versuche es noch einmal.",
             "rateLimited": "Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuche es erneut.",
@@ -6206,7 +6214,7 @@
             "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}."
           },
           "bed": {
-            "zone": "Bewässerungszone: {{name}}",
+            "zone": "Bewässerungszone: {{number}}. {{name}}",
             "wateredNone": "Kein Gießen erfasst.",
             "watered": "Zuletzt gegossen: {{days}}"
           }

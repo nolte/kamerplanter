@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { PlanModel } from '../model/planModel';
 import { daysSince } from './lastWatered';
+import { useWateringNow } from './useWateringNow';
 import { getZoneStatus } from './zonesApi';
 import type { IrrigationZone, PlanZone, ZoneHint, ZoneStatus } from './zoneTypes';
 
@@ -129,7 +130,7 @@ function Row({ label, testId, children }: { label: string; testId: string; child
 
 function StatusRows({ zone, status, technical, liters, bedName, date, hintText }: RowsProps) {
   const { t } = useTranslation();
-  const [nowMs] = useState(() => Date.now());
+  const nowMs = useWateringNow();
   const last = status.last_watering ?? null;
   const next = status.next_planned ?? null;
   const days = last ? daysSince(last.at, nowMs) : null;

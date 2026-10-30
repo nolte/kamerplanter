@@ -26,7 +26,7 @@ export function zone(key: string, overrides: Partial<IrrigationZone> = {}): Irri
 export function zonePlan(extraBeds: Parameters<typeof bed>[3][] = []) {
   return smallPlan({
     locations: [
-      ...extraBeds.map((overrides, index) => bed(`tmp_unsaved${index}`, 10, 1, overrides)),
+      ...extraBeds.map((overrides, index) => bed(`tmpunsaved${index}`, 10, 1, overrides)),
       bed('loc_a', 1, 1, { name: 'North bed', area_m2: 4 }),
       bed('loc_b', 4, 1, { name: 'South bed', area_m2: 0 }),
       bed('loc_c', 7, 1, { name: 'East bed', area_m2: 2 }),
@@ -45,6 +45,11 @@ export function zonePlan(extraBeds: Parameters<typeof bed>[3][] = []) {
 
 export function zoneData(zones: IrrigationZone[]): UseIrrigationZones {
   return { zones, records: zones, status: 'ready', reload: vi.fn() };
+}
+
+/** The zone list the endpoint answers; `list` is read on every request, so a test can change it between reads. */
+export function mockZoneList(list: () => IrrigationZone[]): void {
+  server.use(http.get(`${BASE}/sites/site_1/irrigation-zones`, () => HttpResponse.json(list())));
 }
 
 export function status(overrides: Partial<ZoneStatus> = {}): ZoneStatus {

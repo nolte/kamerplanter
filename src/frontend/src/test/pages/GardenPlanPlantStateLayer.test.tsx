@@ -4,6 +4,7 @@
  * choice, the legend section, and no request for plant states while the layer is off.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -18,6 +19,7 @@ import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
+import { authState, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
 
 const BASE = '/api/v1/t/:tenant';
@@ -98,8 +100,11 @@ function usePlanWithPlants({ spacingM = 0.4, phaseKey = 'ph_flower' }: PlanFixtu
 
 let store = configureStore({ reducer: rootReducer });
 
-function renderRoute() {
-  store = configureStore({ reducer: rootReducer });
+function renderRoute(role?: 'grower') {
+  store = configureStore({
+    reducer: rootReducer,
+    preloadedState: (role ? { ...tenantState(role), ...authState() } : undefined) as never,
+  });
   const router = createMemoryRouter(
     [{ path: 'standorte/sites/:key/plan', element: <GardenPlanRoute /> }],
     { initialEntries: ['/standorte/sites/site_1/plan?mode=plan'] },
@@ -234,5 +239,50 @@ describe('plant-state layer in the plan', () => {
     });
     await waitFor(() => expect(stateRequests).toEqual(['loc_a', 'loc_a']));
     await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
+  });
+
+  it('reads the loaded states again after a zone was saved in the zone panel, and not the plan', async () => {
+    usePlanWithPlants();
+    let planReads = 0;
+    const zone = {
+      key: 'z1',
+      site_key: 'site_1',
+      name: 'Drip line',
+      irrigation_type: 'drip',
+      flow_rate_source: 'manual',
+      flow_rate_ha_entity_bound: false,
+      color: '#2E7D32',
+      location_keys: ['loc_a'],
+    };
+    server.use(
+      // Counts every plan read and falls through to the plan of usePlanWithPlants.
+      http.get(`${BASE}/sites/:key/plan`, () => {
+        planReads += 1;
+        return undefined;
+      }),
+      http.get(`${BASE}/sites/:key/irrigation-zones`, () => HttpResponse.json([zone])),
+      http.get(`${BASE}/irrigation-zones/z1/status`, () =>
+        HttpResponse.json({ consumption_liters_30d: 0, consumption_sources: [], hints: [] }),
+      ),
+      http.patch(`${BASE}/irrigation-zones/z1`, async ({ request }) => {
+        Object.assign(zone, (await request.json()) as object);
+        return HttpResponse.json(zone);
+      }),
+    );
+    const { container } = renderRoute('grower');
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-plantState'));
+    await waitFor(() => expect(layerMarkers(container)).toHaveLength(3));
+    expect(stateRequests).toEqual(['loc_a']);
+    const readsBefore = planReads;
+    expect(readsBefore).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
+    await user.clear(await screen.findByTestId('garden-plan-zone-name'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Back line');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    await waitFor(() => expect(stateRequests).toEqual(['loc_a', 'loc_a']));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Zone Back line' })).toBeInTheDocument());
+    expect(planReads).toBe(readsBefore);
   });
 });
