@@ -32,6 +32,9 @@ import KeyboardIcon from '@mui/icons-material/Keyboard';
 import ImageIcon from '@mui/icons-material/Image';
 import LayersIcon from '@mui/icons-material/Layers';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import WbSunnyOutlinedIcon from '@mui/icons-material/WbSunnyOutlined';
+import WavesIcon from '@mui/icons-material/Waves';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -173,6 +176,9 @@ const LAYER_ICONS: Record<Exclude<LayerId, 'grid'>, ReactNode> = {
   zones: <LayersIcon />,
   lastWatered: <WaterDropIcon />,
   underlay: <ImageIcon />,
+  sun: <WbSunnyOutlinedIcon />,
+  moisture: <WavesIcon />,
+  frost: <AcUnitIcon />,
 };
 
 // The template picker, the "save as template" dialog and the multi-duplicate dialog are their own chunks:
@@ -1043,8 +1049,24 @@ export function GardenPlanEditor({
         invalidKeys,
         underlayLayer: underlayState.entry,
         ...zoneLayers,
+        sunLayer: layerPrefs.sun,
+        moistureLayer: layerPrefs.moisture,
+        frostLayer: layerPrefs.frost,
       }),
-    [renderer, plan, viewport, selectedKeys, labels, onActivateKey, invalidKeys, zoneLayers, underlayState.entry],
+    [
+      renderer,
+      plan,
+      viewport,
+      selectedKeys,
+      labels,
+      onActivateKey,
+      invalidKeys,
+      zoneLayers,
+      underlayState.entry,
+      layerPrefs.sun,
+      layerPrefs.moisture,
+      layerPrefs.frost,
+    ],
   );
 
   const selectChooseTool = useCallback(
@@ -1417,7 +1439,14 @@ export function GardenPlanEditor({
       />
       {!listShown && viewBar}
       {!listShown && (
-        <ZoneLegend zones={zoneData.zones} showZones={layerPrefs.zones} showLastWatered={layerPrefs.lastWatered} />
+        <ZoneLegend
+          zones={zoneData.zones}
+          showZones={layerPrefs.zones}
+          showLastWatered={layerPrefs.lastWatered}
+          showSun={layerPrefs.sun}
+          showMoisture={layerPrefs.moisture}
+          showFrost={layerPrefs.frost}
+        />
       )}
       {!listShown && !toolbarBelow && toolbar}
       {!listShown && !toolbarBelow && touchBar}

@@ -980,6 +980,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         collection = txn.collection(col.LOCATIONS)
         for key, fields in write.location_updates:
             self._replace_fields(collection, key, fields, now)
+        for key, sun_profile in write.location_sun_profiles:
+            self._write_sun_profile(collection, key, sun_profile, now)
 
     def _insert_objects(self, txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
         collection = txn.collection(col.GARDEN_OBJECTS)
@@ -1007,6 +1009,26 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         collection = txn.collection(col.GARDEN_OBJECTS)
         for key, fields in write.object_updates:
             self._replace_fields(collection, key, fields, now)
+
+    @staticmethod
+    def _write_sun_profile(collection: TransactionCollection, key: str, sun_profile: dict[str, Any], now: str) -> None:
+        """Write ``site_conditions.sun_profile`` and nothing else of ``site_conditions`` (#2538).
+
+        ``PATCH /locations`` writes the microclimate, wind, slope … outside the plan revision; a whole-column
+        write of the value the batch read would revert them (a frost risk back, ``frost_exposed`` left set).
+        ``merge=True`` merges the nested objects into the stored ones - a stored ``null`` becomes the object -
+        and ``keep_none=False`` removes a sun-profile key the batch cleared.
+        """
+        try:
+            collection.update(
+                {"_key": key, "site_conditions": {"sun_profile": sun_profile}, "updated_at": now},
+                merge=True,
+                keep_none=False,
+            )
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # the document is gone: another writer removed it after our read
+                raise WriteConflictError("garden_plan", "a document of the plan was removed concurrently") from exc
+            raise
 
     @staticmethod
     def _replace_fields(collection: TransactionCollection, key: str, fields: dict[str, Any], now: str) -> None:

@@ -31,6 +31,9 @@ import type {
   PlanLocation,
   PlanOperation,
   PlanSettings,
+  PlanSiteConditions,
+  PlanSunProfile,
+  PlanSunProfilePatch,
   SetBoundaryOp,
   UpdateFieldsOp,
   UpdateGeometryOp,
@@ -231,6 +234,56 @@ function updateGeometry(plan: PlanModel, op: UpdateGeometryOp): AppliedOperation
   };
 }
 
+/**
+ * The site conditions as a reloaded plan shows them: the server leaves out an `unknown` window or risk,
+ * hours that were not entered, a leaf shade that is off, and every part left empty by that (#2538, D-3).
+ * Keeping the local copy in the same shape makes an undone edit equal to the plan it started from.
+ */
+function leanSiteConditions(conditions: PlanSiteConditions): PlanSiteConditions | undefined {
+  const lean: PlanSiteConditions = {};
+  const sun = conditions.sun_profile;
+  if (sun) {
+    const profile: PlanSunProfile = {};
+    if (sun.sun_window !== undefined && sun.sun_window !== 'unknown') profile.sun_window = sun.sun_window;
+    if (sun.direct_sun_hours_summer != null)
+      profile.direct_sun_hours_summer = sun.direct_sun_hours_summer;
+    if (sun.foliage_shade_in_summer === true) profile.foliage_shade_in_summer = true;
+    if (Object.keys(profile).length > 0) lean.sun_profile = profile;
+  }
+  const risk = conditions.microclimate?.frost_risk;
+  if (risk !== undefined && risk !== 'unknown') lean.microclimate = { frost_risk: risk };
+  return Object.keys(lean).length > 0 ? lean : undefined;
+}
+
+/**
+ * Lays the sent sun-profile keys over the bed's (the server's merge rule) and returns the previous value of
+ * exactly those keys - an absent one as the value it stands for - so the inverse puts them back (D-5).
+ */
+function mergeSunProfile(
+  location: PlanLocation,
+  sent: PlanSunProfilePatch,
+): { merged: PlanSiteConditions | undefined; previous: PlanSunProfilePatch } {
+  const stored = location.site_conditions?.sun_profile ?? {};
+  const profile: PlanSunProfile = { ...stored };
+  const previous: PlanSunProfilePatch = {};
+  if (sent.sun_window !== undefined) {
+    previous.sun_window = stored.sun_window ?? 'unknown';
+    profile.sun_window = sent.sun_window;
+  }
+  if (sent.direct_sun_hours_summer !== undefined) {
+    previous.direct_sun_hours_summer = stored.direct_sun_hours_summer ?? null;
+    profile.direct_sun_hours_summer = sent.direct_sun_hours_summer;
+  }
+  if (sent.foliage_shade_in_summer !== undefined) {
+    previous.foliage_shade_in_summer = stored.foliage_shade_in_summer ?? false;
+    profile.foliage_shade_in_summer = sent.foliage_shade_in_summer;
+  }
+  return {
+    merged: leanSiteConditions({ ...(location.site_conditions ?? {}), sun_profile: profile }),
+    previous,
+  };
+}
+
 function updateLocationFields(
   plan: PlanModel,
   op: Extract<UpdateFieldsOp, { entity: 'location' }>,
@@ -252,6 +305,13 @@ function updateLocationFields(
     before.height_m = location.height_m ?? null;
     if (patch.height_m === null) delete next.height_m;
     else next.height_m = patch.height_m;
+  }
+  const sunPatch = patch.site_conditions?.sun_profile;
+  if (sunPatch !== undefined && Object.keys(sunPatch).length > 0) {
+    const { merged, previous } = mergeSunProfile(location, sunPatch);
+    before.site_conditions = { sun_profile: previous };
+    if (merged === undefined) delete next.site_conditions;
+    else next.site_conditions = merged;
   }
   // `description` and `notes` are not in the lean read model: the old value is unknown, so the
   // step has no wire inverse (undo only while it is pending).
@@ -312,7 +372,12 @@ function updateFields(plan: PlanModel, op: UpdateFieldsOp): AppliedOperation {
 
 // ── delete ───────────────────────────────────────────────────────────────────
 
-function recreateLocation(location: PlanLocation): PlanOperation | null {
+/**
+ * The operations that put a deleted bed back: its creation and, when it had a sun profile, an `update_fields`
+ * that restores it - `create_location` carries no site conditions (#2538). The frost risk and the soil are not
+ * part of the plan batch, so a bed brought back this way starts without them, as it does on the server.
+ */
+function recreateLocation(location: PlanLocation): PlanOperation[] | null {
   if (!location.geometry || !TEMP_KEY.test(location.key)) return null;
   const data: CreateLocationOp['data'] = {
     name: location.name,
@@ -326,7 +391,17 @@ function recreateLocation(location: PlanLocation): PlanOperation | null {
   if (location.height_m != null) data.height_m = location.height_m;
   if (location.description != null) data.description = location.description;
   if (location.notes != null) data.notes = location.notes;
-  return { op: 'create_location', temp_key: location.key, data };
+  const operations: PlanOperation[] = [{ op: 'create_location', temp_key: location.key, data }];
+  const sun = location.site_conditions?.sun_profile;
+  if (sun && Object.keys(sun).length > 0) {
+    operations.push({
+      op: 'update_fields',
+      entity: 'location',
+      key: location.key,
+      fields: { site_conditions: { sun_profile: { ...sun } } },
+    });
+  }
+  return operations;
 }
 
 function recreateObject(garden: GardenObject): PlanOperation | null {
@@ -372,7 +447,10 @@ function deleteLocation(plan: PlanModel, op: DeleteOp): AppliedOperation {
   const hasPlants = plantsInLocations(plan, locationKeys).length > 0;
   const creates = [
     ...subtree.map((key) => recreateLocation(plan.locations[key])),
-    ...inside.map(recreateObject),
+    ...inside.map((garden) => {
+      const create = recreateObject(garden);
+      return create ? [create] : null;
+    }),
   ];
   const invertible = !hasPlants && creates.every((create) => create !== null);
 
@@ -397,7 +475,7 @@ function deleteLocation(plan: PlanModel, op: DeleteOp): AppliedOperation {
       slots: removedSlots.size ? withoutKeys(plan.slots, removedSlots) : plan.slots,
       plants: removedPlants.size ? withoutKeys(plan.plants, removedPlants) : plan.plants,
     },
-    inverse: invertible ? (creates as PlanOperation[]) : null,
+    inverse: invertible ? (creates as PlanOperation[][]).flat() : null,
   };
 }
 

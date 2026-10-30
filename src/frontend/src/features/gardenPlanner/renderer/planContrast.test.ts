@@ -5,9 +5,12 @@
  * carry no information on their own (the outline and a dash pattern do), so they are not measured.
  */
 import { describe, expect, it } from 'vitest';
-import { decomposeColor, type Theme } from '@mui/material/styles';
+import { alpha, decomposeColor, type Theme } from '@mui/material/styles';
 import { darkTheme, highContrastTheme, lightTheme } from '@/theme/theme';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { planPalette } from './SvgPlanRenderer';
+import { CONDITION_SPECS, ConditionPatternTile, conditionInk, type ConditionPatternKind } from './ConditionOverlays';
 
 type Rgb = [number, number, number];
 
@@ -61,9 +64,50 @@ describe.each(THEMES)('plan elements in the %s theme', (_name, theme) => {
   });
 });
 
+/** `color` as the browser paints it over `canvas` (a translucent bed wash over the paper), as an opaque rgb(). */
+function over(color: string, canvas: string): string {
+  const [r, g, b] = flatten(color, flatten(canvas, [255, 255, 255]));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * The site-condition layers (GP-FR-169, #2487): below label zoom the pattern alone tells a bed's sun window,
+ * drainage or frost risk, so its ink is information (WCAG 1.4.11) - at least 3:1 against the paper and against every
+ * bed wash it is drawn over, and a tile never thins it out with a partial opacity.
+ */
+describe.each(THEMES)('site-condition inks in the %s theme', (_name, theme) => {
+  const canvas = theme.palette.background.paper;
+  const beds = Object.entries(planPalette(theme).bed).map(([status, { fill }]) => [status, over(fill, canvas)] as const);
+
+  it.each(CONDITION_SPECS.map((spec) => [spec.id, spec] as const))('the %s ink reaches 3:1 on the paper and on every bed', (_id, spec) => {
+    const ink = conditionInk(theme, spec.tone);
+    expect(contrast(ink, canvas)).toBeGreaterThanOrEqual(3);
+    for (const [, bed] of beds) expect(contrast(ink, bed)).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(CONDITION_SPECS.map((spec) => [spec.id, spec] as const))('every %s pattern paints with that ink at full strength', (_id, spec) => {
+    const ink = conditionInk(theme, spec.tone);
+    const kinds = new Set<ConditionPatternKind>(Object.values(spec.patterns));
+    for (const kind of kinds) {
+      const markup = renderToStaticMarkup(
+        createElement('svg', null, createElement(ConditionPatternTile, { kind, tile: 10, line: 1.4, color: ink })),
+      );
+      expect(markup, kind).not.toMatch(/opacity=/);
+      const paints = [...markup.matchAll(/ (?:fill|stroke)="([^"]*)"/g)].map((match) => match[1]);
+      expect(paints.filter((paint) => paint !== 'none'), kind).not.toHaveLength(0);
+      for (const paint of paints) expect([ink, 'none'], kind).toContain(paint);
+    }
+  });
+});
+
 describe('the measuring stick', () => {
   it('rejects the colour the plan used to draw its boundary with (text.disabled on white)', () => {
     expect(contrast('rgba(0, 0, 0, 0.38)', '#ffffff')).toBeLessThan(3);
     expect(contrast('rgba(0, 0, 0, 0.6)', '#ffffff')).toBeGreaterThan(5);
+  });
+
+  it('rejects the former half-strength checker of the sun layer (warning.dark at 45 % on white)', () => {
+    const halfInk = over(alpha(lightTheme.palette.warning.dark, 0.45), '#ffffff');
+    expect(contrast(halfInk, '#ffffff')).toBeLessThan(3);
   });
 });

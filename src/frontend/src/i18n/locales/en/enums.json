@@ -1204,6 +1204,20 @@
       "measured": "Measured",
       "by_area": "Divided by area",
       "equal": "Divided in equal parts"
+    },
+    "sunWindow": {
+      "morning": "Morning",
+      "midday": "Midday",
+      "afternoon": "Afternoon",
+      "all_day": "All day",
+      "mixed": "Changing",
+      "unknown": "Unknown"
+    },
+    "frostRisk": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "unknown": "Unknown"
     }
   }
 }

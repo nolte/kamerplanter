@@ -179,6 +179,48 @@ describe('undo and redo (GP-ACC-007, GP-FR-026, GP-FR-155)', () => {
     expect(status()).toHaveTextContent('Unsaved changes (1)');
   });
 
+  it('undoes a saved sun-window edit with the counter-operation and redoes it (#2538)', async () => {
+    const t = setupEditor({ plan: plan() });
+    const edit: PlanOperation = {
+      op: 'update_fields',
+      entity: 'location',
+      key: 'b1',
+      fields: { site_conditions: { sun_profile: { sun_window: 'morning' } } },
+    };
+    t.after(() => {
+      act(() => {
+        t.store.dispatch(applyAction([edit], 'pages.gardenPlan.editor.actions.edit'));
+      });
+    });
+    applyPlanBatch.mockResolvedValue(ok({ updated: ['b1'] }));
+    await clickSave(t);
+    expect(applyPlanBatch.mock.calls[0][1]).toMatchObject({ operations: [edit] });
+
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-undo')));
+    expect(t.state().plan?.locations.b1.site_conditions).toBeUndefined();
+    expect(t.state().pending.map((item) => item.op)).toEqual([
+      {
+        op: 'update_fields',
+        entity: 'location',
+        key: 'b1',
+        fields: { site_conditions: { sun_profile: { sun_window: 'unknown' } } },
+      },
+    ]);
+
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-redo')));
+    expect(t.state().plan?.locations.b1.site_conditions).toEqual({ sun_profile: { sun_window: 'morning' } });
+    // The saved edit is not in the pending queue any more: the redo queues it again after the inverse.
+    expect(t.state().pending.map((item) => item.op)).toEqual([
+      {
+        op: 'update_fields',
+        entity: 'location',
+        key: 'b1',
+        fields: { site_conditions: { sun_profile: { sun_window: 'unknown' } } },
+      },
+      edit,
+    ]);
+  });
+
   it('says so when a saved step cannot be undone (deleting a bed with plants)', async () => {
     const withPlants = normalizePlan(planResponse());
     const t = setupEditor({ plan: withPlants });
@@ -484,6 +526,9 @@ describe('layer switch (GP-FR-031)', () => {
       zones: false,
       lastWatered: false,
       underlay: true,
+      sun: false,
+      moisture: false,
+      frost: false,
     });
     cleanup();
     setupEditor({ plan: plan() });

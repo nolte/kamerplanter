@@ -8,7 +8,8 @@
  *
  * The component only reports what changed; the caller decides how it is stored: the bed dialog and the
  * field-mode bed sheet send `PATCH /locations/{key}` with `site_conditions.sun_profile` (merged per key by
- * the server). `touchTarget` is 48 px by default and 64 px in field mode (GP-UX-023).
+ * the server); the editor's properties panel commits an `update_fields` operation into the plan save instead
+ * (#2538). `touchTarget` is 48 px by default and 64 px in field mode (GP-UX-023).
  */
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';

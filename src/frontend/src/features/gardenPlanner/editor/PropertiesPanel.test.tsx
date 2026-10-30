@@ -5,8 +5,22 @@ import type { PlanModel } from '../model/planModel';
 import type { PlanLocation } from '../model/types';
 import { setupEditor, typeAndBlur } from './editorTestKit';
 import { testPlan } from './tools/toolTestKit';
+import { changeBedStatus, patchSoilProfile, patchSun } from '../bed/bedApi';
 
-afterEach(() => cleanup());
+// The editor writes only through the plan save: any call into the bed page's PATCH path is a defect (#2538).
+vi.mock('../bed/bedApi', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../bed/bedApi')>()),
+  patchSun: vi.fn(),
+  patchSoilProfile: vi.fn(),
+  changeBedStatus: vi.fn(),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.mocked(patchSun).mockClear();
+  vi.mocked(patchSoilProfile).mockClear();
+  vi.mocked(changeBedStatus).mockClear();
+});
 
 const field = (id: string) => screen.getByTestId(`garden-plan-panel-field-${id}`);
 
@@ -317,6 +331,101 @@ describe('sun and shade tiles (GP-FR-157, TC-053-036)', () => {
     const t = setupEditor();
     t.click(4, 4);
     await screen.findByRole('radiogroup', { name: 'Sun and shade of the bed' });
+    await expectNoA11yViolations(t.view.container);
+  });
+});
+
+describe('sun window and leaf shade (GP-FR-158/159, #2538)', () => {
+  const PROFILE = 'garden-plan-panel-sun-profile';
+  const lastPending = (t: ReturnType<typeof setupEditor>) => t.state().pending[t.state().pending.length - 1].op;
+
+  it('commits a chip as ONE update_fields operation of the plan save, not a PATCH', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    const window = await screen.findByTestId(`${PROFILE}-window`);
+    expect(within(window).getAllByRole('radio')).toHaveLength(6);
+    expect(within(window).getByRole('radio', { name: 'Not known' })).toBeChecked();
+
+    const before = t.state().past.length;
+    t.after(() => fireEvent.click(screen.getByTestId(`${PROFILE}-window-morning-input`)));
+
+    expect(t.state().past).toHaveLength(before + 1);
+    expect(t.state().past[t.state().past.length - 1].label).toBe('pages.gardenPlan.editor.actions.edit');
+    expect(lastPending(t)).toEqual({
+      op: 'update_fields',
+      entity: 'location',
+      key: 'b1',
+      fields: { site_conditions: { sun_profile: { sun_window: 'morning' } } },
+    });
+    expect(t.state().plan!.locations.b1.site_conditions).toEqual({ sun_profile: { sun_window: 'morning' } });
+    expect(screen.getByTestId(`${PROFILE}-window-morning-input`)).toBeChecked();
+    expect(patchSun).not.toHaveBeenCalled();
+    expect(patchSoilProfile).not.toHaveBeenCalled();
+    expect(changeBedStatus).not.toHaveBeenCalled();
+  });
+
+  it('commits the leaf-shade switch the same way and undo takes it back', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    const foliage = await screen.findByTestId(`${PROFILE}-foliage`);
+
+    t.after(() => fireEvent.click(foliage));
+
+    expect(lastPending(t)).toEqual({
+      op: 'update_fields',
+      entity: 'location',
+      key: 'b1',
+      fields: { site_conditions: { sun_profile: { foliage_shade_in_summer: true } } },
+    });
+    expect(t.state().plan!.locations.b1.site_conditions?.sun_profile?.foliage_shade_in_summer).toBe(true);
+
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-undo')));
+    expect(t.state().plan!.locations.b1.site_conditions).toBeUndefined();
+    expect(t.state().pending).toHaveLength(0);
+  });
+
+  it('commits valid hours on blur and nothing for text that is not a number', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    const hours = await screen.findByTestId(`${PROFILE}-hours`);
+    const pending = t.state().pending.length;
+
+    t.after(() => typeAndBlur(hours, 'viel'));
+    expect(t.state().pending).toHaveLength(pending);
+
+    t.after(() => typeAndBlur(hours, '6,5'));
+    expect(lastPending(t)).toMatchObject({
+      fields: { site_conditions: { sun_profile: { direct_sun_hours_summer: 6.5 } } },
+    });
+  });
+
+  it('shows the stored profile of the selected bed and takes no input on a locked bed', async () => {
+    const base = testPlan();
+    const plan: PlanModel = {
+      ...base,
+      locations: {
+        ...base.locations,
+        lock: {
+          ...base.locations.lock,
+          site_conditions: { sun_profile: { sun_window: 'afternoon', foliage_shade_in_summer: true } },
+        },
+      },
+    };
+    const t = setupEditor({ plan });
+    t.click(15, 9);
+    await screen.findByTestId(`${PROFILE}-window`);
+
+    expect(screen.getByTestId(`${PROFILE}-window-afternoon-input`)).toBeChecked();
+    expect(screen.getByTestId(`${PROFILE}-foliage`)).toBeChecked();
+    expect(screen.getByTestId(`${PROFILE}-foliage`)).toBeDisabled();
+    for (const radio of within(screen.getByTestId(`${PROFILE}-window`)).getAllByRole('radio'))
+      expect(radio).toBeDisabled();
+  });
+
+  it('has no accessibility violations with the chips and the switch shown', async () => {
+    const t = setupEditor();
+    t.click(4, 4);
+    await screen.findByTestId(`${PROFILE}-window`);
     await expectNoA11yViolations(t.view.container);
   });
 });

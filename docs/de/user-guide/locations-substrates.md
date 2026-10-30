@@ -390,13 +390,14 @@ Die Stundenwerte folgen der Definition der Royal Horticultural Society, bezogen 
 
 **Sonnenzeit und Laubschatten.** Zusätzlich zur Kachel hältst du fest, **wann** die Sonne das Beet erreicht: Morgens, Mittags, Nachmittags, Ganztägig oder Wechselnd. Die Stunden direkter Sonne im Sommer sind freiwillig, eine grobe Schätzung genügt. Der Schalter **Laubschatten im Sommer** vermerkt, dass das Beet im Frühjahr sonnig ist und später im Laub von Bäumen im Schatten liegt. Du findest die Felder im Dialog **Sonne ändern** der Beetansicht und im Feldmodus im Beet-Sheet (mit großen Schaltflächen, jede Änderung wird sofort gespeichert). Die Angaben erscheinen in einer Zeile unter der Sonnenexposition in der Beetübersicht. Kamerplanter rechnet nichts daraus aus, und der Laubschatten ist nur ein Vermerk: Er ändert den Standort-Hinweis beim Bepflanzen nicht. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
 
-!!! warning "Noch nicht implementiert"
-    Im Eigenschaften-Feld des Gartenplans gibt es Sonnenzeit und Laubschatten noch nicht; dort bleiben die Kacheln. Nutze dafür die Beetansicht oder den Feldmodus.
+Im Gartenplan zeigt das Eigenschaften-Feld eines gewählten Beets dieselben Felder unter den Kacheln; eine Änderung dort wird mit dem Plan gespeichert, und du kannst sie mit **Rückgängig** zurücknehmen.
 
 **Standort-Hinweis beim Bepflanzen.** Im Pflanzdialog vergleicht Kamerplanter die Sonne des Beets mit dem **Lichtbedarf** der Art (Volle Sonne, Halbschatten oder Schatten) und zeigt eine Ampel mit Klartext, etwa „Beet: Schatten — Tomate braucht Vollsonne". Grün heißt gut geeignet, gelb bedingt geeignet, rot schlecht geeignet. Gelb gibt es auch, wenn das Beet eine Stufe schattiger ist als der Bedarf und die Art laut Steckbrief so viel Schatten verträgt; fehlt diese Angabe, steht dort „Toleranz unbekannt". Ist die Sonne des Beets oder der Lichtbedarf der Art nicht erfasst, erscheint kein Hinweis. Der Hinweis sperrt nichts und verlangt keinen Grund.
 
 !!! note "Frostrisiko"
-    Das Frostrisiko eines Beets (niedrig, normal, hoch) wird künftig neben der Sonne am Beet gepflegt. Bestehende Angaben aus **Frostexposition** übernimmt Kamerplanter dafür automatisch (ja wird hoch, nein wird niedrig); die Frostexposition selbst bleibt bis dahin die maßgebliche Einstellung. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+    Das Frostrisiko eines Beets (gering, normal, hoch) wird künftig neben der Sonne am Beet gepflegt. Bestehende Angaben aus **Frostexposition** übernimmt Kamerplanter dafür automatisch (ja wird hoch, nein wird gering); die Frostexposition selbst bleibt bis dahin die maßgebliche Einstellung. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
+**Ebenen Sonnenfenster, Drainage und Frostrisiko im Gartenplan.** In der Ebenen-Gruppe der Ansichtsleiste blendest du drei weitere Ebenen ein: **Sonnenfenster anzeigen** (wann die direkte Sonne das Beet erreicht), **Drainage anzeigen** (schlecht, mittel, gut) und **Frostrisiko anzeigen** (gering, normal, hoch). Jeder Wert hat ein eigenes Muster, du erkennst ihn also auch ohne Farbe. Das Muster siehst du immer; sobald du so weit hineinzoomst, dass die Beetnamen erscheinen, kommt am unteren Beetrand ein kleines Symbol für den Wert dazu, sofern das Beet dafür Platz hat; die Legende unter der Ansichtsleiste erklärt jede eingeschaltete Ebene. Ein Beet ohne erfassten Wert bleibt ohne Muster. Alle drei Ebenen sind zu Beginn aus, und deine Wahl merkt sich der Browser für dich. Die Frost-Ebene zeigt das gespeicherte Frostrisiko; maßgeblich für die Überwinterung bleibt die Frostexposition. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
 
 ### Historie des Beets {#historie-des-beets}
 
@@ -415,7 +416,7 @@ Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Lis
 
 ### Bodenprofil pflegen
 
-Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
+Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Die Drainage steht zusätzlich in der Beetübersicht, sobald du sie erfasst hast. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
 
 ### Status des Beets ändern
 

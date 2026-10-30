@@ -238,6 +238,69 @@ describe('applyOperation', () => {
       expect(restored).toEqual(before);
     });
 
+    it('merges a sun-profile key into a bed without one and the inverse restores the plan exactly (#2538)', () => {
+      const { before, applied, restored } = roundTrip({
+        op: 'update_fields',
+        entity: 'location',
+        key: 'loc_a',
+        fields: { site_conditions: { sun_profile: { sun_window: 'midday' } } },
+      });
+      expect(applied.plan.locations.loc_a.site_conditions).toEqual({
+        sun_profile: { sun_window: 'midday' },
+      });
+      // The previous value of the sent key, absent = unknown: what the server must write to undo it.
+      expect(applied.inverse).toEqual([
+        {
+          op: 'update_fields',
+          entity: 'location',
+          key: 'loc_a',
+          fields: { site_conditions: { sun_profile: { sun_window: 'unknown' } } },
+        },
+      ]);
+      expect(restored).toEqual(before);
+      expect('site_conditions' in restored.locations.loc_a).toBe(false);
+    });
+
+    it('keeps the unsent sun keys and the frost risk, and the inverse puts back only the sent keys', () => {
+      const before = smallPlan({
+        locations: [
+          bed('loc_a', 1, 1, {
+            site_conditions: {
+              sun_profile: { sun_window: 'morning', direct_sun_hours_summer: 5 },
+              microclimate: { frost_risk: 'high' },
+            },
+          }),
+        ],
+      });
+      const applied = applyOperation(before, {
+        op: 'update_fields',
+        entity: 'location',
+        key: 'loc_a',
+        fields: {
+          site_conditions: {
+            sun_profile: { foliage_shade_in_summer: true, direct_sun_hours_summer: null },
+          },
+        },
+      });
+      expect(applied.plan.locations.loc_a.site_conditions).toEqual({
+        sun_profile: { sun_window: 'morning', foliage_shade_in_summer: true },
+        microclimate: { frost_risk: 'high' },
+      });
+      expect(applied.inverse).toEqual([
+        {
+          op: 'update_fields',
+          entity: 'location',
+          key: 'loc_a',
+          fields: {
+            site_conditions: {
+              sun_profile: { direct_sun_hours_summer: 5, foliage_shade_in_summer: false },
+            },
+          },
+        },
+      ]);
+      expect(applyOperations(applied.plan, applied.inverse ?? []).plan).toEqual(before);
+    });
+
     it('has no wire inverse for a field the lean read model does not carry', () => {
       const applied = applyOperation(smallPlan(), {
         op: 'update_fields',
@@ -280,6 +343,72 @@ describe('applyOperation', () => {
       ]);
       const restored = applyOperations(applied.plan, applied.inverse ?? []).plan;
       expect(restored.locations.loc_a).toMatchObject({ name: 'Bed loc_a', geometry: RECT_A });
+    });
+
+    it('brings a deleted bed back with its sun profile through an update_fields after the create (#2538)', () => {
+      const plan = smallPlan({
+        locations: [
+          bed('loc_a', 1, 1, {
+            site_conditions: { sun_profile: { sun_window: 'afternoon', foliage_shade_in_summer: true } },
+          }),
+        ],
+        slots: [],
+        plants: [],
+      });
+      const applied = applyOperation(plan, { op: 'delete', entity: 'location', key: 'loc_a' });
+      expect(applied.inverse).toEqual([
+        expect.objectContaining({ op: 'create_location', temp_key: 'loc_a' }),
+        {
+          op: 'update_fields',
+          entity: 'location',
+          key: 'loc_a',
+          fields: {
+            site_conditions: {
+              sun_profile: { sun_window: 'afternoon', foliage_shade_in_summer: true },
+            },
+          },
+        },
+      ]);
+      // `create_location` is strict on the server: the site conditions never ride on it.
+      expect(applied.inverse?.[0]).not.toHaveProperty('data.site_conditions');
+      const restored = applyOperations(applied.plan, applied.inverse ?? []).plan;
+      expect(restored.locations.loc_a.site_conditions).toEqual(plan.locations.loc_a.site_conditions);
+    });
+
+    it('restores a subtree with sun profiles parent first, each update right after its own create (#2538)', () => {
+      const plan = smallPlan({
+        locations: [
+          bed('p', 0, 0, { site_conditions: { sun_profile: { sun_window: 'morning' } } }),
+          bed('c', 0, 0, {
+            parent_location_key: 'p',
+            depth: 1,
+            site_conditions: { sun_profile: { direct_sun_hours_summer: 4.5 } },
+          }),
+        ],
+        garden_objects: [],
+        slots: [],
+        plants: [],
+      });
+      const applied = applyOperation(plan, { op: 'delete', entity: 'location', key: 'p' });
+      // The exact order: a reordering (all creates first, or the child before its parent) fails here.
+      expect(
+        applied.inverse?.map((op) => [op.op, 'temp_key' in op ? op.temp_key : 'key' in op ? op.key : null]),
+      ).toEqual([
+        ['create_location', 'p'],
+        ['update_fields', 'p'],
+        ['create_location', 'c'],
+        ['update_fields', 'c'],
+      ]);
+      expect(applied.inverse?.[1]).toMatchObject({
+        fields: { site_conditions: { sun_profile: { sun_window: 'morning' } } },
+      });
+      expect(applied.inverse?.[3]).toMatchObject({
+        fields: { site_conditions: { sun_profile: { direct_sun_hours_summer: 4.5 } } },
+      });
+      const restored = applyOperations(applied.plan, applied.inverse ?? []).plan;
+      expect(restored.locations.p.site_conditions).toEqual(plan.locations.p.site_conditions);
+      expect(restored.locations.c.site_conditions).toEqual(plan.locations.c.site_conditions);
+      expect(restored.locations.c.parent_location_key).toBe('p');
     });
 
     it('is not undoable once saved when plants stand in the bed (GP-FR-155)', () => {

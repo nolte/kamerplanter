@@ -11,10 +11,26 @@ afterEach(() => {
 });
 
 describe('layer registry', () => {
-  it('has the grid and the underlay on by default and the irrigation layers off', () => {
-    expect(DEFAULT_LAYER_PREFS).toEqual({ grid: true, zones: false, lastWatered: false, underlay: true });
-    expect(TOGGLE_LAYERS).toEqual(['zones', 'lastWatered', 'underlay']);
-    expect(LAYERS.map((layer) => layer.id)).toEqual(['grid', 'zones', 'lastWatered', 'underlay']);
+  it('has the grid and the underlay on by default and the irrigation and site-condition layers off', () => {
+    expect(DEFAULT_LAYER_PREFS).toEqual({
+      grid: true,
+      zones: false,
+      lastWatered: false,
+      underlay: true,
+      sun: false,
+      moisture: false,
+      frost: false,
+    });
+    expect(TOGGLE_LAYERS).toEqual(['zones', 'lastWatered', 'underlay', 'sun', 'moisture', 'frost']);
+    expect(LAYERS.map((layer) => layer.id)).toEqual([
+      'grid',
+      'zones',
+      'lastWatered',
+      'underlay',
+      'sun',
+      'moisture',
+      'frost',
+    ]);
   });
 });
 
@@ -22,13 +38,21 @@ describe('useLayerPrefs', () => {
   it('keeps the default of a layer that an older stored choice does not know', () => {
     window.localStorage.setItem(KEY, JSON.stringify({ grid: false }));
     const { result } = renderHook(() => useLayerPrefs());
-    expect(result.current.prefs).toEqual({ grid: false, zones: false, lastWatered: false, underlay: true });
+    expect(result.current.prefs).toEqual({ ...DEFAULT_LAYER_PREFS, grid: false });
   });
 
   it('ignores non-boolean values and unknown layers', () => {
     window.localStorage.setItem(KEY, JSON.stringify({ grid: 'yes', zones: true, plants: true }));
     const { result } = renderHook(() => useLayerPrefs());
-    expect(result.current.prefs).toEqual({ grid: true, zones: true, lastWatered: false, underlay: true });
+    expect(result.current.prefs).toEqual({ ...DEFAULT_LAYER_PREFS, zones: true });
+  });
+
+  it('restores a stored site-condition layer and defaults the ones it does not know (#2487)', () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ grid: true, zones: false, sun: true }));
+    const { result } = renderHook(() => useLayerPrefs());
+    expect(result.current.prefs).toEqual({ ...DEFAULT_LAYER_PREFS, sun: true });
+    act(() => result.current.setLayer('frost', true));
+    expect(JSON.parse(window.localStorage.getItem(KEY) ?? '{}')).toMatchObject({ sun: true, frost: true });
   });
 
   it('stores a switch and survives a blocked storage', () => {

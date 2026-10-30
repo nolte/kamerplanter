@@ -382,13 +382,14 @@ The hours follow the Royal Horticultural Society definition, measured at midsumm
 
 **Sun window and leaf shade.** On top of the tile you record **when** the sun reaches the bed: morning, midday, afternoon, all day or changing. The hours of direct sun in summer are optional, a rough guess is enough. The **Leaf shade in summer** switch notes that the bed is sunny in spring and later shaded by the leaves of trees. You find the fields in the **Change sun** dialog of the bed view and, in field mode, in the bed sheet (with large buttons, every change is saved at once). The entries appear on one line under the sun exposure in the bed overview. Kamerplanter calculates nothing from them, and leaf shade is a note only: it does not change the site hint when planting. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
 
-!!! warning "Not implemented yet"
-    The properties panel of the garden plan does not offer the sun window and leaf shade yet; it keeps the tiles. Use the bed view or field mode for them.
+In the garden plan, the properties panel of a selected bed shows the same fields under the tiles; a change there becomes part of the plan save, and you can take it back with **Undo**.
 
 **Site hint when planting.** In the planting dialog Kamerplanter compares the sun of the bed with the **light requirement** of the species (full sun, partial shade or shade) and shows a traffic light with plain text, for example "Bed: Shade — Tomato needs full sun". Green means well suited, yellow only partly suited, red poorly suited. Yellow also appears when the bed is one step shadier than the requirement and the species profile says the species takes that much shade; if that value is missing, the text says "Tolerance unknown". If the sun of the bed or the light requirement of the species is not recorded, no hint appears. The hint blocks nothing and asks for no reason.
 
 !!! note "Frost risk"
     The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes low); until then, the frost exposure setting stays the one that counts. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
+**Sun window, drainage and frost risk layers in the garden plan.** In the layer group of the view bar you can show three more layers: **Show sun window** (when direct sun reaches the bed), **Show drainage** (poor, moderate, good) and **Show frost risk** (low, normal, high). Every value has its own pattern, so you can tell them apart without colour. The pattern is always shown; once you zoom in far enough for the bed names to appear, a small symbol for the value joins it at the bottom edge of the bed, where the bed has room for it; the legend below the view bar explains every layer that is on. A bed without a recorded value stays without a pattern. All three layers start switched off, and your browser remembers your choice for you. The frost layer shows the stored frost risk; for overwintering, the frost exposure stays the setting that counts. <!-- REQ-053 GP-FR-169, GP-FR-047 -->
 
 ### History of the bed {#history-of-the-bed}
 
@@ -407,7 +408,7 @@ The **History** tab has two parts: the **timeline** on top and the **list** belo
 
 ### Maintaining the soil profile
 
-In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. As a viewer (role "viewer") you see the profile read-only.
+In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. The drainage also appears in the bed overview once you have recorded it. As a viewer (role "viewer") you see the profile read-only.
 
 ### Changing the bed status
 

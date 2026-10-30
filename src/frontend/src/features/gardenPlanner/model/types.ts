@@ -75,6 +75,10 @@ export type SunExposure = 'full_sun' | 'partial_shade' | 'shade' | 'deep_shade' 
 
 /** When the direct sun reaches a bed (GP-FR-158, `SunWindow` of the backend). */
 export type SunWindow = 'morning' | 'midday' | 'afternoon' | 'all_day' | 'mixed' | 'unknown';
+/** Frost risk of one bed (GP-FR-162, `FrostRisk` of the backend). */
+export type FrostRisk = 'low' | 'normal' | 'high' | 'unknown';
+/** How well a bed drains (§15.1, `SoilDrainage` of the backend). */
+export type SoilDrainage = 'poor' | 'moderate' | 'good' | 'unknown';
 export type SlotRole = 'position' | 'row' | 'zone';
 
 export type GardenObjectType =
@@ -197,6 +201,31 @@ export type GardenObjectProps =
 
 // ── Read model (GP-API-001) ──────────────────────────────────────────────────
 
+/**
+ * The sun profile of a bed as the plan carries it (GP-FR-158/159, #2538). The server leaves out what is
+ * unknown: an absent `sun_window` is `unknown`, absent hours are "not entered", an absent leaf shade is `false`.
+ */
+export interface PlanSunProfile {
+  sun_window?: SunWindow;
+  direct_sun_hours_summer?: number | null;
+  foliage_shade_in_summer?: boolean;
+}
+
+/** The lean slice of `Location.site_conditions` on the plan: sun profile and frost risk, unknowns absent. */
+export interface PlanSiteConditions {
+  sun_profile?: PlanSunProfile;
+  /** Read only on the plan path: the frost risk is edited on the bed page (`PATCH /locations`). */
+  microclimate?: { frost_risk?: FrostRisk };
+}
+
+/** The drainage of a bed for the moisture layer; the rest of the soil profile is the bed page's. */
+export interface PlanSoilProfile {
+  drainage?: SoilDrainage;
+}
+
+/** The sun-profile keys `update_fields` may change; only the keys sent are merged by the server. */
+export type PlanSunProfilePatch = Pick<PlanSunProfile, 'sun_window' | 'direct_sun_hours_summer' | 'foliage_shade_in_summer'>;
+
 /** A location as the map draws it: geometry, status and counters, no soil profile or notes. */
 export interface PlanLocation {
   key: string;
@@ -211,6 +240,10 @@ export interface PlanLocation {
   height_m?: number | null;
   bed_status: BedStatus;
   sun_exposure: SunExposure;
+  /** Absent = nothing known (#2538). */
+  site_conditions?: PlanSiteConditions | null;
+  /** Absent = drainage unknown (#2538). */
+  soil_profile?: PlanSoilProfile | null;
   irrigation_zone_key?: string | null;
   locked: boolean;
   z_order: number;
@@ -362,6 +395,8 @@ export interface LocationFieldsPatch {
   notes?: string | null;
   sun_exposure?: SunExposure;
   height_m?: number | null;
+  /** The sun profile only (#2538); the server merges the keys sent and refuses any other part. */
+  site_conditions?: { sun_profile?: PlanSunProfilePatch };
 }
 
 export interface GardenObjectFieldsPatch {

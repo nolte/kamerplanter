@@ -34,14 +34,18 @@ from app.api.v1.garden_plan.schemas import (
     PlanImportRequest,
     PlanImportResponse,
     PlanLocationResponse,
+    PlanMicroclimateResponse,
     PlanPlantResponse,
     PlanSeasonRequest,
     PlanSeasonResponse,
     PlanSettingsResponse,
+    PlanSiteConditionsResponse,
     PlanSlotGeometry,
     PlanSlotResponse,
     PlanSnapshotResponse,
     PlanSnapshotRestoreRequest,
+    PlanSoilProfileResponse,
+    PlanSunProfileResponse,
     PlanUnderlayRequest,
     PlanUnderlayResponse,
     PlanZoneResponse,
@@ -55,7 +59,7 @@ from app.common.dependencies import (
     get_garden_plan_service,
     get_garden_plan_underlay_service,
 )
-from app.common.enums import SlotRole
+from app.common.enums import FrostRisk, SlotRole, SoilDrainage, SunWindow
 from app.common.exceptions import PlanRevisionConflictError, ValidationError
 from app.common.openapi_responses import (
     CONFLICT_RESPONSE,
@@ -71,7 +75,7 @@ from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
 from app.domain.models.garden_plan_export import ExportScope, GardenPlanExport
 from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPORT_BYTES
-from app.domain.models.site import SiteUnderlay
+from app.domain.models.site import SiteConditions, SiteUnderlay, SoilProfile, SunProfile
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
@@ -98,6 +102,40 @@ def _underlay_response(underlay: SiteUnderlay | None) -> PlanUnderlayResponse | 
     if underlay is None:
         return None
     return to_response(underlay, PlanUnderlayResponse)
+
+
+def _sun_profile_response(sun: SunProfile) -> PlanSunProfileResponse | None:
+    """Only what is known: ``unknown``, no hours and no leaf shade are left out, all three = no object."""
+    part = PlanSunProfileResponse(
+        sun_window=None if sun.sun_window == SunWindow.UNKNOWN else sun.sun_window,
+        direct_sun_hours_summer=sun.direct_sun_hours_summer,
+        foliage_shade_in_summer=True if sun.foliage_shade_in_summer else None,
+    )
+    return part if part.model_dump(exclude_none=True) else None
+
+
+def _site_conditions_response(conditions: SiteConditions | None) -> PlanSiteConditionsResponse | None:
+    """The lean slice of the plan (D-1/D-3 of #2538): sun profile and frost risk, unknown values absent.
+
+    Absent rather than ``"unknown"`` because a large garden carries hundreds of beds and the read model has a
+    ceiling (GP-NFR-031); the client reads an absent value as unknown. Wind, slope, access sides and flags are
+    not projected: no plan reader needs them.
+    """
+    if conditions is None:
+        return None
+    sun = _sun_profile_response(conditions.sun_profile)
+    risk = conditions.microclimate.frost_risk
+    microclimate = None if risk == FrostRisk.UNKNOWN else PlanMicroclimateResponse(frost_risk=risk)
+    if sun is None and microclimate is None:
+        return None
+    return PlanSiteConditionsResponse(sun_profile=sun, microclimate=microclimate)
+
+
+def _soil_profile_response(soil: SoilProfile | None) -> PlanSoilProfileResponse | None:
+    """The drainage for the moisture layer; ``None`` for no profile or an unknown drainage."""
+    if soil is None or soil.drainage == SoilDrainage.UNKNOWN:
+        return None
+    return PlanSoilProfileResponse(drainage=soil.drainage)
 
 
 def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
@@ -129,6 +167,8 @@ def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
                 open_task_count=view.task_counters.get(location.key or "", _NO_TASKS).open_task_count,
                 overdue_task_count=view.task_counters.get(location.key or "", _NO_TASKS).overdue_task_count,
                 last_watered_at=view.last_watered.get(location.key or ""),
+                site_conditions=_site_conditions_response(location.site_conditions),
+                soil_profile=_soil_profile_response(location.soil_profile),
             )
             for location in view.locations
         ],
