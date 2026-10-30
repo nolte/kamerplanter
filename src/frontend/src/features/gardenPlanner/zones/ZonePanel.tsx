@@ -45,8 +45,10 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
   const [statusToken, setStatusToken] = useState(0);
   const { zones, records, status, reload } = zoneData;
   const selected = mode.kind === 'edit' ? (zones.find((zone) => zone.key === mode.key) ?? null) : null;
-  // The full record (with the Home Assistant flag) once the endpoint answered; the plan's list before.
-  const record = selected ? (records.find((zone) => zone.key === selected.key) ?? selected) : null;
+  // The full record once the endpoint answered. The plan's list lacks the schedule hint, the water source and the
+  // flow rate: a form opened on it would start with them empty and its save would clear them (no remount follows
+  // when the record arrives). So a zone opens only on its full record; until then it shows the loading line.
+  const record = selected ? (records.find((zone) => zone.key === selected.key) ?? null) : null;
 
   const headingRef = useRef<HTMLHeadingElement | null>(null);
   // Focus follows the panel: into it on open, and to its heading when the view changes (after a save, a delete, a cancel).
@@ -214,12 +216,12 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
           )}
         </>
       )}
-      {mode.kind === 'edit' && !selected && (
+      {mode.kind === 'edit' && !record && (
         <Typography variant="body2" color="text.secondary" role="status">
           {t(`${PREFIX}.status.loading`)}
         </Typography>
       )}
-      {mode.kind === 'edit' && !selected && (
+      {mode.kind === 'edit' && !record && (
         <Button onClick={() => setMode({ kind: 'list' })} sx={{ minHeight: 44, justifySelf: 'start' }}>
           {t(`${PREFIX}.form.cancel`)}
         </Button>

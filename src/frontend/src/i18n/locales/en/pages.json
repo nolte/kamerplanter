@@ -6122,12 +6122,15 @@
             "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first.",
             "bedsSelectionSkipped_one": "{{count}} selected bed is not saved yet and was not taken over. Save the plan, then take over the selection again.",
             "bedsSelectionSkipped_other": "{{count}} selected beds are not saved yet and were not taken over. Save the plan, then take over the selection again.",
-            "createdBedsFailed": "Zone {{name}} was created, but its beds are not assigned yet. {{reason}} The beds you chose stay ticked: save the zone again to assign them."
+            "createdBedsFailed": "Zone {{name}} was created, but its beds are not assigned yet. {{reason}} The beds you chose stay ticked: save the zone again to assign them.",
+            "createdBedsFailedRetry": "Zone {{name}} was created, but its beds could not be assigned. The beds you chose stay ticked: save the zone again to assign them.",
+            "createdBedsForbidden": "Zone {{name}} was created, but its beds could not be assigned. {{reason}}"
           },
           "errors": {
             "forbidden": "You do not have permission for this.",
             "quota": "This site has reached the maximum number of zones.",
             "notFound": "The zone no longer exists. The list is reloaded.",
+            "siteNotFound": "The site no longer exists, so the zone was not created. Reload the page.",
             "invalid": "The input was rejected. Check name, colour and flow rate.",
             "generic": "That did not work. Please try again.",
             "rateLimited": "Too many requests in a short time. Wait a moment and try again.",

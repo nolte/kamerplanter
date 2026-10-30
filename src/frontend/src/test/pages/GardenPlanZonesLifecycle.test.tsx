@@ -18,10 +18,18 @@ import { server } from '@/test/mocks/server';
 
 const chunk = vi.hoisted(() => ({ fail: false }));
 
-// The real panel module unless a test makes its chunk fail, as a deploy that removed the old chunk does.
+// The real panel module unless a test makes its chunk fail, as a deploy that removed the old chunk does. The
+// failure sits in the export, not in the module evaluation: the module and the resolved `lazy()` are cached for
+// the whole file, so a failure decided at evaluation would depend on whether an earlier test loaded the panel.
+// `lazy()` reads `default` on every render, so this fails the panel whatever ran before.
 vi.mock('@/features/gardenPlanner/zones/ZonePanel', async (importOriginal) => {
-  if (chunk.fail) throw new TypeError('Failed to fetch dynamically imported module');
-  return importOriginal();
+  const actual = await importOriginal<typeof import('@/features/gardenPlanner/zones/ZonePanel')>();
+  return {
+    get default() {
+      if (chunk.fail) throw new TypeError('Failed to fetch dynamically imported module');
+      return actual.default;
+    },
+  };
 });
 
 const PLAN_URL = '/api/v1/t/:tenant/sites/:key/plan';
@@ -61,6 +69,7 @@ beforeEach(() => window.localStorage.clear());
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   chunk.fail = false;
   window.localStorage.clear();
 });
@@ -84,6 +93,14 @@ describe('the last-watered layer over midnight', () => {
 });
 
 describe('a zone panel chunk that cannot load', () => {
+  // Runs first on purpose: the panel module is loaded (and its `lazy()` resolved) before the failure test.
+  it('loads the real panel while the chunk is there', async () => {
+    usePlan(new Date().toISOString());
+    renderRoute();
+    fireEvent.click(await screen.findByTestId('garden-plan-zones-open'));
+    expect(await screen.findByTestId('garden-plan-zone-panel')).toBeInTheDocument();
+  });
+
   it('keeps the plan, says what happened and offers a reload instead of a retry that fails again', async () => {
     chunk.fail = true;
     usePlan(new Date().toISOString());
@@ -98,5 +115,11 @@ describe('a zone panel chunk that cannot load', () => {
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Reload page' }));
     expect(reload).toHaveBeenCalled();
+  });
+});
+
+describe('after the chunk test', () => {
+  it('window.location is the real one again', () => {
+    expect(vi.isMockFunction(window.location.reload)).toBe(false);
   });
 });

@@ -153,6 +153,15 @@ export function ZoneEditor({
     setBeds(Array.from(new Set([...beds, ...picked])));
   };
 
+  // What the form of a created zone says when its beds were not assigned. A refusal of the permission is not
+  // followed by "save again" (it would be refused again); a generic failure is not told to try again twice.
+  const createdBedsMessage = (key: string, reason: string): string => {
+    const zoneName = name.trim();
+    if (key === 'forbidden') return t(`${PREFIX}.form.createdBedsForbidden`, { name: zoneName, reason });
+    if (key === 'generic') return t(`${PREFIX}.form.createdBedsFailedRetry`, { name: zoneName });
+    return t(`${PREFIX}.form.createdBedsFailed`, { name: zoneName, reason });
+  };
+
   const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!nameValid || !flowValid || busy) return;
@@ -200,16 +209,18 @@ export function ZoneEditor({
     } catch (failure) {
       const key = errorKey(failure);
       const message = t(`${PREFIX}.errors.${key}`);
-      if (key === 'notFound') {
+      if (key === 'notFound' && zone === null && savedKey === null) {
+        // The create itself was refused with 404: it is the site that is gone, not a zone. Nothing was written.
+        setError(t(`${PREFIX}.errors.siteNotFound`));
+      } else if (key === 'notFound') {
         // The zone is gone and its form closes with it: the message goes where it outlives the form.
         notify.error(message);
         onChanged(null);
       } else if (zone === null && savedKey !== null) {
-        // Created, but the beds were not assigned: continue in the form of the created zone (it can be deleted
-        // there, and a second save cannot create it twice), with the beds the user chose still ticked.
-        onChanged(savedKey, {
-          adopt: { beds, error: t(`${PREFIX}.form.createdBedsFailed`, { name: name.trim(), reason: message }) },
-        });
+        // Created, but the beds were not assigned: continue in the form of the created zone (a second save there
+        // cannot create it twice), with the beds the user chose still ticked. Whether it offers a delete follows
+        // the role as everywhere (the lead only), so the message promises none.
+        onChanged(savedKey, { adopt: { beds, error: createdBedsMessage(key, message) } });
       } else {
         // A half-done save keeps the form (and its ticked beds) as it is; what was written is read again.
         setError(message);

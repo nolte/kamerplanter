@@ -13,7 +13,7 @@ import { server } from '@/test/mocks/server';
 import ZonePanel from './ZonePanel';
 import { useIrrigationZones } from './useZoneData';
 import { BASE, status, mockStatus, mockZoneList, zone, zoneData, zonePlan } from './zonesTestKit';
-import type { IrrigationZone } from './zoneTypes';
+import type { IrrigationZone, PlanZone } from './zoneTypes';
 
 afterEach(() => cleanup());
 
@@ -388,8 +388,20 @@ describe('watering round errors', () => {
 });
 
 /** The panel on the real zone hook: a save reloads the list from the endpoint, so `zones` really changes. */
-function LivePanel({ selectedBedKeys = [], unsavedBed = false }: { selectedBedKeys?: string[]; unsavedBed?: boolean }) {
-  const plan = useMemo(() => zonePlan(unsavedBed ? [{ name: 'Unsaved bed' }] : []), [unsavedBed]);
+function LivePanel({
+  selectedBedKeys = [],
+  unsavedBed = false,
+  seed,
+}: {
+  selectedBedKeys?: string[];
+  unsavedBed?: boolean;
+  /** The zones the plan response carries (the hook's list until the endpoint answers). */
+  seed?: PlanZone[];
+}) {
+  const plan = useMemo(() => {
+    const base = zonePlan(unsavedBed ? [{ name: 'Unsaved bed' }] : []);
+    return seed ? { ...base, zones: seed } : base;
+  }, [unsavedBed, seed]);
   const data = useIrrigationZones('site_1', plan.zones, true);
   return (
     <ZonePanel
@@ -405,10 +417,11 @@ function LivePanel({ selectedBedKeys = [], unsavedBed = false }: { selectedBedKe
 
 function renderLive(
   role: 'viewer' | 'grower' | 'lead' = 'grower',
-  extra: { selectedBedKeys?: string[]; unsavedBed?: boolean } = {},
+  extra: { selectedBedKeys?: string[]; unsavedBed?: boolean; seed?: PlanZone[] } = {},
+  scopes: readonly string[] = [],
 ) {
   return renderWithProviders(<LivePanel {...extra} />, {
-    store: createTestStore({ ...tenantState(role), ...authState() }),
+    store: createTestStore({ ...tenantState(role, scopes), ...authState() }),
   });
 }
 
@@ -495,7 +508,7 @@ describe('a create whose bed assignment failed', () => {
     expect(patches).toEqual([]);
   });
 
-  it('lists the created zone after a cancel, so "new" is not the way back to it', async () => {
+  it('lists the created zone after a cancel, and neither "new" nor its row brings back the failed form', async () => {
     const user = userEvent.setup();
     let list: IrrigationZone[] = [];
     mockZoneList(() => list);
@@ -512,9 +525,106 @@ describe('a create whose bed assignment failed', () => {
     await user.type(screen.getByTestId('garden-plan-zone-name'), 'Drip line');
     await user.click(screen.getByTestId('garden-plan-zone-bed-loc_a'));
     await user.click(screen.getByTestId('garden-plan-zone-save'));
-    await screen.findByTestId('garden-plan-zone-error');
+    // The adopted form: the ticked bed and the message came over from the create form.
+    expect(await screen.findByTestId('garden-plan-zone-error')).toHaveTextContent('was created');
+    expect(screen.getByTestId('garden-plan-zone-bed-loc_a')).toBeChecked();
     await user.click(screen.getByTestId('garden-plan-zone-cancel'));
     expect(await screen.findByTestId('garden-plan-zone-row-z_new')).toHaveTextContent('Drip line');
+
+    // "New" is an empty form: no name, no ticked bed, no message of the failed create.
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    expect(screen.getByRole('heading', { name: 'New zone' })).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-zone-name')).toHaveValue('');
+    for (const key of ['loc_a', 'loc_b', 'loc_c']) expect(screen.getByTestId(`garden-plan-zone-bed-${key}`)).not.toBeChecked();
+    expect(screen.queryByTestId('garden-plan-zone-error')).toBeNull();
+
+    // The created zone's row opens its saved state: no bed (none was assigned), no message.
+    await user.click(screen.getByTestId('garden-plan-zone-cancel'));
+    await user.click(await screen.findByTestId('garden-plan-zone-row-z_new'));
+    expect(await screen.findByRole('heading', { name: 'Zone Drip line' })).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-zone-bed-loc_a')).not.toBeChecked();
+    expect(screen.queryByTestId('garden-plan-zone-error')).toBeNull();
+  });
+
+  it('continues for a grower in the same form, without a delete the role does not have', async () => {
+    const user = userEvent.setup();
+    let list: IrrigationZone[] = [];
+    mockZoneList(() => list);
+    mockStatus('z_new', status());
+    server.use(
+      http.post(`${BASE}/sites/site_1/irrigation-zones`, () => {
+        list = [zone('z_new', { name: 'Drip line', irrigation_type: 'manual' })];
+        return HttpResponse.json(list[0], { status: 201 });
+      }),
+      http.put(`${BASE}/irrigation-zones/z_new/locations`, () => errorBody('reference.not_found', 422)),
+    );
+    renderLive('grower');
+    await user.click(await screen.findByTestId('garden-plan-zone-new'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Drip line');
+    await user.click(screen.getByTestId('garden-plan-zone-bed-loc_a'));
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    const error = await screen.findByTestId('garden-plan-zone-error');
+    expect(error).toHaveTextContent('save the zone again to assign them');
+    expect(error.textContent ?? '').not.toMatch(/delete/i);
+    expect(screen.getByRole('heading', { name: 'Zone Drip line' })).toBeInTheDocument();
+    expect(screen.getByTestId('garden-plan-zone-bed-loc_a')).toBeChecked();
+    expect(screen.queryByTestId('garden-plan-zone-delete')).toBeNull();
+  });
+
+  it.each([
+    [
+      403,
+      'x',
+      'Zone Drip line was created, but its beds could not be assigned. You do not have permission for this.',
+    ],
+    [
+      500,
+      'x',
+      'Zone Drip line was created, but its beds could not be assigned. The beds you chose stay ticked: save the zone again to assign them.',
+    ],
+    [
+      422,
+      'reference.not_found',
+      'Zone Drip line was created, but its beds are not assigned yet. A chosen bed or water source is not known to the server yet. Save the plan first. The beds you chose stay ticked: save the zone again to assign them.',
+    ],
+  ])('words a %i %s on the bed assignment by its reason', async (status_, code, text) => {
+    const user = userEvent.setup();
+    let list: IrrigationZone[] = [];
+    mockZoneList(() => list);
+    mockStatus('z_new', status());
+    server.use(
+      http.post(`${BASE}/sites/site_1/irrigation-zones`, () => {
+        list = [zone('z_new', { name: 'Drip line' })];
+        return HttpResponse.json(list[0], { status: 201 });
+      }),
+      http.put(`${BASE}/irrigation-zones/z_new/locations`, () => errorBody(code, status_)),
+    );
+    renderLive();
+    await user.click(await screen.findByTestId('garden-plan-zone-new'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Drip line');
+    await user.click(screen.getByTestId('garden-plan-zone-bed-loc_a'));
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    const error = await screen.findByTestId('garden-plan-zone-error');
+    expect(error.textContent).toBe(text);
+    // Never "try again" twice in one message.
+    expect((error.textContent ?? '').match(/try again|save the zone again/gi)?.length ?? 0).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('a create refused with 404', () => {
+  it('says the site is gone, keeps the form and creates nothing', async () => {
+    const user = userEvent.setup();
+    server.use(http.post(`${BASE}/sites/site_1/irrigation-zones`, () => errorBody('x', 404)));
+    const { onChanged } = renderPanel([]);
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Drip line');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    expect(await screen.findByTestId('garden-plan-zone-error')).toHaveTextContent(
+      'The site no longer exists, so the zone was not created. Reload the page.',
+    );
+    expect(screen.queryByText('The zone no longer exists. The list is reloaded.')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'New zone' })).toBeInTheDocument();
+    expect(onChanged).not.toHaveBeenCalled();
   });
 });
 
@@ -580,5 +690,54 @@ describe('headings', () => {
     await user.click(screen.getByTestId('garden-plan-zone-cancel'));
     await user.click(screen.getByTestId('garden-plan-zone-new'));
     expect(screen.getByRole('heading', { level: 4, name: 'New zone' })).toBeInTheDocument();
+  });
+});
+
+describe('a zone opened before the zone list answered', () => {
+  it('sends only the changed name, never empties the fields the plan list does not carry', async () => {
+    const user = userEvent.setup();
+    const full = zone('z1', {
+      name: 'South line',
+      schedule_hint: 'Mornings',
+      water_source_key: 'go_barrel',
+      flow_rate_l_per_min: 4,
+      location_keys: ['loc_a'],
+    });
+    let release: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let listReads = 0;
+    const patches: unknown[] = [];
+    server.use(
+      http.get(`${BASE}/sites/site_1/irrigation-zones`, async () => {
+        listReads += 1;
+        if (listReads === 1) await answered;
+        return HttpResponse.json([full]);
+      }),
+      http.patch(`${BASE}/irrigation-zones/z1`, async ({ request }) => {
+        patches.push(await request.json());
+        return HttpResponse.json({ ...full, name: 'North line' });
+      }),
+    );
+    mockStatus('z1', status());
+    const seed: PlanZone[] = [
+      { key: 'z1', name: 'South line', irrigation_type: 'drip', color: '#2E7D32', location_keys: ['loc_a'] },
+    ];
+    renderLive('grower', { seed }, ['technical']);
+    // The row is there from the plan list before the zone endpoint answered.
+    await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
+    // No form on the plan's short list: it would start with the fields the list does not carry empty.
+    expect(screen.queryByTestId('garden-plan-zone-form')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading');
+    release();
+    await waitFor(() => expect(screen.getByTestId('garden-plan-zone-schedule')).toHaveValue('Mornings'));
+    expect(screen.getByTestId('garden-plan-zone-water-source')).toHaveValue('go_barrel');
+    expect(screen.getByTestId('garden-plan-zone-flow-rate-input')).toHaveValue('4');
+    await user.clear(screen.getByTestId('garden-plan-zone-name'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'North line');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    await waitFor(() => expect(patches).toHaveLength(1));
+    expect(patches[0]).toEqual({ name: 'North line' });
   });
 });

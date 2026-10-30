@@ -275,3 +275,65 @@ describe('what a zone change reads again', () => {
     expect(counter.reads()).toBe(before + 1);
   });
 });
+
+describe('a zone reload that is still pending when the panel closes', () => {
+  it('still lands: the hatch, the legend and the bed info show the saved zone', async () => {
+    const list: IrrigationZone[] = [
+      {
+        key: 'z1',
+        site_key: 'site_1',
+        name: 'Drip line',
+        irrigation_type: 'drip',
+        flow_rate_source: 'manual',
+        flow_rate_ha_entity_bound: false,
+        color: '#2E7D32',
+        location_keys: ['loc_a'],
+      },
+    ];
+    let listReads = 0;
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    usePlanWithZone();
+    server.use(
+      http.get('/api/v1/t/:tenant/sites/:key/irrigation-zones', async () => {
+        listReads += 1;
+        const answer = structuredClone(list);
+        // The reload after the save is held until the panel is closed.
+        if (listReads > 1) await held;
+        return HttpResponse.json(answer);
+      }),
+      http.get('/api/v1/t/:tenant/irrigation-zones/z1/status', () =>
+        HttpResponse.json({ consumption_liters_30d: 0, consumption_sources: [], hints: [] }),
+      ),
+      http.patch('/api/v1/t/:tenant/irrigation-zones/z1', async ({ request }) => {
+        Object.assign(list[0], (await request.json()) as object);
+        return HttpResponse.json(list[0]);
+      }),
+      http.put('/api/v1/t/:tenant/irrigation-zones/z1/locations', async ({ request }) => {
+        list[0].location_keys = ((await request.json()) as { location_keys: string[] }).location_keys;
+        return HttpResponse.json({ ...list[0], added: ['loc_b'], removed: [], moved_from: {} });
+      }),
+    );
+    const { container } = renderRoute('grower');
+    const user = userEvent.setup();
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-zones'));
+    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
+    await user.clear(await screen.findByTestId('garden-plan-zone-name'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Back line');
+    await user.click(screen.getByTestId('garden-plan-zone-bed-loc_b'));
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    await waitFor(() => expect(listReads).toBe(2));
+    await user.click(screen.getByTestId('garden-plan-zone-panel-close'));
+    await waitFor(() => expect(screen.queryByTestId('garden-plan-zone-panel')).toBeNull());
+    release();
+    await waitFor(() => expect(container.querySelector('[data-zone-key="z1"][data-zone-bed="loc_b"]')).not.toBeNull());
+    expect(screen.getByTestId('garden-plan-legend-zones')).toHaveTextContent('Back line');
+    const node = container.querySelector('[data-plan-key="loc_b"]') as SVGElement;
+    node.focus();
+    fireEvent.keyDown(node, { key: 'Enter' });
+    expect(await screen.findByTestId('garden-plan-panel-zone')).toHaveTextContent('Irrigation zone: 1. Back line');
+  });
+});
