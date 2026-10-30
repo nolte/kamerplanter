@@ -5325,8 +5325,10 @@
           "furniture": "Möbel",
           "lamp": "Lampe"
         },
-        "clusterSummary_one": "{{count}} Pflanze · {{attention}} mit Handlungsbedarf",
-        "clusterSummary_other": "{{count}} Pflanzen · {{attention}} mit Handlungsbedarf"
+        "clusterSummary_one": "{{count}} Pflanze · {{attention}}",
+        "clusterSummary_other": "{{count}} Pflanzen · {{attention}}",
+        "clusterAttention_one": "{{count}} mit Handlungsbedarf",
+        "clusterAttention_other": "{{count}} mit Handlungsbedarf"
       },
       "editor": {
         "toolbar": {
@@ -6044,7 +6046,7 @@
             "frost": "Frostrisiko anzeigen",
             "frostHint": "Das Frostrisiko je Beet als Muster mit Symbol ein- oder ausblenden.",
             "plantState": "Pflanzenzustand anzeigen",
-            "plantStateHint": "Zeigt an jeder Pflanze Wachstumsphase, Ring und das dringendste Zeichen (z. B. Gießen fällig). Sichtbar, sobald du nah genug an ein Beet zoomst; weiter weg zählt jedes Beet seine Pflanzen mit Handlungsbedarf.",
+            "plantStateHint": "Zeigt an jeder Pflanze Wachstumsphase, Ring und das dringendste Zeichen (z. B. Gießen fällig). Die Zustände laden für die Beete, an die du nah genug heranzoomst; weiter weg zeigt ein Beet, dessen Zustände schon geladen sind, im Kreis, wie viele Pflanzen Handlungsbedarf haben.",
             "attentionFilter": "Nur Pflanzen mit Handlungsbedarf zeigen",
             "attentionFilterHint": "Blendet alle Pflanzen ohne Zeichen aus, damit du siehst, wo heute etwas zu tun ist.",
             "attentionFilterDisabledHint": "Schalte zuerst die Ebene „Pflanzenzustand“ ein, dann kannst du nach Handlungsbedarf filtern."

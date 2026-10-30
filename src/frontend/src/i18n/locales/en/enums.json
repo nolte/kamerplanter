@@ -659,7 +659,10 @@
       "hardening_off": "Hardening Off",
       "budding": "Budding",
       "corm_ripening": "Corm Ripening",
-      "tuber_formation": "Tuber Formation"
+      "tuber_formation": "Tuber Formation",
+      "drying": "Drying",
+      "curing": "Curing",
+      "cloning": "Cloning"
     },
     "waterSource": {
       "tank": "Tank",

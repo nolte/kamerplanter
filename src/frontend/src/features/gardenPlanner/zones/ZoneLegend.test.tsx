@@ -93,7 +93,8 @@ describe('ZoneLegend plant-state section (GP-UX-061, #2488)', () => {
     expect(section.querySelectorAll('[data-legend-badge] [data-plan-badge-reason]')).toHaveLength(5);
     const phases = [...section.querySelectorAll('[data-legend-phase]')];
     // known phase names are worded by their enum label, an unknown one keeps its own name
-    expect(phases.map((item) => item.textContent)).toEqual(['Flowering', 'Vegetative', 'Mulching']);
+    // sorted by the label the reader sees, in the active language
+    expect(phases.map((item) => item.textContent)).toEqual(['Flowering', 'Mulching', 'Vegetative']);
     expect(phases[0].querySelector('circle')?.getAttribute('fill')).toBe('#AB47BC');
     expect(section.querySelector('pattern')).toBeNull();
     await expectNoA11yViolations(screen.getByTestId('garden-plan-layer-legend'));
