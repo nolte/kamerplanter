@@ -66,6 +66,7 @@ from app.domain.models.garden_plan_export import (
     ExportSlot,
     ExportZone,
     GardenPlanExport,
+    GardenPlanImportDocument,
 )
 from app.domain.models.garden_plan_import import (
     ALWAYS_DROPPED_FIELDS,
@@ -414,7 +415,8 @@ class GardenPlanImportService:
                 keys=[name[:_KEY_ECHO] for name in unknown[:10]],
             )
         try:
-            return GardenPlanExport.model_validate(document)
+            # The capped reading (#2542 W-1): an oversized list is refused here, before ``_prepare`` looks anything up.
+            return GardenPlanImportDocument.model_validate(document)
         except PydanticValidationError as exc:
             findings = [_finding_of(error, document) for error in _errors_of(exc)]
             raise PlanValidationError(
@@ -1140,6 +1142,10 @@ def _code_of(error: Any) -> str:
     return "geometry.invalid" if parts & _GEOMETRY_FIELDS else "validation.invalid"
 
 
+#: The top-level lists whose length cap is the site quota (#2542 W-1): too many of them is the quota, not a bad value.
+_QUOTA_LISTS = frozenset({"locations", "garden_objects", "slots"})
+
+
 def _finding_of(error: Any, document: dict[str, Any]) -> ImportFinding:
     loc = tuple(error["loc"])
     key: str | None = None
@@ -1147,6 +1153,8 @@ def _finding_of(error: Any, document: dict[str, Any]) -> ImportFinding:
         items = document.get(loc[0])
         if isinstance(items, list) and loc[1] < len(items) and isinstance(items[loc[1]], dict):
             key = _echo(items[loc[1]].get("key"))
+    if error["type"] == "too_long" and len(loc) == 1 and loc[0] in _QUOTA_LISTS:
+        return ImportFinding(field=_path(loc), code=ERROR_QUOTA)
     return ImportFinding(field=_path(loc), code=_code_of(error), key=key)
 
 
