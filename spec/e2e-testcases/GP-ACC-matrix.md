@@ -7,7 +7,7 @@ Source of the ids: `spec/req/REQ-053_*.md` section 30. Source of the tests: the 
 that a test claims the criterion; whether it proves it completely stays a review question.
 Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an issue.
 
-**59 of 61 criteria covered, 2 listed as gap.**
+**61 of 61 criteria covered, 0 listed as gap.**
 
 | GP-ACC | Level | Tiers | Tests |
 |---|---|---|---|
@@ -64,8 +64,8 @@ Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an 
 | GP-ACC-051 | E | e2e, frontend | `tests/e2e/test_req053_planting.py`<br>`src/frontend/src/features/gardenPlanner/bed/BedPlanTab.plantState.test.tsx` |
 | GP-ACC-052 | E | e2e, frontend | `tests/e2e/test_req053_planting.py`<br>`src/frontend/src/features/gardenPlanner/renderer/ConditionOverlays.test.tsx`<br>`src/frontend/src/features/gardenPlanner/renderer/plantMarkerStyle.test.ts` |
 | GP-ACC-053 | U | frontend, unit | `src/frontend/src/features/gardenPlanner/model/siteFit.vectors.test.ts`<br>`src/backend/tests/unit/domain/calculators/test_site_fit_vectors.py` |
-| GP-ACC-054 | I | **GAP** | mixed-culture runs are not checked for disjoint row_assignment sets (no 422); behaviour missing in production code (#2544) |
-| GP-ACC-055 | I | **GAP** | rotation check is off for planter/tent/shelf with no per-bed switch-on (GP-FR-137 'je Beet einschaltbar'); behaviour missing (#2544) |
+| GP-ACC-054 | I | api, unit | `src/backend/tests/api/test_planting_reservation_api.py`<br>`src/backend/tests/unit/domain/services/test_planting_run_mixed_culture.py` |
+| GP-ACC-055 | I | api, unit | `src/backend/tests/api/test_bed_rotation_api.py`<br>`src/backend/tests/unit/domain/engines/test_crop_rotation_validator_bed.py` |
 | GP-ACC-056 | I | api, unit | `src/backend/tests/api/test_garden_plan_api.py`<br>`src/backend/tests/unit/common/test_validation_error_handler_point_index.py`<br>`src/backend/tests/unit/domain/models/test_geometry.py`<br>`src/backend/tests/unit/domain/services/test_garden_plan_service.py` |
 | GP-ACC-057 | I | frontend | `src/frontend/src/features/gardenPlanner/history/CareHistoryPage.test.tsx` |
 | GP-ACC-058 | I | unit | `src/backend/tests/unit/domain/models/test_geometry.py`<br>`src/backend/tests/unit/domain/models/test_site_plan_fields.py` |
