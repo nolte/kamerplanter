@@ -6208,7 +6208,7 @@
             "skipped": "Left out because they have no area: {{beds}}."
           },
           "bed": {
-            "zone": "Irrigation zone: {{name}}",
+            "zone": "Irrigation zone: {{number}}. {{name}}",
             "wateredNone": "No watering recorded.",
             "watered": "Last watered: {{days}}"
           }

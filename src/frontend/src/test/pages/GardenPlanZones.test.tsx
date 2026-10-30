@@ -124,7 +124,7 @@ describe('irrigation layers in the plan', () => {
     const node = container.querySelector('[data-plan-key="loc_a"]') as SVGElement;
     node.focus();
     fireEvent.keyDown(node, { key: 'Enter' });
-    expect(await screen.findByTestId('garden-plan-panel-zone')).toHaveTextContent('Irrigation zone: Drip line');
+    expect(await screen.findByTestId('garden-plan-panel-zone')).toHaveTextContent('Irrigation zone: 1. Drip line');
     expect(screen.getByTestId('garden-plan-panel-last-watered')).toHaveTextContent('Last watered: 3 days since');
   });
 
@@ -138,5 +138,30 @@ describe('irrigation layers in the plan', () => {
     const row = await screen.findByTestId('garden-plan-zone-row-z1');
     expect(row).toHaveTextContent('Drip line');
     await waitFor(() => expect(screen.getByTestId('garden-plan-zone-panel')).toBeInTheDocument());
+  });
+
+  it('moves the focus into the panel, to its title on a change of view, and back to the button on close', async () => {
+    usePlanWithZone();
+    server.use(
+      http.get('/api/v1/t/:tenant/irrigation-zones/z1/status', () =>
+        HttpResponse.json({ consumption_liters_30d: 0, consumption_sources: [], hints: [] }),
+      ),
+    );
+    renderRoute();
+    const user = userEvent.setup();
+    const open = await screen.findByTestId('garden-plan-zones-open');
+    await user.click(open);
+    const title = await screen.findByRole('heading', { level: 3, name: 'Irrigation zones' });
+    await waitFor(() => expect(title).toHaveFocus());
+    // A member without write rights here: the zone opens as its status with a way back to the list.
+    await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
+    await screen.findByTestId('garden-plan-zone-status');
+    expect(title).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByTestId('garden-plan-zone-row-z1');
+    expect(title).toHaveFocus();
+    await user.click(screen.getByTestId('garden-plan-zone-panel-close'));
+    await waitFor(() => expect(screen.queryByTestId('garden-plan-zone-panel')).toBeNull());
+    expect(open).toHaveFocus();
   });
 });

@@ -6209,7 +6209,7 @@
             "skipped": "Nicht berücksichtigt, weil ohne Fläche: {{beds}}."
           },
           "bed": {
-            "zone": "Bewässerungszone: {{name}}",
+            "zone": "Bewässerungszone: {{number}}. {{name}}",
             "wateredNone": "Kein Gießen erfasst.",
             "watered": "Zuletzt gegossen: {{days}}"
           }

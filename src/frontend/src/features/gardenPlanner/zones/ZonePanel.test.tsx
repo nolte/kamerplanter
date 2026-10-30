@@ -560,3 +560,17 @@ describe('taking over the plan selection', () => {
     );
   });
 });
+
+describe('headings', () => {
+  it('ranks the form title below the panel title', async () => {
+    const user = userEvent.setup();
+    mockStatus('z1', status());
+    renderPanel([zone('z1', { name: 'South line' })]);
+    expect(screen.getByRole('heading', { level: 3, name: 'Irrigation zones' })).toBeInTheDocument();
+    await user.click(screen.getByTestId('garden-plan-zone-row-z1'));
+    expect(screen.getByRole('heading', { level: 4, name: 'Zone South line' })).toBeInTheDocument();
+    await user.click(screen.getByTestId('garden-plan-zone-cancel'));
+    await user.click(screen.getByTestId('garden-plan-zone-new'));
+    expect(screen.getByRole('heading', { level: 4, name: 'New zone' })).toBeInTheDocument();
+  });
+});

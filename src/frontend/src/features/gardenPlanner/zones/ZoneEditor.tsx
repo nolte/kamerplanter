@@ -246,7 +246,8 @@ export function ZoneEditor({
 
   return (
     <Box component="form" onSubmit={save} noValidate data-testid="garden-plan-zone-form" sx={{ display: 'grid', gap: 2 }}>
-      <Typography variant="subtitle1" component="h3">
+      {/* h4: the panel title above is the h3 of this region; the form is a part of it. */}
+      <Typography variant="subtitle1" component="h4">
         {zone === null ? t(`${PREFIX}.panel.newTitle`) : t(`${PREFIX}.panel.editTitle`, { name: zone.name })}
       </Typography>
       <TextField
