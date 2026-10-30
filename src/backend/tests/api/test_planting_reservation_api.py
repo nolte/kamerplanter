@@ -688,3 +688,58 @@ class TestMixedCulture:
         assert response.status_code == 422, response.text
         assert "reference.not_found" in response.text
         assert world.repo.mixed_writes == []
+
+
+class TestMixedCultureRowsAreDisjoint:
+    """GP-ACC-054 / GP-FR-070: overlapping ``row_assignment`` sets of one mixed culture are 422, nothing is written."""
+
+    @staticmethod
+    def body(*assignments: list[int] | None) -> dict:
+        species = ["sp_tomato", "sp_phacelia", "sp_tomato"]
+        prefixes = ["TOM", "PHA", "TOB"]
+        return {
+            "location_key": "bed",
+            "planned_start_date": "2026-05-20",
+            "runs": [
+                {
+                    "name": f"{prefixes[index]} run",
+                    "entry": {
+                        "species_key": species[index],
+                        "quantity": 16,
+                        "id_prefix": prefixes[index],
+                        "spacing_cm": 50,
+                        "row_spacing_cm": 40,
+                        "layout_strategy": "rows",
+                        "row_assignment": rows,
+                    },
+                }
+                for index, rows in enumerate(assignments)
+            ],
+        }
+
+    def test_rows_1_2_and_2_3_answer_422_and_name_the_row_and_the_runs(self, client, world) -> None:
+        slots_before = list(world.plan.slots)
+
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body([1, 2], [2, 3]))
+
+        assert response.status_code == 422, response.text
+        body = response.json()
+        assert body["error_code"] == "layout.row_assignment_overlap"
+        (detail,) = body["details"]
+        assert detail["code"] == "layout.row_assignment_overlap"
+        assert detail["field"] == "runs[1].entry.row_assignment"
+        assert detail["conflicts"] == [{"runs": [0, 1], "rows": [2]}]
+        assert world.repo.mixed_writes == [] and world.runs.runs == {}
+        assert world.plan.slots == slots_before and world.repo.reservations == []
+
+    def test_disjoint_rows_are_201(self, client, world) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body([0, 2, 4], [1, 3]))
+
+        assert response.status_code == 201, response.text
+        (write,) = world.repo.mixed_writes
+        assert [sorted({s.slot.row_index for s in item.slots}) for item in write.runs] == [[0, 2], [1, 3]]
+
+    def test_an_entry_without_row_assignment_is_not_checked(self, client, world) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body([0, 1], None, [2]))
+
+        assert response.status_code == 201, response.text

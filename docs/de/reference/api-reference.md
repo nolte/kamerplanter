@@ -158,6 +158,22 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 
 ---
 
+### Mischkultur in einem Schritt anlegen (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Einträge ohne `row_assignment` (Fläche, freie Positionen, keine Anordnung) zählen bei dieser Prüfung nicht mit. Der Fehler nennt in `details[0].conflicts` jedes Paar als `{"runs": [i, j], "rows": [...]}` (Positionen in `runs[]` und die gemeinsamen Reihen); `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `layout.row_assignment_overlap` | Zwei Einträge beanspruchen dieselbe Reihe |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | Die Anordnung einer Art lässt sich nicht berechnen oder sprengt eine Grenze |
+| `422` | `VALIDATION_ERROR` mit `reference.not_found` | Eine Art oder Sorte gibt es nicht oder sie gehört einem anderen Mandanten |
+
+---
+
 ### Gartenplan (PDF, SVG, JSON-Sicherung)
 
 Drei Exporte des Gartenplans eines Standorts (REQ-053). Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen. Ein Standort eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`. Je Route gelten `RATE_LIMIT_PLAN_EXPORT` Anfragen je Konto (Standard 10 pro Minute) und `RATE_LIMIT_PLAN_EXPORT_TENANT` je Mandant (Standard 30 pro Minute); darüber antwortet die API mit `429` und `Retry-After`.

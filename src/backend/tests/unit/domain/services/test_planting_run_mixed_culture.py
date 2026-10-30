@@ -193,3 +193,73 @@ class TestTenantRules:
             create(world, [draft()], role=TenantRole.VIEWER)
 
         assert world.repo.mixed_writes == []
+
+
+class TestRowAssignmentsAreDisjoint:
+    """GP-ACC-054 / GP-FR-070: the ``row_assignment`` sets of the species of one mixed culture are disjoint.
+
+    The bed ``bed`` is 4 m x 2 m; at a row spacing of 40 cm five rows fit (indices 0-4, 0-based like the API).
+    """
+
+    @staticmethod
+    def five_row_draft(species: str, rows: list[int] | None, prefix: str, quantity: int = 24) -> MixedRunDraft:
+        return draft(species, rows=rows, name=species, id_prefix=prefix, row_spacing_cm=40, quantity=quantity)
+
+    def test_overlapping_sets_are_refused_before_anything_is_written(self, world) -> None:
+        with pytest.raises(PlanError) as caught:
+            create(world, [draft(rows=[1, 2]), draft("sp_phacelia", rows=[2, 3], id_prefix="PHA")])
+
+        assert caught.value.status_code == 422
+        assert caught.value.error_code == "layout.row_assignment_overlap"
+        (detail,) = caught.value.details
+        assert detail["field"] == "runs[1].entry.row_assignment"
+        assert detail["conflicts"] == [{"runs": [0, 1], "rows": [2]}]
+        assert world.repo.mixed_writes == [] and world.runs.runs == {} and world.plan.slots == []
+
+    def test_every_overlapping_pair_is_named(self, world) -> None:
+        with pytest.raises(PlanError) as caught:
+            create(
+                world,
+                [
+                    draft(rows=[0, 1]),
+                    draft("sp_phacelia", rows=[2], id_prefix="PHA"),
+                    draft("sp_tomato", rows=[1, 2, 4], id_prefix="TOB"),
+                ],
+            )
+
+        assert caught.value.details[0]["conflicts"] == [{"runs": [0, 2], "rows": [1]}, {"runs": [1, 2], "rows": [2]}]
+        assert caught.value.details[0]["field"] == "runs[2].entry.row_assignment"
+
+    def test_disjoint_sets_are_planted(self, world) -> None:
+        create(world, [draft(rows=[0]), draft("sp_phacelia", rows=[1], id_prefix="PHA")])
+
+        assert len(world.repo.mixed_writes) == 1
+
+    def test_entries_without_a_row_assignment_are_not_part_of_the_check(self, world) -> None:
+        create(
+            world,
+            [
+                draft(rows=[0, 1]),
+                draft("sp_phacelia", rows=None, id_prefix="PHA", layout_strategy=LayoutStrategy.ZONE),
+                draft("sp_tomato", rows=None, id_prefix="TOB", layout_strategy=None),
+            ],
+        )
+
+        assert len(world.repo.mixed_writes) == 1
+
+    def test_gp_acc_054_every_slot_of_a_row_carries_the_entry_the_row_is_assigned_to(self, world) -> None:
+        """GP-ACC-054: tomato on rows 0/2/4 and basil on 1/3 of a five-row bed; each slot belongs to its row's entry."""
+        create(
+            world,
+            [
+                self.five_row_draft("sp_tomato", [0, 2, 4], "TOM"),
+                self.five_row_draft("sp_phacelia", [1, 3], "PHA", quantity=16),
+            ],
+        )
+
+        (write,) = world.repo.mixed_writes
+        rows_of = {item.entry.species_key: sorted({s.slot.row_index for s in item.slots}) for item in write.runs}
+        assert rows_of == {"sp_tomato": [0, 2, 4], "sp_phacelia": [1, 3]}
+        owner_of_row = {s.slot.row_index: item.entry.species_key for item in write.runs for s in item.slots}
+        assert owner_of_row == {0: "sp_tomato", 1: "sp_phacelia", 2: "sp_tomato", 3: "sp_phacelia", 4: "sp_tomato"}
+        assert [len(item.slots) for item in write.runs] == [24, 16]

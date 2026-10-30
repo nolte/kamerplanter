@@ -158,6 +158,22 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 
 ---
 
+### Create a mixed culture in one step (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Items without `row_assignment` (area, free positions, no layout) are not part of this check. The error names every pair in `details[0].conflicts` as `{"runs": [i, j], "rows": [...]}` (positions in `runs[]` and the shared rows); `details[0].field` points at the later item of the first pair.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `layout.row_assignment_overlap` | Two items claim the same row |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | The layout of one species cannot be computed or exceeds a limit |
+| `422` | `VALIDATION_ERROR` with `reference.not_found` | A species or cultivar does not exist or belongs to another tenant |
+
+---
+
 ### Garden Plan (PDF, SVG, JSON backup)
 
 Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.

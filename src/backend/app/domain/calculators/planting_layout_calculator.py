@@ -52,6 +52,7 @@ rounding of :func:`app.domain.models.geometry.round_length`, so the TypeScript p
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from app.common.enums import LayoutStrategy, RowDirection, SlotRole
@@ -88,6 +89,8 @@ CODE_TOO_MANY_POSITIONS = "layout.too_many_positions"
 CODE_BED_NOT_AN_AREA = "layout.bed_not_an_area"
 CODE_ROW_SPACING_REQUIRED = "layout.row_spacing_required"
 CODE_SPACING_OUT_OF_RANGE = "layout.spacing_out_of_range"
+#: GP-FR-070: two entries laid out together claim the same row.
+CODE_ROW_ASSIGNMENT_OVERLAP = "layout.row_assignment_overlap"
 WARNING_SPACING_BELOW_MATURE_WIDTH = "layout.spacing_below_mature_width"
 WARNING_NO_POSITION_FITS = "layout.no_position_fits"
 #: V-07: two planned positions are closer than ``spacing_cm`` — a hint, never an error.
@@ -344,6 +347,31 @@ def compute_layout(bed: Geometry, entry: EntryLayout, max_count: int | None = No
     if estimated > MAX_LAYOUT_POSITIONS and entry.row_assignment is None:
         raise _too_many(estimated)
     return _point_layout(shape, entry, max_count, warnings)
+
+
+def check_disjoint_row_assignments(assignments: Sequence[Sequence[int] | None], *, field_template: str) -> None:
+    """GP-FR-070 / GP-ACC-054: the row sets of entries laid out together are pairwise disjoint.
+
+    ``assignments`` holds the ``row_assignment`` of each entry in body order; an entry without one (``None``,
+    a monoculture or a zone/free entry) takes no rows and is not part of the check. An overlap is 422
+    ``layout.row_assignment_overlap``; ``conflicts`` names every overlapping pair by the positions of the entries
+    and the rows they share, and ``field_template`` (with ``{index}``) points at the later entry of the first pair.
+    """
+    rows = [(index, set(value)) for index, value in enumerate(assignments) if value is not None]
+    conflicts = [
+        {"runs": [first, second], "rows": sorted(first_rows & second_rows)}
+        for position, (first, first_rows) in enumerate(rows)
+        for second, second_rows in rows[position + 1 :]
+        if first_rows & second_rows
+    ]
+    if conflicts:
+        raise PlanError(
+            CODE_ROW_ASSIGNMENT_OVERLAP,
+            "Two entries of one mixed culture claim the same row; every row belongs to one entry.",
+            status_code=422,
+            field=field_template.format(index=conflicts[0]["runs"][1]),
+            conflicts=conflicts,
+        )
 
 
 def _point_layout(
