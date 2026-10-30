@@ -613,3 +613,89 @@ class TestSiteWideRead:
         assert repo.list_plants_in_beds([], tenant_key=A, now=NOW, offset=0, limit=50) == []
         with pytest.raises(ValueError, match="tenant_key"):
             repo.list_plants_in_beds(["bed"], tenant_key="", now=NOW, offset=0, limit=50)
+
+
+class TestSlotOnlyPlants:
+    """W-2 (#2489): a plant placed only through a slot (``location_key`` null) belongs to its slot's bed — the plan's
+    rule (``plant.location_key or slot.location_key``). The read used to filter on ``location_key`` alone, so such a
+    plant never got a state and printed as the plain circle."""
+
+    @pytest.fixture
+    def slotted(self, world):
+        db = world
+        _insert(db, col.SLOTS, {"_key": "s2", "slot_id": "BED2_001", "location_key": "bed2"})
+        _insert(
+            db,
+            col.PLANT_INSTANCES,
+            _plant("p1", location_key=None, slot_key="s2"),
+            _plant("p2", location_key="bed2"),
+            _plant("p3", location_key=None, slot_key="sx"),  # its slot lies in another bed
+            _plant("p4", location_key=None, slot_key="s2", tenant=B),  # same slot, other tenant
+            _plant("p5", location_key=None, slot_key=None),  # placed nowhere
+            _plant("p6", location_key=None, slot_key="s2", removed_on="2026-06-01"),
+        )
+        _insert(
+            db,
+            col.CARE_EVENTS,
+            {
+                "_key": "e1",
+                "tenant_key": A,
+                "location_key": "bed2",
+                "category": "watering",
+                "plant_keys": [],
+                "performed_at": "2026-06-09T07:00:00+00:00",
+                "voided_at": None,
+            },
+        )
+        return db
+
+    def test_a_slot_only_plant_is_read_in_its_slots_bed_with_that_beds_facts(self, slotted) -> None:
+        repo = ArangoPlantStateRepository(slotted)
+
+        rows = repo.list_plants_in_beds(["bed", "bed2"], tenant_key=A, now=NOW, offset=0, limit=50)
+
+        assert [row.plant_key for row in rows] == ["p1", "p2"]
+        (p1, _p2) = rows
+        assert (p1.slot_key, p1.slot_id) == ("s2", "BED2_001")
+        # the bed-wide watering of bed2 reaches the plant: its bed was taken from the slot
+        assert p1.last_watering_at == datetime(2026, 6, 9, 7, 0, tzinfo=UTC)
+
+    def test_the_one_bed_read_agrees_and_another_bed_does_not_see_it(self, slotted) -> None:
+        assert [row.plant_key for row in _read(slotted, location="bed2")] == ["p1", "p2"]
+        assert _read(slotted, location="bed") == []
+        assert [row.plant_key for row in _read(slotted, location="other_bed")] == ["p3"]
+
+    def test_the_other_tenant_reads_only_its_own_slot_only_plant(self, slotted) -> None:
+        assert [row.plant_key for row in _read(slotted, tenant=B, location="bed2")] == ["p4"]
+
+
+class TestManyBeds:
+    """S-2 (#2489): beyond ``BED_KEYS_PER_STATEMENT`` bed keys the plant statement runs per chunk; the window must be
+    the one a single statement would give — ordered by plant key across chunks — and a window is at most 200."""
+
+    def test_a_window_across_bed_chunks_is_ordered_by_plant_key(self, world) -> None:
+        beds = [f"bed{index:04d}" for index in range(1200)]
+        _insert(
+            world,
+            col.PLANT_INSTANCES,
+            _plant("p1", location_key="bed1100"),
+            _plant("p2", location_key="bed0000"),
+            _plant("p3", location_key="bed0600"),
+            _plant("p4", location_key="bed1100"),
+            _plant("p5", location_key="bed0001"),
+        )
+        repo = ArangoPlantStateRepository(world)
+
+        pages = [
+            [row.plant_key for row in repo.list_plants_in_beds(beds, tenant_key=A, now=NOW, offset=o, limit=2)]
+            for o in (0, 2, 4)
+        ]
+
+        assert pages == [["p1", "p2"], ["p3", "p4"], ["p5"]]
+
+    @pytest.mark.parametrize(("offset", "limit"), [(0, 201), (0, 0), (-1, 50)])
+    def test_an_unbounded_window_is_refused(self, world, offset, limit) -> None:
+        with pytest.raises(ValueError, match="limit"):
+            ArangoPlantStateRepository(world).list_plants_in_beds(
+                ["bed"], tenant_key=A, now=NOW, offset=offset, limit=limit
+            )
