@@ -66,7 +66,7 @@ Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an 
 | GP-ACC-053 | U | frontend, unit | `src/frontend/src/features/gardenPlanner/model/siteFit.vectors.test.ts`<br>`src/backend/tests/unit/domain/calculators/test_site_fit_vectors.py` |
 | GP-ACC-054 | I | **GAP** | mixed-culture runs are not checked for disjoint row_assignment sets (no 422); behaviour missing in production code (#2544) |
 | GP-ACC-055 | I | **GAP** | rotation check is off for planter/tent/shelf with no per-bed switch-on (GP-FR-137 'je Beet einschaltbar'); behaviour missing (#2544) |
-| GP-ACC-056 | I | api | `src/backend/tests/api/test_garden_plan_api.py` |
+| GP-ACC-056 | I | api, unit | `src/backend/tests/api/test_garden_plan_api.py`<br>`src/backend/tests/unit/common/test_validation_error_handler_point_index.py`<br>`src/backend/tests/unit/domain/models/test_geometry.py`<br>`src/backend/tests/unit/domain/services/test_garden_plan_service.py` |
 | GP-ACC-057 | I | frontend | `src/frontend/src/features/gardenPlanner/history/CareHistoryPage.test.tsx` |
 | GP-ACC-058 | I | unit | `src/backend/tests/unit/domain/models/test_geometry.py`<br>`src/backend/tests/unit/domain/models/test_site_plan_fields.py` |
 | GP-ACC-059 | I | unit | `src/backend/tests/unit/migrations/versions/test_v0097_recurrence_cron_to_rrule.py` |

@@ -170,8 +170,12 @@ class TestTheBoundary:
         too_far = {"kind": "polygon", "points": [[0, 0], [1000.5, 0], [1000.5, 10], [0, 10]]}
         refused = client().put(f"{_PLAN}/boundary", json={"boundary": too_far, "north_angle_deg": 0})
         assert refused.status_code == 422, refused.text
-        # Measured 2026-10-20: the answer is the generic VALIDATION_ERROR (field body.boundary.polygon.points), not the
-        # spec's `geometry.invalid` with a point index - the status and the unchanged plan are what is pinned here.
+        body = refused.json()
+        assert body["error_code"] == "VALIDATION_ERROR"
+        offending = [detail for detail in body["details"] if detail["code"] == "geometry.invalid"]
+        assert offending, body
+        assert offending[0]["point_index"] == 1  # the first vertex past 1 000 m, not the first vertex
+        assert offending[0]["field"] == "body.boundary.polygon.points"
         assert repo._sites.sites[SITE].plan is None
 
         at_limit = {"kind": "polygon", "points": [[0, 0], [1000.0, 0], [1000.0, 10], [0, 10]]}

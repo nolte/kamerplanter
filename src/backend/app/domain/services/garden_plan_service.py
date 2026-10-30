@@ -97,11 +97,14 @@ from app.domain.models.garden_plan import (
     UpdateGeometryOp,
 )
 from app.domain.models.geometry import (
+    GEOMETRY_INVALID,
+    POINT_INDEX_KEY,
     CircleGeometry,
     Geometry,
     PointGeometry,
     PolygonGeometry,
     PolylineGeometry,
+    point_index_of,
     round_length,
 )
 from app.domain.models.site import Location, Site, SiteConditions, SitePlan, Slot
@@ -229,11 +232,17 @@ def _json_tail(error: ErrorDetails, *, tagged: bool) -> str:
 def _finding_code(error: ErrorDetails) -> str:
     """V-01 (``geometry.invalid``) for a geometry defect, the generic code for anything else."""
     parts = {str(part) for part in error["loc"]}
-    return "geometry.invalid" if parts & _GEOMETRY_FIELDS else "validation.invalid"
+    return GEOMETRY_INVALID if parts & _GEOMETRY_FIELDS else "validation.invalid"
+
+
+def _finding_extra(error: ErrorDetails) -> dict[str, Any]:
+    """The offending vertex of a coordinate-range violation (GP-ACC-056), else nothing."""
+    point_index = point_index_of(error)
+    return {} if point_index is None else {POINT_INDEX_KEY: point_index}
 
 
 def _findings_of(error: PydanticValidationError, op_index: int | None, *, tagged: bool = False) -> list[_Finding]:
-    return [(op_index, _json_tail(e, tagged=tagged), _finding_code(e), {}) for e in _errors(error)]
+    return [(op_index, _json_tail(e, tagged=tagged), _finding_code(e), _finding_extra(e)) for e in _errors(error)]
 
 
 def _count_points(raw: Any) -> int:
