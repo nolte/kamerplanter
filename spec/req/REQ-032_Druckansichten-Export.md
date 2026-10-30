@@ -101,10 +101,12 @@ REQ-032 definiert ein **generisches Druckansichten-System** mit vordefinierten T
 
 | Endpunkt | Quelle | Inhalt |
 |----------|--------|--------|
-| `GET /api/v1/t/{slug}/sites/{key}/plan/render.svg` | REQ-053 GP-API-006 | Serverseitiges SVG des Plans (Einheit mm, `viewBox` 1 m = 1 000 Einheiten, Layer als `<g id="layer-…">`, Objekt-IDs als `data-key`; GP-FR-143). Query `scale`, `layers`, `locale`. Grundlage für PDF und Download. |
-| `GET /api/v1/t/{slug}/print/garden-plan/{site_key}` | REQ-053 GP-API-007 | PDF nach dem Muster dieses Dokuments (§3.2). Query `paper=a4\|a3`, `orientation`, `scale=auto\|1:20\|1:25\|1:50\|1:75\|1:100\|1:125\|1:150\|1:200\|1:250\|1:300\|1:400\|1:500` (12 Stufen, REQ-053 GP-FR-142), `layers`, `locale`. Ohne personenbezogene Daten als Vorgabe; A3-Vorschlag bei großen Sites (REQ-053 Anhang A Issue 37). |
+| `GET /api/v1/t/{slug}/sites/{key}/plan/render.svg` | REQ-053 GP-API-006 | Serverseitiges SVG des Plans (Einheit mm, `viewBox` 1 m = 1 000 Einheiten, Layer als `<g id="layer-…">`, Objekt-IDs als `data-key`; GP-FR-143). Query `scale`, `paper`, `orientation`, `layers`, `locale`, `color` (dieselben Optionen wie das PDF, ohne `bed_list` und `underlay`). Grundlage für PDF und Download. |
+| `GET /api/v1/t/{slug}/print/garden-plan/{site_key}` | REQ-053 GP-API-007 | PDF nach dem Muster dieses Dokuments (§3.2). Query `paper=a4\|a3`, `orientation`, `scale=auto\|1:20\|1:25\|1:50\|1:75\|1:100\|1:125\|1:150\|1:200\|1:250\|1:300\|1:400\|1:500` (12 Stufen, REQ-053 GP-FR-142), `layers`, `locale`, `color` (Akzentfarbe der Grenze), `bed_list` (zweite Seite mit der Beetliste), `underlay` (Hintergrundbild unterlegen, Vorgabe aus). Ohne personenbezogene Daten als Vorgabe; A3-Vorschlag bei großen Sites (REQ-053 Anhang A Issue 37). |
 
 Beide Endpunkte sind „Alle Rollen" (REQ-053 §21.8) und unterliegen der SVG/PDF-Härtung aus REQ-053 **GP-NFR-052** (siehe §8): restriktiver WeasyPrint-`url_fetcher`, Jinja-Autoescape, SVG-Element-Allowlist, `Content-Disposition: attachment` + `nosniff` + CSP beim SVG-Download. Die Härtung ist **keine** Besonderheit des Gartenplans — sie gilt für den gemeinsamen `PrintEngine` und damit für alle Templates in §4.1.
+
+Dokumentation: Bedienung in `docs/de/user-guide/garden-plan.md` (Abschnitt „Plan exportieren und Sicherung einspielen"), Technik in `docs/de/architecture/garden-plan.md`.
 
 ### 2.6 Pflanzen-Steckbrief (REQ-001)
 
