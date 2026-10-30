@@ -186,13 +186,20 @@ findings SR-004/005/012; the spec is the requirement artifact (`U_gate`: those a
 
 | Member | Specialist | Check | Actual output |
 |---|---|---|---|
-| | | | |
+| #2547 | nolte-engineering:fullstack-developer (P1), nolte-engineering:python-code-reviewer (verification), fullstack-developer (fix round) | `ruff check . && ruff format --check .` | `All checks passed!` / `2849 files already formatted` EXIT=0 |
+| #2547 | — | mypy ratchet (`scripts/mypy_ratchet_hook.sh`) | `3419 findings now, 3434 recorded … GREEN` EXIT=0 |
+| #2547 | — | `pytest tests/api -q -x` (+ targeted unit) | `3439 passed, 182 warnings in 336.07s` EXIT=0; after fix round `tests/unit/domain/models/test_geometry.py tests/unit/domain/services/test_garden_plan_service.py tests/unit/common tests/api/test_garden_plan_api.py` → `900 passed, 80 warnings in 30.20s` |
+| #2547 | — | `pytest tests/unit/api`, `tests/unit/guards`, `tests/unit/domain`, `tests/unit/common` | `1111 passed`; `3005 passed, 19 skipped, 5 deselected`; `8486 passed`; `730 passed` (all EXIT=0); write-gate ceiling 2804 unchanged |
+| #2547 | — | `python -m scripts.export_openapi` + spectral | `Wrote openapi.json (659 paths).`; `0 errors, 37 warnings` (pre-existing); exported schema byte-identical to HEAD (`cmp`) |
+| #2547 | — | `python3 scripts/gp_acc_matrix.py --check` | EXIT=0 after `--write` (new tests name GP-ACC-056) |
+| #2547 | — | `mkdocs build --strict` (direct, primary `.venv-docs`) | `Aborted with 3 warnings` — all three are nav refs to the generated catalog (`de/skills`, `de/agents`, `de/tags.md`) absent in the worktree; no warning from the changed pages; full `task docs:build` deferred to the bundle gate |
+| #2547 | — | falsification (cp, not stash) | handler reverted → api test fails `point_index == 1`; `_finding_extra` → `{}` → batch test `KeyError: 'point_index'` |
 
 ## Deviations
 
 | Member | Kind | What changed |
 |---|---|---|
-| | | |
+| #2547 | local adaptation | docs: `api-reference.md:245` is the **import** error table (`ImportFinding` has no `point_index`) → new section "Garden Plan save: geometry errors" DE/EN instead; matrix cell Docs updated accordingly. Side effect accepted under D-1: every route embedding `Geometry` now answers `geometry.invalid` (origin without index) for a range violation; dimension/rotation/count stay `value_error` (GP-ACC-058, pre-existing). |
 
 ## Requirement coverage
 
@@ -202,4 +209,8 @@ not applicable — no group requirement artifact (spec anchors serve as `U_gate`
 
 | Finding | Source | Outcome | Reproduction | Issue |
 |---|---|---|---|---|
+| `docs/{en,de}/reference/api-reference.md:252` claims every boundary geometry defect is `geometry.invalid`; measured: `width_m:-1`, 2-point polygon, `rotation_deg:-1` → `value_error`, only range → `geometry.invalid` (SCR-001) + bed frame named but not on those endpoints (SCR-002) | member verification pass (python-code-reviewer) | fixed directly ec3461189 | `parse_geometry({...width_m:-1})` → `value_error {'error': ValueError('Dimensions must lie within 0.01..1000.0 m, got -1.0.')}` | — |
+| `point_index` through the bed-frame WrapValidator unproven (SCR-003) | member verification pass | measured, test added 5a3351f40 | `SlotPatch.model_validate({'geometry':{'kind':'polygon','points':[[0,0],[-1000.5,0],[0,1]]}})` → `geometry.invalid {'point_index': 1} ('geometry','polygon','points')` | — |
+| rule "point_index only for geometry.invalid" duplicated in `error_handlers.py` and `garden_plan_service.py`; literal next to constant (SCR-004/005) | member verification pass | fixed directly 5a3351f40 (`point_index_of` helper in `geometry.py`) | tests `900 passed` after refactor | — |
+| boundary route: non-range shape rules (dimensions, vertex count, rotation) answer `value_error`, not V-01 `geometry.invalid` (GP-ACC-058 shape); after #2579 non-finite values would answer `finite_number` there | member verification pass + #2579 analysis | pre-existing, filed as operator point (follow-up issue candidate, not in this group) | see SCR-001 reproduction | — |
 | `geometry.py` validator: raw boundary `[Infinity, 0]` → 500 `INTERNAL_ERROR` (`decimal.InvalidOperation`) | research probe (minimal FastAPI app with the repo handlers) | filed as a comment on the owning issue | `json.loads('[Infinity, 0]')` → `[inf, 0]`; `parse_geometry` → `decimal.InvalidOperation` | #2529 |
