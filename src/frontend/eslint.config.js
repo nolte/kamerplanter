@@ -49,9 +49,16 @@ const FORM_NO_VALIDATE_SELECTORS = [
 // route's leaf; a feature that reaches into one couples itself to that route's
 // file layout. Code both need lives in `src/components/` (or hooks/utils/api).
 //
-// Matches `@/pages` and any `../` chain that lands on a `pages` segment, but not
-// `pages.json` (the i18n namespace the feature tests load) or a feature-local
-// `./pages/` folder.
+// What the regex matches: a specifier that STARTS with `@/pages` or with one or
+// more `../` followed by a `pages` segment (`pages`, `pages/...`). That reports
+// `../pages/x` from any feature depth, even where it would resolve to a
+// feature-local `pages/` folder rather than `src/pages` — no feature has such a
+// folder, so the over-report is deliberate and costs nothing today.
+// What it does NOT match: `pages.json` (the i18n namespace the feature tests
+// load, `pages` is not followed by `/` or the end), `./pages/...`, names that
+// merely contain `pages` (`@/components/pages-foo`, `./pagesUtil`), and the
+// constructions `./../pages/...` and `../../../src/pages/...` — those reach
+// `src/pages` but are NOT detected; review has to catch them.
 const PAGES_IMPORT_REGEX = '^(@/|(\\.\\./)+)pages(/|$)';
 const FEATURES_NOT_FROM_PAGES_MESSAGE =
   'src/features must not import from src/pages (#2518). Move the shared code to src/components/ (or hooks/, utils/, api/) and import it from there.';
@@ -72,6 +79,14 @@ const FEATURES_NOT_FROM_PAGES_SELECTORS = [
   },
   {
     selector: `ImportExpression > TemplateLiteral.source > TemplateElement:first-child[value.raw=${ESQUERY_PAGES_REGEX}]`,
+    message: FEATURES_NOT_FROM_PAGES_MESSAGE,
+  },
+  {
+    // A feature test that mocks or loads a page module through vitest
+    // (`vi.mock('@/pages/x')`, `await vi.importActual('@/pages/x')`) couples to
+    // the page exactly like an import does, but the specifier is a plain call
+    // argument that neither rule above sees.
+    selector: `CallExpression[callee.object.name='vi'][callee.property.name=/^(mock|doMock|importActual|importMock)$/][arguments.0.type='Literal'][arguments.0.value=${ESQUERY_PAGES_REGEX}]`,
     message: FEATURES_NOT_FROM_PAGES_MESSAGE,
   },
 ];

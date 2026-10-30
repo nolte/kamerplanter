@@ -101,6 +101,7 @@ src/frontend/src/
 │   └── {feature}/                   # Feature-spezifische Komponenten
 ├── config/
 │   └── mode.ts                      # isLightMode Check
+├── features/                        # Feature-Module (z. B. gardenPlanner); importieren nie aus pages/
 ├── hooks/                           # Custom Hooks (21 Stueck)
 │   ├── useExpertiseLevel.ts
 │   ├── useNotification.ts           # notistack-Wrapper
