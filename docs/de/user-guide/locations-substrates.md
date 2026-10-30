@@ -313,7 +313,7 @@ Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab 
 
 **Topfvolumen.** Bei Arten mit empfohlenem Topfvolumen kannst du unter **Mehr Optionen** das Volumen deines Topfs eintragen. Ist er kleiner als empfohlen, warnt Kamerplanter.
 
-**Position korrigieren.** An einer stehenden Pflanze (im Tab **Pflanzung** oder nach einem Tipp im Plan) verschiebst du mit **Position korrigieren** den Platz: per Ziehen, mit den Pfeilschaltflächen in 1-cm-Schritten oder durch Eintippen der Koordinaten. Das Pflegeprotokoll hält die Korrektur mit der Pflanze fest. Pflanzen in einer Fläche haben keinen einzelnen Platz und lassen sich nicht verschieben.
+**Position korrigieren.** An einer stehenden Pflanze (im Tab **Pflanzung** oder nach einem Tipp im Plan) verschiebst du mit **Position korrigieren** den Platz: per Ziehen, mit den Pfeilschaltflächen in 10-cm-Schritten oder durch Eintippen der Koordinaten. Für die Feinarbeit stellst du unter **Schrittweite** auf 5 cm oder 1 cm um. Das Pflegeprotokoll hält die Korrektur mit der Pflanze fest. Pflanzen in einer Fläche haben keinen einzelnen Platz und lassen sich nicht verschieben.
 
 **Umpflanzen nach …** In ein anderes Beet verschiebst du nicht per Ziehen. **Umpflanzen nach …** legt die Aufgabe „Umpflanzen" für die Pflanze an, mit dem Zielbeet im Text. Du erledigst sie, sobald du die Pflanze versetzt hast.
 

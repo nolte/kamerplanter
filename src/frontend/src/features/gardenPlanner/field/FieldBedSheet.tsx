@@ -308,7 +308,7 @@ export default function FieldBedSheet({ bed, online, onClose, onChanged, onPlanC
             slotKey={overlay.plant.slot_key}
             plantLabel={overlay.plant.instance_id}
             stepCm={FIELD_STEP_CM}
-            showBigSteps={false}
+            showFineSteps={false}
             touchTarget={KIOSK_TOUCH_TARGET}
             dragHoldMs={FIELD_LONG_PRESS_MS}
             onClose={closeOverlay}

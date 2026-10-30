@@ -65,6 +65,8 @@ CABBAGE = "Brassica oleracea var. capitata"
 
 #: How long the bubble survives the pointer leaving the marker (`usePlantInfoHover`).
 LEAVE_GRACE_MS = 150
+#: One press of the position stepper on the desktop (``STEP_CM``, §18.1 step 9, #2514).
+DESKTOP_STEP_CM = 10
 
 
 @pytest.fixture
@@ -334,8 +336,9 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
 
     Not covered: the smartphone part of the case - long-press drag in field mode,
     "pan without long press" (WP 5.x); this run is the desktop path the issue
-    names. Spec deviations, not asserted: the stepper moves 1 cm (5 cm with the
-    big buttons), not 10 cm; the history line is the server's summary
+    names. The stepper moves 10 cm per press (§18.1 step 9, #2514); the 5 cm / 1 cm
+    fine steps are covered by the component tests. Spec deviation, not asserted:
+    the history line is the server's summary
     "Position corrected (<slot>)" and names the slot, not the plant - the plant
     is asserted on the stored event instead.
     """
@@ -365,7 +368,7 @@ def test_tc_053_019_correct_a_position_by_drag_is_saved_at_once_and_logged(
     dialog.wait_for_fields((60.0, 90.0), "TC-053-019: dragged to (0,60 | 0,90)", tolerance=1.0)
     dragged = dialog.fields_cm()
     dialog.step("right")
-    assert dialog.fields_cm() == (dragged[0] + 1, dragged[1]), (
+    assert dialog.fields_cm() == (dragged[0] + DESKTOP_STEP_CM, dragged[1]), (
         f"TC-053-019: the stepper must move the plant one step right: {dragged} -> "
         f"{dialog.fields_cm()}"
     )
