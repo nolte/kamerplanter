@@ -316,6 +316,33 @@ class TestRestoreGpAcc031:
         assert rig.db.collection(col.SITES).get("site_c").get("plan") is None
 
 
+class TestFrostOverrideRoundTrip2512:
+    """#2512 (#2503 edge 2): the legacy ``frost_exposed`` travels in the file and is stored as sent."""
+
+    def test_a_protected_and_an_exposed_bed_come_back_from_their_own_backup(self, rig) -> None:
+        keys = build_source_plan(rig)
+        beds = rig.db.collection(col.LOCATIONS)
+        # what v0098 leaves for ``false`` (#2464) and for ``true``; b3 keeps no override at all
+        beds.update(
+            {"_key": keys["b1"], "frost_exposed": False, "site_conditions": {"microclimate": {"frost_risk": "normal"}}}
+        )
+        beds.update(
+            {"_key": keys["b2"], "frost_exposed": True, "site_conditions": {"microclimate": {"frost_risk": "high"}}}
+        )
+        source = rig.exported()
+        exported = {loc["name"]: loc["frost_exposed"] for loc in source["locations"]}
+        assert (exported["Beet b1"], exported["Beet b2"], exported["Beet b3"]) == (False, True, None)
+
+        report = rig.run(source)
+
+        assert report.applied and report.errors == []
+        stored = {d["name"]: d for d in beds.find({"site_key": "site_c"})}
+        assert stored["Beet b1"]["frost_exposed"] is False
+        assert stored["Beet b1"]["site_conditions"]["microclimate"]["frost_risk"] == "normal"
+        assert stored["Beet b2"]["frost_exposed"] is True
+        assert stored["Beet b3"].get("frost_exposed") is None
+
+
 class TestZonesWp72:
     """REQ-053 WP 7.2 (#2468): the zones travel in the file, the technical coupling does not."""
 

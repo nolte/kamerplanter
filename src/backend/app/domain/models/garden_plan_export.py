@@ -81,6 +81,11 @@ class ExportLocation(_ExportModel):
     sun_exposure: SunExposure = SunExposure.UNKNOWN
     soil_profile: SoilProfile | None = None
     site_conditions: SiteConditions | None = None
+    #: The legacy frost override the winter readers still read (WP 3.9), additive inside ``schema_version "1"``
+    #: (#2512): ``site_conditions.microclimate.frost_risk`` cannot carry it, because ``normal`` stands for both a
+    #: forced ``False`` and "inherit". A file written before #2512 lacks the key; the import then derives it from
+    #: the risk. An explicit ``null`` means "inherit from the site type".
+    frost_exposed: bool | None = None
     irrigation_zone_key: str | None = None
     #: Provenance (WP 7.9): the bed template this bed was placed from. Additive inside ``schema_version "1"``.
     #: The import resolves it against the system templates and the target tenant's own, else drops it and reports
