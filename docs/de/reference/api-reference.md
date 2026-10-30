@@ -247,6 +247,12 @@ Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt 
 
 ---
 
+### Gartenplan speichern: Geometriefehler
+
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (die Grenze) und `POST …/plan/batch` (ein Stapel von Operationen) lehnen eine Form, die eine Geometrieregel verletzt, mit `422` `VALIDATION_ERROR` ab (REQ-053). Der betroffene Eintrag in `details[]` trägt `code: "geometry.invalid"`; liegt ein Eckpunkt eines Polygons oder einer Polylinie außerhalb des Koordinatenbereichs (0 bis 1000 m im Plan, −1000 bis 1000 m innerhalb eines Beets), trägt er zusätzlich `point_index`, die Position des ersten solchen Eckpunkts in `points` (ab 0 gezählt). Im Stapel nennt `op_index` außerdem die Operation.
+
+---
+
 ### Frühere Stände des Plans (Snapshots)
 
 Ein `replace`-Import schreibt den überschriebenen Plan als `import_snapshot` ins Änderungsprotokoll (Aufbewahrung wie das Protokoll, ein Jahr). Beide Routen sind **nur für die Leitung**; ein Standort eines anderen Mandanten antwortet `404`, ein Snapshot eines anderen Standorts oder Mandanten ebenso.

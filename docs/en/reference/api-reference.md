@@ -247,6 +247,12 @@ Keys of the file are never kept: every location, garden object and slot gets a n
 
 ---
 
+### Garden Plan save: geometry errors
+
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (the boundary) and `POST …/plan/batch` (a batch of operations) refuse a shape that breaks a geometry rule with `422` `VALIDATION_ERROR` (REQ-053). The offending entry in `details[]` carries `code: "geometry.invalid"`; when a polygon or polyline vertex lies outside the coordinate range (0 to 1000 m on the plan, −1000 to 1000 m within a bed), it also carries `point_index`, the position of the first such vertex in `points` (counted from 0). In a batch, `op_index` names the operation as well.
+
+---
+
 ### Earlier states of the plan (snapshots)
 
 A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
