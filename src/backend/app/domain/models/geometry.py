@@ -44,7 +44,7 @@ from pydantic import (
     WrapValidator,
     field_validator,
 )
-from pydantic_core import PydanticCustomError
+from pydantic_core import ErrorDetails, PydanticCustomError
 
 from app.common.enums import GeometryKind
 
@@ -72,6 +72,20 @@ _QUANTUM = Decimal(1).scaleb(-LENGTH_DECIMALS)
 GEOMETRY_INVALID = "geometry.invalid"
 #: Error-context key carrying the index of the offending vertex in ``points`` (GP-ACC-056).
 POINT_INDEX_KEY = "point_index"
+
+
+def point_index_of(error: ErrorDetails) -> int | None:
+    """The offending vertex of a coordinate-range violation (GP-ACC-056), else ``None``.
+
+    The single reading of the rule for both 422 paths — the request handler's
+    ``details[]`` and the batch findings: only a ``geometry.invalid`` error whose
+    context carries an int ``point_index`` names a vertex; any other error does not.
+    """
+    if error["type"] != GEOMETRY_INVALID:
+        return None
+    point_index = (error.get("ctx") or {}).get(POINT_INDEX_KEY)
+    return point_index if isinstance(point_index, int) else None
+
 
 #: A coordinate pair ``(x, y)`` in metres. Components are strict floats (an int is
 #: accepted, a string or bool is not) so that V-01 verdicts match the TypeScript port.

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from app.common.error_ids import new_error_id
 from app.common.exceptions import KamerplanterError
 from app.common.log_privacy import loggable_path
-from app.domain.models.geometry import GEOMETRY_INVALID, POINT_INDEX_KEY
+from app.domain.models.geometry import POINT_INDEX_KEY, point_index_of
 
 logger = structlog.get_logger()
 
@@ -72,10 +72,9 @@ def _validation_detail(err: Any) -> dict[str, Any]:
         "reason": err["msg"],
         "code": err["type"],
     }
-    if err["type"] == GEOMETRY_INVALID:
-        point_index = (err.get("ctx") or {}).get(POINT_INDEX_KEY)
-        if isinstance(point_index, int):
-            detail[POINT_INDEX_KEY] = point_index
+    point_index = point_index_of(err)
+    if point_index is not None:
+        detail[POINT_INDEX_KEY] = point_index
     return detail
 
 

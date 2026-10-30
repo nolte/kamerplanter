@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from pydantic_core import ErrorDetails
 
 from app.common.enums import GeometryKind
+from app.domain.models.garden_plan import SlotPatch
 from app.domain.models.geometry import (
     AREA_KINDS,
     GEOMETRY_INVALID,
@@ -25,6 +26,7 @@ from app.domain.models.geometry import (
     PolylineGeometry,
     RectGeometry,
     parse_geometry,
+    point_index_of,
     round_length,
 )
 
@@ -122,6 +124,19 @@ class TestRangeErrorCarriesThePointIndex:
         error = self._only_error({"kind": "point", "origin": [-0.1, 0]}, GeometryFrame.PLAN)
         assert error["type"] == GEOMETRY_INVALID
         assert "ctx" not in error
+
+    def test_the_index_survives_the_bed_frame_validator_of_a_model_field(self) -> None:
+        """The bed-frame wrap validator on a model field re-raises the vertex error unchanged."""
+        bed_polygon = {"kind": "polygon", "points": [[0, 0], [-1000.5, 0], [0, 1]]}
+        with pytest.raises(ValidationError) as refused:
+            SlotPatch.model_validate({"geometry": bed_polygon})
+        errors = refused.value.errors()
+        assert len(errors) == 1
+        error = errors[0]
+        assert error["type"] == GEOMETRY_INVALID
+        assert error.get("ctx") == {POINT_INDEX_KEY: 1}
+        assert error["loc"] == ("geometry", "polygon", "points")
+        assert point_index_of(error) == 1
 
 
 class TestImmutability:
