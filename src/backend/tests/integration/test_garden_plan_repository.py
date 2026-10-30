@@ -25,7 +25,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGardenPlanRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import PlanBatchWrite
-from app.domain.models.site import Location, SiteUnderlay
+from app.domain.models.site import Location, SiteUnderlay, SunProfile
 from app.domain.services.garden_plan_service import GardenPlanService
 from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
 
@@ -135,16 +135,17 @@ def seed_large_garden(db) -> None:
                 "bed_status": "active",
                 "geometry": rect(0.1 + (n % 15) * 0.65, 0.1 + (n // 15) * 0.9, 0.6, 0.8),
                 "bbox": [0.0, 0.0, 1.0, 1.0],
-                # The worst case for the read model (#2538): every projected site condition known on every bed.
+                # The worst case for the read model (#2538): every projected site condition known on every bed,
+                # each with its longest projected literal ("unknown" is not projected) and a two-decimal hour.
                 "site_conditions": {
                     "sun_profile": {
                         "sun_window": "afternoon",
-                        "direct_sun_hours_summer": 5.5,
+                        "direct_sun_hours_summer": 12.75,
                         "foliage_shade_in_summer": True,
-                        "source": "manual",
+                        "source": "computed",
                     },
-                    "microclimate": {"frost_risk": "high", "cold_air_pocket": True, "heat_retention": "wall"},
-                    "wind_exposure": "exposed",
+                    "microclimate": {"frost_risk": "normal", "cold_air_pocket": True, "heat_retention": "building"},
+                    "wind_exposure": "sheltered",
                 },
                 "soil_profile": {"drainage": "moderate", "soil_texture": "loam", "ph": 6.5},
             }
@@ -317,6 +318,47 @@ class TestTheBatchIsOneTransaction:
             )
         )
         assert len(list(db.collection(col.LOCATIONS).all())) == 1
+
+    def test_the_sun_profile_write_keeps_the_rest_of_the_site_conditions(self, db) -> None:
+        """SCR-001 (#2538): the batch writes ``site_conditions.sun_profile`` only. A frost risk and wind that
+        ``PATCH /locations`` stored after the batch's read survive; a bed without site conditions gets them."""
+        repo = ArangoGardenPlanRepository(db)
+        first_save(GardenPlanService(ArangoSiteRepository(db), repo))
+        locations = db.collection(col.LOCATIONS)
+        conditions = {
+            "sun_profile": {"sun_window": "midday", "direct_sun_hours_summer": 4.0, "source": "computed"},
+            "microclimate": {"frost_risk": "high", "cold_air_pocket": True},
+            "wind_exposure": "exposed",
+        }
+        locations.insert({"_key": "known", "name": "A", "site_key": "site_a", "site_conditions": conditions})
+        locations.insert({"_key": "bare", "name": "B", "site_key": "site_a", "site_conditions": None})
+        sun = {
+            "sun_window": "afternoon",
+            "direct_sun_hours_summer": None,
+            "foliage_shade_in_summer": True,
+            "source": "manual",
+        }
+        repo.apply_plan_batch(
+            PlanBatchWrite(
+                site_key="site_a",
+                tenant_key=A,
+                editor_key=USER,
+                expected_revision=1,
+                basis_revision=1,
+                location_sun_profiles=[("known", sun), ("bare", sun)],
+            )
+        )
+
+        known = locations.get("known")["site_conditions"]
+        assert known["microclimate"] == {"frost_risk": "high", "cold_air_pocket": True}
+        assert known["wind_exposure"] == "exposed"
+        # ``keep_none=False`` removes the cleared hours; the rest of the sun profile is the batch's.
+        assert known["sun_profile"] == {"sun_window": "afternoon", "foliage_shade_in_summer": True, "source": "manual"}
+        # A stored ``null`` is replaced by the object; ArangoDB keeps a nested ``null`` there (measured), which
+        # reads back as "not entered" all the same.
+        bare = locations.get("bare")["site_conditions"]
+        assert set(bare) == {"sun_profile"} and bare["sun_profile"].get("direct_sun_hours_summer") is None
+        assert SunProfile(**bare["sun_profile"]).sun_window == "afternoon"
 
     def test_a_stale_revision_writes_nothing_gp_acc_010(self, db, service) -> None:
         first_save(service)
@@ -693,7 +735,8 @@ class TestTheReadModel:
         """GP-NFR-002/031: 150 beds, 300 objects, 3 000 slots, 2 000 plants.
 
         Every bed carries a known sun profile, frost risk and drainage (#2538), the largest shape the lean site
-        conditions take: measured 2026-10-30 at 917 925 bytes, against 888 225 bytes without them.
+        conditions take (the longest projected literals, a two-decimal hour): measured 2026-10-30 at 918 525
+        bytes, against 888 225 bytes without them.
 
         **Measured against a ceiling, not against the spec's 500 KB.** The "large" class of §25.1 comes to
         about 0.85 MB of compact JSON in this shape (3 000 slots ≈ 0.43 MB, 2 000 plants ≈ 0.28 MB), because
