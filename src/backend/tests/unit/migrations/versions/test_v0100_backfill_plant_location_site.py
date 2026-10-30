@@ -48,9 +48,11 @@ class _FakeAql:
                     "location_found": loc is not None,
                     "location_site_tenant_key": self.db.site_tenant(loc),
                     "location_site_key": loc.get("site_key") if loc else None,
+                    "location_site_found": self.db.site_of(loc) is not None,
                     "own_found": own is not None,
                     "own_site_tenant_key": self.db.site_tenant(own),
                     "own_site_key": own.get("site_key") if own else None,
+                    "own_site_found": self.db.site_of(own) is not None,
                 }
             )
         return iter(rows)
@@ -65,9 +67,13 @@ class _FakeDb:
         self.present = present
         self.aql = _FakeAql(self)
 
+    def site_of(self, location):
+        """The site document anchoring ``location`` (``None`` when the location names none or it is gone)."""
+        return self.sites.get(location.get("site_key")) if location else None
+
     def site_tenant(self, location):
         """The tenant of the site anchoring ``location`` (locations carry no tenant of their own, #1397)."""
-        site = self.sites.get(location.get("site_key")) if location else None
+        site = self.site_of(location)
         return site.get("tenant_key") if site else None
 
     def has_collection(self, name: str) -> bool:
@@ -88,22 +94,34 @@ def _volume() -> _FakeDb:
         {"_key": "ghost", "tenant_key": "t1", "slot_key": "gone", "location_key": None, "site_key": None},
         {"_key": "foreign", "tenant_key": "t1", "slot_key": "s2", "location_key": None, "site_key": None},
         {"_key": "nolocslot", "tenant_key": "t1", "slot_key": "s3", "location_key": None, "site_key": None},
+        # #2524 item 1: site already set, location missing
+        {"_key": "halfsame", "tenant_key": "t1", "slot_key": "s1", "location_key": None, "site_key": "S1"},
+        {"_key": "halfother", "tenant_key": "t1", "slot_key": "s1", "location_key": None, "site_key": "S_other"},
+        # #2524 item 2: each broken link of the site chain has its own reason
+        {"_key": "sitemissing", "tenant_key": "t1", "slot_key": "s4", "location_key": None, "site_key": None},
+        {"_key": "legacy", "tenant_key": "t1", "slot_key": "s5", "location_key": None, "site_key": None},
+        {"_key": "legacyown", "tenant_key": "t1", "slot_key": "s1", "location_key": "L7", "site_key": None},
     ]
     slots = [
         {"_key": "s1", "location_key": "L1"},
         {"_key": "s2", "location_key": "L2"},
         {"_key": "s3"},
+        {"_key": "s4", "location_key": "L6"},
+        {"_key": "s5", "location_key": "L7"},
     ]
     locations = [
         {"_key": "L1", "site_key": "S1"},
         {"_key": "L2", "site_key": "S2"},
         {"_key": "L4", "site_key": "S4"},
         {"_key": "L5"},
+        {"_key": "L6", "site_key": "S_gone"},
+        {"_key": "L7", "site_key": "S7"},
     ]
     sites = [
         {"_key": "S1", "tenant_key": "t1"},
         {"_key": "S2", "tenant_key": "t2"},
         {"_key": "S4", "tenant_key": "t1"},
+        {"_key": "S7"},
     ]
     return _FakeDb(plants, slots, locations, sites)
 
@@ -115,20 +133,26 @@ def test_dry_run_reports_and_writes_nothing() -> None:
     assert db.plants == before
     assert report.dry_run is True and report.changed == 0
     d = report.details
-    assert d["will_update"] == 3  # ok, half, keep
-    assert d["location_without_site_key"] == 0  # a site-less location is cross_tenant, not an update
+    assert d["will_update"] == 4  # ok, half, keep, halfsame
+    assert d["sets_location_key"] == 2  # ok, halfsame
+    assert d["sets_site_key"] == 3  # ok, half, keep
+    assert "location_without_site_key" not in d  # a reason under "unresolved" now, not a dead counter
     assert d["unresolved"]["no_slot"] == {"count": 1, "listed": ["noslot"]}
     assert d["unresolved"]["slot_missing"]["listed"] == ["ghost"]
-    assert sorted(d["unresolved"]["cross_tenant"]["listed"]) == ["foreign", "foreignown", "nosite", "notenant"]
+    assert sorted(d["unresolved"]["cross_tenant"]["listed"]) == ["foreign", "foreignown", "notenant"]
     assert d["unresolved"]["location_missing"]["listed"] == ["ghostloc"]
     assert d["unresolved"]["slot_without_location"]["listed"] == ["nolocslot"]
-    assert d["unresolved_count"] == 8
+    assert d["unresolved"]["location_without_site_key"]["listed"] == ["nosite"]
+    assert d["unresolved"]["site_missing"]["listed"] == ["sitemissing"]
+    assert sorted(d["unresolved"]["site_without_tenant"]["listed"]) == ["legacy", "legacyown"]
+    assert d["unresolved"]["site_mismatch"]["listed"] == ["halfother"]
+    assert d["unresolved_count"] == 12
 
 
 def test_apply_fills_nulls_and_never_overwrites() -> None:
     db = _volume()
     report = migration.up(db)  # type: ignore[arg-type]
-    assert report.changed == 3
+    assert report.changed == 4
     assert (db.plants["ok"]["location_key"], db.plants["ok"]["site_key"]) == ("L1", "S1")
     assert (db.plants["half"]["location_key"], db.plants["half"]["site_key"]) == ("L1", "S1")
     # N2: site comes from the plant's own location, not from the slot's (L1 / S1)
@@ -140,8 +164,12 @@ def test_apply_fills_nulls_and_never_overwrites() -> None:
     assert db.plants["nosite"]["site_key"] is None
     # N3: plant without a tenant never matches a location
     assert db.plants["notenant"]["location_key"] is None
-    for key in ("noslot", "ghost", "foreign", "nolocslot"):
+    for key in ("noslot", "ghost", "foreign", "nolocslot", "sitemissing", "legacy"):
         assert db.plants[key]["location_key"] is None and db.plants[key]["site_key"] is None
+    assert (db.plants["legacyown"]["location_key"], db.plants["legacyown"]["site_key"]) == ("L7", None)
+    # #2524 item 1: the slot's location only joins a site_key that names the same site
+    assert (db.plants["halfsame"]["location_key"], db.plants["halfsame"]["site_key"]) == ("L1", "S1")
+    assert (db.plants["halfother"]["location_key"], db.plants["halfother"]["site_key"]) == (None, "S_other")
 
 
 def test_second_run_changes_nothing_new() -> None:
@@ -161,3 +189,72 @@ def test_missing_collection_is_a_noop() -> None:
 def test_down_is_irreversible() -> None:
     with pytest.raises(IrreversibleMigrationError):
         migration.down(_volume())  # type: ignore[arg-type]
+
+
+def _single(plant: dict[str, Any], location: dict[str, Any], site: dict[str, Any] | None) -> _FakeDb:
+    """One plant on slot ``s1`` in ``location``, anchored by ``site`` (``None`` = the site does not exist)."""
+    return _FakeDb(
+        [{"_key": "p", "slot_key": "s1", "location_key": None, "site_key": None, **plant}],
+        [{"_key": "s1", "location_key": location["_key"]}],
+        [location],
+        [site] if site is not None else [],
+    )
+
+
+def test_half_set_plant_with_another_site_is_left_untouched() -> None:
+    """#2524 item 1: a plant with ``site_key`` S_other must not receive location L1 of site S1."""
+    db = _single(
+        {"tenant_key": "t1", "site_key": "S_other"},
+        {"_key": "L1", "site_key": "S1"},
+        {"_key": "S1", "tenant_key": "t1"},
+    )
+
+    report = migration.up(db)  # type: ignore[arg-type]
+
+    assert report.changed == 0
+    assert (db.plants["p"]["location_key"], db.plants["p"]["site_key"]) == (None, "S_other")
+    assert report.details["unresolved"] == {"site_mismatch": {"count": 1, "listed": ["p"]}}
+
+
+def test_half_set_plant_with_the_derived_site_only_receives_the_location() -> None:
+    db = _single(
+        {"tenant_key": "t1", "site_key": "S1"}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1", "tenant_key": "t1"}
+    )
+
+    report = migration.up(db)  # type: ignore[arg-type]
+
+    assert report.changed == 1
+    assert (report.details["sets_location_key"], report.details["sets_site_key"]) == (1, 0)
+    assert (db.plants["p"]["location_key"], db.plants["p"]["site_key"]) == ("L1", "S1")
+
+
+@pytest.mark.parametrize(
+    ("plant", "location", "site", "reason"),
+    [
+        ({"tenant_key": "t1"}, {"_key": "L1"}, None, "location_without_site_key"),
+        ({"tenant_key": "t1"}, {"_key": "L1", "site_key": "S1"}, None, "site_missing"),
+        ({"tenant_key": "t1"}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1"}, "site_without_tenant"),
+        ({"tenant_key": "t1"}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1", "tenant_key": "t2"}, "cross_tenant"),
+        ({}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1", "tenant_key": "t1"}, "cross_tenant"),
+        ({}, {"_key": "L1", "site_key": "S1"}, {"_key": "S1"}, "cross_tenant"),
+    ],
+    ids=[
+        "location-without-site",
+        "site-gone",
+        "legacy-site",
+        "foreign-site",
+        "plant-without-tenant",
+        "plant-and-site-without-tenant",
+    ],
+)
+def test_each_broken_site_link_has_its_own_reason(
+    plant: dict[str, Any], location: dict[str, Any], site: dict[str, Any] | None, reason: str
+) -> None:
+    """#2524 item 2: legacy data (site without tenant) is told apart from really foreign data."""
+    db = _single(plant, location, site)
+
+    report = migration.up(db)  # type: ignore[arg-type]
+
+    assert report.changed == 0
+    assert report.details["unresolved"] == {reason: {"count": 1, "listed": ["p"]}}
+    assert (db.plants["p"]["location_key"], db.plants["p"]["site_key"]) == (None, None)
