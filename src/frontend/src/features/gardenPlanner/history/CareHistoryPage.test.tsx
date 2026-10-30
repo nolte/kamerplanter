@@ -64,7 +64,7 @@ describe('CareHistoryPage', () => {
     const backend = useHistoryBackend({
       careEvents: [
         careLine('w1', { summary: 'Watered' }),
-        careLine('p1', { category: 'position_corrected', summary: 'Position corrected (BED_001)', plant_names: ['TOM-1'] }),
+        careLine('p1', { category: 'position_corrected', summary: 'Position corrected (BED_001)', plant_keys: ['pl_1'], plant_names: ['TOM-1'] }),
       ],
     });
     const user = userEvent.setup();

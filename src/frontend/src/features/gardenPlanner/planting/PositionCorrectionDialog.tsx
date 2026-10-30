@@ -1,8 +1,9 @@
 /**
  * "Correct position" (REQ-053 GP-FR-068, GP-ACC-022): one plant's slot gets a new geometry. Drag the
  * marker on the bed or - the default in the field (F-13) - move it with the stepper buttons or type the
- * coordinates. The stepper moves 10 cm per press (§18.1 step 9, #2514); on the desktop a step-size choice
- * below the arrows switches it to the fine steps 5 cm and 1 cm. The server logs
+ * coordinates. The stepper moves 10 cm per press (§18.1 step 9, #2514); a step-size choice below the arrows
+ * switches it to the fine steps 5 cm and 1 cm everywhere except field mode, which turns the choice off
+ * (`showFineSteps`). The server logs
  * `care_event(position_corrected)` with the plant; nothing here writes it. A plant in a zone has no single
  * position and cannot be moved (the panel says so).
  */
@@ -36,7 +37,7 @@ import { insideBed } from './plantingLogic';
 
 /** Stepper step in centimetres (§18.1 step 9: "Stepper als Standard (±10 cm ...)"). */
 export const STEP_CM = 10;
-/** The finer steps the desktop offers next to {@link STEP_CM}, coarse to fine. */
+/** The finer steps offered next to {@link STEP_CM} outside field mode, coarse to fine. */
 export const FINE_STEPS_CM: readonly number[] = [5, 1];
 const CM = 100;
 
@@ -56,8 +57,9 @@ interface PositionCorrectionDialogProps {
   /** Hold time before the marker can be dragged; field mode needs a 500 ms long press (GP-UX-023). */
   dragHoldMs?: number;
   /**
-   * Offer the step-size choice {@link stepCm} / {@link FINE_STEPS_CM} below the stepper. Field mode turns it
-   * off: on the phone the 10 cm step is the whole stepper (§18.1 step 9).
+   * Offer the step-size choice {@link stepCm} / {@link FINE_STEPS_CM} below the stepper (default on). Every
+   * caller but field mode leaves it on, whatever the viewport - the plant action host passes nothing. Field mode
+   * turns it off: there the 10 cm step is the whole stepper (§18.1 step 9).
    */
   showFineSteps?: boolean;
 }

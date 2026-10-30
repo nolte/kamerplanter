@@ -156,17 +156,25 @@ describe('Correct position (GP-FR-068, GP-ACC-022)', () => {
     expect(within(dialog).getByText('Drag the plant on the bed or move it with the arrows. Each step is 1 cm.')).toBeInTheDocument();
     await user.click(within(dialog).getByTestId('position-right'));
     expect(x).toHaveValue('31');
+    await user.click(within(dialog).getByTestId('position-left'));
+    await user.click(within(dialog).getByTestId('position-left'));
+    expect(x).toHaveValue('29');
+    expect(y).toHaveValue('90');
 
     await user.click(within(dialog).getByTestId('position-step-5'));
     await user.click(within(dialog).getByTestId('position-down'));
     expect(y).toHaveValue('85');
+    await user.click(within(dialog).getByTestId('position-up'));
+    await user.click(within(dialog).getByTestId('position-up'));
+    expect(y).toHaveValue('95');
+    expect(x).toHaveValue('29');
     // Clicking the chosen step again keeps it: there is always one step size.
     await user.click(within(dialog).getByTestId('position-step-5'));
     expect(within(dialog).getByTestId('position-step-5')).toHaveAttribute('aria-pressed', 'true');
 
     await user.click(within(dialog).getByTestId('position-save'));
     await waitFor(() => expect(backend.writes).toHaveLength(1));
-    expect(backend.writes[0].body).toEqual({ geometry: { kind: 'point', origin: [0.31, 0.85] } });
+    expect(backend.writes[0].body).toEqual({ geometry: { kind: 'point', origin: [0.29, 0.95] } });
   });
 
   it('takes typed coordinates too', async () => {

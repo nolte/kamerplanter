@@ -41,6 +41,6 @@ describe('itemHeadline: position_corrected (#2514)', () => {
 
   it('keeps the stored summary of every other care entry', async () => {
     const t = await translator('de');
-    expect(itemHeadline(t, careItem('w1', { summary: 'Tomaten gegossen', plant_names: ['TOM-1'] }))).toBe('Tomaten gegossen');
+    expect(itemHeadline(t, careItem('w1', { summary: 'Tomaten gegossen', plant_keys: ['pl_1'], plant_names: ['TOM-1'] }))).toBe('Tomaten gegossen');
   });
 });
