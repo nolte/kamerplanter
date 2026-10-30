@@ -43,7 +43,7 @@ import { useBedSheet } from './useBedSheet';
 const CareLogDialog = lazy(() => import('../care/CareLogDialog'));
 const PlantingDialog = lazy(() => import('../planting/PlantingDialog'));
 const PositionCorrectionDialog = lazy(() => import('../planting/PositionCorrectionDialog'));
-const PlantPhotoUploadDialog = lazy(() => import('@/pages/pflanzen/photos/PlantPhotoUploadDialog'));
+const PlantPhotoUploadDialog = lazy(() => import('@/components/photos/PlantPhotoUploadDialog'));
 
 /** Long press before a marker can be dragged (GP-UX-023). */
 export const FIELD_LONG_PRESS_MS = 500;
