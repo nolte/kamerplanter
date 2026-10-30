@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "title": "REQ-053 garden-plan geometry vectors (shared Backend <-> Frontend test vectors)",
-  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit)",
+  "spec": "spec/req/REQ-053_Grafische-Garten-Beetplanung.md v1.4 - §9.2, §19.6, §20.1, §22.2 (V-01..V-06), GP-ACC-003/004, GP-ACC-017/018/043 (layout), GP-FR-160/GP-ACC-053 (site_fit), GP-FR-044 (place_geometry)",
   "description": [
     "Single source of truth for the shared geometry logic (REQ-053 §19.6).",
     "The Python reference is src/backend/app/domain/calculators/geometry_calculator.py together with",
@@ -53,7 +53,8 @@
     "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)",
     "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)",
     "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)",
-    "phase_color": "input.name (growth-phase name as stored, growth_phases.name) -> expected \"#RRGGBB\": a name that is a known phase after lower-casing and dropping every character outside a-z takes its fixed colour; any other name takes FALLBACK_PALETTE[abs(h) % 10] with h = int32(h * 31 + c) over the UTF-16 code units c of the unnormalised name (phase_colors.phase_color / planting/phaseColors.ts phaseColor, REQ-053 GP-FR-067, GP-UX-005)"
+    "phase_color": "input.name (growth-phase name as stored, growth_phases.name) -> expected \"#RRGGBB\": a name that is a known phase after lower-casing and dropping every character outside a-z takes its fixed colour; any other name takes FALLBACK_PALETTE[abs(h) % 10] with h = int32(h * 31 + c) over the UTF-16 code units c of the unnormalised name (phase_colors.phase_color / planting/phaseColors.ts phaseColor, REQ-053 GP-FR-067, GP-UX-005)",
+    "place_geometry": "input.geometry (bed template default_geometry in the bed frame: rect | circle | polygon), input.origin [x, y], input.rotation_deg -> expected the plan-frame geometry: the anchor (rect origin, circle centre, first polygon vertex) at origin, rotation_deg = (own + requested) folded into [0, 360) and rounded to 0.001; a circle carries no rotation (template_placement_calculator.place_geometry / templates/placeGeometry.ts placeGeometry, REQ-053 GP-FR-044, #2536)"
   },
   "cases": [
     {
@@ -4569,6 +4570,61 @@
         "name": ""
       },
       "expected": "#7E57C2"
+    },
+    {
+      "id": "place-geometry-rect-turned",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: the anchor lands on the origin and the requested turn adds to the own rotation",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 0.0},
+        "origin": [4.0, 15.0],
+        "rotation_deg": 90.0
+      },
+      "expected": {"kind": "rect", "origin": [4.0, 15.0], "width_m": 2.0, "length_m": 1.0, "rotation_deg": 90.0}
+    },
+    {
+      "id": "place-geometry-rect-full-turn-folds",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: own 270 + requested 90 is a full turn and folds to 0",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 1.2, "length_m": 2.4, "rotation_deg": 270.0},
+        "origin": [2.5, 3.5],
+        "rotation_deg": 90.0
+      },
+      "expected": {"kind": "rect", "origin": [2.5, 3.5], "width_m": 1.2, "length_m": 2.4, "rotation_deg": 0.0}
+    },
+    {
+      "id": "place-geometry-rect-wraps-past-360",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: own 350 + requested 30 wraps to 20",
+      "input": {
+        "geometry": {"kind": "rect", "origin": [0.0, 0.0], "width_m": 3.0, "length_m": 1.0, "rotation_deg": 350.0},
+        "origin": [10.0, 10.0],
+        "rotation_deg": 30.0
+      },
+      "expected": {"kind": "rect", "origin": [10.0, 10.0], "width_m": 3.0, "length_m": 1.0, "rotation_deg": 20.0}
+    },
+    {
+      "id": "place-geometry-circle-ignores-turn",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: a circle's centre is its anchor and it has no rotation",
+      "input": {
+        "geometry": {"kind": "circle", "origin": [0.0, 0.0], "radius_m": 0.6},
+        "origin": [7.0, 8.0],
+        "rotation_deg": 90.0
+      },
+      "expected": {"kind": "circle", "origin": [7.0, 8.0], "radius_m": 0.6}
+    },
+    {
+      "id": "place-geometry-polygon-first-vertex",
+      "operation": "place_geometry",
+      "spec": "GP-FR-044: a polygon is shifted so that its first vertex lands on the origin; the turn is a field",
+      "input": {
+        "geometry": {"kind": "polygon", "points": [[1.0, 0.5], [3.0, 0.5], [2.0, 2.0]], "rotation_deg": 10.0},
+        "origin": [5.0, 5.0],
+        "rotation_deg": 45.0
+      },
+      "expected": {"kind": "polygon", "points": [[5.0, 5.0], [7.0, 5.0], [6.0, 6.5]], "rotation_deg": 55.0}
     }
   ]
 }

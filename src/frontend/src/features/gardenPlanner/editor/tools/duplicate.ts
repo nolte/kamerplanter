@@ -236,6 +236,12 @@ export type MultiDuplicateOutcome =
       failedCopy?: number;
     };
 
+/** A refusal as the dialog shows it: the code of a `notice.*` text and, for a geometry rule, the first copy that breaks it. */
+export interface MultiRefusal {
+  code: string;
+  failedCopy?: number;
+}
+
 /** The name of a copied bed: the scheme with `{n}` replaced (a scheme without `{n}` gets the number appended). */
 export function multiCopyName(scheme: string, n: number): string {
   const text = scheme.trim();

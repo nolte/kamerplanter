@@ -5927,7 +5927,8 @@
           "slotsNote": "Planting positions, plants and tasks are not copied. Lay out a planting grid for each bed afterwards in the Properties panel.",
           "submit": "Duplicate",
           "invalid": "Please enter a valid number.",
-          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own."
+          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own.",
+          "failedCopy": "Copy {{n}} is the first one that does not fit."
         },
         "templates": {
           "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",
@@ -5945,6 +5946,7 @@
             "placeCenter": "Place at view centre",
             "hintPick": "Choose a template. Then a click on the plan puts the bed there.",
             "hintPlace": "Click the plan to place the bed. Alt switches the grid snap off, Esc ends.",
+            "hintInvalid": "The bed does not fit here completely inside the garden. Click further inside to place it.",
             "placing": "Creating the bed …",
             "failed": "The templates could not be loaded."
           },

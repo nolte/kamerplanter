@@ -402,7 +402,28 @@ describe('multi-duplicate (GP-FR-025, GP-NFR-017)', () => {
     expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(
       /ragt aus ihrem Bereich|sticks out of its area/,
     );
+    // solo (x 14..16) to the right, 0.5 m apart: copy 1 at 16.5..18.5 fits, copy 2 at 19..21 leaves the garden
+    expect(screen.getByTestId('garden-plan-multi-error')).toHaveTextContent(/Kopie 2\b|copy 2\b/i);
     expect(t.state().past).toHaveLength(0);
+  });
+
+  it('shows and takes the spacing in the length unit the user chose, and stores metres (#2536)', async () => {
+    window.localStorage.setItem('kp_garden_plan_length_unit', 'cm');
+    const t = setupEditor();
+    select(t, 'b1');
+    openDialog(t);
+    await screen.findByTestId('garden-plan-multi-dialog');
+    const spacing = screen.getByTestId('garden-plan-multi-spacing') as HTMLInputElement;
+    expect(spacing.value).toBe('50');
+    expect(spacing.closest('.MuiInputBase-root')).toHaveTextContent('cm');
+    set('garden-plan-multi-count', '1');
+    set('garden-plan-multi-direction', 'up');
+    set('garden-plan-multi-spacing', '100');
+    set('garden-plan-multi-scheme', 'Plot {n}');
+    t.after(() => fireEvent.click(screen.getByTestId('garden-plan-multi-submit')));
+    const copy = Object.values(t.state().plan!.locations).find((l) => l.name === 'Plot 1');
+    // b1 is 3..5 in y: one metre above it the copy starts at y = 6
+    expect((copy?.geometry as { origin: Point }).origin).toEqual([3, 6]);
   });
 
   it('previews the numbers over all selected beds, and says so when only objects are selected', async () => {
@@ -480,6 +501,44 @@ describe('bed templates (GP-FR-043/044/045)', () => {
     await waitFor(() => expect(getGardenPlan).toHaveBeenCalled());
     // a pointer press with the tool on selects nothing
     expect(t.state().pending).toHaveLength(0);
+  });
+
+  it('"Place at centre" puts the middle of the turned template, not its anchor, in the middle of the view (#2536)', async () => {
+    placeBedTemplate.mockResolvedValue({
+      plan_revision: 8,
+      key_map: { template_bed: 'loc_new' },
+      updated: [],
+      deleted: [],
+      derived: {},
+    });
+    getGardenPlan.mockResolvedValue(planResponse());
+    const t = setupEditor();
+    await openTool(t);
+    await pick('My herb bed');
+    fireEvent.click(screen.getByTestId('garden-plan-template-rotate'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('garden-plan-template-place-center'));
+    });
+    await waitFor(() => expect(placeBedTemplate).toHaveBeenCalledTimes(1));
+    // view middle (10, 10); the 2 x 1 m rect turned by 90 degrees spans x -1..0, y 0..2 about its anchor,
+    // so its middle (-0.5, 1) lands on (10, 10) with the anchor at (10.5, 9)
+    expect(placeBedTemplate.mock.calls[0][1]).toMatchObject({ origin: [10.5, 9], rotation_deg: 90 });
+  });
+
+  it('draws the ghost red and says so where the template would leave the garden (#2536)', async () => {
+    const t = setupEditor();
+    await openTool(t);
+    await pick('My herb bed');
+    fireEvent.pointerMove(t.canvas(), pointer(px(19, 10)));
+    expect(screen.getByTestId('garden-plan-template-ghost')).toHaveAttribute('data-invalid', 'true');
+    expect(screen.getByTestId('garden-plan-template-hint')).toHaveTextContent(
+      /passt hier nicht|does not fit here/,
+    );
+    fireEvent.pointerMove(t.canvas(), pointer(px(10, 10)));
+    expect(screen.getByTestId('garden-plan-template-ghost')).toHaveAttribute('data-invalid', 'false');
+    expect(screen.getByTestId('garden-plan-template-hint')).not.toHaveTextContent(
+      /passt hier nicht|does not fit here/,
+    );
   });
 
   it('saves unsaved edits first, and places nothing when that fails', async () => {

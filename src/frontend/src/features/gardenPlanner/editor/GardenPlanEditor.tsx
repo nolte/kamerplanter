@@ -98,7 +98,7 @@ import { SaveBar } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
-import { bedFrameGeometry } from '../templates/placeGeometry';
+import { bedFrameGeometry, originForCentre, placeGeometry } from '../templates/placeGeometry';
 import { TemplateGhost } from '../templates/TemplateGhost';
 import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
@@ -127,13 +127,19 @@ import {
   type AlignMode,
   type DistributeAxis,
 } from './tools/align';
-import { duplicateSelection, multiDuplicate, type MultiDuplicateOptions } from './tools/duplicate';
+import {
+  duplicateSelection,
+  multiDuplicate,
+  type MultiDuplicateOptions,
+  type MultiRefusal,
+} from './tools/duplicate';
 import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
 import { resolveMoveSnap, resolveSnap, type SnapPointerType } from './tools/snap';
 import { useEditorTools } from './tools/useEditorTools';
+import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
 import { useTouchInput } from './tools/useTouchInput';
 import { zOrderOps, type ZMove } from './tools/zOrder';
@@ -827,9 +833,9 @@ export function GardenPlanEditor({
 
   /** Duplicate several times (GP-FR-025): one undo step; the dialog shows a refusal. */
   const runMultiDuplicate = useCallback(
-    (options: MultiDuplicateOptions): string | null => {
+    (options: MultiDuplicateOptions): MultiRefusal | null => {
       const outcome = multiDuplicate(plan, selection, { ...options, pendingCount: pending.length });
-      if (!outcome.ok) return outcome.code;
+      if (!outcome.ok) return { code: outcome.code, failedCopy: outcome.failedCopy };
       onCommit(outcome.value.ops, 'multiDuplicate');
       dispatch(setSelection(outcome.value.selection));
       dispatch(setStack(null));
@@ -1369,6 +1375,26 @@ export function GardenPlanEditor({
     () => templateCatalogue.templates.find((item) => item.key === templateMode?.templateKey) ?? null,
     [templateCatalogue.templates, templateMode?.templateKey],
   );
+  // "Place at centre": the middle of the turned template's box lands on the (snapped) middle of the view (#2536).
+  const viewCentreX = viewport.widthPx / 2;
+  const viewCentreY = viewport.heightPx / 2;
+  const placeAtCentre = useCallback(() => {
+    if (!selectedTemplate || !templateMode) return;
+    const target = snapPoint(renderer.toModel([viewCentreX, viewCentreY]), false);
+    const origin = originForCentre(
+      selectedTemplate.default_geometry,
+      templateMode.rotationDeg,
+      target,
+    );
+    if (origin) void placeTemplate(origin);
+  }, [placeTemplate, renderer, selectedTemplate, snapPoint, templateMode, viewCentreX, viewCentreY]);
+  // The ghost turns red where the template would break a rule the client can check (V-01..V-03 against the garden
+  // boundary - the server places it without a parent); a bed overlap stays the server's (#2536).
+  const ghostInvalid = useMemo(() => {
+    if (!selectedTemplate || !templateMode || !ghostPoint) return false;
+    const placed = placeGeometry(selectedTemplate.default_geometry, ghostPoint, templateMode.rotationDeg);
+    return placed !== null && violationOfNew(plan, placed, null) !== null;
+  }, [ghostPoint, plan, selectedTemplate, templateMode]);
   const closeTemplateTool = useCallback(() => {
     setTemplateMode(null);
     setGhostPoint(null);
@@ -1441,6 +1467,7 @@ export function GardenPlanEditor({
         {selectedTemplate && ghostPoint && templateMode && (
           <TemplateGhost
             template={selectedTemplate}
+            invalid={ghostInvalid}
             originM={ghostPoint}
             rotationDeg={templateMode.rotationDeg}
             toScreen={renderer.toScreen.bind(renderer)}
@@ -1585,7 +1612,8 @@ export function GardenPlanEditor({
               )
             }
             busy={placing}
-            onPlaceCenter={() => void placeTemplate(snapPoint(renderer.toModel(centerPx), false))}
+            onPlaceCenter={placeAtCentre}
+            ghostInvalid={ghostInvalid}
             onClose={closeTemplateTool}
           />
         </Suspense>
@@ -1749,6 +1777,7 @@ export function GardenPlanEditor({
           <MultiDuplicateDialog
             open
             rootBeds={multiRoots}
+            unit={unit}
             onRun={runMultiDuplicate}
             onClose={() => setMultiOpen(false)}
           />

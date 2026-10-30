@@ -8,7 +8,7 @@
  * centre of a circle, the first vertex of a polygon - is the origin of its own frame. Placing it puts that
  * anchor at `origin` and turns the shape by `rotationDeg` on top of its own rotation. A circle has no rotation.
  */
-import { roundLength } from '../model/geometry';
+import { boundingBox, roundLength } from '../model/geometry';
 import type { Geometry, Point } from '../model/types';
 
 const FULL_TURN_DEG = 360;
@@ -47,6 +47,21 @@ export function placeGeometry(
     default:
       return null;
   }
+}
+
+/**
+ * The origin that puts the middle of the placed template's bounding box - after its turn - on `centre` (#2536):
+ * "Place at centre" centres the bed in the view, whatever its anchor is. `null` for a non-bed shape.
+ */
+export function originForCentre(
+  geometry: Geometry,
+  rotationDeg: number,
+  centre: Point,
+): Point | null {
+  const atZero = placeGeometry(geometry, [0, 0], rotationDeg);
+  if (!atZero) return null;
+  const [x0, y0, x1, y1] = boundingBox(atZero);
+  return [roundLength(centre[0] - (x0 + x1) / 2), roundLength(centre[1] - (y0 + y1) / 2)];
 }
 
 /** The bed-frame geometry of a bed: the same shape with its anchor moved to the origin (`null` for a non-bed shape). */

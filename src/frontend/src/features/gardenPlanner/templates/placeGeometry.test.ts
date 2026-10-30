@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { boundingBox } from '../model/geometry';
 import type { Geometry } from '../model/types';
-import { bedFrameGeometry, placeGeometry } from './placeGeometry';
+import { bedFrameGeometry, originForCentre, placeGeometry } from './placeGeometry';
 
 describe('placeGeometry (port of template_placement_calculator.py)', () => {
   it('puts the anchor of a rectangle at the origin and adds the requested turn', () => {
@@ -121,5 +122,39 @@ describe('bedFrameGeometry', () => {
     };
     const frame = bedFrameGeometry(bed)!;
     expect(placeGeometry(frame, [5, 6], 0)).toEqual(bed);
+  });
+});
+
+describe('originForCentre (#2536)', () => {
+  const rect: Geometry = { kind: 'rect', origin: [0, 0], width_m: 2, length_m: 1, rotation_deg: 0 };
+
+  it('puts the middle of a rectangle, not its corner, on the target', () => {
+    expect(originForCentre(rect, 0, [10, 10])).toEqual([9, 9.5]);
+  });
+
+  it('follows the turn: a 2 x 1 m rect turned by 90 degrees spans x -1..0, y 0..2 about its anchor', () => {
+    const origin = originForCentre(rect, 90, [10, 10])!;
+    expect(origin).toEqual([10.5, 9]);
+    const placed = placeGeometry(rect, origin, 90)!;
+    const [x0, y0, x1, y1] = boundingBox(placed);
+    expect([(x0 + x1) / 2, (y0 + y1) / 2]).toEqual([10, 10]);
+  });
+
+  it('keeps a circle on its centre and centres a polygon by its box', () => {
+    expect(originForCentre({ kind: 'circle', origin: [0, 0], radius_m: 0.5 }, 90, [3, 4])).toEqual([3, 4]);
+    const polygon: Geometry = {
+      kind: 'polygon',
+      points: [
+        [0, 0],
+        [4, 0],
+        [4, 2],
+      ],
+      rotation_deg: 0,
+    };
+    expect(originForCentre(polygon, 0, [10, 10])).toEqual([8, 9]);
+  });
+
+  it('has nothing to centre for a non-bed shape', () => {
+    expect(originForCentre({ kind: 'point', origin: [0, 0] }, 0, [1, 1])).toBeNull();
   });
 });

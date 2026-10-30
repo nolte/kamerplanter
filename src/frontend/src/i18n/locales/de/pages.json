@@ -5928,7 +5928,8 @@
           "slotsNote": "Pflanzplätze, Pflanzen und Aufgaben werden nicht kopiert. Ein Pflanzraster legst du danach für jedes Beet im Bereich „Eigenschaften“ an.",
           "submit": "Duplizieren",
           "invalid": "Bitte eine gültige Zahl eingeben.",
-          "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz."
+          "noNames": "Gewählt sind nur Gartenobjekte: Die Kopien behalten ihren Namen, das Schema kommt nicht zum Einsatz.",
+          "failedCopy": "Kopie {{n}} ist die erste, die nicht passt."
         },
         "templates": {
           "placed": "Das Beet wurde aus der Vorlage angelegt und ist gespeichert. Zum Zurücknehmen lösche das Beet.",
@@ -5946,6 +5947,7 @@
             "placeCenter": "In die Bildmitte setzen",
             "hintPick": "Wähle eine Vorlage. Danach setzt ein Klick auf den Plan das Beet dorthin.",
             "hintPlace": "Klicke auf den Plan, um das Beet zu setzen. Alt hält den Rasterfang an, Esc beendet.",
+            "hintInvalid": "Das Beet passt hier nicht ganz in den Garten. Klicke weiter innen, um es zu setzen.",
             "placing": "Das Beet wird angelegt …",
             "failed": "Die Vorlagen konnten nicht geladen werden."
           },
