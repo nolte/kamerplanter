@@ -33,12 +33,18 @@ unresolvable plants per reason, the first :data:`_LISTED` keys each. Operators r
 ``plant_location_backfill_dry_run`` before the production run; the plants without a slot are the ones a human
 has to place, ``site_without_tenant`` names legacy sites to stamp with their tenant before the run.
 
+**Bounded memory.** The scan is consumed row by row, never materialised in the process: the report keeps counts
+and the first :data:`_LISTED` keys per reason, and a real run applies each :data:`_BATCH_SIZE` batch as soon as it
+fills. The client holds one cursor batch and one update batch at a time, whatever the volume. The scan is a
+non-streaming query: the server fixes its whole result before the first batch is returned, so the updates
+applied while the cursor is still being read never change which rows it yields.
+
 **Not reversible (M-6).** The values are derived facts; clearing them again would re-hide the plants.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from numbers import Number
 from typing import Any, cast
 
 import structlog
@@ -54,8 +60,13 @@ logger = structlog.get_logger(__name__)
 #: How many plant keys a report lists per reason before it only counts.
 _LISTED = 25
 
-#: Documents per ``UPDATE`` statement.
+#: Documents per ``UPDATE`` statement, and scan rows per cursor batch.
 _BATCH_SIZE = 500
+
+#: Seconds the server keeps the scan cursor between two fetches (renewed on every fetch). An ``UPDATE`` batch
+#: runs between two fetches; the margin keeps a slow batch from expiring the cursor. A fully read cursor is
+#: released by the server at once; one abandoned by a failed run expires after this time.
+_CURSOR_TTL_SECONDS = 600
 
 _SCAN = """
 FOR p IN @@plants
@@ -96,12 +107,11 @@ FOR u IN @updates
 """
 
 
-def _apply(db: StandardDatabase, updates: Sequence[dict[str, Any]]) -> None:
-    for start in range(0, len(updates), _BATCH_SIZE):
-        chunk = list(updates[start : start + _BATCH_SIZE])
-        db.aql.execute(
-            _APPLY, bind_vars={"@plants": col.PLANT_INSTANCES, "plants_name": col.PLANT_INSTANCES, "updates": chunk}
-        )
+def _apply(db: StandardDatabase, batch: list[dict[str, Any]]) -> None:
+    """Write one batch of at most :data:`_BATCH_SIZE` updates."""
+    db.aql.execute(
+        _APPLY, bind_vars={"@plants": col.PLANT_INSTANCES, "plants_name": col.PLANT_INSTANCES, "updates": batch}
+    )
 
 
 def _reason(row: dict[str, Any]) -> str | None:
@@ -160,7 +170,12 @@ def _site_reason(row: dict[str, Any], *, site_key: str | None, site_found: bool,
     return None
 
 
-def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], int]:
+def _run(db: StandardDatabase, *, apply: bool) -> tuple[int, dict[str, Any], int]:
+    """Classify every scanned plant and, when ``apply``, write the updates batch by batch while reading.
+
+    Dry run and real run take this one path, so ``will_update`` is the number a real run writes on the same data.
+    Returns the number of plants that receive a field, the report details and the number of scanned plants.
+    """
     cursor = cast(
         Cursor,
         db.aql.execute(
@@ -171,14 +186,21 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
                 "locations": col.LOCATIONS,
                 "sites": col.SITES,
             },
+            batch_size=_BATCH_SIZE,
+            # python-arango annotates ``ttl`` as ``numbers.Number``, which ``int`` is only at runtime (ABC register)
+            ttl=cast(Number, _CURSOR_TTL_SECONDS),
+            stream=False,
         ),
     )
-    rows: list[dict[str, Any]] = list(cursor)
-    updates: list[dict[str, Any]] = []
+    batch: list[dict[str, Any]] = []
+    listed_keys: list[str] = []
     unresolved: dict[str, dict[str, Any]] = {}
+    scanned = 0
+    planned = 0
     sets_location = 0
     sets_site = 0
-    for row in rows:
+    for row in cursor:
+        scanned += 1
         reason = _reason(row)
         if reason is not None:
             bucket = unresolved.setdefault(reason, {"count": 0, "listed": []})
@@ -195,16 +217,25 @@ def _plan(db: StandardDatabase) -> tuple[list[dict[str, Any]], dict[str, Any], i
         if row["site_key"] is None:
             sets_site += 1
             update["site_key"] = row["own_site_key" if has_location else "location_site_key"]
-        updates.append(update)
+        planned += 1
+        if len(listed_keys) < _LISTED:
+            listed_keys.append(str(row["_key"]))
+        if apply:
+            batch.append(update)
+            if len(batch) == _BATCH_SIZE:
+                _apply(db, batch)
+                batch = []
+    if batch:
+        _apply(db, batch)
     details: dict[str, Any] = {
-        "scanned_missing_location_or_site": len(rows),
+        "scanned_missing_location_or_site": scanned,
         "sets_location_key": sets_location,
         "sets_site_key": sets_site,
-        "listed_keys": [str(u["_key"]) for u in updates[:_LISTED]],
+        "listed_keys": listed_keys,
         "unresolved": unresolved,
         "unresolved_count": sum(b["count"] for b in unresolved.values()),
     }
-    return updates, details, len(rows)
+    return planned, details, scanned
 
 
 class BackfillPlantLocationSiteMigration(Migration):
@@ -222,17 +253,16 @@ class BackfillPlantLocationSiteMigration(Migration):
             return MigrationReport(
                 version=self.version, name=self.name, scanned=0, changed=0, dry_run=dry_run, details={}
             )
-        updates, details, scanned = _plan(db)
-        details["will_update" if dry_run else "updated"] = len(updates)
+        changed, details, scanned = _run(db, apply=not dry_run)
+        details["will_update" if dry_run else "updated"] = changed
         if dry_run:
-            logger.info("plant_location_backfill_dry_run", pending_changes=len(updates), details=details)
+            logger.info("plant_location_backfill_dry_run", pending_changes=changed, details=details)
             return MigrationReport(
                 version=self.version, name=self.name, scanned=scanned, changed=0, dry_run=True, details=details
             )
-        _apply(db, updates)
-        logger.info("plant_location_backfill_applied", changed=len(updates), details=details)
+        logger.info("plant_location_backfill_applied", changed=changed, details=details)
         return MigrationReport(
-            version=self.version, name=self.name, scanned=scanned, changed=len(updates), dry_run=False, details=details
+            version=self.version, name=self.name, scanned=scanned, changed=changed, dry_run=False, details=details
         )
 
 

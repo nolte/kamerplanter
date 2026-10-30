@@ -15,20 +15,42 @@ from app.migrations.framework.report import IrreversibleMigrationError
 from app.migrations.versions.v0100_backfill_plant_location_site import migration
 
 
+class _FakeCursor:
+    """The scan result as a non-streaming server cursor: fixed when the query runs, read row by row."""
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self._rows = iter(rows)
+        self.consumed = 0
+
+    def __iter__(self) -> _FakeCursor:
+        return self
+
+    def __next__(self) -> dict[str, Any]:
+        row = next(self._rows)
+        self.consumed += 1
+        return row
+
+
 class _FakeAql:
     def __init__(self, db: _FakeDb) -> None:
         self.db = db
+        self.scan_options: dict[str, Any] = {}
+        self.cursor: _FakeCursor | None = None
+        #: Per ``UPDATE`` statement: its batch size and how many scan rows had been read when it ran.
+        self.applied: list[tuple[int, int]] = []
 
-    def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **_: Any) -> Any:
+    def execute(self, query: str, bind_vars: dict[str, Any] | None = None, **options: Any) -> Any:
         bind_vars = bind_vars or {}
         if "UPDATE u._key" in query:
+            self.applied.append((len(bind_vars["updates"]), self.cursor.consumed if self.cursor else 0))
             for u in bind_vars["updates"]:
                 doc = self.db.plants[u["_key"]]
                 if doc.get("location_key") is None:
                     doc["location_key"] = u["location_key"]
                 if doc.get("site_key") is None:
                     doc["site_key"] = u["site_key"]
-            return iter(())
+            return _FakeCursor([])
+        self.scan_options = options
         rows = []
         for p in self.db.plants.values():
             if p.get("location_key") is not None and p.get("site_key") is not None:
@@ -55,7 +77,8 @@ class _FakeAql:
                     "own_site_found": self.db.site_of(own) is not None,
                 }
             )
-        return iter(rows)
+        self.cursor = _FakeCursor(rows)
+        return self.cursor
 
 
 class _FakeDb:
@@ -258,3 +281,57 @@ def test_each_broken_site_link_has_its_own_reason(
     assert report.changed == 0
     assert report.details["unresolved"] == {reason: {"count": 1, "listed": ["p"]}}
     assert (db.plants["p"]["location_key"], db.plants["p"]["site_key"]) == (None, None)
+
+
+def test_dry_run_reports_exactly_what_the_real_run_writes() -> None:
+    """#2524 item 4: one path for both modes, so ``will_update`` and the whole report match the real run."""
+    db = _volume()
+
+    dry = migration.up(db, dry_run=True)  # type: ignore[arg-type]
+    real = migration.up(db)  # type: ignore[arg-type]
+
+    assert dry.details.pop("will_update") == real.details.pop("updated") == real.changed
+    assert dry.details == real.details
+    assert dry.scanned == real.scanned
+
+
+def _volume_of(repairable: int, unplaced: int) -> _FakeDb:
+    plants = [
+        {"_key": f"r{i:04d}", "tenant_key": "t1", "slot_key": "s1", "location_key": None, "site_key": None}
+        for i in range(repairable)
+    ] + [
+        {"_key": f"u{i:02d}", "tenant_key": "t1", "slot_key": None, "location_key": None, "site_key": None}
+        for i in range(unplaced)
+    ]
+    return _FakeDb(
+        plants,
+        [{"_key": "s1", "location_key": "L1"}],
+        [{"_key": "L1", "site_key": "S1"}],
+        [{"_key": "S1", "tenant_key": "t1"}],
+    )
+
+
+def test_the_scan_is_streamed_and_applied_batch_by_batch() -> None:
+    """#2524 item 4: no full list of rows or updates; each full batch is written while the cursor is still read."""
+    db = _volume_of(1203, 30)
+
+    report = migration.up(db)  # type: ignore[arg-type]
+
+    assert report.changed == 1203 and report.scanned == 1233
+    # batch 1 and 2 ran as soon as they filled, the remainder after the last row
+    assert db.aql.applied == [(500, 500), (500, 1000), (203, 1233)]
+    assert db.aql.scan_options["batch_size"] == 500
+    assert db.aql.scan_options["stream"] is False  # the result is fixed before the first update runs
+    assert len(report.details["listed_keys"]) == 25 and report.details["listed_keys"][0] == "r0000"
+    assert report.details["unresolved"]["no_slot"]["count"] == 30
+    assert len(report.details["unresolved"]["no_slot"]["listed"]) == 25
+    assert all((p["location_key"], p["site_key"]) == ("L1", "S1") for k, p in db.plants.items() if k.startswith("r"))
+
+
+def test_a_dry_run_streams_without_writing() -> None:
+    db = _volume_of(1203, 0)
+
+    report = migration.up(db, dry_run=True)  # type: ignore[arg-type]
+
+    assert report.details["will_update"] == 1203 and report.changed == 0
+    assert db.aql.applied == []

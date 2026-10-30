@@ -202,3 +202,15 @@ def test_a_volume_over_one_update_batch_is_repaired_whole_and_only_once(db) -> N
     assert all(stored[key] == (None, None) for key in unplaced)
     assert second.changed == 0 and second.scanned == 30
     assert {d["_key"]: d["_rev"] for d in db.collection(col.PLANT_INSTANCES).all()} == revs
+
+
+def test_the_dry_run_report_is_the_real_run_report(db) -> None:  # type: ignore[no-untyped-def]
+    """#2524 item 4: the streamed scan reports in a dry run exactly what the real run then writes."""
+    _seed(db)
+
+    dry = migration.up(db, dry_run=True)
+    real = migration.up(db)
+
+    assert dry.details.pop("will_update") == real.details.pop("updated") == real.changed == 3
+    assert dry.details == real.details
+    assert dry.scanned == real.scanned
