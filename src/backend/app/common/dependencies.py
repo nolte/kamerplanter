@@ -464,9 +464,15 @@ def get_garden_plan_service() -> GardenPlanService:
 
 
 def get_garden_plan_export_service() -> GardenPlanExportService:
-    """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan."""
+    """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan (with plant states, #2489)."""
     return GardenPlanExportService(
-        get_site_repo(), get_garden_plan_repo(), get_garden_plan_service(), attachment_service=get_attachment_service()
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        attachment_service=get_attachment_service(),
+        # #2489 — plant states and phase names for the printed markers and legend.
+        plant_state_repo=ArangoPlantStateRepository(get_db()),
+        phase_repo=get_lifecycle_repo(),
     )
 
 

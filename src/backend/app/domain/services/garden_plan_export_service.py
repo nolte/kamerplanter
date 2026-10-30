@@ -17,6 +17,15 @@ fetching (GP-NFR-052 (a), (f)).
 (``underlay=True`` on the PDF route; the JSON export and the SVG never carry it), read from the tenant's *own*
 ``garden_plan_underlay`` attachment, re-encoded and shrunk, and laid under the plan figure as a ``data:`` URI.
 The fetcher still sees nothing but ``data:``.
+
+**Plant states and phase colours (GP-UX-005/059/060, #2489).** Below
+:data:`~app.domain.engines.plan_svg_engine.PLANT_COUNTER_THRESHOLD` plants the SVG and the PDF draw each plant with
+its phase colour, lifecycle ring and most urgent badge. The states come from the plant-state repository, bed by bed
+of the already owned site and in bounded pages, and are assembled by
+:func:`~app.domain.services.plant_state_inputs.visual_state_of` — the same function behind
+``GET /locations/{key}/plant-states``, so paper and screen agree. Phase names are read once per distinct phase key
+from the growth-phase repository (the name the screen colours by). From the threshold on nothing is read: each bed
+prints its counter (GP-NFR-038).
 """
 
 from __future__ import annotations
@@ -36,12 +45,15 @@ from pydantic import BaseModel
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.types import SiteKey
+from app.domain.calculators.plant_state_calculator import PlantVisualState
 from app.domain.engines.plan_svg_engine import (
     PDF_HEADER_MM,
+    PLANT_COUNTER_THRESHOLD,
     PlanPaper,
     PlanSvg,
     PlanSvgLayer,
     PlanSvgOptions,
+    PlantStateMarks,
     page_size_mm,
     render_plan_svg,
 )
@@ -54,6 +66,8 @@ from app.domain.engines.plan_underlay_engine import (
 )
 from app.domain.engines.print_engine import PrintEngine
 from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository
+from app.domain.interfaces.phase_repository import IPhaseRepository
+from app.domain.interfaces.plant_state_repository import IPlantStateRepository, PlantStateSource
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import GardenPlanView
@@ -73,11 +87,15 @@ from app.domain.models.site import Location, Site
 from app.domain.services.attachment_service import AttachmentService
 from app.domain.services.garden_plan_service import GardenPlanService
 from app.domain.services.location_ownership import require_owned_site
+from app.domain.services.plant_state_inputs import frost_risk_of, visual_state_of
 
 logger = structlog.get_logger(__name__)
 
 _TEMPLATE = "garden_plan.html"
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9_-]")
+#: Plants per plant-state read; a bed needs at most ``PLANT_COUNTER_THRESHOLD / page`` reads (+1 to see the end).
+STATE_PAGE_SIZE = 200
+_MAX_STATE_PAGES = PLANT_COUNTER_THRESHOLD // STATE_PAGE_SIZE + 1
 
 
 def _export_error(code: str, message: str) -> PlanError:
@@ -161,6 +179,8 @@ class GardenPlanExportService:
         plan_service: GardenPlanService,
         print_engine: PrintEngine | None = None,
         attachment_service: AttachmentService | None = None,
+        plant_state_repo: IPlantStateRepository | None = None,
+        phase_repo: IPhaseRepository | None = None,
     ) -> None:
         self._sites = site_repo
         self._plan = plan_repo
@@ -168,6 +188,9 @@ class GardenPlanExportService:
         self._print = print_engine or PrintEngine()
         #: ``None`` = a caller that never prints the underlay.
         self._attachments = attachment_service
+        #: ``None`` = plants are printed as the uniform symbol (no states, no phase colours).
+        self._plant_states = plant_state_repo
+        self._phases = phase_repo
 
     def _owned_site(self, site_key: SiteKey, *, tenant_key: str) -> Site:
         return require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
@@ -228,9 +251,12 @@ class GardenPlanExportService:
 
     # ── GP-API-006: the SVG ───────────────────────────────────────────────────
 
-    def render_svg(self, site_key: SiteKey, *, tenant_key: str, options: PlanSvgOptions) -> PlanSvg:
+    def render_svg(
+        self, site_key: SiteKey, *, tenant_key: str, options: PlanSvgOptions, now: datetime | None = None
+    ) -> PlanSvg:
         view = self._view(site_key, tenant_key=tenant_key, options=options)
-        return render_plan_svg(view, options)
+        marks = self._plant_marks(view, tenant_key=tenant_key, options=options, now=now)
+        return render_plan_svg(view, options, marks)
 
     # ── GP-API-007: the PDF ───────────────────────────────────────────────────
 
@@ -262,12 +288,14 @@ class GardenPlanExportService:
         options: PlanSvgOptions,
         bed_list: bool = False,
         underlay: UnderlayImage | None = None,
+        now: datetime | None = None,
     ) -> PlanPdf:
         """A scaled plan on one page (plus the bed list when asked). 422 ``plan.does_not_fit`` when it cannot."""
         started = perf_counter()
         pdf_options = replace(options, header_mm=PDF_HEADER_MM)
         view = self._view(site_key, tenant_key=tenant_key, options=pdf_options)
-        rendered = render_plan_svg(view, pdf_options)
+        marks = self._plant_marks(view, tenant_key=tenant_key, options=pdf_options, now=now)
+        rendered = render_plan_svg(view, pdf_options, marks)
         if not rendered.fits:
             raise PlanError(
                 "plan.does_not_fit",
@@ -305,6 +333,7 @@ class GardenPlanExportService:
             paper=pdf_options.paper.value,
             beds=len(view.locations),
             plants=len(view.plants),
+            stated_plants=len(marks.states) if marks is not None else 0,
             seconds=round(perf_counter() - started, 3),
         )
         return PlanPdf(
@@ -314,6 +343,70 @@ class GardenPlanExportService:
             suggest_a3=rendered.suggest_a3,
             filename=f"garden-plan-{safe_filename_part(site_key)}.pdf",
         )
+
+    # ── Plant states for the print (#2489) ────────────────────────────────────
+
+    def _plant_marks(
+        self, view: GardenPlanView, *, tenant_key: str, options: PlanSvgOptions, now: datetime | None = None
+    ) -> PlantStateMarks | None:
+        """The visual state of every plant of ``view`` and the names of their phases, for the SVG writer.
+
+        ``view`` is the read model of a site this service has already resolved through the tenant anchor; its beds
+        are therefore the tenant's, and every plant-state read still filters on ``tenant_key``. ``None`` when the
+        plants layer is off, when there is no plant-state source, or from the counter threshold on (nothing is read).
+        """
+        if (
+            self._plant_states is None
+            or PlanSvgLayer.PLANTS not in options.layers
+            or not view.plants
+            or len(view.plants) >= PLANT_COUNTER_THRESHOLD
+        ):
+            return None
+        moment = now if now is not None else datetime.now(UTC)
+        wanted = {plant.key for plant in view.plants}
+        slot_beds = {slot.key: slot.location_key for slot in view.slots}
+        bed_keys = {plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
+        beds = sorted((loc for loc in view.locations if loc.key and loc.key in bed_keys), key=lambda loc: loc.key or "")
+        states: dict[str, PlantVisualState] = {}
+        for bed in beds:
+            assert bed.key is not None  # noqa: S101 - filtered above
+            frost_risk = frost_risk_of(bed)
+            for row in self._standing_plants(bed.key, tenant_key=tenant_key, now=moment):
+                if row.plant_key in wanted:
+                    states[row.plant_key] = visual_state_of(row, frost_risk=frost_risk, now=moment)
+        phase_names = self._phase_names({state.phase_key for state in states.values() if state.phase_key})
+        logger.info(
+            "garden_plan.plant_states_resolved",
+            site_key=view.site_key,
+            beds=len(beds),
+            plants=len(states),
+            phases=len(phase_names),
+        )
+        return PlantStateMarks(states=states, phase_names=phase_names)
+
+    def _standing_plants(self, bed_key: str, *, tenant_key: str, now: datetime) -> list[PlantStateSource]:
+        """Every standing plant of the bed in pages of :data:`STATE_PAGE_SIZE`, at most :data:`_MAX_STATE_PAGES`."""
+        assert self._plant_states is not None  # noqa: S101 - checked by the caller
+        rows: list[PlantStateSource] = []
+        for page in range(_MAX_STATE_PAGES):
+            window = self._plant_states.list_bed_plants(
+                bed_key, tenant_key=tenant_key, now=now, offset=page * STATE_PAGE_SIZE, limit=STATE_PAGE_SIZE
+            )
+            rows.extend(window)
+            if len(window) < STATE_PAGE_SIZE:
+                break
+        return rows
+
+    def _phase_names(self, phase_keys: set[str]) -> dict[str, str]:
+        """``phase key → growth-phase name``, one read per distinct key; a key that is no growth phase has none."""
+        if self._phases is None:
+            return {}
+        names: dict[str, str] = {}
+        for key in sorted(phase_keys):
+            phase = self._phases.get_phase_by_key(key)
+            if phase is not None and phase.name:
+                names[key] = phase.name
+        return names
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
