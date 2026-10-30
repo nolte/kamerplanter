@@ -101,6 +101,7 @@ src/frontend/src/
 │   └── {feature}/                   # Feature-spezifische Komponenten
 ├── config/
 │   └── mode.ts                      # isLightMode Check
+├── features/                        # Feature-Module (z. B. gardenPlanner); importieren nie aus pages/
 ├── hooks/                           # Custom Hooks (21 Stueck)
 │   ├── useExpertiseLevel.ts
 │   ├── useNotification.ts           # notistack-Wrapper
@@ -155,6 +156,8 @@ src/frontend/src/
 ├── App.tsx                          # Redux Provider + Theme + Router + i18n
 └── main.tsx                         # Entry Point (React.StrictMode)
 ```
+
+**Abhaengigkeitsrichtung:** Code unter `src/features/` importiert nie aus `src/pages/` (weder statisch noch per `lazy(() => import(...))`); was beide brauchen, liegt in `src/components/` (bzw. `hooks/`, `utils/`, `api/`). ESLint erzwingt das (`eslint.config.js`, #2518).
 
 ### 2.1 Path-Alias
 
