@@ -52,6 +52,7 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import YardIcon from '@mui/icons-material/Yard';
 import { isApiError } from '@/api/errors';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
@@ -106,6 +107,7 @@ import { ViewBar, type LayerToggle } from './ViewBar';
 import { BedZoneInfo } from '../zones/BedZoneInfo';
 import { useUnderlay } from '../underlay/useUnderlay';
 import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
+import { useWateringNow } from '../zones/useWateringNow';
 import { useZoneLayers } from '../zones/useZoneLayers';
 import { ZoneLegend } from '../zones/ZoneLegend';
 import { useAnnouncement } from './useAnnouncement';
@@ -289,7 +291,7 @@ export function GardenPlanEditor({
     if (!zonesOpen && zonesWereOpen.current) zonesButtonRef.current?.focus();
     zonesWereOpen.current = zonesOpen;
   }, [zonesOpen]);
-  const [nowMs] = useState(() => Date.now());
+  const nowMs = useWateringNow();
   const zoneData = useIrrigationZones(plan.siteKey, plan.zones, zonesOpen);
   const lastWateredAt = useLastWatered(plan.siteKey, plan.locations, layerRefresh);
   const zoneLayers = useZoneLayers({
@@ -325,7 +327,10 @@ export function GardenPlanEditor({
     seenRevision.current = plan.revision;
     refreshPlanStates();
   }, [plan.revision, refreshPlanStates]);
-  const onZonesChanged = useCallback(() => {
+  // A zone write changes no bed's last watering (it is read from the care and watering events of the bed), so the
+  // plan is not read again for it; the zone list reloads through `zoneData`. A watering round does change it.
+  const onZonesChanged = refreshPlanStates;
+  const onWatered = useCallback(() => {
     setLayerRefresh((value) => value + 1);
     refreshPlanStates();
   }, [refreshPlanStates]);
@@ -1632,15 +1637,26 @@ export function GardenPlanEditor({
       )}
       <Box id="garden-plan-zone-panel-region">
         {zonesOpen && (
-          <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
-            <ZonePanel
-              plan={plan}
-              zoneData={zoneData}
-              selectedBedKeys={selectedBedKeys}
-              onChanged={onZonesChanged}
-              onClose={() => setZonesOpen(false)}
-            />
-          </Suspense>
+          // A chunk that cannot load (typically gone after a deploy) stays rejected for the life of the page:
+          // the fallback offers the reload, not a retry that would fail the same way.
+          <ErrorBoundary
+            title={t(`${ZONES}.panel.chunkFailedTitle`)}
+            hint={t(`${ZONES}.panel.chunkFailedHint`)}
+            reloadLabel={t('common.appError.reloadPage')}
+            testId="garden-plan-zone-panel-error"
+            boundaryName="garden-plan-zone-panel"
+          >
+            <Suspense fallback={<Box sx={{ minHeight: 120 }} aria-busy="true" />}>
+              <ZonePanel
+                plan={plan}
+                zoneData={zoneData}
+                selectedBedKeys={selectedBedKeys}
+                onChanged={onZonesChanged}
+                onWatered={onWatered}
+                onClose={() => setZonesOpen(false)}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
       </Box>
       {toolbarBelow && (!listShown || sheetOpen) && (

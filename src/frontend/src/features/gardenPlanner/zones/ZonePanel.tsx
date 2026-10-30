@@ -27,15 +27,17 @@ export interface ZonePanelProps {
   plan: PlanModel;
   zoneData: UseIrrigationZones;
   selectedBedKeys: readonly string[];
-  /** A write happened: the editor reads the zones and the last-watered layer again. */
+  /** A zone was written: what depends on the zones is read again (the zone list itself reloads through `zoneData`). */
   onChanged: () => void;
+  /** A watering round was logged: the last-watered layer is read again. */
+  onWatered: () => void;
   onClose: () => void;
 }
 
 /** `adopt`: the edit form continues a create whose bed assignment failed (the beds chosen, the message). */
 type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; key: string; adopt?: ZoneAdoption };
 
-export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, onClose }: ZonePanelProps) {
+export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, onWatered, onClose }: ZonePanelProps) {
   const { t } = useTranslation();
   const { canEdit, canDelete, canConfigureIntegrations } = useTenantPermissions();
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
@@ -206,7 +208,7 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
               onClose={() => setRoundOpen(false)}
               onLogged={() => {
                 setStatusToken((value) => value + 1);
-                onChanged();
+                onWatered();
               }}
             />
           )}

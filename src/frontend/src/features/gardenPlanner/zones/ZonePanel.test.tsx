@@ -31,6 +31,7 @@ function renderPanel(
       zoneData={data}
       selectedBedKeys={extra.selectedBedKeys ?? []}
       onChanged={onChanged}
+      onWatered={() => undefined}
       onClose={() => undefined}
     />,
     { store: createTestStore({ ...tenantState(role, scopes), ...authState() }) },
@@ -391,7 +392,14 @@ function LivePanel({ selectedBedKeys = [], unsavedBed = false }: { selectedBedKe
   const plan = useMemo(() => zonePlan(unsavedBed ? [{ name: 'Unsaved bed' }] : []), [unsavedBed]);
   const data = useIrrigationZones('site_1', plan.zones, true);
   return (
-    <ZonePanel plan={plan} zoneData={data} selectedBedKeys={selectedBedKeys} onChanged={() => undefined} onClose={() => undefined} />
+    <ZonePanel
+      plan={plan}
+      zoneData={data}
+      selectedBedKeys={selectedBedKeys}
+      onChanged={() => undefined}
+      onWatered={() => undefined}
+      onClose={() => undefined}
+    />
   );
 }
 

@@ -15,7 +15,9 @@ import { rootReducer } from '@/store/rootReducer';
 import { ThemeContextProvider } from '@/theme';
 import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
 import { bed, planResponse } from '@/test/gardenPlanFixtures';
+import { authState, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import type { IrrigationZone } from '@/features/gardenPlanner/zones/zoneTypes';
 
 const PLAN_URL = '/api/v1/t/:tenant/sites/:key/plan';
 const DAY_MS = 86_400_000;
@@ -57,8 +59,11 @@ function usePlanWithZone() {
   );
 }
 
-function renderRoute() {
-  const store = configureStore({ reducer: rootReducer });
+function renderRoute(role?: 'grower' | 'lead') {
+  const store = configureStore({
+    reducer: rootReducer,
+    preloadedState: (role ? { ...tenantState(role), ...authState() } : undefined) as never,
+  });
   const router = createMemoryRouter(
     [{ path: 'standorte/sites/:key/plan', element: <GardenPlanRoute /> }],
     { initialEntries: ['/standorte/sites/site_1/plan?mode=plan'] },
@@ -163,5 +168,110 @@ describe('irrigation layers in the plan', () => {
     await user.click(screen.getByTestId('garden-plan-zone-panel-close'));
     await waitFor(() => expect(screen.queryByTestId('garden-plan-zone-panel')).toBeNull());
     expect(open).toHaveFocus();
+  });
+});
+
+describe('what a zone change reads again', () => {
+  /** Counts the plan reads; the zone endpoint answers the current list. */
+  function countPlanReads(): { reads: () => number } {
+    const threeDaysAgo = new Date(Date.now() - 3 * DAY_MS).toISOString();
+    let reads = 0;
+    let wateredToday = false;
+    const list: IrrigationZone[] = [
+      {
+        key: 'z1',
+        site_key: 'site_1',
+        name: 'Drip line',
+        irrigation_type: 'drip',
+        flow_rate_source: 'manual',
+        flow_rate_ha_entity_bound: false,
+        color: '#2E7D32',
+        location_keys: ['loc_a'],
+      },
+    ];
+    server.use(
+      http.get(PLAN_URL, () => {
+        reads += 1;
+        return HttpResponse.json(
+          planResponse({
+            locations: [
+              bed('loc_a', 2, 2, {
+                name: 'North bed',
+                irrigation_zone_key: 'z1',
+                last_watered_at: wateredToday ? new Date().toISOString() : threeDaysAgo,
+              }),
+              bed('loc_b', 6, 2, { name: 'South bed' }),
+            ],
+            garden_objects: [],
+            zones: list.map(({ key, name, irrigation_type, color, location_keys }) => ({
+              key,
+              name,
+              irrigation_type,
+              color,
+              location_keys,
+            })),
+          }),
+        );
+      }),
+      http.get('/api/v1/t/:tenant/sites/:key/irrigation-zones', () => HttpResponse.json(list)),
+      http.get('/api/v1/t/:tenant/irrigation-zones/z1/status', () =>
+        HttpResponse.json({ consumption_liters_30d: 0, consumption_sources: [], hints: [] }),
+      ),
+      http.patch('/api/v1/t/:tenant/irrigation-zones/z1', async ({ request }) => {
+        Object.assign(list[0], (await request.json()) as object);
+        return HttpResponse.json(list[0]);
+      }),
+      http.post('/api/v1/t/:tenant/irrigation-zones/z1/log-watering', () => {
+        wateredToday = true;
+        return HttpResponse.json(
+          {
+            event_keys: ['e1'],
+            shares: [{ location_key: 'loc_a', liters: 5 }],
+            allocation: 'by_area',
+            performed_at: new Date().toISOString(),
+            skipped_location_keys: [],
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    return { reads: () => reads };
+  }
+
+  it('reads the zones again after a zone is saved, but not the whole plan', async () => {
+    const counter = countPlanReads();
+    const { container } = renderRoute('grower');
+    const user = userEvent.setup();
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-zones'));
+    const before = counter.reads();
+    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
+    await user.clear(screen.getByTestId('garden-plan-zone-name'));
+    await user.type(screen.getByTestId('garden-plan-zone-name'), 'Back line');
+    await user.click(screen.getByTestId('garden-plan-zone-save'));
+    // The legend follows the reloaded zone list ...
+    await waitFor(() => expect(screen.getByTestId('garden-plan-legend-zones')).toHaveTextContent('Back line'));
+    expect(container.querySelector('[data-zone-key="z1"][data-zone-bed="loc_a"]')).not.toBeNull();
+    // ... and the plan was not read again for it: nothing of the plan's last-watered data depends on a zone.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(counter.reads()).toBe(before);
+  });
+
+  it('reads the last-watered data again after a watering round, so the layer moves on', async () => {
+    const counter = countPlanReads();
+    const { container } = renderRoute('grower');
+    const user = userEvent.setup();
+    fireEvent.click(await screen.findByTestId('garden-plan-layer-lastWatered'));
+    const layer = () => container.querySelector('[data-watered-bed="loc_a"]');
+    expect(layer()?.getAttribute('data-watered-class')).toBe('d2_3');
+    const before = counter.reads();
+    await user.click(screen.getByTestId('garden-plan-zones-open'));
+    await user.click(await screen.findByTestId('garden-plan-zone-row-z1'));
+    await user.click(await screen.findByTestId('garden-plan-zone-round-open'));
+    await user.type(screen.getByTestId('garden-plan-round-volume'), '5');
+    await user.click(screen.getByTestId('garden-plan-round-submit'));
+    await screen.findByTestId('garden-plan-round-result');
+    await waitFor(() => expect(layer()?.getAttribute('data-watered-class')).toBe('d0_1'));
+    expect(counter.reads()).toBe(before + 1);
   });
 });

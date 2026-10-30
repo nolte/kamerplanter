@@ -6089,7 +6089,9 @@
             "bedCount_one": "{{count}} Beet",
             "bedCount_other": "{{count}} Beete",
             "newTitle": "Neue Zone",
-            "editTitle": "Zone {{name}}"
+            "editTitle": "Zone {{name}}",
+            "chunkFailedTitle": "Der Zonen-Bereich konnte nicht geladen werden",
+            "chunkFailedHint": "Das passiert meist direkt nach einer Aktualisierung der App. Speichere deinen Plan und lade dann die Seite neu; der Plan selbst bleibt nutzbar."
           },
           "form": {
             "name": "Name der Zone",

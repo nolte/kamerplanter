@@ -6088,7 +6088,9 @@
             "bedCount_one": "{{count}} bed",
             "bedCount_other": "{{count}} beds",
             "newTitle": "New zone",
-            "editTitle": "Zone {{name}}"
+            "editTitle": "Zone {{name}}",
+            "chunkFailedTitle": "The zones area could not be loaded",
+            "chunkFailedHint": "This usually happens right after the app was updated. Save your plan, then reload the page; the plan itself stays usable."
           },
           "form": {
             "name": "Zone name",
