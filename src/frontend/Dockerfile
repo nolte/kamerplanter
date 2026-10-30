@@ -44,7 +44,7 @@ RUN npm run build
 
 # ── Production target (default; last stage): non-root nginx-unprivileged ──
 # Runs as UID 101, listens on 8080 — no root, no privileged port.
-FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:378d0c32f6562f7fd9629170797f57d2b953aa09be983b3daaf4809bb039ca00 AS prod
+FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.description="Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards" \
