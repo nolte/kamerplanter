@@ -81,7 +81,7 @@ Die Operationen sind geschlossen:
 | `update_geometry` | Setzt die Geometrie von `entity` (`location` oder `garden_object`) mit `key` |
 | `update_fields` | Ändert Felder; bei einem Standort auch `site_conditions.sun_profile` (nur die gesendeten Schlüssel) |
 | `delete` | Löscht `entity` mit `key` samt Nachfahren; **nur Rolle lead** |
-| `set_boundary` | Setzt Gartengrenze, `north_angle_deg`, `default_grid_m` (0 bis 10 m) und `adjacency_factor` |
+| `set_boundary` | Setzt Gartengrenze, `north_angle_deg`, `default_grid_m` (größer als 0 bis höchstens 10 m) und `adjacency_factor` |
 | `set_locked` | Sperrt oder entsperrt ein Objekt |
 | `set_z_order` | Setzt die Zeichenreihenfolge (−10000 bis 10000) |
 
@@ -97,10 +97,11 @@ Ein Objekt, das du im Stapel anlegst, bekommt einen `temp_key` (1 bis 40 Zeichen
 
 Der Server prüft in dieser Reihenfolge und bricht beim ersten Fehler ab. Es wird nichts geschrieben.
 
+0. Rolle an der Route: Wer nur die Rolle viewer hat, scheitert schon an der Route (Berechtigung zum Ändern von Standorten) mit einem allgemeinen `403` – vor dem `404` und vor den Größenprüfungen.
 1. Standort gehört zum Mandanten (sonst `404`).
-2. Größe der Anfrage: mehr als `MAX_OPERATIONS` = 500 Operationen ergibt `422 batch.too_many_operations`; ein Body über `MAX_BATCH_BODY_BYTES` = 2 MiB ergibt `422 batch.too_complex`.
+2. Größe der Anfrage: mehr als `MAX_OPERATIONS` = 500 Operationen ergibt `422 batch.too_many_operations`. Ein Body über 1 MiB weist der Server schon vor dem Routing mit `413 REQUEST_BODY_TOO_LARGE` ab. Die Prüfung `MAX_BATCH_BODY_BYTES` = 2 MiB (`422 batch.too_complex`) misst die erneut serialisierten Operationen eines Bodys, der bereits unter 1 MiB liegt; über HTTP greift sie praktisch nicht.
 3. Verweise: Ein unbekannter oder fremder Schlüssel ergibt `422 reference.not_found` (abwesend und fremd sehen gleich aus).
-4. Rolle je Operation: `delete` verlangt die Rolle lead, alles andere mindestens grower. Ein Verstoß verwirft den ganzen Stapel mit `403 batch.operation_forbidden` und `op_index`.
+4. Rolle je Operation: `delete` verlangt die Rolle lead, alles andere mindestens grower. Ein Verstoß (ein grower, dessen Stapel ein `delete` enthält) verwirft den ganzen Stapel mit `403 batch.operation_forbidden` und `op_index`.
 5. Form: Pydantic prüft jede Operation (`422 VALIDATION_ERROR`). Mehr als `MAX_BATCH_POINTS` = 20 000 Vieleck- und Linienpunkte zusammen ergibt `422 batch.too_complex`.
 6. Fachregeln: `422 VALIDATION_ERROR`, in `details[]` jeweils `code`, `op_index` und gegebenenfalls `point_index`. Codes unter anderem `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `boundary.shrinks_below_objects`, `plan.quota_exceeded`. Höchstens 50 Befunde je Antwort. Dauert Prüfung und Transaktion länger als `BATCH_TIME_BUDGET_SECONDS` = 10 s, endet der Stapel mit `422 batch.too_complex`.
 7. Revision: `409 plan.revision_conflict` mit `current_revision`, dem Anzeigenamen des letzten Bearbeiters (`changed_by`) und `changed_at`; nie mit einem Konto-Schlüssel.

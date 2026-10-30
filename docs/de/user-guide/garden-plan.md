@@ -20,7 +20,7 @@ Der Planungsmodus zeigt links oder oben die Werkzeugleiste, in der Mitte den Pla
 
 Jeder Plan hat eine Gartengrenze: den Umriss deines Gartens als Rechteck oder Vieleck. Beete und Gartenobjekte müssen ganz innerhalb liegen. Ein Standort ohne Grenze und ohne eingezeichnete Objekte zeigt statt des Editors den Hinweis **Noch kein Gartenplan**.
 
-!!! warning "Teilweise verfügbar: Gartengrenze"
+!!! note "Teilweise verfügbar: Gartengrenze"
     Die Oberfläche hat noch kein Werkzeug, mit dem du die Gartengrenze zeichnest. Den ersten Plan legst du über die Programmierschnittstelle an (siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster)) oder du spielst eine Sicherung ein (siehe [Plan exportieren und Sicherung einspielen](#plan-export-import)). Ist die Grenze einmal da, ändert sich nur noch ihre Nordrichtung im Editor: Das Kompass-Feld stellt ein, wo geografisch Norden auf dem Plan liegt. <!-- REQ-053 GP-FR-013, GP-FR-015 -->
 
 ### Wer darf was {#wer-darf-was}
@@ -174,11 +174,10 @@ Löschen, Beet räumen, Export und Import gibt es im Feldmodus nicht – dafür 
 
 ## Ebenen und Standortbedingungen {#ebenen-und-standortbedingungen}
 
-Ebenen blendest du in der Gruppe **Ebenen** der Ansichtsleiste ein und aus. Deine Wahl merkt sich der Browser; sie gilt nur für dich.
+Ebenen blendest du in der Gruppe **Ebenen** der Ansichtsleiste ein und aus. Deine Wahl merkt sich der Browser; sie gilt nur für dich. Das Raster ist keine Ebene dieser Gruppe: Es hat einen eigenen Schalter **Raster anzeigen** in der Gruppe **Raster und Einrasten** (zu Beginn an, Taste **G**), siehe [Raster, Einrasten, Zoom und Kompass](#raster-einrasten-zoom-und-kompass).
 
 | Ebene | Zeigt | Zu Beginn |
 |-------|-------|-----------|
-| Raster | Rasterlinien (Taste **G**) | an |
 | **Bewässerungszonen anzeigen** | Zonen als Umriss mit Schraffur über ihren Beeten | aus |
 | **Zuletzt gegossen anzeigen** | Tage seit dem letzten erfassten Gießen je Beet als Schraffur | aus |
 | **Unterlage anzeigen** | Das Hintergrundbild (nur sichtbar, wenn der Standort eine Unterlage hat) | an |
@@ -203,7 +202,7 @@ Was Scheibe, Ring und Zeichen an einer Pflanze bedeuten, steht unter [Pflanzenzu
 
 **Ebene Pflanzenzustand und Filter im Gartenplan.** Mit **Pflanzenzustand anzeigen** in derselben Ebenen-Gruppe siehst du den Zustand deiner Pflanzen, ohne ein Beet zu öffnen. Zoomst du nah genug an ein Beet, dass die einzelnen Pflanzen erscheinen, trägt jede Pflanze Scheibe, Ring und Zeichen wie im Tab **Plan** des Beets: Die Farbe zeigt die Wachstumsphase, der Ring den Stand der Pflanzung, das Zeichen oben rechts den dringendsten Handlungsbedarf. Weiter herausgezoomt fasst jedes Beet seine Pflanzen zu einem Kreis mit Zahl zusammen; hast du ein Beet vorher schon nah genug gesehen, kennt Kamerplanter seine Zustände: Dann zeigt der Kreis das dringendste Zeichen, und der Vorleser nennt die Zahl aller Pflanzen des Beets und wie viele davon Handlungsbedarf haben. Daneben liegt der Schalter **Nur Pflanzen mit Handlungsbedarf zeigen**: Er blendet alle Pflanzen aus, deren Zustand bekannt ist und die kein Zeichen tragen. Eine Pflanze, deren Zustand noch nicht geladen ist, bleibt sichtbar. Der Kreis eines Beets zeigt dann nur die Pflanzen, die übrig bleiben, und verschwindet erst, wenn alle Zustände des Beets bekannt sind und keine Pflanze Handlungsbedarf hat; das Beet selbst bleibt sichtbar, und der Vorleser nennt weiter die Zahl aller Pflanzen. Solange die Ebene aus ist, ist der Schalter gesperrt; du erreichst ihn trotzdem mit der Tabulatortaste, und der Vorleser sagt dir, warum er gesperrt ist. Die Legende unter der Ansichtsleiste erklärt Ringe und Zeichen und listet die Farben der Wachstumsphasen der Pflanzen, deren Zustände geladen sind, alphabetisch in deiner Sprache. Kamerplanter lädt die Zustände nur, solange die Ebene an ist, und nur für die Beete, die du gerade nah genug siehst, höchstens vier Beete gleichzeitig. Jedes Beet lädt einmal und neu, wenn du zum Tab zurückkehrst, den Plan speicherst oder eine neuere Fassung des Plans lädt, und nachdem du im Bewässerungsbereich eine Zone geändert oder eine Gießrunde erfasst hast. Die Ebene und der Filter sind zu Beginn aus; deine Wahl merkt sich der Browser. Die Info-Blase beim Überfahren einer Pflanze bleibt dem Tab **Plan** des Beets vorbehalten. <!-- REQ-053 GP-UX-061, GP-UX-060 -->
 
-!!! warning "Teilweise verfügbar: Pflanzenzustand"
+!!! note "Teilweise verfügbar: Pflanzenzustand"
     **Frostgefahr** erscheint noch nicht als Zeichen, auch wenn die Ebene **Frostrisiko** den gespeicherten Wert zeigt. **Fälliges Gießen** entsteht bisher nur aus einer Gießaufgabe, die heute fällig ist, nicht aus dem Bewässerungsbedarf. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
 
 ## Bewässerungszonen und Gießrunde {#bewasserungszonen}
@@ -220,7 +219,7 @@ Klicke auf **Bewässerungszonen verwalten**, um den Zonen-Bereich zu öffnen.
 
 **Gießrunde protokollieren.** Wenn du eine ganze Zone gegossen hast, öffnet **Gießrunde protokollieren** einen Dialog: Du gibst die **Gesamtmenge in Litern** an (größer als 0, höchstens 100 000) und wählst die **Verteilung**: **Nach Beetfläche** (jedes Beet bekommt einen Anteil nach seiner Fläche; Beete ohne Fläche bleiben außen vor) oder **Zu gleichen Teilen**. Kamerplanter schreibt für jedes Beet einen Gießeintrag ins Pflegeprotokoll. Die Menge ist verteilt, nicht gemessen; das Protokoll kennzeichnet das so.
 
-!!! info "Nur über API / Betreiber-Konfiguration: Technische Kopplung"
+!!! info "Nur über API: Technische Kopplung"
     Die Kopplung einer Zone an einen Aktor oder an eine Home-Assistant-Entität für den Durchfluss pflegen nur Mitglieder mit dem Verwaltungsbereich `technical`, und zwar über die API. Beim Zurückspielen einer Sicherung werden diese Verknüpfungen nie übernommen. Siehe [Für technische Nutzer / Self-Hoster](#fur-technische-nutzer-self-hoster).
 
 ## Beetvorlagen {#beetvorlagen}
@@ -252,11 +251,11 @@ Was an einem einzelnen Beet geschah, steht in dessen Historie: den Zeitstrahl de
 
 Auf der Gartenplan-Seite öffnet **Export & Import** zwei Dialoge.
 
-**Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen; eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen.
+**Plan exportieren** gibt es als PDF (Plan im Maßstab zum Ausdrucken), als SVG (Vektorgrafik) und als Sicherung (JSON). Du wählst Papier, Ausrichtung, Maßstab und die Ebenen (beim PDF zusätzlich **Beetliste als zweite Seite**); eine Vorschau zeigt, was herauskommt. Mit **Automatisch** nimmt Kamerplanter den feinsten Maßstab, der aufs Blatt passt, und schlägt A3 vor, wenn A4 zu grob würde. Passt ein fest gewählter Maßstab nicht aufs Blatt, sagt dir der Dialog das und lässt dich einen gröberen Maßstab oder A3 wählen. Auf dem Handy gibt es nur PDF und Sicherung mit den Standardoptionen. Der Export enthält keine Namen von Mitgliedern und keine Zuweisungen.
 
 Im PDF und in der SVG zeigt jede Pflanze ihren Zustand wie im Plan: die Scheibe in der Farbe ihrer Wachstumsphase, einen Ring für ihren Stand (ein dicker Ring heißt *in Ernte*) und höchstens ein Zeichen für das Dringendste, etwa ein Dreieck für einen offenen Befund oder einen Tropfen, wenn Gießen fällig ist. Die Legende listet die Wachstumsphasen, Ringe und Zeichen, die auf dem Plan vorkommen. Von den Wachstumsphasen nennt sie höchstens die sechs mit den meisten Pflanzen; gibt es mehr, fasst ein Eintrag wie „+3 weitere Phasen“ den Rest zusammen, damit der Plan im gewählten Maßstab auf die Seite passt. Ein langer Phasenname wird mit „…“ gekürzt. Pflanzen einer Art mit eigener Phasenfolge tragen dieselbe Farbe wie im Plan. Ab 2 000 Pflanzen zeigt jedes Beet stattdessen nur die Zahl seiner Pflanzen. <!-- REQ-053 GP-UX-005, GP-UX-059, GP-UX-060 -->
 
-Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben. Hast du im Plan Beete oder Gartenobjekte ausgewählt, kannst du die Sicherung auf **Nur die Auswahl** oder auf **Auswahl mit allem darunter** beschränken. Eine solche Teil-Sicherung enthält keine Gartengrenze; Verweise auf Dinge, die nicht in der Datei stehen, entfallen. Lesen darf sie jede Rolle.
+Die **Sicherung** enthält Beete, Gartenobjekte, Pflanzplätze, Bewässerungszonen, Bodenprofile, Standortmerkmale und die Gartengrenze, aber keine Pflanzen und keine Aufgaben. Hast du im Plan Beete oder Gartenobjekte ausgewählt, kannst du die Sicherung auf **Nur die Auswahl** oder auf **Auswahl mit allem darunter** beschränken. Eine solche Teil-Sicherung enthält keine Gartengrenze; Verweise auf Dinge, die nicht in der Datei stehen, entfallen. Lesen darf sie jede Rolle.
 
 **Sicherung einspielen** führt in drei Schritten durch den Import. Das darf nur die Leitung.
 

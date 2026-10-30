@@ -81,7 +81,7 @@ The operations are a closed list:
 | `update_geometry` | Sets the geometry of `entity` (`location` or `garden_object`) with `key` |
 | `update_fields` | Changes fields; for a location also `site_conditions.sun_profile` (only the keys sent) |
 | `delete` | Deletes `entity` with `key` including descendants; **lead role only** |
-| `set_boundary` | Sets the garden boundary, `north_angle_deg`, `default_grid_m` (0 to 10 m) and `adjacency_factor` |
+| `set_boundary` | Sets the garden boundary, `north_angle_deg`, `default_grid_m` (greater than 0 up to 10 m) and `adjacency_factor` |
 | `set_locked` | Locks or unlocks an object |
 | `set_z_order` | Sets the drawing order (−10000 to 10000) |
 
@@ -97,10 +97,11 @@ An object you create in the batch gets a `temp_key` (1 to 40 characters from let
 
 The server checks in this order and stops at the first error. Nothing is written.
 
+0. Role at the route: a viewer fails at the route (permission to change locations) with a general `403` – before the `404` and before the size checks.
 1. The site belongs to the tenant (otherwise `404`).
-2. Size of the request: more than `MAX_OPERATIONS` = 500 operations gives `422 batch.too_many_operations`; a body above `MAX_BATCH_BODY_BYTES` = 2 MiB gives `422 batch.too_complex`.
+2. Size of the request: more than `MAX_OPERATIONS` = 500 operations gives `422 batch.too_many_operations`. A body above 1 MiB is rejected by the server before routing with `413 REQUEST_BODY_TOO_LARGE`. The `MAX_BATCH_BODY_BYTES` = 2 MiB check (`422 batch.too_complex`) measures the re-serialised operations of a body that is already under 1 MiB; over HTTP it practically never triggers.
 3. References: an unknown or foreign key gives `422 reference.not_found` (absent and foreign look the same).
-4. Role per operation: `delete` requires the lead role, everything else at least grower. A violation discards the whole batch with `403 batch.operation_forbidden` and `op_index`.
+4. Role per operation: `delete` requires the lead role, everything else at least grower. A violation (a grower whose batch contains a `delete`) discards the whole batch with `403 batch.operation_forbidden` and `op_index`.
 5. Shape: Pydantic checks each operation (`422 VALIDATION_ERROR`). More than `MAX_BATCH_POINTS` = 20,000 polygon and polyline points together gives `422 batch.too_complex`.
 6. Domain rules: `422 VALIDATION_ERROR`, with `code`, `op_index` and where applicable `point_index` in `details[]`. Codes include `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `boundary.shrinks_below_objects`, `plan.quota_exceeded`. At most 50 findings per response. If checking and transaction take longer than `BATCH_TIME_BUDGET_SECONDS` = 10 s, the batch ends with `422 batch.too_complex`.
 7. Revision: `409 plan.revision_conflict` with `current_revision`, the display name of the last editor (`changed_by`) and `changed_at`; never with an account key.

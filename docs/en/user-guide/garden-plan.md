@@ -20,7 +20,7 @@ Planning mode shows the toolbar, the plan in the middle, the properties panel an
 
 Every plan has a garden boundary: the outline of your garden as a rectangle or polygon. Beds and garden objects must lie completely inside it. A site with no boundary and no placed objects shows the notice **No garden plan yet** instead of the editor.
 
-!!! warning "Partially available: garden boundary"
+!!! note "Partially available: garden boundary"
     The interface does not yet have a tool for drawing the garden boundary. You create the first plan through the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)) or you import a backup (see [Export the plan and restore a backup](#plan-export-import)). Once the boundary exists, the editor changes only its north direction: the compass field sets where geographic north lies on the plan. <!-- REQ-053 GP-FR-013, GP-FR-015 -->
 
 ### Who may do what {#who-may-do-what}
@@ -169,16 +169,15 @@ Field mode is made for the phone at the bed: large buttons (at least 64 pixels),
 
 Deleting, clearing a bed, export and import are not available in field mode; switch to planning mode for them. With the "viewer" role you see tasks and plants read-only. Your browser, not your account, remembers the tenant, site, tab and map view; if someone else signs in on the device, field mode starts fresh for them. If a remembered map view would show hardly any of the plan on the current screen – after turning the phone, for example – the map opens on the whole plan.
 
-!!! warning "Not implemented yet"
+!!! warning "Not yet implemented"
     Without a connection field mode shows a notice and locks **Done** and the quick log; entries are not yet stored on the device and sent later. Photos are attached to a plant for now, not to the bed. **Planted** has no **Undo**. GPS help and the QR code on the bed follow later. The "last watered" layer exists only in planning mode. <!-- REQ-053 GP-UX-020…031, GP-FR-149 -->
 
 ## Layers and site conditions {#layers-and-site-conditions}
 
-You show and hide layers in the **Layers** group of the view bar. Your browser remembers your choice; it applies only to you.
+You show and hide layers in the **Layers** group of the view bar. Your browser remembers your choice; it applies only to you. The grid is not a layer of this group: it has its own switch **Show grid** in the group **Grid and snap** (on at the start, key **G**), see [Grid, snapping, zoom and compass](#grid-snapping-zoom-and-compass).
 
 | Layer | Shows | At the start |
 |-------|-------|--------------|
-| Grid | Grid lines (key **G**) | on |
 | **Show irrigation zones** | Zones as an outline with hatching over their beds | off |
 | **Show last watered** | Days since the last recorded watering per bed, as hatching | off |
 | **Show underlay** | The background picture (visible only if the site has an underlay) | on |
@@ -203,7 +202,7 @@ What disc, ring and sign on a plant mean is described under [Plant state and pla
 
 **Plant state layer and filter in the garden plan.** With **Show plant state** in the same layer group you see the state of your plants without opening a bed. Once you zoom close enough to a bed for the single plants to appear, every plant carries disc, ring and sign as in the bed's **Plan** tab: the colour shows the growth phase, the ring how far the planting is, the sign at the top right the most urgent reason to act. Further out each bed sums up its plants as a circle with a number; if you have seen a bed close enough before, Kamerplanter knows its states: the circle then shows the most urgent sign, and the screen reader names the number of all plants in the bed and how many of them need attention. Next to it sits the switch **Only show plants that need attention**: it hides every plant whose state is known and that carries no sign. A plant whose state is not loaded yet stays visible. The circle of a bed then shows only the plants that remain, and it disappears only once every state of the bed is known and no plant needs attention; the bed itself stays visible, and the screen reader still names the number of all plants. While the layer is off, the switch is disabled; you still reach it with the Tab key, and the screen reader tells you why it is disabled. The legend below the view bar explains rings and signs and lists the colours of the growth phases of the plants whose states are loaded, sorted alphabetically in your language. Kamerplanter loads the states only while the layer is on, only for the beds you currently see close enough, and at most four beds at a time. Each bed loads once and again when you come back to the tab, when you save the plan or a newer version of it loads, and after you changed a zone or logged a watering round in the irrigation panel. The layer and the filter start switched off; your browser remembers your choice. The info bubble on hovering a plant stays with the bed's **Plan** tab. <!-- REQ-053 GP-UX-061, GP-UX-060 -->
 
-!!! warning "Partially available: plant state"
+!!! note "Partially available: plant state"
     **Frost danger** does not appear as a sign yet, even though the **Frost risk** layer shows the stored value. **Watering due** arises so far only from a watering task due today, not from the irrigation demand. <!-- REQ-053 GP-UX-060, GP-FR-190 -->
 
 ## Irrigation zones and the watering round {#irrigation-zones}
@@ -220,7 +219,7 @@ Click **Manage irrigation zones** to open the zone area.
 
 **Log a watering round.** When you have watered a whole zone, **Log watering round** opens a dialog: you enter the **total amount in litres** (more than 0, at most 100,000) and choose the **distribution**: **By bed area** (each bed gets a share by its area; beds without an area are left out) or **Equal parts**. Kamerplanter writes one watering entry per bed into the care log. The amount is divided, not measured; the log marks it that way.
 
-!!! info "API only / operator configuration: technical coupling"
+!!! info "API only: technical coupling"
     Only members with the `technical` admin scope maintain the coupling of a zone to an actuator or to a Home Assistant entity for the flow, and only through the API. Restoring a backup never takes these links over. See [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 
 ## Bed templates {#bed-templates}
@@ -252,11 +251,11 @@ What happened on a single bed is in its history: the crop rotation timeline and 
 
 On the garden plan page, **Export & import** opens two dialogs.
 
-**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers; a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
+**Export plan** comes as a PDF (the plan to scale, for printing), an SVG (vector graphic) and a backup (JSON). You choose paper, orientation, scale and layers (for the PDF also **Bed list as a second page**); a preview shows what you get. With **Automatic**, Kamerplanter takes the finest scale that fits the sheet and suggests A3 when A4 would get too coarse. If a fixed scale does not fit the sheet, the dialog says so and lets you choose a coarser scale or A3. On a phone there is only PDF and backup with the standard options. The export holds no member names and no assignments.
 
 In the PDF and the SVG every plant shows its state as on the plan: the disc in the colour of its growth phase, a ring for how far it is (a thick ring means *harvesting*) and at most one sign for the most urgent matter, such as a triangle for an open finding or a drop when watering is due. The legend lists the growth phases, rings and signs that occur on the plan. Of the growth phases it names at most the six with the most plants; if there are more, one entry such as "+3 more phases" sums up the rest, so the plan still fits the page at the chosen scale. A long phase name is shortened with "…". Plants of a species with its own phase sequence carry the same colour as on the plan. From 2,000 plants on, each bed shows only the number of its plants instead. <!-- REQ-053 GP-UX-005, GP-UX-059, GP-UX-060 -->
 
-The **backup** holds beds, garden objects, plant places, soil profiles, site features and the garden boundary, but no plants and no tasks. If you have selected beds or garden objects on the plan, you can limit the backup to **Selection only** or **Selection with everything below**. Such a partial backup has no garden boundary, and references to things that are not in the file are dropped. Every role may read it.
+The **backup** holds beds, garden objects, plant places, irrigation zones, soil profiles, site features and the garden boundary, but no plants and no tasks. If you have selected beds or garden objects on the plan, you can limit the backup to **Selection only** or **Selection with everything below**. Such a partial backup has no garden boundary, and references to things that are not in the file are dropped. Every role may read it.
 
 **Restore a backup** leads through the import in three steps. Only a lead can do this.
 
