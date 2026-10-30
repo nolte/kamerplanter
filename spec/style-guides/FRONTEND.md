@@ -156,6 +156,8 @@ src/frontend/src/
 └── main.tsx                         # Entry Point (React.StrictMode)
 ```
 
+**Abhaengigkeitsrichtung:** Code unter `src/features/` importiert nie aus `src/pages/` (weder statisch noch per `lazy(() => import(...))`); was beide brauchen, liegt in `src/components/` (bzw. `hooks/`, `utils/`, `api/`). ESLint erzwingt das (`eslint.config.js`, #2518).
+
 ### 2.1 Path-Alias
 
 ```json

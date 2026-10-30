@@ -4,6 +4,78 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
+// Issue #825 — a form element without `noValidate` lets the browser run its own
+// constraint validation, which aborts submission before the `submit` event
+// fires. `handleSubmit` never runs, so zod never runs, no helper text renders,
+// and the user sees a native bubble in the browser's locale instead of ours.
+// jsdom does not enforce native constraint validation, so no unit test can
+// catch this — that is why the defence is static.
+//
+// `<Form>` (src/components/form/Form.tsx) applies `noValidate` after its prop
+// spread, so it cannot be switched off; use it instead of a raw form element.
+// The escape hatch is an explicit `noValidate`, which keeps the rule honest for
+// the handful of non-RHF forms.
+//
+// A constant because flat config REPLACES a rule's options when a later block
+// sets the same rule: every block that sets `no-restricted-syntax` must spread
+// these selectors again, or the files it matches silently lose them.
+const FORM_NO_VALIDATE_SELECTORS = [
+  {
+    selector:
+      "JSXOpeningElement[name.name='form']:not(:has(JSXAttribute[name.name='noValidate']))",
+    message:
+      'Use <Form> from @/components/form/Form instead of a raw <form>. It sets noValidate, without which native validation bypasses zod (#825).',
+  },
+  {
+    selector:
+      "JSXOpeningElement:has(JSXAttribute[name.name='component'][value.value='form']):not(:has(JSXAttribute[name.name='noValidate']))",
+    message:
+      'Use <Form> from @/components/form/Form instead of component="form". It sets noValidate, without which native validation bypasses zod (#825).',
+  },
+  {
+    // The two selectors above only test that a `noValidate` attribute is
+    // *present*, so `noValidate={false}` satisfied them while leaving the
+    // form exactly as broken. Caught by review of this PR: a guard whose
+    // stated job is to make the bad state unreachable should not have an
+    // opt-out that reads like compliance.
+    selector:
+      "JSXAttribute[name.name='noValidate'][value.expression.value=false]",
+    message:
+      'noValidate={false} re-enables native validation, which aborts submission before zod runs (#825). Drop the attribute and use <Form>.',
+  },
+];
+
+// Issue #2518 — `src/features/**` must not depend on `src/pages/**`. A page is a
+// route's leaf; a feature that reaches into one couples itself to that route's
+// file layout. Code both need lives in `src/components/` (or hooks/utils/api).
+//
+// Matches `@/pages` and any `../` chain that lands on a `pages` segment, but not
+// `pages.json` (the i18n namespace the feature tests load) or a feature-local
+// `./pages/` folder.
+const PAGES_IMPORT_REGEX = '^(@/|(\\.\\./)+)pages(/|$)';
+const FEATURES_NOT_FROM_PAGES_MESSAGE =
+  'src/features must not import from src/pages (#2518). Move the shared code to src/components/ (or hooks/, utils/, api/) and import it from there.';
+const FEATURES_NOT_FROM_PAGES_IMPORT_PATTERN = {
+  regex: PAGES_IMPORT_REGEX,
+  message: FEATURES_NOT_FROM_PAGES_MESSAGE,
+};
+// `no-restricted-imports` checks import/export declarations only; a dynamic
+// `import()` — the form `lazy(() => import(...))` takes — passes it unreported
+// (measured on ESLint 10.13). These selectors cover the dynamic form, for a
+// string literal and for a template literal's leading text. esquery's regex
+// literal cannot contain `/`, hence `\x2F`.
+const ESQUERY_PAGES_REGEX = '/^(@\\x2F|(\\.\\.\\x2F)+)pages(\\x2F|$)/';
+const FEATURES_NOT_FROM_PAGES_SELECTORS = [
+  {
+    selector: `ImportExpression[source.value=${ESQUERY_PAGES_REGEX}]`,
+    message: FEATURES_NOT_FROM_PAGES_MESSAGE,
+  },
+  {
+    selector: `ImportExpression > TemplateLiteral.source > TemplateElement:first-child[value.raw=${ESQUERY_PAGES_REGEX}]`,
+    message: FEATURES_NOT_FROM_PAGES_MESSAGE,
+  },
+];
+
 export default tseslint.config(
   { ignores: ['dist', 'public'] },
   js.configs.recommended,
@@ -16,44 +88,7 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      // Issue #825 — a form element without `noValidate` lets the browser run
-      // its own constraint validation, which aborts submission before the
-      // `submit` event fires. `handleSubmit` never runs, so zod never runs, no
-      // helper text renders, and the user sees a native bubble in the
-      // browser's locale instead of ours. jsdom does not enforce native
-      // constraint validation, so no unit test can catch this — that is why
-      // the defence is static.
-      //
-      // `<Form>` (src/components/form/Form.tsx) applies `noValidate` after its
-      // prop spread, so it cannot be switched off; use it instead of a raw
-      // form element. The escape hatch is an explicit `noValidate`, which
-      // keeps the rule honest for the handful of non-RHF forms.
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector:
-            "JSXOpeningElement[name.name='form']:not(:has(JSXAttribute[name.name='noValidate']))",
-          message:
-            'Use <Form> from @/components/form/Form instead of a raw <form>. It sets noValidate, without which native validation bypasses zod (#825).',
-        },
-        {
-          selector:
-            "JSXOpeningElement:has(JSXAttribute[name.name='component'][value.value='form']):not(:has(JSXAttribute[name.name='noValidate']))",
-          message:
-            'Use <Form> from @/components/form/Form instead of component="form". It sets noValidate, without which native validation bypasses zod (#825).',
-        },
-        {
-          // The two selectors above only test that a `noValidate` attribute is
-          // *present*, so `noValidate={false}` satisfied them while leaving the
-          // form exactly as broken. Caught by review of this PR: a guard whose
-          // stated job is to make the bad state unreachable should not have an
-          // opt-out that reads like compliance.
-          selector:
-            "JSXAttribute[name.name='noValidate'][value.expression.value=false]",
-          message:
-            'noValidate={false} re-enables native validation, which aborts submission before zod runs (#825). Drop the attribute and use <Form>.',
-        },
-      ],
+      'no-restricted-syntax': ['error', ...FORM_NO_VALIDATE_SELECTORS],
       // React Compiler diagnostics (eslint-plugin-react-hooks >=7.1) flag a
       // large number of pre-existing patterns across the codebase. Demote
       // them from error to warn for now so CI stays green; address them in
@@ -69,6 +104,17 @@ export default tseslint.config(
       globals: {
         ...globals.browser,
       },
+    },
+  },
+  {
+    // #2518 — features -> pages is forbidden, static and dynamic. Test files are
+    // covered too: a feature test importing a page would be the same coupling.
+    // The #825 selectors are spread in because this block replaces the rule's
+    // options for every file it matches.
+    files: ['src/features/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [FEATURES_NOT_FROM_PAGES_IMPORT_PATTERN] }],
+      'no-restricted-syntax': ['error', ...FORM_NO_VALIDATE_SELECTORS, ...FEATURES_NOT_FROM_PAGES_SELECTORS],
     },
   },
   {
@@ -91,6 +137,9 @@ export default tseslint.config(
               message:
                 'The garden editor must not import a renderer implementation (GP-NFR-009). Import the PlanRenderer interface from the renderer barrel and receive the instance from the route.',
             },
+            // This block replaces the features block's options for the editor
+            // files, so the #2518 pattern must be repeated here.
+            FEATURES_NOT_FROM_PAGES_IMPORT_PATTERN,
           ],
         },
       ],
