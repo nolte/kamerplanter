@@ -62,7 +62,7 @@ Honest gaps (no test yet) are listed in `GP-ACC-gaps.json` with a reason and an 
 | GP-ACC-049 | U | unit | `src/backend/tests/unit/migrations/test_seed_nitrogen_fixer_consistency.py`<br>`src/backend/tests/unit/migrations/versions/test_v0096_nutrient_demand_split.py` |
 | GP-ACC-050 | U | frontend, integration, unit | `src/frontend/src/features/gardenPlanner/bed/BedPlanTab.plantState.test.tsx`<br>`src/frontend/src/features/gardenPlanner/model/plantState.vectors.test.ts`<br>`src/backend/tests/integration/test_plant_state_repository.py`<br>`src/backend/tests/unit/domain/calculators/test_plant_state_vectors.py` |
 | GP-ACC-051 | E | e2e, frontend | `tests/e2e/test_req053_planting.py`<br>`src/frontend/src/features/gardenPlanner/bed/BedPlanTab.plantState.test.tsx` |
-| GP-ACC-052 | E | e2e, frontend | `tests/e2e/test_req053_planting.py`<br>`src/frontend/src/features/gardenPlanner/renderer/plantMarkerStyle.test.ts` |
+| GP-ACC-052 | E | e2e, frontend | `tests/e2e/test_req053_planting.py`<br>`src/frontend/src/features/gardenPlanner/renderer/ConditionOverlays.test.tsx`<br>`src/frontend/src/features/gardenPlanner/renderer/plantMarkerStyle.test.ts` |
 | GP-ACC-053 | U | frontend, unit | `src/frontend/src/features/gardenPlanner/model/siteFit.vectors.test.ts`<br>`src/backend/tests/unit/domain/calculators/test_site_fit_vectors.py` |
 | GP-ACC-054 | I | **GAP** | mixed-culture runs are not checked for disjoint row_assignment sets (no 422); behaviour missing in production code (#2544) |
 | GP-ACC-055 | I | **GAP** | rotation check is off for planter/tent/shelf with no per-bed switch-on (GP-FR-137 'je Beet einschaltbar'); behaviour missing (#2544) |
