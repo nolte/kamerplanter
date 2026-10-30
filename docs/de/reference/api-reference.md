@@ -229,6 +229,8 @@ Die Antwort ist für Dry-Run und ausgeführten Import derselbe Bericht: `would_c
 
 Schlüssel der Datei werden nie übernommen: Jeder Standort, jedes Gartenobjekt und jeder Pflanzplatz bekommt einen neuen Schlüssel. Ein Verweis, der die Datei verlässt, wird nur gegen die Ziel-Site aufgelöst, sonst geleert und in `dropped_references[]` gemeldet. Verknüpfungen zu Home-Assistant-Entitäten und Aktoren werden nie importiert.
 
+Die Frostexposition eines Beets (`frost_exposed` in `locations[]`) steht in der Datei und wird so übernommen, wie sie dort steht; `null` heißt „vom Standorttyp erben“. Fehlt das Feld (eine Datei aus einer älteren Version), leitet der Import es aus `site_conditions.microclimate.frost_risk` ab: `high` wird `true`, `low` wird `false`, alles andere erbt.
+
 **Fehlercodes:**
 
 | HTTP-Status | Code | Bedeutung |

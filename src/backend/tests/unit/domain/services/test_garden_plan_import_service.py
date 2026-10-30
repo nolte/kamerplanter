@@ -14,7 +14,7 @@ import pytest
 
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
-from app.domain.models.site import SitePlan, Slot
+from app.domain.models.site import SiteConditions, SitePlan, Slot
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -211,6 +211,7 @@ class TestReferencesAndFields:
             "wind_exposure": "exposed",
             "access_sides": ["N", "S"],
         }
+        del document["locations"][0]["frost_exposed"]  # a file written before #2512
 
         report = rig.run(document)
 
@@ -220,7 +221,7 @@ class TestReferencesAndFields:
         assert stored.sun_profile.sun_window == "afternoon" and stored.sun_profile.foliage_shade_in_summer is True
         assert (stored.microclimate.frost_risk, stored.microclimate.cold_air_pocket) == ("high", True)
         assert (stored.wind_exposure, [side.value for side in stored.access_sides]) == ("exposed", ["N", "S"])
-        # The winter readers still read ``frost_exposed``; the file has none, so it follows the risk.
+        # The winter readers still read ``frost_exposed``; this file has none, so it follows the risk.
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 1"].frost_exposed is True
         # A bed without the key stays without it - the import invents nothing.
         assert {loc.name: loc for loc in repo.locations.values()}["Beet 2"].site_conditions is None
@@ -269,22 +270,95 @@ class TestReferencesAndFields:
         assert restored.site_conditions is not None
         assert restored.site_conditions.sun_profile.model_dump(mode="json") == exported
 
-    def test_a_normal_risk_imports_without_an_override(self, rig, repo) -> None:
-        """#2464 (4): the file carries no ``frost_exposed`` and ``normal`` forces none (#2454 item 2).
+    @staticmethod
+    def _set_frost(repo: FakePlanRepo, frost_exposed: bool | None, risk: str | None) -> None:
+        conditions = SiteConditions.model_validate({"microclimate": {"frost_risk": risk}}) if risk else None
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"frost_exposed": frost_exposed, "site_conditions": conditions}
+        )
 
-        A bed v0098 moved from ``frost_exposed = false`` to ``normal`` therefore comes back from its own
-        backup inheriting from the site type — the protection is not part of the export.
-        """
+    @staticmethod
+    def _restored_beet_1(repo: FakePlanRepo):
+        restored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"]
+        assert "b1" not in repo.locations  # a new key: the import really recreated the bed
+        return restored
+
+    @pytest.mark.parametrize(
+        ("frost_exposed", "risk"),
+        [
+            (False, "normal"),  # #2503 edge 2: what v0098 leaves for a protected bed (#2464)
+            (True, "high"),
+            (None, "unknown"),
+            (None, None),
+        ],
+    )
+    def test_the_frost_override_survives_a_restore_from_its_own_backup(self, rig, repo, frost_exposed, risk) -> None:
+        """#2512: the backup carries ``frost_exposed``, so a migrated ``False``/``normal`` bed stays protected."""
+        self._set_frost(repo, frost_exposed, risk)
         document = rig.file()
-        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": "normal"}}
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert "frost_exposed" in exported and exported["frost_exposed"] is frost_exposed
 
         report = rig.run(document)
 
         assert report.applied
-        restored = {loc.name: loc for loc in repo.locations.values()}["Beet 1"]
+        restored = self._restored_beet_1(repo)
+        assert restored.frost_exposed is frost_exposed
+        stored_risk = restored.site_conditions.microclimate.frost_risk if restored.site_conditions else None
+        assert stored_risk == risk
+
+    def test_an_explicit_null_inherits_even_where_the_risk_would_force_a_value(self, rig, repo) -> None:
+        """``null`` sent is "inherit from the site type", not "derive from the risk" (#2512)."""
+        document = rig.file()
+        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": "high"}}
+        document["locations"][0]["frost_exposed"] = None
+
+        rig.run(document)
+
+        assert self._restored_beet_1(repo).frost_exposed is None
+
+    @pytest.mark.parametrize(("risk", "derived"), [("high", True), ("low", False), ("normal", None), ("unknown", None)])
+    def test_a_file_written_before_the_key_derives_the_override_from_the_risk(self, rig, repo, risk, derived) -> None:
+        """A backup from before #2512 has no ``frost_exposed``: the boolean follows the risk, as it did then.
+
+        ``normal`` forces none (#2454 item 2), so a migrated ``False``/``normal`` bed in such an old file still comes
+        back inheriting from the site type - the old file simply does not hold the protection.
+        """
+        self._set_frost(repo, True, None)  # what the target held must not leak into the restore
+        document = rig.file()
+        del document["locations"][0]["frost_exposed"]
+        document["locations"][0]["site_conditions"] = {"microclimate": {"frost_risk": risk}}
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
         assert restored.site_conditions is not None
-        assert restored.site_conditions.microclimate.frost_risk == "normal"
-        assert restored.frost_exposed is None
+        assert restored.site_conditions.microclimate.frost_risk == risk
+        assert restored.frost_exposed is derived
+
+    def test_an_old_file_without_site_conditions_restores_no_override(self, rig, repo) -> None:
+        document = rig.file()
+        del document["locations"][0]["frost_exposed"]
+        document["locations"][0]["site_conditions"] = None
+
+        rig.run(document)
+
+        assert self._restored_beet_1(repo).frost_exposed is None
+
+    def test_a_shifted_merge_keeps_the_override_of_the_file(self, rig, repo) -> None:
+        """The offset path copies the parsed file; the copy must still know which keys the file sent."""
+        self._set_frost(repo, False, "normal")
+        document = rig.file()
+        document["locations"] = [loc for loc in document["locations"] if loc["name"] == "Beet 1"]
+        document["locations"][0]["name"] = "Beet 1 copy"
+        document["slots"] = []
+
+        report = rig.run(document, mode="merge", offset_m=(0.0, 5.0), confirm_site_name=None)
+
+        assert report.applied
+        (copy_of_bed,) = [loc for loc in repo.locations.values() if loc.name == "Beet 1 copy"]
+        assert copy_of_bed.frost_exposed is False
 
     def test_an_invalid_site_condition_is_a_finding_not_a_crash(self, rig, repo) -> None:
         document = rig.file()

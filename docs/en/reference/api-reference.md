@@ -229,6 +229,8 @@ The answer is the same report for a dry run and an applied import: `would_create
 
 Keys of the file are never kept: every location, garden object and slot gets a new key. A reference that leaves the file is resolved against the target site only, otherwise it is set to empty and reported in `dropped_references[]`. Links to Home Assistant entities and actuators are never imported.
 
+The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the file and is taken over as it stands there; `null` means "inherit from the site type". If the field is missing (a file from an older version), the import derives it from `site_conditions.microclimate.frost_risk`: `high` becomes `true`, `low` becomes `false`, everything else inherits.
+
 **Error codes:**
 
 | HTTP status | Code | Meaning |

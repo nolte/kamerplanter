@@ -85,7 +85,7 @@ from app.domain.models.garden_plan_import import (
 )
 from app.domain.models.geometry import Geometry, parse_geometry
 from app.domain.models.irrigation_zone import IrrigationZone
-from app.domain.models.site import Location, SitePlan, Slot
+from app.domain.models.site import Location, SiteConditions, SitePlan, Slot
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_service import GardenPlanService
@@ -165,6 +165,21 @@ def _missing_reason(prepared: _Prepared) -> DropReason:
     """Why a reference to something that is not in the file is dropped: for a file that comes from elsewhere
     (``other_site`` / ``other_tenant``) it never resolves against the target, whatever the target holds."""
     return "outside_file" if prepared.file_only else "not_found"
+
+
+def _imported_frost_exposed(item: ExportLocation, site_conditions: SiteConditions | None) -> bool | None:
+    """The legacy ``frost_exposed`` a restored bed gets (#2512): the file's value when the item carries the key.
+
+    The winter readers still read the boolean (WP 3.9), and the risk cannot stand in for it: ``normal`` is both a
+    forced ``False`` (v0098) and "inherit". So a file written since #2512 is taken at its word, an explicit
+    ``null`` included ("inherit from the site type"). A file written before has no key (``model_fields_set`` tells
+    an absent key from a sent ``null``); its boolean is derived from the risk, as it was before #2512.
+    """
+    if "frost_exposed" in item.model_fields_set:
+        return item.frost_exposed
+    if site_conditions is None:
+        return None
+    return frost_exposed_from_risk(site_conditions.microclimate.frost_risk)
 
 
 def _copied[TModel: BaseModel](model: TModel) -> TModel:
@@ -702,10 +717,7 @@ class GardenPlanImportService:
             "sun_exposure": item.sun_exposure,
             "soil_profile": soil,
             "site_conditions": site_conditions,
-            # The file carries no ``frost_exposed``; the winter readers still read it (WP 3.9), so it follows the risk.
-            "frost_exposed": frost_exposed_from_risk(site_conditions.microclimate.frost_risk)
-            if site_conditions is not None
-            else None,
+            "frost_exposed": _imported_frost_exposed(item, site_conditions),
             "irrigation_zone_key": zone_key,
             "template_key": template_key,
             "locked": item.locked,
