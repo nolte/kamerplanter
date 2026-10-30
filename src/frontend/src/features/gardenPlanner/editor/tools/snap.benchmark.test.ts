@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { largePlan } from '@/test/gardenPlanFixtures';
-import { anchor, boundingBox } from '../../model/geometry';
+import { anchor } from '../../model/geometry';
 import type { Point } from '../../model/types';
 import { snapCandidates } from '../../renderer/planIndex';
 import { moveSources, resolveMoveSnap, resolveSnap, type SnapOptions } from './snap';
 
 /**
- * GP-NFR-034 (drag hot path, #2536): the snap of one pointer move of a drag - all bounding-box corners of the
+ * GP-NFR-034 (drag hot path, #2536): the snap of one pointer move of a drag - all vertices of the
  * moved bed against the corners and edges of the 450 other objects of the "large" plan - stays a small part of
  * the 16 ms frame. Wall-clock bounds run only in the benchmark lane:
  *
@@ -25,10 +25,10 @@ describe.runIf(process.env.GP_BENCHMARK === '1')('snap of a drag on a large plan
   const candidates = snapCandidates(model, new Set(['loc_0']));
   const options: SnapOptions = { gridM: 0.1, gridEnabled: true, bypass: false, pxPerM: 40, candidates };
   const reference = anchor(moved);
-  const sources = moveSources(boundingBox(moved), reference);
+  const sources = moveSources(moved);
   const rawDelta = (i: number): Point => [(i % 40) * 1.03, Math.floor(i / 40) * 2.07];
 
-  it('resolves the move snap of every bbox corner within budget (median)', () => {
+  it('resolves the move snap of every vertex within budget (median)', () => {
     expect(candidates.corners.length).toBeGreaterThan(1500); // the case is what it claims
     resolveMoveSnap(sources, reference, rawDelta(0), options);
     const times = Array.from({ length: RUNS }, (_, i) => {

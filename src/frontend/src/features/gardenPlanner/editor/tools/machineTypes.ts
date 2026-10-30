@@ -35,8 +35,9 @@ export interface ToolEnv {
    */
   snapPoint(pointM: Point, bypass: boolean, pointerType?: PointerSample['pointerType']): Point;
   /**
-   * The snap of a moved object (GP-FR-154): each of its `sources` (bounding-box corners, anchor) shifted by
-   * `rawDelta` may land on an object corner or edge; else `reference` (the anchor) snaps to the grid.
+   * The snap of a moved object (GP-FR-154): each of its `sources` (the vertices of its shape, a circle's centre
+   * and cardinal points) shifted by `rawDelta` may land on an object corner or edge; else `reference` (the
+   * anchor) snaps to the grid.
    */
   snapMove(
     sources: readonly Point[],

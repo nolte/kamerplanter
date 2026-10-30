@@ -511,7 +511,7 @@ export function GardenPlanEditor({
       }).point,
     [candidates, gridStepM, snapEnabled, pxPerM],
   );
-  // A moved object snaps with every corner of its box (GP-FR-154): its right edge can meet another's left edge.
+  // A moved object snaps with every vertex of its shape (GP-FR-154): its right edge can meet another's left edge.
   const snapMove = useCallback(
     (
       sources: readonly Point[],
@@ -646,13 +646,18 @@ export function GardenPlanEditor({
     ],
   );
 
-  // The snap marker follows the pointer of the draw tools, of the template tool and of a move under way
-  // (where the next point will land); on an object edge it draws that edge as a guide (GP-FR-154).
+  // The snap marker follows the pointer of the draw tools, of the template tool and of a dragged handle (where
+  // the next point will land); on an object edge it draws that edge as a guide (GP-FR-154). A select press, a
+  // marquee or a move never shows the pointer's marker: a move shows where the moved object snapped
+  // (`tools.moveSnap`), and the first pointer move of a drag still sees the press here.
   const drawTool = tool === 'bed' || tool === 'garden_object';
   const templateTool = templateMode !== null;
-  const { onPointerMove: toolPointerMove, onPointerUp: toolPointerUp } = tools.containerProps;
-  const toolBusy = tools.busy;
-  const toolMoving = tools.moving;
+  const {
+    onPointerMove: toolPointerMove,
+    onPointerUp: toolPointerUp,
+    onPointerCancel: toolPointerCancel,
+  } = tools.containerProps;
+  const toolHandleDragging = tools.handleDragging;
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
@@ -668,8 +673,7 @@ export function GardenPlanEditor({
           previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
         );
       }
-      // A move draws the marker where the moved object snapped (`tools.moveSnap`), not where the pointer is.
-      if (!(drawTool || templateTool || toolBusy) || toolMoving || !snapEnabled || event.altKey) {
+      if (!(drawTool || templateTool || toolHandleDragging) || !snapEnabled || event.altKey) {
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
@@ -702,8 +706,7 @@ export function GardenPlanEditor({
       snapEnabled,
       snapPoint,
       templateTool,
-      toolBusy,
-      toolMoving,
+      toolHandleDragging,
       toolPointerMove,
     ],
   );
@@ -711,12 +714,20 @@ export function GardenPlanEditor({
     setSnapMark(null);
     setGhostPoint(null);
   }, []);
+  // A release or a cancel ends the gesture the marker belonged to; the next hover move draws it again.
   const onPointerUp = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerUp(event);
-      if (event.pointerType === 'touch') setSnapMark(null); // there is no hover to follow
+      setSnapMark(null);
     },
     [toolPointerUp],
+  );
+  const onPointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      toolPointerCancel(event);
+      setSnapMark(null);
+    },
+    [toolPointerCancel],
   );
   const onPlantsNearby = useCallback(
     (keys: string[], pointPx: Point) => {
@@ -728,8 +739,8 @@ export function GardenPlanEditor({
   );
   // The touch layer wraps the handlers above (keys, snap marker), so both layers work together.
   const touchBase = useMemo(
-    () => ({ ...tools.containerProps, onKeyDown, onPointerMove, onPointerUp }),
-    [onKeyDown, onPointerMove, onPointerUp, tools.containerProps],
+    () => ({ ...tools.containerProps, onKeyDown, onPointerMove, onPointerUp, onPointerCancel }),
+    [onKeyDown, onPointerMove, onPointerUp, onPointerCancel, tools.containerProps],
   );
   // Pinch: the factor of one step is applied to the current zoom; the route clamps it like the buttons.
   const onPinch = useMemo(

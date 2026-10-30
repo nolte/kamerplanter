@@ -8,7 +8,7 @@
  * A gesture the live validation rejects commits nothing and reports a notice (snap-back,
  * GP-UX-053). Escape cancels at any point before the release and changes nothing.
  */
-import { anchor, boundingBox, toShape } from '../../model/geometry';
+import { anchor, toShape } from '../../model/geometry';
 import type { Geometry, Point, PlanEntity, PlanOperation } from '../../model/types';
 import type { SelectionRef } from '../../state/gardenPlanSlice';
 import { computeHandles, handleAt, type Handle } from './handles';
@@ -74,7 +74,7 @@ type Gesture =
       downModel: Point;
       targets: GeometryEntry[];
       primary: GeometryEntry;
-      /** The points of the primary object that may snap (its bounding-box corners and anchor, GP-FR-154). */
+      /** The points of the primary object that may snap (its real vertices, see `moveSources`, GP-FR-154). */
       sources: Point[];
       /** The anchor of the primary object: it snaps to the grid. */
       reference: Point;
@@ -297,7 +297,7 @@ function pressMoved(
     downModel: press.downModel,
     targets,
     primary,
-    sources: moveSources(boundingBox(primary.geometry), reference),
+    sources: moveSources(primary.geometry),
     reference,
     delta: [0, 0],
     snap: null,
@@ -313,7 +313,7 @@ function movedTo(
 ): Extract<Gesture, { kind: 'move' }> {
   const now = env.toModel(sample.pointPx);
   const raw: Point = [now[0] - move.downModel[0], now[1] - move.downModel[1]];
-  // Every corner of the moved object may snap, so its right edge can meet another's left edge (GP-FR-154).
+  // Every vertex of the moved object may snap, so its right edge can meet another's left edge (GP-FR-154).
   const snap = env.snapMove(move.sources, move.reference, raw, sample.alt, sample.pointerType);
   const { delta } = snap;
   const draft = move.targets.map((entry) => ({

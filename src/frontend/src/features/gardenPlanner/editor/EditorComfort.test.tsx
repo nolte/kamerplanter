@@ -87,26 +87,84 @@ describe('object snap (GP-FR-012, GP-FR-154)', () => {
     expect(originOf(t, 'solo')).toEqual([8, 5]);
   });
 
-  it('snaps the right edge of the moved bed to the left edge of another and marks the snapped corner', () => {
+  it('snaps the left edge of the moved bed to the right edge of another and marks the snapped corner', () => {
     const t = setupEditor();
     select(t, 'solo');
-    // solo (14..16 x 2..4) dragged by (-10.1, 0.5): its right edge is 0.1 m (4 px) left of b2's left edge x = 6.
-    // The pointer itself is beside b1's right edge (x = 5) - the old marker showed that, not the snap.
+    // solo (14..16 x 2..4) dragged by (-5.9, 0.5): its left edge is 0.1 m (4 px) right of b2's right edge x = 8.
+    // It ends at 8..10 x 2.5..4.5 beside b2 - free, as two overlapping beds could not be saved (V-05).
     t.after(() => {
       fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
       fireEvent.pointerMove(t.canvas(), pointer(px(14, 3.5)));
-      fireEvent.pointerMove(t.canvas(), pointer(px(4.9, 3.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(9.1, 3.5)));
     });
     const marker = screen.getByTestId('garden-plan-snap-marker');
     expect(marker).toHaveAttribute('data-kind', 'edge');
     const ring = marker.querySelector('circle')!;
-    // the marker sits on the snapped source - solo's upper-right corner at (6, 4.5) - not on the pointer
-    expect(Number(ring.getAttribute('cx'))).toBeCloseTo(6 * 40, 3);
+    // the marker sits on the snapped source - solo's upper-left corner at (8, 4.5) - not on the pointer
+    expect(Number(ring.getAttribute('cx'))).toBeCloseTo(8 * 40, 3);
     expect(Number(ring.getAttribute('cy'))).toBeCloseTo((20 - 4.5) * 40, 3);
     const guide = screen.getByTestId('garden-plan-snap-guide');
-    expect([guide.getAttribute('x1'), guide.getAttribute('x2')]).toEqual(['240', '240']);
-    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(4.9, 3.5))));
-    expect(originOf(t, 'solo')).toEqual([4, 2.5]);
+    expect([guide.getAttribute('x1'), guide.getAttribute('x2')]).toEqual(['320', '320']);
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(9.1, 3.5))));
+    expect(originOf(t, 'solo')).toEqual([8, 2.5]);
+  });
+
+  it('leaves no marker behind after a drag of a single pointer move (#2536)', () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    // the one move turns the press into a move AND is the last move before the release
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(9.1, 3.5)));
+      fireEvent.pointerUp(t.canvas(), pointer(px(9.1, 3.5)));
+    });
+    expect(originOf(t, 'solo')).toEqual([8, 2.5]);
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+  });
+
+  it('shows no pointer marker while a select press stays below the drag threshold', () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(15.02, 3)));
+    });
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(15.02, 3))));
+    expect(originOf(t, 'solo')).toEqual([14, 2]);
+  });
+
+  it('still shows the pointer marker while a handle is dragged, and clears it on release', () => {
+    const t = setupEditor();
+    select(t, 'area');
+    // the area's east handle (12, 7) is dragged towards the locked bed's corner (14, 8): the dragged point is the
+    // pointer's, so the marker is the pointer's snap
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(12, 7)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13, 7.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13.95, 8.05)));
+    });
+    const marker = screen.getByTestId('garden-plan-snap-marker');
+    expect(marker).toHaveAttribute('data-kind', 'corner');
+    expect(Number(marker.querySelector('circle')!.getAttribute('cx'))).toBeCloseTo(14 * 40, 3);
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(13.95, 8.05))));
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+    // a resize, not a move: the anchor stays, the east edge sits on x = 14
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2], width_m: 12 });
+  });
+
+  it('clears the marker when the pointer is cancelled mid-drag', () => {
+    const t = setupEditor();
+    select(t, 'area');
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(12, 7)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13, 7.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(13.95, 8.05)));
+    });
+    expect(screen.getByTestId('garden-plan-snap-marker')).toBeInTheDocument();
+    t.after(() => fireEvent.pointerCancel(t.canvas(), pointer(px(13.95, 8.05))));
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
+    expect(t.state().plan!.locations.area.geometry).toMatchObject({ origin: [2, 2], width_m: 10 });
   });
 
   it('hides the marker while Alt moves freely', () => {

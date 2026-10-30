@@ -239,7 +239,7 @@ describe('moving (GP-FR-021, GP-FR-151, GP-FR-155)', () => {
     expect(freeGeometry.geometry.origin[0]).toBeCloseTo(3.23, 3);
   });
 
-  it('snaps by every corner of the moved object and reports where the snapped one lands (GP-FR-154)', () => {
+  it('snaps by every vertex of the moved object and reports where the snapped one lands (GP-FR-154)', () => {
     const calls: { sources: readonly number[][]; reference: number[] }[] = [];
     const snapMove: ToolEnv['snapMove'] = (sources, reference) => {
       calls.push({ sources, reference });

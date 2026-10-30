@@ -1,12 +1,12 @@
 /**
  * Snap resolution (REQ-053 GP-FR-012, GP-FR-154): a raw model point becomes the point a tool uses.
  * Priority: object corner -> object edge -> grid. `Alt` (bypass) switches snapping off but the
- * point is still rounded to the storage precision. A moved object snaps with all corners of its
- * bounding box, so its right edge can land on another object's left edge. Pure: the editor
- * supplies the candidates.
+ * point is still rounded to the storage precision. A moved object snaps with the real points of its
+ * shape - every (rotated) vertex, a circle's centre and its four cardinal points - so its right edge
+ * can land on another object's left edge. Pure: the editor supplies the candidates.
  */
-import { roundLength, rotatePoint } from '../../model/geometry';
-import type { BoundingBox, Point } from '../../model/types';
+import { roundLength, rotatePoint, toShape } from '../../model/geometry';
+import type { Geometry, Point } from '../../model/types';
 import { snapToStep } from '../../model/units';
 
 /** Snap tolerance in screen pixels (GP-FR-154). */
@@ -92,20 +92,28 @@ function snapToGrid(point: Point, step: number, frame: GridFrame | undefined): P
 }
 
 /**
- * The points of a dragged object that may snap: the four corners of its bounding box (`[min_x, min_y, max_x,
- * max_y]`, counter-clockwise from the lower left) and its anchor when that is none of them (a circle's centre, a
- * polygon's first vertex). Computed once per drag, not per pointer move.
+ * The points of a dragged object that may snap (GP-FR-154), taken from its real shape in the plan frame: the
+ * vertices of a rectangle or polygon with the rotation applied, the vertices of a polyline, a point's origin, and
+ * for a circle its centre plus the four cardinal points (east, north, west, south) - the same points another
+ * circle offers as snap targets. The corners of the axis-aligned bounding box are no source: for a rotated
+ * rectangle, a circle or a polygon they lie off the object, and a 'corner' snap there would leave a gap. For an
+ * axis-aligned rectangle the vertices ARE the bounding-box corners. The anchor (a rectangle's origin, a
+ * polygon's first vertex, a circle's centre) is always the first source. Computed once per drag, not per move.
  */
-export function moveSources(bbox: BoundingBox, anchorM: Point): Point[] {
-  const [x0, y0, x1, y1] = bbox;
-  const sources: Point[] = [
-    [x0, y0],
-    [x1, y0],
-    [x1, y1],
-    [x0, y1],
-  ];
-  if (!sources.some(([x, y]) => x === anchorM[0] && y === anchorM[1])) sources.push(anchorM);
-  return sources;
+export function moveSources(geometry: Geometry): Point[] {
+  const shape = toShape(geometry);
+  if (shape.kind === 'circle') {
+    const [cx, cy] = shape.center;
+    const r = shape.radiusM;
+    return [
+      [cx, cy],
+      [cx + r, cy],
+      [cx, cy + r],
+      [cx - r, cy],
+      [cx, cy - r],
+    ];
+  }
+  return shape.vertices;
 }
 
 /**

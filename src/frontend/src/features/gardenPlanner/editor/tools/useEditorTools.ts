@@ -109,8 +109,11 @@ export interface EditorTools {
   vertex: VertexSelection | null;
   /** Points placed so far by a polygon/polyline being drawn. */
   draftPoints: number;
-  /** The select gesture or a draw is under way. */
-  busy: boolean;
+  /**
+   * A handle of the selected object is being dragged past the threshold: the dragged point is the pointer's
+   * snapped point, so the pointer's snap marker is right (GP-FR-154). A press, a marquee or a move is not.
+   */
+  handleDragging: boolean;
   /** A move of the selection is under way: its snap marker is `moveSnap`, not the pointer's. */
   moving: boolean;
   /** Where the snapped source of the moved object lands (GP-FR-154); `null` without a snap. */
@@ -560,7 +563,8 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       ? selectState.vertex
       : null;
   const draftPoints = pointCount(drawState);
-  const busy = isGestureActive(selectState) || drawState.kind !== 'idle';
+  const handleDragging =
+    kind === 'select' && selectState.gesture.kind === 'handle' && selectState.gesture.dragged;
   const moving = kind === 'select' && selectState.gesture.kind === 'move';
   const moveSnap = useMemo(
     () => (kind === 'select' ? moveSnapMark(selectState) : null),
@@ -574,7 +578,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       handles,
       vertex,
       draftPoints,
-      busy,
+      handleDragging,
       moving,
       moveSnap,
       cancel,
@@ -594,7 +598,7 @@ export function useEditorTools(options: EditorToolsOptions): EditorTools {
       handles,
       vertex,
       draftPoints,
-      busy,
+      handleDragging,
       moving,
       moveSnap,
       cancel,
