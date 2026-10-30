@@ -97,6 +97,8 @@ from app.domain.models.garden_plan import (
     UpdateGeometryOp,
 )
 from app.domain.models.geometry import (
+    GEOMETRY_INVALID,
+    POINT_INDEX_KEY,
     CircleGeometry,
     Geometry,
     PointGeometry,
@@ -232,8 +234,14 @@ def _finding_code(error: ErrorDetails) -> str:
     return "geometry.invalid" if parts & _GEOMETRY_FIELDS else "validation.invalid"
 
 
+def _finding_extra(error: ErrorDetails) -> dict[str, Any]:
+    """The offending vertex of a coordinate-range violation (GP-ACC-056), else nothing."""
+    point_index = error.get("ctx", {}).get(POINT_INDEX_KEY) if error["type"] == GEOMETRY_INVALID else None
+    return {POINT_INDEX_KEY: point_index} if isinstance(point_index, int) else {}
+
+
 def _findings_of(error: PydanticValidationError, op_index: int | None, *, tagged: bool = False) -> list[_Finding]:
-    return [(op_index, _json_tail(e, tagged=tagged), _finding_code(e), {}) for e in _errors(error)]
+    return [(op_index, _json_tail(e, tagged=tagged), _finding_code(e), _finding_extra(e)) for e in _errors(error)]
 
 
 def _count_points(raw: Any) -> int:
