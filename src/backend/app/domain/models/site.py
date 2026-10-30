@@ -437,8 +437,12 @@ class Location(BaseModel):
     z_order: int = 0
     #: Grid pitch assumed for legacy slots of this location (§9.2a, migration v0093).
     pitch_m: float = Field(default=DEFAULT_PITCH_M, ge=MIN_DIMENSION_M, le=MAX_DIMENSION_M)
-    #: Permanent crop (asparagus, berry shrubs): excluded from crop rotation (GP-FR-137, W-013).
+    #: Permanent crop (asparagus, berry shrubs): excluded from crop rotation (GP-FR-137, W-013). Wins over
+    #: ``rotation_enabled``.
     rotation_exempt: bool = False
+    #: Per-bed crop-rotation switch (GP-FR-137 "je Beet einschaltbar", #2544), additive: ``None`` = the type default
+    #: (off for ``planter``/``tent``/``shelf``, on for every other type), ``True`` = on, ``False`` = off.
+    rotation_enabled: bool | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

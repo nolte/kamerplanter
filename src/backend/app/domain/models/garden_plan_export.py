@@ -94,6 +94,10 @@ class ExportLocation(_ExportModel):
     locked: bool = False
     z_order: int = 0
     pitch_m: float | None = None
+    #: The crop-rotation flags of the bed (GP-FR-137, #2544), additive inside ``schema_version "1"``. A file written
+    #: before #2544 lacks both keys; the restored bed then is not exempt and follows its type (``null``).
+    rotation_exempt: bool = False
+    rotation_enabled: bool | None = None
 
 
 class ExportSlot(_ExportModel):

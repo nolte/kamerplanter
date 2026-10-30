@@ -347,6 +347,21 @@ describe('BedHistoryTab - the planting timeline (GP-FR-103, GP-ACC-028)', () => 
     );
   });
 
+  it('says the check is switched off for a bed whose own switch is off (GP-FR-137)', async () => {
+    useHistoryBackend({
+      items: [],
+      timeline: timeline(FIVE_YEARS, {
+        rotation_applicable: false,
+        not_applicable_reason: 'rotation.not_applicable.disabled',
+      }),
+    });
+    renderTab();
+
+    expect(await screen.findByTestId('timeline-not-applicable')).toHaveTextContent(
+      'The crop rotation check is switched off for this bed.',
+    );
+  });
+
   it('shows no write controls to a viewer', async () => {
     useHistoryBackend({ items: [], timeline: timeline(FIVE_YEARS) });
     renderTab('viewer');

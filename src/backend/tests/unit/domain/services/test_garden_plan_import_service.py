@@ -307,6 +307,37 @@ class TestReferencesAndFields:
         stored_risk = restored.site_conditions.microclimate.frost_risk if restored.site_conditions else None
         assert stored_risk == risk
 
+    @pytest.mark.parametrize(
+        ("exempt", "enabled"),
+        [(False, None), (False, True), (False, False), (True, None)],
+    )
+    def test_the_rotation_switches_survive_a_restore_from_their_own_backup(self, rig, repo, exempt, enabled) -> None:
+        """GP-FR-137 (#2544): ``rotation_exempt`` and ``rotation_enabled`` are in the file and come back from it."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"rotation_exempt": exempt, "rotation_enabled": enabled}
+        )
+        document = rig.file()
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert (exported["rotation_exempt"], exported["rotation_enabled"]) == (exempt, enabled)
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert (restored.rotation_exempt, restored.rotation_enabled) == (exempt, enabled)
+
+    def test_a_file_without_the_rotation_switches_keeps_the_type_default(self, rig, repo) -> None:
+        """A file written before #2544 lacks both keys: the restored bed is not exempt and follows its type."""
+        document = rig.file()
+        for item in document["locations"]:
+            item.pop("rotation_exempt", None)
+            item.pop("rotation_enabled", None)
+
+        rig.run(document)
+
+        restored = self._restored_beet_1(repo)
+        assert (restored.rotation_exempt, restored.rotation_enabled) == (False, None)
+
     def test_an_explicit_null_inherits_even_where_the_risk_would_force_a_value(self, rig, repo) -> None:
         """``null`` sent is "inherit from the site type", not "derive from the risk" (#2512)."""
         document = rig.file()

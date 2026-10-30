@@ -119,7 +119,10 @@ class LocationResponse(BaseModel):
     locked: bool = False
     z_order: int = 0
     pitch_m: float | None = None
+    #: Permanent crop: off for the crop-rotation check whatever ``rotation_enabled`` says (GP-FR-137).
     rotation_exempt: bool = False
+    #: Per-bed rotation switch (#2544): ``null`` = type default (off for planter/tent/shelf), ``true`` on, ``false`` off
+    rotation_enabled: bool | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

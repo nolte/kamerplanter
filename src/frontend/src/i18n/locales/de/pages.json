@@ -7014,6 +7014,7 @@
           "notApplicable": {
             "container": "Die Fruchtfolge-Prüfung ist für Töpfe, Zelte und Regale aus. Die Historie bleibt trotzdem erhalten.",
             "rotation_exempt": "Dieses Beet ist von der Fruchtfolge-Prüfung ausgenommen. Die Historie bleibt trotzdem erhalten.",
+            "disabled": "Die Fruchtfolge-Prüfung ist für dieses Beet ausgeschaltet. Die Historie bleibt trotzdem erhalten.",
             "unknown": "Die Fruchtfolge-Prüfung ist für dieses Beet aus."
           }
         },
@@ -7184,7 +7185,7 @@
           "title": "Fruchtfolge, Nachbarn und Standort",
           "checking": "Prüfe {{name}} …",
           "unavailable": "{{name}}: Die Fruchtfolge konnte nicht geprüft werden ({{message}}). Das ist kein grünes Licht.",
-          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal oder Dauerkultur).",
+          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal, Dauerkultur oder für dieses Beet ausgeschaltet).",
           "allClear": "{{name}}: Kein Hinweis zu Fruchtfolge oder Nachbarn.",
           "forSpecies": "{{name}}: Hinweis {{strength}}",
           "pauseNotElapsed": "Die Familie {{family}} stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",

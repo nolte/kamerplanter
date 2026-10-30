@@ -174,6 +174,28 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 
 ---
 
+### Switch the crop rotation check per bed (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (role `grower` or higher) takes two fields for the crop rotation check that `POST …/locations/{key}/validate-planting` and `GET …/locations/{key}/rotation` evaluate:
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` switches the check on for this bed, also for pots (`planter`), tents (`tent`) and shelves (`shelf`), where it is otherwise off. `false` switches it off. `null` (default) follows the location type |
+| `rotation_exempt` | `true`, `false` | Permanent crop (asparagus, berry shrubs): the check is off whatever `rotation_enabled` says. `null` is not allowed |
+
+When the check is off, both routes answer `rotation_applicable: false` with the reason in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (switched off for the bed) or `rotation.not_applicable.container` (pot, tent, shelf without a switch). Both fields are also part of the garden plan's JSON backup; an older file without them gives a bed that is not exempt and follows its location type.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `patch.rotation_exempt_and_enabled` | After the change both `rotation_exempt` and `rotation_enabled` would be `true`; to exempt a switched-on bed, send `rotation_enabled: null` with it |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` or a value that is not a boolean |
+
+---
+
 ### Garden Plan (PDF, SVG, JSON backup)
 
 Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.

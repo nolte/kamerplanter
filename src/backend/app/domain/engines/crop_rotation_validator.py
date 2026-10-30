@@ -43,6 +43,8 @@ ROTATION_OFF_LOCATION_TYPES: frozenset[str] = frozenset({"planter", "tent", "she
 
 NOT_APPLICABLE_CONTAINER = "rotation.not_applicable.container"
 NOT_APPLICABLE_EXEMPT = "rotation.not_applicable.rotation_exempt"
+#: The bed's own switch (``Location.rotation_enabled = False``, #2544) turned the check off.
+NOT_APPLICABLE_DISABLED = "rotation.not_applicable.disabled"
 
 PauseSource = Literal["species", "family", "default"]
 HistorySource = Literal["plant", "backfill"]
@@ -141,9 +143,18 @@ def resolve_pause_years(
 
 
 def not_applicable_reason(location: Location) -> str | None:
-    """Why the bed-level rotation check is off for this location, or ``None`` when it applies (GP-FR-137)."""
+    """Why the bed-level rotation check is off for this location, or ``None`` when it applies (GP-FR-137).
+
+    Precedence: a permanent crop (``rotation_exempt``) is off whatever else is set; then the bed's own switch
+    ``rotation_enabled`` (``True`` on, ``False`` off, #2544); then the type default - off for ``planter`` /
+    ``tent`` / ``shelf``, on for every other type. ``rotation_enabled = None`` is today's behaviour.
+    """
     if location.rotation_exempt:
         return NOT_APPLICABLE_EXEMPT
+    if location.rotation_enabled is True:
+        return None
+    if location.rotation_enabled is False:
+        return NOT_APPLICABLE_DISABLED
     if location.location_type_key in ROTATION_OFF_LOCATION_TYPES:
         return NOT_APPLICABLE_CONTAINER
     return None
@@ -487,7 +498,8 @@ class CropRotationValidator:
         same family stood there, against the pause of the species (override), the family, or
         ``rotation_window_years`` (at most 8). A green manure counts with its family. The answer is a list of
         findings with a severity and a reason — never an error for a violation (D-09: the grower decides).
-        Off for ``planter`` / ``tent`` / ``shelf`` and ``rotation_exempt`` beds (GP-FR-137).
+        Off for ``rotation_exempt`` beds and, unless the bed is switched on (``rotation_enabled``), for ``planter`` /
+        ``tent`` / ``shelf``; a bed switched off is off whatever its type (GP-FR-137, :func:`not_applicable_reason`).
 
         ``tenant_key`` is required and keyword-only (#2107): the bed is resolved through its site, the species must
         be visible to the tenant, and the history is read under the tenant.

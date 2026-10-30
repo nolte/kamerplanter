@@ -401,7 +401,7 @@ class SiteConditionsPatch(SiteConditions):
 
 class LocationPatch(_Strict):
     """``PATCH /locations/{key}`` (GP-API-010): only the fields present are changed; an explicit ``null`` clears
-    the ones that can be cleared (description, notes, height, irrigation zone, soil profile)."""
+    the ones that can be cleared (description, notes, height, irrigation zone, soil profile, rotation switch)."""
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=1000)
@@ -419,10 +419,15 @@ class LocationPatch(_Strict):
     #: A transition (V-10); ``retired`` needs ``status_reason`` and the lead role.
     bed_status: BedStatus | None = None
     status_reason: str | None = Field(default=None, min_length=1, max_length=1000)
+    #: Permanent crop, off for the crop-rotation check (GP-FR-137); cannot be ``null``.
+    rotation_exempt: bool | None = None
+    #: Per-bed crop-rotation switch (GP-FR-137, #2544): ``true`` on, ``false`` off, ``null`` back to the type default.
+    #: Together with ``rotation_exempt = true`` (sent or stored) it is 422 ``patch.rotation_exempt_and_enabled``.
+    rotation_enabled: bool | None = None
 
     @model_validator(mode="after")
     def _only_clearable_fields_take_null(self) -> Self:
-        _no_null_for(self, ("name", "sun_exposure", "geometry", "locked", "z_order", "bed_status"))
+        _no_null_for(self, ("name", "sun_exposure", "geometry", "locked", "z_order", "bed_status", "rotation_exempt"))
         if not self.model_fields_set:
             raise ValueError("A PATCH needs at least one field.")
         return self

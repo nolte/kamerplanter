@@ -103,6 +103,8 @@ _PATCH_COLUMNS: tuple[str, ...] = (
     "site_conditions",
     "irrigation_zone_key",
     "frost_exposed",
+    "rotation_exempt",
+    "rotation_enabled",
 )
 
 
@@ -227,6 +229,7 @@ class GardenResourceService:
         self._require_editor(role)
         target_status = self._status_target(location, patch, role)
         self._resolve_references(location, patch, tenant_key=tenant_key)
+        self._check_rotation_switch(location, patch)
 
         fields = self._field_changes(location, patch)
         operations = self._structure_operations(location, patch)
@@ -258,6 +261,25 @@ class GardenResourceService:
         stored = self._owned_location(key, tenant_key=tenant_key)
         site = self._owned_site(stored.site_key, tenant_key=tenant_key)
         return stored, self._revision_of(site)
+
+    @staticmethod
+    def _check_rotation_switch(location: Location, patch: LocationPatch) -> None:
+        """GP-FR-137 (#2544): a permanent crop cannot be switched on - refused before anything is written.
+
+        The state after the PATCH counts (sent value, else the stored one): ``rotation_exempt`` would win anyway,
+        so storing both would keep a switch that does nothing. Exempting a switched-on bed sends
+        ``rotation_enabled: null`` (or ``false``) in the same body.
+        """
+        provided = patch.model_fields_set
+        exempt = patch.rotation_exempt if "rotation_exempt" in provided else location.rotation_exempt
+        enabled = patch.rotation_enabled if "rotation_enabled" in provided else location.rotation_enabled
+        if exempt is True and enabled is True:
+            raise PlanError(
+                "patch.rotation_exempt_and_enabled",
+                "A bed exempt from crop rotation cannot have the rotation check switched on.",
+                status_code=422,
+                field="rotation_enabled",
+            )
 
     @staticmethod
     def _structure_operations(location: Location, patch: LocationPatch) -> list[dict[str, Any]]:

@@ -399,7 +399,10 @@ In the garden plan, the properties panel of a selected bed shows the same fields
 
 The **History** tab has two parts: the **timeline** on top and the **list** below it.
 
-**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off; the history is still kept.
+**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off by default; the history is still kept. The check can be switched on or off per bed; for permanent crops it always stays off. <!-- REQ-053 GP-FR-137 -->
+
+!!! info "API only: per-bed crop rotation switch"
+    So far you set the switch through the API only; the bed view does not show it yet. The [API reference](../reference/api-reference.md) explains how. <!-- REQ-053 GP-FR-137 -->
 
 **What stood here?** To fill in a year from before you used the app, tap **Fill in {year}** at the year or **What stood here?** at the top. You choose the year, the plant family (or a species, which brings its family), the role (main crop, green manure or fallow) and optionally the season. The last ten years up to last year are allowed. A message with **Undo** follows. You take a filled-in entry back later with the **x** on the entry, as its author or in the "lead" role. It then stays in the care log as cancelled. Viewers see the timeline read-only.
 

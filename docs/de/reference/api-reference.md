@@ -174,6 +174,28 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 
 ---
 
+### Fruchtfolge-Prüfung je Beet schalten (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (ab Rolle `grower`) nimmt zwei Felder für die Fruchtfolge-Prüfung, die `POST …/locations/{key}/validate-planting` und `GET …/locations/{key}/rotation` auswerten:
+
+| Feld | Werte | Bedeutung |
+|------|-------|-----------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` schaltet die Prüfung für dieses Beet ein, auch für Töpfe (`planter`), Zelte (`tent`) und Regale (`shelf`), bei denen sie sonst aus ist. `false` schaltet sie aus. `null` (Standard) folgt dem Standorttyp |
+| `rotation_exempt` | `true`, `false` | Dauerkultur (Spargel, Beerensträucher): die Prüfung ist aus, was immer `rotation_enabled` sagt. `null` ist nicht erlaubt |
+
+Ist die Prüfung aus, antworten beide Routen mit `rotation_applicable: false` und dem Grund in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (vom Beet ausgeschaltet) oder `rotation.not_applicable.container` (Topf, Zelt, Regal ohne Schalter). Beide Felder stehen auch in der JSON-Sicherung des Gartenplans; eine ältere Datei ohne sie ergibt ein Beet, das nicht ausgenommen ist und dem Standorttyp folgt.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `patch.rotation_exempt_and_enabled` | Nach der Änderung wären `rotation_exempt` und `rotation_enabled` beide `true`; zum Ausnehmen eines eingeschalteten Beets `rotation_enabled: null` mitsenden |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` oder ein Wert, der kein Boolean ist |
+
+---
+
 ### Gartenplan (PDF, SVG, JSON-Sicherung)
 
 Drei Exporte des Gartenplans eines Standorts (REQ-053). Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen. Ein Standort eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`. Je Route gelten `RATE_LIMIT_PLAN_EXPORT` Anfragen je Konto (Standard 10 pro Minute) und `RATE_LIMIT_PLAN_EXPORT_TENANT` je Mandant (Standard 30 pro Minute); darüber antwortet die API mit `429` und `Retry-After`.
