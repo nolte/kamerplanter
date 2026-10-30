@@ -52,7 +52,13 @@ export interface SceneMarkerBatch {
 /** One summary per bed whose markers would be closer than 10 px (GP-NFR-067). */
 export interface SceneCluster {
   locationKey: string;
+  /** Every plant of the bed: what the accessible name announces, with or without the filter. */
   count: number;
+  /**
+   * The number drawn in the circle: `count`, or under "only plants that need attention" the plants the filter keeps
+   * (those with a badge plus those whose state is not known yet).
+   */
+  shownCount: number;
   /** The centre of the bed, in metres. */
   x: number;
   y: number;
@@ -86,12 +92,18 @@ function screenSize(entry: ShapeEntry, pxPerM: number): [number, number] {
   return [(entry.bbox[2] - entry.bbox[0]) * pxPerM, (entry.bbox[3] - entry.bbox[1]) * pxPerM];
 }
 
-/** Plants that need attention among the markers (`null` when no plant of the bed has a known state) and the top reason. */
-function attentionOf(
-  markers: readonly MarkerEntry[],
-  states: RenderOptions['plantStates'],
-): Pick<SceneCluster, 'attention' | 'topBadge'> {
-  if (!states) return { attention: null, topBadge: null };
+interface AttentionSummary extends Pick<SceneCluster, 'attention' | 'topBadge'> {
+  /** Plants of the bed whose state is not known (not read yet, or the layer is off). */
+  unknown: number;
+}
+
+/**
+ * Plants that need attention among the markers (`null` when no plant of the bed has a known state), the top reason
+ * and how many plants have no known state.
+ */
+function attentionOf(markers: readonly MarkerEntry[], states: RenderOptions['plantStates']): AttentionSummary {
+  const plants = markers.filter((marker) => marker.kind === 'plant').length;
+  if (!states) return { attention: null, topBadge: null, unknown: plants };
   let known = 0;
   let attention = 0;
   let top: AttentionCode | null = null;
@@ -104,7 +116,7 @@ function attentionOf(
     attention += 1;
     if (top === null || ATTENTION_PRIORITY.indexOf(state.badge) < ATTENTION_PRIORITY.indexOf(top)) top = state.badge;
   }
-  return { attention: known > 0 ? attention : null, topBadge: top };
+  return { attention: known > 0 ? attention : null, topBadge: top, unknown: plants - known };
 }
 
 /**
@@ -154,8 +166,9 @@ export function buildScene(
     if (!bed) continue;
     if (markersVisible(bed.minSpacingM, pxPerM)) {
       const isEntered = entry.key === entered;
-      // As for a cluster: a bed whose states are not known yet keeps its plain markers under the filter.
-      const filtered =
+      // Per plant: under the filter a plant whose state is not known yet keeps its plain marker (unknown is not
+      // "nothing to do"); an empty slot goes once any plant of the bed has a known state.
+      const bedKnown =
         attentionOnly && layerStates !== null && bed.markers.some((marker) => marker.key in layerStates);
       const rest: MarkerEntry[] = [];
       for (const marker of bed.markers) {
@@ -165,9 +178,11 @@ export function buildScene(
           continue;
         }
         // The layer: a plant with a known state is drawn with its channels; "only plants that need attention"
-        // keeps the ones with a badge and lets everything else of the bed go - a selected marker always stays.
+        // lets a known plant without a badge go - a selected marker always stays.
         const state = layerStates && marker.kind === 'plant' ? layerStates[marker.key] : undefined;
-        if (filtered && !isSelected && !state?.badge) continue;
+        if (attentionOnly && !isSelected) {
+          if (marker.kind === 'plant' ? state !== undefined && !state.badge : bedKnown) continue;
+        }
         if (state || isSelected) {
           sceneMarkers.push({
             entry: marker,
@@ -182,13 +197,16 @@ export function buildScene(
       }
       if (rest.length > 0) markerBatches.push({ locationKey: entry.key, markers: rest });
     } else if (bed.plantCount > 0) {
-      const summary = attentionOf(bed.markers, layerStates ?? options.plantStates);
-      // With the filter a cluster counts the plants that need attention and goes when none does; a bed whose states
-      // are not known yet keeps its plain count - unknown is not "nothing to do".
-      if (attentionOnly && summary.attention === 0) continue;
+      const { unknown, ...summary } = attentionOf(bed.markers, layerStates ?? options.plantStates);
+      // Per plant as above: under the filter the circle shows the plants that need attention plus those not known
+      // yet, and the cluster goes only when every plant is known and none needs attention. The accessible name
+      // always names the total.
+      const keptByFilter = (summary.attention ?? 0) + unknown;
+      if (attentionOnly && keptByFilter === 0) continue;
       clusters.push({
         locationKey: bed.locationKey,
-        count: attentionOnly && summary.attention !== null ? summary.attention : bed.plantCount,
+        count: bed.plantCount,
+        shownCount: attentionOnly ? keptByFilter : bed.plantCount,
         x: (entry.bbox[0] + entry.bbox[2]) / 2,
         y: (entry.bbox[1] + entry.bbox[3]) / 2,
         ...summary,

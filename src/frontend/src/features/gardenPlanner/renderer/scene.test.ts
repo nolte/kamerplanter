@@ -282,27 +282,34 @@ describe('buildScene - plant-state layer (GP-UX-061, #2488)', () => {
 
   it('counts the badged plants of a cluster with the top reason by priority (problem before water)', () => {
     const [cluster] = buildScene(model, view, NO_SELECTION, layer(false)).clusters;
-    expect(cluster).toMatchObject({ locationKey: 'dense', count: 4, attention: 2, topBadge: 'problem' });
+    expect(cluster).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 4, attention: 2, topBadge: 'problem' });
   });
 
-  it('with "only plants that need attention" keeps only badged markers, and a selected one', () => {
+  it('with "only plants that need attention" keeps badged markers, a selected one and plants not known yet', () => {
     const scene = buildScene(model, view, { selectedKeys: new Set(['near_p1']) }, layer(true));
     expect(scene.markers.map((m) => m.entry.key)).toEqual(['near_p0', 'near_p1', 'near_p2']);
     expect(scene.markers.find((m) => m.entry.key === 'near_p1')?.selected).toBe(true);
-    expect(scene.markerBatches.find((b) => b.locationKey === 'near')).toBeUndefined();
+    // per plant: near_p3 has no known state yet and keeps its plain marker; the empty slot goes
+    expect(scene.markerBatches.find((b) => b.locationKey === 'near')?.markers.map((m) => m.key)).toEqual(['near_p3']);
     const unselected = buildScene(model, view, NO_SELECTION, layer(true));
     expect(unselected.markers.map((m) => m.entry.key)).toEqual(['near_p0', 'near_p2']);
   });
 
-  it('with the filter a cluster counts only badged plants, hides at zero and keeps its count while unknown', () => {
+  it('with the filter a cluster keeps the total, draws the kept plants and hides only when all are known and calm', () => {
     const [counted] = buildScene(model, view, NO_SELECTION, layer(true)).clusters;
-    expect(counted).toMatchObject({ locationKey: 'dense', count: 2, attention: 2, topBadge: 'problem' });
-    const calm = { dense_p0: stated(), dense_p1: stated() };
+    expect(counted).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 2, attention: 2, topBadge: 'problem' });
+    const allCalm = { dense_p0: stated(), dense_p1: stated(), dense_p2: stated(), dense_p3: stated() };
     expect(
-      buildScene(model, view, NO_SELECTION, { plantStateLayer: { states: calm, attentionOnly: true } }).clusters,
+      buildScene(model, view, NO_SELECTION, { plantStateLayer: { states: allCalm, attentionOnly: true } }).clusters,
     ).toEqual([]);
+    // partly known: the two plants without a state are "unknown", not "calm" - the cluster stays and shows them
+    const partlyCalm = { dense_p0: stated(), dense_p1: stated() };
+    const [partly] = buildScene(model, view, NO_SELECTION, {
+      plantStateLayer: { states: partlyCalm, attentionOnly: true },
+    }).clusters;
+    expect(partly).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 2, attention: 0 });
     const unknown = buildScene(model, view, NO_SELECTION, { plantStateLayer: { states: {}, attentionOnly: true } });
-    expect(unknown.clusters[0]).toMatchObject({ locationKey: 'dense', count: 4, attention: null });
+    expect(unknown.clusters[0]).toMatchObject({ locationKey: 'dense', count: 4, shownCount: 4, attention: null });
     // likewise at marker LOD: a bed not read yet keeps its plain markers instead of going blank while it loads
     expect(unknown.markerBatches.find((b) => b.locationKey === 'near')?.markers).toHaveLength(5);
   });

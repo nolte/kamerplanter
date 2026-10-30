@@ -773,7 +773,7 @@ const ClusterNode = memo(function ClusterNode({
         fill="#fff"
         aria-hidden="true"
       >
-        {cluster.count}
+        {cluster.shownCount}
       </text>
       {cluster.attention && cluster.topBadge ? (
         <PlantBadge code={cluster.topBadge} x={cluster.x + radius * 0.85} y={-cluster.y - radius * 0.85} radius={radius * 0.55} />

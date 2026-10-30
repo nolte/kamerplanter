@@ -185,7 +185,8 @@ describe('plant-state layer on the overview plan (GP-UX-061, #2488)', () => {
     const cluster = svg.querySelector('[data-plan-cluster="loc_a"]') as SVGGElement;
     expect(cluster.getAttribute('aria-label')).toBe('3 plants - 1 need attention');
     expect(cluster.querySelector('[data-plan-badge-reason]')?.getAttribute('data-plan-badge-reason')).toBe('overdue');
-    const calm = mount(10, options({ labels, plantStateLayer: { states: { loc_a_p1: state() }, attentionOnly: true } }));
+    const allCalm = { loc_a_p0: state(), loc_a_p1: state(), loc_a_p2: state() };
+    const calm = mount(10, options({ labels, plantStateLayer: { states: allCalm, attentionOnly: true } }));
     expect(calm.querySelector('[data-plan-cluster="loc_a"]')).toBeNull();
   });
 });
