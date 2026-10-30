@@ -2177,7 +2177,7 @@ wheels = [
 
 [[package]]
 name = "python-arango"
-version = "8.3.6"
+version = "8.3.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "packaging" },
@@ -2186,9 +2186,9 @@ dependencies = [
     { name = "requests-toolbelt" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/7d/36bedf24c08ae6bd1e6e3780651455dde8cc043c24f9996aa11a2d07d3be/python_arango-8.3.6.tar.gz", hash = "sha256:9a7c11c91cf73c0abed5b20237dd86cb2eb0e749d242cc598e23b88b8a88133f", size = 163901, upload-time = "2026-10-04T12:18:41.488Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/f9/29c50b1bcbcc971af8f73ea0760b44c05caa39f86c8be384ed8b6c2bbbef/python_arango-8.3.7.tar.gz", hash = "sha256:e495cff372d910c2216fbbe6d4cc833ec190a5622b6a4186d11d5bc5857d1898", size = 164155, upload-time = "2026-10-27T08:44:49.491Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/23/1f73873d7d72726a6c0ee94d24bc27fce806e32a2eac3acd0b043ecaf08a/python_arango-8.3.6-py3-none-any.whl", hash = "sha256:f0d6cc48b228d108a2184a10de596f9502efa9ec0b44626c46687e7cf43c3493", size = 116790, upload-time = "2026-10-04T12:18:39.801Z" },
+    { url = "https://files.pythonhosted.org/packages/30/78/916fc20b8134025a0d0f7c32d8d9f2dd07c496df168e4313459584980a97/python_arango-8.3.7-py3-none-any.whl", hash = "sha256:369d643203c533c27659834c909229ac3a64b2cd005df17e6554fbc587d01152", size = 116788, upload-time = "2026-10-27T08:44:47.941Z" },
 ]
 
 [[package]]
