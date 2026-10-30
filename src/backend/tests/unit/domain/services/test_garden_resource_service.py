@@ -345,7 +345,41 @@ class TestPatchingALocation:
         assert repo.locations["bed"].frost_exposed is False
 
         patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
-        assert repo.locations["bed"].frost_exposed is None  # normal says nothing: inherit from the site type
+        assert repo.locations["bed"].frost_exposed is False  # #2512: normal keeps a forced protection
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "unknown"}})
+        assert repo.locations["bed"].frost_exposed is None  # unknown: no information, the site type decides
+
+    def test_a_change_from_high_to_normal_clears_the_exposure(self, world) -> None:
+        """#2512: ``normal`` takes back only the ``True`` that ``high`` claimed; the site type decides again."""
+        service, repo, _ = world
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "high"}})
+        assert repo.locations["bed"].frost_exposed is True
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is None
+        assert repo.field_updates[-1][1]["frost_exposed"] is None  # the clear is written, not left to chance
+
+    def test_a_change_from_low_to_normal_keeps_the_protection(self, world) -> None:
+        service, repo, _ = world
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "low"}})
+        assert repo.locations["bed"].frost_exposed is False
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is False
+        assert "frost_exposed" not in repo.field_updates[-1][1]  # normal writes no boolean over a ``False``
+        assert repo.locations["bed"].site_conditions.microclimate.frost_risk is FrostRisk.NORMAL
+
+    def test_a_first_risk_of_normal_leaves_an_override_set_on_the_old_field(self, world) -> None:
+        """A bed with only the legacy ``False`` (risk unknown) keeps it when somebody records ``normal``."""
+        service, repo, _ = world
+        repo.locations["bed"] = repo.locations["bed"].model_copy(update={"frost_exposed": False})
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is False
 
     def test_clearing_the_site_conditions_clears_a_stored_risk_and_its_boolean(self, world) -> None:
         service, repo, _ = world
@@ -440,7 +474,7 @@ class TestPatchingALocation:
         ],
     )
     def test_a_migrated_protected_bed_keeps_its_protection_on_the_next_save(self, world, sent) -> None:
-        """#2464 (4): ``normal`` clears the boolean only as a *change*, so saving a migrated bed keeps ``False``."""
+        """#2464 (4): an unchanged risk never touches the boolean, so saving a migrated bed keeps ``False``."""
         service, repo, _ = world
         self._migrated_protected_bed(repo)
 
@@ -451,13 +485,37 @@ class TestPatchingALocation:
         assert all("frost_exposed" not in columns for _, columns in repo.field_updates)
         assert repo.locations["bed"].site_conditions.microclimate.frost_risk is FrostRisk.NORMAL
 
-    def test_a_migrated_protected_bed_changed_away_and_back_to_normal_inherits_again(self, world) -> None:
-        """#2464 (4), the documented edge: a deliberate change *to* ``normal`` means "no override" (#2454 item 2)."""
+    def test_a_migrated_protected_bed_changed_to_low_and_back_to_normal_stays_protected(self, world) -> None:
+        """#2503 edge 1 as decided in #2512: ``normal`` leaves a forced ``False`` untouched."""
+        service, repo, _ = world
+        self._migrated_protected_bed(repo)
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "low"}})
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is False
+
+    def test_a_migrated_protected_bed_changed_to_high_and_back_to_normal_inherits(self, world) -> None:
+        """#2503 edge 1 via ``high`` (#2512): ``high`` replaces the ``False`` by ``True``, the boolean keeps no history.
+
+        The way back to ``normal`` then clears that ``True`` (only ``high`` → ``normal`` clears), so the bed
+        inherits from the site type; the earlier protection is not restored. Recording ``low`` brings it back.
+        """
         service, repo, _ = world
         self._migrated_protected_bed(repo)
 
         patch_location(service, site_conditions={"microclimate": {"frost_risk": "high"}})
+        assert repo.locations["bed"].frost_exposed is True
         patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is None
+
+    def test_a_migrated_protected_bed_changed_to_unknown_inherits(self, world) -> None:
+        """``unknown`` is the explicit "no information": it clears a forced ``False`` too (#2512)."""
+        service, repo, _ = world
+        self._migrated_protected_bed(repo)
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "unknown"}})
 
         assert repo.locations["bed"].frost_exposed is None
 
