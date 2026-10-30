@@ -156,7 +156,7 @@ required-version = "==0.13.6"
 # #1296/#1303 removed with `--no-build-isolation` under pip-tools. Constraining
 # the build backend keeps that reproducibility under uv without disabling
 # isolation. Aged by the `python build backend` regex rule in renovate.json5.
-build-constraint-dependencies = ["setuptools==84.0.0", "wheel==0.48.0"]
+build-constraint-dependencies = ["setuptools==84.2.1", "wheel==0.48.0"]
 
 [build-system]
 requires = ["setuptools>=75.0"]
