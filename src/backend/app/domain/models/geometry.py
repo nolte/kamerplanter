@@ -131,7 +131,7 @@ def _validate_points(
 class _GeometryBase(BaseModel):
     """Common configuration: unknown fields are an error (a ``rotation_deg`` on a circle is V-01)."""
 
-    model_config = {"extra": "forbid", "frozen": True}
+    model_config = {"extra": "forbid", "frozen": True, "allow_inf_nan": False}
 
 
 class RectGeometry(_GeometryBase):

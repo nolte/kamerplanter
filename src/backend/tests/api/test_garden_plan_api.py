@@ -73,9 +73,9 @@ def client(repo: FakePlanRepo) -> Iterator[Callable[..., TestClient]]:
 
     service = GardenPlanService(repo._sites, repo)
 
-    def build(role: TenantRole = TenantRole.GROWER) -> TestClient:
+    def build(role: TenantRole = TenantRole.GROWER, *, raise_server_exceptions: bool = True) -> TestClient:
         _Tenants.role = role
-        return TestClient(app)
+        return TestClient(app, raise_server_exceptions=raise_server_exceptions)
 
     app.dependency_overrides[get_current_user] = lambda: User(
         _key="u_sabine", email="s@example.org", display_name="Sabine"
@@ -465,3 +465,31 @@ class TestTheContract:
         assert set(paths[base]) == {"get"} and set(paths[f"{base}/boundary"]) == {"put"}
         assert set(paths[f"{base}/batch"]) == {"post"} and set(paths[f"{base}/audit"]) == {"get"}
         assert {"403", "409", "422"} <= set(paths[f"{base}/batch"]["post"]["responses"])
+
+
+class TestNonFiniteGeometryOnTheWire:
+    @pytest.mark.parametrize("number", ["Infinity", "-Infinity", "NaN", "1e999"])
+    @pytest.mark.parametrize("field", ["origin", "width_m"])
+    @pytest.mark.parametrize("route", ["boundary", "batch"])
+    def test_raw_non_finite_numbers_are_a_422_and_write_nothing(
+        self, client: Callable[..., TestClient], repo: FakePlanRepo, number: str, field: str, route: str
+    ) -> None:
+        origin = f"[{number},0]" if field == "origin" else "[0,0]"
+        width = number if field == "width_m" else "1"
+        geometry = f'{{"kind":"rect","origin":{origin},"width_m":{width},"length_m":1}}'
+        c = client(raise_server_exceptions=False)
+        if route == "boundary":
+            response = c.put(
+                f"{_PLAN}/boundary",
+                content='{"boundary":' + geometry + "}",
+                headers={"Content-Type": "application/json"},
+            )
+        else:
+            payload = (
+                '{"expected_revision":5,"operations":[{"op":"create_location","temp_key":"nonfinite",'
+                '"data":{"name":"Invalid bed","location_type_key":"bed","geometry":' + geometry + "}}]}"
+            )
+            response = c.post(f"{_PLAN}/batch", content=payload, headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 422, response.text
+        assert repo.applied == [] and repo._sites.sites[SITE].plan.plan_revision == 5
