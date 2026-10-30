@@ -452,10 +452,11 @@ def list_plan_audit(
 
 
 #: Headers of a downloadable SVG (GP-NFR-052 (e)): never rendered inline by the browser, never sniffed into
-#: another type, and — should it be opened anyway — allowed to load nothing and run nothing.
+#: another type, and — should it be opened anyway — allowed to load nothing and run nothing. The engine emits no
+#: ``style`` element or attribute (presentation attributes only), so no ``style-src`` is granted (#2542 S-4).
 SVG_DOWNLOAD_HEADERS = {
     "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+    "Content-Security-Policy": "default-src 'none'",
 }
 
 
@@ -570,7 +571,8 @@ async def import_plan(
     """
     raw = await read_bounded_body(request, PLAN_IMPORT_MAX_BODY_BYTES)
     try:
-        envelope = PlanImportRequest.model_validate_json(raw)
+        # Up to 5 MB of JSON: parsed off the event loop, like the import itself (#2542 S-2).
+        envelope = await run_in_threadpool(PlanImportRequest.model_validate_json, raw)
     except PydanticValidationError as exc:
         raise ValidationError(
             "The import request is invalid.",

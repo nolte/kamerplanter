@@ -184,7 +184,7 @@ GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON backup
 
 The response carries `X-Plan-Scale` (for example `1:50`). `X-Plan-Suggested-Paper: a3` appears when A4 would need a scale coarser than 1:200.
 
-The PDF contains no member names, assignments, notes or coordinates. The SVG uses millimetres in its `viewBox` (1 m = 1,000 units) and is delivered as an attachment with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`. The JSON backup carries `schema_version: "1"` with the plan settings, locations, slots and garden objects, but no plants, tasks, events or account references.
+The PDF contains no member names, assignments, notes or coordinates. The SVG uses millimetres in its `viewBox` (1 m = 1,000 units) and is delivered as an attachment with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'` (the SVG carries no `style` element or attribute). The JSON backup carries `schema_version: "1"` with the plan settings, locations, slots and garden objects, but no plants, tasks, events or account references.
 
 **Error codes:**
 
@@ -255,7 +255,7 @@ Keys of the file are never kept: every location, garden object and slot gets a n
 
 ### Earlier states of the plan (snapshots)
 
-A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
+A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year; a site keeps at most its 20 newest snapshots, and a `replace` or restore that writes a 21st removes the oldest). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
 
 ```
 GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # list, newest first, paged (limit/offset)

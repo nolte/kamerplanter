@@ -24,6 +24,7 @@ from app.data_access.arango.garden_plan_repository import _BATCH_WRITE, ArangoGa
 from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.domain.models.garden_plan import SetBoundaryOp
+from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 from app.domain.models.irrigation_zone import IrrigationZone
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
 from app.domain.services.garden_plan_import_service import GardenPlanImportService
@@ -945,6 +946,42 @@ class TestSnapshotsWp719:
         assert grower.value.status_code == 403 and grower.value.error_code == "import.forbidden"
         with pytest.raises(NotFoundError):  # another tenant's lead: the site answers 404 before the role is read
             rig.importer.list_snapshots("site_a", tenant_key=B, role=TenantRole.LEAD, offset=0, limit=50)
+
+    def test_a_site_keeps_its_newest_twenty_snapshots_and_every_other_row(self, rig) -> None:
+        """#2542 W-2 (GP-NFR-055): the 21st snapshot removes the oldest, in the import's own transaction."""
+        audit = rig.db.collection(col.GARDEN_PLAN_AUDIT)
+        foreign = [
+            {"tenant_key": A, "site_key": "site_c", "revision": 1, "op": "import_snapshot", "snapshot": {}},
+            {"tenant_key": B, "site_key": "site_a", "revision": 1, "op": "import_snapshot", "snapshot": {}},
+            # #2542: a row the listing hides (``snapshot == null``) is neither counted nor removed by the prune.
+            {"tenant_key": A, "site_key": "site_a", "revision": 999, "op": "import_snapshot", "snapshot": None},
+        ]
+        foreign_keys = {audit.insert({**row, "at": "2026-01-01T00:00:00+00:00"})["_key"] for row in foreign}
+        keys = build_source_plan(rig)
+        part = rig.exported_partial("selection", keys["b1"])
+
+        def rows(*, snapshots: bool) -> set[str]:
+            return {
+                row["_key"]
+                for row in audit.find({"tenant_key": A, "site_key": "site_a"})
+                if (row["op"] == "import_snapshot") is snapshots and row["_key"] not in foreign_keys
+            }
+
+        first: list[str] = []
+        for _ in range(MAX_SNAPSHOTS_PER_SITE + 1):
+            assert rig.run(part, site="site_a", confirm_site_name="Garten A").snapshot_written
+            newest, *_ = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+            first.append(newest.audit_key)
+            if len(first) == 1:
+                change_log = rows(snapshots=False)
+
+        kept = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+
+        assert len(kept) == MAX_SNAPSHOTS_PER_SITE == 20
+        assert [entry.audit_key for entry in kept] == first[:0:-1]  # newest first; the oldest one is gone
+        assert rows(snapshots=True) == set(first[1:])
+        assert change_log and change_log <= rows(snapshots=False)  # the change log rows of the imports all stay
+        assert all(audit.has(key) for key in foreign_keys)  # another site, another tenant: untouched
 
     def test_a_snapshot_of_another_tenant_or_site_is_a_404_and_a_grower_gets_a_403(self, rig) -> None:
         self._replace_site_a_with_a_part(rig)

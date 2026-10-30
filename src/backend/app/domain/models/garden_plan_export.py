@@ -33,7 +33,7 @@ from app.common.enums import (
     SunExposure,
 )
 from app.domain.models.garden_object import GardenObjectProps
-from app.domain.models.garden_plan import MAX_PLAN_ZONES
+from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE, MAX_PLAN_ZONES, MAX_SLOTS_PER_SITE
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.irrigation_zone import COLOR_PATTERN, DEFAULT_ZONE_COLOR
 from app.domain.models.site import SiteConditions, SoilProfile
@@ -174,3 +174,18 @@ class GardenPlanExport(BaseModel):
     garden_objects: list[ExportGardenObject] = Field(default_factory=list)
     #: Additive inside ``schema_version "1"``: a file written before WP 7.2 has no ``zones`` and reads as ``[]``.
     zones: list[ExportZone] = Field(default_factory=list, max_length=MAX_PLAN_ZONES)
+
+
+class GardenPlanImportDocument(GardenPlanExport):
+    """A backup **as the import reads it** (#2542 W-1): the lists of an untrusted file are capped before any lookup.
+
+    A file may not hold more locations, garden objects or slots than one site may (GP-NFR-017); without the caps
+    an oversized file was read whole and every one of its beds resolved its zone and substrate before
+    ``_check_quotas`` refused it. The caps sit here and not on :class:`GardenPlanExport`, because that model is
+    also what the export *writes*: the location quota is enforced by the plan batch and the import, but a location
+    created through the site API is not counted against it, so a site above the quota must still be exportable.
+    """
+
+    locations: list[ExportLocation] = Field(default_factory=list, max_length=MAX_PLAN_OBJECTS_PER_SITE)
+    slots: list[ExportSlot] = Field(default_factory=list, max_length=MAX_SLOTS_PER_SITE)
+    garden_objects: list[ExportGardenObject] = Field(default_factory=list, max_length=MAX_PLAN_OBJECTS_PER_SITE)

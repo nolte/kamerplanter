@@ -170,7 +170,7 @@ class TestTheSvgDownload:
         assert response.headers["content-disposition"] == f'attachment; filename="garden-plan-{SITE}.svg"'
         assert response.headers["x-content-type-options"] == "nosniff"
         # The route's own policy, not the app-wide one the middleware writes for JSON.
-        assert response.headers["content-security-policy"] == "default-src 'none'; style-src 'unsafe-inline'"
+        assert response.headers["content-security-policy"] == "default-src 'none'"
 
     def test_the_body_is_the_scaled_plan(self, client) -> None:
         response = client().get(_SVG)
