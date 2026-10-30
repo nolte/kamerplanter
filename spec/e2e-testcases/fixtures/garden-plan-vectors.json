@@ -52,7 +52,8 @@
     "adjacency": "input.slots (key, role, bed-frame geometry, optional spacing_cm, row_spacing_cm, mature_width_cm, growth_habit), input.adjacency_factor -> expected [[slot_a_key, slot_b_key, distance_cm]] sorted by keys (server-side only: adjacency_engine.derive_adjacency; the TypeScript tests skip this operation)",
     "plant_state": "input.now (ISO instant, UTC calendar day), input.plant {kind plant|planned|sown, removed_on, termination_type}, input.phase {key, started_on, typical_days, allows_harvest, is_terminal} | null, input.tasks [{category, due (date|null)}] (open tasks), input.open_findings, input.frost_risk, input.harvest_batches (partial/continuous batches) -> expected {lifecycle, phase_key, phase_progress {elapsed_d, typical_d, fraction, next_phase_eta} | null, attention [{reason, count}] in priority order problem > frost > overdue > water > harvest, harvest_ready, harvest_ready_from} - plant_state_calculator.compute / model/plantState.ts computePlantState (REQ-053 GP-FR-192, GP-UX-060)",
     "site_fit": "input.sun_exposure (full_sun | partial_shade | shade | deep_shade | unknown), input.light_requirement (full_sun | partial_shade | shade | null), input.shade_tolerance (full_sun | partial_shade | shade | deep_shade | null) -> expected {fit: ok | marginal | poor | unknown, reason: match | too_sunny | too_shady | tolerated | tolerance_unknown | bed_unknown | requirement_unknown} - site_fit_calculator.assess / model/siteFit.ts assessSiteFit (GP-FR-160, GP-ACC-053)",
-    "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)"
+    "overdue": "input.now (ISO instant), input.due (ISO value | null) -> expected boolean: overdue when the UTC calendar day of due lies before the UTC calendar day of now - a task due today is never overdue, whatever the time of day (overdue_calculator.is_overdue / model/overdue.ts isOverdue, REQ-053 GP-FR-192, #2461)",
+    "phase_color": "input.name (growth-phase name as stored, growth_phases.name) -> expected \"#RRGGBB\": a name that is a known phase after lower-casing and dropping every character outside a-z takes its fixed colour; any other name takes FALLBACK_PALETTE[abs(h) % 10] with h = int32(h * 31 + c) over the UTF-16 code units c of the unnormalised name (phase_colors.phase_color / planting/phaseColors.ts phaseColor, REQ-053 GP-FR-067, GP-UX-005)"
   },
   "cases": [
     {
@@ -4370,6 +4371,204 @@
         "due": "2026-10-19T00:00:00Z"
       },
       "expected": false
+    },
+    {
+      "id": "phase-color-germination",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "germination"
+      },
+      "expected": "#81C784"
+    },
+    {
+      "id": "phase-color-seedling",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "seedling"
+      },
+      "expected": "#66BB6A"
+    },
+    {
+      "id": "phase-color-vegetative",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "vegetative"
+      },
+      "expected": "#43A047"
+    },
+    {
+      "id": "phase-color-flowering",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "flowering"
+      },
+      "expected": "#AB47BC"
+    },
+    {
+      "id": "phase-color-harvest",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "harvest"
+      },
+      "expected": "#EF5350"
+    },
+    {
+      "id": "phase-color-drying",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "drying"
+      },
+      "expected": "#FF7043"
+    },
+    {
+      "id": "phase-color-curing",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "curing"
+      },
+      "expected": "#FFA726"
+    },
+    {
+      "id": "phase-color-flushing",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "flushing"
+      },
+      "expected": "#42A5F5"
+    },
+    {
+      "id": "phase-color-ripening",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "ripening"
+      },
+      "expected": "#FF8A65"
+    },
+    {
+      "id": "phase-color-cloning",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: named phase",
+      "input": {
+        "name": "cloning"
+      },
+      "expected": "#26A69A"
+    },
+    {
+      "id": "phase-color-upper-case",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: case does not matter for a named phase",
+      "input": {
+        "name": "FLOWERING"
+      },
+      "expected": "#AB47BC"
+    },
+    {
+      "id": "phase-color-title-case",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: case does not matter for a named phase",
+      "input": {
+        "name": "Vegetative"
+      },
+      "expected": "#43A047"
+    },
+    {
+      "id": "phase-color-whitespace",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: surrounding whitespace is dropped for a named phase",
+      "input": {
+        "name": "  Flowering \n"
+      },
+      "expected": "#AB47BC"
+    },
+    {
+      "id": "phase-color-inner-separators",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: every character outside a-z is dropped before the lookup",
+      "input": {
+        "name": "Ger-mi nation"
+      },
+      "expected": "#81C784"
+    },
+    {
+      "id": "phase-color-unknown-dormancy",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: unknown name falls back by hash (h = 1283420777)",
+      "input": {
+        "name": "dormancy"
+      },
+      "expected": "#FFA726"
+    },
+    {
+      "id": "phase-color-unknown-case-sensitive",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: the fallback hashes the unnormalised name, so case changes it (h = 1348064905)",
+      "input": {
+        "name": "Dormancy"
+      },
+      "expected": "#D4E157"
+    },
+    {
+      "id": "phase-color-unknown-negative-hash",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: a negative hash takes its absolute value (h = -7053138)",
+      "input": {
+        "name": "juvenile"
+      },
+      "expected": "#EC407A"
+    },
+    {
+      "id": "phase-color-unknown-underscore",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: an enum-like name that is no named phase falls back (h = -1497361049)",
+      "input": {
+        "name": "pre_bloom"
+      },
+      "expected": "#78909C"
+    },
+    {
+      "id": "phase-color-unknown-non-ascii",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: a non-ASCII name hashes its UTF-16 code units (h = 2136557366)",
+      "input": {
+        "name": "Überwinterung"
+      },
+      "expected": "#FFCA28"
+    },
+    {
+      "id": "phase-color-unknown-astral",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: an astral character counts as two UTF-16 code units (h = -314100348)",
+      "input": {
+        "name": "🌱 sprout"
+      },
+      "expected": "#EC407A"
+    },
+    {
+      "id": "phase-color-unknown-wraps",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: the hash wraps at 32 bits (h = 1053425175)",
+      "input": {
+        "name": "a very long phase name that overflows the hash many times"
+      },
+      "expected": "#D4E157"
+    },
+    {
+      "id": "phase-color-empty",
+      "operation": "phase_color",
+      "spec": "GP-FR-067, GP-UX-005: the empty name hashes to 0, the first fallback colour",
+      "input": {
+        "name": ""
+      },
+      "expected": "#7E57C2"
     }
   ]
 }
