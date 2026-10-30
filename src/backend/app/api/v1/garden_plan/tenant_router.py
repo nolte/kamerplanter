@@ -570,7 +570,8 @@ async def import_plan(
     """
     raw = await read_bounded_body(request, PLAN_IMPORT_MAX_BODY_BYTES)
     try:
-        envelope = PlanImportRequest.model_validate_json(raw)
+        # Up to 5 MB of JSON: parsed off the event loop, like the import itself (#2542 S-2).
+        envelope = await run_in_threadpool(PlanImportRequest.model_validate_json, raw)
     except PydanticValidationError as exc:
         raise ValidationError(
             "The import request is invalid.",
