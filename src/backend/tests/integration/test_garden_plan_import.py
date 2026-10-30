@@ -342,6 +342,44 @@ class TestFrostOverrideRoundTrip2512:
         assert stored["Beet b2"]["frost_exposed"] is True
         assert stored["Beet b3"].get("frost_exposed") is None
 
+    def test_a_restored_snapshot_gives_back_a_forced_false_from_the_stored_row(self, rig) -> None:
+        """#2512: the snapshot path carries ``frost_exposed`` like the file; the restore takes the stored value.
+
+        ``normal`` is both a forced ``False`` (v0098, #2464) and "inherit", so a restore that re-derived the
+        boolean from the risk would silently drop the protection of the bed the ``replace`` overwrote.
+        """
+        keys = build_source_plan(rig)
+        beds = rig.db.collection(col.LOCATIONS)
+        beds.update(
+            {"_key": keys["b1"], "frost_exposed": False, "site_conditions": {"microclimate": {"frost_risk": "normal"}}}
+        )
+        part = rig.exported_partial("selection", keys["b2"])
+        report = rig.run(part, site="site_a", confirm_site_name="Garten A")
+        assert report.applied and report.snapshot_written
+        # positive controls: the import did overwrite b1, and the snapshot holds its forced ``False``
+        assert list(beds.find({"site_key": "site_a", "name": "Beet b1"})) == []
+        (row,) = list(rig.db.collection(col.GARDEN_PLAN_AUDIT).find({"op": "import_snapshot"}))
+        (saved,) = [loc for loc in row["snapshot"]["locations"] if loc["name"] == "Beet b1"]
+        assert saved["frost_exposed"] is False
+        (entry,) = rig.importer.list_snapshots("site_a", tenant_key=A, role=TenantRole.LEAD, offset=0, limit=50)
+
+        restored = rig.importer.restore_snapshot(
+            "site_a",
+            entry.audit_key,
+            tenant_key=A,
+            user_key=USER,
+            role=TenantRole.LEAD,
+            dry_run=False,
+            force=False,
+            confirm_site_name="Garten A",
+        )
+
+        assert restored.applied and restored.errors == []
+        (bed,) = list(beds.find({"site_key": "site_a", "name": "Beet b1"}))
+        assert bed["_key"] != keys["b1"]  # a new document, so the value came through the snapshot
+        assert bed.get("frost_exposed") is False  # an absent key is the re-derived ``None``
+        assert bed["site_conditions"]["microclimate"]["frost_risk"] == "normal"
+
 
 class TestZonesWp72:
     """REQ-053 WP 7.2 (#2468): the zones travel in the file, the technical coupling does not."""

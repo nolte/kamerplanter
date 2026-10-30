@@ -519,6 +519,39 @@ class TestPatchingALocation:
 
         assert repo.locations["bed"].frost_exposed is None
 
+    @pytest.mark.parametrize(
+        ("stored_risk", "stored_boolean", "expected"),
+        [(FrostRisk.LOW, True, None), (FrostRisk.HIGH, False, False)],
+        ids=["low-with-true", "high-with-false"],
+    )
+    def test_a_conflicting_legacy_row_changed_to_normal_follows_the_stored_boolean(
+        self, world, stored_risk, stored_boolean, expected
+    ) -> None:
+        """#2512: on ``normal`` the predicate is the stored boolean, never the risk it is changed from.
+
+        v0098 lists rows whose stored risk and stored ``frost_exposed`` disagree as ``conflicts`` and leaves
+        them as they are. On such a row the old risk says nothing reliable about the override: ``normal``
+        takes back a stored ``True`` even when the old risk was ``low``, and keeps a forced ``False`` even
+        when the old risk was ``high``. A predicate on the old risk would invert both outcomes.
+        """
+        service, repo, _ = world
+        repo.locations["bed"] = repo.locations["bed"].model_copy(
+            update={
+                "frost_exposed": stored_boolean,
+                "site_conditions": SiteConditions(microclimate=Microclimate(frost_risk=stored_risk)),
+            }
+        )
+
+        patch_location(service, site_conditions={"microclimate": {"frost_risk": "normal"}})
+
+        assert repo.locations["bed"].frost_exposed is expected
+        assert repo.locations["bed"].site_conditions.microclimate.frost_risk is FrostRisk.NORMAL
+        written = repo.field_updates[-1][1]
+        if stored_boolean is False:
+            assert "frost_exposed" not in written  # the forced ``False`` is left alone, no column is written
+        else:
+            assert written["frost_exposed"] is None  # the clear of the ``True`` is written, not left to chance
+
     def test_a_viewer_is_refused_before_anything_is_looked_at(self, world) -> None:
         service, repo, _ = world
         with pytest.raises(ForbiddenError):
