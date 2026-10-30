@@ -470,7 +470,7 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     # purpose, so the deployment is expected to disable those endpoints
     # in production (NFR-014 §3.2 / kamerplanter-debug-endpoints.yaml).
     # A default, not an override: the garden-plan SVG download names its own policy (REQ-053 GP-NFR-052 (e),
-    # ``default-src 'none'; style-src 'unsafe-inline'``), and a middleware that wrote last would have discarded it.
+    # ``default-src 'none'``), and a middleware that wrote last would have discarded it.
     if "content-security-policy" not in response.headers:
         response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"

@@ -14,6 +14,7 @@ Version: 1.2 (§2.5 Gartenplan-Grundriss aus REQ-053, SVG/PDF-Härtung)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 (Nachtrag #2542) | 2026-10-30 | **SVG-Download-CSP verschärft (REQ-053 GP-NFR-052 (e), #2542):** `Content-Security-Policy: default-src 'none'` statt `default-src 'none'; style-src 'unsafe-inline'` — das serverseitige SVG trägt weder `style`-Element noch `style`-Attribut. |
 | 1.2 | 2026-10-15 | **REQ-053 v1.4 (Anhang A Issue 41/67):** §2.5 „visueller Grundriss" verweist auf die serverseitige Plan-Darstellung aus REQ-053 — `GET /sites/{key}/plan/render.svg` (GP-API-006) und `GET /print/garden-plan/{site_key}` (GP-API-007, REQ-032-Muster, `paper=a4\|a3`, `scale`, `layers`, `locale`). Neuer `PrintTemplateType.GARDEN_PLAN` (§4.1) und API-Zeile (§5). §8: SVG/PDF-Härtung nach REQ-053 GP-NFR-052 — restriktiver WeasyPrint-`url_fetcher` (nur `data:` und Template-Pfade), Jinja-Autoescape, SVG-Allowlist — gilt für **alle** `/print/*`-Endpunkte; der heutige `PrintEngine` ruft `HTML()` ohne `url_fetcher` auf (SSRF/Local-File-Read, eigenes Issue 6d). |
 | 1.1 | — | Pflanzen-Infokarten mit QR-Code (§2.7, `/print/plant-labels`, `PlantLabelDialog`). |
 | 1.0 | — | Erstversion. |
@@ -306,7 +307,7 @@ interface PlantLabelDialogProps {
   - Die PDF-Erzeugung übergibt WeasyPrint einen restriktiven `url_fetcher`, der nur `data:`-URIs und Pfade unterhalb des Template-Verzeichnisses zulässt. Der heutige `PrintEngine` (`print_engine.py`) ruft `HTML()` **ohne** `url_fetcher` auf; der Default lädt `http(s)://` und `file://` — SSRF und Local-File-Read über nutzerkontrollierte Felder (Pflanzenname, Notiz) in jedem bestehenden Template. Behebung als eigenes Issue (REQ-053 Anhang A 6d), nicht erst mit dem Gartenplan.
   - Jinja-Autoescape ist für alle Print-Templates aktiv; nutzerkontrollierter Text wird kontextgerecht escaped (Text **und** Attribut).
   - Bilder (Fotos in Gießplan, Steckbrief, Infokarte) werden ausschließlich als serverseitig eingebettete `data:`-URIs aus NFR-013-Attachments des Mandanten eingebunden, nie per URL aus dem Template.
-  - Serverseitig erzeugtes SVG (GP-API-006) emittiert nur eine Element-Allowlist ohne `href`/`xlink:href`/`style url()`/`foreignObject`/`script`/`image`; Download mit `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'`.
+  - Serverseitig erzeugtes SVG (GP-API-006) emittiert nur eine Element-Allowlist ohne `href`/`xlink:href`/`style url()`/`foreignObject`/`script`/`image`; Download mit `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'` (kein `style-src`: das SVG trägt weder `style`-Element noch `style`-Attribut, REQ-053 #2542).
   - Negativtest (REQ-053 GP-ACC-045): ein Name `"><image href="http://169.254.169.254/"/>` bzw. `file:///etc/passwd` erzeugt weder Abruf noch Element — als Test gegen den gemeinsamen Engine, damit er jedes Template abdeckt.
 
 ## 9. Erweiterbarkeit
