@@ -6117,7 +6117,10 @@
             "deleted": "Zone {{name}} deleted.",
             "moved": "Taken over from another zone: {{beds}}.",
             "unsavedHint": "Beds and water sources that are not saved yet can be chosen here only after the plan is saved.",
-            "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first."
+            "bedsSelectionUnsaved": "The selected bed is not saved yet. Save the plan first.",
+            "bedsSelectionSkipped_one": "{{count}} selected bed is not saved yet and was not taken over. Save the plan, then take over the selection again.",
+            "bedsSelectionSkipped_other": "{{count}} selected beds are not saved yet and were not taken over. Save the plan, then take over the selection again.",
+            "createdBedsFailed": "Zone {{name}} was created, but its beds are not assigned yet. {{reason}} The beds you chose stay ticked: save the zone again to assign them."
           },
           "errors": {
             "forbidden": "You do not have permission for this.",

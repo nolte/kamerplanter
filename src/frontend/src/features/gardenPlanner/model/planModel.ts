@@ -131,9 +131,12 @@ export function newTempKey(): string {
   return `tmp${tempKeySequence.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
+/** The shape {@link newTempKey} produces: `tmp`, then base-36 digits only (sequence and random part). */
+const TEMP_KEY = /^tmp[0-9a-z]+$/;
+
 /** True for a key made by {@link newTempKey}: the object is not saved yet, the server does not know it. */
 export function isTempKey(key: string): boolean {
-  return key.startsWith('tmp');
+  return TEMP_KEY.test(key);
 }
 
 /**

@@ -6118,7 +6118,10 @@
             "deleted": "Zone {{name}} gelöscht.",
             "moved": "Aus anderer Zone übernommen: {{beds}}.",
             "unsavedHint": "Beete und Wasserquellen, die noch nicht gespeichert sind, stehen hier erst nach dem Speichern des Plans zur Auswahl.",
-            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan."
+            "bedsSelectionUnsaved": "Das ausgewählte Beet ist noch nicht gespeichert. Speichere zuerst den Plan.",
+            "bedsSelectionSkipped_one": "{{count}} ausgewähltes Beet ist noch nicht gespeichert und wurde nicht übernommen. Speichere den Plan und übernimm die Auswahl dann noch einmal.",
+            "bedsSelectionSkipped_other": "{{count}} ausgewählte Beete sind noch nicht gespeichert und wurden nicht übernommen. Speichere den Plan und übernimm die Auswahl dann noch einmal.",
+            "createdBedsFailed": "Die Zone {{name}} wurde angelegt, ihre Beete sind aber noch nicht zugeordnet. {{reason}} Die gewählten Beete bleiben angehakt: Speichere die Zone noch einmal, um sie zuzuordnen."
           },
           "errors": {
             "forbidden": "Dafür fehlt dir die Berechtigung.",

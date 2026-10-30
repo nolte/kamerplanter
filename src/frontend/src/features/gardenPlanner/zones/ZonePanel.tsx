@@ -17,7 +17,7 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { PlanModel } from '../model/planModel';
 import { WateringRoundDialog } from './WateringRoundDialog';
-import { ZoneEditor } from './ZoneEditor';
+import { ZoneEditor, type ZoneAdoption, type ZoneChangeOptions } from './ZoneEditor';
 import { ZoneStatusView } from './ZoneStatusView';
 import type { UseIrrigationZones } from './useZoneData';
 
@@ -32,7 +32,8 @@ export interface ZonePanelProps {
   onClose: () => void;
 }
 
-type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; key: string };
+/** `adopt`: the edit form continues a create whose bed assignment failed (the beds chosen, the message). */
+type Mode = { kind: 'list' } | { kind: 'new' } | { kind: 'edit'; key: string; adopt?: ZoneAdoption };
 
 export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, onClose }: ZonePanelProps) {
   const { t } = useTranslation();
@@ -51,12 +52,12 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
     headingRef.current?.focus();
   }, [mode.kind]);
 
-  const changed = (key: string | null, options?: { stay?: boolean }) => {
+  const changed = (key: string | null, options?: ZoneChangeOptions) => {
     reload();
     onChanged();
     setStatusToken((value) => value + 1);
     if (options?.stay) return;
-    setMode(key === null ? { kind: 'list' } : { kind: 'edit', key });
+    setMode(key === null ? { kind: 'list' } : { kind: 'edit', key, adopt: options?.adopt });
   };
 
   return (
@@ -170,6 +171,7 @@ export default function ZonePanel({ plan, zoneData, selectedBedKeys, onChanged, 
             <ZoneEditor
               key={selected.key}
               zone={record}
+              adopted={mode.adopt}
               siteKey={plan.siteKey}
               plan={plan}
               zones={zones}

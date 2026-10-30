@@ -26,9 +26,24 @@ import {
 const PREFIX = 'pages.gardenPlan.editor.zones';
 const DEFAULT_COLOR = '#2E7D32';
 
+/** What the form of a just-created zone takes over from the create form whose bed assignment failed. */
+export interface ZoneAdoption {
+  beds: readonly string[];
+  error: string;
+}
+
+export interface ZoneChangeOptions {
+  /** Keep the form as it is (a half-done save): only reload. */
+  stay?: boolean;
+  /** The zone was created but its beds were not assigned: open its form with these beds and this message. */
+  adopt?: ZoneAdoption;
+}
+
 interface Props {
   /** `null` creates a zone. */
   zone: IrrigationZone | PlanZone | null;
+  /** Set when the form continues a create whose bed assignment failed: the beds the user chose and why. */
+  adopted?: ZoneAdoption;
   siteKey: string;
   plan: PlanModel;
   /** All zones of the site: a bed names the zone it would be taken from. */
@@ -39,7 +54,7 @@ interface Props {
   /** The `technical` admin scope: the flow rate is a technical value. */
   technical: boolean;
   /** Something was written: reload the zones and the layers. `key` = the zone to show next (null after a delete). */
-  onChanged: (key: string | null, options?: { stay?: boolean }) => void;
+  onChanged: (key: string | null, options?: ZoneChangeOptions) => void;
   onCancel: () => void;
 }
 
@@ -54,7 +69,6 @@ export function errorKey(failure: unknown): string {
   if (failure.statusCode === 429) return 'rateLimited';
   if (failure.statusCode === 409) return 'conflict';
   if (failure.errorCode === 'reference.not_found') return 'referenceNotFound';
-  if (failure.errorCode === 'irrigation_zone.no_beds') return 'noBeds';
   if (failure.errorCode === 'irrigation_zone.quota_exceeded') return 'quota';
   if (failure.statusCode === 422) return 'invalid';
   return 'generic';
@@ -65,7 +79,18 @@ export function errorKey(failure: unknown): string {
  * plan; "take over selection" copies the multi-selection of the plan into it. Deleting is offered to the lead only
  * (the backend decides as well); the zone's beds are left alone by a delete.
  */
-export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDelete, technical, onChanged, onCancel }: Props) {
+export function ZoneEditor({
+  zone,
+  adopted,
+  siteKey,
+  plan,
+  zones,
+  selectedBedKeys,
+  canDelete,
+  technical,
+  onChanged,
+  onCancel,
+}: Props) {
   const { t } = useTranslation();
   const notify = useNotification();
   const record = zone as Partial<IrrigationZone> | null;
@@ -75,13 +100,11 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
   const [hint, setHint] = useState(record?.schedule_hint ?? '');
   const [source, setSource] = useState(record?.water_source_key ?? '');
   const [flow, setFlow] = useState(record?.flow_rate_l_per_min != null ? String(record.flow_rate_l_per_min) : '');
-  const [beds, setBeds] = useState<string[]>(zone?.location_keys ?? []);
+  const [beds, setBeds] = useState<string[]>(() => [...(adopted?.beds ?? zone?.location_keys ?? [])]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(adopted?.error ?? null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Set once the zone exists on the server: a retry after a failed bed assignment must not create it twice.
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   const placedBeds = useMemo(
     () =>
@@ -120,13 +143,13 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
   const takeSelection = () => {
     const known = new Set(placedBeds.map((bed) => bed.key));
     const picked = selectedBedKeys.filter((key) => known.has(key));
+    const unsavedCount = selectedBedKeys.filter(isTempKey).length;
     if (picked.length === 0) {
-      setNotice(
-        t(`${PREFIX}.form.${selectedBedKeys.some(isTempKey) ? 'bedsSelectionUnsaved' : 'bedsSelectionEmpty'}`),
-      );
+      setNotice(t(`${PREFIX}.form.${unsavedCount > 0 ? 'bedsSelectionUnsaved' : 'bedsSelectionEmpty'}`));
       return;
     }
-    setNotice(null);
+    // A mixed selection: the saved beds are taken, the unsaved ones are counted so nobody misses them.
+    setNotice(unsavedCount > 0 ? t(`${PREFIX}.form.bedsSelectionSkipped`, { count: unsavedCount }) : null);
     setBeds(Array.from(new Set([...beds, ...picked])));
   };
 
@@ -135,8 +158,7 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
     if (!nameValid || !flowValid || busy) return;
     setBusy(true);
     setError(null);
-    const existingKey = zone?.key ?? createdKey;
-    let savedKey = existingKey;
+    let savedKey = zone?.key ?? null;
     let wrote = false;
     try {
       const fields: ZoneCreate = {
@@ -148,19 +170,12 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
       };
       if (technical) fields.flow_rate_l_per_min = flowNumber;
       let moved: Record<string, string> = {};
-      if (existingKey === null) {
+      if (zone === null) {
         const created = await createZone(siteKey, fields);
         savedKey = created.key;
-        setCreatedKey(created.key);
         wrote = true;
         if (beds.length > 0) moved = (await replaceZoneLocations(created.key, beds)).moved_from;
         notify.success(t(`${PREFIX}.form.created`, { name: created.name }));
-      } else if (zone === null) {
-        // Retry after a failed assignment: the zone exists, only the fields and the beds are sent again.
-        await updateZone(existingKey, fields);
-        moved = (await replaceZoneLocations(existingKey, beds)).moved_from;
-        wrote = true;
-        notify.success(t(`${PREFIX}.form.created`, { name: fields.name }));
       } else {
         const patch: ZoneUpdate = {};
         if (fields.name !== zone.name) patch.name = fields.name;
@@ -184,10 +199,22 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
       onChanged(savedKey);
     } catch (failure) {
       const key = errorKey(failure);
-      setError(t(`${PREFIX}.errors.${key}`));
-      // The zone is gone: leave its form. Otherwise a half-done save keeps the form (and its ticked beds) as it is.
-      if (key === 'notFound') onChanged(null);
-      else if (wrote) onChanged(savedKey, { stay: true });
+      const message = t(`${PREFIX}.errors.${key}`);
+      if (key === 'notFound') {
+        // The zone is gone and its form closes with it: the message goes where it outlives the form.
+        notify.error(message);
+        onChanged(null);
+      } else if (zone === null && savedKey !== null) {
+        // Created, but the beds were not assigned: continue in the form of the created zone (it can be deleted
+        // there, and a second save cannot create it twice), with the beds the user chose still ticked.
+        onChanged(savedKey, {
+          adopt: { beds, error: t(`${PREFIX}.form.createdBedsFailed`, { name: name.trim(), reason: message }) },
+        });
+      } else {
+        // A half-done save keeps the form (and its ticked beds) as it is; what was written is read again.
+        setError(message);
+        if (wrote) onChanged(savedKey, { stay: true });
+      }
     } finally {
       setBusy(false);
     }
@@ -204,8 +231,14 @@ export function ZoneEditor({ zone, siteKey, plan, zones, selectedBedKeys, canDel
     } catch (failure) {
       setConfirmDelete(false);
       const key = errorKey(failure);
-      setError(t(`${PREFIX}.errors.${key}`));
-      if (key === 'notFound') onChanged(null);
+      const message = t(`${PREFIX}.errors.${key}`);
+      if (key === 'notFound') {
+        // Nothing left to delete: the form closes, so the message goes where it outlives it.
+        notify.error(message);
+        onChanged(null);
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
