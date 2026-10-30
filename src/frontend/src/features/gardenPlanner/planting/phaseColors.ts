@@ -43,16 +43,16 @@ export function phaseColor(phaseName: string): string {
   return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
 }
 
-/** `phase key → colour` for the phases the plants of a bed are in; empty until the names arrive. */
-export function usePhaseColors(phaseKeys: readonly (string | null | undefined)[]): Readonly<Record<string, string>> {
+/** `phase key → phase name` for the phases the plants are in; empty until the names arrive. */
+export function usePhaseNames(phaseKeys: readonly (string | null | undefined)[]): Readonly<Record<string, string>> {
   const wanted = useMemo(
     () => [...new Set(phaseKeys.filter((key): key is string => Boolean(key)))].sort(),
     [phaseKeys],
   );
   const signature = wanted.join('|');
-  const [loaded, setLoaded] = useState<{ signature: string; colors: Record<string, string> }>({
+  const [loaded, setLoaded] = useState<{ signature: string; names: Record<string, string> }>({
     signature: '',
-    colors: {},
+    names: {},
   });
   useEffect(() => {
     if (wanted.length === 0) return undefined;
@@ -60,7 +60,7 @@ export function usePhaseColors(phaseKeys: readonly (string | null | undefined)[]
     Promise.all(
       wanted.map((key) =>
         getGrowthPhase(key)
-          .then((phase): [string, string] => [key, phaseColor(phase.name)])
+          .then((phase): [string, string] => [key, phase.name])
           // A phase that cannot be read keeps the default plant colour.
           .catch((): [string, string] | null => null),
       ),
@@ -68,7 +68,7 @@ export function usePhaseColors(phaseKeys: readonly (string | null | undefined)[]
       if (cancelled) return;
       setLoaded({
         signature,
-        colors: Object.fromEntries(entries.filter((entry): entry is [string, string] => entry !== null)),
+        names: Object.fromEntries(entries.filter((entry): entry is [string, string] => entry !== null)),
       });
     });
     return () => {
@@ -77,7 +77,20 @@ export function usePhaseColors(phaseKeys: readonly (string | null | undefined)[]
     // `signature` is the content of `wanted`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
-  return loaded.signature === signature ? loaded.colors : NO_COLORS;
+  return loaded.signature === signature ? loaded.names : NO_ENTRIES;
 }
 
-const NO_COLORS: Readonly<Record<string, string>> = {};
+/** `phase key → colour` for the phases the plants of a bed are in; empty until the names arrive. */
+export function usePhaseColors(phaseKeys: readonly (string | null | undefined)[]): Readonly<Record<string, string>> {
+  const names = usePhaseNames(phaseKeys);
+  return useMemo(() => colorsOf(names), [names]);
+}
+
+/** `phase key → colour` from `phase key → name`. */
+export function colorsOf(names: Readonly<Record<string, string>>): Readonly<Record<string, string>> {
+  const keys = Object.keys(names);
+  if (keys.length === 0) return NO_ENTRIES;
+  return Object.fromEntries(keys.map((key) => [key, phaseColor(names[key])]));
+}
+
+const NO_ENTRIES: Readonly<Record<string, string>> = {};
