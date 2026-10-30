@@ -98,7 +98,7 @@ import { SaveBar } from './SaveBar';
 import { ScaleBar } from './ScaleBar';
 import { SkipLinks } from './SkipLinks';
 import { SnapMarker, type SnapMark } from './SnapMarker';
-import { bedFrameGeometry } from '../templates/placeGeometry';
+import { bedFrameGeometry, originForCentre, placeGeometry } from '../templates/placeGeometry';
 import { TemplateGhost } from '../templates/TemplateGhost';
 import { useBedTemplates } from '../templates/useBedTemplates';
 import { TouchBar } from './TouchBar';
@@ -127,13 +127,19 @@ import {
   type AlignMode,
   type DistributeAxis,
 } from './tools/align';
-import { duplicateSelection, multiDuplicate, type MultiDuplicateOptions } from './tools/duplicate';
+import {
+  duplicateSelection,
+  multiDuplicate,
+  type MultiDuplicateOptions,
+  type MultiRefusal,
+} from './tools/duplicate';
 import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
-import { resolveSnap, type SnapPointerType } from './tools/snap';
+import { resolveMoveSnap, resolveSnap, type SnapPointerType } from './tools/snap';
 import { useEditorTools } from './tools/useEditorTools';
+import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
 import { useTouchInput } from './tools/useTouchInput';
 import { zOrderOps, type ZMove } from './tools/zOrder';
@@ -505,6 +511,25 @@ export function GardenPlanEditor({
       }).point,
     [candidates, gridStepM, snapEnabled, pxPerM],
   );
+  // A moved object snaps with every vertex of its shape (GP-FR-154): its right edge can meet another's left edge.
+  const snapMove = useCallback(
+    (
+      sources: readonly Point[],
+      reference: Point,
+      rawDelta: Point,
+      bypass: boolean,
+      pointerType: SnapPointerType = 'mouse',
+    ) =>
+      resolveMoveSnap(sources, reference, rawDelta, {
+        gridM: gridStepM,
+        gridEnabled: snapEnabled,
+        bypass,
+        pxPerM,
+        pointerType,
+        candidates,
+      }),
+    [candidates, gridStepM, snapEnabled, pxPerM],
+  );
 
   const tools = useEditorTools({
     tool,
@@ -527,6 +552,7 @@ export function GardenPlanEditor({
     bedTypeKey,
     objectType,
     snapPoint,
+    snapMove,
   });
 
   const zoomCenter = useMemo<Point>(
@@ -620,12 +646,18 @@ export function GardenPlanEditor({
     ],
   );
 
-  // The snap marker follows the pointer of the draw tools, of the template tool and of a move under way
-  // (where the next point will land); on an object edge it draws that edge as a guide (GP-FR-154).
+  // The snap marker follows the pointer of the draw tools, of the template tool and of a dragged handle (where
+  // the next point will land); on an object edge it draws that edge as a guide (GP-FR-154). A select press, a
+  // marquee or a move never shows the pointer's marker: a move shows where the moved object snapped
+  // (`tools.moveSnap`), and the first pointer move of a drag still sees the press here.
   const drawTool = tool === 'bed' || tool === 'garden_object';
   const templateTool = templateMode !== null;
-  const { onPointerMove: toolPointerMove, onPointerUp: toolPointerUp } = tools.containerProps;
-  const toolBusy = tools.busy;
+  const {
+    onPointerMove: toolPointerMove,
+    onPointerUp: toolPointerUp,
+    onPointerCancel: toolPointerCancel,
+  } = tools.containerProps;
+  const toolHandleDragging = tools.handleDragging;
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
@@ -641,7 +673,7 @@ export function GardenPlanEditor({
           previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
         );
       }
-      if (!(drawTool || templateTool || toolBusy) || !snapEnabled || event.altKey) {
+      if (!(drawTool || templateTool || toolHandleDragging) || !snapEnabled || event.altKey) {
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
@@ -674,7 +706,7 @@ export function GardenPlanEditor({
       snapEnabled,
       snapPoint,
       templateTool,
-      toolBusy,
+      toolHandleDragging,
       toolPointerMove,
     ],
   );
@@ -682,12 +714,20 @@ export function GardenPlanEditor({
     setSnapMark(null);
     setGhostPoint(null);
   }, []);
+  // A release or a cancel ends the gesture the marker belonged to; the next hover move draws it again.
   const onPointerUp = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerUp(event);
-      if (event.pointerType === 'touch') setSnapMark(null); // there is no hover to follow
+      setSnapMark(null);
     },
     [toolPointerUp],
+  );
+  const onPointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      toolPointerCancel(event);
+      setSnapMark(null);
+    },
+    [toolPointerCancel],
   );
   const onPlantsNearby = useCallback(
     (keys: string[], pointPx: Point) => {
@@ -699,8 +739,8 @@ export function GardenPlanEditor({
   );
   // The touch layer wraps the handlers above (keys, snap marker), so both layers work together.
   const touchBase = useMemo(
-    () => ({ ...tools.containerProps, onKeyDown, onPointerMove, onPointerUp }),
-    [onKeyDown, onPointerMove, onPointerUp, tools.containerProps],
+    () => ({ ...tools.containerProps, onKeyDown, onPointerMove, onPointerUp, onPointerCancel }),
+    [onKeyDown, onPointerMove, onPointerUp, onPointerCancel, tools.containerProps],
   );
   // Pinch: the factor of one step is applied to the current zoom; the route clamps it like the buttons.
   const onPinch = useMemo(
@@ -804,9 +844,11 @@ export function GardenPlanEditor({
 
   /** Duplicate several times (GP-FR-025): one undo step; the dialog shows a refusal. */
   const runMultiDuplicate = useCallback(
-    (options: MultiDuplicateOptions): string | null => {
+    (options: MultiDuplicateOptions): MultiRefusal | null => {
       const outcome = multiDuplicate(plan, selection, { ...options, pendingCount: pending.length });
-      if (!outcome.ok) return outcome.code;
+      if (!outcome.ok) {
+        return { code: outcome.code, failedCopy: outcome.failedCopy, failedName: outcome.failedName };
+      }
       onCommit(outcome.value.ops, 'multiDuplicate');
       dispatch(setSelection(outcome.value.selection));
       dispatch(setStack(null));
@@ -1346,10 +1388,33 @@ export function GardenPlanEditor({
     () => templateCatalogue.templates.find((item) => item.key === templateMode?.templateKey) ?? null,
     [templateCatalogue.templates, templateMode?.templateKey],
   );
+  // "Place at centre": the middle of the turned template's box lands on the (snapped) middle of the view (#2536).
+  const viewCentreX = viewport.widthPx / 2;
+  const viewCentreY = viewport.heightPx / 2;
+  const placeAtCentre = useCallback(() => {
+    if (!selectedTemplate || !templateMode) return;
+    const target = snapPoint(renderer.toModel([viewCentreX, viewCentreY]), false);
+    const origin = originForCentre(
+      selectedTemplate.default_geometry,
+      templateMode.rotationDeg,
+      target,
+    );
+    if (origin) void placeTemplate(origin);
+  }, [placeTemplate, renderer, selectedTemplate, snapPoint, templateMode, viewCentreX, viewCentreY]);
+  // The ghost turns red where the template would break a rule the client can check (V-01..V-03 against the garden
+  // boundary - the server places it without a parent); a bed overlap stays the server's (#2536).
+  const ghostInvalid = useMemo(() => {
+    if (!selectedTemplate || !templateMode || !ghostPoint) return false;
+    const placed = placeGeometry(selectedTemplate.default_geometry, ghostPoint, templateMode.rotationDeg);
+    return placed !== null && violationOfNew(plan, placed, null) !== null;
+  }, [ghostPoint, plan, selectedTemplate, templateMode]);
   const closeTemplateTool = useCallback(() => {
     setTemplateMode(null);
     setGhostPoint(null);
   }, []);
+
+  // During a move the marker is the moved object's snapped corner or edge point (GP-FR-154), else the pointer's.
+  const shownSnapMark = tools.moving ? tools.moveSnap : snapMark;
 
   // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6).
   const extent = useMemo(() => planContentBounds(plan), [plan]);
@@ -1415,15 +1480,16 @@ export function GardenPlanEditor({
         {selectedTemplate && ghostPoint && templateMode && (
           <TemplateGhost
             template={selectedTemplate}
+            invalid={ghostInvalid}
             originM={ghostPoint}
             rotationDeg={templateMode.rotationDeg}
             toScreen={renderer.toScreen.bind(renderer)}
             pxPerM={pxPerM}
           />
         )}
-        {snapMark && (
+        {shownSnapMark && (
           <SnapMarker
-            mark={snapMark}
+            mark={shownSnapMark}
             toScreen={renderer.toScreen.bind(renderer)}
             widthPx={viewport.widthPx}
             heightPx={viewport.heightPx}
@@ -1559,7 +1625,8 @@ export function GardenPlanEditor({
               )
             }
             busy={placing}
-            onPlaceCenter={() => void placeTemplate(snapPoint(renderer.toModel(centerPx), false))}
+            onPlaceCenter={placeAtCentre}
+            ghostInvalid={ghostInvalid}
             onClose={closeTemplateTool}
           />
         </Suspense>
@@ -1723,6 +1790,7 @@ export function GardenPlanEditor({
           <MultiDuplicateDialog
             open
             rootBeds={multiRoots}
+            unit={unit}
             onRun={runMultiDuplicate}
             onClose={() => setMultiOpen(false)}
           />

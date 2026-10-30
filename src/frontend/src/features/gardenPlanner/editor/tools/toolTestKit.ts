@@ -6,7 +6,7 @@ import type { Geometry, PlanLocation, Point } from '../../model/types';
 import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
 import type { SelectionRef, SelectionStack } from '../../state/gardenPlanSlice';
 import type { Viewport } from '../../renderer';
-import type { PointerSample, ToolEnv } from './machineTypes';
+import { anchorSnapMove, type PointerSample, type ToolEnv } from './machineTypes';
 
 /** 20 px per metre, model (0, 20) at the top-left corner: x 0..20 m, y 0..20 m on a 400 px canvas. */
 export const VIEWPORT: Viewport = { originM: [0, 20], pxPerM: 20, widthPx: 400, heightPx: 400 };
@@ -16,6 +16,7 @@ export interface EnvOptions {
   stack?: SelectionStack | null;
   angleStepDeg?: number;
   snapPoint?: ToolEnv['snapPoint'];
+  snapMove?: ToolEnv['snapMove'];
   viewport?: Viewport;
 }
 
@@ -23,6 +24,8 @@ export function makeEnv(plan: PlanModel, opts: EnvOptions = {}): ToolEnv {
   const renderer = new HeadlessPlanRenderer();
   const viewport = opts.viewport ?? VIEWPORT;
   renderer.render(plan, viewport, NO_SELECTION, options());
+  const snapPoint: ToolEnv['snapPoint'] =
+    opts.snapPoint ?? (([x, y]) => [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000]);
   return {
     plan,
     selection: opts.selection ?? [],
@@ -31,8 +34,8 @@ export function makeEnv(plan: PlanModel, opts: EnvOptions = {}): ToolEnv {
     hitTestAll: (p) => renderer.hitTestAll(p),
     toModel: (p) => renderer.toModel(p),
     toScreen: (p) => renderer.toScreen(p),
-    snapPoint:
-      opts.snapPoint ?? (([x, y]) => [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000]),
+    snapPoint,
+    snapMove: opts.snapMove ?? anchorSnapMove(snapPoint),
     angleStepDeg: opts.angleStepDeg ?? 15,
   };
 }

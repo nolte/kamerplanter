@@ -5455,6 +5455,10 @@
           "multi": {
             "invalid": "Check the count, the spacing and the start number: the count is between 1 and 100, the spacing is not negative.",
             "too_many": "That is too many changes at once. Choose fewer copies."
+          },
+          "distribute": {
+            "overlap": "With equal gaps the selected objects would lie on top of each other. Make room between them first. The plan stays as it was.",
+            "locked_covered": "Distributing would put an object on top of a locked one. Unlock it or remove it from the selection. The plan stays as it was."
           }
         },
         "deleteDialog": {
@@ -5923,7 +5927,9 @@
           "slotsNote": "Planting positions, plants and tasks are not copied. Lay out a planting grid for each bed afterwards in the Properties panel.",
           "submit": "Duplicate",
           "invalid": "Please enter a valid number.",
-          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own."
+          "noNames": "No names come from the scheme: only garden objects are selected, and they keep their own.",
+          "failedCopy": "Copy {{n}} is the first one that does not fit.",
+          "failedCopyNamed": "“{{name}}” is the first copy that does not fit."
         },
         "templates": {
           "placed": "The bed was created from the template and is saved. To take it back, delete the bed.",
@@ -5941,6 +5947,7 @@
             "placeCenter": "Place at view centre",
             "hintPick": "Choose a template. Then a click on the plan puts the bed there.",
             "hintPlace": "Click the plan to place the bed. Alt switches the grid snap off, Esc ends.",
+            "hintInvalid": "The bed does not fit here completely inside the garden. Click further inside to place it.",
             "placing": "Creating the bed …",
             "failed": "The templates could not be loaded."
           },

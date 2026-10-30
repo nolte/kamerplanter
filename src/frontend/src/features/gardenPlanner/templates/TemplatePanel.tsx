@@ -28,6 +28,8 @@ interface TemplatePanelProps {
   busy: boolean;
   /** Place the template at the middle of the view: the way without a pointer (keyboard, switch access). */
   onPlaceCenter: () => void;
+  /** The ghost under the pointer sits where the template would leave the garden: the status line says so. */
+  ghostInvalid?: boolean;
   onClose: () => void;
 }
 
@@ -110,7 +112,9 @@ export default function TemplatePanel(props: TemplatePanelProps) {
         {props.busy
           ? t(`${PREFIX}.panel.placing`)
           : known
-            ? t(`${PREFIX}.panel.hintPlace`)
+            ? props.ghostInvalid
+              ? t(`${PREFIX}.panel.hintInvalid`)
+              : t(`${PREFIX}.panel.hintPlace`)
             : t(`${PREFIX}.panel.hintPick`)}
       </Typography>
       {catalogue.failed && (

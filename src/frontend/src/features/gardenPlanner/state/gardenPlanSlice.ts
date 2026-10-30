@@ -544,14 +544,19 @@ export const gardenPlanSlice = createSlice({
         const { response } = action.payload;
         if (plan === null) return;
         const { key_map: keyMap } = response;
+        const remaining = state.pending
+          .slice(state.inFlight)
+          .map((item) => ({ ...item, op: remapOperationKeys(item.op, keyMap) }));
+        // A geometry still waiting for its save keeps the bbox/area the model derived from it (#2536).
+        const stillPending = new Set(
+          remaining.flatMap(({ op }) => (op.op === 'update_geometry' ? [op.key] : [])),
+        );
         let next = applyKeyMap({ ...plan, revision: response.plan_revision }, keyMap);
-        next = applyDerived(next, response.derived);
+        next = applyDerived(next, response.derived, stillPending);
         if (next.settings)
           next = { ...next, settings: { ...next.settings, plan_revision: response.plan_revision } };
         state.plan = next;
-        state.pending = state.pending
-          .slice(state.inFlight)
-          .map((item) => ({ ...item, op: remapOperationKeys(item.op, keyMap) }));
+        state.pending = remaining;
         // Everything saved is a baseline now: undo goes through counter-operations from here on.
         const rebase = (entry: HistoryEntry): HistoryEntry => ({
           ...entry,

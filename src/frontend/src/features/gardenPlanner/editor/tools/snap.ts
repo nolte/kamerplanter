@@ -1,10 +1,12 @@
 /**
  * Snap resolution (REQ-053 GP-FR-012, GP-FR-154): a raw model point becomes the point a tool uses.
  * Priority: object corner -> object edge -> grid. `Alt` (bypass) switches snapping off but the
- * point is still rounded to the storage precision. Pure: the editor supplies the candidates.
+ * point is still rounded to the storage precision. A moved object snaps with the real points of its
+ * shape - every (rotated) vertex, a circle's centre and its four cardinal points - so its right edge
+ * can land on another object's left edge. Pure: the editor supplies the candidates.
  */
-import { pointSegmentDistance, roundLength, rotatePoint } from '../../model/geometry';
-import type { Point } from '../../model/types';
+import { roundLength, rotatePoint, toShape } from '../../model/geometry';
+import type { Geometry, Point } from '../../model/types';
 import { snapToStep } from '../../model/units';
 
 /** Snap tolerance in screen pixels (GP-FR-154). */
@@ -44,17 +46,39 @@ export interface SnapResult {
   guide?: readonly [Point, Point];
 }
 
+/** What the snap marker draws: where the snapped point lands, of which kind, and the edge as a guide. */
+export interface SnapMark {
+  point: Point;
+  kind: Exclude<SnapKind, 'none'>;
+  /** The object edge the point sits on (`kind = 'edge'`), drawn as a solid guide along that edge. */
+  guide?: readonly [Point, Point];
+}
+
+/** A snap of a whole dragged object: the translation, and where its snapped source point lands. */
+export interface MoveSnapResult {
+  /** The translation the move applies. */
+  delta: Point;
+  kind: SnapKind;
+  /** The source point after the move - what the marker draws (GP-FR-154), never the pointer. */
+  point: Point;
+  /** The edge the source sits on (`kind = 'edge'`). */
+  guide?: readonly [Point, Point];
+}
+
+/** Below this squared length an edge is a point (the `EPSILON` of `pointSegmentDistance`). */
+const DEGENERATE_SQ = 1e-9;
+
 function rounded([x, y]: Point): Point {
   return [roundLength(x), roundLength(y)];
 }
 
-function nearestOnSegment(point: Point, a: Point, b: Point): Point {
+/** Where on the segment `a`-`b` the point nearest to `(px, py)` lies, as the fraction `t` in `[0, 1]`. */
+function segmentParam(px: number, py: number, a: Point, b: Point): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const lengthSq = dx * dx + dy * dy;
-  if (lengthSq === 0) return a;
-  const t = Math.max(0, Math.min(1, ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / lengthSq));
-  return [a[0] + t * dx, a[1] + t * dy];
+  if (lengthSq <= DEGENERATE_SQ) return 0;
+  return Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / lengthSq));
 }
 
 function snapToGrid(point: Point, step: number, frame: GridFrame | undefined): Point {
@@ -67,35 +91,117 @@ function snapToGrid(point: Point, step: number, frame: GridFrame | undefined): P
   return rounded(rotatePoint(snapped, frame.rotationDeg, frame.origin));
 }
 
-export function resolveSnap(pointM: Point, options: SnapOptions): SnapResult {
-  if (options.bypass) return { point: rounded(pointM), kind: 'none' };
+/**
+ * The points of a dragged object that may snap (GP-FR-154), taken from its real shape in the plan frame: the
+ * vertices of a rectangle or polygon with the rotation applied, the vertices of a polyline, a point's origin, and
+ * for a circle its centre plus the four cardinal points (east, north, west, south) - the same points another
+ * circle offers as snap targets. The corners of the axis-aligned bounding box are no source: for a rotated
+ * rectangle, a circle or a polygon they lie off the object, and a 'corner' snap there would leave a gap. For an
+ * axis-aligned rectangle the vertices ARE the bounding-box corners. The anchor (a rectangle's origin, a
+ * polygon's first vertex, a circle's centre) is always the first source. Computed once per drag, not per move.
+ */
+export function moveSources(geometry: Geometry): Point[] {
+  const shape = toShape(geometry);
+  if (shape.kind === 'circle') {
+    const [cx, cy] = shape.center;
+    const r = shape.radiusM;
+    return [
+      [cx, cy],
+      [cx + r, cy],
+      [cx, cy + r],
+      [cx - r, cy],
+      [cx, cy - r],
+    ];
+  }
+  return shape.vertices;
+}
+
+/**
+ * Snap of a move (GP-FR-154): every source point of the dragged object, shifted by `rawDelta`, looks for the object
+ * corners within the tolerance, then - if none - for the object edges; across all sources the smallest distance
+ * wins. Without an object snap the `reference` (the object's anchor) snaps to the grid, as a single point does, so
+ * the object moves in whole grid steps. `Alt` (bypass) only rounds to the storage precision. Pure and free of
+ * allocations in the loops: it runs on every pointer move of a drag.
+ */
+export function resolveMoveSnap(
+  sources: readonly Point[],
+  reference: Point,
+  rawDelta: Point,
+  options: SnapOptions,
+): MoveSnapResult {
+  const [dx, dy] = rawDelta;
+  const free = (): MoveSnapResult => {
+    const point = rounded([reference[0] + dx, reference[1] + dy]);
+    return { delta: [point[0] - reference[0], point[1] - reference[1]], kind: 'none', point };
+  };
+  if (options.bypass) return free();
   const toleranceM = SNAP_TOLERANCE_PX[options.pointerType ?? 'mouse'] / options.pxPerM;
+  const toleranceSq = toleranceM * toleranceM;
   const { candidates } = options;
   if (candidates) {
-    let best: Point | null = null;
-    let bestEdge: readonly [Point, Point] | null = null;
-    let bestDistance = toleranceM;
-    for (const corner of candidates.corners) {
-      const distance = Math.hypot(corner[0] - pointM[0], corner[1] - pointM[1]);
-      if (distance <= bestDistance) {
-        best = corner;
-        bestDistance = distance;
+    const { corners, edges } = candidates;
+    let bestSq = toleranceSq;
+    let bestSource = -1;
+    let bestTarget = -1;
+    for (let s = 0; s < sources.length; s += 1) {
+      const sx = sources[s][0] + dx;
+      const sy = sources[s][1] + dy;
+      for (let c = 0; c < corners.length; c += 1) {
+        const ex = corners[c][0] - sx;
+        const ey = corners[c][1] - sy;
+        const distSq = ex * ex + ey * ey;
+        if (distSq <= bestSq) {
+          bestSq = distSq;
+          bestSource = s;
+          bestTarget = c;
+        }
       }
     }
-    if (best) return { point: rounded(best), kind: 'corner' };
-    bestDistance = toleranceM;
-    for (const [a, b] of candidates.edges) {
-      const distance = pointSegmentDistance(pointM, a, b);
-      if (distance <= bestDistance) {
-        best = nearestOnSegment(pointM, a, b);
-        bestEdge = [a, b];
-        bestDistance = distance;
+    if (bestSource >= 0) {
+      const point = rounded(corners[bestTarget]);
+      const source = sources[bestSource];
+      return { delta: [point[0] - source[0], point[1] - source[1]], kind: 'corner', point };
+    }
+    bestSq = toleranceSq;
+    let bestT = 0;
+    for (let s = 0; s < sources.length; s += 1) {
+      const sx = sources[s][0] + dx;
+      const sy = sources[s][1] + dy;
+      for (let e = 0; e < edges.length; e += 1) {
+        const [a, b] = edges[e];
+        const t = segmentParam(sx, sy, a, b);
+        const ex = a[0] + t * (b[0] - a[0]) - sx;
+        const ey = a[1] + t * (b[1] - a[1]) - sy;
+        const distSq = ex * ex + ey * ey;
+        if (distSq <= bestSq) {
+          bestSq = distSq;
+          bestSource = s;
+          bestTarget = e;
+          bestT = t;
+        }
       }
     }
-    if (best && bestEdge) return { point: rounded(best), kind: 'edge', guide: bestEdge };
+    if (bestSource >= 0) {
+      const [a, b] = edges[bestTarget];
+      const point = rounded([a[0] + bestT * (b[0] - a[0]), a[1] + bestT * (b[1] - a[1])]);
+      const source = sources[bestSource];
+      return {
+        delta: [point[0] - source[0], point[1] - source[1]],
+        kind: 'edge',
+        point,
+        guide: edges[bestTarget],
+      };
+    }
   }
   if (options.gridEnabled) {
-    return { point: snapToGrid(pointM, options.gridM, options.gridFrame), kind: 'grid' };
+    const point = snapToGrid([reference[0] + dx, reference[1] + dy], options.gridM, options.gridFrame);
+    return { delta: [point[0] - reference[0], point[1] - reference[1]], kind: 'grid', point };
   }
-  return { point: rounded(pointM), kind: 'none' };
+  return free();
+}
+
+/** Snap of a single point (drawing, a handle, the template ghost): a move whose only source is the point. */
+export function resolveSnap(pointM: Point, options: SnapOptions): SnapResult {
+  const { point, kind, guide } = resolveMoveSnap([pointM], pointM, [0, 0], options);
+  return guide ? { point, kind, guide } : { point, kind };
 }
