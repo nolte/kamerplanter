@@ -1128,7 +1128,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
 
         GP-NFR-055 (#2542 W-2): every ``replace`` and restore stores a whole plan, so without a cap a site's
         snapshots grew until the yearly purge. Only ``import_snapshot`` rows of this site and tenant are removed;
-        the change log rows around them stay. Runs after the insert, inside the batch transaction: the new row is
+        the change log rows around them stay. Both branches filter like ``list_import_snapshots`` (``snapshot !=
+        null``): only rows the listing shows are counted and removed, so a row it hides is neither kept in place of
+        a real snapshot nor deleted unseen. Runs after the insert, inside the batch transaction: the new row is
         among the kept ones (highest revision) and an aborted batch prunes nothing.
         """
         txn.aql.execute(
@@ -1143,7 +1145,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             )
             FOR a IN @@col
                 FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
-                    AND a._key NOT IN keep
+                    AND a.snapshot != null AND a._key NOT IN keep
                 REMOVE a IN @@col
             """,
             bind_vars={

@@ -1155,6 +1155,9 @@ def _finding_of(error: Any, document: dict[str, Any]) -> ImportFinding:
             key = _echo(items[loc[1]].get("key"))
     if error["type"] == "too_long" and len(loc) == 1 and loc[0] in _QUOTA_LISTS:
         return ImportFinding(field=_path(loc), code=ERROR_QUOTA)
+    if error["type"] == "too_long" and loc == ("zones",):
+        # One case, one code (#2542): the schema cap reports an over-full zone list as _check_quotas does.
+        return ImportFinding(field=_path(loc), code=ERROR_ZONE_QUOTA)
     return ImportFinding(field=_path(loc), code=_code_of(error), key=key)
 
 

@@ -427,6 +427,20 @@ class TestOversizedListsAreRefusedBeforeAnyLookup2542:
         assert [(d["field"], d["code"]) for d in refused.value.details] == [(field, "plan.quota_exceeded")]
         assert calls["load_structure"] == 0
 
+    def test_501_zones_are_the_zone_quota_like_the_quota_check_says(self, rig, repo, monkeypatch) -> None:
+        # One case, one code (#2542): the schema cap reports what ``_check_quotas`` reports for the same excess.
+        from app.domain.models.garden_plan import MAX_PLAN_ZONES
+
+        document = rig.file()
+        calls = self._counted(rig, repo, monkeypatch)
+        document["zones"] = [{"key": f"z{n}", "name": f"Zone {n}"} for n in range(MAX_PLAN_ZONES + 1)]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [("zones", "irrigation_zone.quota_exceeded")]
+        assert calls["load_structure"] == 0
+
     def test_the_export_of_a_site_above_the_quota_is_still_written(self, rig, repo) -> None:
         # A location made through the site API is not counted against GP-NFR-017; the export must not refuse it.
         for n in range(501):
@@ -559,7 +573,15 @@ class TestSnapshotsWp719:
                 confirm_site_name=None,
             )
 
-    def test_a_site_keeps_its_newest_twenty_snapshots_and_no_other_sites(self, rig, repo) -> None:
+    def test_the_listing_is_newest_first_and_only_the_callers_site_over_the_fakes_cap(self, rig, repo) -> None:
+        """The service lists a site's snapshots newest first, scoped to the caller's tenant and site.
+
+        The cap of :data:`MAX_SNAPSHOTS_PER_SITE` is applied here by ``FakePlanRepo.apply_plan_batch``, which
+        re-implements the pruning contract; this test therefore pins the service's listing over that contract and
+        proves nothing about the production ``_prune_snapshots``. The W-2 proof (#2542) against ArangoDB is
+        ``test_a_site_keeps_its_newest_twenty_snapshots_and_every_other_row`` in
+        ``tests/integration/test_garden_plan_import.py``.
+        """
         from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
 
         repo.snapshot_rows.append((OTHER_TENANT, SITE, "foreign_tenant", {}))  # another tenant, same site key

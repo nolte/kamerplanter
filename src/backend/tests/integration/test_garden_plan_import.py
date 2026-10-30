@@ -953,6 +953,8 @@ class TestSnapshotsWp719:
         foreign = [
             {"tenant_key": A, "site_key": "site_c", "revision": 1, "op": "import_snapshot", "snapshot": {}},
             {"tenant_key": B, "site_key": "site_a", "revision": 1, "op": "import_snapshot", "snapshot": {}},
+            # #2542: a row the listing hides (``snapshot == null``) is neither counted nor removed by the prune.
+            {"tenant_key": A, "site_key": "site_a", "revision": 999, "op": "import_snapshot", "snapshot": None},
         ]
         foreign_keys = {audit.insert({**row, "at": "2026-01-01T00:00:00+00:00"})["_key"] for row in foreign}
         keys = build_source_plan(rig)
@@ -962,7 +964,7 @@ class TestSnapshotsWp719:
             return {
                 row["_key"]
                 for row in audit.find({"tenant_key": A, "site_key": "site_a"})
-                if (row["op"] == "import_snapshot") is snapshots
+                if (row["op"] == "import_snapshot") is snapshots and row["_key"] not in foreign_keys
             }
 
         first: list[str] = []
