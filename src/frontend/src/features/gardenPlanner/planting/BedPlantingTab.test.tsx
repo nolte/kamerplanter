@@ -121,19 +121,60 @@ describe('Correct position (GP-FR-068, GP-ACC-022)', () => {
     expect(within(dialog).getByTestId('position-y')).toHaveValue('90');
     expect(within(dialog).getByTestId('position-save')).toBeDisabled();
 
+    // §18.1 step 9: the stepper moves 10 cm per press unless a finer step is chosen.
+    expect(within(dialog).getByTestId('position-step-10')).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByText('Drag the plant on the bed or move it with the arrows. Each step is 10 cm.')).toBeInTheDocument();
     for (let step = 0; step < 3; step += 1) await user.click(within(dialog).getByTestId('position-right'));
-    expect(within(dialog).getByTestId('position-x')).toHaveValue('33');
+    expect(within(dialog).getByTestId('position-x')).toHaveValue('60');
     await user.click(within(dialog).getByTestId('position-save'));
 
     await waitFor(() => expect(backend.writes).toHaveLength(1));
     expect(backend.writes[0]).toEqual({
       url: '/slots/s1',
-      body: { geometry: { kind: 'point', origin: [0.33, 0.9] } },
+      body: { geometry: { kind: 'point', origin: [0.6, 0.9] } },
     });
     // The client writes no care event itself: the server does, with the plant.
     expect(backend.seen.filter((s) => s.url.startsWith('/care-events'))).toEqual([]);
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByTestId('position-dialog')).toBeNull());
+  });
+
+  it('keeps 5 cm and 1 cm reachable as fine steps in every direction', async () => {
+    const backend = useTabBackend();
+    const user = userEvent.setup();
+    renderTab();
+    await user.click(await screen.findByTestId('planting-correct-pl_1'));
+    const dialog = await screen.findByTestId('position-dialog');
+    const x = await within(dialog).findByTestId('position-x');
+    const y = within(dialog).getByTestId('position-y');
+    const stepSize = within(dialog).getByRole('group', { name: 'Step size' });
+    expect(within(stepSize).getAllByRole('button').map((button) => button.textContent)).toEqual(['10 cm', '5 cm', '1 cm']);
+
+    await user.click(within(dialog).getByRole('button', { name: '1 cm per step' }));
+    expect(within(dialog).getByTestId('position-step-1')).toHaveAttribute('aria-pressed', 'true');
+    expect(within(dialog).getByTestId('position-step-10')).toHaveAttribute('aria-pressed', 'false');
+    expect(within(dialog).getByText('Drag the plant on the bed or move it with the arrows. Each step is 1 cm.')).toBeInTheDocument();
+    await user.click(within(dialog).getByTestId('position-right'));
+    expect(x).toHaveValue('31');
+    await user.click(within(dialog).getByTestId('position-left'));
+    await user.click(within(dialog).getByTestId('position-left'));
+    expect(x).toHaveValue('29');
+    expect(y).toHaveValue('90');
+
+    await user.click(within(dialog).getByTestId('position-step-5'));
+    await user.click(within(dialog).getByTestId('position-down'));
+    expect(y).toHaveValue('85');
+    await user.click(within(dialog).getByTestId('position-up'));
+    await user.click(within(dialog).getByTestId('position-up'));
+    expect(y).toHaveValue('95');
+    expect(x).toHaveValue('29');
+    // Clicking the chosen step again keeps it: there is always one step size.
+    await user.click(within(dialog).getByTestId('position-step-5'));
+    expect(within(dialog).getByTestId('position-step-5')).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(within(dialog).getByTestId('position-save'));
+    await waitFor(() => expect(backend.writes).toHaveLength(1));
+    expect(backend.writes[0].body).toEqual({ geometry: { kind: 'point', origin: [0.29, 0.95] } });
   });
 
   it('takes typed coordinates too', async () => {

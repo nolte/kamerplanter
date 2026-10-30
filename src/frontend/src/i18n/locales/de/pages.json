@@ -6932,7 +6932,9 @@
           "plantRemovedHow": "{{name}} entfernt ({{how}})",
           "runStarted": "Durchlauf „{{name}}“ gestartet",
           "runCompleted": "Durchlauf „{{name}}“ abgeschlossen",
-          "runCancelled": "Durchlauf „{{name}}“ abgebrochen"
+          "runCancelled": "Durchlauf „{{name}}“ abgebrochen",
+          "positionCorrected": "Position korrigiert: {{name}}",
+          "positionCorrectedNoName": "Position einer Pflanze korrigiert"
         },
         "termination": {
           "harvested": "geerntet",
@@ -7193,7 +7195,7 @@
         },
         "position": {
           "title": "Position korrigieren: {{plant}}",
-          "help": "Ziehe die Pflanze im Beet oder verschiebe sie mit den Pfeilen. Jeder Schritt ist 1 cm.",
+          "help": "Ziehe die Pflanze im Beet oder verschiebe sie mit den Pfeilen. Jeder Schritt ist {{cm}} cm.",
           "zone": "Diese Pflanze steht in einer Fläche und hat keine einzelne Position, deshalb lässt sie sich nicht verschieben.",
           "failed": "Die Position konnte nicht geladen werden.",
           "canvasLabel": "Position der Pflanze im Beet {{bed}}",
@@ -7202,8 +7204,8 @@
           "down": "Nach unten",
           "left": "Nach links",
           "right": "Nach rechts",
-          "bigLeft": "{{cm}} cm nach links",
-          "bigRight": "{{cm}} cm nach rechts",
+          "stepSize": "Schrittweite",
+          "stepSizeOption": "{{cm}} cm pro Schritt",
           "x": "Position längs (x)",
           "y": "Position quer (y)",
           "save": "Position speichern",

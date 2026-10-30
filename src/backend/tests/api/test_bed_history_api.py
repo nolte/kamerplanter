@@ -142,6 +142,24 @@ class TestTheList:
         )
         assert planted["care_event"] is None
 
+    def test_a_care_event_names_its_plants_and_keeps_its_stored_summary(self, client, world) -> None:
+        """#2514: the line names the plant (not the slot) from the read itself; the summary stays as stored."""
+        row = _care_row()
+        assert row.care is not None
+        event = row.care.event.model_copy(
+            update={"category": "position_corrected", "summary": "Position corrected (BED_001)", "plant_keys": ["pi_1"]}
+        )
+        world.history.rows = [
+            BedHistoryRow(at=row.at, care=CareEventRow(event=event, plant_names=("Tomato 'Black Krim' #3",))),
+            _care_row(),
+        ]
+
+        named, unnamed = (item["care_event"] for item in client().get(_OWN).json())
+
+        assert named["plant_names"] == ["Tomato 'Black Krim' #3"]
+        assert named["summary"] == "Position corrected (BED_001)"
+        assert unnamed["plant_names"] == []
+
     def test_no_account_key_is_in_the_response(self, client, world) -> None:
         world.history.rows = [_care_row()]
 

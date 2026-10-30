@@ -305,7 +305,7 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 
 **Pot volume.** For species with a recommended pot volume you can enter the volume of your pot under **More options**. If it is smaller than recommended, Kamerplanter warns you.
 
-**Correct position.** For a standing plant (on the **Planting** tab or after a tap on the plan), **Correct position** moves its place: by dragging, with the arrow buttons in steps of 1 cm, or by typing the coordinates. The care log records the correction together with the plant. Plants in a zone have no single place and cannot be moved.
+**Correct position.** For a standing plant (on the **Planting** tab or after a tap on the plan), **Correct position** moves its place: by dragging, with the arrow buttons in steps of 10 cm, or by typing the coordinates. For fine work, switch **Step size** to 5 cm or 1 cm. The care log records the correction together with the plant. Plants in a zone have no single place and cannot be moved.
 
 **Transplant to …** You do not move a plant to another bed by dragging. **Transplant to …** creates the "Transplant" task for the plant, with the target bed in its text. You complete it once you have moved the plant.
 

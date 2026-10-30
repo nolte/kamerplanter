@@ -6931,7 +6931,9 @@
           "plantRemovedHow": "{{name}} removed ({{how}})",
           "runStarted": "Run \"{{name}}\" started",
           "runCompleted": "Run \"{{name}}\" completed",
-          "runCancelled": "Run \"{{name}}\" cancelled"
+          "runCancelled": "Run \"{{name}}\" cancelled",
+          "positionCorrected": "Position corrected: {{name}}",
+          "positionCorrectedNoName": "Position of a plant corrected"
         },
         "termination": {
           "harvested": "harvested",
@@ -7192,7 +7194,7 @@
         },
         "position": {
           "title": "Correct position: {{plant}}",
-          "help": "Drag the plant on the bed or move it with the arrows. Each step is 1 cm.",
+          "help": "Drag the plant on the bed or move it with the arrows. Each step is {{cm}} cm.",
           "zone": "This plant stands in an area and has no single position. It cannot be moved.",
           "failed": "The position could not be loaded.",
           "canvasLabel": "Position of the plant in bed {{bed}}",
@@ -7201,8 +7203,8 @@
           "down": "Down",
           "left": "Left",
           "right": "Right",
-          "bigLeft": "{{cm}} cm to the left",
-          "bigRight": "{{cm}} cm to the right",
+          "stepSize": "Step size",
+          "stepSizeOption": "{{cm}} cm per step",
           "x": "Position along (x)",
           "y": "Position across (y)",
           "save": "Save position",

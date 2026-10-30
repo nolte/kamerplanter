@@ -363,3 +363,5 @@ class CareEventView(BaseModel):
     created_by_me: bool = False
     #: The Supersede chain of an event, oldest first (GP-API-035); empty for a list row.
     chain_keys: list[str] = Field(default_factory=list)
+    #: Readable names of the event's plants, in ``plant_keys`` order; a plant that is gone is left out (#2514).
+    plant_names: list[str] = Field(default_factory=list)

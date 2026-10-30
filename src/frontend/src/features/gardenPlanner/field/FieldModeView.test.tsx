@@ -390,9 +390,9 @@ describe('bed sheet', () => {
     await user.click(within(dialog).getByTestId('position-up'));
     expect(y).toHaveValue('60');
     expect(within(dialog).getByTestId('position-up')).toHaveStyle({ width: `${KIOSK_TOUCH_TARGET}px` });
-    // The 10 cm step is already coarse: no ±5 cm buttons in the field.
-    expect(within(dialog).queryByTestId('position-big-left')).toBeNull();
-    expect(within(dialog).queryByTestId('position-big-right')).toBeNull();
+    // On the phone the 10 cm step is the whole stepper: no step-size choice in the field.
+    expect(within(dialog).queryByTestId('position-step-size')).toBeNull();
+    expect(within(dialog).queryByTestId('position-step-1')).toBeNull();
 
     // Saving reloads the plan, so the map draws the plant where it now stands.
     await waitFor(() => expect(backend.requests).toContain('plan'));

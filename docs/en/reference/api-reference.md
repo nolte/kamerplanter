@@ -139,7 +139,7 @@ DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # take a b
 GET    /api/v1/t/{slug}/care-events                                   # care log of the whole tenant
 ```
 
-**`GET …/history`** returns the stored care entries of the bed and the planting events **derived** from plants and runs in one list, newest first. Every item carries `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` and `category` (`planting` or `removal` for planting events). For `care_event` the whole entry is in `care_event`.
+**`GET …/history`** returns the stored care entries of the bed and the planting events **derived** from plants and runs in one list, newest first. Every item carries `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` and `category` (`planting` or `removal` for planting events). For `care_event` the whole entry is in `care_event`. Here as in `GET /care-events`, a care entry lists the readable names of its plants in `plant_names` (`plant_name`, else `instance_id`, in the order of `plant_keys`; a deleted plant is missing), so the list needs no request per row. `summary` stays the stored text; the app words a position correction itself, with the plant's name.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|

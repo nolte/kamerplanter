@@ -521,7 +521,8 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 **Priority**: Critical
 **Category**: Happy Path
 **Preconditions**:
-- Beet mit Geometrie (z. B. 3,0 × 1,2 m); Spezies Tomate mit Steckbrief vorhanden
+- Beet mit Geometrie (z. B. 3,0 × 1,6 m — mit dem Standard-Randabstand passen in 1,2 m Tiefe nur
+  eine Reihe und damit keine 6 Tomaten); Spezies Tomate mit Steckbrief vorhanden
 
 **Testschritte**:
 1. Nutzer wählt das Beet und „Bepflanzen" (Kontextmenü oder Beetansicht)
