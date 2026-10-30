@@ -14,9 +14,9 @@ from __future__ import annotations
 from app.domain.models.site import Location
 
 
-def frost_risk_of(location: Location) -> bool:
-    """Whether the bed is at frost risk now; ``False`` until WP 3.9 adds ``microclimate.frost_risk``."""
-    del location
+def frost_risk_of(_location: Location) -> bool:
+    """Whether the bed is at frost risk now; ``False`` until WP 3.9 adds ``microclimate.frost_risk`` (the bed is
+    not read yet, hence the ``_`` of the parameter, which the #1881 unread-parameter guard honours)."""
     return False
 
 
