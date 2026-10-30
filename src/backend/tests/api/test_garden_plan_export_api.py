@@ -113,8 +113,8 @@ class _PhaseNames:
     def __init__(self, names: dict[str, str]) -> None:
         self.names = names
 
-    def get_phase_by_key(self, key):
-        return SimpleNamespace(key=key, name=self.names[key]) if key in self.names else None
+    def get_phase_names(self, keys):
+        return {key: self.names[key] for key in keys if key in self.names}
 
 
 def _tags_of(root: ET.Element) -> set[str]:

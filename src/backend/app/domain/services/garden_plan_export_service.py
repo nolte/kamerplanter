@@ -23,9 +23,10 @@ The fetcher still sees nothing but ``data:``.
 its phase colour, lifecycle ring and most urgent badge. The states come from the plant-state repository in one read
 across the beds of the already owned site, in bounded pages, and are assembled by
 :func:`~app.domain.calculators.plant_state_inputs.visual_state_of` — the same function behind
-``GET /locations/{key}/plant-states``, so paper and screen agree. Phase names are read once per distinct phase key
-from the growth-phase repository; a key that is no growth phase (a phase-sequence entry) takes the name the
-plant-state read joined in — the bed view's rule, so a plant has the same colour on screen and on paper. From the
+``GET /locations/{key}/plant-states``, so paper and screen agree. The names of all distinct phase keys come from the
+growth-phase repository in one batched read; a key that is no growth phase (a phase-sequence entry) takes the name the
+plant-state read joined in — the bed view's rule, so a plant has the same colour on screen and on paper. A failing
+read degrades like the underlay: logged, and the plants print as plain circles instead of the export failing. From the
 threshold on nothing is read: each bed prints its counter (GP-NFR-038).
 """
 
@@ -373,16 +374,23 @@ class GardenPlanExportService:
         plant_beds = {plant.key: plant.location_key or slot_beds.get(plant.slot_key or "") for plant in view.plants}
         states: dict[str, PlantVisualState] = {}
         row_names: dict[str, str] = {}
-        for row in self._standing_plants(sorted(beds), tenant_key=tenant_key, now=moment):
-            if row.plant_key not in wanted:
-                continue
-            bed_frost = frost_risk.get(plant_beds.get(row.plant_key) or "", False)
-            states[row.plant_key] = visual_state_of(row, frost_risk=bed_frost, now=moment)
-            if row.phase_key and row.phase_name and row.phase_name.strip():
-                row_names.setdefault(row.phase_key, row.phase_name)
-        phase_names = self._phase_names(
-            {state.phase_key for state in states.values() if state.phase_key}, fallback=row_names
-        )
+        try:
+            standing = self._standing_plants(sorted(beds), tenant_key=tenant_key, now=moment, site_key=view.site_key)
+            for row in standing:
+                if row.plant_key not in wanted:
+                    continue
+                bed_frost = frost_risk.get(plant_beds.get(row.plant_key) or "", False)
+                states[row.plant_key] = visual_state_of(row, frost_risk=bed_frost, now=moment)
+                if row.phase_key and row.phase_name and row.phase_name.strip():
+                    row_names.setdefault(row.phase_key, row.phase_name)
+            phase_names = self._phase_names(
+                {state.phase_key for state in states.values() if state.phase_key}, fallback=row_names
+            )
+        except Exception as exc:  # noqa: BLE001 — the states are an overlay: a failed read prints plain circles
+            # Like the underlay: the plan is printed without the overlay rather than refused (no 500). Only the
+            # site and the error class are logged — no plant, bed or tenant data, no message that could carry them.
+            logger.warning("garden_plan.plant_states_unavailable", site_key=view.site_key, error=type(exc).__name__)
+            return None
         logger.info(
             "garden_plan.plant_states_resolved",
             site_key=view.site_key,
@@ -392,9 +400,15 @@ class GardenPlanExportService:
         )
         return PlantStateMarks(states=states, phase_names=phase_names)
 
-    def _standing_plants(self, bed_keys: list[str], *, tenant_key: str, now: datetime) -> list[PlantStateSource]:
+    def _standing_plants(
+        self, bed_keys: list[str], *, tenant_key: str, now: datetime, site_key: str
+    ) -> list[PlantStateSource]:
         """Every standing plant of the site's beds in one site-wide read, paged by :data:`STATE_PAGE_SIZE` and at most
-        :data:`_MAX_STATE_PAGES` pages — a fixed number of statements per page, not per bed (#2489)."""
+        :data:`_MAX_STATE_PAGES` pages — a fixed number of statements per page, not per bed (#2489).
+
+        A plant beyond the last page gets no state and prints as the plain circle; hitting the cap is logged. The
+        caller reads only below :data:`PLANT_COUNTER_THRESHOLD` plants, so the cap holds a whole page more than the
+        site can have — reaching it means the plan's plant count and the plant-state read disagree."""
         if self._plant_states is None or not bed_keys:
             return []
         rows: list[PlantStateSource] = []
@@ -404,20 +418,28 @@ class GardenPlanExportService:
             )
             rows.extend(window)
             if len(window) < STATE_PAGE_SIZE:
-                break
+                return rows
+        logger.warning(
+            "garden_plan.plant_state_page_cap_reached",
+            site_key=site_key,
+            pages=_MAX_STATE_PAGES,
+            rows=len(rows),
+            note="unreachable below the plant counter threshold; plants beyond the cap print without a state",
+        )
         return rows
 
     def _phase_names(self, phase_keys: set[str], *, fallback: Mapping[str, str]) -> dict[str, str]:
-        """``phase key → name``: the growth-phase name where the key is a growth phase (one read per distinct key),
-        else the name the plant-state read joined in (``fallback``) — a phase-sequence entry key is no growth phase.
+        """``phase key → name``: the growth-phase name where the key is a growth phase (one batched read for all
+        distinct keys, not one per key), else the name the plant-state read joined in (``fallback``) — a
+        phase-sequence entry key is no growth phase.
 
         The rule of the bed view (``BedPlanTab``): the plant-states answer names the phase, the fetched growth-phase
         name wins where there is one. So a plant prints in the colour it has on screen."""
+        found = self._phases.get_phase_names(phase_keys) if self._phases is not None and phase_keys else {}
         names: dict[str, str] = {}
         for key in sorted(phase_keys):
-            phase = self._phases.get_phase_by_key(key) if self._phases is not None else None
-            if phase is not None and phase.name:
-                names[key] = phase.name
+            if found.get(key):
+                names[key] = found[key]
             elif key in fallback:
                 names[key] = fallback[key]
         return names

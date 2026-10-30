@@ -19,11 +19,11 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import UTC, date, datetime
 from time import perf_counter
-from types import SimpleNamespace
 from urllib.parse import urlsplit
 from urllib.request import OpenerDirector, Request, url2pathname
 
 import pytest
+from structlog.testing import capture_logs
 
 from app.common.enums import BedStatus, GardenObjectType, SunExposure
 from app.common.exceptions import NotFoundError, PlanError
@@ -41,6 +41,7 @@ from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import PlantShortInfo
 from app.domain.models.site import SitePlan, Slot
 from app.domain.services.garden_plan_export_service import (
+    _MAX_STATE_PAGES,
     STATE_PAGE_SIZE,
     GardenPlanExportService,
     safe_filename_part,
@@ -483,16 +484,37 @@ class _StateRows(IPlantStateRepository):
 
 
 class _Phases:
-    """The growth-phase lookup the export reads names from; counts the reads per key."""
+    """The growth-phase lookup the export reads names from: ``reads`` holds every key asked for, ``calls`` counts the
+    repository calls. It has no per-key ``get_phase_by_key``, so a return to one read per key fails loudly (W-1)."""
 
     def __init__(self, names: dict[str, str]) -> None:
         self.names = names
         self.reads: list[str] = []
+        self.calls = 0
 
-    def get_phase_by_key(self, key):
-        self.reads.append(key)
-        name = self.names.get(key)
-        return None if name is None else SimpleNamespace(key=key, name=name)
+    def get_phase_names(self, keys):
+        self.calls += 1
+        self.reads.extend(keys)
+        return {key: self.names[key] for key in keys if key in self.names}
+
+
+class _FailingStates(_StateRows):
+    """A plant-state source whose store is down — the export must print, not 500 (S-1)."""
+
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+        raise _StoreDownError("connection refused: tenant ten_secret, bed b1")
+
+
+class _StoreDownError(Exception):
+    """Stands in for the driver's error: the domain layer does not import ``arango`` (NFR-001)."""
+
+
+class _FullPages(_StateRows):
+    """Every page comes back full — the page cap is the only thing that ends the loop (S-3)."""
+
+    def list_plants_in_beds(self, bed_keys, *, tenant_key, now, offset, limit):
+        self.calls.append((tuple(bed_keys), tenant_key, offset, limit))
+        return [_source(f"p{offset + index:05d}") for index in range(limit)]
 
 
 def _source(plant_key: str, phase_key: str | None = "ph-flower", **overrides) -> PlantStateSource:
@@ -547,6 +569,7 @@ class TestPlantStateEnrichment:
 
         assert marks is not None
         assert sorted(phases.reads) == ["ph-entry", "ph-flower", "ph-veg"]
+        assert phases.calls == 1
         # An entry key that names no phase anywhere stays nameless (uniform colour).
         assert dict(marks.phase_names) == {"ph-flower": "flowering", "ph-veg": "vegetative"}
 
@@ -569,6 +592,97 @@ class TestPlantStateEnrichment:
 
         assert marks is not None
         assert dict(marks.phase_names) == {"ph-entry": "Flowering", "ph-veg": "vegetative"}
+
+    def test_four_hundred_distinct_phase_keys_cost_one_repository_call(self, repo) -> None:
+        """W-1: the names come in one batched read — 400 distinct keys used to cost 400 reads."""
+        rows = {"b1": [_source(f"p{i:04d}", f"ph-{i:04d}") for i in range(400)]}
+        service, _states, phases = _stated_world(repo, rows)
+        phases.names = {f"ph-{i:04d}": f"phase {i}" for i in range(400)}
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is not None and len(marks.phase_names) == 400
+        assert phases.calls == 1
+        assert sorted(phases.reads) == sorted(phases.names)
+
+    def test_a_slot_only_plant_is_read_in_its_slots_bed(self, repo) -> None:
+        """W-2: a plant with a slot and no ``location_key`` belongs to the slot's bed — that bed is read and the
+        plant gets its state, with the frost risk of that bed."""
+        repo.slots = [Slot(key="s2", slot_id="B2_A1", location_key="b2")]
+        service, states, _phases = _stated_world(repo, {"b2": [_source("p1")]})
+        repo.plants = [PlantShortInfo(key="p1", instance_id="P1", species_key="tomato", slot_key="s2")]
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is not None and set(marks.states) == {"p1"}
+        assert [call[0] for call in states.calls] == [("b2",)]
+
+    def test_a_failing_plant_state_read_prints_plain_circles_instead_of_failing(self, repo) -> None:
+        """S-1: like the underlay, the overlay degrades — logged with the site and the error class only."""
+        service, _states, phases = _stated_world(repo, {"b1": [_source("p1")]})
+        service._plant_states = _FailingStates({})
+
+        with capture_logs() as logs:
+            svg = service.render_svg(SITE, tenant_key=TENANT, options=_options(locale="en"), now=STATE_NOW)
+            pdf = service.render_pdf(SITE, tenant_key=TENANT, options=_options(locale="en"), now=STATE_NOW)
+
+        assert pdf.content[:5] == b"%PDF-"
+        root = ET.fromstring(svg.svg)
+        (legend,) = [e for e in root.iter() if e.attrib.get("id") == "legend"]
+        assert "Plant" in [e.text for e in legend.iter(f"{SVG}text")]
+        warnings = [entry for entry in logs if entry["event"] == "garden_plan.plant_states_unavailable"]
+        assert len(warnings) == 2
+        assert warnings[0] == {
+            "event": "garden_plan.plant_states_unavailable",
+            "log_level": "warning",
+            "site_key": SITE,
+            "error": "_StoreDownError",
+        }
+        assert phases.calls == 0
+
+    def test_a_failing_phase_name_read_degrades_the_same_way(self, repo) -> None:
+        service, _states, phases = _stated_world(repo, {"b1": [_source("p1")]})
+
+        def down(_keys):
+            raise _StoreDownError("phases unavailable")
+
+        phases.get_phase_names = down  # type: ignore[method-assign]
+        view = service._view(SITE, tenant_key=TENANT, options=_options())
+
+        with capture_logs() as logs:
+            marks = service._plant_marks(view, tenant_key=TENANT, options=_options(), now=STATE_NOW)
+
+        assert marks is None
+        assert [entry["error"] for entry in logs if entry["event"] == "garden_plan.plant_states_unavailable"] == [
+            "_StoreDownError"
+        ]
+
+    def test_hitting_the_page_cap_is_logged(self, repo) -> None:
+        """S-3: full pages until the cap — the loop stops and says so instead of dropping plants silently."""
+        service, _states, _phases = _stated_world(repo, {"b1": [_source("p1")]})
+        full = _FullPages({})
+        service._plant_states = full
+
+        with capture_logs() as logs:
+            rows = service._standing_plants(["b1"], tenant_key=TENANT, now=STATE_NOW, site_key=SITE)
+
+        assert len(full.calls) == _MAX_STATE_PAGES
+        assert len(rows) == _MAX_STATE_PAGES * STATE_PAGE_SIZE
+        (warning,) = [entry for entry in logs if entry["event"] == "garden_plan.plant_state_page_cap_reached"]
+        assert warning["site_key"] == SITE and warning["pages"] == _MAX_STATE_PAGES
+        assert warning["rows"] == _MAX_STATE_PAGES * STATE_PAGE_SIZE
+        assert "unreachable below the plant counter threshold" in warning["note"]
+
+    def test_a_short_last_page_ends_the_read_without_a_warning(self, repo) -> None:
+        service, states, _phases = _stated_world(repo, {"b1": [_source(f"p{i:04d}") for i in range(250)]})
+
+        with capture_logs() as logs:
+            rows = service._standing_plants(["b1"], tenant_key=TENANT, now=STATE_NOW, site_key=SITE)
+
+        assert len(rows) == 250 and len(states.calls) == 2
+        assert not [entry for entry in logs if entry["event"] == "garden_plan.plant_state_page_cap_reached"]
 
     def test_the_row_name_also_serves_without_a_growth_phase_lookup(self, repo) -> None:
         rows = {"b1": [_source("p1", "ph-entry", phase_name="Flowering")]}
