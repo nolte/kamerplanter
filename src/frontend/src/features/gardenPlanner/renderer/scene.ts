@@ -7,7 +7,7 @@ import { ICON_MIN_PX, LABEL_MIN_PX, markersVisible } from './lod';
 import { markerIndex, shapeEntries, type MarkerEntry, type ShapeEntry } from './planIndex';
 import { ATTENTION_PRIORITY, type AttentionCode } from '../model/plantState';
 import type { PlanModel } from '../model/planModel';
-import type { RenderOptions, RenderSelection, Viewport } from './types';
+import type { PlantMarkerState, RenderOptions, RenderSelection, Viewport } from './types';
 import { cullBoundsM, intersects } from './viewport';
 
 export interface SceneShape {
@@ -32,6 +32,11 @@ export interface SceneMarker {
   /** Only the plants of the entered bed are focus targets. */
   interactive: boolean;
   tabStop: boolean;
+  /**
+   * The state the plant-state layer draws on a marker outside the entered bed (GP-UX-061). Such a marker is
+   * decorative like a batch: the hover bubble and the focus stay in the bed view.
+   */
+  layerState?: PlantMarkerState;
 }
 
 /**
@@ -102,17 +107,36 @@ function attentionOf(
   return { attention: known > 0 ? attention : null, topBadge: top };
 }
 
+/**
+ * The beds whose plants the plant-state layer needs (GP-UX-061, #2488): placed beds with plants, within the cull
+ * window, at marker LOD. Below that LOD a bed is one cluster, which reads states already loaded but never asks for
+ * them - so the layer's requests grow with what is drawn in detail, not with the size of the site.
+ */
+export function markerLodBedKeys(model: PlanModel, viewport: Viewport): string[] {
+  const cull = cullBoundsM(viewport);
+  const keys: string[] = [];
+  for (const bed of markerIndex(model).values()) {
+    if (bed.plantCount === 0 || !model.locations[bed.locationKey]?.geometry) continue;
+    if (!intersects(bed.bbox, cull) || !markersVisible(bed.minSpacingM, viewport.pxPerM)) continue;
+    keys.push(bed.locationKey);
+  }
+  return keys;
+}
+
 export function buildScene(
   model: PlanModel,
   viewport: Viewport,
   selection: RenderSelection,
-  options: Pick<RenderOptions, 'enteredLocationKey' | 'plantStates' | 'invalidKeys'>,
+  options: Pick<RenderOptions, 'enteredLocationKey' | 'plantStates' | 'invalidKeys' | 'plantStateLayer'>,
 ): Scene {
   const cull = cullBoundsM(viewport);
   const { pxPerM } = viewport;
   const selected = selection.selectedKeys;
   const markers = markerIndex(model);
   const entered = options.enteredLocationKey ?? null;
+  const layer = options.plantStateLayer ?? null;
+  const layerStates = layer?.states ?? null;
+  const attentionOnly = layer?.attentionOnly ?? false;
 
   // A focus target stays rendered outside the viewport (GP-NFR-069): culling never removes it.
   const kept = shapeEntries(model).filter(
@@ -130,15 +154,27 @@ export function buildScene(
     if (!bed) continue;
     if (markersVisible(bed.minSpacingM, pxPerM)) {
       const isEntered = entry.key === entered;
+      // As for a cluster: a bed whose states are not known yet keeps its plain markers under the filter.
+      const filtered =
+        attentionOnly && layerStates !== null && bed.markers.some((marker) => marker.key in layerStates);
       const rest: MarkerEntry[] = [];
       for (const marker of bed.markers) {
         const isSelected = selected.has(marker.key);
-        if (isEntered || isSelected) {
+        if (isEntered) {
+          sceneMarkers.push({ entry: marker, selected: isSelected, interactive: true, tabStop: false });
+          continue;
+        }
+        // The layer: a plant with a known state is drawn with its channels; "only plants that need attention"
+        // keeps the ones with a badge and lets everything else of the bed go - a selected marker always stays.
+        const state = layerStates && marker.kind === 'plant' ? layerStates[marker.key] : undefined;
+        if (filtered && !isSelected && !state?.badge) continue;
+        if (state || isSelected) {
           sceneMarkers.push({
             entry: marker,
             selected: isSelected,
-            interactive: isEntered,
+            interactive: false,
             tabStop: false,
+            ...(state ? { layerState: state } : {}),
           });
         } else {
           rest.push(marker);
@@ -146,12 +182,16 @@ export function buildScene(
       }
       if (rest.length > 0) markerBatches.push({ locationKey: entry.key, markers: rest });
     } else if (bed.plantCount > 0) {
+      const summary = attentionOf(bed.markers, layerStates ?? options.plantStates);
+      // With the filter a cluster counts the plants that need attention and goes when none does; a bed whose states
+      // are not known yet keeps its plain count - unknown is not "nothing to do".
+      if (attentionOnly && summary.attention === 0) continue;
       clusters.push({
         locationKey: bed.locationKey,
-        count: bed.plantCount,
+        count: attentionOnly && summary.attention !== null ? summary.attention : bed.plantCount,
         x: (entry.bbox[0] + entry.bbox[2]) / 2,
         y: (entry.bbox[1] + entry.bbox[3]) / 2,
-        ...attentionOf(bed.markers, options.plantStates),
+        ...summary,
       });
     }
   }

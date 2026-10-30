@@ -123,6 +123,16 @@ export interface RenderOptions {
    */
   plantStates?: Readonly<Record<string, PlantMarkerState>>;
   /**
+   * The plant-state layer of the overview plan (GP-UX-061, #2488); absent = hidden. With it, every bed at marker LOD
+   * draws its plants with their state channels (decorative: the bed's own label carries the count), and a bed below
+   * that LOD counts the plants that need attention in its cluster. `attentionOnly` keeps only plants with a badge
+   * and hides a cluster in which none is known to need attention. A plant without an entry keeps the plain marker.
+   */
+  plantStateLayer?: {
+    states: Readonly<Record<string, PlantMarkerState>>;
+    attentionOnly: boolean;
+  };
+  /**
    * Keys of objects a refused save named (GP-UX-017): drawn with a red outline, and the panel explains why.
    * Never colour alone - the outline is also heavier.
    */
