@@ -463,7 +463,7 @@ This section describes the aids that save you manual work in planning mode.
 
 **Save as template.** With exactly one bed selected, **Save as template** stores its shape, type and height as a template of your garden. Plants, tasks and notes are not part of it, and the template only carries planting distances or soil values if you enter them yourself. Growers and leads create templates.
 
-**Snapping to other objects.** When you move or draw, the plan snaps to corners and edges of other objects before it snaps to the grid. A green line shows the edge you are on. The Alt key or the **Snap** switch turns snapping off. With a pen or a finger the catch zone is larger.
+**Snapping to other objects.** When you move or draw, the plan snaps to corners and edges of other objects before it snaps to the grid. When you move a bed, every corner of it snaps, not just the spot under the pointer: this lets you put the right edge of one bed exactly against the left edge of the next. A green ring shows the corner that snaps, a green line the edge it sits on. The Alt key or the **Snap** switch turns snapping off. With a pen or a finger the catch zone is larger.
 
 **Align and distribute.** With at least two beds or objects selected, **Align** lines them up on the left, right, top or bottom edge or on the centre. From three objects on, **Distribute evenly** spreads them with equal gaps. Locked objects stay where they are and do not count. Each of these actions is a single step for **Undo**.
 

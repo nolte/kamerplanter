@@ -8,6 +8,7 @@ import type { PlanModel } from '../../model/planModel';
 import type { Point, PlanOperation } from '../../model/types';
 import type { PlanTool, SelectionRef, SelectionStack } from '../../state/gardenPlanSlice';
 import type { Shape } from '../../model/geometry';
+import type { MoveSnapResult } from './snap';
 
 export interface PointerSample {
   /** Canvas pixels, origin top-left. */
@@ -33,6 +34,17 @@ export interface ToolEnv {
    * `bypass` is Alt; `pointerType` widens the object-snap tolerance for a finger or a pen (GP-FR-154).
    */
   snapPoint(pointM: Point, bypass: boolean, pointerType?: PointerSample['pointerType']): Point;
+  /**
+   * The snap of a moved object (GP-FR-154): each of its `sources` (bounding-box corners, anchor) shifted by
+   * `rawDelta` may land on an object corner or edge; else `reference` (the anchor) snaps to the grid.
+   */
+  snapMove(
+    sources: readonly Point[],
+    reference: Point,
+    rawDelta: Point,
+    bypass: boolean,
+    pointerType?: PointerSample['pointerType'],
+  ): MoveSnapResult;
   /** Rotation step of the rotate handle: 15, 45 or 90 (GP-FR-008). */
   angleStepDeg: number;
 }
@@ -87,6 +99,21 @@ export interface Overlay {
 }
 
 export const EMPTY_OVERLAY: Overlay = { shapes: [], marquee: null };
+
+/**
+ * A `snapMove` for an environment that only has a point snap (tests, the default): the anchor goes through
+ * `snapPoint`, and no marker is drawn for it.
+ */
+export function anchorSnapMove(snapPoint: ToolEnv['snapPoint']): ToolEnv['snapMove'] {
+  return (_sources, reference, rawDelta, bypass, pointerType) => {
+    const point = snapPoint(
+      [reference[0] + rawDelta[0], reference[1] + rawDelta[1]],
+      bypass,
+      pointerType,
+    );
+    return { delta: [point[0] - reference[0], point[1] - reference[1]], kind: 'none', point };
+  };
+}
 
 /** Pointer travel before a press becomes a drag. */
 export function dragThresholdPx(pointerType: PointerSample['pointerType']): number {

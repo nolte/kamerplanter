@@ -8,7 +8,7 @@
  * A gesture the live validation rejects commits nothing and reports a notice (snap-back,
  * GP-UX-053). Escape cancels at any point before the release and changes nothing.
  */
-import { anchor, toShape } from '../../model/geometry';
+import { anchor, boundingBox, toShape } from '../../model/geometry';
 import type { Geometry, Point, PlanEntity, PlanOperation } from '../../model/types';
 import type { SelectionRef } from '../../state/gardenPlanSlice';
 import { computeHandles, handleAt, type Handle } from './handles';
@@ -44,6 +44,7 @@ import {
   stackRefs,
   toggleRef,
 } from './selection';
+import { moveSources, type MoveSnapResult, type SnapMark } from './snap';
 import { firstViolation, type DraftChange } from './validation';
 
 export interface VertexSelection {
@@ -73,7 +74,13 @@ type Gesture =
       downModel: Point;
       targets: GeometryEntry[];
       primary: GeometryEntry;
+      /** The points of the primary object that may snap (its bounding-box corners and anchor, GP-FR-154). */
+      sources: Point[];
+      /** The anchor of the primary object: it snaps to the grid. */
+      reference: Point;
       delta: Point;
+      /** The snap of the last pointer move: the marker is drawn where its source landed. */
+      snap: MoveSnapResult | null;
       violation: string | null;
     }
   | { kind: 'marquee'; downPx: Point; currentPx: Point; additive: boolean }
@@ -284,12 +291,16 @@ function pressMoved(
     press.alt && !press.wasSelected
       ? [select(press.selection), { type: 'stack', stack: null }]
       : [];
+  const reference = anchor(primary.geometry);
   const moving: Extract<Gesture, { kind: 'move' }> = {
     kind: 'move',
     downModel: press.downModel,
     targets,
     primary,
+    sources: moveSources(boundingBox(primary.geometry), reference),
+    reference,
     delta: [0, 0],
+    snap: null,
     violation: null,
   };
   return step({ ...state, gesture: movedTo(moving, sample, env) }, effects);
@@ -302,19 +313,15 @@ function movedTo(
 ): Extract<Gesture, { kind: 'move' }> {
   const now = env.toModel(sample.pointPx);
   const raw: Point = [now[0] - move.downModel[0], now[1] - move.downModel[1]];
-  const start = anchor(move.primary.geometry);
-  const snapped = env.snapPoint(
-    [start[0] + raw[0], start[1] + raw[1]],
-    sample.alt,
-    sample.pointerType,
-  );
-  const delta: Point = [snapped[0] - start[0], snapped[1] - start[1]];
+  // Every corner of the moved object may snap, so its right edge can meet another's left edge (GP-FR-154).
+  const snap = env.snapMove(move.sources, move.reference, raw, sample.alt, sample.pointerType);
+  const { delta } = snap;
   const draft = move.targets.map((entry) => ({
     entity: entry.entity,
     key: entry.key,
     geometry: translateGeometry(entry.geometry, delta),
   }));
-  return { ...move, delta, violation: firstViolation(env.plan, draft) };
+  return { ...move, delta, snap, violation: firstViolation(env.plan, draft) };
 }
 
 function handleMovedTo(
@@ -535,6 +542,17 @@ function ghostShapes(gesture: Gesture): Pick<Overlay, 'shapes'> {
     };
   }
   return { shapes: [] };
+}
+
+/**
+ * The snap marker of a move under way: where the snapped source of the moved object lands, with the guide edge
+ * (GP-FR-154). `null` when no move runs or the move did not snap (Alt, snapping off).
+ */
+export function moveSnapMark(state: SelectState): SnapMark | null {
+  const { gesture } = state;
+  if (gesture.kind !== 'move' || gesture.snap === null || gesture.snap.kind === 'none') return null;
+  const { point, kind, guide } = gesture.snap;
+  return guide ? { point, kind, guide } : { point, kind };
 }
 
 /** The move preview offset for the renderer (`setDragOffset`): the primary object, in pixels. */

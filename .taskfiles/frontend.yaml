@@ -48,7 +48,7 @@ tasks:
       Garden planner performance benchmarks as assertions (REQ-053 GP-NFR-040, WP 5.4):
       `applyOperation(move)` median <= 1 ms on the large plan (GP-ACC-033), the marker
       derivation after a move, the renderer frame cost and the client layout of 200
-      positions (GP-NFR-036). Not in the lane: `plantState.benchmark.test.ts` (GP-NFR-073,
+      positions (GP-NFR-036) and the snap of one drag step (#2536). Not in the lane: `plantState.benchmark.test.ts` (GP-NFR-073,
       a single 5 000-plant batch against 50 ms) - it failed 4 of 8 runs on a quiet
       developer machine (54-68 ms), so it is a flake in waiting, not an assertion.
       The wall-clock cases are skipped unless
@@ -60,7 +60,7 @@ tasks:
     env:
       GP_BENCHMARK: "1"
     cmds:
-      - npx vitest run applyOperation.benchmark layout.benchmark renderer.benchmark planIndex.slotFollow {{.CLI_ARGS}}
+      - npx vitest run applyOperation.benchmark layout.benchmark renderer.benchmark planIndex.slotFollow snap.benchmark {{.CLI_ARGS}}
 
   build:frontend:
     desc: Production build — the CI gate's exact invocation

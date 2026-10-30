@@ -87,17 +87,37 @@ describe('object snap (GP-FR-012, GP-FR-154)', () => {
     expect(originOf(t, 'solo')).toEqual([8, 5]);
   });
 
-  it('shows the edge as a guide while the pointer is on it', () => {
+  it('snaps the right edge of the moved bed to the left edge of another and marks the snapped corner', () => {
+    const t = setupEditor();
+    select(t, 'solo');
+    // solo (14..16 x 2..4) dragged by (-10.1, 0.5): its right edge is 0.1 m (4 px) left of b2's left edge x = 6.
+    // The pointer itself is beside b1's right edge (x = 5) - the old marker showed that, not the snap.
+    t.after(() => {
+      fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(14, 3.5)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(4.9, 3.5)));
+    });
+    const marker = screen.getByTestId('garden-plan-snap-marker');
+    expect(marker).toHaveAttribute('data-kind', 'edge');
+    const ring = marker.querySelector('circle')!;
+    // the marker sits on the snapped source - solo's upper-right corner at (6, 4.5) - not on the pointer
+    expect(Number(ring.getAttribute('cx'))).toBeCloseTo(6 * 40, 3);
+    expect(Number(ring.getAttribute('cy'))).toBeCloseTo((20 - 4.5) * 40, 3);
+    const guide = screen.getByTestId('garden-plan-snap-guide');
+    expect([guide.getAttribute('x1'), guide.getAttribute('x2')]).toEqual(['240', '240']);
+    t.after(() => fireEvent.pointerUp(t.canvas(), pointer(px(4.9, 3.5))));
+    expect(originOf(t, 'solo')).toEqual([4, 2.5]);
+  });
+
+  it('hides the marker while Alt moves freely', () => {
     const t = setupEditor();
     select(t, 'solo');
     t.after(() => {
       fireEvent.pointerDown(t.canvas(), pointer(px(15, 3)));
-      // 0.1 m (4 px) beside the bottom edge of b2 (y = 3, x 6..8), away from its corners
-      fireEvent.pointerMove(t.canvas(), pointer(px(7, 3.1)));
+      fireEvent.pointerMove(t.canvas(), pointer(px(14, 3.5)));
+      fireEvent.pointerMove(t.canvas(), pointer({ ...px(4.9, 3.5), altKey: true }));
     });
-    const marker = screen.getByTestId('garden-plan-snap-marker');
-    expect(marker).toHaveAttribute('data-kind', 'edge');
-    expect(screen.getByTestId('garden-plan-snap-guide')).toBeInTheDocument();
+    expect(screen.queryByTestId('garden-plan-snap-marker')).toBeNull();
   });
 
   it('Alt keeps the exact value', () => {

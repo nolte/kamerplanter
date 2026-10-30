@@ -132,7 +132,7 @@ import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImp
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
-import { resolveSnap, type SnapPointerType } from './tools/snap';
+import { resolveMoveSnap, resolveSnap, type SnapPointerType } from './tools/snap';
 import { useEditorTools } from './tools/useEditorTools';
 import { useVisibleHeight } from './tools/useVisibleHeight';
 import { useTouchInput } from './tools/useTouchInput';
@@ -505,6 +505,25 @@ export function GardenPlanEditor({
       }).point,
     [candidates, gridStepM, snapEnabled, pxPerM],
   );
+  // A moved object snaps with every corner of its box (GP-FR-154): its right edge can meet another's left edge.
+  const snapMove = useCallback(
+    (
+      sources: readonly Point[],
+      reference: Point,
+      rawDelta: Point,
+      bypass: boolean,
+      pointerType: SnapPointerType = 'mouse',
+    ) =>
+      resolveMoveSnap(sources, reference, rawDelta, {
+        gridM: gridStepM,
+        gridEnabled: snapEnabled,
+        bypass,
+        pxPerM,
+        pointerType,
+        candidates,
+      }),
+    [candidates, gridStepM, snapEnabled, pxPerM],
+  );
 
   const tools = useEditorTools({
     tool,
@@ -527,6 +546,7 @@ export function GardenPlanEditor({
     bedTypeKey,
     objectType,
     snapPoint,
+    snapMove,
   });
 
   const zoomCenter = useMemo<Point>(
@@ -626,6 +646,7 @@ export function GardenPlanEditor({
   const templateTool = templateMode !== null;
   const { onPointerMove: toolPointerMove, onPointerUp: toolPointerUp } = tools.containerProps;
   const toolBusy = tools.busy;
+  const toolMoving = tools.moving;
   const onPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
       toolPointerMove(event);
@@ -641,7 +662,8 @@ export function GardenPlanEditor({
           previous && previous[0] === landing[0] && previous[1] === landing[1] ? previous : landing,
         );
       }
-      if (!(drawTool || templateTool || toolBusy) || !snapEnabled || event.altKey) {
+      // A move draws the marker where the moved object snapped (`tools.moveSnap`), not where the pointer is.
+      if (!(drawTool || templateTool || toolBusy) || toolMoving || !snapEnabled || event.altKey) {
         setSnapMark((previous) => (previous === null ? previous : null));
         return;
       }
@@ -675,6 +697,7 @@ export function GardenPlanEditor({
       snapPoint,
       templateTool,
       toolBusy,
+      toolMoving,
       toolPointerMove,
     ],
   );
@@ -1351,6 +1374,9 @@ export function GardenPlanEditor({
     setGhostPoint(null);
   }, []);
 
+  // During a move the marker is the moved object's snapped corner or edge point (GP-FR-154), else the pointer's.
+  const shownSnapMark = tools.moving ? tools.moveSnap : snapMark;
+
   // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6).
   const extent = useMemo(() => planContentBounds(plan), [plan]);
   const showMiniMap = extent !== null && miniMapVisible(extent, viewport);
@@ -1421,9 +1447,9 @@ export function GardenPlanEditor({
             pxPerM={pxPerM}
           />
         )}
-        {snapMark && (
+        {shownSnapMark && (
           <SnapMarker
-            mark={snapMark}
+            mark={shownSnapMark}
             toScreen={renderer.toScreen.bind(renderer)}
             widthPx={viewport.widthPx}
             heightPx={viewport.heightPx}
