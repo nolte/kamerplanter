@@ -110,6 +110,11 @@ export interface RenderOptions {
   frostLayer?: boolean;
   /** Field mode raises the on-screen label size from 12 to 16 px (GP-NFR-067). */
   fieldMode?: boolean;
+  /**
+   * The caller prints the selection's dimensions itself (the editor's overlay, which keeps them clear of the handles,
+   * GP-UX-047); the renderer then draws none, so two size texts never sit on top of each other.
+   */
+  dimensionsOnOverlay?: boolean;
   /** The bed whose plants are the current focus level (GP-NFR-068: Enter enters a bed). */
   enteredLocationKey?: string | null;
   /**

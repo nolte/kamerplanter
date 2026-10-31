@@ -5397,6 +5397,7 @@
         },
         "newBedName": "Beet {{n}}",
         "tooSmall": "Dieses Objekt ist auf dem Bildschirm zu klein für Griffe. Verschieben geht trotzdem; zum Ändern der Größe wähle es und gib die Maße im Eigenschaftenfeld ein.",
+        "zoomToEdit": "Zum Bearbeiten heranzoomen",
         "actions": {
           "move": "Verschieben",
           "rotate": "Drehen",

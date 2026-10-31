@@ -45,6 +45,7 @@ from app.domain.calculators.geometry_calculator import (
     centroid,
     to_shape,
 )
+from app.domain.calculators.label_anchor_calculator import label_anchor
 from app.domain.calculators.plant_state_calculator import (
     ATTENTION_PRIORITY,
     LIFECYCLES,
@@ -920,13 +921,16 @@ def _truncate(text: str, max_chars: int) -> str:
 
 
 def _label_node(canvas: _Canvas, geometry: Geometry, text: str, *, key: str | None) -> _Node | None:
+    """The name at the object's label anchor (GP-UX-047): a polygon's pole of inaccessibility, a rect's or circle's
+    centre - the point the editor uses too (``label_anchor``, shared vectors) - shortened with "…" to the room a
+    centred label has there."""
     cleaned = " ".join(clean_text(text).split())
     if not cleaned:
         return None
-    min_x, min_y, max_x, max_y = bounding_box(geometry)
-    width_mm = (max_x - min_x) * 1000.0 / canvas.scale
+    anchor = label_anchor(geometry)
+    width_mm = anchor.width_m * 1000.0 / canvas.scale
     max_chars = max(3, int(width_mm / (_LABEL_MM * _GLYPH_WIDTH_EM)))
-    cx, cy = centroid(geometry)
+    cx, cy = anchor.point
     attributes: dict[str, AttributeValue] = {
         "x": canvas.x(cx),
         "y": canvas.y(cy),
@@ -1162,7 +1166,8 @@ def _plant_layer(
         for bed_key, points in markers.items():
             bed = beds[bed_key]
             assert bed.geometry is not None  # noqa: S101 - positions are built from beds with a geometry
-            cx, cy = centroid(bed.geometry)
+            # Under the bed's name, which sits at the label anchor (GP-UX-047).
+            cx, cy = label_anchor(bed.geometry).point
             layer.add(
                 _el(
                     "text",

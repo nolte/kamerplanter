@@ -58,7 +58,7 @@ import { createBedTemplate } from '../api/gardenPlan';
 import type { PlanModel } from '../model/planModel';
 import { toShape } from '../model/geometry';
 import type { GardenObjectType, PlanOperation, Point } from '../model/types';
-import { nearestGridStep, stepZoom } from '../model/units';
+import { MAX_PX_PER_M, nearestGridStep, stepZoom } from '../model/units';
 import type { PlanRenderer, RenderSelection, RendererLabels, Viewport } from '../renderer';
 import { snapCandidates } from '../renderer/planIndex';
 import { markerLodBedKeys } from '../renderer/scene';
@@ -134,6 +134,7 @@ import {
   type MultiRefusal,
 } from './tools/duplicate';
 import { deleteImpact, isPlanEntity, moveTargets, selectionRoots, type DeleteImpact } from './tools/hierarchy';
+import { zoomForFullHandles } from './tools/handles';
 import type { ActionLabel } from './tools/machineTypes';
 import { panIntoView } from './tools/touchGestures';
 import { isSelected, resolveRef, selectAll, stackRefs } from './tools/selection';
@@ -1162,6 +1163,8 @@ export function GardenPlanEditor({
   const rendered = useMemo(
     () => renderer.render(plan, viewport, selectedKeys, {
         labels,
+        // The overlay prints the selection's dimensions, clear of the handles (GP-UX-047).
+        dimensionsOnOverlay: true,
         onActivateKey,
         invalidKeys,
         underlayLayer: underlayState.entry,
@@ -1232,6 +1235,19 @@ export function GardenPlanEditor({
     : null;
   const handles = tools.handles;
   const singleTooSmall = handles !== null && handles.density === 'none';
+  // GP-UX-048: an object too small for handles offers "zoom in to edit" - the zoom at which it gets its full set of
+  // handles, around its centre, so it stays where it is on screen. Absent when no zoom can help any more.
+  const zoomToEdit = useMemo(() => {
+    if (!singleTooSmall || !onZoom || pxPerM >= MAX_PX_PER_M || selection.length !== 1) return null;
+    const ref = selection[0];
+    if (!isPlanEntity(ref)) return null;
+    const source = ref.entity === 'location' ? plan.locations[ref.key] : plan.gardenObjects[ref.key];
+    const wanted = source?.geometry ? zoomForFullHandles(source.geometry) : null;
+    const bbox = source?.bbox;
+    if (wanted === null || !bbox) return null;
+    const centreM: Point = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
+    return () => onZoom(Math.min(wanted, MAX_PX_PER_M), renderer.toScreen(centreM));
+  }, [singleTooSmall, onZoom, pxPerM, selection, plan, renderer]);
 
   const drawing = tool === 'bed' || tool === 'garden_object';
   // With a finger the hints speak of the crosshair and "Set point" - dragging would pan the plan.
@@ -1476,6 +1492,8 @@ export function GardenPlanEditor({
           items={dimensionItems}
           toScreen={renderer.toScreen.bind(renderer)}
           unit={unit}
+          handlesPx={handles?.handles.map((handle) => renderer.toScreen(handle.pointM))}
+          heightPx={viewport.heightPx}
         />
         {selectedTemplate && ghostPoint && templateMode && (
           <TemplateGhost
@@ -1665,7 +1683,18 @@ export function GardenPlanEditor({
         </Alert>
       )}
       {!listShown && singleTooSmall && (
-        <Alert severity="info" role="status" data-testid="garden-plan-too-small">
+        <Alert
+          severity="info"
+          role="status"
+          data-testid="garden-plan-too-small"
+          action={
+            zoomToEdit ? (
+              <Button color="inherit" size="small" onClick={zoomToEdit} data-testid="garden-plan-zoom-to-edit">
+                {t(`${PREFIX}.zoomToEdit`)}
+              </Button>
+            ) : undefined
+          }
+        >
           {t(`${PREFIX}.tooSmall`)}
         </Alert>
       )}

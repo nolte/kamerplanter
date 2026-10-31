@@ -41,6 +41,22 @@ function densityOf(sizePx: number): HandleDensity {
   return 'full';
 }
 
+/**
+ * The zoom (px/m) at which `geometry` gets its full set of handles (GP-UX-048: 3 x 48 px on its smaller side), for
+ * the "zoom in to edit" auto-zoom. `null` for shapes whose handles never depend on the zoom (polygon, polyline,
+ * point). The small margin keeps float noise from landing just below the threshold.
+ */
+export function zoomForFullHandles(geometry: Geometry): number | null {
+  const sizeM =
+    geometry.kind === 'rect'
+      ? Math.min(geometry.width_m, geometry.length_m)
+      : geometry.kind === 'circle'
+        ? geometry.radius_m * 2
+        : null;
+  if (sizeM === null || sizeM <= 0) return null;
+  return ((3 * HANDLE_TARGET_PX) / sizeM) * 1.02;
+}
+
 export function computeHandles(geometry: Geometry, pxPerM: number): HandleSet {
   const offsetM = ROTATE_OFFSET_PX / pxPerM;
   if (geometry.kind === 'rect') {
