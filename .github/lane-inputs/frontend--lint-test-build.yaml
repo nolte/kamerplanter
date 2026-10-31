@@ -11,8 +11,8 @@ gate:
   filter: frontend
 status: measured
 measured_on: '2026-10-31'
-measured_at_commit: 5500f99fe6c969813ebd00b2aed4ccb948b4f431
-replay_seconds: 1673
+measured_at_commit: 00ef6fe4107207910555e7f5f51bb9af240650bf
+replay_seconds: 1378
 job_spec_sha256: d9b096ddf194fe6af93018161f8a6aef6d2e16cf9bba375f54c1e6a8e1a33334
 invocations:
 - command: task typecheck
@@ -1781,4 +1781,4 @@ reads:
 - src/frontend/vitest.config.ts
 test_modules: []
 readers: {}
-readers_scope_sha256: bb490e75e0594da5fb06df6cf4d0775f03163c42b60a6325f67db80f77b0c5b9
+readers_scope_sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
