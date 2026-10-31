@@ -38,6 +38,7 @@ class _Repo:
             z_order=10,
             pitch_m=0.25,
             rotation_exempt=True,
+            rotation_enabled=False,
         )
         self.slot = Slot(
             _key="slot_1",

@@ -305,7 +305,7 @@ Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab 
 5. **Vorschau ansehen.** Das Beet zeigt sofort, wo die Pflanzen stehen würden, und darunter steht, wie viele es sind und wie viele höchstens passen. Der Server bestätigt die Zahl kurz darauf. Weicht seine Antwort ab, gilt seine.
 6. **Planen oder erfassen.** **Pflanzung planen** legt einen geplanten Durchlauf an und reserviert die Plätze ab dem Pflanzdatum. Hast du schon gepflanzt, schaltest du **Ich habe schon gepflanzt** ein. Dann entstehen die Pflanzen sofort auf den berechneten Positionen.
 
-**Mehrere Arten (Mischkultur).** Mit **Weitere Art hinzufügen** nimmst du bis zu vier Arten in dieselbe Pflanzung auf. Stehen alle in Reihen, verteilt Kamerplanter die Reihen **abwechselnd** auf die Arten, etwa Möhre in jeder zweiten Reihe und Zwiebel dazwischen. Die Reihen- und Randeinstellungen von Art 1 gelten dann für alle, nur der Abstand in der Reihe bleibt je Art. Verträgt sich eine Kombination laut Kamerplanter nicht, erscheint ein Hinweis.
+**Mehrere Arten (Mischkultur).** Mit **Weitere Art hinzufügen** nimmst du bis zu vier Arten in dieselbe Pflanzung auf. Stehen alle in Reihen, verteilt Kamerplanter die Reihen **abwechselnd** auf die Arten, etwa Möhre in jeder zweiten Reihe und Zwiebel dazwischen. Die Reihen- und Randeinstellungen von Art 1 gelten dann für alle, nur der Abstand in der Reihe bleibt je Art. Jede Reihe gehört genau einer Art: Beanspruchen zwei Arten dieselbe Reihe, legt Kamerplanter die Pflanzung nicht an. Verträgt sich eine Kombination laut Kamerplanter nicht, erscheint ein Hinweis. <!-- REQ-053 GP-FR-070 -->
 
 **Freie Positionen.** Wählst du **Freie Positionen**, tippst du die Pflanzplätze ins Beet. Ziehen verschiebt einen Platz, eine Nummer unter der Vorschau löscht ihn. Liegen zwei Plätze näher beieinander als der Mindestabstand, bekommen beide einen **gelben Ring**. Das ist ein Hinweis, du kannst trotzdem pflanzen.
 
@@ -407,7 +407,10 @@ Im Gartenplan zeigt das Eigenschaften-Feld eines gewählten Beets dieselben Feld
 
 Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Liste**.
 
-**Zeitstrahl.** Er zeigt für jedes Jahr, welche Pflanzenfamilien im Beet standen, mindestens die letzten fünf Jahre, bei langen Anbaupausen bis zu zehn. Jede Familie hat eine eigene Farbe und steht immer auch mit ihrem Namen auf dem Eintrag. Gründüngung und Brache sind gekennzeichnet. Der Zeitstrahl ist die Grundlage der Fruchtfolge-Prüfung. Für Töpfe, Zelte und Regale ist diese Prüfung aus; die Historie bleibt trotzdem erhalten.
+**Zeitstrahl.** Er zeigt für jedes Jahr, welche Pflanzenfamilien im Beet standen, mindestens die letzten fünf Jahre, bei langen Anbaupausen bis zu zehn. Jede Familie hat eine eigene Farbe und steht immer auch mit ihrem Namen auf dem Eintrag. Gründüngung und Brache sind gekennzeichnet. Der Zeitstrahl ist die Grundlage der Fruchtfolge-Prüfung. Für Töpfe, Zelte und Regale ist diese Prüfung standardmäßig aus; die Historie bleibt trotzdem erhalten. Je Beet lässt sich die Prüfung ein- oder ausschalten, für Dauerkulturen bleibt sie immer aus. <!-- REQ-053 GP-FR-137 -->
+
+!!! info "Nur über API: Fruchtfolge-Schalter je Beet"
+    Den Schalter stellst du bisher nur über die API ein; die Beetansicht zeigt ihn noch nicht. Wie das geht, steht in der [API-Referenz](../reference/api-reference.md). <!-- REQ-053 GP-FR-137 -->
 
 **Was stand hier?** Wenn du ein Jahr nachtragen willst, in dem du die App noch nicht genutzt hast, tippe bei dem Jahr auf **{Jahr} nachtragen** oder oben auf **Was stand hier?**. Du wählst Jahr, Pflanzenfamilie (oder eine Art, die ihre Familie mitbringt), die Rolle (Hauptkultur, Gründüngung oder Brache) und optional die Saison. Erlaubt sind die letzten zehn Jahre bis zum Vorjahr. Danach erscheint die Meldung mit **Rückgängig**. Einen nachgetragenen Eintrag nimmst du später mit dem **x** am Eintrag zurück, als Autor oder in der Rolle „lead". Er bleibt dann als storniert im Pflegeprotokoll stehen. Beobachter (Rolle „viewer") sehen den Zeitstrahl nur lesend.
 

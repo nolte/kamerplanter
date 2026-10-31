@@ -688,3 +688,82 @@ class TestMixedCulture:
         assert response.status_code == 422, response.text
         assert "reference.not_found" in response.text
         assert world.repo.mixed_writes == []
+
+
+class TestMixedCultureRowsAreDisjoint:
+    """GP-ACC-054 / GP-FR-070: overlapping ``row_assignment`` sets of one mixed culture are 422, nothing is written."""
+
+    @staticmethod
+    def body(*assignments: list[int] | None, strategies: list[str] | None = None) -> dict:
+        prefixes = [f"R{chr(65 + index)}" for index in range(len(assignments))]
+        layouts = strategies or ["rows"] * len(assignments)
+        return {
+            "location_key": "bed",
+            "planned_start_date": "2026-05-20",
+            "runs": [
+                {
+                    "name": f"{prefixes[index]} run",
+                    "entry": {
+                        "species_key": "sp_phacelia" if index % 2 else "sp_tomato",
+                        "quantity": 16,
+                        "id_prefix": prefixes[index],
+                        "spacing_cm": 50,
+                        "row_spacing_cm": 40,
+                        "layout_strategy": layouts[index],
+                        "row_assignment": rows,
+                    },
+                }
+                for index, rows in enumerate(assignments)
+            ],
+        }
+
+    def test_a_free_entry_takes_no_rows_and_is_not_checked(self, client, world) -> None:
+        """SCR-004: a ``free`` entry places no rows, so its ``row_assignment`` cannot collide with a ``rows`` one."""
+        body = self.body([0], [0], strategies=["rows", "free"])
+        body["runs"][1]["free_points"] = [[0.5, 0.5]]
+
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=body)
+
+        assert response.status_code == 201, response.text
+
+    def test_the_422_body_stays_small_for_twelve_entries_of_2000_identical_rows(self, client, world) -> None:
+        """SEC-001: 66 overlapping pairs x 2 000 rows are reported as 20 pairs x 50 rows plus the counters."""
+        rows = list(range(2000))
+
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body(*([rows] * 12)))
+
+        assert response.status_code == 422, response.text
+        (detail,) = response.json()["details"]
+        assert (detail["pairs_total"], detail["truncated"]) == (66, True)
+        assert [pair["runs"] for pair in detail["conflicts"]][:3] == [[0, 1], [0, 2], [0, 3]]
+        assert len(detail["conflicts"]) == 20
+        assert all(pair["rows"] == list(range(50)) and pair["rows_total"] == 2000 for pair in detail["conflicts"])
+        assert len(response.content) < 16_384, len(response.content)
+
+    def test_rows_1_2_and_2_3_answer_422_and_name_the_row_and_the_runs(self, client, world) -> None:
+        slots_before = list(world.plan.slots)
+
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body([1, 2], [2, 3]))
+
+        assert response.status_code == 422, response.text
+        body = response.json()
+        assert body["error_code"] == "layout.row_assignment_overlap"
+        (detail,) = body["details"]
+        assert detail["code"] == "layout.row_assignment_overlap"
+        assert detail["field"] == "runs[1].entry.row_assignment"
+        assert detail["conflicts"] == [{"runs": [0, 1], "rows": [2], "rows_total": 1}]
+        assert (detail["pairs_total"], detail["truncated"]) == (1, False)
+        assert world.repo.mixed_writes == [] and world.runs.runs == {}
+        assert world.plan.slots == slots_before and world.repo.reservations == []
+
+    def test_disjoint_rows_are_201(self, client, world) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body([0, 2, 4], [1, 3]))
+
+        assert response.status_code == 201, response.text
+        (write,) = world.repo.mixed_writes
+        assert [sorted({s.slot.row_index for s in item.slots}) for item in write.runs] == [[0, 2], [1, 3]]
+
+    def test_an_entry_without_row_assignment_is_not_checked(self, client, world) -> None:
+        response = client().post(f"{_OWN}/planting-runs/mixed-culture", json=self.body([0, 1], None, [2]))
+
+        assert response.status_code == 201, response.text

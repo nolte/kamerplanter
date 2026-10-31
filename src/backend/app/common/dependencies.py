@@ -641,7 +641,10 @@ def get_propagation_service() -> PropagationService:
 
 
 def get_plant_instance_service() -> PlantInstanceService:
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    # site_repo: the slot check reads the bed's rotation switch first (GP-FR-137, #2544).
+    rotation_validator = CropRotationValidator(
+        get_plant_repo(), get_species_repo(), get_graph_repo(), site_repo=get_site_repo()
+    )
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantInstanceService(
         get_plant_repo(),
@@ -880,7 +883,10 @@ def get_planting_reservation_service() -> PlantingReservationService:
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    # site_repo: the slot check reads the bed's rotation switch first (GP-FR-137, #2544).
+    rotation_validator = CropRotationValidator(
+        get_plant_repo(), get_species_repo(), get_graph_repo(), site_repo=get_site_repo()
+    )
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantingRunService(
         get_planting_run_repo(),

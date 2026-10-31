@@ -599,6 +599,8 @@ class DataExportEngine:
                 "z_order",
                 "pitch_m",
                 "rotation_exempt",
+                # #2544: the per-bed rotation switch, part of the plan backup like ``rotation_exempt``.
+                "rotation_enabled",
                 "created_at",
             ],
         ),

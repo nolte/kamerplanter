@@ -99,6 +99,9 @@ ERROR_DUPLICATE_KEY = "import.duplicate_key"
 ERROR_PARENT_CYCLE = "import.parent_cycle"
 ERROR_TOO_DEEP = "import.too_deep"
 ERROR_DUPLICATE_SLOT_ID = "import.duplicate_slot_id"
+#: GP-FR-137 (#2544): a bed of the file is both a permanent crop and switched on - the pair the PATCH refuses
+#: (``patch.rotation_exempt_and_enabled``). Reported, not normalised: the user decides which flag the file meant.
+ERROR_ROTATION_EXEMPT_AND_ENABLED = "import.rotation_exempt_and_enabled"
 ERROR_QUOTA = "plan.quota_exceeded"
 _GEOMETRY_FIELDS = frozenset({"geometry", "boundary", "origin", "points", "width_m", "length_m", "radius_m"})
 #: How much of a file's own key an error may echo back.
@@ -657,6 +660,14 @@ class GardenPlanImportService:
         visible_templates: set[str],
     ) -> None:
         temp = f"imp_loc_{position}"
+        if item.rotation_exempt and item.rotation_enabled is True:
+            prepared.add_finding(
+                ImportFinding(
+                    field=f"locations[{position}].rotation_enabled",
+                    code=ERROR_ROTATION_EXEMPT_AND_ENABLED,
+                    key=_echo(item.key),
+                )
+            )
         parent_key = self._resolve_parent(prepared, item, index_of)
         parent = prepared.locations.get(parent_key) if parent_key else None
 
@@ -722,6 +733,8 @@ class GardenPlanImportService:
             "template_key": template_key,
             "locked": item.locked,
             "z_order": item.z_order,
+            "rotation_exempt": item.rotation_exempt,
+            "rotation_enabled": item.rotation_enabled,
         }
         if item.pitch_m is not None:
             fields["pitch_m"] = item.pitch_m

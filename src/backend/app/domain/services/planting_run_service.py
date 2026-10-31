@@ -16,6 +16,7 @@ from app.common.exceptions import (
 )
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
+from app.domain.calculators.planting_layout_calculator import check_disjoint_row_assignments
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.membership_engine import MembershipEngine
@@ -270,6 +271,11 @@ class PlantingRunService:
         for draft in drafts:
             self._stamp_mixed_draft(draft, location_key, tenant_key)
         entries = [draft.entry for draft in drafts]
+        # GP-FR-070: every row belongs to one species; checked on the body, before any layout or write.
+        check_disjoint_row_assignments(
+            [(entry.layout_strategy, entry.row_assignment) for entry in entries],
+            field_template="runs[{index}].entry.row_assignment",
+        )
         free = [
             FreePlacement(
                 entry_index=index,

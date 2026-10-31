@@ -196,6 +196,9 @@ def patch_location(
     A new geometry goes through the plan's rules (containment, overlap, lock) and raises the site's
     ``plan_revision``; the other fields do not (GP-NFR-007). ``bed_status`` is a transition (V-10): 422
     ``bed_status.invalid_transition``, and ``retired`` needs ``status_reason`` and the lead role.
+    ``rotation_enabled`` switches the crop-rotation check of this bed on (``true``), off (``false``) or back to the
+    type default (``null``; off for planter/tent/shelf, GP-FR-137); with ``rotation_exempt`` true (sent or stored)
+    a switch-on is 422 ``patch.rotation_exempt_and_enabled``.
     """
     stored, revision = service.patch_location(
         key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role, patch=body
@@ -452,7 +455,8 @@ def validate_planting(
     **Hints with a strength, never a blocker** (D-09): a violation is a `WARNING` or `CRITICAL` finding in a 200,
     not an error. The history of every slot of the bed counts, from `rotation_reset_at` on; the pause comes from the
     species, else its family, else `rotation_window_years` (default 3, at most 8). Off (`rotation_applicable:
-    false`) for planters, tents, shelves and `rotation_exempt` beds. With `slot_key` the neighbours of that slot
+    false`) for `rotation_exempt` beds, for beds switched off (`rotation_enabled: false`) and for planters, tents
+    and shelves unless switched on (`rotation_enabled: true`, GP-FR-137). With `slot_key` the neighbours of that slot
     (`adjacent_to`) are checked, otherwise every species standing or planned in the bed. 422
     `reference.not_found` for a species or slot the tenant cannot see.
     """

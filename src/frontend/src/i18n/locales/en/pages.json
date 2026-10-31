@@ -6347,6 +6347,7 @@
             "import_parent_cycle": "Two locations are nested in each other.",
             "import_too_deep": "Nesting goes deeper than 10 levels.",
             "import_duplicate_slot_id": "Two plant places of one bed have the same ID.",
+            "import_rotation_exempt_and_enabled": "A bed is marked as a permanent crop and has the crop rotation check switched on at the same time.",
             "plan_quota_exceeded": "The limit for locations, garden objects or plant places would be exceeded.",
             "geometry_invalid": "A shape is invalid.",
             "geometry_self_intersecting": "An area crosses itself.",
@@ -7013,6 +7014,7 @@
           "notApplicable": {
             "container": "The crop rotation check is off for pots, tents and shelves. The history is still kept.",
             "rotation_exempt": "This bed is exempt from the crop rotation check. The history is still kept.",
+            "disabled": "The crop rotation check is switched off for this bed. The history is still kept.",
             "unknown": "The crop rotation check is off for this bed."
           }
         },
@@ -7183,7 +7185,7 @@
           "title": "Crop rotation, neighbours and site",
           "checking": "Checking {{name}} …",
           "unavailable": "{{name}}: Crop rotation could not be checked ({{message}}). That is not an all-clear.",
-          "notApplicable": "{{name}}: No crop rotation check applies to this bed (pot, tent, shelf or perennial crop).",
+          "notApplicable": "{{name}}: No crop rotation check applies to this bed (pot, tent, shelf, perennial crop or switched off for this bed).",
           "allClear": "{{name}}: No hint on crop rotation or neighbours.",
           "forSpecies": "{{name}}: {{strength}} hint",
           "pauseNotElapsed": "The family {{family}} stood in this bed {{years}} year(s) ago. The rotation pause is {{pause}} years ({{source}}).",

@@ -297,7 +297,7 @@ On the **Planting** tab, **Plant** opens the planting dialog. It is available fr
 5. **Look at the preview.** The bed shows at once where the plants would stand, and below it you see how many there are and how many fit at most. The server confirms the number a moment later. If its answer differs, its answer counts.
 6. **Plan or record.** **Plan planting** creates a planned run and reserves the places from the planting date. If you have planted already, switch on **I have planted already**. The plants are then created at once on the calculated positions.
 
-**Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. If Kamerplanter rates a combination as incompatible, a hint appears.
+**Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. Every row belongs to exactly one species: if two species claim the same row, Kamerplanter does not create the planting. If Kamerplanter rates a combination as incompatible, a hint appears. <!-- REQ-053 GP-FR-070 -->
 
 **Free positions.** With **Free positions** you tap the planting places onto the bed. Dragging moves a place, a number below the preview deletes it. If two places are closer together than the minimum spacing, both get a **yellow ring**. That is a hint; you can still plant.
 
@@ -399,7 +399,10 @@ In the garden plan, the properties panel of a selected bed shows the same fields
 
 The **History** tab has two parts: the **timeline** on top and the **list** below it.
 
-**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off; the history is still kept.
+**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off by default; the history is still kept. The check can be switched on or off per bed; for permanent crops it always stays off. <!-- REQ-053 GP-FR-137 -->
+
+!!! info "API only: per-bed crop rotation switch"
+    So far you set the switch through the API only; the bed view does not show it yet. The [API reference](../reference/api-reference.md) explains how. <!-- REQ-053 GP-FR-137 -->
 
 **What stood here?** To fill in a year from before you used the app, tap **Fill in {year}** at the year or **What stood here?** at the top. You choose the year, the plant family (or a species, which brings its family), the role (main crop, green manure or fallow) and optionally the season. The last ten years up to last year are allowed. A message with **Undo** follows. You take a filled-in entry back later with the **x** on the entry, as its author or in the "lead" role. It then stays in the care log as cancelled. Viewers see the timeline read-only.
 

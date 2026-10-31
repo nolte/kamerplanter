@@ -158,6 +158,49 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 
 ---
 
+### Create a mixed culture in one step (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Only items with a row layout (`grid`, `rows`, `triangular`) and a `row_assignment` take part; an area (`zone`), free positions (`free`) and items without a layout take no rows. The error names the pairs in `details[0].conflicts` as `{"runs": [i, j], "rows": [...], "rows_total": n}` (positions in `runs[]`, the shared rows in ascending order and their count), at most 20 pairs with at most 50 rows each; `details[0].pairs_total` gives the number of all pairs, and `details[0].truncated` is `true` when anything was cut. `details[0].field` points at the later item of the first pair.
+
+!!! note "Limit of the check"
+    The row index refers to the row grid of its own item (`row_spacing_cm`, `row_direction`, edge margins). When two items use different grids, their plants can stand at the same spot although the index sets are disjoint. The planting dialog lays all species out on one shared grid; when you call the API directly, send the same row settings for every item.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `layout.row_assignment_overlap` | Two items with a row layout claim the same row index (assuming the same grid, see above) |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | The layout of one species cannot be computed or exceeds a limit |
+| `422` | `VALIDATION_ERROR` with `reference.not_found` | A species or cultivar does not exist or belongs to another tenant |
+
+---
+
+### Switch the crop rotation check per bed (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (role `grower` or higher) takes two fields for the crop rotation check that `POST …/locations/{key}/validate-planting` and `GET …/locations/{key}/rotation` evaluate:
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` switches the check on for this bed, also for pots (`planter`), tents (`tent`) and shelves (`shelf`), where it is otherwise off. `false` switches it off. `null` (default) follows the location type |
+| `rotation_exempt` | `true`, `false` | Permanent crop (asparagus, berry shrubs): the check is off whatever `rotation_enabled` says. `null` is not allowed |
+
+When the check is off, both routes answer `rotation_applicable: false` with the reason in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (switched off for the bed) or `rotation.not_applicable.container` (pot, tent, shelf without a switch). Both fields are also part of the garden plan's JSON backup; an older file without them gives a bed that is not exempt and follows its location type. In the file both must be JSON booleans (`"yes"` or `1` gives `validation.invalid`), and the import refuses a bed with both set to `true` with `import.rotation_exempt_and_enabled`.
+
+The switch also governs the check per plant place: when the check is off for a bed, `POST …/plant-instances` with a `slot_key` and `POST …/planting-runs/{key}/create-plants` no longer refuse a planting in that bed with `ROTATION_VIOLATION`, and `POST …/plant-instances/slots/{slot_key}/validate-planting` reports it as valid.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `patch.rotation_exempt_and_enabled` | After the change both `rotation_exempt` and `rotation_enabled` would be `true`; to exempt a switched-on bed, send `rotation_enabled: null` with it |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` or a value that is not a boolean |
+
+---
+
 ### Garden Plan (PDF, SVG, JSON backup)
 
 Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.
@@ -245,6 +288,7 @@ The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the fi
 | `422` | `import.site_name_mismatch` | `replace` without the exact site name |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` is not finite or beyond ±1000 m / belongs to `merge` only |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | The file breaks a limit or a geometry rule |
+| `422` | `import.rotation_exempt_and_enabled` | A bed of the file is a permanent crop (`rotation_exempt: true`) and has `rotation_enabled: true` as well; `details[].field` names `locations[i].rotation_enabled` |
 | `429` | | Import budget of the tenant used up; `Retry-After` names the wait |
 
 ---

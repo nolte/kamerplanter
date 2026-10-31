@@ -158,6 +158,49 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 
 ---
 
+### Mischkultur in einem Schritt anlegen (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Es zählen nur Einträge mit einer Reihen-Anordnung (`grid`, `rows`, `triangular`) und einem `row_assignment`; Fläche (`zone`), freie Positionen (`free`) und Einträge ohne Anordnung belegen keine Reihen. Der Fehler nennt in `details[0].conflicts` die Paare als `{"runs": [i, j], "rows": [...], "rows_total": n}` (Positionen in `runs[]`, die gemeinsamen Reihen aufsteigend und ihre Zahl), höchstens 20 Paare mit je höchstens 50 Reihen; `details[0].pairs_total` nennt die Zahl aller Paare, `details[0].truncated` ist `true`, wenn etwas gekürzt wurde. `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.
+
+!!! note "Grenze der Prüfung"
+    Der Reihenindex bezieht sich auf das Reihenraster des jeweiligen Eintrags (`row_spacing_cm`, `row_direction`, Randabstände). Haben zwei Einträge verschiedene Raster, können ihre Pflanzen trotz disjunkter Indizes an derselben Stelle stehen. Der Pflanzdialog legt alle Arten auf ein gemeinsames Raster; wer die API direkt nutzt, sendet für alle Einträge dieselben Reiheneinstellungen.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `layout.row_assignment_overlap` | Zwei Einträge mit Reihen-Anordnung beanspruchen denselben Reihenindex (gleiches Raster vorausgesetzt, siehe oben) |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | Die Anordnung einer Art lässt sich nicht berechnen oder sprengt eine Grenze |
+| `422` | `VALIDATION_ERROR` mit `reference.not_found` | Eine Art oder Sorte gibt es nicht oder sie gehört einem anderen Mandanten |
+
+---
+
+### Fruchtfolge-Prüfung je Beet schalten (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (ab Rolle `grower`) nimmt zwei Felder für die Fruchtfolge-Prüfung, die `POST …/locations/{key}/validate-planting` und `GET …/locations/{key}/rotation` auswerten:
+
+| Feld | Werte | Bedeutung |
+|------|-------|-----------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` schaltet die Prüfung für dieses Beet ein, auch für Töpfe (`planter`), Zelte (`tent`) und Regale (`shelf`), bei denen sie sonst aus ist. `false` schaltet sie aus. `null` (Standard) folgt dem Standorttyp |
+| `rotation_exempt` | `true`, `false` | Dauerkultur (Spargel, Beerensträucher): die Prüfung ist aus, was immer `rotation_enabled` sagt. `null` ist nicht erlaubt |
+
+Ist die Prüfung aus, antworten beide Routen mit `rotation_applicable: false` und dem Grund in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (vom Beet ausgeschaltet) oder `rotation.not_applicable.container` (Topf, Zelt, Regal ohne Schalter). Beide Felder stehen auch in der JSON-Sicherung des Gartenplans; eine ältere Datei ohne sie ergibt ein Beet, das nicht ausgenommen ist und dem Standorttyp folgt. Beide müssen in der Datei JSON-Booleans sein (`"yes"` oder `1` ergibt `validation.invalid`), und ein Beet mit beiden auf `true` weist der Import mit `import.rotation_exempt_and_enabled` zurück.
+
+Der Schalter gilt auch für die Prüfung je Pflanzplatz: Ist die Prüfung für ein Beet aus, lehnen `POST …/plant-instances` mit `slot_key` und `POST …/planting-runs/{key}/create-plants` eine Pflanzung in diesem Beet nicht mehr mit `ROTATION_VIOLATION` ab, und `POST …/plant-instances/slots/{slot_key}/validate-planting` meldet sie als zulässig.
+
+**Fehlercodes:**
+
+| HTTP-Status | Code | Bedeutung |
+|-------------|------|-----------|
+| `403` | `FORBIDDEN` | Rolle `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
+| `422` | `patch.rotation_exempt_and_enabled` | Nach der Änderung wären `rotation_exempt` und `rotation_enabled` beide `true`; zum Ausnehmen eines eingeschalteten Beets `rotation_enabled: null` mitsenden |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` oder ein Wert, der kein Boolean ist |
+
+---
+
 ### Gartenplan (PDF, SVG, JSON-Sicherung)
 
 Drei Exporte des Gartenplans eines Standorts (REQ-053). Alle brauchen ein gültiges JWT und stehen jedem Mitglied des Mandanten offen. Ein Standort eines anderen Mandanten antwortet wie ein nicht vorhandener mit `404`. Je Route gelten `RATE_LIMIT_PLAN_EXPORT` Anfragen je Konto (Standard 10 pro Minute) und `RATE_LIMIT_PLAN_EXPORT_TENANT` je Mandant (Standard 30 pro Minute); darüber antwortet die API mit `429` und `Retry-After`.
@@ -245,6 +288,7 @@ Die Frostexposition eines Beets (`frost_exposed` in `locations[]`) steht in der 
 | `422` | `import.site_name_mismatch` | `replace` ohne den genauen Site-Namen |
 | `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` ist nicht endlich oder außerhalb von ±1000 m / gehört nur zu `merge` |
 | `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | Die Datei verletzt eine Grenze oder Geometrieregel |
+| `422` | `import.rotation_exempt_and_enabled` | Ein Beet der Datei ist Dauerkultur (`rotation_exempt: true`) und hat zugleich `rotation_enabled: true`; `details[].field` nennt `locations[i].rotation_enabled` |
 | `429` | | Importbudget des Mandanten aufgebraucht; `Retry-After` nennt die Wartezeit |
 
 ---

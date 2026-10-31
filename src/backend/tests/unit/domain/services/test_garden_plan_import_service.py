@@ -307,6 +307,79 @@ class TestReferencesAndFields:
         stored_risk = restored.site_conditions.microclimate.frost_risk if restored.site_conditions else None
         assert stored_risk == risk
 
+    @pytest.mark.parametrize(
+        ("exempt", "enabled"),
+        [(False, None), (False, True), (False, False), (True, None)],
+    )
+    def test_the_rotation_switches_survive_a_restore_from_their_own_backup(self, rig, repo, exempt, enabled) -> None:
+        """GP-FR-137 (#2544): ``rotation_exempt`` and ``rotation_enabled`` are in the file and come back from it."""
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"rotation_exempt": exempt, "rotation_enabled": enabled}
+        )
+        document = rig.file()
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert (exported["rotation_exempt"], exported["rotation_enabled"]) == (exempt, enabled)
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert (restored.rotation_exempt, restored.rotation_enabled) == (exempt, enabled)
+
+    @pytest.mark.parametrize(("exempt", "enabled"), [(True, None), (False, True)])
+    def test_a_file_without_the_rotation_switches_keeps_the_type_default(self, rig, repo, exempt, enabled) -> None:
+        """A file written before #2544 lacks both keys: the restored bed is not exempt and follows its type.
+
+        The source bed holds other values, so ``(False, None)`` can only come from the file's defaults - not from
+        the standing row the replace overwrites.
+        """
+        repo.locations["b1"] = repo.locations["b1"].model_copy(
+            update={"rotation_exempt": exempt, "rotation_enabled": enabled}
+        )
+        document = rig.file()
+        for item in document["locations"]:
+            item.pop("rotation_exempt", None)
+            item.pop("rotation_enabled", None)
+
+        report = rig.run(document)
+
+        assert report.applied
+        restored = self._restored_beet_1(repo)
+        assert (restored.rotation_exempt, restored.rotation_enabled) == (False, None)
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_a_bed_exempt_and_switched_on_in_the_file_is_reported_and_not_written(self, rig, repo, dry_run) -> None:
+        """SEC-002: the import must not store the pair the PATCH refuses; it names the bed and the field."""
+        document = rig.file()
+        position = next(i for i, loc in enumerate(document["locations"]) if loc["name"] == "Beet 1")
+        document["locations"][position] |= {"rotation_exempt": True, "rotation_enabled": True}
+        expected = [(f"locations[{position}].rotation_enabled", "import.rotation_exempt_and_enabled", "b1")]
+
+        if dry_run:
+            report = rig.run(document, dry_run=True)
+            assert [(e.field, e.code, e.key) for e in report.errors] == expected
+        else:
+            with pytest.raises(PlanValidationError) as refused:
+                rig.run(document)
+            assert [(d["field"], d["code"], d["key"]) for d in refused.value.details] == expected
+        assert repo.applied == []
+
+    @pytest.mark.parametrize(
+        ("name", "value"), [("rotation_exempt", "yes"), ("rotation_enabled", "true"), ("rotation_enabled", 1)]
+    )
+    def test_a_rotation_flag_that_is_not_a_json_boolean_is_refused(self, rig, repo, name, value) -> None:
+        """Strict: ``"yes"`` / ``"true"`` / ``1`` are not coerced into a switch the user never set."""
+        document = rig.file()
+        document["locations"][0][name] = value
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [(d["field"], d["code"]) for d in refused.value.details] == [
+            (f"locations[0].{name}", "validation.invalid")
+        ]
+        assert repo.applied == []
+
     def test_an_explicit_null_inherits_even_where_the_risk_would_force_a_value(self, rig, repo) -> None:
         """``null`` sent is "inherit from the site type", not "derive from the risk" (#2512)."""
         document = rig.file()

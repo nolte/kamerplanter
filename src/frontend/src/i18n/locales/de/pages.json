@@ -6348,6 +6348,7 @@
             "import_parent_cycle": "Zwei Standorte sind ineinander verschachtelt.",
             "import_too_deep": "Die Verschachtelung ist tiefer als 10 Ebenen.",
             "import_duplicate_slot_id": "Zwei Pflanzplätze eines Beets haben dieselbe ID.",
+            "import_rotation_exempt_and_enabled": "Ein Beet ist als Dauerkultur markiert und hat die Fruchtfolge-Prüfung zugleich eingeschaltet.",
             "plan_quota_exceeded": "Die Grenze für Standorte, Gartenobjekte oder Pflanzplätze wäre überschritten.",
             "geometry_invalid": "Eine Form ist ungültig.",
             "geometry_self_intersecting": "Eine Fläche überschneidet sich selbst.",
@@ -7014,6 +7015,7 @@
           "notApplicable": {
             "container": "Die Fruchtfolge-Prüfung ist für Töpfe, Zelte und Regale aus. Die Historie bleibt trotzdem erhalten.",
             "rotation_exempt": "Dieses Beet ist von der Fruchtfolge-Prüfung ausgenommen. Die Historie bleibt trotzdem erhalten.",
+            "disabled": "Die Fruchtfolge-Prüfung ist für dieses Beet ausgeschaltet. Die Historie bleibt trotzdem erhalten.",
             "unknown": "Die Fruchtfolge-Prüfung ist für dieses Beet aus."
           }
         },
@@ -7184,7 +7186,7 @@
           "title": "Fruchtfolge, Nachbarn und Standort",
           "checking": "Prüfe {{name}} …",
           "unavailable": "{{name}}: Die Fruchtfolge konnte nicht geprüft werden ({{message}}). Das ist kein grünes Licht.",
-          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal oder Dauerkultur).",
+          "notApplicable": "{{name}}: Für dieses Beet gilt keine Fruchtfolge-Prüfung (Topf, Zelt, Regal, Dauerkultur oder für dieses Beet ausgeschaltet).",
           "allClear": "{{name}}: Kein Hinweis zu Fruchtfolge oder Nachbarn.",
           "forSpecies": "{{name}}: Hinweis {{strength}}",
           "pauseNotElapsed": "Die Familie {{family}} stand vor {{years}} Jahr(en) in diesem Beet. Die Anbaupause beträgt {{pause}} Jahre ({{source}}).",
