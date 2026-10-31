@@ -755,6 +755,23 @@
         'busybox',
       ],
     },
+    // Hold the python base image at 3.14 until the dependency tree builds on
+    // 3.15. Renovate treats 3.14 -> 3.15 as a MINOR, so the rule above folded
+    // it into the routine `third-party images` branch (#2598) and it merged on
+    // green required checks that all run on 3.14 (`setup-python`, backend.yml
+    // matrix). On 3.15 `uv sync --locked` falls back to sdists (httptools has
+    // cp314 wheels only) and the `build-constraint-dependencies` setuptools pin
+    // contradicts httptools' `setuptools<=82.0.1`: every `build-backend` run of
+    // docker-publish.yml failed. Lift this together with the CI python version.
+    {
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'python',
+      ],
+      allowedVersions: '<3.15',
+    },
     // selenium/hub and selenium/node-chrome version independently (4.x vs the
     // Chrome major) but must match each other at runtime, so a hub minor and a
     // node "major" belong in the same pull request — #1367 and #1370 were the
