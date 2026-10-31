@@ -533,6 +533,26 @@ class BedViewPage(BasePage):
             ) from exc
         return next(entry for entry in _entries() if fragment in entry)
 
+    def timeline_family_keys(self, year: int, what: str) -> list[str]:
+        """Family keys of the plantings the history's timeline shows for *year* (``fallow`` for a fallow chip).
+
+        Waits for the year's row and at least one chip in it; loud when the year shows nothing,
+        so "no planting recorded" never reads as an empty list.
+        """
+        prefix = f"timeline-planting-{year}-"
+        chips = (
+            By.CSS_SELECTOR,
+            f"[data-testid='timeline-year-{year}'] [data-testid^='{prefix}']",
+        )
+        try:
+            self.poll().until(lambda d: d.find_elements(*chips))
+        except TimeoutException as exc:
+            raise AssertionError(f"{what}: the timeline shows no planting for {year}") from exc
+        return sorted(
+            (chip.get_attribute("data-testid") or "")[len(prefix) :]
+            for chip in self.driver.find_elements(*chips)
+        )
+
 
 class PlantingDialog(BasePage):
     """The "Bepflanzen" dialog of one bed; entry *n* is ``planting-entry-<n>`` (0-based)."""

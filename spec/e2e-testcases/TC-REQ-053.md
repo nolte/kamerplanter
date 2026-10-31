@@ -2,7 +2,7 @@
 req_id: REQ-053
 title: Grafische Garten- und Beetplanung (Plan-Editor, Beetverwaltung, Pflanzplanung, Beetpflege, Feldmodus, Druck/Export)
 category: Standorte & Pflanzplanung
-test_count: 55
+test_count: 59
 coverage_areas:
   - Gartengrenze und Beete zeichnen (Raster, Snap, Maße)
   - Verschieben, Drehen, Undo/Redo, Tastaturbedienung
@@ -19,8 +19,9 @@ coverage_areas:
   - v1.3 — Wiederherstellung per Import, Saison-Kopie, Indoor-Grundriss (SHOULD)
   - Welle 7 — Bewässerungszonen, Gießrunde, Ebene „zuletzt gegossen“, Beetvorlagen und Standardgrößen
   - Welle 7 — Objekt-Snap, Ausrichten/Verteilen, Mehrfach duplizieren, Auto-Save, Mini-Map
+  - Welle 7 — Pflanzenzustand-Filter, Teilexport/Import-Ziel, frühere Stände, Sonnenfenster im Feldmodus
 generated: "2026-10-11"
-version: "1.5"
+version: "1.6"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -54,7 +55,7 @@ selbst (Feldwerte, Fehlercodes, Edges) wird in Integrationstests geprüft.
 Zusätzlich sind drei Testfälle aus Use Cases abgeleitet, die kein Akzeptanzkriterium trifft:
 TC-053-007 (Speichern-Status und Verlassen-Dialog, abgeleitet aus UC-02 / GP-UX-003),
 TC-053-029 (Plan drucken, abgeleitet aus UC-11) und TC-053-030 (Plan als JSON sichern,
-abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet). Die Fälle TC-053-045 bis TC-053-055 sind aus den SHOULD-Zeilen der Welle 7 abgeleitet (Abschnitt 7).
+abgeleitet aus UC-12). Die Fälle TC-053-031 bis TC-053-044 sind aus den Anforderungen der Version 1.3 abgeleitet (GP-ACC-051 und GP-ACC-052 sind direkt zugeordnet). Die Fälle TC-053-045 bis TC-053-055 sind aus den SHOULD-Zeilen der Welle 7 abgeleitet (Abschnitt 7). Die Fälle TC-053-056 bis TC-053-059 sind aus den SHOULD-Zeilen der Welle 7, Teil B abgeleitet (Abschnitt 8).
 
 **Nicht** abgedeckt sind die Kriterien GP-ACC-003, 004, 009, 010, 013, 014, 017, 018, 023,
 033, 034, 037, 038, 041, 042, 043, 045, 046, 049, 050 sowie 053, 054, 055, 056 und 057 — siehe
@@ -88,6 +89,10 @@ GP-FR-110, GP-FR-117, GP-UX-031, GP-FR-044, GP-FR-045, GP-FR-012, GP-FR-029, GP-
 GP-UX-014 (Abschnitt 7); `test_count` 44 → 55, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen
 ergänzt. TC-053-047 („Regen — übersprungen“) beschreibt das geforderte Verhalten; die Oberfläche bietet
 die Aktion noch nicht an (Platzhalter-Bündel #2466).
+
+**Version 1.6 (2026-10-31, WP 7.26 / #2492)** — vier neue Fälle TC-053-056 bis TC-053-059 aus GP-UX-061,
+GP-FR-169, GP-FR-172, GP-FR-148/170 und GP-FR-158/159 mit GP-UX-057 (Abschnitt 8); `test_count` 55 → 59, die
+Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt. TC-053-042 und TC-053-044 bleiben unverändert.
 
 ## Hinweis zur Zustandsherstellung
 
@@ -1700,6 +1705,132 @@ Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die Matrix führt sie al
 
 ---
 
+## 8. Neu in Welle 7, Teil B (Pflanzenzustand, Teilexport, frühere Stände, Sonnenfenster im Feld)
+
+Die Fälle TC-053-056 bis TC-053-059 sind aus den Anforderungen GP-UX-061, GP-FR-169, GP-FR-172,
+GP-FR-148/170 und GP-FR-158/159 mit GP-UX-057 abgeleitet (WP 7.26). Die neue Saison (GP-FR-171) und die
+Unterlage mit Eichung (GP-FR-033) sind bereits als TC-053-042 und TC-053-044 beschrieben; sie bekommen
+keinen neuen Fall. Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die Matrix führt sie als
+„abgeleitet“.
+
+### TC-053-056: Ebenen „Pflanzenzustand“ und „Sonnenfenster“, Filter „Nur Pflanzen mit Handlungsbedarf“
+
+**Requirement**: REQ-053 §8 GP-UX-061, GP-FR-031, GP-FR-169 (SHOULD, abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Ebenen
+**Preconditions**:
+- Plan mit einem Beet „Beet 1“ (2 × 1 m) und drei Tomaten; eine davon hat eine überfällige Aufgabe
+- Für „Beet 1“ ist als Sonnenfenster „Morgens“ erfasst; Ebenen im Ausgangszustand (alle aus außer Raster)
+
+**Testschritte**:
+1. Nutzer öffnet den Plan und betrachtet die Schaltfläche „Nur Pflanzen mit Handlungsbedarf zeigen“
+2. Nutzer schaltet die Ebene „Pflanzenzustand anzeigen“ ein
+3. Nutzer schaltet „Nur Pflanzen mit Handlungsbedarf zeigen“ ein
+4. Nutzer schaltet die Ebene „Pflanzenzustand anzeigen“ wieder aus
+5. Nutzer schaltet die Ebene „Sonnenfenster anzeigen“ ein
+
+**Erwartete Ergebnisse**:
+- Solange die Ebene „Pflanzenzustand“ aus ist, ist der Filter nicht bedienbar und sagt, warum
+- Mit der Ebene trägt jede Tomate ihren Ring, genau die Pflanze mit der überfälligen Aufgabe ein Zeichen; die Legende erklärt den Pflanzenzustand
+- Mit dem Filter bleibt nur die Pflanze mit dem Zeichen sichtbar, die beiden anderen verschwinden
+- Ohne die Ebene sind wieder alle drei Pflanzen als einfache Marker zu sehen; der Filter ist wieder nicht bedienbar
+- Die Ebene „Sonnenfenster“ legt über „Beet 1“ das Muster für „Morgens“
+
+**Nachbedingungen**:
+- Keine Änderung am Plan; die Ebenen-Wahl gilt nur für diesen Browser
+
+**Tags**: [req-053, ebenen, pflanzenzustand, filter, sonnenfenster, desktop, gp-ux-061, gp-fr-169]
+
+---
+
+### TC-053-057: Nur die Auswahl sichern und in einen anderen Standort einspielen
+
+**Requirement**: REQ-053 §23.1 GP-FR-172 (SHOULD, abgeleitet), GP-UX-050, GP-UX-051
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Export/Import
+**Preconditions**:
+- Standort A mit „Beet A“ (zwei Pflanzplätze), „Beet B“ und „Beet C“ nebeneinander; Standort B mit Gartengrenze, ohne Beete; Leitung
+
+**Testschritte**:
+1. Nutzer zieht im Plan von Standort A einen Auswahlrahmen um „Beet A“ und „Beet B“
+2. Nutzer öffnet „Export & Import“ → „Plan exportieren …“, wählt „JSON-Sicherung“ und „Nur die Auswahl“ und lädt herunter
+3. Nutzer öffnet den Plan von Standort B, dann „Sicherung einspielen …“ und wählt die Datei
+4. Nutzer liest den Prüfbericht und geht weiter
+5. Nutzer wählt „Hinzufügen“ und als Ziel „Aus einem anderen Standort“, prüft erneut und spielt ein
+
+**Erwartete Ergebnisse**:
+- Der Auswahlrahmen wählt genau „Beet A“ und „Beet B“
+- Die Vorschau nennt 2 Standorte, 0 Gartenobjekte und 2 Pflanzplätze; der Hinweis nennt die 2 ausgewählten Beete
+- Der Prüfbericht nennt 2 Standorte und 2 Pflanzplätze, die angelegt werden, und keine Probleme
+- Nach dem Einspielen meldet der Dialog die angelegten 2 Standorte und 2 Pflanzplätze
+- Standort B zeigt „Beet A“ und „Beet B“ (mit den zwei Pflanzplätzen) als eigene, neue Beete; Standort A ist unverändert
+
+**Nachbedingungen**:
+- Standort B enthält zwei Beete
+
+**Tags**: [req-053, export, import, teilexport, ziel, desktop, gp-fr-172]
+
+---
+
+### TC-053-058: Früheren Stand wiederherstellen
+
+**Requirement**: REQ-053 §23.1 GP-FR-148, GP-FR-170 (abgeleitet)
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Import
+**Preconditions**:
+- Plan mit „Beet A“, „Beet B“, „Beet C“; danach kam „Beet D“ hinzu, und eine Sicherung des Stands ohne „Beet D“ wurde per „Ersetzen“ eingespielt — es gibt genau einen früheren Stand (mit vier Beeten); Leitung
+
+**Testschritte**:
+1. Nutzer öffnet „Export & Import“ → „Sicherung einspielen …“ → „Früheren Stand wiederherstellen …“
+2. Nutzer wählt den Stand mit vier Standorten
+3. Nutzer liest den Bericht und tippt zur Bestätigung den Namen des Standorts
+4. Nutzer wählt „Diesen Stand wiederherstellen“
+
+**Erwartete Ergebnisse**:
+- Die Liste nennt den Stand mit seinen Zählern (4 Standorte)
+- Vor dem Schreiben zeigt der Bericht, was angelegt (4) und gelöscht (3) würde, und der Hinweis sagt, dass der jetzige Plan vorher selbst als Stand gespeichert wird
+- „Diesen Stand wiederherstellen“ ist erst mit dem richtigen Namen bedienbar
+- Danach meldet der Dialog den Erfolg samt gespeichertem Vorstand; der Plan zeigt wieder „Beet A“ bis „Beet D“
+- Es gibt nun zwei frühere Stände
+
+**Nachbedingungen**:
+- Plan wiederhergestellt; der überschriebene Stand liegt als neuer früherer Stand vor
+
+**Tags**: [req-053, snapshot, wiederherstellung, import, desktop, gp-fr-148, gp-fr-170]
+
+---
+
+### TC-053-059: Sonnenfenster im Feldmodus mit Chips erfassen
+
+**Requirement**: REQ-053 §19 GP-FR-158, GP-FR-159, GP-UX-057 (SHOULD, abgeleitet)
+**Gerät**: Smartphone 390 × 844
+**Priority**: Medium
+**Category**: Standortmerkmale
+**Preconditions**:
+- Plan mit einem Beet „Beet 1“, für das noch kein Sonnenfenster erfasst ist; Rolle Gärtner oder Leitung
+
+**Testschritte**:
+1. Nutzer öffnet den Feldmodus und tippt auf „Beet 1“
+2. Nutzer tippt im Abschnitt „Sonne am Beet“ auf den Chip „Nachmittags“
+3. Nutzer gibt „6,5“ als Sonnenstunden im Sommer ein und bestätigt mit der Eingabetaste
+4. Nutzer öffnet den Feldmodus neu und tippt wieder auf „Beet 1“
+
+**Erwartete Ergebnisse**:
+- Vorher ist „Nicht bekannt“ gewählt; jeder Chip ist mindestens 64 × 64 px groß
+- Ein Tipp genügt: „Nachmittags“ ist gewählt und ohne Speichern-Schaltfläche gespeichert
+- Die Stunden werden als 6,5 gespeichert
+- Nach dem Neuladen sind „Nachmittags“ und „6,5“ wieder zu sehen
+
+**Nachbedingungen**:
+- Sonnenprofil von „Beet 1“: Nachmittags, 6,5 Stunden
+
+**Tags**: [req-053, feldmodus, sonnenfenster, chips, smartphone, gp-fr-158, gp-ux-057]
+
+---
+
 ## Abdeckungs-Matrix
 
 | GP-ACC | Kriterium (Kurzform) | Testfälle |
@@ -1758,6 +1889,10 @@ Keine dieser Zeilen hat ein eigenes Akzeptanzkriterium; die Matrix führt sie al
 | (abgeleitet aus GP-FR-025) | Mehrfach duplizieren mit Namensschema | TC-053-053 |
 | (abgeleitet aus GP-UX-004) | Auto-Save, Pause bei Konflikt | TC-053-054 |
 | (abgeleitet aus GP-UX-014) | Mini-Map | TC-053-055 |
+| (abgeleitet aus GP-UX-061, GP-FR-169) | Ebenen „Pflanzenzustand“ und „Sonnenfenster“, Filter „Nur Pflanzen mit Handlungsbedarf“ | TC-053-056 |
+| (abgeleitet aus GP-FR-172) | Teilexport der Auswahl, Import in einen anderen Standort | TC-053-057 |
+| (abgeleitet aus GP-FR-148/170) | Früheren Stand wiederherstellen | TC-053-058 |
+| (abgeleitet aus GP-FR-158/159, GP-UX-057) | Sonnenfenster im Feldmodus | TC-053-059 |
 
 ## Nicht abgedeckte Akzeptanzkriterien
 

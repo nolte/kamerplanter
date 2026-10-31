@@ -15,6 +15,7 @@ from __future__ import annotations
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -244,6 +245,93 @@ class FieldModePage(BasePage):
         """ "Position korrigieren" of one plant; return once its dialog is open."""
         self.wait_and_click(_tid(f"field-plant-correct-{plant_key}"))
         self.wait_for_element(_tid("position-dialog"))
+
+    # ── Sun window chips (GP-FR-158/159, GP-UX-057, WP 7.20) ────────────
+    #
+    # ``SunWindowFields`` draws each chip as a ``<label>`` whose native radio covers it
+    # completely at opacity 0 (``inset: 0``): a tap on the chip lands on that radio. The
+    # tap is a real pointer click at the chip's centre, guarded by ``elementFromPoint``
+    # resolving to the chip's own radio - not a script click, and not the label's text.
+
+    SUN_SECTION = _tid("field-mode-sun-section")
+    SUN_HOURS = _tid("field-mode-sun-profile-hours")
+
+    def sun_chip(self, window: str) -> WebElement:
+        return self.wait_for_element(_tid(f"field-mode-sun-profile-window-{window}"))
+
+    def sun_chip_input(self, window: str) -> WebElement:
+        return self.wait_for_element(_tid(f"field-mode-sun-profile-window-{window}-input"))
+
+    def checked_sun_window(self) -> str | None:
+        """The window whose radio is checked, read from the radios themselves."""
+        self.wait_for_element(self.SUN_SECTION)
+        checked = [
+            radio.get_attribute("value")
+            for radio in self.driver.find_elements(
+                By.CSS_SELECTOR, "[data-testid='field-mode-sun-section'] input[type='radio']"
+            )
+            if radio.is_selected()
+        ]
+        if len(checked) > 1:
+            raise AssertionError(f"more than one sun window is checked: {checked}")
+        return checked[0] if checked else None
+
+    def sun_chip_sizes(self) -> dict[str, tuple[float, float]]:
+        """window -> rendered size (CSS px) of every chip of the section."""
+        chips = self.driver.find_elements(
+            By.CSS_SELECTOR,
+            "[data-testid='field-mode-sun-section'] [data-testid^='field-mode-sun-profile-window-']",
+        )
+        sizes: dict[str, tuple[float, float]] = {}
+        for chip in chips:
+            testid = chip.get_attribute("data-testid") or ""
+            if testid.endswith("-input"):
+                continue
+            sizes[testid[len("field-mode-sun-profile-window-") :]] = self.element_size(chip)
+        if not sizes:
+            raise AssertionError("the sun section shows no chip")
+        return sizes
+
+    def tap_sun_chip(self, window: str) -> None:
+        """Tap a chip with a real pointer; return once its radio is checked."""
+        chip = self.sun_chip(window)
+        radio = self.sun_chip_input(window)
+        self.scroll_into_view(chip)
+        centre = self.driver.execute_script(
+            "var r = arguments[0].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];",
+            chip,
+        )
+        hit = self.driver.execute_script(
+            "return document.elementFromPoint(arguments[0], arguments[1]) === arguments[2];",
+            centre[0],
+            centre[1],
+            radio,
+        )
+        if not hit:
+            raise AssertionError(
+                f"the centre {centre} of the chip {window!r} does not hit its radio"
+            )
+        ActionChains(self.driver).move_to_element(chip).click().perform()
+        try:
+            self.poll().until(lambda _d: radio.is_selected())
+        except TimeoutException as exc:
+            raise AssertionError(f"the chip {window!r} is not checked after the tap") from exc
+
+    def sun_hours_text(self) -> str:
+        return self.wait_for_element(self.SUN_HOURS).get_attribute("value") or ""
+
+    def enter_sun_hours(self, text: str) -> None:
+        """Type the summer sun hours and commit with Enter (the field commits on Enter or blur)."""
+        field = self.wait_for_element(self.SUN_HOURS)
+        self.scroll_into_view(field)
+        field.click()
+        field.send_keys(Keys.CONTROL, "a")
+        field.send_keys(text)
+        if field.get_attribute("value") != text:
+            raise AssertionError(
+                f"the hours field should hold {text!r}, it holds {field.get_attribute('value')!r}"
+            )
+        field.send_keys(Keys.ENTER)
 
 
 def set_phone_viewport(driver: WebDriver, width: int = 390, height: int = 844) -> tuple[int, int]:

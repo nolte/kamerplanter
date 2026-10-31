@@ -794,3 +794,127 @@ def days_since_utc(instant: str) -> int:
     """Whole UTC calendar days from *instant* (ISO 8601) to today - the day rule of the last-watered layer."""
     moment = datetime.fromisoformat(instant.replace("Z", "+00:00")).astimezone(UTC)
     return (utc_today() - moment.date()).days
+
+
+# ── Wave 7 part B: season, partial export, snapshots, sun profile (WP 7.26) ──
+#
+# The arrangements go through the routes the product itself calls:
+#
+# * ``POST /locations/{key}/clear`` (GP-API-019) is the only path that ends a run's slots (``archived_at``),
+#   which is what "new season from the previous year" copies from - the "Beet räumen" action has no browser
+#   surface yet, so the API is the arrangement, not a shortcut past a UI;
+# * ``GET /sites/{key}/plan/export`` (GP-API-004) is exactly the request the export dialog downloads, with the
+#   same ``scope`` / ``keys`` query (``exportParams``);
+# * ``POST /sites/{key}/plan/import`` (GP-API-005) with ``mode = replace`` writes the snapshot a restore needs;
+# * ``PATCH /locations/{key}`` with ``site_conditions.sun_profile`` is what the bed dialog and the field-mode
+#   sun chips send (``patchSun``).
+
+
+def clear_bed(base_url: str, seed: dict, bed_key: str, termination_type: str = "harvested") -> dict:
+    """End every plant and run of *bed_key* (GP-API-019); its slots become history (``archived_at`` = now)."""
+    body = _tenant_post(
+        base_url, seed, f"/locations/{bed_key}/clear", {"termination_type": termination_type}
+    )
+    if int(body.get("slots_archived") or 0) == 0:
+        raise AssertionError(
+            f"Self-provisioning failed: clearing {bed_key!r} archived no slot: {body!r}"
+        )
+    return body
+
+
+def export_plan_json(
+    base_url: str, seed: dict, site_key: str, *, scope: str = "site", keys: tuple[str, ...] = ()
+) -> dict:
+    """The JSON backup exactly as the export dialog requests it (GP-API-004, ``exportParams``)."""
+    query = "" if scope == "site" else f"?scope={scope}&keys={','.join(keys)}"
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/plan/export{query}")
+    if not isinstance(body, dict) or "schema_version" not in body:
+        raise AssertionError(f"the plan export of {site_key!r} is not a backup: {body!r}")
+    return body
+
+
+def replace_plan_with(
+    base_url: str, seed: dict, *, site_key: str, site_name: str, document: dict
+) -> dict:
+    """Write *document* over the site's plan (``mode = replace``, GP-API-005); the server keeps a snapshot."""
+    report = _tenant_post(
+        base_url,
+        seed,
+        f"/sites/{site_key}/plan/import",
+        {
+            "mode": "replace",
+            "dry_run": False,
+            "force": False,
+            "confirm_site_name": site_name,
+            "target": "same_site",
+            "document": document,
+        },
+    )
+    if not report.get("applied") or not report.get("snapshot_written"):
+        raise AssertionError(
+            f"Self-provisioning failed: the replace import of {site_key!r} was not applied with a "
+            f"snapshot: {report!r}"
+        )
+    return report
+
+
+def plan_snapshots(base_url: str, seed: dict, site_key: str) -> list[dict]:
+    """``GET /sites/{key}/plan/snapshots`` (GP-FR-148): the earlier states of the plan, newest first."""
+    body = tenant_get(base_url, seed, f"/sites/{site_key}/plan/snapshots")
+    if not isinstance(body, list):
+        raise AssertionError(f"snapshots of {site_key!r} is not a list: {body!r}")
+    return body
+
+
+def add_bed_via_batch(
+    base_url: str, seed: dict, *, site_key: str, name: str, geometry: dict
+) -> str:
+    """One more bed through the editor's own save (GP-API-003, ``create_location``); its new key."""
+    revision = int(read_plan(base_url, seed, site_key)["plan_revision"])
+    api, token = _api(base_url, seed)
+    status, body = _api_request(
+        f"{api}/sites/{site_key}/plan/batch",
+        "POST",
+        token,
+        {
+            "expected_revision": revision,
+            "operations": [
+                {
+                    "op": "create_location",
+                    "temp_key": "extra",
+                    "data": {"name": name, "location_type_key": "raised_bed", "geometry": geometry},
+                }
+            ],
+        },
+    )
+    _require(status, body, (200,), f"POST /sites/{site_key}/plan/batch (add {name!r})")
+    return _mapped(body.get("key_map") or {}, "extra", name)
+
+
+def set_sun_window(base_url: str, seed: dict, bed_key: str, window: str) -> dict:
+    """Store the bed's sun window as the bed dialog does (``PATCH /locations/{key}``, merged per key)."""
+    status, body = tenant_request(
+        base_url,
+        seed,
+        "PATCH",
+        f"/locations/{bed_key}",
+        {"site_conditions": {"sun_profile": {"sun_window": window}}},
+    )
+    _require(status, body, (200,), f"PATCH /locations/{bed_key} (sun window)")
+    return body
+
+
+def sun_profile(base_url: str, seed: dict, bed_key: str) -> dict:
+    """The stored ``site_conditions.sun_profile`` of a bed (``{}`` when none is stored)."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}")
+    if not isinstance(body, dict) or body.get("key") != bed_key:
+        raise AssertionError(f"GET /locations/{bed_key} answered no location: {body!r}")
+    return dict((body.get("site_conditions") or {}).get("sun_profile") or {})
+
+
+def rotation_years(base_url: str, seed: dict, bed_key: str) -> dict[int, list[dict]]:
+    """``GET /locations/{key}/rotation`` (GP-API-039): the plantings of the bed per calendar year."""
+    body = tenant_get(base_url, seed, f"/locations/{bed_key}/rotation")
+    if not isinstance(body, dict) or not isinstance(body.get("timeline"), list):
+        raise AssertionError(f"the rotation timeline of {bed_key!r} has no timeline: {body!r}")
+    return {int(entry["year"]): list(entry.get("plantings") or []) for entry in body["timeline"]}
