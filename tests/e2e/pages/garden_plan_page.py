@@ -111,6 +111,59 @@ class GardenPlanPage(BasePage):
         "[data-testid='confirm-dialog'] [data-testid='confirm-dialog-confirm']",
     )
 
+    # ── Wave 7 (WP 7.6-7.13): layers, zones, templates, arrange, auto-save ──
+    INFO = _tid("garden-plan-info")
+    NOTICE = _tid("garden-plan-notice")
+    AUTOSAVE = _tid("garden-plan-autosave")
+    AUTOSAVE_PAUSED = _tid("garden-plan-autosave-paused")
+    WATERED_LAYER = _tid("garden-plan-watered-layer")
+    ZONE_LAYER = _tid("garden-plan-zone-layer")
+    LEGEND_WATERED = _tid("garden-plan-legend-watered")
+    SNAP_MARKER = _tid("garden-plan-snap-marker")
+    MINIMAP = _tid("garden-plan-minimap")
+    MINIMAP_VIEWPORT = _tid("garden-plan-minimap-viewport")
+
+    ZONES_OPEN = _tid("garden-plan-zones-open")
+    ZONE_PANEL = _tid("garden-plan-zone-panel")
+    ZONE_NEW = _tid("garden-plan-zone-new")
+    ZONE_FORM = _tid("garden-plan-zone-form")
+    ZONE_NAME = _tid("garden-plan-zone-name")
+    ZONE_TAKE_SELECTION = _tid("garden-plan-zone-take-selection")
+    ZONE_SAVE = _tid("garden-plan-zone-save")
+    ZONE_STATUS = _tid("garden-plan-zone-status")
+    ZONE_LAST_WATERING = _tid("garden-plan-zone-last-watering")
+    ZONE_ALLOCATION_MARKER = _tid("garden-plan-zone-allocation-marker")
+    ROUND_OPEN = _tid("garden-plan-zone-round-open")
+    ROUND_DIALOG = _tid("garden-plan-round-dialog")
+    ROUND_VOLUME = _tid("garden-plan-round-volume")
+    ROUND_SUMMARY = _tid("garden-plan-round-summary")
+    ROUND_MARKER = _tid("garden-plan-round-marker")
+    ROUND_SUBMIT = _tid("garden-plan-round-submit")
+    ROUND_RESULT = _tid("garden-plan-round-result")
+    ROUND_RESULT_MARKER = _tid("garden-plan-round-result-marker")
+    ROUND_DONE = _tid("garden-plan-round-done")
+    PANEL_ZONE = _tid("garden-plan-panel-zone")
+    PANEL_LAST_WATERED = _tid("garden-plan-panel-last-watered")
+
+    TOOL_TEMPLATE = _tid("garden-plan-tool-template")
+    TEMPLATE_PANEL = _tid("garden-plan-template-panel")
+    TEMPLATE_HINT = _tid("garden-plan-template-hint")
+    TEMPLATE_ROTATE = _tid("garden-plan-template-rotate")
+    TEMPLATE_PLACE_CENTRE = _tid("garden-plan-template-place-center")
+
+    ADD_WITH_DIMENSIONS = _tid("garden-plan-add-with-dimensions")
+    ADD_DIALOG = _tid("garden-plan-add-dialog")
+    ADD_STANDARD_SIZES = _tid("garden-plan-add-standard-sizes")
+    ADD_BED_TYPE = _tid("garden-plan-add-bed-type")
+    ADD_SUBMIT = _tid("garden-plan-add-submit")
+
+    ALIGN_BUTTON = _tid("garden-plan-align-button")
+    OVERFLOW = _tid("garden-plan-overflow")
+    OVERFLOW_MENU = _tid("garden-plan-overflow-menu")
+    MULTI_DIALOG = _tid("garden-plan-multi-dialog")
+    MULTI_PREVIEW = _tid("garden-plan-multi-preview")
+    MULTI_SUBMIT = _tid("garden-plan-multi-submit")
+
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
 
@@ -744,3 +797,442 @@ class GardenPlanPage(BasePage):
         self.wait_for_pending(0, "reloading after the conflict")
         self.wait_for_content(self.EDITOR, "plan editor after the conflict reload")
         self.wait_for_element(self.SVG)
+
+    # ── Wave 7: generic reads ──────────────────────────────────────────
+
+    def text_of(self, locator: tuple[str, str]) -> str:
+        """Whitespace-normalised ``textContent`` of *locator*; waits for presence, loud when absent."""
+        return " ".join((self.wait_for_element(locator).get_attribute("textContent") or "").split())
+
+    def wait_for_text(self, locator: tuple[str, str], expected: str, what: str) -> str:
+        """Wait until *locator* reads exactly *expected* (whitespace-normalised)."""
+        try:
+            self.poll().until(lambda _d: self.text_of(locator) == expected)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: expected {locator[1]} to read {expected!r}, it reads {self.text_of(locator)!r}"
+            ) from exc
+        return expected
+
+    def object_keys(self) -> list[str]:
+        """Keys of every focusable bed and garden object drawn, in DOM order (the boundary left out).
+
+        The SVG must be there; the boundary is a focusable plan object too, but
+        never a copy, a selection target of Ctrl+A or a bed.
+        """
+        svg = self.wait_for_element(self.SVG)
+        return self.driver.execute_script(
+            "return Array.from(arguments[0].querySelectorAll(\"[data-plan-key][role='button']\"))"
+            ".filter(function (e) { return e.getAttribute('data-plan-kind') !== 'boundary'; })"
+            ".map(function (e) { return e.getAttribute('data-plan-key'); });",
+            svg,
+        )
+
+    def select_all_with_keyboard(self, expected: set[str]) -> None:
+        """Ctrl+A on the canvas selects every unlocked bed and object (GP-UX-037); verified per key."""
+        if not expected:
+            raise AssertionError(
+                "select_all_with_keyboard(): name the objects that must end up selected"
+            )
+        self.focus_canvas()
+        self.press(Keys.CONTROL, "a")
+        for key in sorted(expected):
+            self.wait_for_selected(key, True, "Ctrl+A")
+
+    # ── Wave 7: layers (GP-FR-031) ─────────────────────────────────────
+
+    def _layer_toggle(self, layer_id: str) -> tuple[str, str]:
+        return _tid(f"garden-plan-layer-{layer_id}")
+
+    def is_layer_on(self, layer_id: str) -> bool:
+        pressed = self.wait_for_element(self._layer_toggle(layer_id)).get_attribute("aria-pressed")
+        if pressed not in ("true", "false"):
+            raise AssertionError(f"layer toggle {layer_id!r} carries no aria-pressed: {pressed!r}")
+        return pressed == "true"
+
+    def set_layer(self, layer_id: str, visible: bool) -> None:
+        """Switch a layer with the keyboard (focus + Space on the toggle button) and verify it flipped."""
+        if self.is_layer_on(layer_id) is visible:
+            raise AssertionError(
+                f"layer {layer_id!r} is already {'on' if visible else 'off'}; the test expected to switch it"
+            )
+        toggle = self.wait_for_element(self._layer_toggle(layer_id))
+        self.driver.execute_script("arguments[0].focus();", toggle)
+        self.press(Keys.SPACE)
+        try:
+            self.poll().until(lambda _d: self.is_layer_on(layer_id) is visible)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"layer {layer_id!r} did not switch {'on' if visible else 'off'}"
+            ) from exc
+
+    def zone_layer_beds(self, zone_key: str) -> set[str]:
+        """The beds the zone layer hatches for *zone_key*; loud when the layer is not drawn at all."""
+        layer = self.wait_for_element(self.ZONE_LAYER)
+        keys = self.driver.execute_script(
+            "var zone = arguments[1];"
+            "return Array.from(arguments[0].querySelectorAll('[data-zone-key]'))"
+            ".filter(function (g) { return g.getAttribute('data-zone-key') === zone; })"
+            ".map(function (g) { return g.getAttribute('data-zone-bed'); });",
+            layer,
+            zone_key,
+        )
+        return set(keys)
+
+    def wait_for_zone_layer_beds(self, zone_key: str, expected: set[str], what: str) -> None:
+        try:
+            self.poll().until(lambda _d: self.zone_layer_beds(zone_key) == expected)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the zone layer should hatch {sorted(expected)} for zone {zone_key!r}, it "
+                f"hatches {sorted(self.zone_layer_beds(zone_key))}"
+            ) from exc
+
+    def watered_layer(self) -> dict[str, tuple[str, str]]:
+        """Bed key -> (class, label) of the last-watered layer; loud when the layer is not drawn."""
+        layer = self.wait_for_element(self.WATERED_LAYER)
+        rows = self.driver.execute_script(
+            "return Array.from(arguments[0].querySelectorAll('[data-watered-bed]')).map(function (g) {"
+            "  var t = g.querySelector('text');"
+            "  return [g.getAttribute('data-watered-bed'), g.getAttribute('data-watered-class'),"
+            "          t ? t.textContent : null]; });",
+            layer,
+        )
+        result: dict[str, tuple[str, str]] = {}
+        for bed, klass, label in rows:
+            if not klass or label is None:
+                raise AssertionError(
+                    f"last-watered entry of bed {bed!r} lacks its class or label: "
+                    f"class={klass!r}, label={label!r} (zoomed below the label LOD?)"
+                )
+            result[bed] = (klass, " ".join(label.split()))
+        return result
+
+    def wait_for_watered_layer(self, expected: dict[str, tuple[str, str]], what: str) -> None:
+        try:
+            self.poll().until(lambda _d: self.watered_layer() == expected)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the last-watered layer should draw {expected}, it draws {self.watered_layer()}"
+            ) from exc
+
+    # ── Wave 7: irrigation zones (GP-FR-110 / 117) ─────────────────────
+
+    def open_zone_panel(self) -> None:
+        """Open the zone panel (its own lazy chunk) and return once it rendered."""
+        self.wait_and_click(self.ZONES_OPEN)
+        self.wait_for_settled({"panel": self.ZONE_PANEL}, "zone panel", require_no_skeleton=False)
+        expanded = self.wait_for_element(self.ZONES_OPEN).get_attribute("aria-expanded")
+        if expanded != "true":
+            raise AssertionError(
+                f"the zone panel rendered, but its button says aria-expanded={expanded!r}"
+            )
+
+    def start_new_zone(self, name: str) -> None:
+        self.wait_and_click(self.ZONE_NEW)
+        self.wait_for_element(self.ZONE_FORM)
+        self.clear_and_fill(self.wait_for_element_clickable(self.ZONE_NAME), name)
+
+    def zone_form_beds(self) -> dict[str, bool]:
+        """Bed key -> ticked, for every bed checkbox of the zone form; loud when the form lists none."""
+        form = self.wait_for_element(self.ZONE_FORM)
+        boxes = self.driver.execute_script(
+            "return Array.from(arguments[0].querySelectorAll(\"input[data-testid^='garden-plan-zone-bed-']\"))"
+            ".map(function (i) { return [i.getAttribute('data-testid'), i.checked]; });",
+            form,
+        )
+        if not boxes:
+            raise AssertionError("the zone form lists no bed checkbox at all")
+        prefix = "garden-plan-zone-bed-"
+        return {testid[len(prefix) :]: bool(checked) for testid, checked in boxes}
+
+    def take_selection_into_zone(self, expected: set[str]) -> None:
+        """'Auswahl vom Plan übernehmen' and verify exactly *expected* beds are ticked afterwards."""
+        self.wait_and_click(self.ZONE_TAKE_SELECTION)
+        try:
+            self.poll().until(
+                lambda _d: {k for k, on in self.zone_form_beds().items() if on} == expected
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"taking the plan selection should tick {sorted(expected)}, the form ticks "
+                f"{sorted(k for k, on in self.zone_form_beds().items() if on)}"
+            ) from exc
+
+    def set_zone_bed(self, bed_key: str, ticked: bool) -> None:
+        """Tick or untick a bed of the zone form with the keyboard (focus + Space on the checkbox)."""
+        box = self.wait_for_element(_tid(f"garden-plan-zone-bed-{bed_key}"))
+        if box.is_selected() is ticked:
+            raise AssertionError(f"bed {bed_key!r} is already {'ticked' if ticked else 'unticked'}")
+        self.driver.execute_script("arguments[0].focus();", box)
+        self.press(Keys.SPACE)
+        try:
+            self.poll().until(lambda _d: self.zone_form_beds().get(bed_key) is ticked)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"the checkbox of bed {bed_key!r} did not flip to {ticked}"
+            ) from exc
+
+    def save_zone(self) -> None:
+        """'Zone speichern'; returns once the panel shows the stored zone's status.
+
+        The status section only renders for a zone whose full record the zone
+        endpoint returned after the write, so its presence is server-confirmed.
+        """
+        self.wait_and_click(self.ZONE_SAVE)
+        self.wait_for_settled({"status": self.ZONE_STATUS}, "saved zone", require_no_skeleton=False)
+        self.wait_for_element(self.ZONE_LAST_WATERING)
+
+    def zone_row(self, zone_key: str) -> tuple[str, str]:
+        return _tid(f"garden-plan-zone-row-{zone_key}")
+
+    def open_zone(self, zone_key: str) -> None:
+        """Open a zone from the list; return once its status has loaded."""
+        self.wait_and_click(self.zone_row(zone_key))
+        self.wait_for_element(self.ZONE_LAST_WATERING)
+
+    def open_watering_round(self) -> None:
+        self.wait_and_click(self.ROUND_OPEN)
+        self.wait_for_element(self.ROUND_DIALOG)
+        self.wait_for_element(self.ROUND_VOLUME)
+
+    def choose_round_allocation(self, allocation: str) -> None:
+        """Pick a radio of the round dialog with the keyboard and verify it is checked."""
+        radio = self.wait_for_element(_tid(f"garden-plan-round-allocation-{allocation}"))
+        if not radio.is_selected():
+            self.driver.execute_script("arguments[0].focus();", radio)
+            self.press(Keys.SPACE)
+        try:
+            self.poll().until(
+                lambda d: d.find_element(
+                    *_tid(f"garden-plan-round-allocation-{allocation}")
+                ).is_selected()
+            )
+        except TimeoutException as exc:
+            raise AssertionError(f"the allocation {allocation!r} is not checked") from exc
+
+    def submit_watering_round(self, volume_liters: str, summary: str) -> list[str]:
+        """Fill the total and the note, submit; return the per-bed share lines of the server's answer.
+
+        The result view replaces the form only when the server answered the
+        round (``setResult`` in the request's ``then``), so it is a durable signal.
+        """
+        self.clear_and_fill(self.wait_for_element_clickable(self.ROUND_VOLUME), volume_liters)
+        self.clear_and_fill(self.wait_for_element_clickable(self.ROUND_SUMMARY), summary)
+        self.wait_and_click(self.ROUND_SUBMIT)
+        result = self.wait_for_settled(
+            {"result": self.ROUND_RESULT}, "watering round answer", require_no_skeleton=False
+        )
+        lines = self.driver.execute_script(
+            "return Array.from(arguments[0].querySelectorAll('li')).map(function (l) { return l.textContent; });",
+            self.wait_for_element(result.locator),
+        )
+        if not lines:
+            raise AssertionError("the round's result lists no bed share at all")
+        return [" ".join(line.split()) for line in lines]
+
+    def close_watering_round(self) -> None:
+        self.wait_and_click(self.ROUND_DONE)
+        self.wait_for_element_hidden(self.ROUND_DIALOG)
+
+    # ── Wave 7: bed templates and standard sizes (GP-FR-044 / 045) ────
+
+    def pick_template(self, template_key: str) -> None:
+        """Open the template tool, choose *template_key* in its picker; verify the hint asks for placing."""
+        self.choose_tool(self.TOOL_TEMPLATE)
+        self.wait_for_element(self.TEMPLATE_PANEL)
+        self.open_select_in("[data-testid='garden-plan-template-panel']", "template picker")
+        self.select_option_by_value(template_key)
+
+    def place_template_at_centre(self, placed_text: str) -> None:
+        """'In die Bildmitte setzen'; returns once the editor reports the bed as created and saved.
+
+        ``placed_text`` is shown only after the server placed the bed AND the
+        plan was read again (``placeTemplateAt`` fulfilled with ``ok``).
+        """
+        button = self.wait_for_element(self.TEMPLATE_PLACE_CENTRE)
+        if button.get_attribute("aria-disabled") == "true":
+            raise AssertionError("'In die Bildmitte setzen' is disabled: no template picked")
+        self.wait_and_click(self.TEMPLATE_PLACE_CENTRE)
+        state = self.wait_for_settled(
+            {"info": self.INFO, "notice": self.NOTICE},
+            "placing a template",
+            require_no_skeleton=False,
+        )
+        if state.branch != "info":
+            raise AssertionError(f"placing the template was refused: {self.text_of(self.NOTICE)!r}")
+        self.wait_for_text(self.INFO, placed_text, "placing a template")
+
+    def open_add_with_dimensions(self) -> None:
+        self.wait_and_click(self.ADD_WITH_DIMENSIONS)
+        self.wait_for_element(self.ADD_DIALOG)
+
+    def pick_standard_size(self, template_key: str) -> None:
+        """Press a standard-size button of the dialog (its catalogue loads with the dialog)."""
+        self.wait_for_settled(
+            {"sizes": self.ADD_STANDARD_SIZES}, "standard sizes", require_no_skeleton=False
+        )
+        self.wait_and_click(_tid(f"garden-plan-add-standard-{template_key}"))
+
+    def add_field(self, field_id: str) -> str:
+        return (
+            self.wait_for_element(_tid(f"garden-plan-add-{field_id}")).get_attribute("value") or ""
+        )
+
+    def set_add_field(self, field_id: str, value: str) -> None:
+        element = self.wait_for_element_clickable(_tid(f"garden-plan-add-{field_id}"))
+        self.clear_and_fill(element, value)
+        if self.add_field(field_id) != value:
+            raise AssertionError(
+                f"add field {field_id!r} reads {self.add_field(field_id)!r}, not {value!r}"
+            )
+
+    def add_bed_type(self) -> str:
+        """The committed value of the dialog's bed-type select (its hidden native input)."""
+        return self.wait_for_element(self.ADD_BED_TYPE).get_attribute("value") or ""
+
+    def submit_add_dialog(self) -> None:
+        self.wait_and_click(self.ADD_SUBMIT)
+        self.wait_for_element_hidden(self.ADD_DIALOG)
+
+    # ── Wave 7: align / distribute, multi-duplicate (GP-FR-029 / 025) ─
+
+    def _open_menu(self, trigger: tuple[str, str], opened: tuple[str, str], what: str) -> None:
+        """Click a menu button and verify the menu opened (*opened* is present), or fail loudly."""
+        self.wait_and_click(trigger)
+        try:
+            self.poll().until(lambda d: d.find_elements(*opened))
+        except TimeoutException as exc:
+            raise AssertionError(f"{what} did not open ({opened[1]} never appeared)") from exc
+
+    def align(self, mode: str) -> None:
+        """'Ausrichten' -> *mode* (left/right/top/bottom/centerH/centerV or distribute-<axis>)."""
+        if not self.wait_for_element(self.ALIGN_BUTTON).is_enabled():
+            raise AssertionError(
+                "'Ausrichten' is disabled: fewer than two movable objects are selected"
+            )
+        item_id = mode if mode.startswith("distribute-") else f"align-{mode}"
+        self._open_menu(self.ALIGN_BUTTON, _tid(f"garden-plan-{item_id}"), "the align menu")
+        item = self.wait_for_element_clickable(_tid(f"garden-plan-{item_id}"))
+        self.click_menu_option(item)
+        self.wait_for_element_hidden(_tid(f"garden-plan-{item_id}"))
+
+    def open_multi_duplicate(self) -> None:
+        """'Mehr' -> 'Mehrfach duplizieren'; returns once the dialog shows its form."""
+        self._open_menu(self.OVERFLOW, self.OVERFLOW_MENU, "the overflow menu")
+        item = self.wait_for_element_clickable(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='garden-plan-overflow-menu'] [data-testid='garden-plan-menu-multiDuplicate']",
+            )
+        )
+        if item.get_attribute("aria-disabled") == "true":
+            raise AssertionError("'Mehrfach duplizieren' is disabled: nothing is selected")
+        self.click_menu_option(item)
+        self.wait_for_element(self.MULTI_DIALOG)
+        self.wait_for_element(_tid("garden-plan-multi-count"))
+
+    def set_multi_field(self, field_id: str, value: str) -> None:
+        element = self.wait_for_element_clickable(_tid(f"garden-plan-multi-{field_id}"))
+        self.clear_and_fill(element, value)
+        actual = element.get_attribute("value")
+        if actual != value:
+            raise AssertionError(
+                f"multi-duplicate field {field_id!r} reads {actual!r}, not {value!r}"
+            )
+
+    def submit_multi_duplicate(self) -> None:
+        self.wait_and_click(self.MULTI_SUBMIT)
+        self.wait_for_element_hidden(self.MULTI_DIALOG)
+
+    # ── Wave 7: snap marker, auto-save, mini-map (GP-FR-012, GP-UX-004/014) ─
+
+    def snap_marker_kind(self) -> str | None:
+        """The kind of the snap marker drawn right now (``corner``/``edge``/``grid``), ``None`` if none."""
+        markers = self.driver.find_elements(*self.SNAP_MARKER)
+        return markers[0].get_attribute("data-kind") if markers else None
+
+    def is_autosave_on(self) -> bool:
+        return self.wait_for_element(self.AUTOSAVE).is_selected()
+
+    def enable_autosave(self) -> None:
+        """Switch auto-save on with the keyboard (focus + Space on the switch input) and verify it."""
+        if self.is_autosave_on():
+            raise AssertionError(
+                "auto-save is already on; a fresh browser session starts with it off"
+            )
+        switch = self.wait_for_element(self.AUTOSAVE)
+        self.driver.execute_script("arguments[0].focus();", switch)
+        self.press(Keys.SPACE)
+        try:
+            self.poll().until(lambda _d: self.is_autosave_on())
+        except TimeoutException as exc:
+            raise AssertionError("the auto-save switch did not turn on") from exc
+
+    def minimap_viewport_centre(self) -> tuple[float, float]:
+        """Centre of the viewport rectangle inside the 120 x 120 px mini-map drawing (its own pixels)."""
+        rect = self.wait_for_element(self.MINIMAP_VIEWPORT)
+        values = [rect.get_attribute(name) for name in ("x", "y", "width", "height")]
+        try:
+            x, y, w, h = (float(v) for v in values)  # type: ignore[arg-type]
+        except (TypeError, ValueError) as exc:
+            raise AssertionError(
+                f"mini-map viewport rectangle has no numeric geometry: {values}"
+            ) from exc
+        return round(x + w / 2, 1), round(y + h / 2, 1)
+
+    def wait_for_minimap_shift_right(
+        self, start: tuple[float, float], min_px: float, what: str
+    ) -> None:
+        """Wait until the viewport rectangle sits at least *min_px* right of *start* (a pan to the right)."""
+        try:
+            self.poll().until(lambda _d: self.minimap_viewport_centre()[0] - start[0] >= min_px)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the mini-map's viewport rectangle should move >= {min_px} px right; "
+                f"{start} -> {self.minimap_viewport_centre()}"
+            ) from exc
+
+    def wait_for_minimap_centred(self, tolerance_px: float, what: str) -> None:
+        """Wait until the viewport rectangle is centred in the 120 px drawing (within *tolerance_px*)."""
+        middle = 120 / 2
+        try:
+            self.poll().until(
+                lambda _d: all(
+                    abs(c - middle) <= tolerance_px for c in self.minimap_viewport_centre()
+                )
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: the mini-map's viewport rectangle should be centred at ({middle}, {middle}), "
+                f"its centre is {self.minimap_viewport_centre()}"
+            ) from exc
+
+    def click_minimap_centre(self) -> None:
+        """Click the middle of the mini-map with a real pointer.
+
+        The mini-map is a pointer-only shortcut (``role="img"``, out of the tab
+        order, no keyboard path by design) and an inert target: its only
+        children are an ``aria-hidden`` SVG drawing, so the descendant-tolerant
+        native click cannot land on another control. Its ``onClick`` reads the
+        event's coordinates, so a script click (``clientX = 0``) would jump to a
+        wrong place - the native click is the only sound activation here; an
+        interception raises instead of falling back.
+        """
+        minimap = self.wait_for_element_visible(self.MINIMAP)
+        centre = self.driver.execute_script(
+            "var r = arguments[0].getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2];",
+            minimap,
+        )
+        hit = self.driver.execute_script(
+            "var el = document.elementFromPoint(arguments[0], arguments[1]);"
+            "return !!el && arguments[2].contains(el);",
+            centre[0],
+            centre[1],
+            minimap,
+        )
+        if not hit:
+            raise AssertionError(
+                f"the centre of the mini-map {centre} is covered by another element"
+            )
+        minimap.click()
