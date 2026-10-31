@@ -160,7 +160,10 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 
 ### Mischkultur in einem Schritt anlegen (REQ-053)
 
-`POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Einträge ohne `row_assignment` (Fläche, freie Positionen, keine Anordnung) zählen bei dieser Prüfung nicht mit. Der Fehler nennt in `details[0].conflicts` jedes Paar als `{"runs": [i, j], "rows": [...]}` (Positionen in `runs[]` und die gemeinsamen Reihen); `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` legt für jede Art einer Mischkultur einen eigenen Durchlauf auf demselben Beet an, alle in einem Schritt (ab Rolle `grower`). Jeder Eintrag in `runs[]` trägt in `entry.row_assignment` die Reihen (ab 0 gezählt), die seine Art belegt. Jede Reihe gehört genau einer Art: Überschneiden sich die Reihen zweier Einträge, antwortet die API mit `422`, bevor etwas gespeichert wird. Es zählen nur Einträge mit einer Reihen-Anordnung (`grid`, `rows`, `triangular`) und einem `row_assignment`; Fläche (`zone`), freie Positionen (`free`) und Einträge ohne Anordnung belegen keine Reihen. Der Fehler nennt in `details[0].conflicts` die Paare als `{"runs": [i, j], "rows": [...], "rows_total": n}` (Positionen in `runs[]`, die gemeinsamen Reihen aufsteigend und ihre Zahl), höchstens 20 Paare mit je höchstens 50 Reihen; `details[0].pairs_total` nennt die Zahl aller Paare, `details[0].truncated` ist `true`, wenn etwas gekürzt wurde. `details[0].field` zeigt auf den späteren Eintrag des ersten Paars.
+
+!!! note "Grenze der Prüfung"
+    Der Reihenindex bezieht sich auf das Reihenraster des jeweiligen Eintrags (`row_spacing_cm`, `row_direction`, Randabstände). Haben zwei Einträge verschiedene Raster, können ihre Pflanzen trotz disjunkter Indizes an derselben Stelle stehen. Der Pflanzdialog legt alle Arten auf ein gemeinsames Raster; wer die API direkt nutzt, sendet für alle Einträge dieselben Reiheneinstellungen.
 
 **Fehlercodes:**
 
@@ -168,7 +171,7 @@ GET    /api/v1/t/{slug}/care-events                                   # Pflegepr
 |-------------|------|-----------|
 | `403` | `FORBIDDEN` | Rolle `viewer` |
 | `404` | `ENTITY_NOT_FOUND` | Beet nicht gefunden (oder nicht in diesem Mandanten) |
-| `422` | `layout.row_assignment_overlap` | Zwei Einträge beanspruchen dieselbe Reihe |
+| `422` | `layout.row_assignment_overlap` | Zwei Einträge mit Reihen-Anordnung beanspruchen denselben Reihenindex (gleiches Raster vorausgesetzt, siehe oben) |
 | `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | Die Anordnung einer Art lässt sich nicht berechnen oder sprengt eine Grenze |
 | `422` | `VALIDATION_ERROR` mit `reference.not_found` | Eine Art oder Sorte gibt es nicht oder sie gehört einem anderen Mandanten |
 

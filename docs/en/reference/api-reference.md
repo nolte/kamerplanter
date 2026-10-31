@@ -160,7 +160,10 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 
 ### Create a mixed culture in one step (REQ-053)
 
-`POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Items without `row_assignment` (area, free positions, no layout) are not part of this check. The error names every pair in `details[0].conflicts` as `{"runs": [i, j], "rows": [...]}` (positions in `runs[]` and the shared rows); `details[0].field` points at the later item of the first pair.
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Only items with a row layout (`grid`, `rows`, `triangular`) and a `row_assignment` take part; an area (`zone`), free positions (`free`) and items without a layout take no rows. The error names the pairs in `details[0].conflicts` as `{"runs": [i, j], "rows": [...], "rows_total": n}` (positions in `runs[]`, the shared rows in ascending order and their count), at most 20 pairs with at most 50 rows each; `details[0].pairs_total` gives the number of all pairs, and `details[0].truncated` is `true` when anything was cut. `details[0].field` points at the later item of the first pair.
+
+!!! note "Limit of the check"
+    The row index refers to the row grid of its own item (`row_spacing_cm`, `row_direction`, edge margins). When two items use different grids, their plants can stand at the same spot although the index sets are disjoint. The planting dialog lays all species out on one shared grid; when you call the API directly, send the same row settings for every item.
 
 **Error codes:**
 
@@ -168,7 +171,7 @@ GET    /api/v1/t/{slug}/care-events                                   # care log
 |-------------|------|---------|
 | `403` | `FORBIDDEN` | Role `viewer` |
 | `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
-| `422` | `layout.row_assignment_overlap` | Two items claim the same row |
+| `422` | `layout.row_assignment_overlap` | Two items with a row layout claim the same row index (assuming the same grid, see above) |
 | `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | The layout of one species cannot be computed or exceeds a limit |
 | `422` | `VALIDATION_ERROR` with `reference.not_found` | A species or cultivar does not exist or belongs to another tenant |
 

@@ -273,7 +273,8 @@ class PlantingRunService:
         entries = [draft.entry for draft in drafts]
         # GP-FR-070: every row belongs to one species; checked on the body, before any layout or write.
         check_disjoint_row_assignments(
-            [entry.row_assignment for entry in entries], field_template="runs[{index}].entry.row_assignment"
+            [(entry.layout_strategy, entry.row_assignment) for entry in entries],
+            field_template="runs[{index}].entry.row_assignment",
         )
         free = [
             FreePlacement(

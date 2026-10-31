@@ -213,7 +213,8 @@ class TestRowAssignmentsAreDisjoint:
         assert caught.value.error_code == "layout.row_assignment_overlap"
         (detail,) = caught.value.details
         assert detail["field"] == "runs[1].entry.row_assignment"
-        assert detail["conflicts"] == [{"runs": [0, 1], "rows": [2]}]
+        assert detail["conflicts"] == [{"runs": [0, 1], "rows": [2], "rows_total": 1}]
+        assert (detail["pairs_total"], detail["truncated"]) == (1, False)
         assert world.repo.mixed_writes == [] and world.runs.runs == {} and world.plan.slots == []
 
     def test_every_overlapping_pair_is_named(self, world) -> None:
@@ -227,7 +228,10 @@ class TestRowAssignmentsAreDisjoint:
                 ],
             )
 
-        assert caught.value.details[0]["conflicts"] == [{"runs": [0, 2], "rows": [1]}, {"runs": [1, 2], "rows": [2]}]
+        assert caught.value.details[0]["conflicts"] == [
+            {"runs": [0, 2], "rows": [1], "rows_total": 1},
+            {"runs": [1, 2], "rows": [2], "rows_total": 1},
+        ]
         assert caught.value.details[0]["field"] == "runs[2].entry.row_assignment"
 
     def test_disjoint_sets_are_planted(self, world) -> None:
@@ -246,6 +250,24 @@ class TestRowAssignmentsAreDisjoint:
         )
 
         assert len(world.repo.mixed_writes) == 1
+
+    @pytest.mark.parametrize("strategy", [LayoutStrategy.FREE, LayoutStrategy.ZONE, None])
+    def test_an_entry_without_a_row_strategy_takes_no_rows_even_with_a_row_assignment(self, world, strategy) -> None:
+        """SCR-004: run 0 ``rows`` on row 0 and run 1 ``free`` / ``zone`` / none naming row 0 too is not a conflict."""
+        extra = {"free_points": ((0.5, 0.5),)} if strategy is LayoutStrategy.FREE else {}
+        second = draft("sp_phacelia", rows=[0], id_prefix="PHA", layout_strategy=strategy)
+        second = MixedRunDraft(run=second.run, entry=second.entry, **extra)
+
+        create(world, [draft(rows=[0]), second])
+
+        assert len(world.repo.mixed_writes) == 1
+
+    @pytest.mark.parametrize("strategy", [LayoutStrategy.GRID, LayoutStrategy.TRIANGULAR])
+    def test_every_row_strategy_takes_part(self, world, strategy) -> None:
+        with pytest.raises(PlanError) as caught:
+            create(world, [draft(rows=[0]), draft("sp_phacelia", rows=[0], id_prefix="PHA", layout_strategy=strategy)])
+
+        assert caught.value.error_code == "layout.row_assignment_overlap"
 
     def test_gp_acc_054_every_slot_of_a_row_carries_the_entry_the_row_is_assigned_to(self, world) -> None:
         """GP-ACC-054: tomato on rows 0/2/4 and basil on 1/3 of a five-row bed; each slot belongs to its row's entry."""
